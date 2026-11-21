@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/research/terra-preta/tools/adaptive-design-bakeoff/scenario.schema.json",
+  "title": "Synthetic known-truth adaptive experiment scenario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "data_class",
+    "scenario_id",
+    "seed",
+    "budget_cost_units",
+    "strata",
+    "actions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "data_class": {
+      "const": "synthetic_known_truth"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "budget_cost_units": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "strata": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/stratum"
+      }
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/$defs/action"
+      }
+    }
+  },
+  "$defs": {
+    "stratum": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stratum_id",
+        "target_weight",
+        "minimum_selected_actions"
+      ],
+      "properties": {
+        "stratum_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "minimum_selected_actions": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "modelScore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_id",
+        "decision_value",
+        "information_gain",
+        "error_amplification_risk"
+      ],
+      "properties": {
+        "model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decision_value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "information_gain": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "error_amplification_risk": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id",
+        "stratum_id",
+        "action_type",
+        "cost_units",
+        "eligibility",
+        "exclusion_reason",
+        "expert_priority",
+        "ofat_order",
+        "model_scores",
+        "synthetic_truth_decision_value"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stratum_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cost_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "eligibility": {
+          "enum": [
+            "eligible",
+            "ineligible"
+          ]
+        },
+        "exclusion_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expert_priority": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "ofat_order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "model_scores": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/modelScore"
+          }
+        },
+        "synthetic_truth_decision_value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "eligibility": {
+                "const": "ineligible"
+              }
+            },
+            "required": [
+              "eligibility"
+            ]
+          },
+          "then": {
+            "properties": {
+              "exclusion_reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "eligibility": {
+                "const": "eligible"
+              }
+            },
+            "required": [
+              "eligibility"
+            ]
+          },
+          "then": {
+            "properties": {
+              "exclusion_reason": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

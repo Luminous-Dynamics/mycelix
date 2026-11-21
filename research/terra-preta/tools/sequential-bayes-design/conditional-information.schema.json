@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Conditional Gaussian information scenario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "data_class",
+    "scenario_id",
+    "models",
+    "coordinates",
+    "prior_actions",
+    "history_action_id",
+    "history_values",
+    "conditional_actions",
+    "budget_units",
+    "samples_per_model",
+    "seed"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "data_class": {
+      "const": "synthetic-known-truth"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "models": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_id",
+          "prior_weight",
+          "mean",
+          "covariance"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "prior_weight": {
+            "type": "number",
+            "minimum": 0
+          },
+          "mean": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "number"
+            }
+          },
+          "covariance": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    },
+    "coordinates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "coordinate_id",
+          "modality",
+          "support_id",
+          "unit"
+        ],
+        "properties": {
+          "coordinate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "modality": {
+            "type": "string",
+            "minLength": 1
+          },
+          "support_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "prior_actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/action"
+      }
+    },
+    "history_action_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "history_values": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
+    "conditional_actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/action"
+      }
+    },
+    "budget_units": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "samples_per_model": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "$defs": {
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id",
+        "cost_units",
+        "eligible",
+        "coordinate_ids"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cost_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "coordinate_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

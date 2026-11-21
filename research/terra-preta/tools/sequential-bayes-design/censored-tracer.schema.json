@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Censored tracer observation scenario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "data_class",
+    "scenario_id",
+    "model_ids",
+    "prior_weights",
+    "means",
+    "covariances",
+    "observed_ct_value",
+    "detection_limit",
+    "upper_quantification_limit",
+    "sibson_alpha"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "data_class": {
+      "const": "synthetic-known-truth"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_ids": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "prior_weights": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "number",
+        "minimum": 0
+      }
+    },
+    "means": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {
+          "type": "number"
+        }
+      }
+    },
+    "covariances": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "observed_ct_value": {
+      "type": "number"
+    },
+    "detection_limit": {
+      "type": "number"
+    },
+    "upper_quantification_limit": {
+      "type": "number"
+    },
+    "sibson_alpha": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "exclusiveMaximum": 1
+    }
+  }
+}

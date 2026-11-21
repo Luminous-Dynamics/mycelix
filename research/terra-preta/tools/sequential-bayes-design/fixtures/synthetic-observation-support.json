@@ -1,0 +1,158 @@
+{
+  "schema_version": "0.1.0",
+  "data_class": "synthetic_metadata_fixture",
+  "measurements": [
+    {
+      "measurement_id": "MEAS_CT_001",
+      "support_id": "SUPPORT_CT_VOLUME_001",
+      "sample_id": "SAMPLE_SANDY_CORE_CT",
+      "assignment_unit_id": "SANDY_BLOCK_001",
+      "source_batch_id": "MATERIAL_BATCH_SYNTHETIC_01",
+      "modality": "ct_pore_geometry",
+      "measurand": "resolved_pore_volume_fraction",
+      "value_unit": "1",
+      "observation_operator_id": "CT_SEGMENTATION_PIPELINE_V0_SYNTHETIC",
+      "spatial_support": {
+        "geometry_kind": "image_volume",
+        "depth_top_cm": 0,
+        "depth_bottom_cm": 10,
+        "horizontal_area_cm2": 100,
+        "sample_or_image_volume_cm3": 1000,
+        "resolution_mm": 0.1,
+        "pressure_head_min_kpa": null,
+        "pressure_head_max_kpa": null
+      },
+      "temporal_support": {
+        "aggregation": "instant",
+        "start_seconds": 0,
+        "end_seconds": 1,
+        "sampling_interval_seconds": null
+      },
+      "instrument": {
+        "instrument_id": "CT_SCANNER_SYNTHETIC_01",
+        "calibration_state": "synthetic_assumption",
+        "calibration_record_sha256": null,
+        "detection_limit": null
+      },
+      "uncertainty": {
+        "standard_uncertainty": 0.02,
+        "unit": "1",
+        "source": "assumed_synthetic"
+      }
+    },
+    {
+      "measurement_id": "MEAS_TRACER_001",
+      "support_id": "SUPPORT_TRACER_WINDOW_001",
+      "sample_id": "SAMPLE_SANDY_CORE_TRACER",
+      "assignment_unit_id": "SANDY_BLOCK_001",
+      "source_batch_id": "MATERIAL_BATCH_SYNTHETIC_01",
+      "modality": "event_tracer_breakthrough",
+      "measurand": "tracer_concentration",
+      "value_unit": "mg/L",
+      "observation_operator_id": "TRACER_COLLECTION_AND_ASSAY_V0_SYNTHETIC",
+      "spatial_support": {
+        "geometry_kind": "depth_interval",
+        "depth_top_cm": 10,
+        "depth_bottom_cm": 20,
+        "horizontal_area_cm2": 100,
+        "sample_or_image_volume_cm3": 1000,
+        "resolution_mm": null,
+        "pressure_head_min_kpa": null,
+        "pressure_head_max_kpa": null
+      },
+      "temporal_support": {
+        "aggregation": "event_window",
+        "start_seconds": 600,
+        "end_seconds": 900,
+        "sampling_interval_seconds": 60
+      },
+      "instrument": {
+        "instrument_id": "UV_VIS_SYNTHETIC_01",
+        "calibration_state": "synthetic_assumption",
+        "calibration_record_sha256": null,
+        "detection_limit": 0.01
+      },
+      "uncertainty": {
+        "standard_uncertainty": 0.02,
+        "unit": "mg/L",
+        "source": "assumed_synthetic"
+      }
+    },
+    {
+      "measurement_id": "MEAS_RETENTION_001",
+      "support_id": "SUPPORT_RETENTION_CORE_001",
+      "sample_id": "SAMPLE_WEATHERED_CORE_RETENTION",
+      "assignment_unit_id": "WEATHERED_BLOCK_004",
+      "source_batch_id": "MATERIAL_BATCH_SYNTHETIC_02",
+      "modality": "water_retention_curve",
+      "measurand": "volumetric_water_content",
+      "value_unit": "m3/m3",
+      "observation_operator_id": "RETENTION_PRESSURE_PLATE_V0_SYNTHETIC",
+      "spatial_support": {
+        "geometry_kind": "core",
+        "depth_top_cm": 0,
+        "depth_bottom_cm": 10,
+        "horizontal_area_cm2": 78.5,
+        "sample_or_image_volume_cm3": 785,
+        "resolution_mm": null,
+        "pressure_head_min_kpa": 10,
+        "pressure_head_max_kpa": 1500
+      },
+      "temporal_support": {
+        "aggregation": "equilibrium",
+        "start_seconds": 0,
+        "end_seconds": 86400,
+        "sampling_interval_seconds": null
+      },
+      "instrument": {
+        "instrument_id": "PRESSURE_PLATE_SYNTHETIC_01",
+        "calibration_state": "synthetic_assumption",
+        "calibration_record_sha256": null,
+        "detection_limit": null
+      },
+      "uncertainty": {
+        "standard_uncertainty": 0.015,
+        "unit": "m3/m3",
+        "source": "assumed_synthetic"
+      }
+    },
+    {
+      "measurement_id": "MEAS_GAS_001",
+      "support_id": "SUPPORT_GAS_CORE_001",
+      "sample_id": "SAMPLE_WEATHERED_CORE_GAS",
+      "assignment_unit_id": "WEATHERED_BLOCK_004",
+      "source_batch_id": "MATERIAL_BATCH_SYNTHETIC_02",
+      "modality": "gas_permeability",
+      "measurand": "intrinsic_gas_permeability",
+      "value_unit": "m2",
+      "observation_operator_id": "GAS_PERMEAMETER_V0_SYNTHETIC",
+      "spatial_support": {
+        "geometry_kind": "core",
+        "depth_top_cm": 0,
+        "depth_bottom_cm": 10,
+        "horizontal_area_cm2": 78.5,
+        "sample_or_image_volume_cm3": 785,
+        "resolution_mm": null,
+        "pressure_head_min_kpa": null,
+        "pressure_head_max_kpa": null
+      },
+      "temporal_support": {
+        "aggregation": "interval_mean",
+        "start_seconds": 0,
+        "end_seconds": 300,
+        "sampling_interval_seconds": 30
+      },
+      "instrument": {
+        "instrument_id": "GAS_PERMEAMETER_SYNTHETIC_01",
+        "calibration_state": "synthetic_assumption",
+        "calibration_record_sha256": null,
+        "detection_limit": 1e-18
+      },
+      "uncertainty": {
+        "standard_uncertainty": 1e-17,
+        "unit": "m2",
+        "source": "assumed_synthetic"
+      }
+    }
+  ]
+}

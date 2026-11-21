@@ -1,0 +1,1381 @@
+//! Structural identifiability of physical and nuisance covariance components.
+//!
+//! This module audits whether a proposed crossed measurement design can
+//! distinguish shared physical-support, preparation-batch, instrument and
+//! independent residual variance components. It is an exact finite linear
+//! covariance-design reference, not a fitted mixed-effects model or an
+//! empirical variance estimator.
+
+use crate::multivariate_gaussian::{
+    update_multivariate_model_posterior, MultivariateGaussian,
+    MultivariateGaussianModel, MultivariateGaussianPosterior,
+};
+use std::collections::BTreeSet;
+
+/// One scalar observation and its physical/nuisance group identities.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CovarianceObservation {
+    pub observation_id: String,
+    pub modality: String,
+    /// Non-empty only when the physical supports are declared to share the
+    /// same latent physical state at the resolution of this model.
+    pub physical_support_id: Option<String>,
+    pub batch_id: Option<String>,
+    pub instrument_id: Option<String>,
+}
+
+/// Variance components in the covariance decomposition.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum VarianceComponent {
+    SharedPhysicalSupport,
+    PreparationBatch,
+    Instrument,
+    IndependentResidual,
+}
+
+impl VarianceComponent {
+    pub const ALL: [Self; 4] = [
+        Self::SharedPhysicalSupport,
+        Self::PreparationBatch,
+        Self::Instrument,
+        Self::IndependentResidual,
+    ];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::SharedPhysicalSupport => "shared_physical_support",
+            Self::PreparationBatch => "preparation_batch",
+            Self::Instrument => "instrument",
+            Self::IndependentResidual => "independent_residual",
+        }
+    }
+}
+
+/// Known observation-specific sensitivities to the shared random effects.
+///
+/// Loadings are fixed design/model inputs, not estimated from the same
+/// covariance matrix being audited. Shared-effect covariance between
+/// observations i and j is loading_i * loading_j * variance when their group
+/// identity matches. Signed loadings are allowed for physical, batch and
+/// instrument effects; residual loadings are non-negative scale factors.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CovarianceComponentLoadings {
+    pub shared_physical_support: f64,
+    pub preparation_batch: f64,
+    pub instrument: f64,
+    pub independent_residual: f64,
+}
+
+impl Default for CovarianceComponentLoadings {
+    fn default() -> Self {
+        Self {
+            shared_physical_support: 1.0,
+            preparation_batch: 1.0,
+            instrument: 1.0,
+            independent_residual: 1.0,
+        }
+    }
+}
+
+impl CovarianceComponentLoadings {
+    fn for_component(self, component: VarianceComponent) -> f64 {
+        match component {
+            VarianceComponent::SharedPhysicalSupport => self.shared_physical_support,
+            VarianceComponent::PreparationBatch => self.preparation_batch,
+            VarianceComponent::Instrument => self.instrument,
+            VarianceComponent::IndependentResidual => self.independent_residual,
+        }
+    }
+
+    fn validate(self) -> Result<(), String> {
+        let values = [
+            self.shared_physical_support,
+            self.preparation_batch,
+            self.instrument,
+            self.independent_residual,
+        ];
+        if values.iter().any(|value| !value.is_finite()) {
+            return Err("covariance component loadings must be finite".into());
+        }
+        if self.independent_residual < 0.0 {
+            return Err("independent residual loadings must be non-negative".into());
+        }
+        Ok(())
+    }
+}
+
+/// Structural identifiability summary for the covariance components.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CovarianceIdentifiabilityAudit {
+    pub observation_count: usize,
+    pub component_ids: Vec<VarianceComponent>,
+    /// Rank of the weighted covariance-component design matrix.
+    pub structural_rank: usize,
+    pub component_count: usize,
+    /// Condition number of the non-zero spectrum of the weighted Gram matrix.
+    /// This is a structural numerical diagnostic, not a sampling condition.
+    pub gram_condition_number: Option<f64>,
+    pub fully_identifiable: bool,
+    /// A component is individually estimable in this linear decomposition
+    /// only if removing its column decreases the rank of the complete design.
+    pub individually_identifiable: Vec<bool>,
+}
+
+/// Expected Fisher information for covariance-component variances under one
+/// jointly observed Gaussian vector with known mean.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CovarianceFisherInformation {
+    pub component_ids: Vec<VarianceComponent>,
+    pub nominal_variances: Vec<f64>,
+    /// I[k,l] = 1/2 tr(Sigma^-1 A_k Sigma^-1 A_l), in the declared
+    /// variance-parameter units.
+    pub information_matrix: Vec<Vec<f64>>,
+    /// Sorted ascending, including zero eigenvalues for non-identifiable directions.
+    pub eigenvalues: Vec<f64>,
+    pub structural_rank: usize,
+    pub smallest_eigenvalue: f64,
+    pub largest_eigenvalue: f64,
+    /// Largest/smallest retained eigenvalue; absent when rank deficient.
+    pub condition_number: Option<f64>,
+    /// Present only when every declared variance component is locally identifiable.
+    pub log_determinant: Option<f64>,
+}
+
+/// Exact noiseless recovery of the declared covariance-component coefficients.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExactCovarianceRecovery {
+    pub component_ids: Vec<VarianceComponent>,
+    pub variance_estimates: Vec<f64>,
+    /// Relative Frobenius residual between supplied covariance and its
+    /// projection onto the declared component span.
+    pub relative_fit_residual: f64,
+}
+
+/// One scientific hypothesis for the source of observed covariance.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CovarianceComponentHypothesis {
+    pub model_id: String,
+    pub prior_weight: f64,
+    pub mean: Vec<f64>,
+    /// Variance coefficients in `VarianceComponent::ALL` order.
+    pub variance_components: Vec<f64>,
+}
+
+/// A covariance design matrix represented by its upper-triangle basis vectors.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CovarianceComponentDesign {
+    observations: Vec<CovarianceObservation>,
+    component_ids: Vec<VarianceComponent>,
+    basis_vectors: Vec<Vec<f64>>,
+    upper_triangle_weights: Vec<f64>,
+    upper_triangle_indices: Vec<(usize, usize)>,
+    observation_loadings: Vec<CovarianceComponentLoadings>,
+    physical_support_kernel: Option<Vec<Vec<f64>>>,
+}
+
+fn validate_observations(observations: &[CovarianceObservation]) -> Result<(), String> {
+    if observations.is_empty() {
+        return Err("at least one covariance observation is required".into());
+    }
+    let mut observation_ids = BTreeSet::new();
+    for observation in observations {
+        if observation.observation_id.trim().is_empty()
+            || !observation_ids.insert(observation.observation_id.as_str())
+        {
+            return Err("observation IDs must be non-empty and unique".into());
+        }
+        if observation.modality.trim().is_empty() {
+            return Err(format!("modality is required for {:?}", observation.observation_id));
+        }
+        for (label, value) in [
+            ("physical support", observation.physical_support_id.as_deref()),
+            ("batch", observation.batch_id.as_deref()),
+            ("instrument", observation.instrument_id.as_deref()),
+        ] {
+            if value.is_some_and(|value| value.trim().is_empty()) {
+                return Err(format!("{label} ID must be absent or non-empty"));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn component_group(
+    observation: &CovarianceObservation,
+    component: VarianceComponent,
+) -> Option<&str> {
+    match component {
+        VarianceComponent::SharedPhysicalSupport => observation.physical_support_id.as_deref(),
+        VarianceComponent::PreparationBatch => observation.batch_id.as_deref(),
+        VarianceComponent::Instrument => observation.instrument_id.as_deref(),
+        VarianceComponent::IndependentResidual => None,
+    }
+}
+
+fn validate_physical_support_kernel(
+    observations: &[CovarianceObservation],
+    kernel: &[Vec<f64>],
+) -> Result<(), String> {
+    let dimension = observations.len();
+    if kernel.len() != dimension || kernel.iter().any(|row| row.len() != dimension) {
+        return Err("physical support kernel must be square and align with observations".into());
+    }
+    if kernel.iter().flatten().any(|value| !value.is_finite() || value.abs() > 1.0 + 1e-10) {
+        return Err("physical support kernel entries must be finite and within [-1, 1]".into());
+    }
+    for row in 0..dimension {
+        for column in 0..dimension {
+            if (kernel[row][column] - kernel[column][row]).abs() > 1e-10 {
+                return Err("physical support kernel must be symmetric".into());
+            }
+            if observations[row].physical_support_id.is_none()
+                && kernel[row][column].abs() > 1e-10
+            {
+                return Err("observations without physical support cannot have kernel overlap".into());
+            }
+        }
+        let expected_diagonal = if observations[row].physical_support_id.is_some() { 1.0 } else { 0.0 };
+        if (kernel[row][row] - expected_diagonal).abs() > 1e-10 {
+            return Err("physical support kernel diagonal must be one for supported observations and zero otherwise".into());
+        }
+    }
+    for row in 0..dimension {
+        for column in 0..dimension {
+            if observations[row].physical_support_id.is_some()
+                && observations[row].physical_support_id == observations[column].physical_support_id
+                && (kernel[row][column] - 1.0).abs() > 1e-10
+            {
+                return Err("identical physical support IDs must have unit kernel overlap".into());
+            }
+        }
+    }
+    let eigenvalues = symmetric_eigenvalues(kernel)?;
+    if eigenvalues.iter().any(|value| *value < -1e-10) {
+        return Err("physical support kernel must be positive semidefinite".into());
+    }
+    Ok(())
+}
+
+fn upper_triangle_pairs(dimension: usize) -> Vec<(usize, usize)> {
+    let mut pairs = Vec::with_capacity(dimension * (dimension + 1) / 2);
+    for row in 0..dimension {
+        for column in row..dimension {
+            pairs.push((row, column));
+        }
+    }
+    pairs
+}
+
+fn symmetric_eigenvalues(matrix: &[Vec<f64>]) -> Result<Vec<f64>, String> {
+    let dimension = matrix.len();
+    if dimension == 0 || matrix.iter().any(|row| row.len() != dimension) {
+        return Err("Gram matrix must be non-empty and square".into());
+    }
+    if matrix.iter().flatten().any(|value| !value.is_finite()) {
+        return Err("Gram matrix entries must be finite".into());
+    }
+
+    let mut work = matrix.to_vec();
+    let scale = work.iter().flatten().map(|value| value.abs()).fold(1.0_f64, f64::max);
+    for (row, matrix_row) in work.iter().enumerate().skip(1) {
+        for (column, previous_row) in work.iter().enumerate().take(row) {
+            if (matrix_row[column] - previous_row[row]).abs() > 1e-10 * scale {
+                return Err("Gram matrix must be symmetric".into());
+            }
+        }
+    }
+
+    let max_iterations = 100 * dimension * dimension;
+    for _ in 0..max_iterations {
+        let mut largest = 0.0;
+        let mut pivot = None;
+        for row in 0..dimension {
+            for column in (row + 1)..dimension {
+                let value = work[row][column].abs();
+                if value > largest {
+                    largest = value;
+                    pivot = Some((row, column));
+                }
+            }
+        }
+        if largest <= 1e-13 * scale {
+            break;
+        }
+        let Some((p, q)) = pivot else { break };
+
+        let off_diagonal = work[p][q];
+        let tau = (work[q][q] - work[p][p]) / (2.0 * off_diagonal);
+        let sign = if tau >= 0.0 { 1.0 } else { -1.0 };
+        let tangent = sign / (tau.abs() + (1.0 + tau * tau).sqrt());
+        let cosine = 1.0 / (1.0 + tangent * tangent).sqrt();
+        let sine = tangent * cosine;
+
+        for index in 0..dimension {
+            if index != p && index != q {
+                let left = work[index][p];
+                let right = work[index][q];
+                let new_left = cosine * left - sine * right;
+                let new_right = sine * left + cosine * right;
+                work[index][p] = new_left;
+                work[p][index] = new_left;
+                work[index][q] = new_right;
+                work[q][index] = new_right;
+            }
+        }
+        let pp = work[p][p];
+        let qq = work[q][q];
+        work[p][p] = pp - tangent * off_diagonal;
+        work[q][q] = qq + tangent * off_diagonal;
+        work[p][q] = 0.0;
+        work[q][p] = 0.0;
+    }
+
+    let values: Vec<f64> = (0..dimension).map(|index| work[index][index]).collect();
+    if values.iter().all(|value| value.is_finite()) {
+        Ok(values)
+    } else {
+        Err("Gram eigensolver produced a non-finite eigenvalue".into())
+    }
+}
+
+fn gram_matrix(basis_vectors: &[Vec<f64>], weights: &[f64]) -> Result<Vec<Vec<f64>>, String> {
+    if basis_vectors.is_empty() || weights.is_empty() {
+        return Err("covariance basis and weights must be non-empty".into());
+    }
+    if basis_vectors.iter().any(|basis| basis.len() != weights.len()) {
+        return Err("covariance basis vectors must align with upper-triangle weights".into());
+    }
+
+    let component_count = basis_vectors.len();
+    let mut gram = vec![vec![0.0; component_count]; component_count];
+    for (row, left) in basis_vectors.iter().enumerate() {
+        for (column, right) in basis_vectors.iter().enumerate().skip(row) {
+            let value: f64 = left.iter()
+                .zip(right)
+                .zip(weights)
+                .map(|((left_value, right_value), weight)| {
+                    left_value * right_value * weight
+                })
+                .sum();
+            gram[row][column] = value;
+            gram[column][row] = value;
+        }
+    }
+    Ok(gram)
+}
+
+fn rank_and_condition(gram: &[Vec<f64>]) -> Result<(usize, Option<f64>), String> {
+    let eigenvalues = symmetric_eigenvalues(gram)?;
+    let maximum = eigenvalues.iter().copied().fold(0.0_f64, f64::max);
+    if maximum <= 0.0 {
+        return Ok((0, None));
+    }
+    // Rank threshold is stated on the Gram spectrum. It is intentionally
+    // conservative for near-collinear component signatures.
+    let threshold = maximum * 1e-10;
+    let positive: Vec<f64> = eigenvalues.iter()
+        .copied()
+        .filter(|value| *value > threshold)
+        .collect();
+    let rank = positive.len();
+    let condition = positive.iter().copied().reduce(f64::min)
+        .map(|minimum| (maximum / minimum).sqrt());
+    Ok((rank, condition))
+}
+
+fn invert_spd_matrix(matrix: &[Vec<f64>]) -> Result<Vec<Vec<f64>>, String> {
+    let dimension = matrix.len();
+    if dimension == 0 || matrix.iter().any(|row| row.len() != dimension) {
+        return Err("covariance matrix must be non-empty and square".into());
+    }
+    if matrix.iter().flatten().any(|value| !value.is_finite()) {
+        return Err("covariance matrix entries must be finite".into());
+    }
+    let scale = matrix.iter().flatten()
+        .map(|value| value.abs())
+        .fold(0.0_f64, f64::max);
+    if scale <= 0.0 {
+        return Err("covariance matrix must be positive definite".into());
+    }
+    for row in 0..dimension {
+        for column in 0..row {
+            if (matrix[row][column] - matrix[column][row]).abs() > 1e-10 * scale {
+                return Err("covariance matrix must be symmetric".into());
+            }
+        }
+    }
+
+    // Normalize first so a physically small covariance is not mistaken for a
+    // singular matrix merely because its units make every entry less than one.
+    let normalized: Vec<Vec<f64>> = matrix.iter()
+        .map(|row| row.iter().map(|value| value / scale).collect())
+        .collect();
+    let mut lower = vec![vec![0.0; dimension]; dimension];
+    for row in 0..dimension {
+        for column in 0..=row {
+            let mut value = normalized[row][column];
+            for inner in 0..column {
+                value -= lower[row][inner] * lower[column][inner];
+            }
+            if row == column {
+                if !value.is_finite() || value <= 0.0 {
+                    return Err("covariance matrix must be positive definite".into());
+                }
+                lower[row][column] = value.sqrt();
+            } else {
+                let pivot = lower[column][column];
+                if !pivot.is_finite() || pivot <= 0.0 {
+                    return Err("covariance Cholesky factor is singular".into());
+                }
+                lower[row][column] = value / pivot;
+            }
+        }
+    }
+
+    let mut inverse = vec![vec![0.0; dimension]; dimension];
+    for target_column in 0..dimension {
+        let mut forward = vec![0.0; dimension];
+        for row in 0..dimension {
+            let rhs = if row == target_column { 1.0 } else { 0.0 };
+            let accumulated: f64 = (0..row)
+                .map(|column| lower[row][column] * forward[column])
+                .sum();
+            forward[row] = (rhs - accumulated) / lower[row][row];
+        }
+
+        let mut solution = vec![0.0; dimension];
+        for row in (0..dimension).rev() {
+            let accumulated: f64 = (row + 1..dimension)
+                .map(|column| lower[column][row] * solution[column])
+                .sum();
+            solution[row] = (forward[row] - accumulated) / lower[row][row];
+        }
+        for row in 0..dimension {
+            inverse[row][target_column] = solution[row] / scale;
+        }
+    }
+    for row in 0..dimension {
+        for column in 0..row {
+            let average = 0.5 * (inverse[row][column] + inverse[column][row]);
+            inverse[row][column] = average;
+            inverse[column][row] = average;
+        }
+    }
+    if inverse.iter().flatten().any(|value| !value.is_finite()) {
+        return Err("covariance inverse is non-finite".into());
+    }
+    Ok(inverse)
+}
+
+fn solve_linear_system(matrix: &[Vec<f64>], rhs: &[f64]) -> Result<Vec<f64>, String> {
+    let dimension = matrix.len();
+    if dimension == 0
+        || rhs.len() != dimension
+        || matrix.iter().any(|row| row.len() != dimension)
+    {
+        return Err("linear system dimensions are invalid".into());
+    }
+    let mut augmented: Vec<Vec<f64>> = matrix.iter()
+        .zip(rhs)
+        .map(|(row, value)| {
+            let mut augmented_row = row.clone();
+            augmented_row.push(*value);
+            augmented_row
+        })
+        .collect();
+
+    let scale = matrix.iter().flatten()
+        .map(|value| value.abs()).fold(1.0_f64, f64::max);
+    for pivot_column in 0..dimension {
+        let pivot_row = (pivot_column..dimension)
+            .max_by(|left, right| {
+                augmented[*left][pivot_column].abs()
+                    .total_cmp(&augmented[*right][pivot_column].abs())
+            })
+            .ok_or_else(|| "linear system has no pivot row".to_string())?;
+        if augmented[pivot_row][pivot_column].abs() <= 1e-12 * scale {
+            return Err("covariance components are not structurally identifiable".into());
+        }
+        augmented.swap(pivot_column, pivot_row);
+
+        let pivot = augmented[pivot_column][pivot_column];
+        for column in pivot_column..=dimension {
+            augmented[pivot_column][column] /= pivot;
+        }
+        for row in 0..dimension {
+            if row == pivot_column {
+                continue;
+            }
+            let factor = augmented[row][pivot_column];
+            for column in pivot_column..=dimension {
+                augmented[row][column] -= factor * augmented[pivot_column][column];
+            }
+        }
+    }
+
+    let solution: Vec<f64> = augmented.iter().map(|row| row[dimension]).collect();
+    if solution.iter().all(|value| value.is_finite()) {
+        Ok(solution)
+    } else {
+        Err("variance-component solution is non-finite".into())
+    }
+}
+
+impl CovarianceComponentDesign {
+    /// Build a unit-loading design from exact group identities.
+    ///
+    /// A shared covariance contribution is present only when two observations
+    /// carry the same non-empty group ID for that component. Equal specimen
+    /// labels do not imply equal physical support unless the physical support
+    /// IDs themselves match. Every component loading defaults to one.
+    pub fn new(observations: Vec<CovarianceObservation>) -> Result<Self, String> {
+        let loadings = vec![CovarianceComponentLoadings::default(); observations.len()];
+        Self::new_with_loadings(observations, loadings)
+    }
+
+    /// Build component basis matrices with fixed, observation-specific loadings.
+    ///
+    /// For grouped component k, the covariance basis is
+    /// A_k[i,j] = l[i,k] * l[j,k] * 1[group(i,k) = group(j,k)].
+    /// Independent residual noise contributes l[i,e]^2 only on the diagonal.
+    /// Loadings must be specified from the observation/design model before
+    /// examining the covariance outcome; estimating them from that same outcome
+    /// would invalidate this structural-identifiability audit.
+    pub fn new_with_loadings(
+        observations: Vec<CovarianceObservation>,
+        observation_loadings: Vec<CovarianceComponentLoadings>,
+    ) -> Result<Self, String> {
+        Self::build(observations, observation_loadings, None)
+    }
+
+    /// Build a design from a fixed, normalized physical-support covariance kernel.
+    ///
+    /// The supplied matrix is a positive-semidefinite correlation kernel computed
+    /// from externally defined spatial support/overlap operators. Its diagonal is
+    /// one for supported observations, zero for unsupported observations, and
+    /// identical support IDs must have unit overlap. Different support IDs may
+    /// have nonzero partial overlap. This API consumes an audited kernel; it does
+    /// not infer spatial overlap from the support labels themselves.
+    pub fn new_with_support_kernel(
+        observations: Vec<CovarianceObservation>,
+        observation_loadings: Vec<CovarianceComponentLoadings>,
+        physical_support_kernel: Vec<Vec<f64>>,
+    ) -> Result<Self, String> {
+        Self::build(observations, observation_loadings, Some(physical_support_kernel))
+    }
+
+    fn build(
+        observations: Vec<CovarianceObservation>,
+        observation_loadings: Vec<CovarianceComponentLoadings>,
+        physical_support_kernel: Option<Vec<Vec<f64>>>,
+    ) -> Result<Self, String> {
+        validate_observations(&observations)?;
+        if observation_loadings.len() != observations.len() {
+            return Err("one loading record is required for every observation".into());
+        }
+        for loading in &observation_loadings {
+            loading.validate()?;
+        }
+        if let Some(kernel) = &physical_support_kernel {
+            validate_physical_support_kernel(&observations, kernel)?;
+        }
+
+        let component_ids = VarianceComponent::ALL.to_vec();
+        let upper_triangle_indices = upper_triangle_pairs(observations.len());
+        let upper_triangle_weights: Vec<f64> = upper_triangle_indices.iter()
+            .map(|(row, column)| if row == column { 1.0 } else { 2.0 })
+            .collect();
+
+        let basis_vectors = component_ids.iter().map(|component| {
+            upper_triangle_indices.iter().map(|(row, column)| {
+                let left_loading = observation_loadings[*row].for_component(*component);
+                let right_loading = observation_loadings[*column].for_component(*component);
+                if *component == VarianceComponent::IndependentResidual {
+                    if row == column { left_loading * right_loading } else { 0.0 }
+                } else if *component == VarianceComponent::SharedPhysicalSupport {
+                    let overlap = if let Some(kernel) = &physical_support_kernel {
+                        kernel[*row][*column]
+                    } else {
+                        let left = component_group(&observations[*row], *component);
+                        let right = component_group(&observations[*column], *component);
+                        match (left, right) {
+                            (Some(left), Some(right)) if left == right => 1.0,
+                            _ => 0.0,
+                        }
+                    };
+                    left_loading * right_loading * overlap
+                } else {
+                    let left = component_group(&observations[*row], *component);
+                    let right = component_group(&observations[*column], *component);
+                    match (left, right) {
+                        (Some(left), Some(right)) if left == right => {
+                            left_loading * right_loading
+                        }
+                        _ => 0.0,
+                    }
+                }
+            }).collect()
+        }).collect();
+
+        Ok(Self {
+            observations,
+            component_ids,
+            basis_vectors,
+            upper_triangle_weights,
+            upper_triangle_indices,
+            observation_loadings,
+            physical_support_kernel,
+        })
+    }
+
+    pub fn observations(&self) -> &[CovarianceObservation] {
+        &self.observations
+    }
+
+    pub fn component_ids(&self) -> &[VarianceComponent] {
+        &self.component_ids
+    }
+
+    /// Audit the structural rank and identify individually estimable columns.
+    ///
+    /// This detects linear confounding among the declared covariance basis
+    /// matrices. It does not quantify finite-sample posterior precision or
+    /// guarantee good statistical power.
+    pub fn audit(&self) -> Result<CovarianceIdentifiabilityAudit, String> {
+        let gram = gram_matrix(&self.basis_vectors, &self.upper_triangle_weights)?;
+        let (structural_rank, gram_condition_number) = rank_and_condition(&gram)?;
+        let component_count = self.component_ids.len();
+        let mut individually_identifiable = Vec::with_capacity(component_count);
+        for removed in 0..component_count {
+            let reduced: Vec<Vec<f64>> = gram.iter().enumerate()
+                .filter(|(row, _)| *row != removed)
+                .map(|(_, values)| values.iter().enumerate()
+                    .filter(|(column, _)| *column != removed)
+                    .map(|(_, value)| *value)
+                    .collect())
+                .collect();
+            let (reduced_rank, _) = rank_and_condition(&reduced)?;
+            individually_identifiable.push(reduced_rank < structural_rank);
+        }
+
+        Ok(CovarianceIdentifiabilityAudit {
+            observation_count: self.observations.len(),
+            component_ids: self.component_ids.clone(),
+            structural_rank,
+            component_count,
+            gram_condition_number,
+            fully_identifiable: structural_rank == component_count,
+            individually_identifiable,
+        })
+    }
+
+    /// Calculate expected Fisher information for the component variances.
+    ///
+    /// For one jointly observed Gaussian vector with fixed/known mean and
+    /// covariance Sigma = sum_k theta_k A_k, this returns
+    /// I[k,l] = 1/2 tr(Sigma^-1 A_k Sigma^-1 A_l).
+    /// It is a local, model-conditional precision diagnostic, not observed
+    /// information, posterior precision, or evidence that the covariance model
+    /// is physically correct. If mean parameters are estimated jointly, their
+    /// nuisance-information block must also be accounted for by a Schur
+    /// complement before interpreting this as efficient variance information.
+    pub fn expected_fisher_information(
+        &self,
+        nominal_variances: &[f64],
+    ) -> Result<CovarianceFisherInformation, String> {
+        if nominal_variances.len() != self.component_ids.len()
+            || nominal_variances.iter().any(|value| !value.is_finite() || *value < 0.0)
+        {
+            return Err("nominal component variances must be finite, non-negative and aligned".into());
+        }
+        let covariance = self.covariance_from_variances(nominal_variances)?;
+        let inverse = invert_spd_matrix(&covariance)?;
+        let dimension = self.observations.len();
+        let component_count = self.component_ids.len();
+
+        let basis_matrices: Vec<Vec<Vec<f64>>> = self.basis_vectors.iter().map(|basis| {
+            let mut matrix = vec![vec![0.0; dimension]; dimension];
+            for ((row, column), value) in self.upper_triangle_indices.iter().zip(basis) {
+                matrix[*row][*column] = *value;
+                matrix[*column][*row] = *value;
+            }
+            matrix
+        }).collect();
+
+        let inverse_times_basis: Vec<Vec<Vec<f64>>> = basis_matrices.iter().map(|basis| {
+            let mut product = vec![vec![0.0; dimension]; dimension];
+            for row in 0..dimension {
+                for inner in 0..dimension {
+                    let left = inverse[row][inner];
+                    for column in 0..dimension {
+                        product[row][column] += left * basis[inner][column];
+                    }
+                }
+            }
+            product
+        }).collect();
+
+        let mut information_matrix = vec![vec![0.0; component_count]; component_count];
+        for left in 0..component_count {
+            for right in left..component_count {
+                let mut trace = 0.0;
+                for row in 0..dimension {
+                    for column in 0..dimension {
+                        trace += inverse_times_basis[left][row][column]
+                            * inverse_times_basis[right][column][row];
+                    }
+                }
+                let value = 0.5 * trace;
+                if !value.is_finite() {
+                    return Err("expected Fisher information is non-finite".into());
+                }
+                information_matrix[left][right] = value;
+                information_matrix[right][left] = value;
+            }
+        }
+
+        let information_scale = information_matrix.iter().flatten()
+            .map(|value| value.abs())
+            .fold(0.0_f64, f64::max);
+        if information_scale <= 0.0 || !information_scale.is_finite() {
+            return Err("expected Fisher information has no positive scale".into());
+        }
+        let normalized_information: Vec<Vec<f64>> = information_matrix.iter()
+            .map(|row| row.iter().map(|value| value / information_scale).collect())
+            .collect();
+        let mut eigenvalues: Vec<f64> = symmetric_eigenvalues(&normalized_information)?
+            .into_iter()
+            .map(|value| value * information_scale)
+            .collect();
+        eigenvalues.sort_by(f64::total_cmp);
+        let largest_eigenvalue = *eigenvalues.last()
+            .ok_or_else(|| "Fisher information eigensystem is empty".to_string())?;
+        if !largest_eigenvalue.is_finite() || largest_eigenvalue <= 0.0 {
+            return Err("expected Fisher information is not positive semidefinite".into());
+        }
+        let rank_threshold = largest_eigenvalue * 1e-10;
+        let retained: Vec<f64> = eigenvalues.iter().copied()
+            .filter(|value| *value > rank_threshold)
+            .collect();
+        let structural_rank = retained.len();
+        let smallest_eigenvalue = eigenvalues[0];
+        let condition_number = if structural_rank == component_count {
+            retained.first().map(|minimum| largest_eigenvalue / minimum)
+        } else {
+            None
+        };
+        let log_determinant = if structural_rank == component_count {
+            Some(retained.iter().map(|value| value.ln()).sum())
+        } else {
+            None
+        };
+
+        Ok(CovarianceFisherInformation {
+            component_ids: self.component_ids.clone(),
+            nominal_variances: nominal_variances.to_vec(),
+            information_matrix,
+            eigenvalues,
+            structural_rank,
+            smallest_eigenvalue,
+            largest_eigenvalue,
+            condition_number,
+            log_determinant,
+        })
+    }
+
+    /// Construct the exact covariance implied by non-negative component
+    /// variances in canonical component order.
+    pub fn covariance_from_variances(&self, variances: &[f64]) -> Result<Vec<Vec<f64>>, String> {
+        if variances.len() != self.component_ids.len() {
+            return Err("variance vector must align with the component list".into());
+        }
+        if variances.iter().any(|value| !value.is_finite() || *value < 0.0) {
+            return Err("variance components must be finite and non-negative".into());
+        }
+        let dimension = self.observations.len();
+        let mut covariance = vec![vec![0.0; dimension]; dimension];
+        for (component_index, variance) in variances.iter().enumerate() {
+            for (basis_value, (row, column)) in self.basis_vectors[component_index]
+                .iter().zip(&self.upper_triangle_indices)
+            {
+                let value = variance * basis_value;
+                covariance[*row][*column] += value;
+                covariance[*column][*row] = covariance[*row][*column];
+            }
+        }
+        Ok(covariance)
+    }
+
+    /// Update a finite posterior over physical/nuisance covariance hypotheses.
+    ///
+    /// This connects declared support/batch/instrument incidence matrices to
+    /// the multivariate Gaussian posterior. If two hypotheses induce the same
+    /// covariance on a non-identifying design, their likelihoods are equal
+    /// and the data cannot distinguish their attribution.
+    pub fn update_hypothesis_posterior(
+        &self,
+        hypotheses: &[CovarianceComponentHypothesis],
+        observed_indices: &[usize],
+        observations: &[f64],
+    ) -> Result<MultivariateGaussianPosterior, String> {
+        if hypotheses.is_empty() {
+            return Err("at least one covariance hypothesis is required".into());
+        }
+        let mut models = Vec::with_capacity(hypotheses.len());
+        for hypothesis in hypotheses {
+            if hypothesis.mean.len() != self.observations.len()
+                || hypothesis.mean.iter().any(|value| !value.is_finite())
+            {
+                return Err(format!(
+                    "mean vector for covariance hypothesis {:?} must match the design dimension",
+                    hypothesis.model_id
+                ));
+            }
+            let covariance = self.covariance_from_variances(&hypothesis.variance_components)?;
+            models.push(MultivariateGaussianModel {
+                model_id: hypothesis.model_id.clone(),
+                prior_weight: hypothesis.prior_weight,
+                observation_model: MultivariateGaussian {
+                    mean: hypothesis.mean.clone(),
+                    covariance,
+                },
+            });
+        }
+        update_multivariate_model_posterior(
+            &models,
+            observed_indices,
+            observations,
+        )
+    }
+
+    /// Recover variance coefficients from a noiseless covariance matrix.
+    ///
+    /// This solves the linear span problem exactly up to floating-point
+    /// precision. It is an oracle for synthetic tests, not an estimator for
+    /// noisy empirical covariance data.
+    pub fn recover_exact_variance_components(
+        &self,
+        covariance: &[Vec<f64>],
+    ) -> Result<ExactCovarianceRecovery, String> {
+        let dimension = self.observations.len();
+        if covariance.len() != dimension
+            || covariance.iter().any(|row| row.len() != dimension)
+        {
+            return Err("covariance matrix dimensions must match the design".into());
+        }
+        if covariance.iter().flatten().any(|value| !value.is_finite()) {
+            return Err("covariance matrix entries must be finite".into());
+        }
+        let scale = covariance.iter().flatten()
+            .map(|value| value.abs()).fold(1.0_f64, f64::max);
+        for (row, covariance_row) in covariance.iter().enumerate().skip(1) {
+            for (column, previous_row) in covariance.iter().enumerate().take(row) {
+                if (covariance_row[column] - previous_row[row]).abs() > 1e-10 * scale {
+                    return Err("covariance matrix must be symmetric".into());
+                }
+            }
+        }
+
+        let audit = self.audit()?;
+        if !audit.fully_identifiable {
+            return Err(format!(
+                "covariance components are structurally non-identifiable: rank {} of {}",
+                audit.structural_rank, audit.component_count
+            ));
+        }
+
+        let covariance_upper: Vec<f64> = self.upper_triangle_indices.iter()
+            .map(|(row, column)| covariance[*row][*column])
+            .collect();
+        let rhs: Vec<f64> = self.basis_vectors.iter().map(|basis| {
+            basis.iter().zip(&covariance_upper)
+                .zip(&self.upper_triangle_weights)
+                .map(|((basis_value, covariance_value), weight)| {
+                    basis_value * covariance_value * weight
+                })
+                .sum()
+        }).collect();
+        let gram = gram_matrix(&self.basis_vectors, &self.upper_triangle_weights)?;
+        let estimates = solve_linear_system(&gram, &rhs)?;
+        if estimates.iter().any(|value| *value < -1e-8 * scale) {
+            return Err("covariance lies outside the non-negative component cone".into());
+        }
+
+        let fitted = self.covariance_from_variances(
+            &estimates.iter().map(|value| value.max(0.0)).collect::<Vec<_>>(),
+        )?;
+        let mut residual_sum = 0.0;
+        let mut covariance_sum = 0.0;
+        for ((row, column), weight) in self.upper_triangle_indices.iter()
+            .zip(&self.upper_triangle_weights)
+        {
+            let residual = covariance[*row][*column] - fitted[*row][*column];
+            residual_sum += weight * residual * residual;
+            covariance_sum += weight * covariance[*row][*column] * covariance[*row][*column];
+        }
+        if !residual_sum.is_finite() || !covariance_sum.is_finite() {
+            return Err("covariance fit residual overflowed".into());
+        }
+        let residual_norm = residual_sum.sqrt();
+        let covariance_norm = covariance_sum.sqrt();
+        let relative_fit_residual = if covariance_norm > 0.0 {
+            residual_norm / covariance_norm
+        } else if residual_norm == 0.0 {
+            0.0
+        } else {
+            f64::INFINITY
+        };
+
+        Ok(ExactCovarianceRecovery {
+            component_ids: self.component_ids.clone(),
+            variance_estimates: estimates.iter().map(|value| value.max(0.0)).collect(),
+            relative_fit_residual,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn observation(
+        id: &str,
+        modality: &str,
+        physical: Option<&str>,
+        batch: Option<&str>,
+        instrument: Option<&str>,
+    ) -> CovarianceObservation {
+        CovarianceObservation {
+            observation_id: id.into(),
+            modality: modality.into(),
+            physical_support_id: physical.map(str::to_owned),
+            batch_id: batch.map(str::to_owned),
+            instrument_id: instrument.map(str::to_owned),
+        }
+    }
+
+    fn confounded_pair() -> CovarianceComponentDesign {
+        CovarianceComponentDesign::new(vec![
+            observation("ct-1", "ct", Some("support-A"), Some("batch-A"), Some("instrument-A")),
+            observation("tracer-1", "tracer", Some("support-A"), Some("batch-A"), Some("instrument-A")),
+        ]).unwrap()
+    }
+
+    fn crossed_support_batch_instrument_design() -> CovarianceComponentDesign {
+        let mut observations = Vec::new();
+        for support in ["support-A", "support-B"] {
+            for batch in ["batch-A", "batch-B"] {
+                for instrument in ["instrument-A", "instrument-B"] {
+                    for modality in ["ct", "tracer"] {
+                        let id = format!("{support}:{batch}:{instrument}:{modality}");
+                        observations.push(observation(
+                            &id, modality, Some(support), Some(batch), Some(instrument),
+                        ));
+                    }
+                }
+            }
+        }
+        CovarianceComponentDesign::new(observations).unwrap()
+    }
+
+    #[test]
+    fn partial_physical_support_overlap_generates_cross_modal_covariance() {
+        let observations = vec![
+            observation("ct-subvolume", "ct", Some("support-A"), Some("batch-A"), Some("ct-device")),
+            observation("tracer-aliquot", "tracer", Some("support-B"), Some("batch-B"), Some("tracer-device")),
+        ];
+        let design = CovarianceComponentDesign::new_with_support_kernel(
+            observations,
+            vec![CovarianceComponentLoadings::default(); 2],
+            vec![vec![1.0, 0.25], vec![0.25, 1.0]],
+        ).unwrap();
+        let covariance = design.covariance_from_variances(&[2.0, 0.0, 0.0, 0.1]).unwrap();
+        assert!((covariance[0][1] - 0.5).abs() < 1e-12);
+        assert!((covariance[0][0] - 2.1).abs() < 1e-12);
+        assert!((covariance[1][1] - 2.1).abs() < 1e-12);
+    }
+
+    #[test]
+    fn support_kernel_rejects_non_psd_or_identity_inconsistent_inputs() {
+        let observations = vec![
+            observation("ct-1", "ct", Some("support-A"), Some("batch-A"), Some("ct-device")),
+            observation("tracer-1", "tracer", Some("support-B"), Some("batch-B"), Some("tracer-device")),
+        ];
+        assert!(CovarianceComponentDesign::new_with_support_kernel(
+            observations.clone(),
+            vec![CovarianceComponentLoadings::default(); 2],
+            vec![vec![1.0, 1.5], vec![1.5, 1.0]],
+        ).is_err());
+        assert!(CovarianceComponentDesign::new_with_support_kernel(
+            observations,
+            vec![CovarianceComponentLoadings::default(); 2],
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+        ).is_ok());
+    }
+
+    #[test]
+    fn expected_fisher_information_matches_one_observation_analytic_oracle() {
+        let design = CovarianceComponentDesign::new(vec![
+            observation(
+                "single-observation",
+                "ct",
+                Some("support-A"),
+                Some("batch-A"),
+                Some("instrument-A"),
+            ),
+        ]).unwrap();
+        let information = design.expected_fisher_information(&[0.4, 0.3, 0.2, 0.1]).unwrap();
+        // Every component basis is [1] and Sigma = 0.4 + 0.3 + 0.2 + 0.1 = 1.
+        // For one N(mu, Sigma) datum with known mean, I[k,l] = 1/(2 Sigma^2).
+        for row in 0..4 {
+            for column in 0..4 {
+                assert!((information.information_matrix[row][column] - 0.5).abs() < 1e-12);
+            }
+        }
+        assert_eq!(information.structural_rank, 1);
+        assert_eq!(information.condition_number, None);
+        assert_eq!(information.log_determinant, None);
+    }
+
+    #[test]
+    fn expected_fisher_information_distinguishes_crossed_from_confounded_designs() {
+        let crossed = crossed_support_batch_instrument_design();
+        let crossed_information = crossed.expected_fisher_information(&[0.7, 0.4, 0.2, 0.1]).unwrap();
+        assert_eq!(crossed_information.structural_rank, 4);
+        assert_eq!(crossed_information.information_matrix.len(), 4);
+        assert!(crossed_information.condition_number.unwrap().is_finite());
+        assert!(crossed_information.log_determinant.unwrap().is_finite());
+        assert!(crossed_information.eigenvalues.windows(2).all(|pair| pair[0] <= pair[1]));
+
+        let confounded = confounded_pair();
+        let confounded_information = confounded.expected_fisher_information(&[0.7, 0.4, 0.2, 0.1]).unwrap();
+        assert_eq!(confounded_information.structural_rank, 2);
+        assert_eq!(confounded_information.condition_number, None);
+        assert_eq!(confounded_information.log_determinant, None);
+    }
+
+    #[test]
+    fn expected_fisher_information_respects_covariance_scale() {
+        let design = crossed_support_batch_instrument_design();
+        let small = design.expected_fisher_information(&[0.7, 0.4, 0.2, 0.1]).unwrap();
+        let large = design.expected_fisher_information(&[7.0, 4.0, 2.0, 1.0]).unwrap();
+        for row in 0..4 {
+            for column in 0..4 {
+                assert!((small.information_matrix[row][column]
+                    / large.information_matrix[row][column] - 100.0).abs() < 1e-7);
+            }
+        }
+    }
+
+    #[test]
+    fn expected_fisher_information_rejects_invalid_or_singular_covariance() {
+        let design = crossed_support_batch_instrument_design();
+        assert!(design.expected_fisher_information(&[0.7, 0.4, 0.2]).is_err());
+        assert!(design.expected_fisher_information(&[0.7, f64::NAN, 0.2, 0.1]).is_err());
+        assert!(design.expected_fisher_information(&[0.0, 0.0, 0.0, 0.0]).is_err());
+    }
+
+    #[test]
+    fn modality_specific_loadings_scale_and_reverse_cross_modal_covariance() {
+        let design = CovarianceComponentDesign::new_with_loadings(
+            vec![
+                observation("ct-1", "ct", Some("support-A"), Some("batch-A"), Some("ct-device")),
+                observation("tracer-1", "tracer", Some("support-A"), Some("batch-A"), Some("tracer-device")),
+            ],
+            vec![
+                CovarianceComponentLoadings {
+                    shared_physical_support: 1.0,
+                    preparation_batch: 0.25,
+                    instrument: 1.0,
+                    independent_residual: 1.0,
+                },
+                CovarianceComponentLoadings {
+                    shared_physical_support: -0.5,
+                    preparation_batch: 2.0,
+                    instrument: 1.0,
+                    independent_residual: 1.0,
+                },
+            ],
+        ).unwrap();
+        let covariance = design.covariance_from_variances(&[2.0, 3.0, 0.5, 0.1]).unwrap();
+        // Physical contribution: 2 * (1.0 * -0.5) = -1.0.
+        // Batch contribution: 3 * (0.25 * 2.0) = 1.5.
+        // The two instruments are distinct, so their shared contribution is zero.
+        assert!((covariance[0][1] - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn declared_modality_loadings_can_separate_effects_with_identical_group_ids() {
+        let observations = vec![
+            observation("y-1", "ct", Some("shared-support"), Some("shared-batch"), Some("shared-device")),
+            observation("y-2", "tracer", Some("shared-support"), Some("shared-batch"), Some("shared-device")),
+            observation("y-3", "tracer", Some("shared-support"), Some("shared-batch"), Some("shared-device")),
+        ];
+        let unit_loading_audit = CovarianceComponentDesign::new(observations.clone())
+            .unwrap().audit().unwrap();
+        assert!(!unit_loading_audit.fully_identifiable);
+
+        let loadings = vec![
+            CovarianceComponentLoadings {
+                shared_physical_support: 1.0,
+                preparation_batch: 1.0,
+                instrument: 1.0,
+                independent_residual: 1.0,
+            },
+            CovarianceComponentLoadings {
+                shared_physical_support: 1.0,
+                preparation_batch: -1.0,
+                instrument: 0.0,
+                independent_residual: 1.0,
+            },
+            CovarianceComponentLoadings {
+                shared_physical_support: 1.0,
+                preparation_batch: 0.0,
+                instrument: -1.0,
+                independent_residual: 1.0,
+            },
+        ];
+        let loaded_audit = CovarianceComponentDesign::new_with_loadings(observations, loadings)
+            .unwrap().audit().unwrap();
+        assert_eq!(loaded_audit.structural_rank, 4);
+        assert!(loaded_audit.fully_identifiable);
+    }
+
+    #[test]
+    fn loading_design_rejects_mismatched_or_nonfinite_inputs() {
+        let observations = vec![
+            observation("ct-1", "ct", Some("support-A"), Some("batch-A"), Some("device-A")),
+        ];
+        assert!(CovarianceComponentDesign::new_with_loadings(
+            observations.clone(), vec![],
+        ).is_err());
+        assert!(CovarianceComponentDesign::new_with_loadings(
+            observations.clone(),
+            vec![CovarianceComponentLoadings {
+                shared_physical_support: f64::NAN,
+                ..CovarianceComponentLoadings::default()
+            }],
+        ).is_err());
+        assert!(CovarianceComponentDesign::new_with_loadings(
+            observations,
+            vec![CovarianceComponentLoadings {
+                independent_residual: -1.0,
+                ..CovarianceComponentLoadings::default()
+            }],
+        ).is_err());
+    }
+
+    #[test]
+    fn one_ct_tracer_pair_cannot_separate_shared_physics_batch_and_instrument() {
+        let audit = confounded_pair().audit().unwrap();
+        assert_eq!(audit.structural_rank, 2);
+        assert_eq!(audit.component_count, 4);
+        assert!(!audit.fully_identifiable);
+        assert_eq!(audit.individually_identifiable, vec![false, false, false, true]);
+    }
+
+    #[test]
+    fn crossed_replication_structurally_identifies_all_declared_components() {
+        let audit = crossed_support_batch_instrument_design().audit().unwrap();
+        assert_eq!(audit.structural_rank, 4);
+        assert_eq!(audit.component_count, 4);
+        assert!(audit.fully_identifiable);
+        assert_eq!(audit.individually_identifiable, vec![true, true, true, true]);
+        assert!(audit.gram_condition_number.is_some_and(|value| value.is_finite()));
+    }
+
+    #[test]
+    fn relative_fit_residual_is_scale_invariant_for_small_covariances() {
+        let design = crossed_support_batch_instrument_design();
+        let mut covariance = design.covariance_from_variances(&[
+            0.7e-12, 0.4e-12, 0.2e-12, 0.1e-12,
+        ]).unwrap();
+        // These observations share no physical, batch or instrument group;
+        // the off-diagonal perturbation lies outside every declared component.
+        covariance[0][14] += 1e-14;
+        covariance[14][0] += 1e-14;
+
+        let recovered = design.recover_exact_variance_components(&covariance).unwrap();
+        assert!(recovered.relative_fit_residual > 1e-4);
+        assert!(recovered.relative_fit_residual < 1e-2);
+    }
+
+    #[test]
+    fn exact_covariance_oracle_recovers_each_variance_component() {
+        let design = crossed_support_batch_instrument_design();
+        let expected = [0.7, 0.4, 0.2, 0.1];
+        let covariance = design.covariance_from_variances(&expected).unwrap();
+        let recovered = design.recover_exact_variance_components(&covariance).unwrap();
+        for (actual, expected) in recovered.variance_estimates.iter().zip(expected) {
+            assert!((actual - expected).abs() < 1e-10);
+        }
+        assert!(recovered.relative_fit_residual < 1e-12);
+    }
+
+    #[test]
+    fn batch_only_pair_does_not_certify_physical_cross_modal_covariance() {
+        let design = CovarianceComponentDesign::new(vec![
+            observation("ct-1", "ct", Some("support-A"), Some("batch-shared"), Some("ct-device")),
+            observation("tracer-1", "tracer", Some("support-B"), Some("batch-shared"), Some("tracer-device")),
+        ]).unwrap();
+        let audit = design.audit().unwrap();
+        assert_eq!(audit.structural_rank, 2);
+        assert!(!audit.individually_identifiable[0]);
+        assert!(audit.individually_identifiable[1]);
+        assert!(!audit.fully_identifiable);
+    }
+
+    #[test]
+    fn modality_labels_do_not_create_physical_support_identity() {
+        let design = CovarianceComponentDesign::new(vec![
+            observation("ct-1", "ct", Some("support-A"), Some("batch-A"), Some("ct-device")),
+            observation("tracer-1", "tracer", Some("support-B"), Some("batch-A"), Some("tracer-device")),
+        ]).unwrap();
+        let covariance = design.covariance_from_variances(&[1.0, 0.5, 0.25, 0.1]).unwrap();
+        assert!((covariance[0][1] - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn nonidentifying_single_pair_cannot_update_physical_batch_instrument_attribution() {
+        let design = confounded_pair();
+        let hypotheses = vec![
+            CovarianceComponentHypothesis {
+                model_id: "physical_only".into(),
+                prior_weight: 0.4,
+                mean: vec![0.0, 0.0],
+                variance_components: vec![1.0, 0.0, 0.0, 0.1],
+            },
+            CovarianceComponentHypothesis {
+                model_id: "batch_only".into(),
+                prior_weight: 0.35,
+                mean: vec![0.0, 0.0],
+                variance_components: vec![0.0, 1.0, 0.0, 0.1],
+            },
+            CovarianceComponentHypothesis {
+                model_id: "instrument_only".into(),
+                prior_weight: 0.25,
+                mean: vec![0.0, 0.0],
+                variance_components: vec![0.0, 0.0, 1.0, 0.1],
+            },
+        ];
+        let posterior = design.update_hypothesis_posterior(
+            &hypotheses,
+            &[0, 1],
+            &[1.0, 0.7],
+        ).unwrap();
+        for (actual, expected) in posterior.weights.iter()
+            .zip([0.4_f64, 0.35, 0.25])
+        {
+            assert!((actual - expected).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn batch_only_pair_supports_batch_attribution_but_not_physical_support() {
+        let design = CovarianceComponentDesign::new(vec![
+            observation("ct-1", "ct", Some("support-A"), Some("shared-batch"), Some("ct-device")),
+            observation("tracer-1", "tracer", Some("support-B"), Some("shared-batch"), Some("tracer-device")),
+        ]).unwrap();
+        let hypotheses = vec![
+            CovarianceComponentHypothesis {
+                model_id: "physical_only".into(),
+                prior_weight: 0.5,
+                mean: vec![0.0, 0.0],
+                variance_components: vec![1.0, 0.0, 0.0, 0.1],
+            },
+            CovarianceComponentHypothesis {
+                model_id: "batch_only".into(),
+                prior_weight: 0.5,
+                mean: vec![0.0, 0.0],
+                variance_components: vec![0.0, 1.0, 0.0, 0.1],
+            },
+        ];
+        let posterior = design.update_hypothesis_posterior(
+            &hypotheses,
+            &[0, 1],
+            &[1.0, 1.0],
+        ).unwrap();
+        assert!(posterior.weights[1] > 0.75);
+    }
+
+    #[test]
+    fn crossed_design_can_discriminate_shared_physics_from_batch_covariance() {
+        let design = crossed_support_batch_instrument_design();
+        let hypotheses = vec![
+            CovarianceComponentHypothesis {
+                model_id: "physical_only".into(),
+                prior_weight: 0.5,
+                mean: vec![0.0; 16],
+                variance_components: vec![1.0, 0.0, 0.0, 0.1],
+            },
+            CovarianceComponentHypothesis {
+                model_id: "batch_only".into(),
+                prior_weight: 0.5,
+                mean: vec![0.0; 16],
+                variance_components: vec![0.0, 1.0, 0.0, 0.1],
+            },
+        ];
+        // Shared-support signal: repeated CT/tracer measurements within each
+        // support have a common latent effect, while the two supports differ.
+        let observations = vec![
+            1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5,
+            -1.5, -1.5, -1.5, -1.5, -1.5, -1.5, -1.5, -1.5,
+        ];
+        let posterior = design.update_hypothesis_posterior(
+            &hypotheses,
+            &(0..16).collect::<Vec<_>>(),
+            &observations,
+        ).unwrap();
+        assert!(posterior.weights[0] > 0.999);
+    }
+
+    #[test]
+    fn covariance_hypothesis_update_rejects_invalid_means_and_variances() {
+        let design = confounded_pair();
+        let invalid_mean = CovarianceComponentHypothesis {
+            model_id: "bad_mean".into(),
+            prior_weight: 1.0,
+            mean: vec![0.0],
+            variance_components: vec![1.0, 0.0, 0.0, 0.1],
+        };
+        assert!(design.update_hypothesis_posterior(
+            &[invalid_mean], &[0, 1], &[0.0, 0.0],
+        ).is_err());
+        let invalid_variance = CovarianceComponentHypothesis {
+            model_id: "bad_variance".into(),
+            prior_weight: 1.0,
+            mean: vec![0.0, 0.0],
+            variance_components: vec![1.0, -1.0, 0.0, 0.1],
+        };
+        assert!(design.update_hypothesis_posterior(
+            &[invalid_variance], &[0, 1], &[0.0, 0.0],
+        ).is_err());
+    }
+
+    #[test]
+    fn rejects_duplicate_observation_ids_and_empty_group_ids() {
+        assert!(CovarianceComponentDesign::new(vec![
+            observation("same", "ct", Some("support-A"), Some("batch-A"), Some("device-A")),
+            observation("same", "tracer", Some("support-B"), Some("batch-B"), Some("device-B")),
+        ]).is_err());
+        assert!(CovarianceComponentDesign::new(vec![
+            observation("id", "ct", Some(" "), Some("batch-A"), Some("device-A")),
+        ]).is_err());
+    }
+
+    #[test]
+    fn exact_recovery_fails_closed_for_non_identifiable_covariance() {
+        let design = confounded_pair();
+        let covariance = design.covariance_from_variances(&[0.7, 0.4, 0.2, 0.1]).unwrap();
+        assert!(design.recover_exact_variance_components(&covariance).is_err());
+    }
+
+    #[test]
+    fn rejects_invalid_variance_and_covariance_inputs() {
+        let design = crossed_support_batch_instrument_design();
+        assert!(design.covariance_from_variances(&[1.0, 0.0, -0.1, 0.2]).is_err());
+        assert!(design.covariance_from_variances(&[1.0, 0.2]).is_err());
+        let asymmetric = vec![vec![1.0, 0.2], vec![0.3, 1.0]];
+        assert!(confounded_pair().recover_exact_variance_components(&asymmetric).is_err());
+    }
+}

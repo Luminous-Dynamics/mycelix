@@ -1,0 +1,71 @@
+{
+  "schema_version": "0.1.0",
+  "study_id": "SYNTHETIC",
+  "site_id": "SYN1",
+  "plot_id": "P01",
+  "profile_id": "PROFILE-01",
+  "event_id": "E001",
+  "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_evidence_ref": "synthetic fixture only; no field observation",
+  "nsr_profile_signature": "nonsequential_response_detected",
+  "sensor_evidence": [
+    {
+      "sensor_id": "D10",
+      "depth_cm": 10,
+      "velocity_threshold_proxy": "positive",
+      "trajectory_threshold_proxy": "positive"
+    },
+    {
+      "sensor_id": "D30",
+      "depth_cm": 30,
+      "velocity_threshold_proxy": "positive",
+      "trajectory_threshold_proxy": "negative"
+    },
+    {
+      "sensor_id": "D60",
+      "depth_cm": 60,
+      "velocity_threshold_proxy": "negative",
+      "trajectory_threshold_proxy": "not_evaluated"
+    },
+    {
+      "sensor_id": "D90",
+      "depth_cm": 90,
+      "velocity_threshold_proxy": "indeterminate",
+      "trajectory_threshold_proxy": "indeterminate"
+    }
+  ],
+  "independent_references": [
+    {
+      "reference_id": "TRACER-01",
+      "method": "conservative_tracer",
+      "outcome": "supports_bypass",
+      "evidence_ref": "synthetic tracer truth",
+      "detection_limit_or_resolution": "arrival detected at lower boundary",
+      "event_id": "E001",
+      "profile_id": "PROFILE-01",
+      "review_claim": "claims_independent_review_blinded",
+      "quality_status": "qualified",
+      "reviewer_evidence_ref_claimed": "synthetic self-declared review claim only; not a verified attestation"
+    }
+  ],
+  "method_artifacts": [
+    {
+      "tool_name": "preferential-flow-eventizer",
+      "tool_version": "0.1.0",
+      "output_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "evidence_ref": "synthetic fixture eventizer output"
+    },
+    {
+      "tool_name": "trajectory-signature-audit",
+      "tool_version": "0.1.0",
+      "output_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "evidence_ref": "synthetic fixture trajectory output"
+    },
+    {
+      "tool_name": "profile-flow-audit",
+      "tool_version": "0.2.0",
+      "output_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "evidence_ref": "synthetic fixture NSR output"
+    }
+  ]
+}

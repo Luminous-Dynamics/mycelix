@@ -1,0 +1,100 @@
+{
+  "schema_version": "0.1.0",
+  "data_class": "synthetic_known_truth",
+  "scenario_id": "ct-tracer-complementarity-vs-tracer-redundancy-v0",
+  "seed": 20261031,
+  "budget_cost_units": 7,
+  "strata": [
+    { "stratum_id": "SANDY", "minimum_selected_actions": 1 },
+    { "stratum_id": "CLAY", "minimum_selected_actions": 1 },
+    { "stratum_id": "WEATHERED", "minimum_selected_actions": 1 }
+  ],
+  "actions": [
+    {
+      "action_id": "A_SANDY_BASELINE",
+      "stratum_id": "SANDY",
+      "cost_units": 1,
+      "eligible": true,
+      "exclusion_reason": null,
+      "predicted_standalone_value": 0.28,
+      "synthetic_truth_standalone_value": 0.30
+    },
+    {
+      "action_id": "B_TRACER_EARLY",
+      "stratum_id": "SANDY",
+      "cost_units": 2,
+      "eligible": true,
+      "exclusion_reason": null,
+      "predicted_standalone_value": 0.70,
+      "synthetic_truth_standalone_value": 0.42
+    },
+    {
+      "action_id": "C_TRACER_NEARBY",
+      "stratum_id": "SANDY",
+      "cost_units": 2,
+      "eligible": true,
+      "exclusion_reason": null,
+      "predicted_standalone_value": 0.67,
+      "synthetic_truth_standalone_value": 0.40
+    },
+    {
+      "action_id": "D_CT_GEOMETRY",
+      "stratum_id": "SANDY",
+      "cost_units": 2,
+      "eligible": true,
+      "exclusion_reason": null,
+      "predicted_standalone_value": 0.42,
+      "synthetic_truth_standalone_value": 0.39
+    },
+    {
+      "action_id": "E_EVENT_TRACER",
+      "stratum_id": "SANDY",
+      "cost_units": 2,
+      "eligible": true,
+      "exclusion_reason": null,
+      "predicted_standalone_value": 0.40,
+      "synthetic_truth_standalone_value": 0.36
+    },
+    {
+      "action_id": "F_CLAY_REFERENCE",
+      "stratum_id": "CLAY",
+      "cost_units": 1,
+      "eligible": true,
+      "exclusion_reason": null,
+      "predicted_standalone_value": 0.24,
+      "synthetic_truth_standalone_value": 0.25
+    },
+    {
+      "action_id": "G_WEATHERED_REFERENCE",
+      "stratum_id": "WEATHERED",
+      "cost_units": 1,
+      "eligible": true,
+      "exclusion_reason": null,
+      "predicted_standalone_value": 0.23,
+      "synthetic_truth_standalone_value": 0.24
+    },
+    {
+      "action_id": "X_INELIGIBLE",
+      "stratum_id": "SANDY",
+      "cost_units": 1,
+      "eligible": false,
+      "exclusion_reason": "Synthetic example of an unapproved measurement action.",
+      "predicted_standalone_value": 0.99,
+      "synthetic_truth_standalone_value": 0.99
+    }
+  ],
+  "pair_relations": [
+    {
+      "action_a": "B_TRACER_EARLY",
+      "action_b": "C_TRACER_NEARBY",
+      "estimated_interaction": -0.45,
+      "synthetic_truth_interaction": -0.50
+    },
+    {
+      "action_a": "D_CT_GEOMETRY",
+      "action_b": "E_EVENT_TRACER",
+      "estimated_interaction": 0.60,
+      "synthetic_truth_interaction": 0.68
+    }
+  ]
+}

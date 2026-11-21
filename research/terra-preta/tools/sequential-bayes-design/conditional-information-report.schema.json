@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Conditional Gaussian information report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "data_class",
+    "scenario_id",
+    "scenario_sha256",
+    "status",
+    "prior_stage",
+    "conditional_stage",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "data_class": {
+      "const": "synthetic-known-truth"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "scenario_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "status": {
+      "const": "synthetic_correlated_conditional_information_benchmark_only"
+    },
+    "prior_stage": {
+      "$ref": "#/$defs/stage"
+    },
+    "conditional_stage": {
+      "$ref": "#/$defs/stage"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "actionSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id",
+        "cost_units",
+        "eligible",
+        "feasible",
+        "information_gain_nats",
+        "monte_carlo_standard_error_nats",
+        "samples_per_model",
+        "total_samples",
+        "seed"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string"
+        },
+        "cost_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "feasible": {
+          "type": "boolean"
+        },
+        "information_gain_nats": {
+          "type": "number"
+        },
+        "monte_carlo_standard_error_nats": {
+          "type": "number",
+          "minimum": 0
+        },
+        "samples_per_model": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "total_samples": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "seed": {
+          "type": "integer"
+        }
+      }
+    },
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "history_action_id",
+        "candidate_count",
+        "feasible_candidate_count",
+        "selected_action_id",
+        "candidates"
+      ],
+      "properties": {
+        "history_action_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "candidate_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "feasible_candidate_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "selected_action_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/actionSummary"
+          }
+        }
+      }
+    }
+  }
+}

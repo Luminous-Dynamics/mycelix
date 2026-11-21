@@ -1,0 +1,125 @@
+{
+  "schema_version": "0.1.0",
+  "study_id": "synthetic-study",
+  "site_id": "SYN1",
+  "plot_id": "P01",
+  "profile_id": "PROFILE1",
+  "event_id": "EVENT1",
+  "event_start_utc": "2026-04-01T00:00:00Z",
+  "observation_window_end_utc": "2026-04-01T00:40:00Z",
+  "time_resolution_seconds": 600,
+  "source_evidence_ref": "synthetic mixed-profile known-onset fixture only",
+  "sensors": [
+    {
+      "sensor_id": "S10",
+      "depth_cm": 10,
+      "condition": "usable",
+      "observations": [
+        {
+          "timestamp_utc": "2026-03-31T23:50:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:00:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:10:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:20:00Z",
+          "volumetric_water_content_m3_m3": 0.21200000000000002,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:30:00Z",
+          "volumetric_water_content_m3_m3": 0.21200000000000002,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:40:00Z",
+          "volumetric_water_content_m3_m3": 0.212,
+          "status": "observed"
+        }
+      ]
+    },
+    {
+      "sensor_id": "S30",
+      "depth_cm": 30,
+      "condition": "usable",
+      "observations": [
+        {
+          "timestamp_utc": "2026-03-31T23:50:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:00:00Z",
+          "volumetric_water_content_m3_m3": 0.225,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:10:00Z",
+          "volumetric_water_content_m3_m3": 0.225,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:20:00Z",
+          "volumetric_water_content_m3_m3": 0.225,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:30:00Z",
+          "volumetric_water_content_m3_m3": 0.225,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:40:00Z",
+          "volumetric_water_content_m3_m3": 0.225,
+          "status": "observed"
+        }
+      ]
+    },
+    {
+      "sensor_id": "S60",
+      "depth_cm": 60,
+      "condition": "usable",
+      "observations": [
+        {
+          "timestamp_utc": "2026-03-31T23:50:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:00:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:10:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:20:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:30:00Z",
+          "volumetric_water_content_m3_m3": 0.24000000000000002,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-04-01T00:40:00Z",
+          "volumetric_water_content_m3_m3": 0.24,
+          "status": "observed"
+        }
+      ]
+    }
+  ]
+}

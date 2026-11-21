@@ -1,0 +1,23 @@
+{
+  "schema_version": "0.1.0",
+  "sample_id": "synthetic-sample-01",
+  "curve_id": "synthetic-curve-01",
+  "measurement_basis": "volumetric_fraction",
+  "bulk_density_kg_m3": null,
+  "water_density_kg_m3": null,
+  "monotonicity_tolerance_m3_m3": 0.0,
+  "method": {
+    "name": "synthetic pressure-plate curve",
+    "standard_or_protocol": null
+  },
+  "target": {
+    "field_capacity_matric_potential_kpa": -33.0,
+    "permanent_wilting_point_matric_potential_kpa": -1500.0
+  },
+  "layer_depth_mm": 200.0,
+  "points": [
+    { "matric_potential_kpa": -10.0, "water_content": 0.30 },
+    { "matric_potential_kpa": -100.0, "water_content": 0.22 },
+    { "matric_potential_kpa": -1500.0, "water_content": 0.12 }
+  ]
+}

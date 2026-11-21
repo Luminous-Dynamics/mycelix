@@ -1,0 +1,372 @@
+name: Terra Preta sequential Bayesian design benchmark
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "research/terra-preta/**"
+      - ".github/workflows/terra-preta-sequential-bayes.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terra-preta-sequential-bayes-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sequential-bayes-design:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Parse scenario and report schemas
+        run: |
+          jq empty research/terra-preta/tools/sequential-bayes-design/scenario.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/report.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/observation-support.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-observation-support.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-scenario.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-infamily-control.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-discrepancy-state-control.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/robust-scenario.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/robust-report.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-robust-information-scenario.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/covariance-identifiability.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/covariance-identifiability-report.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-covariance-identifiability.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/conditional-information.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/conditional-information-report.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-conditional-information-scenario.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/state-parameter-assimilation.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/state-parameter-assimilation-report.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-state-parameter-assimilation.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/censored-tracer.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/censored-tracer-report.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-censored-tracer-scenario.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/tracer-sensor-design.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/tracer-sensor-design-report.schema.json
+          jq empty research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-tracer-sensor-design.json
+      - name: Format and test standalone crate
+        run: |
+          cargo fmt --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml
+          cargo fmt --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- --check
+          cargo test --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml
+      - name: Validate scenario schema
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/observation-support.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-observation-support.json
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/scenario.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-scenario.json
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/scenario.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-infamily-control.json
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/scenario.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-discrepancy-state-control.json
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/robust-scenario.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-robust-information-scenario.json
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/covariance-identifiability.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-covariance-identifiability.json
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/conditional-information.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-conditional-information-scenario.json
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/state-parameter-assimilation.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-state-parameter-assimilation.json
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/censored-tracer.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-censored-tracer-scenario.json
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/tracer-sensor-design.schema.json \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-tracer-sensor-design.json
+      - name: Execute misspecified and in-family controls
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-scenario.json \
+            "$RUNNER_TEMP/sequential-bayes-report.json"
+          cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-sequential-infamily-control.json \
+            "$RUNNER_TEMP/sequential-bayes-infamily-report.json"
+          cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-discrepancy-state-control.json \
+            "$RUNNER_TEMP/sequential-bayes-discrepancy-state-report.json"
+          jq -e '
+            .status == "synthetic_sequential_bayesian_benchmark_only" and
+            .replicate_count == 128 and
+            .validation_probe_count == 2 and
+            (.policy_summaries | length == 5) and
+            all(.policy_summaries[];
+              .replicate_count == 128 and
+              .mean_total_cost_units <= 4 and
+              .mean_true_decision_regret >= 0 and
+              .decision_regret_standard_error >= 0 and
+              .decision_regret_ci95_lower <= .mean_true_decision_regret and
+              .decision_regret_ci95_upper >= .mean_true_decision_regret and
+              .mean_predictive_log_score >= 0 and
+              .mean_predictive_brier_score >= 0 and
+              .mean_predictive_brier_score <= 2 and
+              .mean_heldout_validation_log_score >= 0 and
+              .heldout_validation_log_score_standard_error >= 0 and
+              .heldout_validation_log_score_ci95_lower <= .mean_heldout_validation_log_score and
+              .heldout_validation_log_score_ci95_upper >= .mean_heldout_validation_log_score and
+              .heldout_validation_brier_score_standard_error >= 0 and
+              .heldout_validation_brier_score_ci95_lower <= .mean_heldout_validation_brier_score and
+              .heldout_validation_brier_score_ci95_upper >= .mean_heldout_validation_brier_score and
+              .mean_heldout_validation_brier_score >= 0 and
+              .mean_heldout_validation_brier_score <= 2 and
+              (.validation_by_stratum | length == 2) and
+              all(.selected_action_frequency[]; .selection_rate >= 0 and .selection_rate <= 1))
+          ' "$RUNNER_TEMP/sequential-bayes-report.json"
+          jq -e '
+            (.policy_summaries[] | select(.policy_id == "discrepancy_guarded_evsi")) as $guarded |
+            $guarded.mean_diagnostic_actions > 0 and $guarded.mean_surprise_events > 0
+          ' "$RUNNER_TEMP/sequential-bayes-report.json"
+          jq -e '
+            .scenario_id == "dual-permeability-in-family-calibration-control-v0" and
+            .replicate_count == 128 and
+            .validation_probe_count == 2 and
+            (.policy_summaries | length == 5) and
+            all(.policy_summaries[];
+              .mean_surprise_events < 0.2 and
+              .mean_heldout_validation_log_score >= 0 and
+              .mean_heldout_validation_brier_score >= 0 and
+              .mean_heldout_validation_brier_score <= 2)
+          ' "$RUNNER_TEMP/sequential-bayes-infamily-report.json"
+          jq -e '
+            .scenario_id == "preferential-flow-explicit-discrepancy-state-v0" and
+            .replicate_count == 128 and
+            .validation_probe_count == 2 and
+            (.policy_summaries | length == 5) and
+            all(.policy_summaries[];
+              .mean_true_decision_regret >= 0 and
+              .mean_heldout_validation_log_score >= 0 and
+              .mean_heldout_validation_brier_score >= 0 and
+              .mean_heldout_validation_brier_score <= 2)
+          ' "$RUNNER_TEMP/sequential-bayes-discrepancy-state-report.json"
+      - name: Execute robust one-step information bake-off
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml --bin robust-information-bakeoff -- \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-robust-information-scenario.json \
+            "$RUNNER_TEMP/robust-information-report.json"
+          jq -e '
+            .status == "synthetic_one_step_robust_information_benchmark_only" and
+            .scenario_id == "sibson-ct-tracer-ranking-reversal-v0" and
+            .candidate_count == 5 and
+            .feasible_candidate_count == 3 and
+            .nominal_shannon_selection.action_id == "nominal_sharp" and
+            .fixed_alpha_sibson_selection.action_id == "robust_balanced" and
+            .fixed_kl_radius_selection.action_id == "robust_balanced" and
+            .nominal_shannon_selection.cost_units <= .budget_units and
+            .fixed_alpha_sibson_selection.cost_units <= .budget_units and
+            .fixed_kl_radius_selection.cost_units <= .budget_units and
+            .gibbs_policy.precision_lambda == 5.0 and
+            ([.gibbs_policy.actions[].probability] | add | . - 1 | fabs < 1e-9) and
+            .gibbs_policy.expected_cost_units <= .budget_units and
+            .gibbs_policy.kl_to_prior_nats >= 0 and
+            ([.gibbs_policy.actions[] | select(.action_id == "ineligible_perfect_measurement") | .probability][0] == 0) and
+            ([.gibbs_policy.actions[] | select(.action_id == "over_budget_perfect_measurement") | .probability][0] == 0) and
+            .shared_kl_policy.common_dual_beta != null and
+            .shared_kl_policy.common_dual_beta >= 0 and
+            (.shared_kl_policy.alpha - (.shared_kl_policy.common_dual_beta / (1 + .shared_kl_policy.common_dual_beta))) | fabs < 1e-9 and
+            .shared_kl_policy.expected_cost_units <= .budget_units and
+            ((.shared_kl_policy.robust_policy_value_nats -
+              (.shared_kl_policy.expected_sibson_information_nats - .shared_kl_policy.adversarial_kl_penalty_nats)) | fabs) < 1e-9 and
+            (.shared_kl_policy.adversarial_kl_penalty_nats >= 0) and
+            ([.shared_kl_policy.action_probabilities[].probability] | add | . - 1 | fabs < 1e-9) and
+            all(.shared_kl_policy.action_probabilities[]; .probability >= 0) and
+            .optimized_robust_gibbs_policy.precision_lambda == 5.0 and
+            .optimized_robust_gibbs_policy.expected_cost_units <= .budget_units and
+            .optimized_robust_gibbs_policy.policy_kl_to_prior_nats >= 0 and
+            ((.optimized_robust_gibbs_policy.policy_complexity_penalty_nats -
+              (.optimized_robust_gibbs_policy.policy_kl_to_prior_nats / .optimized_robust_gibbs_policy.precision_lambda)) | fabs) < 1e-9 and
+            ((.optimized_robust_gibbs_policy.robust_regularized_value_nats -
+              (.optimized_robust_gibbs_policy.expected_sibson_information_nats -
+               .optimized_robust_gibbs_policy.policy_complexity_penalty_nats -
+               .optimized_robust_gibbs_policy.adversarial_kl_penalty_nats)) | fabs) < 1e-9 and
+            ([.optimized_robust_gibbs_policy.actions[].probability] | add | . - 1 | fabs < 1e-9) and
+            ([.optimized_robust_gibbs_policy.actions[] | select(.action_id == "ineligible_perfect_measurement") | .probability][0] == 0) and
+            ([.optimized_robust_gibbs_policy.actions[] | select(.action_id == "over_budget_perfect_measurement") | .probability][0] == 0) and
+            all(.candidate_summaries[]; .shannon_information_nats >= 0 and .sibson_information_nats >= 0 and .effective_kl_radius_nats >= 0) and
+            ([.candidate_summaries[] | select(.action_id == "redundant_ct_repeat") | .sibson_information_nats][0] < 1e-12) and
+            ([.candidate_summaries[] | select(.action_id == "ineligible_perfect_measurement") | .feasible_under_budget][0] == false) and
+            ([.candidate_summaries[] | select(.action_id == "over_budget_perfect_measurement") | .feasible_under_budget][0] == false) and
+            ([.candidate_summaries[] | select(.action_id == "ineligible_perfect_measurement") | .sibson_information_nats][0]) as $ineligible_information |
+            $ineligible_information > .fixed_alpha_sibson_selection.objective_value_nats
+          ' "$RUNNER_TEMP/robust-information-report.json"
+      - name: Execute physical-versus-nuisance covariance identifiability bake-off
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml --bin covariance-identifiability-bakeoff -- \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-covariance-identifiability.json \
+            "$RUNNER_TEMP/covariance-identifiability-report.json"
+          jq -e '
+            .status == "synthetic_covariance_identifiability_reference_only" and
+            .scenario_id == "physical-versus-nuisance-covariance-identifiability-v0" and
+            .design_count == 3 and
+            (.design_summaries | length == 3) and
+            (.design_summaries[] | select(.design_id == "single_ct_tracer_pair") |
+              .structural_rank == 2 and .component_count == 4 and
+              .fisher_rank == 2 and .fisher_condition_number == null and
+              .fisher_log_determinant == null and
+              .fully_identifiable == false and
+              .individually_identifiable.shared_physical_support == false and
+              .recovery_status == "structurally_non_identifiable") and
+            (.design_summaries[] | select(.design_id == "batch_only_pair") |
+              .structural_rank == 2 and .fisher_rank == 2 and
+              .fisher_condition_number == null and
+              .fisher_log_determinant == null and
+              .individually_identifiable.shared_physical_support == false and
+              .individually_identifiable.preparation_batch == true and
+              .fully_identifiable == false) and
+            (.design_summaries[] | select(.design_id == "crossed_support_batch_instrument") |
+              .structural_rank == 4 and .component_count == 4 and
+              .fisher_rank == 4 and .fisher_condition_number > 0 and
+              .fisher_log_determinant != null and
+              (.fisher_information | length == 4) and
+              all(.fisher_information[]; length == 4) and
+              (.fisher_eigenvalues | length == 4) and
+              .fully_identifiable == true and
+              .recovery_status == "exact_synthetic_recovery" and
+              .relative_fit_residual < 1e-10 and
+              ([.recovered_variance_components[0],.recovered_variance_components[1],.recovered_variance_components[2],.recovered_variance_components[3]] ==
+                [0.7,0.4,0.2,0.1]))
+          ' "$RUNNER_TEMP/covariance-identifiability-report.json"
+      - name: Execute conditional correlated CT-tracer information bake-off
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml --bin conditional-information-bakeoff -- \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-conditional-information-scenario.json \
+            "$RUNNER_TEMP/conditional-information-report.json"
+          jq -e '
+            .status == "synthetic_correlated_conditional_information_benchmark_only" and
+            .scenario_id == "ct-tracer-correlated-complementarity-v0" and
+            .prior_stage.selected_action_id == "joint_ct_tracer" and
+            .prior_stage.candidate_count == 3 and
+            .prior_stage.feasible_candidate_count == 3 and
+            ([.prior_stage.candidates[] | select(.action_id == "ct_only") | .information_gain_nats][0] | fabs < 1e-12) and
+            ([.prior_stage.candidates[] | select(.action_id == "tracer_only") | .information_gain_nats][0] | fabs < 1e-12) and
+            ([.prior_stage.candidates[] | select(.action_id == "joint_ct_tracer") | .information_gain_nats][0] > 0.2) and
+            ([.prior_stage.candidates[] | select(.action_id == "joint_ct_tracer") | .monte_carlo_standard_error_nats][0] > 0) and
+            .conditional_stage.history_action_id == "ct_only" and
+            .conditional_stage.selected_action_id == "tracer_after_ct" and
+            .conditional_stage.candidate_count == 1 and
+            ([.conditional_stage.candidates[0].information_gain_nats][0] > 0.2) and
+            ([.conditional_stage.candidates[0].monte_carlo_standard_error_nats][0] > 0) and
+            all(.prior_stage.candidates[]; .feasible and .cost_units <= 2) and
+            all(.conditional_stage.candidates[]; .feasible and .cost_units <= 2)
+          ' "$RUNNER_TEMP/conditional-information-report.json"
+      - name: Execute exact state-parameter oracle versus ensemble Kalman bake-off
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml --bin state-parameter-assimilation-bakeoff -- \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-state-parameter-assimilation.json \
+            "$RUNNER_TEMP/state-parameter-assimilation-report.json"
+          jq -e '
+            .status == "synthetic_exact_oracle_vs_ensemble_kalman_reference" and
+            .scenario_id == "joint-water-state-exchange-parameter-linear-gaussian-v0" and
+            (.exact_posterior_mean | length == 2) and
+            ((.exact_posterior_mean[0] - 0.19047619047619047) | fabs < 1e-9) and
+            ((.exact_posterior_mean[1] - 0.38095238095238093) | fabs < 1e-9) and
+            (.ensemble_size_summaries | length == 3) and
+            (.ensemble_size_summaries | all(.[]; .replicate_count == 8 and .mean_posterior_mean_rmse >= 0 and .posterior_mean_rmse_standard_error >= 0 and .mean_posterior_covariance_relative_error >= 0 and .posterior_covariance_relative_error_standard_error >= 0)) and
+            ([.ensemble_size_summaries[] | select(.ensemble_size == 2048) | .mean_posterior_mean_rmse][0] < 0.05) and
+            ([.ensemble_size_summaries[] | select(.ensemble_size == 2048) | .mean_posterior_covariance_relative_error][0] < 0.15) and
+            (.runs | length == 24) and
+            all(.runs[]; .posterior_mean_rmse >= 0 and .posterior_covariance_relative_frobenius_error >= 0)
+          ' "$RUNNER_TEMP/state-parameter-assimilation-report.json"
+      - name: Execute censored tracer likelihood and censoring-information bake-off
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml --bin censored-tracer-bakeoff -- \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-censored-tracer-scenario.json \
+            "$RUNNER_TEMP/censored-tracer-report.json"
+          jq -e '
+            .status == "synthetic_censored_tracer_observation_reference_only" and
+            .scenario_id == "ct-conditioned-left-censored-tracer-v0" and
+            .conditional_models[0].model_id == "positive_cross_correlation" and
+            .conditional_models[1].model_id == "negative_cross_correlation" and
+            ((.conditional_models[0].tracer_conditional_mean - 0.8) | fabs < 1e-9) and
+            ((.conditional_models[1].tracer_conditional_mean + 0.8) | fabs < 1e-9) and
+            (.censored_bins | length == 3) and
+            all(.censored_bins[]; (((.model_probabilities | add) - 1) | fabs) < 2e-6) and
+            .binned_shannon_information_nats > 0.1 and
+            .binned_sibson_information_nats > 0.05 and
+            .below_detection_posterior.weights[1] > 0.75 and
+            .below_detection_posterior.weights[0] < 0.25 and
+            ((.missing_at_random_posterior.weights[0] - 0.5) | fabs < 1e-12) and
+            ((.missing_at_random_posterior.weights[1] - 0.5) | fabs < 1e-12) and
+            ((.incorrect_zero_substitution_posterior.weights[0] - 0.5) | fabs < 1e-9) and
+            ((.incorrect_zero_substitution_posterior.weights[1] - 0.5) | fabs < 1e-9)
+          ' "$RUNNER_TEMP/censored-tracer-report.json"
+      - name: Execute detection-aware tracer sensor co-design bake-off
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml --bin tracer-sensor-design-bakeoff -- \
+            research/terra-preta/tools/sequential-bayes-design/fixtures/synthetic-tracer-sensor-design.json \
+            "$RUNNER_TEMP/tracer-sensor-design-report.json"
+          jq -e '
+            .status == "synthetic_detection_aware_tracer_sensor_design_only" and
+            .scenario_id == "tracer-detector-threshold-budget-frontier-v0" and
+            (.sensor_scores | length == 4) and
+            ([.sensor_scores[] | select(.sensor_id == "coarse_detector") | .feasible][0] == true) and
+            ([.sensor_scores[] | select(.sensor_id == "sensitive_detector") | .feasible][0] == true) and
+            ([.sensor_scores[] | select(.sensor_id == "ultra_sensitive_over_budget") | .feasible][0] == false) and
+            ([.sensor_scores[] | select(.sensor_id == "ineligible_high_resolution") | .feasible][0] == false) and
+            .nominal_shannon_selection.sensor_id == "sensitive_detector" and
+            .fixed_alpha_sibson_selection.sensor_id == "sensitive_detector" and
+            .nominal_shannon_selection.cost_units <= .budget_units and
+            .fixed_alpha_sibson_selection.cost_units <= .budget_units and
+            .fixed_kl_radius_selection.cost_units <= .budget_units and
+            all(.sensor_scores[]; .shannon_information_nats >= 0 and .sibson_information_nats >= 0 and .per_design_robust_information_nats >= 0)
+          ' "$RUNNER_TEMP/tracer-sensor-design-report.json"
+      - name: Validate all report schemas
+        run: |
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/report.schema.json \
+            "$RUNNER_TEMP/sequential-bayes-report.json"
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/report.schema.json \
+            "$RUNNER_TEMP/sequential-bayes-infamily-report.json"
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/report.schema.json \
+            "$RUNNER_TEMP/sequential-bayes-discrepancy-state-report.json"
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/robust-report.schema.json \
+            "$RUNNER_TEMP/robust-information-report.json"
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/covariance-identifiability-report.schema.json \
+            "$RUNNER_TEMP/covariance-identifiability-report.json"
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/conditional-information-report.schema.json \
+            "$RUNNER_TEMP/conditional-information-report.json"
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/state-parameter-assimilation-report.schema.json \
+            "$RUNNER_TEMP/state-parameter-assimilation-report.json"
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/censored-tracer-report.schema.json \
+            "$RUNNER_TEMP/censored-tracer-report.json"
+          cargo run --manifest-path research/terra-preta/tools/schema-audit/Cargo.toml -- \
+            research/terra-preta/tools/sequential-bayes-design/tracer-sensor-design-report.schema.json \
+            "$RUNNER_TEMP/tracer-sensor-design-report.json"
+      - name: Upload deterministic synthetic report
+        uses: actions/upload-artifact@v4
+        with:
+          name: sequential-bayes-report-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/sequential-bayes-report.json
+            ${{ runner.temp }}/sequential-bayes-infamily-report.json
+            ${{ runner.temp }}/sequential-bayes-discrepancy-state-report.json
+            ${{ runner.temp }}/robust-information-report.json
+            ${{ runner.temp }}/covariance-identifiability-report.json
+            ${{ runner.temp }}/conditional-information-report.json
+            ${{ runner.temp }}/state-parameter-assimilation-report.json
+            ${{ runner.temp }}/censored-tracer-report.json
+            ${{ runner.temp }}/tracer-sensor-design-report.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/sequential-bayes-design/Cargo.toml --all-targets -- -D warnings
