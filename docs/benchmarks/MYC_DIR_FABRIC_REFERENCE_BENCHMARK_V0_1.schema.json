@@ -196,8 +196,15 @@
             "minimum": 1
           },
           "real_conductors_max": {
-            "type": "integer",
-            "minimum": 1
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "purpose": {
             "type": "string",
@@ -249,7 +256,8 @@
               "smoke",
               "development",
               "qualification",
-              "stress"
+              "stress",
+              "all"
             ]
           },
           "target": {
