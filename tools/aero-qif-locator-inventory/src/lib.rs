@@ -25,6 +25,8 @@ use thiserror::Error;
 
 pub const INVENTORY_SCHEMA: &str = "AeroQifTraceLocatorInventoryV1";
 pub const PROFILE_SCHEMA: &str = "AeroQifTraceLocatorProfileV1";
+pub const REPORT_SCHEMA: &str = "AeroQifTraceLocatorReportV1";
+pub const QUICK_XML_VERSION: &str = "0.42.0";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -149,7 +151,15 @@ pub enum InventoryDisposition {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TraceLocatorInventoryReport {
+    pub schema: String,
     pub disposition: InventoryDisposition,
+    pub scanner_package: String,
+    pub scanner_version: String,
+    pub xml_library: String,
+    pub xml_library_version: String,
+    pub qif_standard_version: String,
+    pub profile_id: String,
+    pub profile_version: String,
     pub profile_sha256: String,
     pub inventory_sha256: String,
     pub source_document_count: usize,
@@ -1233,7 +1243,15 @@ pub fn derive_trace_locator_inventory(
     inventory.inventory_sha256 = compute_inventory_digest(&inventory)?;
 
     let report = TraceLocatorInventoryReport {
+        schema: REPORT_SCHEMA.into(),
         disposition: InventoryDisposition::Complete,
+        scanner_package: env!("CARGO_PKG_NAME").into(),
+        scanner_version: env!("CARGO_PKG_VERSION").into(),
+        xml_library: "quick-xml".into(),
+        xml_library_version: QUICK_XML_VERSION.into(),
+        qif_standard_version: inventory.body.qif_standard_version.clone(),
+        profile_id: inventory.body.profile_id.clone(),
+        profile_version: inventory.body.profile_version.clone(),
         profile_sha256: inventory.body.profile_sha256.clone(),
         inventory_sha256: inventory.inventory_sha256.clone(),
         source_document_count: inventory.body.documents.len(),
