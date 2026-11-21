@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'research/terra-preta/tools/ct-exchange-reference/**'
+      - 'research/terra-preta/schemas/ct-exchange-reference-input.schema.json'
       - 'research/terra-preta/schemas/ct-exchange-reference-report.schema.json'
       - '.github/workflows/terra-preta-ct-exchange-reference.yml'
   workflow_dispatch:
@@ -29,6 +30,7 @@ jobs:
         run: cargo clippy --manifest-path research/terra-preta/tools/ct-exchange-reference/Cargo.toml --all-targets -- -D warnings
       - name: Parse report schema and fixture
         run: |
+          jq empty research/terra-preta/schemas/ct-exchange-reference-input.schema.json
           jq empty research/terra-preta/schemas/ct-exchange-reference-report.schema.json
           jq empty research/terra-preta/tools/ct-exchange-reference/fixtures/synthetic-ct-exchange.json
       - name: Execute synthetic reference
