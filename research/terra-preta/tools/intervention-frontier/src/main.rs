@@ -686,7 +686,10 @@ mod tests {
         let mut s = scenario();
         s.candidates[1].outcomes.pop();
         let report = build_report(&s, "0".repeat(64));
-        assert_eq!(assessment(&report, "residue-cover-management").eligibility_status, "unresolved");
+        assert_eq!(
+            assessment(&report, "residue-cover-management").eligibility_status,
+            "unresolved"
+        );
         assert!(!assessment(&report, "residue-cover-management").on_frontier);
     }
 
