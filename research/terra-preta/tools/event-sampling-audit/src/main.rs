@@ -443,9 +443,7 @@ fn run(
     report_path: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if report_path.exists() {
-        return Err(
-            io::Error::new(io::ErrorKind::AlreadyExists, "report already exists").into(),
-        );
+        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "report already exists").into());
     }
     let truth_bytes = fs::read(truth_path)?;
     let schedule_bytes = fs::read(schedule_path)?;
@@ -489,7 +487,8 @@ mod tests {
     use super::*;
 
     fn load() -> (Truth, Schedule) {
-        let t: Truth = serde_json::from_str(include_str!("../fixtures/synthetic-event-truth.json")).unwrap();
+        let t: Truth =
+            serde_json::from_str(include_str!("../fixtures/synthetic-event-truth.json")).unwrap();
         let s: Schedule = serde_json::from_str(include_str!(
             "../fixtures/synthetic-candidate-schedule.json"
         ))
