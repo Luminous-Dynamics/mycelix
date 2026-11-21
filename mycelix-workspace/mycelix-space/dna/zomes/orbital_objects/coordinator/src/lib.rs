@@ -50,7 +50,10 @@ fn decode_linked_tle(record: Record, norad_id: u32) -> ExternResult<TleRecord> {
     decoded.ok_or_else(|| {
         SpaceError::new(
             SpaceErrorCode::InvalidInput,
-            format!("Link under NORAD {} does not point to a TLE record", norad_id),
+            format!(
+                "Link under NORAD {} does not point to a TLE record",
+                norad_id
+            ),
         )
         .into_wasm_error()
     })
@@ -353,7 +356,10 @@ pub fn get_latest_tles(norad_ids: Vec<u32>) -> ExternResult<Vec<TleLines>> {
             let record = get(target, GetOptions::default())?.ok_or_else(|| {
                 SpaceError::new(
                     SpaceErrorCode::InvalidInput,
-                    format!("TLE link under NORAD {} points to a missing record", norad_id),
+                    format!(
+                        "TLE link under NORAD {} points to a missing record",
+                        norad_id
+                    ),
                 )
                 .into_wasm_error()
             })?;
@@ -448,7 +454,10 @@ pub fn get_tles_with_metadata(
             let record = get(target, GetOptions::default())?.ok_or_else(|| {
                 SpaceError::new(
                     SpaceErrorCode::InvalidInput,
-                    format!("TLE link under NORAD {} points to a missing record", norad_id),
+                    format!(
+                        "TLE link under NORAD {} points to a missing record",
+                        norad_id
+                    ),
                 )
                 .into_wasm_error()
             })?;
