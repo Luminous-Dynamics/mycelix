@@ -715,6 +715,35 @@ mod tests {
         serde_json::to_vec(&trace).expect("group trace must serialize")
     }
 
+
+    fn grouped_unknown_trace(
+        logical_operation_id: &str,
+        recipient_commitment: &str,
+        recipient_set: &str,
+    ) -> Vec<u8> {
+        let mut trace: Value = serde_json::from_str(include_str!(
+            "../tests/fixtures/unknown-transport-ack.json"
+        ))
+        .expect("unknown ACK fixture must parse");
+
+        for event in trace["events"].as_array_mut().expect("events array") {
+            event["logical_operation_id"] = json!(logical_operation_id);
+        }
+
+        trace["group_fanout"] = json!({
+            "fanout_id": "fanout-test-1",
+            "group_id_commitment": "1".repeat(64),
+            "membership_epoch": 7,
+            "membership_snapshot_digest": "2".repeat(64),
+            "required_recipient_set_commitment": recipient_set,
+            "recipient_commitment": recipient_commitment,
+            "content_commitment": "a".repeat(64),
+            "aggregation_policy": "ALL_REQUIRED"
+        });
+
+        serde_json::to_vec(&trace).expect("group trace must serialize")
+    }
+
     fn manifest_for(children: &[(String, String, Vec<u8>)]) -> Vec<u8> {
         let recipients: Vec<String> = children
             .iter()
@@ -829,6 +858,132 @@ mod tests {
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|finding| {
             finding.message.contains("required child trace is missing")
+        }));
+    }
+
+
+    #[test]
+    fn unknown_child_keeps_fanout_partial_not_complete() {
+        let recipients = vec!["b".repeat(64), "c".repeat(64)];
+        let set_commitment = recipient_set_commitment(&recipients);
+        let first = grouped_success_trace("logical-1", &recipients[0], &set_commitment);
+        let second = grouped_unknown_trace("logical-2", &recipients[1], &set_commitment);
+        let children = vec![
+            ("logical-1".to_owned(), recipients[0].clone(), first.clone()),
+            ("logical-2".to_owned(), recipients[1].clone(), second.clone()),
+        ];
+        let manifest = manifest_for(&children);
+        let manifest_sha = sha256_hex(&manifest);
+        let (manifest_schema, trace_schema) = schemas();
+
+        let result = verify_fanout(
+            &manifest,
+            &manifest_sha,
+            &manifest_schema,
+            &trace_schema,
+            &[
+                ("success-child.json".to_owned(), first),
+                ("unknown-child.json".to_owned(), second),
+            ],
+            None,
+        )
+        .expect("valid partial/unknown child set should be structurally consistent");
+
+        assert_eq!(result.disposition, "PARTIAL_RECEIPT_EVIDENCE");
+        assert_eq!(result.verified_recipients, 1);
+        assert_eq!(result.unknown_recipients, 1);
+    }
+
+    #[test]
+    fn all_unknown_children_remain_unknown() {
+        let recipients = vec!["b".repeat(64), "c".repeat(64)];
+        let set_commitment = recipient_set_commitment(&recipients);
+        let first = grouped_unknown_trace("logical-1", &recipients[0], &set_commitment);
+        let second = grouped_unknown_trace("logical-2", &recipients[1], &set_commitment);
+        let children = vec![
+            ("logical-1".to_owned(), recipients[0].clone(), first.clone()),
+            ("logical-2".to_owned(), recipients[1].clone(), second.clone()),
+        ];
+        let manifest = manifest_for(&children);
+        let manifest_sha = sha256_hex(&manifest);
+        let (manifest_schema, trace_schema) = schemas();
+
+        let result = verify_fanout(
+            &manifest,
+            &manifest_sha,
+            &manifest_schema,
+            &trace_schema,
+            &[
+                ("unknown-a.json".to_owned(), first),
+                ("unknown-b.json".to_owned(), second),
+            ],
+            None,
+        )
+        .expect("unknown outcomes should be preserved as valid evidence");
+
+        assert_eq!(result.disposition, "UNKNOWN");
+        assert_eq!(result.verified_recipients, 0);
+        assert_eq!(result.unknown_recipients, 2);
+    }
+
+    #[test]
+    fn fanout_rejects_child_trace_byte_mutation() {
+        let recipient = "b".repeat(64);
+        let set_commitment = recipient_set_commitment(std::slice::from_ref(&recipient));
+        let child = grouped_success_trace("logical-1", &recipient, &set_commitment);
+        let manifest = manifest_for(&[(
+            "logical-1".to_owned(),
+            recipient,
+            child.clone(),
+        )]);
+        let manifest_sha = sha256_hex(&manifest);
+        let mut mutated_child = child;
+        mutated_child.push(b'\\n');
+        let (manifest_schema, trace_schema) = schemas();
+
+        let result = verify_fanout(
+            &manifest,
+            &manifest_sha,
+            &manifest_schema,
+            &trace_schema,
+            &[("mutated-child.json".to_owned(), mutated_child)],
+            None,
+        );
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().iter().any(|finding| {
+            finding.message.contains("child trace bytes do not match")
+        }));
+    }
+
+    #[test]
+    fn fanout_rejects_recipient_commitment_laundering() {
+        let recipient = "b".repeat(64);
+        let set_commitment = recipient_set_commitment(std::slice::from_ref(&recipient));
+        let mut child_value: Value = serde_json::from_slice(&grouped_success_trace(
+            "logical-1",
+            &recipient,
+            &set_commitment,
+        ))
+        .expect("child JSON");
+        child_value["group_fanout"]["recipient_commitment"] = json!("c".repeat(64));
+        let child = serde_json::to_vec(&child_value).expect("child JSON");
+        let manifest = manifest_for(&[("logical-1".to_owned(), recipient, child.clone())]);
+        let manifest_sha = sha256_hex(&manifest);
+        let (manifest_schema, trace_schema) = schemas();
+
+        let result = verify_fanout(
+            &manifest,
+            &manifest_sha,
+            &manifest_schema,
+            &trace_schema,
+            &[("laundered-child.json".to_owned(), child)],
+            None,
+        );
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().iter().any(|finding| {
+            finding.message.contains("does not match this child's committed recipient")
         }));
     }
 
