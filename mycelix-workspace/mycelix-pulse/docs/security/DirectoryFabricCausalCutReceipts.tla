@@ -217,6 +217,9 @@ Next ==
 
 Spec == Init /\ [][Next]_vars
 
+ClosureClaimRequiresCompleteCut ==
+    closureStatus = "VERIFIED_COMPLETE" => cutDependencies = Dependencies
+
 AllowRequiresCompleteCut ==
     decision = "ALLOW"
     =>
