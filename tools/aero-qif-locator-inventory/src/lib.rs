@@ -246,8 +246,6 @@ pub enum InventoryError {
     UnsupportedAssemblyPathReference(String),
     #[error("a supplied Plan document is not linked by any Results external reference: {0}")]
     UnlinkedPlanDocument(String),
-    #[error("duplicate Results external-document reference id {0}")]
-    DuplicateExternalReferenceId(u32),
     #[error("inventory canonicalization failed")]
     CanonicalizationFailed,
     #[error("inventory digest is malformed or does not match its body")]
