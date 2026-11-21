@@ -269,8 +269,7 @@ fn validate(s: &Scenario) -> Result<(), String> {
         ] {
             finite(name, value)?;
         }
-        if observation.response_standard_error < 0.0 || observation.forcing_standard_error < 0.0
-        {
+        if observation.response_standard_error < 0.0 || observation.forcing_standard_error < 0.0 {
             return Err("observation standard errors cannot be negative".into());
         }
         if observation.experimental_unit_id != s.event.experimental_unit_id {
