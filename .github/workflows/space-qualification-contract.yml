@@ -61,14 +61,48 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          source_file="mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-source-state-set-v0.1.json"
           package_file="mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-package-indeterminate-v0.1.json"
-          expected_sha="$(jq -r '.source_artifacts[] | select(.artifact_id == "synthetic-state-set") | .raw_bytes_sha256' "$package_file")"
-          expected_length="$(jq -r '.source_artifacts[] | select(.artifact_id == "synthetic-state-set") | .byte_length' "$package_file")"
-          actual_sha="$(sha256sum "$source_file" | awk '{print $1}')"
-          actual_length="$(wc -c < "$source_file" | tr -d ' ')"
-          test "$expected_sha" = "$actual_sha"
-          test "$expected_length" = "$actual_length"
+          jq -r '.source_artifacts[] | select(.preservation == "exact_bytes_retained") | [.artifact_path, .raw_bytes_sha256, (.byte_length | tostring)] | @tsv' "$package_file" |
+          while IFS=
+
+      - name: Enforce the coverage-complete but risk-indeterminate fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_file="mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-package-indeterminate-v0.1.json"
+          jq -e '
+            . as $package
+            | (.request.primary_object_id) as $primary
+            | .schema_version == "space-qualification-package/v0.1"
+            and .package_class == "synthetic_only"
+            and .pair_coverage.disposition == "complete"
+            and .pair_coverage.requested_pair_count == ((.request.requested_object_ids | length) - 1)
+            and ((.pair_coverage.retained_candidate_count + .pair_coverage.proven_excluded_count + .pair_coverage.unresolved_count + .pair_coverage.unsupported_count) == .pair_coverage.requested_pair_count)
+            and (([.pair_coverage.pairs[].secondary_object_id] | sort) == ([.request.requested_object_ids[] | select(. != $primary)] | sort))
+            and (.pair_coverage.pairs | all(.[]; .disposition == "proven_excluded" or (.disposition == "retained_candidate" and .narrow_phase_status == "searched_no_event" and .narrow_phase_assessment_id != null)))
+            and (.pair_coverage.pairs | all(.[]; . as $pair | any($package.assessments[]; .assessment_id == $pair.narrow_phase_assessment_id and .pair_id == $pair.pair_id and .assessment_type == "conjunction_screen" and .status == "completed" and .output_artifact_id != null and .output_sha256 != null)))
+            and .coverage.disposition == "complete"
+            and .coverage.requested_object_count == (.request.requested_object_ids | length)
+            and .coverage.assessed_object_count == (.object_dispositions | map(select(.disposition == "screened")) | length)
+            and .coverage.excluded_object_count == (.object_dispositions | map(select(.disposition == "excluded")) | length)
+            and .coverage.unassessed_object_count == (.object_dispositions | map(select(.disposition == "not_assessed")) | length)
+            and ((.request.requested_object_ids | sort) == (.object_dispositions | map(.object_id) | sort))
+            and ((.request.requested_object_ids | sort) == (.coverage.time_segments | map(select(.disposition == "assessed") | .object_id) | sort))
+            and (.assessments | all(.[]; .collision_probability.status != "reported" or (.collision_probability.value != null and .collision_probability.method_id != null)))
+            and (.source_artifacts | all(.[]; all(.field_semantics[]; .status != "absent_optional" or .normalized_value == null)))
+            and (.assessments | any(.[]; .covariance_status == "absent_optional" and .collision_probability.status == "not_calculated" and .collision_probability.value == null))
+            and .result.disposition == "indeterminate"
+            and .result.negative_conclusion == false
+            and .authority.actuation_authority == false
+            and (if .result.negative_conclusion then (.result.disposition == "complete" and .coverage.disposition == "complete") else true end)
+          ' "$package_file" >/dev/null
+\t' read -r source_file expected_sha expected_length; do
+            test -n "$source_file"
+            actual_sha="$(sha256sum "$source_file" | awk '{print $1}')"
+            actual_length="$(wc -c < "$source_file" | tr -d ' ')"
+            test "$expected_sha" = "$actual_sha"
+            test "$expected_length" = "$actual_length"
+          done
 
       - name: Enforce the coverage-complete but risk-indeterminate fixture
         shell: bash
