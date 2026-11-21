@@ -138,22 +138,37 @@ fn run() -> Result<(), String> {
         return Err("profile, source inputs, inventory output and report output must use distinct paths".into());
     }
 
+    if plans.len().saturating_add(1) > profile.limits.max_documents as usize {
+        return Err("source document count exceeds profile max_documents".into());
+    }
+    let mut total_source_bytes = 0u64;
     let mut inputs = Vec::with_capacity(plans.len() + 1);
+    let results_remaining = profile.limits.max_total_source_bytes;
+    let results_limit = profile.limits.max_source_bytes.min(results_remaining);
+    let results_bytes = read_bounded(&results_path, results_limit)?;
+    total_source_bytes = total_source_bytes.checked_add(results_bytes.len() as u64)
+        .ok_or("aggregate source byte count overflow")?;
     inputs.push(Input {
         qpid: results_qpid,
         role: QifDocumentRole::Results,
-        bytes: read_bounded(&results_path, profile.limits.max_source_bytes)?,
+        bytes: results_bytes,
         path: results_path,
     });
     for (qpid, path) in plans {
+        let remaining = profile.limits.max_total_source_bytes
+            .checked_sub(total_source_bytes)
+            .ok_or("aggregate source byte budget exhausted")?;
+        let limit = profile.limits.max_source_bytes.min(remaining);
+        let bytes = read_bounded(&path, limit)?;
+        total_source_bytes = total_source_bytes.checked_add(bytes.len() as u64)
+            .ok_or("aggregate source byte count overflow")?;
         inputs.push(Input {
             qpid,
             role: QifDocumentRole::Plan,
-            bytes: read_bounded(&path, profile.limits.max_source_bytes)?,
+            bytes,
             path,
         });
     }
-
     let documents = inputs.iter().map(|input| RawQifDocument {
         qpid: &input.qpid,
         role: input.role,
