@@ -78,9 +78,9 @@ The logical operation ID is stable across retries and routes. The attempt ID is 
 
 Keep the current V2 envelope as an explicitly versioned historical/current-alpha profile. Evaluate successor profiles behind a strict protocol registry and no-downgrade rules.
 
-**One-to-one sessions:** compare the current V2 one-shot envelope with mature asynchronous session protocols. Signal's PQXDH is a useful initial-key-establishment reference; Signal's ML-KEM Braid / SPQR is a sparse continuous key-agreement design intended to feed higher-level ratchets with successive post-quantum secrets. The Triple Ratchet direction is a stronger comparator for ongoing key evolution. Reuse mature implementation work only after license, API, platform, side-channel, state persistence and independent review checks. Do not independently invent a ratchet.
+**One-to-one sessions:** compare the current V2 one-shot envelope with mature asynchronous session protocols. Signal's PQXDH is a useful initial-key-establishment reference; Signal's ML-KEM Braid is a Sparse Continuous Key Agreement (SCKA) specification that uses incremental ML-KEM plus chunking/erasure coding to emit ordered key epochs for higher-level ratchets. Its specification describes forward secrecy and post-compromise security, and reports a ProVerif model in the Dolev–Yao model; that does not imply Pulse has these properties or that its implementation has been integrated. The critical benchmark is the **vulnerable message set** after compromise: it depends on actual peer send/response schedules and may remain unbounded when one peer never replies while the other continues sending. Measure messages, bytes and time to heal, plus sessions unhealed at the fixed horizon. The Triple Ratchet direction is another research comparator. Reuse mature implementation work only after license, API, platform, side-channel, state persistence and independent review checks. Do not independently invent a ratchet.
 
-**Groups:** evaluate MLS (RFC 9420) as the group-session architecture. The ML-KEM and hybrid MLS cipher-suite draft -08, published 18 November 2026 and sent to IESG Last Call on 19 November, is a timely research input—not a final standard. Track its finalization, interop vectors and independent implementations before treating it as a deployable baseline.
+**Groups:** evaluate MLS (RFC 9420) as the group-session architecture. The ML-KEM and hybrid MLS cipher-suite draft -08 was published 18 November 2026 and entered IESG Last Call through 3 December; it is a work-in-progress Internet-Draft, not a final standard. It defines both ML-KEM/hybrid KEM suites with classical signatures (PQ confidentiality only) and three suites with ML-DSA signatures (PQ authentication as well as the selected KEM's confidentiality). Do not collapse those profiles into one "PQ MLS" label. OpenMLS 0.9.2's published supported suite list still documents three classical RFC 9420 suites, not the draft-08 PQ suites. Require implementation, test vectors, interop and exact suite qualification before treating PQ MLS as deployable.
 
 **Crypto agility:** a profile identifier must bind KEMs, signatures, AEAD, KDF, transcript version, ratchet/session semantics, identity binding, device model, recovery model and downgrade policy. An algorithm name alone is not a security claim. Keep test vectors and canonical transcripts versioned. An unknown or unqualified profile fails closed.
 
@@ -146,9 +146,9 @@ Holochain 0.7.1 restore-from-DHT restores public chain data with the original ag
 
 | Reference | Strong established direction | Pulse implication |
 |---|---|---|
-| Signal | Mature 1:1 encrypted messaging; PQXDH initial exchange; ML-KEM Braid / SPQR and Triple Ratchet direction for ongoing PQ key evolution | Current Pulse V2 is behind on ratcheting and post-compromise recovery. Evaluate a mature implementation; do not claim parity yet. |
-| MLS / RFC 9420 | Standardized asynchronous group key establishment with forward secrecy and post-compromise security | Candidate group-session architecture; track the November 2026 ML-KEM/hybrid cipher-suite draft separately from published standards. |
-| Matrix | Open federation with Olm/Megolm E2EE and ongoing MLS integration work | Learn interoperable federation and server choice; qualify federation metadata and group-state semantics. |
+| Signal | Mature 1:1 encrypted messaging; PQXDH initial exchange; ML-KEM Braid SCKA specification with chunked key-epoch progression and explicit vulnerable-message-set behavior | Current Pulse V2 is behind on ongoing ratcheting and post-compromise recovery. Measure recovery under sparse/asymmetric links; do not claim parity until a qualified implementation is integrated. |
+| MLS / RFC 9420 | Standardized asynchronous group key establishment with forward secrecy and post-compromise security; PQ suite draft in IESG Last Call | OpenMLS 0.9.2 currently documents classical suites; draft-08 PQ KEM/classical-signature suites and ML-DSA-authenticated variants are separate future comparators. |
+| Matrix | Open federation with Olm 1:1 Double Ratchet and Megolm group encryption; vodozemac 0.11.2 is the mature Rust reference implementation | Learn interoperable federation and server choice; compare Olm/Megolm as classical ratchet/group references, not PQ ratchets. Qualify federation metadata and group-state semantics. |
 | SimpleX | No global user accounts or persistent user identifiers; per-connection queues and data-minimized routing | Strong privacy reference; examine residual transport logs, queue abuse, availability and recovery trade-offs. |
 | Holochain | Local-first source chains and DHT validation; capabilities are cell-scoped host authority | Keep user sovereignty and distributed validation, but qualify runtime version, public metadata exposure, restore and authority boundaries. |
 
@@ -188,7 +188,7 @@ A single critical violation blocks the tested profile. Do not average safety fai
 
 ### 6.2 Reproducible workload matrix
 
-Use deterministic scenario IDs and frozen inputs. Initial dimensions:
+Use deterministic scenario IDs and frozen inputs. Initial dimensions: The v0.1 scenario catalog currently contains 24 synthetic fixtures, including new SCKA, PQ-authentication-boundary, manifest-authority and ACCOUNT/DEVICE controls.
 
 - **Message payloads:** 1 KiB, 16 KiB, 256 KiB and 1 MiB; separately record attachment chunks.
 - **Group sizes:** 2, 10, 100 and 1,000 participants where the candidate protocol supports them.
@@ -354,10 +354,12 @@ This workstream coordinates rather than duplicates:
 
 A passing profile validator establishes only manifest/schema correctness. A passing synthetic replay establishes only the encoded fixtures and independent verifier. A finite model check establishes only its bounded model. A real conductor run establishes only the exact source, package tuple, topology, fault schedule and scenarios. A performance result applies only to the named hardware/workload. None alone establishes universal Byzantine safety, anonymity, cryptographic correctness without independent review, production readiness or general superiority to an industry comparator.
 
-## 12. Research references checked 20 November 2026
+## 12. Research references checked 21 November 2026
 
 - [Signal PQXDH specification](https://signal.org/docs/specifications/pqxdh/)
 - [Signal ML-KEM Braid specification](https://signal.org/docs/specifications/mlkembraid/)
+- [OpenMLS 0.9.2 documentation](https://docs.rs/crate/openmls/0.9.2): published supported suites and platforms; current documented suites are classical RFC 9420 profiles.
+- [vodozemac 0.11.2 documentation](https://docs.rs/crate/vodozemac/0.11.2): Rust Olm/Megolm implementation and security notes; benchmark as classical 1:1/group reference.
 - [Signal Protocol and Post-Quantum Ratchets](https://signal.org/blog/spqr/)
 - [IETF RFC 9420 — Messaging Layer Security](https://www.rfc-editor.org/rfc/rfc9420.html)
 - [IETF draft-ietf-mls-pq-ciphersuites-08](https://datatracker.ietf.org/doc/draft-ietf-mls-pq-ciphersuites/): published 18 November 2026; IESG Last Call announced 19 November 2026, due 3 December 2026; not yet an RFC.
