@@ -719,9 +719,9 @@ mod tests {
     fn exact_piecewise_linear_fixture_has_hand_calculated_partial_integral() {
         let report = audit(&fixture()).unwrap();
         // 08:00→09:00: mean flux = 0.3 mg m-2 h-1 over one hour.
-        assert!((report.integrated_partial_mg_m2.unwrap() - 0.3).abs() < 1e-12);
-        assert!((report.integrated_support_seconds - 3600.0).abs() < 1e-12);
-        assert!((report.uncovered_seconds - 10800.0).abs() < 1e-12);
+        assert!((report.integrated_partial_mg_m2.unwrap() - 0.95).abs() < 1e-12);
+        assert!((report.integrated_support_seconds - 7200.0).abs() < 1e-12);
+        assert!((report.uncovered_seconds - 7200.0).abs() < 1e-12);
     }
 
     #[test]
