@@ -43,6 +43,7 @@ struct DatasetSource {
     version: String,
     filename: String,
     publisher_md5_reference: Option<String>,
+    retrieval_sha256: Option<String>,
     expected_sample_rows: Option<usize>,
     license_status: String,
     retrieval_sha256: Option<String>,
@@ -83,6 +84,7 @@ struct AuditReport {
     source_version: String,
     source_filename: String,
     publisher_md5_reference: Option<String>,
+    retrieval_sha256_reference: Option<String>,
     expected_sample_rows: Option<usize>,
     actual_sample_rows: usize,
     input_sha256: String,
@@ -107,6 +109,7 @@ struct AuditReport {
     georeferenced_sample_count: usize,
     georeferenced_sample_count_is_subset: bool,
     sample_support: String,
+    profile_notes: Vec<String>,
     warnings: Vec<String>,
     interpretation_boundary: &'static str,
 }
@@ -617,6 +620,7 @@ fn audit_csv_bytes(
         source_version: profile.dataset_source.version,
         source_filename: profile.dataset_source.filename,
         publisher_md5_reference: profile.dataset_source.publisher_md5_reference,
+        retrieval_sha256_reference: profile.dataset_source.retrieval_sha256,
         expected_sample_rows: profile.dataset_source.expected_sample_rows,
         actual_sample_rows: actual_rows,
         input_sha256: sha256_hex(csv_bytes),
@@ -641,6 +645,7 @@ fn audit_csv_bytes(
         georeferenced_sample_count: profile.georeferenced_sample_count,
         georeferenced_sample_count_is_subset: profile.georeferenced_sample_count_is_subset,
         sample_support: profile.sample_support,
+        profile_notes: profile.notes,
         warnings,
         interpretation_boundary: INTERPRETATION_BOUNDARY,
     })
@@ -699,14 +704,23 @@ mod tests {
     const CSV: &str = include_str!("../fixtures/synthetic-spectral-data.csv");
     const PROFILE: &str = include_str!("../profiles/western-highveld-v2.json");
 
-    fn run_fixture(csv: &str, profile_json: &str) -> Result<AuditReport, String> {
-        audit_csv_bytes(csv.as_bytes(), profile_json.as_bytes())
+    fn synthetic_profile_json() -> String {
+        let mut profile: serde_json::Value = serde_json::from_str(PROFILE).unwrap();
+        profile["dataset_source"]["expected_sample_rows"] = serde_json::json!(2);
+        profile["georeferenced_sample_count"] = serde_json::json!(0);
+        serde_json::to_string(&profile).unwrap()
+    }
+
+    fn run_fixture(csv: &str) -> Result<AuditReport, String> {
+        let profile = synthetic_profile_json();
+        audit_csv_bytes(csv.as_bytes(), profile.as_bytes())
     }
 
     #[test]
     fn synthetic_fixture_has_auditable_structure_and_visible_warnings() {
-        let report = run_fixture(CSV, PROFILE).expect("fixture should be structurally auditable");
+        let report = run_fixture(CSV).expect("fixture should be structurally auditable");
         assert_eq!(report.actual_sample_rows, 2);
+        assert_eq!(report.expected_sample_rows, Some(2));
         assert_eq!(report.spectral_column_count, 6);
         assert_eq!(report.unique_sample_id_count, 2);
         assert_eq!(report.spectral_regions[0].column_count, 3);
@@ -722,7 +736,7 @@ mod tests {
     #[test]
     fn duplicate_sample_ids_are_rejected() {
         let duplicate = CSV.replace("synthetic-sample-02", "synthetic-sample-01");
-        assert!(run_fixture(&duplicate, PROFILE).is_err());
+        assert!(run_fixture(&duplicate).is_err());
     }
 
     #[test]
@@ -731,24 +745,24 @@ mod tests {
             "spec.7407,spec.7405,spec.4003",
             "spec.7405,spec.7407,spec.4003"
         );
-        assert!(run_fixture(&reordered, PROFILE).is_err());
+        assert!(run_fixture(&reordered).is_err());
     }
 
     #[test]
     fn duplicate_spectral_axis_is_rejected() {
         let duplicate = CSV.replace("spec.7405", "spec.7407");
-        assert!(run_fixture(&duplicate, PROFILE).is_err());
+        assert!(run_fixture(&duplicate).is_err());
     }
 
     #[test]
     fn nonfinite_spectral_value_is_rejected() {
         let nonfinite = CSV.replace("0.1,0.2,0.3", "0.1,NaN,0.3");
-        assert!(run_fixture(&nonfinite, PROFILE).is_err());
+        assert!(run_fixture(&nonfinite).is_err());
     }
 
     #[test]
     fn missing_reference_property_is_reported_not_imputed() {
-        let report = run_fixture(CSV, PROFILE).unwrap();
+        let report = run_fixture(CSV).unwrap();
         let phosphorus = report
             .property_summaries
             .iter()
@@ -764,7 +778,7 @@ mod tests {
             "Sample Name,pH (KCl)",
             "Sample Name,Sample Name"
         );
-        assert!(run_fixture(&duplicate, PROFILE).is_err());
+        assert!(run_fixture(&duplicate).is_err());
     }
 
     #[test]
