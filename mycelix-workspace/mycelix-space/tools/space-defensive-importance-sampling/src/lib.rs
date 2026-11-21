@@ -341,6 +341,62 @@ pub struct EvaluationEvidence {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct RepeatedEncounterObservation {
+    /// One retained initial state sample for the entire assessment horizon.
+    pub point: Vec<f64>,
+    pub physical_state: Vec<f64>,
+    /// Ordered high-fidelity event flags, one per EncounterDesign.encounter_ids entry.
+    pub collision_by_encounter: Vec<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RepeatedEncounterDesign {
+    /// Fixed order of encounter IDs for every trajectory row.
+    pub encounter_ids: Vec<String>,
+    pub horizon_id: String,
+    /// The oracle evaluated the whole declared horizon, including between-epoch minima.
+    pub event_oracle_evaluates_full_horizon: bool,
+    /// All encounter flags in one row came from one shared trajectory sample.
+    pub outcomes_share_one_trajectory_sample: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct EncounterMarginalEstimate {
+    pub encounter_id: String,
+    pub collision_sample_count: usize,
+    pub probability_estimate: f64,
+    pub standard_error: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct EncounterPairEstimate {
+    pub encounter_a: String,
+    pub encounter_b: String,
+    pub cooccurrence_sample_count: usize,
+    pub joint_probability_estimate: f64,
+    /// E[X_a X_b] - E[X_a]E[X_b], estimated under the target distribution.
+    pub target_event_covariance_estimate: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RepeatedEncounterRiskReport {
+    pub method: &'static str,
+    pub horizon_id: String,
+    pub encounter_ids: Vec<String>,
+    /// Probability of at least one collision across the entire horizon.
+    pub joint_path_union: ImportanceSamplingReport,
+    pub per_encounter_marginals: Vec<EncounterMarginalEstimate>,
+    pub pairwise_joint_estimates: Vec<EncounterPairEstimate>,
+    /// Naive independence comparator, absent if marginal estimates fall outside [0,1].
+    pub independent_events_union_approximation: Option<f64>,
+    /// Joint union estimate minus the naive independence approximation.
+    pub independence_approximation_gap: Option<f64>,
+    pub sample_rows: usize,
+    pub inference_scope: &'static str,
+    pub claim_ceiling: &'static str,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct BoundarySentinelObservation {
     pub point: Vec<f64>,
     pub physical_state: Vec<f64>,
@@ -489,6 +545,8 @@ pub enum EstimateError {
     MissingBoundarySentinelEvidence,
     SentinelValidationReusesTrainingOrEvaluation,
     LowFidelityBoundaryOracleNotAccepted,
+    InvalidRepeatedEncounterDesign,
+    RepeatedEncounterOutcomeCountMismatch { expected: usize, actual: usize },
 }
 
 impl fmt::Display for EstimateError {
@@ -740,6 +798,156 @@ pub fn estimate_collision_probability(
         max_collision_contribution_share: max_event_share,
         inference_horizon: "fixed_sample_only_not_anytime_valid",
         claim_ceiling: "statistical_bound_conditional_on_iid_fixed_proposal_and_correct_target_event_model_not_physical_safety",
+    })
+}
+
+/// Estimate the probability of at least one collision across a sequence of
+/// dependent encounters. Every encounter flag for a row shares exactly one
+/// initial uncertain state and one full-horizon high-fidelity event-oracle run.
+///
+/// The marginal estimates are diagnostics. The independent-events union
+/// approximation is reported only as a comparator; it is never substituted
+/// for the directly estimated shared-path union probability.
+pub fn estimate_repeating_encounter_risk(
+    proposal: &DefensiveGaussianMixture,
+    whitening: &WhiteningTransform,
+    observations: &[RepeatedEncounterObservation],
+    delta: f64,
+    evaluation_evidence: &EvaluationEvidence,
+    design: &RepeatedEncounterDesign,
+) -> Result<RepeatedEncounterRiskReport, EstimateError> {
+    if design.encounter_ids.len() < 2
+        || !valid_identifier(&design.horizon_id)
+        || !design.event_oracle_evaluates_full_horizon
+        || !design.outcomes_share_one_trajectory_sample
+    {
+        return Err(EstimateError::InvalidRepeatedEncounterDesign);
+    }
+    let mut encounter_ids = BTreeSet::new();
+    if design.encounter_ids.iter().any(|id| {
+        !valid_identifier(id) || !encounter_ids.insert(id.as_str())
+    }) {
+        return Err(EstimateError::InvalidRepeatedEncounterDesign);
+    }
+    if observations.len() < 2 {
+        return Err(EstimateError::InsufficientSamples(observations.len()));
+    }
+
+    let encounter_count = design.encounter_ids.len();
+    let mut union_observations = Vec::with_capacity(observations.len());
+    let mut weights = Vec::with_capacity(observations.len());
+    let mut marginal_counts = vec![0usize; encounter_count];
+    let mut marginal_contributions = vec![Vec::<f64>::with_capacity(observations.len()); encounter_count];
+    let mut pair_counts = vec![vec![0usize; encounter_count]; encounter_count];
+    let mut pair_contributions =
+        vec![vec![Vec::<f64>::with_capacity(observations.len()); encounter_count]; encounter_count];
+
+    for observation in observations {
+        if observation.collision_by_encounter.len() != encounter_count {
+            return Err(EstimateError::RepeatedEncounterOutcomeCountMismatch {
+                expected: encounter_count,
+                actual: observation.collision_by_encounter.len(),
+            });
+        }
+        let weight = proposal.likelihood_ratio(&observation.point)?;
+        let union_collision = observation.collision_by_encounter.iter().any(|hit| *hit);
+        union_observations.push(CollisionObservation {
+            point: observation.point.clone(),
+            physical_state: observation.physical_state.clone(),
+            collision: union_collision,
+        });
+        weights.push(weight);
+
+        for a in 0..encounter_count {
+            let hit_a = observation.collision_by_encounter[a];
+            if hit_a {
+                marginal_counts[a] += 1;
+            }
+            marginal_contributions[a].push(if hit_a { weight } else { 0.0 });
+            for b in (a + 1)..encounter_count {
+                let joint_hit = hit_a && observation.collision_by_encounter[b];
+                if joint_hit {
+                    pair_counts[a][b] += 1;
+                }
+                pair_contributions[a][b].push(if joint_hit { weight } else { 0.0 });
+            }
+        }
+    }
+
+    // This call enforces proposal/evaluation separation, whitening-to-physical
+    // correspondence, the frozen proposal, IID sampling attestation and the
+    // high-fidelity continuous-time oracle identity.
+    let joint_path_union = estimate_collision_probability(
+        proposal,
+        whitening,
+        &union_observations,
+        delta,
+        evaluation_evidence,
+    )?;
+
+    let n = observations.len();
+    let per_encounter_marginals = design
+        .encounter_ids
+        .iter()
+        .enumerate()
+        .map(|(index, encounter_id)| {
+            let values = &marginal_contributions[index];
+            let estimate = values.iter().sum::<f64>() / n as f64;
+            let variance = sample_variance(values, estimate);
+            EncounterMarginalEstimate {
+                encounter_id: encounter_id.clone(),
+                collision_sample_count: marginal_counts[index],
+                probability_estimate: estimate,
+                standard_error: (variance / n as f64).sqrt(),
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let mut pairwise_joint_estimates = Vec::new();
+    for a in 0..encounter_count {
+        for b in (a + 1)..encounter_count {
+            let values = &pair_contributions[a][b];
+            let joint_probability = values.iter().sum::<f64>() / n as f64;
+            let marginal_a = per_encounter_marginals[a].probability_estimate;
+            let marginal_b = per_encounter_marginals[b].probability_estimate;
+            pairwise_joint_estimates.push(EncounterPairEstimate {
+                encounter_a: design.encounter_ids[a].clone(),
+                encounter_b: design.encounter_ids[b].clone(),
+                cooccurrence_sample_count: pair_counts[a][b],
+                joint_probability_estimate: joint_probability,
+                target_event_covariance_estimate:
+                    joint_probability - marginal_a * marginal_b,
+            });
+        }
+    }
+
+    let independent_events_union_approximation = per_encounter_marginals
+        .iter()
+        .all(|marginal| {
+            marginal.probability_estimate.is_finite()
+                && (0.0..=1.0).contains(&marginal.probability_estimate)
+        })
+        .then(|| {
+            1.0 - per_encounter_marginals
+                .iter()
+                .map(|marginal| 1.0 - marginal.probability_estimate)
+                .product::<f64>()
+        });
+    let independence_approximation_gap = independent_events_union_approximation
+        .map(|independent| joint_path_union.estimate - independent);
+
+    Ok(RepeatedEncounterRiskReport {
+        method: "shared_trajectory_weighted_joint_path_union",
+        horizon_id: design.horizon_id.clone(),
+        encounter_ids: design.encounter_ids.clone(),
+        joint_path_union,
+        per_encounter_marginals,
+        pairwise_joint_estimates,
+        independent_events_union_approximation,
+        independence_approximation_gap,
+        sample_rows: n,
+        inference_scope: "joint_union_estimated_from_shared_trajectory_rows_no_independence_assumption_between_encounters",
+        claim_ceiling: "fixed_sample_joint_path_statistical_bound_conditional_on_iid_frozen_proposal_and_correct_full_horizon_event_oracle_not_physical_safety",
     })
 }
 
