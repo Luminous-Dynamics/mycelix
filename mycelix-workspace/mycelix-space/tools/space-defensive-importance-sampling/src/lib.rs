@@ -1013,6 +1013,38 @@ pub fn estimate_multifidelity_residual_probability(
     }
 
     let cap = 1.0 / proposal.epsilon;
+    let (residual_support_lower, residual_support_upper, residual_support_contract_id) =
+        match &parameters.residual_support_contract {
+            ResidualSupportContract::GeneralSigned => {
+                (-cap, cap, "general_signed_residual_support_v1")
+            }
+            ResidualSupportContract::VerifiedCenteredGaussianDiskSuperset {
+                high_fidelity_radius,
+                surrogate_radius,
+            } => {
+                if proposal.dimension != 2
+                    || !evaluation_evidence.event_oracle_is_analytic_reference_fixture
+                    || !high_fidelity_radius.is_finite()
+                    || !surrogate_radius.is_finite()
+                    || *high_fidelity_radius <= 0.0
+                    || *surrogate_radius <= 0.0
+                    || high_fidelity_radius > surrogate_radius
+                {
+                    return Err(EstimateError::InvalidResidualSupportContract);
+                }
+                let exact_surrogate_probability =
+                    exact_standard_normal_2d_disk_probability(*surrogate_radius)?;
+                if (surrogate_probability - exact_surrogate_probability).abs()
+                    > surrogate_probability_absolute_error_bound + 32.0 * f64::EPSILON
+                {
+                    return Err(EstimateError::SurrogateProbabilityDoesNotMatchAnalyticDisk);
+                }
+                (-cap, 0.0, "verified_centered_gaussian_disk_superset_v1")
+            }
+        };
+    let residual_support_range_width =
+        residual_support_upper - residual_support_lower;
+
     let mut seen_sample_ids = BTreeSet::new();
     let mut residuals = Vec::with_capacity(observations.len());
     let mut direct_contributions = Vec::with_capacity(observations.len());
@@ -1074,10 +1106,26 @@ pub fn estimate_multifidelity_residual_probability(
             false_positive_count += 1;
         }
 
+        if let ResidualSupportContract::VerifiedCenteredGaussianDiskSuperset {
+            high_fidelity_radius,
+            surrogate_radius,
+        } = &parameters.residual_support_contract
+        {
+            let squared_norm = observation.point.iter().map(|value| value * value).sum::<f64>();
+            let expected_high_fidelity = squared_norm <= high_fidelity_radius * high_fidelity_radius;
+            let expected_surrogate = squared_norm <= surrogate_radius * surrogate_radius;
+            if observation.high_fidelity_collision != expected_high_fidelity
+                || observation.surrogate_collision != expected_surrogate
+            {
+                return Err(EstimateError::ResidualSupportEventLabelMismatch);
+            }
+        }
+
         let direct = weight * hf;
         let residual = weight * (hf - lf);
         if direct > cap * (1.0 + NUMERIC_TOLERANCE)
-            || residual.abs() > cap * (1.0 + NUMERIC_TOLERANCE)
+            || residual < residual_support_lower - cap * NUMERIC_TOLERANCE
+            || residual > residual_support_upper + cap * NUMERIC_TOLERANCE
         {
             return Err(EstimateError::DefensiveContributionCapViolated {
                 contribution: residual.abs().max(direct),
@@ -1099,10 +1147,11 @@ pub fn estimate_multifidelity_residual_probability(
     let corrected_estimate = surrogate_probability + residual_mean;
 
     // Two-sided empirical-Bernstein interval: allocate delta/2 to each tail.
-    // General signed residual support is [-cap, +cap], i.e. range width 2*cap.
+    // The linear range term uses the proven support width: 2/epsilon for
+    // general signed residuals, 1/epsilon for a verified disk superset.
     let log_term = (4.0 / delta).ln();
     let empirical_radius = (2.0 * residual_variance * log_term / n as f64).sqrt()
-        + (14.0 * cap * log_term) / (3.0 * (n - 1) as f64);
+        + (7.0 * residual_support_range_width * log_term) / (3.0 * (n - 1) as f64);
     let total_radius = empirical_radius + surrogate_probability_absolute_error_bound;
     let lower = (corrected_estimate - total_radius).clamp(0.0, 1.0);
     let upper = (corrected_estimate + total_radius).clamp(0.0, 1.0);
@@ -1142,6 +1191,10 @@ pub fn estimate_multifidelity_residual_probability(
         false_positive_count,
         defensive_fraction: proposal.epsilon,
         residual_contribution_cap: cap,
+        residual_support_lower,
+        residual_support_upper,
+        residual_support_range_width,
+        residual_support_contract_id,
         surrogate_probability,
         surrogate_probability_absolute_error_bound,
         residual_mean,
