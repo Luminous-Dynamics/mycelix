@@ -1,0 +1,110 @@
+{
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "fixture_version": "synthetic-seasonal-ghg-coverage-v0.1",
+  "campaign": {
+    "campaign_id": "synthetic-campaign-001",
+    "study_id": "synthetic-study-001",
+    "site_id": "synthetic-site-001",
+    "experimental_unit_id": "plot-01",
+    "treatment_assignment_id": "synthetic-amendment-arm",
+    "gas_species": "N2O",
+    "mass_basis": "N2O",
+    "flux_unit": "mg_N2O_m2_h",
+    "window_start": "2026-11-20T08:00:00Z",
+    "window_end": "2026-11-20T12:00:00Z",
+    "maximum_gap_seconds": 5400,
+    "boundary_tolerance_seconds": 600,
+    "schedule_slots": [
+      {
+        "slot_id": "s0",
+        "scheduled_at": "2026-11-20T08:00:00Z",
+        "event_relation": "none",
+        "event_id": null,
+        "missing_reason": null
+      },
+      {
+        "slot_id": "s1",
+        "scheduled_at": "2026-11-20T09:00:00Z",
+        "event_relation": "before",
+        "event_id": "rain-01",
+        "missing_reason": null
+      },
+      {
+        "slot_id": "s2",
+        "scheduled_at": "2026-11-20T10:00:00Z",
+        "event_relation": "none",
+        "event_id": null,
+        "missing_reason": null
+      },
+      {
+        "slot_id": "s3",
+        "scheduled_at": "2026-11-20T11:00:00Z",
+        "event_relation": "after",
+        "event_id": "rain-01",
+        "missing_reason": "synthetic missed post-rain slot"
+      },
+      {
+        "slot_id": "s4",
+        "scheduled_at": "2026-11-20T12:00:00Z",
+        "event_relation": "none",
+        "event_id": null,
+        "missing_reason": "synthetic campaign endpoint not observed"
+      }
+    ],
+    "events": [
+      {
+        "event_id": "rain-01",
+        "event_type": "rainfall",
+        "window_start": "2026-11-20T08:30:00Z",
+        "occurred_at": "2026-11-20T10:00:00Z",
+        "window_end": "2026-11-20T11:30:00Z",
+        "minimum_before_observations": 1,
+        "minimum_after_observations": 1
+      }
+    ],
+    "observations": [
+      {
+        "observation_id": "obs-01",
+        "scheduled_slot_id": "s0",
+        "observed_at": "2026-11-20T08:00:00Z",
+        "gas_species": "N2O",
+        "mass_basis": "N2O",
+        "flux_value": 0.2,
+        "flux_unit": "mg_N2O_m2_h",
+        "quantification_status": "quantified",
+        "detection_limit": null,
+        "qc_state": "pass",
+        "standard_uncertainty": 0.02,
+        "uncertainty_group_id": "shared-instrument-01"
+      },
+      {
+        "observation_id": "obs-02",
+        "scheduled_slot_id": "s1",
+        "observed_at": "2026-11-20T09:00:00Z",
+        "gas_species": "N2O",
+        "mass_basis": "N2O",
+        "flux_value": 0.4,
+        "flux_unit": "mg_N2O_m2_h",
+        "quantification_status": "quantified",
+        "detection_limit": null,
+        "qc_state": "pass",
+        "standard_uncertainty": 0.03,
+        "uncertainty_group_id": "shared-instrument-01"
+      },
+      {
+        "observation_id": "obs-03",
+        "scheduled_slot_id": "s2",
+        "observed_at": "2026-11-20T10:00:00Z",
+        "gas_species": "N2O",
+        "mass_basis": "N2O",
+        "flux_value": 0.9,
+        "flux_unit": "mg_N2O_m2_h",
+        "quantification_status": "quantified",
+        "detection_limit": null,
+        "qc_state": "pass",
+        "standard_uncertainty": 0.08,
+        "uncertainty_group_id": "shared-instrument-01"
+      }
+    ]
+  }
+}
