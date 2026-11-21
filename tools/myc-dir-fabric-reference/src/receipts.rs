@@ -320,23 +320,14 @@ pub enum EffectOutcome {
     Committed = 1,
     RejectedNoEffect = 2,
     Unknown = 3,
-    ReconciledCommitted = 4,
-    ReconciledNoEffect = 5,
-    NotObserved = 6,
+    NotObserved = 4,
 }
 
-impl EffectOutcome {
-    fn requires_observation_digest(self) -> bool {
-        true
-    }
-
-    fn is_commit(self) -> bool {
-        matches!(self, Self::Committed | Self::ReconciledCommitted)
-    }
-
-    fn is_reconciliation(self) -> bool {
-        matches!(self, Self::ReconciledCommitted | Self::ReconciledNoEffect)
-    }
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
+pub enum ReconciliationOutcome {
+    ConfirmedCommitted = 1,
+    ConfirmedNoEffect = 2,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -375,9 +366,6 @@ impl EffectObservationReceipt {
         {
             return Err(ReceiptError::ZeroDigest);
         }
-        if outcome.requires_observation_digest() && observation_digest == [0; 32] {
-            return Err(ReceiptError::ZeroDigest);
-        }
         Ok(Self {
             request_digest,
             decision_receipt_digest,
@@ -393,6 +381,10 @@ impl EffectObservationReceipt {
 
     pub fn outcome(&self) -> EffectOutcome {
         self.outcome
+    }
+
+    pub fn attempt_id(&self) -> &AttemptId {
+        &self.attempt_id
     }
 
     pub fn attempt_number(&self) -> u32 {
@@ -416,14 +408,16 @@ impl EffectObservationReceipt {
         if &self.decision_receipt_digest != expected_decision_receipt_digest {
             return Err(ReceiptError::DecisionReceiptBindingMismatch);
         }
-        if self.outcome.is_commit() && decision.outcome() != DecisionOutcome::Allow {
+        if self.outcome == EffectOutcome::Committed
+            && decision.outcome() != DecisionOutcome::Allow
+        {
             return Err(ReceiptError::EffectCannotCommitWithoutAllow);
         }
         Ok(())
     }
 
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, ReceiptError> {
-        let mut bytes = b"MYC-DIR-EFFECT-OBSERVATION-RECEIPT\0\x01".to_vec();
+        let mut bytes = b"MYC-DIR-EFFECT-ATTEMPT-RECEIPT\0\x01".to_vec();
         bytes.extend_from_slice(&self.request_digest);
         bytes.extend_from_slice(&self.decision_receipt_digest);
         append_identifier(&mut bytes, self.logical_operation_id.as_str())
@@ -431,6 +425,102 @@ impl EffectObservationReceipt {
         append_identifier(&mut bytes, self.attempt_id.as_str())
             .map_err(|_| ReceiptError::IdentifierTooLong)?;
         bytes.extend_from_slice(&self.attempt_number.to_be_bytes());
+        bytes.extend_from_slice(&self.idempotency_key_digest);
+        append_identifier(&mut bytes, self.effect_owner.as_str())
+            .map_err(|_| ReceiptError::IdentifierTooLong)?;
+        bytes.push(self.outcome as u8);
+        bytes.extend_from_slice(&self.observation_digest);
+        Ok(bytes)
+    }
+}
+
+/// A reconciliation is a separate observation, not a new physical attempt.
+/// It points to the exact previous attempt whose outcome was Unknown/NotObserved.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EffectReconciliationReceipt {
+    request_digest: Digest,
+    decision_receipt_digest: Digest,
+    logical_operation_id: LogicalOperationId,
+    target_attempt_id: AttemptId,
+    target_attempt_number: u32,
+    idempotency_key_digest: Digest,
+    effect_owner: EffectOwnerId,
+    outcome: ReconciliationOutcome,
+    observation_digest: Digest,
+}
+
+impl EffectReconciliationReceipt {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        request_digest: Digest,
+        decision_receipt_digest: Digest,
+        logical_operation_id: LogicalOperationId,
+        target_attempt_id: AttemptId,
+        target_attempt_number: u32,
+        idempotency_key_digest: Digest,
+        effect_owner: EffectOwnerId,
+        outcome: ReconciliationOutcome,
+        observation_digest: Digest,
+    ) -> Result<Self, ReceiptError> {
+        if target_attempt_number == 0 {
+            return Err(ReceiptError::InvalidAttemptNumber);
+        }
+        if request_digest == [0; 32]
+            || decision_receipt_digest == [0; 32]
+            || idempotency_key_digest == [0; 32]
+            || observation_digest == [0; 32]
+        {
+            return Err(ReceiptError::ZeroDigest);
+        }
+        Ok(Self {
+            request_digest,
+            decision_receipt_digest,
+            logical_operation_id,
+            target_attempt_id,
+            target_attempt_number,
+            idempotency_key_digest,
+            effect_owner,
+            outcome,
+            observation_digest,
+        })
+    }
+
+    pub fn target_attempt_id(&self) -> &AttemptId {
+        &self.target_attempt_id
+    }
+
+    pub fn outcome(&self) -> ReconciliationOutcome {
+        self.outcome
+    }
+
+    pub fn validate_against_decision(
+        &self,
+        decision: &DecisionReceipt,
+        expected_decision_receipt_digest: &Digest,
+    ) -> Result<(), ReceiptError> {
+        if &self.request_digest != decision.request_digest() {
+            return Err(ReceiptError::RequestBindingMismatch);
+        }
+        if &self.decision_receipt_digest != expected_decision_receipt_digest {
+            return Err(ReceiptError::DecisionReceiptBindingMismatch);
+        }
+        if self.outcome == ReconciliationOutcome::ConfirmedCommitted
+            && decision.outcome() != DecisionOutcome::Allow
+        {
+            return Err(ReceiptError::EffectCannotCommitWithoutAllow);
+        }
+        Ok(())
+    }
+
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, ReceiptError> {
+        let mut bytes = b"MYC-DIR-EFFECT-RECONCILIATION-RECEIPT\0\x01".to_vec();
+        bytes.extend_from_slice(&self.request_digest);
+        bytes.extend_from_slice(&self.decision_receipt_digest);
+        append_identifier(&mut bytes, self.logical_operation_id.as_str())
+            .map_err(|_| ReceiptError::IdentifierTooLong)?;
+        append_identifier(&mut bytes, self.target_attempt_id.as_str())
+            .map_err(|_| ReceiptError::IdentifierTooLong)?;
+        bytes.extend_from_slice(&self.target_attempt_number.to_be_bytes());
         bytes.extend_from_slice(&self.idempotency_key_digest);
         append_identifier(&mut bytes, self.effect_owner.as_str())
             .map_err(|_| ReceiptError::IdentifierTooLong)?;
@@ -449,50 +539,52 @@ pub enum EffectHistoryAssessment {
     InvalidIdentityMismatch,
     InvalidDuplicateAttempt,
     InvalidAttemptSequence,
+    InvalidDuplicateReconciliation,
+    InvalidReconciliationTarget,
+    InvalidReconciliationOfResolvedAttempt,
+    InvalidAttemptWhileUnknown,
     InvalidDuplicateCommit,
     InvalidAttemptAfterCommit,
-    InvalidContradictoryObservations,
 }
 
 impl EffectHistoryAssessment {
-    /// An unknown or unobserved operation cannot safely be retried as a new
-    /// mutation. Re-authorization/retry is eligible only after a no-effect
-    /// result, and never after a committed logical operation.
+    /// A new physical attempt is eligible only after a known no-effect result
+    /// (directly observed or independently reconciled). Unknown is not no-effect.
     pub fn permits_new_attempt(self) -> bool {
         matches!(self, Self::RejectedOnly | Self::ReconciledNoEffect)
     }
 }
 
-/// Checks one logical operation across all physical attempts. Every attempt
-/// must preserve the logical operation ID, request digest, idempotency-key
-/// commitment and effect owner. Unknown outcomes block new attempts until an
-/// effect owner supplies a reconciliation observation for that logical key.
+/// Assesses a logical operation using physical attempt receipts and a separate
+/// set of owner-side reconciliation receipts. Reconciliation never consumes an
+/// attempt number. Every new physical attempt must follow a resolved no-effect
+/// outcome; a prior Unknown cannot be bypassed by appending another attempt.
 pub fn assess_effect_history(
-    receipts: &[EffectObservationReceipt],
+    attempts: &[EffectObservationReceipt],
+    reconciliations: &[EffectReconciliationReceipt],
 ) -> EffectHistoryAssessment {
-    if receipts.is_empty() {
+    if attempts.is_empty() {
         return EffectHistoryAssessment::InvalidAttemptSequence;
     }
 
-    let mut ordered = receipts.to_vec();
+    let mut ordered = attempts.to_vec();
     ordered.sort_by_key(|receipt| receipt.attempt_number);
-
     let first = &ordered[0];
-    for receipt in &ordered {
-        if receipt.logical_operation_id != first.logical_operation_id
-            || receipt.request_digest != first.request_digest
-            || receipt.idempotency_key_digest != first.idempotency_key_digest
-            || receipt.effect_owner != first.effect_owner
+
+    for attempt in &ordered {
+        if attempt.logical_operation_id != first.logical_operation_id
+            || attempt.request_digest != first.request_digest
+            || attempt.idempotency_key_digest != first.idempotency_key_digest
+            || attempt.effect_owner != first.effect_owner
         {
             return EffectHistoryAssessment::InvalidIdentityMismatch;
         }
     }
 
     for pair in ordered.windows(2) {
-        if pair[0].attempt_id == pair[1].attempt_id {
-            return EffectHistoryAssessment::InvalidDuplicateAttempt;
-        }
-        if pair[0].attempt_number == pair[1].attempt_number {
+        if pair[0].attempt_id == pair[1].attempt_id
+            || pair[0].attempt_number == pair[1].attempt_number
+        {
             return EffectHistoryAssessment::InvalidDuplicateAttempt;
         }
     }
@@ -505,57 +597,117 @@ pub fn assess_effect_history(
         return EffectHistoryAssessment::InvalidAttemptSequence;
     }
 
-    let mut commits = 0usize;
-    let mut pending_unknown = false;
-    let mut reconciled_no_effect = false;
-    let mut saw_rejected = false;
+    let mut reconciliation_by_attempt: std::collections::BTreeMap<AttemptId, &EffectReconciliationReceipt> =
+        std::collections::BTreeMap::new();
 
-    for (index, receipt) in ordered.iter().enumerate() {
-        match receipt.outcome {
-            EffectOutcome::Committed | EffectOutcome::ReconciledCommitted => {
+    for reconciliation in reconciliations {
+        if reconciliation.logical_operation_id != first.logical_operation_id
+            || reconciliation.request_digest != first.request_digest
+            || reconciliation.idempotency_key_digest != first.idempotency_key_digest
+            || reconciliation.effect_owner != first.effect_owner
+        {
+            return EffectHistoryAssessment::InvalidIdentityMismatch;
+        }
+
+        let Some(target) = ordered
+            .iter()
+            .find(|attempt| attempt.attempt_id == reconciliation.target_attempt_id)
+        else {
+            return EffectHistoryAssessment::InvalidReconciliationTarget;
+        };
+
+        if target.attempt_number != reconciliation.target_attempt_number
+            || target.decision_receipt_digest != reconciliation.decision_receipt_digest
+        {
+            return EffectHistoryAssessment::InvalidReconciliationTarget;
+        }
+
+        if !matches!(target.outcome, EffectOutcome::Unknown | EffectOutcome::NotObserved) {
+            return EffectHistoryAssessment::InvalidReconciliationOfResolvedAttempt;
+        }
+
+        if reconciliation_by_attempt
+            .insert(reconciliation.target_attempt_id.clone(), reconciliation)
+            .is_some()
+        {
+            return EffectHistoryAssessment::InvalidDuplicateReconciliation;
+        }
+    }
+
+    let mut commits = 0usize;
+    let mut committed_at: Option<usize> = None;
+    let mut any_reconciled_no_effect = false;
+    let mut any_rejected_no_effect = false;
+    let mut last_unresolved = false;
+
+    for (index, attempt) in ordered.iter().enumerate() {
+        let reconciliation = reconciliation_by_attempt.get(&attempt.attempt_id).copied();
+
+        let effective = match (attempt.outcome, reconciliation.map(|r| r.outcome)) {
+            (EffectOutcome::Committed, None) => EffectiveEffectOutcome::Committed,
+            (EffectOutcome::RejectedNoEffect, None) => EffectiveEffectOutcome::NoEffect,
+            (EffectOutcome::Unknown | EffectOutcome::NotObserved, None) => {
+                EffectiveEffectOutcome::Unknown
+            }
+            (
+                EffectOutcome::Unknown | EffectOutcome::NotObserved,
+                Some(ReconciliationOutcome::ConfirmedCommitted),
+            ) => EffectiveEffectOutcome::Committed,
+            (
+                EffectOutcome::Unknown | EffectOutcome::NotObserved,
+                Some(ReconciliationOutcome::ConfirmedNoEffect),
+            ) => EffectiveEffectOutcome::ReconciledNoEffect,
+            _ => return EffectHistoryAssessment::InvalidReconciliationOfResolvedAttempt,
+        };
+
+        match effective {
+            EffectiveEffectOutcome::Committed => {
                 commits += 1;
+                committed_at = Some(index);
                 if commits > 1 {
                     return EffectHistoryAssessment::InvalidDuplicateCommit;
                 }
+                last_unresolved = false;
+            }
+            EffectiveEffectOutcome::NoEffect => {
+                any_rejected_no_effect = true;
+                last_unresolved = false;
+            }
+            EffectiveEffectOutcome::ReconciledNoEffect => {
+                any_reconciled_no_effect = true;
+                last_unresolved = false;
+            }
+            EffectiveEffectOutcome::Unknown => {
                 if index + 1 != ordered.len() {
-                    return EffectHistoryAssessment::InvalidAttemptAfterCommit;
+                    return EffectHistoryAssessment::InvalidAttemptWhileUnknown;
                 }
-                pending_unknown = false;
-            }
-            EffectOutcome::RejectedNoEffect => {
-                saw_rejected = true;
-            }
-            EffectOutcome::Unknown | EffectOutcome::NotObserved => {
-                if commits > 0 {
-                    return EffectHistoryAssessment::InvalidAttemptAfterCommit;
-                }
-                // A prior ReconciledNoEffect explicitly permits a new attempt.
-                // If that new attempt is now uncertain, the logical operation
-                // becomes unresolved again until its owner reconciles it.
-                reconciled_no_effect = false;
-                pending_unknown = true;
-            }
-            EffectOutcome::ReconciledNoEffect => {
-                if commits > 0 {
-                    return EffectHistoryAssessment::InvalidContradictoryObservations;
-                }
-                pending_unknown = false;
-                reconciled_no_effect = true;
+                last_unresolved = true;
             }
         }
     }
 
     if commits == 1 {
+        if committed_at.is_some_and(|index| index + 1 != ordered.len()) {
+            return EffectHistoryAssessment::InvalidAttemptAfterCommit;
+        }
         EffectHistoryAssessment::CommittedOnce
-    } else if pending_unknown {
+    } else if last_unresolved {
         EffectHistoryAssessment::UnresolvedUnknown
-    } else if reconciled_no_effect {
+    } else if any_reconciled_no_effect {
         EffectHistoryAssessment::ReconciledNoEffect
-    } else if saw_rejected {
+    } else if any_rejected_no_effect {
         EffectHistoryAssessment::RejectedOnly
     } else {
         EffectHistoryAssessment::UnresolvedUnknown
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum EffectiveEffectOutcome {
+    Committed,
+    NoEffect,
+    ReconciledNoEffect,
+    Unknown,
 }
 
 #[cfg(test)]
@@ -607,6 +759,25 @@ mod tests {
             id("resource-owner", EffectOwnerId::new),
             outcome,
             [8; 32],
+        )
+        .unwrap()
+    }
+
+    fn reconcile(
+        target_attempt_number: u32,
+        outcome: ReconciliationOutcome,
+        decision_digest: Digest,
+    ) -> EffectReconciliationReceipt {
+        EffectReconciliationReceipt::new(
+            [1; 32],
+            decision_digest,
+            id("logical-op-1", LogicalOperationId::new),
+            id(&format!("attempt-{target_attempt_number}"), AttemptId::new),
+            target_attempt_number,
+            [7; 32],
+            id("resource-owner", EffectOwnerId::new),
+            outcome,
+            [12; 32],
         )
         .unwrap()
     }
@@ -688,31 +859,31 @@ mod tests {
             PolicyEvaluation::Permit { witness_digest: [9; 32] },
         );
         let committed = effect(1, EffectOutcome::Committed, [10; 32]);
-        assert_eq!(committed.validate_against_decision(&allow, &[11; 32]), Err(ReceiptError::DecisionReceiptBindingMismatch));
+        assert_eq!(
+            committed.validate_against_decision(&allow, &[11; 32]),
+            Err(ReceiptError::DecisionReceiptBindingMismatch)
+        );
 
         let non_allow = receipt(
             CausalCutAssessment::ClosureIncomplete,
             PolicyEvaluation::Permit { witness_digest: [9; 32] },
         );
         let invalid = effect(1, EffectOutcome::Committed, [11; 32]);
-        assert_eq!(invalid.validate_against_decision(&non_allow, &[11; 32]), Err(ReceiptError::EffectCannotCommitWithoutAllow));
+        assert_eq!(
+            invalid.validate_against_decision(&non_allow, &[11; 32]),
+            Err(ReceiptError::EffectCannotCommitWithoutAllow)
+        );
     }
 
     #[test]
     fn unknown_effect_outcome_blocks_new_attempt_until_reconciled() {
         let unknown = effect(1, EffectOutcome::Unknown, [10; 32]);
-        let unresolved = assess_effect_history(&[unknown.clone()]);
+        let unresolved = assess_effect_history(&[unknown.clone()], &[]);
         assert_eq!(unresolved, EffectHistoryAssessment::UnresolvedUnknown);
         assert!(!unresolved.permits_new_attempt());
 
-        let reconciled = EffectObservationReceipt::new(
-            [1; 32], [10; 32],
-            id("logical-op-1", LogicalOperationId::new),
-            id("reconcile-1", AttemptId::new),
-            2, [7; 32], id("resource-owner", EffectOwnerId::new),
-            EffectOutcome::ReconciledNoEffect, [12; 32],
-        ).unwrap();
-        let resolved = assess_effect_history(&[unknown, reconciled]);
+        let reconciled = reconcile(1, ReconciliationOutcome::ConfirmedNoEffect, [10; 32]);
+        let resolved = assess_effect_history(&[unknown], &[reconciled]);
         assert_eq!(resolved, EffectHistoryAssessment::ReconciledNoEffect);
         assert!(resolved.permits_new_attempt());
     }
@@ -720,55 +891,88 @@ mod tests {
     #[test]
     fn retry_after_no_effect_reconciliation_can_become_unknown_again() {
         let first_unknown = effect(1, EffectOutcome::Unknown, [10; 32]);
-        let no_effect = EffectObservationReceipt::new(
-            [1; 32],
-            [10; 32],
-            id("logical-op-1", LogicalOperationId::new),
-            id("reconcile-1", AttemptId::new),
-            2,
-            [7; 32],
-            id("resource-owner", EffectOwnerId::new),
-            EffectOutcome::ReconciledNoEffect,
-            [12; 32],
-        )
-        .unwrap();
-        let retry_unknown = effect(3, EffectOutcome::Unknown, [11; 32]);
-        let status = assess_effect_history(&[first_unknown, no_effect, retry_unknown]);
+        let retry_unknown = effect(2, EffectOutcome::Unknown, [11; 32]);
+        let reconciliation = reconcile(1, ReconciliationOutcome::ConfirmedNoEffect, [10; 32]);
+        let status = assess_effect_history(&[first_unknown, retry_unknown], &[reconciliation]);
         assert_eq!(status, EffectHistoryAssessment::UnresolvedUnknown);
         assert!(!status.permits_new_attempt());
+    }
+
+    #[test]
+    fn a_new_attempt_without_reconciling_the_prior_unknown_is_rejected() {
+        let first = effect(1, EffectOutcome::Unknown, [10; 32]);
+        let second = effect(2, EffectOutcome::RejectedNoEffect, [11; 32]);
+        assert_eq!(
+            assess_effect_history(&[first, second], &[]),
+            EffectHistoryAssessment::InvalidAttemptWhileUnknown
+        );
     }
 
     #[test]
     fn retry_must_preserve_logical_operation_and_idempotency_commitment() {
         let first = effect(1, EffectOutcome::Unknown, [10; 32]);
         let second = EffectObservationReceipt::new(
-            [1; 32], [11; 32],
+            [1; 32],
+            [11; 32],
             id("logical-op-different", LogicalOperationId::new),
             id("attempt-2", AttemptId::new),
-            2, [7; 32], id("resource-owner", EffectOwnerId::new),
-            EffectOutcome::RejectedNoEffect, [12; 32],
-        ).unwrap();
-        assert_eq!(assess_effect_history(&[first, second]), EffectHistoryAssessment::InvalidIdentityMismatch);
+            2,
+            [7; 32],
+            id("resource-owner", EffectOwnerId::new),
+            EffectOutcome::RejectedNoEffect,
+            [12; 32],
+        )
+        .unwrap();
+        assert_eq!(
+            assess_effect_history(&[first, second], &[]),
+            EffectHistoryAssessment::InvalidIdentityMismatch
+        );
     }
 
     #[test]
-    fn second_committed_attempt_is_rejected() {
+    fn second_committed_physical_attempt_is_rejected() {
         let first = effect(1, EffectOutcome::Committed, [10; 32]);
         let second = effect(2, EffectOutcome::Committed, [11; 32]);
-        assert_eq!(assess_effect_history(&[first, second]), EffectHistoryAssessment::InvalidAttemptAfterCommit);
+        assert_eq!(
+            assess_effect_history(&[first, second], &[]),
+            EffectHistoryAssessment::InvalidDuplicateCommit
+        );
     }
 
     #[test]
-    fn duplicate_commit_evidence_is_not_collapsed_into_one_success() {
-        let first = effect(1, EffectOutcome::Committed, [10; 32]);
-        let duplicate = EffectObservationReceipt::new(
-            [1; 32], [10; 32],
+    fn owner_reconciliation_of_commit_plus_later_commit_is_duplicate_effect() {
+        let first_unknown = effect(1, EffectOutcome::Unknown, [10; 32]);
+        let second_commit = effect(2, EffectOutcome::Committed, [11; 32]);
+        let first_reconciled_committed =
+            reconcile(1, ReconciliationOutcome::ConfirmedCommitted, [10; 32]);
+        assert_eq!(
+            assess_effect_history(
+                &[first_unknown, second_commit],
+                &[first_reconciled_committed]
+            ),
+            EffectHistoryAssessment::InvalidDuplicateCommit
+        );
+    }
+
+    #[test]
+    fn reconciliation_must_target_an_exact_unknown_attempt() {
+        let unknown = effect(1, EffectOutcome::Unknown, [10; 32]);
+        let wrong_target = EffectReconciliationReceipt::new(
+            [1; 32],
+            [10; 32],
             id("logical-op-1", LogicalOperationId::new),
-            id("attempt-2", AttemptId::new),
-            2, [7; 32], id("resource-owner", EffectOwnerId::new),
-            EffectOutcome::ReconciledCommitted, [12; 32],
-        ).unwrap();
-        assert_eq!(assess_effect_history(&[first, duplicate]), EffectHistoryAssessment::InvalidAttemptAfterCommit);
+            id("missing-attempt", AttemptId::new),
+            1,
+            [7; 32],
+            id("resource-owner", EffectOwnerId::new),
+            ReconciliationOutcome::ConfirmedNoEffect,
+            [12; 32],
+        )
+        .unwrap();
+        assert_eq!(
+            assess_effect_history(&[unknown], &[wrong_target]),
+            EffectHistoryAssessment::InvalidReconciliationTarget
+        );
     }
 
     #[test]
@@ -780,7 +984,10 @@ mod tests {
         assert_eq!(decision.outcome(), DecisionOutcome::Allow);
         let observation = effect(1, EffectOutcome::Committed, [10; 32]);
         observation.validate_against_decision(&decision, &[10; 32]).unwrap();
-        assert_eq!(assess_effect_history(&[observation]), EffectHistoryAssessment::CommittedOnce);
+        assert_eq!(
+            assess_effect_history(&[observation], &[]),
+            EffectHistoryAssessment::CommittedOnce
+        );
         assert!(!EffectHistoryAssessment::CommittedOnce.permits_new_attempt());
     }
 
@@ -788,6 +995,9 @@ mod tests {
     fn effect_history_rejects_attempt_number_gaps() {
         let first = effect(1, EffectOutcome::RejectedNoEffect, [10; 32]);
         let third = effect(3, EffectOutcome::RejectedNoEffect, [12; 32]);
-        assert_eq!(assess_effect_history(&[first, third]), EffectHistoryAssessment::InvalidAttemptSequence);
+        assert_eq!(
+            assess_effect_history(&[first, third], &[]),
+            EffectHistoryAssessment::InvalidAttemptSequence
+        );
     }
 }
