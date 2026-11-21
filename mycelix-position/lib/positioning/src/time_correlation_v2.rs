@@ -519,16 +519,16 @@ mod tests {
 
     #[test]
     fn correlation_requires_calibration_and_correlation_commitments() {
-        let mut correlation = correlation();
-        correlation.calibration_or_kernel_commitment.digest.clear();
+        let mut missing_calibration = correlation();
+        missing_calibration.calibration_or_kernel_commitment.digest.clear();
         assert_eq!(
-            correlation.validate(),
+            missing_calibration.validate(),
             Err(TimeCorrelationError::EmptyCommitment)
         );
-        let mut correlation = correlation();
-        correlation.correlation_commitment.digest.clear();
+        let mut missing_correlation_commitment = correlation();
+        missing_correlation_commitment.correlation_commitment.digest.clear();
         assert_eq!(
-            correlation.validate(),
+            missing_correlation_commitment.validate(),
             Err(TimeCorrelationError::EmptyCommitment)
         );
     }
