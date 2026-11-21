@@ -15,7 +15,15 @@
     "workload_profiles",
     "metrics",
     "fault_schedules",
-    "comparators"
+    "comparators",
+    "dependency_cut_profiles",
+    "causal_cut_corpus_binding",
+    "graph_proof_workload_profiles",
+    "effect_fence_profiles",
+    "postgres_effect_owner_profiles",
+    "effect_surface_inventory_profiles",
+    "queue_worker_profiles",
+    "queue_worker_corpus_binding"
   ],
   "properties": {
     "profile": {
@@ -42,7 +50,7 @@
       "properties": {
         "required_at_execution": {
           "type": "array",
-          "minItems": 10,
+          "minItems": 14,
           "uniqueItems": true,
           "items": {
             "type": "string",
@@ -334,6 +342,469 @@
             "type": "string",
             "minLength": 10
           }
+        }
+      }
+    },
+    "dependency_cut_profiles": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": false,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "dependencies",
+          "includes_explicit_denies",
+          "includes_revocation_dependencies"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 2
+          },
+          "dependencies": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "includes_explicit_denies": {
+            "const": true
+          },
+          "includes_revocation_dependencies": {
+            "const": true
+          }
+        }
+      }
+    },
+    "causal_cut_corpus_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "schema_path",
+        "declared_scenario_count",
+        "expected_decision_counts",
+        "unique_scenario_ids_required",
+        "independent_closure_completeness_oracle_required",
+        "effect_owner_history_oracle_required"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "schema_path": {
+          "type": "string"
+        },
+        "declared_scenario_count": {
+          "const": 24
+        },
+        "expected_decision_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ALLOW",
+            "DENY",
+            "INDETERMINATE"
+          ],
+          "properties": {
+            "ALLOW": {
+              "const": 8
+            },
+            "DENY": {
+              "const": 4
+            },
+            "INDETERMINATE": {
+              "const": 12
+            }
+          }
+        },
+        "unique_scenario_ids_required": {
+          "const": true
+        },
+        "independent_closure_completeness_oracle_required": {
+          "const": true
+        },
+        "effect_owner_history_oracle_required": {
+          "const": true
+        }
+      }
+    },
+    "graph_proof_workload_profiles": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "benchmark",
+              "fact_table_rows",
+              "query_families",
+              "additional_query_families",
+              "purpose"
+            ],
+            "properties": {
+              "id": {
+                "const": "ldbc_snb_interactive_comparator"
+              },
+              "benchmark": {
+                "type": "string"
+              },
+              "fact_table_rows": {
+                "type": "array",
+                "minItems": 3,
+                "items": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "query_families": {
+                "type": "array",
+                "minItems": 5,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "additional_query_families": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "purpose": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "benchmark",
+              "fact_table_rows",
+              "query_families",
+              "additional_query_families",
+              "purpose"
+            ],
+            "properties": {
+              "id": {
+                "const": "directory_authority_graph"
+              },
+              "benchmark": {
+                "type": "string"
+              },
+              "fact_table_rows": {
+                "type": "array",
+                "minItems": 4,
+                "items": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "query_families": {
+                "type": "array",
+                "minItems": 5,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "additional_query_families": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "purpose": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "benchmark",
+              "authority_roots",
+              "dependency_cut_sizes",
+              "purpose"
+            ],
+            "properties": {
+              "id": {
+                "const": "multi_realm_graph_federation"
+              },
+              "benchmark": {
+                "type": "string"
+              },
+              "authority_roots": {
+                "type": "array",
+                "minItems": 3,
+                "items": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "dependency_cut_sizes": {
+                "type": "array",
+                "minItems": 5,
+                "items": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "purpose": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "effect_fence_profiles": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "effect_owners",
+          "atomic_mutation_guard",
+          "strict_completion_requires_all_owner_acks",
+          "purpose"
+        ],
+        "properties": {
+          "id": {
+            "enum": [
+              "single_owner_atomic_mutation",
+              "multi_owner_all_ack",
+              "non_fenceable_external_adapter"
+            ]
+          },
+          "effect_owners": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "atomic_mutation_guard": {
+            "type": "boolean"
+          },
+          "strict_completion_requires_all_owner_acks": {
+            "const": true
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 10
+          }
+        }
+      }
+    },
+    "postgres_effect_owner_profiles": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "postgres_major_versions",
+          "writer_concurrency",
+          "object_count",
+          "isolation_profile",
+          "synchronous_commit",
+          "purpose"
+        ],
+        "properties": {
+          "id": {
+            "enum": [
+              "pg_parallel_writer_read_committed",
+              "pg_revocation_barrier_contention",
+              "pg_commit_unknown_idempotency_replay",
+              "pg_synchronous_failover_fence_recovery",
+              "pg_worker_claim_reassignment_race"
+            ]
+          },
+          "postgres_major_versions": {
+            "type": "array",
+            "minItems": 4,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                15,
+                16,
+                17,
+                18,
+                19
+              ]
+            }
+          },
+          "writer_concurrency": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "object_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "isolation_profile": {
+            "enum": [
+              "READ COMMITTED",
+              "SERIALIZABLE"
+            ]
+          },
+          "synchronous_commit": {
+            "enum": [
+              "on",
+              "off_negative_control"
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 20
+          }
+        }
+      }
+    },
+    "effect_surface_inventory_profiles": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "route_counts",
+          "owner_counts",
+          "inventory_churn_per_minute",
+          "purpose"
+        ],
+        "properties": {
+          "id": {
+            "enum": [
+              "effect_inventory_small",
+              "effect_inventory_enterprise",
+              "effect_inventory_churn",
+              "caep_signal_fanout"
+            ]
+          },
+          "route_counts": {
+            "type": "array",
+            "minItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "owner_counts": {
+            "type": "array",
+            "minItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "inventory_churn_per_minute": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 20
+          }
+        }
+      }
+    },
+    "queue_worker_profiles": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "messages_per_second",
+          "worker_count",
+          "backlog_messages",
+          "command_age_seconds",
+          "purpose"
+        ],
+        "properties": {
+          "id": {
+            "enum": [
+              "queue_worker_small",
+              "queue_worker_production",
+              "queue_worker_enterprise_stress",
+              "queue_worker_revocation_backlog"
+            ]
+          },
+          "messages_per_second": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "worker_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "backlog_messages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "command_age_seconds": {
+            "type": "array",
+            "minItems": 3,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 20
+          }
+        }
+      }
+    },
+    "queue_worker_corpus_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "schema_path",
+        "declared_scenario_count",
+        "unique_scenario_ids_required",
+        "independent_oracle_required",
+        "broker_delivery_and_effect_owner_results_separated"
+      ],
+      "properties": {
+        "path": {
+          "const": "docs/benchmarks/MYC_DIR_QUEUE_WORKER_V0_1.json"
+        },
+        "schema_path": {
+          "const": "docs/benchmarks/MYC_DIR_QUEUE_WORKER_V0_1.schema.json"
+        },
+        "declared_scenario_count": {
+          "const": 29
+        },
+        "unique_scenario_ids_required": {
+          "const": true
+        },
+        "independent_oracle_required": {
+          "const": true
+        },
+        "broker_delivery_and_effect_owner_results_separated": {
+          "const": true
         }
       }
     }

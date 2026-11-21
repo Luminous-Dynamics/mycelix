@@ -1,0 +1,250 @@
+{
+  "profile": "MYC-DIR-QUEUE-WORKER-0.1",
+  "version": "0.1.0",
+  "status": "preregistered_not_executed",
+  "claim_ceiling": "Synthetic adversarial contract corpus. No NATS, RabbitMQ, Kafka or worker runtime result is measured or qualified.",
+  "expected_invariants": [
+    "delivery_is_not_authorization",
+    "broker_ack_is_not_effect_receipt",
+    "effect_generation_checked_at_mutation",
+    "worker_claim_epoch_is_not_broker_delivery_count",
+    "unknown_outcome_blocks_retry",
+    "unknown_may_be_broker_acked_only_after_durable_reconciliation_handoff",
+    "exact_no_effect_reconciliation_required_before_retry",
+    "at_most_one_logical_effect"
+  ],
+  "scenarios": [
+    {
+      "id": "QW-001",
+      "broker": "provider-neutral",
+      "fault": "Exact broker, destination, message key and payload digest with bounded valid clock window",
+      "expected_assessment": "ELIGIBLE_FOR_OWNER_REVALIDATION",
+      "max_effect_commits": 0,
+      "broker_ack": "NO_ACK_BEFORE_OWNER_DISPOSITION"
+    },
+    {
+      "id": "QW-002",
+      "broker": "provider-neutral",
+      "fault": "Broker namespace substituted while message body remains unchanged",
+      "expected_assessment": "REJECT_DELIVERY",
+      "max_effect_commits": 0,
+      "broker_ack": "DURABLE_REJECT_THEN_ACK"
+    },
+    {
+      "id": "QW-003",
+      "broker": "provider-neutral",
+      "fault": "Destination or subject substituted to a privileged queue",
+      "expected_assessment": "REJECT_DELIVERY",
+      "max_effect_commits": 0,
+      "broker_ack": "DURABLE_REJECT_THEN_ACK"
+    },
+    {
+      "id": "QW-004",
+      "broker": "provider-neutral",
+      "fault": "Payload digest differs from the signed command envelope",
+      "expected_assessment": "REJECT_DELIVERY",
+      "max_effect_commits": 0,
+      "broker_ack": "DURABLE_REJECT_THEN_ACK"
+    },
+    {
+      "id": "QW-005",
+      "broker": "provider-neutral",
+      "fault": "Queue backlog delivers a command whose decision has expired",
+      "expected_assessment": "REJECT_BEFORE_ATTEMPT",
+      "max_effect_commits": 0,
+      "broker_ack": "DURABLE_REJECT_THEN_ACK"
+    },
+    {
+      "id": "QW-006",
+      "broker": "provider-neutral",
+      "fault": "Clock uncertainty interval touches or straddles decision expiry",
+      "expected_assessment": "REJECT_BEFORE_ATTEMPT",
+      "max_effect_commits": 0,
+      "broker_ack": "DURABLE_REJECT_THEN_ACK"
+    },
+    {
+      "id": "QW-007",
+      "broker": "provider-neutral",
+      "fault": "Resource generation advances while command is queued; old generation arrives after owner acknowledgement",
+      "expected_assessment": "REJECT_AT_EFFECT_OWNER",
+      "max_effect_commits": 0,
+      "broker_ack": "DURABLE_REJECT_THEN_ACK"
+    },
+    {
+      "id": "QW-008",
+      "broker": "provider-neutral",
+      "fault": "Same message is redelivered 99 times after exact effect commit",
+      "expected_assessment": "RETURN_PRIOR_OPERATION_RECEIPT",
+      "max_effect_commits": 1,
+      "broker_ack": "ACK_AFTER_DURABLE_COMMIT"
+    },
+    {
+      "id": "QW-009",
+      "broker": "provider-neutral",
+      "fault": "Broker acknowledgement is lost after effect commit and broker redelivers",
+      "expected_assessment": "RETURN_PRIOR_OPERATION_RECEIPT",
+      "max_effect_commits": 1,
+      "broker_ack": "ACK_AFTER_DURABLE_COMMIT"
+    },
+    {
+      "id": "QW-010",
+      "broker": "provider-neutral",
+      "fault": "Worker crashes before effect; owner reports exact ConfirmedNoEffect",
+      "expected_assessment": "RETRY_AFTER_EXACT_RECONCILIATION",
+      "max_effect_commits": 1,
+      "broker_ack": "ACK_OR_REPUBLISH_FROM_DURABLE_RETRY_RECORD"
+    },
+    {
+      "id": "QW-011",
+      "broker": "provider-neutral",
+      "fault": "Worker crashes after external effect may have committed but before receipt is observed",
+      "expected_assessment": "REQUIRE_UNKNOWN_RECONCILIATION",
+      "max_effect_commits": 1,
+      "broker_ack": "ACK_ONLY_AFTER_DURABLE_RECONCILIATION_HANDOFF"
+    },
+    {
+      "id": "QW-012",
+      "broker": "provider-neutral",
+      "fault": "Unknown outcome is reconciled against exact attempt as committed",
+      "expected_assessment": "RETURN_PRIOR_COMMIT_RECEIPT",
+      "max_effect_commits": 1,
+      "broker_ack": "ACK_AFTER_DURABLE_RECONCILIATION"
+    },
+    {
+      "id": "QW-013",
+      "broker": "provider-neutral",
+      "fault": "Unknown outcome is reconciled against exact attempt as no-effect",
+      "expected_assessment": "RETRY_AFTER_EXACT_RECONCILIATION",
+      "max_effect_commits": 1,
+      "broker_ack": "ACK_OR_REPUBLISH_FROM_DURABLE_RETRY_RECORD"
+    },
+    {
+      "id": "QW-014",
+      "broker": "provider-neutral",
+      "fault": "Reconciliation targets another attempt, request, logical operation or idempotency commitment",
+      "expected_assessment": "REJECT_RECONCILIATION",
+      "max_effect_commits": 0,
+      "broker_ack": "DO_NOT_ACK_UNTIL_DURABLE_QUARANTINE"
+    },
+    {
+      "id": "QW-015",
+      "broker": "provider-neutral",
+      "fault": "Old worker resumes with a claim epoch superseded by a newer worker",
+      "expected_assessment": "REJECT_STALE_WORKER",
+      "max_effect_commits": 0,
+      "broker_ack": "DURABLE_REJECT_THEN_ACK"
+    },
+    {
+      "id": "QW-016",
+      "broker": "provider-neutral",
+      "fault": "Worker lease expires while old process remains paused, then old process resumes",
+      "expected_assessment": "REJECT_STALE_WORKER",
+      "max_effect_commits": 0,
+      "broker_ack": "DURABLE_REJECT_THEN_ACK"
+    },
+    {
+      "id": "QW-017",
+      "broker": "NATS JetStream",
+      "fault": "Broker message deduplication window expires and the same logical operation is republished",
+      "expected_assessment": "OWNER_IDEMPOTENCY_RETURNS_PRIOR_RESULT",
+      "max_effect_commits": 1,
+      "broker_ack": "ACK_AFTER_DURABLE_COMMIT"
+    },
+    {
+      "id": "QW-018",
+      "broker": "NATS JetStream",
+      "fault": "Consumer ack is lost and explicit-ack delivery is redelivered after AckWait",
+      "expected_assessment": "OWNER_IDEMPOTENCY_RETURNS_PRIOR_RESULT",
+      "max_effect_commits": 1,
+      "broker_ack": "ACK_AFTER_DURABLE_COMMIT"
+    },
+    {
+      "id": "QW-019",
+      "broker": "RabbitMQ quorum",
+      "fault": "At-least-once dead-letter transfer produces a duplicate at the target queue",
+      "expected_assessment": "OWNER_IDEMPOTENCY_RETURNS_PRIOR_RESULT",
+      "max_effect_commits": 1,
+      "broker_ack": "ACK_AFTER_DURABLE_COMMIT"
+    },
+    {
+      "id": "QW-020",
+      "broker": "RabbitMQ quorum",
+      "fault": "Publisher confirm proves quorum replication but no worker has run",
+      "expected_assessment": "NO_EFFECT_CLAIM",
+      "max_effect_commits": 0,
+      "broker_ack": "NO_CONSUMER_ACK"
+    },
+    {
+      "id": "QW-021",
+      "broker": "Apache Kafka 4.4",
+      "fault": "Consumer offset and output topic are committed in one Kafka transaction; no external database mutation occurred",
+      "expected_assessment": "KAFKA_TRANSACTION_ONLY",
+      "max_effect_commits": 0,
+      "broker_ack": "NO_EXTERNAL_EFFECT_CLAIM"
+    },
+    {
+      "id": "QW-022",
+      "broker": "Apache Kafka 4.4",
+      "fault": "External database transaction commits but offset commit response is lost",
+      "expected_assessment": "RECONCILE_EXTERNAL_DESTINATION_AND_OFFSET",
+      "max_effect_commits": 1,
+      "broker_ack": "NO_BLIND_NEW_LOGICAL_OPERATION"
+    },
+    {
+      "id": "QW-023",
+      "broker": "provider-neutral",
+      "fault": "Out-of-order CAEP/SSF revocation events arrive while a queue backlog exists",
+      "expected_assessment": "NO_STATE_REGRESSION;REVALIDATE_FENCE",
+      "max_effect_commits": 0,
+      "broker_ack": "NO_STRONG_COMPLETION_WITHOUT_OWNER_ACKS"
+    },
+    {
+      "id": "QW-024",
+      "broker": "provider-neutral",
+      "fault": "Effect-surface inventory omits a worker, broker consumer or direct API route",
+      "expected_assessment": "STRICT_REVOCATION_BLOCKED",
+      "max_effect_commits": 0,
+      "broker_ack": "NO_ALL_OWNER_COMPLETION_CLAIM"
+    },
+    {
+      "id": "QW-025",
+      "broker": "provider-neutral",
+      "fault": "Worker-claim authority proof commitment is substituted while the broker message and owner generation are unchanged",
+      "expected_assessment": "REJECT_CLAIM_PROOF",
+      "max_effect_commits": 0,
+      "broker_ack": "DO_NOT_ACK_UNTIL_DURABLE_QUARANTINE"
+    },
+    {
+      "id": "QW-026",
+      "broker": "provider-neutral",
+      "fault": "Current durable claim epoch has advanced but an old worker submits its previous claim token",
+      "expected_assessment": "REJECT_STALE_WORKER",
+      "max_effect_commits": 0,
+      "broker_ack": "DURABLE_REJECT_THEN_ACK"
+    },
+    {
+      "id": "QW-027",
+      "broker": "provider-neutral",
+      "fault": "Worker claim validity expires in a queue backlog while the Allow decision remains valid",
+      "expected_assessment": "REJECT_EXPIRED_CLAIM",
+      "max_effect_commits": 0,
+      "broker_ack": "DURABLE_REJECT_THEN_ACK"
+    },
+    {
+      "id": "QW-028",
+      "broker": "provider-neutral",
+      "fault": "Exact idempotent replay arrives after the original Allow validity window; existing effect receipt can be returned but no new mutation may occur",
+      "expected_assessment": "READ_ONLY_PRIOR_EFFECT_REPLAY",
+      "max_effect_commits": 1,
+      "broker_ack": "ACK_AFTER_EXACT_READ_ONLY_REPLAY"
+    },
+    {
+      "id": "QW-029",
+      "broker": "provider-neutral",
+      "fault": "Worker claim reassignment races an in-flight PostgreSQL effect; claim update must wait for existing shared claim lock, then old epoch must fail after reassignment commit",
+      "expected_assessment": "SERIALIZE_EFFECT_BEFORE_REASSIGNMENT_THEN_REJECT_OLD_CLAIM",
+      "max_effect_commits": 1,
+      "broker_ack": "ACK_AFTER_DURABLE_EFFECT_OR_REJECTION"
+    }
+  ]
+}

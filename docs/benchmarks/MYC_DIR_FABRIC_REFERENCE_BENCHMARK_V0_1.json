@@ -2,7 +2,7 @@
   "profile": "MYC-DIR-FABRIC-REFERENCE-BENCHMARK-0.1",
   "version": "0.1.0",
   "status": "preregistered_not_executed",
-  "claim_ceiling": "Provisional target profile only. No latency, scale, revocation, privacy, Holochain runtime or superiority result is measured or established.",
+  "claim_ceiling": "Provisional target profile only. No latency, scale, revocation, privacy, Holochain runtime or superiority result is measured or established. Queue worker reference semantics and broker profiles are source-present only; no NATS, RabbitMQ or Kafka runtime adapter or measurement is qualified. Worker-claim proof issuer authenticity and durable current-claim state are external trust boundaries; the Rust module performs structural matching only.",
   "source_binding": {
     "required_at_execution": [
       "benchmark_profile_digest",
@@ -21,7 +21,16 @@
       "hardware_description",
       "topology_and_failure_schedule",
       "dataset_generator_version_and_seed",
-      "comparator_versions_and_configurations"
+      "comparator_versions_and_configurations",
+      "dependency_graph_snapshot_digest",
+      "closure_proof_digest",
+      "decision_receipt_digest",
+      "effect_owner_inventory_digest",
+      "queue_worker_corpus_digest",
+      "broker_configuration_digest",
+      "worker_image_digest",
+      "effect_owner_database_digest",
+      "queue_security_configuration_digest"
     ],
     "bind_each_sample_to_exact_commit": true,
     "no_moving_branch_references": true
@@ -302,6 +311,925 @@
       "target": null,
       "gate": "report_only",
       "measurement_state": "not_measured"
+    },
+    {
+      "id": "causal_cut_assessment_p95_us_at_64_dependencies",
+      "layer": "composition",
+      "metric": "Local request-scoped cut binding and dependency-frontier assessment at 64 dependencies",
+      "unit": "us",
+      "statistic": "p95",
+      "workload_profile": "all",
+      "target": {
+        "operator": "<=",
+        "value": 500
+      },
+      "gate": "performance_target",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "decision_receipt_compose_p95_us",
+      "layer": "receipts",
+      "metric": "Canonical authorization decision receipt composition (excluding signatures and external trust verification)",
+      "unit": "us",
+      "statistic": "p95",
+      "workload_profile": "all",
+      "target": {
+        "operator": "<=",
+        "value": 100
+      },
+      "gate": "performance_target",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "dependency_closure_false_complete_count",
+      "layer": "correctness",
+      "metric": "Dependency closure marked complete when any required dependency is omitted",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "allow_with_incomplete_cut_count",
+      "layer": "correctness",
+      "metric": "Allow decisions produced while a required dependency closure is incomplete, unverified, unavailable or non-dominating",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "known_allow_missing_dependency_detection_pct",
+      "layer": "correctness",
+      "metric": "Detection of seeded mandatory dependency omissions against an independent hidden dependency oracle",
+      "unit": "percent",
+      "statistic": "all_cases",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 100
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "decision_receipt_substitution_accept_count",
+      "layer": "correctness",
+      "metric": "Decision receipt accepted after mutation of request, realm, policy, cut, closure receipt, snapshot, evaluator, nonce or clock-profile binding",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "effect_commit_without_exact_allow_count",
+      "layer": "correctness",
+      "metric": "Effect owner commit accepted without a matching exact Allow decision receipt",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "duplicate_logical_effect_count",
+      "layer": "correctness",
+      "metric": "More than one committed effect for one logical operation and idempotency commitment",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "retry_while_effect_unknown_count",
+      "layer": "correctness",
+      "metric": "New mutation attempt admitted while prior logical operation outcome remains Unknown and no exact no-effect reconciliation exists",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "scitt_receipt_authority_escalation_count",
+      "layer": "interop",
+      "metric": "SCITT transparency receipt treated as identity, authorization or effect-owner authority",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "mandatory_policy_error_skipped_count",
+      "layer": "correctness",
+      "metric": "Permit survives because an adapter skipped an evaluation error on a policy dependency declared mandatory for the request",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "effect_owner_reconciliation_latency_ms",
+      "layer": "effects",
+      "metric": "Time from unknown downstream outcome to independently verified commit/no-effect reconciliation",
+      "unit": "ms",
+      "statistic": "distribution",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "dependency_cut_size_and_policy_graph_ratio",
+      "layer": "composition",
+      "metric": "Number of dependencies in request-scoped cut compared with whole reachable policy/authority graph, stratified by policy shape",
+      "unit": "ratio",
+      "statistic": "distribution",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "zk_dependency_closure_proof_generation_ms",
+      "layer": "privacy_preserving_closure",
+      "metric": "Zero-knowledge proof generation for complete dependency-closure query over a committed realm/issuer graph root",
+      "unit": "ms",
+      "statistic": "distribution",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "zk_dependency_closure_verifier_p95_ms",
+      "layer": "privacy_preserving_closure",
+      "metric": "Verifier time for closure completeness proof, excluding signature and graph-root trust validation",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "zk_dependency_closure_proof_bytes",
+      "layer": "privacy_preserving_closure",
+      "metric": "Canonical proof and public-input bytes for complete request-scoped dependency closure",
+      "unit": "bytes",
+      "statistic": "distribution",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "zk_dependency_closure_prover_peak_memory_mb",
+      "layer": "privacy_preserving_closure",
+      "metric": "Peak prover memory during complete request-scoped dependency closure",
+      "unit": "MB",
+      "statistic": "maximum",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "unadmitted_graph_root_accept_count",
+      "layer": "correctness",
+      "metric": "Dependency closure proof accepted against a graph root not admitted by the owning realm/issuer authority",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "stale_graph_root_required_revocation_accept_count",
+      "layer": "correctness",
+      "metric": "Dependency closure accepted against a graph root behind a required revocation or policy frontier",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "zk_closure_omitted_deny_edge_accept_count",
+      "layer": "correctness",
+      "metric": "Zero-knowledge closure proof accepted when query plan omits a deny-relevant edge family declared mandatory by the pinned schema",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "private_graph_public_metadata_leak_count",
+      "layer": "privacy",
+      "metric": "Prohibited private relationship or linkability metadata disclosed by public cut/receipt/transparency material",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "graph_root_rollover_old_proof_invalidation_ms",
+      "layer": "privacy_preserving_closure",
+      "metric": "Time to invalidate or reject a closure proof after a required realm graph-root rollover",
+      "unit": "ms",
+      "statistic": "distribution",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "stale_fence_mutation_accept_count",
+      "layer": "effect_owner",
+      "metric": "Protected mutations accepted with a token older than the owner's persisted generation",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "old_command_after_fence_complete_accept_count",
+      "layer": "revocation",
+      "metric": "Earlier-generation commands accepted after all required owners acknowledged revocation",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "effect_owner_fence_bypass_count",
+      "layer": "effect_owner",
+      "metric": "Protected write paths that bypass the atomic fence check",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "revocation_fence_owner_ack_coverage_pct",
+      "layer": "revocation",
+      "metric": "Required effect-owner acknowledgements received at exact target generation",
+      "unit": "percent",
+      "statistic": "minimum",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 100
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "revocation_fence_install_p95_ms",
+      "layer": "revocation",
+      "metric": "Per-owner durable fence installation latency from accepted install request to durable state",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "revocation_to_fence_complete_p95_ms",
+      "layer": "revocation",
+      "metric": "Revocation request to exact all-owner durable acknowledgement completion",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "revocation_fence_unknown_owner_count",
+      "layer": "revocation",
+      "metric": "Required owners whose install/ack status remains unknown at completion decision",
+      "unit": "count",
+      "statistic": "maximum",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_shared_fence_lock_wait_p95_ms",
+      "layer": "postgres_effect_owner",
+      "metric": "Shared owner-fence row-lock acquisition wait under effect load",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_exclusive_fence_wait_p95_ms",
+      "layer": "postgres_effect_owner",
+      "metric": "Revocation exclusive-lock wait for prior effect transactions to drain",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_effect_apply_p95_ms",
+      "layer": "postgres_effect_owner",
+      "metric": "End-to-end database-local fenced effect transaction latency",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_effect_apply_p99_ms",
+      "layer": "postgres_effect_owner",
+      "metric": "End-to-end database-local fenced effect transaction latency",
+      "unit": "ms",
+      "statistic": "p99",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_effect_throughput_ops_sec_per_domain",
+      "layer": "postgres_effect_owner",
+      "metric": "Committed independent-object effects per second in one fence domain",
+      "unit": "ops_per_second",
+      "statistic": "distribution",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_concurrent_object_write_overlap_pct",
+      "layer": "postgres_effect_owner",
+      "metric": "Different-object writes that overlap while sharing one fence generation",
+      "unit": "percent",
+      "statistic": "minimum",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_idempotency_replay_duplicate_mutation_count",
+      "layer": "postgres_effect_owner",
+      "metric": "Exact concurrent or delayed replay that executes the protected mutation twice",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_idempotency_substitution_accept_count",
+      "layer": "postgres_effect_owner",
+      "metric": "Changed request, operation, payload or decision accepted under an existing idempotency identity",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_stale_generation_new_effect_accept_count",
+      "layer": "postgres_effect_owner",
+      "metric": "New protected effect accepted with a generation below the owner high-water mark",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_fence_ack_before_durable_commit_count",
+      "layer": "postgres_effect_owner",
+      "metric": "Owner revocation acknowledgement emitted before the fence transaction durably commits",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_generation_regression_after_failover_count",
+      "layer": "postgres_effect_owner",
+      "metric": "Fence generation lower on an eligible promoted primary than the last acknowledged owner generation",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_outbox_receiver_stale_generation_accept_count",
+      "layer": "postgres_effect_owner",
+      "metric": "Remote effect receiver accepts an outbox command older than its own durable fence generation",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_unknown_commit_resolution_failure_count",
+      "layer": "postgres_effect_owner",
+      "metric": "Committed or aborted transaction cannot be resolved using the exact idempotency identity after lost acknowledgement",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "effect_surface_inventory_false_complete_count",
+      "layer": "revocation_inventory",
+      "metric": "External completeness oracle finds an omitted reachable effect route after inventory claimed VerifiedComplete",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "revocation_plan_without_verified_inventory_count",
+      "layer": "revocation_inventory",
+      "metric": "Strict revocation plan built without an exact VerifiedComplete effect-surface closure receipt",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "strict_revocation_with_nonfenced_route_count",
+      "layer": "revocation_inventory",
+      "metric": "Strict revocation completion claimed while an enumerated effect route is not atomically fenced",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "effect_route_owner_coverage_pct",
+      "layer": "revocation_inventory",
+      "metric": "Reachable mutation routes represented by an acknowledged owner in the exact inventory epoch",
+      "unit": "percent",
+      "statistic": "minimum",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 100
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "effect_inventory_discovery_latency_p95_ms",
+      "layer": "revocation_inventory",
+      "metric": "Time to discover, canonicalize and attest the revocation-specific effect-surface route inventory",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "caep_event_to_receiver_attenuation_p95_ms",
+      "layer": "continuous_access_evaluation",
+      "metric": "CAEP event acceptance to receiver-side session/token/device attenuation, excluding strong fence completion",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "caep_duplicate_event_extra_effect_count",
+      "layer": "continuous_access_evaluation",
+      "metric": "Duplicate CAEP event triggers an additional protected mutation or duplicate session side effect",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "caep_out_of_order_event_state_regression_count",
+      "layer": "continuous_access_evaluation",
+      "metric": "Older or replayed CAEP event regresses a receiver from newer revoked/attenuated state",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "caep_signal_without_fence_ack_strong_claim_count",
+      "layer": "continuous_access_evaluation",
+      "metric": "CAEP signal receipt is misreported as all-owner mutation-fence completion",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "caep_signal_false_fence_completion_count",
+      "layer": "revocation",
+      "metric": "CAEP-only session or token event counted as durable resource-owner fence installation or acknowledgement",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_delivery_binding_check_p95_us",
+      "layer": "queue_worker",
+      "metric": "Pure command-envelope and delivery binding assessment latency",
+      "unit": "us",
+      "statistic": "p95",
+      "workload_profile": "all",
+      "target": {
+        "operator": "<=",
+        "value": 250
+      },
+      "gate": "performance_target",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_delivery_to_owner_revalidation_p95_ms",
+      "layer": "queue_worker",
+      "metric": "Time from broker delivery to effect-owner revalidation request",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "all",
+      "target": {
+        "operator": "<=",
+        "value": 5
+      },
+      "gate": "performance_target",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_stale_generation_effect_accept_count",
+      "layer": "queue_worker_safety",
+      "metric": "Effects accepted with an old owner-fence generation after owner acknowledgement",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_stale_worker_claim_effect_accept_count",
+      "layer": "queue_worker_safety",
+      "metric": "Effects accepted from a superseded worker claim epoch",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_expired_command_effect_accept_count",
+      "layer": "queue_worker_safety",
+      "metric": "Effects accepted after command decision validity expired",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_payload_or_route_substitution_accept_count",
+      "layer": "queue_worker_safety",
+      "metric": "Payload, broker, destination or message-key substitutions accepted",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_duplicate_logical_effect_count",
+      "layer": "queue_worker_safety",
+      "metric": "Duplicate physical effect commits for one logical operation",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_unknown_outcome_retry_count",
+      "layer": "queue_worker_safety",
+      "metric": "New physical attempts started before exact Unknown outcome reconciliation",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_ack_without_durable_disposition_count",
+      "layer": "queue_worker_safety",
+      "metric": "Broker acknowledgements without terminal owner receipt or durable reconciliation handoff",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_delivery_without_terminal_or_recovery_state_count",
+      "layer": "queue_worker_safety",
+      "metric": "Accepted deliveries with neither durable terminal disposition nor durable recovery task",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_unknown_to_reconciliation_resolution_p95_ms",
+      "layer": "queue_recovery",
+      "metric": "Time from durable Unknown handoff to exact owner reconciliation",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "all",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_broker_publish_confirm_p95_ms",
+      "layer": "queue_transport",
+      "metric": "Broker publish confirmation latency under the pinned durability profile",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "all",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_worker_claim_proof_substitution_accept_count",
+      "layer": "queue_worker_safety",
+      "metric": "Effects accepted with a substituted or unauthenticated worker-claim proof commitment",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_worker_claim_expiry_accept_count",
+      "layer": "queue_worker_safety",
+      "metric": "Effects accepted after the exact worker claim validity window expires",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_worker_claim_epoch_advance_latency_p95_ms",
+      "layer": "queue_recovery",
+      "metric": "Time from worker claim epoch reassignment to durable effect-owner rejection of prior claim",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_stale_worker_claim_effect_accept_count",
+      "layer": "postgres_effect_owner",
+      "metric": "PostgreSQL effects accepted under a superseded worker claim epoch after reassignment commit",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_worker_claim_reassignment_lock_wait_p95_ms",
+      "layer": "postgres_effect_owner",
+      "metric": "p95 wait for claim reassignment while in-flight effect holds the current claim row FOR SHARE",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_decision_expiry_effect_accept_count",
+      "layer": "postgres_effect_owner",
+      "metric": "PostgreSQL mutations accepted when the owner-clock uncertainty interval touches or exceeds the Allow expiry",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_decision_clock_profile_mismatch_accept_count",
+      "layer": "postgres_effect_owner",
+      "metric": "PostgreSQL effects accepted with a decision/claim clock profile different from the owner profile",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
     }
   ],
   "fault_schedules": [
@@ -313,7 +1241,73 @@
     "Clock uncertainty that straddles not-before and expiry boundaries",
     "Concurrent incomparable realm and issuer authority frontiers",
     "Group cycles, alternate long paths, and node/edge/depth budget exhaustion",
-    "SCIM duplicate, delayed, replayed and out-of-order deprovision/security events"
+    "SCIM duplicate, delayed, replayed and out-of-order deprovision/security events",
+    "One mandatory issuer or revocation dependency deliberately omitted while all supplied dependencies are current",
+    "A relevant explicit deny or delegation revocation omitted from an otherwise valid closure",
+    "Dependency graph snapshot digest changes while request and individual authority positions remain unchanged",
+    "Policy entity graph changes between resolution and closure verification",
+    "Cedar-style permit plus skipped mandatory policy error versus non-mandatory error controls",
+    "SCITT inclusion receipt replayed as an authorization or effect-owner credential",
+    "Authorization Allow without downstream effect observation, lost acknowledgement, and exact no-effect reconciliation",
+    "Unknown attempt reconciled as no-effect followed by a retry that becomes unknown again",
+    "Decision receipt mutation across request, realm, policy, cut, closure receipt, snapshot, nonce, evaluator or clock binding",
+    "Effect receipt with wrong logical operation, attempt, idempotency key, owner, or decision receipt",
+    "Zero-knowledge closure proof is valid over an old but no-longer-admitted realm graph root",
+    "Graph-root authority is rotated after proof generation and before PEP decision",
+    "Graph query schema omits an explicit-deny or revocation edge family while prover returns a complete result for that narrower query",
+    "Graph query proof uses a different schema/query-plan digest from the relying realm profile",
+    "Stable low-entropy relationship commitments are scraped from public transparency or DHT material",
+    "Graph snapshot is authentic but has a delayed source-chain revocation not integrated into the required frontier",
+    "Revocation fence generation advances while an old Allow command is paused in the PEP, then the command arrives after owner installation",
+    "A protected mutation races the final owner-side fence installation; both are serialized in one atomic resource transaction",
+    "An owner persists a new generation but its acknowledgement is lost; retry and reconciliation must not lower the generation",
+    "An owner acknowledges before durable persistence, crashes, restores an old snapshot and attempts to accept an obsolete token",
+    "One effect owner is omitted from the revocation owner inventory while all listed owners acknowledge",
+    "One required owner remains unreachable or returns an acknowledgement for a different generation; revocation remains pending",
+    "A non-fenceable external API bypasses the enforcement proxy and must not be reported as strongly revoked",
+    "Duplicate, replayed, cross-scope or wrong-revocation-digest owner acknowledgements",
+    "One hundred concurrent requests reuse the same idempotency key, logical operation and identical payload; exactly one protected mutation may commit",
+    "Concurrent requests reuse one logical operation with different idempotency keys or payload digests; all but the exact accepted identity must fail closed",
+    "Different object rows in one fence domain perform concurrent writes under shared row locks while revocation contends for the exclusive fence lock",
+    "Revocation requests the fence update while multiple effects hold shared locks; after revocation commit, no old-generation new effect may commit",
+    "Terminate the database transaction after protected-object update but before effect receipt insertion; both must roll back",
+    "Lose the client response after synchronous commit; exact idempotent replay must resolve the original effect ID without repeating the mutation",
+    "Crash the primary after durable fence commit but before acknowledgement publication; restore/re-promote only under the governed epoch and exact generation",
+    "Asynchronous-commit negative control reports success before WAL flush; it must never trigger a strong durable-fence acknowledgement",
+    "Promote an asynchronous replica missing the last fence generation; readiness must refuse to claim a monotonic revocation guarantee",
+    "Force multi-object transactions to request fence domains in opposite order; deterministic global lock ordering or bounded deadlock retry must prevent unsafe partial outcomes",
+    "A reachable legacy API route is omitted from the caller-supplied owner list while all listed owners acknowledge; the independent inventory oracle must reject completeness",
+    "A newly discovered worker or service route changes the inventory epoch after closure proof generation; the old revocation plan must not be reused",
+    "An inventory is marked VerifiedComplete but includes a CAEP-signal-only route; strict revocation plan construction must fail",
+    "CAEP Session Revoked reaches the session service but not the downstream worker; session attenuation must not be reported as mutation-fence completion",
+    "Duplicate and out-of-order CAEP Session Revoked, Credential Change and Device Compliance Change events arrive under delayed network delivery; no state regression or duplicate effect is permitted",
+    "A CAEP receiver is partitioned while a revocation is propagated; the route remains pending and prevents strict all-owner completion",
+    "OAuth access-token revocation succeeds at the authorization server while a resource server still accepts an unexpired self-contained token; classify as propagation/TTL exposure, not strong fencing",
+    "CAEP Session Revoked / Token Claims Change signal is delivered while a resource owner remains partitioned and has not durably advanced its fence generation",
+    "Duplicate or delayed CAEP signal arrives after owner fence installation; event replay must not lower, re-advance or falsely acknowledge the durable generation",
+    "Broker publish confirm succeeds but no worker has received, revalidated or executed the command; do not count a resource effect",
+    "Worker crashes after the effect owner commits but before the worker observes the effect receipt; reconcile the exact logical operation",
+    "Broker consumer acknowledgement is lost after a committed effect and the same message is redelivered",
+    "Broker message de-duplication window expires and an old logical operation is republished with the same operation and idempotency commitments",
+    "Destination, subject, routing key or message body digest is substituted while the application message key remains unchanged",
+    "Worker lease expires during a process pause; a second worker claims a higher epoch and the old process resumes",
+    "Command is delayed for 24 hours in a backlog and delivered after its Allow validity interval has expired",
+    "NATS JetStream AckWait expires while the original worker is still alive and processing; both workers race the same logical operation",
+    "RabbitMQ quorum at-least-once dead-letter transfer duplicates a delivery at the target queue",
+    "Kafka transactional offset and output-topic commit succeeds but external database output is not in the same Kafka transaction",
+    "External database effect commits but Kafka offset acknowledgement is lost; consumer restarts and must reconcile the external effect",
+    "CAEP revocation signal arrives out of order while messages are queued; older signal must not regress the owner generation",
+    "Unknown effect outcome is handed off to a durable reconciliation task; broker may ack but no fresh attempt is allowed",
+    "Effect-surface inventory omits a worker pool, broker consumer, retry scheduler or direct API route; strict revocation remains blocked",
+    "Broker leader failover or consumer rebalance occurs while one worker holds an old claim; stale claim must fail at effect owner",
+    "Queue retention/TTL discards a message while an authoritative outbox record remains pending; recovery must not mark work complete",
+    "Worker claim epoch changes while old process is partitioned; delayed old worker submits a correctly signed but stale claim token",
+    "Worker claim proof commitment is substituted independently of the queue payload and command decision receipt",
+    "Decision Allow remains valid but the short worker claim expires before delayed execution; the effect owner must require a fresh claim",
+    "PostgreSQL worker claim reassignment contends with an in-flight effect holding FOR SHARE; reassignment must commit only after the prior effect resolves",
+    "PostgreSQL worker-claim update commits, then a delayed previous worker presents its correctly signed but stale epoch",
+    "PostgreSQL effect waits on advisory/fence/protected-object locks until the Allow decision approaches expiry; mutation-time validity check must execute after those locks are held",
+    "Exact read-only effect replay is requested after expiry; return the same prior receipt without a second physical mutation"
   ],
   "comparators": [
     {
@@ -350,6 +1344,418 @@
       "name": "Holochain",
       "scope": "Distributed substrate runtime",
       "consistency_profile": "Exact conductor/HDK/HDI/Lair/Kitsune2 tuple and real conductors; report simulated peers separately"
+    },
+    {
+      "name": "Cedar 4.6",
+      "scope": "Policy decision semantics and policy evaluation errors",
+      "consistency_profile": "Freeze policy set, schema and entity inputs; separately test policy-level skip-on-error vs required Mycelix authority-dependency closure; never let a mandatory missing identity/authority dependency become a skippable policy error"
+    },
+    {
+      "name": "SCITT RFC 9943",
+      "scope": "Signed decision-statement transparency and inclusion receipts",
+      "consistency_profile": "Measure statement registration/inclusion/lookup and privacy; explicitly classify SCITT receipt as transparency evidence only, not truth, identity, permission or proof of downstream effect"
+    },
+    {
+      "name": "VerfGraph (arXiv:2611.04240)",
+      "scope": "Zero-knowledge verifiable graph query evaluation over committed private graph snapshots",
+      "consistency_profile": "Adapt expansion/set expansion/count/shortest-path proof operators only where their query semantics match the dependency-closure query; bind exact graph root/schema/query; paper-reported results are preprint baselines, not Mycelix results"
+    },
+    {
+      "name": "ZKGraph",
+      "scope": "Expansion-centric zero-knowledge graph query proof baseline",
+      "consistency_profile": "Run the same query plans and committed graph roots as VerfGraph; report proof generation, proof size, verifier latency, prover memory and privacy separately"
+    },
+    {
+      "name": "LDBC SNB",
+      "scope": "Public graph-data workload for query scale and operator comparability",
+      "consistency_profile": "Use official Interactive and Business Intelligence workload definitions as graph operator baselines; add a separate authority graph corpus with deny/revocation semantics"
+    },
+    {
+      "name": "OpenID CAEP 1.0 (final)",
+      "scope": "Continuous access evaluation event types for session, token, credential, assurance, device and risk changes",
+      "consistency_profile": "Compare accepted-event-to-receiver-attenuation and replay/order handling; CAEP receipt does not assert every resource mutation path is durably fenced"
+    },
+    {
+      "name": "OpenID CAEP 1.1 (17 Nov 2026 draft)",
+      "scope": "Latest CAEP profile draft for interoperable continuous access evaluation events",
+      "consistency_profile": "Freeze draft revision and SSF profile; treat as interoperability target, not a final published standard"
+    },
+    {
+      "name": "OAuth RFC 7009 token revocation",
+      "scope": "Authorization-server token revocation and related grant invalidation",
+      "consistency_profile": "Measure resource-server propagation, introspection/cache behavior and residual unexpired-token acceptance separately from effect-owner fence completion"
+    },
+    {
+      "name": "NATS JetStream",
+      "scope": "Durable streams, consumer redelivery, explicit acknowledgements and publisher deduplication",
+      "consistency_profile": "Freeze file/memory storage, replicas, retention, consumer AckPolicy/AckWait/MaxDeliver, deduplication window and client version; report broker delivery separate from effect commits"
+    },
+    {
+      "name": "RabbitMQ 4.4 quorum queues",
+      "scope": "Raft-replicated queue durability, publisher confirms, manual acknowledgements, redelivery and dead-letter transfer",
+      "consistency_profile": "Freeze quorum size, publisher confirms, consumer acknowledgement mode, prefetch, delivery limit, dead-letter strategy and overflow; include duplicate dead-letter transfer"
+    },
+    {
+      "name": "Apache Kafka 4.4",
+      "scope": "Transactional producer and consumer-offset semantics for topic-to-topic processing",
+      "consistency_profile": "Freeze replication/ISR, producer idempotence and transactional.id, read_committed isolation and consumer offsets; external effect destinations need their own atomic coordination"
     }
-  ]
+  ],
+  "dependency_cut_profiles": [
+    {
+      "id": "minimal",
+      "dependencies": 1,
+      "includes_explicit_denies": true,
+      "includes_revocation_dependencies": true
+    },
+    {
+      "id": "small",
+      "dependencies": 8,
+      "includes_explicit_denies": true,
+      "includes_revocation_dependencies": true
+    },
+    {
+      "id": "medium",
+      "dependencies": 32,
+      "includes_explicit_denies": true,
+      "includes_revocation_dependencies": true
+    },
+    {
+      "id": "large",
+      "dependencies": 64,
+      "includes_explicit_denies": true,
+      "includes_revocation_dependencies": true
+    },
+    {
+      "id": "xlarge",
+      "dependencies": 128,
+      "includes_explicit_denies": true,
+      "includes_revocation_dependencies": true
+    },
+    {
+      "id": "stress",
+      "dependencies": 256,
+      "includes_explicit_denies": true,
+      "includes_revocation_dependencies": true
+    }
+  ],
+  "causal_cut_corpus_binding": {
+    "path": "docs/benchmarks/MYC_DIR_CAUSAL_CUT_RECEIPTS_V0_1.json",
+    "schema_path": "docs/benchmarks/MYC_DIR_CAUSAL_CUT_RECEIPTS_V0_1.schema.json",
+    "declared_scenario_count": 24,
+    "expected_decision_counts": {
+      "ALLOW": 8,
+      "DENY": 4,
+      "INDETERMINATE": 12
+    },
+    "unique_scenario_ids_required": true,
+    "independent_closure_completeness_oracle_required": true,
+    "effect_owner_history_oracle_required": true
+  },
+  "graph_proof_workload_profiles": [
+    {
+      "id": "ldbc_snb_interactive_comparator",
+      "benchmark": "LDBC Social Network Benchmark Interactive workload",
+      "fact_table_rows": [
+        60000,
+        120000,
+        240000
+      ],
+      "query_families": [
+        "IS3",
+        "IS4",
+        "IS5",
+        "IC1",
+        "IC2",
+        "IC9",
+        "IC13"
+      ],
+      "additional_query_families": [
+        "IC6",
+        "IC14 V2"
+      ],
+      "purpose": "Reproduce the published VerfGraph/ZKGraph graph-query comparison where operator semantics match; this is not an authorization-policy benchmark"
+    },
+    {
+      "id": "directory_authority_graph",
+      "benchmark": "MYC-DIR synthetic authority graph",
+      "fact_table_rows": [
+        10000,
+        100000,
+        1000000,
+        10000000
+      ],
+      "query_families": [
+        "membership_closure",
+        "nested_group_expansion",
+        "delegation_ancestry",
+        "issuer_admission",
+        "revocation_dependencies",
+        "explicit_deny_dependencies",
+        "federation_mapping"
+      ],
+      "additional_query_families": [
+        "multi_realm_causal_cut",
+        "request_scoped_closure"
+      ],
+      "purpose": "Measure exact dependency closure and authorization-specific deny/revocation semantics over a versioned sovereign graph"
+    },
+    {
+      "id": "multi_realm_graph_federation",
+      "benchmark": "MYC-DIR multi-root federation graph",
+      "authority_roots": [
+        4,
+        16,
+        64
+      ],
+      "dependency_cut_sizes": [
+        8,
+        32,
+        64,
+        128,
+        256
+      ],
+      "purpose": "Measure proof composition over independently signed realm and issuer roots without imposing a global sequence"
+    }
+  ],
+  "effect_fence_profiles": [
+    {
+      "id": "single_owner_atomic_mutation",
+      "effect_owners": 1,
+      "atomic_mutation_guard": true,
+      "strict_completion_requires_all_owner_acks": true,
+      "purpose": "One database/resource owner compares its durable generation and commits the mutation in one transaction"
+    },
+    {
+      "id": "multi_owner_all_ack",
+      "effect_owners": 4,
+      "atomic_mutation_guard": true,
+      "strict_completion_requires_all_owner_acks": true,
+      "purpose": "Multiple independently scoped owners install their own target generations; no quorum substitution for strict completion"
+    },
+    {
+      "id": "non_fenceable_external_adapter",
+      "effect_owners": 1,
+      "atomic_mutation_guard": false,
+      "strict_completion_requires_all_owner_acks": true,
+      "purpose": "Negative control for external APIs that cannot atomically inspect a fence; classify as best-effort only"
+    }
+  ],
+  "postgres_effect_owner_profiles": [
+    {
+      "id": "pg_parallel_writer_read_committed",
+      "postgres_major_versions": [
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "writer_concurrency": [
+        1,
+        8,
+        32,
+        128
+      ],
+      "object_count": 1000,
+      "isolation_profile": "READ COMMITTED",
+      "synchronous_commit": "on",
+      "purpose": "Measure parallel different-object writes through compatible shared fence locks on supported PostgreSQL releases"
+    },
+    {
+      "id": "pg_revocation_barrier_contention",
+      "postgres_major_versions": [
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "writer_concurrency": [
+        8,
+        32,
+        128
+      ],
+      "object_count": 1000,
+      "isolation_profile": "READ COMMITTED",
+      "synchronous_commit": "on",
+      "purpose": "Measure exclusive revocation wait, drain time and stale-token rejection under sustained effect traffic"
+    },
+    {
+      "id": "pg_commit_unknown_idempotency_replay",
+      "postgres_major_versions": [
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "writer_concurrency": [
+        1,
+        8,
+        32
+      ],
+      "object_count": 1000,
+      "isolation_profile": "READ COMMITTED",
+      "synchronous_commit": "on",
+      "purpose": "Inject disconnects before, during and after commit and resolve outcome through exact idempotency records"
+    },
+    {
+      "id": "pg_synchronous_failover_fence_recovery",
+      "postgres_major_versions": [
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "writer_concurrency": [
+        1,
+        8,
+        32
+      ],
+      "object_count": 1000,
+      "isolation_profile": "READ COMMITTED",
+      "synchronous_commit": "on",
+      "purpose": "Test promotion, WAL durability, epoch reconciliation and monotonic fence restoration across eligible primaries"
+    },
+    {
+      "id": "pg_worker_claim_reassignment_race",
+      "postgres_major_versions": [
+        16,
+        17,
+        18
+      ],
+      "writer_concurrency": [
+        1,
+        8,
+        32
+      ],
+      "object_count": 10000,
+      "isolation_profile": "READ COMMITTED",
+      "synchronous_commit": "on",
+      "purpose": "Measure claim-row reassignment serialization with active worker effects and prove old claims cannot mutate after new claim commit"
+    }
+  ],
+  "effect_surface_inventory_profiles": [
+    {
+      "id": "effect_inventory_small",
+      "route_counts": [
+        1,
+        4,
+        16
+      ],
+      "owner_counts": [
+        1,
+        2,
+        4
+      ],
+      "inventory_churn_per_minute": 1,
+      "purpose": "Validate canonical route inventory and closure binding for small organizations"
+    },
+    {
+      "id": "effect_inventory_enterprise",
+      "route_counts": [
+        64,
+        256,
+        1024
+      ],
+      "owner_counts": [
+        8,
+        32,
+        128
+      ],
+      "inventory_churn_per_minute": 10,
+      "purpose": "Measure route discovery and closure across gateway, sessions, workers, brokers and data stores"
+    },
+    {
+      "id": "effect_inventory_churn",
+      "route_counts": [
+        256,
+        1024,
+        4096
+      ],
+      "owner_counts": [
+        32,
+        128,
+        512
+      ],
+      "inventory_churn_per_minute": 100,
+      "purpose": "Measure topology churn, old-proof invalidation and route-registration lag"
+    },
+    {
+      "id": "caep_signal_fanout",
+      "route_counts": [
+        32,
+        128,
+        512
+      ],
+      "owner_counts": [
+        8,
+        32,
+        128
+      ],
+      "inventory_churn_per_minute": 20,
+      "purpose": "Measure CAEP fanout, replay handling and receiver attenuation separately from durable fence completion"
+    }
+  ],
+  "queue_worker_profiles": [
+    {
+      "id": "queue_worker_small",
+      "messages_per_second": 100,
+      "worker_count": 1,
+      "backlog_messages": 1000,
+      "command_age_seconds": [
+        0,
+        60,
+        3600
+      ],
+      "purpose": "Establish baseline envelope checks and one-worker recovery semantics"
+    },
+    {
+      "id": "queue_worker_production",
+      "messages_per_second": 10000,
+      "worker_count": 32,
+      "backlog_messages": 1000000,
+      "command_age_seconds": [
+        0,
+        60,
+        3600
+      ],
+      "purpose": "Measure broker and worker behavior at moderate enterprise workload"
+    },
+    {
+      "id": "queue_worker_enterprise_stress",
+      "messages_per_second": 100000,
+      "worker_count": 256,
+      "backlog_messages": 10000000,
+      "command_age_seconds": [
+        0,
+        60,
+        3600
+      ],
+      "purpose": "Stress redelivery, rebalances, owner lock contention and recovery capacity"
+    },
+    {
+      "id": "queue_worker_revocation_backlog",
+      "messages_per_second": 10000,
+      "worker_count": 32,
+      "backlog_messages": 1000000,
+      "command_age_seconds": [
+        0,
+        60,
+        3600,
+        86400
+      ],
+      "purpose": "Revoke while commands are queued, delivered, in flight, delayed and recovering; require zero post-ack stale-generation effect"
+    }
+  ],
+  "queue_worker_corpus_binding": {
+    "path": "docs/benchmarks/MYC_DIR_QUEUE_WORKER_V0_1.json",
+    "schema_path": "docs/benchmarks/MYC_DIR_QUEUE_WORKER_V0_1.schema.json",
+    "declared_scenario_count": 29,
+    "unique_scenario_ids_required": true,
+    "independent_oracle_required": true,
+    "broker_delivery_and_effect_owner_results_separated": true
+  }
 }

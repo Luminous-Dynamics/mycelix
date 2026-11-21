@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/MYC_DIR_QUEUE_WORKER_V0_1.schema.json",
+  "title": "Mycelix Directory Fabric queued worker boundary adversarial corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile",
+    "version",
+    "status",
+    "claim_ceiling",
+    "expected_invariants",
+    "scenarios"
+  ],
+  "properties": {
+    "profile": {
+      "const": "MYC-DIR-QUEUE-WORKER-0.1"
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "const": "preregistered_not_executed"
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 50
+    },
+    "expected_invariants": {
+      "type": "array",
+      "minItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 29,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "broker",
+          "fault",
+          "expected_assessment",
+          "max_effect_commits",
+          "broker_ack"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^QW-[0-9]{3}$"
+          },
+          "broker": {
+            "enum": [
+              "provider-neutral",
+              "NATS JetStream",
+              "RabbitMQ quorum",
+              "Apache Kafka 4.4"
+            ]
+          },
+          "fault": {
+            "type": "string",
+            "minLength": 20
+          },
+          "expected_assessment": {
+            "type": "string",
+            "minLength": 3
+          },
+          "max_effect_commits": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "broker_ack": {
+            "type": "string",
+            "minLength": 3
+          }
+        }
+      }
+    }
+  }
+}
