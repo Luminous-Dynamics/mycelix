@@ -484,6 +484,12 @@ The new benchmark profile records 4 load/revocation profiles, 12 metrics and the
 
 TLA+ model: DirectoryFabricQueueWorker.tla, with safe and four mutant configurations covering stale owner fence, stale worker claim, retry while Unknown and ack-on-delivery. TLC has not been run.
 
+## 12.5 Worker claim tokens and stale executor rejection
+
+The queue-delivery module now models a separate WorkerClaimToken and durable WorkerClaimState. The token binds one logical operation to a worker identity, monotonic claim epoch, clock profile, bounded validity and external proof commitment. At effect time the owner structurally compares the token with its durable current-claim record; the same mutation path must also verify the claim issuer and owner fence. A stale process resuming after reassignment must fail even if it still has the original broker delivery.
+
+This is separate from both the resource fence generation and broker delivery counter. The resource fence answers whether the action remains authorized for a resource; the worker claim answers whether this executor currently owns the attempt; broker metadata only describes transport. The Rust contract does not implement the external claim issuer, durable claim database or cryptographic proof verification.
+
 ## 13. Explicit claim ceiling
 
 This work is a pure reference contract and finite synthetic corpus. It does not establish:
