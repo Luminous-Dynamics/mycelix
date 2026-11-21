@@ -608,7 +608,10 @@ fn run(input: &Path, output: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let digest = format!("{:x}", Sha256::digest(&bytes));
     let report = build_report(&scenario, digest);
     let json = serde_json::to_vec_pretty(&report)?;
-    let mut file = OpenOptions::new().write(true).create_new(true).open(output)?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output)?;
     file.write_all(&json)?;
     file.write_all(b"\n")?;
     Ok(())
