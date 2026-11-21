@@ -416,6 +416,7 @@ pub enum ScreeningCoverageError {
 /// This is a set-integrity check, not proof that the subsequent propagation
 /// or probability calculation was physically valid. Those stages must report
 /// their own failures and must not silently skip samples.
+/// This validator must run before a caller may interpret an empty event list as a negative screen.
 pub fn validate_screening_coverage(
     requested_norad_ids: &[u32],
     returned_norad_ids: &[u32],
