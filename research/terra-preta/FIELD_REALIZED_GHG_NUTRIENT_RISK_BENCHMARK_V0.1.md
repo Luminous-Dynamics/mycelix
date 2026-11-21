@@ -299,7 +299,7 @@ Do not impose a universal N₂O reduction or yield target before a local estiman
 
 ## 12. South African safety and regulatory boundary
 
-South Africa's Agriculture Inputs Control Directorate administers agricultural-input oversight under Act 36 of 1947. Government guidance states that Group 2 fertilizers must be registered to manufacture or sell and require an accredited-laboratory certificate of analysis. Group 3 guidance separately covers specified plant-growth/soil-fertility claims and trial/study evidence. Classification depends on the actual material, ingredients, intended use and claims.
+South Africa's Agriculture Inputs Control Directorate administers agricultural-input oversight under Act 36 of 1947. Government guidance states that Group 2 fertilizers must be registered to manufacture or sell and require an accredited-laboratory certificate of analysis. The June 2019 [Group 3 fertilizer guideline](https://www.dlrrd.gov.za/images/Branches/AgricProducHealthFoodSafety/agriculture-inputs-control/guidelines/guidelines-for-registration-of-group-3-fertilizers.pdf) describes evidence of efficacy and no harmful/detrimental soil or plant effects, requires suitably controlled and replicated scientific investigations for applicable claims, and specifies at least three trials in total to indicate an efficacy trend when a whole crop group is claimed. The guideline's applicability depends on the actual category and claim; it is not a universal prescription for every research study. Classification depends on the actual material, ingredients, intended use and claims.
 
 Before any physical manufacturing, trial, distribution or application:
 - obtain written direction from the Registrar on applicable classification, registration and trial requirements;
