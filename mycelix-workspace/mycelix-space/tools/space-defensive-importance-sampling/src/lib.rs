@@ -546,7 +546,10 @@ pub enum EstimateError {
     SentinelValidationReusesTrainingOrEvaluation,
     LowFidelityBoundaryOracleNotAccepted,
     InvalidRepeatedEncounterDesign,
-    RepeatedEncounterOutcomeCountMismatch { expected: usize, actual: usize },
+    RepeatedEncounterOutcomeCountMismatch {
+        expected: usize,
+        actual: usize,
+    },
 }
 
 impl fmt::Display for EstimateError {
@@ -824,9 +827,11 @@ pub fn estimate_repeating_encounter_risk(
         return Err(EstimateError::InvalidRepeatedEncounterDesign);
     }
     let mut encounter_ids = BTreeSet::new();
-    if design.encounter_ids.iter().any(|id| {
-        !valid_identifier(id) || !encounter_ids.insert(id.as_str())
-    }) {
+    if design
+        .encounter_ids
+        .iter()
+        .any(|id| !valid_identifier(id) || !encounter_ids.insert(id.as_str()))
+    {
         return Err(EstimateError::InvalidRepeatedEncounterDesign);
     }
     if observations.len() < 2 {
@@ -837,7 +842,8 @@ pub fn estimate_repeating_encounter_risk(
     let mut union_observations = Vec::with_capacity(observations.len());
     let mut weights = Vec::with_capacity(observations.len());
     let mut marginal_counts = vec![0usize; encounter_count];
-    let mut marginal_contributions = vec![Vec::<f64>::with_capacity(observations.len()); encounter_count];
+    let mut marginal_contributions =
+        vec![Vec::<f64>::with_capacity(observations.len()); encounter_count];
     let mut pair_counts = vec![vec![0usize; encounter_count]; encounter_count];
     let mut pair_contributions =
         vec![vec![Vec::<f64>::with_capacity(observations.len()); encounter_count]; encounter_count];
@@ -915,8 +921,7 @@ pub fn estimate_repeating_encounter_risk(
                 encounter_b: design.encounter_ids[b].clone(),
                 cooccurrence_sample_count: pair_counts[a][b],
                 joint_probability_estimate: joint_probability,
-                target_event_covariance_estimate:
-                    joint_probability - marginal_a * marginal_b,
+                target_event_covariance_estimate: joint_probability - marginal_a * marginal_b,
             });
         }
     }
