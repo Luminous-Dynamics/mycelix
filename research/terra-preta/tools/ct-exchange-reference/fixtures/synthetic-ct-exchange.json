@@ -12,17 +12,18 @@
     {
       "elapsed_seconds": 0,
       "wetted_interface_area_m2_per_m3": 0.4,
-      "macropore_flux_density_m_per_s": 0.00001
+      "interfacial_exchange_flux_density_m_per_s": 0.00001
     },
     {
       "elapsed_seconds": 1800,
       "wetted_interface_area_m2_per_m3": 0.8,
-      "macropore_flux_density_m_per_s": 0.00001
+      "interfacial_exchange_flux_density_m_per_s": 0.00001
     },
     {
       "elapsed_seconds": 3600,
       "wetted_interface_area_m2_per_m3": 0.4,
-      "macropore_flux_density_m_per_s": 0.000005
+      "interfacial_exchange_flux_density_m_per_s": 0.000005
     }
-  ]
+  ],
+  "interfacial_flux_density_source": "synthetic_manufactured"
 }
