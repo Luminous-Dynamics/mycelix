@@ -155,7 +155,10 @@
             "clock_epoch": "conductor-a-boot-1",
             "monotonic_tick": 10,
             "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "evidence_refs": [
+              "fixture://MCRB-HI-01/event/hi01-i1"
+            ]
           },
           {
             "event_id": "hi01-o1",
@@ -175,7 +178,10 @@
             "result": {
               "effect_id": "effect-1",
               "capability_state": "consumed"
-            }
+            },
+            "evidence_refs": [
+              "fixture://MCRB-HI-01/event/hi01-o1"
+            ]
           }
         ],
         "causal_edges": [
@@ -228,7 +234,10 @@
             "clock_epoch": "conductor-a-boot-1",
             "monotonic_tick": 100,
             "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "evidence_refs": [
+              "fixture://MCRB-HI-02/event/hi02-i1"
+            ]
           },
           {
             "event_id": "hi02-i2",
@@ -243,7 +252,10 @@
             "clock_epoch": "conductor-b-boot-1",
             "monotonic_tick": 80,
             "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "evidence_refs": [
+              "fixture://MCRB-HI-02/event/hi02-i2"
+            ]
           },
           {
             "event_id": "hi02-o1",
@@ -262,7 +274,10 @@
             "effect_state": "Applied",
             "result": {
               "effect_id": "effect-a"
-            }
+            },
+            "evidence_refs": [
+              "fixture://MCRB-HI-02/event/hi02-o1"
+            ]
           },
           {
             "event_id": "hi02-o2",
@@ -281,7 +296,10 @@
             "effect_state": "Applied",
             "result": {
               "effect_id": "effect-b"
-            }
+            },
+            "evidence_refs": [
+              "fixture://MCRB-HI-02/event/hi02-o2"
+            ]
           }
         ],
         "causal_edges": []
@@ -330,7 +348,10 @@
             "clock_epoch": "conductor-a-boot-1",
             "monotonic_tick": 200,
             "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "evidence_refs": [
+              "fixture://MCRB-HI-03/event/hi03-i1"
+            ]
           },
           {
             "event_id": "hi03-u1",
@@ -349,7 +370,10 @@
             "effect_state": "Unknown",
             "result": {
               "cause": "acknowledgement-lost-after-possible-dispatch"
-            }
+            },
+            "evidence_refs": [
+              "fixture://MCRB-HI-03/event/hi03-u1"
+            ]
           }
         ],
         "causal_edges": []
@@ -398,7 +422,10 @@
             "clock_epoch": "conductor-a-boot-1",
             "monotonic_tick": 300,
             "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "evidence_refs": [
+              "fixture://MCRB-HI-04/event/hi04-i1"
+            ]
           },
           {
             "event_id": "hi04-u1",
@@ -417,7 +444,10 @@
             "effect_state": "Unknown",
             "result": {
               "cause": "acknowledgement-lost"
-            }
+            },
+            "evidence_refs": [
+              "fixture://MCRB-HI-04/event/hi04-u1"
+            ]
           },
           {
             "event_id": "hi04-i2",
@@ -432,7 +462,10 @@
             "clock_epoch": "conductor-a-boot-1",
             "monotonic_tick": 340,
             "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "evidence_refs": [
+              "fixture://MCRB-HI-04/event/hi04-i2"
+            ]
           },
           {
             "event_id": "hi04-o2",
@@ -452,7 +485,10 @@
             "result": {
               "effect_id": "effect-stable",
               "idempotent_replay": true
-            }
+            },
+            "evidence_refs": [
+              "fixture://MCRB-HI-04/event/hi04-o2"
+            ]
           }
         ],
         "causal_edges": [
@@ -520,7 +556,10 @@
             "clock_epoch": "conductor-a-boot-1",
             "monotonic_tick": 400,
             "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "evidence_refs": [
+              "fixture://MCRB-HI-05/event/hi05-i1"
+            ]
           },
           {
             "event_id": "hi05-o1",
@@ -539,7 +578,10 @@
             "effect_state": "Applied",
             "result": {
               "effect_id": "effect-stable"
-            }
+            },
+            "evidence_refs": [
+              "fixture://MCRB-HI-05/event/hi05-o1"
+            ]
           },
           {
             "event_id": "hi05-i2",
@@ -554,7 +596,10 @@
             "clock_epoch": "conductor-a-boot-1",
             "monotonic_tick": 420,
             "request_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "evidence_refs": [
+              "fixture://MCRB-HI-05/event/hi05-i2"
+            ]
           }
         ],
         "causal_edges": [
@@ -616,7 +661,10 @@
             "clock_epoch": "conductor-a-boot-1",
             "monotonic_tick": 100,
             "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "evidence_refs": [
+              "fixture://MCRB-HI-06/event/hi06-i-a"
+            ]
           },
           {
             "event_id": "hi06-o-a",
@@ -635,7 +683,10 @@
             "effect_state": "Applied",
             "result": {
               "record_digest": "d-a"
-            }
+            },
+            "evidence_refs": [
+              "fixture://MCRB-HI-06/event/hi06-o-a"
+            ]
           },
           {
             "event_id": "hi06-i-b",
@@ -650,7 +701,10 @@
             "clock_epoch": "conductor-b-boot-1",
             "monotonic_tick": 5,
             "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "evidence_refs": [
+              "fixture://MCRB-HI-06/event/hi06-i-b"
+            ]
           },
           {
             "event_id": "hi06-o-b",
@@ -669,7 +723,10 @@
             "effect_state": "Applied",
             "result": {
               "record_digest": "d-b"
-            }
+            },
+            "evidence_refs": [
+              "fixture://MCRB-HI-06/event/hi06-o-b"
+            ]
           }
         ],
         "causal_edges": [
@@ -731,7 +788,10 @@
             "clock_epoch": "db-host-a-boot-1",
             "monotonic_tick": 10,
             "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "evidence_refs": [
+              "fixture://MCRB-HI-07/event/hi07-t1-i"
+            ]
           },
           {
             "event_id": "hi07-t1-o",
@@ -756,7 +816,10 @@
               "writes": {
                 "y": 1
               }
-            }
+            },
+            "evidence_refs": [
+              "fixture://MCRB-HI-07/event/hi07-t1-o"
+            ]
           },
           {
             "event_id": "hi07-t2-i",
@@ -771,7 +834,10 @@
             "clock_epoch": "db-host-a-boot-1",
             "monotonic_tick": 11,
             "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "evidence_refs": [
+              "fixture://MCRB-HI-07/event/hi07-t2-i"
+            ]
           },
           {
             "event_id": "hi07-t2-o",
@@ -796,7 +862,10 @@
               "writes": {
                 "x": 1
               }
-            }
+            },
+            "evidence_refs": [
+              "fixture://MCRB-HI-07/event/hi07-t2-o"
+            ]
           }
         ],
         "causal_edges": []
@@ -891,7 +960,10 @@
             "clock_epoch": "conductor-a-boot-1",
             "monotonic_tick": 500,
             "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "evidence_refs": [
+              "fixture://MCRB-HI-08/event/hi08-i1"
+            ]
           },
           {
             "event_id": "hi08-o1",
@@ -910,7 +982,10 @@
             "effect_state": "Applied",
             "result": {
               "local_action_hash": "action-a"
-            }
+            },
+            "evidence_refs": [
+              "fixture://MCRB-HI-08/event/hi08-o1"
+            ]
           },
           {
             "event_id": "hi08-i2",
@@ -925,7 +1000,10 @@
             "clock_epoch": "conductor-b-boot-1",
             "monotonic_tick": 50,
             "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "evidence_refs": [
+              "fixture://MCRB-HI-08/event/hi08-i2"
+            ]
           },
           {
             "event_id": "hi08-u2",
@@ -944,7 +1022,10 @@
             "effect_state": "Unknown",
             "result": {
               "cause": "no-receiving-validator-receipt"
-            }
+            },
+            "evidence_refs": [
+              "fixture://MCRB-HI-08/event/hi08-u2"
+            ]
           }
         ],
         "causal_edges": [
