@@ -56,7 +56,8 @@
         "clock_model",
         "cross_host_timing",
         "replay_requirement",
-        "simulated_actor_policy"
+        "simulated_actor_policy",
+        "concurrency_group_semantics"
       ],
       "properties": {
         "version": {
@@ -82,6 +83,10 @@
         },
         "simulated_actor_policy": {
           "type": "string"
+        },
+        "concurrency_group_semantics": {
+          "type": "string",
+          "minLength": 20
         }
       }
     },
@@ -275,6 +280,10 @@
                   }
                 },
                 "recovery_action": {
+                  "type": "string",
+                  "minLength": 3
+                },
+                "concurrency_group": {
                   "type": "string",
                   "minLength": 3
                 }
