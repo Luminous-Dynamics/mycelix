@@ -53,6 +53,8 @@ The existing identity project already contains DID registry, credential-schema, 
 | Recovery / MFA | Holder and administrator key lifecycle | Recovery authority must be scoped; holder recovery is not organization-root recovery |
 | issuer-directory work (#2603, #3393, #3403, #3428) | Issuer key admission, freshness and currentness | Exact external issuer profile and clock/cache policy still govern the result |
 | delegated authority (#3659) | Realm-scoped administrative and resource delegation | A host call capability is not full business or organizational authority |
+| contextual authority and exact capability applicability (#4743) | Reuse the full-request-context witness rule for resource, action, audience and time | Never combine individually valid dimensions from unrelated grants |
+| decidable policy constraint subsumption and deny preservation (#4854) | Consume the existing bounded policy algebra for group/role/delegation transformations | Directory Fabric must not invent a second generic policy engine or treat syntax equality as semantic subsumption |
 | delayed visibility / revocation work (#4903, #5924, #6236) | Bounded staleness and enforcement exposure semantics | Do not claim globally instantaneous revocation |
 | machine/workload identity (#6050) | Distinct device, controller, key epoch and workload identities | No inferred hardware uniqueness or attestation |
 | interoperability TCK (#889) | Protocol fixture ownership | Current TCK is non-authoritative; no protocol pass is implied |
@@ -98,7 +100,9 @@ Every positive decision should be attributable to one coherent authority path:
 
 subject → authenticated key/credential → admitted issuer → realm membership → group/role/delegation → exact resource + action + audience + purpose → current policy epoch → decision.
 
-Do not construct a synthetic permission by taking a resource from one grant, an action from another, an audience from a third and an expiry from a fourth. The full request context must be satisfied by a coherent capability/policy witness.
+Do not construct a synthetic permission by taking a resource from one grant, an action from another, an audience from a third and an expiry from a fourth. The full request context must be satisfied by a coherent capability/policy witness. This must reuse the existing #4743 full-context applicability boundary and #4854 decidable constraint-subsumption / deny-preservation work. Directory Fabric should define realm-scoped relationship projections and input bindings, not another general-purpose policy algebra. Group nesting, role composition and federation mapping must be shown to preserve the parent policy's complete allow and deny denotations.
+
+The request context should also carry explicitly sourced device posture, workload identity, network/location and risk signals where a realm policy chooses to use them. These are contextual evidence with a named issuer, freshness and confidence profile, not magical trust attributes and not automatically authoritative merely because an IdP reports them. This is the interoperability seam to compare with Entra Conditional Access; do not claim identical capability from a simple roles/claims mapper.
 
 ### 4.4 From instantaneous revocation claims to bounded exposure proofs
 
@@ -397,7 +401,7 @@ The corpus is synthetic and finite. Passing it later would prove conformance onl
 
 1. Review and freeze this architecture and the independent corpus with #6428.
 2. Reconcile identity API and DNA versions across the standalone and workspace mirrors.
-3. Define deterministic Rust reference types and evaluator; no Holochain dependency in the pure policy core.
+3. Reuse #4743 and #4854 for full-context authorization and policy constraint subsumption; add only the Directory Fabric realm/relationship projection and exact evidence binding. Define deterministic Rust reference types for that projection; no Holochain dependency in the pure policy core.
 4. Add property-based, mutation and metamorphic cases for graph/role/lease/revocation semantics.
 5. Connect the reference model to the existing Holochain identity and authority zomes.
 6. Add true multi-agent conductor tests for delayed visibility, key rotation, revocation and partition behaviour.
