@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Sample identity overlap audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "status",
+    "match_method",
+    "source_a",
+    "source_b",
+    "overlap_sample_count",
+    "source_a_only_sample_count",
+    "source_b_only_sample_count",
+    "overlap_fraction_of_source_a_unique",
+    "overlap_fraction_of_source_b_unique",
+    "overlap_fraction_of_smaller_unique_cohort",
+    "overlap_identity_sha256",
+    "warnings",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "enum": [
+        "exact_identifier_overlap_detected",
+        "no_exact_identifier_overlap_detected"
+      ]
+    },
+    "match_method": {
+      "const": "exact_string_match_no_normalization"
+    },
+    "source_a": {
+      "$ref": "#/$defs/source_summary"
+    },
+    "source_b": {
+      "$ref": "#/$defs/source_summary"
+    },
+    "overlap_sample_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "source_a_only_sample_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "source_b_only_sample_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "overlap_fraction_of_source_a_unique": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "overlap_fraction_of_source_b_unique": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "overlap_fraction_of_smaller_unique_cohort": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "overlap_identity_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "source_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "input_sha256",
+        "row_count",
+        "unique_identifier_count",
+        "duplicate_identifier_row_count"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "row_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "unique_identifier_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "duplicate_identifier_row_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
