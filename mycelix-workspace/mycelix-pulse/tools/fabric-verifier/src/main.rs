@@ -214,7 +214,7 @@ fn run_verify_fanout(args: &[String]) {
                     "status": summary.status,
                     "fanout_id": summary.fanout_id,
                     "manifest_sha256": summary.manifest_sha256,
-                    "aggregate_disposition": summary.disposition,
+                    "aggregate_evidence_state": summary.disposition,
                     "required_recipients": summary.required_recipients,
                     "verified_recipients": summary.verified_recipients,
                     "partial_recipients": summary.partial_recipients,
@@ -222,7 +222,8 @@ fn run_verify_fanout(args: &[String]) {
                     "incomplete_recipients": summary.incomplete_recipients,
                     "expired_recipients": summary.expired_recipients,
                     "failed_recipients": summary.failed_recipients,
-                    "claim_ceiling": "content-addressed structural consistency only; manifest authority, membership truth and receipt signatures are not verified"
+                    "verification_scope": "STRUCTURAL_AND_CAUSAL_CONSISTENCY_ONLY",
+                    "claim_ceiling": "content-addressed structural consistency only; manifest authority, membership truth, receipt signatures and deadline truth are not verified"
                 })
             );
         }
