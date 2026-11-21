@@ -600,10 +600,25 @@ pub struct MultifidelitySurrogateEvidence {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum ResidualSupportContract {
+    /// No global sign restriction is claimed for the paired residual.
+    GeneralSigned,
+    /// Built-in proof for exact centered 2D Gaussian disk events:
+    /// ||z|| <= r_high implies ||z|| <= r_surrogate when r_high <= r_surrogate.
+    /// The verifier checks the radii, target, oracle type, exact Pc_L and every
+    /// retained pair of event labels before using residual support [-1/epsilon, 0].
+    VerifiedCenteredGaussianDiskSuperset {
+        high_fidelity_radius: f64,
+        surrogate_radius: f64,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct MultifidelityResidualParameters {
     pub surrogate_probability: f64,
     pub surrogate_probability_absolute_error_bound: f64,
     pub confidence_delta: f64,
+    pub residual_support_contract: ResidualSupportContract,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -626,6 +641,10 @@ pub struct MultifidelityResidualReport {
     pub false_positive_count: usize,
     pub defensive_fraction: f64,
     pub residual_contribution_cap: f64,
+    pub residual_support_lower: f64,
+    pub residual_support_upper: f64,
+    pub residual_support_range_width: f64,
+    pub residual_support_contract_id: &'static str,
     pub surrogate_probability: f64,
     pub surrogate_probability_absolute_error_bound: f64,
     pub residual_mean: f64,
@@ -680,6 +699,9 @@ pub enum EstimateError {
     SurrogateEvaluationSampleMismatch,
     SurrogateSampleOrderMismatch,
     SurrogateTrainingEvaluationLeakage,
+    InvalidResidualSupportContract,
+    ResidualSupportEventLabelMismatch,
+    SurrogateProbabilityDoesNotMatchAnalyticDisk,
     DuplicateEvaluationSampleId(String),
     InsufficientSamples(usize),
     EvidenceProposalMismatch,
@@ -802,6 +824,18 @@ impl fmt::Display for EstimateError {
             Self::SurrogateTrainingEvaluationLeakage => write!(
                 f,
                 "surrogate training samples must be disjoint from the final evaluation sample"
+            ),
+            Self::InvalidResidualSupportContract => write!(
+                f,
+                "requested residual support certificate is invalid for the declared target, dimension, or event geometry"
+            ),
+            Self::ResidualSupportEventLabelMismatch => write!(
+                f,
+                "retained surrogate/high-fidelity labels do not match the analytically verified disk event definitions"
+            ),
+            Self::SurrogateProbabilityDoesNotMatchAnalyticDisk => write!(
+                f,
+                "surrogate probability does not match the exact centered Gaussian disk probability within its declared error bound"
             ),
             Self::DuplicateEvaluationSampleId(value) => {
                 write!(f, "duplicate evaluation sample ID {value}")
