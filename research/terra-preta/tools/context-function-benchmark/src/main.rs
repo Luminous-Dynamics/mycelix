@@ -205,9 +205,15 @@ fn valid_date(date: &str) -> bool {
         && b.iter()
             .enumerate()
             .all(|(i, x)| i == 4 || i == 7 || x.is_ascii_digit())
-        && date[0..4].parse::<u32>().is_ok_and(|y| (1..=9999).contains(&y))
-        && date[5..7].parse::<u32>().is_ok_and(|m| (1..=12).contains(&m))
-        && date[8..10].parse::<u32>().is_ok_and(|d| (1..=31).contains(&d))
+        && date[0..4]
+            .parse::<u32>()
+            .is_ok_and(|y| (1..=9999).contains(&y))
+        && date[5..7]
+            .parse::<u32>()
+            .is_ok_and(|m| (1..=12).contains(&m))
+        && date[8..10]
+            .parse::<u32>()
+            .is_ok_and(|d| (1..=31).contains(&d))
 }
 
 fn validate(s: &Scenario) -> Result<(), String> {
@@ -234,16 +240,27 @@ fn validate(s: &Scenario) -> Result<(), String> {
             || indicator.evaluation_independence_group_id.trim().is_empty()
             || !ids.insert(indicator.indicator_id.clone())
         {
-            return Err("indicator IDs must be non-empty and unique; metadata must be present".into());
+            return Err(
+                "indicator IDs must be non-empty and unique; metadata must be present".into(),
+            );
         }
         for (name, value) in [
             ("depth_min_m", indicator.depth_min_m),
             ("depth_max_m", indicator.depth_max_m),
-            ("mean_annual_temperature_c", indicator.context.mean_annual_temperature_c),
-            ("mean_annual_precipitation_mm", indicator.context.mean_annual_precipitation_mm),
+            (
+                "mean_annual_temperature_c",
+                indicator.context.mean_annual_temperature_c,
+            ),
+            (
+                "mean_annual_precipitation_mm",
+                indicator.context.mean_annual_precipitation_mm,
+            ),
             ("predictive_mean", indicator.reference_model.predictive_mean),
             ("predictive_sd", indicator.reference_model.predictive_sd),
-            ("predictive_mean_se", indicator.reference_model.predictive_mean_se),
+            (
+                "predictive_mean_se",
+                indicator.reference_model.predictive_mean_se,
+            ),
             ("q90", indicator.reference_model.q90),
             ("q90_se", indicator.reference_model.q90_se),
             ("q95", indicator.reference_model.q95),
@@ -257,14 +274,20 @@ fn validate(s: &Scenario) -> Result<(), String> {
             || indicator.depth_max_m <= indicator.depth_min_m
             || indicator.context.mean_annual_precipitation_mm < 0.0
         {
-            return Err(format!("{} has invalid depth or climate context", indicator.indicator_id));
+            return Err(format!(
+                "{} has invalid depth or climate context",
+                indicator.indicator_id
+            ));
         }
         if indicator.context.reference_soil_group.trim().is_empty()
             || indicator.reference_model.model_id.trim().is_empty()
             || indicator.reference_model.model_version.trim().is_empty()
             || indicator.reference_model.peer_group_id.trim().is_empty()
         {
-            return Err(format!("{} has incomplete peer/model identity", indicator.indicator_id));
+            return Err(format!(
+                "{} has incomplete peer/model identity",
+                indicator.indicator_id
+            ));
         }
         if indicator.reference_model.reference_target_semantics != "direct_measurement" {
             return Err(format!(
@@ -278,7 +301,11 @@ fn validate(s: &Scenario) -> Result<(), String> {
         ) {
             return Err("unsupported reference domain status".into());
         }
-        if indicator.reference_model.training_independence_group_ids.is_empty() {
+        if indicator
+            .reference_model
+            .training_independence_group_ids
+            .is_empty()
+        {
             return Err("reference model must declare training independence groups".into());
         }
         let mut training = BTreeSet::new();
@@ -301,25 +328,42 @@ fn validate(s: &Scenario) -> Result<(), String> {
             || indicator.reference_model.q90 > indicator.reference_model.q95
             || indicator.reference_model.q95 > indicator.reference_model.q99
         {
-            return Err(format!("{} has invalid peer distribution / quantiles", indicator.indicator_id));
+            return Err(format!(
+                "{} has invalid peer distribution / quantiles",
+                indicator.indicator_id
+            ));
         }
         if indicator.measurements.len() < 2 {
-            return Err(format!("{} needs at least two repeated measurements", indicator.indicator_id));
+            return Err(format!(
+                "{} needs at least two repeated measurements",
+                indicator.indicator_id
+            ));
         }
         let mut prior_date: Option<&str> = None;
         let mut experimental_unit: Option<&str> = None;
         for measurement in &indicator.measurements {
             if !valid_date(&measurement.date) {
-                return Err(format!("{} has invalid measurement date", indicator.indicator_id));
+                return Err(format!(
+                    "{} has invalid measurement date",
+                    indicator.indicator_id
+                ));
             }
             finite("measurement value", measurement.value)?;
             finite("measurement standard_error", measurement.standard_error)?;
-            if measurement.standard_error < 0.0 || measurement.experimental_unit_id.trim().is_empty() {
-                return Err(format!("{} has invalid measurement uncertainty/unit", indicator.indicator_id));
+            if measurement.standard_error < 0.0
+                || measurement.experimental_unit_id.trim().is_empty()
+            {
+                return Err(format!(
+                    "{} has invalid measurement uncertainty/unit",
+                    indicator.indicator_id
+                ));
             }
             if let Some(previous) = prior_date {
                 if measurement.date.as_str() <= previous {
-                    return Err(format!("{} measurement dates must increase strictly", indicator.indicator_id));
+                    return Err(format!(
+                        "{} measurement dates must increase strictly",
+                        indicator.indicator_id
+                    ));
                 }
             }
             if let Some(unit) = experimental_unit {
@@ -340,15 +384,24 @@ fn validate(s: &Scenario) -> Result<(), String> {
 }
 
 fn validate_guardrail(g: &Guardrail, id: &str) -> Result<(), String> {
-    if !matches!(g.status.as_str(), "not_set" | "synthetic_fixture" | "externally_approved") {
+    if !matches!(
+        g.status.as_str(),
+        "not_set" | "synthetic_fixture" | "externally_approved"
+    ) {
         return Err(format!("{id} has unsupported guardrail status"));
     }
-    for (name, value) in [("minimum_value", g.minimum_value), ("maximum_value", g.maximum_value)] {
+    for (name, value) in [
+        ("minimum_value", g.minimum_value),
+        ("maximum_value", g.maximum_value),
+    ] {
         if let Some(x) = value {
             finite(name, x)?;
         }
     }
-    if g.minimum_value.zip(g.maximum_value).is_some_and(|(a, b)| a > b) {
+    if g.minimum_value
+        .zip(g.maximum_value)
+        .is_some_and(|(a, b)| a > b)
+    {
         return Err(format!("{id} guardrail minimum exceeds maximum"));
     }
     match g.status.as_str() {
@@ -359,7 +412,9 @@ fn validate_guardrail(g: &Guardrail, id: &str) -> Result<(), String> {
                 || g.approval_reference.is_some()
                 || g.approval_date.is_some()
             {
-                return Err(format!("{id} not_set guardrail must not carry bounds or approvals"));
+                return Err(format!(
+                    "{id} not_set guardrail must not carry bounds or approvals"
+                ));
             }
         }
         "synthetic_fixture" => {
@@ -370,10 +425,16 @@ fn validate_guardrail(g: &Guardrail, id: &str) -> Result<(), String> {
         "externally_approved" => {
             if (g.minimum_value.is_none() && g.maximum_value.is_none())
                 || g.authority.as_deref().unwrap_or("").trim().is_empty()
-                || g.approval_reference.as_deref().unwrap_or("").trim().is_empty()
+                || g.approval_reference
+                    .as_deref()
+                    .unwrap_or("")
+                    .trim()
+                    .is_empty()
                 || !g.approval_date.as_deref().is_some_and(valid_date)
             {
-                return Err(format!("{id} externally approved guardrail lacks approval evidence"));
+                return Err(format!(
+                    "{id} externally approved guardrail lacks approval evidence"
+                ));
             }
         }
         _ => unreachable!(),
@@ -388,9 +449,7 @@ fn erf_approx(x: f64) -> f64 {
     let x = x.abs();
     let t = 1.0 / (1.0 + 0.327_591_1 * x);
     let y = 1.0
-        - (((((1.061_405_429 * t - 1.453_152_027) * t) + 1.421_413_741) * t
-            - 0.284_496_736)
-            * t
+        - (((((1.061_405_429 * t - 1.453_152_027) * t) + 1.421_413_741) * t - 0.284_496_736) * t
             + 0.254_829_592)
             * t
             * (-x * x).exp();
@@ -401,11 +460,7 @@ fn normal_cdf(z: f64) -> f64 {
     (0.5 * (1.0 + erf_approx(z / std::f64::consts::SQRT_2))).clamp(0.0, 1.0)
 }
 
-fn peer_reference(
-    indicator: &Indicator,
-    latest: &Measurement,
-    config: &Config,
-) -> PeerReference {
+fn peer_reference(indicator: &Indicator, latest: &Measurement, config: &Config) -> PeerReference {
     let model = &indicator.reference_model;
     let status = if model.domain_status == "out_of_domain" {
         "out_of_domain_abstain"
@@ -467,7 +522,10 @@ fn peer_reference(
         peer_sample_count: model.peer_sample_count,
         independent_site_count: model.independent_site_count,
         percentile: Some(percentile),
-        percentile_interval_95: Some([interval_low.min(interval_high), interval_low.max(interval_high)]),
+        percentile_interval_95: Some([
+            interval_low.min(interval_high),
+            interval_low.max(interval_high),
+        ]),
         distance_to_q90: Some(model.q90 - latest.value),
         distance_to_q95: Some(model.q95 - latest.value),
         distance_to_q99: Some(model.q99 - latest.value),
@@ -519,7 +577,10 @@ fn build_report(s: &Scenario, digest: String) -> Report {
 
     for indicator in &s.indicators {
         let first = &indicator.measurements[0];
-        let latest = indicator.measurements.last().expect("validation requires measurements");
+        let latest = indicator
+            .measurements
+            .last()
+            .expect("validation requires measurements");
         let change_se = (first.standard_error.powi(2) + latest.standard_error.powi(2)).sqrt();
         let peer = peer_reference(indicator, latest, &s.config);
         if peer.status != "qualified_peer_reference"
@@ -585,7 +646,9 @@ fn build_report(s: &Scenario, digest: String) -> Report {
 
 fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if output_path.exists() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into());
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into(),
+        );
     }
     let bytes = fs::read(input_path)?;
     let scenario: Scenario = serde_json::from_slice(&bytes)?;
@@ -593,7 +656,10 @@ fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::
     let digest = format!("{:x}", Sha256::digest(&bytes));
     let report = build_report(&scenario, digest);
     let json = serde_json::to_vec_pretty(&report)?;
-    let mut output = OpenOptions::new().write(true).create_new(true).open(output_path)?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output_path)?;
     output.write_all(&json)?;
     output.write_all(b"\n")?;
     Ok(())
@@ -666,7 +732,10 @@ mod tests {
         let mut s = scenario();
         s.indicators[0].reference_model.domain_status = "out_of_domain".into();
         let report = build_report(&s, "0".repeat(64));
-        assert_eq!(report.indicators[0].peer_reference.status, "out_of_domain_abstain");
+        assert_eq!(
+            report.indicators[0].peer_reference.status,
+            "out_of_domain_abstain"
+        );
         assert!(report.indicators[0].peer_reference.percentile.is_none());
     }
 
@@ -676,7 +745,6 @@ mod tests {
         let report = build_report(&s, "0".repeat(64));
         let bulk = &report.indicators[1];
         assert!(bulk.peer_reference.percentile.unwrap() > 50.0);
-        assert_eq!(bulk.guardrail_result.status, "above_maximum");
         assert_eq!(bulk.guardrail_result.status, "above_maximum");
     }
 
@@ -704,12 +772,22 @@ mod tests {
     #[test]
     fn percentile_does_not_create_causal_claim() {
         let report = build_report(&scenario(), "0".repeat(64));
-        assert!(report.indicators.iter().all(|x| x.causal_inference_status == "not_estimated_by_v0_1"));
+        assert!(
+            report
+                .indicators
+                .iter()
+                .all(|x| x.causal_inference_status == "not_estimated_by_v0_1")
+        );
     }
 
     #[test]
     fn synthetic_guardrail_is_not_called_an_approved_real_threshold() {
         let report = build_report(&scenario(), "0".repeat(64));
-        assert!(report.indicators[1].guardrail_result.interpretation.contains("not an approved real-world"));
+        assert!(
+            report.indicators[1]
+                .guardrail_result
+                .interpretation
+                .contains("not an approved real-world")
+        );
     }
 }
