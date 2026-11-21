@@ -6,8 +6,8 @@
 //! authenticate tool publishers, or make metrology/product-release decisions.
 
 use aero_adapter_run_receipt::{
-    validate_receipt, verify_artifact_payloads,
-    AdapterRunReceiptV1, ContentArtifactV1, InputRole, NetworkPolicy, ReceiptError, RightsStatus, RunStatus,
+    AdapterRunReceiptV1, ContentArtifactV1, InputRole, NetworkPolicy, ReceiptError, RightsStatus,
+    RunStatus, validate_receipt, verify_artifact_payloads,
 };
 use aero_evidence_types::ArtifactRef;
 use serde::{Deserialize, Serialize};
@@ -369,7 +369,9 @@ fn canonical_manifest_body(body: &BenchmarkManifestBodyV1) -> BenchmarkManifestB
     for tool in &mut canonical.tools {
         tool.declared_egress.sort();
     }
-    canonical.cases.sort_by(|left, right| left.case_id.cmp(&right.case_id));
+    canonical
+        .cases
+        .sort_by(|left, right| left.case_id.cmp(&right.case_id));
     for case in &mut canonical.cases {
         case.inputs.sort_by(|left, right| {
             (
@@ -397,20 +399,22 @@ pub fn compute_benchmark_manifest_digest(
     manifest: &BenchmarkManifestV1,
 ) -> Result<String, BenchmarkError> {
     let canonical = canonical_manifest_body(&manifest.body);
-    let bytes = serde_json::to_vec(&canonical).map_err(|_| BenchmarkError::CanonicalizationFailed)?;
+    let bytes =
+        serde_json::to_vec(&canonical).map_err(|_| BenchmarkError::CanonicalizationFailed)?;
     Ok(sha256_hex(&bytes))
 }
 
-pub fn validate_benchmark_manifest(
-    manifest: &BenchmarkManifestV1,
-) -> Result<(), BenchmarkError> {
+pub fn validate_benchmark_manifest(manifest: &BenchmarkManifestV1) -> Result<(), BenchmarkError> {
     if manifest.schema != BENCHMARK_SCHEMA {
         return Err(BenchmarkError::WrongSchema);
     }
     for (value, label) in [
         (manifest.body.benchmark_id.as_str(), "benchmark_id"),
         (manifest.body.profile_version.as_str(), "profile_version"),
-        (manifest.body.qif_standard_version.as_str(), "qif_standard_version"),
+        (
+            manifest.body.qif_standard_version.as_str(),
+            "qif_standard_version",
+        ),
         (manifest.body.ap242_edition.as_str(), "ap242_edition"),
         (manifest.body.corpus_version.as_str(), "corpus_version"),
     ] {
@@ -432,7 +436,10 @@ pub fn validate_benchmark_manifest(
         validate_artifact(&tool.environment_profile)?;
         let unique_egress: BTreeSet<_> = tool.declared_egress.iter().collect();
         if unique_egress.len() != tool.declared_egress.len() {
-            return Err(BenchmarkError::InvalidIdentity(format!("duplicate egress:{}", tool.adapter_id)));
+            return Err(BenchmarkError::InvalidIdentity(format!(
+                "duplicate egress:{}",
+                tool.adapter_id
+            )));
         }
         if tool.executable.reference.kind != "adapter_executable"
             || tool.arguments.reference.kind != "adapter_arguments"
@@ -445,7 +452,9 @@ pub fn validate_benchmark_manifest(
             || tool.timeout_ms == 0
             || (tool.network_policy == NetworkPolicy::Disabled && !tool.declared_egress.is_empty())
         {
-            return Err(BenchmarkError::InvalidArtifact(tool.executable.reference.id.clone()));
+            return Err(BenchmarkError::InvalidArtifact(
+                tool.executable.reference.id.clone(),
+            ));
         }
         if tools.insert(tool.adapter_id.as_str(), tool).is_some() {
             return Err(BenchmarkError::DuplicateTool(tool.adapter_id.clone()));
@@ -461,7 +470,10 @@ pub fn validate_benchmark_manifest(
             return Err(BenchmarkError::DuplicateCase(case.case_id.clone()));
         }
         if case.inputs.is_empty() {
-            return Err(BenchmarkError::InvalidIdentity(format!("case.inputs:{}", case.case_id)));
+            return Err(BenchmarkError::InvalidIdentity(format!(
+                "case.inputs:{}",
+                case.case_id
+            )));
         }
         let mut input_identities = BTreeSet::new();
         for input in &case.inputs {
@@ -472,34 +484,55 @@ pub fn validate_benchmark_manifest(
                 input.artifact.reference.kind.clone(),
             );
             if !input_identities.insert(input_identity) {
-                return Err(BenchmarkError::InvalidIdentity(format!("duplicate input:{}", case.case_id)));
+                return Err(BenchmarkError::InvalidIdentity(format!(
+                    "duplicate input:{}",
+                    case.case_id
+                )));
             }
             if !matches!(
                 input.rights_status,
                 RightsStatus::ClearedForTesting | RightsStatus::ClearedForRedistribution
             ) {
-                return Err(BenchmarkError::RightsNotAdmitted(input.artifact.reference.id.clone()));
+                return Err(BenchmarkError::RightsNotAdmitted(
+                    input.artifact.reference.id.clone(),
+                ));
             }
         }
         validate_artifact(&case.oracle_artifact)?;
         if case.oracle_profile_version.trim().is_empty() {
-            return Err(BenchmarkError::InvalidIdentity(format!("oracle_profile_version:{}", case.case_id)));
+            return Err(BenchmarkError::InvalidIdentity(format!(
+                "oracle_profile_version:{}",
+                case.case_id
+            )));
         }
         if case.oracle_method == OracleMethod::Unadjudicated
-            && case.claims.iter().any(|claim| claim.expectation != OracleExpectation::Unadjudicated)
+            && case
+                .claims
+                .iter()
+                .any(|claim| claim.expectation != OracleExpectation::Unadjudicated)
         {
-            return Err(BenchmarkError::InvalidOracleClaim(format!("oracle_method:{}", case.case_id)));
+            return Err(BenchmarkError::InvalidOracleClaim(format!(
+                "oracle_method:{}",
+                case.case_id
+            )));
         }
-        if case.inputs.iter().any(|input| {
-            input.artifact.reference == case.oracle_artifact.reference
-        }) {
-            return Err(BenchmarkError::InvalidOracleClaim(format!("oracle aliases source input:{}", case.case_id)));
+        if case
+            .inputs
+            .iter()
+            .any(|input| input.artifact.reference == case.oracle_artifact.reference)
+        {
+            return Err(BenchmarkError::InvalidOracleClaim(format!(
+                "oracle aliases source input:{}",
+                case.case_id
+            )));
         }
         if !matches!(
             case.oracle_rights_status,
             RightsStatus::ClearedForTesting | RightsStatus::ClearedForRedistribution
         ) {
-            return Err(BenchmarkError::RightsNotAdmitted(case.oracle_artifact.reference.id.clone()));
+            return Err(BenchmarkError::RightsNotAdmitted(
+                case.oracle_artifact.reference.id.clone(),
+            ));
         }
         let mut claims = BTreeSet::new();
         if case.claims.is_empty() {
@@ -574,7 +607,10 @@ fn add_expected_artifact(
     artifact: &ContentArtifactV1,
 ) -> Result<(), BenchmarkError> {
     validate_artifact(artifact)?;
-    let key = (artifact.reference.id.clone(), artifact.reference.kind.clone());
+    let key = (
+        artifact.reference.id.clone(),
+        artifact.reference.kind.clone(),
+    );
     if let Some(existing) = expected.get(&key) {
         if existing != artifact {
             return Err(BenchmarkError::InvalidArtifact(key.0));
@@ -596,13 +632,14 @@ fn validate_one_run(
     }
     match run.attempt {
         ToolAttemptDisposition::Blocked | ToolAttemptDisposition::NotRun => {
-            if run.receipt.is_some()
-                || !run.payloads.is_empty()
-                || !run.observed_claims.is_empty()
+            if run.receipt.is_some() || !run.payloads.is_empty() || !run.observed_claims.is_empty()
             {
                 return Err(BenchmarkError::UnexpectedUnexecutedEvidence);
             }
-            if run.reason_code.is_none_or(|reason| reason.trim().is_empty()) {
+            if run
+                .reason_code
+                .is_none_or(|reason| reason.trim().is_empty())
+            {
                 return Err(BenchmarkError::MissingAttemptReason);
             }
         }
@@ -610,7 +647,9 @@ fn validate_one_run(
         | ToolAttemptDisposition::Failed
         | ToolAttemptDisposition::TimedOut => {
             if run.attempt != ToolAttemptDisposition::Succeeded
-                && run.reason_code.is_none_or(|reason| reason.trim().is_empty())
+                && run
+                    .reason_code
+                    .is_none_or(|reason| reason.trim().is_empty())
             {
                 return Err(BenchmarkError::MissingAttemptReason);
             }
@@ -642,29 +681,37 @@ fn validate_one_run(
             {
                 return Err(BenchmarkError::InvocationProfileMismatch);
             }
-            let expected_inputs: BTreeSet<_> = case.inputs.iter()
-                .map(|input| (
-                    input_role_key(input.role),
-                    input.artifact.reference.id.clone(),
-                    input.artifact.reference.kind.clone(),
-                    input.artifact.sha256.clone(),
-                    input.artifact.byte_length,
-                    input.artifact.media_type.clone(),
-                    input.artifact.format_id.clone(),
-                    rights_status_key(input.rights_status),
-                ))
+            let expected_inputs: BTreeSet<_> = case
+                .inputs
+                .iter()
+                .map(|input| {
+                    (
+                        input_role_key(input.role),
+                        input.artifact.reference.id.clone(),
+                        input.artifact.reference.kind.clone(),
+                        input.artifact.sha256.clone(),
+                        input.artifact.byte_length,
+                        input.artifact.media_type.clone(),
+                        input.artifact.format_id.clone(),
+                        rights_status_key(input.rights_status),
+                    )
+                })
                 .collect();
-            let receipt_inputs: BTreeSet<_> = receipt.inputs.iter()
-                .map(|input| (
-                    input_role_key(input.role),
-                    input.artifact.reference.id.clone(),
-                    input.artifact.reference.kind.clone(),
-                    input.artifact.sha256.clone(),
-                    input.artifact.byte_length,
-                    input.artifact.media_type.clone(),
-                    input.artifact.format_id.clone(),
-                    rights_status_key(input.rights_status),
-                ))
+            let receipt_inputs: BTreeSet<_> = receipt
+                .inputs
+                .iter()
+                .map(|input| {
+                    (
+                        input_role_key(input.role),
+                        input.artifact.reference.id.clone(),
+                        input.artifact.reference.kind.clone(),
+                        input.artifact.sha256.clone(),
+                        input.artifact.byte_length,
+                        input.artifact.media_type.clone(),
+                        input.artifact.format_id.clone(),
+                        rights_status_key(input.rights_status),
+                    )
+                })
                 .collect();
             if receipt_inputs != expected_inputs || receipt.inputs.len() != case.inputs.len() {
                 return Err(BenchmarkError::ReceiptInputMismatch);
@@ -681,7 +728,9 @@ fn validate_one_run(
             verify_artifact_payloads(receipt, run.payloads)
                 .map_err(BenchmarkError::AdapterPayloadVerification)?;
             match run.attempt {
-                ToolAttemptDisposition::Succeeded => validate_claim_observations(case, run.observed_claims)?,
+                ToolAttemptDisposition::Succeeded => {
+                    validate_claim_observations(case, run.observed_claims)?
+                }
                 ToolAttemptDisposition::Failed | ToolAttemptDisposition::TimedOut => {
                     if !run.observed_claims.is_empty() {
                         return Err(BenchmarkError::ObservationsOnNonSuccess);
@@ -701,11 +750,17 @@ fn validate_claim_observations(
     if observations.len() != case.claims.len() {
         return Err(BenchmarkError::ClaimObservationSetMismatch);
     }
-    let expected: BTreeSet<_> = case.claims.iter().map(|claim| claim.claim_id.as_str()).collect();
+    let expected: BTreeSet<_> = case
+        .claims
+        .iter()
+        .map(|claim| claim.claim_id.as_str())
+        .collect();
     let mut observed = BTreeSet::new();
     for observation in observations {
         if !observed.insert(observation.claim_id.as_str()) {
-            return Err(BenchmarkError::DuplicateClaimObservation(observation.claim_id.clone()));
+            return Err(BenchmarkError::DuplicateClaimObservation(
+                observation.claim_id.clone(),
+            ));
         }
         if !expected.contains(observation.claim_id.as_str()) {
             return Err(BenchmarkError::ClaimObservationSetMismatch);
@@ -715,9 +770,14 @@ fn validate_claim_observations(
             ClaimObservationDisposition::Unknown
                 | ClaimObservationDisposition::Unsupported
                 | ClaimObservationDisposition::Error
-        ) && observation.reason_code.as_ref().is_none_or(|reason| reason.trim().is_empty())
+        ) && observation
+            .reason_code
+            .as_ref()
+            .is_none_or(|reason| reason.trim().is_empty())
         {
-            return Err(BenchmarkError::MissingObservationReason(observation.claim_id.clone()));
+            return Err(BenchmarkError::MissingObservationReason(
+                observation.claim_id.clone(),
+            ));
         }
     }
     Ok(())
@@ -763,7 +823,10 @@ pub fn evaluate_benchmark(
             return Err(BenchmarkError::UnknownCase(run.case_id.into()));
         }
         if run_map.insert((run.tool_id, run.case_id), run).is_some() {
-            return Err(BenchmarkError::DuplicateRun(run.tool_id.into(), run.case_id.into()));
+            return Err(BenchmarkError::DuplicateRun(
+                run.tool_id.into(),
+                run.case_id.into(),
+            ));
         }
     }
 
@@ -773,8 +836,11 @@ pub fn evaluate_benchmark(
         let mut elapsed_samples = Vec::new();
         let mut dimensions: BTreeMap<BenchmarkDimension, DimensionScorecard> = BTreeMap::new();
         for case in &manifest.body.cases {
-            let run = run_map.get(&(tool.adapter_id.as_str(), case.case_id.as_str()))
-                .ok_or_else(|| BenchmarkError::MissingRun(tool.adapter_id.clone(), case.case_id.clone()))?;
+            let run = run_map
+                .get(&(tool.adapter_id.as_str(), case.case_id.as_str()))
+                .ok_or_else(|| {
+                    BenchmarkError::MissingRun(tool.adapter_id.clone(), case.case_id.clone())
+                })?;
             validate_one_run(&manifest.body.benchmark_id, tool, case, run)?;
             attempts.offered_cases += 1;
             if let Some(receipt) = run.receipt {
@@ -788,7 +854,9 @@ pub fn evaluate_benchmark(
                 ToolAttemptDisposition::NotRun => attempts.not_run += 1,
             }
 
-            let observations: BTreeMap<_, _> = run.observed_claims.iter()
+            let observations: BTreeMap<_, _> = run
+                .observed_claims
+                .iter()
                 .map(|observation| (observation.claim_id.as_str(), observation))
                 .collect();
             for claim in &case.claims {
@@ -811,30 +879,28 @@ pub fn evaluate_benchmark(
                     None if run.attempt == ToolAttemptDisposition::Blocked => metrics.blocked += 1,
                     None => metrics.not_run += 1,
                     Some(ClaimObservationDisposition::Unknown) => metrics.observed_unknown += 1,
-                    Some(ClaimObservationDisposition::Unsupported) => metrics.observed_unsupported += 1,
+                    Some(ClaimObservationDisposition::Unsupported) => {
+                        metrics.observed_unsupported += 1
+                    }
                     Some(ClaimObservationDisposition::Error) => metrics.observed_errors += 1,
                     Some(ClaimObservationDisposition::Accepted)
                     | Some(ClaimObservationDisposition::Rejected)
                         if claim.expectation == OracleExpectation::Unadjudicated => {}
-                    Some(ClaimObservationDisposition::Accepted) => {
-                        match claim.expectation {
-                            OracleExpectation::Accept => metrics.true_accepts += 1,
-                            OracleExpectation::Reject => {
-                                metrics.false_accepts += 1;
-                                if claim.safety_critical {
-                                    metrics.critical_false_accepts += 1;
-                                }
+                    Some(ClaimObservationDisposition::Accepted) => match claim.expectation {
+                        OracleExpectation::Accept => metrics.true_accepts += 1,
+                        OracleExpectation::Reject => {
+                            metrics.false_accepts += 1;
+                            if claim.safety_critical {
+                                metrics.critical_false_accepts += 1;
                             }
-                            OracleExpectation::Unadjudicated => unreachable!(),
                         }
-                    }
-                    Some(ClaimObservationDisposition::Rejected) => {
-                        match claim.expectation {
-                            OracleExpectation::Accept => metrics.false_rejects += 1,
-                            OracleExpectation::Reject => metrics.true_rejects += 1,
-                            OracleExpectation::Unadjudicated => unreachable!(),
-                        }
-                    }
+                        OracleExpectation::Unadjudicated => unreachable!(),
+                    },
+                    Some(ClaimObservationDisposition::Rejected) => match claim.expectation {
+                        OracleExpectation::Accept => metrics.false_rejects += 1,
+                        OracleExpectation::Reject => metrics.true_rejects += 1,
+                        OracleExpectation::Unadjudicated => unreachable!(),
+                    },
                 }
             }
         }
@@ -871,7 +937,8 @@ mod tests {
     use aero_adapter_run_receipt::compute_receipt_digest;
     use serde_json::Value;
 
-    const ORACLE_BYTES: &[u8] = br#"{"oracle":"independent synthetic oracle v1","case":"synthetic-ap242-qif-001"}"#;
+    const ORACLE_BYTES: &[u8] =
+        br#"{"oracle":"independent synthetic oracle v1","case":"synthetic-ap242-qif-001"}"#;
 
     fn artifact(kind: &str, format_id: &str, bytes: &[u8]) -> ContentArtifactV1 {
         let digest = sha256_hex(bytes);
@@ -887,10 +954,15 @@ mod tests {
         }
     }
 
-    fn fixture() -> (BenchmarkManifestV1, AdapterRunReceiptV1, Vec<(ArtifactRef, Vec<u8>)>) {
+    fn fixture() -> (
+        BenchmarkManifestV1,
+        AdapterRunReceiptV1,
+        Vec<(ArtifactRef, Vec<u8>)>,
+    ) {
         let mut receipt = aero_adapter_run_receipt::parse_receipt_json(include_bytes!(
             "../aero-adapter-run-receipt/fixtures/adapter-run/receipt-v1.json"
-        )).unwrap();
+        ))
+        .unwrap();
         receipt.benchmark_id = "AERO-INTEROP-BENCH-001".into();
         receipt.adapter.adapter_id = "synthetic-step-to-qif".into();
         receipt.receipt_sha256 = compute_receipt_digest(&receipt).unwrap();
@@ -898,11 +970,15 @@ mod tests {
         let case = BenchmarkCaseV1 {
             case_id: receipt.case_id.clone(),
             case_class: "synthetic_positive_and_negative_controls".into(),
-            inputs: receipt.inputs.iter().map(|input| BenchmarkInputV1 {
-                role: input.role,
-                artifact: input.artifact.clone(),
-                rights_status: input.rights_status,
-            }).collect(),
+            inputs: receipt
+                .inputs
+                .iter()
+                .map(|input| BenchmarkInputV1 {
+                    role: input.role,
+                    artifact: input.artifact.clone(),
+                    rights_status: input.rights_status,
+                })
+                .collect(),
             oracle_artifact: artifact("oracle_record", "AERO_ORACLE_RECORD_V1", ORACLE_BYTES),
             oracle_rights_status: RightsStatus::ClearedForTesting,
             oracle_method: OracleMethod::IndependentHandEnumeration,
@@ -913,7 +989,8 @@ mod tests {
                     dimension: BenchmarkDimension::IdentityResolution,
                     expectation: OracleExpectation::Accept,
                     safety_critical: true,
-                    source_locator: "/QIFDocument/Results/CharacteristicMeasurement/CharacteristicItemId".into(),
+                    source_locator:
+                        "/QIFDocument/Results/CharacteristicMeasurement/CharacteristicItemId".into(),
                     rationale_code: "SYNTHETIC_VALID_TRACE".into(),
                 },
                 OracleClaimV1 {
@@ -966,39 +1043,83 @@ mod tests {
 
         let payloads = vec![
             (
-                ArtifactRef { id: "sha256:2c78684bbce9e4a714c337d848eb938a5ce64fe85d052f53adb7e617eeffa6c0".into(), kind: "adapter_executable".into() },
-                include_bytes!("../aero-adapter-run-receipt/fixtures/adapter-run/adapter.bin").to_vec(),
+                ArtifactRef {
+                    id: "sha256:2c78684bbce9e4a714c337d848eb938a5ce64fe85d052f53adb7e617eeffa6c0"
+                        .into(),
+                    kind: "adapter_executable".into(),
+                },
+                include_bytes!("../aero-adapter-run-receipt/fixtures/adapter-run/adapter.bin")
+                    .to_vec(),
             ),
             (
-                ArtifactRef { id: "sha256:6c0ef43428d609b7a9518e8f2a06bc48886d1bbc2160734ded4fc83679e1a98a".into(), kind: "adapter_arguments".into() },
-                include_bytes!("../aero-adapter-run-receipt/fixtures/adapter-run/arguments.json").to_vec(),
+                ArtifactRef {
+                    id: "sha256:6c0ef43428d609b7a9518e8f2a06bc48886d1bbc2160734ded4fc83679e1a98a"
+                        .into(),
+                    kind: "adapter_arguments".into(),
+                },
+                include_bytes!("../aero-adapter-run-receipt/fixtures/adapter-run/arguments.json")
+                    .to_vec(),
             ),
             (
-                ArtifactRef { id: "sha256:9839f815354d2ff6f0033e1161d7fce6a74f9d85eccac1ce1bfe0e80bff21c19".into(), kind: "environment_profile".into() },
-                include_bytes!("../aero-adapter-run-receipt/fixtures/adapter-run/environment-profile.json").to_vec(),
+                ArtifactRef {
+                    id: "sha256:9839f815354d2ff6f0033e1161d7fce6a74f9d85eccac1ce1bfe0e80bff21c19"
+                        .into(),
+                    kind: "environment_profile".into(),
+                },
+                include_bytes!(
+                    "../aero-adapter-run-receipt/fixtures/adapter-run/environment-profile.json"
+                )
+                .to_vec(),
             ),
             (
-                ArtifactRef { id: "sha256:8362e44d47f7f89da4a972ecd585d851f6ca3abcf5735294bc7737d3554c1d33".into(), kind: "step_file".into() },
-                include_bytes!("../aero-adapter-run-receipt/fixtures/adapter-run/source.step").to_vec(),
+                ArtifactRef {
+                    id: "sha256:8362e44d47f7f89da4a972ecd585d851f6ca3abcf5735294bc7737d3554c1d33"
+                        .into(),
+                    kind: "step_file".into(),
+                },
+                include_bytes!("../aero-adapter-run-receipt/fixtures/adapter-run/source.step")
+                    .to_vec(),
             ),
             (
-                ArtifactRef { id: "sha256:2118dab37365c4e792db91933d0f12c6f3c0acb1bdb734b5c0fa4a85f95902fd".into(), kind: "adapter_config".into() },
-                include_bytes!("../aero-adapter-run-receipt/fixtures/adapter-run/adapter-config.json").to_vec(),
+                ArtifactRef {
+                    id: "sha256:2118dab37365c4e792db91933d0f12c6f3c0acb1bdb734b5c0fa4a85f95902fd"
+                        .into(),
+                    kind: "adapter_config".into(),
+                },
+                include_bytes!(
+                    "../aero-adapter-run-receipt/fixtures/adapter-run/adapter-config.json"
+                )
+                .to_vec(),
             ),
             (
-                ArtifactRef { id: "sha256:8c1ed8f48415cb83a5459ed2128ce8543b39ad158f9d71b798447670b73f8029".into(), kind: "qif_result".into() },
-                include_bytes!("../aero-adapter-run-receipt/fixtures/adapter-run/output.qif").to_vec(),
+                ArtifactRef {
+                    id: "sha256:8c1ed8f48415cb83a5459ed2128ce8543b39ad158f9d71b798447670b73f8029"
+                        .into(),
+                    kind: "qif_result".into(),
+                },
+                include_bytes!("../aero-adapter-run-receipt/fixtures/adapter-run/output.qif")
+                    .to_vec(),
             ),
             (
-                ArtifactRef { id: "sha256:7853b080f48dc021262a844a5fcb0b05844202cb0300449aac404e1afd234003".into(), kind: "semantic_assertions".into() },
-                include_bytes!("../aero-adapter-run-receipt/fixtures/adapter-run/normalized-assertions.json").to_vec(),
+                ArtifactRef {
+                    id: "sha256:7853b080f48dc021262a844a5fcb0b05844202cb0300449aac404e1afd234003"
+                        .into(),
+                    kind: "semantic_assertions".into(),
+                },
+                include_bytes!(
+                    "../aero-adapter-run-receipt/fixtures/adapter-run/normalized-assertions.json"
+                )
+                .to_vec(),
             ),
         ];
         (manifest, receipt, payloads)
     }
 
     fn borrowed(payloads: &[(ArtifactRef, Vec<u8>)]) -> Vec<(&ArtifactRef, &[u8])> {
-        payloads.iter().map(|(reference, bytes)| (reference, bytes.as_slice())).collect()
+        payloads
+            .iter()
+            .map(|(reference, bytes)| (reference, bytes.as_slice()))
+            .collect()
     }
 
     fn corpus_payloads(
@@ -1052,11 +1173,29 @@ mod tests {
         let corpus_owned = corpus_payloads(&manifest, &payloads);
         let corpus_borrowed = borrowed(&corpus_owned);
         let observations = vec![
-            ClaimObservationV1 { claim_id: "trace.characteristic_identity".into(), disposition: ClaimObservationDisposition::Accepted, reason_code: None },
-            ClaimObservationV1 { claim_id: "trace.wrong_document_join".into(), disposition: ClaimObservationDisposition::Rejected, reason_code: None },
-            ClaimObservationV1 { claim_id: "pmi.semantic_pmi_preserved".into(), disposition: ClaimObservationDisposition::Unknown, reason_code: Some("ORACLE_NOT_ADJUDICATED".into()) },
+            ClaimObservationV1 {
+                claim_id: "trace.characteristic_identity".into(),
+                disposition: ClaimObservationDisposition::Accepted,
+                reason_code: None,
+            },
+            ClaimObservationV1 {
+                claim_id: "trace.wrong_document_join".into(),
+                disposition: ClaimObservationDisposition::Rejected,
+                reason_code: None,
+            },
+            ClaimObservationV1 {
+                claim_id: "pmi.semantic_pmi_preserved".into(),
+                disposition: ClaimObservationDisposition::Unknown,
+                reason_code: Some("ORACLE_NOT_ADJUDICATED".into()),
+            },
         ];
-        let run = run("synthetic-step-to-qif", "synthetic-ap242-qif-001", &receipt, &run_payloads, &observations);
+        let run = run(
+            "synthetic-step-to-qif",
+            "synthetic-ap242-qif-001",
+            &receipt,
+            &run_payloads,
+            &observations,
+        );
         assert_eq!(
             evaluate_benchmark(&manifest, &corpus_borrowed, &[run]),
             Err(BenchmarkError::InvocationProfileMismatch)
@@ -1127,7 +1266,10 @@ mod tests {
             observed_claims: &[],
             reason_code: None,
         };
-        assert_eq!(evaluate_benchmark(&manifest, &corpus_borrowed, &[run]), Err(BenchmarkError::MissingAttemptReason));
+        assert_eq!(
+            evaluate_benchmark(&manifest, &corpus_borrowed, &[run]),
+            Err(BenchmarkError::MissingAttemptReason)
+        );
     }
 
     #[test]
@@ -1192,7 +1334,10 @@ mod tests {
         let (manifest, _, payloads) = fixture();
         let corpus_owned = corpus_payloads(&manifest, &payloads);
         let mut corpus_borrowed = borrowed(&corpus_owned);
-        assert_eq!(verify_benchmark_corpus_payloads(&manifest, &corpus_borrowed).unwrap(), 6);
+        assert_eq!(
+            verify_benchmark_corpus_payloads(&manifest, &corpus_borrowed).unwrap(),
+            6
+        );
         corpus_borrowed.pop();
         assert_eq!(
             verify_benchmark_corpus_payloads(&manifest, &corpus_borrowed),
@@ -1231,7 +1376,10 @@ mod tests {
         let corpus_borrowed = borrowed(&corpus_owned);
         assert_eq!(
             evaluate_benchmark(&manifest, &corpus_borrowed, &[]),
-            Err(BenchmarkError::RunGridMismatch { expected: 1, actual: 0 })
+            Err(BenchmarkError::RunGridMismatch {
+                expected: 1,
+                actual: 0
+            })
         );
     }
 
@@ -1242,13 +1390,38 @@ mod tests {
         let corpus_owned = corpus_payloads(&manifest, &payloads);
         let corpus_borrowed = borrowed(&corpus_owned);
         let observations = vec![
-            ClaimObservationV1 { claim_id: "trace.characteristic_identity".into(), disposition: ClaimObservationDisposition::Accepted, reason_code: None },
-            ClaimObservationV1 { claim_id: "trace.characteristic_identity".into(), disposition: ClaimObservationDisposition::Accepted, reason_code: None },
-            ClaimObservationV1 { claim_id: "trace.wrong_document_join".into(), disposition: ClaimObservationDisposition::Rejected, reason_code: None },
-            ClaimObservationV1 { claim_id: "pmi.semantic_pmi_preserved".into(), disposition: ClaimObservationDisposition::Unknown, reason_code: Some("ORACLE_NOT_ADJUDICATED".into()) },
+            ClaimObservationV1 {
+                claim_id: "trace.characteristic_identity".into(),
+                disposition: ClaimObservationDisposition::Accepted,
+                reason_code: None,
+            },
+            ClaimObservationV1 {
+                claim_id: "trace.characteristic_identity".into(),
+                disposition: ClaimObservationDisposition::Accepted,
+                reason_code: None,
+            },
+            ClaimObservationV1 {
+                claim_id: "trace.wrong_document_join".into(),
+                disposition: ClaimObservationDisposition::Rejected,
+                reason_code: None,
+            },
+            ClaimObservationV1 {
+                claim_id: "pmi.semantic_pmi_preserved".into(),
+                disposition: ClaimObservationDisposition::Unknown,
+                reason_code: Some("ORACLE_NOT_ADJUDICATED".into()),
+            },
         ];
-        let run = run("synthetic-step-to-qif", "synthetic-ap242-qif-001", &receipt, &borrowed, &observations);
-        assert!(matches!(evaluate_benchmark(&manifest, &corpus_borrowed, &[run]), Err(BenchmarkError::ClaimObservationSetMismatch)));
+        let run = run(
+            "synthetic-step-to-qif",
+            "synthetic-ap242-qif-001",
+            &receipt,
+            &borrowed,
+            &observations,
+        );
+        assert!(matches!(
+            evaluate_benchmark(&manifest, &corpus_borrowed, &[run]),
+            Err(BenchmarkError::ClaimObservationSetMismatch)
+        ));
     }
 
     #[test]
@@ -1260,12 +1433,33 @@ mod tests {
         let corpus_owned = corpus_payloads(&manifest, &payloads);
         let corpus_borrowed = borrowed(&corpus_owned);
         let observations = vec![
-            ClaimObservationV1 { claim_id: "trace.characteristic_identity".into(), disposition: ClaimObservationDisposition::Accepted, reason_code: None },
-            ClaimObservationV1 { claim_id: "trace.wrong_document_join".into(), disposition: ClaimObservationDisposition::Rejected, reason_code: None },
-            ClaimObservationV1 { claim_id: "pmi.semantic_pmi_preserved".into(), disposition: ClaimObservationDisposition::Unknown, reason_code: Some("ORACLE_NOT_ADJUDICATED".into()) },
+            ClaimObservationV1 {
+                claim_id: "trace.characteristic_identity".into(),
+                disposition: ClaimObservationDisposition::Accepted,
+                reason_code: None,
+            },
+            ClaimObservationV1 {
+                claim_id: "trace.wrong_document_join".into(),
+                disposition: ClaimObservationDisposition::Rejected,
+                reason_code: None,
+            },
+            ClaimObservationV1 {
+                claim_id: "pmi.semantic_pmi_preserved".into(),
+                disposition: ClaimObservationDisposition::Unknown,
+                reason_code: Some("ORACLE_NOT_ADJUDICATED".into()),
+            },
         ];
-        let run = run("synthetic-step-to-qif", "synthetic-ap242-qif-001", &receipt, &borrowed, &observations);
-        assert_eq!(evaluate_benchmark(&manifest, &corpus_borrowed, &[run]), Err(BenchmarkError::ReceiptIdentityMismatch));
+        let run = run(
+            "synthetic-step-to-qif",
+            "synthetic-ap242-qif-001",
+            &receipt,
+            &borrowed,
+            &observations,
+        );
+        assert_eq!(
+            evaluate_benchmark(&manifest, &corpus_borrowed, &[run]),
+            Err(BenchmarkError::ReceiptIdentityMismatch)
+        );
     }
 
     #[test]
@@ -1276,7 +1470,10 @@ mod tests {
         manifest.body.tools.reverse();
         manifest.body.cases[0].claims.reverse();
         manifest.body.cases[0].inputs.reverse();
-        assert_eq!(compute_benchmark_manifest_digest(&manifest).unwrap(), before);
+        assert_eq!(
+            compute_benchmark_manifest_digest(&manifest).unwrap(),
+            before
+        );
     }
 
     #[test]
@@ -1284,7 +1481,10 @@ mod tests {
         let (mut manifest, _, _) = fixture();
         manifest.body.cases[0].inputs[0].rights_status = RightsStatus::NotReviewed;
         manifest.manifest_sha256 = compute_benchmark_manifest_digest(&manifest).unwrap();
-        assert!(matches!(validate_benchmark_manifest(&manifest), Err(BenchmarkError::RightsNotAdmitted(_))));
+        assert!(matches!(
+            validate_benchmark_manifest(&manifest),
+            Err(BenchmarkError::RightsNotAdmitted(_))
+        ));
     }
 
     #[test]
@@ -1294,22 +1494,45 @@ mod tests {
         let corpus_owned = corpus_payloads(&manifest, &payloads);
         let corpus_borrowed = borrowed(&corpus_owned);
         let observations = vec![
-            ClaimObservationV1 { claim_id: "trace.characteristic_identity".into(), disposition: ClaimObservationDisposition::Accepted, reason_code: None },
-            ClaimObservationV1 { claim_id: "trace.wrong_document_join".into(), disposition: ClaimObservationDisposition::Rejected, reason_code: None },
-            ClaimObservationV1 { claim_id: "pmi.semantic_pmi_preserved".into(), disposition: ClaimObservationDisposition::Accepted, reason_code: None },
+            ClaimObservationV1 {
+                claim_id: "trace.characteristic_identity".into(),
+                disposition: ClaimObservationDisposition::Accepted,
+                reason_code: None,
+            },
+            ClaimObservationV1 {
+                claim_id: "trace.wrong_document_join".into(),
+                disposition: ClaimObservationDisposition::Rejected,
+                reason_code: None,
+            },
+            ClaimObservationV1 {
+                claim_id: "pmi.semantic_pmi_preserved".into(),
+                disposition: ClaimObservationDisposition::Accepted,
+                reason_code: None,
+            },
         ];
-        let run = run("synthetic-step-to-qif", "synthetic-ap242-qif-001", &receipt, &borrowed, &observations);
+        let run = run(
+            "synthetic-step-to-qif",
+            "synthetic-ap242-qif-001",
+            &receipt,
+            &borrowed,
+            &observations,
+        );
         let score = evaluate_benchmark(&manifest, &corpus_borrowed, &[run]).unwrap();
         let semantic = &score.tools[0].dimensions[&BenchmarkDimension::SemanticPreservation];
         assert_eq!(semantic.oracle_unadjudicated, 1);
-        assert_eq!(semantic.true_accepts + semantic.false_accepts + semantic.true_rejects + semantic.false_rejects, 0);
+        assert_eq!(
+            semantic.true_accepts
+                + semantic.false_accepts
+                + semantic.true_rejects
+                + semantic.false_rejects,
+            0
+        );
     }
 
     #[test]
     fn oracle_artifact_cannot_be_the_tool_source_input() {
         let (mut manifest, _, _) = fixture();
-        manifest.body.cases[0].oracle_artifact =
-            manifest.body.cases[0].inputs[0].artifact.clone();
+        manifest.body.cases[0].oracle_artifact = manifest.body.cases[0].inputs[0].artifact.clone();
         manifest.manifest_sha256 = compute_benchmark_manifest_digest(&manifest).unwrap();
         assert!(matches!(
             validate_benchmark_manifest(&manifest),
