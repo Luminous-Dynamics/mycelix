@@ -172,6 +172,7 @@
         "additionalProperties": false,
         "required": [
           "artifact_id",
+          "artifact_path",
           "source_type",
           "source_profile",
           "media_type",
@@ -373,6 +374,18 @@
           },
           "unknown_fields_preserved": {
             "type": "boolean"
+          },
+          "artifact_path": {
+            "description": "Repository-relative path to exact retained bytes; required for exact_bytes_retained and null otherwise.",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       }
