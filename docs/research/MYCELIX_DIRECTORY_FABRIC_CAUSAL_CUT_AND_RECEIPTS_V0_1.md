@@ -384,6 +384,17 @@ This composes a well-known distributed-systems fencing pattern with request-scop
 
 Important limits: the owner inventory can be incomplete; owner acknowledgements can be forged or stale without authenticated signatures and durable state proofs; a bypass write path defeats the guard; and non-fenceable third-party APIs cannot receive the strong guarantee. The completion timestamp is the all-owner durable-ack point, not the time a revocation was merely requested. During propagation, status is pending/indeterminate. This gives a measurable revocation window instead of promising instantaneous revocation in an asynchronous network.
 
+### Continuous access evaluation signals are not resource fences
+
+OpenID CAEP/SSF events are useful control-plane signals for session and token re-evaluation. They do not by themselves prove that a particular database, queue, worker or external API has durably installed a resource-scoped generation. The profile therefore separates:
+- signal received / validated;
+- affected sessions or tokens re-evaluated;
+- owner fence generation durably advanced;
+- exact owner acknowledgement authenticated;
+- old-generation mutation rejected at the atomic effect boundary.
+
+A CAEP event timestamp is not a substitute for a per-owner monotonic fence generation or a causal authority frontier. Event delivery may be delayed, duplicated or lost relative to a resource-owner partition. A signal can trigger fence installation, but it cannot be treated as its acknowledgement.
+
 ### Fencing-specific benchmark contract
 
 The preregistration now includes:
@@ -396,7 +407,7 @@ The preregistration now includes:
 
 The safety claim is scoped precisely: **after** every required owner has durably acknowledged the fence, no earlier-generation mutation may commit through a correctly integrated owner. It does not promise that revocation has completed before that acknowledgement point.
 
-The finite-state companion `DirectoryFabricEffectFence.tla` models per-owner generation installation, exact acknowledgement aggregation and delayed command arrival. Its negative-control configuration deliberately accepts a stale command after all owners acknowledge, and the invariant is expected to fail under that mutant. Model/config files are source-present only; TLC has not been run.
+The finite-state companion `DirectoryFabricEffectFence.tla` models per-owner generation installation, exact acknowledgement aggregation and delayed command arrival. `DirectoryFabricCaepFenceBoundary.tla` separately models CAEP signalling versus durable owner fencing, with a mutant that incorrectly promotes a CAEP signal to a fence acknowledgement. Its negative-control configuration deliberately accepts a stale command after all owners acknowledge, and the invariant is expected to fail under that mutant. Model/config files are source-present only; TLC has not been run.
 
 ## 12.2 PostgreSQL effect-owner transaction adapter
 
