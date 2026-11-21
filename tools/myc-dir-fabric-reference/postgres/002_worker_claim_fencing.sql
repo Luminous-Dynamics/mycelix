@@ -295,7 +295,8 @@ BEGIN
             p_idempotency_key_digest, p_logical_operation_id,
             p_request_digest, p_decision_receipt_digest, p_payload_digest,
             p_delta_minor
-        );
+        , p_decision_clock_profile_id,
+            p_decision_issued_at, p_decision_expires_at);
         RETURN;
     END IF;
 
@@ -348,7 +349,8 @@ BEGIN
         p_idempotency_key_digest, p_logical_operation_id,
         p_request_digest, p_decision_receipt_digest, p_payload_digest,
         p_delta_minor
-    );
+    , p_decision_clock_profile_id,
+            p_decision_issued_at, p_decision_expires_at);
 END
 $function$
 
