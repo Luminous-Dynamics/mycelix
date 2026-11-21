@@ -477,7 +477,7 @@ mod tests {
     use super::*;
     use crate::causal_cut::CausalCutAssessment;
     use crate::receipts::{
-        ClockProfileId, DecisionBasisKind, DecisionOutcome, PolicyEvaluation, ReceiptId,
+        ClockProfileId, PolicyEvaluation, ReceiptId,
     };
 
     fn scope() -> EffectFenceScope {
@@ -660,7 +660,7 @@ mod tests {
     #[test]
     fn fenced_command_binds_allow_to_owner_generation() {
         let decision = decision(PolicyEvaluation::Permit { witness_digest: [10; 32] });
-        assert_eq!(decision.outcome(), DecisionOutcome::Allow);
+        assert_eq!(decision.outcome(), crate::receipts::DecisionOutcome::Allow);
         let owner = owner("db-a");
         let state = EffectFenceState::new(EffectFenceDomain::new(scope(), owner));
         let command = FencedEffectCommand::bind_allow(
