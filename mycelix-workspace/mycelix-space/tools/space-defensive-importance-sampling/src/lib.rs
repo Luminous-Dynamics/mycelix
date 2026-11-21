@@ -400,6 +400,71 @@ pub struct RepeatedEncounterRiskReport {
     pub claim_ceiling: &'static str,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CounterfactualManeuverDesign {
+    pub baseline_plan_id: String,
+    pub baseline_plan_revision: String,
+    pub candidate_plan_id: String,
+    pub candidate_plan_revision: String,
+    pub horizon_id: String,
+    pub encounter_ids: Vec<String>,
+    pub encounter_order_digest: String,
+    /// Both plans are evaluated from the same retained initial-state samples.
+    pub same_initial_state_samples: bool,
+    /// Both plans use the same full-horizon event oracle and revision.
+    pub same_full_horizon_event_oracle: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CounterfactualManeuverObservation {
+    /// One shared whitened initial-state sample for both plans.
+    pub point: Vec<f64>,
+    pub physical_state: Vec<f64>,
+    /// Ordered baseline full-horizon encounter outcomes.
+    pub baseline_collision_by_encounter: Vec<bool>,
+    /// Ordered candidate full-horizon encounter outcomes.
+    pub candidate_collision_by_encounter: Vec<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CounterfactualEncounterChange {
+    pub encounter_id: String,
+    pub baseline_probability_estimate: f64,
+    pub candidate_probability_estimate: f64,
+    /// Candidate minus baseline; negative indicates lower estimated event probability.
+    pub probability_change_estimate: f64,
+    pub newly_introduced_collision_samples: usize,
+    pub mitigated_collision_samples: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CounterfactualManeuverRiskReport {
+    pub method: &'static str,
+    pub baseline_plan_id: String,
+    pub baseline_plan_revision: String,
+    pub candidate_plan_id: String,
+    pub candidate_plan_revision: String,
+    pub horizon_id: String,
+    pub encounter_ids: Vec<String>,
+    pub encounter_order_digest: String,
+    pub baseline_union: ImportanceSamplingReport,
+    pub candidate_union: ImportanceSamplingReport,
+    /// Candidate minus baseline; negative values favor the candidate.
+    pub paired_probability_change: f64,
+    pub paired_standard_error: f64,
+    pub paired_confidence_delta: f64,
+    pub paired_confidence_lower: f64,
+    pub paired_confidence_upper: f64,
+    pub independent_stream_difference_standard_error: f64,
+    /// None when paired variance is exactly zero.
+    pub paired_variance_reduction_ratio: Option<f64>,
+    pub paired_variance_is_zero: bool,
+    pub encounter_changes: Vec<CounterfactualEncounterChange>,
+    pub sample_rows: usize,
+    pub inference_scope: &'static str,
+    pub claim_ceiling: &'static str,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct BoundarySentinelObservation {
     pub point: Vec<f64>,
@@ -681,6 +746,14 @@ impl fmt::Display for EstimateError {
             Self::RepeatedEncounterOutcomeCountMismatch { expected, actual } => write!(
                 f,
                 "trajectory row has {actual} encounter outcomes; expected {expected} in declared order"
+            ),
+            Self::InvalidCounterfactualManeuverDesign => write!(
+                f,
+                "counterfactual comparison requires distinct plan IDs/revisions, a fixed horizon and encounter order, and the same initial samples and full-horizon oracle"
+            ),
+            Self::CounterfactualOutcomeCountMismatch { expected, baseline_actual, candidate_actual } => write!(
+                f,
+                "counterfactual row has baseline/candidate outcome counts {baseline_actual}/{candidate_actual}; expected {expected} for each"
             ),
         }
     }
@@ -981,6 +1054,188 @@ pub fn estimate_repeating_encounter_risk(
         sample_rows: n,
         inference_scope: "joint_union_estimated_from_shared_trajectory_rows_no_independence_assumption_between_encounters",
         claim_ceiling: "fixed_sample_joint_path_statistical_bound_conditional_on_iid_frozen_proposal_and_correct_full_horizon_event_oracle_not_physical_safety",
+    })
+}
+
+/// Paired baseline-versus-candidate maneuver risk comparison using the
+/// same initial-state rows, frozen proposal weights and full-horizon oracle.
+///
+/// The risk difference is candidate minus baseline. Its weighted contribution
+/// lies in [-1/epsilon, +1/epsilon], so a fixed-sample empirical-Bernstein
+/// interval can be computed without assuming independence between the two
+/// plan outcomes on the same trajectory row.
+pub fn compare_counterfactual_maneuver_risk(
+    proposal: &DefensiveGaussianMixture,
+    whitening: &WhiteningTransform,
+    observations: &[CounterfactualManeuverObservation],
+    delta: f64,
+    evaluation_evidence: &EvaluationEvidence,
+    design: &CounterfactualManeuverDesign,
+) -> Result<CounterfactualManeuverRiskReport, EstimateError> {
+    if !valid_identifier(&design.baseline_plan_id)
+        || !valid_identifier(&design.baseline_plan_revision)
+        || !valid_identifier(&design.candidate_plan_id)
+        || !valid_identifier(&design.candidate_plan_revision)
+        || design.baseline_plan_id == design.candidate_plan_id
+        || design.baseline_plan_revision == design.candidate_plan_revision
+        || !valid_identifier(&design.horizon_id)
+        || !valid_identifier(&design.encounter_order_digest)
+        || design.encounter_ids.is_empty()
+        || !design.same_initial_state_samples
+        || !design.same_full_horizon_event_oracle
+    {
+        return Err(EstimateError::InvalidCounterfactualManeuverDesign);
+    }
+    let mut seen_ids = BTreeSet::new();
+    if design.encounter_ids.iter().any(|id| {
+        !valid_identifier(id) || !seen_ids.insert(id.as_str())
+    }) {
+        return Err(EstimateError::InvalidCounterfactualManeuverDesign);
+    }
+    if observations.len() < 2 {
+        return Err(EstimateError::InsufficientSamples(observations.len()));
+    }
+
+    let encounter_count = design.encounter_ids.len();
+    let mut baseline_observations = Vec::with_capacity(observations.len());
+    let mut candidate_observations = Vec::with_capacity(observations.len());
+    let mut paired_differences = Vec::with_capacity(observations.len());
+    let mut encounter_differences = vec![Vec::<f64>::with_capacity(observations.len()); encounter_count];
+    let mut introduced_counts = vec![0usize; encounter_count];
+    let mut mitigated_counts = vec![0usize; encounter_count];
+
+    for observation in observations {
+        if observation.baseline_collision_by_encounter.len() != encounter_count
+            || observation.candidate_collision_by_encounter.len() != encounter_count
+        {
+            return Err(EstimateError::CounterfactualOutcomeCountMismatch {
+                expected: encounter_count,
+                baseline_actual: observation.baseline_collision_by_encounter.len(),
+                candidate_actual: observation.candidate_collision_by_encounter.len(),
+            });
+        }
+        let baseline_union = observation.baseline_collision_by_encounter.iter().any(|hit| *hit);
+        let candidate_union = observation.candidate_collision_by_encounter.iter().any(|hit| *hit);
+        baseline_observations.push(CollisionObservation {
+            point: observation.point.clone(),
+            physical_state: observation.physical_state.clone(),
+            collision: baseline_union,
+        });
+        candidate_observations.push(CollisionObservation {
+            point: observation.point.clone(),
+            physical_state: observation.physical_state.clone(),
+            collision: candidate_union,
+        });
+
+        let weight = proposal.likelihood_ratio(&observation.point)?;
+        paired_differences.push(
+            weight * (i32::from(candidate_union) - i32::from(baseline_union)) as f64
+        );
+        for index in 0..encounter_count {
+            let baseline_hit = observation.baseline_collision_by_encounter[index];
+            let candidate_hit = observation.candidate_collision_by_encounter[index];
+            encounter_differences[index].push(
+                weight * (i32::from(candidate_hit) - i32::from(baseline_hit)) as f64
+            );
+            if candidate_hit && !baseline_hit {
+                introduced_counts[index] += 1;
+            }
+            if baseline_hit && !candidate_hit {
+                mitigated_counts[index] += 1;
+            }
+        }
+    }
+
+    let baseline_union = estimate_collision_probability(
+        proposal, whitening, &baseline_observations, delta, evaluation_evidence
+    )?;
+    let candidate_union = estimate_collision_probability(
+        proposal, whitening, &candidate_observations, delta, evaluation_evidence
+    )?;
+
+    let n = paired_differences.len();
+    let paired_change = paired_differences.iter().sum::<f64>() / n as f64;
+    let paired_variance = sample_variance(&paired_differences, paired_change);
+    let paired_standard_error = (paired_variance / n as f64).sqrt();
+
+    // Two-sided confidence interval: allocate delta/2 to each tail and use
+    // the known contribution range [-cap,+cap], whose width is 2*cap.
+    let cap = 1.0 / proposal.epsilon;
+    let log_term = (4.0 / delta).ln();
+    let radius = (2.0 * paired_variance * log_term / n as f64).sqrt()
+        + (14.0 * cap * log_term) / (3.0 * (n - 1) as f64);
+    let lower = (paired_change - radius).max(-1.0);
+    let upper = (paired_change + radius).min(1.0);
+
+    let independent_stream_difference_standard_error =
+        (baseline_union.sample_variance / n as f64
+            + candidate_union.sample_variance / n as f64)
+            .sqrt();
+    let paired_variance_is_zero = paired_variance <= f64::EPSILON;
+    let paired_variance_reduction_ratio = if paired_variance_is_zero {
+        None
+    } else {
+        Some(
+            independent_stream_difference_standard_error.powi(2)
+                / paired_standard_error.powi(2)
+        )
+    };
+
+    let encounter_changes = design
+        .encounter_ids
+        .iter()
+        .enumerate()
+        .map(|(index, encounter_id)| {
+            let baseline_values = observations
+                .iter()
+                .zip(encounter_differences[index].iter())
+                .map(|(observation, difference)| {
+                    let weight = proposal.likelihood_ratio(&observation.point).unwrap_or(0.0);
+                    // Reconstruct the baseline contribution from the paired difference.
+                    // Candidate-minus-baseline is known; the baseline flag is retained.
+                    if observation.baseline_collision_by_encounter[index] {
+                        weight
+                    } else {
+                        0.0
+                    }
+                })
+                .collect::<Vec<_>>();
+            let baseline_estimate = baseline_values.iter().sum::<f64>() / n as f64;
+            let difference = encounter_differences[index].iter().sum::<f64>() / n as f64;
+            EncounterCounterfactualChange {
+                encounter_id: encounter_id.clone(),
+                baseline_probability_estimate: baseline_estimate,
+                candidate_probability_estimate: baseline_estimate + difference,
+                probability_change_estimate: difference,
+                newly_introduced_collision_samples: introduced_counts[index],
+                mitigated_collision_samples: mitigated_counts[index],
+            }
+        })
+        .collect::<Vec<_>>();
+
+    Ok(CounterfactualManeuverRiskReport {
+        method: "paired_shared_trajectory_counterfactual_risk_comparison",
+        baseline_plan_id: design.baseline_plan_id.clone(),
+        baseline_plan_revision: design.baseline_plan_revision.clone(),
+        candidate_plan_id: design.candidate_plan_id.clone(),
+        candidate_plan_revision: design.candidate_plan_revision.clone(),
+        horizon_id: design.horizon_id.clone(),
+        encounter_ids: design.encounter_ids.clone(),
+        encounter_order_digest: design.encounter_order_digest.clone(),
+        baseline_union,
+        candidate_union,
+        paired_probability_change: paired_change,
+        paired_standard_error,
+        paired_confidence_delta: delta,
+        paired_confidence_lower: lower,
+        paired_confidence_upper: upper,
+        independent_stream_difference_standard_error,
+        paired_variance_reduction_ratio,
+        paired_variance_is_zero,
+        encounter_changes,
+        sample_rows: n,
+        inference_scope: "paired_fixed_sample_difference_under_same_frozen_proposal_and_initial_state_rows",
+        claim_ceiling: "counterfactual_statistical_comparison_only_not_maneuver_feasibility_authorization_or_safety_certification",
     })
 }
 
