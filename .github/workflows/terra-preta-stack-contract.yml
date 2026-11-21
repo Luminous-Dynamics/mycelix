@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'research/terra-preta/STACK_INTEGRATION_CONTRACT_V0.1.md'
+      - 'research/terra-preta/SOUTH_AFRICAN_SOIL_SOURCE_ADMISSION_CATALOGUE_V0.1.md'
       - 'research/terra-preta/schemas/soil-twin-package.schema.json'
       - 'research/terra-preta/examples/synthetic-soil-twin-package-v0.1.json'
       - '.github/workflows/terra-preta-stack-contract.yml'
