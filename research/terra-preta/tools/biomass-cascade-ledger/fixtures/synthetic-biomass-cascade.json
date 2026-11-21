@@ -1,0 +1,103 @@
+{
+  "schema_version": "biomass-cascade-ledger-v0.1",
+  "fixture_status": "synthetic_only_biomass_eligibility_not_harvest_authorization",
+  "evidence_class": "synthetic",
+  "scenario_id": "synthetic-crop-residue-cascade-and-three-batch-allocations",
+  "season_id": "synthetic-season-2026",
+  "season_start": "2026-04-01",
+  "season_end": "2027-03-31",
+  "source_lots": [
+    {
+      "source_id": "source-crop-residue-A",
+      "source_type": "crop_residue",
+      "custodian_id": "synthetic-landholder-A",
+      "source_record_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "source_start": "2026-04-01",
+      "source_end": "2027-03-31",
+      "gross_dry_mass_kg": 10000,
+      "gross_dry_mass_uncertainty_kg": 100,
+      "retention_status": "approved",
+      "required_retention_kg": 4000,
+      "retention_uncertainty_kg": 200,
+      "retention_method": "synthetic site-specific cover and nutrient return assessment",
+      "retention_authority": "Synthetic ecology review board",
+      "retention_approval_reference": "SYNTH-RETENTION-APPROVAL-01",
+      "retention_approval_date": "2026-04-01",
+      "retention_approval_valid_until": "2027-03-31",
+      "rights_status": "verified",
+      "rights_authority": "Synthetic landholder agreement",
+      "rights_reference": "SYNTH-RIGHTS-01",
+      "existing_competing_use_kg": 1500,
+      "existing_competing_use_uncertainty_kg": 100,
+      "prior_batch_allocated_kg": 500,
+      "prior_batch_allocation_uncertainty_kg": 50,
+      "approved_harvest_cap_kg": 2500,
+      "harvest_cap_authority": "Synthetic source allocation authority",
+      "harvest_cap_reference": "SYNTH-HARVEST-CAP-01",
+      "harvest_cap_valid_until": "2027-03-31",
+      "nutrient_content_kg_per_dry_tonne": {
+        "carbon": 420,
+        "nitrogen": 8,
+        "phosphorus": 1.2,
+        "potassium": 9,
+        "uncertainty": 0.5
+      }
+    },
+    {
+      "source_id": "source-crop-residue-unknown",
+      "source_type": "crop_residue",
+      "custodian_id": "synthetic-landholder-B",
+      "source_record_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "source_start": "2026-04-01",
+      "source_end": "2027-03-31",
+      "gross_dry_mass_kg": 6000,
+      "gross_dry_mass_uncertainty_kg": 200,
+      "retention_status": "unknown",
+      "required_retention_kg": 0,
+      "retention_uncertainty_kg": 0,
+      "retention_method": "not assessed",
+      "retention_authority": "Pending",
+      "retention_approval_reference": "PENDING",
+      "retention_approval_date": "2026-04-01",
+      "retention_approval_valid_until": "2027-03-31",
+      "rights_status": "verified",
+      "rights_authority": "Synthetic landholder",
+      "rights_reference": "SYNTH-RIGHTS-02",
+      "existing_competing_use_kg": 1000,
+      "existing_competing_use_uncertainty_kg": 100,
+      "prior_batch_allocated_kg": 0,
+      "prior_batch_allocation_uncertainty_kg": 0,
+      "approved_harvest_cap_kg": 1500,
+      "harvest_cap_authority": "Synthetic source allocation authority",
+      "harvest_cap_reference": "SYNTH-HARVEST-CAP-02",
+      "harvest_cap_valid_until": "2027-03-31",
+      "nutrient_content_kg_per_dry_tonne": {
+        "carbon": 400,
+        "nitrogen": 7,
+        "phosphorus": 1,
+        "potassium": 8,
+        "uncertainty": 1
+      }
+    }
+  ],
+  "allocations": [
+    {
+      "allocation_id": "alloc-A-001",
+      "batch_id": "biochar-batch-A",
+      "source_id": "source-crop-residue-A",
+      "requested_dry_mass_kg": 2000
+    },
+    {
+      "allocation_id": "alloc-A-002",
+      "batch_id": "biochar-batch-B",
+      "source_id": "source-crop-residue-A",
+      "requested_dry_mass_kg": 600
+    },
+    {
+      "allocation_id": "alloc-B-001",
+      "batch_id": "biochar-batch-C",
+      "source_id": "source-crop-residue-unknown",
+      "requested_dry_mass_kg": 500
+    }
+  ]
+}
