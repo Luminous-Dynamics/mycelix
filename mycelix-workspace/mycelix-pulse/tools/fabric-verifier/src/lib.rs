@@ -2367,7 +2367,10 @@ mod tests {
         assert!(
             fanout["recipient_set_authority"]
                 .as_str()
-                .is_some_and(|value| value.contains("separately authenticated"))
+                .is_some_and(|value| {
+                    value.contains("separate trusted membership/policy root")
+                        && value.contains("complete and authorized")
+                })
         );
         assert!(
             fanout["partial_and_unknown"]
