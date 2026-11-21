@@ -97,3 +97,10 @@ The exact synthetic fixture contains one requested primary-secondary pair and a 
 
 
 The pair manifest digest uses the domain prefix `mycelix-space-pair-manifest-v1`, an unsigned 64-bit big-endian length prefix, and the compact `serde_json` serialization of the pair array sorted by `pair_id`. JSON object keys are serialized in sorted order by the verifier's serde_json configuration. Any mutation to a pair disposition, source-artifact reference, witness, narrow-phase state or assessment link changes the digest.
+
+
+## Whole-package content commitment
+
+The v0.1 envelope carries `package_manifest_sha256`, a domain-separated digest of the entire package object with that one member removed. It commits the request and its source-configuration binding, every retained source artifact declaration, object/time/pair coverage ledgers, assessment input/output joins, execution and replay receipts, authority records, layer-specific claim matrix, result disposition and notices.
+
+Canonicalization uses the verifier's sorted-object-key `serde_json` encoding, compact UTF-8 JSON bytes, domain prefix `mycelix-space-qualification-package-v0.1`, and an unsigned 64-bit big-endian byte-length prefix before hashing with SHA-256. The package digest does not authenticate the issuer or prove the evidence is true. It makes post-issuance mutation detectable when the digest is carried independently; signature/credential verification and physical validation remain separate qualification layers.
