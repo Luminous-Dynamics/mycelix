@@ -76,7 +76,7 @@ The crate does not implement a new policy language or a second constraint algebr
 
 A production PEP must require both a sufficient snapshot assessment and the existing authoritative full-context policy result before an effect. An offline lease is a bounded freshness/availability condition, not a permission grant.
 
-The same folder includes `DirectoryFabricEffectFence.tla`, a finite-state model of per-owner generation installation, exact owner acknowledgements and delayed mutation commands. `DirectoryFabricEffectFence.cfg` is the safe configuration; `DirectoryFabricEffectFence-stale-accept-mutant.cfg` deliberately accepts stale commands after all owners acknowledge and should violate `NoStaleMutationAcceptanceAfterFence`. The model is source-present only; TLC has not been run.
+The security folder now contains three finite-state companions: `DirectoryFabricCausalCutReceipts.tla` (causal-cut/receipt composition), `DirectoryFabricEffectFence.tla` (per-owner generation and delayed command), and `DirectoryFabricEffectInventory.tla` (complete route inventory and fenceability). The inventory model has safe, omitted-route and CAEP-only negative-control configurations. All TLA models/configurations are source-present only; TLC has not been run.
 
 ## PostgreSQL effect-owner reference
 
@@ -95,7 +95,7 @@ cargo clippy --manifest-path tools/myc-dir-fabric-reference/Cargo.toml --all-tar
 cargo fmt --manifest-path tools/myc-dir-fabric-reference/Cargo.toml -- --check
 ```
 
-The crate has no third-party dependencies. The branch currently authors 80 deterministic unit tests across frontier/snapshot/lease/group, dependency-closure, decision-receipt and effect-history semantics. They are source-present only until run on the exact head. They do not substitute for independent closure-proof validation, external property-testing, mutation testing, or a proof assistant.
+The crate has no third-party dependencies. The branch currently authors 80 deterministic unit tests across frontier/snapshot/lease/group, request-scoped closure, decision/effect receipts, owner fencing and effect-surface inventory closure. They are source-present only until run on the exact head. They do not substitute for independent closure-proof validation, external property-testing, mutation testing, or a proof assistant.
 
 ## Explicit claim ceiling
 
