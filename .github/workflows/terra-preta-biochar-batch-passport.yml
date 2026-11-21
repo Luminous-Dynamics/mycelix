@@ -1,0 +1,80 @@
+name: Terra Preta biochar batch quality passport
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/BIOCHAR_BATCH_QUALITY_PASSPORT_V0.1.md'
+      - 'research/terra-preta/schemas/biochar-batch-passport-*.schema.json'
+      - 'research/terra-preta/tools/biochar-batch-passport/**'
+      - '.github/workflows/terra-preta-biochar-batch-passport.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  biochar-batch-passport:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/biochar-batch-passport/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/biochar-batch-passport/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/biochar-batch-passport/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate synthetic fixture and report
+        run: |
+          input=research/terra-preta/schemas/biochar-batch-passport-input.schema.json
+          output=research/terra-preta/schemas/biochar-batch-passport-report.schema.json
+          fixture=research/terra-preta/tools/biochar-batch-passport/fixtures/synthetic-biochar-batch.json
+          jsonschema-cli validate "$input" --instance "$fixture" --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/biochar-batch-passport/Cargo.toml -- \
+            "$fixture" "$RUNNER_TEMP/biochar-batch-report.json"
+          jsonschema-cli validate "$output" --instance "$RUNNER_TEMP/biochar-batch-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_only_not_product_evidence" and
+            .quality_conformity_status == "synthetic_profile_pass" and
+            .feedstock_gate == "pass_synthetic" and
+            .process_gate == "pass_synthetic" and
+            .sampling_gate == "pass_synthetic" and
+            .analytical_gate == "pass_synthetic" and
+            .carbon_removal_status == "not_assessed_by_v0_1" and
+            .agronomic_suitability_status == "not_assessed_by_v0_1" and
+            (.analyte_results | length) == 5
+          ' "$RUNNER_TEMP/biochar-batch-report.json"
+      - name: Reject missing feedstock and sampling evidence
+        run: |
+          fixture=research/terra-preta/tools/biochar-batch-passport/fixtures/synthetic-biochar-batch.json
+          jq '.batch.feedstock_lots[0].contamination_status = "unknown"' "$fixture" > "$RUNNER_TEMP/unknown-feedstock.json"
+          cargo run --quiet --manifest-path research/terra-preta/tools/biochar-batch-passport/Cargo.toml -- \
+            "$RUNNER_TEMP/unknown-feedstock.json" "$RUNNER_TEMP/unknown-feedstock-report.json"
+          test "$(jq -r '.feedstock_gate' "$RUNNER_TEMP/unknown-feedstock-report.json")" = "blocked"
+          jq '.batch.sampling.representative_sampling_confirmed = false' "$fixture" > "$RUNNER_TEMP/unrepresentative-sampling.json"
+          cargo run --quiet --manifest-path research/terra-preta/tools/biochar-batch-passport/Cargo.toml -- \
+            "$RUNNER_TEMP/unrepresentative-sampling.json" "$RUNNER_TEMP/unrepresentative-sampling-report.json"
+          test "$(jq -r '.sampling_gate' "$RUNNER_TEMP/unrepresentative-sampling-report.json")" = "blocked"
+      - name: Verify uncertainty cannot be rounded into a pass
+        run: |
+          fixture=research/terra-preta/tools/biochar-batch-passport/fixtures/synthetic-biochar-batch.json
+          jq '(.batch.laboratory_results[] | select(.analyte_id == "lead_mg_kg") | .measured_value) = 99 | (.batch.laboratory_results[] | select(.analyte_id == "lead_mg_kg") | .expanded_uncertainty) = 3' "$fixture" > "$RUNNER_TEMP/overlap-limit.json"
+          cargo run --quiet --manifest-path research/terra-preta/tools/biochar-batch-passport/Cargo.toml -- \
+            "$RUNNER_TEMP/overlap-limit.json" "$RUNNER_TEMP/overlap-limit-report.json"
+          test "$(jq -r '.analyte_results[] | select(.analyte_id == "lead_mg_kg") | .status' "$RUNNER_TEMP/overlap-limit-report.json")" = "indeterminate"
+      - name: Reject output overwrite
+        run: |
+          fixture=research/terra-preta/tools/biochar-batch-passport/fixtures/synthetic-biochar-batch.json
+          report="$RUNNER_TEMP/existing-biochar-report.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/biochar-batch-passport/Cargo.toml -- "$fixture" "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"
