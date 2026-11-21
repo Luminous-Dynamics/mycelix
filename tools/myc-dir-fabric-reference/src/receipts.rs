@@ -306,10 +306,11 @@ fn cut_assessment_tag(assessment: CausalCutAssessment) -> u8 {
         CausalCutAssessment::RequestBindingMismatch => 6,
         CausalCutAssessment::RealmBindingMismatch => 7,
         CausalCutAssessment::PolicyBindingMismatch => 8,
-        CausalCutAssessment::ResolverProfileMismatch => 9,
-        CausalCutAssessment::CutDigestMismatch => 10,
-        CausalCutAssessment::BehindRequiredDependency => 11,
-        CausalCutAssessment::IncomparableRequiredDependency => 12,
+        CausalCutAssessment::DependencyGraphBindingMismatch => 9,
+        CausalCutAssessment::ResolverProfileMismatch => 10,
+        CausalCutAssessment::CutDigestMismatch => 11,
+        CausalCutAssessment::BehindRequiredDependency => 12,
+        CausalCutAssessment::IncomparableRequiredDependency => 13,
     }
 }
 
