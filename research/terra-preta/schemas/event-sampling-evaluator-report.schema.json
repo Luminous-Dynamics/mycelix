@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic event sampling policy evaluation report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "true_baseline_mean",
+    "true_peak_value",
+    "true_peak_time_hours",
+    "true_event_integral_absolute_anomaly_unit_hours",
+    "policy_results",
+    "controls",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_policy_evaluator_not_field_data"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "true_baseline_mean": {
+      "type": "number"
+    },
+    "true_peak_value": {
+      "type": "number"
+    },
+    "true_peak_time_hours": {
+      "type": "number"
+    },
+    "true_event_integral_absolute_anomaly_unit_hours": {
+      "type": "number",
+      "minimum": 0
+    },
+    "policy_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "policy_id",
+          "policy_class",
+          "evaluation_role",
+          "sample_count",
+          "sample_energy_wh",
+          "sample_budget_status",
+          "energy_budget_status",
+          "pulse_detected",
+          "pulse_capture_status",
+          "sampled_peak_value",
+          "sampled_peak_time_hours",
+          "peak_absolute_error",
+          "peak_timing_error_hours",
+          "sampled_event_integral_absolute_anomaly_unit_hours",
+          "event_integral_status",
+          "event_integral_absolute_error",
+          "event_integral_relative_error",
+          "maximum_observed_event_gap_hours",
+          "interpretation"
+        ],
+        "properties": {
+          "policy_id": {
+            "type": "string"
+          },
+          "policy_class": {
+            "type": "string"
+          },
+          "evaluation_role": {
+            "type": "string"
+          },
+          "sample_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sample_energy_wh": {
+            "type": "number",
+            "minimum": 0
+          },
+          "sample_budget_status": {
+            "enum": [
+              "within_budget",
+              "exceeded_budget"
+            ]
+          },
+          "energy_budget_status": {
+            "enum": [
+              "within_budget",
+              "exceeded_budget"
+            ]
+          },
+          "pulse_detected": {
+            "type": "boolean"
+          },
+          "pulse_capture_status": {
+            "enum": [
+              "captured",
+              "missed"
+            ]
+          },
+          "sampled_peak_value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "sampled_peak_time_hours": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "peak_absolute_error": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "peak_timing_error_hours": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "sampled_event_integral_absolute_anomaly_unit_hours": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "event_integral_status": {
+            "enum": [
+              "qualified",
+              "missing_event_boundary",
+              "gap_exceeded",
+              "budget_exceeded"
+            ]
+          },
+          "event_integral_absolute_error": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "event_integral_relative_error": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "maximum_observed_event_gap_hours": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "interpretation": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_future_observation_leakage_rejected",
+        "sample_times_bound_to_truth_grid",
+        "no_unobserved_peak_interpolation",
+        "event_integral_gap_rule_enforced",
+        "oracle_not_deployable",
+        "budget_accounting_pass"
+      ],
+      "properties": {
+        "policy_future_observation_leakage_rejected": {
+          "const": true
+        },
+        "sample_times_bound_to_truth_grid": {
+          "const": true
+        },
+        "no_unobserved_peak_interpolation": {
+          "const": true
+        },
+        "event_integral_gap_rule_enforced": {
+          "const": true
+        },
+        "oracle_not_deployable": {
+          "const": true
+        },
+        "budget_accounting_pass": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
