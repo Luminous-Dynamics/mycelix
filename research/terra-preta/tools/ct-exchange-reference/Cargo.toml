@@ -1,0 +1,14 @@
+[package]
+name = "terra-preta-ct-exchange-reference"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Synthetic CT-informed transient macropore-matrix exchange reference kernel"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+
+[workspace]

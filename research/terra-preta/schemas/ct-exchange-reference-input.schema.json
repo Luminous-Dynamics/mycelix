@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/terra-preta/schemas/ct-exchange-reference-input.schema.json",
+  "title": "Synthetic CT-informed macropore-matrix exchange input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "scenario_id",
+    "bulk_volume_m3",
+    "maximum_gap_seconds",
+    "interfacial_flux_density_source",
+    "matrix_water_initial_m3",
+    "macropore_water_initial_m3",
+    "matrix_water_capacity_m3",
+    "macropore_water_capacity_m3",
+    "points"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ct-matrix-macropore-exchange-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "bulk_volume_m3": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "maximum_gap_seconds": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "interfacial_flux_density_source": {
+      "const": "synthetic_manufactured"
+    },
+    "matrix_water_initial_m3": {
+      "type": "number",
+      "minimum": 0
+    },
+    "macropore_water_initial_m3": {
+      "type": "number",
+      "minimum": 0
+    },
+    "matrix_water_capacity_m3": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "macropore_water_capacity_m3": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "points": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "elapsed_seconds",
+          "wetted_interface_area_m2_per_m3",
+          "interfacial_exchange_flux_density_m_per_s"
+        ],
+        "properties": {
+          "elapsed_seconds": {
+            "type": "number"
+          },
+          "wetted_interface_area_m2_per_m3": {
+            "type": "number",
+            "minimum": 0
+          },
+          "interfacial_exchange_flux_density_m_per_s": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  }
+}
