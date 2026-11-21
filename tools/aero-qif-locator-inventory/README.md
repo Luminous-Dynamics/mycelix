@@ -16,6 +16,22 @@ The scanner consumes raw XML, source roles and QPIds. It does **not** read adapt
     cargo test --manifest-path tools/aero-qif-locator-inventory/Cargo.toml
     cargo clippy --manifest-path tools/aero-qif-locator-inventory/Cargo.toml --all-targets -- -D warnings
 
+## CLI
+
+```text
+qif-locator-inventory \
+  --inventory-id campaign-2026-001 \
+  --profile profiles/aero-qif-test7-8-trace-v1.json \
+  --results-qpid 10000000-0000-4000-8000-000000000001 \
+  --results staged/Results.qif \
+  --plan 20000000-0000-4000-8000-000000000002=staged/Plan.qif \
+  --inventory-out out/inventory.json \
+  --required-locators-out out/required_locators.json \
+  --report-out out/report.json
+```
+
+The `required_locators.json` file is a direct `SourceFieldLocatorV1[]` for #6372. The run report identifies the scanner package/version, quick-xml version and all profile/inventory digests. Bind the exact scanner executable, arguments, environment and all outputs through an independent run receipt.
+
 ## QIF baseline
 
 - Standard identity: QIF 3.0.0.
