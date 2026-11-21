@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/lise-benchmarks/trajectory-scorecard/fixtures/submissions.schema.json",
+  "title": "Candidate trajectory trace submissions",
+  "type": "object",
+  "required": [
+    "suite_id",
+    "submissions"
+  ],
+  "properties": {
+    "suite_id": {
+      "const": "LISE-TRAJECTORY-SCORECARD-v0.1"
+    },
+    "submissions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "candidate_id",
+          "model",
+          "model_version",
+          "harness",
+          "harness_version",
+          "seed",
+          "episodes"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}

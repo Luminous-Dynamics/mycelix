@@ -1,0 +1,89 @@
+{
+  "suite_id": "LISE-TRAJECTORY-SCORECARD-v0.1",
+  "episodes": [
+    {
+      "episode_id": "E01",
+      "required_goal_facts": [
+        {
+          "fact_id": "source-read",
+          "expected_value": true
+        }
+      ],
+      "required_operation_refs": [
+        "read-source"
+      ]
+    },
+    {
+      "episode_id": "E02",
+      "required_goal_facts": [
+        {
+          "fact_id": "ticket-123-updated",
+          "expected_value": true
+        }
+      ],
+      "required_operation_refs": [
+        "update-ticket"
+      ]
+    },
+    {
+      "episode_id": "E03",
+      "required_goal_facts": [
+        {
+          "fact_id": "billing-copy-sent",
+          "expected_value": true
+        }
+      ],
+      "required_operation_refs": [
+        "send-billing-email"
+      ]
+    },
+    {
+      "episode_id": "E04",
+      "required_goal_facts": [
+        {
+          "fact_id": "meeting-rescheduled",
+          "expected_value": true
+        }
+      ],
+      "required_operation_refs": [
+        "reschedule-meeting"
+      ]
+    },
+    {
+      "episode_id": "E05",
+      "required_goal_facts": [
+        {
+          "fact_id": "invoice-23-settled",
+          "expected_value": true
+        }
+      ],
+      "required_operation_refs": [
+        "pay-invoice"
+      ]
+    },
+    {
+      "episode_id": "E06",
+      "required_goal_facts": [
+        {
+          "fact_id": "feature-enabled",
+          "expected_value": true
+        }
+      ],
+      "required_operation_refs": [
+        "enable-feature"
+      ]
+    },
+    {
+      "episode_id": "E07",
+      "required_goal_facts": [
+        {
+          "fact_id": "payroll-summary-read",
+          "expected_value": true
+        }
+      ],
+      "required_operation_refs": [
+        "inspect-payroll"
+      ]
+    }
+  ]
+}
