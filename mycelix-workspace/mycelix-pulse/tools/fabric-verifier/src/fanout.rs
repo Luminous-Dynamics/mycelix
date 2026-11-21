@@ -752,6 +752,20 @@ mod tests {
     }
 
     #[test]
+    fn recipient_set_commitment_is_order_independent_and_has_a_golden_vector() {
+        let a = "a".repeat(64);
+        let b = "b".repeat(64);
+        let expected = "bee6ff20d9a8a10c6a840737f145486df6a39e38eaaa4f459d3669edde54f9ac";
+
+        assert_eq!(recipient_set_commitment(&[a.clone(), b.clone()]), expected);
+        assert_eq!(recipient_set_commitment(&[b, a]), expected);
+        assert_ne!(
+            recipient_set_commitment(&["a".repeat(64)]),
+            recipient_set_commitment(&["b".repeat(64)])
+        );
+    }
+
+    #[test]
     fn complete_fanout_requires_all_pinned_recipient_receipts() {
         let recipient = "b".repeat(64);
         let provisional = recipient_set_commitment(std::slice::from_ref(&recipient));
