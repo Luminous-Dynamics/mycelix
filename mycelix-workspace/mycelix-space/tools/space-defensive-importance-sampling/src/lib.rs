@@ -1042,8 +1042,7 @@ pub fn estimate_multifidelity_residual_probability(
                 (-cap, 0.0, "verified_centered_gaussian_disk_superset_v1")
             }
         };
-    let residual_support_range_width =
-        residual_support_upper - residual_support_lower;
+    let residual_support_range_width = residual_support_upper - residual_support_lower;
 
     let mut seen_sample_ids = BTreeSet::new();
     let mut residuals = Vec::with_capacity(observations.len());
@@ -1111,8 +1110,13 @@ pub fn estimate_multifidelity_residual_probability(
             surrogate_radius,
         } = &parameters.residual_support_contract
         {
-            let squared_norm = observation.point.iter().map(|value| value * value).sum::<f64>();
-            let expected_high_fidelity = squared_norm <= high_fidelity_radius * high_fidelity_radius;
+            let squared_norm = observation
+                .point
+                .iter()
+                .map(|value| value * value)
+                .sum::<f64>();
+            let expected_high_fidelity =
+                squared_norm <= high_fidelity_radius * high_fidelity_radius;
             let expected_surrogate = squared_norm <= surrogate_radius * surrogate_radius;
             if observation.high_fidelity_collision != expected_high_fidelity
                 || observation.surrogate_collision != expected_surrogate
