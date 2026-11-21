@@ -1,0 +1,304 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Terra Preta spectral structure audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "status",
+    "profile_version",
+    "source_article_doi",
+    "source_dataset_doi",
+    "source_zenodo_record_id",
+    "source_version",
+    "source_filename",
+    "publisher_md5_reference",
+    "expected_sample_rows",
+    "actual_sample_rows",
+    "input_sha256",
+    "profile_sha256",
+    "column_count",
+    "sample_id_column",
+    "unique_sample_id_count",
+    "duplicate_sample_id_count",
+    "spectral_column_count",
+    "spectral_axis_unit",
+    "spectral_axis_descending",
+    "spectral_axis_monotonic",
+    "spectral_axis_duplicate_count",
+    "spectral_axis_step_summary",
+    "spectral_regions",
+    "nir_to_mir_boundary_gap_cm1",
+    "property_summaries",
+    "rows_with_any_spectral_missingness",
+    "total_missing_spectral_cells",
+    "spectral_value_semantics",
+    "georeferenced_sample_count",
+    "georeferenced_sample_count_is_subset",
+    "sample_support",
+    "warnings",
+    "interpretation_boundary",
+    "retrieval_sha256_reference",
+    "profile_notes"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "enum": [
+        "structural_audit_complete_not_model_qualified",
+        "structural_audit_complete_with_warnings_not_model_qualified"
+      ]
+    },
+    "profile_version": {
+      "type": "string"
+    },
+    "source_article_doi": {
+      "type": "string"
+    },
+    "source_dataset_doi": {
+      "type": "string"
+    },
+    "source_zenodo_record_id": {
+      "type": "string"
+    },
+    "source_version": {
+      "type": "string"
+    },
+    "source_filename": {
+      "type": "string"
+    },
+    "publisher_md5_reference": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "expected_sample_rows": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "actual_sample_rows": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "profile_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "column_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sample_id_column": {
+      "type": "string"
+    },
+    "unique_sample_id_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "duplicate_sample_id_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "spectral_column_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "spectral_axis_unit": {
+      "type": "string"
+    },
+    "spectral_axis_descending": {
+      "type": "boolean"
+    },
+    "spectral_axis_monotonic": {
+      "type": "boolean"
+    },
+    "spectral_axis_duplicate_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "spectral_axis_step_summary": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "step_cm1",
+          "count"
+        ],
+        "properties": {
+          "step_cm1": {
+            "type": "number",
+            "minimum": 0
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "spectral_regions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "region_id",
+          "instrument",
+          "column_count",
+          "first_axis_cm1",
+          "last_axis_cm1",
+          "minimum_axis_cm1",
+          "maximum_axis_cm1",
+          "missing_cells"
+        ],
+        "properties": {
+          "region_id": {
+            "type": "string"
+          },
+          "instrument": {
+            "type": "string"
+          },
+          "column_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "first_axis_cm1": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "last_axis_cm1": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "minimum_axis_cm1": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "maximum_axis_cm1": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "missing_cells": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "nir_to_mir_boundary_gap_cm1": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "property_summaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "column",
+          "unit",
+          "reference_method",
+          "non_missing_count",
+          "missing_count",
+          "minimum",
+          "maximum"
+        ],
+        "properties": {
+          "column": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "reference_method": {
+            "type": "string"
+          },
+          "non_missing_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "missing_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minimum": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "maximum": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "rows_with_any_spectral_missingness": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_missing_spectral_cells": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "spectral_value_semantics": {
+      "type": "string"
+    },
+    "georeferenced_sample_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "georeferenced_sample_count_is_subset": {
+      "type": "boolean"
+    },
+    "sample_support": {
+      "type": "string"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string"
+    },
+    "retrieval_sha256_reference": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "profile_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
