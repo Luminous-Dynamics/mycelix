@@ -32,7 +32,7 @@ members = [
     "dna/zomes/traffic_control/integrity",
     "dna/zomes/traffic_control/coordinator",
 ]
-exclude = ["tests"]
+exclude = ["tests", "tools/space-qualification-verifier"]
 
 # Default members for WASM builds (excludes native-only packages)
 default-members = [
