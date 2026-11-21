@@ -382,7 +382,7 @@ fn validate(s: &Scenario) -> Result<(), String> {
     if !valid_sha256(&p.process_record_sha256)
         || !valid_sha256(&s.batch.mass_accounting.mass_accounting_record_sha256)
         || !required_text(&p.oxygen_control_method, "oxygen control method").is_ok()
-        || !matches!(p.run_count > 0, true)
+        || p.run_count == 0
     {
         return Err("process record identity is incomplete".into());
     }
@@ -509,9 +509,7 @@ fn gate_process(profile: &QualityProfile, batch: &Batch) -> bool {
         && p.production_unit_id == batch.production_unit_id
         && p.temperature_min_c >= profile.minimum_temperature_c
         && p.residence_time_min >= profile.minimum_residence_time_min
-        && !batch.non_biogenic_co_processed
-            .then_some(())
-            .is_some_and(|_| !profile.non_biogenic_co_processing_allowed)
+        && (!batch.non_biogenic_co_processed || profile.non_biogenic_co_processing_allowed)
 }
 
 fn gate_sampling(profile: &QualityProfile, batch: &Batch) -> bool {
