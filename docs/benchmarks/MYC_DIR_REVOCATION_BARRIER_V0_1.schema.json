@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/MYC_DIR_REVOCATION_BARRIER_V0_1.schema.json",
+  "title": "Mycelix Directory Fabric global revocation barrier adversarial corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile",
+    "version",
+    "status",
+    "claim_ceiling",
+    "expected_invariants",
+    "workload_profiles",
+    "metrics",
+    "required_repetitions",
+    "scenarios"
+  ],
+  "properties": {
+    "profile": {
+      "const": "MYC-DIR-GLOBAL-REVOCATION-BARRIER-0.1"
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "const": "preregistered_not_executed"
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 80
+    },
+    "expected_invariants": {
+      "type": "array",
+      "minItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 3
+      }
+    },
+    "workload_profiles": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "owners",
+          "concurrent_effects_per_owner",
+          "backlog_messages",
+          "offered_rate_messages_per_second",
+          "workers",
+          "command_age_seconds"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^RB-P[0-9]{2}$"
+          },
+          "owners": {
+            "type": "integer",
+            "enum": [
+              1,
+              4,
+              16,
+              64,
+              256
+            ]
+          },
+          "concurrent_effects_per_owner": {
+            "type": "integer",
+            "enum": [
+              1,
+              32,
+              256,
+              1024
+            ]
+          },
+          "backlog_messages": {
+            "type": "integer",
+            "enum": [
+              1000,
+              100000,
+              1000000,
+              10000000
+            ]
+          },
+          "offered_rate_messages_per_second": {
+            "type": "integer",
+            "enum": [
+              100,
+              10000,
+              100000
+            ]
+          },
+          "workers": {
+            "type": "integer",
+            "enum": [
+              1,
+              32,
+              256
+            ]
+          },
+          "command_age_seconds": {
+            "type": "integer",
+            "enum": [
+              0,
+              60,
+              3600,
+              86400
+            ]
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 18,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "hard_limit",
+          "unit"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^RB-M[0-9]{2}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 3
+          },
+          "kind": {
+            "enum": [
+              "safety",
+              "performance",
+              "recovery",
+              "availability"
+            ]
+          },
+          "hard_limit": {
+            "type": [
+              "integer",
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "required_repetitions": {
+      "type": "integer",
+      "minimum": 10
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 28,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "area",
+          "fault",
+          "expected_state",
+          "strict_ack_allowed",
+          "max_old_generation_effects_after_owner_ack",
+          "required_evidence"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^RB-[0-9]{3}$"
+          },
+          "area": {
+            "type": "string",
+            "minLength": 3
+          },
+          "fault": {
+            "type": "string",
+            "minLength": 20
+          },
+          "expected_state": {
+            "type": "string",
+            "minLength": 3
+          },
+          "strict_ack_allowed": {
+            "type": "boolean"
+          },
+          "max_old_generation_effects_after_owner_ack": {
+            "const": 0
+          },
+          "required_evidence": {
+            "type": "string",
+            "minLength": 20
+          }
+        }
+      }
+    }
+  }
+}
