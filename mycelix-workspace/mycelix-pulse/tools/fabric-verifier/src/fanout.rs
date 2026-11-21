@@ -759,6 +759,7 @@ mod tests {
             "membership_snapshot_digest": "2".repeat(64),
             "required_recipient_set_commitment": recipient_set,
             "recipient_commitment": recipient_commitment,
+            "recipient_unit": "ACCOUNT",
             "content_commitment": "a".repeat(64),
             "aggregation_policy": "ALL_REQUIRED"
         });
