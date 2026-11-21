@@ -38,7 +38,9 @@
     "georeferenced_sample_count_is_subset",
     "sample_support",
     "warnings",
-    "interpretation_boundary"
+    "interpretation_boundary",
+    "retrieval_sha256_reference",
+    "profile_notes"
   ],
   "properties": {
     "audit_version": {
@@ -289,6 +291,19 @@
     },
     "interpretation_boundary": {
       "type": "string"
+    },
+    "retrieval_sha256_reference": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "profile_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   }
 }
