@@ -1173,6 +1173,37 @@ mod tests {
         set_artifact_payload(&mut packet.process_plan, process);
         set_artifact_payload(&mut packet.inspection_result, inspection);
         set_artifact_payload(&mut packet.test_result, test);
+        // Keep evidence references bound to the new artifact identities so
+        // this test reaches the intended payload-cardinality gate.
+        packet.build_evidence.method = Some(packet.process_plan.reference.clone());
+        packet.build_evidence.inputs.retain(|reference| {
+            reference.kind != "design_definition"
+                && reference.kind != "manufacturing_process_plan"
+        });
+        packet
+            .build_evidence
+            .inputs
+            .push(packet.design_definition.reference.clone());
+        packet
+            .build_evidence
+            .inputs
+            .push(packet.process_plan.reference.clone());
+        packet
+            .inspection_evidence
+            .inputs
+            .retain(|reference| reference.kind != "qif_result");
+        packet
+            .inspection_evidence
+            .inputs
+            .push(packet.inspection_result.reference.clone());
+        packet
+            .test_evidence
+            .inputs
+            .retain(|reference| reference.kind != "test_result");
+        packet
+            .test_evidence
+            .inputs
+            .push(packet.test_result.reference.clone());
         let payloads = [
             (&packet.design_definition, design.as_slice()),
             (&packet.process_plan, process.as_slice()),
