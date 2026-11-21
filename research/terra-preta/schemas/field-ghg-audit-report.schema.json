@@ -15,7 +15,8 @@
     "qc_state_counts",
     "observations",
     "warnings",
-    "interpretation_boundary"
+    "interpretation_boundary",
+    "calculation_controls"
   ],
   "properties": {
     "audit_version": {
@@ -77,7 +78,8 @@
           "evidence_class",
           "experimental_unit_id",
           "qc_state",
-          "uncertainty_status"
+          "uncertainty_status",
+          "n2o_n_equivalent_flux_mg_n2o_n_m2_h"
         ],
         "properties": {
           "observation_id": {
@@ -135,6 +137,12 @@
               "reported",
               "not_available"
             ]
+          },
+          "n2o_n_equivalent_flux_mg_n2o_n_m2_h": {
+            "type": [
+              "number",
+              "null"
+            ]
           }
         }
       }
@@ -148,6 +156,22 @@
     "interpretation_boundary": {
       "type": "string",
       "minLength": 1
+    },
+    "calculation_controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "n2o_mass_basis_conversion_pass",
+        "explicit_gap_trapezoidal_integration_pass"
+      ],
+      "properties": {
+        "n2o_mass_basis_conversion_pass": {
+          "const": true
+        },
+        "explicit_gap_trapezoidal_integration_pass": {
+          "const": true
+        }
+      }
     }
   }
 }
