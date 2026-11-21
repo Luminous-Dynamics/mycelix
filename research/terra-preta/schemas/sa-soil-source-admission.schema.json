@@ -864,6 +864,54 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "artifact": {
+            "properties": {
+              "acquisition_status": {
+                "const": "publisher_checksum_only"
+              }
+            },
+            "required": [
+              "acquisition_status"
+            ]
+          }
+        },
+        "required": [
+          "artifact"
+        ]
+      },
+      "then": {
+        "required": [
+          "provenance"
+        ],
+        "properties": {
+          "provenance": {
+            "required": [
+              "publisher_checksum",
+              "publisher_checksum_algorithm"
+            ],
+            "properties": {
+              "publisher_checksum_algorithm": {
+                "enum": [
+                  "md5",
+                  "sha1",
+                  "sha256",
+                  "other"
+                ]
+              }
+            }
+          },
+          "artifact": {
+            "required": [
+              "file_name",
+              "byte_size"
+            ]
+          }
+        }
+      }
     }
   ]
 }
