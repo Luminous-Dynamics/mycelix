@@ -83,7 +83,7 @@ A transactional outbox only solves the source-side state/message publication gap
 
 ## 7. Adversarial qualification corpus
 
-The queue worker corpus defines 27 provider-neutral and broker-specific scenarios spanning broker mismatch, payload substitution, backlog expiry, owner-fence revocation, stale worker claims, redelivery, broker dedup expiry, dead-letter duplication, lost acknowledgements, Unknown outcomes, reconciliation, and Kafka transaction-scope boundaries.
+The queue worker corpus defines 29 provider-neutral and broker-specific scenarios spanning broker mismatch, payload substitution, backlog expiry, owner-fence revocation, stale worker claims, redelivery, broker dedup expiry, dead-letter duplication, lost acknowledgements, Unknown outcomes, reconciliation, and Kafka transaction-scope boundaries.
 
 The broker adapters must be tested under equivalent semantic profiles:
 - durable storage and replication settings declared;
