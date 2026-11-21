@@ -1500,6 +1500,24 @@ mod tests {
     }
 
     #[test]
+    fn request_manifest_digest_rejects_mutated_configuration_binding() {
+        let mut package = fixture();
+        package["request"]["configuration_artifact_id"] = Value::String("different-config".to_string());
+        let report = verify_value(&package, &repo_root());
+        assert_eq!(report.status(), "FAIL");
+        assert!(report.failures.contains_key("REQUEST_DIGEST_MISMATCH"));
+    }
+
+    #[test]
+    fn coverage_manifest_digest_rejects_mutated_disposition() {
+        let mut package = fixture();
+        package["coverage"]["disposition"] = Value::String("partial".to_string());
+        let report = verify_value(&package, &repo_root());
+        assert_eq!(report.status(), "FAIL");
+        assert!(report.failures.contains_key("COVERAGE_DIGEST_MISMATCH"));
+    }
+
+    #[test]
     fn pair_manifest_digest_must_bind_canonical_pair_ledger() {
         let mut package = fixture();
         package["pair_coverage"]["pair_manifest_sha256"] = Value::String("0".repeat(64));
