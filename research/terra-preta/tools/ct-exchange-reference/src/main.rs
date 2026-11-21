@@ -1,6 +1,6 @@
 //! Synthetic CT-informed transient macropore–matrix exchange reference.
 //!
-//! a_wetted [m² interface / m³ bulk soil] * j_macro [m/s] = exchange rate density [1/s].
+//! a_wetted [m² interface / m³ bulk soil] * j_interface [m/s] = exchange rate density [1/s].
 //! Positive transfer is macropore -> matrix; negative transfer reverses direction.
 //! This is a manufactured reference kernel, not a reproduction of HYDRUS/DualPerm
 //! or of the full model in Chaif et al. (2025).
@@ -546,6 +546,21 @@ mod tests {
         value["matrix_water_initial_m3"] = Value::from(0.29);
         value["matrix_water_capacity_m3"] = Value::from(0.30);
         value["macropore_water_initial_m3"] = Value::from(0.30);
+        assert!(audit(&value).is_err());
+    }
+
+    #[test]
+    fn sign_reversal_cannot_hide_transient_donor_overdraw() {
+        let mut value = fixture();
+        value["points"][0]["wetted_interface_area_m2_per_m3"] = Value::from(0.8);
+        value["points"][1]["wetted_interface_area_m2_per_m3"] = Value::from(0.8);
+        value["points"][0]["interfacial_exchange_flux_density_m_per_s"] =
+            Value::from(1e-3);
+        value["points"][1]["interfacial_exchange_flux_density_m_per_s"] =
+            Value::from(-1e-3);
+        value["macropore_water_initial_m3"] = Value::from(0.3);
+        // The signed net trapezoid is zero, but the positive half-interval
+        // would transfer 0.72 m3 and overdraw the 0.3 m3 donor pool.
         assert!(audit(&value).is_err());
     }
 
