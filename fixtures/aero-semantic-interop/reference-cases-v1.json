@@ -117,7 +117,7 @@
     {
       "mutation_id": "M-TOL-001",
       "target_assertion_id": "A-TOL-001",
-      "operation": "change_tolerance_type",
+      "operation": "CHANGE_TOLERANCE_TYPE",
       "expected_disposition": "SEMANTIC_LOSS"
     },
     {
