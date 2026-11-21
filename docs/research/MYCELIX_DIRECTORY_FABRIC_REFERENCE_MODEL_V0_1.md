@@ -21,7 +21,7 @@ This is complementary to rather than a replacement for established consistency s
 
 ## 2. Why the first executable slice is deliberately small
 
-The crate models three deterministic boundaries:
+The crate models four deterministic boundaries:
 
 | Boundary | Reference behaviour | What remains outside |
 |---|---|---|
