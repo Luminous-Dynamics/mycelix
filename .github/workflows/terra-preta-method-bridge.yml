@@ -1,0 +1,60 @@
+name: Terra Preta method bridge qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/METHOD_BRIDGE_BENCHMARK_V0.1.md'
+      - 'research/terra-preta/schemas/method-bridge-*.schema.json'
+      - 'research/terra-preta/tools/method-bridge-audit/**'
+      - '.github/workflows/terra-preta-method-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  method-bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/method-bridge-audit/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/method-bridge-audit/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/method-bridge-audit/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate fixture and report
+        run: |
+          jsonschema-cli validate research/terra-preta/schemas/method-bridge-input.schema.json --instance research/terra-preta/tools/method-bridge-audit/fixtures/synthetic-rank-only.json --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/method-bridge-audit/Cargo.toml -- research/terra-preta/tools/method-bridge-audit/fixtures/synthetic-rank-only.json "$RUNNER_TEMP/method-bridge-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/method-bridge-report.schema.json --instance "$RUNNER_TEMP/method-bridge-report.json" --draft 2020 --assert-format
+          jq -e '.fixture_status == "synthetic_only_not_empirical_evidence" and .pair_count == 8 and .independence_group_count == 4 and .rank_status == "qualified_rank_concordance" and .numerical_agreement_status == "not_eligible_non_equivalent" and (.numerical_agreement == null) and (.spearman_rho > 0.7) and (.controls.numeric_claim_requires_analytical_equivalence == true)' "$RUNNER_TEMP/method-bridge-report.json"
+      - name: Reject falsely asserted numerical equivalence
+        run: |
+          fixture=research/terra-preta/tools/method-bridge-audit/fixtures/synthetic-rank-only.json
+          jq '.analytical_equivalence = "asserted_equivalent"' "$fixture" > "$RUNNER_TEMP/false-equivalence.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/method-bridge-audit/Cargo.toml -- "$RUNNER_TEMP/false-equivalence.json" "$RUNNER_TEMP/false-equivalence-report.json"; then
+            echo "Expected mismatch rejection for analytical equivalence"
+            exit 1
+          fi
+          jq '.observations[1].sample_id = .observations[0].sample_id' "$fixture" > "$RUNNER_TEMP/duplicate-pair.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/method-bridge-audit/Cargo.toml -- "$RUNNER_TEMP/duplicate-pair.json" "$RUNNER_TEMP/duplicate-pair-report.json"; then
+            echo "Expected duplicate sample rejection"
+            exit 1
+          fi
+      - name: Reject output overwrite
+        run: |
+          report="$RUNNER_TEMP/existing-method-bridge-report.json"
+          printf '%s\n' 'do-not-overwrite' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/method-bridge-audit/Cargo.toml -- research/terra-preta/tools/method-bridge-audit/fixtures/synthetic-rank-only.json "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"
