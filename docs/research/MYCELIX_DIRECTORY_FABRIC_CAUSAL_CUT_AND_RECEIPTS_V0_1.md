@@ -467,6 +467,23 @@ This is the next paradigm shift: revoke the **reachable effect surface**, not me
 
 Sources: [OpenID CAEP 1.0 final](https://openid.net/specs/openid-caep-1_0-final.html), [OpenID CAEP 1.1 draft](https://openid.github.io/sharedsignals/CAEP_1.1/openid-caep-1_1.html), [OpenID Shared Signals specification status](https://openid.net/wg/sharedsignals/specifications/), [OAuth RFC 7009](https://www.rfc-editor.org/rfc/rfc7009.html).
 
+## 12.4 Queued command and worker effect boundary
+
+The companion queue-worker contract and 24-case adversarial corpus are in [MYCELIX_DIRECTORY_FABRIC_QUEUE_WORKER_BOUNDARY_V0_1.md](MYCELIX_DIRECTORY_FABRIC_QUEUE_WORKER_BOUNDARY_V0_1.md). It separates broker transport, worker assignment, authorization and effect-owner evidence. Broker delivery IDs, offsets and redelivery counters cannot stand in for the Mycelix authority frontier, owner fence generation or operation receipt.
+
+A command envelope is bound to broker namespace, destination, stable message key, payload digest, request and decision receipt, logical operation, effect owner, fence generation, clock profile and validity interval. The Rust reference returns only EligibleForOwnerRevalidation; actual Allow verification and atomic owner fencing remain a mandatory second boundary.
+
+The acknowledgement protocol avoids both hot-loop redelivery and silent loss. AttemptUnknown blocks acknowledgement and retry until an immutable reconciliation obligation is durably committed. After that handoff, acknowledging the broker delivery does not imply effect success. A new attempt requires exact ConfirmedNoEffect reconciliation. A durable Committed result is replayed as the prior operation receipt.
+
+Industry comparison is deliberately boundary-matched:
+- NATS JetStream at-least-once delivery, replay and explicit consumer ack;
+- RabbitMQ 4.4 quorum publisher confirms, manual consumer ack and at-least-once dead-letter duplicates;
+- Apache Kafka 4.4 transactional offset/output-topic processing, where external destinations require their own cooperation.
+
+The new benchmark profile records 4 load/revocation profiles, 12 metrics and the 24-case corpus. Twelve safety metrics have zero-acceptance targets; two performance objectives are provisional and all measurements remain not-run. This is a transport/effect boundary research contract, not a broker superiority result.
+
+TLA+ model: DirectoryFabricQueueWorker.tla, with safe and four mutant configurations covering stale owner fence, stale worker claim, retry while Unknown and ack-on-delivery. TLC has not been run.
+
 ## 13. Explicit claim ceiling
 
 This work is a pure reference contract and finite synthetic corpus. It does not establish:
