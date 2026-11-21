@@ -74,7 +74,6 @@ fn run_replicate(
     radius: f64,
     seed: u64,
     replicate: usize,
-    method_id: &str,
 ) -> Result<(f64, f64), Box<dyn std::error::Error>> {
     let mut rng = SplitMix64::new(seed);
     let mut observations = Vec::with_capacity(SAMPLES_PER_REPLICATE);
@@ -91,7 +90,7 @@ fn run_replicate(
         });
     }
 
-    let evaluation_id = format!("{method_id}-radius-{radius:.6}-replicate-{replicate}");
+    let evaluation_id = format!("evaluation-seed-{seed:016x}-replicate-{replicate}");
     let evidence = EvaluationEvidence {
         proposal_id: proposal.id.clone(),
         whitening_transform_id: "analytic-standard-normal-whitening-v1".into(),
@@ -156,7 +155,7 @@ fn run_multifidelity_replicate(
         });
     }
 
-    let evaluation_id = format!("multifidelity-evaluation-{high_fidelity_radius:.6}-{replicate}");
+    let evaluation_id = format!("evaluation-seed-{seed:016x}-replicate-{replicate}");
     let sample_order_digest = format!("fixture-order-seed-{seed:016x}");
     let evaluation = EvaluationEvidence {
         proposal_id: proposal.id.clone(),
@@ -272,7 +271,7 @@ fn main() {
             let is_seed =
                 0x4953_4445_4600_0000_u64 ^ ((case_index as u64) << 32) ^ replicate as u64;
 
-            match run_replicate(&crude, radius, crude_seed, replicate, "crude") {
+            match run_replicate(&crude, radius, crude_seed, replicate) {
                 Ok((estimate, upper)) => {
                     crude_estimates.push(estimate);
                     crude_upper.push(upper);
@@ -282,7 +281,7 @@ fn main() {
                     process::exit(2);
                 }
             }
-            match run_replicate(&importance, radius, is_seed, replicate, "importance") {
+            match run_replicate(&importance, radius, is_seed, replicate) {
                 Ok((estimate, upper)) => {
                     is_estimates.push(estimate);
                     is_upper.push(upper);
@@ -323,6 +322,7 @@ fn main() {
             0.0,
             mean(&crude_upper),
             mean(&crude_upper),
+            crude_upper_coverage,
         );
         println!(
             "defensive_is,{radius:.6},{truth:.12},{:.12},{is_rmse:.12},{:.12},{:.12},{:.12},{:.6},0.0,0.0,0.0",
@@ -330,8 +330,17 @@ fn main() {
             0.0,
             mean(&is_upper),
             mean(&is_upper),
+            is_upper_coverage,
         );
 
+        let crude_upper_coverage = crude_upper
+            .iter()
+            .filter(|upper| **upper >= truth)
+            .count() as f64 / REPLICATES as f64;
+        let is_upper_coverage = is_upper
+            .iter()
+            .filter(|upper| **upper >= truth)
+            .count() as f64 / REPLICATES as f64;
         let mf_rmse = rms_error(&mf_estimates, truth);
         let mf_mean_lower = mean(&mf_lower);
         let mf_mean_upper = mean(&mf_upper);
