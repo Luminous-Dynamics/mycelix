@@ -6,6 +6,8 @@ on:
     paths:
       - "mycelix-workspace/mycelix-space/contracts/**"
       - "docs/space/SPACE_QUALIFICATION_PACKAGE_V0_1.md"
+      - "mycelix-workspace/mycelix-space/Cargo.toml"
+      - "mycelix-workspace/mycelix-space/tools/space-qualification-verifier/**"
       - ".github/workflows/space-qualification-contract.yml"
   workflow_dispatch:
 
@@ -16,10 +18,28 @@ jobs:
   validate-space-qualification-contract:
     name: Validate Space qualification package fixtures
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - name: Check out exact pull request head
         uses: actions/checkout@v4
+
+      - name: Set up stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Test standalone evidence verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path mycelix-workspace/mycelix-space/tools/space-qualification-verifier/Cargo.toml
+
+      - name: Verify synthetic package without upgrading its claim status
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run --manifest-path mycelix-workspace/mycelix-space/tools/space-qualification-verifier/Cargo.toml -- \
+            --allow-incomplete \
+            mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-package-indeterminate-v0.1.json \
+            .
 
       - name: Parse schema and fixtures as JSON
         shell: bash
