@@ -1,0 +1,54 @@
+name: Terra Preta CT exchange reference
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/tools/ct-exchange-reference/**'
+      - 'research/terra-preta/schemas/ct-exchange-reference-report.schema.json'
+      - '.github/workflows/terra-preta-ct-exchange-reference.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ct-exchange-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/ct-exchange-reference/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/ct-exchange-reference/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/ct-exchange-reference/Cargo.toml --all-targets -- -D warnings
+      - name: Parse report schema and fixture
+        run: |
+          jq empty research/terra-preta/schemas/ct-exchange-reference-report.schema.json
+          jq empty research/terra-preta/tools/ct-exchange-reference/fixtures/synthetic-ct-exchange.json
+      - name: Execute synthetic reference
+        run: |
+          cargo run --quiet --manifest-path research/terra-preta/tools/ct-exchange-reference/Cargo.toml -- \
+            research/terra-preta/tools/ct-exchange-reference/fixtures/synthetic-ct-exchange.json \
+            "$RUNNER_TEMP/ct-exchange-reference-report.json"
+          jq -e '
+            .audit_version == "0.1.0" and
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .point_count == 3 and
+            (.transient_interface_exchange.signed_transfer_volume_m3 - 0.0198 | fabs < 1e-12) and
+            .controls.pairwise_exchange_cancellation_pass == true and
+            .controls.water_balance_closure_pass == true and
+            .controls.deterministic_replay_pass == true and
+            (.input_sha256 | test("^[a-f0-9]{64}$"))
+          ' "$RUNNER_TEMP/ct-exchange-reference-report.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/ct-exchange-reference/Cargo.toml -- \
+            research/terra-preta/tools/ct-exchange-reference/fixtures/synthetic-ct-exchange.json \
+            "$RUNNER_TEMP/ct-exchange-reference-report.json"; then
+            echo "kernel unexpectedly overwrote output" >&2
+            exit 1
+          fi
