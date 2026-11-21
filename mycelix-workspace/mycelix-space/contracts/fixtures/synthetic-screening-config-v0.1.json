@@ -1,0 +1,7 @@
+{
+  "configuration_class": "synthetic_only",
+  "profile_id": "synthetic-neighborhood-capture-v0.1",
+  "pair_scope": "primary_vs_each_requested_secondary",
+  "time_window_minutes": 10,
+  "note": "Synthetic fixture configuration only. Not an operational screening volume, orbit model, covariance model, or risk threshold."
+}
