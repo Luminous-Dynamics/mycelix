@@ -1,0 +1,67 @@
+name: Space qualification contract
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "mycelix-workspace/mycelix-space/contracts/**"
+      - "docs/space/SPACE_QUALIFICATION_PACKAGE_V0_1.md"
+      - ".github/workflows/space-qualification-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-space-qualification-contract:
+    name: Validate Space qualification package fixtures
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out exact pull request head
+        uses: actions/checkout@v4
+
+      - name: Parse schema and fixtures as JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e . mycelix-workspace/mycelix-space/contracts/space-qualification-package-v0.1.schema.json >/dev/null
+          jq -e . mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-source-state-set-v0.1.json >/dev/null
+          jq -e . mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-package-indeterminate-v0.1.json >/dev/null
+
+      - name: Verify exact synthetic source bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_file="mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-source-state-set-v0.1.json"
+          package_file="mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-package-indeterminate-v0.1.json"
+          expected_sha="$(jq -r '.source_artifacts[] | select(.artifact_id == "synthetic-state-set") | .raw_bytes_sha256' "$package_file")"
+          expected_length="$(jq -r '.source_artifacts[] | select(.artifact_id == "synthetic-state-set") | .byte_length' "$package_file")"
+          actual_sha="$(sha256sum "$source_file" | awk '{print $1}')"
+          actual_length="$(wc -c < "$source_file" | tr -d ' ')"
+          test "$expected_sha" = "$actual_sha"
+          test "$expected_length" = "$actual_length"
+
+      - name: Enforce the coverage-complete but risk-indeterminate fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_file="mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-package-indeterminate-v0.1.json"
+          jq -e '
+            .schema_version == "space-qualification-package/v0.1"
+            and .package_class == "synthetic_only"
+            and .coverage.disposition == "complete"
+            and .coverage.requested_object_count == (.request.requested_object_ids | length)
+            and .coverage.assessed_object_count == (.object_dispositions | map(select(.disposition == "screened")) | length)
+            and .coverage.excluded_object_count == (.object_dispositions | map(select(.disposition == "excluded")) | length)
+            and .coverage.unassessed_object_count == (.object_dispositions | map(select(.disposition == "not_assessed")) | length)
+            and ((.request.requested_object_ids | sort) == (.object_dispositions | map(.object_id) | sort))
+            and ((.request.requested_object_ids | sort) == (.coverage.time_segments | map(select(.disposition == "assessed") | .object_id) | sort))
+            and (.assessments | all(.[]; .collision_probability.status != "reported" or (.collision_probability.value != null and .collision_probability.method_id != null)))
+            and (.source_artifacts | all(.[]; all(.field_semantics[]; .status != "absent_optional" or .normalized_value == null)))
+            and (.assessments | any(.[]; .covariance_status == "absent_optional" and .collision_probability.status == "not_calculated" and .collision_probability.value == null))
+            and .result.disposition == "indeterminate"
+            and .result.negative_conclusion == false
+            and .authority.actuation_authority == false
+            and (if .result.negative_conclusion then (.result.disposition == "complete" and .coverage.disposition == "complete") else true end)
+          ' "$package_file" >/dev/null
