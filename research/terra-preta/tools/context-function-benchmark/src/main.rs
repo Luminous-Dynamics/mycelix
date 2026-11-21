@@ -828,6 +828,40 @@ mod tests {
     }
 
     #[test]
+    fn peer_reference_method_unit_and_depth_must_match_observation() {
+        let mut s = scenario();
+        s.indicators[0].reference_model.reference_measurement_method =
+            "different laboratory method".into();
+        assert!(validate(&s).is_err());
+
+        let mut t = scenario();
+        t.indicators[0].reference_model.reference_depth_max_m = 0.1;
+        assert!(validate(&t).is_err());
+    }
+
+    #[test]
+    fn peer_reference_digests_must_be_valid_sha256() {
+        let mut s = scenario();
+        s.indicators[0].reference_model.reference_dataset_sha256 = "not-a-digest".into();
+        assert!(validate(&s).is_err());
+    }
+
+    #[test]
+    fn peer_reference_report_retains_context_and_artifact_identity() {
+        let s = scenario();
+        let report = build_report(&s, "0".repeat(64));
+        let peer = &report.indicators[0].peer_reference;
+        assert_eq!(peer.texture_class, "fine");
+        assert_eq!(peer.reference_soil_group, "synthetic-RSG-X");
+        assert_eq!(peer.mean_annual_temperature_c, 18.0);
+        assert_eq!(peer.reference_dataset_id, "synthetic-reference-dataset-v1");
+        assert_eq!(
+            peer.reference_dataset_sha256,
+            "a".repeat(64)
+        );
+    }
+
+    #[test]
     fn percentile_does_not_create_causal_claim() {
         let report = build_report(&scenario(), "0".repeat(64));
         assert!(
