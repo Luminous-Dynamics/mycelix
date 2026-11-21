@@ -13,8 +13,7 @@ use std::path::Path;
 
 const VERSION: &str = "0.1.0";
 const FIXTURE_STATUS: &str = "synthetic_only_not_empirical_evidence";
-const UNCERTAINTY_STATUS: &str =
-    "not_estimated_cluster_bootstrap_required_for_empirical_inference";
+const UNCERTAINTY_STATUS: &str = "not_estimated_cluster_bootstrap_required_for_empirical_inference";
 const BOUNDARY: &str = "Synthetic method-bridge audit only. Rank concordance does not establish analytical equivalence. Numerical agreement is emitted only for commensurate methods explicitly asserted equivalent. No commercial sensor certification, laboratory accreditation, field diagnosis or agronomic benefit is established.";
 
 #[derive(Debug, Deserialize)]
@@ -138,9 +137,15 @@ fn valid_date(value: &str) -> bool {
             .bytes()
             .enumerate()
             .all(|(i, b)| i == 4 || i == 7 || b.is_ascii_digit())
-        && value[0..4].parse::<u32>().is_ok_and(|x| (1..=9999).contains(&x))
-        && value[5..7].parse::<u32>().is_ok_and(|x| (1..=12).contains(&x))
-        && value[8..10].parse::<u32>().is_ok_and(|x| (1..=31).contains(&x))
+        && value[0..4]
+            .parse::<u32>()
+            .is_ok_and(|x| (1..=9999).contains(&x))
+        && value[5..7]
+            .parse::<u32>()
+            .is_ok_and(|x| (1..=12).contains(&x))
+        && value[8..10]
+            .parse::<u32>()
+            .is_ok_and(|x| (1..=31).contains(&x))
 }
 
 fn validate_threshold(t: &DecisionThreshold) -> Result<(), String> {
@@ -171,7 +176,11 @@ fn validate_threshold(t: &DecisionThreshold) -> Result<(), String> {
             finite("decision threshold", value)?;
             if t.unit.as_deref().unwrap_or("").trim().is_empty()
                 || t.authority.as_deref().unwrap_or("").trim().is_empty()
-                || t.approval_reference.as_deref().unwrap_or("").trim().is_empty()
+                || t.approval_reference
+                    .as_deref()
+                    .unwrap_or("")
+                    .trim()
+                    .is_empty()
                 || !t.approval_date.as_deref().is_some_and(valid_date)
             {
                 return Err(
@@ -231,11 +240,7 @@ fn validate(c: &Comparison) -> Result<(), String> {
     for method in [&c.method_a, &c.method_b] {
         if !matches!(
             method.method_class.as_str(),
-            "laboratory"
-                | "rapid_field"
-                | "proximal_sensing"
-                | "in_situ_sensor"
-                | "derived_model"
+            "laboratory" | "rapid_field" | "proximal_sensing" | "in_situ_sensor" | "derived_model"
         ) || method.unit.trim().is_empty()
             || method.measurement_basis.trim().is_empty()
             || method.support_id.trim().is_empty()
@@ -248,7 +253,9 @@ fn validate(c: &Comparison) -> Result<(), String> {
             || c.method_a.measurement_basis != c.method_b.measurement_basis
             || c.method_a.support_id != c.method_b.support_id)
     {
-        return Err("asserted analytical equivalence requires matching unit, basis and support".into());
+        return Err(
+            "asserted analytical equivalence requires matching unit, basis and support".into(),
+        );
     }
     if objectives.contains("decision_agreement") {
         if c.analytical_equivalence != "asserted_equivalent" {
@@ -358,8 +365,7 @@ fn decision_agreement(c: &Comparison) -> DecisionAgreement {
             (false, false) => both_negative += 1,
         }
     }
-    let agreement =
-        (both_positive + both_negative) as f64 / c.observations.len() as f64;
+    let agreement = (both_positive + both_negative) as f64 / c.observations.len() as f64;
     DecisionAgreement {
         threshold_status: c.decision_threshold.status.clone(),
         threshold_value: threshold,
@@ -413,7 +419,10 @@ fn build_report(c: &Comparison, digest: String) -> Report {
     } else if pair_count < c.minimum_pairs {
         ("insufficient_pairs_abstain", None)
     } else {
-        ("qualified_shared_threshold_decisions", Some(decision_agreement(c)))
+        (
+            "qualified_shared_threshold_decisions",
+            Some(decision_agreement(c)),
+        )
     };
 
     Report {
@@ -455,7 +464,10 @@ fn run(input: &Path, output: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let digest = format!("{:x}", Sha256::digest(&bytes));
     let report = build_report(&comparison, digest);
     let serialized = serde_json::to_vec_pretty(&report)?;
-    let mut file = OpenOptions::new().write(true).create_new(true).open(output)?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output)?;
     file.write_all(&serialized)?;
     file.write_all(b"\n")?;
     Ok(())
@@ -505,7 +517,10 @@ mod tests {
         c.method_b.support_id = c.method_a.support_id.clone();
         validate(&c).unwrap();
         let report = build_report(&c, "0".repeat(64));
-        assert_eq!(report.numerical_agreement_status, "qualified_comparable_pair");
+        assert_eq!(
+            report.numerical_agreement_status,
+            "qualified_comparable_pair"
+        );
         assert!(report.numerical_agreement.is_some());
     }
 
