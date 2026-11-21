@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/MYC_DIR_FABRIC_V0_1.schema.json",
+  "title": "Mycelix Directory Fabric reference conformance corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile",
+    "version",
+    "status",
+    "claim_ceiling",
+    "expected_decisions",
+    "scenario_count",
+    "scenarios"
+  ],
+  "properties": {
+    "profile": {
+      "const": "MYC-DIR-FABRIC-REFERENCE-0.1"
+    },
+    "version": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "status": {
+      "const": "synthetic-design-corpus"
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 20
+    },
+    "expected_decisions": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "ALLOW",
+          "DENY",
+          "INDETERMINATE"
+        ]
+      }
+    },
+    "scenario_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "category",
+          "title",
+          "principal_type",
+          "premise",
+          "requested_operation",
+          "expected_decision",
+          "expected_enforcement",
+          "invariant",
+          "claim_ceiling"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^DIR-[0-9]{3}$"
+          },
+          "category": {
+            "type": "string",
+            "minLength": 2
+          },
+          "title": {
+            "type": "string",
+            "minLength": 5
+          },
+          "principal_type": {
+            "enum": [
+              "Human",
+              "Administrator",
+              "Device",
+              "Workload",
+              "System"
+            ]
+          },
+          "premise": {
+            "type": "string",
+            "minLength": 20
+          },
+          "requested_operation": {
+            "type": "string",
+            "minLength": 3
+          },
+          "expected_decision": {
+            "enum": [
+              "ALLOW",
+              "DENY",
+              "INDETERMINATE"
+            ]
+          },
+          "expected_enforcement": {
+            "type": "string",
+            "minLength": 3
+          },
+          "invariant": {
+            "type": "string",
+            "minLength": 10
+          },
+          "claim_ceiling": {
+            "type": "string",
+            "minLength": 10
+          }
+        }
+      }
+    }
+  }
+}
