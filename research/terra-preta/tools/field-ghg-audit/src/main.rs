@@ -121,6 +121,7 @@ struct AuditReport {
     evidence_class_counts: BTreeMap<String, usize>,
     qc_state_counts: BTreeMap<String, usize>,
     observations: Vec<ObservationSummary>,
+    calculation_controls: CalculationControlResults,
     warnings: Vec<String>,
     interpretation_boundary: &'static str,
 }
@@ -136,6 +137,13 @@ struct ObservationSummary {
     experimental_unit_id: String,
     qc_state: String,
     uncertainty_status: String,
+    n2o_n_equivalent_flux_mg_n2o_n_m2_h: Option<f64>,
+}
+
+#[derive(Debug, Serialize)]
+struct CalculationControlResults {
+    n2o_mass_basis_conversion_pass: bool,
+    explicit_gap_trapezoidal_integration_pass: bool,
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -190,7 +198,7 @@ fn finite_nonnegative(value: f64, field: &str) -> Result<(), String> {
 
 fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
     // Howard Hinnant's civil-calendar transform; output is days from 1970-01-01.
-    let year = year - i64::from(month <= 2);
+    let year = year - if month <= 2 { 1 } else { 0 };
     let era = if year >= 0 { year } else { year - 399 } / 400;
     let year_of_era = year - era * 400;
     let month = i64::from(month);
@@ -652,6 +660,28 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
         return Err("observations must contain at least one record".to_string());
     }
 
+    // Always execute two independently hand-calculated numerical controls.
+    // The trapezoid control uses synthetic points and does not integrate any
+    // field observation or imply that the fixture is a seasonal time series.
+    let converted_nitrogen = convert_n2o_mass_basis(44.0, "N2O", "N2O_N")?;
+    let n2o_mass_basis_conversion_pass = (converted_nitrogen - 28.0).abs() < 1e-12;
+    let integration_control_points = [
+        FluxPoint {
+            elapsed_seconds: 0.0,
+            flux_mg_m2_h: 1.0,
+        },
+        FluxPoint {
+            elapsed_seconds: 3_600.0,
+            flux_mg_m2_h: 3.0,
+        },
+    ];
+    let integrated_control =
+        integrate_flux_points_trapezoidal(&integration_control_points, 3_600.0)?;
+    let explicit_gap_trapezoidal_integration_pass = (integrated_control - 2.0).abs() < 1e-12;
+    if !n2o_mass_basis_conversion_pass || !explicit_gap_trapezoidal_integration_pass {
+        return Err("internal deterministic calculation control failed".to_string());
+    }
+
     let mut ids = HashSet::new();
     let mut gas_species_counts = BTreeMap::new();
     let mut evidence_class_counts = BTreeMap::new();
@@ -679,6 +709,15 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
             all_qualified = false;
         }
 
+        let n2o_n_equivalent_flux = if observation.gas_species == "N2O" {
+            Some(convert_n2o_mass_basis(
+                observation.flux_value,
+                &observation.mass_basis,
+                "N2O_N",
+            )?)
+        } else {
+            None
+        };
         summaries.push(ObservationSummary {
             observation_id: observation.observation_id.clone(),
             gas_species: observation.gas_species.clone(),
@@ -689,6 +728,7 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
             experimental_unit_id: observation.experimental_unit_id.clone(),
             qc_state: observation.qc_state.clone(),
             uncertainty_status: observation.uncertainty.status.clone(),
+            n2o_n_equivalent_flux_mg_n2o_n_m2_h: n2o_n_equivalent_flux,
         });
     }
 
@@ -708,6 +748,10 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
         evidence_class_counts,
         qc_state_counts,
         observations: summaries,
+        calculation_controls: CalculationControlResults {
+            n2o_mass_basis_conversion_pass,
+            explicit_gap_trapezoidal_integration_pass,
+        },
         warnings,
         interpretation_boundary: INTERPRETATION_BOUNDARY,
     })
