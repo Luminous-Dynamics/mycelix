@@ -14,7 +14,8 @@
     "clock_model": "per-host monotonic clock identity and epoch; wall-clock timestamps are descriptive only",
     "cross_host_timing": "emit intervals only when clock mapping, calibration validity and uncertainty bounds verify; otherwise NotEvaluated or Incomplete",
     "replay_requirement": "same manifest, seed, scenario inputs, runtime tuple and scheduler version reproduce the same logical action schedule",
-    "simulated_actor_policy": "simulated actors must be explicitly labelled; simulated peers never count as real conductors"
+    "simulated_actor_policy": "simulated actors must be explicitly labelled; simulated peers never count as real conductors",
+    "concurrency_group_semantics": "Events sharing a concurrency_group have no causal order implied by the group; the seeded scheduler may interleave them, while each event's explicit causal_predecessors remain mandatory."
   },
   "result_vocabulary": {
     "execution": [
@@ -1323,14 +1324,15 @@
           "expected_observations": [
             "peer-a-fault-observation"
           ],
-          "recovery_action": "restore-peer-a"
+          "recovery_action": "restore-peer-a",
+          "concurrency_group": "cf07-independent-fault-pair"
         },
         {
           "event_id": "cf07-e05",
           "actor": "peer-b",
           "action": "inject-time-synchronized-independent-fault-b",
           "causal_predecessors": [
-            "cf07-e04"
+            "cf07-e02"
           ],
           "parameters": {
             "fault": "local-process-restart",
@@ -1339,7 +1341,8 @@
           "expected_observations": [
             "peer-b-fault-observation"
           ],
-          "recovery_action": "restore-peer-b"
+          "recovery_action": "restore-peer-b",
+          "concurrency_group": "cf07-independent-fault-pair"
         },
         {
           "event_id": "cf07-e06",
