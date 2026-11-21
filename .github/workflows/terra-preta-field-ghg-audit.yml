@@ -39,7 +39,7 @@ jobs:
             .fixture_status == "synthetic_only_not_empirical_evidence" and
             .status == "synthetic_fixture_unqualified_due_to_qc_or_uncertainty" and
             .observation_count == 3 and
-            .gas_species_counts.N2O == 1 and
+            .gas_species_counts.N2O == 2 and
             .gas_species_counts.CH4 == 1 and
             .gas_species_counts.CO2 == null and
             .calculation_controls.n2o_mass_basis_conversion_pass == true and
