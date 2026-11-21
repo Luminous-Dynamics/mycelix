@@ -368,7 +368,10 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
     let mut observation_ids = HashSet::new();
     for observation in &campaign.observations {
         nonblank(&observation.observation_id, "observation.observation_id")?;
-        nonblank(&observation.scheduled_slot_id, "observation.scheduled_slot_id")?;
+        nonblank(
+            &observation.scheduled_slot_id,
+            "observation.scheduled_slot_id",
+        )?;
         if !observation_ids.insert(observation.observation_id.as_str()) {
             return Err(format!(
                 "duplicate observation_id: {}",
