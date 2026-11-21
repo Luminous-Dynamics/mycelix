@@ -122,7 +122,9 @@
         "max_text_bytes_per_element",
         "max_total_text_bytes",
         "max_locators",
-        "max_namespace_bindings"
+        "max_namespace_bindings",
+        "max_documents",
+        "max_total_source_bytes"
       ],
       "properties": {
         "max_source_bytes": {
@@ -169,6 +171,16 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 4096
+        },
+        "max_documents": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128
+        },
+        "max_total_source_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1073741824
         }
       }
     }
