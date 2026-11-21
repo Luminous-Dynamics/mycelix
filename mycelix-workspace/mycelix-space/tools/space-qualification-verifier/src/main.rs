@@ -1442,6 +1442,15 @@ mod tests {
     }
 
     #[test]
+    fn pair_manifest_digest_must_bind_canonical_pair_ledger() {
+        let mut package = fixture();
+        package["pair_coverage"]["pair_manifest_sha256"] = Value::String("0".repeat(64));
+        let report = verify_value(&package, &repo_root());
+        assert_eq!(report.status(), "FAIL");
+        assert!(report.failures.contains_key("PAIR_MANIFEST_DIGEST_MISMATCH"));
+    }
+
+    #[test]
     fn retained_pair_output_must_match_exact_result_artifact() {
         let mut package = fixture();
         package["assessments"][1]["output_sha256"] = Value::String("0".repeat(64));
