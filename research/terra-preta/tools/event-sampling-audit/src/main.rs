@@ -155,7 +155,10 @@ fn validate_truth(t: &Truth) -> Result<(), String> {
         return Err("truth trace needs ID, at least two samples and pulse definitions".into());
     }
     finite("baseline_value", t.baseline_value)?;
-    finite("detection_threshold_above_baseline", t.detection_threshold_above_baseline)?;
+    finite(
+        "detection_threshold_above_baseline",
+        t.detection_threshold_above_baseline,
+    )?;
     finite("time_resolution_hours", t.time_resolution_hours)?;
     if t.detection_threshold_above_baseline < 0.0 || t.time_resolution_hours <= 0.0 {
         return Err("truth threshold and time resolution must be non-negative/positive".into());
@@ -186,7 +189,10 @@ fn validate_truth(t: &Truth) -> Result<(), String> {
         if !t.samples.iter().any(|s| s.time_hours == p.start_hours)
             || !t.samples.iter().any(|s| s.time_hours == p.end_hours)
         {
-            return Err(format!("pulse {} boundaries must coincide with truth samples", p.pulse_id));
+            return Err(format!(
+                "pulse {} boundaries must coincide with truth samples",
+                p.pulse_id
+            ));
         }
     }
     Ok(())
@@ -207,10 +213,19 @@ fn validate_schedule(s: &Schedule, t: &Truth) -> Result<(), String> {
         return Err("schedule ID, policy, budget and observations are required".into());
     }
     for (name, value) in [
-        ("maximum_gap_for_pulse_integral_hours", s.maximum_gap_for_pulse_integral_hours),
+        (
+            "maximum_gap_for_pulse_integral_hours",
+            s.maximum_gap_for_pulse_integral_hours,
+        ),
         ("wakeup_gap_threshold_hours", s.wakeup_gap_threshold_hours),
-        ("sample_energy_joules", s.resource_cost_model.sample_energy_joules),
-        ("wake_energy_joules", s.resource_cost_model.wake_energy_joules),
+        (
+            "sample_energy_joules",
+            s.resource_cost_model.sample_energy_joules,
+        ),
+        (
+            "wake_energy_joules",
+            s.resource_cost_model.wake_energy_joules,
+        ),
     ] {
         finite(name, value)?;
         if value < 0.0 {
@@ -234,39 +249,74 @@ fn validate_schedule(s: &Schedule, t: &Truth) -> Result<(), String> {
             }
         }
         prior = Some(o.time_hours);
-        let truth = t.samples.iter().find(|x| x.time_hours == o.time_hours)
-            .ok_or_else(|| format!("candidate time {} is not present in known-truth source", o.time_hours))?;
+        let truth = t
+            .samples
+            .iter()
+            .find(|x| x.time_hours == o.time_hours)
+            .ok_or_else(|| {
+                format!(
+                    "candidate time {} is not present in known-truth source",
+                    o.time_hours
+                )
+            })?;
         if (truth.response_value - o.response_value).abs() > 1e-9 {
-            return Err(format!("candidate observation {} does not match source value", o.observation_id));
+            return Err(format!(
+                "candidate observation {} does not match source value",
+                o.observation_id
+            ));
         }
     }
     Ok(())
 }
 
 fn integrate(samples: &[TruthSample], baseline: f64) -> f64 {
-    samples.windows(2).map(|pair| {
-        let a = (pair[0].response_value - baseline).max(0.0);
-        let b = (pair[1].response_value - baseline).max(0.0);
-        0.5 * (a + b) * (pair[1].time_hours - pair[0].time_hours)
-    }).sum()
+    samples
+        .windows(2)
+        .map(|pair| {
+            let a = (pair[0].response_value - baseline).max(0.0);
+            let b = (pair[1].response_value - baseline).max(0.0);
+            0.5 * (a + b) * (pair[1].time_hours - pair[0].time_hours)
+        })
+        .sum()
 }
 
 fn pulse_result(t: &Truth, s: &Schedule, p: &Pulse) -> PulseResult {
-    let truth: Vec<&TruthSample> = t.samples.iter()
-        .filter(|x| x.time_hours >= p.start_hours && x.time_hours <= p.end_hours).collect();
-    let truth_peak = truth.iter().copied().max_by(|a,b| a.response_value.total_cmp(&b.response_value))
+    let truth: Vec<&TruthSample> = t
+        .samples
+        .iter()
+        .filter(|x| x.time_hours >= p.start_hours && x.time_hours <= p.end_hours)
+        .collect();
+    let truth_peak = truth
+        .iter()
+        .copied()
+        .max_by(|a, b| a.response_value.total_cmp(&b.response_value))
         .expect("validated pulse boundaries ensure truth support");
     let truth_integral = integrate(
-        &t.samples.iter().filter(|x| x.time_hours >= p.start_hours && x.time_hours <= p.end_hours)
-            .cloned().collect::<Vec<_>>(),
-        t.baseline_value
+        &t.samples
+            .iter()
+            .filter(|x| x.time_hours >= p.start_hours && x.time_hours <= p.end_hours)
+            .cloned()
+            .collect::<Vec<_>>(),
+        t.baseline_value,
     );
-    let observed: Vec<&CandidateObservation> = s.observations.iter()
-        .filter(|x| x.time_hours >= p.start_hours && x.time_hours <= p.end_hours).collect();
-    let observed_peak = observed.iter().copied().max_by(|a,b| a.response_value.total_cmp(&b.response_value));
+    let observed: Vec<&CandidateObservation> = s
+        .observations
+        .iter()
+        .filter(|x| x.time_hours >= p.start_hours && x.time_hours <= p.end_hours)
+        .collect();
+    let observed_peak = observed
+        .iter()
+        .copied()
+        .max_by(|a, b| a.response_value.total_cmp(&b.response_value));
     let detected = observed.len() >= p.minimum_detected_samples
-        && observed.iter().any(|x| x.response_value - t.baseline_value > t.detection_threshold_above_baseline);
-    let candidate_peak = if detected { observed_peak.map(|x| x.response_value) } else { None };
+        && observed
+            .iter()
+            .any(|x| x.response_value - t.baseline_value > t.detection_threshold_above_baseline);
+    let candidate_peak = if detected {
+        observed_peak.map(|x| x.response_value)
+    } else {
+        None
+    };
     let peak_error = candidate_peak.map(|x| (x - truth_peak.response_value).abs());
 
     let has_start = observed.iter().any(|x| x.time_hours == p.start_hours);
@@ -282,11 +332,14 @@ fn pulse_result(t: &Truth, s: &Schedule, p: &Pulse) -> PulseResult {
         if gap_exceeded {
             (None, "gap_exceeded")
         } else {
-            let value: f64 = observed.windows(2).map(|pair| {
-                let a = (pair[0].response_value - t.baseline_value).max(0.0);
-                let b = (pair[1].response_value - t.baseline_value).max(0.0);
-                0.5 * (a + b) * (pair[1].time_hours - pair[0].time_hours)
-            }).sum();
+            let value: f64 = observed
+                .windows(2)
+                .map(|pair| {
+                    let a = (pair[0].response_value - t.baseline_value).max(0.0);
+                    let b = (pair[1].response_value - t.baseline_value).max(0.0);
+                    0.5 * (a + b) * (pair[1].time_hours - pair[0].time_hours)
+                })
+                .sum();
             (Some(value), "qualified_complete_pulse_integral")
         }
     };
@@ -306,21 +359,37 @@ fn pulse_result(t: &Truth, s: &Schedule, p: &Pulse) -> PulseResult {
 }
 
 fn build_report(t: &Truth, s: &Schedule, truth_digest: String, schedule_digest: String) -> Report {
-    let pulses: Vec<PulseResult> = t.pulses.iter().map(|p| pulse_result(t,s,p)).collect();
+    let pulses: Vec<PulseResult> = t.pulses.iter().map(|p| pulse_result(t, s, p)).collect();
     let detected = pulses.iter().filter(|p| p.detected).count();
-    let missed_exposure = pulses.iter().filter(|p| !p.detected)
-        .map(|p| p.truth_positive_anomaly_integral_unit_hours).sum();
-    let false_alarm_count = s.observations.iter().filter(|o| {
-        !t.pulses.iter().any(|p| o.time_hours >= p.start_hours && o.time_hours <= p.end_hours)
-            && o.response_value - t.baseline_value > t.detection_threshold_above_baseline
-    }).count();
-    let max_gap = s.observations.windows(2)
+    let missed_exposure = pulses
+        .iter()
+        .filter(|p| !p.detected)
+        .map(|p| p.truth_positive_anomaly_integral_unit_hours)
+        .sum();
+    let false_alarm_count = s
+        .observations
+        .iter()
+        .filter(|o| {
+            !t.pulses
+                .iter()
+                .any(|p| o.time_hours >= p.start_hours && o.time_hours <= p.end_hours)
+                && o.response_value - t.baseline_value > t.detection_threshold_above_baseline
+        })
+        .count();
+    let max_gap = s
+        .observations
+        .windows(2)
         .map(|pair| pair[1].time_hours - pair[0].time_hours)
-        .max_by(f64::total_cmp).unwrap_or(0.0);
-    let wake_count = if s.observations.is_empty() { 0 } else {
-        1 + s.observations.windows(2).filter(|pair| {
-            pair[1].time_hours - pair[0].time_hours > s.wakeup_gap_threshold_hours
-        }).count()
+        .max_by(f64::total_cmp)
+        .unwrap_or(0.0);
+    let wake_count = if s.observations.is_empty() {
+        0
+    } else {
+        1 + s
+            .observations
+            .windows(2)
+            .filter(|pair| pair[1].time_hours - pair[0].time_hours > s.wakeup_gap_threshold_hours)
+            .count()
     };
     let count = s.observations.len() as u64;
     let cost = &s.resource_cost_model;
@@ -337,7 +406,11 @@ fn build_report(t: &Truth, s: &Schedule, truth_digest: String, schedule_digest: 
         candidate_sample_count: s.observations.len(),
         sample_fraction: s.observations.len() as f64 / t.samples.len() as f64,
         maximum_sample_budget: s.maximum_sample_budget,
-        budget_status: if s.observations.len() <= s.maximum_sample_budget { "within_budget" } else { "over_budget" },
+        budget_status: if s.observations.len() <= s.maximum_sample_budget {
+            "within_budget"
+        } else {
+            "over_budget"
+        },
         maximum_schedule_gap_hours: max_gap,
         wake_count,
         pulse_count: pulses.len(),
@@ -364,111 +437,131 @@ fn build_report(t: &Truth, s: &Schedule, truth_digest: String, schedule_digest: 
     }
 }
 
-fn run(truth_path:&Path,schedule_path:&Path,report_path:&Path)->Result<(),Box<dyn std::error::Error>>{
-    if report_path.exists(){
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists,"report already exists").into());
+fn run(
+    truth_path: &Path,
+    schedule_path: &Path,
+    report_path: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if report_path.exists() {
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "report already exists").into(),
+        );
     }
-    let truth_bytes=fs::read(truth_path)?;
-    let schedule_bytes=fs::read(schedule_path)?;
-    let truth:Truth=serde_json::from_slice(&truth_bytes)?;
-    let schedule:Schedule=serde_json::from_slice(&schedule_bytes)?;
+    let truth_bytes = fs::read(truth_path)?;
+    let schedule_bytes = fs::read(schedule_path)?;
+    let truth: Truth = serde_json::from_slice(&truth_bytes)?;
+    let schedule: Schedule = serde_json::from_slice(&schedule_bytes)?;
     validate_truth(&truth).map_err(io::Error::other)?;
-    validate_schedule(&schedule,&truth).map_err(io::Error::other)?;
-    let td=format!("{:x}",Sha256::digest(&truth_bytes));
-    let sd=format!("{:x}",Sha256::digest(&schedule_bytes));
-    let report=build_report(&truth,&schedule,td,sd);
-    let bytes=serde_json::to_vec_pretty(&report)?;
-    let mut file=OpenOptions::new().write(true).create_new(true).open(report_path)?;
+    validate_schedule(&schedule, &truth).map_err(io::Error::other)?;
+    let td = format!("{:x}", Sha256::digest(&truth_bytes));
+    let sd = format!("{:x}", Sha256::digest(&schedule_bytes));
+    let report = build_report(&truth, &schedule, td, sd);
+    let bytes = serde_json::to_vec_pretty(&report)?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(report_path)?;
     file.write_all(&bytes)?;
     file.write_all(b"\n")?;
     Ok(())
 }
 
-fn main(){
-    let args:Vec<String>=env::args().collect();
-    if args.len()!=4{
-        eprintln!("usage: event-sampling-audit <evaluator-truth.json> <candidate-schedule.json> <new-report.json>");
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    if args.len() != 4 {
+        eprintln!(
+            "usage: event-sampling-audit <evaluator-truth.json> <candidate-schedule.json> <new-report.json>"
+        );
         std::process::exit(2);
     }
-    if let Err(e)=run(Path::new(&args[1]),Path::new(&args[2]),Path::new(&args[3])){
+    if let Err(e) = run(
+        Path::new(&args[1]),
+        Path::new(&args[2]),
+        Path::new(&args[3]),
+    ) {
         eprintln!("event sampling audit failed: {e}");
         std::process::exit(1);
     }
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
 
-    fn load()->(Truth,Schedule){
-        let t:Truth=serde_json::from_str(include_str!("../fixtures/synthetic-event-truth.json")).unwrap();
-        let s:Schedule=serde_json::from_str(include_str!("../fixtures/synthetic-candidate-schedule.json")).unwrap();
-        (t,s)
+    fn load() -> (Truth, Schedule) {
+        let t: Truth = serde_json::from_str(include_str!("../fixtures/synthetic-event-truth.json")).unwrap();
+        let s: Schedule = serde_json::from_str(include_str!(
+            "../fixtures/synthetic-candidate-schedule.json"
+        ))
+        .unwrap();
+        (t, s)
     }
 
     #[test]
-    fn adaptive_burst_captures_wide_event_but_misses_narrow_event(){
-        let (t,s)=load();
+    fn adaptive_burst_captures_wide_event_but_misses_narrow_event() {
+        let (t, s) = load();
         validate_truth(&t).unwrap();
-        validate_schedule(&s,&t).unwrap();
-        let r=build_report(&t,&s,"0".repeat(64),"1".repeat(64));
-        assert_eq!(r.candidate_sample_count,54);
-        assert_eq!(r.budget_status,"within_budget");
-        assert_eq!(r.detected_pulse_count,1);
-        assert!((r.pulse_recall-0.5).abs()<1e-12);
+        validate_schedule(&s, &t).unwrap();
+        let r = build_report(&t, &s, "0".repeat(64), "1".repeat(64));
+        assert_eq!(r.candidate_sample_count, 54);
+        assert_eq!(r.budget_status, "within_budget");
+        assert_eq!(r.detected_pulse_count, 1);
+        assert!((r.pulse_recall - 0.5).abs() < 1e-12);
         assert!(r.pulses[0].detected);
         assert!(!r.pulses[1].detected);
-        assert!(r.missed_pulse_truth_exposure_unit_hours>0.0);
-        assert_eq!(r.pulses[0].integral_status,"qualified_complete_pulse_integral");
-        assert_eq!(r.pulses[1].integral_status,"not_detected");
+        assert!(r.missed_pulse_truth_exposure_unit_hours > 0.0);
+        assert_eq!(
+            r.pulses[0].integral_status,
+            "qualified_complete_pulse_integral"
+        );
+        assert_eq!(r.pulses[1].integral_status, "not_detected");
     }
 
     #[test]
-    fn candidate_cannot_fabricate_or_interpolate_unobserved_values(){
-        let (t,mut s)=load();
-        s.observations[0].response_value+=0.01;
-        assert!(validate_schedule(&s,&t).is_err());
-        let (t,mut s)=load();
-        s.observations[0].time_hours+=0.01;
-        assert!(validate_schedule(&s,&t).is_err());
+    fn candidate_cannot_fabricate_or_interpolate_unobserved_values() {
+        let (t, mut s) = load();
+        s.observations[0].response_value += 0.01;
+        assert!(validate_schedule(&s, &t).is_err());
+        let (t, mut s) = load();
+        s.observations[0].time_hours += 0.01;
+        assert!(validate_schedule(&s, &t).is_err());
     }
 
     #[test]
-    fn duplicate_and_nonmonotonic_candidate_times_are_rejected(){
-        let (t,mut s)=load();
-        s.observations[1].time_hours=s.observations[0].time_hours;
-        assert!(validate_schedule(&s,&t).is_err());
+    fn duplicate_and_nonmonotonic_candidate_times_are_rejected() {
+        let (t, mut s) = load();
+        s.observations[1].time_hours = s.observations[0].time_hours;
+        assert!(validate_schedule(&s, &t).is_err());
     }
 
     #[test]
-    fn evaluator_rejects_nonuniform_source_resolution(){
-        let (mut t,s)=load();
-        t.samples[2].time_hours+=0.001;
-        assert!(validate_truth(&t).is_err());
-        let _=s;
-    }
-
-    #[test]
-    fn truth_pulse_requires_boundaries_on_dense_source(){
-        let (mut t,_)=load();
-        t.pulses[0].end_hours=6.49;
+    fn evaluator_rejects_nonuniform_source_resolution() {
+        let (mut t, _) = load();
+        t.samples[2].time_hours += 0.001;
         assert!(validate_truth(&t).is_err());
     }
 
     #[test]
-    fn sample_over_budget_is_reported_not_hidden(){
-        let (t,mut s)=load();
-        s.maximum_sample_budget=10;
-        let r=build_report(&t,&s,"0".repeat(64),"1".repeat(64));
-        assert_eq!(r.budget_status,"over_budget");
+    fn truth_pulse_requires_boundaries_on_dense_source() {
+        let (mut t, _) = load();
+        t.pulses[0].end_hours = 6.49;
+        assert!(validate_truth(&t).is_err());
     }
 
     #[test]
-    fn resource_costs_remain_a_vector(){
-        let (t,s)=load();
-        let r=build_report(&t,&s,"0".repeat(64),"1".repeat(64));
-        assert!(r.resource_vector.sample_energy_joules>0.0);
-        assert!(r.resource_vector.compute_cycles>0);
-        assert!(r.resource_vector.transmitted_bytes>0);
+    fn sample_over_budget_is_reported_not_hidden() {
+        let (t, mut s) = load();
+        s.maximum_sample_budget = 10;
+        let r = build_report(&t, &s, "0".repeat(64), "1".repeat(64));
+        assert_eq!(r.budget_status, "over_budget");
+    }
+
+    #[test]
+    fn resource_costs_remain_a_vector() {
+        let (t, s) = load();
+        let r = build_report(&t, &s, "0".repeat(64), "1".repeat(64));
+        assert!(r.resource_vector.sample_energy_joules > 0.0);
+        assert!(r.resource_vector.compute_cycles > 0);
+        assert!(r.resource_vector.transmitted_bytes > 0);
     }
 }
