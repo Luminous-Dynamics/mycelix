@@ -536,7 +536,7 @@ mod tests {
     #[test]
     fn nonmonotonic_time_is_rejected() {
         let mut value = fixture();
-        value["points"][1]["elapsed_seconds"] = Value::from(1000.0);
+        value["points"][2]["elapsed_seconds"] = Value::from(1000.0);
         assert!(audit(&value).is_err());
     }
 
