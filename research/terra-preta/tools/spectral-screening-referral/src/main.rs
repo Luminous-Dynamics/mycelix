@@ -291,11 +291,7 @@ where
 }
 
 /// Selector accepts only selector-visible candidates; no evaluator truth is in this API.
-fn select(
-    policy: Policy,
-    candidates: &[ScreenCandidate],
-    config: &Config,
-) -> Vec<String> {
+fn select(policy: Policy, candidates: &[ScreenCandidate], config: &Config) -> Vec<String> {
     let capacity = config.referral_capacity.min(candidates.len());
     match policy {
         Policy::NirOnly => Vec::new(),
@@ -326,9 +322,7 @@ fn select(
                 .map(|candidate| candidate.sample_id.clone())
                 .collect()
         }
-        Policy::DecisionRiskRank => {
-            ranked_ids(candidates, capacity, expected_threshold_loss)
-        }
+        Policy::DecisionRiskRank => ranked_ids(candidates, capacity, expected_threshold_loss),
         Policy::PerfectInformationHindsightOracle => {
             // Not reachable through deployable selection. Evaluator truth is
             // joined only in build_report, in a separately named oracle path.
@@ -395,7 +389,11 @@ fn evaluate_policy(
     oracle_loss: f64,
 ) -> PolicyResult {
     let selected = if matches!(policy, Policy::PerfectInformationHindsightOracle) {
-        oracle_ids(candidates, truths, config.referral_capacity.min(candidates.len()))
+        oracle_ids(
+            candidates,
+            truths,
+            config.referral_capacity.min(candidates.len()),
+        )
     } else {
         select(policy, candidates, config)
     };
@@ -475,7 +473,10 @@ fn build_report(scenario: &Scenario, input_sha256: String) -> Result<Report, Str
     let oracle_selection = oracle_ids(
         &scenario.screen_candidates,
         &truths,
-        scenario.config.referral_capacity.min(scenario.screen_candidates.len()),
+        scenario
+            .config
+            .referral_capacity
+            .min(scenario.screen_candidates.len()),
     );
     let oracle_set: BTreeSet<&str> = oracle_selection.iter().map(String::as_str).collect();
     let oracle_loss = scenario
@@ -542,7 +543,11 @@ fn build_report(scenario: &Scenario, input_sha256: String) -> Result<Report, Str
         .filter(|policy| policy.is_deployable())
         .all(|policy| {
             select(policy, &scenario.screen_candidates, &scenario.config)
-                == select(policy, &scenario.screen_candidates, &mutation_scenario.config)
+                == select(
+                    policy,
+                    &scenario.screen_candidates,
+                    &mutation_scenario.config,
+                )
         });
 
     let capacity_pass = policies
@@ -571,7 +576,9 @@ fn build_report(scenario: &Scenario, input_sha256: String) -> Result<Report, Str
 
 fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if output_path.exists() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into());
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into(),
+        );
     }
     let input = fs::read(input_path)?;
     let scenario: Scenario = serde_json::from_slice(&input)?;
@@ -644,7 +651,9 @@ mod tests {
     fn referral_capacity_is_respected_by_deployable_policies() {
         let s = scenario();
         for policy in Policy::ALL.into_iter().filter(|x| x.is_deployable()) {
-            assert!(select(policy, &s.screen_candidates, &s.config).len() <= s.config.referral_capacity);
+            assert!(
+                select(policy, &s.screen_candidates, &s.config).len() <= s.config.referral_capacity
+            );
         }
     }
 
@@ -660,7 +669,14 @@ mod tests {
     fn fixed_uncertainty_threshold_can_refer_fewer_than_capacity() {
         let mut s = scenario();
         s.config.fixed_uncertainty_threshold = 0.7;
-        assert!(select(Policy::FixedUncertaintyThreshold, &s.screen_candidates, &s.config).is_empty());
+        assert!(
+            select(
+                Policy::FixedUncertaintyThreshold,
+                &s.screen_candidates,
+                &s.config
+            )
+            .is_empty()
+        );
     }
 
     #[test]
@@ -677,14 +693,30 @@ mod tests {
     #[test]
     fn hindsight_oracle_uses_budget_and_only_selects_errors() {
         let s = scenario();
-        let selected = oracle_ids(&s.screen_candidates, &truths(&s), s.config.referral_capacity);
+        let selected = oracle_ids(
+            &s.screen_candidates,
+            &truths(&s),
+            s.config.referral_capacity,
+        );
         assert!(selected.len() <= s.config.referral_capacity);
         for sample_id in selected {
-            let candidate = s.screen_candidates.iter().find(|x| x.sample_id == sample_id).unwrap();
+            let candidate = s
+                .screen_candidates
+                .iter()
+                .find(|x| x.sample_id == sample_id)
+                .unwrap();
             let truth = truths(&s)[&sample_id];
             assert_ne!(
-                positive_class(candidate.predicted_mean, candidate.decision_threshold, candidate.positive_if_above),
-                positive_class(truth, candidate.decision_threshold, candidate.positive_if_above)
+                positive_class(
+                    candidate.predicted_mean,
+                    candidate.decision_threshold,
+                    candidate.positive_if_above
+                ),
+                positive_class(
+                    truth,
+                    candidate.decision_threshold,
+                    candidate.positive_if_above
+                )
             );
         }
     }
@@ -698,7 +730,12 @@ mod tests {
         assert!(report.controls.hidden_truth_not_used_by_selectors);
         assert!(report.controls.capacity_pass);
         assert!(report.controls.deterministic_replay_pass);
-        assert!(report.policies.iter().any(|p| p.policy_id == "perfect_information_hindsight_oracle"));
+        assert!(
+            report
+                .policies
+                .iter()
+                .any(|p| p.policy_id == "perfect_information_hindsight_oracle")
+        );
     }
 
     #[test]
