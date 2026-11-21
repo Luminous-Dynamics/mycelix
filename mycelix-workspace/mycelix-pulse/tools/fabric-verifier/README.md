@@ -112,6 +112,14 @@ A later trust layer must verify signatures, principal independence, membership
 authority and trusted time before using a cryptographically strong
 group-completion claim.
 
+The recipient-set commitment is deterministic and domain-separated:
+sort the 64-character lowercase recipient commitments lexicographically,
+then SHA-256 the byte prefix
+`PULSE-GROUP-FANOUT-RECIPIENT-SET-V0\\0`, followed by each commitment's
+UTF-8 bytes prefixed by its unsigned 64-bit big-endian byte length. A golden
+vector is covered by the Rust unit tests. This encoding makes ordering and
+concatenation unambiguous; it does not make low-entropy identifiers private.
+
 Do not put raw member identifiers or the roster in public manifests. Recipient
 commitments must be opaque, scoped pseudonyms or keyed commitments generated
 under an independently governed secret; do not use bare SHA-256 of an email
