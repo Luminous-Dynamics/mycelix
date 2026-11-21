@@ -1,0 +1,30 @@
+name: AeroCommons Component Lineage
+
+on:
+  pull_request:
+    paths:
+      - "tools/aerocommons-component-lineage/**"
+      - "mycelix-commons/crates/aero-evidence-types/**"
+      - ".github/workflows/aerocommons-component-lineage.yml"
+  push:
+    branches:
+      - "research/aerocommons-component-lineage-001"
+    paths:
+      - "tools/aerocommons-component-lineage/**"
+      - "mycelix-commons/crates/aero-evidence-types/**"
+      - ".github/workflows/aerocommons-component-lineage.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  component-lineage:
+    name: Structural packet replay
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run packet verifier tests
+        run: cargo test --manifest-path tools/aerocommons-component-lineage/Cargo.toml
