@@ -2101,6 +2101,17 @@ mod tests {
             .collect()
     }
 
+    fn multifidelity_parameters(
+        surrogate_probability: f64,
+        absolute_error_bound: f64,
+    ) -> MultifidelityResidualParameters {
+        MultifidelityResidualParameters {
+            surrogate_probability,
+            surrogate_probability_absolute_error_bound: absolute_error_bound,
+            confidence_delta: 0.05,
+        }
+    }
+
     fn multifidelity_proposal() -> DefensiveGaussianMixture {
         DefensiveGaussianMixture {
             id: "proposal-multifidelity-exact-target".into(),
@@ -2202,9 +2213,7 @@ mod tests {
             &proposal,
             &whitening,
             &observations,
-            surrogate_pc,
-            0.0,
-            0.05,
+            &multifidelity_parameters(surrogate_pc, 0.0),
             &evaluation,
             &surrogate,
         )
@@ -2274,9 +2283,7 @@ mod tests {
             &proposal,
             &whitening,
             &observations,
-            surrogate_pc,
-            0.01,
-            0.05,
+            &multifidelity_parameters(surrogate_pc, 0.01),
             &evaluation,
             &surrogate,
         )
@@ -2302,9 +2309,7 @@ mod tests {
                 &proposal,
                 &whitening,
                 &observations,
-                pc,
-                0.0,
-                0.05,
+                &multifidelity_parameters(pc, 0.0),
                 &evaluation,
                 &missing_error,
             ),
