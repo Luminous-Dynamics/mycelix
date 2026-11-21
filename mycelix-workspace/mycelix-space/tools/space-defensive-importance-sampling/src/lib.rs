@@ -1101,6 +1101,8 @@ pub fn compare_counterfactual_maneuver_risk(
     let mut candidate_observations = Vec::with_capacity(observations.len());
     let mut paired_differences = Vec::with_capacity(observations.len());
     let mut encounter_differences = vec![Vec::<f64>::with_capacity(observations.len()); encounter_count];
+    let mut encounter_baseline_contributions =
+        vec![Vec::<f64>::with_capacity(observations.len()); encounter_count];
     let mut introduced_counts = vec![0usize; encounter_count];
     let mut mitigated_counts = vec![0usize; encounter_count];
 
@@ -1128,15 +1130,16 @@ pub fn compare_counterfactual_maneuver_risk(
         });
 
         let weight = proposal.likelihood_ratio(&observation.point)?;
-        paired_differences.push(
-            weight * (i32::from(candidate_union) - i32::from(baseline_union)) as f64
-        );
+        let baseline_union_value = if baseline_union { 1.0 } else { 0.0 };
+        let candidate_union_value = if candidate_union { 1.0 } else { 0.0 };
+        paired_differences.push(weight * (candidate_union_value - baseline_union_value));
         for index in 0..encounter_count {
             let baseline_hit = observation.baseline_collision_by_encounter[index];
             let candidate_hit = observation.candidate_collision_by_encounter[index];
-            encounter_differences[index].push(
-                weight * (i32::from(candidate_hit) - i32::from(baseline_hit)) as f64
-            );
+            let baseline_value = if baseline_hit { 1.0 } else { 0.0 };
+            let candidate_value = if candidate_hit { 1.0 } else { 0.0 };
+            encounter_baseline_contributions[index].push(weight * baseline_value);
+            encounter_differences[index].push(weight * (candidate_value - baseline_value));
             if candidate_hit && !baseline_hit {
                 introduced_counts[index] += 1;
             }
@@ -1186,23 +1189,10 @@ pub fn compare_counterfactual_maneuver_risk(
         .iter()
         .enumerate()
         .map(|(index, encounter_id)| {
-            let baseline_values = observations
-                .iter()
-                .zip(encounter_differences[index].iter())
-                .map(|(observation, difference)| {
-                    let weight = proposal.likelihood_ratio(&observation.point).unwrap_or(0.0);
-                    // Reconstruct the baseline contribution from the paired difference.
-                    // Candidate-minus-baseline is known; the baseline flag is retained.
-                    if observation.baseline_collision_by_encounter[index] {
-                        weight
-                    } else {
-                        0.0
-                    }
-                })
-                .collect::<Vec<_>>();
-            let baseline_estimate = baseline_values.iter().sum::<f64>() / n as f64;
+            let baseline_estimate =
+                encounter_baseline_contributions[index].iter().sum::<f64>() / n as f64;
             let difference = encounter_differences[index].iter().sum::<f64>() / n as f64;
-            EncounterCounterfactualChange {
+            CounterfactualEncounterChange {
                 encounter_id: encounter_id.clone(),
                 baseline_probability_estimate: baseline_estimate,
                 candidate_probability_estimate: baseline_estimate + difference,
