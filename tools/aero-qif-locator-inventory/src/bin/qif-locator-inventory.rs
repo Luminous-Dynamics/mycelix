@@ -1,6 +1,7 @@
 use aero_qif_ingest_qualification::QifDocumentRole;
 use aero_qif_locator_inventory::{
-    derive_trace_locator_inventory, validate_profile, RawQifDocument, TraceLocatorProfileV1,
+    derive_trace_locator_inventory, inventory_required_locators, validate_profile, RawQifDocument,
+    TraceLocatorProfileV1,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -23,7 +24,8 @@ fn usage() -> &'static str {
   qif-locator-inventory --inventory-id ID --profile PROFILE.json
     --results-qpid UUID --results RESULTS.qif
     --plan UUID=PLAN.qif [--plan UUID=PLAN2.qif ...]
-    --inventory-out INVENTORY.json --report-out REPORT.json
+    --inventory-out INVENTORY.json --required-locators-out REQUIRED.json
+    --report-out REPORT.json
 
 The tool reads staged local files only. QIF source URIs are never dereferenced."
 }
@@ -74,6 +76,7 @@ fn run() -> Result<(), String> {
     let mut results_path = None;
     let mut plans: Vec<(String, PathBuf)> = Vec::new();
     let mut inventory_out = None;
+    let mut required_locators_out = None;
     let mut report_out = None;
 
     while let Some(arg) = args.next() {
@@ -89,6 +92,7 @@ fn run() -> Result<(), String> {
             "--results" => results_path = Some(PathBuf::from(value)),
             "--plan" => plans.push(parse_plan(&value)?),
             "--inventory-out" => inventory_out = Some(PathBuf::from(value)),
+            "--required-locators-out" => required_locators_out = Some(PathBuf::from(value)),
             "--report-out" => report_out = Some(PathBuf::from(value)),
             "--help" | "-h" => return Err(usage().into()),
             _ => return Err(format!("unknown option {arg}
@@ -101,6 +105,7 @@ fn run() -> Result<(), String> {
     let results_qpid = results_qpid.ok_or_else(|| usage().to_owned())?;
     let results_path = results_path.ok_or_else(|| usage().to_owned())?;
     let inventory_out = inventory_out.ok_or_else(|| usage().to_owned())?;
+    let required_locators_out = required_locators_out.ok_or_else(|| usage().to_owned())?;
     let report_out = report_out.ok_or_else(|| usage().to_owned())?;
     if plans.is_empty() {
         return Err("--plan must be supplied at least once".into());
@@ -125,8 +130,11 @@ fn run() -> Result<(), String> {
         .collect::<Vec<_>>();
     if input_paths.iter().any(|path| **path == profile_path)
         || input_paths.iter().any(|path| **path == inventory_out)
+        || input_paths.iter().any(|path| **path == required_locators_out)
         || input_paths.iter().any(|path| **path == report_out)
+        || inventory_out == required_locators_out
         || inventory_out == report_out
+        || required_locators_out == report_out
     {
         return Err("profile, source inputs, inventory output and report output must use distinct paths".into());
     }
@@ -159,7 +167,10 @@ fn run() -> Result<(), String> {
         &documents,
     ).map_err(|error| format!("inventory derivation failed: {error}"))?;
 
+    let required_locators = inventory_required_locators(&inventory)
+        .map_err(|error| format!("cannot derive required locator set: {error}"))?;
     write_json(&inventory_out, &inventory)?;
+    write_json(&required_locators_out, &required_locators)?;
     write_json(&report_out, &report)?;
 
     let inventory_bytes = serde_json::to_vec_pretty(&inventory)
