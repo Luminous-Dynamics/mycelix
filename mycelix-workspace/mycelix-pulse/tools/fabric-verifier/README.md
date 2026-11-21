@@ -106,6 +106,13 @@ commitment and content commitment, and that each child passes the v0.1
 recipient-level causal verifier. The only v0.1 aggregation policy is
 ALL_REQUIRED.
 
+Every parent manifest also declares recipient_unit as ACCOUNT or DEVICE.
+ACCOUNT means one child receipt supports account-level acceptance only; it
+never implies synchronization to all of that account's devices. DEVICE means
+the required set enumerates individual devices and all required device
+children must satisfy the aggregate policy. Each child trace must repeat the
+same recipient_unit as the parent manifest.
+
 A fully receipt-backed child set is reported as
 ALL_REQUIRED_RECEIPT_CLAIMS_CONSISTENT, not COMPLETE_VERIFIED. This is
 deliberate: v0.1 verifies structure, causal consistency and exact
