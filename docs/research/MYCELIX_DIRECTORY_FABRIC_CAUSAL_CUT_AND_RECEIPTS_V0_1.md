@@ -398,6 +398,33 @@ The safety claim is scoped precisely: **after** every required owner has durably
 
 The finite-state companion `DirectoryFabricEffectFence.tla` models per-owner generation installation, exact acknowledgement aggregation and delayed command arrival. Its negative-control configuration deliberately accepts a stale command after all owners acknowledge, and the invariant is expected to fail under that mutant. Model/config files are source-present only; TLC has not been run.
 
+## 12.2 PostgreSQL effect-owner transaction adapter
+
+Mycelix-DeSci already has a PostgreSQL authority backend, serializable authority commits, signed database-write leases, governed database epochs, recovery reconciliation and an at-least-once publication outbox. The Directory Fabric work should reuse those controls. The new effect-owner fence is a separate per-resource mutation boundary, not a replacement database authority or write lease.
+
+The reference adapter lives at:
+- `tools/myc-dir-fabric-reference/postgres/001_effect_owner.sql`
+- `tools/myc-dir-fabric-reference/postgres/test_effect_owner.sql`
+- `tools/myc-dir-fabric-reference/postgres/POSTGRES_EFFECT_OWNER.md`
+
+It uses a sample integer-minor-unit balance mutation to demonstrate atomicity. The trusted PEP must independently verify the signed decision, exact Allow outcome, request binding and closure proof. SQL stores the decision digest but does not verify Ed25519 or infer that the digest means Allow.
+
+**Locking refinement:** each effect transaction takes sorted transaction-scoped advisory locks for its idempotency key and logical operation, then obtains `SELECT ... FOR SHARE` on the exact fence row. Same-row shared locks are compatible, so different protected objects can be changed concurrently. Revocation updates the generation under an exclusive row lock; the conflicting lock waits for all earlier shared-lock effect transactions to commit or abort. Under PostgreSQL `READ COMMITTED`, a waiting `SELECT FOR SHARE` locks and returns the updated row version after the revocation commits, so an old generation is rejected. The mutation, effect journal and idempotency record remain in one SQL transaction.
+
+This gives a precise ordering:
+- an effect that already holds the shared fence lock may commit before the generation advance;
+- an exclusive revocation waits for those effect transactions to drain;
+- after the new generation commits, a new effect with an earlier generation cannot commit;
+- an exact replay may return its prior immutable receipt identity without executing the mutation again.
+
+The schema includes owner-local generation state, idempotent revocation records, a protected-object example and an append-only effect ledger. The single-session SQL self-test covers first commit, exact replay, binding substitution, stale-generation rejection and revocation idempotency. Two-session race tests, crash recovery, synchronous-replica failover and SQL runtime validation remain separate gates.
+
+For durability, the caller must set `synchronous_commit=on` and publish the owner acknowledgement only after COMMIT is confirmed. An asynchronous replica must not be promoted while missing an acknowledged generation. If the COMMIT response is lost, the result is unknown until it is reconciled against the authoritative primary/epoch using the same idempotency key. The existing Mycelix-DeSci database-epoch/recovery protocol remains the authority for primary changes.
+
+A database-local transaction cannot atomically commit an arbitrary remote API effect. The existing at-least-once outbox may deliver more than once; each remote receiver must independently deduplicate and enforce its own fence generation. Otherwise classify the remote API as best-effort, not strongly revoked.
+
+See the [PostgreSQL effect-owner runbook](../../tools/myc-dir-fabric-reference/postgres/POSTGRES_EFFECT_OWNER.md). This reference schema has not been applied to a database and is not production-integrated.
+
 ## 13. Explicit claim ceiling
 
 This work is a pure reference contract and finite synthetic corpus. It does not establish:
