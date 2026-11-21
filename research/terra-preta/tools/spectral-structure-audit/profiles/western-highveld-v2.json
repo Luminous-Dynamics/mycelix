@@ -1,5 +1,5 @@
 {
-  "profile_version": "terra-preta-western-highveld-nir-mir-v0.1",
+  "profile_version": "terra-preta-western-highveld-nir-mir-v0.2",
   "dataset_source": {
     "article_doi": "10.1016/j.dib.2026.113160",
     "zenodo_version_doi": "10.5281/zenodo.21640671",
@@ -62,14 +62,22 @@
     }
   ],
   "expected_nir_to_mir_gap_cm1": 6,
-  "spectral_value_semantics": "unresolved_source_description_conflict",
+  "spectral_value_semantics": "unresolved_internal_source_conflict_raw_reflectance_vs_converted_absorbance",
   "sample_support": "composite cultivated-grain-field topsoil, 0-15 cm, one 2020 winter sampling season",
   "georeferenced_sample_count": 178,
   "georeferenced_sample_count_is_subset": true,
   "notes": [
     "This dataset is soil-property and spectral-metrology context, not a biochar treatment-effect dataset.",
-    "The 2026 article states a common absorbance/wavenumber axis but also describes NIR as reflectance percentage in its spectral-column discussion; preserve this source-description conflict pending inspection of source processing files or author clarification.",
-    "The 2026 dataset extends the 2024 Western Highveld soil-property/MIR cohort with paired NIR; do not treat the datasets as independent until a reviewed sample-ID crosswalk exists.",
-    "Do not infer coordinates for samples without released field coordinates."
+    "The Data in Brief article's data-availability row cites Zenodo record 17510653 (v1, 803 rows); Zenodo identifies record 21640671 (v2, 790 rows) as the newer version. Treat v1 and v2 as distinct artifacts. This profile pins v2; preserve v1 for historical comparison, not silent substitution.",
+    "The article is internally inconsistent about NIR value semantics: its specifications describe recorded NIR reflectance; its spectral-column section says all spectral values are absorbance but describes the NIR block as reflectance percentage; the acquisition method records reflectance R; the data-merging / figure text describes converted absorbance but does not state the exact conversion equation in the accessible text. Keep the semantics unresolved; never apply a second transform without inspecting source processing and the actual file.",
+    "Common axis is wavenumber cm-1, descending, with NIR 7407–4003 cm-1 and MIR 3997–600 cm-1; published NIR/MIR band gap is expected between 4003 and 3997 cm-1.",
+    "790 composite cultivated-grain-field topsoil samples represent 0–15 cm and one 2020 winter sampling season; they are not natural profiles or a longitudinal soil-health trial.",
+    "Reference chemistry: pH measured in 1:2.5 soil:1 M KCl; Bray-1 P with colorimetry; exchangeable K/Ca/Mg/Na via 1 M ammonium acetate at pH 7. Do not substitute pH(H2O), pH(CaCl2), total P, or unspecified cation methods.",
+    "NIR: handheld NeoSpectra FT-NIR, 1350–2500 nm, one 15-second scan per sample, white-reference scan before each sample batch. MIR: Bruker Alpha II DRIFT, 3997–600 cm-1, 2 cm-1 resolution, 30 co-added scans, gold-cap background checks.",
+    "Thirteen flat/blank MIR spectra were excluded before the published v2 cohort of 790 rows; this is distinct from the 21 sample-name mismatches reported for the earlier 2024 cohort.",
+    "178 samples have released WGS84 field coordinates. Do not infer coordinates for other samples from cooperative, town, or regional labels.",
+    "The 2026 cohort extends the 2024 Western Highveld MIR work; do not treat the 790 and 979 sample cohorts as independent until a reviewed identity crosswalk is completed.",
+    "The journal article is CC BY, but this alone does not establish the data file's redistribution licence. Confirm the versioned Zenodo data licence before mirroring or redistribution.",
+    "A publisher MD5 is recorded only as source metadata. Compute SHA-256 from the actual acquired CSV; no source SHA-256 is claimed until the file is retrieved and hashed."
   ]
 }
