@@ -111,6 +111,26 @@ All candidate comparisons must be predeclared or use an appropriate simultaneous
 
 The design binds baseline/candidate plan IDs and revisions, the shared encounter order, horizon and same-oracle requirement. These are evidence attestations; a physical propagator must still execute both plan variants from the same retained initial state and the same high-fidelity event oracle must screen all relevant secondary objects.
 
+## Multifidelity residual estimation
+
+The function `estimate_multifidelity_residual_probability` implements:
+
+    Pc_H = Pc_L + E_q[ w(X) * (I_H(X) - I_L(X)) ]
+
+where (I_H) is the high-fidelity event predicate, (I_L) is the surrogate predicate, and (w=p/q) is computed from the full defensive mixture. Both labels are retained on the same whitened state and exact physical state. Negative residuals are retained: they mean the surrogate predicted an event that the high-fidelity reference did not.
+
+The surrogate probability (Pc_L) must be exact under the same nominal target, or carry a separately identified absolute numerical-error bound. The final confidence interval is expanded by that bound. Evidence binds the surrogate model/revision, training identity, exact probability artifact, target distribution, evaluation-sample identity and sample-order digest. Surrogate labels and high-fidelity labels cannot be silently joined across different row orders or sample populations.
+
+Residual contributions are signed and bounded by [-1/epsilon,+1/epsilon]. The two-sided fixed-sample empirical-Bernstein interval uses this full worst-case range. That is deliberately conservative: a low residual sample variance does not remove the range term from the confidence radius. The method is therefore evaluated on both residual variance/RMSE and interval width; it is not assumed to improve every metric automatically. The interval is not time-uniform and must not be used after optional stopping.
+
+Research baselines:
+- Peherstorfer, Cui, Marzouk & Willcox (2016), *Multifidelity importance sampling*: the surrogate constructs the biasing distribution while the estimator retains high-fidelity evaluations; the resulting estimator can be unbiased without a surrogate error bound. https://doi.org/10.1016/j.cma.2015.12.002
+- Peherstorfer, Kramer & Willcox (2018), *Multifidelity preconditioning of the cross-entropy method for rare event simulation*: uses a hierarchy of inexpensive surrogates to precondition cross-entropy proposal construction. https://doi.org/10.1137/17M1122992
+- Pham & Gorodetsky (2022), *Ensemble approximate control variate estimators: applications to multifidelity importance sampling*: handles estimated control-variate weights and pilot-sample requirements; reports up to 50% variance improvement over its MFIS comparator on computational mechanics cases. https://doi.org/10.1137/21M1390426
+- Sztamfater-Garcia et al. (2025), orbital collision IS with approximate Keplerian conjunction geometry and high-fidelity corrections: https://doi.org/10.1016/j.asr.2024.12.074
+
+The present orbital-specific contribution is the evidence-bound pairing of surrogate and high-fidelity event labels, exact target-probability provenance, explicit false-negative/false-positive residuals, and the common whitened-to-physical state correspondence. The formula itself is established multifidelity/control-variate mathematics.
+
 ## Proposal training versus final evaluation
 
 The evidence contract requires distinct training and evaluation split identifiers, a frozen proposal, an IID evaluation design, a sample-order digest and a versioned high-fidelity continuous-time event oracle. These are caller attestations, not proofs. The estimator rejects split-ID reuse, non-IID evaluation claims, missing sampling evidence and low-fidelity event labels. A mathematical test fixture may explicitly identify an exact analytic reference oracle; that permission is not available for physical mission estimates.
