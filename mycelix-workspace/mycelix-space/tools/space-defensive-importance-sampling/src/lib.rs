@@ -336,6 +336,8 @@ pub struct EvaluationEvidence {
     pub event_oracle_id: String,
     pub event_oracle_revision: String,
     pub event_oracle_is_high_fidelity_continuous_time: bool,
+    /// True only for exact mathematical benchmark oracles, not physical mission data.
+    pub event_oracle_is_analytic_reference_fixture: bool,
     pub proposal_frozen_before_evaluation: bool,
     pub evaluation_draws_are_iid_from_full_mixture: bool,
 }
@@ -1151,7 +1153,9 @@ fn validate_evidence(
     if !evidence.evaluation_draws_are_iid_from_full_mixture {
         return Err(EstimateError::NonIidOrUnattestedSampling);
     }
-    if !evidence.event_oracle_is_high_fidelity_continuous_time {
+    if !evidence.event_oracle_is_high_fidelity_continuous_time
+        && !evidence.event_oracle_is_analytic_reference_fixture
+    {
         return Err(EstimateError::LowFidelityEventOracleNotAccepted);
     }
     if !valid_identifier(&evidence.event_oracle_id)
@@ -1396,6 +1400,7 @@ mod tests {
             event_oracle_id: "high-fidelity-event-oracle".into(),
             event_oracle_revision: "sha256:deadbeef".into(),
             event_oracle_is_high_fidelity_continuous_time: true,
+            event_oracle_is_analytic_reference_fixture: false,
             proposal_frozen_before_evaluation: true,
             evaluation_draws_are_iid_from_full_mixture: true,
         }
