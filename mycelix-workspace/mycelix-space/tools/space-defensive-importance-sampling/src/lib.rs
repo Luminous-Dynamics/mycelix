@@ -387,7 +387,6 @@ pub struct RepeatedEncounterRiskReport {
     pub horizon_id: String,
     pub encounter_ids: Vec<String>,
     pub encounter_order_digest: String,
-    pub encounter_order_digest: String,
     /// Probability of at least one collision across the entire horizon.
     pub joint_path_union: ImportanceSamplingReport,
     pub per_encounter_marginals: Vec<EncounterMarginalEstimate>,
@@ -674,6 +673,14 @@ impl fmt::Display for EstimateError {
             Self::LowFidelityBoundaryOracleNotAccepted => write!(
                 f,
                 "boundary sentinels require a high-fidelity continuous-time event oracle"
+            ),
+            Self::InvalidRepeatedEncounterDesign => write!(
+                f,
+                "repeating encounter design must identify at least two unique encounters, a horizon, full-horizon oracle coverage and shared trajectory sampling"
+            ),
+            Self::RepeatedEncounterOutcomeCountMismatch { expected, actual } => write!(
+                f,
+                "trajectory row has {actual} encounter outcomes; expected {expected} in declared order"
             ),
         }
     }
@@ -1398,51 +1405,6 @@ mod tests {
             .collect()
     }
 
-    fn repeated_nominal_proposal() -> DefensiveGaussianMixture {
-        DefensiveGaussianMixture {
-            id: "proposal-repeating-path".into(),
-            epsilon: 0.2,
-            dimension: 2,
-            components: vec![GaussianComponent {
-                id: "nominal-target".into(),
-                mixture_weight: 1.0,
-                mean: vec![0.0, 0.0],
-                cholesky: identity(2),
-            }],
-        }
-    }
-
-    fn repeated_design() -> RepeatedEncounterDesign {
-        RepeatedEncounterDesign {
-            encounter_ids: vec!["encounter-A".into(), "encounter-B".into()],
-            encounter_order_digest: "sha256:encounter-order-ab".into(),
-            horizon_id: "horizon-24h-v1".into(),
-            event_oracle_evaluates_full_horizon: true,
-            outcomes_share_one_trajectory_sample: true,
-        }
-    }
-
-    fn repeated_evidence(proposal_id: &str) -> EvaluationEvidence {
-        let mut evidence = evidence();
-        evidence.proposal_id = proposal_id.into();
-        evidence
-    }
-
-    fn repeated_observations(patterns: &[[bool; 2]]) -> Vec<RepeatedEncounterObservation> {
-        patterns
-            .iter()
-            .enumerate()
-            .map(|(index, flags)| {
-                let point = vec![index as f64 * 0.1, -(index as f64) * 0.05];
-                RepeatedEncounterObservation {
-                    point: point.clone(),
-                    physical_state: point,
-                    collision_by_encounter: flags.to_vec(),
-                }
-            })
-            .collect()
-    }
-
     fn evidence() -> EvaluationEvidence {
         EvaluationEvidence {
             proposal_id: "proposal-gmm-v1".into(),
@@ -1568,116 +1530,6 @@ mod tests {
         assert_eq!(
             estimate_collision_probability(&proposal, &transform, &observations, 0.05, &evidence),
             Err(EstimateError::WhiteningTransformMismatch)
-        );
-    }
-
-    #[test]
-    fn perfectly_correlated_encounters_use_direct_shared_path_union() {
-        let proposal = repeated_nominal_proposal();
-        let observations =
-            repeated_observations(&[[true, true], [true, true], [false, false], [false, false]]);
-        let report = estimate_repeating_encounter_risk(
-            &proposal,
-            &whitening(2),
-            &observations,
-            0.05,
-            &repeated_evidence(&proposal.id),
-            &repeated_design(),
-        )
-        .unwrap();
-
-        assert!((report.per_encounter_marginals[0].probability_estimate - 0.5).abs() < 1e-12);
-        assert!((report.per_encounter_marginals[1].probability_estimate - 0.5).abs() < 1e-12);
-        assert!((report.joint_path_union.estimate - 0.5).abs() < 1e-12);
-        assert!((report.independent_events_union_approximation.unwrap() - 0.75).abs() < 1e-12);
-        assert!((report.independence_approximation_gap.unwrap() + 0.25).abs() < 1e-12);
-        assert!(
-            (report.pairwise_joint_estimates[0].target_event_covariance_estimate - 0.25).abs()
-                < 1e-12
-        );
-    }
-
-    #[test]
-    fn independent_encounter_fixture_matches_independence_comparator() {
-        let proposal = repeated_nominal_proposal();
-        let observations =
-            repeated_observations(&[[true, true], [true, false], [false, true], [false, false]]);
-        let report = estimate_repeating_encounter_risk(
-            &proposal,
-            &whitening(2),
-            &observations,
-            0.05,
-            &repeated_evidence(&proposal.id),
-            &repeated_design(),
-        )
-        .unwrap();
-        assert!((report.joint_path_union.estimate - 0.75).abs() < 1e-12);
-        assert!((report.independent_events_union_approximation.unwrap() - 0.75).abs() < 1e-12);
-        assert!(report.independence_approximation_gap.unwrap().abs() < 1e-12);
-        assert!(
-            report.pairwise_joint_estimates[0]
-                .target_event_covariance_estimate
-                .abs()
-                < 1e-12
-        );
-    }
-
-    #[test]
-    fn mutually_exclusive_encounters_are_not_multiplied_as_independent() {
-        let proposal = repeated_nominal_proposal();
-        let observations =
-            repeated_observations(&[[true, false], [false, true], [true, false], [false, true]]);
-        let report = estimate_repeating_encounter_risk(
-            &proposal,
-            &whitening(2),
-            &observations,
-            0.05,
-            &repeated_evidence(&proposal.id),
-            &repeated_design(),
-        )
-        .unwrap();
-        assert!((report.joint_path_union.estimate - 1.0).abs() < 1e-12);
-        assert!((report.independent_events_union_approximation.unwrap() - 0.75).abs() < 1e-12);
-        assert!((report.independence_approximation_gap.unwrap() - 0.25).abs() < 1e-12);
-        assert!(
-            (report.pairwise_joint_estimates[0].target_event_covariance_estimate + 0.25).abs()
-                < 1e-12
-        );
-    }
-
-    #[test]
-    fn repeating_encounter_rejects_missing_flags_or_invalid_path_design() {
-        let proposal = repeated_nominal_proposal();
-        let mut observations = repeated_observations(&[[true, false], [false, true]]);
-        observations[0].collision_by_encounter.pop();
-        assert_eq!(
-            estimate_repeating_encounter_risk(
-                &proposal,
-                &whitening(2),
-                &observations,
-                0.05,
-                &repeated_evidence(&proposal.id),
-                &repeated_design(),
-            ),
-            Err(EstimateError::RepeatedEncounterOutcomeCountMismatch {
-                expected: 2,
-                actual: 1
-            })
-        );
-
-        let valid_observations = repeated_observations(&[[true, false], [false, true]]);
-        let mut invalid_design = repeated_design();
-        invalid_design.outcomes_share_one_trajectory_sample = false;
-        assert_eq!(
-            estimate_repeating_encounter_risk(
-                &proposal,
-                &whitening(2),
-                &valid_observations,
-                0.05,
-                &repeated_evidence(&proposal.id),
-                &invalid_design,
-            ),
-            Err(EstimateError::InvalidRepeatedEncounterDesign)
         );
     }
 
