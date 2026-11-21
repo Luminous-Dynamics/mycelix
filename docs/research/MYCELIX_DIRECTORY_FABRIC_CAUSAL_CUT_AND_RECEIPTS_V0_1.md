@@ -368,6 +368,34 @@ The selected Holochain version matrix and runtime regression gate remain in [MYC
 - **OAuth security:** [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700.html) and [DPoP / RFC 9449](https://www.rfc-editor.org/rfc/rfc9449.html). Audience and sender binding are adapter security controls; neither token validity nor proof-of-possession establishes local organizational authority.
 - **SPIFFE federation:** [SPIFFE Federation Specification](https://spiffe.io/docs/latest/spiffe-specs/spiffe_federation/). Bundle trust is trust-domain scoped; do not treat an arbitrary valid SVID or bundle as a Mycelix membership or resource permission.
 
+## 12.1 Mutation-boundary revocation fencing
+
+The request-scoped causal cut answers whether the PEP evaluated against the required authority evidence. The decision/effect receipts answer what was decided and what an effect owner observed. A remaining race exists between decision issuance and mutation arrival: a process can pause, the network can delay a command, and revocation may occur before the old command reaches the resource.
+
+The added `effect_fence.rs` reference contract places the final stale-command check at the resource owner:
+
+1. A fence is scoped to an exact realm/resource/action and one effect owner. There is no global directory-wide counter.
+2. The owner persists a monotonically increasing generation. A command carries a token for that exact scope, owner and generation.
+3. The command binds the exact Allow decision digest, request digest, logical operation, idempotency commitment and fence token.
+4. The resource owner compares the token with its persisted generation **inside the same atomic transaction as the protected mutation**. Old generations, unissued future generations and wrong-scope tokens are rejected.
+5. A revocation-fence plan names the independently inventoried effect owners and each owner's target generation. Completion requires every owner to durably install its target and return an exact acknowledgement. Missing or unknown acknowledgements leave the revocation pending; a quorum is insufficient for a strict completion claim.
+
+This composes a well-known distributed-systems fencing pattern with request-scoped authorization and effect receipts; the fencing primitive itself is not claimed as novel. The research contribution to evaluate is whether the full composition offers stronger, auditable revocation semantics across sovereign authority roots and heterogeneous effect owners without a global identity database.
+
+Important limits: the owner inventory can be incomplete; owner acknowledgements can be forged or stale without authenticated signatures and durable state proofs; a bypass write path defeats the guard; and non-fenceable third-party APIs cannot receive the strong guarantee. The completion timestamp is the all-owner durable-ack point, not the time a revocation was merely requested. During propagation, status is pending/indeterminate. This gives a measurable revocation window instead of promising instantaneous revocation in an asynchronous network.
+
+### Fencing-specific benchmark contract
+
+The preregistration now includes:
+- stale-token mutation accepts and post-fence old-command accepts (both must remain zero);
+- owner acknowledgement coverage and revocation-to-fence-complete latency;
+- owner bypass attempts, unknown acknowledgements, rollback/restart and inventory omission;
+- crash/recovery between generation persistence, acknowledgement and mutation;
+- delayed in-flight mutation arriving immediately before and after the final owner acknowledgement;
+- a non-fenceable external API control, which must remain explicitly best-effort and cannot be counted as strongly revoked.
+
+The safety claim is scoped precisely: **after** every required owner has durably acknowledged the fence, no earlier-generation mutation may commit through a correctly integrated owner. It does not promise that revocation has completed before that acknowledgement point.
+
 ## 13. Explicit claim ceiling
 
 This work is a pure reference contract and finite synthetic corpus. It does not establish:
