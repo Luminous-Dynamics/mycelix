@@ -190,10 +190,10 @@ pub fn gravitational_redshift(mass_kg: f64, emission_radius_m: f64) -> f64 {
 /// Ω_LT = 2GJ / (c²r³) where J = angular momentum
 ///
 /// # Arguments
-/// - `mass_kg`: Mass of the rotating body
+/// - `_mass_kg`: Retained for API compatibility; the supplied angular momentum already contains mass/inertia
 /// - `angular_momentum_kgm2s`: Angular momentum (J = Iω)
 /// - `radius_m`: Distance from center
-pub fn frame_dragging_rate(mass_kg: f64, angular_momentum_kgm2s: f64, radius_m: f64) -> f64 {
+pub fn frame_dragging_rate(_mass_kg: f64, angular_momentum_kgm2s: f64, radius_m: f64) -> f64 {
     2.0 * G * angular_momentum_kgm2s / (C_SQ * radius_m.powi(3))
 }
 
