@@ -16,7 +16,8 @@
     "metrics",
     "fault_schedules",
     "comparators",
-    "dependency_cut_profiles"
+    "dependency_cut_profiles",
+    "causal_cut_corpus_binding"
   ],
   "properties": {
     "profile": {
@@ -366,6 +367,59 @@
           "includes_revocation_dependencies": {
             "const": true
           }
+        }
+      }
+    },
+    "causal_cut_corpus_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "schema_path",
+        "declared_scenario_count",
+        "expected_decision_counts",
+        "unique_scenario_ids_required",
+        "independent_closure_completeness_oracle_required",
+        "effect_owner_history_oracle_required"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "schema_path": {
+          "type": "string"
+        },
+        "declared_scenario_count": {
+          "const": 24
+        },
+        "expected_decision_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ALLOW",
+            "DENY",
+            "INDETERMINATE"
+          ],
+          "properties": {
+            "ALLOW": {
+              "const": 8
+            },
+            "DENY": {
+              "const": 4
+            },
+            "INDETERMINATE": {
+              "const": 12
+            }
+          }
+        },
+        "unique_scenario_ids_required": {
+          "const": true
+        },
+        "independent_closure_completeness_oracle_required": {
+          "const": true
+        },
+        "effect_owner_history_oracle_required": {
+          "const": true
         }
       }
     }
