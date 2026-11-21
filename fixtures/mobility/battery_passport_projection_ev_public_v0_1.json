@@ -1,0 +1,81 @@
+{
+  "projection_version": "battery-passport-projection/0.1",
+  "registry": {
+    "registry_id": "eu-battery-passport-data-point-guidance",
+    "registry_version": "0.1.0",
+    "source_registry_sha256": "e6856565b05508dfd15eaa0500aa7239240854f2824737114ffe11811c3602f3",
+    "guidance_version": "3.2"
+  },
+  "battery": {
+    "battery_ref": "synthetic:ev-battery-001",
+    "category": "EV",
+    "configuration_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "lifecycle_status": "original",
+    "passport_ref": "synthetic:passport-ev-001",
+    "predecessor_passport_ref": null,
+    "first_use_date": "2025-06-01",
+    "stationary_bess": false,
+    "has_bms": true
+  },
+  "target": {
+    "jurisdiction": "EU",
+    "effective_date": "2027-02-18",
+    "audience": "PUBLIC"
+  },
+  "operator": {
+    "responsible_operator_ref": "synthetic:operator-001",
+    "acting_operator_ref": "synthetic:operator-001",
+    "authorization_state": "RESPONSIBLE_OPERATOR_DIRECT",
+    "written_delegation_sha256": null,
+    "scope": [],
+    "valid_until": null
+  },
+  "data_points": [
+    {
+      "number": 1,
+      "applicability_status": "MANDATORY",
+      "disclosure": "PUBLIC",
+      "outcome": "BLOCKED_UNQUALIFIED_SOURCE",
+      "reason": "Synthetic fixture identity cannot be published as a physical battery identifier."
+    },
+    {
+      "number": 61,
+      "applicability_status": "MANDATORY",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "outcome": "WITHHELD_BY_ACCESS_POLICY",
+      "reason": "Public audience must not receive restricted SOCE."
+    },
+    {
+      "number": 62,
+      "applicability_status": "NOT_TO_BE_FILLED_DISPLAYED_AT_2027_02_18",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "outcome": "NOT_REQUIRED_AT_EFFECTIVE_DATE",
+      "reason": "EV category mapping does not fill/display remaining capacity at this date."
+    },
+    {
+      "number": 67,
+      "applicability_status": "MANDATORY",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "outcome": "WITHHELD_BY_ACCESS_POLICY",
+      "reason": "Battery status is restricted to persons with legitimate interest."
+    },
+    {
+      "number": 68,
+      "applicability_status": "APPLICABLE_FROM_FIRST_USE",
+      "disclosure": "LEGITIMATE_INTEREST_RESTRICTED",
+      "outcome": "WITHHELD_BY_ACCESS_POLICY",
+      "reason": "Dynamic cycle history is restricted to persons with legitimate interest."
+    }
+  ],
+  "summary": {
+    "ready_to_publish": 0,
+    "missing_required_evidence": 0,
+    "blocked_unqualified_source": 1,
+    "withheld_by_access_policy": 3,
+    "not_required_at_effective_date": 1,
+    "not_applicable": 0,
+    "conditional_review_required": 0,
+    "operator_authorization_required": 0
+  },
+  "generated_at": "2026-11-11T03:00:00Z"
+}
