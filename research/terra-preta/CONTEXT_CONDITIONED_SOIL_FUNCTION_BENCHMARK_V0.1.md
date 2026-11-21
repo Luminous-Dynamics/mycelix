@@ -31,6 +31,7 @@ The benchmark input carries a versioned, conditional reference model with:
 - the reference-model and source digests.
 
 A percentile is produced only when the peer reference is in-domain and satisfies predeclared minimum sample and independent-site counts. Otherwise, the system abstains and reports why. It never silently borrows a different peer group.
+The peer reference must also match the observation's analytical method, unit and depth support exactly in v0.1. The source dataset and model each carry a SHA-256 identity in the report. This intentionally rejects implicit harmonization; a future method/depth transfer requires an explicit, separately validated conversion or calibration-transfer record.
 
 The v0.1 implementation uses a Gaussian predictive reference distribution as a **manufactured software test approximation**. It is not a substitute for the hierarchical Bayesian posterior / posterior predictive distribution used in SHAPE-SSA or a fitted local reference model.
 
