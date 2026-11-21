@@ -18,6 +18,468 @@ use mycelix_space_shared::*;
 use std::collections::HashMap;
 
 // =============================================================================
+// Screening Coverage Contract Tests
+// =============================================================================
+
+/// Exact requested and returned sets are complete regardless of response ordering.
+#[test]
+fn test_screening_coverage_exact_set() {
+    assert!(validate_screening_coverage(&[25544, 49863, 60000], &[60000, 25544, 49863]).is_ok());
+}
+
+/// Invalid catalog identifiers are rejected before they enter a screening receipt.
+#[test]
+fn test_screening_coverage_rejects_invalid_catalog_ids() {
+    assert_eq!(
+        validate_screening_coverage(&[0], &[0]),
+        Err(ScreeningCoverageError::InvalidNoradId { norad_id: 0 })
+    );
+    assert_eq!(
+        validate_screening_coverage(&[1_000_000], &[1_000_000]),
+        Err(ScreeningCoverageError::InvalidNoradId { norad_id: 1_000_000 })
+    );
+    assert_eq!(
+        validate_screening_coverage(&[25544], &[25544, 0]),
+        Err(ScreeningCoverageError::InvalidNoradId { norad_id: 0 })
+    );
+}
+
+/// A missing requested object cannot be treated as a complete negative screening.
+#[test]
+fn test_screening_coverage_rejects_missing_object() {
+    assert_eq!(
+        validate_screening_coverage(&[25544, 49863], &[25544]),
+        Err(ScreeningCoverageError::MissingRequestedObject { norad_id: 49863 })
+    );
+}
+
+/// Duplicate requests are rejected before they become ambiguous pair accounting.
+#[test]
+fn test_screening_coverage_rejects_duplicate_request() {
+    assert_eq!(
+        validate_screening_coverage(&[25544, 49863, 49863], &[25544, 49863]),
+        Err(ScreeningCoverageError::DuplicateRequestedObject { norad_id: 49863 })
+    );
+}
+
+/// Duplicate source records are rejected rather than collapsed by HashMap collection.
+#[test]
+fn test_screening_coverage_rejects_duplicate_response() {
+    assert_eq!(
+        validate_screening_coverage(&[25544, 49863], &[25544, 49863, 49863]),
+        Err(ScreeningCoverageError::DuplicateReturnedObject { norad_id: 49863 })
+    );
+}
+
+/// Unrequested source records are rejected rather than silently expanding the run.
+#[test]
+fn test_screening_coverage_rejects_unrequested_object() {
+    assert_eq!(
+        validate_screening_coverage(&[25544], &[25544, 60000]),
+        Err(ScreeningCoverageError::UnexpectedReturnedObject { norad_id: 60000 })
+    );
+}
+
+// =============================================================================
+// Screening Time-Schedule Contract Tests
+// =============================================================================
+
+/// A divisible interval includes each grid point and both endpoints.
+#[test]
+fn test_inclusive_time_offsets_divisible_interval() {
+    assert_eq!(inclusive_time_offsets(0, 20, 10), Ok(vec![0, 10, 20]));
+}
+
+/// A non-divisible interval still includes the exact requested endpoint.
+#[test]
+fn test_inclusive_time_offsets_non_divisible_interval() {
+    assert_eq!(inclusive_time_offsets(0, 25, 10), Ok(vec![0, 10, 20, 25]));
+}
+
+/// A sub-step horizon is bounded by its exact endpoint.
+#[test]
+fn test_inclusive_time_offsets_short_horizon() {
+    assert_eq!(inclusive_time_offsets(0, 3, 600), Ok(vec![0, 3]));
+}
+
+/// A zero-length window has one sample, not duplicate endpoints.
+#[test]
+fn test_inclusive_time_offsets_zero_length() {
+    assert_eq!(inclusive_time_offsets(5, 5, 10), Ok(vec![5]));
+}
+
+/// Invalid ranges and steps are rejected.
+#[test]
+fn test_inclusive_time_offsets_reject_invalid_inputs() {
+    assert_eq!(inclusive_time_offsets(-1, 5, 1), Err(TimeOffsetError::NegativeStart));
+    assert_eq!(inclusive_time_offsets(5, 4, 1), Err(TimeOffsetError::EndBeforeStart));
+    assert_eq!(inclusive_time_offsets(0, 5, 0), Err(TimeOffsetError::NonPositiveStep));
+}
+
+
+// =============================================================================
+// Deterministic TLE Latest-Record Resolution Tests
+// =============================================================================
+
+fn tle_candidate<'a>(
+    norad_id: u32,
+    epoch_micros: i64,
+    line1: &'a str,
+    line2: &'a str,
+    source: &'a DataSourceType,
+    quality: &'a QualityScore,
+    submitted_at_micros: i64,
+) -> TleLatestCandidate<'a> {
+    TleLatestCandidate {
+        norad_id,
+        epoch_micros,
+        line1,
+        line2,
+        source,
+        quality,
+        submitted_at_micros,
+    }
+}
+
+#[test]
+fn test_latest_tle_without_current_record_inserts() {
+    let source = DataSourceType::SpaceTrack;
+    let quality = QualityScore::new(80);
+    assert_eq!(
+        select_latest_tle_candidate(
+            25544,
+            None,
+            tle_candidate(25544, 100, "L1", "L2", &source, &quality, 110),
+            true,
+        ),
+        Ok(TleLatestDecision::Insert)
+    );
+}
+
+#[test]
+fn test_latest_tle_newer_epoch_replaces_and_older_epoch_keeps() {
+    let source = DataSourceType::SpaceTrack;
+    let quality = QualityScore::new(80);
+    let current = Some(tle_candidate(25544, 100, "OLD1", "OLD2", &source, &quality, 110));
+    assert_eq!(
+        select_latest_tle_candidate(
+            25544,
+            current,
+            tle_candidate(25544, 101, "NEW1", "NEW2", &source, &quality, 111),
+            true,
+        ),
+        Ok(TleLatestDecision::ReplaceExisting)
+    );
+    assert_eq!(
+        select_latest_tle_candidate(
+            25544,
+            Some(tle_candidate(25544, 101, "NEW1", "NEW2", &source, &quality, 111)),
+            tle_candidate(25544, 100, "OLD1", "OLD2", &source, &quality, 110),
+            true,
+        ),
+        Ok(TleLatestDecision::KeepExisting)
+    );
+}
+
+#[test]
+fn test_latest_tle_same_epoch_identical_payload_is_deduplicated() {
+    let source = DataSourceType::SpaceTrack;
+    let quality = QualityScore::new(80);
+    assert_eq!(
+        select_latest_tle_candidate(
+            25544,
+            Some(tle_candidate(25544, 100, "L1", "L2", &source, &quality, 110)),
+            tle_candidate(25544, 100, "L1", "L2", &source, &quality, 110),
+            true,
+        ),
+        Ok(TleLatestDecision::KeepExisting)
+    );
+}
+
+#[test]
+fn test_latest_tle_same_epoch_orbit_conflicts_are_rejected() {
+    let source = DataSourceType::SpaceTrack;
+    let quality = QualityScore::new(80);
+    let current = Some(tle_candidate(25544, 100, "L1-A", "L2", &source, &quality, 110));
+    for candidate in [
+        tle_candidate(25544, 100, "L1-B", "L2", &source, &quality, 111),
+        tle_candidate(25544, 100, "L1-A", "L2-B", &source, &quality, 111),
+    ] {
+        assert_eq!(
+            select_latest_tle_candidate(25544, current, candidate, false),
+            Err(TleLatestConflict::SameEpochOrbitConflict { norad_id: 25544 })
+        );
+        assert_eq!(
+            select_latest_tle_candidate(25544, current, candidate, true),
+            Err(TleLatestConflict::SameEpochOrbitConflict { norad_id: 25544 })
+        );
+    }
+}
+
+#[test]
+fn test_latest_tle_wrong_anchor_is_rejected_for_current_and_candidate() {
+    let source = DataSourceType::SpaceTrack;
+    let quality = QualityScore::new(80);
+    assert_eq!(
+        select_latest_tle_candidate(
+            25544,
+            None,
+            tle_candidate(49863, 100, "L1", "L2", &source, &quality, 110),
+            true,
+        ),
+        Err(TleLatestConflict::WrongAnchor {
+            expected_norad_id: 25544,
+            actual_norad_id: 49863,
+        })
+    );
+    assert_eq!(
+        select_latest_tle_candidate(
+            25544,
+            Some(tle_candidate(49863, 100, "L1", "L2", &source, &quality, 110)),
+            tle_candidate(25544, 101, "N1", "N2", &source, &quality, 111),
+            false,
+        ),
+        Err(TleLatestConflict::WrongAnchor {
+            expected_norad_id: 25544,
+            actual_norad_id: 49863,
+        })
+    );
+}
+
+#[test]
+fn test_latest_tle_metadata_source_and_quality_conflicts_are_rejected() {
+    let source_a = DataSourceType::SpaceTrack;
+    let source_b = DataSourceType::Commercial {
+        provider: "provider-b".to_string(),
+    };
+    let quality_a = QualityScore::new(80);
+    let quality_b = QualityScore::new(90);
+    assert_eq!(
+        select_latest_tle_candidate(
+            25544,
+            Some(tle_candidate(25544, 100, "L1", "L2", &source_a, &quality_a, 110)),
+            tle_candidate(25544, 100, "L1", "L2", &source_b, &quality_a, 111),
+            true,
+        ),
+        Err(TleLatestConflict::SameEpochMetadataConflict { norad_id: 25544 })
+    );
+    assert_eq!(
+        select_latest_tle_candidate(
+            25544,
+            Some(tle_candidate(25544, 100, "L1", "L2", &source_a, &quality_a, 110)),
+            tle_candidate(25544, 100, "L1", "L2", &source_a, &quality_b, 111),
+            true,
+        ),
+        Err(TleLatestConflict::SameEpochMetadataConflict { norad_id: 25544 })
+    );
+}
+
+#[test]
+fn test_latest_tle_metadata_submission_time_is_deterministic() {
+    let source = DataSourceType::SpaceTrack;
+    let quality = QualityScore::new(80);
+    let early = tle_candidate(25544, 100, "L1", "L2", &source, &quality, 110);
+    let late = tle_candidate(25544, 100, "L1", "L2", &source, &quality, 120);
+    assert_eq!(
+        select_latest_tle_candidate(25544, Some(early), late, true),
+        Ok(TleLatestDecision::ReplaceExisting)
+    );
+    assert_eq!(
+        select_latest_tle_candidate(25544, Some(late), early, true),
+        Ok(TleLatestDecision::KeepExisting)
+    );
+    assert_eq!(std::cmp::max(early.submitted_at_micros, late.submitted_at_micros), 120);
+}
+
+#[test]
+fn test_latest_tle_lines_only_query_ignores_metadata_only_disagreement() {
+    let source_a = DataSourceType::SpaceTrack;
+    let source_b = DataSourceType::Commercial {
+        provider: "provider-b".to_string(),
+    };
+    let quality_a = QualityScore::new(80);
+    let quality_b = QualityScore::new(90);
+    assert_eq!(
+        select_latest_tle_candidate(
+            25544,
+            Some(tle_candidate(25544, 100, "L1", "L2", &source_a, &quality_a, 110)),
+            tle_candidate(25544, 100, "L1", "L2", &source_b, &quality_b, 111),
+            false,
+        ),
+        Ok(TleLatestDecision::KeepExisting)
+    );
+}
+
+#[test]
+fn test_latest_tle_newer_epoch_wins_even_when_metadata_differs() {
+    let source_a = DataSourceType::SpaceTrack;
+    let source_b = DataSourceType::Commercial {
+        provider: "provider-b".to_string(),
+    };
+    let quality_a = QualityScore::new(80);
+    let quality_b = QualityScore::new(95);
+    assert_eq!(
+        select_latest_tle_candidate(
+            25544,
+            Some(tle_candidate(25544, 100, "L1-A", "L2-A", &source_a, &quality_a, 110)),
+            tle_candidate(25544, 101, "L1-B", "L2-B", &source_b, &quality_b, 111),
+            true,
+        ),
+        Ok(TleLatestDecision::ReplaceExisting)
+    );
+}
+
+#[test]
+fn test_latest_tle_older_epoch_ignored_even_when_metadata_differs() {
+    let source_a = DataSourceType::SpaceTrack;
+    let source_b = DataSourceType::Commercial {
+        provider: "provider-b".to_string(),
+    };
+    let quality_a = QualityScore::new(80);
+    let quality_b = QualityScore::new(95);
+    assert_eq!(
+        select_latest_tle_candidate(
+            25544,
+            Some(tle_candidate(25544, 101, "L1-B", "L2-B", &source_b, &quality_b, 111)),
+            tle_candidate(25544, 100, "L1-A", "L2-A", &source_a, &quality_a, 110),
+            true,
+        ),
+        Ok(TleLatestDecision::KeepExisting)
+    );
+}
+
+#[test]
+fn test_latest_tle_submission_order_permutations_choose_same_timestamp() {
+    let source = DataSourceType::SpaceTrack;
+    let quality = QualityScore::new(80);
+    let records = [
+        tle_candidate(25544, 100, "L1", "L2", &source, &quality, 115),
+        tle_candidate(25544, 100, "L1", "L2", &source, &quality, 120),
+        tle_candidate(25544, 100, "L1", "L2", &source, &quality, 118),
+    ];
+
+    fn fold<'a>(records: &[TleLatestCandidate<'a>]) -> TleLatestCandidate<'a> {
+        let mut selected: Option<TleLatestCandidate<'a>> = None;
+        for record in records {
+            match select_latest_tle_candidate(25544, selected, *record, true).unwrap() {
+                TleLatestDecision::Insert | TleLatestDecision::ReplaceExisting => {
+                    selected = Some(*record);
+                }
+                TleLatestDecision::KeepExisting => {}
+            }
+        }
+        selected.unwrap()
+    }
+
+    let forward = fold(&records);
+    let reverse = fold(&[records[2], records[1], records[0]]);
+    assert_eq!(forward.submitted_at_micros, 120);
+    assert_eq!(reverse.submitted_at_micros, 120);
+    assert_eq!(forward.line1, reverse.line1);
+    assert_eq!(forward.line2, reverse.line2);
+}
+
+#[test]
+fn test_latest_tle_conflicting_metadata_is_rejected_independent_of_order() {
+    let source_a = DataSourceType::SpaceTrack;
+    let source_b = DataSourceType::Commercial {
+        provider: "provider-b".to_string(),
+    };
+    let quality = QualityScore::new(80);
+    let a = tle_candidate(25544, 100, "L1", "L2", &source_a, &quality, 110);
+    let b = tle_candidate(25544, 100, "L1", "L2", &source_b, &quality, 111);
+    assert!(matches!(
+        select_latest_tle_candidate(25544, Some(a), b, true),
+        Err(TleLatestConflict::SameEpochMetadataConflict { .. })
+    ));
+    assert!(matches!(
+        select_latest_tle_candidate(25544, Some(b), a, true),
+        Err(TleLatestConflict::SameEpochMetadataConflict { .. })
+    ));
+}
+
+#[test]
+fn test_latest_tle_line_conflict_is_rejected_independent_of_order() {
+    let source = DataSourceType::SpaceTrack;
+    let quality = QualityScore::new(80);
+    let a = tle_candidate(25544, 100, "L1-A", "L2", &source, &quality, 110);
+    let b = tle_candidate(25544, 100, "L1-B", "L2", &source, &quality, 111);
+    assert!(matches!(
+        select_latest_tle_candidate(25544, Some(a), b, true),
+        Err(TleLatestConflict::SameEpochOrbitConflict { .. })
+    ));
+    assert!(matches!(
+        select_latest_tle_candidate(25544, Some(b), a, true),
+        Err(TleLatestConflict::SameEpochOrbitConflict { .. })
+    ));
+}
+
+#[test]
+fn test_latest_tle_same_epoch_metadata_difference_is_allowed_for_lines_only_view() {
+    let source_a = DataSourceType::SpaceTrack;
+    let source_b = DataSourceType::Commercial {
+        provider: "provider-b".to_string(),
+    };
+    let quality_a = QualityScore::new(80);
+    let quality_b = QualityScore::new(90);
+    assert_eq!(
+        select_latest_tle_candidate(
+            25544,
+            Some(tle_candidate(25544, 100, "L1", "L2", &source_a, &quality_a, 110)),
+            tle_candidate(25544, 100, "L1", "L2", &source_b, &quality_b, 111),
+            false,
+        ),
+        Ok(TleLatestDecision::KeepExisting)
+    );
+}
+
+#[test]
+fn test_latest_tle_rejects_invalid_norad_ids() {
+    let source = DataSourceType::SpaceTrack;
+    let quality = QualityScore::new(80);
+
+    assert_eq!(
+        select_latest_tle_candidate(
+            0,
+            None,
+            tle_candidate(0, 100, "L1", "L2", &source, &quality, 110),
+            true,
+        ),
+        Err(TleLatestConflict::InvalidNoradId { norad_id: 0 })
+    );
+    assert_eq!(
+        select_latest_tle_candidate(
+            1_000_000,
+            None,
+            tle_candidate(1_000_000, 100, "L1", "L2", &source, &quality, 110),
+            true,
+        ),
+        Err(TleLatestConflict::InvalidNoradId { norad_id: 1_000_000 })
+    );
+    assert_eq!(
+        select_latest_tle_candidate(
+            25544,
+            None,
+            tle_candidate(0, 100, "L1", "L2", &source, &quality, 110),
+            true,
+        ),
+        Err(TleLatestConflict::InvalidNoradId { norad_id: 0 })
+    );
+}
+
+#[test]
+fn test_latest_tle_equal_submission_time_is_stable() {
+    let source = DataSourceType::SpaceTrack;
+    let quality = QualityScore::new(80);
+    let candidate = tle_candidate(25544, 100, "L1", "L2", &source, &quality, 110);
+    assert_eq!(
+        select_latest_tle_candidate(25544, Some(candidate), candidate, true),
+        Ok(TleLatestDecision::KeepExisting)
+    );
+}
+
+
+// =============================================================================
 // NoradId Validation Tests
 // =============================================================================
 

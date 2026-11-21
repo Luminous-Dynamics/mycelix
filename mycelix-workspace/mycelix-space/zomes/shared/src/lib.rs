@@ -17,7 +17,7 @@
 use chrono::{DateTime, Utc};
 use hdi::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 /// NORAD Catalog Number - unique identifier for tracked space objects
 /// Valid range: 1 to 999999 (currently ~60,000 active objects)
@@ -394,6 +394,231 @@ pub struct ScreenInput {
     pub hours_ahead: f64,
     /// Minimum collision probability to include in results
     pub pc_threshold: f64,
+}
+
+/// Coverage must be validated before risk aggregation or a negative-screen claim.
+/// Evidence contract only: callers must retain the requested and returned
+/// ID lists and the source receipt that justify this exact-set comparison.
+/// Why a requested conjunction-screening set cannot be considered complete.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ScreeningCoverageError {
+    InvalidNoradId { norad_id: u32 },
+    DuplicateRequestedObject { norad_id: u32 },
+    DuplicateReturnedObject { norad_id: u32 },
+    UnexpectedReturnedObject { norad_id: u32 },
+    MissingRequestedObject { norad_id: u32 },
+}
+
+/// This contract is intentionally exact-set: a partial DHT response is not a negative screen.
+/// Validate that a screening response contains exactly one result for every
+/// requested NORAD ID, with no duplicates or unsolicited objects.
+///
+/// This is a set-integrity check, not proof that the subsequent propagation
+/// or probability calculation was physically valid. Those stages must report
+/// their own failures and must not silently skip samples.
+/// This validator must run before a caller may interpret an empty event list as a negative screen.
+/// The completeness receipt is a prerequisite for downstream finite-horizon risk bounds.
+
+pub fn validate_screening_coverage(
+    requested_norad_ids: &[u32],
+    returned_norad_ids: &[u32],
+) -> Result<(), ScreeningCoverageError> {
+    let mut requested = BTreeSet::new();
+    for norad_id in requested_norad_ids {
+        if *norad_id == 0 || *norad_id > 999_999 {
+            return Err(ScreeningCoverageError::InvalidNoradId {
+                norad_id: *norad_id,
+            });
+        }
+        if !requested.insert(*norad_id) {
+            return Err(ScreeningCoverageError::DuplicateRequestedObject {
+                norad_id: *norad_id,
+            });
+        }
+    }
+
+    let mut returned = BTreeSet::new();
+    for norad_id in returned_norad_ids {
+        if *norad_id == 0 || *norad_id > 999_999 {
+            return Err(ScreeningCoverageError::InvalidNoradId {
+                norad_id: *norad_id,
+            });
+        }
+        if !returned.insert(*norad_id) {
+            return Err(ScreeningCoverageError::DuplicateReturnedObject {
+                norad_id: *norad_id,
+            });
+        }
+        if !requested.contains(norad_id) {
+            return Err(ScreeningCoverageError::UnexpectedReturnedObject {
+                norad_id: *norad_id,
+            });
+        }
+    }
+
+    for norad_id in requested_norad_ids {
+        if !returned.contains(norad_id) {
+            return Err(ScreeningCoverageError::MissingRequestedObject {
+                norad_id: *norad_id,
+            });
+        }
+    }
+
+    Ok(())
+}
+
+/// Errors returned when constructing an inclusive, bounded time-sample schedule.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum TimeOffsetError {
+    NegativeStart,
+    EndBeforeStart,
+    NonPositiveStep,
+}
+
+/// Generate deterministic sample offsets that always include both endpoints.
+///
+/// The final interval may be shorter than `step_secs`; this prevents a
+/// non-divisible horizon from silently omitting its endpoint.
+pub fn inclusive_time_offsets(
+    start_secs: i64,
+    end_secs: i64,
+    step_secs: i64,
+) -> Result<Vec<i64>, TimeOffsetError> {
+    if start_secs < 0 {
+        return Err(TimeOffsetError::NegativeStart);
+    }
+    if end_secs < start_secs {
+        return Err(TimeOffsetError::EndBeforeStart);
+    }
+    if step_secs <= 0 {
+        return Err(TimeOffsetError::NonPositiveStep);
+    }
+
+    let mut offsets = vec![start_secs];
+    let mut current = start_secs;
+    while current < end_secs {
+        let next = current.saturating_add(step_secs);
+        if next >= end_secs || next <= current {
+            offsets.push(end_secs);
+            break;
+        }
+        offsets.push(next);
+        current = next;
+    }
+
+    Ok(offsets)
+}
+
+/// Deterministic resolution of TLE records associated with one NORAD anchor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TleLatestDecision {
+    Insert,
+    KeepExisting,
+    ReplaceExisting,
+}
+
+/// A same-epoch TLE ambiguity or DHT anchor/entry identity mismatch.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TleLatestConflict {
+    InvalidNoradId {
+        norad_id: u32,
+    },
+    WrongAnchor {
+        expected_norad_id: u32,
+        actual_norad_id: u32,
+    },
+    SameEpochOrbitConflict {
+        norad_id: u32,
+    },
+    SameEpochMetadataConflict {
+        norad_id: u32,
+    },
+}
+
+/// Minimal view of a TLE record used by the deterministic latest-record resolver.
+#[derive(Clone, Copy, Debug)]
+pub struct TleLatestCandidate<'a> {
+    pub norad_id: u32,
+    pub epoch_micros: i64,
+    pub line1: &'a str,
+    pub line2: &'a str,
+    pub source: &'a DataSourceType,
+    pub quality: &'a QualityScore,
+    pub submitted_at_micros: i64,
+}
+
+/// Provider authority is not inferred here; only epoch, payload and declared metadata are compared.
+/// Select the latest TLE independently of DHT link iteration order.
+///
+/// A strictly newer epoch wins. Older epochs cannot replace it. Equal-epoch
+/// records must contain identical orbit-line bytes. When `compare_metadata`
+/// is true, source and quality must also agree; otherwise-identical records
+/// use the greatest submission timestamp. Equal emitted fields are
+/// interchangeable, so either record yields the same output projection.
+pub fn select_latest_tle_candidate(
+    expected_norad_id: u32,
+    current: Option<TleLatestCandidate<'_>>,
+    candidate: TleLatestCandidate<'_>,
+    compare_metadata: bool,
+) -> Result<TleLatestDecision, TleLatestConflict> {
+    if expected_norad_id == 0 || expected_norad_id > 999_999 {
+        return Err(TleLatestConflict::InvalidNoradId {
+            norad_id: expected_norad_id,
+        });
+    }
+    if candidate.norad_id == 0 || candidate.norad_id > 999_999 {
+        return Err(TleLatestConflict::InvalidNoradId {
+            norad_id: candidate.norad_id,
+        });
+    }
+    if candidate.norad_id != expected_norad_id {
+        return Err(TleLatestConflict::WrongAnchor {
+            expected_norad_id,
+            actual_norad_id: candidate.norad_id,
+        });
+    }
+
+    let Some(current) = current else {
+        return Ok(TleLatestDecision::Insert);
+    };
+    if current.norad_id == 0 || current.norad_id > 999_999 {
+        return Err(TleLatestConflict::InvalidNoradId {
+            norad_id: current.norad_id,
+        });
+    }
+    if current.norad_id != expected_norad_id {
+        return Err(TleLatestConflict::WrongAnchor {
+            expected_norad_id,
+            actual_norad_id: current.norad_id,
+        });
+    }
+
+    if candidate.epoch_micros > current.epoch_micros {
+        return Ok(TleLatestDecision::ReplaceExisting);
+    }
+    if candidate.epoch_micros < current.epoch_micros {
+        return Ok(TleLatestDecision::KeepExisting);
+    }
+
+    if candidate.line1 != current.line1 || candidate.line2 != current.line2 {
+        return Err(TleLatestConflict::SameEpochOrbitConflict {
+            norad_id: expected_norad_id,
+        });
+    }
+
+    if compare_metadata
+        && (candidate.source != current.source || candidate.quality != current.quality)
+    {
+        return Err(TleLatestConflict::SameEpochMetadataConflict {
+            norad_id: expected_norad_id,
+        });
+    }
+
+    if compare_metadata && candidate.submitted_at_micros > current.submitted_at_micros {
+        Ok(TleLatestDecision::ReplaceExisting)
+    } else {
+        Ok(TleLatestDecision::KeepExisting)
+    }
 }
 
 /// Conjunction screening request
