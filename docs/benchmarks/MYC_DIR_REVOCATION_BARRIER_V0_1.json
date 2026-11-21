@@ -1,0 +1,448 @@
+{
+  "profile": "MYC-DIR-GLOBAL-REVOCATION-BARRIER-0.1",
+  "version": "0.1.0",
+  "status": "preregistered_not_executed",
+  "claim_ceiling": "Synthetic multi-owner revocation-barrier corpus. No database, broker, distributed coordinator, failover, or physical effect-owner execution has been measured or qualified.",
+  "expected_invariants": [
+    "global_ack_requires_exact_owner_set",
+    "owner_ack_requires_committed_fence_and_durable_readback",
+    "zero_old_generation_effects_after_owner_ack",
+    "zero_old_generation_effects_after_global_ack",
+    "inflight_effect_must_linearize_before_owner_fence_ack_or_reject",
+    "owner_epoch_and_generation_never_regress",
+    "unknown_outcome_never_means_confirmed_no_effect",
+    "nonfenceable_route_blocks_strict_global_ack",
+    "topology_change_invalidates_frozen_inventory",
+    "duplicate_and_reordered_revocations_are_monotonic"
+  ],
+  "workload_profiles": [
+    {
+      "id": "RB-P01",
+      "owners": 1,
+      "concurrent_effects_per_owner": 1,
+      "backlog_messages": 1000,
+      "offered_rate_messages_per_second": 100,
+      "workers": 1,
+      "command_age_seconds": 0
+    },
+    {
+      "id": "RB-P02",
+      "owners": 4,
+      "concurrent_effects_per_owner": 32,
+      "backlog_messages": 100000,
+      "offered_rate_messages_per_second": 10000,
+      "workers": 32,
+      "command_age_seconds": 60
+    },
+    {
+      "id": "RB-P03",
+      "owners": 16,
+      "concurrent_effects_per_owner": 256,
+      "backlog_messages": 1000000,
+      "offered_rate_messages_per_second": 100000,
+      "workers": 256,
+      "command_age_seconds": 3600
+    },
+    {
+      "id": "RB-P04",
+      "owners": 64,
+      "concurrent_effects_per_owner": 1024,
+      "backlog_messages": 10000000,
+      "offered_rate_messages_per_second": 100000,
+      "workers": 256,
+      "command_age_seconds": 86400
+    },
+    {
+      "id": "RB-P05",
+      "owners": 256,
+      "concurrent_effects_per_owner": 32,
+      "backlog_messages": 1000000,
+      "offered_rate_messages_per_second": 10000,
+      "workers": 32,
+      "command_age_seconds": 86400
+    }
+  ],
+  "metrics": [
+    {
+      "id": "RB-M01",
+      "name": "stale_effects_after_owner_ack",
+      "kind": "safety",
+      "hard_limit": 0,
+      "unit": "effects"
+    },
+    {
+      "id": "RB-M02",
+      "name": "stale_effects_after_global_ack",
+      "kind": "safety",
+      "hard_limit": 0,
+      "unit": "effects"
+    },
+    {
+      "id": "RB-M03",
+      "name": "global_ack_with_incomplete_owner_set",
+      "kind": "safety",
+      "hard_limit": 0,
+      "unit": "acknowledgements"
+    },
+    {
+      "id": "RB-M04",
+      "name": "owner_ack_before_commit_or_readback",
+      "kind": "safety",
+      "hard_limit": 0,
+      "unit": "acknowledgements"
+    },
+    {
+      "id": "RB-M05",
+      "name": "owner_epoch_or_generation_regressions",
+      "kind": "safety",
+      "hard_limit": 0,
+      "unit": "events"
+    },
+    {
+      "id": "RB-M06",
+      "name": "false_confirmed_no_effect",
+      "kind": "safety",
+      "hard_limit": 0,
+      "unit": "attempts"
+    },
+    {
+      "id": "RB-M07",
+      "name": "successful_unfenced_bypass_mutations",
+      "kind": "safety",
+      "hard_limit": 0,
+      "unit": "mutations"
+    },
+    {
+      "id": "RB-M08",
+      "name": "strict_ack_with_nonfenceable_route",
+      "kind": "safety",
+      "hard_limit": 0,
+      "unit": "acknowledgements"
+    },
+    {
+      "id": "RB-M09",
+      "name": "duplicate_logical_effects",
+      "kind": "safety",
+      "hard_limit": 0,
+      "unit": "effects"
+    },
+    {
+      "id": "RB-M10",
+      "name": "global_barrier_latency",
+      "kind": "performance",
+      "hard_limit": null,
+      "unit": "milliseconds"
+    },
+    {
+      "id": "RB-M11",
+      "name": "owner_fence_install_latency",
+      "kind": "performance",
+      "hard_limit": null,
+      "unit": "milliseconds"
+    },
+    {
+      "id": "RB-M12",
+      "name": "inflight_effect_drain_time",
+      "kind": "performance",
+      "hard_limit": null,
+      "unit": "milliseconds"
+    },
+    {
+      "id": "RB-M13",
+      "name": "owner_lock_wait",
+      "kind": "performance",
+      "hard_limit": null,
+      "unit": "milliseconds"
+    },
+    {
+      "id": "RB-M14",
+      "name": "partial_barrier_recovery_time",
+      "kind": "recovery",
+      "hard_limit": null,
+      "unit": "milliseconds"
+    },
+    {
+      "id": "RB-M15",
+      "name": "stale_backlog_rejection_rate",
+      "kind": "performance",
+      "hard_limit": null,
+      "unit": "messages_per_second"
+    },
+    {
+      "id": "RB-M16",
+      "name": "barrier_completion_rate",
+      "kind": "availability",
+      "hard_limit": null,
+      "unit": "barriers_per_second"
+    },
+    {
+      "id": "RB-M17",
+      "name": "durability_readback_latency",
+      "kind": "performance",
+      "hard_limit": null,
+      "unit": "milliseconds"
+    },
+    {
+      "id": "RB-M18",
+      "name": "topology_reclosure_time",
+      "kind": "recovery",
+      "hard_limit": null,
+      "unit": "milliseconds"
+    }
+  ],
+  "required_repetitions": 10,
+  "scenarios": [
+    {
+      "id": "RB-001",
+      "area": "linearization",
+      "fault": "Effect obtains the shared owner-fence lock before revocation requests the exclusive fence lock.",
+      "expected_state": "EFFECT_COMMITTED_BEFORE_OWNER_ACK",
+      "strict_ack_allowed": true,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "transaction IDs and lock/commit/ack timestamps establish effect commit before owner fence commit and acknowledgement"
+    },
+    {
+      "id": "RB-002",
+      "area": "linearization",
+      "fault": "Revocation obtains the exclusive fence lock and commits before a delayed old-generation effect attempts mutation.",
+      "expected_state": "STALE_EFFECT_REJECTED",
+      "strict_ack_allowed": true,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "updated generation read under the pinned isolation level; no protected row or effect receipt change"
+    },
+    {
+      "id": "RB-003",
+      "area": "multi_owner",
+      "fault": "One owner acknowledges while another required owner is unavailable and has not installed its fence.",
+      "expected_state": "GLOBAL_BARRIER_PENDING",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "no global receipt; exact missing owner set retained for retry"
+    },
+    {
+      "id": "RB-004",
+      "area": "multi_owner",
+      "fault": "All owners commit and read back their fences, but one owner acknowledgement is missing from the coordinator.",
+      "expected_state": "GLOBAL_BARRIER_PENDING",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "coordinator does not infer acknowledgement from timeout or owner count"
+    },
+    {
+      "id": "RB-005",
+      "area": "inventory",
+      "fault": "Frozen inventory omits a direct API route that can mutate the protected resource.",
+      "expected_state": "INVENTORY_CLOSURE_REJECTED",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "independent route-completeness oracle detects omitted path"
+    },
+    {
+      "id": "RB-006",
+      "area": "inventory",
+      "fault": "Coordinator receives an extra owner acknowledgement not present in the frozen inventory.",
+      "expected_state": "OWNER_SET_MISMATCH",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "exact set equality rejects extra owner receipt"
+    },
+    {
+      "id": "RB-007",
+      "area": "receipt_binding",
+      "fault": "Owner acknowledgement has the correct generation but a substituted revocation digest or route-set digest.",
+      "expected_state": "OWNER_ACK_REJECTED",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "receipt binding validator rejects digest substitution"
+    },
+    {
+      "id": "RB-008",
+      "area": "idempotency",
+      "fault": "The identical revocation request is delivered repeatedly after its owner fence was committed.",
+      "expected_state": "SAME_OWNER_GENERATION_AND_RECEIPT",
+      "strict_ack_allowed": true,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "no new generation increment; exact prior owner receipt returned"
+    },
+    {
+      "id": "RB-009",
+      "area": "ordering",
+      "fault": "A delayed older revocation signal arrives after a newer revocation has been installed.",
+      "expected_state": "NO_GENERATION_REGRESSION",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "older request is recognized as stale or resolved to its prior receipt without lowering state"
+    },
+    {
+      "id": "RB-010",
+      "area": "recovery",
+      "fault": "Owner process crashes after fence commit but before acknowledgement publication.",
+      "expected_state": "RECOVER_BY_DURABLE_READBACK",
+      "strict_ack_allowed": true,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "restart reads exact committed generation and emits idempotent acknowledgement only after readback"
+    },
+    {
+      "id": "RB-011",
+      "area": "recovery",
+      "fault": "Failover would promote an asynchronous replica that lacks a previously acknowledged fence generation.",
+      "expected_state": "PROMOTION_BLOCKED_OR_OWNER_QUARANTINED",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "stale candidate cannot accept writes or issue current owner acknowledgement"
+    },
+    {
+      "id": "RB-012",
+      "area": "recovery",
+      "fault": "A backup restore rolls owner generation behind the highest acknowledged generation.",
+      "expected_state": "OWNER_FAIL_CLOSED_UNTIL_HIGH_WATER_RECONCILED",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "owner epoch/high-water recovery proof precedes reopening writes"
+    },
+    {
+      "id": "RB-013",
+      "area": "split_brain",
+      "fault": "A former primary remains reachable and accepts old-generation writes after a new primary acknowledges the fence.",
+      "expected_state": "OLD_PRIMARY_FENCED",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "old write authority is externally fenced; epoch labels alone are insufficient"
+    },
+    {
+      "id": "RB-014",
+      "area": "worker",
+      "fault": "A worker pauses before owner validation, loses its claim, and resumes after global barrier acknowledgement.",
+      "expected_state": "STALE_CLAIM_AND_GENERATION_REJECTED",
+      "strict_ack_allowed": true,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "owner rejects superseded claim epoch and old generation at the same mutation boundary"
+    },
+    {
+      "id": "RB-015",
+      "area": "linearization",
+      "fault": "An effect transaction holds the owner shared lock before fence installation begins and remains in flight.",
+      "expected_state": "OWNER_ACK_WAITS_FOR_EFFECT_TRANSACTION",
+      "strict_ack_allowed": true,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "owner acknowledgement timestamp occurs after effect commit or confirmed rollback"
+    },
+    {
+      "id": "RB-016",
+      "area": "external_sink",
+      "fault": "A route invokes a remote API that records the request but cannot atomically check the owner generation.",
+      "expected_state": "BEST_EFFORT_ROUTE_BLOCKS_STRICT_ACK",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "route marked non-fenceable; no strong global completion claim"
+    },
+    {
+      "id": "RB-017",
+      "area": "unknown_outcome",
+      "fault": "A remote effect may have committed but its response and local receipt are lost during revocation.",
+      "expected_state": "UNKNOWN_REQUIRES_EXACT_RECONCILIATION",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "no no-effect classification and no strict ack until receiver state is reconciled or receiver fence proves future rejection"
+    },
+    {
+      "id": "RB-018",
+      "area": "negative_control",
+      "fault": "Mutant owner publishes acknowledgement before its fence transaction commits.",
+      "expected_state": "INVARIANT_VIOLATION_DETECTED",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "independent history checker produces counterexample"
+    },
+    {
+      "id": "RB-019",
+      "area": "negative_control",
+      "fault": "Mutant owner acknowledges a generation without durable post-commit readback.",
+      "expected_state": "INVARIANT_VIOLATION_DETECTED",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "durability/readback oracle rejects acknowledgement"
+    },
+    {
+      "id": "RB-020",
+      "area": "bypass",
+      "fault": "Application role bypasses the fenced wrapper and attempts direct protected-table DML.",
+      "expected_state": "DIRECT_WRITE_REJECTED",
+      "strict_ack_allowed": true,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "role/grant and trigger tests show no unauthorized mutation path"
+    },
+    {
+      "id": "RB-021",
+      "area": "topology",
+      "fault": "A new executable route is added after inventory closure but before global barrier finalization.",
+      "expected_state": "BARRIER_INVALIDATED_AND_RE_CLOSED",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "topology epoch drift prevents final acknowledgement until new route is fenced"
+    },
+    {
+      "id": "RB-022",
+      "area": "concurrency",
+      "fault": "Two distinct revocations race to install fences across the same owner set.",
+      "expected_state": "MONOTONIC_SERIALIZED_REVOCATION_ORDER",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "each acknowledgement binds exact revocation and predecessor generation; no conflicting or regressing state"
+    },
+    {
+      "id": "RB-023",
+      "area": "recovery",
+      "fault": "Coordinator crashes after partial owner success and resumes from a new process.",
+      "expected_state": "IDEMPOTENT_PARTIAL_BARRIER_RESUMED",
+      "strict_ack_allowed": true,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "already fenced owners retain state; missing owners are retried; final exact-set check succeeds"
+    },
+    {
+      "id": "RB-024",
+      "area": "transport",
+      "fault": "NATS message is redelivered after its duplicate window expires or its acknowledgement is lost.",
+      "expected_state": "OWNER_IDEMPOTENCY_AND_FENCE_DECIDE_EFFECT",
+      "strict_ack_allowed": true,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "message de-duplication is not used as effect deduplication; duplicate attempt returns prior receipt or rejects stale generation"
+    },
+    {
+      "id": "RB-025",
+      "area": "transport",
+      "fault": "RabbitMQ at-least-once dead-letter transfer generates a duplicate while a consumer is reassigned.",
+      "expected_state": "ONE_LOGICAL_EFFECT_AND_CURRENT_CLAIM_ONLY",
+      "strict_ack_allowed": true,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "duplicate delivery cannot create a second protected mutation"
+    },
+    {
+      "id": "RB-026",
+      "area": "transport",
+      "fault": "Kafka offset and output topic transaction commits while an external database response is lost.",
+      "expected_state": "EXTERNAL_EFFECT_RECONCILED_SEPARATELY",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "Kafka transaction status is not treated as the external database effect receipt"
+    },
+    {
+      "id": "RB-027",
+      "area": "clock",
+      "fault": "Owner clock steps backward, loses synchronization, or exceeds its declared uncertainty bound while decision expiry is checked.",
+      "expected_state": "OWNER_CLOCK_UNHEALTHY_FAIL_CLOSED",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "no new mutation while owner clock health is unknown; previous read-only replay may remain available"
+    },
+    {
+      "id": "RB-028",
+      "area": "caep_ssf",
+      "fault": "CAEP/SSF signals are duplicated, delayed or reordered relative to owner fence installation.",
+      "expected_state": "SIGNAL_DELIVERY_NOT_COMPLETION",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "event receipt triggers owner work but does not count as owner acknowledgement"
+    }
+  ]
+}
