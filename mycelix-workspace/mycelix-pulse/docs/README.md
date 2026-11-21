@@ -206,7 +206,8 @@ We welcome documentation improvements! To contribute:
 - **[Pulse Fabric Verifier](../tools/fabric-verifier/README.md)** — standalone Rust prototype for structural checks and causal consistency; its claim ceiling and non-goals are explicit.
 - **[Communications Benchmark Protocol v0.1](PULSE_COMMUNICATIONS_BENCHMARK_PROTOCOL_V0_1.md)** — pre-registered fair comparison design, workload matrix, statistical protocol and non-compensable safety gates.
 - **[Machine-readable benchmark profile](pulse-fabric-benchmark-v0.1.json)** and [schema](pulse-fabric-benchmark.schema-v0.1.json) — validated benchmark definition; no measurements are claimed.
-- **[Group fan-out qualification / #6401](https://github.com/Luminous-Dynamics/mycelix/issues/6401)** — per-recipient logical operations, membership-epoch binding and aggregate COMPLETE_VERIFIED semantics.
+- **[Group fan-out qualification / #6401](https://github.com/Luminous-Dynamics/mycelix/issues/6401)** — per-recipient logical operations, membership-epoch binding and explicit aggregate outcome semantics.
+- **[Group fan-out manifest schema](pulse-group-fanout-manifest.schema-v0.1.json)** — frozen recipient set, child-operation IDs and exact child-trace digests for the read-only fan-out verifier.
 
 These artifacts define a research and qualification contract only. The scenario catalog is not executed evidence, and none of these files qualifies the current runtime or promotes a product security claim.
 
