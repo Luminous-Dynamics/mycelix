@@ -925,7 +925,9 @@ pub fn estimate_multifidelity_residual_probability(
     let delta = parameters.confidence_delta;
 
     if !surrogate_probability.is_finite() || !(0.0..=1.0).contains(&surrogate_probability) {
-        return Err(EstimateError::InvalidSurrogateProbability(surrogate_probability));
+        return Err(EstimateError::InvalidSurrogateProbability(
+            surrogate_probability,
+        ));
     }
     if !surrogate_probability_absolute_error_bound.is_finite()
         || !(0.0..=1.0).contains(&surrogate_probability_absolute_error_bound)
@@ -943,8 +945,7 @@ pub fn estimate_multifidelity_residual_probability(
     if surrogate_evidence.target_distribution_id != "whitened-standard-normal-N0I-v1" {
         return Err(EstimateError::SurrogateTargetMismatch);
     }
-    if surrogate_evidence.surrogate_evaluation_sample_id
-        != evaluation_evidence.evaluation_sample_id
+    if surrogate_evidence.surrogate_evaluation_sample_id != evaluation_evidence.evaluation_sample_id
     {
         return Err(EstimateError::SurrogateEvaluationSampleMismatch);
     }
@@ -959,7 +960,10 @@ pub fn estimate_multifidelity_residual_probability(
     }
     for (field, value) in [
         ("surrogate_model_id", &surrogate_evidence.surrogate_model_id),
-        ("surrogate_model_revision", &surrogate_evidence.surrogate_model_revision),
+        (
+            "surrogate_model_revision",
+            &surrogate_evidence.surrogate_model_revision,
+        ),
         (
             "surrogate_probability_evidence_ref",
             &surrogate_evidence.surrogate_probability_evidence_ref,
@@ -1013,8 +1017,16 @@ pub fn estimate_multifidelity_residual_probability(
         }
 
         let weight = proposal.likelihood_ratio(&observation.point)?;
-        let hf = if observation.high_fidelity_collision { 1.0 } else { 0.0 };
-        let lf = if observation.surrogate_collision { 1.0 } else { 0.0 };
+        let hf = if observation.high_fidelity_collision {
+            1.0
+        } else {
+            0.0
+        };
+        let lf = if observation.surrogate_collision {
+            1.0
+        } else {
+            0.0
+        };
         if observation.high_fidelity_collision {
             hf_count += 1;
         }
