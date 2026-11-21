@@ -170,11 +170,6 @@ fn check_required_fields(
     Ok(())
 }
 
-fn check_ref_value(value: &serde_json::Value, scope: &str) -> Result<(), PacketError> {
-    check_object_fields(value, &["id", "kind"], scope)?;
-    check_required_fields(value, &["id", "kind"], scope)
-}
-
 fn check_ref_array(value: &serde_json::Value, scope: &str) -> Result<(), PacketError> {
     let array = value
         .as_array()
