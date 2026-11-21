@@ -214,7 +214,7 @@ impl FrontierEvidence {
             .map_err(|_| FrontierError::TooManyComponents)?;
         let count = u32::try_from(self.covered_positions.len())
             .map_err(|_| FrontierError::TooManyComponents)?;
-        let mut bytes = b"MYC-DIR-FRONTIER-EVIDENCE\\0\\x01".to_vec();
+        let mut bytes = b"MYC-DIR-FRONTIER-EVIDENCE\0\x01".to_vec();
         bytes.extend_from_slice(&frontier_length.to_be_bytes());
         bytes.extend_from_slice(&frontier_bytes);
         bytes.extend_from_slice(&count.to_be_bytes());
@@ -355,7 +355,7 @@ impl PolicySnapshot {
         let evidence = self.frontier_evidence.canonical_bytes()?;
         let evidence_length =
             u32::try_from(evidence.len()).map_err(|_| FrontierError::TooManyComponents)?;
-        let mut bytes = b"MYC-DIR-POLICY-SNAPSHOT\\0\\x01".to_vec();
+        let mut bytes = b"MYC-DIR-POLICY-SNAPSHOT\0\x01".to_vec();
         append_identifier(&mut bytes, self.realm.as_str())?;
         bytes.extend_from_slice(&self.policy_epoch.to_be_bytes());
         bytes.extend_from_slice(&self.policy_digest);
@@ -496,7 +496,7 @@ impl OfflineLease {
         let frontier = self.minimum_frontier.canonical_bytes()?;
         let frontier_length =
             u32::try_from(frontier.len()).map_err(|_| FrontierError::TooManyComponents)?;
-        let mut bytes = b"MYC-DIR-OFFLINE-LEASE\\0\\x01".to_vec();
+        let mut bytes = b"MYC-DIR-OFFLINE-LEASE\0\x01".to_vec();
         append_identifier(&mut bytes, self.scope.realm.as_str())?;
         append_identifier(&mut bytes, self.scope.principal.as_str())?;
         append_identifier(&mut bytes, self.scope.resource.as_str())?;
