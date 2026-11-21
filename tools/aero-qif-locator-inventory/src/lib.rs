@@ -396,6 +396,9 @@ pub fn validate_profile(profile: &TraceLocatorProfileV1) -> Result<(), Inventory
             return Err(InventoryError::InvalidIdentity(field.into()));
         }
     }
+    if profile.qif_standard_version != "3.0.0" {
+        return Err(InventoryError::UnsupportedQifVersion(profile.qif_standard_version.clone()));
+    }
     if profile.rules.is_empty() {
         return Err(InventoryError::EmptyProfile);
     }
@@ -1661,6 +1664,16 @@ mod tests {
         )).unwrap();
         assert_eq!(checked_in, profile());
         validate_profile(&checked_in).unwrap();
+    }
+
+    #[test]
+    fn non_qif_30_profile_version_rejects_before_scanning() {
+        let mut unsupported = profile();
+        unsupported.qif_standard_version = "3.1.0".into();
+        assert_eq!(
+            validate_profile(&unsupported),
+            Err(InventoryError::UnsupportedQifVersion("3.1.0".into()))
+        );
     }
 
     #[test]
