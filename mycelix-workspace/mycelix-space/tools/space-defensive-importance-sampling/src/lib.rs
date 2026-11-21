@@ -483,6 +483,8 @@ pub struct BoundarySentinelEvidence {
     pub selection_design_id: String,
     pub selection_evidence_ref: String,
     pub sample_order_digest: String,
+    /// Frozen set of strata that must be represented in the validation set.
+    pub required_strata: Vec<String>,
     pub low_fidelity_model_id: String,
     pub low_fidelity_model_revision: String,
     pub high_fidelity_event_oracle_id: String,
@@ -512,6 +514,7 @@ pub struct BoundarySentinelReport {
     pub selection_design_id: String,
     pub selection_evidence_ref: String,
     pub sample_order_digest: String,
+    pub required_strata: Vec<String>,
     pub low_fidelity_model_id: String,
     pub low_fidelity_model_revision: String,
     pub high_fidelity_event_oracle_id: String,
@@ -613,6 +616,7 @@ pub enum EstimateError {
     },
     EmptyBoundarySentinelSet,
     MissingBoundarySentinelEvidence,
+    MissingRequiredBoundaryStrata(Vec<String>),
     SentinelValidationReusesTrainingOrEvaluation,
     LowFidelityBoundaryOracleNotAccepted,
     InvalidRepeatedEncounterDesign,
@@ -736,6 +740,11 @@ impl fmt::Display for EstimateError {
             Self::MissingBoundarySentinelEvidence => write!(
                 f,
                 "sentinel selection, sample-order and model references are required"
+            ),
+            Self::MissingRequiredBoundaryStrata(missing) => write!(
+                f,
+                "boundary sentinel validation omitted required strata: {}",
+                missing.join(", ")
             ),
             Self::SentinelValidationReusesTrainingOrEvaluation => write!(
                 f,
@@ -1271,6 +1280,8 @@ pub fn assess_boundary_sentinels(
         || !valid_identifier(&evidence.proposal_training_id)
         || !valid_identifier(&evidence.proposal_evaluation_id)
         || !valid_identifier(&evidence.selection_design_id)
+        || evidence.required_strata.is_empty()
+        || evidence.required_strata.iter().any(|id| !valid_identifier(id))
         || !valid_identifier(&evidence.low_fidelity_model_id)
         || !valid_identifier(&evidence.low_fidelity_model_revision)
         || !valid_identifier(&evidence.high_fidelity_event_oracle_id)
@@ -1346,6 +1357,22 @@ pub fn assess_boundary_sentinels(
         }
     }
 
+    let mut required = BTreeSet::new();
+    if evidence.required_strata.iter().any(|id| !required.insert(id.as_str())) {
+        return Err(EstimateError::MissingBoundarySentinelEvidence);
+    }
+    let missing_required_strata = evidence
+        .required_strata
+        .iter()
+        .filter(|stratum| !by_stratum.contains_key(*stratum))
+        .cloned()
+        .collect::<Vec<_>>();
+    if !missing_required_strata.is_empty() {
+        return Err(EstimateError::MissingRequiredBoundaryStrata(
+            missing_required_strata,
+        ));
+    }
+
     let mut leaking_strata = Vec::new();
     let strata = by_stratum
         .into_iter()
@@ -1384,6 +1411,7 @@ pub fn assess_boundary_sentinels(
         selection_design_id: evidence.selection_design_id.clone(),
         selection_evidence_ref: evidence.selection_evidence_ref.clone(),
         sample_order_digest: evidence.sample_order_digest.clone(),
+        required_strata: evidence.required_strata.clone(),
         low_fidelity_model_id: evidence.low_fidelity_model_id.clone(),
         low_fidelity_model_revision: evidence.low_fidelity_model_revision.clone(),
         high_fidelity_event_oracle_id: evidence.high_fidelity_event_oracle_id.clone(),
@@ -1621,6 +1649,11 @@ mod tests {
             selection_design_id: "targeted-boundary-strata-v1".into(),
             selection_evidence_ref: "fixture://boundary-selection/design-v1".into(),
             sample_order_digest: "abcdef0123456789".into(),
+            required_strata: vec![
+                "inside".into(),
+                "boundary-shell".into(),
+                "outside".into(),
+            ],
             low_fidelity_model_id: "keplerian-boundary-map".into(),
             low_fidelity_model_revision: "sha256:low-fi-map-v1".into(),
             high_fidelity_event_oracle_id: "special-perturbations-event-oracle".into(),
@@ -2134,6 +2167,24 @@ mod tests {
         assert_eq!(
             report.inference_scope,
             "descriptive_only_no_population_confidence_interval_without_qualified_stratified_sampling_design"
+        );
+    }
+
+    #[test]
+    fn boundary_sentinels_reject_missing_required_strata() {
+        let observations = vec![BoundarySentinelObservation {
+            point: vec![0.0, 0.0],
+            physical_state: vec![0.0, 0.0],
+            stratum_id: "inside".into(),
+            surrogate_collision: true,
+            high_fidelity_collision: true,
+        }];
+        assert_eq!(
+            assess_boundary_sentinels(&whitening(2), &observations, &boundary_evidence()),
+            Err(EstimateError::MissingRequiredBoundaryStrata(vec![
+                "boundary-shell".into(),
+                "outside".into(),
+            ]))
         );
     }
 
