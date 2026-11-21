@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/MYC_DIR_CAUSAL_CUT_RECEIPTS_V0_1.schema.json",
+  "title": "Mycelix Directory Fabric causal-cut and receipt contract corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile",
+    "version",
+    "status",
+    "claim_ceiling",
+    "expected_decisions",
+    "expected_cut_assessments",
+    "scenarios"
+  ],
+  "properties": {
+    "profile": {
+      "const": "MYC-DIR-CAUSAL-CUT-RECEIPTS-0.1"
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "const": "synthetic_contract_corpus"
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 30
+    },
+    "expected_decisions": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "ALLOW",
+          "DENY",
+          "INDETERMINATE"
+        ]
+      }
+    },
+    "expected_cut_assessments": {
+      "type": "array",
+      "minItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "family",
+          "title",
+          "closure_status",
+          "premise",
+          "policy_evaluation",
+          "expected_cut_assessment",
+          "expected_decision",
+          "expected_effect_history",
+          "invariant",
+          "claim_ceiling"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^CUT-[0-9]{3}$"
+          },
+          "family": {
+            "type": "string",
+            "minLength": 2
+          },
+          "title": {
+            "type": "string",
+            "minLength": 5
+          },
+          "closure_status": {
+            "enum": [
+              "VerifiedComplete",
+              "Incomplete",
+              "Unverified",
+              "Rejected",
+              "Unavailable"
+            ]
+          },
+          "premise": {
+            "type": "string",
+            "minLength": 20
+          },
+          "policy_evaluation": {
+            "enum": [
+              "Permit",
+              "Forbid",
+              "DefaultDeny",
+              "Indeterminate"
+            ]
+          },
+          "expected_cut_assessment": {
+            "type": "string",
+            "minLength": 3
+          },
+          "expected_decision": {
+            "enum": [
+              "ALLOW",
+              "DENY",
+              "INDETERMINATE"
+            ]
+          },
+          "expected_effect_history": {
+            "type": "string",
+            "minLength": 3
+          },
+          "invariant": {
+            "type": "string",
+            "minLength": 10
+          },
+          "claim_ceiling": {
+            "type": "string",
+            "minLength": 20
+          }
+        }
+      }
+    }
+  }
+}
