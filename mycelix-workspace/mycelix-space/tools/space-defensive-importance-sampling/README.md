@@ -56,7 +56,7 @@ The benchmark's central metric is RMSE against analytical truth at an equal samp
 
 Run:
 
-    cargo run --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-defensive-importance-sampling/Cargo.toml --bin analytic-disk-benchmark
+    cargo run --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-defensive-importance-sampling/Cargo.toml --bin analytic_disk_benchmark
 
 ## Whitening and physical-state correspondence
 
