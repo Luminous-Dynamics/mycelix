@@ -483,7 +483,10 @@ fn require_method(
     if evidence.method.as_ref() == Some(expected) {
         Ok(())
     } else {
-        Err(PacketError::WrongEvidenceMethod(evidence.evidence_id.clone()))
+        Err(PacketError::WrongEvidenceMethod(format!(
+            "{}: actual={:?}, expected={:?}",
+            evidence.evidence_id, evidence.method, expected
+        )))
     }
 }
 
@@ -1204,6 +1207,11 @@ mod tests {
     fn checked_in_fixture_replays() {
         let packet = parse_packet_json(include_bytes!("../fixtures/nonflight_coupon_packet_v1.json"))
             .expect("fixture JSON");
+        assert_eq!(
+            packet.build_evidence.method.as_ref(),
+            Some(&packet.process_plan.reference),
+            "build method must bind to exact process-plan reference"
+        );
         assert_eq!(
             validate_packet(&packet).expect("valid fixture").disposition,
             PacketDisposition::StructurallyComplete
