@@ -7,12 +7,14 @@ on:
       - ".github/workflows/pulse-fabric-verifier.yml"
       - "mycelix-workspace/mycelix-pulse/tools/fabric-verifier/**"
       - "mycelix-workspace/mycelix-pulse/docs/pulse-fabric-*.json"
+      - "mycelix-workspace/mycelix-pulse/docs/pulse-group-fanout-*.json"
   pull_request:
     branches: [main]
     paths:
       - ".github/workflows/pulse-fabric-verifier.yml"
       - "mycelix-workspace/mycelix-pulse/tools/fabric-verifier/**"
       - "mycelix-workspace/mycelix-pulse/docs/pulse-fabric-*.json"
+      - "mycelix-workspace/mycelix-pulse/docs/pulse-group-fanout-*.json"
   workflow_dispatch:
 
 permissions:
