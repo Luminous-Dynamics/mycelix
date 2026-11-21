@@ -202,10 +202,28 @@
         },
         {
           "event_id": "cf01-e07",
+          "actor": "authority-conductor",
+          "action": "issue-new-distinct-grant-and-run-control-call",
+          "causal_predecessors": [
+            "cf01-e06"
+          ],
+          "parameters": {
+            "grant_identity": "new-grant",
+            "function_index": 1
+          },
+          "expected_observations": [
+            "new-grant-identity",
+            "new-grant-call-disposition"
+          ],
+          "recovery_action": "revoke-control-grant"
+        },
+        {
+          "event_id": "cf01-e08",
           "actor": "effect-observer",
           "action": "reconcile-effects-against-revocation-barrier",
           "causal_predecessors": [
-            "cf01-e06"
+            "cf01-e06",
+            "cf01-e07"
           ],
           "parameters": {
             "coverage": "all-attempts"
