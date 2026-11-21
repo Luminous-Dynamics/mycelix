@@ -325,6 +325,18 @@ mod tests {
     }
 
     #[test]
+    fn rejects_singular_candidate_threshold_endpoints() {
+        assert!(matches!(
+            log_mixture_e_value(&[false], 1.0, &grid()),
+            Err(SequenceError::InvalidBetFraction(1.0))
+        ));
+        assert!(matches!(
+            log_mixture_e_value(&[false], 0.0, &grid()),
+            Err(SequenceError::InvalidBetFraction(0.0))
+        ));
+    }
+
+    #[test]
     fn rejects_invalid_delta_and_unsafe_evidence() {
         assert!(matches!(
             upper_bound_at(&[true], 1.0, &grid()),
