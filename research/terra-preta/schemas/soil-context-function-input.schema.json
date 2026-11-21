@@ -144,7 +144,14 @@
               "q95",
               "q95_se",
               "q99",
-              "q99_se"
+              "q99_se",
+              "reference_dataset_id",
+              "reference_dataset_sha256",
+              "reference_model_sha256",
+              "reference_measurement_method",
+              "reference_measurement_unit",
+              "reference_depth_min_m",
+              "reference_depth_max_m"
             ],
             "properties": {
               "model_id": {
@@ -217,6 +224,34 @@
               "q99_se": {
                 "type": "number",
                 "minimum": 0
+              },
+              "reference_dataset_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference_dataset_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "reference_model_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "reference_measurement_method": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference_measurement_unit": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference_depth_min_m": {
+                "type": "number",
+                "minimum": 0
+              },
+              "reference_depth_max_m": {
+                "type": "number",
+                "exclusiveMinimum": 0
               }
             }
           },
