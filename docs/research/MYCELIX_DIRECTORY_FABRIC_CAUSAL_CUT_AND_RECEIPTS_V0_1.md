@@ -450,6 +450,8 @@ CAEP events can quickly attenuate sessions, devices and token claims. They do no
 - keep strict revocation pending until the independent effect-surface inventory is verified and every atomic effect owner acknowledges;
 - classify token-TTL-only, CAEP-only and non-fenceable third-party routes as best-effort, never as strong completion.
 
+The [effect-surface qualification issue #6454](https://github.com/Luminous-Dynamics/mycelix/issues/6454) tracks route discovery, proof verification, CAEP integration and the negative controls.
+
 This is the next paradigm shift: revoke the **reachable effect surface**, not merely the principal, access token or current session. A useful success claim is "all paths in topology epoch E that could mutate resource R under grant G have been enumerated, and every such path's owner has durably installed the revocation fence." It is conditional on the independent route-inventory oracle and exact topology epoch, not a universal assertion about undiscovered infrastructure.
 
 Sources: [OpenID CAEP 1.0 final](https://openid.net/specs/openid-caep-1_0-final.html), [OpenID CAEP 1.1 draft](https://openid.github.io/sharedsignals/CAEP_1.1/openid-caep-1_1.html), [OpenID Shared Signals specification status](https://openid.net/wg/sharedsignals/specifications/), [OAuth RFC 7009](https://www.rfc-editor.org/rfc/rfc7009.html).
