@@ -226,6 +226,115 @@
         "trust_caller_supplied_root_label",
         "accept_split_view"
       ]
+    },
+    {
+      "scenario_id": "PFC-CRYPTO-019",
+      "family": "crypto",
+      "title": "Post-compromise healing under asymmetric peer schedules",
+      "expected_disposition": "UNKNOWN",
+      "required_invariants": [
+        "Measure vulnerable-message-set size, messages, bytes and elapsed time until post-compromise healing",
+        "Use the same seeded asymmetric send schedule and offline windows across every ratchet-capable candidate",
+        "A session not healed by the measurement horizon remains unhealed or censored; it is never counted as zero vulnerable messages",
+        "Classical-only and non-ratcheting candidates report post-compromise healing as NOT_SUPPORTED"
+      ],
+      "mutations": [
+        "asymmetric-send-rates",
+        "receiver-offline-24h",
+        "delayed-return",
+        "chunk-loss"
+      ],
+      "notes": "The SCKA vulnerable message set depends on the participants' actual sending and response behavior."
+    },
+    {
+      "scenario_id": "PFC-CRYPTO-020",
+      "family": "crypto",
+      "title": "Ratchet peer never responds after compromise",
+      "expected_disposition": "UNKNOWN",
+      "required_invariants": [
+        "No post-compromise healing is claimed without the peer response required by the protocol",
+        "The vulnerable-message set is reported as unbounded or right-censored at the declared horizon",
+        "The system must not silently discard the unhealed session from latency and security denominators"
+      ],
+      "mutations": [
+        "peer-response-suppressed",
+        "sender-continues-sending",
+        "measurement-horizon-reached"
+      ],
+      "notes": "This is a deliberate negative control for security benchmarks that might otherwise hide an unhealed peer."
+    },
+    {
+      "scenario_id": "PFC-CRYPTO-021",
+      "family": "crypto",
+      "title": "Post-quantum KEM with classical authentication",
+      "expected_disposition": "NOT_APPLICABLE",
+      "required_invariants": [
+        "Record the exact KEM, hybrid combiner, signature and identity-credential algorithms",
+        "A post-quantum KEM paired with a classical signature is described as post-quantum confidentiality only",
+        "Do not claim post-quantum authentication unless the selected suite and credential binding use a qualified post-quantum signature"
+      ],
+      "mutations": [
+        "ml-kem-hybrid-kem",
+        "classical-ed25519-signature",
+        "incorrect-full-pq-authentication-label"
+      ],
+      "notes": "Separate confidentiality and authentication properties in capability claims and benchmark tiers."
+    },
+    {
+      "scenario_id": "PFC-CRYPTO-022",
+      "family": "crypto",
+      "title": "Sparse key-agreement chunk loss, reordering and epoch gaps",
+      "expected_disposition": "INCOMPLETE",
+      "required_invariants": [
+        "No output epoch is accepted until enough authenticated chunks reconstruct the required protocol message",
+        "Epoch identifiers remain strictly ordered, gap-free and unique per participant",
+        "Reordered and duplicated chunks cannot produce divergent peer key sequences",
+        "Report reconstruction threshold, extra chunks and bytes, and time to the next usable epoch"
+      ],
+      "mutations": [
+        "chunk-drop",
+        "chunk-reorder",
+        "chunk-duplicate",
+        "epoch-gap",
+        "epoch-replay"
+      ],
+      "notes": "Exercise incremental KEM and erasure-code behavior under constrained bandwidth."
+    },
+    {
+      "scenario_id": "PFC-AUTHORITY-019",
+      "family": "authority",
+      "title": "Sender manifest omits a required group member",
+      "expected_disposition": "UNKNOWN",
+      "required_invariants": [
+        "The sender-authored manifest digest does not establish that its recipient set is complete",
+        "Authenticate the membership snapshot and sender authority using an independently provisioned policy root",
+        "Missing or unverifiable membership authority prevents a cryptographically verified group-completion claim",
+        "The raw membership roster remains private and is not emitted in public traces"
+      ],
+      "mutations": [
+        "omit-required-recipient",
+        "self-asserted-manifest-pin",
+        "missing-membership-root"
+      ],
+      "notes": "A missing-member attack must be detected by the external membership-authority layer; the v0.1 structural verifier explicitly does not claim to detect it."
+    },
+    {
+      "scenario_id": "PFC-DELIVERY-019",
+      "family": "delivery",
+      "title": "Account-level acceptance is misreported as all-device synchronization",
+      "expected_disposition": "FAILED",
+      "required_invariants": [
+        "Every aggregate declares recipient_unit as ACCOUNT or DEVICE",
+        "An ACCOUNT receipt proves account-level acceptance only",
+        "DEVICE completion requires a child operation and accepted outcome for every required device in the frozen device set",
+        "No product UI or benchmark may promote account-level delivery to all-device synchronization"
+      ],
+      "mutations": [
+        "account-child-as-device-success",
+        "omit-offline-linked-device",
+        "incorrect-all-device-label"
+      ],
+      "notes": "A device-set claim must be evaluated against an authenticated membership and device inventory snapshot."
     }
   ]
 }
