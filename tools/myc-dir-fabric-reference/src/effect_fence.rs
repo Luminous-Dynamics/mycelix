@@ -161,8 +161,9 @@ pub struct EffectFenceState {
 }
 
 impl EffectFenceState {
-    /// Generation 1 is the initial installed state; 0 is never a valid
-    /// production token.
+    /// Generation 1 is the initial reference-model state; 0 is never a valid
+    /// production token. This is not a restart constructor: production recovery
+    /// must restore the durable monotonic high-water generation, never reset to 1.
     pub fn new(domain: EffectFenceDomain) -> Self {
         Self { domain, generation: 1 }
     }
