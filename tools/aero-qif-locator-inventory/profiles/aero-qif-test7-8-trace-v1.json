@@ -326,6 +326,8 @@
     "max_text_bytes_per_element": 4096,
     "max_total_text_bytes": 1048576,
     "max_locators": 10000,
-    "max_namespace_bindings": 64
+    "max_namespace_bindings": 64,
+    "max_documents": 8,
+    "max_total_source_bytes": 4194304
   }
 }
