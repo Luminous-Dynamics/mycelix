@@ -40,6 +40,17 @@ These modules emit versioned, domain-separated canonical bytes. They do not hash
 
 See [the RSCAC and receipt composition design](../../docs/research/MYCELIX_DIRECTORY_FABRIC_CAUSAL_CUT_AND_RECEIPTS_V0_1.md), [the 24-case adversarial corpus](../../docs/benchmarks/MYC_DIR_CAUSAL_CUT_RECEIPTS_V0_1.json), and [its Draft 2020-12 schema](../../docs/benchmarks/MYC_DIR_CAUSAL_CUT_RECEIPTS_V0_1.schema.json).
 
+## Resource-enforced revocation fencing
+
+`src/effect_fence.rs` models mutation-boundary fencing:
+- each fence is scoped to an exact realm/resource/action and effect owner, not a global sequence;
+- old tokens become stale when the resource owner installs a higher generation; unissued future generations and cross-resource tokens are rejected;
+- a fenced command binds one exact Allow decision digest, request, logical operation, idempotency commitment and owner token;
+- a revocation plan declares the required owner inventory and per-owner target generations; strict completion requires every exact owner acknowledgement, not a quorum;
+- missing acknowledgements leave revocation pending; owner inventory completeness and acknowledgement authenticity remain external trust boundaries.
+
+Production condition: the effect owner must persist/install the new generation and compare the request token in the **same atomic transaction** as the protected mutation. A separate check followed by a later write is unsafe. Revocation is only complete after all independently inventoried owners acknowledge durable installation. An external API that cannot enforce this at its mutation boundary cannot receive the strong revocation guarantee.
+
 ## Finite-state composition model
 
 A TLA+ model and four negative-control configurations are in `mycelix-workspace/mycelix-pulse/docs/security/DirectoryFabricCausalCutReceipts.tla`. They exercise omitted dependency closure, scalar frontier substitution, retry while outcome is Unknown, and duplicate logical-effect commit. The [model note](../../mycelix-workspace/mycelix-pulse/docs/security/DirectoryFabricCausalCutReceipts-model-2026-11-21.md) records intended invariants and abstraction limits. The model/configurations are source-present only; TLC has not been run.
