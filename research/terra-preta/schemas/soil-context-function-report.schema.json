@@ -107,7 +107,6 @@
               "distance_to_q90",
               "distance_to_q95",
               "distance_to_q99",
-              "distance_standard_errors",
               "interpretation",
               "reference_dataset_id",
               "reference_dataset_sha256",
@@ -184,24 +183,15 @@
                 ],
                 "properties": {
                   "q90": {
-                    "type": [
-                      "number",
-                      "null"
-                    ],
+                    "type": "number",
                     "minimum": 0
                   },
                   "q95": {
-                    "type": [
-                      "number",
-                      "null"
-                    ],
+                    "type": "number",
                     "minimum": 0
                   },
                   "q99": {
-                    "type": [
-                      "number",
-                      "null"
-                    ],
+                    "type": "number",
                     "minimum": 0
                   }
                 }
