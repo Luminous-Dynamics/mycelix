@@ -79,8 +79,8 @@
       "assertion_id": "A-DATUM-001",
       "semantic_type": "datum_reference",
       "subject": {
-        "id": "feature:coupon-hole-01",
-        "kind": "feature"
+        "id": "component:coupon-001",
+        "kind": "component"
       },
       "requirement": null,
       "value": {
