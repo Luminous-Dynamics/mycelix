@@ -1086,6 +1086,22 @@ mod tests {
         }
     }
 
+    fn boundary_evidence() -> BoundarySentinelEvidence {
+        BoundarySentinelEvidence {
+            sentinel_validation_id: "boundary-validation-independent-v1".into(),
+            proposal_training_id: "training-split-sha256-aaa".into(),
+            proposal_evaluation_id: "evaluation-split-sha256-bbb".into(),
+            selection_design_id: "targeted-boundary-strata-v1".into(),
+            selection_evidence_ref: "fixture://boundary-selection/design-v1".into(),
+            sample_order_digest: "abcdef0123456789".into(),
+            low_fidelity_model_id: "keplerian-boundary-map".into(),
+            low_fidelity_model_revision: "sha256:low-fi-map-v1".into(),
+            high_fidelity_event_oracle_id: "special-perturbations-event-oracle".into(),
+            high_fidelity_event_oracle_revision: "sha256:hf-oracle-v1".into(),
+            high_fidelity_oracle_is_continuous_time: true,
+        }
+    }
+
     fn evidence() -> EvaluationEvidence {
         EvaluationEvidence {
             proposal_id: "proposal-gmm-v1".into(),
@@ -1210,6 +1226,102 @@ mod tests {
         assert_eq!(
             estimate_collision_probability(&proposal, &transform, &observations, 0.05, &evidence),
             Err(EstimateError::WhiteningTransformMismatch)
+        );
+    }
+
+    #[test]
+    fn boundary_sentinels_report_false_negative_leakage_by_stratum() {
+        let observations = vec![
+            BoundarySentinelObservation {
+                point: vec![0.0, 0.0],
+                physical_state: vec![0.0, 0.0],
+                stratum_id: "inside".into(),
+                surrogate_collision: true,
+                high_fidelity_collision: true,
+            },
+            BoundarySentinelObservation {
+                point: vec![1.0, 0.0],
+                physical_state: vec![1.0, 0.0],
+                stratum_id: "boundary-shell".into(),
+                surrogate_collision: false,
+                high_fidelity_collision: true,
+            },
+            BoundarySentinelObservation {
+                point: vec![1.1, 0.0],
+                physical_state: vec![1.1, 0.0],
+                stratum_id: "boundary-shell".into(),
+                surrogate_collision: false,
+                high_fidelity_collision: false,
+            },
+            BoundarySentinelObservation {
+                point: vec![2.0, 0.0],
+                physical_state: vec![2.0, 0.0],
+                stratum_id: "outside".into(),
+                surrogate_collision: true,
+                high_fidelity_collision: false,
+            },
+        ];
+        let report = assess_boundary_sentinels(&whitening(2), &observations, &boundary_evidence()).unwrap();
+        assert_eq!(report.total_sentinels, 4);
+        assert_eq!(report.total_high_fidelity_collisions, 2);
+        assert_eq!(report.total_false_negatives, 1);
+        assert_eq!(report.leaking_strata, vec!["boundary-shell"]);
+        let boundary = report.strata.iter().find(|s| s.stratum_id == "boundary-shell").unwrap();
+        assert_eq!(boundary.false_negative_count, 1);
+        assert_eq!(boundary.false_negative_fraction_among_high_fidelity_collisions, Some(1.0));
+        assert_eq!(boundary.status, "BOUNDARY_LEAKAGE_DETECTED");
+        let outside = report.strata.iter().find(|s| s.stratum_id == "outside").unwrap();
+        assert_eq!(outside.false_negative_fraction_among_high_fidelity_collisions, None);
+        assert_eq!(outside.status, "NO_HF_POSITIVE_DENOMINATOR");
+        assert_eq!(report.inference_scope, "descriptive_only_no_population_confidence_interval_without_qualified_stratified_sampling_design");
+    }
+
+    #[test]
+    fn boundary_sentinels_reject_reused_proposal_training_or_evaluation_set() {
+        let observation = BoundarySentinelObservation {
+            point: vec![0.0, 0.0],
+            physical_state: vec![0.0, 0.0],
+            stratum_id: "boundary-shell".into(),
+            surrogate_collision: false,
+            high_fidelity_collision: true,
+        };
+        let mut evidence = boundary_evidence();
+        evidence.sentinel_validation_id = evidence.proposal_training_id.clone();
+        assert_eq!(
+            assess_boundary_sentinels(&whitening(2), &[observation], &evidence),
+            Err(EstimateError::SentinelValidationReusesTrainingOrEvaluation)
+        );
+    }
+
+    #[test]
+    fn boundary_sentinels_reject_low_fidelity_oracle_as_reference() {
+        let observation = BoundarySentinelObservation {
+            point: vec![0.0, 0.0],
+            physical_state: vec![0.0, 0.0],
+            stratum_id: "inside".into(),
+            surrogate_collision: true,
+            high_fidelity_collision: true,
+        };
+        let mut evidence = boundary_evidence();
+        evidence.high_fidelity_oracle_is_continuous_time = false;
+        assert_eq!(
+            assess_boundary_sentinels(&whitening(2), &[observation], &evidence),
+            Err(EstimateError::LowFidelityBoundaryOracleNotAccepted)
+        );
+    }
+
+    #[test]
+    fn boundary_sentinels_reject_physical_state_transform_mismatch() {
+        let observation = BoundarySentinelObservation {
+            point: vec![0.0, 0.0],
+            physical_state: vec![0.01, 0.0],
+            stratum_id: "inside".into(),
+            surrogate_collision: true,
+            high_fidelity_collision: true,
+        };
+        assert_eq!(
+            assess_boundary_sentinels(&whitening(2), &[observation], &boundary_evidence()),
+            Err(EstimateError::PhysicalStateMismatch)
         );
     }
 
