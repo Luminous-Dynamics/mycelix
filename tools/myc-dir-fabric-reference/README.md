@@ -63,6 +63,14 @@ The module checks structure, not proof authenticity or actual route discovery. T
 
 Production condition: the effect owner must persist/install the new generation and compare the request token in the **same atomic transaction** as the protected mutation. A separate check followed by a later write is unsafe. The reference constructor starts at generation 1 for model genesis only; production recovery must restore the authenticated durable high-water mark and must never reset the counter to 1 after restart or snapshot rollback. Revocation is only complete after all independently inventoried owners acknowledge durable installation. An external API that cannot enforce this at its mutation boundary cannot receive the strong revocation guarantee.
 
+## Queue delivery and worker handoff semantics
+
+`src/queue_delivery.rs` binds one broker delivery to an exact broker namespace, destination, application message key and payload digest. It also binds the command to the request and decision-receipt digests, logical operation, effect owner, resource-fence generation, clock profile and validity interval.
+
+A matching and time-valid delivery is only `EligibleForOwnerRevalidation`; it is not an Allow decision. The worker/effect owner must still verify the exact signed Allow and atomically compare the current owner fence at the protected mutation. Broker sequence numbers and delivery counters are transport metadata only.
+
+The module separates broker acknowledgement from effect finality. An Unknown outcome blocks both retry and acknowledgement until a durable reconciliation task has been committed. After that handoff, the broker delivery may be acknowledged while reconciliation remains pending; this does not mean the effect is known. A new physical attempt is permitted only for an unstarted operation or after exact owner-side `ConfirmedNoEffect` reconciliation.
+
 ## Finite-state composition model
 
 A TLA+ model and four negative-control configurations are in `mycelix-workspace/mycelix-pulse/docs/security/DirectoryFabricCausalCutReceipts.tla`. They exercise omitted dependency closure, scalar frontier substitution, retry while outcome is Unknown, and duplicate logical-effect commit. The [model note](../../mycelix-workspace/mycelix-pulse/docs/security/DirectoryFabricCausalCutReceipts-model-2026-11-21.md) records intended invariants and abstraction limits. The model/configurations are source-present only; TLC has not been run.
