@@ -25,7 +25,7 @@
       "transform": {
         "operation": "insert-effect",
         "target_event_id": "cf01-e06",
-        "target_field": "effect",
+        "target_field": "parameters.post_barrier_effect",
         "details": "Applied after the recorded revocation barrier"
       },
       "expected": {
@@ -42,7 +42,7 @@
       "transform": {
         "operation": "remove-field",
         "target_event_id": "cf01-e04",
-        "target_field": "expected_observations",
+        "target_field": "expected_observations.barrier-identity",
         "details": "Remove barrier identity evidence"
       },
       "expected": {
@@ -76,7 +76,7 @@
       "transform": {
         "operation": "replace-field",
         "target_event_id": "cf02-e05",
-        "target_field": "idempotency_key_commitment",
+        "target_field": "parameters.idempotency_key_commitment",
         "details": "Change the idempotency commitment on retry"
       },
       "expected": {
@@ -93,7 +93,7 @@
       "transform": {
         "operation": "relabel-evidence",
         "target_event_id": "cf02-e03",
-        "target_field": "evidence_kind",
+        "target_field": "parameters.acknowledgement",
         "details": "Promote provider-reported acknowledgement to independent observation"
       },
       "expected": {
@@ -144,7 +144,7 @@
       "transform": {
         "operation": "replace-field",
         "target_event_id": "cf03-e07",
-        "target_field": "observation_basis",
+        "target_field": "parameters.observation_basis",
         "details": "Replace record-digest agreement with storage-arc FULL only"
       },
       "expected": {
@@ -161,7 +161,7 @@
       "transform": {
         "operation": "remove-field",
         "target_event_id": "cf03-e08",
-        "target_field": "send_receive_counters",
+        "target_field": "parameters.send_receive_reconciliation_required",
         "details": "Remove send/receive reconciliation while claiming complete exchange"
       },
       "expected": {
@@ -178,7 +178,7 @@
       "transform": {
         "operation": "replace-field",
         "target_event_id": "cf04-e05",
-        "target_field": "dependency_relationship",
+        "target_field": "parameters.dependency_relationship",
         "details": "Change Unknown to Independent without new evidence"
       },
       "expected": {
@@ -195,7 +195,7 @@
       "transform": {
         "operation": "replace-field",
         "target_event_id": "cf04-e05",
-        "target_field": "policy_epoch",
+        "target_field": "parameters.policy_epoch",
         "details": "Accept a stale trust-policy epoch for current eligibility"
       },
       "expected": {
@@ -212,7 +212,7 @@
       "transform": {
         "operation": "remove-field",
         "target_event_id": "cf04-e07",
-        "target_field": "consistency_proof",
+        "target_field": "parameters.consistency_proof_required",
         "details": "Remove consistency evidence but retain eligible checkpoint status"
       },
       "expected": {
@@ -229,7 +229,7 @@
       "transform": {
         "operation": "replace-field",
         "target_event_id": "cf05-e04",
-        "target_field": "actual_agent_public_key",
+        "target_field": "parameters.agent_key_source",
         "details": "Substitute a newly generated agent key for the explicit original key"
       },
       "expected": {
@@ -246,7 +246,7 @@
       "transform": {
         "operation": "replace-field",
         "target_event_id": "cf05-e07",
-        "target_field": "recovery_state",
+        "target_field": "parameters.require_complete_set",
         "details": "Mark recovery complete while promised records remain absent"
       },
       "expected": {
@@ -263,7 +263,7 @@
       "transform": {
         "operation": "remove-field",
         "target_event_id": "cf05-e07",
-        "target_field": "recovered_digest_set",
+        "target_field": "parameters.required_record_coverage",
         "details": "Omit one required record digest from the reconstruction evidence"
       },
       "expected": {
@@ -279,8 +279,8 @@
       "status": "proposed-not-executed",
       "transform": {
         "operation": "replace-field",
-        "target_event_id": "cf06-e06",
-        "target_field": "clock_epoch",
+        "target_event_id": "cf06-e04",
+        "target_field": "parameters.cross_host_clock_epoch_match",
         "details": "Change the receive-side epoch but retain the cross-host timing interval"
       },
       "expected": {
@@ -297,7 +297,7 @@
       "transform": {
         "operation": "remove-field",
         "target_event_id": "cf06-e05",
-        "target_field": "collector_loss_counters",
+        "target_field": "parameters.loss_counters_required",
         "details": "Remove telemetry-loss counters while omitting observations"
       },
       "expected": {
@@ -314,7 +314,7 @@
       "transform": {
         "operation": "replace-field",
         "target_event_id": "cf06-e07",
-        "target_field": "latency_representation",
+        "target_field": "parameters.point_latency_requires_valid_uncertainty",
         "details": "Emit a point estimate even though uncertainty exceeds the measured interval"
       },
       "expected": {
@@ -331,7 +331,7 @@
       "transform": {
         "operation": "replace-field",
         "target_event_id": "cf07-e07",
-        "target_field": "causal_conclusion",
+        "target_field": "parameters.causal_inference_basis",
         "details": "Infer a shared cause solely because independent faults were synchronized"
       },
       "expected": {
@@ -348,7 +348,7 @@
       "transform": {
         "operation": "remove-field",
         "target_event_id": "cf07-e02",
-        "target_field": "dependency_inventory",
+        "target_field": "parameters.inventory_edge_visibility",
         "details": "Hide shared parent edge then assert independent failure domains"
       },
       "expected": {
@@ -365,7 +365,7 @@
       "transform": {
         "operation": "replace-field",
         "target_event_id": "cf07-e07",
-        "target_field": "root_cause_scope",
+        "target_field": "parameters.root_cause_scope",
         "details": "Treat a shared collector outage as proof of a shared application/runtime failure"
       },
       "expected": {
