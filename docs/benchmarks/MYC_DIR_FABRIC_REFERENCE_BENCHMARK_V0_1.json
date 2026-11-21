@@ -734,5 +734,71 @@
     "unique_scenario_ids_required": true,
     "independent_closure_completeness_oracle_required": true,
     "effect_owner_history_oracle_required": true
-  }
+  },
+  "graph_proof_workload_profiles": [
+    {
+      "id": "ldbc_snb_interactive_comparator",
+      "benchmark": "LDBC Social Network Benchmark Interactive workload",
+      "fact_table_rows": [
+        60000,
+        120000,
+        240000
+      ],
+      "query_families": [
+        "IS3",
+        "IS4",
+        "IS5",
+        "IC1",
+        "IC2",
+        "IC9",
+        "IC13"
+      ],
+      "additional_query_families": [
+        "IC6",
+        "IC14 V2"
+      ],
+      "purpose": "Reproduce the published VerfGraph/ZKGraph graph-query comparison where operator semantics match; this is not an authorization-policy benchmark"
+    },
+    {
+      "id": "directory_authority_graph",
+      "benchmark": "MYC-DIR synthetic authority graph",
+      "fact_table_rows": [
+        10000,
+        100000,
+        1000000,
+        10000000
+      ],
+      "query_families": [
+        "membership_closure",
+        "nested_group_expansion",
+        "delegation_ancestry",
+        "issuer_admission",
+        "revocation_dependencies",
+        "explicit_deny_dependencies",
+        "federation_mapping"
+      ],
+      "additional_query_families": [
+        "multi_realm_causal_cut",
+        "request_scoped_closure"
+      ],
+      "purpose": "Measure exact dependency closure and authorization-specific deny/revocation semantics over a versioned sovereign graph"
+    },
+    {
+      "id": "multi_realm_graph_federation",
+      "benchmark": "MYC-DIR multi-root federation graph",
+      "authority_roots": [
+        4,
+        16,
+        64
+      ],
+      "dependency_cut_sizes": [
+        8,
+        32,
+        64,
+        128,
+        256
+      ],
+      "purpose": "Measure proof composition over independently signed realm and issuer roots without imposing a global sequence"
+    }
+  ]
 }
