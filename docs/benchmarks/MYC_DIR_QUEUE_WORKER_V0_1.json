@@ -205,6 +205,30 @@
       "expected_assessment": "STRICT_REVOCATION_BLOCKED",
       "max_effect_commits": 0,
       "broker_ack": "NO_ALL_OWNER_COMPLETION_CLAIM"
+    },
+    {
+      "id": "QW-025",
+      "broker": "provider-neutral",
+      "fault": "Worker-claim authority proof commitment is substituted while the broker message and owner generation are unchanged",
+      "expected_assessment": "REJECT_CLAIM_PROOF",
+      "max_effect_commits": 0,
+      "broker_ack": "DO_NOT_ACK_UNTIL_DURABLE_QUARANTINE"
+    },
+    {
+      "id": "QW-026",
+      "broker": "provider-neutral",
+      "fault": "Current durable claim epoch has advanced but an old worker submits its previous claim token",
+      "expected_assessment": "REJECT_STALE_WORKER",
+      "max_effect_commits": 0,
+      "broker_ack": "DURABLE_REJECT_THEN_ACK"
+    },
+    {
+      "id": "QW-027",
+      "broker": "provider-neutral",
+      "fault": "Worker claim validity expires in a queue backlog while the Allow decision remains valid",
+      "expected_assessment": "REJECT_EXPIRED_CLAIM",
+      "max_effect_commits": 0,
+      "broker_ack": "DURABLE_REJECT_THEN_ACK"
     }
   ]
 }
