@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic biochar batch passport audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "batch_id",
+    "quality_profile_id",
+    "quality_profile_sha256",
+    "feedstock_gate",
+    "process_gate",
+    "sampling_gate",
+    "analytical_gate",
+    "analyte_results",
+    "quality_conformity_status",
+    "carbon_removal_claim_requested",
+    "carbon_removal_status",
+    "agronomic_suitability_claim_requested",
+    "agronomic_suitability_status",
+    "controls",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_product_evidence"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "batch_id": {
+      "type": "string"
+    },
+    "quality_profile_id": {
+      "type": "string"
+    },
+    "quality_profile_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "feedstock_gate": {
+      "enum": [
+        "pass_synthetic",
+        "blocked"
+      ]
+    },
+    "process_gate": {
+      "enum": [
+        "pass_synthetic",
+        "blocked"
+      ]
+    },
+    "sampling_gate": {
+      "enum": [
+        "pass_synthetic",
+        "blocked"
+      ]
+    },
+    "analytical_gate": {
+      "enum": [
+        "pass_synthetic",
+        "fail_synthetic",
+        "indeterminate_synthetic",
+        "incomplete"
+      ]
+    },
+    "analyte_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "analyte_id",
+          "status",
+          "measured_value",
+          "uncertainty_or_censor_bound",
+          "limit",
+          "unit",
+          "reason"
+        ],
+        "properties": {
+          "analyte_id": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail",
+              "indeterminate",
+              "missing"
+            ]
+          },
+          "measured_value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "uncertainty_or_censor_bound": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "quality_conformity_status": {
+      "enum": [
+        "synthetic_profile_pass",
+        "synthetic_profile_fail",
+        "synthetic_profile_indeterminate",
+        "incomplete_or_blocked"
+      ]
+    },
+    "carbon_removal_status": {
+      "const": "not_assessed_by_v0_1"
+    },
+    "agronomic_suitability_status": {
+      "const": "not_assessed_by_v0_1"
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "batch_identity_pass",
+        "feedstock_traceability_pass",
+        "process_lineage_pass",
+        "representative_sampling_pass",
+        "laboratory_result_binding_pass",
+        "uncertainty_aware_limit_check_pass",
+        "claim_separation_pass"
+      ],
+      "properties": {
+        "batch_identity_pass": {
+          "type": "boolean"
+        },
+        "feedstock_traceability_pass": {
+          "type": "boolean"
+        },
+        "process_lineage_pass": {
+          "type": "boolean"
+        },
+        "representative_sampling_pass": {
+          "type": "boolean"
+        },
+        "laboratory_result_binding_pass": {
+          "type": "boolean"
+        },
+        "uncertainty_aware_limit_check_pass": {
+          "type": "boolean"
+        },
+        "claim_separation_pass": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string"
+    },
+    "carbon_removal_claim_requested": {
+      "type": "boolean"
+    },
+    "agronomic_suitability_claim_requested": {
+      "type": "boolean"
+    }
+  }
+}
