@@ -192,7 +192,8 @@
             "cf01-e05"
           ],
           "parameters": {
-            "order": "seeded-interleaving"
+            "order": "seeded-interleaving",
+            "post_barrier_effect": false
           },
           "expected_observations": [
             "per-function-dispositions",
@@ -368,7 +369,8 @@
           ],
           "parameters": {
             "attempt": 2,
-            "reuse_request_digest": true
+            "reuse_request_digest": true,
+            "idempotency_key_commitment": "same-as-original"
           },
           "expected_observations": [
             "retry-identity",
@@ -590,7 +592,8 @@
             "cf03-e06"
           ],
           "parameters": {
-            "coverage": "all-declared-live-peers"
+            "coverage": "all-declared-live-peers",
+            "observation_basis": "per-peer-record-digest"
           },
           "expected_observations": [
             "per-peer-record-digests",
@@ -613,7 +616,8 @@
               "disk-IO",
               "network-IO",
               "per-peer-lag"
-            ]
+            ],
+            "send_receive_reconciliation_required": true
           },
           "expected_observations": [
             "raw-host-traces",
@@ -762,7 +766,8 @@
           ],
           "parameters": {
             "relationship": "known-shared-or-unknown",
-            "policy_epoch": "stale"
+            "policy_epoch": "stale",
+            "dependency_relationship": "known-shared-or-unknown"
           },
           "expected_observations": [
             "stale-attestation",
@@ -795,7 +800,8 @@
             "cf04-e06"
           ],
           "parameters": {
-            "split_view": true
+            "split_view": true,
+            "consistency_proof_required": true
           },
           "expected_observations": [
             "checkpoint-b",
@@ -952,7 +958,8 @@
           ],
           "parameters": {
             "restore_from_dht": true,
-            "allow_silent_new_identity": false
+            "allow_silent_new_identity": false,
+            "agent_key_source": "explicit-existing-key"
           },
           "expected_observations": [
             "install-disposition",
@@ -1003,7 +1010,8 @@
             "cf05-e06"
           ],
           "parameters": {
-            "require_complete_set": true
+            "require_complete_set": true,
+            "required_record_coverage": "complete"
           },
           "expected_observations": [
             "recovered-digest-set",
@@ -1135,7 +1143,8 @@
             "cf06-e03"
           ],
           "parameters": {
-            "pairing": "operation-id-and-record-digest"
+            "pairing": "operation-id-and-record-digest",
+            "cross_host_clock_epoch_match": true
           },
           "expected_observations": [
             "raw-send-ticks",
@@ -1156,7 +1165,8 @@
               "drop",
               "duplicate",
               "reorder"
-            ]
+            ],
+            "loss_counters_required": true
           },
           "expected_observations": [
             "loss-counters",
@@ -1305,7 +1315,8 @@
             "cf07-e01"
           ],
           "parameters": {
-            "unknown_edges_remain_unknown": true
+            "unknown_edges_remain_unknown": true,
+            "inventory_edge_visibility": "partial-with-unknowns"
           },
           "expected_observations": [
             "candidate-inventory-digest",
@@ -1391,7 +1402,9 @@
             "cf07-e06"
           ],
           "parameters": {
-            "reveal_ground_truth_after_lock": true
+            "reveal_ground_truth_after_lock": true,
+            "causal_inference_basis": "intervention-and-negative-controls",
+            "root_cause_scope": "application-runtime-versus-observation-pipeline-distinct"
           },
           "expected_observations": [
             "causal-edge-attribution",
