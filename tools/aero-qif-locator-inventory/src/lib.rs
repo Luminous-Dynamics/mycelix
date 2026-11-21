@@ -2043,6 +2043,52 @@ mod tests {
     }
 
     #[test]
+    fn declared_qif_array_n_must_match_source_children() {
+        let results = RESULTS.replace(
+            "<CharacteristicMeasurements n=\"3\">",
+            "<CharacteristicMeasurements n=\"2\">"
+        );
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "array-count-mismatch",
+                &profile(),
+                &docs(results.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::ArrayCardinalityMismatch { declared: 2, observed: 3 })
+        );
+    }
+
+    #[test]
+    fn oversized_xml_attribute_fails_before_capture() {
+        let mut limited = profile();
+        limited.limits.max_attribute_bytes = 4;
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "attribute-limit",
+                &limited,
+                &docs(RESULTS.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::AttributeBytesLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn unsupported_declared_xml_encoding_is_not_guessed() {
+        let results = RESULTS.replace(
+            "<QIFDocument",
+            "<?xml version=\"1.0\" encoding=\"UTF-16\"?><QIFDocument"
+        );
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "unsupported-encoding",
+                &profile(),
+                &docs(results.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::UnsupportedDeclaredEncoding)
+        );
+    }
+
+    #[test]
     fn byte_and_depth_limits_fail_closed() {
         let mut small = profile();
         small.limits.max_source_bytes = 32;
