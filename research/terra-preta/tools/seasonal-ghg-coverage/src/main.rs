@@ -15,8 +15,7 @@ use std::path::Path;
 
 const AUDIT_VERSION: &str = "0.1.0";
 const FIXTURE_STATUS: &str = "synthetic_only_not_empirical_evidence";
-const INTEGRAL_BOUNDARY: &str =
-    "Partial-support trapezoidal integral only. No seasonal or annual emissions total is qualified; uncertainty/covariance propagation, censoring models and external field validation are not implemented.";
+const INTEGRAL_BOUNDARY: &str = "Partial-support trapezoidal integral only. No seasonal or annual emissions total is qualified; uncertainty/covariance propagation, censoring models and external field validation are not implemented.";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -151,7 +150,9 @@ fn sha256_hex(bytes: &[u8]) -> String {
 
 fn nonblank(value: &str, name: &str) -> Result<(), String> {
     if value.trim().is_empty() || value.trim() != value {
-        return Err(format!("{name} must be non-empty and have no surrounding whitespace"));
+        return Err(format!(
+            "{name} must be non-empty and have no surrounding whitespace"
+        ));
     }
     Ok(())
 }
@@ -179,7 +180,9 @@ fn parse_utc_seconds(value: &str) -> Result<f64, String> {
         || bytes[19] != b'Z'
         || !value.is_ascii()
     {
-        return Err(format!("timestamp must be UTC RFC3339 YYYY-MM-DDTHH:MM:SSZ: {value}"));
+        return Err(format!(
+            "timestamp must be UTC RFC3339 YYYY-MM-DDTHH:MM:SSZ: {value}"
+        ));
     }
     let part = |start: usize, end: usize, label: &str| -> Result<u32, String> {
         value[start..end]
@@ -204,7 +207,10 @@ fn parse_utc_seconds(value: &str) -> Result<f64, String> {
         return Err(format!("invalid calendar time in timestamp {value}"));
     }
     let days = days_from_civil(i64::from(year), month, day);
-    Ok((days * 86_400 + i64::from(hour) * 3_600 + i64::from(minute) * 60 + i64::from(second)) as f64)
+    Ok(
+        (days * 86_400 + i64::from(hour) * 3_600 + i64::from(minute) * 60 + i64::from(second))
+            as f64,
+    )
 }
 
 fn expected_flux_unit(gas: &str, basis: &str) -> Result<&'static str, String> {
@@ -213,7 +219,9 @@ fn expected_flux_unit(gas: &str, basis: &str) -> Result<&'static str, String> {
         ("N2O", "N2O_N") => Ok("mg_N2O_N_m2_h"),
         ("CH4", "CH4") => Ok("mg_CH4_m2_h"),
         ("CO2", "CO2") => Ok("mg_CO2_m2_h"),
-        _ => Err(format!("unsupported gas species / mass basis: {gas} / {basis}")),
+        _ => Err(format!(
+            "unsupported gas species / mass basis: {gas} / {basis}"
+        )),
     }
 }
 
@@ -249,7 +257,8 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
     if !campaign.maximum_gap_seconds.is_finite() || campaign.maximum_gap_seconds <= 0.0 {
         return Err("maximum_gap_seconds must be finite and positive".to_string());
     }
-    if !campaign.boundary_tolerance_seconds.is_finite() || campaign.boundary_tolerance_seconds < 0.0 {
+    if !campaign.boundary_tolerance_seconds.is_finite() || campaign.boundary_tolerance_seconds < 0.0
+    {
         return Err("boundary_tolerance_seconds must be finite and non-negative".to_string());
     }
 
@@ -271,16 +280,27 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
         nonblank(&event.event_type, "event.event_type")?;
         if !matches!(
             event.event_type.as_str(),
-            "rainfall" | "irrigation" | "fertilizer" | "manure" | "tillage"
-                | "wetting_drying" | "other"
+            "rainfall"
+                | "irrigation"
+                | "fertilizer"
+                | "manure"
+                | "tillage"
+                | "wetting_drying"
+                | "other"
         ) {
-            return Err(format!("event {} has unsupported event type", event.event_id));
+            return Err(format!(
+                "event {} has unsupported event type",
+                event.event_id
+            ));
         }
         let start = parse_utc_seconds(&event.window_start)?;
         let occurred = parse_utc_seconds(&event.occurred_at)?;
         let end = parse_utc_seconds(&event.window_end)?;
         if !(window_start <= start && start <= occurred && occurred <= end && end <= window_end) {
-            return Err(format!("event {} has invalid / out-of-campaign window", event.event_id));
+            return Err(format!(
+                "event {} has invalid / out-of-campaign window",
+                event.event_id
+            ));
         }
         if events.insert(event.event_id.as_str(), event).is_some() {
             return Err(format!("duplicate event_id: {}", event.event_id));
@@ -294,13 +314,19 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
         nonblank(&slot.slot_id, "schedule_slot.slot_id")?;
         let time = parse_utc_seconds(&slot.scheduled_at)?;
         if time < window_start || time > window_end {
-            return Err(format!("slot {} is outside integration window", slot.slot_id));
+            return Err(format!(
+                "slot {} is outside integration window",
+                slot.slot_id
+            ));
         }
         if previous_time.is_some_and(|previous| time <= previous) {
             return Err("schedule slots must be strictly chronological".to_string());
         }
         if !matches!(slot.event_relation.as_str(), "none" | "before" | "after") {
-            return Err(format!("slot {} has unsupported event relation", slot.slot_id));
+            return Err(format!(
+                "slot {} has unsupported event relation",
+                slot.slot_id
+            ));
         }
         match (slot.event_id.as_deref(), slot.event_relation.as_str()) {
             (None, "none") => {}
@@ -312,13 +338,24 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
                 let event_at = parse_utc_seconds(&event.occurred_at)?;
                 let event_end = parse_utc_seconds(&event.window_end)?;
                 if slot.event_relation == "before" && !(event_start <= time && time < event_at) {
-                    return Err(format!("slot {} is not inside its declared pre-event window", slot.slot_id));
+                    return Err(format!(
+                        "slot {} is not inside its declared pre-event window",
+                        slot.slot_id
+                    ));
                 }
                 if slot.event_relation == "after" && !(event_at < time && time <= event_end) {
-                    return Err(format!("slot {} is not inside its declared post-event window", slot.slot_id));
+                    return Err(format!(
+                        "slot {} is not inside its declared post-event window",
+                        slot.slot_id
+                    ));
                 }
             }
-            _ => return Err(format!("slot {} has inconsistent event id / relation", slot.slot_id)),
+            _ => {
+                return Err(format!(
+                    "slot {} has inconsistent event id / relation",
+                    slot.slot_id
+                ));
+            }
         }
         if slot_map.insert(slot.slot_id.as_str(), slot).is_some() {
             return Err(format!("duplicate schedule slot id: {}", slot.slot_id));
@@ -333,60 +370,112 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
         nonblank(&observation.observation_id, "observation.observation_id")?;
         nonblank(&observation.scheduled_slot_id, "observation.scheduled_slot_id")?;
         if !observation_ids.insert(observation.observation_id.as_str()) {
-            return Err(format!("duplicate observation_id: {}", observation.observation_id));
+            return Err(format!(
+                "duplicate observation_id: {}",
+                observation.observation_id
+            ));
         }
-        let slot = slot_map.get(observation.scheduled_slot_id.as_str()).ok_or_else(|| {
-            format!("observation {} refers to unknown slot", observation.observation_id)
-        })?;
+        let slot = slot_map
+            .get(observation.scheduled_slot_id.as_str())
+            .ok_or_else(|| {
+                format!(
+                    "observation {} refers to unknown slot",
+                    observation.observation_id
+                )
+            })?;
         let observed_time = parse_utc_seconds(&observation.observed_at)?;
         let expected_time = parse_utc_seconds(&slot.scheduled_at)?;
         if (observed_time - expected_time).abs() > 1.0 {
-            return Err(format!("observation {} does not match scheduled time", observation.observation_id));
+            return Err(format!(
+                "observation {} does not match scheduled time",
+                observation.observation_id
+            ));
         }
         if observation.gas_species != campaign.gas_species
             || observation.mass_basis != campaign.mass_basis
             || observation.flux_unit != campaign.flux_unit
         {
-            return Err(format!("observation {} has incompatible gas / basis / unit", observation.observation_id));
+            return Err(format!(
+                "observation {} has incompatible gas / basis / unit",
+                observation.observation_id
+            ));
         }
-        if !matches!(observation.qc_state.as_str(), "pass" | "flagged" | "rejected") {
-            return Err(format!("observation {} has unsupported QC status", observation.observation_id));
+        if !matches!(
+            observation.qc_state.as_str(),
+            "pass" | "flagged" | "rejected"
+        ) {
+            return Err(format!(
+                "observation {} has unsupported QC status",
+                observation.observation_id
+            ));
         }
         match observation.quantification_status.as_str() {
             "quantified" => {
                 let value = observation.flux_value.ok_or_else(|| {
-                    format!("observation {} is quantified but has no flux value", observation.observation_id)
+                    format!(
+                        "observation {} is quantified but has no flux value",
+                        observation.observation_id
+                    )
                 })?;
                 if !value.is_finite() {
-                    return Err(format!("observation {} has non-finite flux", observation.observation_id));
+                    return Err(format!(
+                        "observation {} has non-finite flux",
+                        observation.observation_id
+                    ));
                 }
                 if observation.detection_limit.is_some() {
-                    return Err(format!("quantified observation {} must not have detection limit", observation.observation_id));
+                    return Err(format!(
+                        "quantified observation {} must not have detection limit",
+                        observation.observation_id
+                    ));
                 }
             }
             "left_censored" => {
                 if observation.flux_value.is_some() {
-                    return Err(format!("left-censored observation {} must not carry a point flux", observation.observation_id));
+                    return Err(format!(
+                        "left-censored observation {} must not carry a point flux",
+                        observation.observation_id
+                    ));
                 }
                 let limit = observation.detection_limit.ok_or_else(|| {
-                    format!("left-censored observation {} requires detection limit", observation.observation_id)
+                    format!(
+                        "left-censored observation {} requires detection limit",
+                        observation.observation_id
+                    )
                 })?;
                 if !limit.is_finite() || limit < 0.0 {
-                    return Err(format!("observation {} has invalid detection limit", observation.observation_id));
+                    return Err(format!(
+                        "observation {} has invalid detection limit",
+                        observation.observation_id
+                    ));
                 }
             }
-            _ => return Err(format!("observation {} has unsupported quantification status", observation.observation_id)),
+            _ => {
+                return Err(format!(
+                    "observation {} has unsupported quantification status",
+                    observation.observation_id
+                ));
+            }
         }
         if let Some(uncertainty) = observation.standard_uncertainty {
             if !uncertainty.is_finite() || uncertainty < 0.0 {
-                return Err(format!("observation {} has invalid standard uncertainty", observation.observation_id));
+                return Err(format!(
+                    "observation {} has invalid standard uncertainty",
+                    observation.observation_id
+                ));
             }
         }
         if let Some(group) = &observation.uncertainty_group_id {
             nonblank(group, "uncertainty_group_id")?;
         }
-        if observation_by_slot.insert(observation.scheduled_slot_id.as_str(), observation).is_some() {
-            return Err(format!("more than one observation maps to slot {}", observation.scheduled_slot_id));
+        if observation_by_slot
+            .insert(observation.scheduled_slot_id.as_str(), observation)
+            .is_some()
+        {
+            return Err(format!(
+                "more than one observation maps to slot {}",
+                observation.scheduled_slot_id
+            ));
         }
     }
 
@@ -409,8 +498,17 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
     for slot in &campaign.schedule_slots {
         match observation_by_slot.get(slot.slot_id.as_str()) {
             None => {
-                if slot.missing_reason.as_deref().unwrap_or("").trim().is_empty() {
-                    return Err(format!("missing slot {} must have an explicit missing_reason", slot.slot_id));
+                if slot
+                    .missing_reason
+                    .as_deref()
+                    .unwrap_or("")
+                    .trim()
+                    .is_empty()
+                {
+                    return Err(format!(
+                        "missing slot {} must have an explicit missing_reason",
+                        slot.slot_id
+                    ));
                 }
                 missing_schedule_slot_ids.push(slot.slot_id.clone());
             }
@@ -493,7 +591,8 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
     let total_duration = window_end - window_start;
     let uncovered_seconds = (total_duration - integrated_support_seconds).max(0.0);
     let integration_support_fraction = integrated_support_seconds / total_duration;
-    let schedule_coverage_fraction = usable_by_slot.len() as f64 / campaign.schedule_slots.len() as f64;
+    let schedule_coverage_fraction =
+        usable_by_slot.len() as f64 / campaign.schedule_slots.len() as f64;
 
     let mut event_coverages = Vec::new();
     let mut event_coverage_complete = true;
@@ -535,19 +634,34 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
 
     let mut reasons = Vec::new();
     if !boundary_coverage_complete {
-        reasons.push("leading or trailing integration-window boundary is not observed within tolerance".to_string());
+        reasons.push(
+            "leading or trailing integration-window boundary is not observed within tolerance"
+                .to_string(),
+        );
     }
     if !missing_schedule_slot_ids.is_empty() {
-        reasons.push(format!("{} expected schedule slots are missing", missing_schedule_slot_ids.len()));
+        reasons.push(format!(
+            "{} expected schedule slots are missing",
+            missing_schedule_slot_ids.len()
+        ));
     }
     if !unusable_schedule_slot_ids.is_empty() {
-        reasons.push(format!("{} observations are censored or fail QC", unusable_schedule_slot_ids.len()));
+        reasons.push(format!(
+            "{} observations are censored or fail QC",
+            unusable_schedule_slot_ids.len()
+        ));
     }
     if excessive_observation_gap_count > 0 {
-        reasons.push(format!("{} schedule gaps exceed maximum_gap_seconds", excessive_observation_gap_count));
+        reasons.push(format!(
+            "{} schedule gaps exceed maximum_gap_seconds",
+            excessive_observation_gap_count
+        ));
     }
     if !event_coverage_complete {
-        reasons.push("one or more predeclared event windows lack required before/after observations".to_string());
+        reasons.push(
+            "one or more predeclared event windows lack required before/after observations"
+                .to_string(),
+        );
     }
     if !integration_complete && !reasons.iter().any(|reason| reason.contains("coverage")) {
         reasons.push("observed segments do not cover the full integration window".to_string());
@@ -613,8 +727,13 @@ fn write_new_file(path: &Path, content: &[u8]) -> io::Result<()> {
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() != 3 {
-        return Err(format!("usage: {} <synthetic-campaign.json> <new-report.json>",
-            args.first().map(String::as_str).unwrap_or("seasonal-ghg-coverage")).into());
+        return Err(format!(
+            "usage: {} <synthetic-campaign.json> <new-report.json>",
+            args.first()
+                .map(String::as_str)
+                .unwrap_or("seasonal-ghg-coverage")
+        )
+        .into());
     }
     let input = fs::read(&args[1])?;
     let output_path = Path::new(&args[2]);
@@ -648,8 +767,10 @@ mod tests {
     use serde_json::Value;
 
     fn fixture() -> Value {
-        serde_json::from_str(include_str!("../fixtures/synthetic-seasonal-ghg-campaign.json"))
-            .expect("synthetic fixture parses")
+        serde_json::from_str(include_str!(
+            "../fixtures/synthetic-seasonal-ghg-campaign.json"
+        ))
+        .expect("synthetic fixture parses")
     }
 
     fn audit(value: &Value) -> Result<AuditReport, String> {
@@ -740,7 +861,11 @@ mod tests {
         value["campaign"]["observations"][1]["detection_limit"] = serde_json::json!(0.05);
         let report = audit(&value).unwrap();
         assert_eq!(report.censored_observation_count, 1);
-        assert!(report.unusable_schedule_slot_ids.contains(&"s1".to_string()));
+        assert!(
+            report
+                .unusable_schedule_slot_ids
+                .contains(&"s1".to_string())
+        );
         assert!(!report.event_coverage_complete);
     }
 
@@ -773,7 +898,10 @@ mod tests {
     fn duplicate_observations_for_one_slot_are_rejected() {
         let mut value = fixture();
         let first = value["campaign"]["observations"][0].clone();
-        value["campaign"]["observations"].as_array_mut().unwrap().push(first);
+        value["campaign"]["observations"]
+            .as_array_mut()
+            .unwrap()
+            .push(first);
         assert!(audit(&value).is_err());
     }
 
@@ -788,8 +916,7 @@ mod tests {
     #[test]
     fn blank_missing_reason_is_rejected() {
         let mut value = fixture();
-        value["campaign"]["schedule_slots"][3]["missing_reason"] =
-            Value::String(" ".to_string());
+        value["campaign"]["schedule_slots"][3]["missing_reason"] = Value::String(" ".to_string());
         assert!(audit(&value).is_err());
     }
 
