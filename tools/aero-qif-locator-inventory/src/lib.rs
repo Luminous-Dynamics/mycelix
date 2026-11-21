@@ -305,11 +305,15 @@ fn locator_sort_key(locator: &SourceFieldLocatorV1) -> (
     Option<u32>,
     Option<u32>,
     Option<u32>,
+    Option<u32>,
+    Option<u32>,
 ) {
     (
         locator.document_qpid.to_ascii_lowercase(),
         locator.source_path.clone(),
         locator.source_element_id,
+        locator.local_reference_id,
+        locator.parent_external_document_reference_id,
         locator.external_document_reference_id,
         locator.external_xid,
     )
@@ -532,6 +536,8 @@ fn append_locator(
     qpid: &str,
     path: &str,
     element_id: Option<u32>,
+    local_reference_id: Option<u32>,
+    parent_external_document_reference_id: Option<u32>,
     external_reference_id: Option<u32>,
     external_xid: Option<u32>,
     field_value: Option<&str>,
@@ -546,6 +552,8 @@ fn append_locator(
         document_qpid: qpid.to_ascii_lowercase(),
         source_path: path.to_owned(),
         source_element_id: element_id,
+        local_reference_id,
+        parent_external_document_reference_id,
         external_document_reference_id: external_reference_id,
         external_xid,
     };
@@ -573,34 +581,19 @@ fn finalize_frame(
         match rule.capture {
             LocatorCaptureMode::Element => {
                 append_locator(
-                    locators,
-                    rule,
-                    qpid,
-                    &frame.locator_path,
-                    frame.element_id,
-                    None,
-                    None,
-                    None,
-                    None,
-                    &frame.captured_attributes,
-                    profile.limits.max_locators,
+                    locators, rule, qpid, &frame.locator_path,
+                    frame.element_id, None, None, None, None, None, None,
+                    &frame.captured_attributes, profile.limits.max_locators,
                 )?;
             }
             LocatorCaptureMode::ElementId => {
                 let element_id = frame.element_id
                     .ok_or_else(|| InventoryError::InvalidElementId(frame.locator_path.clone()))?;
                 append_locator(
-                    locators,
-                    rule,
-                    qpid,
-                    &format!("{}@id", frame.locator_path),
-                    Some(element_id),
-                    None,
-                    None,
-                    Some(&element_id.to_string()),
-                    None,
-                    &frame.captured_attributes,
-                    profile.limits.max_locators,
+                    locators, rule, qpid, &format!("{}@id", frame.locator_path),
+                    Some(element_id), None, None, None, None,
+                    Some(&element_id.to_string()), None,
+                    &frame.captured_attributes, profile.limits.max_locators,
                 )?;
                 if rule.declares_external_document_reference {
                     declared_external_ids.insert(element_id);
@@ -608,17 +601,10 @@ fn finalize_frame(
             }
             LocatorCaptureMode::Text => {
                 append_locator(
-                    locators,
-                    rule,
-                    qpid,
-                    &format!("{}#text", frame.locator_path),
-                    frame.element_id,
-                    None,
-                    None,
-                    Some(&frame.direct_text),
-                    Some(&frame.direct_text),
-                    &frame.captured_attributes,
-                    profile.limits.max_locators,
+                    locators, rule, qpid, &format!("{}#text", frame.locator_path),
+                    frame.element_id, None, None, None, None,
+                    Some(&frame.direct_text), Some(&frame.direct_text),
+                    &frame.captured_attributes, profile.limits.max_locators,
                 )?;
             }
             LocatorCaptureMode::LocalQifReference => {
@@ -630,20 +616,14 @@ fn finalize_frame(
                 {
                     return Err(InventoryError::UnsupportedAssemblyPathReference(frame.locator_path.clone()));
                 }
-                let value = parsed_numeric_attribute(&frame.direct_text, &frame.locator_path)
-                    .map_err(|_| InventoryError::InvalidQifReference(frame.locator_path.clone()))?;
+                let local_reference_id = parsed_numeric_attribute(
+                    &frame.direct_text, &frame.locator_path,
+                ).map_err(|_| InventoryError::InvalidQifReference(frame.locator_path.clone()))?;
                 append_locator(
-                    locators,
-                    rule,
-                    qpid,
-                    &format!("{}#local-qif-reference", frame.locator_path),
-                    frame.element_id,
-                    None,
-                    None,
-                    Some(&frame.direct_text),
-                    Some(&value.to_string()),
-                    &frame.captured_attributes,
-                    profile.limits.max_locators,
+                    locators, rule, qpid, &format!("{}#local-qif-reference", frame.locator_path),
+                    frame.element_id, Some(local_reference_id), None, None, None,
+                    Some(&frame.direct_text), Some(&local_reference_id.to_string()),
+                    &frame.captured_attributes, profile.limits.max_locators,
                 )?;
             }
             LocatorCaptureMode::DocumentQpid => {
@@ -655,17 +635,9 @@ fn finalize_frame(
                     return Err(InventoryError::DocumentQpidMismatch(frame.locator_path.clone()));
                 }
                 append_locator(
-                    locators,
-                    rule,
-                    qpid,
-                    &format!("{}#qpid", frame.locator_path),
-                    None,
-                    None,
-                    None,
-                    Some(value),
-                    Some(value),
-                    &frame.captured_attributes,
-                    profile.limits.max_locators,
+                    locators, rule, qpid, &format!("{}#qpid", frame.locator_path),
+                    None, None, None, None, None, Some(value), Some(value),
+                    &frame.captured_attributes, profile.limits.max_locators,
                 )?;
             }
             LocatorCaptureMode::ExternalPlanQpid => {
@@ -676,19 +648,12 @@ fn finalize_frame(
                 if !valid_qpid(value) {
                     return Err(InventoryError::InvalidExternalPlanQpid(frame.locator_path.clone()));
                 }
-                let external_reference_id = frame.external_document_reference_id
+                let parent_reference_id = frame.external_document_reference_id
                     .ok_or_else(|| InventoryError::InvalidExternalPlanQpid(frame.locator_path.clone()))?;
                 append_locator(
-                    locators,
-                    rule,
-                    qpid,
-                    &format!("{}#qpid", frame.locator_path),
-                    None,
-                    Some(external_reference_id),
-                    None,
-                    Some(value),
-                    Some(value),
-                    &frame.captured_attributes,
+                    locators, rule, qpid, &format!("{}#qpid", frame.locator_path),
+                    None, None, Some(parent_reference_id), None, None,
+                    Some(value), Some(value), &frame.captured_attributes,
                     profile.limits.max_locators,
                 )?;
             }
@@ -699,42 +664,32 @@ fn finalize_frame(
                 if frame.direct_text.chars().any(|character| character.is_control()) {
                     return Err(InventoryError::InvalidIdentity(format!("external_uri:{}", frame.locator_path)));
                 }
-                let external_reference_id = frame.external_document_reference_id
+                let parent_reference_id = frame.external_document_reference_id
                     .ok_or_else(|| InventoryError::InvalidIdentity(frame.locator_path.clone()))?;
                 append_locator(
-                    locators,
-                    rule,
-                    qpid,
-                    &format!("{}#uri", frame.locator_path),
-                    None,
-                    Some(external_reference_id),
-                    None,
-                    Some(&frame.direct_text),
-                    Some(&frame.direct_text),
-                    &frame.captured_attributes,
-                    profile.limits.max_locators,
+                    locators, rule, qpid, &format!("{}#uri", frame.locator_path),
+                    None, None, Some(parent_reference_id), None, None,
+                    Some(&frame.direct_text), Some(&frame.direct_text),
+                    &frame.captured_attributes, profile.limits.max_locators,
                 )?;
             }
             LocatorCaptureMode::QifReference => {
                 if frame.has_child_element {
-                    return Err(InventoryError::InvalidQifReference(frame.locator_path));
+                    return Err(InventoryError::InvalidQifReference(frame.locator_path.clone()));
                 }
-                let reference_id = parsed_numeric_attribute(
-                    &frame.direct_text,
-                    &frame.locator_path,
+                let reference_value = parsed_numeric_attribute(
+                    &frame.direct_text, &frame.locator_path,
                 ).map_err(|_| InventoryError::InvalidQifReference(frame.locator_path.clone()))?;
+                let (local_reference_id, external_reference_id) = if frame.external_xid.is_some() {
+                    (None, Some(reference_value))
+                } else {
+                    (Some(reference_value), None)
+                };
                 append_locator(
-                    locators,
-                    rule,
-                    qpid,
-                    &format!("{}#qif-reference", frame.locator_path),
-                    frame.element_id,
-                    Some(reference_id),
-                    frame.external_xid,
-                    Some(&frame.direct_text),
-                    None,
-                    &frame.captured_attributes,
-                    profile.limits.max_locators,
+                    locators, rule, qpid, &format!("{}#qif-reference", frame.locator_path),
+                    frame.element_id, local_reference_id, None, external_reference_id,
+                    frame.external_xid, Some(&frame.direct_text), Some(&reference_value.to_string()),
+                    &frame.captured_attributes, profile.limits.max_locators,
                 )?;
             }
         }
@@ -934,7 +889,10 @@ fn scan_document(
 
     let mut locators = BTreeSet::new();
     for record in &locator_rows {
-        if !locators.insert(locator_sort_key(&record.locator)) {
+        if !locators.insert((
+            record.locator.document_qpid.to_ascii_lowercase(),
+            record.locator.source_path.clone(),
+        )) {
             return Err(InventoryError::DuplicateSelector(record.locator.source_path.clone()));
         }
         if let Some(reference_id) = record.locator.external_document_reference_id {
@@ -1085,7 +1043,7 @@ pub fn derive_trace_locator_inventory(
         let uri_records: Vec<_> = results[0].locators.iter()
             .filter(|candidate| {
                 candidate.rule_id == "results.external_document_uri"
-                    && candidate.locator.external_document_reference_id == Some(local_reference_id)
+                    && candidate.locator.parent_external_document_reference_id == Some(local_reference_id)
             })
             .collect();
         if uri_records.len() > 1 {
@@ -1772,7 +1730,8 @@ mod tests {
         let refs: Vec<_> = inventory.body.locators.iter()
             .filter(|record| record.rule_id == "results.characteristic_item_external_reference")
             .collect();
-        assert_eq!(refs[0].locator.external_document_reference_id, Some(7));
+        assert_eq!(refs[0].locator.local_reference_id, Some(7));
+        assert_eq!(refs[0].locator.external_document_reference_id, None);
         assert_eq!(refs[0].locator.external_xid, None);
     }
 
