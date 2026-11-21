@@ -41,6 +41,7 @@ Effect lifecycle invariants:
 
 `DirectoryFabricCausalCutReceipts.cfg` sets all four mutant switches to FALSE and checks:
 - `TypeOK`
+- `ClosureClaimRequiresCompleteCut`
 - `AllowRequiresCompleteCut`
 - `EffectRequiresAllow`
 - `AtMostOneCommit`
@@ -51,7 +52,7 @@ Effect lifecycle invariants:
 
 | Configuration | Single semantic mutation | Expected violated invariant |
 |---|---|---|
-| `...-omit-dependency-mutant.cfg` | Closure verifier labels an omitted-revocation cut complete | `AllowRequiresCompleteCut` |
+| `...-omit-dependency-mutant.cfg` | Closure verifier labels an omitted-revocation cut complete | `ClosureClaimRequiresCompleteCut` and `AllowRequiresCompleteCut` |
 | `...-scalar-frontier-mutant.cfg` | Sum-like frontier progress replaces per-dependency coverage | `AllowRequiresCompleteCut` |
 | `...-retry-unknown-mutant.cfg` | Starts a new attempt while previous effect remains Unknown | `NoRetryWhileUnknown` |
 | `...-duplicate-commit-mutant.cfg` | Allows a second effect commit for one logical operation | `AtMostOneCommit` |
