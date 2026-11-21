@@ -1420,6 +1420,13 @@
                 "const": "complete"
               }
             }
+          },
+          "pair_coverage": {
+            "properties": {
+              "disposition": {
+                "const": "complete"
+              }
+            }
           }
         }
       }
