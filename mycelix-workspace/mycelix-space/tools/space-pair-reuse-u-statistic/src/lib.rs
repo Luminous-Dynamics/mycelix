@@ -305,7 +305,6 @@ fn validate_evidence(
             return Err(PairReuseError::DuplicateTrajectoryId(id.clone()));
         }
     }
-    seen.clear();
     for id in &evidence.secondary_trajectory_ids {
         if !valid_identifier(id) {
             return Err(PairReuseError::InvalidIdentifier("secondary_trajectory_id"));
@@ -352,7 +351,7 @@ mod tests {
     use super::*;
 
     fn sha(ch: char) -> String {
-        std::iter::repeat_n(ch, 64).collect()
+        std::iter::repeat(ch).take(64).collect()
     }
 
     fn evidence(primary_count: usize, secondary_count: usize) -> PairReuseEvidence {
@@ -465,10 +464,10 @@ mod tests {
     #[test]
     fn rejects_invalid_oracle_and_delta() {
         let matrix = vec![vec![false], vec![true]];
-        let mut evidence = evidence(2, 1);
-        evidence.high_fidelity_oracle_is_continuous_time = false;
+        let mut invalid_evidence = evidence(2, 1);
+        invalid_evidence.high_fidelity_oracle_is_continuous_time = false;
         assert_eq!(
-            estimate_pair_reuse_collision_probability(&matrix, 0.05, &evidence),
+            estimate_pair_reuse_collision_probability(&matrix, 0.05, &invalid_evidence),
             Err(PairReuseError::HighFidelityContinuousTimeOracleRequired)
         );
         assert_eq!(
