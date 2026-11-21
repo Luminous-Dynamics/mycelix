@@ -5,7 +5,7 @@
   "source_record": {
     "source_id": "soils4africa-point-syn",
     "source_type": "point_sample_dataset",
-    "title": "Soils4Africa-like regional sample survey — synthetic metadata example",
+    "title": "Soils4Africa field survey observations — synthetic metadata analogue (not a lab chemistry table)",
     "custodian": "Synthetic survey custodian",
     "canonical_uri": "https://example.invalid/soil-data-africa",
     "release_id": "manufactured-survey-release-v1",
@@ -58,15 +58,15 @@
   },
   "variables": [
     {
-      "variable_id": "ph-kcl",
-      "property_name": "soil_pH_KCl",
+      "variable_id": "slope-position",
+      "property_name": "slope_position",
       "value_semantics": "directly_measured",
-      "unit": "pH_unit",
-      "definition": "Synthetic pH measurement in KCl under a declared soil:solution ratio.",
-      "method": "Synthetic 1 M KCl extraction and electrode method",
-      "reference_method": "Synthetic laboratory reference procedure, version 1",
-      "uncertainty_status": "quantified",
-      "uncertainty_description": "Manufactured reference repeatability interval."
+      "unit": "categorical_field_class",
+      "definition": "Field-observed slope position class, not a laboratory soil-property assay.",
+      "method": "Standardized field observation recorded by the field-survey form.",
+      "reference_method": "Soils4Africa field-survey methodology / FAO soil description guidance (exact row-level protocol to be checked in the source release).",
+      "uncertainty_status": "not_quantified",
+      "uncertainty_description": "Synthetic metadata analogue; no empirical uncertainty is represented."
     }
   ],
   "intended_uses": [
