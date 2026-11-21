@@ -26,10 +26,14 @@ The new module carries opaque references to those owners. It is not a second CRS
 - Source evidence carries provenance/calibration/configuration/failure-domain references but no trust score, admitted flag, LOS assertion or inferred independence.
 - Uncertainty is explicitly represented and validated; this small v2 slice supports diagonal variance or a committed external representation, not general covariance math.
 
-## Tests
+## Tests and exact-head validation
 
-Nine unit tests cover legacy preservation, time-basis mismatch, interval ordering/unit/normalization mismatch, source-time serialization round-trip, qualified-time completeness, estimate lineage, prediction lineage/time, uncertainty validity, duplicate failure domains, claim discrimination and empty references. These tests are authored but have not yet been compiled or run in this environment.
+The v2 contract contains fourteen unit tests covering legacy/unqualified source-time preservation, source-vs-ingestion time separation, missing source timestamps, qualified interval basis/unit/order/normalization, JSON round-trip, estimate lineage, prediction lineage/time, finite uncertainty, duplicate failure-domain references, claim discrimination and empty references.
+
+On exact API head `98ec2d2dccaf90d6fe52731818954dc98e4ae20e`, the dedicated Position workflow completed successfully with **82 tests passed, 0 failed in each mirrored positioning workspace**. This validates the package-level contract on that commit; it does not validate provider devices, time-source truth, calibration, navigation integrity, physical accuracy or safety.
 
 ## Downstream integration
 
-Symthaea SOMA #10824 should consume these types only after the exact Mycelix API is reviewed and a real dependency feature-build is added. This module is not yet wired to mobile provider adapters and does not authorize physical navigation use.
+Symthaea SOMA #10824 now has a reviewable consumer candidate in [PR #13052](https://github.com/Luminous-Dynamics/symthaea/pull/13052). Its isolated compatibility workflow pins this exact Mycelix API commit and has passed six adapter tests against the real Position package source. The harness is deliberately narrower than a full Symthaea workspace build and does not validate Android/provider driver paths or physical navigation.
+
+This module is not an operational navigation qualification or an actuator authority.
