@@ -59,7 +59,7 @@ A new physical attempt is allowed only for an unstarted operation or after an ex
 
 Consumer-group assignment, lease renewal, visibility timeout and worker heartbeat are liveness/coordination mechanisms. A paused or partitioned worker may resume after another worker has taken over.
 
-Every claim therefore carries a monotonically increasing claim epoch, but the epoch is not itself authorization. At the effect boundary the owner must reject a command whose worker-claim epoch is no longer the exact current claim where the resource uses worker-claim fencing. A stale worker cannot rely on a previous heartbeat or a broker delivery tag.
+Every claim therefore carries a monotonically increasing claim epoch, but the epoch is not itself authorization. The Rust reference now has WorkerClaimToken and WorkerClaimState types. The token binds the logical operation, worker identity, epoch, clock profile, validity window and external proof commitment; the effect owner compares those values with its durable current claim. At the effect boundary the owner must reject a command whose worker-claim epoch is no longer the exact current claim where the resource uses worker-claim fencing. A stale worker cannot rely on a previous heartbeat or a broker delivery tag.
 
 The resource fence generation and worker claim epoch have different scopes:
 - resource generation: revocation state for a realm/resource/action/effect owner;
@@ -83,7 +83,7 @@ A transactional outbox only solves the source-side state/message publication gap
 
 ## 7. Adversarial qualification corpus
 
-The queue worker corpus defines 24 provider-neutral and broker-specific scenarios spanning broker mismatch, payload substitution, backlog expiry, owner-fence revocation, stale worker claims, redelivery, broker dedup expiry, dead-letter duplication, lost acknowledgements, Unknown outcomes, reconciliation, and Kafka transaction-scope boundaries.
+The queue worker corpus defines 27 provider-neutral and broker-specific scenarios spanning broker mismatch, payload substitution, backlog expiry, owner-fence revocation, stale worker claims, redelivery, broker dedup expiry, dead-letter duplication, lost acknowledgements, Unknown outcomes, reconciliation, and Kafka transaction-scope boundaries.
 
 The broker adapters must be tested under equivalent semantic profiles:
 - durable storage and replication settings declared;
