@@ -1,0 +1,271 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic soil method bridge comparison",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "evidence_class",
+    "comparison_id",
+    "property_id",
+    "objectives",
+    "pairing_basis",
+    "analytical_equivalence",
+    "method_a",
+    "method_b",
+    "decision_threshold",
+    "minimum_pairs",
+    "observations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "soil-method-bridge-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "evidence_class": {
+      "const": "synthetic"
+    },
+    "comparison_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "property_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "objectives": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "rank_concordance",
+          "numerical_agreement",
+          "decision_agreement"
+        ]
+      }
+    },
+    "pairing_basis": {
+      "enum": [
+        "same_specimen",
+        "matched_plot",
+        "matched_site"
+      ]
+    },
+    "analytical_equivalence": {
+      "enum": [
+        "asserted_equivalent",
+        "non_equivalent",
+        "unassessed"
+      ]
+    },
+    "method_a": {
+      "$ref": "#/$defs/method"
+    },
+    "method_b": {
+      "$ref": "#/$defs/method"
+    },
+    "decision_threshold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not_set",
+            "synthetic_fixture",
+            "externally_approved"
+          ]
+        },
+        "value": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approval_reference": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approval_date": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "synthetic_fixture",
+                  "externally_approved"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "value",
+              "unit"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "externally_approved"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "authority",
+              "approval_reference",
+              "approval_date"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_set"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "value"
+                  ]
+                },
+                {
+                  "required": [
+                    "unit"
+                  ]
+                },
+                {
+                  "required": [
+                    "authority"
+                  ]
+                },
+                {
+                  "required": [
+                    "approval_reference"
+                  ]
+                },
+                {
+                  "required": [
+                    "approval_date"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "minimum_pairs": {
+      "type": "integer",
+      "minimum": 3
+    },
+    "observations": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sample_id",
+          "independence_group_id",
+          "method_a_value",
+          "method_b_value"
+        ],
+        "properties": {
+          "sample_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "independence_group_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "method_a_value": {
+            "type": "number"
+          },
+          "method_b_value": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method_id",
+        "method_version",
+        "method_class",
+        "unit",
+        "measurement_basis",
+        "support_id"
+      ],
+      "properties": {
+        "method_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_class": {
+          "enum": [
+            "laboratory",
+            "rapid_field",
+            "proximal_sensing",
+            "in_situ_sensor",
+            "derived_model"
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "measurement_basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "support_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
