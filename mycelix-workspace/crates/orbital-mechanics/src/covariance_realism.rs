@@ -52,6 +52,8 @@ pub struct CovarianceRealismConfig {
     /// A data sufficiency floor only; reaching it does not create an inferential
     /// confidence claim. The caller must choose independent-group semantics.
     pub minimum_independent_groups: usize,
+    /// SHA-256 of the canonical sample-ID-sorted residual sample manifest.
+    pub sample_manifest_sha256: String,
     /// Relative symmetry tolerance. No matrix repair or diagonal jitter occurs.
     pub symmetry_relative_tolerance_ppb: u64,
 }
@@ -61,6 +63,8 @@ pub struct CovarianceRealismConfig {
 pub struct CovarianceRealismReport {
     pub report_id: String,
     pub cohort_id: String,
+    pub sample_manifest_sha256: String,
+    pub algorithm_profile_id: String,
     pub time_basis_id: String,
     pub frame_realization_id: String,
     pub covariance_profile_id: String,
@@ -120,13 +124,14 @@ pub enum CovarianceRealismError {
     MixedForceModelRevision { expected: String, actual: String },
     MixedCovarianceSource { expected: String, actual: String },
     MixedObservationSource { expected: String, actual: String },
-    MissingProvenance { sample_id: String, field: &'static str },
-    InvalidArtifactDigest { sample_id: String, field: &'static str },
+    MissingProvenance { sample_id: String, field: String },
+    InvalidArtifactDigest { sample_id: String, field: String },
     NonFiniteResidual { sample_id: String },
     NonFiniteCovariance { sample_id: String },
     AsymmetricCovariance { sample_id: String },
     NonPositiveDefiniteCovariance { sample_id: String },
     NonFiniteNees { sample_id: String },
+    NonFiniteAggregate,
 }
 
 const MAX_COVARIANCE_REALISM_SAMPLES: usize = 500_000;
@@ -149,7 +154,7 @@ fn validate_nonempty(
     if value.trim().is_empty() {
         return Err(CovarianceRealismError::MissingProvenance {
             sample_id: sample_id.to_string(),
-            field,
+            field: field.to_string(),
         });
     }
     Ok(())
@@ -259,6 +264,12 @@ pub fn assess_position_covariance_realism(
     if config.symmetry_relative_tolerance_ppb == 0 {
         return Err(CovarianceRealismError::ZeroSymmetryTolerance);
     }
+    if !is_sha256_hex(&config.sample_manifest_sha256) {
+        return Err(CovarianceRealismError::InvalidArtifactDigest {
+            sample_id: config.report_id.clone(),
+            field: "sample_manifest_sha256".to_string(),
+        });
+    }
     if samples.is_empty() {
         return Err(CovarianceRealismError::EmptySampleSet);
     }
@@ -290,13 +301,15 @@ pub fn assess_position_covariance_realism(
     let symmetry_tolerance = config.symmetry_relative_tolerance_ppb as f64 / 1_000_000_000.0;
     let mut sample_ids = BTreeSet::new();
     let mut independent_groups = BTreeSet::new();
+    let mut ordered_samples: Vec<&PositionResidualSample> = samples.iter().collect();
+    ordered_samples.sort_by(|left, right| left.sample_id.cmp(&right.sample_id));
     let mut nees_values = Vec::with_capacity(samples.len());
     let mut residual_sum = [0.0_f64; 3];
     let mut coverage_68_27 = 0usize;
     let mut coverage_95_45 = 0usize;
     let mut coverage_99_73 = 0usize;
 
-    for sample in samples {
+    for sample in ordered_samples {
         if sample.sample_id.trim().is_empty() {
             return Err(CovarianceRealismError::EmptySampleId);
         }
@@ -348,7 +361,7 @@ pub fn assess_position_covariance_realism(
             if actual.trim().is_empty() {
                 return Err(CovarianceRealismError::MissingProvenance {
                     sample_id: sample.sample_id.clone(),
-                    field,
+                    field: field.to_string(),
                 });
             }
             if expected != actual {
@@ -391,7 +404,7 @@ pub fn assess_position_covariance_realism(
             if !is_sha256_hex(digest) {
                 return Err(CovarianceRealismError::InvalidArtifactDigest {
                     sample_id: sample.sample_id.clone(),
-                    field,
+                    field: field.to_string(),
                 });
             }
         }
@@ -399,6 +412,9 @@ pub fn assess_position_covariance_realism(
         independent_groups.insert(sample.independent_group_id.as_str());
         for axis in 0..3 {
             residual_sum[axis] += sample.residual_position_km[axis];
+            if !residual_sum[axis].is_finite() {
+                return Err(CovarianceRealismError::NonFiniteAggregate);
+            }
         }
         let nees = position_nees(
             sample.residual_position_km,
@@ -427,7 +443,14 @@ pub fn assess_position_covariance_realism(
     let mean_position_bias_norm_km = mean_position_bias_km[0]
         .hypot(mean_position_bias_km[1])
         .hypot(mean_position_bias_km[2]);
-    let mean_nees = nees_values.iter().sum::<f64>() / sample_count;
+    let nees_sum = nees_values.iter().sum::<f64>();
+    if !nees_sum.is_finite() {
+        return Err(CovarianceRealismError::NonFiniteAggregate);
+    }
+    let mean_nees = nees_sum / sample_count;
+    if !mean_nees.is_finite() || !mean_position_bias_norm_km.is_finite() {
+        return Err(CovarianceRealismError::NonFiniteAggregate);
+    }
     nees_values.sort_by(f64::total_cmp);
     let median_nees = if nees_values.len() % 2 == 0 {
         let upper = nees_values.len() / 2;
@@ -451,6 +474,8 @@ pub fn assess_position_covariance_realism(
     Ok(CovarianceRealismReport {
         report_id: config.report_id.clone(),
         cohort_id: config.cohort_id.clone(),
+        sample_manifest_sha256: config.sample_manifest_sha256.clone(),
+        algorithm_profile_id: "mycelix-position-covariance-nees-v0.1".to_string(),
         time_basis_id: cohort_time_basis,
         frame_realization_id: cohort_frame,
         covariance_profile_id: cohort_covariance_profile,
@@ -514,6 +539,7 @@ mod tests {
             report_id: "cov-realism-report-1".to_string(),
             cohort_id: "leo-operator-cov-1".to_string(),
             minimum_independent_groups: min_groups,
+            sample_manifest_sha256: DIGEST_A.to_string(),
             symmetry_relative_tolerance_ppb: 100,
         }
     }
@@ -570,6 +596,36 @@ mod tests {
                 observed_groups: 1,
                 required_groups: 3,
             }
+        );
+    }
+
+    #[test]
+    fn results_are_deterministic_under_sample_permutation_and_bind_the_manifest() {
+        let first = [
+            sample("z-last", "arc-2", [0.2, 0.0, 0.0]),
+            sample("a-first", "arc-1", [0.1, 0.0, 0.0]),
+        ];
+        let second = [first[1].clone(), first[0].clone()];
+        let report_a = assess_position_covariance_realism(&config(2), &first).unwrap();
+        let report_b = assess_position_covariance_realism(&config(2), &second).unwrap();
+        assert_eq!(report_a, report_b);
+        assert_eq!(report_a.sample_manifest_sha256, DIGEST_A);
+        assert_eq!(
+            report_a.algorithm_profile_id,
+            "mycelix-position-covariance-nees-v0.1"
+        );
+    }
+
+    #[test]
+    fn report_rejects_invalid_sample_manifest_digest() {
+        let mut cfg = config(1);
+        cfg.sample_manifest_sha256 = "not-a-digest".to_string();
+        assert_eq!(
+            assess_position_covariance_realism(&cfg, &[sample("s1", "arc-1", [0.0; 3])]),
+            Err(CovarianceRealismError::InvalidArtifactDigest {
+                sample_id: cfg.report_id,
+                field: "sample_manifest_sha256".to_string(),
+            })
         );
     }
 
@@ -650,7 +706,7 @@ mod tests {
             assess_position_covariance_realism(&config(1), &[missing]),
             Err(CovarianceRealismError::MissingProvenance {
                 sample_id: "missing".to_string(),
-                field: "observation_source_id",
+                field: "observation_source_id".to_string(),
             })
         );
 
@@ -660,7 +716,7 @@ mod tests {
             assess_position_covariance_realism(&config(1), &[bad_digest]),
             Err(CovarianceRealismError::InvalidArtifactDigest {
                 sample_id: "digest".to_string(),
-                field: "observed_state_sha256",
+                field: "observed_state_sha256".to_string(),
             })
         );
     }
