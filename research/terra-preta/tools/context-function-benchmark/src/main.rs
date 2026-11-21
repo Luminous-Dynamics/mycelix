@@ -157,8 +157,11 @@ struct PeerReference {
     independent_site_count: usize,
     percentile: Option<f64>,
     percentile_interval_95: Option<[f64; 2]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     distance_to_q90: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     distance_to_q95: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     distance_to_q99: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     distance_standard_errors: Option<QuantileErrors>,
