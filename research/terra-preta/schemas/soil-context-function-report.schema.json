@@ -175,30 +175,34 @@
                 ]
               },
               "distance_standard_errors": {
-                "type": [
-                  "object",
-                  "null"
-                ],
-                "properties": {
-                  "q90": {
-                    "type": "number",
-                    "minimum": 0
+                "oneOf": [
+                  {
+                    "type": "null"
                   },
-                  "q95": {
-                    "type": "number",
-                    "minimum": 0
-                  },
-                  "q99": {
-                    "type": "number",
-                    "minimum": 0
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "q90",
+                      "q95",
+                      "q99"
+                    ],
+                    "properties": {
+                      "q90": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "q95": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "q99": {
+                        "type": "number",
+                        "minimum": 0
+                      }
+                    }
                   }
-                },
-                "required": [
-                  "q90",
-                  "q95",
-                  "q99"
-                ],
-                "additionalProperties": false
+                ]
               },
               "interpretation": {
                 "type": "string",
