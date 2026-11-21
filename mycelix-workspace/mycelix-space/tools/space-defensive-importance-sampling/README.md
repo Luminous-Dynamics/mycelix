@@ -42,6 +42,18 @@ where s^2 is the unbiased sample variance. This is the Maurer-Pontil empirical-B
 Reference:
 - Maurer & Pontil (2009), Empirical Bernstein Bounds and Sample Variance Penalization: https://arxiv.org/abs/0907.3740
 
+## Whitening and physical-state correspondence
+
+The target distribution is evaluated in whitened joint-state coordinates z, while the high-fidelity event oracle operates on the physical state:
+
+    x = mu + L z
+
+A versioned `WhiteningTransform` binds the mean and Cholesky factor together with state layout, epoch, time scale, coordinate frame, origin and units. Each retained evaluation observation carries both z (used for the target/proposal density ratio) and the exact physical state supplied to the event oracle. Before accepting the event label, the estimator recomputes x from z and rejects any mismatch.
+
+This prevents the importance weight for one whitened sample from being paired with a collision label from a different physical state or a different epoch/frame convention. The transform Jacobian cancels in p(x)/q(x) because both target and proposal are expressed under the same invertible whitening map; the estimator therefore computes the density ratio in z-space.
+
+The metadata are caller-declared and must be bound to the exact source covariance / OD epoch and frame-conversion evidence. This validation establishes internal correspondence, not that the declared orbit frame, epoch or covariance is physically correct.
+
 ## Proposal training versus final evaluation
 
 The evidence contract requires distinct training and evaluation split identifiers, a frozen proposal, an IID evaluation design, a sample-order digest and a versioned high-fidelity continuous-time event oracle. These are caller attestations, not proofs. The estimator rejects split-ID reuse, non-IID evaluation claims, missing sampling evidence and low-fidelity event labels.
