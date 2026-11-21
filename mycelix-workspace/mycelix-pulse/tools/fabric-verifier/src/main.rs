@@ -245,6 +245,7 @@ fn run_verify_fanout(args: &[String]) {
                 json!({
                     "status": summary.status,
                     "fanout_id": summary.fanout_id,
+                    "recipient_unit": summary.recipient_unit,
                     "manifest_sha256": summary.manifest_sha256,
                     "aggregate_evidence_state": summary.disposition,
                     "required_recipients": summary.required_recipients,
