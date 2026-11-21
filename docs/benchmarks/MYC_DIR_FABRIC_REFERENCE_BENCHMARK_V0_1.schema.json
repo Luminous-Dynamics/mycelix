@@ -15,7 +15,8 @@
     "workload_profiles",
     "metrics",
     "fault_schedules",
-    "comparators"
+    "comparators",
+    "dependency_cut_profiles"
   ],
   "properties": {
     "profile": {
@@ -42,7 +43,7 @@
       "properties": {
         "required_at_execution": {
           "type": "array",
-          "minItems": 10,
+          "minItems": 14,
           "uniqueItems": true,
           "items": {
             "type": "string",
@@ -333,6 +334,37 @@
           "consistency_profile": {
             "type": "string",
             "minLength": 10
+          }
+        }
+      }
+    },
+    "dependency_cut_profiles": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": false,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "dependencies",
+          "includes_explicit_denies",
+          "includes_revocation_dependencies"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 2
+          },
+          "dependencies": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "includes_explicit_denies": {
+            "const": true
+          },
+          "includes_revocation_dependencies": {
+            "const": true
           }
         }
       }
