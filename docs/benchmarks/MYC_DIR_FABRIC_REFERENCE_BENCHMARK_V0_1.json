@@ -482,6 +482,117 @@
       "target": null,
       "gate": "report_only",
       "measurement_state": "not_measured"
+    },
+    {
+      "id": "zk_dependency_closure_proof_generation_ms",
+      "layer": "privacy_preserving_closure",
+      "metric": "Zero-knowledge proof generation for complete dependency-closure query over a committed realm/issuer graph root",
+      "unit": "ms",
+      "statistic": "distribution",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "zk_dependency_closure_verifier_p95_ms",
+      "layer": "privacy_preserving_closure",
+      "metric": "Verifier time for closure completeness proof, excluding signature and graph-root trust validation",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "zk_dependency_closure_proof_bytes",
+      "layer": "privacy_preserving_closure",
+      "metric": "Canonical proof and public-input bytes for complete request-scoped dependency closure",
+      "unit": "bytes",
+      "statistic": "distribution",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "zk_dependency_closure_prover_peak_memory_mb",
+      "layer": "privacy_preserving_closure",
+      "metric": "Peak prover memory during complete request-scoped dependency closure",
+      "unit": "MB",
+      "statistic": "maximum",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "unadmitted_graph_root_accept_count",
+      "layer": "correctness",
+      "metric": "Dependency closure proof accepted against a graph root not admitted by the owning realm/issuer authority",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "stale_graph_root_required_revocation_accept_count",
+      "layer": "correctness",
+      "metric": "Dependency closure accepted against a graph root behind a required revocation or policy frontier",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "zk_closure_omitted_deny_edge_accept_count",
+      "layer": "correctness",
+      "metric": "Zero-knowledge closure proof accepted when query plan omits a deny-relevant edge family declared mandatory by the pinned schema",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "private_graph_public_metadata_leak_count",
+      "layer": "privacy",
+      "metric": "Prohibited private relationship or linkability metadata disclosed by public cut/receipt/transparency material",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "graph_root_rollover_old_proof_invalidation_ms",
+      "layer": "privacy_preserving_closure",
+      "metric": "Time to invalidate or reject a closure proof after a required realm graph-root rollover",
+      "unit": "ms",
+      "statistic": "distribution",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
     }
   ],
   "fault_schedules": [
@@ -503,7 +614,13 @@
     "Authorization Allow without downstream effect observation, lost acknowledgement, and exact no-effect reconciliation",
     "Unknown attempt reconciled as no-effect followed by a retry that becomes unknown again",
     "Decision receipt mutation across request, realm, policy, cut, closure receipt, snapshot, nonce, evaluator or clock binding",
-    "Effect receipt with wrong logical operation, attempt, idempotency key, owner, or decision receipt"
+    "Effect receipt with wrong logical operation, attempt, idempotency key, owner, or decision receipt",
+    "Zero-knowledge closure proof is valid over an old but no-longer-admitted realm graph root",
+    "Graph-root authority is rotated after proof generation and before PEP decision",
+    "Graph query schema omits an explicit-deny or revocation edge family while prover returns a complete result for that narrower query",
+    "Graph query proof uses a different schema/query-plan digest from the relying realm profile",
+    "Stable low-entropy relationship commitments are scraped from public transparency or DHT material",
+    "Graph snapshot is authentic but has a delayed source-chain revocation not integrated into the required frontier"
   ],
   "comparators": [
     {
@@ -550,6 +667,21 @@
       "name": "SCITT RFC 9943",
       "scope": "Signed decision-statement transparency and inclusion receipts",
       "consistency_profile": "Measure statement registration/inclusion/lookup and privacy; explicitly classify SCITT receipt as transparency evidence only, not truth, identity, permission or proof of downstream effect"
+    },
+    {
+      "name": "VerfGraph (arXiv:2611.04240)",
+      "scope": "Zero-knowledge verifiable graph query evaluation over committed private graph snapshots",
+      "consistency_profile": "Adapt expansion/set expansion/count/shortest-path proof operators only where their query semantics match the dependency-closure query; bind exact graph root/schema/query; paper-reported results are preprint baselines, not Mycelix results"
+    },
+    {
+      "name": "ZKGraph",
+      "scope": "Expansion-centric zero-knowledge graph query proof baseline",
+      "consistency_profile": "Run the same query plans and committed graph roots as VerfGraph; report proof generation, proof size, verifier latency, prover memory and privacy separately"
+    },
+    {
+      "name": "LDBC SNB",
+      "scope": "Public graph-data workload for query scale and operator comparability",
+      "consistency_profile": "Use official Interactive and Business Intelligence workload definitions as graph operator baselines; add a separate authority graph corpus with deny/revocation semantics"
     }
   ],
   "dependency_cut_profiles": [
