@@ -38,6 +38,10 @@ These modules emit versioned, domain-separated canonical bytes. They do not hash
 
 See [the RSCAC and receipt composition design](../../docs/research/MYCELIX_DIRECTORY_FABRIC_CAUSAL_CUT_AND_RECEIPTS_V0_1.md), [the 24-case adversarial corpus](../../docs/benchmarks/MYC_DIR_CAUSAL_CUT_RECEIPTS_V0_1.json), and [its Draft 2020-12 schema](../../docs/benchmarks/MYC_DIR_CAUSAL_CUT_RECEIPTS_V0_1.schema.json).
 
+## Finite-state composition model
+
+A TLA+ model and four negative-control configurations are in `mycelix-workspace/mycelix-pulse/docs/security/DirectoryFabricCausalCutReceipts.tla`. They exercise omitted dependency closure, scalar frontier substitution, retry while outcome is Unknown, and duplicate logical-effect commit. The [model note](../../mycelix-workspace/mycelix-pulse/docs/security/DirectoryFabricCausalCutReceipts-model-2026-11-21.md) records intended invariants and abstraction limits. The model/configurations are source-present only; TLC has not been run.
+
 ## Deliberate reuse boundary
 
 The crate does not implement a new policy language or a second constraint algebra. The complete request-context witness and constraint-subsumption/deny-preservation obligations remain with Mycelix authority work:
