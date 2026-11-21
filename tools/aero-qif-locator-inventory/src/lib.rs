@@ -1701,6 +1701,46 @@ mod tests {
         );
     }
 
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct HandEnumeratedLocatorOracleV1 {
+        schema: String,
+        profile_id: String,
+        profile_version: String,
+        qif_standard_version: String,
+        case_id: String,
+        claim_ceiling: String,
+        locators: Vec<SourceFieldLocatorV1>,
+    }
+
+    #[test]
+    fn raw_qif_inventory_matches_independent_hand_enumerated_locator_oracle() {
+        let oracle: HandEnumeratedLocatorOracleV1 = serde_json::from_slice(include_bytes!(
+            "../aero-qif-locator-inventory/fixtures/hand-enumerated-locators-v1.json"
+        )).unwrap();
+        assert_eq!(oracle.schema, "AeroQifHandEnumeratedLocatorOracleV1");
+        assert_eq!(oracle.profile_id, "AERO_QIF_TEST7_8_TRACE");
+        assert_eq!(oracle.profile_version, "1.0.0");
+        assert_eq!(oracle.qif_standard_version, "3.0.0");
+        assert_eq!(oracle.case_id, "SYNTHETIC_QIF_RESULTS_AND_PLAN_V1");
+        assert!(oracle.claim_ceiling.contains("not a complete QIF XSD inventory"));
+
+        let (inventory, report) = derive_trace_locator_inventory(
+            "hand-oracle-comparison",
+            &profile(),
+            &docs(RESULTS.as_bytes(), PLAN.as_bytes())
+        ).unwrap();
+        let actual = inventory_required_locators(&inventory).unwrap();
+        let expected_set: BTreeSet<_> = oracle.locators.iter().cloned().collect();
+        let actual_set: BTreeSet<_> = actual.iter().cloned().collect();
+
+        assert_eq!(oracle.locators.len(), 25);
+        assert_eq!(expected_set.len(), oracle.locators.len(), "oracle must not contain duplicate locators");
+        assert_eq!(actual.len(), oracle.locators.len(), "scanner must not add or omit rows");
+        assert_eq!(actual_set, expected_set);
+        assert_eq!(report.locator_count, oracle.locators.len());
+    }
+
     #[test]
     fn derives_namespace_aware_inventory_from_raw_results_and_plan() {
         let documents = docs(RESULTS.as_bytes(), PLAN.as_bytes());
@@ -1708,10 +1748,10 @@ mod tests {
         assert_eq!(report.disposition, InventoryDisposition::Complete);
         assert_eq!(report.source_document_count, 2);
         assert_eq!(report.declared_external_reference_count, 1);
-        assert_eq!(report.locator_count, 23);
+        assert_eq!(report.locator_count, 25);
         assert_eq!(
             inventory_required_locators(&inventory).unwrap().len(),
-            23
+            25
         );
     }
 
