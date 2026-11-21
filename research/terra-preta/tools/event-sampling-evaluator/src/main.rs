@@ -654,16 +654,28 @@ mod tests {
     #[test]
     fn fixed_six_hour_cadence_misses_pulse_and_abstains_on_integral() {
         let r = report();
-        let fixed = r.policy_results.iter().find(|x| x.policy_id == "fixed-6h").unwrap();
+        let fixed = r
+            .policy_results
+            .iter()
+            .find(|x| x.policy_id == "fixed-6h")
+            .unwrap();
         assert_eq!(fixed.pulse_capture_status, "missed");
         assert_eq!(fixed.event_integral_status, "gap_exceeded");
-        assert!(fixed.sampled_event_integral_absolute_anomaly_unit_hours.is_none());
+        assert!(
+            fixed
+                .sampled_event_integral_absolute_anomaly_unit_hours
+                .is_none()
+        );
     }
 
     #[test]
     fn adaptive_from_past_captures_pulse_and_resolves_event_integral() {
         let r = report();
-        let adaptive = r.policy_results.iter().find(|x| x.policy_id == "adaptive-from-past").unwrap();
+        let adaptive = r
+            .policy_results
+            .iter()
+            .find(|x| x.policy_id == "adaptive-from-past")
+            .unwrap();
         assert_eq!(adaptive.pulse_capture_status, "captured");
         assert_eq!(adaptive.event_integral_status, "qualified");
         assert_eq!(adaptive.sample_count, 11);
@@ -673,7 +685,11 @@ mod tests {
     #[test]
     fn high_rate_oracle_is_a_ceiling_with_exact_recovery() {
         let r = report();
-        let oracle = r.policy_results.iter().find(|x| x.policy_id == "oracle-1h").unwrap();
+        let oracle = r
+            .policy_results
+            .iter()
+            .find(|x| x.policy_id == "oracle-1h")
+            .unwrap();
         assert_eq!(oracle.evaluation_role, "evaluation_ceiling_only");
         assert_eq!(oracle.sample_count, 25);
         assert_eq!(oracle.pulse_capture_status, "captured");
@@ -698,14 +714,17 @@ mod tests {
     #[test]
     fn adaptive_action_without_past_observation_is_rejected() {
         let mut s = scenario();
-        s.policies[1].sample_actions[1].decision_basis_observation_ids.clear();
+        s.policies[1].sample_actions[1]
+            .decision_basis_observation_ids
+            .clear();
         assert!(validate(&s).is_err());
     }
 
     #[test]
     fn duplicate_policy_sample_id_is_rejected() {
         let mut s = scenario();
-        s.policies[0].sample_actions[1].sample_id = s.policies[0].sample_actions[0].sample_id.clone();
+        s.policies[0].sample_actions[1].sample_id =
+            s.policies[0].sample_actions[0].sample_id.clone();
         assert!(validate(&s).is_err());
     }
 }
