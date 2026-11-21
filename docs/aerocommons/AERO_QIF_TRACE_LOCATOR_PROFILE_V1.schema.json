@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/aero-qif-trace-locator-profile-v1.json",
+  "title": "AeroQifTraceLocatorProfileV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "profile_id",
+    "profile_version",
+    "qif_standard_version",
+    "rules",
+    "limits"
+  ],
+  "properties": {
+    "schema": {
+      "const": "AeroQifTraceLocatorProfileV1"
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "qif_standard_version": {
+      "const": "3.0.0"
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/rule"
+      }
+    },
+    "limits": {
+      "$ref": "#/$defs/limits"
+    }
+  },
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule_id",
+        "document_role",
+        "expanded_path",
+        "capture",
+        "min_occurrences",
+        "max_occurrences",
+        "capture_attributes",
+        "declares_external_document_reference"
+      ],
+      "properties": {
+        "rule_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "document_role": {
+          "enum": [
+            "results",
+            "plan",
+            "auxiliary"
+          ]
+        },
+        "expanded_path": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string",
+            "pattern": "^\\{[^}]+\\}([^/]+|\\*)$"
+          }
+        },
+        "capture": {
+          "enum": [
+            "element",
+            "element_id",
+            "text",
+            "qif_reference",
+            "local_qif_reference",
+            "document_qpid",
+            "external_plan_qpid",
+            "external_plan_uri"
+          ]
+        },
+        "min_occurrences": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000000
+        },
+        "max_occurrences": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 2000000
+        },
+        "capture_attributes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^\\{[^}]*\\}.+$"
+          },
+          "uniqueItems": true
+        },
+        "declares_external_document_reference": {
+          "type": "boolean"
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_source_bytes",
+        "max_elements",
+        "max_depth",
+        "max_attributes_per_element",
+        "max_attribute_bytes",
+        "max_text_bytes_per_element",
+        "max_total_text_bytes",
+        "max_locators",
+        "max_namespace_bindings"
+      ],
+      "properties": {
+        "max_source_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 104857600
+        },
+        "max_elements": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000000
+        },
+        "max_depth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128
+        },
+        "max_attributes_per_element": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        },
+        "max_attribute_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "max_text_bytes_per_element": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10485760
+        },
+        "max_total_text_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 104857600
+        },
+        "max_locators": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000000
+        },
+        "max_namespace_bindings": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        }
+      }
+    }
+  }
+}
