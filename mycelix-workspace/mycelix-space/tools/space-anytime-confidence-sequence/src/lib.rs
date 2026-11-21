@@ -173,8 +173,10 @@ fn log_mean_exp(values: &[f64]) -> f64 {
 /// Return the time-uniform one-sided upper confidence bound after a prefix.
 ///
 /// A candidate p0 is rejected when log(M_t(p0)) >= ln(1/delta). By Ville's
-/// inequality, the probability that any time t rejects a true conditional
-/// mean cap p0 is at most delta, under the declared conditional null.
+/// inequality, the probability of ever rejecting a true lower cap on the
+/// conditional violation probability is at most delta. The returned bound
+/// is for the largest uniform lower cap across the declared sequence; it is
+/// an upper bound on the common p in the IID Bernoulli special case.
 pub fn upper_bound_at(
     observations: &[bool],
     delta: f64,
