@@ -15,7 +15,8 @@
     "fixed_initial_interface_ablation",
     "transient_minus_fixed_transfer_m3",
     "controls",
-    "interpretation_boundary"
+    "interpretation_boundary",
+    "interfacial_flux_density_source"
   ],
   "properties": {
     "audit_version": {
@@ -76,6 +77,9 @@
     },
     "fixed_initial_interface_ablation": {
       "$ref": "#/$defs/model_result"
+    },
+    "interfacial_flux_density_source": {
+      "const": "synthetic_manufactured"
     }
   },
   "$defs": {
