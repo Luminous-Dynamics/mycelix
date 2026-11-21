@@ -1572,78 +1572,8 @@ mod tests {
         ]
     }
 
-    const RESULTS: &str = r#"
-<QIFDocument xmlns="http://qifstandards.org/xsd/qif3" idMax="9999" versionQIF="3.0.0">
-  <QPId>10000000-0000-4000-8000-000000000001</QPId>
-  <ExternalQIFReferences n="1">
-    <ExternalQIFDocument id="7">
-      <QPId>20000000-0000-4000-8000-000000000002</QPId>
-      <URI>https://vendor.example/qif/Plan-A.qif</URI>
-    </ExternalQIFDocument>
-  </ExternalQIFReferences>
-  <Results>
-    <MeasurementResultsSet n="1">
-      <MeasurementResults id="100">
-        <MeasuredCharacteristics>
-          <CharacteristicMeasurements n="3">
-            <LinearCharacteristicMeasurement id="901">
-              <Status><CharacteristicStatusEnum>PASS</CharacteristicStatusEnum></Status>
-              <CharacteristicItemId xId="301">7</CharacteristicItemId>
-            </LinearCharacteristicMeasurement>
-            <LinearCharacteristicMeasurement id="902">
-              <Status><CharacteristicStatusEnum>FAIL</CharacteristicStatusEnum></Status>
-              <CharacteristicItemId xId="302">7</CharacteristicItemId>
-            </LinearCharacteristicMeasurement>
-            <LinearCharacteristicMeasurement id="903">
-              <Status><OtherCharacteristicStatus>NOT_EVALUATED</OtherCharacteristicStatus></Status>
-              <CharacteristicItemId xId="301">7</CharacteristicItemId>
-            </LinearCharacteristicMeasurement>
-          </CharacteristicMeasurements>
-        </MeasuredCharacteristics>
-        <InspectionStatus><InspectionStatusEnum>PASS</InspectionStatusEnum></InspectionStatus>
-      </MeasurementResults>
-    </MeasurementResultsSet>
-  </Results>
-</QIFDocument>
-"#;
-
-    const PLAN: &str = r#"
-<q:QIFDocument xmlns:q="http://qifstandards.org/xsd/qif3" idMax="9999" versionQIF="3.0.0">
-  <q:QPId>20000000-0000-4000-8000-000000000002</q:QPId>
-  <q:Characteristics>
-    <q:CharacteristicNominals n="1">
-      <q:LinearCharacteristicNominal id="501">
-        <q:EntityExternalIds n="1"><q:Id>9001</q:Id></q:EntityExternalIds>
-      </q:LinearCharacteristicNominal>
-    </q:CharacteristicNominals>
-    <q:CharacteristicItems n="2">
-      <q:LinearCharacteristicItem id="301">
-        <q:CharacteristicNominalId>501</q:CharacteristicNominalId>
-      </q:LinearCharacteristicItem>
-      <q:LinearCharacteristicItem id="302">
-        <q:CharacteristicNominalId>501</q:CharacteristicNominalId>
-      </q:LinearCharacteristicItem>
-    </q:CharacteristicItems>
-  </q:Characteristics>
-  <q:Product>
-    <q:PartSet n="1">
-      <q:Part id="6001">
-        <q:DefinitionExternal id="6002" n="1">
-          <q:DigitalModel id="6003">
-            <q:Name>Example model</q:Name>
-            <q:File><q:Name>example.step</q:Name></q:File>
-            <q:Entities n="1">
-              <q:Entity id="9001">
-                <q:EntityId>550e8400-e29b-41d4-a716-446655440000</q:EntityId>
-              </q:Entity>
-            </q:Entities>
-          </q:DigitalModel>
-        </q:DefinitionExternal>
-      </q:Part>
-    </q:PartSet>
-  </q:Product>
-</q:QIFDocument>
-"#;
+    const RESULTS: &str = include_str!("../fixtures/synthetic/results.qif");
+    const PLAN: &str = include_str!("../fixtures/synthetic/plan.qif");
 
     #[test]
     fn source_document_cannot_omit_external_plan_relationship_set() {
