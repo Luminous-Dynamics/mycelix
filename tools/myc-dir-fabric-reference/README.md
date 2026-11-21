@@ -40,14 +40,26 @@ These modules emit versioned, domain-separated canonical bytes. They do not hash
 
 See [the RSCAC and receipt composition design](../../docs/research/MYCELIX_DIRECTORY_FABRIC_CAUSAL_CUT_AND_RECEIPTS_V0_1.md), [the 24-case adversarial corpus](../../docs/benchmarks/MYC_DIR_CAUSAL_CUT_RECEIPTS_V0_1.json), and [its Draft 2020-12 schema](../../docs/benchmarks/MYC_DIR_CAUSAL_CUT_RECEIPTS_V0_1.schema.json).
 
+## Effect-surface inventory closure
+
+`src/effect_inventory.rs` models the completeness of the mutation-route inventory itself:
+- routes bind an exact route ID, surface kind, effect owner and enforcement mode;
+- a revocation-specific inventory binds resource scope, revocation digest, topology snapshot, inventory epoch, manifest digest and route-set digest;
+- an external closure receipt binds that exact inventory to verifier identity/build, proof digest and verification status;
+- only a verified-complete inventory in which every reachable route uses an atomic owner fence is strong-fence eligible;
+- CAEP-signal-only, token-expiry-only and best-effort routes prevent a strict mutation-revocation claim;
+- revocation-plan construction derives the owner set from the route inventory and rejects missing or extra owner targets.
+
+The module checks structure, not proof authenticity or actual route discovery. The independent inventory verifier remains a critical trust boundary.
+
 ## Resource-enforced revocation fencing
 
-`src/effect_fence.rs` models mutation-boundary fencing:
+`src/effect_fence.rs` models mutation-boundary fencing and requires an independently verified complete effect-surface inventory before a strict revocation plan can be built:
 - each fence is scoped to an exact realm/resource/action and effect owner, not a global sequence;
 - old tokens become stale when the resource owner installs a higher generation; unissued future generations and cross-resource tokens are rejected;
 - a fenced command binds one exact Allow decision digest, request, logical operation, idempotency commitment and owner token;
 - a revocation plan declares the required owner inventory and per-owner target generations; strict completion requires every exact owner acknowledgement, not a quorum;
-- missing acknowledgements leave revocation pending; owner inventory completeness and acknowledgement authenticity remain external trust boundaries.
+- missing acknowledgements leave revocation pending; inventory completeness is represented by a bound closure receipt, while verifier authenticity and actual route discovery remain external trust boundaries.
 
 Production condition: the effect owner must persist/install the new generation and compare the request token in the **same atomic transaction** as the protected mutation. A separate check followed by a later write is unsafe. The reference constructor starts at generation 1 for model genesis only; production recovery must restore the authenticated durable high-water mark and must never reset the counter to 1 after restart or snapshot rollback. Revocation is only complete after all independently inventoried owners acknowledge durable installation. An external API that cannot enforce this at its mutation boundary cannot receive the strong revocation guarantee.
 
@@ -83,7 +95,7 @@ cargo clippy --manifest-path tools/myc-dir-fabric-reference/Cargo.toml --all-tar
 cargo fmt --manifest-path tools/myc-dir-fabric-reference/Cargo.toml -- --check
 ```
 
-The crate has no third-party dependencies. The branch currently authors 68 deterministic unit tests across frontier/snapshot/lease/group, dependency-closure, decision-receipt and effect-history semantics. They are source-present only until run on the exact head. They do not substitute for independent closure-proof validation, external property-testing, mutation testing, or a proof assistant.
+The crate has no third-party dependencies. The branch currently authors 80 deterministic unit tests across frontier/snapshot/lease/group, dependency-closure, decision-receipt and effect-history semantics. They are source-present only until run on the exact head. They do not substitute for independent closure-proof validation, external property-testing, mutation testing, or a proof assistant.
 
 ## Explicit claim ceiling
 
