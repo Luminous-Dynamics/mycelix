@@ -24,6 +24,7 @@ struct Fixture {
     scenario_id: String,
     bulk_volume_m3: f64,
     maximum_gap_seconds: f64,
+    interfacial_flux_density_source: String,
     matrix_water_initial_m3: f64,
     macropore_water_initial_m3: f64,
     matrix_water_capacity_m3: f64,
@@ -36,7 +37,7 @@ struct Fixture {
 struct Point {
     elapsed_seconds: f64,
     wetted_interface_area_m2_per_m3: f64,
-    macropore_flux_density_m_per_s: f64,
+    interfacial_exchange_flux_density_m_per_s: f64,
 }
 
 #[derive(Debug, Serialize)]
@@ -48,6 +49,7 @@ struct Report {
     bulk_volume_m3: f64,
     point_count: usize,
     maximum_gap_seconds: f64,
+    interfacial_flux_density_source: String,
     transient_interface_exchange: ModelResult,
     fixed_initial_interface_ablation: ModelResult,
     transient_minus_fixed_transfer_m3: f64,
@@ -78,6 +80,21 @@ struct Controls {
 
 #[derive(Clone, Copy)]
 struct WaterState {
+    matrix_m3: f64,
+    macropore_m3: f64,
+}
+
+#[derive(Clone, Copy)]
+struct IntervalInputs {
+    area0_m2_per_m3: f64,
+    flux0_m_per_s: f64,
+    area1_m2_per_m3: f64,
+    flux1_m_per_s: f64,
+    duration_seconds: f64,
+}
+
+#[derive(Clone, Copy)]
+struct CompartmentCapacities {
     matrix_m3: f64,
     macropore_m3: f64,
 }
@@ -152,25 +169,20 @@ fn apply_transfer(
 /// donor overdraw or receiver overfill.
 fn integrate_interval(
     state: &mut WaterState,
-    area0: f64,
-    flux0: f64,
-    area1: f64,
-    flux1: f64,
-    duration_seconds: f64,
+    interval: IntervalInputs,
     bulk_volume_m3: f64,
-    matrix_capacity_m3: f64,
-    macropore_capacity_m3: f64,
+    capacities: CompartmentCapacities,
 ) -> Result<(f64, f64, f64, f64), String> {
-    nonnegative(area0, "left wetted interface area")?;
-    nonnegative(area1, "right wetted interface area")?;
-    if !flux0.is_finite() || !flux1.is_finite() {
-        return Err("macropore flux density must be finite".to_string());
+    nonnegative(interval.area0_m2_per_m3, "left wetted interface area")?;
+    nonnegative(interval.area1_m2_per_m3, "right wetted interface area")?;
+    if !interval.flux0_m_per_s.is_finite() || !interval.flux1_m_per_s.is_finite() {
+        return Err("interfacial exchange flux density must be finite".to_string());
     }
-    positive(duration_seconds, "interval duration")?;
+    positive(interval.duration_seconds, "interval duration")?;
     positive(bulk_volume_m3, "bulk volume")?;
 
-    let rate0 = area0 * flux0;
-    let rate1 = area1 * flux1;
+    let rate0 = interval.area0_m2_per_m3 * interval.flux0_m_per_s;
+    let rate1 = interval.area1_m2_per_m3 * interval.flux1_m_per_s;
     if !rate0.is_finite() || !rate1.is_finite() {
         return Err("exchange rate density overflowed".to_string());
     }
@@ -182,8 +194,8 @@ fn integrate_interval(
         apply_transfer(
             state,
             transfer_m3,
-            matrix_capacity_m3,
-            macropore_capacity_m3,
+            capacities.matrix_m3,
+            capacities.macropore_m3,
         )?;
         if transfer_m3 >= 0.0 {
             macro_to_matrix += transfer_m3;
@@ -195,12 +207,12 @@ fn integrate_interval(
 
     if rate0 * rate1 < 0.0 {
         let fraction = rate0.abs() / (rate0.abs() + rate1.abs());
-        let first_seconds = duration_seconds * fraction;
-        let second_seconds = duration_seconds - first_seconds;
+        let first_seconds = interval.duration_seconds * fraction;
+        let second_seconds = interval.duration_seconds - first_seconds;
         apply_piece(rate0 * 0.5 * first_seconds)?;
         apply_piece(rate1 * 0.5 * second_seconds)?;
     } else {
-        apply_piece((rate0 + rate1) * 0.5 * duration_seconds)?;
+        apply_piece((rate0 + rate1) * 0.5 * interval.duration_seconds)?;
     }
 
     Ok((
@@ -247,14 +259,18 @@ fn run_model(fixture: &Fixture, fixed_interface: bool) -> Result<ModelResult, St
         };
         let (signed, forward, reverse, max_rate) = integrate_interval(
             &mut state,
-            area0,
-            left.macropore_flux_density_m_per_s,
-            area1,
-            right.macropore_flux_density_m_per_s,
-            duration,
+            IntervalInputs {
+                area0_m2_per_m3: area0,
+                flux0_m_per_s: left.interfacial_exchange_flux_density_m_per_s,
+                area1_m2_per_m3: area1,
+                flux1_m_per_s: right.interfacial_exchange_flux_density_m_per_s,
+                duration_seconds: duration,
+            },
             fixture.bulk_volume_m3,
-            fixture.matrix_water_capacity_m3,
-            fixture.macropore_water_capacity_m3,
+            CompartmentCapacities {
+                matrix_m3: fixture.matrix_water_capacity_m3,
+                macropore_m3: fixture.macropore_water_capacity_m3,
+            },
         )?;
         signed_total += signed;
         macro_to_matrix_total += forward;
@@ -302,6 +318,9 @@ fn validate_fixture(fixture: &Fixture) -> Result<(), String> {
     if fixture.scenario_id.trim().is_empty() {
         return Err("scenario_id must be non-empty".to_string());
     }
+    if fixture.interfacial_flux_density_source != "synthetic_manufactured" {
+        return Err("v0.1 fixture must identify its interfacial flux density as synthetic_manufactured".to_string());
+    }
     positive(fixture.bulk_volume_m3, "bulk_volume_m3")?;
     positive(fixture.maximum_gap_seconds, "maximum_gap_seconds")?;
     nonnegative(fixture.matrix_water_initial_m3, "matrix_water_initial_m3")?;
@@ -330,8 +349,8 @@ fn validate_fixture(fixture: &Fixture) -> Result<(), String> {
             point.wetted_interface_area_m2_per_m3,
             &format!("point {index} wetted interface area"),
         )?;
-        if !point.macropore_flux_density_m_per_s.is_finite() {
-            return Err(format!("point {index} macropore flux is non-finite"));
+        if !point.interfacial_exchange_flux_density_m_per_s.is_finite() {
+            return Err(format!("point {index} interfacial exchange flux density is non-finite"));
         }
         if index > 0 && point.elapsed_seconds <= fixture.points[index - 1].elapsed_seconds {
             return Err("time points must be strictly increasing".to_string());
@@ -370,6 +389,7 @@ fn audit_bytes(bytes: &[u8]) -> Result<Report, String> {
         bulk_volume_m3: fixture.bulk_volume_m3,
         point_count: fixture.points.len(),
         maximum_gap_seconds: fixture.maximum_gap_seconds,
+        interfacial_flux_density_source: fixture.interfacial_flux_density_source,
         transient_minus_fixed_transfer_m3: transient.signed_transfer_volume_m3
             - fixed.signed_transfer_volume_m3,
         transient_interface_exchange: transient,
@@ -489,7 +509,7 @@ mod tests {
     fn reverse_flux_transfers_water_from_matrix_to_macropore() {
         let mut value = fixture();
         for point in value["points"].as_array_mut().unwrap() {
-            point["macropore_flux_density_m_per_s"] = Value::from(-1e-5);
+            point["interfacial_exchange_flux_density_m_per_s"] = Value::from(-1e-5);
         }
         let report = audit(&value).unwrap();
         assert!(
