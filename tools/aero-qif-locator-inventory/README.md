@@ -88,7 +88,8 @@ The profile’s minimum/maximum rule counts are additional guards. They do not c
 3. Preserve the inventory artifact, profile digest, source digests, scanner executable digest and report as evidence.
 4. Compare the derived locators to the separate hand-enumerated oracle.
 5. Pass `inventory_required_locators()` output into #6372 as the frozen `required_locators` set.
-6. #6372 then checks that mapping rows cover this supplied inventory exactly; it does not regenerate or trust the adapter's own field count.
+6. The CLI's `--required-locators-out` emits the verified `SourceFieldLocatorV1[]` set in the exact field shape accepted by #6372.
+7. #6372 then checks that mapping rows cover this supplied inventory exactly; it does not regenerate or trust the adapter's own field count.
 
 This avoids a circular arrangement in which the extractor under test creates both its mapping rows and the expected denominator.
 
