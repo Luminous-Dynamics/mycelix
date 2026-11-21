@@ -1,0 +1,866 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/terra-preta/schemas/sa-soil-source-admission.schema.json",
+  "title": "South African soil-source admission record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "evidence_class",
+    "source_record",
+    "provenance",
+    "rights",
+    "artifact",
+    "spatial_support",
+    "depth_support",
+    "temporal_support",
+    "variables",
+    "intended_uses",
+    "lineage",
+    "admission_status",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sa-soil-source-admission-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_metadata_example_not_source_evidence"
+    },
+    "evidence_class": {
+      "const": "synthetic"
+    },
+    "source_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "source_type",
+        "title",
+        "custodian",
+        "canonical_uri",
+        "release_id",
+        "published_or_updated_at"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_type": {
+          "enum": [
+            "point_sample_dataset",
+            "soil_profile_archive",
+            "map_inventory",
+            "digital_soil_map",
+            "pedotransfer_product",
+            "spectral_dataset",
+            "historical_survey",
+            "other"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "custodian": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonical_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "release_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "published_or_updated_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "collection_start": {
+          "type": "string",
+          "format": "date"
+        },
+        "collection_end": {
+          "type": "string",
+          "format": "date"
+        },
+        "metadata_reviewed_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_method",
+        "source_lineage",
+        "acquisition_timestamp"
+      ],
+      "properties": {
+        "source_method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_lineage": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "acquisition_timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "publisher_checksum": {
+          "type": "string",
+          "minLength": 1
+        },
+        "publisher_checksum_algorithm": {
+          "enum": [
+            "md5",
+            "sha1",
+            "sha256",
+            "other",
+            "none"
+          ]
+        }
+      }
+    },
+    "rights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "license_status",
+        "license_or_agreement",
+        "access_terms",
+        "redistribution_allowed",
+        "purpose_restrictions"
+      ],
+      "properties": {
+        "license_status": {
+          "enum": [
+            "verified_open",
+            "verified_restricted",
+            "agreement_required",
+            "pending_review",
+            "unknown",
+            "not_applicable_synthetic"
+          ]
+        },
+        "license_or_agreement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "access_terms": {
+          "type": "string",
+          "minLength": 1
+        },
+        "redistribution_allowed": {
+          "type": "boolean"
+        },
+        "purpose_restrictions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "acquisition_status"
+      ],
+      "properties": {
+        "acquisition_status": {
+          "enum": [
+            "not_acquired",
+            "publisher_checksum_only",
+            "sha256_verified"
+          ]
+        },
+        "file_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "byte_size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "acquired_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "publisher_checksum_verified": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "acquisition_status": {
+                "const": "sha256_verified"
+              }
+            },
+            "required": [
+              "acquisition_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "file_name",
+              "byte_size",
+              "sha256",
+              "acquired_at"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "acquisition_status": {
+                "const": "not_acquired"
+              }
+            },
+            "required": [
+              "acquisition_status"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "sha256"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "spatial_support": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "support_type",
+        "crs",
+        "native_support_description",
+        "spatial_accuracy_status"
+      ],
+      "properties": {
+        "support_type": {
+          "enum": [
+            "point",
+            "soil_profile",
+            "polygon",
+            "raster",
+            "regional_unit",
+            "mixed",
+            "unknown"
+          ]
+        },
+        "crs": {
+          "type": "string",
+          "minLength": 1
+        },
+        "native_support_description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "spatial_accuracy_status": {
+          "enum": [
+            "reported",
+            "estimated",
+            "not_reported",
+            "not_applicable"
+          ]
+        },
+        "positional_accuracy_m": {
+          "type": "number",
+          "minimum": 0
+        },
+        "native_resolution_m": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "map_scale_denominator": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "geometry_type": {
+          "enum": [
+            "point",
+            "multipoint",
+            "polygon",
+            "multipolygon",
+            "grid",
+            "profile",
+            "tabular",
+            "mixed",
+            "unknown"
+          ]
+        },
+        "coverage_description": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "support_type": {
+                "const": "point"
+              }
+            },
+            "required": [
+              "support_type"
+            ]
+          },
+          "then": {
+            "required": [
+              "positional_accuracy_m",
+              "geometry_type"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "support_type": {
+                "const": "raster"
+              }
+            },
+            "required": [
+              "support_type"
+            ]
+          },
+          "then": {
+            "required": [
+              "native_resolution_m",
+              "geometry_type"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "support_type": {
+                "const": "polygon"
+              }
+            },
+            "required": [
+              "support_type"
+            ]
+          },
+          "then": {
+            "required": [
+              "map_scale_denominator",
+              "geometry_type"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "support_type": {
+                "const": "soil_profile"
+              }
+            },
+            "required": [
+              "support_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "geometry_type": {
+                "enum": [
+                  "profile",
+                  "tabular",
+                  "mixed"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "depth_support": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "depth_status",
+        "description"
+      ],
+      "properties": {
+        "depth_status": {
+          "enum": [
+            "known_interval",
+            "soil_horizon",
+            "profile_sequence",
+            "surface_only",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "min_depth_m": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_depth_m": {
+          "type": "number",
+          "minimum": 0
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "horizon_labels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "depth_status": {
+                "const": "known_interval"
+              }
+            },
+            "required": [
+              "depth_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "min_depth_m",
+              "max_depth_m"
+            ],
+            "properties": {
+              "max_depth_m": {
+                "minimum": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "temporal_support": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "temporal_status",
+        "description"
+      ],
+      "properties": {
+        "temporal_status": {
+          "enum": [
+            "dated_observation",
+            "collection_interval",
+            "composite_period",
+            "historical_vintage",
+            "model_reference_period",
+            "unknown"
+          ]
+        },
+        "start_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "end_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "variables": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "variable_id",
+          "property_name",
+          "value_semantics",
+          "unit",
+          "definition",
+          "method",
+          "uncertainty_status"
+        ],
+        "properties": {
+          "variable_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "property_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value_semantics": {
+            "enum": [
+              "directly_measured",
+              "mapped_class",
+              "digital_map_prediction",
+              "pedotransfer_estimate",
+              "spectral_prediction",
+              "other_derived"
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "definition": {
+            "type": "string",
+            "minLength": 1
+          },
+          "method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reference_method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model_training_lineage": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "uncertainty_status": {
+            "enum": [
+              "quantified",
+              "partially_quantified",
+              "not_quantified",
+              "not_applicable_synthetic"
+            ]
+          },
+          "uncertainty_description": {
+            "type": "string"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "value_semantics": {
+                  "const": "directly_measured"
+                }
+              },
+              "required": [
+                "value_semantics"
+              ]
+            },
+            "then": {
+              "required": [
+                "reference_method"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "value_semantics": {
+                  "enum": [
+                    "digital_map_prediction",
+                    "pedotransfer_estimate",
+                    "spectral_prediction"
+                  ]
+                }
+              },
+              "required": [
+                "value_semantics"
+              ]
+            },
+            "then": {
+              "required": [
+                "model_name",
+                "model_version",
+                "model_training_lineage"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "intended_uses": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "regional_stratification",
+          "sampling_design",
+          "regional_context",
+          "model_training",
+          "model_validation",
+          "local_validation",
+          "field_plot_inference",
+          "public_redistribution"
+        ]
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "independence_group_ids",
+        "shared_source_dependencies"
+      ],
+      "properties": {
+        "study_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "survey_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "sample_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "batch_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "instrument_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "calibration_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "independence_group_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "shared_source_dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "admission_status": {
+      "enum": [
+        "discovered_unreviewed",
+        "metadata_reviewed",
+        "rights_reviewed",
+        "bytes_verified",
+        "qualified_regional_context",
+        "qualified_sampling_design",
+        "qualified_training",
+        "qualified_local_validation",
+        "withdrawn"
+      ]
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source_record": {
+            "properties": {
+              "source_type": {
+                "const": "map_inventory"
+              }
+            },
+            "required": [
+              "source_type"
+            ]
+          }
+        },
+        "required": [
+          "source_record"
+        ]
+      },
+      "then": {
+        "properties": {
+          "variables": {
+            "items": {
+              "properties": {
+                "value_semantics": {
+                  "enum": [
+                    "mapped_class",
+                    "digital_map_prediction",
+                    "other_derived"
+                  ]
+                }
+              }
+            }
+          },
+          "intended_uses": {
+            "items": {
+              "not": {
+                "enum": [
+                  "local_validation",
+                  "field_plot_inference"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_record": {
+            "properties": {
+              "source_type": {
+                "const": "pedotransfer_product"
+              }
+            },
+            "required": [
+              "source_type"
+            ]
+          }
+        },
+        "required": [
+          "source_record"
+        ]
+      },
+      "then": {
+        "properties": {
+          "variables": {
+            "items": {
+              "properties": {
+                "value_semantics": {
+                  "const": "pedotransfer_estimate"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "intended_uses": {
+            "contains": {
+              "const": "public_redistribution"
+            }
+          }
+        },
+        "required": [
+          "intended_uses"
+        ]
+      },
+      "then": {
+        "properties": {
+          "rights": {
+            "properties": {
+              "license_status": {
+                "const": "verified_open"
+              },
+              "redistribution_allowed": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "artifact": {
+            "properties": {
+              "acquisition_status": {
+                "const": "sha256_verified"
+              }
+            },
+            "required": [
+              "acquisition_status"
+            ]
+          }
+        },
+        "required": [
+          "artifact"
+        ]
+      },
+      "then": {
+        "properties": {
+          "admission_status": {
+            "enum": [
+              "bytes_verified",
+              "qualified_regional_context",
+              "qualified_sampling_design",
+              "qualified_training",
+              "qualified_local_validation",
+              "withdrawn"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
