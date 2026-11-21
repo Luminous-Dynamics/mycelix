@@ -112,7 +112,7 @@ The model does not verify signatures, issuer admission, Holochain DHT validity, 
 No compile/test/Clippy result is claimed until these commands run against the exact repository head. No production or benchmark superiority claim is made.
 
 
-Queue delivery adds 14 authored Rust unit tests. Current total across the six reference modules: 94 authored tests; none has been compiled or executed in this environment.
+Queue delivery includes 22 authored Rust unit tests (including worker-claim cases). Current total across the six reference modules: 106 authored tests; none has been compiled or executed in this environment.
 
 
 The queue-worker module also exposes WorkerClaimToken and WorkerClaimState. The resource owner must authenticate the claim proof and compare its current durable claim epoch together with the resource fence. Queue worker module tests: 22 authored; total across reference modules: 106 authored tests, not compiled or executed here.
