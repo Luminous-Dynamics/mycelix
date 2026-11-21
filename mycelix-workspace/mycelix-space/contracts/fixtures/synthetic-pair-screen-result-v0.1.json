@@ -1,0 +1,10 @@
+{
+  "fixture_class": "synthetic_only",
+  "pair_id": "pair-sim-a-b",
+  "primary_object_id": "SIM-OBJ-A",
+  "secondary_object_id": "SIM-OBJ-B",
+  "disposition": "searched_no_event",
+  "method_profile_id": "synthetic-neighborhood-capture-v0.1",
+  "source_artifact_ids": ["synthetic-state-set"],
+  "notice": "Synthetic narrow-phase outcome used only to test the pair-ledger join. Not an orbital event-search result or physical conclusion."
+}
