@@ -10,7 +10,7 @@
 //! are implemented here.
 
 use super::{
-    append_identifier, append_position, AuthorityId, AuthorityPosition,
+    append_identifier, append_position, AuthorityPosition,
     AuthorityPositionCoverage, Digest, FrontierEvidence, RealmId, MAX_IDENTIFIER_BYTES,
 };
 
