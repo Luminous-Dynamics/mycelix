@@ -620,6 +620,12 @@ pub enum EstimateError {
         expected: usize,
         actual: usize,
     },
+    InvalidCounterfactualManeuverDesign,
+    CounterfactualOutcomeCountMismatch {
+        expected: usize,
+        baseline_actual: usize,
+        candidate_actual: usize,
+    },
 }
 
 impl fmt::Display for EstimateError {
@@ -1651,6 +1657,38 @@ mod tests {
             .collect()
     }
 
+    fn counterfactual_design() -> CounterfactualManeuverDesign {
+        CounterfactualManeuverDesign {
+            baseline_plan_id: "baseline-plan".into(),
+            baseline_plan_revision: "sha256:baseline-v1".into(),
+            candidate_plan_id: "candidate-plan".into(),
+            candidate_plan_revision: "sha256:candidate-v1".into(),
+            horizon_id: "horizon-24h-v1".into(),
+            encounter_ids: vec!["encounter-A".into(), "encounter-B".into()],
+            encounter_order_digest: "sha256:encounter-order-ab".into(),
+            same_initial_state_samples: true,
+            same_full_horizon_event_oracle: true,
+        }
+    }
+
+    fn counterfactual_observations(
+        patterns: &[([bool; 2], [bool; 2])],
+    ) -> Vec<CounterfactualManeuverObservation> {
+        patterns
+            .iter()
+            .enumerate()
+            .map(|(index, (baseline, candidate))| {
+                let point = vec![index as f64 * 0.1, -(index as f64) * 0.05];
+                CounterfactualManeuverObservation {
+                    point: point.clone(),
+                    physical_state: point,
+                    baseline_collision_by_encounter: baseline.to_vec(),
+                    candidate_collision_by_encounter: candidate.to_vec(),
+                }
+            })
+            .collect()
+    }
+
     fn evidence() -> EvaluationEvidence {
         EvaluationEvidence {
             proposal_id: "proposal-gmm-v1".into(),
@@ -1886,6 +1924,114 @@ mod tests {
                 &invalid_design,
             ),
             Err(EstimateError::InvalidRepeatedEncounterDesign)
+        );
+    }
+
+    #[test]
+    fn identical_maneuver_outcomes_have_zero_paired_variance() {
+        let proposal = repeated_nominal_proposal();
+        let observations = counterfactual_observations(&[
+            ([true, false], [true, false]),
+            ([false, false], [false, false]),
+            ([true, true], [true, true]),
+            ([false, false], [false, false]),
+        ]);
+        let report = compare_counterfactual_maneuver_risk(
+            &proposal,
+            &whitening(2),
+            &observations,
+            0.05,
+            &repeated_evidence(&proposal.id),
+            &counterfactual_design(),
+        ).unwrap();
+
+        assert!(report.paired_probability_change.abs() < 1e-12);
+        assert!(report.paired_standard_error.abs() < 1e-12);
+        assert!(report.paired_variance_is_zero);
+        assert!(report.paired_variance_reduction_ratio.is_none());
+        assert!(report.independent_stream_difference_standard_error > 0.0);
+        assert_eq!(report.baseline_union.estimate, report.candidate_union.estimate);
+    }
+
+    #[test]
+    fn paired_counterfactual_estimates_candidate_risk_reduction() {
+        let proposal = repeated_nominal_proposal();
+        let observations = counterfactual_observations(&[
+            ([true, false], [false, false]),
+            ([true, false], [true, false]),
+            ([false, false], [false, false]),
+            ([false, false], [false, false]),
+        ]);
+        let report = compare_counterfactual_maneuver_risk(
+            &proposal,
+            &whitening(2),
+            &observations,
+            0.05,
+            &repeated_evidence(&proposal.id),
+            &counterfactual_design(),
+        ).unwrap();
+
+        assert!((report.baseline_union.estimate - 0.5).abs() < 1e-12);
+        assert!((report.candidate_union.estimate - 0.25).abs() < 1e-12);
+        assert!((report.paired_probability_change + 0.25).abs() < 1e-12);
+        assert_eq!(report.encounter_changes[0].mitigated_collision_samples, 1);
+        assert_eq!(report.encounter_changes[0].newly_introduced_collision_samples, 0);
+    }
+
+    #[test]
+    fn paired_counterfactual_exposes_collateral_encounter_introduction() {
+        let proposal = repeated_nominal_proposal();
+        let observations = counterfactual_observations(&[
+            ([true, false], [false, true]),
+            ([true, false], [true, false]),
+            ([false, false], [false, false]),
+            ([false, false], [false, false]),
+        ]);
+        let report = compare_counterfactual_maneuver_risk(
+            &proposal,
+            &whitening(2),
+            &observations,
+            0.05,
+            &repeated_evidence(&proposal.id),
+            &counterfactual_design(),
+        ).unwrap();
+
+        assert_eq!(report.encounter_changes[0].mitigated_collision_samples, 1);
+        assert_eq!(report.encounter_changes[1].newly_introduced_collision_samples, 1);
+        assert!(report.encounter_changes[0].probability_change_estimate < 0.0);
+        assert!(report.encounter_changes[1].probability_change_estimate > 0.0);
+        assert!(report.paired_probability_change.abs() < 1e-12);
+    }
+
+    #[test]
+    fn paired_counterfactual_rejects_unpaired_design_and_missing_outcomes() {
+        let proposal = repeated_nominal_proposal();
+        let mut design = counterfactual_design();
+        design.same_initial_state_samples = false;
+        let observations = counterfactual_observations(&[
+            ([false, false], [false, false]),
+            ([true, false], [false, false]),
+        ]);
+        assert_eq!(
+            compare_counterfactual_maneuver_risk(
+                &proposal, &whitening(2), &observations, 0.05,
+                &repeated_evidence(&proposal.id), &design,
+            ),
+            Err(EstimateError::InvalidCounterfactualManeuverDesign)
+        );
+
+        let mut malformed = observations.clone();
+        malformed[0].candidate_collision_by_encounter.pop();
+        assert_eq!(
+            compare_counterfactual_maneuver_risk(
+                &proposal, &whitening(2), &malformed, 0.05,
+                &repeated_evidence(&proposal.id), &counterfactual_design(),
+            ),
+            Err(EstimateError::CounterfactualOutcomeCountMismatch {
+                expected: 2,
+                baseline_actual: 2,
+                candidate_actual: 1,
+            })
         );
     }
 
