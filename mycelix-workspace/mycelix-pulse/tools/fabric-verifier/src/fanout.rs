@@ -584,9 +584,11 @@ pub fn verify_fanout(
                         "recipient-side event does not bind to this child's committed recipient",
                     );
                 }
-                if CONTENT_BOUND_EVENT_TYPES.contains(&event_type)
-                    && event.get("content_commitment").and_then(Value::as_str)
-                        != content_commitment.as_deref()
+                let event_content_commitment =
+                    event.get("content_commitment").and_then(Value::as_str);
+                if (CONTENT_BOUND_EVENT_TYPES.contains(&event_type)
+                    || event_content_commitment.is_some())
+                    && event_content_commitment != content_commitment.as_deref()
                 {
                     push_finding(
                         &mut findings,
@@ -1075,6 +1077,44 @@ mod tests {
         );
     }
 
+
+
+    #[test]
+    fn fanout_rejects_content_commitment_drift_on_any_event_plane() {
+        let recipient = "b".repeat(64);
+        let set_commitment = recipient_set_commitment(std::slice::from_ref(&recipient));
+        let mut child_value: Value = serde_json::from_slice(&grouped_success_trace(
+            "logical-1",
+            &recipient,
+            &set_commitment,
+        ))
+        .expect("child JSON");
+        let domain_event = child_value["events"]
+            .as_array_mut()
+            .expect("events array")
+            .iter_mut()
+            .find(|event| event["event_type"] == "domain_authorized")
+            .expect("domain authorization event");
+        domain_event["content_commitment"] = json!("d".repeat(64));
+        let child = serde_json::to_vec(&child_value).expect("child JSON");
+        let manifest = manifest_for(&[("logical-1".to_owned(), recipient, child.clone())]);
+        let manifest_sha = sha256_hex(&manifest);
+        let (manifest_schema, trace_schema) = schemas();
+
+        let result = verify_fanout(
+            &manifest,
+            &manifest_sha,
+            &manifest_schema,
+            &trace_schema,
+            &[("content-drift-child.json".to_owned(), child)],
+            None,
+        );
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().iter().any(|finding| {
+            finding.message.contains("content-bound event does not match")
+        }));
+    }
 
     #[test]
     fn fanout_rejects_account_device_unit_mismatch() {
