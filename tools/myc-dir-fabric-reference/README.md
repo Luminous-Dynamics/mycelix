@@ -66,6 +66,15 @@ A production PEP must require both a sufficient snapshot assessment and the exis
 
 The same folder includes `DirectoryFabricEffectFence.tla`, a finite-state model of per-owner generation installation, exact owner acknowledgements and delayed mutation commands. `DirectoryFabricEffectFence.cfg` is the safe configuration; `DirectoryFabricEffectFence-stale-accept-mutant.cfg` deliberately accepts stale commands after all owners acknowledge and should violate `NoStaleMutationAcceptanceAfterFence`. The model is source-present only; TLC has not been run.
 
+## PostgreSQL effect-owner reference
+
+The adjacent PostgreSQL reference adapter demonstrates a database-local mutation and an append-only effect/idempotency receipt under one transaction:
+- [SQL schema and functions](postgres/001_effect_owner.sql)
+- [Transactional self-tests](postgres/test_effect_owner.sql)
+- [Concurrency, durability and integration contract](postgres/POSTGRES_EFFECT_OWNER.md)
+
+It uses shared fence-row locks for concurrent mutations and an exclusive generation update for revocation. This is a reference contract, not production wiring; the SQL and two-session races have not been run against PostgreSQL. Reuse Mycelix-DeSci's existing PostgreSQL authority backend, signed write leases, database epochs and outbox rather than introducing a second authority database.
+
 ## Run
 
 ```sh
