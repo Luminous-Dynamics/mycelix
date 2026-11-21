@@ -191,11 +191,18 @@ DECLARE
     v_claim myc_effect_owner.worker_claim_state%ROWTYPE;
     v_owner_clock_profile_id TEXT;
     v_max_clock_uncertainty_ms BIGINT;
+    v_idempotency_lock BIGINT;
+    v_operation_lock BIGINT;
+    v_first_lock BIGINT;
+    v_second_lock BIGINT;
     v_now TIMESTAMPTZ;
     v_lower_bound TIMESTAMPTZ;
     v_upper_bound TIMESTAMPTZ;
     v_uncertainty INTERVAL;
 BEGIN
+    -- Claim row is acquired first. All queue-backed effects use this wrapper;
+    -- claim installation takes only this claim row, so reassignment waits for
+    -- in-flight effects and no alternate path can inherit the old claim.
     SELECT *
       INTO v_claim
       FROM myc_effect_owner.worker_claim_state
@@ -218,6 +225,37 @@ BEGIN
             USING ERRCODE = 'P0001';
     END IF;
 
+    -- Take the exact same idempotency and operation locks as the underlying
+    -- effect function before checking time. Their transaction-scoped locks
+    -- are re-entrant when apply_balance_delta is called below.
+    v_idempotency_lock := pg_catalog.hashtextextended(
+        'myc-effect-idempotency-v1:' || pg_catalog.encode(p_idempotency_key_digest, 'hex'),
+        761112
+    );
+    v_operation_lock := pg_catalog.hashtextextended(
+        'myc-effect-operation-v1:' ||
+        octet_length(p_realm_id)::TEXT || ':' || p_realm_id ||
+        octet_length(p_resource_id)::TEXT || ':' || p_resource_id ||
+        octet_length(p_action_id)::TEXT || ':' || p_action_id ||
+        octet_length(p_effect_owner_id)::TEXT || ':' || p_effect_owner_id ||
+        octet_length(p_logical_operation_id)::TEXT || ':' || p_logical_operation_id,
+        761112
+    );
+
+    IF v_idempotency_lock <= v_operation_lock THEN
+        v_first_lock := v_idempotency_lock;
+        v_second_lock := v_operation_lock;
+    ELSE
+        v_first_lock := v_operation_lock;
+        v_second_lock := v_idempotency_lock;
+    END IF;
+    PERFORM pg_catalog.pg_advisory_xact_lock(v_first_lock);
+    IF v_second_lock <> v_first_lock THEN
+        PERFORM pg_catalog.pg_advisory_xact_lock(v_second_lock);
+    END IF;
+
+    -- The same owner-fence row lock will be held by apply_balance_delta.
+    -- Read it here before the time check so there is no later row-lock wait.
     SELECT owner_clock_profile_id, max_clock_uncertainty_ms
       INTO v_owner_clock_profile_id, v_max_clock_uncertainty_ms
       FROM myc_effect_owner.effect_fence_state
@@ -235,6 +273,47 @@ BEGIN
     IF v_owner_clock_profile_id IS DISTINCT FROM v_claim.clock_profile_id
        OR v_owner_clock_profile_id IS DISTINCT FROM p_decision_clock_profile_id THEN
         RAISE EXCEPTION 'worker claim, decision and effect owner clock profiles differ'
+            USING ERRCODE = 'P0001';
+    END IF;
+
+    -- Exact operation replay is read-only. Delegate to the base function so
+    -- all stored request/payload/idempotency bindings are still compared.
+    -- Replays remain resolvable after command expiry because no new effect is
+    -- possible on this path.
+    PERFORM 1
+      FROM myc_effect_owner.effect_commits
+     WHERE realm_id = p_realm_id
+       AND resource_id = p_resource_id
+       AND action_id = p_action_id
+       AND effect_owner_id = p_effect_owner_id
+       AND idempotency_key_digest = p_idempotency_key_digest;
+
+    IF FOUND THEN
+        RETURN QUERY SELECT * FROM myc_effect_owner.apply_balance_delta(
+            p_realm_id, p_resource_id, p_action_id, p_effect_owner_id,
+            p_object_id, p_currency_code, p_fence_generation,
+            p_idempotency_key_digest, p_logical_operation_id,
+            p_request_digest, p_decision_receipt_digest, p_payload_digest,
+            p_delta_minor
+        );
+        RETURN;
+    END IF;
+
+    -- Acquire the protected-object row before time evaluation. With the claim,
+    -- advisory and fence locks already held, the inner mutation has no
+    -- remaining ordinary lock wait after this bounded validity check.
+    PERFORM 1
+      FROM myc_effect_owner.protected_balance
+     WHERE realm_id = p_realm_id
+       AND resource_id = p_resource_id
+       AND action_id = p_action_id
+       AND effect_owner_id = p_effect_owner_id
+       AND object_id = p_object_id
+       AND currency_code = p_currency_code
+     FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'protected balance object does not exist'
             USING ERRCODE = 'P0001';
     END IF;
 
@@ -263,9 +342,7 @@ BEGIN
             USING ERRCODE = 'P0001';
     END IF;
 
-    RETURN QUERY
-    SELECT *
-      FROM myc_effect_owner.apply_balance_delta(
+    RETURN QUERY SELECT * FROM myc_effect_owner.apply_balance_delta(
         p_realm_id, p_resource_id, p_action_id, p_effect_owner_id,
         p_object_id, p_currency_code, p_fence_generation,
         p_idempotency_key_digest, p_logical_operation_id,
@@ -273,7 +350,7 @@ BEGIN
         p_delta_minor
     );
 END
-$function$;
+$function$
 
 REVOKE ALL ON TABLE myc_effect_owner.worker_claim_state FROM PUBLIC;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA myc_effect_owner FROM PUBLIC;
