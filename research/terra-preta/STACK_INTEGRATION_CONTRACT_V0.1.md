@@ -39,7 +39,7 @@ The normative JSON Schema is `schemas/soil-twin-package.schema.json`. The exampl
 - Observations must resolve to known source and experimental-unit IDs.
 - Claims must resolve to known observation/model evidence references.
 - Completed model runs require code, configuration, input and output digests. A model is otherwise not reproducible evidence.
-- A synthetic package cannot contain field-qualified claims.
+- A synthetic package cannot contain field-qualified claims; its package status must remain `synthetic_only`, its observations must remain `synthetic_fixture`, and its claims must remain `synthetic_demonstration` / `synthetic_only`. A package with `evidence_class=synthetic` cannot be promoted to `qualified_evidence_package`.
 - An out-of-domain or unassessed prediction is not silently promoted into a measured fact.
 - A Mycelix receipt does not certify truth; an absent or invalid receipt remains visible.
 - Symthaea proposals are not actuation requests. `field_action_authorized` is fixed to `false`.
