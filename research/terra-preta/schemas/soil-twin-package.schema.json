@@ -847,5 +847,91 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "evidence_class": {
+            "const": "synthetic"
+          }
+        },
+        "required": [
+          "evidence_class"
+        ]
+      },
+      "then": {
+        "properties": {
+          "package_status": {
+            "const": "synthetic_only"
+          },
+          "observations": {
+            "items": {
+              "properties": {
+                "qc_status": {
+                  "const": "synthetic_fixture"
+                }
+              },
+              "required": [
+                "qc_status"
+              ]
+            }
+          },
+          "claims": {
+            "items": {
+              "properties": {
+                "claim_type": {
+                  "const": "synthetic_demonstration"
+                },
+                "validation_status": {
+                  "const": "synthetic_only"
+                }
+              },
+              "required": [
+                "claim_type",
+                "validation_status"
+              ]
+            }
+          },
+          "models": {
+            "items": {
+              "properties": {
+                "qualification_status": {
+                  "enum": [
+                    "not_assessed",
+                    "unqualified",
+                    "synthetic_only"
+                  ]
+                }
+              },
+              "required": [
+                "qualification_status"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "package_status": {
+            "const": "qualified_evidence_package"
+          }
+        },
+        "required": [
+          "package_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_class": {
+            "not": {
+              "const": "synthetic"
+            }
+          }
+        }
+      }
+    }
+  ]
 }
