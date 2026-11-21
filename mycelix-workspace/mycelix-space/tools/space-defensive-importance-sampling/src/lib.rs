@@ -904,13 +904,10 @@ mod tests {
                 collision: false,
             },
         ];
-        assert!(estimate_collision_probability(
-            &proposal,
-            &transform,
-            &observations,
-            0.05,
-            &evidence
-        ).is_ok());
+        assert!(
+            estimate_collision_probability(&proposal, &transform, &observations, 0.05, &evidence)
+                .is_ok()
+        );
 
         let mut corrupted = observations.clone();
         corrupted[0].physical_state[0] += 0.01;
@@ -1061,8 +1058,14 @@ mod tests {
         ];
         let mut evidence = evidence();
         evidence.proposal_id = "proposal-nominal".into();
-        let report =
-            estimate_collision_probability(&proposal, &whitening(proposal.dimension), &observations, 0.05, &evidence).unwrap();
+        let report = estimate_collision_probability(
+            &proposal,
+            &whitening(proposal.dimension),
+            &observations,
+            0.05,
+            &evidence,
+        )
+        .unwrap();
         assert!((report.estimate - 0.5).abs() < 1e-12);
         assert_eq!(report.collision_count, 2);
         assert!(report.upper_confidence_bound >= report.estimate);
@@ -1096,8 +1099,14 @@ mod tests {
             .collect::<Vec<_>>();
         let mut evidence = evidence();
         evidence.proposal_id = proposal.id.clone();
-        let report =
-            estimate_collision_probability(&proposal, &whitening(proposal.dimension), &observations, 0.05, &evidence).unwrap();
+        let report = estimate_collision_probability(
+            &proposal,
+            &whitening(proposal.dimension),
+            &observations,
+            0.05,
+            &evidence,
+        )
+        .unwrap();
         assert_eq!(report.estimate, 0.0);
         assert!(report.upper_confidence_bound > 0.0);
     }
@@ -1120,7 +1129,13 @@ mod tests {
         let mut evidence = evidence();
         evidence.evaluation_sample_id = evidence.proposal_training_id.clone();
         assert_eq!(
-            estimate_collision_probability(&proposal, &whitening(proposal.dimension), &observations, 0.05, &evidence),
+            estimate_collision_probability(
+                &proposal,
+                &whitening(proposal.dimension),
+                &observations,
+                0.05,
+                &evidence
+            ),
             Err(EstimateError::TrainingAndEvaluationMustBeDisjoint)
         );
     }
@@ -1143,7 +1158,13 @@ mod tests {
         let mut evidence = evidence();
         evidence.event_oracle_is_high_fidelity_continuous_time = false;
         assert_eq!(
-            estimate_collision_probability(&proposal, &whitening(proposal.dimension), &observations, 0.05, &evidence),
+            estimate_collision_probability(
+                &proposal,
+                &whitening(proposal.dimension),
+                &observations,
+                0.05,
+                &evidence
+            ),
             Err(EstimateError::LowFidelityEventOracleNotAccepted)
         );
     }
@@ -1166,7 +1187,13 @@ mod tests {
         let mut evidence = evidence();
         evidence.evaluation_draws_are_iid_from_full_mixture = false;
         assert_eq!(
-            estimate_collision_probability(&proposal, &whitening(proposal.dimension), &observations, 0.05, &evidence),
+            estimate_collision_probability(
+                &proposal,
+                &whitening(proposal.dimension),
+                &observations,
+                0.05,
+                &evidence
+            ),
             Err(EstimateError::NonIidOrUnattestedSampling)
         );
     }
@@ -1197,11 +1224,23 @@ mod tests {
             collision: false,
         }];
         assert_eq!(
-            estimate_collision_probability(&proposal, &whitening(proposal.dimension), &one, 0.05, &evidence()),
+            estimate_collision_probability(
+                &proposal,
+                &whitening(proposal.dimension),
+                &one,
+                0.05,
+                &evidence()
+            ),
             Err(EstimateError::InsufficientSamples(1))
         );
         assert_eq!(
-            estimate_collision_probability(&proposal, &whitening(proposal.dimension), &[], 1.0, &evidence()),
+            estimate_collision_probability(
+                &proposal,
+                &whitening(proposal.dimension),
+                &[],
+                1.0,
+                &evidence()
+            ),
             Err(EstimateError::InvalidDelta(1.0))
         );
     }
