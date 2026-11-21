@@ -108,6 +108,7 @@ pub struct RequestScopedCausalCut {
     realm: RealmId,
     request_digest: Digest,
     policy_digest: Digest,
+    dependency_graph_digest: Digest,
     resolver_profile_digest: Digest,
     dependencies: Vec<AuthorityDependency>,
 }
@@ -117,11 +118,13 @@ impl RequestScopedCausalCut {
         realm: RealmId,
         request_digest: Digest,
         policy_digest: Digest,
+        dependency_graph_digest: Digest,
         resolver_profile_digest: Digest,
         mut dependencies: Vec<AuthorityDependency>,
     ) -> Result<Self, CutError> {
         if request_digest == [0; 32]
             || policy_digest == [0; 32]
+            || dependency_graph_digest == [0; 32]
             || resolver_profile_digest == [0; 32]
         {
             return Err(CutError::ZeroDigest);
@@ -141,6 +144,7 @@ impl RequestScopedCausalCut {
             realm,
             request_digest,
             policy_digest,
+            dependency_graph_digest,
             resolver_profile_digest,
             dependencies,
         })
@@ -156,6 +160,10 @@ impl RequestScopedCausalCut {
 
     pub fn policy_digest(&self) -> &Digest {
         &self.policy_digest
+    }
+
+    pub fn dependency_graph_digest(&self) -> &Digest {
+        &self.dependency_graph_digest
     }
 
     pub fn resolver_profile_digest(&self) -> &Digest {
@@ -176,6 +184,7 @@ impl RequestScopedCausalCut {
             .map_err(|_| CutError::IdentifierTooLong)?;
         bytes.extend_from_slice(&self.request_digest);
         bytes.extend_from_slice(&self.policy_digest);
+        bytes.extend_from_slice(&self.dependency_graph_digest);
         bytes.extend_from_slice(&self.resolver_profile_digest);
         bytes.extend_from_slice(&count.to_be_bytes());
         for dependency in &self.dependencies {
@@ -291,6 +300,7 @@ pub enum CausalCutAssessment {
     RequestBindingMismatch,
     RealmBindingMismatch,
     PolicyBindingMismatch,
+    DependencyGraphBindingMismatch,
     ResolverProfileMismatch,
     CutDigestMismatch,
     BehindRequiredDependency,
@@ -331,6 +341,9 @@ pub fn assess_request_scoped_cut(
     }
     if closure.policy_digest != cut.policy_digest {
         return CausalCutAssessment::PolicyBindingMismatch;
+    }
+    if closure.dependency_graph_digest != cut.dependency_graph_digest {
+        return CausalCutAssessment::DependencyGraphBindingMismatch;
     }
     if closure.resolver_profile_digest != cut.resolver_profile_digest {
         return CausalCutAssessment::ResolverProfileMismatch;
@@ -388,6 +401,7 @@ mod tests {
             [1; 32],
             [2; 32],
             [3; 32],
+            [4; 32],
             dependencies,
         )
         .unwrap()
@@ -407,7 +421,7 @@ mod tests {
             cut.realm().clone(),
             *cut.policy_digest(),
             cut_digest,
-            [6; 32],
+            *cut.dependency_graph_digest(),
             *cut.resolver_profile_digest(),
             "resolver-v1",
             [4; 32],
