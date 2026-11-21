@@ -104,3 +104,8 @@ The pair manifest digest uses the domain prefix `mycelix-space-pair-manifest-v1`
 The v0.1 envelope carries `package_manifest_sha256`, a domain-separated digest of the entire package object with that one member removed. It commits the request and its source-configuration binding, every retained source artifact declaration, object/time/pair coverage ledgers, assessment input/output joins, execution and replay receipts, authority records, layer-specific claim matrix, result disposition and notices.
 
 Canonicalization uses the verifier's sorted-object-key `serde_json` encoding, compact UTF-8 JSON bytes, domain prefix `mycelix-space-qualification-package-v0.1`, and an unsigned 64-bit big-endian byte-length prefix before hashing with SHA-256. The package digest does not authenticate the issuer or prove the evidence is true. It makes post-issuance mutation detectable when the digest is carried independently; signature/credential verification and physical validation remain separate qualification layers.
+
+
+### Pair-to-source join (implementation increment)
+
+The offline verifier also reconciles each pair's source-artifact set against the union of the source artifacts declared for its primary and secondary objects. A completed pair-specific narrow-phase assessment must consume every artifact declared by that pair. This prevents a superficially valid pair record from being assessed using an unrelated or incomplete input set.
