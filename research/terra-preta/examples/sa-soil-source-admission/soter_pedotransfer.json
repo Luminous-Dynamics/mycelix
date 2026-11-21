@@ -17,7 +17,9 @@
       "synthetic-soter-map-unit",
       "synthetic-pedotransfer-model"
     ],
-    "acquisition_timestamp": "2026-11-21T17:00:00+02:00"
+    "acquisition_timestamp": "2026-11-21T17:00:00+02:00",
+    "publisher_checksum": "synthetic-publisher-checksum",
+    "publisher_checksum_algorithm": "md5"
   },
   "rights": {
     "license_status": "unknown",
@@ -31,9 +33,7 @@
   "artifact": {
     "acquisition_status": "publisher_checksum_only",
     "file_name": "synthetic-soter-ptf-grid.tif",
-    "byte_size": 1000,
-    "publisher_checksum": "synthetic-publisher-checksum",
-    "publisher_checksum_algorithm": "md5"
+    "byte_size": 1000
   },
   "spatial_support": {
     "support_type": "raster",
