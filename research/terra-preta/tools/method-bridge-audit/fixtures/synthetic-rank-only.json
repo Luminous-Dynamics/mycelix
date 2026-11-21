@@ -1,0 +1,83 @@
+{
+  "schema_version": "soil-method-bridge-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "evidence_class": "synthetic",
+  "comparison_id": "synthetic-portable-respiration-vs-laboratory-ranking",
+  "property_id": "soil_respiration_indicator",
+  "objectives": [
+    "rank_concordance",
+    "numerical_agreement"
+  ],
+  "pairing_basis": "same_specimen",
+  "analytical_equivalence": "non_equivalent",
+  "method_a": {
+    "method_id": "portable-field-respiration",
+    "method_version": "synthetic-1",
+    "method_class": "rapid_field",
+    "unit": "mg_CO2_kg-1_day-1",
+    "measurement_basis": "field-moist in-situ flux response",
+    "support_id": "same-plot-core-pairs"
+  },
+  "method_b": {
+    "method_id": "laboratory-incubation-respiration",
+    "method_version": "synthetic-1",
+    "method_class": "laboratory",
+    "unit": "mg_CO2_kg-1_day-1",
+    "measurement_basis": "controlled incubation potential respiration",
+    "support_id": "same-plot-core-pairs"
+  },
+  "decision_threshold": {
+    "status": "not_set"
+  },
+  "minimum_pairs": 5,
+  "observations": [
+    {
+      "sample_id": "sample-01",
+      "independence_group_id": "plot-A",
+      "method_a_value": 4.1,
+      "method_b_value": 8.4
+    },
+    {
+      "sample_id": "sample-02",
+      "independence_group_id": "plot-A",
+      "method_a_value": 6.8,
+      "method_b_value": 9.5
+    },
+    {
+      "sample_id": "sample-03",
+      "independence_group_id": "plot-B",
+      "method_a_value": 2.5,
+      "method_b_value": 5.4
+    },
+    {
+      "sample_id": "sample-04",
+      "independence_group_id": "plot-B",
+      "method_a_value": 8.2,
+      "method_b_value": 13.5
+    },
+    {
+      "sample_id": "sample-05",
+      "independence_group_id": "plot-C",
+      "method_a_value": 5.2,
+      "method_b_value": 10.2
+    },
+    {
+      "sample_id": "sample-06",
+      "independence_group_id": "plot-C",
+      "method_a_value": 7.4,
+      "method_b_value": 7.1
+    },
+    {
+      "sample_id": "sample-07",
+      "independence_group_id": "plot-D",
+      "method_a_value": 3.4,
+      "method_b_value": 6.8
+    },
+    {
+      "sample_id": "sample-08",
+      "independence_group_id": "plot-D",
+      "method_a_value": 9,
+      "method_b_value": 11.5
+    }
+  ]
+}
