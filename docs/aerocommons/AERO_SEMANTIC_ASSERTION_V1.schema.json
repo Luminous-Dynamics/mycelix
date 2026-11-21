@@ -225,18 +225,18 @@
         },
         "operation": {
           "enum": [
-            "drop_field",
-            "change_value",
-            "change_unit",
+            "DROP_FIELD",
+            "CHANGE_VALUE",
+            "CHANGE_UNIT",
             "CHANGE_TOLERANCE_TYPE",
-            "change_datum",
-            "change_subject_id",
-            "duplicate_persistent_id",
-            "stale_revision",
-            "shift_event_time",
-            "drop_trace_edge",
-            "replace_semantic_with_graphic_only",
-            "omit_unsupported_field"
+            "CHANGE_DATUM",
+            "CHANGE_SUBJECT_ID",
+            "DUPLICATE_PERSISTENT_ID",
+            "STALE_REVISION",
+            "SHIFT_EVENT_TIME",
+            "DROP_TRACE_EDGE",
+            "REPLACE_SEMANTIC_WITH_GRAPHIC_ONLY",
+            "OMIT_UNSUPPORTED_FIELD"
           ]
         },
         "expected_disposition": {
