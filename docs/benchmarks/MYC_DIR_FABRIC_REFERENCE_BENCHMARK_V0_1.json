@@ -593,6 +593,89 @@
       "target": null,
       "gate": "report_only",
       "measurement_state": "not_measured"
+    },
+    {
+      "id": "stale_fence_mutation_accept_count",
+      "layer": "effect_owner",
+      "metric": "Protected mutations accepted with a token older than the owner's persisted generation",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "old_command_after_fence_complete_accept_count",
+      "layer": "revocation",
+      "metric": "Earlier-generation commands accepted after all required owners acknowledged revocation",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "effect_owner_fence_bypass_count",
+      "layer": "effect_owner",
+      "metric": "Protected write paths that bypass the atomic fence check",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "revocation_fence_owner_ack_coverage_pct",
+      "layer": "revocation",
+      "metric": "Required effect-owner acknowledgements received at exact target generation",
+      "unit": "percent",
+      "statistic": "minimum",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 100
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "revocation_fence_install_p95_ms",
+      "layer": "revocation",
+      "metric": "Per-owner durable fence installation latency from accepted install request to durable state",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "revocation_to_fence_complete_p95_ms",
+      "layer": "revocation",
+      "metric": "Revocation request to exact all-owner durable acknowledgement completion",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "revocation_fence_unknown_owner_count",
+      "layer": "revocation",
+      "metric": "Required owners whose install/ack status remains unknown at completion decision",
+      "unit": "count",
+      "statistic": "maximum",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
     }
   ],
   "fault_schedules": [
@@ -620,7 +703,15 @@
     "Graph query schema omits an explicit-deny or revocation edge family while prover returns a complete result for that narrower query",
     "Graph query proof uses a different schema/query-plan digest from the relying realm profile",
     "Stable low-entropy relationship commitments are scraped from public transparency or DHT material",
-    "Graph snapshot is authentic but has a delayed source-chain revocation not integrated into the required frontier"
+    "Graph snapshot is authentic but has a delayed source-chain revocation not integrated into the required frontier",
+    "Revocation fence generation advances while an old Allow command is paused in the PEP, then the command arrives after owner installation",
+    "A protected mutation races the final owner-side fence installation; both are serialized in one atomic resource transaction",
+    "An owner persists a new generation but its acknowledgement is lost; retry and reconciliation must not lower the generation",
+    "An owner acknowledges before durable persistence, crashes, restores an old snapshot and attempts to accept an obsolete token",
+    "One effect owner is omitted from the revocation owner inventory while all listed owners acknowledge",
+    "One required owner remains unreachable or returns an acknowledgement for a different generation; revocation remains pending",
+    "A non-fenceable external API bypasses the enforcement proxy and must not be reported as strongly revoked",
+    "Duplicate, replayed, cross-scope or wrong-revocation-digest owner acknowledgements"
   ],
   "comparators": [
     {
@@ -799,6 +890,29 @@
         256
       ],
       "purpose": "Measure proof composition over independently signed realm and issuer roots without imposing a global sequence"
+    }
+  ],
+  "effect_fence_profiles": [
+    {
+      "id": "single_owner_atomic_mutation",
+      "effect_owners": 1,
+      "atomic_mutation_guard": true,
+      "strict_completion_requires_all_owner_acks": true,
+      "purpose": "One database/resource owner compares its durable generation and commits the mutation in one transaction"
+    },
+    {
+      "id": "multi_owner_all_ack",
+      "effect_owners": 4,
+      "atomic_mutation_guard": true,
+      "strict_completion_requires_all_owner_acks": true,
+      "purpose": "Multiple independently scoped owners install their own target generations; no quorum substitution for strict completion"
+    },
+    {
+      "id": "non_fenceable_external_adapter",
+      "effect_owners": 1,
+      "atomic_mutation_guard": false,
+      "strict_completion_requires_all_owner_acks": true,
+      "purpose": "Negative control for external APIs that cannot atomically inspect a fence; classify as best-effort only"
     }
   ]
 }
