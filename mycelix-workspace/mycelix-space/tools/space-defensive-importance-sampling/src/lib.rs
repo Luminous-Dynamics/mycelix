@@ -128,13 +128,8 @@ impl DefensiveGaussianMixture {
 
         let adaptive_mass = 1.0 - self.epsilon;
         for component in &self.components {
-            let log_component =
-                log_gaussian_cholesky(point, &component.mean, &component.cholesky)?;
-            terms.push(
-                adaptive_mass.ln()
-                    + component.mixture_weight.ln()
-                    + log_component,
-            );
+            let log_component = log_gaussian_cholesky(point, &component.mean, &component.cholesky)?;
+            terms.push(adaptive_mass.ln() + component.mixture_weight.ln() + log_component);
         }
         Ok(log_sum_exp(&terms))
     }
@@ -284,12 +279,19 @@ pub enum EstimateError {
     EmptyAdaptiveMixture,
     InvalidMixtureWeight(f64),
     AdaptiveWeightsDoNotSumToOne(f64),
-    DimensionMismatch { expected: usize, actual: usize, field: &'static str },
+    DimensionMismatch {
+        expected: usize,
+        actual: usize,
+        field: &'static str,
+    },
     InvalidCholeskyShape,
     CholeskyNotLowerTriangular,
     CholeskyNonPositiveDiagonal,
     NonFiniteValue(&'static str),
-    DefensiveWeightCapViolated { log_weight: f64, log_cap: f64 },
+    DefensiveWeightCapViolated {
+        log_weight: f64,
+        log_cap: f64,
+    },
     UniformVariateOutOfRange,
     InvalidDelta(f64),
     InsufficientSamples(usize),
@@ -300,35 +302,99 @@ pub enum EstimateError {
     MissingSamplingEvidence,
     LowFidelityEventOracleNotAccepted,
     MissingEventOracleRevision,
-    DefensiveContributionCapViolated { contribution: f64, cap: f64 },
+    DefensiveContributionCapViolated {
+        contribution: f64,
+        cap: f64,
+    },
 }
 
 impl fmt::Display for EstimateError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidIdentifier(field) => write!(f, "{field} must be non-empty and use only ASCII letters, digits, dot, underscore, colon, slash and hyphen"),
+            Self::InvalidIdentifier(field) => write!(
+                f,
+                "{field} must be non-empty and use only ASCII letters, digits, dot, underscore, colon, slash and hyphen"
+            ),
             Self::ZeroDimension => write!(f, "proposal dimension must be greater than zero"),
-            Self::InvalidDefensiveFraction(value) => write!(f, "defensive target fraction must be finite and in (0,1); got {value}"),
-            Self::EmptyAdaptiveMixture => write!(f, "adaptive proposal must contain at least one component"),
-            Self::InvalidMixtureWeight(value) => write!(f, "adaptive component weight must be finite and positive; got {value}"),
-            Self::AdaptiveWeightsDoNotSumToOne(value) => write!(f, "adaptive component weights sum to {value}, not 1"),
-            Self::DimensionMismatch { expected, actual, field } => write!(f, "{field} dimension mismatch: expected {expected}, got {actual}"),
-            Self::InvalidCholeskyShape => write!(f, "Cholesky factor must be square and match the proposal dimension"),
-            Self::CholeskyNotLowerTriangular => write!(f, "Cholesky factor must be lower triangular"),
-            Self::CholeskyNonPositiveDiagonal => write!(f, "Cholesky factor diagonal must be positive"),
+            Self::InvalidDefensiveFraction(value) => write!(
+                f,
+                "defensive target fraction must be finite and in (0,1); got {value}"
+            ),
+            Self::EmptyAdaptiveMixture => {
+                write!(f, "adaptive proposal must contain at least one component")
+            }
+            Self::InvalidMixtureWeight(value) => write!(
+                f,
+                "adaptive component weight must be finite and positive; got {value}"
+            ),
+            Self::AdaptiveWeightsDoNotSumToOne(value) => {
+                write!(f, "adaptive component weights sum to {value}, not 1")
+            }
+            Self::DimensionMismatch {
+                expected,
+                actual,
+                field,
+            } => write!(
+                f,
+                "{field} dimension mismatch: expected {expected}, got {actual}"
+            ),
+            Self::InvalidCholeskyShape => write!(
+                f,
+                "Cholesky factor must be square and match the proposal dimension"
+            ),
+            Self::CholeskyNotLowerTriangular => {
+                write!(f, "Cholesky factor must be lower triangular")
+            }
+            Self::CholeskyNonPositiveDiagonal => {
+                write!(f, "Cholesky factor diagonal must be positive")
+            }
             Self::NonFiniteValue(field) => write!(f, "{field} contains a non-finite value"),
-            Self::DefensiveWeightCapViolated { log_weight, log_cap } => write!(f, "likelihood ratio exceeds defensive cap: log weight {log_weight}, log cap {log_cap}"),
-            Self::UniformVariateOutOfRange => write!(f, "sampling uniforms must be finite values in [0,1)"),
-            Self::InvalidDelta(value) => write!(f, "confidence delta must be finite and in (0,1); got {value}"),
-            Self::InsufficientSamples(value) => write!(f, "at least two evaluation samples are required; got {value}"),
-            Self::EvidenceProposalMismatch => write!(f, "evaluation evidence proposal ID does not match the proposal object"),
-            Self::TrainingAndEvaluationMustBeDisjoint => write!(f, "proposal training and final evaluation split IDs must differ"),
+            Self::DefensiveWeightCapViolated {
+                log_weight,
+                log_cap,
+            } => write!(
+                f,
+                "likelihood ratio exceeds defensive cap: log weight {log_weight}, log cap {log_cap}"
+            ),
+            Self::UniformVariateOutOfRange => {
+                write!(f, "sampling uniforms must be finite values in [0,1)")
+            }
+            Self::InvalidDelta(value) => write!(
+                f,
+                "confidence delta must be finite and in (0,1); got {value}"
+            ),
+            Self::InsufficientSamples(value) => write!(
+                f,
+                "at least two evaluation samples are required; got {value}"
+            ),
+            Self::EvidenceProposalMismatch => write!(
+                f,
+                "evaluation evidence proposal ID does not match the proposal object"
+            ),
+            Self::TrainingAndEvaluationMustBeDisjoint => write!(
+                f,
+                "proposal training and final evaluation split IDs must differ"
+            ),
             Self::ProposalNotFrozen => write!(f, "proposal must be frozen before final evaluation"),
-            Self::NonIidOrUnattestedSampling => write!(f, "fixed-sample inference requires an attested IID draw design from the frozen full mixture"),
-            Self::MissingSamplingEvidence => write!(f, "sampling design, evidence reference and sample-order digest are required"),
-            Self::LowFidelityEventOracleNotAccepted => write!(f, "final event labels must come from a high-fidelity continuous-time event oracle"),
-            Self::MissingEventOracleRevision => write!(f, "event oracle ID and revision are required"),
-            Self::DefensiveContributionCapViolated { contribution, cap } => write!(f, "weighted event contribution {contribution} exceeds defensive cap {cap}"),
+            Self::NonIidOrUnattestedSampling => write!(
+                f,
+                "fixed-sample inference requires an attested IID draw design from the frozen full mixture"
+            ),
+            Self::MissingSamplingEvidence => write!(
+                f,
+                "sampling design, evidence reference and sample-order digest are required"
+            ),
+            Self::LowFidelityEventOracleNotAccepted => write!(
+                f,
+                "final event labels must come from a high-fidelity continuous-time event oracle"
+            ),
+            Self::MissingEventOracleRevision => {
+                write!(f, "event oracle ID and revision are required")
+            }
+            Self::DefensiveContributionCapViolated { contribution, cap } => write!(
+                f,
+                "weighted event contribution {contribution} exceeds defensive cap {cap}"
+            ),
         }
     }
 }
@@ -369,10 +435,7 @@ pub fn estimate_collision_probability(
             0.0
         };
         if contribution > cap * (1.0 + NUMERIC_TOLERANCE) {
-            return Err(EstimateError::DefensiveContributionCapViolated {
-                contribution,
-                cap,
-            });
+            return Err(EstimateError::DefensiveContributionCapViolated { contribution, cap });
         }
         contributions.push(contribution.min(cap));
         weights.push(weight);
@@ -490,9 +553,9 @@ fn validate_delta(delta: f64) -> Result<(), EstimateError> {
 
 fn valid_identifier(value: &str) -> bool {
     !value.trim().is_empty()
-        && value.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric() || b"._:/-".contains(&byte)
-        })
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"._:/-".contains(&byte))
 }
 
 fn is_unit_interval_open(value: f64) -> bool {
@@ -500,8 +563,7 @@ fn is_unit_interval_open(value: f64) -> bool {
 }
 
 fn log_standard_normal(point: &[f64]) -> f64 {
-    -0.5 * point.len() as f64 * LOG_2PI
-        - 0.5 * point.iter().map(|x| x * x).sum::<f64>()
+    -0.5 * point.len() as f64 * LOG_2PI - 0.5 * point.iter().map(|x| x * x).sum::<f64>()
 }
 
 fn log_gaussian_cholesky(
@@ -532,9 +594,7 @@ fn log_gaussian_cholesky(
         log_determinant_half += diagonal.ln();
     }
     let quadratic = solved.iter().map(|x| x * x).sum::<f64>();
-    Ok(-0.5 * dimension as f64 * LOG_2PI
-        - log_determinant_half
-        - 0.5 * quadratic)
+    Ok(-0.5 * dimension as f64 * LOG_2PI - log_determinant_half - 0.5 * quadratic)
 }
 
 fn affine_standard_normal(
@@ -569,7 +629,10 @@ fn log_sum_exp(values: &[f64]) -> f64 {
     if maximum == f64::INFINITY {
         return f64::INFINITY;
     }
-    let sum = values.iter().map(|value| (value - maximum).exp()).sum::<f64>();
+    let sum = values
+        .iter()
+        .map(|value| (value - maximum).exp())
+        .sum::<f64>();
     maximum + sum.ln()
 }
 
@@ -577,7 +640,10 @@ fn sample_variance(values: &[f64], mean: f64) -> f64 {
     if values.len() < 2 {
         return 0.0;
     }
-    values.iter().map(|value| (value - mean).powi(2)).sum::<f64>()
+    values
+        .iter()
+        .map(|value| (value - mean).powi(2))
+        .sum::<f64>()
         / (values.len() - 1) as f64
 }
 
@@ -587,7 +653,11 @@ mod tests {
 
     fn identity(dimension: usize) -> Vec<Vec<f64>> {
         (0..dimension)
-            .map(|i| (0..dimension).map(|j| if i == j { 1.0 } else { 0.0 }).collect())
+            .map(|i| {
+                (0..dimension)
+                    .map(|j| if i == j { 1.0 } else { 0.0 })
+                    .collect()
+            })
             .collect()
     }
 
@@ -665,8 +735,13 @@ mod tests {
     #[test]
     fn sampler_uses_nominal_and_adaptive_components() {
         let proposal = proposal();
-        let nominal = proposal.sample_from_latents(0.05, 0.8, &[1.0, -1.0]).unwrap();
-        assert_eq!(nominal.generating_component_id, "nominal-defensive-component");
+        let nominal = proposal
+            .sample_from_latents(0.05, 0.8, &[1.0, -1.0])
+            .unwrap();
+        assert_eq!(
+            nominal.generating_component_id,
+            "nominal-defensive-component"
+        );
         assert_eq!(nominal.point, vec![1.0, -1.0]);
 
         let adaptive = proposal.sample_from_latents(0.5, 0.8, &[0.0, 0.0]).unwrap();
@@ -700,20 +775,36 @@ mod tests {
             }],
         };
         let observations = vec![
-            CollisionObservation { point: vec![0.0, 0.0], collision: true },
-            CollisionObservation { point: vec![1.0, 0.0], collision: false },
-            CollisionObservation { point: vec![0.0, 1.0], collision: true },
-            CollisionObservation { point: vec![-1.0, 0.0], collision: false },
+            CollisionObservation {
+                point: vec![0.0, 0.0],
+                collision: true,
+            },
+            CollisionObservation {
+                point: vec![1.0, 0.0],
+                collision: false,
+            },
+            CollisionObservation {
+                point: vec![0.0, 1.0],
+                collision: true,
+            },
+            CollisionObservation {
+                point: vec![-1.0, 0.0],
+                collision: false,
+            },
         ];
         let mut evidence = evidence();
         evidence.proposal_id = "proposal-nominal".into();
-        let report = estimate_collision_probability(&proposal, &observations, 0.05, &evidence).unwrap();
+        let report =
+            estimate_collision_probability(&proposal, &observations, 0.05, &evidence).unwrap();
         assert!((report.estimate - 0.5).abs() < 1e-12);
         assert_eq!(report.collision_count, 2);
         assert!(report.upper_confidence_bound >= report.estimate);
         assert!(report.upper_confidence_bound <= 1.0);
         assert_eq!(report.weighted_contribution_cap, 4.0);
-        assert_eq!(report.inference_horizon, "fixed_sample_only_not_anytime_valid");
+        assert_eq!(
+            report.inference_horizon,
+            "fixed_sample_only_not_anytime_valid"
+        );
     }
 
     #[test]
@@ -737,7 +828,8 @@ mod tests {
             .collect::<Vec<_>>();
         let mut evidence = evidence();
         evidence.proposal_id = proposal.id.clone();
-        let report = estimate_collision_probability(&proposal, &observations, 0.05, &evidence).unwrap();
+        let report =
+            estimate_collision_probability(&proposal, &observations, 0.05, &evidence).unwrap();
         assert_eq!(report.estimate, 0.0);
         assert!(report.upper_confidence_bound > 0.0);
     }
@@ -746,8 +838,14 @@ mod tests {
     fn refuses_training_evaluation_leakage() {
         let proposal = proposal();
         let observations = vec![
-            CollisionObservation { point: vec![0.0, 0.0], collision: false },
-            CollisionObservation { point: vec![1.0, 0.0], collision: false },
+            CollisionObservation {
+                point: vec![0.0, 0.0],
+                collision: false,
+            },
+            CollisionObservation {
+                point: vec![1.0, 0.0],
+                collision: false,
+            },
         ];
         let mut evidence = evidence();
         evidence.evaluation_sample_id = evidence.proposal_training_id.clone();
@@ -761,8 +859,14 @@ mod tests {
     fn refuses_low_fidelity_final_event_labels() {
         let proposal = proposal();
         let observations = vec![
-            CollisionObservation { point: vec![0.0, 0.0], collision: false },
-            CollisionObservation { point: vec![1.0, 0.0], collision: false },
+            CollisionObservation {
+                point: vec![0.0, 0.0],
+                collision: false,
+            },
+            CollisionObservation {
+                point: vec![1.0, 0.0],
+                collision: false,
+            },
         ];
         let mut evidence = evidence();
         evidence.event_oracle_is_high_fidelity_continuous_time = false;
@@ -776,8 +880,14 @@ mod tests {
     fn rejects_unattested_evaluation_sampling() {
         let proposal = proposal();
         let observations = vec![
-            CollisionObservation { point: vec![0.0, 0.0], collision: false },
-            CollisionObservation { point: vec![1.0, 0.0], collision: false },
+            CollisionObservation {
+                point: vec![0.0, 0.0],
+                collision: false,
+            },
+            CollisionObservation {
+                point: vec![1.0, 0.0],
+                collision: false,
+            },
         ];
         let mut evidence = evidence();
         evidence.evaluation_draws_are_iid_from_full_mixture = false;
@@ -791,17 +901,26 @@ mod tests {
     fn rejects_malformed_cholesky_and_invalid_epsilon() {
         let mut malformed = proposal();
         malformed.components[0].cholesky[0][1] = 0.2;
-        assert_eq!(malformed.validate(), Err(EstimateError::CholeskyNotLowerTriangular));
+        assert_eq!(
+            malformed.validate(),
+            Err(EstimateError::CholeskyNotLowerTriangular)
+        );
 
         let mut invalid_epsilon = proposal();
         invalid_epsilon.epsilon = 0.0;
-        assert_eq!(invalid_epsilon.validate(), Err(EstimateError::InvalidDefensiveFraction(0.0)));
+        assert_eq!(
+            invalid_epsilon.validate(),
+            Err(EstimateError::InvalidDefensiveFraction(0.0))
+        );
     }
 
     #[test]
     fn rejects_insufficient_samples_and_bad_delta() {
         let proposal = proposal();
-        let one = [CollisionObservation { point: vec![0.0, 0.0], collision: false }];
+        let one = [CollisionObservation {
+            point: vec![0.0, 0.0],
+            collision: false,
+        }];
         assert_eq!(
             estimate_collision_probability(&proposal, &one, 0.05, &evidence()),
             Err(EstimateError::InsufficientSamples(1))
