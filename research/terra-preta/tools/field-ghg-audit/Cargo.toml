@@ -1,0 +1,14 @@
+[package]
+name = "terra-preta-field-ghg-audit"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Fail-closed synthetic field greenhouse-gas observation contract auditor"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+
+[workspace]
