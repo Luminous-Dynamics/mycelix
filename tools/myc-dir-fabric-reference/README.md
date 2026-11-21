@@ -49,7 +49,7 @@ See [the RSCAC and receipt composition design](../../docs/research/MYCELIX_DIREC
 - a revocation plan declares the required owner inventory and per-owner target generations; strict completion requires every exact owner acknowledgement, not a quorum;
 - missing acknowledgements leave revocation pending; owner inventory completeness and acknowledgement authenticity remain external trust boundaries.
 
-Production condition: the effect owner must persist/install the new generation and compare the request token in the **same atomic transaction** as the protected mutation. A separate check followed by a later write is unsafe. Revocation is only complete after all independently inventoried owners acknowledge durable installation. An external API that cannot enforce this at its mutation boundary cannot receive the strong revocation guarantee.
+Production condition: the effect owner must persist/install the new generation and compare the request token in the **same atomic transaction** as the protected mutation. A separate check followed by a later write is unsafe. The reference constructor starts at generation 1 for model genesis only; production recovery must restore the authenticated durable high-water mark and must never reset the counter to 1 after restart or snapshot rollback. Revocation is only complete after all independently inventoried owners acknowledge durable installation. An external API that cannot enforce this at its mutation boundary cannot receive the strong revocation guarantee.
 
 ## Finite-state composition model
 
@@ -74,7 +74,7 @@ cargo clippy --manifest-path tools/myc-dir-fabric-reference/Cargo.toml --all-tar
 cargo fmt --manifest-path tools/myc-dir-fabric-reference/Cargo.toml -- --check
 ```
 
-The crate has no third-party dependencies. The branch currently authors 67 deterministic unit tests across frontier/snapshot/lease/group, dependency-closure, decision-receipt and effect-history semantics. They are source-present only until run on the exact head. They do not substitute for independent closure-proof validation, external property-testing, mutation testing, or a proof assistant.
+The crate has no third-party dependencies. The branch currently authors 68 deterministic unit tests across frontier/snapshot/lease/group, dependency-closure, decision-receipt and effect-history semantics. They are source-present only until run on the exact head. They do not substitute for independent closure-proof validation, external property-testing, mutation testing, or a proof assistant.
 
 ## Explicit claim ceiling
 
