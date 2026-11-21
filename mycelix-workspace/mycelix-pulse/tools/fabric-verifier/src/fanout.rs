@@ -1012,6 +1012,61 @@ mod tests {
         }));
     }
 
+
+    #[test]
+    fn exhaustive_three_recipient_outcome_space_never_falsely_completes() {
+        const OUTCOMES: [&str; 8] = [
+            "SUCCESS_VERIFIED",
+            "PARTIAL",
+            "UNKNOWN",
+            "INCOMPLETE",
+            "NOT_APPLICABLE",
+            "EXPIRED",
+            "FAILED",
+            "REVOKED",
+        ];
+
+        for first in OUTCOMES {
+            for second in OUTCOMES {
+                for third in OUTCOMES {
+                    let observed = [first, second, third];
+                    let verified = observed
+                        .iter()
+                        .filter(|outcome| **outcome == "SUCCESS_VERIFIED")
+                        .count();
+                    let partial = observed
+                        .iter()
+                        .filter(|outcome| **outcome == "PARTIAL")
+                        .count();
+                    let unknown = observed
+                        .iter()
+                        .filter(|outcome| **outcome == "UNKNOWN")
+                        .count();
+                    let incomplete = observed
+                        .iter()
+                        .filter(|outcome| {
+                            **outcome == "INCOMPLETE" || **outcome == "NOT_APPLICABLE"
+                        })
+                        .count();
+                    let expired = observed
+                        .iter()
+                        .filter(|outcome| **outcome == "EXPIRED")
+                        .count();
+                    let aggregate =
+                        aggregate_disposition(3, verified, partial, unknown, incomplete, expired);
+                    let every_recipient_claims_success =
+                        observed.iter().all(|outcome| **outcome == "SUCCESS_VERIFIED");
+
+                    assert_eq!(
+                        aggregate == "ALL_REQUIRED_RECEIPT_CLAIMS_CONSISTENT",
+                        every_recipient_claims_success,
+                        "outcome vector {observed:?} produced {aggregate}"
+                    );
+                }
+            }
+        }
+    }
+
     #[test]
     fn partial_child_progress_is_not_reported_as_total_failure() {
         assert_eq!(
