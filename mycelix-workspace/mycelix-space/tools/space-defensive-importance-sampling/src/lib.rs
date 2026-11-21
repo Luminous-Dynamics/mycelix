@@ -819,9 +819,24 @@ mod tests {
         }
     }
 
+    fn whitening(dimension: usize) -> WhiteningTransform {
+        WhiteningTransform {
+            id: "identity-whitening-v1".into(),
+            revision: "sha256:whitener-identity".into(),
+            state_frame_id: "fixture-frame-v1".into(),
+            state_units_id: "fixture-units-v1".into(),
+            mean: vec![0.0; dimension],
+            cholesky: identity(dimension),
+        }
+    }
+
     fn evidence() -> EvaluationEvidence {
         EvaluationEvidence {
             proposal_id: "proposal-gmm-v1".into(),
+            whitening_transform_id: "identity-whitening-v1".into(),
+            whitening_transform_revision: "sha256:whitener-identity".into(),
+            state_frame_id: "fixture-frame-v1".into(),
+            state_units_id: "fixture-units-v1".into(),
             proposal_training_id: "training-split-sha256-aaa".into(),
             evaluation_sample_id: "evaluation-split-sha256-bbb".into(),
             sampling_design_id: "iid-fixed-defensive-gmm-v1".into(),
@@ -833,6 +848,100 @@ mod tests {
             proposal_frozen_before_evaluation: true,
             evaluation_draws_are_iid_from_full_mixture: true,
         }
+    }
+
+    #[test]
+    fn whitening_transform_maps_exact_sample_into_declared_physical_frame() {
+        let transform = WhiteningTransform {
+            id: "orbital-whitener-v4".into(),
+            revision: "sha256:whitener-v4".into(),
+            state_frame_id: "TEME-v1".into(),
+            state_units_id: "km-kmps-v1".into(),
+            mean: vec![100.0, 200.0],
+            cholesky: vec![vec![2.0, 0.0], vec![0.5, 3.0]],
+        };
+        let physical = transform.to_physical_state(&[1.0, -2.0]).unwrap();
+        assert!((physical[0] - 102.0).abs() < 1e-12);
+        assert!((physical[1] - 194.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn estimator_rejects_physical_event_state_not_matching_weighted_sample() {
+        let proposal = DefensiveGaussianMixture {
+            id: "proposal-nominal".into(),
+            epsilon: 0.25,
+            dimension: 2,
+            components: vec![GaussianComponent {
+                id: "same-as-target".into(),
+                mixture_weight: 1.0,
+                mean: vec![0.0, 0.0],
+                cholesky: identity(2),
+            }],
+        };
+        let transform = WhiteningTransform {
+            id: "orbital-whitener-v4".into(),
+            revision: "sha256:whitener-v4".into(),
+            state_frame_id: "TEME-v1".into(),
+            state_units_id: "km-kmps-v1".into(),
+            mean: vec![100.0, 200.0],
+            cholesky: vec![vec![2.0, 0.0], vec![0.5, 3.0]],
+        };
+        let mut evidence = evidence();
+        evidence.proposal_id = proposal.id.clone();
+        evidence.whitening_transform_id = transform.id.clone();
+        evidence.whitening_transform_revision = transform.revision.clone();
+        evidence.state_frame_id = transform.state_frame_id.clone();
+        evidence.state_units_id = transform.state_units_id.clone();
+        let observations = vec![
+            CollisionObservation {
+                point: vec![1.0, -2.0],
+                physical_state: vec![102.0, 194.5],
+                collision: true,
+            },
+            CollisionObservation {
+                point: vec![0.0, 0.0],
+                physical_state: vec![100.0, 200.0],
+                collision: false,
+            },
+        ];
+        assert!(estimate_collision_probability(
+            &proposal,
+            &transform,
+            &observations,
+            0.05,
+            &evidence
+        ).is_ok());
+
+        let mut corrupted = observations.clone();
+        corrupted[0].physical_state[0] += 0.01;
+        assert_eq!(
+            estimate_collision_probability(&proposal, &transform, &corrupted, 0.05, &evidence),
+            Err(EstimateError::PhysicalStateMismatch)
+        );
+    }
+
+    #[test]
+    fn estimator_rejects_whitening_transform_revision_mismatch() {
+        let proposal = proposal();
+        let transform = whitening(proposal.dimension);
+        let mut evidence = evidence();
+        evidence.whitening_transform_revision = "sha256:other-transform".into();
+        let observations = vec![
+            CollisionObservation {
+                point: vec![0.0, 0.0],
+                physical_state: vec![0.0, 0.0],
+                collision: false,
+            },
+            CollisionObservation {
+                point: vec![1.0, 0.0],
+                physical_state: vec![1.0, 0.0],
+                collision: false,
+            },
+        ];
+        assert_eq!(
+            estimate_collision_probability(&proposal, &transform, &observations, 0.05, &evidence),
+            Err(EstimateError::WhiteningTransformMismatch)
+        );
     }
 
     #[test]
@@ -931,25 +1040,29 @@ mod tests {
         let observations = vec![
             CollisionObservation {
                 point: vec![0.0, 0.0],
+                physical_state: vec![0.0, 0.0].clone(),
                 collision: true,
             },
             CollisionObservation {
                 point: vec![1.0, 0.0],
+                physical_state: vec![1.0, 0.0].clone(),
                 collision: false,
             },
             CollisionObservation {
                 point: vec![0.0, 1.0],
+                physical_state: vec![0.0, 1.0].clone(),
                 collision: true,
             },
             CollisionObservation {
                 point: vec![-1.0, 0.0],
+                physical_state: vec![-1.0, 0.0].clone(),
                 collision: false,
             },
         ];
         let mut evidence = evidence();
         evidence.proposal_id = "proposal-nominal".into();
         let report =
-            estimate_collision_probability(&proposal, &observations, 0.05, &evidence).unwrap();
+            estimate_collision_probability(&proposal, &whitening(proposal.dimension), &observations, 0.05, &evidence).unwrap();
         assert!((report.estimate - 0.5).abs() < 1e-12);
         assert_eq!(report.collision_count, 2);
         assert!(report.upper_confidence_bound >= report.estimate);
@@ -977,13 +1090,14 @@ mod tests {
         let observations = (0..100)
             .map(|i| CollisionObservation {
                 point: vec![i as f64 / 10.0],
+                physical_state: vec![i as f64 / 10.0].clone(),
                 collision: false,
             })
             .collect::<Vec<_>>();
         let mut evidence = evidence();
         evidence.proposal_id = proposal.id.clone();
         let report =
-            estimate_collision_probability(&proposal, &observations, 0.05, &evidence).unwrap();
+            estimate_collision_probability(&proposal, &whitening(proposal.dimension), &observations, 0.05, &evidence).unwrap();
         assert_eq!(report.estimate, 0.0);
         assert!(report.upper_confidence_bound > 0.0);
     }
@@ -994,17 +1108,19 @@ mod tests {
         let observations = vec![
             CollisionObservation {
                 point: vec![0.0, 0.0],
+                physical_state: vec![0.0, 0.0].clone(),
                 collision: false,
             },
             CollisionObservation {
                 point: vec![1.0, 0.0],
+                physical_state: vec![1.0, 0.0].clone(),
                 collision: false,
             },
         ];
         let mut evidence = evidence();
         evidence.evaluation_sample_id = evidence.proposal_training_id.clone();
         assert_eq!(
-            estimate_collision_probability(&proposal, &observations, 0.05, &evidence),
+            estimate_collision_probability(&proposal, &whitening(proposal.dimension), &observations, 0.05, &evidence),
             Err(EstimateError::TrainingAndEvaluationMustBeDisjoint)
         );
     }
@@ -1015,17 +1131,19 @@ mod tests {
         let observations = vec![
             CollisionObservation {
                 point: vec![0.0, 0.0],
+                physical_state: vec![0.0, 0.0].clone(),
                 collision: false,
             },
             CollisionObservation {
                 point: vec![1.0, 0.0],
+                physical_state: vec![1.0, 0.0].clone(),
                 collision: false,
             },
         ];
         let mut evidence = evidence();
         evidence.event_oracle_is_high_fidelity_continuous_time = false;
         assert_eq!(
-            estimate_collision_probability(&proposal, &observations, 0.05, &evidence),
+            estimate_collision_probability(&proposal, &whitening(proposal.dimension), &observations, 0.05, &evidence),
             Err(EstimateError::LowFidelityEventOracleNotAccepted)
         );
     }
@@ -1036,17 +1154,19 @@ mod tests {
         let observations = vec![
             CollisionObservation {
                 point: vec![0.0, 0.0],
+                physical_state: vec![0.0, 0.0].clone(),
                 collision: false,
             },
             CollisionObservation {
                 point: vec![1.0, 0.0],
+                physical_state: vec![1.0, 0.0].clone(),
                 collision: false,
             },
         ];
         let mut evidence = evidence();
         evidence.evaluation_draws_are_iid_from_full_mixture = false;
         assert_eq!(
-            estimate_collision_probability(&proposal, &observations, 0.05, &evidence),
+            estimate_collision_probability(&proposal, &whitening(proposal.dimension), &observations, 0.05, &evidence),
             Err(EstimateError::NonIidOrUnattestedSampling)
         );
     }
@@ -1073,14 +1193,15 @@ mod tests {
         let proposal = proposal();
         let one = [CollisionObservation {
             point: vec![0.0, 0.0],
+            physical_state: vec![0.0, 0.0].clone(),
             collision: false,
         }];
         assert_eq!(
-            estimate_collision_probability(&proposal, &one, 0.05, &evidence()),
+            estimate_collision_probability(&proposal, &whitening(proposal.dimension), &one, 0.05, &evidence()),
             Err(EstimateError::InsufficientSamples(1))
         );
         assert_eq!(
-            estimate_collision_probability(&proposal, &[], 1.0, &evidence()),
+            estimate_collision_probability(&proposal, &whitening(proposal.dimension), &[], 1.0, &evidence()),
             Err(EstimateError::InvalidDelta(1.0))
         );
     }
