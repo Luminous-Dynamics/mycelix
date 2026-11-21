@@ -726,11 +726,15 @@ mod tests {
         proposal.components[1].id = proposal.components[0].id.clone();
         assert_eq!(
             proposal.validate(),
-            Err(EstimateError::DuplicateComponentId("collision-mode-left".into()))
+            Err(EstimateError::DuplicateComponentId(
+                "collision-mode-left".into()
+            ))
         );
         assert_eq!(
             proposal.log_proposal_density(&[0.0, 0.0]),
-            Err(EstimateError::DuplicateComponentId("collision-mode-left".into()))
+            Err(EstimateError::DuplicateComponentId(
+                "collision-mode-left".into()
+            ))
         );
     }
 
