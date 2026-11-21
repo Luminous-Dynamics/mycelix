@@ -1404,6 +1404,58 @@ mod tests {
     }
 
     #[test]
+    fn omitted_requested_pair_is_rejected_even_when_object_ledger_is_complete() {
+        let mut package = fixture();
+        package["pair_coverage"]["pairs"].as_array_mut().unwrap().clear();
+        let report = verify_value(&package, &repo_root());
+        assert_eq!(report.status(), "FAIL");
+        assert!(report.failures.contains_key("PAIR_UNIVERSE_OMITTED_OR_EXTRA"));
+    }
+
+    #[test]
+    fn retained_pair_output_must_match_exact_result_artifact() {
+        let mut package = fixture();
+        package["assessments"][1]["output_sha256"] = Value::String("0".repeat(64));
+        let report = verify_value(&package, &repo_root());
+        assert_eq!(report.status(), "FAIL");
+        assert!(report.failures.contains_key("ASSESSMENT_OUTPUT_DIGEST_MISMATCH"));
+    }
+
+    #[test]
+    fn completed_pair_assessment_must_bind_the_same_pair_id() {
+        let mut package = fixture();
+        package["assessments"][1]["pair_id"] = Value::String("different-pair".to_string());
+        let report = verify_value(&package, &repo_root());
+        assert_eq!(report.status(), "FAIL");
+        assert!(report.failures.contains_key("PAIR_NARROW_PHASE_ASSESSMENT_MISMATCH"));
+    }
+
+    #[test]
+    fn retained_candidate_without_narrow_phase_blocks_negative_conclusion() {
+        let mut package = fixture();
+        package["pair_coverage"]["pairs"][0]["narrow_phase_status"] = Value::String("not_run".to_string());
+        package["pair_coverage"]["pairs"][0]["narrow_phase_assessment_id"] = Value::Null;
+        let report = verify_value(&package, &repo_root());
+        assert!(report.incomplete.contains_key("PAIR_NARROW_PHASE_NOT_COMPLETE"));
+    }
+
+    #[test]
+    fn pair_pruning_requires_a_digest_bound_witness() {
+        let mut package = fixture();
+        package["pair_coverage"]["retained_candidate_count"] = Value::from(0);
+        package["pair_coverage"]["proven_excluded_count"] = Value::from(1);
+        package["pair_coverage"]["pairs"][0]["disposition"] = Value::String("proven_excluded".to_string());
+        package["pair_coverage"]["pairs"][0]["prune_witness_artifact_id"] = Value::String("synthetic-state-set".to_string());
+        package["pair_coverage"]["pairs"][0]["prune_witness_sha256"] = Value::String("0".repeat(64));
+        package["pair_coverage"]["pairs"][0]["narrow_phase_status"] = Value::String("not_applicable".to_string());
+        package["pair_coverage"]["pairs"][0]["narrow_phase_assessment_id"] = Value::Null;
+        package["pair_coverage"]["pairs"][0]["reason_codes"] = json!(["LOWER_BOUND_EXCEEDS_DECLARED_PROFILE"]);
+        let report = verify_value(&package, &repo_root());
+        assert_eq!(report.status(), "FAIL");
+        assert!(report.failures.contains_key("PRUNE_WITNESS_DIGEST_MISMATCH"));
+    }
+
+    #[test]
     fn path_traversal_is_rejected() {
         let mut package = fixture();
         package["source_artifacts"][0]["artifact_path"] = Value::String("../../../../etc/passwd".to_string());
