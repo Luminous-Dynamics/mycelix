@@ -354,7 +354,8 @@
                     "clock_epoch",
                     "monotonic_tick",
                     "request_digest_sha256",
-                    "idempotency_key_commitment_sha256"
+                    "idempotency_key_commitment_sha256",
+                    "evidence_refs"
                   ],
                   "properties": {
                     "event_id": {
@@ -424,6 +425,15 @@
                     },
                     "result": {
                       "type": "object"
+                    },
+                    "evidence_refs": {
+                      "type": "array",
+                      "minItems": 1,
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
                     }
                   }
                 }
