@@ -44,7 +44,8 @@
         "minimum_residence_time_min",
         "minimum_sampling_increments",
         "minimum_retention_sample_volume_l",
-        "analyte_criteria"
+        "analyte_criteria",
+        "minimum_retention_duration_days"
       ],
       "properties": {
         "profile_id": {
@@ -149,6 +150,10 @@
               }
             }
           }
+        },
+        "minimum_retention_duration_days": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
