@@ -14,6 +14,7 @@
     "membership_snapshot_digest",
     "required_recipient_set_commitment",
     "content_commitment",
+    "recipient_unit",
     "aggregation_policy",
     "children",
     "claim_ceiling"
@@ -94,6 +95,14 @@
         "minLength": 1,
         "maxLength": 512
       }
+    },
+    "recipient_unit": {
+      "type": "string",
+      "enum": [
+        "ACCOUNT",
+        "DEVICE"
+      ],
+      "description": "Defines what one child recipient commitment represents. ACCOUNT means account-level acceptance only and never implies all devices; DEVICE means each required device must be represented by a separate child."
     }
   }
 }
