@@ -21,7 +21,6 @@
     "sample_id_column",
     "unique_sample_id_count",
     "duplicate_sample_id_count",
-    "blank_sample_id_count",
     "spectral_column_count",
     "spectral_axis_unit",
     "spectral_axis_descending",
@@ -107,10 +106,6 @@
       "minimum": 1
     },
     "duplicate_sample_id_count": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "blank_sample_id_count": {
       "type": "integer",
       "minimum": 0
     },
