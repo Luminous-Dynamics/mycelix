@@ -412,7 +412,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "audited synthetic scenario {}; transient transfer={:.9} m3; reference-only",
         report.scenario_id,
-        report.transient_interface_exchange.signed_transfer_volume_m3
+        report
+            .transient_interface_exchange
+            .signed_transfer_volume_m3
     );
     Ok(())
 }
