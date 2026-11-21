@@ -165,7 +165,9 @@ struct Report {
     analytical_gate: &'static str,
     analyte_results: Vec<AnalyteResult>,
     quality_conformity_status: &'static str,
+    carbon_removal_claim_requested: bool,
     carbon_removal_status: &'static str,
+    agronomic_suitability_claim_requested: bool,
     agronomic_suitability_status: &'static str,
     controls: Controls,
     interpretation_boundary: &'static str,
@@ -276,10 +278,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
     {
         return Err("quality profile effective date is invalid".into());
     }
-    if let Some(until) = &s.quality_profile.effective_until {
-        if until < &s.quality_profile.effective_from {
-            return Err("quality profile effective interval is reversed".into());
-        }
+    if let Some(until) = &s.quality_profile.effective_until
+        && until < &s.quality_profile.effective_from
+    {
+        return Err("quality profile effective interval is reversed".into());
     }
     if s.quality_profile.analyte_criteria.is_empty() {
         return Err("quality profile must define at least one analyte criterion".into());
@@ -741,7 +743,9 @@ fn build_report(s: &Scenario, digest: String) -> Report {
         analytical_gate,
         analyte_results,
         quality_conformity_status: quality_status,
+        carbon_removal_claim_requested: s.batch.carbon_removal_claim_requested,
         carbon_removal_status: "not_assessed_by_v0_1",
+        agronomic_suitability_claim_requested: s.batch.agronomic_suitability_claim_requested,
         agronomic_suitability_status: "not_assessed_by_v0_1",
         controls: Controls {
             batch_identity_pass: true,
