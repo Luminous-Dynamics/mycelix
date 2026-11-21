@@ -226,6 +226,10 @@ pub struct WhiteningTransform {
     pub revision: String,
     pub state_frame_id: String,
     pub state_units_id: String,
+    pub state_layout_id: String,
+    pub state_epoch_id: String,
+    pub time_scale_id: String,
+    pub origin_id: String,
     pub mean: Vec<f64>,
     /// Lower-triangular L such that physical_state = mean + L * z.
     pub cholesky: Vec<Vec<f64>>,
@@ -238,6 +242,10 @@ impl WhiteningTransform {
             ("whitening_transform_revision", &self.revision),
             ("state_frame_id", &self.state_frame_id),
             ("state_units_id", &self.state_units_id),
+            ("state_layout_id", &self.state_layout_id),
+            ("state_epoch_id", &self.state_epoch_id),
+            ("time_scale_id", &self.time_scale_id),
+            ("origin_id", &self.origin_id),
         ] {
             if !valid_identifier(value) {
                 return Err(EstimateError::InvalidIdentifier(field));
@@ -310,6 +318,10 @@ pub struct EvaluationEvidence {
     pub whitening_transform_revision: String,
     pub state_frame_id: String,
     pub state_units_id: String,
+    pub state_layout_id: String,
+    pub state_epoch_id: String,
+    pub time_scale_id: String,
+    pub origin_id: String,
     /// Frozen proposal-training split/configuration reference.
     pub proposal_training_id: String,
     /// Independent final-estimation split reference; must differ from training.
@@ -341,6 +353,10 @@ pub struct ImportanceSamplingReport {
     pub whitening_transform_revision: String,
     pub state_frame_id: String,
     pub state_units_id: String,
+    pub state_layout_id: String,
+    pub state_epoch_id: String,
+    pub time_scale_id: String,
+    pub origin_id: String,
     pub sample_count: usize,
     pub collision_count: usize,
     pub defensive_fraction: f64,
@@ -613,6 +629,10 @@ pub fn estimate_collision_probability(
         whitening_transform_revision: whitening.revision.clone(),
         state_frame_id: whitening.state_frame_id.clone(),
         state_units_id: whitening.state_units_id.clone(),
+        state_layout_id: whitening.state_layout_id.clone(),
+        state_epoch_id: whitening.state_epoch_id.clone(),
+        time_scale_id: whitening.time_scale_id.clone(),
+        origin_id: whitening.origin_id.clone(),
         sample_count: n,
         collision_count,
         defensive_fraction: proposal.epsilon,
@@ -657,6 +677,10 @@ fn validate_evidence(
         || evidence.whitening_transform_revision != whitening.revision
         || evidence.state_frame_id != whitening.state_frame_id
         || evidence.state_units_id != whitening.state_units_id
+        || evidence.state_layout_id != whitening.state_layout_id
+        || evidence.state_epoch_id != whitening.state_epoch_id
+        || evidence.time_scale_id != whitening.time_scale_id
+        || evidence.origin_id != whitening.origin_id
     {
         return Err(EstimateError::WhiteningTransformMismatch);
     }
@@ -825,6 +849,10 @@ mod tests {
             revision: "sha256:whitener-identity".into(),
             state_frame_id: "fixture-frame-v1".into(),
             state_units_id: "fixture-units-v1".into(),
+            state_layout_id: "primary-secondary-cartesian-state-v1".into(),
+            state_epoch_id: "fixture-epoch-v1".into(),
+            time_scale_id: "TAI-v1".into(),
+            origin_id: "geocenter-v1".into(),
             mean: vec![0.0; dimension],
             cholesky: identity(dimension),
         }
@@ -857,6 +885,10 @@ mod tests {
             revision: "sha256:whitener-v4".into(),
             state_frame_id: "TEME-v1".into(),
             state_units_id: "km-kmps-v1".into(),
+            state_layout_id: "primary-secondary-state-v1".into(),
+            state_epoch_id: "2026-01-01T00:00:00Z".into(),
+            time_scale_id: "UTC-v1".into(),
+            origin_id: "Earth-geocenter-v1".into(),
             mean: vec![100.0, 200.0],
             cholesky: vec![vec![2.0, 0.0], vec![0.5, 3.0]],
         };
@@ -892,6 +924,10 @@ mod tests {
         evidence.whitening_transform_revision = transform.revision.clone();
         evidence.state_frame_id = transform.state_frame_id.clone();
         evidence.state_units_id = transform.state_units_id.clone();
+        evidence.state_layout_id = transform.state_layout_id.clone();
+        evidence.state_epoch_id = transform.state_epoch_id.clone();
+        evidence.time_scale_id = transform.time_scale_id.clone();
+        evidence.origin_id = transform.origin_id.clone();
         let observations = vec![
             CollisionObservation {
                 point: vec![1.0, -2.0],
