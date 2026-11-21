@@ -21,7 +21,9 @@
     "graph_proof_workload_profiles",
     "effect_fence_profiles",
     "postgres_effect_owner_profiles",
-    "effect_surface_inventory_profiles"
+    "effect_surface_inventory_profiles",
+    "queue_worker_profiles",
+    "queue_worker_corpus_binding"
   ],
   "properties": {
     "profile": {
@@ -719,6 +721,89 @@
             "type": "string",
             "minLength": 20
           }
+        }
+      }
+    },
+    "queue_worker_profiles": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "messages_per_second",
+          "worker_count",
+          "backlog_messages",
+          "command_age_seconds",
+          "purpose"
+        ],
+        "properties": {
+          "id": {
+            "enum": [
+              "queue_worker_small",
+              "queue_worker_production",
+              "queue_worker_enterprise_stress",
+              "queue_worker_revocation_backlog"
+            ]
+          },
+          "messages_per_second": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "worker_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "backlog_messages": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "command_age_seconds": {
+            "type": "array",
+            "minItems": 3,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 20
+          }
+        }
+      }
+    },
+    "queue_worker_corpus_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "schema_path",
+        "declared_scenario_count",
+        "unique_scenario_ids_required",
+        "independent_oracle_required",
+        "broker_delivery_and_effect_owner_results_separated"
+      ],
+      "properties": {
+        "path": {
+          "const": "docs/benchmarks/MYC_DIR_QUEUE_WORKER_V0_1.json"
+        },
+        "schema_path": {
+          "const": "docs/benchmarks/MYC_DIR_QUEUE_WORKER_V0_1.schema.json"
+        },
+        "declared_scenario_count": {
+          "const": 24
+        },
+        "unique_scenario_ids_required": {
+          "const": true
+        },
+        "independent_oracle_required": {
+          "const": true
+        },
+        "broker_delivery_and_effect_owner_results_separated": {
+          "const": true
         }
       }
     }
