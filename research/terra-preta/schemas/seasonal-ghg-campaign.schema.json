@@ -1,0 +1,293 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/terra-preta/schemas/seasonal-ghg-campaign.schema.json",
+  "title": "Synthetic event-aware seasonal GHG campaign",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "fixture_status",
+    "fixture_version",
+    "campaign"
+  ],
+  "properties": {
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "fixture_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "campaign": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "campaign_id",
+        "study_id",
+        "site_id",
+        "experimental_unit_id",
+        "treatment_assignment_id",
+        "gas_species",
+        "mass_basis",
+        "flux_unit",
+        "window_start",
+        "window_end",
+        "maximum_gap_seconds",
+        "boundary_tolerance_seconds",
+        "schedule_slots",
+        "events",
+        "observations"
+      ],
+      "properties": {
+        "campaign_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "study_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "site_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "experimental_unit_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "treatment_assignment_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "gas_species": {
+          "enum": [
+            "N2O",
+            "CH4",
+            "CO2"
+          ]
+        },
+        "mass_basis": {
+          "enum": [
+            "N2O",
+            "N2O_N",
+            "CH4",
+            "CO2"
+          ]
+        },
+        "flux_unit": {
+          "enum": [
+            "mg_N2O_m2_h",
+            "mg_N2O_N_m2_h",
+            "mg_CH4_m2_h",
+            "mg_CO2_m2_h"
+          ]
+        },
+        "window_start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "window_end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "maximum_gap_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "boundary_tolerance_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "schedule_slots": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "slot_id",
+              "scheduled_at",
+              "event_relation"
+            ],
+            "properties": {
+              "slot_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "scheduled_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "event_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "event_relation": {
+                "enum": [
+                  "none",
+                  "before",
+                  "after"
+                ]
+              },
+              "missing_reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "event_id",
+              "event_type",
+              "window_start",
+              "occurred_at",
+              "window_end",
+              "minimum_before_observations",
+              "minimum_after_observations"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "event_type": {
+                "enum": [
+                  "rainfall",
+                  "irrigation",
+                  "fertilizer",
+                  "manure",
+                  "tillage",
+                  "wetting_drying",
+                  "other"
+                ]
+              },
+              "window_start": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "occurred_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "window_end": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "minimum_before_observations": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "minimum_after_observations": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "observation_id",
+              "scheduled_slot_id",
+              "observed_at",
+              "gas_species",
+              "mass_basis",
+              "flux_value",
+              "flux_unit",
+              "quantification_status",
+              "qc_state"
+            ],
+            "properties": {
+              "observation_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "scheduled_slot_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "observed_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "gas_species": {
+                "enum": [
+                  "N2O",
+                  "CH4",
+                  "CO2"
+                ]
+              },
+              "mass_basis": {
+                "enum": [
+                  "N2O",
+                  "N2O_N",
+                  "CH4",
+                  "CO2"
+                ]
+              },
+              "flux_value": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "flux_unit": {
+                "enum": [
+                  "mg_N2O_m2_h",
+                  "mg_N2O_N_m2_h",
+                  "mg_CH4_m2_h",
+                  "mg_CO2_m2_h"
+                ]
+              },
+              "quantification_status": {
+                "enum": [
+                  "quantified",
+                  "left_censored"
+                ]
+              },
+              "detection_limit": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "qc_state": {
+                "enum": [
+                  "pass",
+                  "flagged",
+                  "rejected"
+                ]
+              },
+              "standard_uncertainty": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "uncertainty_group_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
