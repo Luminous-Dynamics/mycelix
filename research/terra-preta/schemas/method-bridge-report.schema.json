@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic soil method-bridge report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "comparison_id",
+    "property_id",
+    "objective_status",
+    "method_a_id",
+    "method_b_id",
+    "pairing_basis",
+    "pair_count",
+    "independence_group_count",
+    "rank_status",
+    "numerical_agreement_status",
+    "decision_agreement_status",
+    "uncertainty_status",
+    "input_sha256",
+    "controls",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "comparison_id": {
+      "type": "string"
+    },
+    "property_id": {
+      "type": "string"
+    },
+    "objective_status": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "rank_concordance",
+          "numerical_agreement",
+          "decision_agreement"
+        ]
+      }
+    },
+    "method_a_id": {
+      "type": "string"
+    },
+    "method_b_id": {
+      "type": "string"
+    },
+    "pairing_basis": {
+      "type": "string"
+    },
+    "pair_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "independence_group_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rank_status": {
+      "enum": [
+        "qualified_rank_concordance",
+        "not_requested",
+        "insufficient_pairs_abstain",
+        "constant_ranks_abstain"
+      ]
+    },
+    "spearman_rho": {
+      "type": "number",
+      "minimum": -1,
+      "maximum": 1
+    },
+    "numerical_agreement_status": {
+      "enum": [
+        "qualified_comparable_pair",
+        "not_requested",
+        "not_eligible_non_equivalent",
+        "insufficient_pairs_abstain"
+      ]
+    },
+    "numerical_agreement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mean_difference_b_minus_a",
+        "mae",
+        "rmse",
+        "limits_of_agreement_lower",
+        "limits_of_agreement_upper"
+      ],
+      "properties": {
+        "mean_difference_b_minus_a": {
+          "type": "number"
+        },
+        "mae": {
+          "type": "number",
+          "minimum": 0
+        },
+        "rmse": {
+          "type": "number",
+          "minimum": 0
+        },
+        "limits_of_agreement_lower": {
+          "type": "number"
+        },
+        "limits_of_agreement_upper": {
+          "type": "number"
+        }
+      }
+    },
+    "decision_agreement_status": {
+      "enum": [
+        "qualified_shared_threshold_decisions",
+        "not_requested",
+        "not_eligible_threshold_not_set",
+        "insufficient_pairs_abstain"
+      ]
+    },
+    "decision_agreement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "threshold_status",
+        "threshold_value",
+        "threshold_unit",
+        "both_positive",
+        "method_a_only_positive",
+        "method_b_only_positive",
+        "both_negative",
+        "agreement_fraction"
+      ],
+      "properties": {
+        "threshold_status": {
+          "enum": [
+            "synthetic_fixture",
+            "externally_approved"
+          ]
+        },
+        "threshold_value": {
+          "type": "number"
+        },
+        "threshold_unit": {
+          "type": "string"
+        },
+        "both_positive": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "method_a_only_positive": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "method_b_only_positive": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "both_negative": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "agreement_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "uncertainty_status": {
+      "const": "not_estimated_cluster_bootstrap_required_for_empirical_inference"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "numeric_claim_requires_analytical_equivalence",
+        "no_composite_method_score",
+        "duplicate_sample_rejection",
+        "independence_groups_preserved"
+      ],
+      "properties": {
+        "numeric_claim_requires_analytical_equivalence": {
+          "const": true
+        },
+        "no_composite_method_score": {
+          "const": true
+        },
+        "duplicate_sample_rejection": {
+          "const": true
+        },
+        "independence_groups_preserved": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
