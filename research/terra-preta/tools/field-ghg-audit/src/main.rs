@@ -443,14 +443,14 @@ fn validate_required_shape(payload: &serde_json::Value) -> Result<(), String> {
             &["status"],
             &format!("{label}.uncertainty"),
         )?;
-        if let Some(detection_limit) = observation.get("detection_limit") {
-            if !detection_limit.is_null() {
-                require_keys(
-                    detection_limit,
-                    &["value", "unit", "basis"],
-                    &format!("{label}.detection_limit"),
-                )?;
-            }
+        if let Some(detection_limit) = observation.get("detection_limit")
+            && !detection_limit.is_null()
+        {
+            require_keys(
+                detection_limit,
+                &["value", "unit", "basis"],
+                &format!("{label}.detection_limit"),
+            )?;
         }
     }
     Ok(())
@@ -674,14 +674,14 @@ fn validate_observation(observation: &Observation, index: usize) -> Result<Vec<S
             }
         }
     }
-    if let Some(limit) = &observation.detection_limit {
-        if let Some(method) = limit.censoring_method.as_deref() {
-            if !method.is_empty() && method.trim() != method {
-                return Err(format!(
-                    "{label}.detection_limit.censoring_method must not have surrounding whitespace"
-                ));
-            }
-        }
+    if let Some(limit) = &observation.detection_limit
+        && let Some(method) = limit.censoring_method.as_deref()
+        && !method.is_empty()
+        && method.trim() != method
+    {
+        return Err(format!(
+            "{label}.detection_limit.censoring_method must not have surrounding whitespace"
+        ));
     }
     for (value, field) in [
         (
