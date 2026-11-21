@@ -42,6 +42,9 @@ jobs:
             .gas_species_counts.N2O == 1 and
             .gas_species_counts.CH4 == 1 and
             .gas_species_counts.CO2 == null and
+            .calculation_controls.n2o_mass_basis_conversion_pass == true and
+            .calculation_controls.explicit_gap_trapezoidal_integration_pass == true and
+            (.observations[0].n2o_n_equivalent_flux_mg_n2o_n_m2_h - 0.2672727272727273 | fabs < 1e-12) and
             (.input_sha256 | test("^[a-f0-9]{64}$")) and
             (.warnings | length >= 2)
           ' "$RUNNER_TEMP/field-ghg-audit-report.json"
