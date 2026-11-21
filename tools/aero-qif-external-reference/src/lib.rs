@@ -5,7 +5,7 @@
 //! QIF local IDs, external-document references, external xIds and STEP UUIDs
 //! remain separate identifier namespaces.
 
-use aero_adapter_run_receipt::{verify_artifact_bytes, ContentArtifactV1, ReceiptError};
+use aero_adapter_run_receipt::{ContentArtifactV1, ReceiptError, verify_artifact_bytes};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -206,7 +206,11 @@ pub enum TraceError {
     #[error("missing Plan CharacteristicItem xId {xid} in QPId {qpid}")]
     MissingExternalObject { qpid: String, xid: u32 },
     #[error("xId {xid} in QPId {qpid} resolves to wrong QIF object type {object_kind}")]
-    WrongExternalObjectKind { qpid: String, xid: u32, object_kind: String },
+    WrongExternalObjectKind {
+        qpid: String,
+        xid: u32,
+        object_kind: String,
+    },
     #[error("MeasurementResultsSet {0} is not declared in the Results document")]
     MissingResultSet(u32),
     #[error("CharacteristicNominal {nominal_id} missing in Plan {qpid}")]
@@ -242,113 +246,254 @@ pub enum TraceError {
 pub fn parse_trace_case_json(bytes: &[u8]) -> Result<QifExternalReferenceTraceCaseV1, TraceError> {
     let value: Value = serde_json::from_slice(bytes)
         .map_err(|error| TraceError::InvalidJson(error.to_string()))?;
-    const ROOT: &[&str] = &["schema", "benchmark_id", "case_id", "results", "plans", "step_documents"];
+    const ROOT: &[&str] = &[
+        "schema",
+        "benchmark_id",
+        "case_id",
+        "results",
+        "plans",
+        "step_documents",
+    ];
     check_fields(&value, "case", ROOT, ROOT)?;
 
-    let results = value.get("results")
-        .ok_or_else(|| TraceError::MissingField { scope: "case".into(), field: "results".into() })?;
+    let results = value
+        .get("results")
+        .ok_or_else(|| TraceError::MissingField {
+            scope: "case".into(),
+            field: "results".into(),
+        })?;
     check_fields(
         results,
         "case.results",
-        &["qpid", "artifact", "result_set_ids", "external_documents", "measurements"],
-        &["qpid", "artifact", "result_set_ids", "external_documents", "measurements"],
+        &[
+            "qpid",
+            "artifact",
+            "result_set_ids",
+            "external_documents",
+            "measurements",
+        ],
+        &[
+            "qpid",
+            "artifact",
+            "result_set_ids",
+            "external_documents",
+            "measurements",
+        ],
     )?;
     check_content_artifact(
-        results.get("artifact").ok_or_else(|| TraceError::MissingField {
-            scope: "case.results".into(), field: "artifact".into()
-        })?,
+        results
+            .get("artifact")
+            .ok_or_else(|| TraceError::MissingField {
+                scope: "case.results".into(),
+                field: "artifact".into(),
+            })?,
         "case.results.artifact",
     )?;
 
-    let result_set_ids = results.get("result_set_ids").and_then(Value::as_array)
+    let result_set_ids = results
+        .get("result_set_ids")
+        .and_then(Value::as_array)
         .ok_or_else(|| TraceError::MalformedObject("case.results.result_set_ids".into()))?;
-    if result_set_ids.iter().any(|id| id.as_u64().filter(|value| *value > 0 && *value <= u32::MAX as u64).is_none()) {
-        return Err(TraceError::MalformedObject("case.results.result_set_ids".into()));
+    if result_set_ids.iter().any(|id| {
+        id.as_u64()
+            .filter(|value| *value > 0 && *value <= u32::MAX as u64)
+            .is_none()
+    }) {
+        return Err(TraceError::MalformedObject(
+            "case.results.result_set_ids".into(),
+        ));
     }
 
-    let external_documents = results.get("external_documents").and_then(Value::as_array)
+    let external_documents = results
+        .get("external_documents")
+        .and_then(Value::as_array)
         .ok_or_else(|| TraceError::MalformedObject("case.results.external_documents".into()))?;
     for (index, item) in external_documents.iter().enumerate() {
         let scope = format!("case.results.external_documents[{index}]");
-        check_fields(item, &scope, &["local_reference_id", "plan_qpid", "plan_artifact", "uri"],
-            &["local_reference_id", "plan_qpid", "plan_artifact"])?;
+        check_fields(
+            item,
+            &scope,
+            &["local_reference_id", "plan_qpid", "plan_artifact", "uri"],
+            &["local_reference_id", "plan_qpid", "plan_artifact"],
+        )?;
         check_content_artifact(
-            item.get("plan_artifact").ok_or_else(|| TraceError::MissingField {
-                scope: scope.clone(), field: "plan_artifact".into()
-            })?,
+            item.get("plan_artifact")
+                .ok_or_else(|| TraceError::MissingField {
+                    scope: scope.clone(),
+                    field: "plan_artifact".into(),
+                })?,
             &format!("{scope}.plan_artifact"),
         )?;
     }
 
-    let measurements = results.get("measurements").and_then(Value::as_array)
+    let measurements = results
+        .get("measurements")
+        .and_then(Value::as_array)
         .ok_or_else(|| TraceError::MalformedObject("case.results.measurements".into()))?;
     for (index, item) in measurements.iter().enumerate() {
         let scope = format!("case.results.measurements[{index}]");
-        check_fields(item, &scope,
-            &["measurement_id", "result_set_id", "external_document_reference_id", "xid", "status"],
-            &["measurement_id", "result_set_id", "external_document_reference_id", "xid", "status"])?;
+        check_fields(
+            item,
+            &scope,
+            &[
+                "measurement_id",
+                "result_set_id",
+                "external_document_reference_id",
+                "xid",
+                "status",
+            ],
+            &[
+                "measurement_id",
+                "result_set_id",
+                "external_document_reference_id",
+                "xid",
+                "status",
+            ],
+        )?;
     }
 
-    let plans = value.get("plans").and_then(Value::as_array)
+    let plans = value
+        .get("plans")
+        .and_then(Value::as_array)
         .ok_or_else(|| TraceError::MalformedObject("case.plans".into()))?;
     for (index, plan) in plans.iter().enumerate() {
         let scope = format!("case.plans[{index}]");
-        check_fields(plan, &scope,
-            &["qpid", "artifact", "step_document", "digital_model_entities", "other_objects", "characteristic_items", "characteristic_nominals"],
-            &["qpid", "artifact", "step_document", "digital_model_entities", "other_objects", "characteristic_items", "characteristic_nominals"])?;
-        check_content_artifact(plan.get("artifact").ok_or_else(|| TraceError::MissingField {
-            scope: scope.clone(), field: "artifact".into()
-        })?, &format!("{scope}.artifact"))?;
-        check_content_artifact(plan.get("step_document").ok_or_else(|| TraceError::MissingField {
-            scope: scope.clone(), field: "step_document".into()
-        })?, &format!("{scope}.step_document"))?;
+        check_fields(
+            plan,
+            &scope,
+            &[
+                "qpid",
+                "artifact",
+                "step_document",
+                "digital_model_entities",
+                "other_objects",
+                "characteristic_items",
+                "characteristic_nominals",
+            ],
+            &[
+                "qpid",
+                "artifact",
+                "step_document",
+                "digital_model_entities",
+                "other_objects",
+                "characteristic_items",
+                "characteristic_nominals",
+            ],
+        )?;
+        check_content_artifact(
+            plan.get("artifact")
+                .ok_or_else(|| TraceError::MissingField {
+                    scope: scope.clone(),
+                    field: "artifact".into(),
+                })?,
+            &format!("{scope}.artifact"),
+        )?;
+        check_content_artifact(
+            plan.get("step_document")
+                .ok_or_else(|| TraceError::MissingField {
+                    scope: scope.clone(),
+                    field: "step_document".into(),
+                })?,
+            &format!("{scope}.step_document"),
+        )?;
 
-        let digital_entities = plan.get("digital_model_entities").and_then(Value::as_array)
-            .ok_or_else(|| TraceError::MalformedObject(format!("{scope}.digital_model_entities")))?;
+        let digital_entities = plan
+            .get("digital_model_entities")
+            .and_then(Value::as_array)
+            .ok_or_else(|| {
+                TraceError::MalformedObject(format!("{scope}.digital_model_entities"))
+            })?;
         for (entity_index, entity) in digital_entities.iter().enumerate() {
             let entity_scope = format!("{scope}.digital_model_entities[{entity_index}]");
-            check_fields(entity, &entity_scope,
+            check_fields(
+                entity,
+                &entity_scope,
                 &["entity_id", "step_uuid", "step_entity_kind"],
-                &["entity_id", "step_uuid", "step_entity_kind"])?;
+                &["entity_id", "step_uuid", "step_entity_kind"],
+            )?;
         }
-        let other_objects = plan.get("other_objects").and_then(Value::as_array)
+        let other_objects = plan
+            .get("other_objects")
+            .and_then(Value::as_array)
             .ok_or_else(|| TraceError::MalformedObject(format!("{scope}.other_objects")))?;
         for (object_index, object) in other_objects.iter().enumerate() {
             let object_scope = format!("{scope}.other_objects[{object_index}]");
-            check_fields(object, &object_scope, &["object_id", "object_kind"], &["object_id", "object_kind"])?;
+            check_fields(
+                object,
+                &object_scope,
+                &["object_id", "object_kind"],
+                &["object_id", "object_kind"],
+            )?;
         }
-        let items = plan.get("characteristic_items").and_then(Value::as_array)
+        let items = plan
+            .get("characteristic_items")
+            .and_then(Value::as_array)
             .ok_or_else(|| TraceError::MalformedObject(format!("{scope}.characteristic_items")))?;
         for (item_index, item) in items.iter().enumerate() {
             let item_scope = format!("{scope}.characteristic_items[{item_index}]");
-            check_fields(item, &item_scope,
+            check_fields(
+                item,
+                &item_scope,
                 &["object_id", "characteristic_nominal_id"],
-                &["object_id", "characteristic_nominal_id"])?;
+                &["object_id", "characteristic_nominal_id"],
+            )?;
         }
-        let nominals = plan.get("characteristic_nominals").and_then(Value::as_array)
-            .ok_or_else(|| TraceError::MalformedObject(format!("{scope}.characteristic_nominals")))?;
+        let nominals = plan
+            .get("characteristic_nominals")
+            .and_then(Value::as_array)
+            .ok_or_else(|| {
+                TraceError::MalformedObject(format!("{scope}.characteristic_nominals"))
+            })?;
         for (nominal_index, nominal) in nominals.iter().enumerate() {
             let nominal_scope = format!("{scope}.characteristic_nominals[{nominal_index}]");
-            check_fields(nominal, &nominal_scope,
+            check_fields(
+                nominal,
+                &nominal_scope,
                 &["object_id", "characteristic_id", "entity_external_ids"],
-                &["object_id", "characteristic_id", "entity_external_ids"])?;
-            let ids = nominal.get("entity_external_ids").and_then(Value::as_array)
-                .ok_or_else(|| TraceError::MalformedObject(format!("{nominal_scope}.entity_external_ids")))?;
-            if ids.iter().any(|id| id.as_u64().filter(|value| *value > 0 && *value <= u32::MAX as u64).is_none()) {
-                return Err(TraceError::MalformedObject(format!("{nominal_scope}.entity_external_ids")));
+                &["object_id", "characteristic_id", "entity_external_ids"],
+            )?;
+            let ids = nominal
+                .get("entity_external_ids")
+                .and_then(Value::as_array)
+                .ok_or_else(|| {
+                    TraceError::MalformedObject(format!("{nominal_scope}.entity_external_ids"))
+                })?;
+            if ids.iter().any(|id| {
+                id.as_u64()
+                    .filter(|value| *value > 0 && *value <= u32::MAX as u64)
+                    .is_none()
+            }) {
+                return Err(TraceError::MalformedObject(format!(
+                    "{nominal_scope}.entity_external_ids"
+                )));
             }
         }
     }
 
-    let step_documents = value.get("step_documents").and_then(Value::as_array)
+    let step_documents = value
+        .get("step_documents")
+        .and_then(Value::as_array)
         .ok_or_else(|| TraceError::MalformedObject("case.step_documents".into()))?;
     for (index, document) in step_documents.iter().enumerate() {
         let scope = format!("case.step_documents[{index}]");
-        check_fields(document, &scope, &["artifact", "entities"], &["artifact", "entities"])?;
-        check_content_artifact(document.get("artifact").ok_or_else(|| TraceError::MissingField {
-            scope: scope.clone(), field: "artifact".into()
-        })?, &format!("{scope}.artifact"))?;
-        let entities = document.get("entities").and_then(Value::as_array)
+        check_fields(
+            document,
+            &scope,
+            &["artifact", "entities"],
+            &["artifact", "entities"],
+        )?;
+        check_content_artifact(
+            document
+                .get("artifact")
+                .ok_or_else(|| TraceError::MissingField {
+                    scope: scope.clone(),
+                    field: "artifact".into(),
+                })?,
+            &format!("{scope}.artifact"),
+        )?;
+        let entities = document
+            .get("entities")
+            .and_then(Value::as_array)
             .ok_or_else(|| TraceError::MalformedObject(format!("{scope}.entities")))?;
         for (entity_index, entity) in entities.iter().enumerate() {
             let entity_scope = format!("{scope}.entities[{entity_index}]");
@@ -362,28 +507,65 @@ pub fn parse_trace_case_json(bytes: &[u8]) -> Result<QifExternalReferenceTraceCa
     Ok(case)
 }
 
-fn check_fields(value: &Value, scope: &str, allowed: &[&str], required: &[&str]) -> Result<(), TraceError> {
-    let object = value.as_object().ok_or_else(|| TraceError::MalformedObject(scope.into()))?;
+fn check_fields(
+    value: &Value,
+    scope: &str,
+    allowed: &[&str],
+    required: &[&str],
+) -> Result<(), TraceError> {
+    let object = value
+        .as_object()
+        .ok_or_else(|| TraceError::MalformedObject(scope.into()))?;
     for key in object.keys() {
         if !allowed.contains(&key.as_str()) {
-            return Err(TraceError::UnknownField { scope: scope.into(), field: key.clone() });
+            return Err(TraceError::UnknownField {
+                scope: scope.into(),
+                field: key.clone(),
+            });
         }
     }
     for field in required {
         if !object.contains_key(*field) {
-            return Err(TraceError::MissingField { scope: scope.into(), field: (*field).into() });
+            return Err(TraceError::MissingField {
+                scope: scope.into(),
+                field: (*field).into(),
+            });
         }
     }
     Ok(())
 }
 
 fn check_content_artifact(value: &Value, scope: &str) -> Result<(), TraceError> {
-    check_fields(value, scope,
-        &["reference", "sha256", "byte_length", "media_type", "format_id"],
-        &["reference", "sha256", "byte_length", "media_type", "format_id"])?;
-    let reference = value.get("reference")
-        .ok_or_else(|| TraceError::MissingField { scope: scope.into(), field: "reference".into() })?;
-    check_fields(reference, &format!("{scope}.reference"), &["id", "kind"], &["id", "kind"])
+    check_fields(
+        value,
+        scope,
+        &[
+            "reference",
+            "sha256",
+            "byte_length",
+            "media_type",
+            "format_id",
+        ],
+        &[
+            "reference",
+            "sha256",
+            "byte_length",
+            "media_type",
+            "format_id",
+        ],
+    )?;
+    let reference = value
+        .get("reference")
+        .ok_or_else(|| TraceError::MissingField {
+            scope: scope.into(),
+            field: "reference".into(),
+        })?;
+    check_fields(
+        reference,
+        &format!("{scope}.reference"),
+        &["id", "kind"],
+        &["id", "kind"],
+    )
 }
 
 fn valid_sha256(value: &str) -> bool {
@@ -435,7 +617,9 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
     if case.results.artifact.reference.kind != "qif_results"
         || case.results.artifact.format_id != "QIF_3.0"
     {
-        return Err(TraceError::InvalidArtifact(case.results.artifact.reference.id.clone()));
+        return Err(TraceError::InvalidArtifact(
+            case.results.artifact.reference.id.clone(),
+        ));
     }
     if case.results.measurements.is_empty() {
         return Err(TraceError::EmptyMeasurementSet);
@@ -444,7 +628,10 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
     let mut all_artifacts: BTreeSet<(String, String)> = BTreeSet::new();
     let mut add_artifact = |artifact: &ContentArtifactV1| -> Result<(), TraceError> {
         validate_content_artifact(artifact)?;
-        let key = (artifact.reference.id.clone(), artifact.reference.kind.clone());
+        let key = (
+            artifact.reference.id.clone(),
+            artifact.reference.kind.clone(),
+        );
         if !all_artifacts.insert(key.clone()) {
             return Err(TraceError::DuplicateArtifact(key.0));
         }
@@ -460,10 +647,15 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
     let mut result_set_ids = BTreeSet::new();
     for result_set_id in &case.results.result_set_ids {
         if *result_set_id == 0 {
-            return Err(TraceError::ZeroIdentifier("MeasurementResultsSet id".into()));
+            return Err(TraceError::ZeroIdentifier(
+                "MeasurementResultsSet id".into(),
+            ));
         }
         if !result_set_ids.insert(*result_set_id) || !results_local_ids.insert(*result_set_id) {
-            return Err(TraceError::DuplicateIdentifier(format!("Results QIF id {}", result_set_id)));
+            return Err(TraceError::DuplicateIdentifier(format!(
+                "Results QIF id {}",
+                result_set_id
+            )));
         }
     }
     if result_set_ids.is_empty() {
@@ -473,22 +665,37 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
     let mut refs_by_id = BTreeMap::new();
     for external in &case.results.external_documents {
         if external.local_reference_id == 0 {
-            return Err(TraceError::ZeroIdentifier("external_documents.local_reference_id".into()));
+            return Err(TraceError::ZeroIdentifier(
+                "external_documents.local_reference_id".into(),
+            ));
         }
         if !valid_uuid(&external.plan_qpid) {
-            return Err(TraceError::InvalidUuid("external_documents.plan_qpid".into()));
+            return Err(TraceError::InvalidUuid(
+                "external_documents.plan_qpid".into(),
+            ));
         }
         if !results_local_ids.insert(external.local_reference_id) {
-            return Err(TraceError::DuplicateIdentifier(format!("Results QIF id {}", external.local_reference_id)));
+            return Err(TraceError::DuplicateIdentifier(format!(
+                "Results QIF id {}",
+                external.local_reference_id
+            )));
         }
-        if refs_by_id.insert(external.local_reference_id, external).is_some() {
-            return Err(TraceError::DuplicateIdentifier(format!("external ref {}", external.local_reference_id)));
+        if refs_by_id
+            .insert(external.local_reference_id, external)
+            .is_some()
+        {
+            return Err(TraceError::DuplicateIdentifier(format!(
+                "external ref {}",
+                external.local_reference_id
+            )));
         }
         validate_content_artifact(&external.plan_artifact)?;
         if external.plan_artifact.reference.kind != "qif_plan"
             || external.plan_artifact.format_id != "QIF_3.0"
         {
-            return Err(TraceError::InvalidArtifact(external.plan_artifact.reference.id.clone()));
+            return Err(TraceError::InvalidArtifact(
+                external.plan_artifact.reference.id.clone(),
+            ));
         }
     }
 
@@ -506,21 +713,28 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
         }
         add_artifact(&plan.artifact)?;
         if plan.artifact.reference.kind != "qif_plan" || plan.artifact.format_id != "QIF_3.0" {
-            return Err(TraceError::InvalidArtifact(plan.artifact.reference.id.clone()));
+            return Err(TraceError::InvalidArtifact(
+                plan.artifact.reference.id.clone(),
+            ));
         }
         validate_content_artifact(&plan.step_document)?;
         if plan.step_document.reference.kind != "step_file"
             || !plan.step_document.format_id.starts_with("ISO_10303_242:")
         {
-            return Err(TraceError::InvalidArtifact(plan.step_document.reference.id.clone()));
+            return Err(TraceError::InvalidArtifact(
+                plan.step_document.reference.id.clone(),
+            ));
         }
     }
 
     for external in refs_by_id.values() {
-        let plan = plans_by_qpid.get(&normalized_uuid(&external.plan_qpid))
+        let plan = plans_by_qpid
+            .get(&normalized_uuid(&external.plan_qpid))
             .ok_or_else(|| TraceError::MissingPlan(external.plan_qpid.clone()))?;
         if external.plan_artifact != plan.artifact {
-            return Err(TraceError::PlanReferenceMismatch(external.local_reference_id));
+            return Err(TraceError::PlanReferenceMismatch(
+                external.local_reference_id,
+            ));
         }
     }
 
@@ -530,25 +744,41 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
         if document.artifact.reference.kind != "step_file"
             || !document.artifact.format_id.starts_with("ISO_10303_242:")
         {
-            return Err(TraceError::InvalidArtifact(document.artifact.reference.id.clone()));
+            return Err(TraceError::InvalidArtifact(
+                document.artifact.reference.id.clone(),
+            ));
         }
-        let step_key = (document.artifact.reference.id.clone(), document.artifact.reference.kind.clone());
+        let step_key = (
+            document.artifact.reference.id.clone(),
+            document.artifact.reference.kind.clone(),
+        );
         if step_by_artifact.insert(step_key, document).is_some() {
-            return Err(TraceError::DuplicateArtifact(document.artifact.reference.id.clone()));
+            return Err(TraceError::DuplicateArtifact(
+                document.artifact.reference.id.clone(),
+            ));
         }
         let mut uuids = BTreeSet::new();
         for entity in &document.entities {
             if !valid_uuid(&entity.uuid) {
-                return Err(TraceError::InvalidUuid(format!("STEP entity {}", entity.uuid)));
+                return Err(TraceError::InvalidUuid(format!(
+                    "STEP entity {}",
+                    entity.uuid
+                )));
             }
             if !uuids.insert(normalized_uuid(&entity.uuid)) {
-                return Err(TraceError::DuplicateIdentifier(format!("STEP UUID {}", entity.uuid)));
+                return Err(TraceError::DuplicateIdentifier(format!(
+                    "STEP UUID {}",
+                    entity.uuid
+                )));
             }
         }
     }
 
     for plan in &case.plans {
-        let step_key = (plan.step_document.reference.id.clone(), plan.step_document.reference.kind.clone());
+        let step_key = (
+            plan.step_document.reference.id.clone(),
+            plan.step_document.reference.kind.clone(),
+        );
         let Some(step_document) = step_by_artifact.get(&step_key) else {
             return Err(TraceError::MissingStepDocument(plan.qpid.clone()));
         };
@@ -563,50 +793,85 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
         let mut mapped_step_uuids = BTreeSet::new();
         for mapping in &plan.digital_model_entities {
             if mapping.entity_id == 0 {
-                return Err(TraceError::ZeroIdentifier(format!("DigitalModel Entity in {}", plan.qpid)));
+                return Err(TraceError::ZeroIdentifier(format!(
+                    "DigitalModel Entity in {}",
+                    plan.qpid
+                )));
             }
             if !local_ids.insert(mapping.entity_id) {
-                return Err(TraceError::DuplicateIdentifier(format!("QIF Plan id {} in {}", mapping.entity_id, plan.qpid)));
+                return Err(TraceError::DuplicateIdentifier(format!(
+                    "QIF Plan id {} in {}",
+                    mapping.entity_id, plan.qpid
+                )));
             }
             if !valid_uuid(&mapping.step_uuid) {
-                return Err(TraceError::InvalidUuid(format!("DigitalModel EntityId {}", mapping.step_uuid)));
+                return Err(TraceError::InvalidUuid(format!(
+                    "DigitalModel EntityId {}",
+                    mapping.step_uuid
+                )));
             }
             if !mapped_step_uuids.insert(normalized_uuid(&mapping.step_uuid)) {
-                return Err(TraceError::DuplicateIdentifier(format!("DigitalModel STEP UUID {}", mapping.step_uuid)));
+                return Err(TraceError::DuplicateIdentifier(format!(
+                    "DigitalModel STEP UUID {}",
+                    mapping.step_uuid
+                )));
             }
             digital_entities.insert(mapping.entity_id, mapping);
         }
 
         for other in &plan.other_objects {
             if other.object_id == 0 || other.object_kind.trim().is_empty() {
-                return Err(TraceError::InvalidIdentity(format!("other Plan object {}", other.object_id)));
+                return Err(TraceError::InvalidIdentity(format!(
+                    "other Plan object {}",
+                    other.object_id
+                )));
             }
             if !local_ids.insert(other.object_id) {
-                return Err(TraceError::DuplicateIdentifier(format!("QIF Plan id {} in {}", other.object_id, plan.qpid)));
+                return Err(TraceError::DuplicateIdentifier(format!(
+                    "QIF Plan id {} in {}",
+                    other.object_id, plan.qpid
+                )));
             }
         }
 
         let mut nominal_ids = BTreeMap::new();
         for nominal in &plan.characteristic_nominals {
             if nominal.object_id == 0 {
-                return Err(TraceError::ZeroIdentifier(format!("CharacteristicNominal in {}", plan.qpid)));
+                return Err(TraceError::ZeroIdentifier(format!(
+                    "CharacteristicNominal in {}",
+                    plan.qpid
+                )));
             }
             if !local_ids.insert(nominal.object_id) {
-                return Err(TraceError::DuplicateIdentifier(format!("QIF Plan id {} in {}", nominal.object_id, plan.qpid)));
+                return Err(TraceError::DuplicateIdentifier(format!(
+                    "QIF Plan id {} in {}",
+                    nominal.object_id, plan.qpid
+                )));
             }
             if nominal.characteristic_id.trim().is_empty() {
-                return Err(TraceError::InvalidIdentity(format!("CharacteristicNominal {}", nominal.object_id)));
+                return Err(TraceError::InvalidIdentity(format!(
+                    "CharacteristicNominal {}",
+                    nominal.object_id
+                )));
             }
             if nominal.entity_external_ids.is_empty() {
-                return Err(TraceError::MissingEntityExternalIds { nominal_id: nominal.object_id });
+                return Err(TraceError::MissingEntityExternalIds {
+                    nominal_id: nominal.object_id,
+                });
             }
             let mut external_ids = BTreeSet::new();
             for entity_id in &nominal.entity_external_ids {
                 if *entity_id == 0 {
-                    return Err(TraceError::ZeroIdentifier(format!("EntityExternalIds in nominal {}", nominal.object_id)));
+                    return Err(TraceError::ZeroIdentifier(format!(
+                        "EntityExternalIds in nominal {}",
+                        nominal.object_id
+                    )));
                 }
                 if !external_ids.insert(*entity_id) {
-                    return Err(TraceError::DuplicateIdentifier(format!("EntityExternalId {} in nominal {}", entity_id, nominal.object_id)));
+                    return Err(TraceError::DuplicateIdentifier(format!(
+                        "EntityExternalId {} in nominal {}",
+                        entity_id, nominal.object_id
+                    )));
                 }
                 if !digital_entities.contains_key(entity_id) {
                     return Err(TraceError::MissingDigitalModelEntity {
@@ -616,17 +881,26 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
                 }
             }
             if nominal_ids.insert(nominal.object_id, nominal).is_some() {
-                return Err(TraceError::DuplicateIdentifier(format!("CharacteristicNominal {}", nominal.object_id)));
+                return Err(TraceError::DuplicateIdentifier(format!(
+                    "CharacteristicNominal {}",
+                    nominal.object_id
+                )));
             }
         }
 
         let mut characteristic_items = BTreeMap::new();
         for item in &plan.characteristic_items {
             if item.object_id == 0 || item.characteristic_nominal_id == 0 {
-                return Err(TraceError::ZeroIdentifier(format!("CharacteristicItem in {}", plan.qpid)));
+                return Err(TraceError::ZeroIdentifier(format!(
+                    "CharacteristicItem in {}",
+                    plan.qpid
+                )));
             }
             if !local_ids.insert(item.object_id) {
-                return Err(TraceError::DuplicateIdentifier(format!("QIF Plan id {} in {}", item.object_id, plan.qpid)));
+                return Err(TraceError::DuplicateIdentifier(format!(
+                    "QIF Plan id {} in {}",
+                    item.object_id, plan.qpid
+                )));
             }
             if !nominal_ids.contains_key(&item.characteristic_nominal_id) {
                 return Err(TraceError::MissingCharacteristicNominal {
@@ -635,7 +909,10 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
                 });
             }
             if characteristic_items.insert(item.object_id, item).is_some() {
-                return Err(TraceError::DuplicateIdentifier(format!("CharacteristicItem {}", item.object_id)));
+                return Err(TraceError::DuplicateIdentifier(format!(
+                    "CharacteristicItem {}",
+                    item.object_id
+                )));
             }
         }
     }
@@ -643,31 +920,53 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
     let mut measurement_ids = BTreeSet::new();
     for measurement in &case.results.measurements {
         if measurement.measurement_id == 0 || measurement.result_set_id == 0 {
-            return Err(TraceError::ZeroIdentifier("measurement_id/result_set_id".into()));
+            return Err(TraceError::ZeroIdentifier(
+                "measurement_id/result_set_id".into(),
+            ));
         }
-        if !measurement_ids.insert(measurement.measurement_id) || !results_local_ids.insert(measurement.measurement_id) {
-            return Err(TraceError::DuplicateIdentifier(format!("Results QIF id {}", measurement.measurement_id)));
+        if !measurement_ids.insert(measurement.measurement_id)
+            || !results_local_ids.insert(measurement.measurement_id)
+        {
+            return Err(TraceError::DuplicateIdentifier(format!(
+                "Results QIF id {}",
+                measurement.measurement_id
+            )));
         }
         if !result_set_ids.contains(&measurement.result_set_id) {
             return Err(TraceError::MissingResultSet(measurement.result_set_id));
         }
         if measurement.external_document_reference_id == 0 || measurement.xid == 0 {
-            return Err(TraceError::ZeroIdentifier(format!("measurement {}", measurement.measurement_id)));
+            return Err(TraceError::ZeroIdentifier(format!(
+                "measurement {}",
+                measurement.measurement_id
+            )));
         }
 
-        let external = refs_by_id.get(&measurement.external_document_reference_id)
-            .ok_or(TraceError::MissingExternalDocumentReference(measurement.external_document_reference_id))?;
-        let plan = plans_by_qpid.get(&normalized_uuid(&external.plan_qpid))
+        let external = refs_by_id
+            .get(&measurement.external_document_reference_id)
+            .ok_or(TraceError::MissingExternalDocumentReference(
+                measurement.external_document_reference_id,
+            ))?;
+        let plan = plans_by_qpid
+            .get(&normalized_uuid(&external.plan_qpid))
             .ok_or_else(|| TraceError::MissingPlan(external.plan_qpid.clone()))?;
         if external.plan_artifact != plan.artifact {
-            return Err(TraceError::PlanReferenceMismatch(external.local_reference_id));
+            return Err(TraceError::PlanReferenceMismatch(
+                external.local_reference_id,
+            ));
         }
-        let item = match plan.characteristic_items.iter()
+        let item = match plan
+            .characteristic_items
+            .iter()
             .find(|item| item.object_id == measurement.xid)
         {
             Some(item) => item,
             None => {
-                if let Some(other) = plan.other_objects.iter().find(|item| item.object_id == measurement.xid) {
+                if let Some(other) = plan
+                    .other_objects
+                    .iter()
+                    .find(|item| item.object_id == measurement.xid)
+                {
                     return Err(TraceError::WrongExternalObjectKind {
                         qpid: plan.qpid.clone(),
                         xid: measurement.xid,
@@ -675,25 +974,38 @@ pub fn validate_trace_case(case: &QifExternalReferenceTraceCaseV1) -> Result<(),
                     });
                 }
                 return Err(TraceError::MissingExternalObject {
-                    qpid: plan.qpid.clone(), xid: measurement.xid
+                    qpid: plan.qpid.clone(),
+                    xid: measurement.xid,
                 });
             }
         };
-        let nominal = plan.characteristic_nominals.iter()
+        let nominal = plan
+            .characteristic_nominals
+            .iter()
             .find(|nominal| nominal.object_id == item.characteristic_nominal_id)
             .ok_or_else(|| TraceError::MissingCharacteristicNominal {
-                qpid: plan.qpid.clone(), nominal_id: item.characteristic_nominal_id
+                qpid: plan.qpid.clone(),
+                nominal_id: item.characteristic_nominal_id,
             })?;
         for entity_external_id in &nominal.entity_external_ids {
-            let mapping = plan.digital_model_entities.iter()
+            let mapping = plan
+                .digital_model_entities
+                .iter()
                 .find(|mapping| mapping.entity_id == *entity_external_id)
                 .ok_or_else(|| TraceError::MissingDigitalModelEntity {
-                    qpid: plan.qpid.clone(), entity_id: *entity_external_id
+                    qpid: plan.qpid.clone(),
+                    entity_id: *entity_external_id,
                 })?;
-            let step_key = (plan.step_document.reference.id.clone(), plan.step_document.reference.kind.clone());
-            let step_document = step_by_artifact.get(&step_key)
+            let step_key = (
+                plan.step_document.reference.id.clone(),
+                plan.step_document.reference.kind.clone(),
+            );
+            let step_document = step_by_artifact
+                .get(&step_key)
                 .ok_or_else(|| TraceError::MissingStepDocument(plan.qpid.clone()))?;
-            let step_entity = step_document.entities.iter()
+            let step_entity = step_document
+                .entities
+                .iter()
                 .find(|entity| normalized_uuid(&entity.uuid) == normalized_uuid(&mapping.step_uuid))
                 .ok_or_else(|| TraceError::MissingStepEntity {
                     document: step_document.artifact.reference.id.clone(),
@@ -719,7 +1031,11 @@ pub fn verify_and_resolve_trace_case(
     validate_trace_case(case)?;
     let mut expected: Vec<&ContentArtifactV1> = vec![&case.results.artifact];
     expected.extend(case.plans.iter().map(|plan| &plan.artifact));
-    expected.extend(case.step_documents.iter().map(|document| &document.artifact));
+    expected.extend(
+        case.step_documents
+            .iter()
+            .map(|document| &document.artifact),
+    );
     if payloads.len() != expected.len() {
         return Err(TraceError::ArtifactPayloadSetMismatch);
     }
@@ -729,13 +1045,18 @@ pub fn verify_and_resolve_trace_case(
         if !seen.insert(key.clone()) {
             return Err(TraceError::DuplicateArtifactPayload(key.0));
         }
-        let artifact = expected.iter().copied().find(|item| {
-            item.reference.id == reference.id && item.reference.kind == reference.kind
-        }).ok_or_else(|| TraceError::UnexpectedArtifactPayload(key.0))?;
+        let artifact = expected
+            .iter()
+            .copied()
+            .find(|item| item.reference.id == reference.id && item.reference.kind == reference.kind)
+            .ok_or_else(|| TraceError::UnexpectedArtifactPayload(key.0))?;
         verify_artifact_bytes(artifact, bytes).map_err(TraceError::ArtifactVerification)?;
     }
     for artifact in &expected {
-        if !seen.contains(&(artifact.reference.id.clone(), artifact.reference.kind.clone())) {
+        if !seen.contains(&(
+            artifact.reference.id.clone(),
+            artifact.reference.kind.clone(),
+        )) {
             return Err(TraceError::ArtifactPayloadSetMismatch);
         }
     }
@@ -752,27 +1073,43 @@ fn resolve_without_bytes(
     case: &QifExternalReferenceTraceCaseV1,
 ) -> Result<(TraceDisposition, Vec<ResolvedMeasurementTraceV1>), TraceError> {
     validate_trace_case(case)?;
-    let refs: BTreeMap<_, _> = case.results.external_documents.iter()
+    let refs: BTreeMap<_, _> = case
+        .results
+        .external_documents
+        .iter()
         .map(|item| (item.local_reference_id, item))
         .collect();
-    let plans: BTreeMap<_, _> = case.plans.iter()
+    let plans: BTreeMap<_, _> = case
+        .plans
+        .iter()
         .map(|plan| (normalized_uuid(&plan.qpid), plan))
         .collect();
-    let steps: BTreeMap<_, _> = case.step_documents.iter()
-        .map(|document| (
-            (document.artifact.reference.id.clone(), document.artifact.reference.kind.clone()),
-            document,
-        ))
+    let steps: BTreeMap<_, _> = case
+        .step_documents
+        .iter()
+        .map(|document| {
+            (
+                (
+                    document.artifact.reference.id.clone(),
+                    document.artifact.reference.kind.clone(),
+                ),
+                document,
+            )
+        })
         .collect();
 
     let mut resolved = Vec::new();
     for measurement in &case.results.measurements {
         let external = refs[&measurement.external_document_reference_id];
         let plan = plans[&normalized_uuid(&external.plan_qpid)];
-        let item = plan.characteristic_items.iter()
+        let item = plan
+            .characteristic_items
+            .iter()
             .find(|item| item.object_id == measurement.xid)
             .expect("validated CharacteristicItem xId");
-        let nominal = plan.characteristic_nominals.iter()
+        let nominal = plan
+            .characteristic_nominals
+            .iter()
             .find(|nominal| nominal.object_id == item.characteristic_nominal_id)
             .expect("validated CharacteristicNominalId");
         let step_key = (
@@ -783,10 +1120,14 @@ fn resolve_without_bytes(
 
         let mut step_entities = Vec::new();
         for entity_external_id in &nominal.entity_external_ids {
-            let mapping = plan.digital_model_entities.iter()
+            let mapping = plan
+                .digital_model_entities
+                .iter()
                 .find(|mapping| mapping.entity_id == *entity_external_id)
                 .expect("validated EntityExternalId");
-            let step_entity = step_document.entities.iter()
+            let step_entity = step_document
+                .entities
+                .iter()
                 .find(|entity| normalized_uuid(&entity.uuid) == normalized_uuid(&mapping.step_uuid))
                 .expect("validated STEP UUID mapping");
             step_entities.push(ResolvedStepEntityV1 {
@@ -796,9 +1137,7 @@ fn resolve_without_bytes(
                 step_document: step_document.artifact.clone(),
             });
         }
-        step_entities.sort_by(|left, right| {
-            left.entity_external_id.cmp(&right.entity_external_id)
-        });
+        step_entities.sort_by(|left, right| left.entity_external_id.cmp(&right.entity_external_id));
 
         resolved.push(ResolvedMeasurementTraceV1 {
             measurement_id: measurement.measurement_id.clone(),
@@ -831,7 +1170,10 @@ mod tests {
 
     fn artifact(kind: &str, format: &str, media: &str, bytes: &[u8]) -> ContentArtifactV1 {
         let digest = Sha256::digest(bytes);
-        let sha256 = digest.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+        let sha256 = digest
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
         ContentArtifactV1 {
             reference: ArtifactRef {
                 id: format!("sha256:{sha256}"),
@@ -852,7 +1194,12 @@ mod tests {
         let results_artifact = artifact("qif_results", "QIF_3.0", "application/xml", results_bytes);
         let plan_a_artifact = artifact("qif_plan", "QIF_3.0", "application/xml", plan_a_bytes);
         let plan_b_artifact = artifact("qif_plan", "QIF_3.0", "application/xml", plan_b_bytes);
-        let step_artifact = artifact("step_file", "ISO_10303_242:2025", "application/step", step_bytes);
+        let step_artifact = artifact(
+            "step_file",
+            "ISO_10303_242:2025",
+            "application/step",
+            step_bytes,
+        );
 
         let plan_a = QifPlanDocumentV1 {
             qpid: "20000000-0000-4000-8000-000000000002".into(),
@@ -880,9 +1227,18 @@ mod tests {
                 object_kind: "FeatureItem".into(),
             }],
             characteristic_items: vec![
-                PlanCharacteristicItemV1 { object_id: 301, characteristic_nominal_id: 401 },
-                PlanCharacteristicItemV1 { object_id: 302, characteristic_nominal_id: 402 },
-                PlanCharacteristicItemV1 { object_id: 303, characteristic_nominal_id: 403 },
+                PlanCharacteristicItemV1 {
+                    object_id: 301,
+                    characteristic_nominal_id: 401,
+                },
+                PlanCharacteristicItemV1 {
+                    object_id: 302,
+                    characteristic_nominal_id: 402,
+                },
+                PlanCharacteristicItemV1 {
+                    object_id: 303,
+                    characteristic_nominal_id: 403,
+                },
             ],
             characteristic_nominals: vec![
                 PlanCharacteristicNominalV1 {
@@ -907,24 +1263,21 @@ mod tests {
             qpid: "30000000-0000-4000-8000-000000000003".into(),
             artifact: plan_b_artifact.clone(),
             step_document: step_artifact.clone(),
-            digital_model_entities: vec![
-                DigitalModelExternalEntityV1 {
-                    entity_id: 9991,
-                    step_uuid: "60000000-0000-4000-8000-000000000006".into(),
-                    step_entity_kind: StepEntityKind::Datum,
-                },
-            ],
+            digital_model_entities: vec![DigitalModelExternalEntityV1 {
+                entity_id: 9991,
+                step_uuid: "60000000-0000-4000-8000-000000000006".into(),
+                step_entity_kind: StepEntityKind::Datum,
+            }],
             other_objects: Vec::new(),
-            characteristic_items: vec![
-                PlanCharacteristicItemV1 { object_id: 301, characteristic_nominal_id: 401 },
-            ],
-            characteristic_nominals: vec![
-                PlanCharacteristicNominalV1 {
-                    object_id: 401,
-                    characteristic_id: "characteristic:flatness".into(),
-                    entity_external_ids: vec![9991],
-                },
-            ],
+            characteristic_items: vec![PlanCharacteristicItemV1 {
+                object_id: 301,
+                characteristic_nominal_id: 401,
+            }],
+            characteristic_nominals: vec![PlanCharacteristicNominalV1 {
+                object_id: 401,
+                characteristic_id: "characteristic:flatness".into(),
+                entity_external_ids: vec![9991],
+            }],
         };
 
         let case = QifExternalReferenceTraceCaseV1 {
@@ -934,11 +1287,7 @@ mod tests {
             results: ResultsDocumentV1 {
                 qpid: "10000000-0000-4000-8000-000000000001".into(),
                 artifact: results_artifact.clone(),
-                result_set_ids: vec![
-                    701,
-                    702,
-                    703,
-                ],
+                result_set_ids: vec![701, 702, 703],
                 external_documents: vec![
                     ExternalQifDocumentReferenceV1 {
                         local_reference_id: 7,
@@ -985,29 +1334,27 @@ mod tests {
                 ],
             },
             plans: vec![plan_a, plan_b],
-            step_documents: vec![
-                StepDocumentV1 {
-                    artifact: step_artifact.clone(),
-                    entities: vec![
-                        StepEntityV1 {
-                            uuid: "40000000-0000-4000-8000-000000000004".into(),
-                            kind: StepEntityKind::Characteristic,
-                        },
-                        StepEntityV1 {
-                            uuid: "50000000-0000-4000-8000-000000000005".into(),
-                            kind: StepEntityKind::GeometricFeature,
-                        },
-                        StepEntityV1 {
-                            uuid: "60000000-0000-4000-8000-000000000006".into(),
-                            kind: StepEntityKind::Datum,
-                        },
-                        StepEntityV1 {
-                            uuid: "70000000-0000-4000-8000-000000000007".into(),
-                            kind: StepEntityKind::Datum,
-                        },
-                    ],
-                },
-            ],
+            step_documents: vec![StepDocumentV1 {
+                artifact: step_artifact.clone(),
+                entities: vec![
+                    StepEntityV1 {
+                        uuid: "40000000-0000-4000-8000-000000000004".into(),
+                        kind: StepEntityKind::Characteristic,
+                    },
+                    StepEntityV1 {
+                        uuid: "50000000-0000-4000-8000-000000000005".into(),
+                        kind: StepEntityKind::GeometricFeature,
+                    },
+                    StepEntityV1 {
+                        uuid: "60000000-0000-4000-8000-000000000006".into(),
+                        kind: StepEntityKind::Datum,
+                    },
+                    StepEntityV1 {
+                        uuid: "70000000-0000-4000-8000-000000000007".into(),
+                        kind: StepEntityKind::Datum,
+                    },
+                ],
+            }],
         };
         let payloads = vec![
             (results_artifact.reference.clone(), results_bytes.to_vec()),
@@ -1019,41 +1366,52 @@ mod tests {
     }
 
     fn refs_and_bytes(payloads: &[(ArtifactRef, Vec<u8>)]) -> Vec<(&ArtifactRef, &[u8])> {
-        payloads.iter().map(|(reference, bytes)| (reference, bytes.as_slice())).collect()
+        payloads
+            .iter()
+            .map(|(reference, bytes)| (reference, bytes.as_slice()))
+            .collect()
     }
 
     fn resolved<'a>(
         report: &'a TraceVerificationReport,
         measurement_id: u32,
     ) -> &'a ResolvedMeasurementTraceV1 {
-        report.resolved_measurements.iter()
+        report
+            .resolved_measurements
+            .iter()
             .find(|item| item.measurement_id == measurement_id)
             .expect("measurement trace exists")
     }
 
     #[test]
     fn normalized_test8_fixture_replays_exact_payload_bytes() {
-        let case = parse_trace_case_json(
-            include_bytes!("../fixtures/test8-normalized-trace-v1.json")
-        ).expect("checked-in normalized trace fixture parses");
+        let case =
+            parse_trace_case_json(include_bytes!("../fixtures/test8-normalized-trace-v1.json"))
+                .expect("checked-in normalized trace fixture parses");
         let payloads = [
-            (&case.results.artifact.reference, include_bytes!("../fixtures/results.qif").as_slice()),
-            (&case.plans[0].artifact.reference, include_bytes!("../fixtures/plan-a.qif").as_slice()),
-            (&case.plans[1].artifact.reference, include_bytes!("../fixtures/plan-b.qif").as_slice()),
-            (&case.step_documents[0].artifact.reference, include_bytes!("../fixtures/source.step").as_slice()),
+            (
+                &case.results.artifact.reference,
+                include_bytes!("../fixtures/results.qif").as_slice(),
+            ),
+            (
+                &case.plans[0].artifact.reference,
+                include_bytes!("../fixtures/plan-a.qif").as_slice(),
+            ),
+            (
+                &case.plans[1].artifact.reference,
+                include_bytes!("../fixtures/plan-b.qif").as_slice(),
+            ),
+            (
+                &case.step_documents[0].artifact.reference,
+                include_bytes!("../fixtures/source.step").as_slice(),
+            ),
         ];
         let report = verify_and_resolve_trace_case(&case, &payloads)
             .expect("all checked-in Results, Plan and STEP bytes and links match");
         assert_eq!(report.resolved_measurements.len(), 4);
         assert_eq!(report.checked_artifacts, 4);
-        assert_eq!(
-            resolved(&report, 902).status,
-            MeasurementStatus::Failed
-        );
-        assert_eq!(
-            resolved(&report, 904).step_entities.len(),
-            2
-        );
+        assert_eq!(resolved(&report, 902).status, MeasurementStatus::Failed);
+        assert_eq!(resolved(&report, 904).step_entities.len(), 2);
     }
 
     #[test]
@@ -1066,7 +1424,10 @@ mod tests {
         assert_eq!(trace.characteristic_id, "characteristic:hole-dia");
         assert_eq!(trace.step_entities.len(), 1);
         assert_eq!(trace.step_entities[0].entity_external_id, 9991);
-        assert_eq!(trace.step_entities[0].step_uuid, "40000000-0000-4000-8000-000000000004");
+        assert_eq!(
+            trace.step_entities[0].step_uuid,
+            "40000000-0000-4000-8000-000000000004"
+        );
     }
 
     #[test]
@@ -1076,7 +1437,10 @@ mod tests {
         let trace = resolved(&report, "measurement:fail");
         assert_eq!(trace.status, MeasurementStatus::Failed);
         assert_eq!(trace.characteristic_id, "characteristic:surface");
-        assert_eq!(trace.step_entities[0].step_uuid, "50000000-0000-4000-8000-000000000005");
+        assert_eq!(
+            trace.step_entities[0].step_uuid,
+            "50000000-0000-4000-8000-000000000005"
+        );
     }
 
     #[test]
@@ -1088,7 +1452,10 @@ mod tests {
         assert_eq!(first.plan_characteristic_item_id, 301);
         assert_eq!(second.plan_characteristic_item_id, 301);
         assert_ne!(first.plan_qpid, second.plan_qpid);
-        assert_ne!(first.step_entities[0].step_uuid, second.step_entities[0].step_uuid);
+        assert_ne!(
+            first.step_entities[0].step_uuid,
+            second.step_entities[0].step_uuid
+        );
     }
 
     #[test]
@@ -1107,7 +1474,11 @@ mod tests {
         let trace = resolved(&report, "measurement:multi-entity");
         assert_eq!(trace.step_entities.len(), 2);
         assert_eq!(
-            trace.step_entities.iter().map(|item| item.entity_external_id).collect::<Vec<_>>(),
+            trace
+                .step_entities
+                .iter()
+                .map(|item| item.entity_external_id)
+                .collect::<Vec<_>>(),
             vec![9991, 9993]
         );
     }
@@ -1169,15 +1540,22 @@ mod tests {
     #[test]
     fn missing_external_plan_qpid_is_rejected() {
         let (mut case, _) = fixture();
-        case.results.external_documents[0].plan_qpid = "70000000-0000-4000-8000-000000000007".into();
-        assert!(matches!(validate_trace_case(&case), Err(TraceError::MissingPlan(_))));
+        case.results.external_documents[0].plan_qpid =
+            "70000000-0000-4000-8000-000000000007".into();
+        assert!(matches!(
+            validate_trace_case(&case),
+            Err(TraceError::MissingPlan(_))
+        ));
     }
 
     #[test]
     fn exact_plan_artifact_must_match_external_reference() {
         let (mut case, _) = fixture();
         case.results.external_documents[0].plan_artifact.byte_length += 1;
-        assert_eq!(validate_trace_case(&case), Err(TraceError::PlanReferenceMismatch(7)));
+        assert_eq!(
+            validate_trace_case(&case),
+            Err(TraceError::PlanReferenceMismatch(7))
+        );
     }
 
     #[test]
@@ -1196,7 +1574,10 @@ mod tests {
         case.plans[0].characteristic_items[0].characteristic_nominal_id = 777;
         assert!(matches!(
             validate_trace_case(&case),
-            Err(TraceError::MissingCharacteristicNominal { nominal_id: 777, .. })
+            Err(TraceError::MissingCharacteristicNominal {
+                nominal_id: 777,
+                ..
+            })
         ));
     }
 
@@ -1206,14 +1587,19 @@ mod tests {
         case.plans[0].characteristic_nominals[0].entity_external_ids = vec![12345];
         assert!(matches!(
             validate_trace_case(&case),
-            Err(TraceError::MissingDigitalModelEntity { entity_id: 12345, .. })
+            Err(TraceError::MissingDigitalModelEntity {
+                entity_id: 12345,
+                ..
+            })
         ));
     }
 
     #[test]
     fn nominal_without_entity_external_ids_is_rejected() {
         let (mut case, _) = fixture();
-        case.plans[0].characteristic_nominals[0].entity_external_ids.clear();
+        case.plans[0].characteristic_nominals[0]
+            .entity_external_ids
+            .clear();
         assert_eq!(
             validate_trace_case(&case),
             Err(TraceError::MissingEntityExternalIds { nominal_id: 401 })
@@ -1224,21 +1610,30 @@ mod tests {
     fn duplicate_qif_ids_across_plan_tables_are_rejected() {
         let (mut case, _) = fixture();
         case.plans[0].characteristic_items[0].object_id = 401;
-        assert!(matches!(validate_trace_case(&case), Err(TraceError::DuplicateIdentifier(_))));
+        assert!(matches!(
+            validate_trace_case(&case),
+            Err(TraceError::DuplicateIdentifier(_))
+        ));
     }
 
     #[test]
     fn duplicate_step_uuid_is_rejected() {
         let (mut case, _) = fixture();
         case.step_documents[0].entities[1].uuid = case.step_documents[0].entities[0].uuid.clone();
-        assert!(matches!(validate_trace_case(&case), Err(TraceError::DuplicateIdentifier(_))));
+        assert!(matches!(
+            validate_trace_case(&case),
+            Err(TraceError::DuplicateIdentifier(_))
+        ));
     }
 
     #[test]
     fn step_uuid_does_not_accept_an_xid_integer() {
         let (mut case, _) = fixture();
         case.plans[0].digital_model_entities[0].step_uuid = "301".into();
-        assert!(matches!(validate_trace_case(&case), Err(TraceError::InvalidUuid(_))));
+        assert!(matches!(
+            validate_trace_case(&case),
+            Err(TraceError::InvalidUuid(_))
+        ));
     }
 
     #[test]
@@ -1246,23 +1641,32 @@ mod tests {
         let (mut case, _) = fixture();
         case.plans[0].digital_model_entities[0].step_uuid =
             "80000000-0000-4000-8000-000000000008".into();
-        assert!(matches!(validate_trace_case(&case), Err(TraceError::MissingStepEntity { .. })));
+        assert!(matches!(
+            validate_trace_case(&case),
+            Err(TraceError::MissingStepEntity { .. })
+        ));
     }
 
     #[test]
     fn step_entity_kind_mismatch_is_rejected() {
         let (mut case, _) = fixture();
         case.plans[0].digital_model_entities[0].step_entity_kind = StepEntityKind::Datum;
-        assert!(matches!(validate_trace_case(&case), Err(TraceError::StepEntityKindMismatch { .. })));
+        assert!(matches!(
+            validate_trace_case(&case),
+            Err(TraceError::StepEntityKindMismatch { .. })
+        ));
     }
 
     #[test]
     fn qpid_and_step_uuid_comparison_is_case_insensitive() {
         let (mut case, _) = fixture();
         case.plans[0].qpid = case.plans[0].qpid.to_ascii_uppercase();
-        case.results.external_documents[0].plan_qpid = case.results.external_documents[0].plan_qpid.to_ascii_uppercase();
-        case.plans[0].digital_model_entities[0].step_uuid =
-            case.plans[0].digital_model_entities[0].step_uuid.to_ascii_uppercase();
+        case.results.external_documents[0].plan_qpid = case.results.external_documents[0]
+            .plan_qpid
+            .to_ascii_uppercase();
+        case.plans[0].digital_model_entities[0].step_uuid = case.plans[0].digital_model_entities[0]
+            .step_uuid
+            .to_ascii_uppercase();
         case.step_documents[0].entities[0].uuid =
             case.step_documents[0].entities[0].uuid.to_ascii_uppercase();
         assert!(validate_trace_case(&case).is_ok());
@@ -1272,7 +1676,10 @@ mod tests {
     fn duplicate_qpid_with_case_variation_is_rejected() {
         let (mut case, _) = fixture();
         case.plans[1].qpid = case.plans[0].qpid.to_ascii_uppercase();
-        assert!(matches!(validate_trace_case(&case), Err(TraceError::DuplicateIdentifier(_))));
+        assert!(matches!(
+            validate_trace_case(&case),
+            Err(TraceError::DuplicateIdentifier(_))
+        ));
     }
 
     #[test]
@@ -1303,7 +1710,9 @@ mod tests {
         payloads[0].1.push(b'X');
         assert!(matches!(
             verify_and_resolve_trace_case(&case, &refs_and_bytes(&payloads)),
-            Err(TraceError::ArtifactVerification(ReceiptError::ArtifactByteLengthMismatch(_)))
+            Err(TraceError::ArtifactVerification(
+                ReceiptError::ArtifactByteLengthMismatch(_)
+            ))
         ));
     }
 
