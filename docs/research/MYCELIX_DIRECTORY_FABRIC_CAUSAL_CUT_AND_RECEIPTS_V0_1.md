@@ -256,7 +256,13 @@ Report dependency-cut size relative to the reachable policy/entity graph so the 
 
 Use at least 10 independent process-level repetitions, open-loop offered load and exact source/build/runtime/graph/corpus digests. Keep actual Holochain conductor tests separate from pure-reference tests and synthetic peer simulations. Benchmark all comparators on matched policy/request semantics and freshness requirements; do not collapse security and sovereignty into a single weighted score.
 
-## 8. Adversarial matrix
+## 8. Finite-state model
+
+A first bounded TLA+ composition model is authored at [DirectoryFabricCausalCutReceipts.tla](../../mycelix-workspace/mycelix-pulse/docs/security/DirectoryFabricCausalCutReceipts.tla), with a safe configuration and four single-switch negative configurations: omitted dependency closure, scalar frontier, retry while Unknown and duplicate commit. The [model note](../../mycelix-workspace/mycelix-pulse/docs/security/DirectoryFabricCausalCutReceipts-model-2026-11-21.md) states the invariants, expected mutant counterexamples and abstraction limits.
+
+**No TLC execution result is claimed.** The model is a prospective finite assurance artifact, not proof of graph resolver completeness, cryptographic trust or Holochain runtime behaviour.
+
+## 9. Adversarial matrix
 
 The companion 24-case corpus includes positive controls and attacks across:
 
@@ -279,7 +285,7 @@ The companion 24-case corpus includes positive controls and attacks across:
 
 The corpus is finite and synthetic. It does not establish completeness of any real policy graph.
 
-## 9. Implementation and qualification gates
+## 10. Implementation and qualification gates
 
 1. Review the RSCAC dependency vocabulary, resolver/verifier independence and policy-graph snapshot semantics.
 2. Independently implement the closure resolver and hidden completeness oracle; do not derive both expected and observed dependencies from the same code.
@@ -294,7 +300,7 @@ The corpus is finite and synthetic. It does not establish completeness of any re
 
 The selected Holochain version matrix and runtime regression gate remain in [MYC-DIR-HC-QUAL-001 / #6435](https://github.com/Luminous-Dynamics/mycelix/issues/6435). This reference composition does not bypass that gate.
 
-## 10. External standards and comparator references
+## 11. External standards and comparator references
 
 - **Cedar authorization algorithm:** [Cedar Authorization](https://docs.cedarpolicy.com/auth/authorization.html). Keep policy evaluation errors distinct from missing, mandatory Mycelix authority dependencies. A Cedar `permit` result cannot repair an incomplete request-scoped authority cut.
 - **SCITT transparency:** [RFC 9943](https://www.rfc-editor.org/rfc/rfc9943.html). Use transparency registration for signed decision statements only after a relying party pins the transparency-service profile and roots. Inclusion is not truth, permission or effect.
@@ -303,7 +309,7 @@ The selected Holochain version matrix and runtime regression gate remain in [MYC
 - **OAuth security:** [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700.html) and [DPoP / RFC 9449](https://www.rfc-editor.org/rfc/rfc9449.html). Audience and sender binding are adapter security controls; neither token validity nor proof-of-possession establishes local organizational authority.
 - **SPIFFE federation:** [SPIFFE Federation Specification](https://spiffe.io/docs/latest/spiffe-specs/spiffe_federation/). Bundle trust is trust-domain scoped; do not treat an arbitrary valid SVID or bundle as a Mycelix membership or resource permission.
 
-## 11. Explicit claim ceiling
+## 12. Explicit claim ceiling
 
 This work is a pure reference contract and finite synthetic corpus. It does not establish:
 
