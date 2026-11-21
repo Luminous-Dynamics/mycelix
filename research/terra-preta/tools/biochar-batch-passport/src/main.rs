@@ -269,8 +269,7 @@ fn validate(s: &Scenario) -> Result<(), String> {
         return Err("batch intended end use does not match the quality profile".into());
     }
     if !valid_date(&s.quality_profile.effective_from)
-        || s.quality_profile
-            .effective_until
+        || s.quality_profile.effective_until
             .as_deref()
             .is_some_and(|date| !valid_date(date))
     {
@@ -881,8 +880,12 @@ mod tests {
     #[test]
     fn method_unit_or_basis_mismatch_is_indeterminate() {
         let mut s = scenario();
-        let lead = s.batch.laboratory_results.iter_mut()
-            .find(|x| x.analyte_id == "lead_mg_kg").unwrap();
+        let lead = s
+            .batch
+            .laboratory_results
+            .iter_mut()
+            .find(|x| x.analyte_id == "lead_mg_kg")
+            .unwrap();
         lead.basis = "as_received".into();
         let r = build_report(&s, "0".repeat(64));
         assert_eq!(
