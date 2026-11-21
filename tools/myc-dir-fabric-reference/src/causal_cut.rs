@@ -451,6 +451,7 @@ mod tests {
             [1; 32],
             [2; 32],
             [3; 32],
+            [4; 32],
             vec![
                 dependency("issuer", "issuer-a", 3, 3),
                 dependency("issuer", "issuer-b", 4, 4),
@@ -462,11 +463,11 @@ mod tests {
     #[test]
     fn empty_or_zero_bound_dependency_cut_is_rejected() {
         assert_eq!(
-            RequestScopedCausalCut::new(realm(), [1; 32], [2; 32], [3; 32], vec![]),
+            RequestScopedCausalCut::new(realm(), [1; 32], [2; 32], [3; 32], [4; 32], vec![]),
             Err(CutError::EmptyDependencySet)
         );
         assert_eq!(
-            RequestScopedCausalCut::new(realm(), [0; 32], [2; 32], [3; 32], vec![dependency("p", "a", 1, 1)]),
+            RequestScopedCausalCut::new(realm(), [0; 32], [2; 32], [3; 32], [4; 32], vec![dependency("p", "a", 1, 1)]),
             Err(CutError::ZeroDigest)
         );
     }
