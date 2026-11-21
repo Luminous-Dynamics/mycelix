@@ -2,7 +2,7 @@
 
 **Benchmark ID:** `PULSE-FABRIC-BENCH-001`  
 **Status:** pre-registered, not executed  
-**Last source review:** 20 November 2026
+**Last source review:** 21 November 2026
 
 ## Purpose
 
@@ -43,6 +43,36 @@ The OpenMLS release documented on 22 October 2026 is 0.9.2. Its supported suites
 - [Signal libsignal](https://github.com/signalapp/libsignal)
 - [Signal ML-KEM Braid](https://signal.org/docs/specifications/mlkembraid/)
 - [MLS PQ ciphersuites draft](https://datatracker.ietf.org/doc/draft-ietf-mls-pq-ciphersuites/)
+
+### Paradigm shift: compose mature cryptography, innovate in verifiable operations
+
+Signal's ML-KEM Braid is a Sparse Continuous Key Agreement design that emits
+ordered key epochs and is intended to feed higher-level protocols with
+forward-secrecy and post-compromise-security properties. Its important
+benchmark variable is not just KEM cost: under low-bandwidth, intermittent
+communication, measure the vulnerable-message-set size and time/messages to
+heal after compromise. Its incremental KEM and erasure-coded chunking are
+particularly relevant to poor-connectivity and mobile-offline scenarios.
+Pulse V2 must not claim these ratchet properties merely because it uses a
+hybrid envelope.
+
+The MLS PQ ciphersuite draft -08 is an active Internet-Draft, published
+18 November 2026, with IESG Last Call due 3 December 2026. It includes
+traditional/hybrid KEM profiles and PQ-signature variants. A PQ KEM does not
+automatically imply post-quantum authentication: the draft explicitly
+distinguishes suites that retain traditional signatures from suites that
+also use ML-DSA. Track the exact suite and threat model, not just the
+"post-quantum" label.
+
+The strategic bet for Pulse is therefore not a bespoke ratchet. Use
+Signal's mature 1:1 protocol direction and MLS for group key management as
+cryptographic comparators/integration candidates; invest differentiation in
+host-enforced authority, idempotent offline delivery, recipient-verified
+effects, privacy-preserving manifests, portable recovery and independently
+replayable evidence. The fair win condition is a better **verified effect per
+joule/byte and per failure-domain outage**, with no reduction in the underlying
+cryptographic guarantee.
+
 
 ## Frozen workload
 
@@ -150,6 +180,15 @@ effect and per fully verified group send. Report both recipient-level and
 aggregate results; a high average must not hide one unreachable or
 unauthorized member. Commitment privacy tests must include dictionary attacks,
 correlation across epochs and small-group membership inference from metadata.
+
+The machine-readable profile also pre-registers group cost per successful
+effect: CPU time, peak memory, storage growth, network bytes and instrumented
+physical energy per recipient-verified effect, plus CPU time, peak memory,
+storage writes, network bytes and physical energy per completely verified
+group send. It adds recipient-set dictionary-attack success,
+cross-epoch recipient-linkability AUC and small-group membership-inference
+AUC. Publish costs and failures for incomplete groups separately; do not
+exclude expensive failures from the group-send cost picture.
 
 ## Execution order
 
