@@ -554,6 +554,7 @@
         "required_recipient_set_commitment",
         "recipient_commitment",
         "content_commitment",
+        "recipient_unit",
         "aggregation_policy"
       ],
       "properties": {
@@ -590,6 +591,14 @@
         },
         "aggregation_policy": {
           "const": "ALL_REQUIRED"
+        },
+        "recipient_unit": {
+          "type": "string",
+          "enum": [
+            "ACCOUNT",
+            "DEVICE"
+          ],
+          "description": "Must match the parent manifest. ACCOUNT is not evidence of all-device synchronization; DEVICE requires one child per required device."
         }
       }
     }
