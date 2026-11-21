@@ -2127,7 +2127,8 @@ mod tests {
             surrogate_training_id: "surrogate-training-independent-v1".into(),
             surrogate_evaluation_sample_id: evaluation.evaluation_sample_id.clone(),
             target_distribution_id: "whitened-standard-normal-N0I-v1".into(),
-            surrogate_probability_evidence_ref: "fixture://surrogate-probability/radius-0.5-v1".into(),
+            surrogate_probability_evidence_ref: "fixture://surrogate-probability/radius-0.5-v1"
+                .into(),
             surrogate_probability_artifact_digest: "sha256:surrogate-pc-fixture".into(),
             sample_order_digest: evaluation.sample_order_digest.clone(),
             surrogate_probability_is_exact: is_exact,
@@ -2198,7 +2199,8 @@ mod tests {
             0.05,
             &evaluation,
             &surrogate,
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(report.high_fidelity_collision_count, 2);
         assert_eq!(report.surrogate_collision_count, 1);
@@ -2206,11 +2208,17 @@ mod tests {
         assert_eq!(report.false_positive_count, 0);
         assert!((report.direct_high_fidelity_importance_sampling_estimate - 0.5).abs() < 1e-12);
         assert!((report.residual_mean - 0.25).abs() < 1e-12);
-        assert!((report.corrected_high_fidelity_probability_estimate - (surrogate_pc + 0.25)).abs() < 1e-12);
+        assert!(
+            (report.corrected_high_fidelity_probability_estimate - (surrogate_pc + 0.25)).abs()
+                < 1e-12
+        );
         assert!(report.confidence_lower <= report.corrected_high_fidelity_probability_estimate);
         assert!(report.confidence_upper >= report.corrected_high_fidelity_probability_estimate);
         assert!(report.direct_to_residual_variance_ratio.unwrap() > 1.0);
-        assert_eq!(report.inference_horizon, "fixed_sample_only_not_anytime_valid");
+        assert_eq!(
+            report.inference_horizon,
+            "fixed_sample_only_not_anytime_valid"
+        );
     }
 
     #[test]
@@ -2231,14 +2239,18 @@ mod tests {
             0.05,
             &evaluation,
             &surrogate,
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(report.high_fidelity_collision_count, 1);
         assert_eq!(report.surrogate_collision_count, 3);
         assert_eq!(report.false_negative_count, 0);
         assert_eq!(report.false_positive_count, 2);
         assert!((report.residual_mean + 0.5).abs() < 1e-12);
-        assert!((report.corrected_high_fidelity_probability_estimate - (surrogate_pc - 0.5)).abs() < 1e-12);
+        assert!(
+            (report.corrected_high_fidelity_probability_estimate - (surrogate_pc - 0.5)).abs()
+                < 1e-12
+        );
     }
 
     #[test]
@@ -2259,9 +2271,13 @@ mod tests {
             0.05,
             &evaluation,
             &surrogate,
-        ).unwrap();
+        )
+        .unwrap();
 
-        assert!((report.total_confidence_radius - report.empirical_bernstein_radius - 0.01).abs() < 1e-12);
+        assert!(
+            (report.total_confidence_radius - report.empirical_bernstein_radius - 0.01).abs()
+                < 1e-12
+        );
     }
 
     #[test]
@@ -2275,8 +2291,14 @@ mod tests {
         let mut missing_error = multifidelity_surrogate_evidence(&evaluation, false);
         assert_eq!(
             estimate_multifidelity_residual_probability(
-                &proposal, &whitening, &observations, pc, 0.0, 0.05,
-                &evaluation, &missing_error,
+                &proposal,
+                &whitening,
+                &observations,
+                pc,
+                0.0,
+                0.05,
+                &evaluation,
+                &missing_error,
             ),
             Err(EstimateError::SurrogateProbabilityNotQualified)
         );
@@ -2285,8 +2307,14 @@ mod tests {
         wrong_target.target_distribution_id = "different-target-measure-v1".into();
         assert_eq!(
             estimate_multifidelity_residual_probability(
-                &proposal, &whitening, &observations, pc, 0.0, 0.05,
-                &evaluation, &wrong_target,
+                &proposal,
+                &whitening,
+                &observations,
+                pc,
+                0.0,
+                0.05,
+                &evaluation,
+                &wrong_target,
             ),
             Err(EstimateError::SurrogateTargetMismatch)
         );
@@ -2295,8 +2323,14 @@ mod tests {
         wrong_order.sample_order_digest = "sha256:different-sample-order".into();
         assert_eq!(
             estimate_multifidelity_residual_probability(
-                &proposal, &whitening, &observations, pc, 0.0, 0.05,
-                &evaluation, &wrong_order,
+                &proposal,
+                &whitening,
+                &observations,
+                pc,
+                0.0,
+                0.05,
+                &evaluation,
+                &wrong_order,
             ),
             Err(EstimateError::SurrogateSampleOrderMismatch)
         );
@@ -2305,8 +2339,14 @@ mod tests {
         training_leak.surrogate_training_id = evaluation.evaluation_sample_id.clone();
         assert_eq!(
             estimate_multifidelity_residual_probability(
-                &proposal, &whitening, &observations, pc, 0.0, 0.05,
-                &evaluation, &training_leak,
+                &proposal,
+                &whitening,
+                &observations,
+                pc,
+                0.0,
+                0.05,
+                &evaluation,
+                &training_leak,
             ),
             Err(EstimateError::SurrogateTrainingEvaluationLeakage)
         );
@@ -2324,18 +2364,32 @@ mod tests {
         observations[1].sample_id = observations[0].sample_id.clone();
         assert_eq!(
             estimate_multifidelity_residual_probability(
-                &proposal, &whitening, &observations, pc, 0.0, 0.05,
-                &evaluation, &surrogate,
+                &proposal,
+                &whitening,
+                &observations,
+                pc,
+                0.0,
+                0.05,
+                &evaluation,
+                &surrogate,
             ),
-            Err(EstimateError::DuplicateEvaluationSampleId("evaluation-row-0000".into()))
+            Err(EstimateError::DuplicateEvaluationSampleId(
+                "evaluation-row-0000".into()
+            ))
         );
 
         let mut observations = multifidelity_observations(0.75, 0.5);
         observations[1].physical_state[0] += 0.01;
         assert_eq!(
             estimate_multifidelity_residual_probability(
-                &proposal, &whitening, &observations, pc, 0.0, 0.05,
-                &evaluation, &surrogate,
+                &proposal,
+                &whitening,
+                &observations,
+                pc,
+                0.0,
+                0.05,
+                &evaluation,
+                &surrogate,
             ),
             Err(EstimateError::PhysicalStateMismatch)
         );
