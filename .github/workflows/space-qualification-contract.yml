@@ -1,6 +1,15 @@
 name: Space qualification contract
 
 on:
+  push:
+    branches:
+      - "research/space-qualification-package-schema-v0-1"
+    paths:
+      - "mycelix-workspace/mycelix-space/contracts/**"
+      - "docs/space/SPACE_QUALIFICATION_PACKAGE_V0_1.md"
+      - "mycelix-workspace/mycelix-space/Cargo.toml"
+      - "mycelix-workspace/mycelix-space/tools/space-qualification-verifier/**"
+      - ".github/workflows/space-qualification-contract.yml"
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
