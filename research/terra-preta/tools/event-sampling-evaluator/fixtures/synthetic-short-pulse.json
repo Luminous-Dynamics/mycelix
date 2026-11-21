@@ -1,0 +1,542 @@
+{
+  "schema_version": "event-sampling-evaluator-v0.1",
+  "fixture_status": "synthetic_only_policy_evaluator_not_field_data",
+  "evidence_class": "synthetic",
+  "scenario_id": "synthetic-short-rewetting-pulse-between-fixed-cadence-observations",
+  "sampling_contract": {
+    "baseline_start_hours": 0,
+    "baseline_end_hours": 5,
+    "event_start_hours": 6,
+    "event_end_hours": 12,
+    "pulse_start_hours": 8,
+    "pulse_end_hours": 10,
+    "maximum_event_sample_gap_hours": 2,
+    "minimum_pulse_departure": 2,
+    "sensor_energy_wh_per_sample": 0.5,
+    "maximum_samples_per_policy": 25,
+    "maximum_energy_wh_per_policy": 13
+  },
+  "latent_truth": [
+    {
+      "truth_id": "truth-00",
+      "time_hours": 0,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "truth_id": "truth-01",
+      "time_hours": 1,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "truth_id": "truth-02",
+      "time_hours": 2,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "truth_id": "truth-03",
+      "time_hours": 3,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "truth_id": "truth-04",
+      "time_hours": 4,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "truth_id": "truth-05",
+      "time_hours": 5,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "truth_id": "truth-06",
+      "time_hours": 6,
+      "response_value": 10,
+      "forcing_value": 0.12
+    },
+    {
+      "truth_id": "truth-07",
+      "time_hours": 7,
+      "response_value": 11,
+      "forcing_value": 0.12
+    },
+    {
+      "truth_id": "truth-08",
+      "time_hours": 8,
+      "response_value": 14,
+      "forcing_value": 0.09
+    },
+    {
+      "truth_id": "truth-09",
+      "time_hours": 9,
+      "response_value": 16,
+      "forcing_value": 0.09
+    },
+    {
+      "truth_id": "truth-10",
+      "time_hours": 10,
+      "response_value": 13,
+      "forcing_value": 0.09
+    },
+    {
+      "truth_id": "truth-11",
+      "time_hours": 11,
+      "response_value": 11,
+      "forcing_value": 0.15
+    },
+    {
+      "truth_id": "truth-12",
+      "time_hours": 12,
+      "response_value": 10,
+      "forcing_value": 0.15
+    },
+    {
+      "truth_id": "truth-13",
+      "time_hours": 13,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "truth_id": "truth-14",
+      "time_hours": 14,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "truth_id": "truth-15",
+      "time_hours": 15,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "truth_id": "truth-16",
+      "time_hours": 16,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "truth_id": "truth-17",
+      "time_hours": 17,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "truth_id": "truth-18",
+      "time_hours": 18,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "truth_id": "truth-19",
+      "time_hours": 19,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "truth_id": "truth-20",
+      "time_hours": 20,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "truth_id": "truth-21",
+      "time_hours": 21,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "truth_id": "truth-22",
+      "time_hours": 22,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "truth_id": "truth-23",
+      "time_hours": 23,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "truth_id": "truth-24",
+      "time_hours": 24,
+      "response_value": 10,
+      "forcing_value": 0.22
+    }
+  ],
+  "policies": [
+    {
+      "policy_id": "fixed-6h",
+      "policy_class": "fixed_cadence",
+      "evaluation_role": "deployable_candidate",
+      "sample_actions": [
+        {
+          "sample_id": "fixed-0",
+          "decision_time_hours": 0,
+          "sample_time_hours": 0,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "predeclared_six_hour_cadence"
+        },
+        {
+          "sample_id": "fixed-1",
+          "decision_time_hours": 0,
+          "sample_time_hours": 6,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "predeclared_six_hour_cadence"
+        },
+        {
+          "sample_id": "fixed-2",
+          "decision_time_hours": 0,
+          "sample_time_hours": 12,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "predeclared_six_hour_cadence"
+        },
+        {
+          "sample_id": "fixed-3",
+          "decision_time_hours": 0,
+          "sample_time_hours": 18,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "predeclared_six_hour_cadence"
+        },
+        {
+          "sample_id": "fixed-4",
+          "decision_time_hours": 0,
+          "sample_time_hours": 24,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "predeclared_six_hour_cadence"
+        }
+      ]
+    },
+    {
+      "policy_id": "adaptive-from-past",
+      "policy_class": "adaptive_from_past",
+      "evaluation_role": "deployable_candidate",
+      "sample_actions": [
+        {
+          "sample_id": "adaptive-0",
+          "decision_time_hours": 0,
+          "sample_time_hours": 0,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "initial_sample"
+        },
+        {
+          "sample_id": "adaptive-1",
+          "decision_time_hours": 0,
+          "sample_time_hours": 4,
+          "action_mode": "adaptive_from_past",
+          "decision_basis_observation_ids": [
+            "adaptive-0"
+          ],
+          "reason_code": "prior_observation_triggered_next_sample"
+        },
+        {
+          "sample_id": "adaptive-2",
+          "decision_time_hours": 4,
+          "sample_time_hours": 6,
+          "action_mode": "adaptive_from_past",
+          "decision_basis_observation_ids": [
+            "adaptive-1"
+          ],
+          "reason_code": "prior_observation_triggered_next_sample"
+        },
+        {
+          "sample_id": "adaptive-3",
+          "decision_time_hours": 6,
+          "sample_time_hours": 7,
+          "action_mode": "adaptive_from_past",
+          "decision_basis_observation_ids": [
+            "adaptive-2"
+          ],
+          "reason_code": "prior_observation_triggered_next_sample"
+        },
+        {
+          "sample_id": "adaptive-4",
+          "decision_time_hours": 7,
+          "sample_time_hours": 8,
+          "action_mode": "adaptive_from_past",
+          "decision_basis_observation_ids": [
+            "adaptive-3"
+          ],
+          "reason_code": "prior_observation_triggered_next_sample"
+        },
+        {
+          "sample_id": "adaptive-5",
+          "decision_time_hours": 8,
+          "sample_time_hours": 9,
+          "action_mode": "adaptive_from_past",
+          "decision_basis_observation_ids": [
+            "adaptive-4"
+          ],
+          "reason_code": "prior_observation_triggered_next_sample"
+        },
+        {
+          "sample_id": "adaptive-6",
+          "decision_time_hours": 9,
+          "sample_time_hours": 10,
+          "action_mode": "adaptive_from_past",
+          "decision_basis_observation_ids": [
+            "adaptive-5"
+          ],
+          "reason_code": "prior_observation_triggered_next_sample"
+        },
+        {
+          "sample_id": "adaptive-7",
+          "decision_time_hours": 10,
+          "sample_time_hours": 11,
+          "action_mode": "adaptive_from_past",
+          "decision_basis_observation_ids": [
+            "adaptive-6"
+          ],
+          "reason_code": "prior_observation_triggered_next_sample"
+        },
+        {
+          "sample_id": "adaptive-8",
+          "decision_time_hours": 11,
+          "sample_time_hours": 12,
+          "action_mode": "adaptive_from_past",
+          "decision_basis_observation_ids": [
+            "adaptive-7"
+          ],
+          "reason_code": "prior_observation_triggered_next_sample"
+        },
+        {
+          "sample_id": "adaptive-9",
+          "decision_time_hours": 12,
+          "sample_time_hours": 18,
+          "action_mode": "adaptive_from_past",
+          "decision_basis_observation_ids": [
+            "adaptive-8"
+          ],
+          "reason_code": "prior_observation_triggered_next_sample"
+        },
+        {
+          "sample_id": "adaptive-10",
+          "decision_time_hours": 18,
+          "sample_time_hours": 24,
+          "action_mode": "adaptive_from_past",
+          "decision_basis_observation_ids": [
+            "adaptive-9"
+          ],
+          "reason_code": "prior_observation_triggered_next_sample"
+        }
+      ]
+    },
+    {
+      "policy_id": "oracle-1h",
+      "policy_class": "high_rate_oracle",
+      "evaluation_role": "evaluation_ceiling_only",
+      "sample_actions": [
+        {
+          "sample_id": "oracle-0",
+          "decision_time_hours": 0,
+          "sample_time_hours": 0,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-1",
+          "decision_time_hours": 0,
+          "sample_time_hours": 1,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-2",
+          "decision_time_hours": 0,
+          "sample_time_hours": 2,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-3",
+          "decision_time_hours": 0,
+          "sample_time_hours": 3,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-4",
+          "decision_time_hours": 0,
+          "sample_time_hours": 4,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-5",
+          "decision_time_hours": 0,
+          "sample_time_hours": 5,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-6",
+          "decision_time_hours": 0,
+          "sample_time_hours": 6,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-7",
+          "decision_time_hours": 0,
+          "sample_time_hours": 7,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-8",
+          "decision_time_hours": 0,
+          "sample_time_hours": 8,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-9",
+          "decision_time_hours": 0,
+          "sample_time_hours": 9,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-10",
+          "decision_time_hours": 0,
+          "sample_time_hours": 10,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-11",
+          "decision_time_hours": 0,
+          "sample_time_hours": 11,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-12",
+          "decision_time_hours": 0,
+          "sample_time_hours": 12,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-13",
+          "decision_time_hours": 0,
+          "sample_time_hours": 13,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-14",
+          "decision_time_hours": 0,
+          "sample_time_hours": 14,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-15",
+          "decision_time_hours": 0,
+          "sample_time_hours": 15,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-16",
+          "decision_time_hours": 0,
+          "sample_time_hours": 16,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-17",
+          "decision_time_hours": 0,
+          "sample_time_hours": 17,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-18",
+          "decision_time_hours": 0,
+          "sample_time_hours": 18,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-19",
+          "decision_time_hours": 0,
+          "sample_time_hours": 19,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-20",
+          "decision_time_hours": 0,
+          "sample_time_hours": 20,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-21",
+          "decision_time_hours": 0,
+          "sample_time_hours": 21,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-22",
+          "decision_time_hours": 0,
+          "sample_time_hours": 22,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-23",
+          "decision_time_hours": 0,
+          "sample_time_hours": 23,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        },
+        {
+          "sample_id": "oracle-24",
+          "decision_time_hours": 0,
+          "sample_time_hours": 24,
+          "action_mode": "precommitted",
+          "decision_basis_observation_ids": [],
+          "reason_code": "high_rate_evaluation_ceiling_only"
+        }
+      ]
+    }
+  ]
+}
