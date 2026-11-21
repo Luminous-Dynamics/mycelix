@@ -329,8 +329,7 @@ fn validate(s: &Scenario) -> Result<(), String> {
     }
     let batch_date = s.batch.production_start.get(0..10).unwrap_or("");
     if batch_date < s.quality_profile.effective_from.as_str()
-        || s
-            .quality_profile
+        || s.quality_profile
             .effective_until
             .as_deref()
             .is_some_and(|until| batch_date > until)
@@ -856,8 +855,12 @@ mod tests {
     #[test]
     fn confirmed_exceedance_fails_synthetic_profile() {
         let mut s = scenario();
-        let lead = s.batch.laboratory_results.iter_mut()
-            .find(|x| x.analyte_id == "lead_mg_kg").unwrap();
+        let lead = s
+            .batch
+            .laboratory_results
+            .iter_mut()
+            .find(|x| x.analyte_id == "lead_mg_kg")
+            .unwrap();
         lead.measured_value = Some(110.0);
         lead.expanded_uncertainty = 2.0;
         let r = build_report(&s, "0".repeat(64));
@@ -895,8 +898,12 @@ mod tests {
     #[test]
     fn below_loq_supports_maximum_only_if_quantification_bound_is_low_enough() {
         let mut s = scenario();
-        let pah = s.batch.laboratory_results.iter_mut()
-            .find(|x| x.analyte_id == "pah16_mg_kg").unwrap();
+        let pah = s
+            .batch
+            .laboratory_results
+            .iter_mut()
+            .find(|x| x.analyte_id == "pah16_mg_kg")
+            .unwrap();
         pah.quantification_limit = 8.0;
         let r = build_report(&s, "0".repeat(64));
         assert_eq!(
