@@ -1598,7 +1598,9 @@ mod tests {
         );
         assert!(matches!(
             derive_trace_locator_inventory("missing-external-plan", &profile(), &docs(results.as_bytes(), PLAN.as_bytes())),
-            Err(InventoryError::RuleMinimumNotMet(_)) | Err(InventoryError::InvalidIdentity(_))
+            Err(InventoryError::ArrayCardinalityMismatch { .. })
+                | Err(InventoryError::RuleMinimumNotMet(_))
+                | Err(InventoryError::InvalidIdentity(_))
         ));
     }
 
@@ -1907,10 +1909,12 @@ mod tests {
     fn same_numeric_xid_in_other_plan_document_does_not_change_source_inventory() {
         let plan2 = PLAN
             .replace("20000000-0000-4000-8000-000000000002", "30000000-0000-4000-8000-000000000003");
-        let results = RESULTS.replace(
-            "</ExternalQIFReferences>",
-            "<ExternalQIFDocument id=\"8\"><QPId>30000000-0000-4000-8000-000000000003</QPId></ExternalQIFDocument></ExternalQIFReferences>"
-        );
+        let results = RESULTS
+            .replace("<ExternalQIFReferences n=\"1\">", "<ExternalQIFReferences n=\"2\">")
+            .replace(
+                "</ExternalQIFReferences>",
+                "<ExternalQIFDocument id=\"8\"><QPId>30000000-0000-4000-8000-000000000003</QPId></ExternalQIFDocument></ExternalQIFReferences>"
+            );
         let documents = vec![
             RawQifDocument {
                 qpid: "10000000-0000-4000-8000-000000000001",
