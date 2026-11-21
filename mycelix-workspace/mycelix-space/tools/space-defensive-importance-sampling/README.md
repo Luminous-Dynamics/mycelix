@@ -68,6 +68,17 @@ The intended workflow is:
 
 This version does not generate random numbers. It exposes a deterministic mapping from externally generated independent uniform and standard-normal variates into proposal samples. RNG selection, quality and seed independence must be qualified by the caller.
 
+## High-fidelity boundary sentinel validation
+
+The crate also provides `assess_boundary_sentinels`, a separate descriptive validator for a frozen low-fidelity collision classifier against a declared high-fidelity continuous-time event oracle. Each record includes the whitened point, its transformed physical state, a frozen stratum label, the surrogate result and the high-fidelity result.
+
+The report counts false negatives (surrogate safe / high-fidelity collision) and false positives (surrogate collision / high-fidelity safe) per stratum. It lists strata with boundary leakage and does not conflate these counts with Pc or the importance-sampling estimator.
+
+Crucially, no population confidence interval is emitted. Sentinels are commonly selected deliberately near a predicted boundary or around suspected modes, so their empirical miss fraction is not automatically an IID estimate of a population false-negative rate. A population interval requires a predeclared sampling population and a qualified independent/stratified selection design, with per-stratum error control or valid design weights. When a stratum has no high-fidelity collision, its false-negative fraction is undefined and its status is `NO_HF_POSITIVE_DENOMINATOR`, not zero.
+
+This boundary check is motivated by ESA/UC3M's published adaptive-importance-sampling work, which re-propagates selected collision-boundary samples under high-fidelity dynamics and explicitly notes that its small frontier-validation set is insufficient to establish broad predictability:
+https://conference.sdo.esoc.esa.int/proceedings/neosst2/paper/46/NEOSST2-paper46.pdf
+
 ## Diagnostics and limitations
 
 The report includes the raw estimate, sample variance, standard error, maximum observed likelihood ratio, likelihood-ratio ESS, collision-contribution ESS, maximum contribution share, confidence bound, proposal ID, training/evaluation IDs, sample-order digest and event-oracle revision.
