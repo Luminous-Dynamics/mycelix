@@ -1,0 +1,28 @@
+{
+  "schema_version": "ct-matrix-macropore-exchange-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "scenario_id": "rainfall-transient-interface-decay-v0",
+  "bulk_volume_m3": 1,
+  "maximum_gap_seconds": 1800,
+  "matrix_water_initial_m3": 0.2,
+  "macropore_water_initial_m3": 0.3,
+  "matrix_water_capacity_m3": 0.4,
+  "macropore_water_capacity_m3": 0.5,
+  "points": [
+    {
+      "elapsed_seconds": 0,
+      "wetted_interface_area_m2_per_m3": 0.4,
+      "macropore_flux_density_m_per_s": 0.00001
+    },
+    {
+      "elapsed_seconds": 1800,
+      "wetted_interface_area_m2_per_m3": 0.8,
+      "macropore_flux_density_m_per_s": 0.00001
+    },
+    {
+      "elapsed_seconds": 3600,
+      "wetted_interface_area_m2_per_m3": 0.4,
+      "macropore_flux_density_m_per_s": 0.000005
+    }
+  ]
+}
