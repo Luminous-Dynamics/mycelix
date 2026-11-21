@@ -88,6 +88,8 @@ The security folder now contains three finite-state companions: `DirectoryFabric
 
 ## PostgreSQL effect-owner reference
 
+PostgreSQL includes 002_worker_claim_fencing.sql and test_worker_claim_fencing.sql. The extension holds the current worker claim through the effect transaction and checks decision/claim validity against an owner-configured clock profile and uncertainty bound. It is source-present only; it must be applied after the base migration and has not been executed. Do not grant the PEP access to the unwrapped mutation function.
+
 The adjacent PostgreSQL reference adapter demonstrates a database-local mutation and an append-only effect/idempotency receipt under one transaction:
 - [SQL schema and functions](postgres/001_effect_owner.sql)
 - [Transactional self-tests](postgres/test_effect_owner.sql)
