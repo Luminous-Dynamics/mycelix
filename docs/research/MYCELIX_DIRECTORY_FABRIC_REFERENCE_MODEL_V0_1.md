@@ -27,7 +27,7 @@ The crate models three deterministic boundaries:
 |---|---|---|
 | Causal frontier | Canonical vector of authority positions; exact ancestry witness required to cover an older position; forks and incomplete comparisons are incomparable | Signature verification, inclusion proofs, authority admission, merge protocol and Holochain replication |
 | Snapshot lifecycle | Realm binding and persisted policy high-water rollback check | Durable storage, crash consistency, policy signature and recovery ceremony |
-| Offline lease | Exact scope + policy digest + clock interval + low-risk read-only restriction | Trusted clock attestation, risk classification provenance, session/token revocation and actual resource enforcement |
+| Offline lease | Exact scope + policy epoch/digest + minimum authority frontier + clock interval + low-risk read-only restriction | Trusted clock attestation, risk classification provenance, session/token revocation and actual resource enforcement |
 | Group projection | Bounded child-to-parent closure; cycles or budget overrun reject all output | Full policy evaluation, role composition and deny/allow subsumption |
 
 The model intentionally does **not** implement complete authorization. Mycelix #4743 owns the one-coherent-authority-witness rule over the entire evaluation context. #4854 owns decidable constraint subsumption, normalization semantics and deny preservation. Directory Fabric should project realm membership and graph inputs into those authorities, not fork their semantics.
@@ -57,12 +57,15 @@ A freshness result is a precondition, never an authorization Allow. A production
 1. expected realm matches;
 2. policy epoch is not below the persisted local high-water mark;
 3. local frontier covers the caller's minimum frontier;
-4. any offline lease matches the complete request scope and exact policy digest;
-5. the trusted-time interval is wholly within the lease interval and within its clock uncertainty budget;
-6. the operation is independently classified as a low-risk read;
-7. the full authorization evaluator returns a positive result for one coherent witness under #4743/#4854.
+4. any offline lease matches the complete request scope, exact policy epoch and policy digest;
+5. the snapshot covers the lease's authenticated minimum authority frontier;
+6. the trusted-time interval is wholly within the lease interval and within its clock uncertainty budget;
+7. the operation is independently classified as a low-risk read;
+8. the full authorization evaluator returns a positive result for one coherent witness under #4743/#4854.
 
 Missing or incomparable evidence is non-allow. High-risk and write operations are not eligible for this offline lease path.
+
+The implementation exposes versioned, domain-separated canonical byte encodings for the frontier, evidence set, policy snapshot and offline lease. The evidence encoding includes exact covered authority positions; the lease encoding includes its exact policy epoch, policy digest and minimum frontier. These bytes make those fields available for a downstream signature/digest envelope. The crate itself does not hash, sign, authenticate the issuer, or verify the ancestry proof. A remote snapshot's canonical bytes intentionally exclude the local persisted high-water mark, because that value is local anti-rollback state rather than an issuer assertion.
 
 ### 3.3 Group graph semantics
 
@@ -166,7 +169,20 @@ The micro-operation targets are hypotheses to test on declared reference hardwar
 
 For all comparisons, hold constant request semantics, principal/group corpus, freshness requirements, hardware class, offered load, cache policy and fault schedule. Report correctness, latency, resource cost, availability and operational complexity as separate dimensions; do not collapse sovereignty and security into one weighted score.
 
-## 7. Next gates
+## 8. Observed upstream Holochain runtime blockers (checked 21 November 2026)
+
+Before selecting the Directory Fabric runtime tuple, the following open upstream reports must be reproduced against the exact chosen release. They are reporter issues, not Mycelix reproductions and not proof that every supported release is affected:
+
+- [holochain#6071](https://github.com/holochain/holochain/issues/6071): a multi-function zome-call grant reportedly admitted calls for some seconds after revocation in 4/6 trials on 0.7.0/0.7.1. The reporter points to #6063 merged to `develop` and requests a 0.7-line backport. The issue reports single-function grants refused promptly; per-function grants are a workaround, not a verified release fix.
+- [holochain#6062](https://github.com/holochain/holochain/issues/6062): gossip exchanges with about 10,900+ offered op IDs reportedly hit SQLite's bind-variable limit and can fail to converge under large two-way divergence. A 1 MiB gossip budget was reported as a workaround in one controlled test (convergence in roughly eight minutes); do not present that result as a general convergence guarantee.
+- [holochain#6065](https://github.com/holochain/holochain/issues/6065): installation using an existing agent key reportedly fails with roughly 40+ Lair key entries because the key-list response exceeds an 8 KiB frame. Key inventory failure must remain unavailable/Indeterminate; it must never silently mint or substitute an agent identity.
+- [holochain#6066](https://github.com/holochain/holochain/issues/6066): 0.7.1 time-slice reads reportedly scan the Action table and can keep conductors busy at roughly 100k ops, with long restart/startup and first-call delays. The reporter's indexed-query patch showed large improvements in its test environment, but it is not treated as an upstream release fix until incorporated and validated on the selected binary.
+
+A dedicated qualification gate is [MYC-DIR-HC-QUAL-001 / issue #6435](https://github.com/Luminous-Dynamics/mycelix/issues/6435). It requires a component-level version matrix (conductor, `hc`, HDK, HDI, Holochain type crates, JS/Rust clients, Lair, Kitsune2, Rust/WASM build target and mirrored manifests/lockfiles), reproducible tests for grant revocation, partition convergence, large Lair inventories and high-cardinality restart/idle behaviour, and exact binary/source receipts. Directory Fabric must not integrate host-grant or DHT freshness assumptions until this gate is satisfied.
+
+The Mycelix identity manifests need a careful component-level reconciliation: the top-level README's version label and the standalone/workspace Identity manifest pins do not identify one coherent tested runtime tuple. No single "Holochain version" label is sufficient for qualification.
+
+## 9. Next gates
 
 1. Run rustfmt, Cargo test, Clippy and mutation tests at the exact new head.
 2. Independently review the ancestry-proof format and the completeness of the request-scoped dependency cut.
