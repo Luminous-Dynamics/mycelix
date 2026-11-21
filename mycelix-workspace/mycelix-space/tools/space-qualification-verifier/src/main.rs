@@ -1377,7 +1377,7 @@ mod tests {
     #[test]
     fn exact_fixture_bytes_verify_but_synthetic_result_remains_incomplete() {
         let report = verify_value(&fixture(), &repo_root());
-        assert_eq!(report.integrity(), "PASS");
+        assert_eq!(report.integrity(), "PASS", "failures: {:?}; incomplete: {:?}", report.failures, report.incomplete);
         assert_eq!(report.status(), "INCOMPLETE");
         assert!(report.incomplete.contains_key("SYNTHETIC_ONLY"));
         assert!(report.incomplete.contains_key("RESULT_INDETERMINATE"));
