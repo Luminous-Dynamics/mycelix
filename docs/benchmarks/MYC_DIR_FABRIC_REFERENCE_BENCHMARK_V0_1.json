@@ -2,7 +2,7 @@
   "profile": "MYC-DIR-FABRIC-REFERENCE-BENCHMARK-0.1",
   "version": "0.1.0",
   "status": "preregistered_not_executed",
-  "claim_ceiling": "Provisional target profile only. No latency, scale, revocation, privacy, Holochain runtime or superiority result is measured or established. Queue worker reference semantics and broker profiles are source-present only; no NATS, RabbitMQ or Kafka runtime adapter or measurement is qualified.",
+  "claim_ceiling": "Provisional target profile only. No latency, scale, revocation, privacy, Holochain runtime or superiority result is measured or established. Queue worker reference semantics and broker profiles are source-present only; no NATS, RabbitMQ or Kafka runtime adapter or measurement is qualified. Worker-claim proof issuer authenticity and durable current-claim state are external trust boundaries; the Rust module performs structural matching only.",
   "source_binding": {
     "required_at_execution": [
       "benchmark_profile_digest",
@@ -1138,6 +1138,45 @@
       "target": null,
       "gate": "report_only",
       "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_worker_claim_proof_substitution_accept_count",
+      "layer": "queue_worker_safety",
+      "metric": "Effects accepted with a substituted or unauthenticated worker-claim proof commitment",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_worker_claim_expiry_accept_count",
+      "layer": "queue_worker_safety",
+      "metric": "Effects accepted after the exact worker claim validity window expires",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_worker_claim_epoch_advance_latency_p95_ms",
+      "layer": "queue_recovery",
+      "metric": "Time from worker claim epoch reassignment to durable effect-owner rejection of prior claim",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
     }
   ],
   "fault_schedules": [
@@ -1208,7 +1247,10 @@
     "Unknown effect outcome is handed off to a durable reconciliation task; broker may ack but no fresh attempt is allowed",
     "Effect-surface inventory omits a worker pool, broker consumer, retry scheduler or direct API route; strict revocation remains blocked",
     "Broker leader failover or consumer rebalance occurs while one worker holds an old claim; stale claim must fail at effect owner",
-    "Queue retention/TTL discards a message while an authoritative outbox record remains pending; recovery must not mark work complete"
+    "Queue retention/TTL discards a message while an authoritative outbox record remains pending; recovery must not mark work complete",
+    "Worker claim epoch changes while old process is partitioned; delayed old worker submits a correctly signed but stale claim token",
+    "Worker claim proof commitment is substituted independently of the queue payload and command decision receipt",
+    "Decision Allow remains valid but the short worker claim expires before delayed execution; the effect owner must require a fresh claim"
   ],
   "comparators": [
     {
@@ -1637,7 +1679,7 @@
   "queue_worker_corpus_binding": {
     "path": "docs/benchmarks/MYC_DIR_QUEUE_WORKER_V0_1.json",
     "schema_path": "docs/benchmarks/MYC_DIR_QUEUE_WORKER_V0_1.schema.json",
-    "declared_scenario_count": 24,
+    "declared_scenario_count": 27,
     "unique_scenario_ids_required": true,
     "independent_oracle_required": true,
     "broker_delivery_and_effect_owner_results_separated": true
