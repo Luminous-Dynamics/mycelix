@@ -144,13 +144,9 @@ fn run_multifidelity_replicate(
 
     for sample_index in 0..SAMPLES_PER_REPLICATE {
         let latent = rng.normal_pair();
-        let sample = proposal.sample_from_latents(
-            rng.uniform_open(),
-            rng.uniform_open(),
-            &latent,
-        )?;
-        let squared_radius = sample.point[0] * sample.point[0]
-            + sample.point[1] * sample.point[1];
+        let sample =
+            proposal.sample_from_latents(rng.uniform_open(), rng.uniform_open(), &latent)?;
+        let squared_radius = sample.point[0] * sample.point[0] + sample.point[1] * sample.point[1];
         observations.push(MultifidelityResidualObservation {
             sample_id: format!("mf-row-{replicate:04}-{sample_index:08}"),
             point: sample.point.clone(),
@@ -175,7 +171,8 @@ fn run_multifidelity_replicate(
         proposal_training_id: "analytic-fixture-proposal-training-v1".into(),
         evaluation_sample_id: evaluation_id.clone(),
         sampling_design_id: "seeded-splitmix-box-muller-synthetic-regression-v1".into(),
-        sampling_evidence_ref: "fixture://prng-regression-only/not-production-rng-certification".into(),
+        sampling_evidence_ref: "fixture://prng-regression-only/not-production-rng-certification"
+            .into(),
         sample_order_digest: sample_order_digest.clone(),
         event_oracle_id: "exact-centered-standard-normal-high-fidelity-disk".into(),
         event_oracle_revision: "closed-form-high-disk-v1".into(),
@@ -195,8 +192,7 @@ fn run_multifidelity_replicate(
         sample_order_digest,
         surrogate_probability_is_exact: true,
     };
-    let surrogate_probability =
-        exact_standard_normal_2d_disk_probability(surrogate_radius)?;
+    let surrogate_probability = exact_standard_normal_2d_disk_probability(surrogate_radius)?;
     let report = estimate_multifidelity_residual_probability(
         proposal,
         &whitening(),
@@ -234,7 +230,9 @@ fn mean(values: &[f64]) -> f64 {
 }
 
 fn main() {
-    println!("method,radius,exact_probability,mean_estimate,rmse,mean_lower_95pct,mean_upper_95pct,mean_interval_width,empirical_coverage,mean_variance_ratio,mean_false_positive_count,mean_false_negative_count");
+    println!(
+        "method,radius,exact_probability,mean_estimate,rmse,mean_lower_95pct,mean_upper_95pct,mean_interval_width,empirical_coverage,mean_variance_ratio,mean_false_positive_count,mean_false_negative_count"
+    );
     for (case_index, radius) in [0.10_f64, 0.05, 0.02].into_iter().enumerate() {
         let truth = match exact_standard_normal_2d_disk_probability(radius) {
             Ok(value) => value,
@@ -357,7 +355,11 @@ fn main() {
             mean(&mf_false_positives),
             mean(&mf_false_negatives),
         );
-        let mf_improvement = if mf_rmse > 0.0 { is_rmse / mf_rmse } else { f64::INFINITY };
+        let mf_improvement = if mf_rmse > 0.0 {
+            is_rmse / mf_rmse
+        } else {
+            f64::INFINITY
+        };
         eprintln!(
             "radius={radius:.4}: defensive-vs-crude RMSE improvement={improvement:.3}x; residual-vs-direct-IS RMSE improvement={mf_improvement:.3}x; samples/replicate={SAMPLES_PER_REPLICATE}; replicates={REPLICATES}"
         );
