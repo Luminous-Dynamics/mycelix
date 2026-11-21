@@ -5,7 +5,7 @@
   "schedule_id": "fixed-5-minute-cadence",
   "policy_name": "fixed-rate 5-minute",
   "maximum_sample_budget": 60,
-  "maximum_gap_for_pulse_integral_hours": 0.08333333333333333,
+  "maximum_gap_for_pulse_integral_hours": 0.084,
   "wakeup_gap_threshold_hours": 0.5,
   "resource_cost_model": {
     "sample_energy_joules": 0.8,
