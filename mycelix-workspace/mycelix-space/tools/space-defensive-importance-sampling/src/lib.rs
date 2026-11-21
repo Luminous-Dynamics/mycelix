@@ -531,6 +531,7 @@ pub enum EstimateError {
     },
     UniformVariateOutOfRange,
     InvalidDelta(f64),
+    InvalidAnalyticDiskRadius(f64),
     InsufficientSamples(usize),
     EvidenceProposalMismatch,
     WhiteningTransformMismatch,
@@ -614,6 +615,10 @@ impl fmt::Display for EstimateError {
                 f,
                 "confidence delta must be finite and in (0,1); got {value}"
             ),
+            Self::InvalidAnalyticDiskRadius(value) => write!(
+                f,
+                "analytic disk radius must be finite and positive; got {value}"
+            ),
             Self::InsufficientSamples(value) => write!(
                 f,
                 "at least two evaluation samples are required; got {value}"
@@ -674,6 +679,18 @@ impl fmt::Display for EstimateError {
 }
 
 impl std::error::Error for EstimateError {}
+
+/// Exact probability that a two-dimensional standard-normal random
+/// vector falls inside a centered disk of radius r: 1 - exp(-r^2 / 2).
+///
+/// This is a mathematical benchmark oracle only, not an orbital collision
+/// probability algorithm.
+pub fn exact_standard_normal_2d_disk_probability(radius: f64) -> Result<f64, EstimateError> {
+    if !radius.is_finite() || radius <= 0.0 {
+        return Err(EstimateError::InvalidAnalyticDiskRadius(radius));
+    }
+    Ok(-(-0.5 * radius * radius).exp_m1())
+}
 
 /// Fixed-sample estimator for the probability of a high-fidelity event.
 ///
@@ -1731,6 +1748,17 @@ mod tests {
             assess_boundary_sentinels(&whitening(2), &[observation], &boundary_evidence()),
             Err(EstimateError::PhysicalStateMismatch)
         );
+    }
+
+    #[test]
+    fn exact_standard_normal_disk_probability_matches_closed_form() {
+        let radius = (2.0_f64 * 0.5_f64.ln().abs()).sqrt();
+        let probability = exact_standard_normal_2d_disk_probability(radius).unwrap();
+        assert!((probability - 0.5).abs() < 1e-14);
+        assert!(matches!(
+            exact_standard_normal_2d_disk_probability(0.0),
+            Err(EstimateError::InvalidAnalyticDiskRadius(0.0))
+        ));
     }
 
     #[test]
