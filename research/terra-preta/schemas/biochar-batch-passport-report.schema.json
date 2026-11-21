@@ -17,7 +17,9 @@
     "analytical_gate",
     "analyte_results",
     "quality_conformity_status",
+    "carbon_removal_claim_requested",
     "carbon_removal_status",
+    "agronomic_suitability_claim_requested",
     "agronomic_suitability_status",
     "controls",
     "interpretation_boundary"
@@ -174,6 +176,12 @@
     },
     "interpretation_boundary": {
       "type": "string"
+    },
+    "carbon_removal_claim_requested": {
+      "type": "boolean"
+    },
+    "agronomic_suitability_claim_requested": {
+      "type": "boolean"
     }
   }
 }
