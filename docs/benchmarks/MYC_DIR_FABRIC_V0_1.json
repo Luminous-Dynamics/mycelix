@@ -8,7 +8,7 @@
     "DENY",
     "INDETERMINATE"
   ],
-  "scenario_count": 26,
+  "scenario_count": 30,
   "scenarios": [
     {
       "id": "DIR-001",
@@ -321,6 +321,54 @@
       "expected_enforcement": "Allow only this exact request and record the frontier and policy digest in the decision receipt.",
       "invariant": "Minimum-freshness proof is necessary but not sufficient; the complete authorization policy must still allow the request.",
       "claim_ceiling": "Finite positive-control fixture only."
+    },
+    {
+      "id": "DIR-027",
+      "category": "host_capability_revocation",
+      "title": "Revoked multi-function host grant is still used for a protected call",
+      "principal_type": "System",
+      "premise": "A remote caller has a host capability grant covering multiple functions. The exact grant is revoked, but the target runtime may still admit a call because of a grant identity or revocation-ordering defect.",
+      "requested_operation": "Call one covered protected function after revocation",
+      "expected_decision": "DENY",
+      "expected_enforcement": "The conductor must reject the call immediately after the revocation boundary; any post-revocation admission fails this profile.",
+      "invariant": "Application-level revoked state is insufficient; the actual Holochain host call must be refused under the pinned runtime.",
+      "claim_ceiling": "A passing test qualifies only the exact conductor/HDK build and grant shape; it does not prove all capability revocation paths."
+    },
+    {
+      "id": "DIR-028",
+      "category": "dht_convergence",
+      "title": "Large gossip divergence leaves the PEP without a required revocation frontier",
+      "principal_type": "System",
+      "premise": "Two peers have a large divergent op set and gossip fails or remains incomplete. The PEP cannot show that it integrated the caller's required authority frontier or a required revocation update.",
+      "requested_operation": "Authorize a high-risk write using the incomplete local policy snapshot",
+      "expected_decision": "INDETERMINATE",
+      "expected_enforcement": "Do not execute; keep the local policy snapshot incomplete and reconcile before re-evaluation.",
+      "invariant": "A missing DHT record under failed/incomplete gossip is not proof that no revocation exists.",
+      "claim_ceiling": "Finite incomplete-replication control; no network-wide convergence guarantee."
+    },
+    {
+      "id": "DIR-029",
+      "category": "keystore_availability",
+      "title": "Existing agent-key installation fails with a large Lair key inventory",
+      "principal_type": "System",
+      "premise": "The conductor is asked to install or restore a cell under an already enrolled agent key, but its Lair keystore contains a large inventory and cannot complete the key-presence check.",
+      "requested_operation": "Install the cell using the requested existing agent identity",
+      "expected_decision": "INDETERMINATE",
+      "expected_enforcement": "Abort installation visibly; do not generate a replacement agent identity or change enrollment state implicitly.",
+      "invariant": "Keystore unavailability is not identity absence and must never trigger silent key minting.",
+      "claim_ceiling": "Finite install/restore availability fixture for the exact Lair and conductor versions."
+    },
+    {
+      "id": "DIR-030",
+      "category": "conductor_resource_pressure",
+      "title": "High-cardinality DHT maintenance exceeds the freshness window",
+      "principal_type": "System",
+      "premise": "DHT time-slice maintenance at the declared operation count consumes the conductor's available capacity; required frontier updates are not integrated before the local high-risk lease expires.",
+      "requested_operation": "Authorize a high-risk administrative action after the freshness lease expires",
+      "expected_decision": "INDETERMINATE",
+      "expected_enforcement": "Do not execute; report the freshness and resource failure and recover the conductor before accepting a new snapshot.",
+      "invariant": "Resource exhaustion or delayed maintenance cannot extend an expired authorization lease.",
+      "claim_ceiling": "Finite overload-control fixture; does not establish Holochain general performance."
     }
   ]
 }
