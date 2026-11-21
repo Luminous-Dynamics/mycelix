@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Seasonal GHG coverage audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "status",
+    "fixture_status",
+    "fixture_version",
+    "campaign_id",
+    "gas_species",
+    "mass_basis",
+    "flux_unit",
+    "window_start",
+    "window_end",
+    "input_sha256",
+    "schedule_slot_count",
+    "usable_observation_count",
+    "missing_schedule_slot_ids",
+    "unusable_schedule_slot_ids",
+    "schedule_coverage_fraction",
+    "boundary_coverage_complete",
+    "maximum_observed_gap_seconds",
+    "maximum_schedule_gap_seconds",
+    "excessive_observation_gap_count",
+    "unintegrated_gap_count",
+    "event_coverages",
+    "event_coverage_complete",
+    "integrated_partial_mg_m2",
+    "integrated_support_seconds",
+    "uncovered_seconds",
+    "integration_support_fraction",
+    "censored_observation_count",
+    "flagged_or_rejected_observation_count",
+    "uncertainty_status",
+    "uncertainty_group_count",
+    "qualification_reasons",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "enum": [
+        "incomplete_event_coverage",
+        "partial_integral_only",
+        "coverage_complete_uncertainty_unqualified"
+      ]
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "fixture_version": {
+      "type": "string"
+    },
+    "campaign_id": {
+      "type": "string"
+    },
+    "gas_species": {
+      "enum": [
+        "N2O",
+        "CH4",
+        "CO2"
+      ]
+    },
+    "mass_basis": {
+      "enum": [
+        "N2O",
+        "N2O_N",
+        "CH4",
+        "CO2"
+      ]
+    },
+    "flux_unit": {
+      "enum": [
+        "mg_N2O_m2_h",
+        "mg_N2O_N_m2_h",
+        "mg_CH4_m2_h",
+        "mg_CO2_m2_h"
+      ]
+    },
+    "window_start": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "window_end": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "schedule_slot_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "usable_observation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "missing_schedule_slot_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unusable_schedule_slot_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "schedule_coverage_fraction": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "boundary_coverage_complete": {
+      "type": "boolean"
+    },
+    "maximum_observed_gap_seconds": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "maximum_schedule_gap_seconds": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "excessive_observation_gap_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unintegrated_gap_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "event_coverages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_id",
+          "event_type",
+          "observed_before",
+          "required_before",
+          "observed_after",
+          "required_after",
+          "qualified"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "observed_before": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "required_before": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "observed_after": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "required_after": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "qualified": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "event_coverage_complete": {
+      "type": "boolean"
+    },
+    "integrated_partial_mg_m2": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "integrated_support_seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "uncovered_seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "integration_support_fraction": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "censored_observation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "flagged_or_rejected_observation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "uncertainty_status": {
+      "const": "not_propagated_in_v0_1"
+    },
+    "uncertainty_group_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "qualification_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string"
+    }
+  }
+}
