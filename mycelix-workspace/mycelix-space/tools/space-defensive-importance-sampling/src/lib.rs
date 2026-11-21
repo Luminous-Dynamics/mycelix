@@ -14,7 +14,7 @@
 //! independent evaluation samples and high-fidelity continuous-time event
 //! classifications. The crate does not choose or certify an RNG.
 
-use std::fmt;
+use std::{collections::BTreeSet, fmt};
 
 const LOG_2PI: f64 = 1.837_877_066_409_345_3;
 const NUMERIC_TOLERANCE: f64 = 2.0e-10;
@@ -98,8 +98,12 @@ impl DefensiveGaussianMixture {
         }
 
         let mut total_weight = 0.0;
+        let mut component_ids = BTreeSet::new();
         for component in &self.components {
             component.validate(self.dimension)?;
+            if !component_ids.insert(component.id.as_str()) {
+                return Err(EstimateError::DuplicateComponentId(component.id.clone()));
+            }
             total_weight += component.mixture_weight;
         }
         if !total_weight.is_finite() || (total_weight - 1.0).abs() > 1.0e-10 {
@@ -121,6 +125,7 @@ impl DefensiveGaussianMixture {
     /// Log density of the entire defensive mixture. The density is not
     /// conditioned on which component happened to generate the sample.
     pub fn log_proposal_density(&self, point: &[f64]) -> Result<f64, EstimateError> {
+        self.validate()?;
         self.validate_point(point)?;
         let log_target = log_standard_normal(point);
         let mut terms = Vec::with_capacity(self.components.len() + 1);
@@ -277,6 +282,7 @@ pub enum EstimateError {
     ZeroDimension,
     InvalidDefensiveFraction(f64),
     EmptyAdaptiveMixture,
+    DuplicateComponentId(String),
     InvalidMixtureWeight(f64),
     AdaptiveWeightsDoNotSumToOne(f64),
     DimensionMismatch {
@@ -712,6 +718,20 @@ mod tests {
         ] {
             assert!(proposal.likelihood_ratio(&point).unwrap() <= cap * (1.0 + 1e-10));
         }
+    }
+
+    #[test]
+    fn rejects_duplicate_component_ids_and_invalid_proposal_density_calls() {
+        let mut proposal = proposal();
+        proposal.components[1].id = proposal.components[0].id.clone();
+        assert_eq!(
+            proposal.validate(),
+            Err(EstimateError::DuplicateComponentId("collision-mode-left".into()))
+        );
+        assert_eq!(
+            proposal.log_proposal_density(&[0.0, 0.0]),
+            Err(EstimateError::DuplicateComponentId("collision-mode-left".into()))
+        );
     }
 
     #[test]
