@@ -42,6 +42,22 @@ where s^2 is the unbiased sample variance. This is the Maurer-Pontil empirical-B
 Reference:
 - Maurer & Pontil (2009), Empirical Bernstein Bounds and Sample Variance Penalization: https://arxiv.org/abs/0907.3740
 
+## Exact analytical rare-event benchmark
+
+The crate exposes `exact_standard_normal_2d_disk_probability(r)`, the closed-form value:
+
+    P(||Z|| <= r) = 1 - exp(-r^2/2),    Z ~ N(0,I_2)
+
+The standalone `src/bin/analytic_disk_benchmark.rs` runs both crude Monte Carlo and defensive importance sampling through the same estimator API at disk radii 0.10, 0.05 and 0.02. It compares replicate RMSE and mean fixed-sample upper bounds against exact truth. The proposal is frozen per replicate and the final event label is produced by the exact analytic disk predicate.
+
+This is a regression benchmark, not orbital evidence. It uses a deterministic SplitMix64 + Box–Muller stream for reproducibility, not production RNG certification; its sampling evidence identifiers are fixture references. The analytic-oracle flag is permitted only for synthetic mathematical fixtures. Real conjunction estimates must use an identified high-fidelity continuous-time event oracle.
+
+The benchmark's central metric is RMSE against analytical truth at an equal sample count, not only the number of proposal samples that hit the event. It does not include orbital propagation cost or proposal-fitting cost.
+
+Run:
+
+    cargo run --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-defensive-importance-sampling/Cargo.toml --bin analytic-disk-benchmark
+
 ## Whitening and physical-state correspondence
 
 The target distribution is evaluated in whitened joint-state coordinates z, while the high-fidelity event oracle operates on the physical state:
