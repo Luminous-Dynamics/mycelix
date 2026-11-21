@@ -502,17 +502,17 @@ mod tests {
 
     #[test]
     fn invalid_source_interval_and_invalid_destination_basis_are_rejected() {
-        let mut correlation = correlation();
-        correlation.valid_source_interval.start_value = 110.0;
+        let mut invalid_interval = correlation();
+        invalid_interval.valid_source_interval.start_value = 110.0;
         assert_eq!(
-            correlation.validate(),
+            invalid_interval.validate(),
             Err(TimeCorrelationError::InvalidValidityInterval)
         );
 
-        let mut correlation = correlation();
-        correlation.destination_basis = TimeBasisV2::Clock(source_clock());
+        let mut invalid_destination = correlation();
+        invalid_destination.destination_basis = TimeBasisV2::Clock(source_clock());
         assert_eq!(
-            correlation.validate(),
+            invalid_destination.validate(),
             Err(TimeCorrelationError::InvalidDestinationBasis)
         );
     }
