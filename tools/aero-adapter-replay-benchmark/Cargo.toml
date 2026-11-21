@@ -1,0 +1,15 @@
+[package]
+name = "aero-adapter-replay-benchmark"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[dependencies]
+aero-adapter-run-receipt = { path = "../aero-adapter-run-receipt" }
+aero-evidence-types = { path = "../../mycelix-commons/crates/aero-evidence-types" }
+thiserror = "1.0"
+
+[dev-dependencies]
+serde_json = "1.0"
+sha2 = "0.10"
