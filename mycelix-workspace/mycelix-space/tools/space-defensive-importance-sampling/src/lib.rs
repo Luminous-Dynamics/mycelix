@@ -576,6 +576,74 @@ pub struct ImportanceSamplingReport {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct MultifidelityResidualObservation {
+    /// Unique stable identity in the frozen evaluation-sample ordering.
+    pub sample_id: String,
+    pub point: Vec<f64>,
+    pub physical_state: Vec<f64>,
+    /// Low-fidelity/surrogate event predicate evaluated at this exact sample.
+    pub surrogate_collision: bool,
+    /// High-fidelity continuous-time event predicate evaluated at this same sample.
+    pub high_fidelity_collision: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MultifidelitySurrogateEvidence {
+    pub surrogate_model_id: String,
+    pub surrogate_model_revision: String,
+    pub surrogate_training_id: String,
+    pub surrogate_evaluation_sample_id: String,
+    pub target_distribution_id: String,
+    pub surrogate_probability_evidence_ref: String,
+    pub surrogate_probability_artifact_digest: String,
+    pub sample_order_digest: String,
+    /// True only if this probability is exact under the declared nominal target.
+    pub surrogate_probability_is_exact: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct MultifidelityResidualReport {
+    pub method: &'static str,
+    pub proposal_id: String,
+    pub surrogate_model_id: String,
+    pub surrogate_model_revision: String,
+    pub surrogate_training_id: String,
+    pub evaluation_sample_id: String,
+    pub sample_order_digest: String,
+    pub event_oracle_id: String,
+    pub event_oracle_revision: String,
+    pub whitening_transform_id: String,
+    pub whitening_transform_revision: String,
+    pub sample_count: usize,
+    pub high_fidelity_collision_count: usize,
+    pub surrogate_collision_count: usize,
+    pub false_negative_count: usize,
+    pub false_positive_count: usize,
+    pub defensive_fraction: f64,
+    pub residual_contribution_cap: f64,
+    pub surrogate_probability: f64,
+    pub surrogate_probability_absolute_error_bound: f64,
+    pub residual_mean: f64,
+    pub residual_sample_variance: f64,
+    pub residual_standard_error: f64,
+    pub corrected_high_fidelity_probability_estimate: f64,
+    pub direct_high_fidelity_importance_sampling_estimate: f64,
+    pub direct_high_fidelity_sample_variance: f64,
+    pub direct_high_fidelity_standard_error: f64,
+    pub direct_to_residual_variance_ratio: Option<f64>,
+    pub empirical_bernstein_radius: f64,
+    pub total_confidence_radius: f64,
+    pub confidence_delta: f64,
+    pub two_sided_confidence_level: f64,
+    pub confidence_lower: f64,
+    pub confidence_upper: f64,
+    pub max_absolute_residual_contribution: f64,
+    pub max_absolute_residual_share: f64,
+    pub inference_horizon: &'static str,
+    pub claim_ceiling: &'static str,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum EstimateError {
     InvalidIdentifier(&'static str),
     ZeroDimension,
@@ -600,6 +668,14 @@ pub enum EstimateError {
     UniformVariateOutOfRange,
     InvalidDelta(f64),
     InvalidAnalyticDiskRadius(f64),
+    InvalidSurrogateProbability(f64),
+    InvalidSurrogateProbabilityErrorBound(f64),
+    SurrogateProbabilityNotQualified,
+    SurrogateTargetMismatch,
+    SurrogateEvaluationSampleMismatch,
+    SurrogateSampleOrderMismatch,
+    SurrogateTrainingEvaluationLeakage,
+    DuplicateEvaluationSampleId(String),
     InsufficientSamples(usize),
     EvidenceProposalMismatch,
     WhiteningTransformMismatch,
@@ -694,6 +770,38 @@ impl fmt::Display for EstimateError {
                 f,
                 "analytic disk radius must be finite and positive; got {value}"
             ),
+            Self::InvalidSurrogateProbability(value) => write!(
+                f,
+                "surrogate probability must be finite and in [0,1]; got {value}"
+            ),
+            Self::InvalidSurrogateProbabilityErrorBound(value) => write!(
+                f,
+                "surrogate probability absolute error bound must be finite and in [0,1]; got {value}"
+            ),
+            Self::SurrogateProbabilityNotQualified => write!(
+                f,
+                "surrogate probability must be exact under the target or carry a positive independently evidenced absolute error bound"
+            ),
+            Self::SurrogateTargetMismatch => write!(
+                f,
+                "surrogate probability was not computed under the estimator's declared nominal target distribution"
+            ),
+            Self::SurrogateEvaluationSampleMismatch => write!(
+                f,
+                "surrogate labels and high-fidelity labels must use the same frozen evaluation sample identity"
+            ),
+            Self::SurrogateSampleOrderMismatch => write!(
+                f,
+                "surrogate and high-fidelity outcomes must bind the same sample-order digest"
+            ),
+            Self::SurrogateTrainingEvaluationLeakage => write!(
+                f,
+                "surrogate training samples must be disjoint from the final evaluation sample"
+            ),
+            Self::DuplicateEvaluationSampleId(value) => write!(
+                f,
+                "duplicate evaluation sample ID {value}"
+            ),
             Self::InsufficientSamples(value) => write!(
                 f,
                 "at least two evaluation samples are required; got {value}"
@@ -779,6 +887,236 @@ impl fmt::Display for EstimateError {
 }
 
 impl std::error::Error for EstimateError {}
+
+/// Estimate the high-fidelity event probability as an exactly known or
+/// error-bounded surrogate probability plus a paired high-fidelity residual.
+///
+/// For I_H and I_L evaluated on the same sample X:
+///
+///     P_H = P_L + E_q[(p/q) * (I_H - I_L)]
+///
+/// Because the defensive proposal satisfies q >= epsilon*p, the residual
+/// contribution lies in [-1/epsilon, +1/epsilon]. The interval is fixed-sample
+/// and uses a two-sided empirical-Bernstein radius. A surrogate numerical
+/// error bound is added directly to the interval radius.
+pub fn estimate_multifidelity_residual_probability(
+    proposal: &DefensiveGaussianMixture,
+    whitening: &WhiteningTransform,
+    observations: &[MultifidelityResidualObservation],
+    surrogate_probability: f64,
+    surrogate_probability_absolute_error_bound: f64,
+    delta: f64,
+    evaluation_evidence: &EvaluationEvidence,
+    surrogate_evidence: &MultifidelitySurrogateEvidence,
+) -> Result<MultifidelityResidualReport, EstimateError> {
+    proposal.validate()?;
+    whitening.validate(proposal.dimension)?;
+    validate_delta(delta)?;
+    validate_evidence(proposal, whitening, evaluation_evidence)?;
+
+    if observations.len() < 2 {
+        return Err(EstimateError::InsufficientSamples(observations.len()));
+    }
+    if !surrogate_probability.is_finite()
+        || !(0.0..=1.0).contains(&surrogate_probability)
+    {
+        return Err(EstimateError::InvalidSurrogateProbability(
+            surrogate_probability,
+        ));
+    }
+    if !surrogate_probability_absolute_error_bound.is_finite()
+        || !(0.0..=1.0).contains(&surrogate_probability_absolute_error_bound)
+    {
+        return Err(EstimateError::InvalidSurrogateProbabilityErrorBound(
+            surrogate_probability_absolute_error_bound,
+        ));
+    }
+    if surrogate_probability_is_invalid(
+        surrogate_evidence.surrogate_probability_is_exact,
+        surrogate_probability_absolute_error_bound,
+    ) {
+        return Err(EstimateError::SurrogateProbabilityNotQualified);
+    }
+    if surrogate_evidence.target_distribution_id != "whitened-standard-normal-N0I-v1" {
+        return Err(EstimateError::SurrogateTargetMismatch);
+    }
+    if surrogate_evidence.surrogate_evaluation_sample_id
+        != evaluation_evidence.evaluation_sample_id
+    {
+        return Err(EstimateError::SurrogateEvaluationSampleMismatch);
+    }
+    if surrogate_evidence.sample_order_digest != evaluation_evidence.sample_order_digest {
+        return Err(EstimateError::SurrogateSampleOrderMismatch);
+    }
+    if surrogate_evidence.surrogate_training_id.trim().is_empty()
+        || surrogate_evidence.surrogate_training_id == evaluation_evidence.evaluation_sample_id
+        || surrogate_evidence.surrogate_training_id == evaluation_evidence.proposal_training_id
+    {
+        return Err(EstimateError::SurrogateTrainingEvaluationLeakage);
+    }
+    for (field, value) in [
+        ("surrogate_model_id", &surrogate_evidence.surrogate_model_id),
+        ("surrogate_model_revision", &surrogate_evidence.surrogate_model_revision),
+        ("surrogate_probability_evidence_ref", &surrogate_evidence.surrogate_probability_evidence_ref),
+        ("surrogate_probability_artifact_digest", &surrogate_evidence.surrogate_probability_artifact_digest),
+    ] {
+        if !valid_identifier(value) {
+            return Err(EstimateError::InvalidIdentifier(field));
+        }
+    }
+
+    let cap = 1.0 / proposal.epsilon;
+    let mut seen_sample_ids = BTreeSet::new();
+    let mut residuals = Vec::with_capacity(observations.len());
+    let mut direct_contributions = Vec::with_capacity(observations.len());
+    let mut hf_count = 0usize;
+    let mut lf_count = 0usize;
+    let mut false_negative_count = 0usize;
+    let mut false_positive_count = 0usize;
+
+    for observation in observations {
+        if !valid_identifier(&observation.sample_id) {
+            return Err(EstimateError::MissingSamplingEvidence);
+        }
+        if !seen_sample_ids.insert(observation.sample_id.as_str()) {
+            return Err(EstimateError::DuplicateEvaluationSampleId(
+                observation.sample_id.clone(),
+            ));
+        }
+        if observation.physical_state.len() != proposal.dimension {
+            return Err(EstimateError::DimensionMismatch {
+                expected: proposal.dimension,
+                actual: observation.physical_state.len(),
+                field: "multifidelity_physical_state",
+            });
+        }
+        let expected_physical = whitening.to_physical_state(&observation.point)?;
+        if observation
+            .physical_state
+            .iter()
+            .zip(expected_physical.iter())
+            .any(|(actual, expected)| {
+                (actual - expected).abs()
+                    > NUMERIC_TOLERANCE * actual.abs().max(expected.abs()).max(1.0)
+            })
+        {
+            return Err(EstimateError::PhysicalStateMismatch);
+        }
+
+        let weight = proposal.likelihood_ratio(&observation.point)?;
+        let hf = if observation.high_fidelity_collision { 1.0 } else { 0.0 };
+        let lf = if observation.surrogate_collision { 1.0 } else { 0.0 };
+        if observation.high_fidelity_collision {
+            hf_count += 1;
+        }
+        if observation.surrogate_collision {
+            lf_count += 1;
+        }
+        if observation.high_fidelity_collision && !observation.surrogate_collision {
+            false_negative_count += 1;
+        }
+        if observation.surrogate_collision && !observation.high_fidelity_collision {
+            false_positive_count += 1;
+        }
+
+        let direct = weight * hf;
+        let residual = weight * (hf - lf);
+        if direct > cap * (1.0 + NUMERIC_TOLERANCE)
+            || residual.abs() > cap * (1.0 + NUMERIC_TOLERANCE)
+        {
+            return Err(EstimateError::DefensiveContributionCapViolated {
+                contribution: residual.abs().max(direct),
+                cap,
+            });
+        }
+        direct_contributions.push(direct);
+        residuals.push(residual);
+    }
+
+    let n = observations.len();
+    let direct_mean = direct_contributions.iter().sum::<f64>() / n as f64;
+    let direct_variance = sample_variance(&direct_contributions, direct_mean);
+    let direct_standard_error = (direct_variance / n as f64).sqrt();
+
+    let residual_mean = residuals.iter().sum::<f64>() / n as f64;
+    let residual_variance = sample_variance(&residuals, residual_mean);
+    let residual_standard_error = (residual_variance / n as f64).sqrt();
+    let corrected_estimate = surrogate_probability + residual_mean;
+
+    // Two-sided empirical-Bernstein interval: allocate delta/2 to each tail.
+    // Residual support is [-cap, +cap], i.e. range width 2*cap.
+    let log_term = (4.0 / delta).ln();
+    let empirical_radius = (2.0 * residual_variance * log_term / n as f64).sqrt()
+        + (14.0 * cap * log_term) / (3.0 * (n - 1) as f64);
+    let total_radius = empirical_radius + surrogate_probability_absolute_error_bound;
+    let lower = (corrected_estimate - total_radius).clamp(0.0, 1.0);
+    let upper = (corrected_estimate + total_radius).clamp(0.0, 1.0);
+
+    let direct_to_residual_variance_ratio = if residual_variance > 0.0 {
+        Some(direct_variance / residual_variance)
+    } else {
+        None
+    };
+    let max_abs_residual = residuals
+        .iter()
+        .map(|value| value.abs())
+        .fold(0.0, f64::max);
+    let sum_abs_residual: f64 = residuals.iter().map(|value| value.abs()).sum();
+    let max_abs_residual_share = if sum_abs_residual > 0.0 {
+        max_abs_residual / sum_abs_residual
+    } else {
+        0.0
+    };
+
+    Ok(MultifidelityResidualReport {
+        method: "paired_multifidelity_importance_sampling_residual",
+        proposal_id: proposal.id.clone(),
+        surrogate_model_id: surrogate_evidence.surrogate_model_id.clone(),
+        surrogate_model_revision: surrogate_evidence.surrogate_model_revision.clone(),
+        surrogate_training_id: surrogate_evidence.surrogate_training_id.clone(),
+        evaluation_sample_id: evaluation_evidence.evaluation_sample_id.clone(),
+        sample_order_digest: evaluation_evidence.sample_order_digest.clone(),
+        event_oracle_id: evaluation_evidence.event_oracle_id.clone(),
+        event_oracle_revision: evaluation_evidence.event_oracle_revision.clone(),
+        whitening_transform_id: whitening.id.clone(),
+        whitening_transform_revision: whitening.revision.clone(),
+        sample_count: n,
+        high_fidelity_collision_count: hf_count,
+        surrogate_collision_count: lf_count,
+        false_negative_count,
+        false_positive_count,
+        defensive_fraction: proposal.epsilon,
+        residual_contribution_cap: cap,
+        surrogate_probability,
+        surrogate_probability_absolute_error_bound,
+        residual_mean,
+        residual_sample_variance: residual_variance,
+        residual_standard_error,
+        corrected_high_fidelity_probability_estimate: corrected_estimate,
+        direct_high_fidelity_importance_sampling_estimate: direct_mean,
+        direct_high_fidelity_sample_variance: direct_variance,
+        direct_high_fidelity_standard_error: direct_standard_error,
+        direct_to_residual_variance_ratio,
+        empirical_bernstein_radius: empirical_radius,
+        total_confidence_radius: total_radius,
+        confidence_delta: delta,
+        two_sided_confidence_level: 1.0 - delta,
+        confidence_lower: lower,
+        confidence_upper: upper,
+        max_absolute_residual_contribution: max_abs_residual,
+        max_absolute_residual_share: max_abs_residual_share,
+        inference_horizon: "fixed_sample_only_not_anytime_valid",
+        claim_ceiling: "paired_multifidelity_statistical_bound_conditional_on_exact_or_error_bounded_surrogate_probability_frozen_proposal_iid_evaluation_and_correct_high_fidelity_event_model",
+    })
+}
+
+fn surrogate_probability_is_invalid(is_exact: bool, absolute_error_bound: f64) -> bool {
+    if is_exact {
+        absolute_error_bound != 0.0
+    } else {
+        absolute_error_bound <= 0.0
+    }
+}
 
 /// Exact probability that a two-dimensional standard-normal random
 /// vector falls inside a centered disk of radius r: 1 - exp(-r^2 / 2).
