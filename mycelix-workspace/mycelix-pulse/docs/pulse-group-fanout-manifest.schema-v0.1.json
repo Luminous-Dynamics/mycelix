@@ -44,7 +44,8 @@
     },
     "required_recipient_set_commitment": {
       "type": "string",
-      "pattern": "^[0-9a-f]{64}$"
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 of the domain separator PULSE-GROUP-FANOUT-RECIPIENT-SET-V0 followed by lexicographically sorted 64-character recipient commitments, each UTF-8 byte string prefixed by an unsigned 64-bit big-endian length. The raw roster must not be disclosed."
     },
     "content_commitment": {
       "type": "string",
