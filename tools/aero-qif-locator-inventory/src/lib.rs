@@ -1714,9 +1714,54 @@ mod tests {
     }
 
     #[test]
+    fn external_qif_reference_keeps_local_reference_and_remote_xid_distinct() {
+        let (inventory, _) = derive_trace_locator_inventory(
+            "reference-namespaces",
+            &profile(),
+            &docs(RESULTS.as_bytes(), PLAN.as_bytes())
+        ).unwrap();
+        let external = inventory.body.locators.iter()
+            .find(|record| {
+                record.rule_id == "results.characteristic_item_external_reference"
+                    && record.locator.external_xid == Some(301)
+            }).unwrap();
+        assert_eq!(external.locator.local_reference_id, None);
+        assert_eq!(external.locator.parent_external_document_reference_id, None);
+        assert_eq!(external.locator.external_document_reference_id, Some(7));
+        assert_eq!(external.locator.external_xid, Some(301));
+
+        let local = inventory.body.locators.iter()
+            .find(|record| record.rule_id == "plan.characteristic_item_nominal_reference")
+            .unwrap();
+        assert_eq!(local.locator.local_reference_id, Some(501));
+        assert_eq!(local.locator.external_document_reference_id, None);
+        assert_eq!(local.locator.external_xid, None);
+    }
+
+    #[test]
+    fn external_document_child_values_bind_to_parent_external_reference_id() {
+        let (inventory, _) = derive_trace_locator_inventory(
+            "parent-reference-namespaces",
+            &profile(),
+            &docs(RESULTS.as_bytes(), PLAN.as_bytes())
+        ).unwrap();
+        let external_qpid = inventory.body.locators.iter()
+            .find(|record| record.rule_id == "results.external_document_plan_qpid")
+            .unwrap();
+        let external_uri = inventory.body.locators.iter()
+            .find(|record| record.rule_id == "results.external_document_uri")
+            .unwrap();
+        assert_eq!(external_qpid.locator.parent_external_document_reference_id, Some(7));
+        assert_eq!(external_qpid.locator.external_document_reference_id, None);
+        assert_eq!(external_qpid.captured_value.as_deref(), Some("20000000-0000-4000-8000-000000000002"));
+        assert_eq!(external_uri.locator.parent_external_document_reference_id, Some(7));
+        assert_eq!(external_uri.captured_value.as_deref(), Some("https://vendor.example/qif/Plan-A.qif"));
+    }
+
+    #[test]
     fn raw_qif_inventory_matches_independent_hand_enumerated_locator_oracle() {
         let oracle: HandEnumeratedLocatorOracleV1 = serde_json::from_slice(include_bytes!(
-            "../aero-qif-locator-inventory/fixtures/hand-enumerated-locators-v1.json"
+            "../fixtures/hand-enumerated-locators-v1.json"
         )).unwrap();
         assert_eq!(oracle.schema, "AeroQifHandEnumeratedLocatorOracleV1");
         assert_eq!(oracle.profile_id, "AERO_QIF_TEST7_8_TRACE");
