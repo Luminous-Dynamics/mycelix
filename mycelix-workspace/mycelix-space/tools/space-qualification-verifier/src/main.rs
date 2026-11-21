@@ -1233,6 +1233,78 @@ fn verify_claims(
     }
 }
 
+fn verify_draft202012_schema(
+    package: &Value,
+    repo_root: &Path,
+    findings: &mut Findings,
+) {
+    let schema_path = repo_root.join(
+        "mycelix-workspace/mycelix-space/contracts/space-qualification-package-v0.1.schema.json",
+    );
+    let bytes = match fs::read(&schema_path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            findings.fail(
+                "JSON_SCHEMA_UNAVAILABLE",
+                format!("cannot read qualification package schema: {error}"),
+            );
+            return;
+        }
+    };
+    let schema: Value = match serde_json::from_slice(&bytes) {
+        Ok(schema) => schema,
+        Err(error) => {
+            findings.fail(
+                "JSON_SCHEMA_INVALID_JSON",
+                format!("qualification package schema is not valid JSON: {error}"),
+            );
+            return;
+        }
+    };
+    if get_str(&schema, "$schema") != Some("https://json-schema.org/draft/2020-12/schema") {
+        findings.fail(
+            "JSON_SCHEMA_DRAFT_MISMATCH",
+            "qualification package schema must explicitly identify JSON Schema Draft 2020-12",
+        );
+        return;
+    }
+    if let Err(error) = jsonschema::draft202012::meta::validate(&schema) {
+        findings.fail(
+            "JSON_SCHEMA_META_INVALID",
+            format!("schema does not validate against the Draft 2020-12 meta-schema: {error}"),
+        );
+        return;
+    }
+    findings.check("draft202012_schema_meta_validation");
+
+    let validator = match jsonschema::draft202012::options()
+        .should_validate_formats(true)
+        .build(&schema)
+    {
+        Ok(validator) => validator,
+        Err(error) => {
+            findings.fail(
+                "JSON_SCHEMA_COMPILATION_FAILED",
+                format!("cannot compile the Draft 2020-12 package schema: {error}"),
+            );
+            return;
+        }
+    };
+
+    let errors: Vec<String> = validator
+        .iter_errors(package)
+        .map(|error| format!("instance_path={}", error.instance_path()))
+        .collect();
+    if errors.is_empty() {
+        findings.check("draft202012_instance_validation");
+    } else {
+        findings.fail(
+            "JSON_SCHEMA_VALIDATION_FAILED",
+            format!("package violates Draft 2020-12 schema at: {}", errors.join("; ")),
+        );
+    }
+}
+
 fn verify_value(package: &Value, repo_root: &Path) -> Findings {
     let mut findings = Findings::default();
     let package_id = get_str(package, "package_id");
@@ -1279,7 +1351,8 @@ fn verify_value(package: &Value, repo_root: &Path) -> Findings {
             findings.fail("INVALID_REQUEST_DIGEST", format!("{location} must be a lowercase SHA-256 digest"));
         }
     }
-    let request_value = package.get("request").unwrap_or(&Value::Null);
+    let request_value = package.get("request").unwrap_or(&Value::Nu    verify_draft202012_schema(package, repo_root, &mut findings);
+ll);
     if !get_str(request_value, "request_sha256").is_some_and(is_sha256) {
         findings.fail("INVALID_REQUEST_DIGEST", "request_sha256 must be a lowercase SHA-256 digest");
     } else if let Some(request_without_digest) = without_member(request_value, "request_sha256") {
@@ -1475,6 +1548,74 @@ mod tests {
     fn fixture() -> Value {
         serde_json::from_str(include_str!("../../../contracts/fixtures/synthetic-package-indeterminate-v0.1.json"))
             .expect("synthetic package fixture must parse")
+    }
+
+    #[test]
+    fn draft_2020_12_schema_is_valid_against_its_meta_schema() {
+        let bytes = fs::read(
+            repo_root().join("mycelix-workspace/mycelix-space/contracts/space-qualification-package-v0.1.schema.json"),
+        )
+        .expect("schema file must be readable");
+        let schema: Value = serde_json::from_slice(&bytes).expect("schema JSON must parse");
+        assert_eq!(
+            schema["$schema"].as_str(),
+            Some("https://json-schema.org/draft/2020-12/schema")
+        );
+        jsonschema::draft202012::meta::validate(&schema)
+            .expect("schema must validate against the Draft 2020-12 meta-schema");
+    }
+
+    #[test]
+    fn synthetic_package_passes_full_draft_2020_12_instance_validation() {
+        let root = repo_root();
+        let package = fixture();
+        let schema_bytes = fs::read(
+            root.join("mycelix-workspace/mycelix-space/contracts/space-qualification-package-v0.1.schema.json"),
+        )
+        .expect("schema file must be readable");
+        let schema: Value = serde_json::from_slice(&schema_bytes).expect("schema JSON must parse");
+        let validator = jsonschema::draft202012::options()
+            .should_validate_formats(true)
+            .build(&schema)
+            .expect("schema must compile");
+        let errors: Vec<String> = validator.iter_errors(&package).map(|error| {
+            format!("instance_path={}", error.instance_path())
+        }).collect();
+        assert!(errors.is_empty(), "schema validation errors: {errors:?}");
+    }
+
+    #[test]
+    fn draft_2020_12_schema_rejects_missing_required_manifest_digest() {
+        let root = repo_root();
+        let mut package = fixture();
+        package.as_object_mut().unwrap().remove("package_manifest_sha256");
+        let schema_bytes = fs::read(
+            root.join("mycelix-workspace/mycelix-space/contracts/space-qualification-package-v0.1.schema.json"),
+        )
+        .expect("schema file must be readable");
+        let schema: Value = serde_json::from_slice(&schema_bytes).expect("schema JSON must parse");
+        let validator = jsonschema::draft202012::options()
+            .should_validate_formats(true)
+            .build(&schema)
+            .expect("schema must compile");
+        assert!(!validator.is_valid(&package));
+    }
+
+    #[test]
+    fn draft_2020_12_schema_rejects_unknown_top_level_fields() {
+        let root = repo_root();
+        let mut package = fixture();
+        package["not_declared_by_contract"] = json!(true);
+        let schema_bytes = fs::read(
+            root.join("mycelix-workspace/mycelix-space/contracts/space-qualification-package-v0.1.schema.json"),
+        )
+        .expect("schema file must be readable");
+        let schema: Value = serde_json::from_slice(&schema_bytes).expect("schema JSON must parse");
+        let validator = jsonschema::draft202012::options()
+            .should_validate_formats(true)
+            .build(&schema)
+            .expect("schema must compile");
+        assert!(!validator.is_valid(&package));
     }
 
     #[test]
