@@ -901,7 +901,7 @@ mod tests {
 
     fn fixture_value() -> Value {
         serde_json::from_str(include_str!(
-            "../fixtures/synthetic-field-ghg-observations.json"
+            "../../../fixtures/synthetic-field-ghg-observations.json"
         ))
         .expect("committed synthetic fixture must parse")
     }
@@ -974,13 +974,13 @@ mod tests {
     #[test]
     fn unavailable_uncertainty_requires_reason_and_cannot_include_value() {
         let mut value = fixture_value();
-        let uncertainty = &mut value["observations"][0]["uncertainty"];
-        uncertainty["status"] = Value::String("not_available".to_string());
-        uncertainty["standard_uncertainty"] = Value::Null;
-        uncertainty["unit"] = Value::Null;
-        uncertainty["reason_not_available"] = Value::Null;
+        value["observations"][0]["uncertainty"]["status"] =
+            Value::String("not_available".to_string());
+        value["observations"][0]["uncertainty"]["standard_uncertainty"] = Value::Null;
+        value["observations"][0]["uncertainty"]["unit"] = Value::Null;
+        value["observations"][0]["uncertainty"]["reason_not_available"] = Value::Null;
         assert!(audit_value(&value).is_err());
-        uncertainty["reason_not_available"] =
+        value["observations"][0]["uncertainty"]["reason_not_available"] =
             Value::String("not measured in synthetic negative control".to_string());
         let report =
             audit_value(&value).expect("explicit unavailable status should remain auditable");
