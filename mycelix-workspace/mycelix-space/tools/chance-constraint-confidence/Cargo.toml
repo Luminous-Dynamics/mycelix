@@ -1,0 +1,16 @@
+[package]
+name = "chance-constraint-confidence"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Dependency-free reference calculator for one-sided binomial chance-constraint confidence bounds"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "chance-constraint-confidence"
+path = "src/main.rs"
+
+[workspace]
