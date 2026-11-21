@@ -1,6 +1,6 @@
 # Event-aware seasonal GHG coverage auditor
 
-A standalone Rust auditor for synthetic campaign schedules and event-aware GHG flux coverage.
+A standalone Rust auditor for synthetic campaign schedules and event-aware GHG flux coverage. The input envelope is specified by `research/terra-preta/schemas/seasonal-ghg-campaign.schema.json`; the output report is specified by `research/terra-preta/schemas/seasonal-ghg-coverage-report.schema.json`.
 
 ## Run
 
