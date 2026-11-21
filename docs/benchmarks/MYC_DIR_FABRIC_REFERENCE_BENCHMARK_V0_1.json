@@ -589,5 +589,18 @@
       "includes_explicit_denies": true,
       "includes_revocation_dependencies": true
     }
-  ]
+  ],
+  "causal_cut_corpus_binding": {
+    "path": "docs/benchmarks/MYC_DIR_CAUSAL_CUT_RECEIPTS_V0_1.json",
+    "schema_path": "docs/benchmarks/MYC_DIR_CAUSAL_CUT_RECEIPTS_V0_1.schema.json",
+    "declared_scenario_count": 24,
+    "expected_decision_counts": {
+      "ALLOW": 8,
+      "DENY": 4,
+      "INDETERMINATE": 12
+    },
+    "unique_scenario_ids_required": true,
+    "independent_closure_completeness_oracle_required": true,
+    "effect_owner_history_oracle_required": true
+  }
 }
