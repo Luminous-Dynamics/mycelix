@@ -104,9 +104,6 @@
               "independent_site_count",
               "percentile",
               "percentile_interval_95",
-              "distance_to_q90",
-              "distance_to_q95",
-              "distance_to_q99",
               "interpretation",
               "reference_dataset_id",
               "reference_dataset_sha256",
@@ -156,22 +153,13 @@
                 }
               },
               "distance_to_q90": {
-                "type": [
-                  "number",
-                  "null"
-                ]
+                "type": "number"
               },
               "distance_to_q95": {
-                "type": [
-                  "number",
-                  "null"
-                ]
+                "type": "number"
               },
               "distance_to_q99": {
-                "type": [
-                  "number",
-                  "null"
-                ]
+                "type": "number"
               },
               "distance_standard_errors": {
                 "type": "object",
