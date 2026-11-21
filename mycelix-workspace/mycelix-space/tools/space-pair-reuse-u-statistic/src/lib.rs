@@ -118,25 +118,69 @@ pub enum PairReuseError {
 impl fmt::Display for PairReuseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::EmptyPrimaryEnsemble => write!(f, "primary trajectory ensemble must not be empty"),
-            Self::EmptySecondaryEnsemble => write!(f, "secondary trajectory ensemble must not be empty"),
+            Self::EmptyPrimaryEnsemble => {
+                write!(f, "primary trajectory ensemble must not be empty")
+            }
+            Self::EmptySecondaryEnsemble => {
+                write!(f, "secondary trajectory ensemble must not be empty")
+            }
             Self::EmptyCollisionMatrix => write!(f, "collision outcome matrix must not be empty"),
-            Self::RaggedCollisionMatrix { row, expected_columns, actual_columns } => write!(
-                f, "collision matrix row {row} has {actual_columns} columns, expected {expected_columns}"
+            Self::RaggedCollisionMatrix {
+                row,
+                expected_columns,
+                actual_columns,
+            } => write!(
+                f,
+                "collision matrix row {row} has {actual_columns} columns, expected {expected_columns}"
             ),
-            Self::InvalidIdentifier(field) => write!(f, "{field} must be non-empty and use only ASCII letters, digits, dot, underscore, colon, slash and hyphen"),
-            Self::InvalidSha256(field) => write!(f, "{field} must be a 64-character lowercase hexadecimal SHA-256 digest"),
-            Self::DuplicateTrajectoryId(value) => write!(f, "duplicate trajectory sample ID {value}"),
-            Self::PrimarySecondarySampleSetIdentityCollision => write!(f, "primary and secondary sample-set IDs must be distinct"),
-            Self::MissingIndependenceEvidence => write!(f, "an evidence reference for the independent-ensemble sampling design is required"),
-            Self::NonIidPrimaryEnsemble => write!(f, "primary trajectory draws must be IID under this E0 estimator"),
-            Self::NonIidSecondaryEnsemble => write!(f, "secondary trajectory draws must be IID under this E0 estimator"),
-            Self::CrossObjectDependenceUnsupported => write!(f, "correlated primary-secondary ensembles require a shared-latent or clustered estimator"),
-            Self::TrajectoryReuseNotAttested => write!(f, "each retained trajectory must be propagated once and reused only in the pairwise event matrix"),
-            Self::HighFidelityContinuousTimeOracleRequired => write!(f, "pair outcomes must use the declared high-fidelity continuous-time event oracle"),
-            Self::MissingEventDefinitionOrHorizon => write!(f, "fixed event definition and risk horizon IDs are required"),
-            Self::InvalidDelta(value) => write!(f, "delta must be finite and in (0,1); got {value}"),
-            Self::DimensionOverflow => write!(f, "trajectory or pair-comparison count overflowed usize"),
+            Self::InvalidIdentifier(field) => write!(
+                f,
+                "{field} must be non-empty and use only ASCII letters, digits, dot, underscore, colon, slash and hyphen"
+            ),
+            Self::InvalidSha256(field) => write!(
+                f,
+                "{field} must be a 64-character lowercase hexadecimal SHA-256 digest"
+            ),
+            Self::DuplicateTrajectoryId(value) => {
+                write!(f, "duplicate trajectory sample ID {value}")
+            }
+            Self::PrimarySecondarySampleSetIdentityCollision => {
+                write!(f, "primary and secondary sample-set IDs must be distinct")
+            }
+            Self::MissingIndependenceEvidence => write!(
+                f,
+                "an evidence reference for the independent-ensemble sampling design is required"
+            ),
+            Self::NonIidPrimaryEnsemble => write!(
+                f,
+                "primary trajectory draws must be IID under this E0 estimator"
+            ),
+            Self::NonIidSecondaryEnsemble => write!(
+                f,
+                "secondary trajectory draws must be IID under this E0 estimator"
+            ),
+            Self::CrossObjectDependenceUnsupported => write!(
+                f,
+                "correlated primary-secondary ensembles require a shared-latent or clustered estimator"
+            ),
+            Self::TrajectoryReuseNotAttested => write!(
+                f,
+                "each retained trajectory must be propagated once and reused only in the pairwise event matrix"
+            ),
+            Self::HighFidelityContinuousTimeOracleRequired => write!(
+                f,
+                "pair outcomes must use the declared high-fidelity continuous-time event oracle"
+            ),
+            Self::MissingEventDefinitionOrHorizon => write!(
+                f,
+                "fixed event definition and risk horizon IDs are required"
+            ),
+            Self::InvalidDelta(value) => {
+                write!(f, "delta must be finite and in (0,1); got {value}")
+            }
+            Self::DimensionOverflow => {
+                write!(f, "trajectory or pair-comparison count overflowed usize")
+            }
         }
     }
 }
@@ -179,13 +223,7 @@ pub fn estimate_pair_reuse_collision_probability(
         .map(|row| row.iter().filter(|hit| **hit).count() as f64 / n as f64)
         .collect();
     let column_means: Vec<f64> = (0..n)
-        .map(|column| {
-            collision_matrix
-                .iter()
-                .filter(|row| row[column])
-                .count() as f64
-                / m as f64
-        })
+        .map(|column| collision_matrix.iter().filter(|row| row[column]).count() as f64 / m as f64)
         .collect();
 
     Ok(PairReuseReport {
@@ -261,8 +299,14 @@ fn validate_evidence(
         ("sampling_design_id", &evidence.sampling_design_id),
         ("event_definition_id", &evidence.event_definition_id),
         ("event_horizon_id", &evidence.event_horizon_id),
-        ("high_fidelity_event_oracle_id", &evidence.high_fidelity_event_oracle_id),
-        ("high_fidelity_event_oracle_revision", &evidence.high_fidelity_event_oracle_revision),
+        (
+            "high_fidelity_event_oracle_id",
+            &evidence.high_fidelity_event_oracle_id,
+        ),
+        (
+            "high_fidelity_event_oracle_revision",
+            &evidence.high_fidelity_event_oracle_revision,
+        ),
     ] {
         if !valid_identifier(value) {
             return Err(PairReuseError::InvalidIdentifier(field));
@@ -275,7 +319,9 @@ fn validate_evidence(
         return Err(PairReuseError::InvalidSha256("primary_sample_order_sha256"));
     }
     if !valid_sha256(&evidence.secondary_sample_order_sha256) {
-        return Err(PairReuseError::InvalidSha256("secondary_sample_order_sha256"));
+        return Err(PairReuseError::InvalidSha256(
+            "secondary_sample_order_sha256",
+        ));
     }
     if !valid_sha256(&evidence.collision_matrix_sha256) {
         return Err(PairReuseError::InvalidSha256("collision_matrix_sha256"));
@@ -325,9 +371,9 @@ fn validate_delta(delta: f64) -> Result<(), PairReuseError> {
 
 fn valid_identifier(value: &str) -> bool {
     !value.trim().is_empty()
-        && value.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric() || b"._:/-".contains(&byte)
-        })
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"._:/-".contains(&byte))
 }
 
 fn valid_sha256(value: &str) -> bool {
@@ -342,7 +388,10 @@ fn sample_variance(values: &[f64]) -> f64 {
         return 0.0;
     }
     let mean = values.iter().sum::<f64>() / values.len() as f64;
-    values.iter().map(|value| (value - mean).powi(2)).sum::<f64>()
+    values
+        .iter()
+        .map(|value| (value - mean).powi(2))
+        .sum::<f64>()
         / (values.len() - 1) as f64
 }
 
@@ -388,14 +437,18 @@ mod tests {
             vec![false, false, false, false, false],
             vec![false, false, false, false, false],
         ];
-        let report = estimate_pair_reuse_collision_probability(&matrix, 0.05, &evidence(3, 5)).unwrap();
+        let report =
+            estimate_pair_reuse_collision_probability(&matrix, 0.05, &evidence(3, 5)).unwrap();
         assert_eq!(report.estimate, 0.0);
         assert_eq!(report.pair_comparison_count, 15);
         assert_eq!(report.propagated_trajectory_count, 8);
         assert!((report.pair_comparisons_per_propagated_trajectory - 15.0 / 8.0).abs() < 1e-12);
         assert!(report.dependent_pair_outcomes);
         assert!(report.upper_confidence_bound > 0.0);
-        assert_eq!(report.independent_sample_concentration_scale, 1.0 / (1.0 / 3.0 + 1.0 / 5.0));
+        assert_eq!(
+            report.independent_sample_concentration_scale,
+            1.0 / (1.0 / 3.0 + 1.0 / 5.0)
+        );
     }
 
     #[test]
@@ -404,7 +457,8 @@ mod tests {
         for (i, row) in matrix.iter_mut().enumerate() {
             row[i] = true;
         }
-        let report = estimate_pair_reuse_collision_probability(&matrix, 0.05, &evidence(10, 10)).unwrap();
+        let report =
+            estimate_pair_reuse_collision_probability(&matrix, 0.05, &evidence(10, 10)).unwrap();
         assert!((report.estimate - 0.1).abs() < 1e-12);
         assert_eq!(report.pair_comparison_count, 100);
         assert_eq!(report.propagated_trajectory_count, 20);
@@ -417,10 +471,14 @@ mod tests {
     #[test]
     fn asymmetric_ensembles_use_both_independent_sample_counts() {
         let matrix = vec![vec![true; 8]; 2];
-        let report = estimate_pair_reuse_collision_probability(&matrix, 0.1, &evidence(2, 8)).unwrap();
+        let report =
+            estimate_pair_reuse_collision_probability(&matrix, 0.1, &evidence(2, 8)).unwrap();
         assert_eq!(report.estimate, 1.0);
         assert_eq!(report.upper_confidence_bound, 1.0);
-        assert_eq!(report.independent_sample_concentration_scale, 1.0 / (0.5 + 0.125));
+        assert_eq!(
+            report.independent_sample_concentration_scale,
+            1.0 / (0.5 + 0.125)
+        );
     }
 
     #[test]
@@ -450,7 +508,9 @@ mod tests {
         evidence.primary_trajectory_ids[1] = evidence.primary_trajectory_ids[0].clone();
         assert_eq!(
             estimate_pair_reuse_collision_probability(&matrix, 0.05, &evidence),
-            Err(PairReuseError::DuplicateTrajectoryId("primary-trajectory-0".into()))
+            Err(PairReuseError::DuplicateTrajectoryId(
+                "primary-trajectory-0".into()
+            ))
         );
 
         let mut evidence = evidence(2, 2);
@@ -490,8 +550,11 @@ mod tests {
             .iter()
             .map(|row| row.iter().rev().copied().collect::<Vec<_>>())
             .collect::<Vec<_>>();
-        let report_a = estimate_pair_reuse_collision_probability(&matrix, 0.05, &evidence(4, 3)).unwrap();
-        let report_b = estimate_pair_reuse_collision_probability(&column_reversed, 0.05, &evidence(4, 3)).unwrap();
+        let report_a =
+            estimate_pair_reuse_collision_probability(&matrix, 0.05, &evidence(4, 3)).unwrap();
+        let report_b =
+            estimate_pair_reuse_collision_probability(&column_reversed, 0.05, &evidence(4, 3))
+                .unwrap();
         assert_eq!(report_a.estimate, report_b.estimate);
         assert_eq!(report_a.collision_pair_count, report_b.collision_pair_count);
     }
