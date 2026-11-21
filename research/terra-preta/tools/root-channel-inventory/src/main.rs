@@ -46,7 +46,7 @@ struct Node {
     coordinates_m: Vec<f64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Pathway {
     pathway_id: String,
@@ -240,6 +240,12 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 p.pathway_id
             ));
         }
+        if is_root_origin(&p.origin_class) && p.origin_evidence_status == "not_applicable" {
+            return Err(format!(
+                "root-origin pathway {} must carry an explicit origin evidence state",
+                p.pathway_id
+            ));
+        }
         if !is_root_origin(&p.origin_class) && p.origin_evidence_status != "not_applicable" {
             return Err(format!(
                 "non-root pathway {} must use origin_evidence_status=not_applicable",
@@ -251,6 +257,14 @@ fn validate(s: &Scenario) -> Result<(), String> {
         {
             return Err(format!(
                 "live root pathway {} cannot use historical-only origin evidence",
+                p.pathway_id
+            ));
+        }
+        if p.origin_class == "legacy_root_channel"
+            && p.origin_evidence_status == "directly_observed_root"
+        {
+            return Err(format!(
+                "legacy root pathway {} cannot use live-root-only origin evidence",
                 p.pathway_id
             ));
         }
@@ -530,6 +544,33 @@ mod tests {
         let mut s = scenario();
         s.snapshots[0].pathway_states[2].root_occupancy_state = "occupied".into();
         assert!(validate(&s).is_err());
+    }
+
+    #[test]
+    fn root_origin_cannot_use_not_applicable_evidence() {
+        let mut s = scenario();
+        s.pathways[0].origin_evidence_status = "not_applicable".into();
+        assert!(validate(&s).is_err());
+    }
+
+    #[test]
+    fn legacy_root_cannot_use_live_root_only_evidence() {
+        let mut s = scenario();
+        s.pathways[1].origin_evidence_status = "directly_observed_root".into();
+        assert!(validate(&s).is_err());
+    }
+
+    #[test]
+    fn volumetric_support_may_carry_direct_3d_connectivity() {
+        let mut s = scenario();
+        s.observation_support.dimension = "volumetric_3d".into();
+        for node in &mut s.nodes {
+            node.coordinates_m.push(0.0);
+        }
+        s.pathways[0].connectivity_evidence_status = "observed_3d".into();
+        validate(&s).expect("3D support matches 3D connectivity claim");
+        let report = build_report(&s, "0".repeat(64));
+        assert_eq!(report.direct_3d_connectivity_count, 1);
     }
 
     #[test]
