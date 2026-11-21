@@ -127,10 +127,10 @@ fn run() -> Result<(), String> {
     let input_paths = std::iter::once(&results_path)
         .chain(plans.iter().map(|(_, path)| path))
         .collect::<Vec<_>>();
-    if input_paths.iter().any(|path| **path == profile_path)
-        || input_paths.iter().any(|path| **path == inventory_out)
-        || input_paths.iter().any(|path| **path == required_locators_out)
-        || input_paths.iter().any(|path| **path == report_out)
+    if input_paths.iter().any(|path| path.as_path() == profile_path.as_path())
+        || input_paths.iter().any(|path| path.as_path() == inventory_out.as_path())
+        || input_paths.iter().any(|path| path.as_path() == required_locators_out.as_path())
+        || input_paths.iter().any(|path| path.as_path() == report_out.as_path())
         || inventory_out == required_locators_out
         || inventory_out == report_out
         || required_locators_out == report_out
