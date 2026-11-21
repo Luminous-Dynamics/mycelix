@@ -204,6 +204,7 @@ pub struct DependencyClosureReceipt {
     realm: RealmId,
     policy_digest: Digest,
     cut_digest: Digest,
+    dependency_graph_digest: Digest,
     resolver_profile_digest: Digest,
     verifier_id: String,
     verifier_build_digest: Digest,
@@ -218,6 +219,7 @@ impl DependencyClosureReceipt {
         realm: RealmId,
         policy_digest: Digest,
         cut_digest: Digest,
+        dependency_graph_digest: Digest,
         resolver_profile_digest: Digest,
         verifier_id: impl Into<String>,
         verifier_build_digest: Digest,
@@ -234,6 +236,7 @@ impl DependencyClosureReceipt {
         if request_digest == [0; 32]
             || policy_digest == [0; 32]
             || cut_digest == [0; 32]
+            || dependency_graph_digest == [0; 32]
             || resolver_profile_digest == [0; 32]
             || verifier_build_digest == [0; 32]
             || proof_digest == [0; 32]
@@ -245,6 +248,7 @@ impl DependencyClosureReceipt {
             realm,
             policy_digest,
             cut_digest,
+            dependency_graph_digest,
             resolver_profile_digest,
             verifier_id,
             verifier_build_digest,
@@ -266,6 +270,7 @@ impl DependencyClosureReceipt {
             .map_err(|_| CutError::IdentifierTooLong)?;
         bytes.extend_from_slice(&self.policy_digest);
         bytes.extend_from_slice(&self.cut_digest);
+        bytes.extend_from_slice(&self.dependency_graph_digest);
         bytes.extend_from_slice(&self.resolver_profile_digest);
         append_identifier(&mut bytes, &self.verifier_id)
             .map_err(|_| CutError::IdentifierTooLong)?;
@@ -402,6 +407,7 @@ mod tests {
             cut.realm().clone(),
             *cut.policy_digest(),
             cut_digest,
+            [6; 32],
             *cut.resolver_profile_digest(),
             "resolver-v1",
             [4; 32],
@@ -515,7 +521,7 @@ mod tests {
             CausalCutAssessment::CutDigestMismatch
         );
         let wrong_request = DependencyClosureReceipt::new(
-            [7; 32], realm(), [2; 32], [9; 32], [3; 32], "resolver-v1", [4; 32], [5; 32],
+            [7; 32], realm(), [2; 32], [9; 32], [6; 32], [3; 32], "resolver-v1", [4; 32], [5; 32],
             ClosureVerificationStatus::VerifiedComplete
         ).unwrap();
         assert_eq!(
