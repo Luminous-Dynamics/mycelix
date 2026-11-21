@@ -212,7 +212,7 @@
       "transform": {
         "operation": "remove-field",
         "target_event_id": "cf04-e07",
-        "target_field": "parameters.consistency_proof_required",
+        "target_field": "expected_observations.consistency-proof-or-failure",
         "details": "Remove consistency evidence but retain eligible checkpoint status"
       },
       "expected": {
