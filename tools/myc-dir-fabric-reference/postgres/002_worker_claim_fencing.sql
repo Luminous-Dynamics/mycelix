@@ -5,6 +5,15 @@
 
 BEGIN;
 
+ALTER TABLE myc_effect_owner.effect_fence_state
+    ADD COLUMN IF NOT EXISTS owner_clock_profile_id TEXT NOT NULL
+        DEFAULT 'postgres-db-clock-v1'
+        CHECK (btrim(owner_clock_profile_id) <> '');
+
+ALTER TABLE myc_effect_owner.effect_fence_state
+    ADD COLUMN IF NOT EXISTS max_clock_uncertainty_ms BIGINT NOT NULL
+        DEFAULT 25 CHECK (max_clock_uncertainty_ms >= 0);
+
 CREATE TABLE IF NOT EXISTS myc_effect_owner.worker_claim_state (
     realm_id TEXT NOT NULL,
     resource_id TEXT NOT NULL,
@@ -21,6 +30,7 @@ CREATE TABLE IF NOT EXISTS myc_effect_owner.worker_claim_state (
         octet_length(claim_proof_digest) = 32
         AND claim_proof_digest <> decode(repeat('00', 32), 'hex')
     ),
+    clock_profile_id TEXT NOT NULL CHECK (btrim(clock_profile_id) <> ''),
     issued_at TIMESTAMPTZ NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     installed_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
@@ -48,6 +58,7 @@ CREATE OR REPLACE FUNCTION myc_effect_owner.install_worker_claim(
     p_worker_id TEXT,
     p_claim_epoch BIGINT,
     p_claim_proof_digest BYTEA,
+    p_clock_profile_id TEXT,
     p_issued_at TIMESTAMPTZ,
     p_expires_at TIMESTAMPTZ
 )
@@ -78,6 +89,7 @@ BEGIN
     IF p_claim_proof_digest IS NULL
        OR octet_length(p_claim_proof_digest) <> 32
        OR p_claim_proof_digest = decode(repeat('00', 32), 'hex')
+       OR p_clock_profile_id IS NULL OR btrim(p_clock_profile_id) = ''
        OR p_issued_at IS NULL OR p_expires_at IS NULL
        OR p_issued_at >= p_expires_at THEN
         RAISE EXCEPTION 'claim proof and validity interval are invalid'
@@ -87,12 +99,12 @@ BEGIN
     INSERT INTO myc_effect_owner.worker_claim_state (
         realm_id, resource_id, action_id, effect_owner_id,
         logical_operation_id, worker_id, claim_epoch, claim_proof_digest,
-        issued_at, expires_at
+        clock_profile_id, issued_at, expires_at
     )
     VALUES (
         p_realm_id, p_resource_id, p_action_id, p_effect_owner_id,
         p_logical_operation_id, p_worker_id, p_claim_epoch, p_claim_proof_digest,
-        p_issued_at, p_expires_at
+        p_clock_profile_id, p_issued_at, p_expires_at
     )
     ON CONFLICT (
         realm_id, resource_id, action_id, effect_owner_id, logical_operation_id
@@ -100,6 +112,7 @@ BEGIN
        SET worker_id = EXCLUDED.worker_id,
            claim_epoch = EXCLUDED.claim_epoch,
            claim_proof_digest = EXCLUDED.claim_proof_digest,
+           clock_profile_id = EXCLUDED.clock_profile_id,
            issued_at = EXCLUDED.issued_at,
            expires_at = EXCLUDED.expires_at,
            installed_at = clock_timestamp()
@@ -125,6 +138,7 @@ BEGIN
        AND v_current.worker_id = p_worker_id
        AND v_current.claim_epoch = p_claim_epoch
        AND v_current.claim_proof_digest = p_claim_proof_digest
+       AND v_current.clock_profile_id = p_clock_profile_id
        AND v_current.issued_at = p_issued_at
        AND v_current.expires_at = p_expires_at THEN
         RETURN v_current.claim_epoch;
@@ -159,7 +173,10 @@ CREATE OR REPLACE FUNCTION myc_effect_owner.apply_claim_fenced_balance_delta(
     p_delta_minor BIGINT,
     p_worker_id TEXT,
     p_claim_epoch BIGINT,
-    p_claim_proof_digest BYTEA
+    p_claim_proof_digest BYTEA,
+    p_decision_clock_profile_id TEXT,
+    p_decision_issued_at TIMESTAMPTZ,
+    p_decision_expires_at TIMESTAMPTZ
 )
 RETURNS TABLE (
     replayed BOOLEAN,
@@ -172,7 +189,12 @@ SET search_path = pg_catalog, myc_effect_owner
 AS $function$
 DECLARE
     v_claim myc_effect_owner.worker_claim_state%ROWTYPE;
+    v_owner_clock_profile_id TEXT;
+    v_max_clock_uncertainty_ms BIGINT;
     v_now TIMESTAMPTZ;
+    v_lower_bound TIMESTAMPTZ;
+    v_upper_bound TIMESTAMPTZ;
+    v_uncertainty INTERVAL;
 BEGIN
     SELECT *
       INTO v_claim
@@ -196,9 +218,48 @@ BEGIN
             USING ERRCODE = 'P0001';
     END IF;
 
+    SELECT owner_clock_profile_id, max_clock_uncertainty_ms
+      INTO v_owner_clock_profile_id, v_max_clock_uncertainty_ms
+      FROM myc_effect_owner.effect_fence_state
+     WHERE realm_id = p_realm_id
+       AND resource_id = p_resource_id
+       AND action_id = p_action_id
+       AND effect_owner_id = p_effect_owner_id
+     FOR SHARE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'resource fence/clock domain is not initialized'
+            USING ERRCODE = 'P0001';
+    END IF;
+
+    IF v_owner_clock_profile_id IS DISTINCT FROM v_claim.clock_profile_id
+       OR v_owner_clock_profile_id IS DISTINCT FROM p_decision_clock_profile_id THEN
+        RAISE EXCEPTION 'worker claim, decision and effect owner clock profiles differ'
+            USING ERRCODE = 'P0001';
+    END IF;
+
+    IF p_decision_issued_at IS NULL OR p_decision_expires_at IS NULL
+       OR p_decision_issued_at >= p_decision_expires_at THEN
+        RAISE EXCEPTION 'decision validity interval is invalid'
+            USING ERRCODE = '22023';
+    END IF;
+
     v_now := clock_timestamp();
-    IF v_now < v_claim.issued_at OR v_now >= v_claim.expires_at THEN
-        RAISE EXCEPTION 'worker claim is not currently valid'
+    v_uncertainty := make_interval(
+        secs => v_max_clock_uncertainty_ms::double precision / 1000.0
+    );
+    v_lower_bound := v_now - v_uncertainty;
+    v_upper_bound := v_now + v_uncertainty;
+
+    IF v_lower_bound < v_claim.issued_at
+       OR v_upper_bound >= v_claim.expires_at THEN
+        RAISE EXCEPTION 'worker claim is not valid for the full owner clock uncertainty interval'
+            USING ERRCODE = 'P0001';
+    END IF;
+
+    IF v_lower_bound < p_decision_issued_at
+       OR v_upper_bound >= p_decision_expires_at THEN
+        RAISE EXCEPTION 'Allow decision is not valid for the full owner clock uncertainty interval'
             USING ERRCODE = 'P0001';
     END IF;
 
@@ -220,11 +281,11 @@ REVOKE ALL ON ALL FUNCTIONS IN SCHEMA myc_effect_owner FROM PUBLIC;
 COMMENT ON TABLE myc_effect_owner.worker_claim_state IS
 'Durable latest worker claim for a logical operation; old epochs cannot execute after reassignment commits.';
 COMMENT ON FUNCTION myc_effect_owner.install_worker_claim(
-    TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BIGINT, BYTEA, TIMESTAMPTZ, TIMESTAMPTZ
+    TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BIGINT, BYTEA, TEXT, TIMESTAMPTZ, TIMESTAMPTZ
 ) IS
 'Installs strictly increasing claim epochs; exact same-epoch replay is idempotent. Claim proof authentication is external.';
 COMMENT ON FUNCTION myc_effect_owner.apply_claim_fenced_balance_delta(
-    TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BIGINT, BYTEA, TEXT, BYTEA, BYTEA, BYTEA, BIGINT, TEXT, BIGINT, BYTEA
+    TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BIGINT, BYTEA, TEXT, BYTEA, BYTEA, BYTEA, BIGINT, TEXT, BIGINT, BYTEA, TEXT, TIMESTAMPTZ, TIMESTAMPTZ
 ) IS
 'Holds the exact current worker-claim row FOR SHARE, then calls the existing resource-fenced mutation in the same SQL transaction. Requires caller to authenticate the signed claim and decision.';
 
