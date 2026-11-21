@@ -392,6 +392,14 @@
           },
           "required": {
             "type": "boolean"
+          },
+          "candidate_applicability": {
+            "type": "string",
+            "enum": [
+              "all_candidates",
+              "ratchet_capable_only"
+            ],
+            "description": "ratchet_capable_only metrics must be reported as NOT_SUPPORTED for candidates without a ratcheting key-agreement design; never impute zero."
           }
         }
       }
