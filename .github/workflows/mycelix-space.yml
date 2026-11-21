@@ -40,6 +40,9 @@ jobs:
       - name: Test all Space workspace members
         run: cargo test --manifest-path mycelix-workspace/mycelix-space/Cargo.toml --workspace
       - name: Build default WASM zome members
+        env:
+          # Holochain 0.6 supplies getrandom v0.3 through its custom host backend.
+          CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS: '--cfg getrandom_backend="custom"'
         run: cargo build --manifest-path mycelix-workspace/mycelix-space/Cargo.toml --release --target wasm32-unknown-unknown
 
   space-integration-tests:
