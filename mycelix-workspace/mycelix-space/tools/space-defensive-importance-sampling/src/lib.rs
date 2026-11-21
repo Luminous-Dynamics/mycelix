@@ -14,7 +14,10 @@
 //! independent evaluation samples and high-fidelity continuous-time event
 //! classifications. The crate does not choose or certify an RNG.
 
-use std::{collections::{BTreeMap, BTreeSet}, fmt};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt,
+};
 
 const LOG_2PI: f64 = 1.837_877_066_409_345_3;
 const NUMERIC_TOLERANCE: f64 = 2.0e-10;
@@ -586,10 +589,21 @@ impl fmt::Display for EstimateError {
                 f,
                 "weighted event contribution {contribution} exceeds defensive cap {cap}"
             ),
-            Self::EmptyBoundarySentinelSet => write!(f, "at least one boundary sentinel is required"),
-            Self::MissingBoundarySentinelEvidence => write!(f, "sentinel selection, sample-order and model references are required"),
-            Self::SentinelValidationReusesTrainingOrEvaluation => write!(f, "boundary sentinel validation must be independent of proposal training and final estimator evaluation"),
-            Self::LowFidelityBoundaryOracleNotAccepted => write!(f, "boundary sentinels require a high-fidelity continuous-time event oracle"),
+            Self::EmptyBoundarySentinelSet => {
+                write!(f, "at least one boundary sentinel is required")
+            }
+            Self::MissingBoundarySentinelEvidence => write!(
+                f,
+                "sentinel selection, sample-order and model references are required"
+            ),
+            Self::SentinelValidationReusesTrainingOrEvaluation => write!(
+                f,
+                "boundary sentinel validation must be independent of proposal training and final estimator evaluation"
+            ),
+            Self::LowFidelityBoundaryOracleNotAccepted => write!(
+                f,
+                "boundary sentinels require a high-fidelity continuous-time event oracle"
+            ),
         }
     }
 }
@@ -803,7 +817,9 @@ pub fn assess_boundary_sentinels(
             return Err(EstimateError::PhysicalStateMismatch);
         }
 
-        let counts = by_stratum.entry(observation.stratum_id.clone()).or_default();
+        let counts = by_stratum
+            .entry(observation.stratum_id.clone())
+            .or_default();
         counts.sample_count += 1;
         if observation.surrogate_collision {
             counts.low_fidelity_collision_count += 1;
@@ -1261,19 +1277,37 @@ mod tests {
                 high_fidelity_collision: false,
             },
         ];
-        let report = assess_boundary_sentinels(&whitening(2), &observations, &boundary_evidence()).unwrap();
+        let report =
+            assess_boundary_sentinels(&whitening(2), &observations, &boundary_evidence()).unwrap();
         assert_eq!(report.total_sentinels, 4);
         assert_eq!(report.total_high_fidelity_collisions, 2);
         assert_eq!(report.total_false_negatives, 1);
         assert_eq!(report.leaking_strata, vec!["boundary-shell"]);
-        let boundary = report.strata.iter().find(|s| s.stratum_id == "boundary-shell").unwrap();
+        let boundary = report
+            .strata
+            .iter()
+            .find(|s| s.stratum_id == "boundary-shell")
+            .unwrap();
         assert_eq!(boundary.false_negative_count, 1);
-        assert_eq!(boundary.false_negative_fraction_among_high_fidelity_collisions, Some(1.0));
+        assert_eq!(
+            boundary.false_negative_fraction_among_high_fidelity_collisions,
+            Some(1.0)
+        );
         assert_eq!(boundary.status, "BOUNDARY_LEAKAGE_DETECTED");
-        let outside = report.strata.iter().find(|s| s.stratum_id == "outside").unwrap();
-        assert_eq!(outside.false_negative_fraction_among_high_fidelity_collisions, None);
+        let outside = report
+            .strata
+            .iter()
+            .find(|s| s.stratum_id == "outside")
+            .unwrap();
+        assert_eq!(
+            outside.false_negative_fraction_among_high_fidelity_collisions,
+            None
+        );
         assert_eq!(outside.status, "NO_HF_POSITIVE_DENOMINATOR");
-        assert_eq!(report.inference_scope, "descriptive_only_no_population_confidence_interval_without_qualified_stratified_sampling_design");
+        assert_eq!(
+            report.inference_scope,
+            "descriptive_only_no_population_confidence_interval_without_qualified_stratified_sampling_design"
+        );
     }
 
     #[test]
