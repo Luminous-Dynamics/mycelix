@@ -110,7 +110,10 @@ fn is_root_origin(origin: &str) -> bool {
 }
 
 fn valid_sha256(value: &str) -> bool {
-    value.len() == 64 && value.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
 }
 
 fn validate(s: &Scenario) -> Result<(), String> {
@@ -126,22 +129,32 @@ fn validate(s: &Scenario) -> Result<(), String> {
     {
         return Err("scenario and observation-support metadata must be non-empty".into());
     }
-    if !matches!(s.observation_support.dimension.as_str(), "planar_2d" | "volumetric_3d") {
+    if !matches!(
+        s.observation_support.dimension.as_str(),
+        "planar_2d" | "volumetric_3d"
+    ) {
         return Err("unsupported observation dimension".into());
     }
     if !valid_sha256(&s.observation_support.source_sha256)
         || !valid_sha256(&s.observation_support.geometry_sha256)
     {
-        return Err("source and geometry SHA-256 values must be lowercase hexadecimal digests".into());
+        return Err(
+            "source and geometry SHA-256 values must be lowercase hexadecimal digests".into(),
+        );
     }
-    if !s.observation_support.resolution_m.is_finite() || s.observation_support.resolution_m <= 0.0 {
+    if !s.observation_support.resolution_m.is_finite() || s.observation_support.resolution_m <= 0.0
+    {
         return Err("observation resolution must be finite and positive".into());
     }
     if s.nodes.len() < 2 || s.pathways.is_empty() || s.snapshots.is_empty() {
         return Err("at least two nodes, one pathway and one snapshot are required".into());
     }
 
-    let expected_dimensions = if s.observation_support.dimension == "planar_2d" { 2 } else { 3 };
+    let expected_dimensions = if s.observation_support.dimension == "planar_2d" {
+        2
+    } else {
+        3
+    };
     let mut node_ids = BTreeSet::new();
     for node in &s.nodes {
         if node.node_id.trim().is_empty() || !node_ids.insert(node.node_id.clone()) {
@@ -163,34 +176,64 @@ fn validate(s: &Scenario) -> Result<(), String> {
             return Err("pathway IDs must be non-empty and unique".into());
         }
         if !node_ids.contains(&p.start_node_id) || !node_ids.contains(&p.end_node_id) {
-            return Err(format!("pathway {} has an unresolved endpoint", p.pathway_id));
+            return Err(format!(
+                "pathway {} has an unresolved endpoint",
+                p.pathway_id
+            ));
         }
         if p.start_node_id == p.end_node_id {
-            return Err(format!("pathway {} has identical start and end nodes", p.pathway_id));
+            return Err(format!(
+                "pathway {} has identical start and end nodes",
+                p.pathway_id
+            ));
         }
         if !matches!(
             p.origin_class.as_str(),
-            "live_root_channel" | "legacy_root_channel" | "abiotic_crack"
-                | "textural_finger" | "faunal_burrow" | "other" | "unknown"
+            "live_root_channel"
+                | "legacy_root_channel"
+                | "abiotic_crack"
+                | "textural_finger"
+                | "faunal_burrow"
+                | "other"
+                | "unknown"
         ) {
-            return Err(format!("pathway {} has an unsupported origin class", p.pathway_id));
+            return Err(format!(
+                "pathway {} has an unsupported origin class",
+                p.pathway_id
+            ));
         }
         if !matches!(
             p.origin_evidence_status.as_str(),
-            "directly_observed_root" | "historical_root_trace" | "morphology_only"
-                | "unresolved" | "synthetic_truth" | "not_applicable"
+            "directly_observed_root"
+                | "historical_root_trace"
+                | "morphology_only"
+                | "unresolved"
+                | "synthetic_truth"
+                | "not_applicable"
         ) {
-            return Err(format!("pathway {} has an unsupported origin evidence status", p.pathway_id));
+            return Err(format!(
+                "pathway {} has an unsupported origin evidence status",
+                p.pathway_id
+            ));
         }
         if !matches!(
             p.connectivity_evidence_status.as_str(),
-            "observed_3d" | "projected_2d_only" | "model_inferred"
-                | "not_assessed" | "synthetic_truth_3d"
+            "observed_3d"
+                | "projected_2d_only"
+                | "model_inferred"
+                | "not_assessed"
+                | "synthetic_truth_3d"
         ) {
-            return Err(format!("pathway {} has an unsupported connectivity evidence status", p.pathway_id));
+            return Err(format!(
+                "pathway {} has an unsupported connectivity evidence status",
+                p.pathway_id
+            ));
         }
         if s.observation_support.dimension == "planar_2d"
-            && matches!(p.connectivity_evidence_status.as_str(), "observed_3d" | "synthetic_truth_3d")
+            && matches!(
+                p.connectivity_evidence_status.as_str(),
+                "observed_3d" | "synthetic_truth_3d"
+            )
         {
             return Err(format!(
                 "pathway {} promotes a planar 2D observation to 3D connectivity",
@@ -203,7 +246,9 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 p.pathway_id
             ));
         }
-        if p.origin_class == "live_root_channel" && p.origin_evidence_status == "historical_root_trace" {
+        if p.origin_class == "live_root_channel"
+            && p.origin_evidence_status == "historical_root_trace"
+        {
             return Err(format!(
                 "live root pathway {} cannot use historical-only origin evidence",
                 p.pathway_id
@@ -226,7 +271,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
             || p.depth_min_m < 0.0
             || p.depth_max_m < p.depth_min_m
         {
-            return Err(format!("pathway {} has physically inadmissible geometry", p.pathway_id));
+            return Err(format!(
+                "pathway {} has physically inadmissible geometry",
+                p.pathway_id
+            ));
         }
     }
 
@@ -241,17 +289,29 @@ fn validate(s: &Scenario) -> Result<(), String> {
         previous_time = Some(snapshot.elapsed_days);
         let mut state_ids = BTreeSet::new();
         for state in &snapshot.pathway_states {
-            if !pathway_ids.contains(&state.pathway_id) || !state_ids.insert(state.pathway_id.clone()) {
-                return Err(format!("snapshot {index} has unknown or duplicate pathway state"));
+            if !pathway_ids.contains(&state.pathway_id)
+                || !state_ids.insert(state.pathway_id.clone())
+            {
+                return Err(format!(
+                    "snapshot {index} has unknown or duplicate pathway state"
+                ));
             }
             if !matches!(
                 state.root_occupancy_state.as_str(),
-                "occupied" | "partially_occupied" | "unoccupied_legacy"
-                    | "not_applicable" | "not_observed"
+                "occupied"
+                    | "partially_occupied"
+                    | "unoccupied_legacy"
+                    | "not_applicable"
+                    | "not_observed"
             ) {
-                return Err(format!("snapshot {index} has unsupported root occupancy state"));
+                return Err(format!(
+                    "snapshot {index} has unsupported root occupancy state"
+                ));
             }
-            let pathway = s.pathways.iter().find(|p| p.pathway_id == state.pathway_id)
+            let pathway = s
+                .pathways
+                .iter()
+                .find(|p| p.pathway_id == state.pathway_id)
                 .ok_or_else(|| "validated pathway disappeared".to_string())?;
             if !is_root_origin(&pathway.origin_class)
                 && state.root_occupancy_state != "not_applicable"
@@ -263,14 +323,18 @@ fn validate(s: &Scenario) -> Result<(), String> {
             }
         }
         if state_ids != pathway_ids {
-            return Err(format!("snapshot {index} must provide exactly one state for every pathway"));
+            return Err(format!(
+                "snapshot {index} must provide exactly one state for every pathway"
+            ));
         }
     }
     Ok(())
 }
 
 fn endpoint_component_count(s: &Scenario) -> usize {
-    let mut parent: BTreeMap<String, String> = s.nodes.iter()
+    let mut parent: BTreeMap<String, String> = s
+        .nodes
+        .iter()
         .map(|n| (n.node_id.clone(), n.node_id.clone()))
         .collect();
 
@@ -292,7 +356,9 @@ fn endpoint_component_count(s: &Scenario) -> usize {
             parent.insert(a, b);
         }
     }
-    let roots: BTreeSet<String> = s.nodes.iter()
+    let roots: BTreeSet<String> = s
+        .nodes
+        .iter()
         .map(|n| find(&mut parent, &n.node_id))
         .collect();
     roots.len()
@@ -308,14 +374,20 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
     for p in &s.pathways {
         *counts.entry(p.origin_class.clone()).or_insert(0usize) += 1;
         if is_root_origin(&p.origin_class) {
-            if matches!(p.origin_evidence_status.as_str(), "directly_observed_root" | "historical_root_trace" | "synthetic_truth") {
+            if matches!(
+                p.origin_evidence_status.as_str(),
+                "directly_observed_root" | "historical_root_trace" | "synthetic_truth"
+            ) {
                 root_resolved += 1;
             } else {
                 root_unresolved += 1;
             }
         }
         if s.observation_support.dimension == "volumetric_3d"
-            && matches!(p.connectivity_evidence_status.as_str(), "observed_3d" | "synthetic_truth_3d")
+            && matches!(
+                p.connectivity_evidence_status.as_str(),
+                "observed_3d" | "synthetic_truth_3d"
+            )
         {
             direct_3d += 1;
         }
@@ -327,7 +399,10 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
     if root_unresolved > 0 {
         warnings.push("some root-origin pathways remain morphology-only or unresolved".into());
     }
-    if s.pathways.iter().any(|p| p.connectivity_evidence_status == "model_inferred") {
+    if s.pathways
+        .iter()
+        .any(|p| p.connectivity_evidence_status == "model_inferred")
+    {
         warnings.push("model-inferred connectivity is not direct observation".into());
     }
     warnings.push("endpoint graph components are topology of supplied IDs, not proof of hydraulic connectivity or transport".into());
@@ -360,7 +435,9 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
 
 fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if output_path.exists() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into());
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into(),
+        );
     }
     let bytes = fs::read(input_path)?;
     let scenario: Scenario = serde_json::from_slice(&bytes)?;
@@ -368,7 +445,10 @@ fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::
     let digest = format!("{:x}", Sha256::digest(&bytes));
     let report = build_report(&scenario, digest);
     let json = serde_json::to_vec_pretty(&report)?;
-    let mut output = OpenOptions::new().write(true).create_new(true).open(output_path)?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output_path)?;
     output.write_all(&json)?;
     output.write_all(b"\n")?;
     Ok(())
@@ -391,8 +471,10 @@ mod tests {
     use super::*;
 
     fn scenario() -> Scenario {
-        serde_json::from_str(include_str!("../fixtures/synthetic-root-channel-inventory.json"))
-            .expect("synthetic fixture parses")
+        serde_json::from_str(include_str!(
+            "../fixtures/synthetic-root-channel-inventory.json"
+        ))
+        .expect("synthetic fixture parses")
     }
 
     #[test]
