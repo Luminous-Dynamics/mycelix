@@ -4,6 +4,7 @@
 //! Descriptive 3D position-covariance realism diagnostics.
 //!
 //! Compares predicted position covariance against later independent residuals.
+//! Manifest hashes are computed from the sorted, exact sample values and source digests.
 //! This module does not implement the complete NASA CARA covariance-realism
 //! methodology. It emits descriptive NEES and chi-square ellipsoid coverage
 //! only: no calibrated p-values, confidence intervals, covariance pass/fail
