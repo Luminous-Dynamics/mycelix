@@ -262,7 +262,9 @@ impl WhiteningTransform {
             for j in 0..dimension {
                 let value = self.cholesky[i][j];
                 if !value.is_finite() {
-                    return Err(EstimateError::NonFiniteValue("whitening_transform_cholesky"));
+                    return Err(EstimateError::NonFiniteValue(
+                        "whitening_transform_cholesky",
+                    ));
                 }
                 if j > i && value.abs() > NUMERIC_TOLERANCE {
                     return Err(EstimateError::CholeskyNotLowerTriangular);
