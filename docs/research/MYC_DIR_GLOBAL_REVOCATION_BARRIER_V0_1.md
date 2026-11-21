@@ -107,7 +107,14 @@ A partial barrier is PENDING. It is never described as globally revoked. The coo
 
 ### 4.5 Handle outcomes that remain unknown
 
-Unknown is not no-effect. An effect attempt with an ambiguous remote outcome blocks a new physical attempt until the exact attempt is reconciled.
+Unknown is not no-effect. An effect attempt with an ambiguous outcome blocks a new physical attempt until the exact attempt is reconciled.
+
+There is an important distinction between an unknown client response and an unfenced delayed external effect:
+
+- **Owner-local atomic transaction:** if the effect transaction already holds the same owner fence lock, fence installation waits for that transaction to commit or roll back. The owner can acknowledge only after the exclusive fence installation commits and the new generation is durably read back. A lost client response still requires exact reconciliation before retry, but it does not leave a pre-fence transaction capable of committing after the owner acknowledgement.
+- **External/non-atomic call:** if a worker can send a remote request outside the transaction that installs the local fence, the remote effect may arrive after the local acknowledgement. Unknown remote outcomes therefore block strict global completion unless the receiver independently enforces the same monotonic owner-fence rule at its own mutation boundary, or an independently trusted reconciliation proves the exact attempt terminal and prevents a later effect.
+
+A local database transaction plus an outbox does not fence a later HTTP request, payment rail or device command. The receiving system must participate by checking its own monotonic fence and idempotency key atomically with its mutation. Otherwise the route is explicitly best-effort and strict global completion is unavailable.
 
 For a strict barrier, a remote sink that cannot enforce the owner fence itself cannot be included as a strong owner. A local database transaction plus an outbox does not fence a later HTTP request, payment rail or device command. The receiving system must participate by checking its own monotonic fence and idempotency key at its own mutation boundary. Otherwise the route is explicitly best-effort and strict global completion is unavailable.
 
@@ -149,6 +156,14 @@ The formal model and runtime oracle must test at least:
 - **Evidence binding:** each receipt binds the revocation, scope, inventory, owner epoch, generation, durability mode and exact predecessor state.
 
 The model must represent the lock acquisition/commit point, not only a boolean "fence is current". It must allow an effect to acquire the shared owner lock before revocation, hold it while the revoker waits, commit, and only then let the owner acknowledge. The reverse ordering must reject the stale effect. This avoids both an unsafe model and an unnecessarily restrictive one that rejects all in-flight work without representing the correct serialization order.
+
+### Current finite-state model source and scope
+
+The first finite-state model is [DirectoryFabricGlobalRevocationBarrier.tla](../../mycelix-workspace/mycelix-pulse/docs/security/DirectoryFabricGlobalRevocationBarrier.tla). Its safe configuration is [DirectoryFabricGlobalRevocationBarrier.cfg](../../mycelix-workspace/mycelix-pulse/docs/security/DirectoryFabricGlobalRevocationBarrier.cfg). Four negative-control configurations independently enable stale owner-fence acceptance, acknowledgement before durable read-back, missing-owner global acknowledgement and topology-drift bypass.
+
+The model represents per-owner in-flight work, fence-lock acquisition, fence commit, post-commit read-back, owner acknowledgement, worker claim epochs, frozen topology epoch and global acknowledgement. It models an effect that entered before revocation as draining before the exclusive fence lock can be acquired. A new stale-generation effect after fence commit is rejected in the safe configuration.
+
+The current finite-state model is intentionally narrower than the full specification. It does **not yet** model cryptographic receipt verification, real broker/client behavior, clock uncertainty, owner-epoch/failover/backup-restore recovery, or remote unknown-outcome reconciliation. Unknown-attempt handling remains separately represented in [DirectoryFabricQueueWorker.tla](../../mycelix-workspace/mycelix-pulse/docs/security/DirectoryFabricQueueWorker.tla). Owner-epoch recovery and split-brain fencing are explicit next formal extensions, not already-proven properties of this model. The model, safe configuration and negative controls are source-present only; TLC has **not** been executed.
 
 ## 8. Benchmark design
 
