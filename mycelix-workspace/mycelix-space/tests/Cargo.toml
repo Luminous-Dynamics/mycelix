@@ -11,8 +11,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 # Holochain testing dependencies (NO zome crate imports to avoid duplicate symbols)
-hdk = "0.6"
-hdi = "0.7"
+hdk = "=0.6.1"
+hdi = "=0.7.1"
 
 # Async runtime
 
@@ -86,6 +86,22 @@ name = "sweettest_integration"
 path = "sweettest_integration.rs"
 
 [dev-dependencies]
-holochain = { version = "0.6", features = ["test_utils", "sweettest"] }
-holochain_types = "0.6"
+holochain = { version = "=0.6.1", features = ["test_utils", "sweettest"] }
+holochain_types = "=0.6.1"
+
+# Match the root workspace's coherent Holochain 0.6.1 dependency family.
+# Floating transitive 0.6.x components selected newer prerelease crypto APIs
+# and broke this standalone resolver even when hdk/hdi/holochain were pinned.
+holochain_zome_types = "=0.6.1"
+holochain_serialized_bytes = "=0.0.57"
+holo_hash = "=0.6.1"
+holochain_integrity_types = "=0.6.1"
+holochain_state = "=0.6.1"
+holochain_p2p = "=0.6.1"
+holochain_keystore = "=0.6.1"
+holochain_sqlite = "=0.6.1"
+holochain_wasmer_host = "=0.0.102"
+kitsune2 = "=0.4.1"
+lair_keystore = "=0.6.3"
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 tokio = { version = "1", features = ["full", "test-util"] }
