@@ -343,6 +343,13 @@ pub fn assess_position_covariance_realism(
     ] {
         validate_nonempty(value, &first.sample_id, field)?;
     }
+    // Epoch fields are represented as TAI microseconds. A homogeneous but
+    // unsupported label (for example, unconverted UTC) is not sufficient.
+    if cohort_time_basis != "TAI-1970-unix-micros-v1" {
+        return Err(CovarianceRealismError::InvalidTimeBasis {
+            sample_id: first.sample_id.clone(),
+        });
+    }
 
     let symmetry_tolerance = config.symmetry_relative_tolerance_ppb as f64 / 1_000_000_000.0;
     let mut sample_ids = BTreeSet::new();
@@ -459,6 +466,14 @@ pub fn assess_position_covariance_realism(
             }
         }
 
+        // Validate sample-local residual/covariance values before aggregating
+        // them, so invalid evidence retains its precise sample-level error.
+        let nees = position_nees(
+            sample.residual_position_km,
+            sample.position_covariance_km2,
+            &sample.sample_id,
+            symmetry_tolerance,
+        )?;
         independent_groups.insert(sample.independent_group_id.as_str());
         for axis in 0..3 {
             residual_sum[axis] += sample.residual_position_km[axis];
@@ -466,12 +481,6 @@ pub fn assess_position_covariance_realism(
                 return Err(CovarianceRealismError::NonFiniteAggregate);
             }
         }
-        let nees = position_nees(
-            sample.residual_position_km,
-            sample.position_covariance_km2,
-            &sample.sample_id,
-            symmetry_tolerance,
-        )?;
         if nees <= CHI_SQUARE_3_Q_68_27 {
             coverage_68_27 += 1;
         }
@@ -752,9 +761,8 @@ mod tests {
         time_basis.time_basis_id = "UTC-unconverted".to_string();
         assert_eq!(
             assess_position_covariance_realism(&config(1), &[time_basis]),
-            Err(CovarianceRealismError::MixedTimeBasis {
-                expected: "TAI-1970-unix-micros-v1".to_string(),
-                actual: "UTC-unconverted".to_string(),
+            Err(CovarianceRealismError::InvalidTimeBasis {
+                sample_id: "time".to_string(),
             })
         );
     }
