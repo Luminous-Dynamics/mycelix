@@ -59,8 +59,8 @@
       "transform": {
         "operation": "replace-field",
         "target_event_id": "cf01-e07",
-        "target_field": "grant_identity",
-        "details": "Reuse the revoked grant identity for the fresh-grant control"
+        "target_field": "parameters.grant_identity",
+        "details": "Reuse the revoked grant identity for the fresh-grant control instead of issuing a distinct grant identity."
       },
       "expected": {
         "claim_disposition": "reject",
