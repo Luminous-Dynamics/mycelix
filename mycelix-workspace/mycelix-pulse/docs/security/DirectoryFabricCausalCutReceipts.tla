@@ -142,7 +142,7 @@ ClosureOK ==
 FrontierOK ==
     IF ScalarFrontier
     THEN scalarHeight >= RequiredScalarHeight
-    ELSE Dependencies \subseteq coveredDependencies
+    ELSE cutDependencies \subseteq coveredDependencies
 
 Decide ==
     /\ decision = "NONE"
