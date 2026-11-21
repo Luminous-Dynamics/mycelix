@@ -107,6 +107,13 @@ impl Policy {
     fn is_deployable(self) -> bool {
         !matches!(self, Policy::PerfectInformationHindsightOracle)
     }
+
+    fn is_capacity_limited(self) -> bool {
+        !matches!(
+            self,
+            Policy::AllReference | Policy::PerfectInformationHindsightOracle
+        )
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -665,11 +672,16 @@ mod tests {
     #[test]
     fn referral_capacity_is_respected_by_deployable_policies() {
         let s = scenario();
-        for policy in Policy::ALL.into_iter().filter(|x| x.is_deployable()) {
+        for policy in Policy::ALL.into_iter().filter(|x| x.is_capacity_limited()) {
             assert!(
                 select(policy, &s.screen_candidates, &s.config).len() <= s.config.referral_capacity
             );
         }
+        assert_eq!(
+            select(Policy::AllReference, &s.screen_candidates, &s.config).len(),
+            s.screen_candidates.len(),
+            "all-reference is an intentionally uncapped benchmark arm"
+        );
     }
 
     #[test]
