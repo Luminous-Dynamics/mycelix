@@ -1,0 +1,69 @@
+name: Terra Preta soil-twin stack contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/STACK_INTEGRATION_CONTRACT_V0.1.md'
+      - 'research/terra-preta/schemas/soil-twin-package.schema.json'
+      - 'research/terra-preta/examples/synthetic-soil-twin-package-v0.1.json'
+      - '.github/workflows/terra-preta-stack-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  soil-twin-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate Draft 2020-12 schema and synthetic package
+        run: |
+          jsonschema-cli validate research/terra-preta/schemas/soil-twin-package.schema.json \
+            --instance research/terra-preta/examples/synthetic-soil-twin-package-v0.1.json \
+            --draft 2020 --assert-format
+      - name: Check fail-closed authority and reference links
+        run: |
+          fixture=research/terra-preta/examples/synthetic-soil-twin-package-v0.1.json
+          jq -e '
+            .schema_version == "soil-twin-package-v0.1" and
+            .package_status == "synthetic_only" and
+            .evidence_class == "synthetic" and
+            .decision_authority.field_action_authorized == false and
+            .decision_authority.authorization_status == "not_authorized" and
+            .mycelix_attestation.scientific_truth_attested == false and
+            all(.experiment_proposals[]; .proposal_status == "proposal_only" and .field_action_authorized == false) and
+            ([.provenance.sources[].source_id] | length == (unique | length)) and
+            ([.experimental_units[].unit_id] | length == (unique | length)) and
+            ([.observations[].observation_id] | length == (unique | length))
+          ' "$fixture"
+          jq -e '
+            ([.provenance.sources[].source_id] as $sources |
+             [.experimental_units[].unit_id] as $units |
+             all(.observations[];
+               (.source_id as $id | ($sources | index($id)) != null) and
+               (.unit_id as $id | ($units | index($id)) != null)))
+          ' "$fixture"
+      - name: Reject authority escalation
+        run: |
+          fixture=research/terra-preta/examples/synthetic-soil-twin-package-v0.1.json
+          jq '.decision_authority.field_action_authorized = true' "$fixture" > "$RUNNER_TEMP/unauthorized.json"
+          if jsonschema-cli validate research/terra-preta/schemas/soil-twin-package.schema.json \
+            --instance "$RUNNER_TEMP/unauthorized.json" --draft 2020 --assert-format; then
+            echo "Schema accepted an unauthorized field action"
+            exit 1
+          fi
+      - name: Reject unknown fields
+        run: |
+          fixture=research/terra-preta/examples/synthetic-soil-twin-package-v0.1.json
+          jq '.unexpected_authority = true' "$fixture" > "$RUNNER_TEMP/unknown-field.json"
+          if jsonschema-cli validate research/terra-preta/schemas/soil-twin-package.schema.json \
+            --instance "$RUNNER_TEMP/unknown-field.json" --draft 2020 --assert-format; then
+            echo "Schema accepted an undeclared field"
+            exit 1
+          fi
