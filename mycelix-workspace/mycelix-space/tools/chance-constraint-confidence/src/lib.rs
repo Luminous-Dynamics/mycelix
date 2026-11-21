@@ -279,6 +279,32 @@ mod tests {
     }
 
     #[test]
+    fn matches_independent_midrange_reference_vectors() {
+        for (violations, trials, expected) in [
+            (5, 100, 0.102_253_377_643_274_5),
+            (50, 100, 0.586_378_285_369_088_2),
+            (90, 100, 0.944_736_762_317_13),
+            (12, 345, 0.055_746_923_150_005_88),
+        ] {
+            let report = clopper_pearson_upper(violations, trials, 0.95, evidence()).unwrap();
+            close(report.upper_confidence_bound, expected, 3.0e-10);
+        }
+    }
+
+    #[test]
+    fn remains_numerically_stable_near_one() {
+        let report = clopper_pearson_upper(999, 1_000, 0.95, evidence()).unwrap();
+        close(report.upper_confidence_bound, 0.999_948_708_021_091, 3.0e-10);
+    }
+
+    #[test]
+    fn higher_confidence_level_never_reduces_upper_bound() {
+        let ninety = clopper_pearson_upper(5, 100, 0.90, evidence()).unwrap();
+        let ninety_five = clopper_pearson_upper(5, 100, 0.95, evidence()).unwrap();
+        assert!(ninety_five.upper_confidence_bound > ninety.upper_confidence_bound);
+    }
+
+    #[test]
     fn rejects_zero_trials() {
         assert_eq!(clopper_pearson_upper(0, 0, 0.95, evidence()), Err(BoundError::ZeroTrials));
     }
