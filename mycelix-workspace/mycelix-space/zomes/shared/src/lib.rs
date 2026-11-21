@@ -417,6 +417,8 @@ pub enum ScreeningCoverageError {
 /// or probability calculation was physically valid. Those stages must report
 /// their own failures and must not silently skip samples.
 /// This validator must run before a caller may interpret an empty event list as a negative screen.
+/// The completeness receipt is a prerequisite for downstream finite-horizon risk bounds.
+
 pub fn validate_screening_coverage(
     requested_norad_ids: &[u32],
     returned_norad_ids: &[u32],
