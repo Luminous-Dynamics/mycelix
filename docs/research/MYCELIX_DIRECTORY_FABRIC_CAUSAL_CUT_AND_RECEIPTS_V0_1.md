@@ -274,6 +274,8 @@ Use LDBC SNB Interactive/Business Intelligence workloads as external graph-query
 
 The potential Mycelix differentiator is not “we use zero knowledge.” It is **a privacy-preserving, independently verifiable proof that the request's complete authority dependency cut was derived from the exact sovereign graph snapshots whose authority histories the PEP accepts**. This remains a research target, not an implemented capability. The proposed VerfGraph comparator is an arXiv preprint dated 3 November 2026; its LDBC SNB results are author-reported and have not been independently reproduced by Mycelix. The supported operator/query semantics, graph-root authentication and multi-authority/deny closure requirements must be matched before any comparison or reuse claim.
 
+VerfGraph's evaluation uses LDBC SNB **Interactive** query families (IS3/IS4/IS5/IC1/IC2/IC9/IC13, with IC6 and IC14 V2 for added count/weighted-SSSP support) at 60k/120k/240k rows in the relevant fact tables. Those are graph-query baselines, not authorization workloads. The benchmark profile therefore keeps LDBC as an external operator-comparison track and adds a separate MYC-DIR authority graph plus multi-root federation workloads; matched comparison must use the same query semantics and committed data snapshot.
+
 ## 8. Benchmark protocol additions
 
 The machine-readable benchmark preregistration now includes 38 metrics, six dependency-cut-size profiles (1/8/32/64/128/256 dependencies), 25 fault schedules and 12 comparator groups covering Cedar, SCITT, VerfGraph, ZKGraph and LDBC SNB. The causal-cut corpus has 24 scenarios (8 Allow, 4 Deny, 12 Indeterminate) and its own schema.
