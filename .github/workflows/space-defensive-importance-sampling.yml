@@ -1,0 +1,36 @@
+name: Space defensive importance-sampling reference
+
+on:
+  push:
+    branches:
+      - "research/space-defensive-importance-sampling-v0-1"
+    paths:
+      - "mycelix-workspace/mycelix-space/tools/space-defensive-importance-sampling/**"
+      - ".github/workflows/space-defensive-importance-sampling.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-defensive-importance-sampling:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact branch head
+        uses: actions/checkout@v4
+
+      - name: Set up stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path mycelix-workspace/mycelix-space/tools/space-defensive-importance-sampling/Cargo.toml -- --check
+
+      - name: Run locked estimator tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-defensive-importance-sampling/Cargo.toml
