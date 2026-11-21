@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo test --manifest-path mycelix-workspace/mycelix-space/tools/space-qualification-verifier/Cargo.toml
+          cargo test --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-qualification-verifier/Cargo.toml
 
       - name: Upload resolved verifier lockfile for review
         uses: actions/upload-artifact@v4
@@ -44,7 +44,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo run --manifest-path mycelix-workspace/mycelix-space/tools/space-qualification-verifier/Cargo.toml -- \
+          cargo run --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-qualification-verifier/Cargo.toml -- \
             --allow-incomplete \
             mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-package-indeterminate-v0.1.json \
             .
