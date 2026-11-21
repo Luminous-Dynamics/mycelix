@@ -14,7 +14,7 @@
 //! independent evaluation samples and high-fidelity continuous-time event
 //! classifications. The crate does not choose or certify an RNG.
 
-use std::{collections::BTreeSet, fmt};
+use std::{collections::{BTreeMap, BTreeSet}, fmt};
 
 const LOG_2PI: f64 = 1.837_877_066_409_345_3;
 const NUMERIC_TOLERANCE: f64 = 2.0e-10;
@@ -338,6 +338,74 @@ pub struct EvaluationEvidence {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct BoundarySentinelObservation {
+    pub point: Vec<f64>,
+    pub physical_state: Vec<f64>,
+    /// Frozen stratum label: e.g. inside, boundary-shell, outside, or mode ID.
+    pub stratum_id: String,
+    pub surrogate_collision: bool,
+    pub high_fidelity_collision: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BoundarySentinelEvidence {
+    pub sentinel_validation_id: String,
+    pub proposal_training_id: String,
+    pub proposal_evaluation_id: String,
+    pub selection_design_id: String,
+    pub selection_evidence_ref: String,
+    pub sample_order_digest: String,
+    pub low_fidelity_model_id: String,
+    pub low_fidelity_model_revision: String,
+    pub high_fidelity_event_oracle_id: String,
+    pub high_fidelity_event_oracle_revision: String,
+    pub high_fidelity_oracle_is_continuous_time: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BoundaryStratumReport {
+    pub stratum_id: String,
+    pub sample_count: usize,
+    pub low_fidelity_collision_count: usize,
+    pub high_fidelity_collision_count: usize,
+    pub false_negative_count: usize,
+    pub false_positive_count: usize,
+    /// Undefined when no high-fidelity positives were observed.
+    pub false_negative_fraction_among_high_fidelity_collisions: Option<f64>,
+    /// Undefined when the low-fidelity map predicted no collisions.
+    pub false_positive_fraction_among_low_fidelity_collisions: Option<f64>,
+    pub status: &'static str,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BoundarySentinelReport {
+    pub method: &'static str,
+    pub sentinel_validation_id: String,
+    pub selection_design_id: String,
+    pub selection_evidence_ref: String,
+    pub sample_order_digest: String,
+    pub low_fidelity_model_id: String,
+    pub low_fidelity_model_revision: String,
+    pub high_fidelity_event_oracle_id: String,
+    pub high_fidelity_event_oracle_revision: String,
+    pub whitening_transform_id: String,
+    pub whitening_transform_revision: String,
+    pub state_frame_id: String,
+    pub state_units_id: String,
+    pub state_layout_id: String,
+    pub state_epoch_id: String,
+    pub time_scale_id: String,
+    pub origin_id: String,
+    pub total_sentinels: usize,
+    pub total_high_fidelity_collisions: usize,
+    pub total_false_negatives: usize,
+    pub leaking_strata: Vec<String>,
+    pub strata: Vec<BoundaryStratumReport>,
+    pub inference_scope: &'static str,
+    pub claim_ceiling: &'static str,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct ImportanceSamplingReport {
     pub method: &'static str,
     pub target_distribution: &'static str,
@@ -414,6 +482,10 @@ pub enum EstimateError {
         contribution: f64,
         cap: f64,
     },
+    EmptyBoundarySentinelSet,
+    MissingBoundarySentinelEvidence,
+    SentinelValidationReusesTrainingOrEvaluation,
+    LowFidelityBoundaryOracleNotAccepted,
 }
 
 impl fmt::Display for EstimateError {
@@ -514,6 +586,10 @@ impl fmt::Display for EstimateError {
                 f,
                 "weighted event contribution {contribution} exceeds defensive cap {cap}"
             ),
+            Self::EmptyBoundarySentinelSet => write!(f, "at least one boundary sentinel is required"),
+            Self::MissingBoundarySentinelEvidence => write!(f, "sentinel selection, sample-order and model references are required"),
+            Self::SentinelValidationReusesTrainingOrEvaluation => write!(f, "boundary sentinel validation must be independent of proposal training and final estimator evaluation"),
+            Self::LowFidelityBoundaryOracleNotAccepted => write!(f, "boundary sentinels require a high-fidelity continuous-time event oracle"),
         }
     }
 }
@@ -650,6 +726,158 @@ pub fn estimate_collision_probability(
         max_collision_contribution_share: max_event_share,
         inference_horizon: "fixed_sample_only_not_anytime_valid",
         claim_ceiling: "statistical_bound_conditional_on_iid_fixed_proposal_and_correct_target_event_model_not_physical_safety",
+    })
+}
+
+/// Compare a frozen low-fidelity collision classifier with a high-fidelity
+/// continuous-time event oracle on an independently identified sentinel set.
+///
+/// The output is deliberately descriptive. Sentinel samples are often selected
+/// near a learned boundary and therefore are not an IID sample from an
+/// operational population. No population confidence interval is emitted.
+pub fn assess_boundary_sentinels(
+    whitening: &WhiteningTransform,
+    observations: &[BoundarySentinelObservation],
+    evidence: &BoundarySentinelEvidence,
+) -> Result<BoundarySentinelReport, EstimateError> {
+    whitening.validate(whitening.mean.len())?;
+    if observations.is_empty() {
+        return Err(EstimateError::EmptyBoundarySentinelSet);
+    }
+    if !valid_identifier(&evidence.sentinel_validation_id)
+        || !valid_identifier(&evidence.proposal_training_id)
+        || !valid_identifier(&evidence.proposal_evaluation_id)
+        || !valid_identifier(&evidence.selection_design_id)
+        || !valid_identifier(&evidence.low_fidelity_model_id)
+        || !valid_identifier(&evidence.low_fidelity_model_revision)
+        || !valid_identifier(&evidence.high_fidelity_event_oracle_id)
+        || !valid_identifier(&evidence.high_fidelity_event_oracle_revision)
+        || evidence.selection_evidence_ref.trim().is_empty()
+        || evidence.sample_order_digest.trim().is_empty()
+    {
+        return Err(EstimateError::MissingBoundarySentinelEvidence);
+    }
+    if evidence.sentinel_validation_id == evidence.proposal_training_id
+        || evidence.sentinel_validation_id == evidence.proposal_evaluation_id
+    {
+        return Err(EstimateError::SentinelValidationReusesTrainingOrEvaluation);
+    }
+    if !evidence.high_fidelity_oracle_is_continuous_time {
+        return Err(EstimateError::LowFidelityBoundaryOracleNotAccepted);
+    }
+
+    #[derive(Default)]
+    struct Counts {
+        sample_count: usize,
+        low_fidelity_collision_count: usize,
+        high_fidelity_collision_count: usize,
+        false_negative_count: usize,
+        false_positive_count: usize,
+    }
+
+    let mut by_stratum = BTreeMap::<String, Counts>::new();
+    let mut total_hf = 0usize;
+    let mut total_fn = 0usize;
+
+    for observation in observations {
+        if !valid_identifier(&observation.stratum_id) {
+            return Err(EstimateError::MissingBoundarySentinelEvidence);
+        }
+        if observation.physical_state.len() != whitening.mean.len() {
+            return Err(EstimateError::DimensionMismatch {
+                expected: whitening.mean.len(),
+                actual: observation.physical_state.len(),
+                field: "boundary_sentinel_physical_state",
+            });
+        }
+        let expected_physical = whitening.to_physical_state(&observation.point)?;
+        if observation
+            .physical_state
+            .iter()
+            .zip(expected_physical.iter())
+            .any(|(actual, expected)| {
+                (actual - expected).abs()
+                    > NUMERIC_TOLERANCE * actual.abs().max(expected.abs()).max(1.0)
+            })
+        {
+            return Err(EstimateError::PhysicalStateMismatch);
+        }
+
+        let counts = by_stratum.entry(observation.stratum_id.clone()).or_default();
+        counts.sample_count += 1;
+        if observation.surrogate_collision {
+            counts.low_fidelity_collision_count += 1;
+        }
+        if observation.high_fidelity_collision {
+            counts.high_fidelity_collision_count += 1;
+            total_hf += 1;
+        }
+        if !observation.surrogate_collision && observation.high_fidelity_collision {
+            counts.false_negative_count += 1;
+            total_fn += 1;
+        }
+        if observation.surrogate_collision && !observation.high_fidelity_collision {
+            counts.false_positive_count += 1;
+        }
+    }
+
+    let mut leaking_strata = Vec::new();
+    let strata = by_stratum
+        .into_iter()
+        .map(|(stratum_id, counts)| {
+            let false_negative_fraction = (counts.high_fidelity_collision_count > 0).then(|| {
+                counts.false_negative_count as f64 / counts.high_fidelity_collision_count as f64
+            });
+            let false_positive_fraction = (counts.low_fidelity_collision_count > 0).then(|| {
+                counts.false_positive_count as f64 / counts.low_fidelity_collision_count as f64
+            });
+            let status = if counts.false_negative_count > 0 {
+                leaking_strata.push(stratum_id.clone());
+                "BOUNDARY_LEAKAGE_DETECTED"
+            } else if counts.high_fidelity_collision_count == 0 {
+                "NO_HF_POSITIVE_DENOMINATOR"
+            } else {
+                "NO_FALSE_NEGATIVE_OBSERVED_IN_SENTINELS"
+            };
+            BoundaryStratumReport {
+                stratum_id,
+                sample_count: counts.sample_count,
+                low_fidelity_collision_count: counts.low_fidelity_collision_count,
+                high_fidelity_collision_count: counts.high_fidelity_collision_count,
+                false_negative_count: counts.false_negative_count,
+                false_positive_count: counts.false_positive_count,
+                false_negative_fraction_among_high_fidelity_collisions: false_negative_fraction,
+                false_positive_fraction_among_low_fidelity_collisions: false_positive_fraction,
+                status,
+            }
+        })
+        .collect();
+
+    Ok(BoundarySentinelReport {
+        method: "descriptive_high_fidelity_boundary_sentinel_comparison",
+        sentinel_validation_id: evidence.sentinel_validation_id.clone(),
+        selection_design_id: evidence.selection_design_id.clone(),
+        selection_evidence_ref: evidence.selection_evidence_ref.clone(),
+        sample_order_digest: evidence.sample_order_digest.clone(),
+        low_fidelity_model_id: evidence.low_fidelity_model_id.clone(),
+        low_fidelity_model_revision: evidence.low_fidelity_model_revision.clone(),
+        high_fidelity_event_oracle_id: evidence.high_fidelity_event_oracle_id.clone(),
+        high_fidelity_event_oracle_revision: evidence.high_fidelity_event_oracle_revision.clone(),
+        whitening_transform_id: whitening.id.clone(),
+        whitening_transform_revision: whitening.revision.clone(),
+        state_frame_id: whitening.state_frame_id.clone(),
+        state_units_id: whitening.state_units_id.clone(),
+        state_layout_id: whitening.state_layout_id.clone(),
+        state_epoch_id: whitening.state_epoch_id.clone(),
+        time_scale_id: whitening.time_scale_id.clone(),
+        origin_id: whitening.origin_id.clone(),
+        total_sentinels: observations.len(),
+        total_high_fidelity_collisions: total_hf,
+        total_false_negatives: total_fn,
+        leaking_strata,
+        strata,
+        inference_scope: "descriptive_only_no_population_confidence_interval_without_qualified_stratified_sampling_design",
+        claim_ceiling: "agreement_with_declared_high_fidelity_reference_on_retained_sentinel_set_not_population_false_negative_probability_or_physical_truth",
     })
 }
 
