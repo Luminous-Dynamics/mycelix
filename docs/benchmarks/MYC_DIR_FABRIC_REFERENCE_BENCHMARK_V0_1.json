@@ -21,7 +21,11 @@
       "hardware_description",
       "topology_and_failure_schedule",
       "dataset_generator_version_and_seed",
-      "comparator_versions_and_configurations"
+      "comparator_versions_and_configurations",
+      "dependency_graph_snapshot_digest",
+      "closure_proof_digest",
+      "decision_receipt_digest",
+      "effect_owner_inventory_digest"
     ],
     "bind_each_sample_to_exact_commit": true,
     "no_moving_branch_references": true
@@ -302,6 +306,182 @@
       "target": null,
       "gate": "report_only",
       "measurement_state": "not_measured"
+    },
+    {
+      "id": "causal_cut_assessment_p95_us_at_64_dependencies",
+      "layer": "composition",
+      "metric": "Local request-scoped cut binding and dependency-frontier assessment at 64 dependencies",
+      "unit": "us",
+      "statistic": "p95",
+      "workload_profile": "all",
+      "target": {
+        "operator": "<=",
+        "value": 500
+      },
+      "gate": "performance_target",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "decision_receipt_compose_p95_us",
+      "layer": "receipts",
+      "metric": "Canonical authorization decision receipt composition (excluding signatures and external trust verification)",
+      "unit": "us",
+      "statistic": "p95",
+      "workload_profile": "all",
+      "target": {
+        "operator": "<=",
+        "value": 100
+      },
+      "gate": "performance_target",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "dependency_closure_false_complete_count",
+      "layer": "correctness",
+      "metric": "Dependency closure marked complete when any required dependency is omitted",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "allow_with_incomplete_cut_count",
+      "layer": "correctness",
+      "metric": "Allow decisions produced while a required dependency closure is incomplete, unverified, unavailable or non-dominating",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "known_allow_missing_dependency_detection_pct",
+      "layer": "correctness",
+      "metric": "Detection of seeded mandatory dependency omissions against an independent hidden dependency oracle",
+      "unit": "percent",
+      "statistic": "all_cases",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 100
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "decision_receipt_substitution_accept_count",
+      "layer": "correctness",
+      "metric": "Decision receipt accepted after mutation of request, realm, policy, cut, closure receipt, snapshot, evaluator, nonce or clock-profile binding",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "effect_commit_without_exact_allow_count",
+      "layer": "correctness",
+      "metric": "Effect owner commit accepted without a matching exact Allow decision receipt",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "duplicate_logical_effect_count",
+      "layer": "correctness",
+      "metric": "More than one committed effect for one logical operation and idempotency commitment",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "retry_while_effect_unknown_count",
+      "layer": "correctness",
+      "metric": "New mutation attempt admitted while prior logical operation outcome remains Unknown and no exact no-effect reconciliation exists",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "scitt_receipt_authority_escalation_count",
+      "layer": "interop",
+      "metric": "SCITT transparency receipt treated as identity, authorization or effect-owner authority",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "mandatory_policy_error_skipped_count",
+      "layer": "correctness",
+      "metric": "Permit survives because an adapter skipped an evaluation error on a policy dependency declared mandatory for the request",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "effect_owner_reconciliation_latency_ms",
+      "layer": "effects",
+      "metric": "Time from unknown downstream outcome to independently verified commit/no-effect reconciliation",
+      "unit": "ms",
+      "statistic": "distribution",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "dependency_cut_size_and_policy_graph_ratio",
+      "layer": "composition",
+      "metric": "Number of dependencies in request-scoped cut compared with whole reachable policy/authority graph, stratified by policy shape",
+      "unit": "ratio",
+      "statistic": "distribution",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
     }
   ],
   "fault_schedules": [
@@ -313,7 +493,17 @@
     "Clock uncertainty that straddles not-before and expiry boundaries",
     "Concurrent incomparable realm and issuer authority frontiers",
     "Group cycles, alternate long paths, and node/edge/depth budget exhaustion",
-    "SCIM duplicate, delayed, replayed and out-of-order deprovision/security events"
+    "SCIM duplicate, delayed, replayed and out-of-order deprovision/security events",
+    "One mandatory issuer or revocation dependency deliberately omitted while all supplied dependencies are current",
+    "A relevant explicit deny or delegation revocation omitted from an otherwise valid closure",
+    "Dependency graph snapshot digest changes while request and individual authority positions remain unchanged",
+    "Policy entity graph changes between resolution and closure verification",
+    "Cedar-style permit plus skipped mandatory policy error versus non-mandatory error controls",
+    "SCITT inclusion receipt replayed as an authorization or effect-owner credential",
+    "Authorization Allow without downstream effect observation, lost acknowledgement, and exact no-effect reconciliation",
+    "Unknown attempt reconciled as no-effect followed by a retry that becomes unknown again",
+    "Decision receipt mutation across request, realm, policy, cut, closure receipt, snapshot, nonce, evaluator or clock binding",
+    "Effect receipt with wrong logical operation, attempt, idempotency key, owner, or decision receipt"
   ],
   "comparators": [
     {
@@ -350,6 +540,54 @@
       "name": "Holochain",
       "scope": "Distributed substrate runtime",
       "consistency_profile": "Exact conductor/HDK/HDI/Lair/Kitsune2 tuple and real conductors; report simulated peers separately"
+    },
+    {
+      "name": "Cedar 4.6",
+      "scope": "Policy decision semantics and policy evaluation errors",
+      "consistency_profile": "Freeze policy set, schema and entity inputs; separately test policy-level skip-on-error vs required Mycelix authority-dependency closure; never let a mandatory missing identity/authority dependency become a skippable policy error"
+    },
+    {
+      "name": "SCITT RFC 9943",
+      "scope": "Signed decision-statement transparency and inclusion receipts",
+      "consistency_profile": "Measure statement registration/inclusion/lookup and privacy; explicitly classify SCITT receipt as transparency evidence only, not truth, identity, permission or proof of downstream effect"
+    }
+  ],
+  "dependency_cut_profiles": [
+    {
+      "id": "minimal",
+      "dependencies": 1,
+      "includes_explicit_denies": true,
+      "includes_revocation_dependencies": true
+    },
+    {
+      "id": "small",
+      "dependencies": 8,
+      "includes_explicit_denies": true,
+      "includes_revocation_dependencies": true
+    },
+    {
+      "id": "medium",
+      "dependencies": 32,
+      "includes_explicit_denies": true,
+      "includes_revocation_dependencies": true
+    },
+    {
+      "id": "large",
+      "dependencies": 64,
+      "includes_explicit_denies": true,
+      "includes_revocation_dependencies": true
+    },
+    {
+      "id": "xlarge",
+      "dependencies": 128,
+      "includes_explicit_denies": true,
+      "includes_revocation_dependencies": true
+    },
+    {
+      "id": "stress",
+      "dependencies": 256,
+      "includes_explicit_denies": true,
+      "includes_revocation_dependencies": true
     }
   ]
 }
