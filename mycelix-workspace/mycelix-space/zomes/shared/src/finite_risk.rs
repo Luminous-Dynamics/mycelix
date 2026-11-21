@@ -3,6 +3,7 @@
 // Commercial licensing: see COMMERCIAL_LICENSE.md at repository root
 //! Finite-horizon conjunction risk bounds with explicit dependence semantics.
 //!
+//! A complete event-universe receipt remains mandatory before an aggregate is emitted.
 //! Version 0.1 is a bounded baseline; joint dependence models are a later stage.
 //! This module aggregates supplied per-event marginal probabilities without
 //! assuming independence. It returns mathematically valid union bounds for the
