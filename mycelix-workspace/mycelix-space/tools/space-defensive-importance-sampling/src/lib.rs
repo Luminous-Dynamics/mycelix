@@ -1281,7 +1281,10 @@ pub fn assess_boundary_sentinels(
         || !valid_identifier(&evidence.proposal_evaluation_id)
         || !valid_identifier(&evidence.selection_design_id)
         || evidence.required_strata.is_empty()
-        || evidence.required_strata.iter().any(|id| !valid_identifier(id))
+        || evidence
+            .required_strata
+            .iter()
+            .any(|id| !valid_identifier(id))
         || !valid_identifier(&evidence.low_fidelity_model_id)
         || !valid_identifier(&evidence.low_fidelity_model_revision)
         || !valid_identifier(&evidence.high_fidelity_event_oracle_id)
@@ -1358,7 +1361,11 @@ pub fn assess_boundary_sentinels(
     }
 
     let mut required = BTreeSet::new();
-    if evidence.required_strata.iter().any(|id| !required.insert(id.as_str())) {
+    if evidence
+        .required_strata
+        .iter()
+        .any(|id| !required.insert(id.as_str()))
+    {
         return Err(EstimateError::MissingBoundarySentinelEvidence);
     }
     let missing_required_strata = evidence
@@ -1649,11 +1656,7 @@ mod tests {
             selection_design_id: "targeted-boundary-strata-v1".into(),
             selection_evidence_ref: "fixture://boundary-selection/design-v1".into(),
             sample_order_digest: "abcdef0123456789".into(),
-            required_strata: vec![
-                "inside".into(),
-                "boundary-shell".into(),
-                "outside".into(),
-            ],
+            required_strata: vec!["inside".into(), "boundary-shell".into(), "outside".into()],
             low_fidelity_model_id: "keplerian-boundary-map".into(),
             low_fidelity_model_revision: "sha256:low-fi-map-v1".into(),
             high_fidelity_event_oracle_id: "special-perturbations-event-oracle".into(),
