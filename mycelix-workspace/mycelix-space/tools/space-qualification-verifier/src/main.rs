@@ -746,19 +746,29 @@ fn verify_assessments(
     (ids, completed_screen, evidence_by_id)
 }
 
+fn canonical_value_sha256(domain: &[u8], value: &Value) -> Option<String> {
+    // serde_json::Map is key-sorted in this build; domain separation and
+    // length-prefixing make this digest contract explicit and versioned.
+    let canonical = serde_json::to_vec(value).ok()?;
+    let mut hasher = Sha256::new();
+    hasher.update(domain);
+    hasher.update((canonical.len() as u64).to_be_bytes());
+    hasher.update(canonical);
+    Some(format!("{:x}", hasher.finalize()))
+}
+
+fn without_member(value: &Value, member: &str) -> Option<Value> {
+    let mut clone = value.clone();
+    clone.as_object_mut()?.remove(member)?;
+    Some(clone)
+}
+
 fn canonical_pair_manifest_sha256(pairs: &[Value]) -> Option<String> {
     let mut ordered = pairs.to_vec();
     ordered.sort_by(|left, right| {
         get_str(left, "pair_id").unwrap_or("").cmp(get_str(right, "pair_id").unwrap_or(""))
     });
-    // serde_json::Map is key-sorted in this build; domain separation and
-    // length-prefixing make the digest contract explicit and versioned.
-    let canonical = serde_json::to_vec(&ordered).ok()?;
-    let mut hasher = Sha256::new();
-    hasher.update(b"mycelix-space-pair-manifest-v1");
-    hasher.update((canonical.len() as u64).to_be_bytes());
-    hasher.update(canonical);
-    Some(format!("{:x}", hasher.finalize()))
+    canonical_value_sha256(b"mycelix-space-pair-manifest-v1", &Value::Array(ordered))
 }
 
 fn verify_pair_coverage(
@@ -1224,8 +1234,36 @@ fn verify_value(package: &Value, repo_root: &Path) -> Findings {
             findings.fail("INVALID_REQUEST_DIGEST", format!("{location} must be a lowercase SHA-256 digest"));
         }
     }
-    if !package.pointer("/coverage/coverage_manifest_sha256").and_then(Value::as_str).is_some_and(is_sha256) {
-        findings.fail("INVALID_COVERAGE_DIGEST", "coverage_manifest_sha256 must be a lowercase SHA-256 digest");
+    let request_value = package.get("request").unwrap_or(&Value::Null);
+    if !get_str(request_value, "request_sha256").is_some_and(is_sha256) {
+        findings.fail("INVALID_REQUEST_DIGEST", "request_sha256 must be a lowercase SHA-256 digest");
+    } else if let Some(request_without_digest) = without_member(request_value, "request_sha256") {
+        match canonical_value_sha256(b"mycelix-space-request-v1", &request_without_digest) {
+            Some(actual) if get_str(request_value, "request_sha256") == Some(actual.as_str()) => {
+                findings.check("canonical_request_sha256");
+            }
+            Some(actual) => findings.fail(
+                "REQUEST_DIGEST_MISMATCH",
+                format!("request_sha256 does not bind the canonical request; expected {actual}"),
+            ),
+            None => findings.fail("REQUEST_DIGEST_UNAVAILABLE", "request cannot be canonically serialized"),
+        }
+    }
+    if let Some(coverage_value) = package.get("coverage") {
+        if !get_str(coverage_value, "coverage_manifest_sha256").is_some_and(is_sha256) {
+            findings.fail("INVALID_COVERAGE_DIGEST", "coverage_manifest_sha256 must be a lowercase SHA-256 digest");
+        } else if let Some(coverage_without_digest) = without_member(coverage_value, "coverage_manifest_sha256") {
+            match canonical_value_sha256(b"mycelix-space-coverage-manifest-v1", &coverage_without_digest) {
+                Some(actual) if get_str(coverage_value, "coverage_manifest_sha256") == Some(actual.as_str()) => {
+                    findings.check("canonical_coverage_manifest_sha256");
+                }
+                Some(actual) => findings.fail(
+                    "COVERAGE_DIGEST_MISMATCH",
+                    format!("coverage_manifest_sha256 does not bind the canonical coverage ledger; expected {actual}"),
+                ),
+                None => findings.fail("COVERAGE_DIGEST_UNAVAILABLE", "coverage ledger cannot be canonically serialized"),
+            }
+        }
     }
     if package_class == "synthetic_only" {
         findings.mark_incomplete(
@@ -1235,6 +1273,26 @@ fn verify_value(package: &Value, repo_root: &Path) -> Findings {
     }
 
     let artifacts = verify_source_artifacts(package, repo_root, &mut findings);
+    let configuration_artifact_id = get_str(request, "configuration_artifact_id");
+    match (configuration_artifact_id, get_str(request, "configuration_sha256")) {
+        (Some(artifact_id), Some(declared_digest)) => match artifacts.get(artifact_id) {
+            Some(actual_digest) if actual_digest == declared_digest => {
+                findings.check("request_configuration_artifact_binding");
+            }
+            Some(_) => findings.fail(
+                "CONFIGURATION_DIGEST_MISMATCH",
+                format!("request.configuration_sha256 does not match artifact {artifact_id}"),
+            ),
+            None => findings.fail(
+                "UNKNOWN_CONFIGURATION_ARTIFACT",
+                format!("request references unknown configuration artifact {artifact_id}"),
+            ),
+        },
+        _ => findings.fail(
+            "MISSING_CONFIGURATION_ARTIFACT",
+            "request must bind configuration_sha256 to configuration_artifact_id",
+        ),
+    }
     let (requested, segments, screened, excluded, unassessed, segment_unassessed) =
         verify_object_and_coverage_ledgers(package, &artifacts, &mut findings);
     let (assessments, completed_screen, assessment_evidence) =
