@@ -1,7 +1,7 @@
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -45,7 +45,7 @@ fn fixture_dir() -> PathBuf {
     path
 }
 
-fn write_fanout_fixture(directory: &PathBuf) -> (String, PathBuf, PathBuf, PathBuf, PathBuf) {
+fn write_fanout_fixture(directory: &Path) -> (String, PathBuf, PathBuf, PathBuf, PathBuf) {
     let crate_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let fixture_path = crate_root.join("tests/fixtures/valid-success.json");
     let mut child: Value = serde_json::from_slice(
@@ -130,7 +130,7 @@ fn write_fanout_fixture(directory: &PathBuf) -> (String, PathBuf, PathBuf, PathB
     )
 }
 
-fn run_cli(directory: &PathBuf) -> (Output, String) {
+fn run_cli(directory: &Path) -> (Output, String) {
     let (manifest_sha, manifest, manifest_schema, trace_schema, child) =
         write_fanout_fixture(directory);
 
