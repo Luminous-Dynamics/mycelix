@@ -1,10 +1,11 @@
 //! Pure-Rust reference semantics for Mycelix Directory Fabric.
 //!
-//! This crate is deliberately not an authorization policy engine. It models
-//! three bounded preconditions around an externally verified authority model:
-//! causal-frontier freshness, narrow offline-lease validity, and bounded group
-//! graph expansion. Full-context capability applicability and policy
-//! subsumption remain owned by the existing Mycelix authority lanes.
+//! This crate is deliberately not a complete authorization policy engine.
+//! It models deterministic authority-frontier/snapshot/lease/group semantics,
+//! request-scoped causal-cut bindings, and separate decision/effect receipt
+//! contracts. Dependency-closure proof verification, full-context capability
+//! applicability and policy constraint subsumption remain owned by independent
+//! verifiers and existing Mycelix authority lanes.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
