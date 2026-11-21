@@ -1,0 +1,336 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic soil event resilience scenario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "evidence_class",
+    "scenario_id",
+    "config",
+    "event",
+    "response",
+    "forcing",
+    "recovery_tolerance",
+    "observations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "event-resilience-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "evidence_class": {
+      "const": "synthetic"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maximum_inter_observation_gap_hours",
+        "minimum_baseline_observations",
+        "minimum_stress_observations",
+        "minimum_recovery_observations"
+      ],
+      "properties": {
+        "maximum_inter_observation_gap_hours": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "minimum_baseline_observations": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "minimum_stress_observations": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "minimum_recovery_observations": {
+          "type": "integer",
+          "minimum": 2
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "event_type",
+        "experimental_unit_id",
+        "independence_group_id",
+        "baseline_start_hours",
+        "event_start_hours",
+        "stress_end_hours",
+        "recovery_end_hours"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_type": {
+          "enum": [
+            "drought_rewetting",
+            "heat_stress",
+            "intense_rainfall",
+            "flooding",
+            "wet_dry_cycle",
+            "compound_stress",
+            "other"
+          ]
+        },
+        "experimental_unit_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "independence_group_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "baseline_start_hours": {
+          "type": "number"
+        },
+        "event_start_hours": {
+          "type": "number"
+        },
+        "stress_end_hours": {
+          "type": "number"
+        },
+        "recovery_end_hours": {
+          "type": "number"
+        }
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "variable",
+        "unit",
+        "measurement_method",
+        "support_description"
+      ],
+      "properties": {
+        "variable": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "measurement_method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "support_description": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "forcing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "variable",
+        "unit",
+        "measurement_method"
+      ],
+      "properties": {
+        "variable": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "measurement_method": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "recovery_tolerance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not_set",
+            "synthetic_fixture",
+            "externally_approved"
+          ]
+        },
+        "absolute_deviation_tolerance": {
+          "type": "number",
+          "minimum": 0
+        },
+        "required_consecutive_observations": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approval_reference": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approval_date": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "synthetic_fixture",
+                  "externally_approved"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "absolute_deviation_tolerance",
+              "required_consecutive_observations"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "externally_approved"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "authority",
+              "approval_reference",
+              "approval_date"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_set"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "absolute_deviation_tolerance"
+                  ]
+                },
+                {
+                  "required": [
+                    "required_consecutive_observations"
+                  ]
+                },
+                {
+                  "required": [
+                    "authority"
+                  ]
+                },
+                {
+                  "required": [
+                    "approval_reference"
+                  ]
+                },
+                {
+                  "required": [
+                    "approval_date"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "observations": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "observation_id",
+          "elapsed_hours",
+          "phase",
+          "experimental_unit_id",
+          "response_value",
+          "response_standard_error",
+          "forcing_value",
+          "forcing_standard_error"
+        ],
+        "properties": {
+          "observation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "elapsed_hours": {
+            "type": "number"
+          },
+          "phase": {
+            "enum": [
+              "baseline",
+              "stress",
+              "recovery"
+            ]
+          },
+          "experimental_unit_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "response_value": {
+            "type": "number"
+          },
+          "response_standard_error": {
+            "type": "number",
+            "minimum": 0
+          },
+          "forcing_value": {
+            "type": "number"
+          },
+          "forcing_standard_error": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}
