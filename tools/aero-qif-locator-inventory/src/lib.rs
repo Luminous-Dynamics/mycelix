@@ -62,6 +62,7 @@ pub struct TraceLocatorLimitsV1 {
     pub max_elements: u64,
     pub max_depth: u32,
     pub max_attributes_per_element: u32,
+    pub max_attribute_bytes: u64,
     pub max_text_bytes_per_element: u64,
     pub max_total_text_bytes: u64,
     pub max_locators: u64,
@@ -216,6 +217,10 @@ pub enum InventoryError {
     DepthLimitExceeded,
     #[error("attributes per element exceed profile limit")]
     AttributeLimitExceeded,
+    #[error("one XML attribute exceeds the profile byte limit")]
+    AttributeBytesLimitExceeded,
+    #[error("QIF array n value disagrees with the actual number of direct child elements")]
+    ArrayCardinalityMismatch { declared: u64, observed: u64 },
     #[error("simple content exceeds per-element text limit")]
     ElementTextLimitExceeded,
     #[error("document text exceeds profile limit")]
@@ -258,6 +263,7 @@ pub enum InventoryError {
 struct ElementFrame {
     expanded_name: String,
     expanded_path: Vec<String>,
+    declared_child_count: Option<u64>,
     locator_path: String,
     child_occurrences: BTreeMap<String, u64>,
     matching_rules: Vec<usize>,
@@ -385,6 +391,8 @@ pub fn validate_profile(profile: &TraceLocatorProfileV1) -> Result<(), Inventory
         || limits.max_depth > 128
         || limits.max_attributes_per_element == 0
         || limits.max_attributes_per_element > 256
+        || limits.max_attribute_bytes == 0
+        || limits.max_attribute_bytes > 1024 * 1024
         || limits.max_text_bytes_per_element == 0
         || limits.max_text_bytes_per_element > 10 * 1024 * 1024
         || limits.max_total_text_bytes == 0
@@ -462,9 +470,9 @@ fn expanded_path_matches(pattern: &[String], actual: &[String]) -> bool {
 
 fn parse_utf8_profile(bytes: &[u8]) -> Result<&str, InventoryError> {
     let text = std::str::from_utf8(bytes).map_err(|_| InventoryError::UnsupportedEncoding)?;
-    let prefix = text.trim_start_matches('\u{feff}').get(..text.trim_start_matches('\u{feff}').len().min(256)).unwrap_or("");
+    let prefix: String = text.trim_start_matches('\u{feff}').chars().take(256).collect();
     if let Some(declaration_end) = prefix.find("?>") {
-        let declaration = &prefix[..declaration_end].to_ascii_lowercase();
+        let declaration = prefix[..declaration_end].to_ascii_lowercase();
         if let Some(encoding_pos) = declaration.find("encoding") {
             let after = &declaration[encoding_pos + "encoding".len()..];
             let Some(eq_pos) = after.find('=') else {
@@ -507,10 +515,17 @@ fn parsed_numeric_attribute(value: &str, path: &str) -> Result<u32, InventoryErr
     Ok(parsed)
 }
 
+fn parsed_array_count(value: &str, path: &str) -> Result<u64, InventoryError> {
+    let parsed = value.trim().parse::<u64>()
+        .map_err(|_| InventoryError::InvalidIdentity(format!("array_n:{path}")))?;
+    Ok(parsed)
+}
+
 fn attribute_values(
     start: &quick_xml::events::BytesStart<'_>,
     resolver: &quick_xml::name::NamespaceResolver,
     max_attributes: u32,
+    max_attribute_bytes: u64,
     path: &str,
 ) -> Result<(Option<u32>, Option<u32>, BTreeMap<String, String>, u32), InventoryError> {
     let mut element_id = None;
@@ -522,6 +537,9 @@ fn attribute_values(
         count += 1;
         if count > max_attributes {
             return Err(InventoryError::AttributeLimitExceeded);
+        }
+        if attribute.value.as_ref().len() as u64 > max_attribute_bytes {
+            return Err(InventoryError::AttributeBytesLimitExceeded);
         }
         let (namespace, local_name) = resolver.resolve_attribute(attribute.key);
         let expanded = expanded_name(namespace, local_name.as_ref())?;
@@ -752,8 +770,12 @@ fn scan_document(
                     &start,
                     reader.resolver(),
                     profile.limits.max_attributes_per_element,
+                    profile.limits.max_attribute_bytes,
                     &expanded,
                 )?;
+                let declared_child_count = raw_attributes.get("{}n")
+                    .map(|value| parsed_array_count(value, &expanded))
+                    .transpose()?;
 
                 let occurrence = if let Some(parent) = stack.last_mut() {
                     parent.has_child_element = true;
@@ -813,6 +835,7 @@ fn scan_document(
                 let frame = ElementFrame {
                     expanded_name: expanded,
                     expanded_path,
+                    declared_child_count,
                     locator_path,
                     child_occurrences: BTreeMap::new(),
                     matching_rules,
@@ -833,6 +856,11 @@ fn scan_document(
                     return Err(InventoryError::DepthLimitExceeded);
                 }
                 if is_empty_element {
+                    if let Some(declared) = frame.declared_child_count {
+                        if declared != 0 {
+                            return Err(InventoryError::ArrayCardinalityMismatch { declared, observed: 0 });
+                        }
+                    }
                     finalize_frame(frame, profile, qpid, &mut locator_rows, &mut declared_external_ids)?;
                 } else {
                     stack.push(frame);
@@ -844,6 +872,12 @@ fn scan_document(
                 let actual = expanded_name(resolution, local_name.as_ref())?;
                 if frame.expanded_name != actual {
                     return Err(InventoryError::ElementStackMismatch);
+                }
+                if let Some(declared) = frame.declared_child_count {
+                    let observed = frame.child_occurrences.values().sum::<u64>();
+                    if declared != observed {
+                        return Err(InventoryError::ArrayCardinalityMismatch { declared, observed });
+                    }
                 }
                 finalize_frame(frame, profile, qpid, &mut locator_rows, &mut declared_external_ids)?;
             }
@@ -1514,6 +1548,7 @@ mod tests {
                 max_elements: 10_000,
                 max_depth: 32,
                 max_attributes_per_element: 32,
+                max_attribute_bytes: 16 * 1024,
                 max_text_bytes_per_element: 4096,
                 max_total_text_bytes: 1024 * 1024,
                 max_locators: 10_000,
