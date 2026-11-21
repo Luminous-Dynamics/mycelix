@@ -13,6 +13,7 @@ use quick_xml::{
     events::Event,
     name::ResolveResult,
     reader::NsReader,
+    XmlVersion,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -547,7 +548,7 @@ fn attribute_values(
         if expanded.starts_with("{http://www.w3.org/2000/xmlns/}") {
             continue;
         }
-        let value = unescape(attribute.value.as_ref())
+        let value = attribute.normalized_value(XmlVersion::Implicit1_0)
             .map_err(|_| InventoryError::InvalidAttribute)?
             .into_owned();
         if expanded == "{}id" {
@@ -739,6 +740,9 @@ fn scan_document(
     let _text = parse_utf8_profile(bytes)?;
     let mut reader = NsReader::from_reader(Cursor::new(bytes));
     reader.config_mut().check_end_names = true;
+    reader.config_mut().check_comments = true;
+    reader.config_mut().allow_unmatched_ends = false;
+    reader.config_mut().allow_dangling_amp = false;
     reader.resolver_mut().set_max_namespace_bindings(profile.limits.max_namespace_bindings as usize);
     let mut buffer = Vec::new();
     let mut stack: Vec<ElementFrame> = Vec::new();
