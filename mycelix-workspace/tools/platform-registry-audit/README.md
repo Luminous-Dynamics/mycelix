@@ -106,3 +106,15 @@ cargo run --manifest-path mycelix-workspace/tools/platform-registry-audit/Cargo.
 The scanner enumerates Git-index paths with `git ls-files -z`; untracked local scratch files are excluded. Modified or staged tracked files cause the audit to stop, so `source.commit` and `source.tree_sha` identify the source tree being scanned. Tracked symlink files are skipped rather than followed.
 
 The report explicitly records excluded path components (including tests, examples, benches, generated output and archives). Its output remains an AST-based static candidate list, not proof that a given Rust file is linked into a particular DNA. A nearest `happ.yaml` is only context; source-to-DNA ownership needs independent evidence. Dynamic target expressions and unmatched textual occurrences remain visible for review.
+
+
+## Scan completeness contract
+
+The topology report now distinguishes parser coverage from semantic resolution:
+
+- `scan_status: complete` means at least one tracked hApp manifest and one eligible tracked Rust source were discovered, and no eligible manifest or Rust source had a metadata/read/YAML/Rust-parse error.
+- `scan_status: incomplete` means one or more required inputs were absent or could not be parsed. CI rejects this state and rejects non-empty `manifest_errors` or `parse_errors`.
+- `manual_review_required: true` means one or more textual `OtherRole` occurrences were not represented as a recognized direct AST call. This may be a comment/string/macro form, so it requires review but does not by itself mean that Rust parsing failed.
+- Dynamic target expressions, profile-dependent candidates, unscoped source roots and source-to-DNA identity gaps remain explicit advisory findings even when `scan_status` is complete.
+
+A complete scan is **not** a complete semantic topology proof. It certifies only that every input in the declared tracked-file scan scope was parseable and included. It does not prove that every Rust module is compiled into a DNA, that every call target is installed, or that source-to-DNA ownership is known.

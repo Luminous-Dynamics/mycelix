@@ -479,6 +479,30 @@ fn audit_source_file(
     Ok((results, unmatched_textual_occurrences, raw_contains_other_role && call_count == 0))
 }
 
+/// A structurally complete scan means every discovered, eligible input
+/// was parseable. It does not prove source-to-DNA ownership or resolve dynamic
+/// targets; those remain explicit advisory findings.
+fn scan_status(
+    manifest_count: usize,
+    source_file_count: usize,
+    manifest_error_count: usize,
+    parse_error_count: usize,
+) -> &'static str {
+    if manifest_count > 0
+        && source_file_count > 0
+        && manifest_error_count == 0
+        && parse_error_count == 0
+    {
+        "complete"
+    } else {
+        "incomplete"
+    }
+}
+
+fn manual_review_required(unmatched_textual_occurrence_count: usize) -> bool {
+    unmatched_textual_occurrence_count > 0
+}
+
 pub fn audit(root: &Path) -> Result<Value, Box<dyn Error>> {
     ensure_tracked_worktree_clean(root)?;
     let tracked = tracked_paths(root)?;
@@ -574,9 +598,20 @@ pub fn audit(root: &Path) -> Result<Value, Box<dyn Error>> {
         *counts.entry(site.classification.clone()).or_default() += 1;
     }
 
+    let current_scan_status = scan_status(
+        manifests.len(),
+        source_file_count,
+        manifest_errors.len(),
+        parse_errors.len(),
+    );
+    let requires_manual_review =
+        manual_review_required(unmatched_textual_occurrence_count);
+
     Ok(json!({
         "schema_version": "mycelix-otherrole-topology-audit-v0.1",
         "report_kind": "advisory-static-ast-inventory",
+        "scan_status": current_scan_status,
+        "manual_review_required": requires_manual_review,
         "source": {
             "repository": "Luminous-Dynamics/mycelix",
             "commit": source_commit,
@@ -631,6 +666,26 @@ mod tests {
             dna_paths,
             git_blob_sha: None,
         }
+    }
+
+    #[test]
+    fn scan_is_complete_only_when_all_eligible_inputs_are_present_and_parseable() {
+        assert_eq!(scan_status(1, 1, 0, 0), "complete");
+        assert_eq!(scan_status(0, 1, 0, 0), "incomplete");
+        assert_eq!(scan_status(1, 0, 0, 0), "incomplete");
+        assert_eq!(scan_status(1, 1, 1, 0), "incomplete");
+        assert_eq!(scan_status(1, 1, 0, 1), "incomplete");
+        assert_eq!(scan_status(0, 0, 1, 1), "incomplete");
+    }
+
+    #[test]
+    fn unmatched_textual_occurrences_require_review_without_claiming_parse_failure() {
+        assert!(!manual_review_required(0));
+        assert!(manual_review_required(1));
+        assert!(manual_review_required(7));
+        // Manual review is orthogonal to parse completeness: comments or
+        // string literals may mention OtherRole without being AST call sites.
+        assert_eq!(scan_status(2, 10, 0, 0), "complete");
     }
 
     #[test]
