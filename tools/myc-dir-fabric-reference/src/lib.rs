@@ -14,6 +14,7 @@ pub mod causal_cut;
 pub mod effect_fence;
 pub mod effect_inventory;
 pub mod receipts;
+pub mod queue_delivery;
 
 pub const MAX_IDENTIFIER_BYTES: usize = 512;
 pub type Digest = [u8; 32];
@@ -495,6 +496,18 @@ impl ClockWindow {
             earliest_ms,
             latest_ms,
         })
+    }
+
+    pub fn profile_id(&self) -> &str {
+        self.profile.as_str()
+    }
+
+    pub fn earliest_ms(&self) -> u64 {
+        self.earliest_ms
+    }
+
+    pub fn latest_ms(&self) -> u64 {
+        self.latest_ms
     }
 
     pub fn uncertainty_ms(&self) -> u64 {
