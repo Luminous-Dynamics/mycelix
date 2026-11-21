@@ -2200,6 +2200,25 @@ mod tests {
             surrogate_probability,
             surrogate_probability_absolute_error_bound: absolute_error_bound,
             confidence_delta: 0.05,
+            residual_support_contract: ResidualSupportContract::GeneralSigned,
+        }
+    }
+
+    fn multifidelity_disk_superset_parameters(
+        surrogate_probability: f64,
+        absolute_error_bound: f64,
+        high_fidelity_radius: f64,
+        surrogate_radius: f64,
+    ) -> MultifidelityResidualParameters {
+        MultifidelityResidualParameters {
+            surrogate_probability,
+            surrogate_probability_absolute_error_bound: absolute_error_bound,
+            confidence_delta: 0.05,
+            residual_support_contract:
+                ResidualSupportContract::VerifiedCenteredGaussianDiskSuperset {
+                    high_fidelity_radius,
+                    surrogate_radius,
+                },
         }
     }
 
@@ -2326,6 +2345,111 @@ mod tests {
         assert_eq!(
             report.inference_horizon,
             "fixed_sample_only_not_anytime_valid"
+        );
+    }
+
+    #[test]
+    fn verified_analytic_disk_superset_halves_support_width_and_empirical_range_term() {
+        let proposal = multifidelity_proposal();
+        let whitening = whitening(2);
+        let evaluation = multifidelity_evaluation_evidence();
+        let surrogate = multifidelity_surrogate_evidence(&evaluation, true);
+        let high_radius = 0.5;
+        let surrogate_radius = 0.75;
+        let surrogate_pc = exact_standard_normal_2d_disk_probability(surrogate_radius).unwrap();
+        let observations = multifidelity_observations(high_radius, surrogate_radius);
+
+        let general = estimate_multifidelity_residual_probability(
+            &proposal,
+            &whitening,
+            &observations,
+            &multifidelity_parameters(surrogate_pc, 0.0),
+            &evaluation,
+            &surrogate,
+        ).unwrap();
+        let certified = estimate_multifidelity_residual_probability(
+            &proposal,
+            &whitening,
+            &observations,
+            &multifidelity_disk_superset_parameters(
+                surrogate_pc, 0.0, high_radius, surrogate_radius,
+            ),
+            &evaluation,
+            &surrogate,
+        ).unwrap();
+
+        assert_eq!(certified.false_negative_count, 0);
+        assert_eq!(certified.residual_support_lower, -4.0);
+        assert_eq!(certified.residual_support_upper, 0.0);
+        assert_eq!(certified.residual_support_range_width, 4.0);
+        assert_eq!(certified.residual_support_contract_id, "verified_centered_gaussian_disk_superset_v1");
+        assert_eq!(general.residual_support_range_width, 8.0);
+        assert!((certified.corrected_high_fidelity_probability_estimate
+            - general.corrected_high_fidelity_probability_estimate).abs() < 1e-12);
+        assert!(certified.empirical_bernstein_radius < general.empirical_bernstein_radius);
+        assert!(certified.total_confidence_radius < general.total_confidence_radius);
+    }
+
+    #[test]
+    fn verified_analytic_disk_superset_rejects_non_containment_and_wrong_labels() {
+        let proposal = multifidelity_proposal();
+        let whitening = whitening(2);
+        let evaluation = multifidelity_evaluation_evidence();
+        let surrogate = multifidelity_surrogate_evidence(&evaluation, true);
+        let observations = multifidelity_observations(0.75, 0.5);
+        let high_radius = 0.75;
+        let surrogate_radius = 0.5;
+        let surrogate_pc = exact_standard_normal_2d_disk_probability(surrogate_radius).unwrap();
+
+        assert_eq!(
+            estimate_multifidelity_residual_probability(
+                &proposal,
+                &whitening,
+                &observations,
+                &multifidelity_disk_superset_parameters(
+                    surrogate_pc, 0.0, high_radius, surrogate_radius,
+                ),
+                &evaluation,
+                &surrogate,
+            ),
+            Err(EstimateError::InvalidResidualSupportContract)
+        );
+
+        let mut contradicting = multifidelity_observations(0.5, 0.75);
+        contradicting[1].surrogate_collision = false;
+        let surrogate_pc = exact_standard_normal_2d_disk_probability(0.75).unwrap();
+        assert_eq!(
+            estimate_multifidelity_residual_probability(
+                &proposal,
+                &whitening,
+                &contradicting,
+                &multifidelity_disk_superset_parameters(
+                    surrogate_pc, 0.0, 0.5, 0.75,
+                ),
+                &evaluation,
+                &surrogate,
+            ),
+            Err(EstimateError::ResidualSupportEventLabelMismatch)
+        );
+    }
+
+    #[test]
+    fn verified_analytic_disk_superset_rejects_wrong_surrogate_probability() {
+        let proposal = multifidelity_proposal();
+        let whitening = whitening(2);
+        let evaluation = multifidelity_evaluation_evidence();
+        let surrogate = multifidelity_surrogate_evidence(&evaluation, true);
+        let observations = multifidelity_observations(0.5, 0.75);
+        assert_eq!(
+            estimate_multifidelity_residual_probability(
+                &proposal,
+                &whitening,
+                &observations,
+                &multifidelity_disk_superset_parameters(0.5, 0.0, 0.5, 0.75),
+                &evaluation,
+                &surrogate,
+            ),
+            Err(EstimateError::SurrogateProbabilityDoesNotMatchAnalyticDisk)
         );
     }
 
