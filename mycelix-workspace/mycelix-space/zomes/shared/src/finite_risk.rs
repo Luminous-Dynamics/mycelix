@@ -122,6 +122,8 @@ fn is_sha256_hex(value: &str) -> bool {
 /// A coverage receipt is mandatory. This function validates its shape and
 /// binds it to the result, but the caller remains responsible for verifying
 /// the receipt and the upstream candidate-capture/event-search contract.
+/// A complete empty event set has an exact zero union probability; callers must
+/// not construct that empty set from missing, filtered, or unresolved candidates.
 pub fn aggregate_finite_horizon_union_bounds(
     input: &FiniteHorizonRiskInput,
 ) -> Result<FiniteHorizonUnionBounds, FiniteHorizonRiskError> {
