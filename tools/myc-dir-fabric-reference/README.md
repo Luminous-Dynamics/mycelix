@@ -103,10 +103,13 @@ cargo clippy --manifest-path tools/myc-dir-fabric-reference/Cargo.toml --all-tar
 cargo fmt --manifest-path tools/myc-dir-fabric-reference/Cargo.toml -- --check
 ```
 
-The crate has no third-party dependencies. The branch currently authors 80 deterministic unit tests across frontier/snapshot/lease/group, request-scoped closure, decision/effect receipts, owner fencing and effect-surface inventory closure. They are source-present only until run on the exact head. They do not substitute for independent closure-proof validation, external property-testing, mutation testing, or a proof assistant.
+The crate has no third-party dependencies. The branch currently authors 94 deterministic unit tests across frontier/snapshot/lease/group, request-scoped closure, decision/effect receipts, owner fencing and effect-surface inventory closure. They are source-present only until run on the exact head. They do not substitute for independent closure-proof validation, external property-testing, mutation testing, or a proof assistant.
 
 ## Explicit claim ceiling
 
 The model does not verify signatures, issuer admission, Holochain DHT validity, source-chain ancestry proofs, trusted-clock attestation, SCIM/OIDC/SPIFFE conformance, Windows domain behaviour, anti-Sybil properties, or external effects. The caller must authenticate all frontier, policy, membership, issuer, time and lease evidence before constructing these values. The model checks deterministic semantic relationships only.
 
 No compile/test/Clippy result is claimed until these commands run against the exact repository head. No production or benchmark superiority claim is made.
+
+
+Queue delivery adds 14 authored Rust unit tests. Current total across the six reference modules: 94 authored tests; none has been compiled or executed in this environment.
