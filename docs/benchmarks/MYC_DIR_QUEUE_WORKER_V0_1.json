@@ -229,6 +229,22 @@
       "expected_assessment": "REJECT_EXPIRED_CLAIM",
       "max_effect_commits": 0,
       "broker_ack": "DURABLE_REJECT_THEN_ACK"
+    },
+    {
+      "id": "QW-028",
+      "broker": "provider-neutral",
+      "fault": "Exact idempotent replay arrives after the original Allow validity window; existing effect receipt can be returned but no new mutation may occur",
+      "expected_assessment": "READ_ONLY_PRIOR_EFFECT_REPLAY",
+      "max_effect_commits": 1,
+      "broker_ack": "ACK_AFTER_EXACT_READ_ONLY_REPLAY"
+    },
+    {
+      "id": "QW-029",
+      "broker": "provider-neutral",
+      "fault": "Worker claim reassignment races an in-flight PostgreSQL effect; claim update must wait for existing shared claim lock, then old epoch must fail after reassignment commit",
+      "expected_assessment": "SERIALIZE_EFFECT_BEFORE_REASSIGNMENT_THEN_REJECT_OLD_CLAIM",
+      "max_effect_commits": 1,
+      "broker_ack": "ACK_AFTER_DURABLE_EFFECT_OR_REJECTION"
     }
   ]
 }
