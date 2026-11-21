@@ -1060,6 +1060,17 @@ pub fn derive_trace_locator_inventory(
     if inventory_id.trim().is_empty() || documents.is_empty() {
         return Err(InventoryError::InvalidIdentity("inventory_id/documents".into()));
     }
+    if documents.len() > profile.limits.max_documents as usize {
+        return Err(InventoryError::DocumentCountLimitExceeded);
+    }
+    let mut total_source_bytes = 0u64;
+    for document in documents {
+        total_source_bytes = total_source_bytes.checked_add(document.bytes.len() as u64)
+            .ok_or(InventoryError::TotalSourceBytesLimitExceeded)?;
+        if total_source_bytes > profile.limits.max_total_source_bytes {
+            return Err(InventoryError::TotalSourceBytesLimitExceeded);
+        }
+    }
     if profile.qif_standard_version != "3.0.0" {
         return Err(InventoryError::UnsupportedQifVersion(profile.qif_standard_version.clone()));
     }
