@@ -2347,7 +2347,27 @@ mod tests {
         assert!(
             fanout["aggregate_complete"]
                 .as_str()
-                .is_some_and(|value| value.contains("every recipient"))
+                .is_some_and(|value| value.contains("every required child"))
+        );
+        assert!(
+            fanout["current_v0_1_claim"]
+                .as_str()
+                .is_some_and(|value| value.contains("ALL_REQUIRED_RECEIPT_CLAIMS_CONSISTENT"))
+        );
+        assert!(
+            fanout["snapshot_freeze_point"]
+                .as_str()
+                .is_some_and(|value| value.contains("before sending"))
+        );
+        assert!(
+            fanout["recipient_unit_semantics"]
+                .as_str()
+                .is_some_and(|value| value.contains("ACCOUNT") && value.contains("DEVICE"))
+        );
+        assert!(
+            fanout["recipient_set_authority"]
+                .as_str()
+                .is_some_and(|value| value.contains("separately authenticated"))
         );
         assert!(
             fanout["partial_and_unknown"]
@@ -2367,6 +2387,19 @@ mod tests {
             "worst_required_recipient_latency",
             "group_epoch_commit_latency",
             "post_removal_new_message_acceptance_rate",
+            "group_cpu_time_per_recipient_verified_effect",
+            "group_peak_memory_per_fanout",
+            "group_storage_growth_per_recipient_verified_effect",
+            "group_network_bytes_per_recipient_verified_effect",
+            "group_energy_per_recipient_verified_effect",
+            "cpu_time_per_complete_group_send",
+            "peak_memory_per_complete_group_send",
+            "storage_write_bytes_per_complete_group_send",
+            "network_bytes_per_complete_group_send",
+            "energy_per_complete_group_send",
+            "recipient_commitment_dictionary_attack_success_rate",
+            "cross_epoch_recipient_linkability_auc",
+            "small_group_membership_inference_auc",
         ] {
             assert!(
                 metric_ids.contains(&required_metric),
@@ -2379,6 +2412,23 @@ mod tests {
             Some("pre_registered_not_executed"),
             "benchmark artifacts must not imply that any measurements were performed"
         );
+        let benchmark_schema: Value = serde_json::from_str(include_str!(
+            "../../../docs/pulse-fabric-benchmark.schema-v0.1.json"
+        ))
+        .expect("benchmark schema must parse");
+        let required_group_fields = benchmark_schema["properties"]["group_fanout_semantics"]
+            ["required"]
+            .as_array()
+            .expect("required group semantics fields");
+        for field in required_group_fields {
+            let field = field.as_str().expect("group field name");
+            assert!(
+                benchmark["group_fanout_semantics"][field]
+                    .as_str()
+                    .is_some_and(|value| !value.trim().is_empty()),
+                "missing group benchmark contract field: {field}"
+            );
+        }
     }
 
     #[test]
