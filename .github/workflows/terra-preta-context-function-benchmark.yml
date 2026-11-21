@@ -1,0 +1,72 @@
+name: Terra Preta context-conditioned soil-function benchmark
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/CONTEXT_CONDITIONED_SOIL_FUNCTION_BENCHMARK_V0.1.md'
+      - 'research/terra-preta/schemas/soil-context-function-input.schema.json'
+      - 'research/terra-preta/schemas/soil-context-function-report.schema.json'
+      - 'research/terra-preta/tools/context-function-benchmark/**'
+      - '.github/workflows/terra-preta-context-function-benchmark.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  context-function:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/context-function-benchmark/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/context-function-benchmark/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/context-function-benchmark/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate fixture and report
+        run: |
+          jsonschema-cli validate research/terra-preta/schemas/soil-context-function-input.schema.json \
+            --instance research/terra-preta/tools/context-function-benchmark/fixtures/synthetic-context-function.json \
+            --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/context-function-benchmark/Cargo.toml -- \
+            research/terra-preta/tools/context-function-benchmark/fixtures/synthetic-context-function.json \
+            "$RUNNER_TEMP/context-function-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/soil-context-function-report.schema.json \
+            --instance "$RUNNER_TEMP/context-function-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .indicator_count == 2 and
+            all(.indicators[]; .causal_inference_status == "not_estimated_by_v0_1") and
+            (.indicators[0].absolute_condition.value == 1.25) and
+            (.indicators[1].guardrail_result.status == "above_maximum") and
+            (.controls.no_aggregate_score_emitted == true) and
+            (.controls.training_group_leakage_check_pass == true)
+          ' "$RUNNER_TEMP/context-function-report.json"
+      - name: Reject training-group leakage
+        run: |
+          fixture=research/terra-preta/tools/context-function-benchmark/fixtures/synthetic-context-function.json
+          jq '.indicators[0].reference_model.training_independence_group_ids += ["evaluation-site-A-plot-01"]' \
+            "$fixture" > "$RUNNER_TEMP/leaky-context.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/context-function-benchmark/Cargo.toml -- \
+            "$RUNNER_TEMP/leaky-context.json" "$RUNNER_TEMP/leaky-report.json"; then
+            echo "Expected training/evaluation group leakage rejection"
+            exit 1
+          fi
+      - name: Reject output overwrite
+        run: |
+          fixture=research/terra-preta/tools/context-function-benchmark/fixtures/synthetic-context-function.json
+          report="$RUNNER_TEMP/existing-context-report.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/context-function-benchmark/Cargo.toml -- "$fixture" "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"
