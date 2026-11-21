@@ -1,0 +1,12 @@
+[package]
+name = "space-pair-reuse-u-statistic"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Dependence-aware all-pairs Monte Carlo estimator for reused orbit trajectories"
+
+[lib]
+path = "src/lib.rs"
+
+[workspace]
