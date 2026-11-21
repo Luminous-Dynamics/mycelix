@@ -918,7 +918,7 @@ mod tests {
             report.status,
             "synthetic_fixture_unqualified_due_to_qc_or_uncertainty"
         );
-        assert_eq!(report.gas_species_counts.get("N2O"), Some(&1));
+        assert_eq!(report.gas_species_counts.get("N2O"), Some(&2));
         assert_eq!(report.gas_species_counts.get("CH4"), Some(&1));
     }
 
@@ -929,6 +929,7 @@ mod tests {
         observation["mass_basis"] = Value::String("N2O_N".to_string());
         observation["flux_unit"] = Value::String("mg_N2O_N_m2_h".to_string());
         observation["uncertainty"]["unit"] = Value::String("mg_N2O_N_m2_h".to_string());
+        observation["detection_limit"]["unit"] = Value::String("mg_N2O_N_m2_h".to_string());
         let report = audit_value(&value).expect("matching N2O-N basis must pass");
         assert_eq!(report.observation_count, 3);
     }
