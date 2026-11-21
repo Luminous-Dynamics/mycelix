@@ -1,0 +1,448 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/terra-preta/schemas/field-ghg-observation.schema.json",
+  "title": "Field GHG Flux Observation",
+  "description": "Append-only research observation contract. Validity does not imply field qualification or regulatory approval.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "observation_id",
+    "evidence_class",
+    "study_id",
+    "site_id",
+    "block_id",
+    "experimental_unit_id",
+    "plot_or_vessel_id",
+    "treatment_assignment_id",
+    "material_batch_id",
+    "soil_source_id",
+    "observed_at",
+    "interval_start",
+    "interval_end",
+    "gas_species",
+    "mass_basis",
+    "flux_value",
+    "flux_unit",
+    "sign_convention",
+    "method",
+    "instrument",
+    "raw_artifact",
+    "uncertainty",
+    "qc_state"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "field-ghg-observation-v0.1"
+    },
+    "observation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "evidence_class": {
+      "enum": [
+        "laboratory_incubation",
+        "pot_mesocosm",
+        "field_plot",
+        "field_farm"
+      ]
+    },
+    "study_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "site_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "block_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "experimental_unit_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "plot_or_vessel_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "treatment_assignment_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "material_batch_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "soil_source_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "crop_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "management_event": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "interval_start": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "interval_end": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "gas_species": {
+      "enum": [
+        "N2O",
+        "CH4",
+        "CO2"
+      ]
+    },
+    "mass_basis": {
+      "enum": [
+        "N2O",
+        "N2O_N",
+        "CH4",
+        "CO2"
+      ]
+    },
+    "flux_value": {
+      "type": "number"
+    },
+    "flux_unit": {
+      "enum": [
+        "mg_N2O_m2_h",
+        "mg_N2O_N_m2_h",
+        "mg_CH4_m2_h",
+        "mg_CO2_m2_h"
+      ]
+    },
+    "sign_convention": {
+      "const": "positive_to_atmosphere_negative_from_atmosphere"
+    },
+    "method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method_id",
+        "method_version",
+        "chamber_type",
+        "chamber_area_m2",
+        "chamber_volume_m3",
+        "closure_duration_s"
+      ],
+      "properties": {
+        "method_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "chamber_type": {
+          "enum": [
+            "static_non_vented",
+            "static_vented",
+            "automated",
+            "flow_through",
+            "other"
+          ]
+        },
+        "chamber_area_m2": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "chamber_volume_m3": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "closure_duration_s": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "flux_calculation_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "instrument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instrument_id",
+        "calibration_state"
+      ],
+      "properties": {
+        "instrument_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calibration_state": {
+          "enum": [
+            "in_date",
+            "out_of_date",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "calibration_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "raw_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "artifact_kind"
+      ],
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "artifact_kind": {
+          "enum": [
+            "raw_chromatogram",
+            "raw_concentration_series",
+            "instrument_export",
+            "lab_report",
+            "other"
+          ]
+        },
+        "source_uri": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        }
+      }
+    },
+    "uncertainty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "reported",
+            "not_available"
+          ]
+        },
+        "standard_uncertainty": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unit": {
+          "type": "string"
+        },
+        "method": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason_not_available": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "reported"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "standard_uncertainty",
+              "unit"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_available"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "reason_not_available"
+            ]
+          }
+        }
+      ]
+    },
+    "detection_limit": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "unit",
+        "basis"
+      ],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "basis": {
+          "enum": [
+            "gas_concentration",
+            "flux",
+            "mass"
+          ]
+        },
+        "censoring_method": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "qc_state": {
+      "enum": [
+        "pending",
+        "pass",
+        "flagged",
+        "rejected"
+      ]
+    },
+    "qc_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "missingness_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_record_uri": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "gas_species": {
+            "const": "N2O"
+          }
+        },
+        "required": [
+          "gas_species"
+        ]
+      },
+      "then": {
+        "properties": {
+          "mass_basis": {
+            "const": "N2O"
+          },
+          "flux_unit": {
+            "const": "mg_N2O_m2_h"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "gas_species": {
+            "const": "CH4"
+          }
+        },
+        "required": [
+          "gas_species"
+        ]
+      },
+      "then": {
+        "properties": {
+          "mass_basis": {
+            "const": "CH4"
+          },
+          "flux_unit": {
+            "const": "mg_CH4_m2_h"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "gas_species": {
+            "const": "CO2"
+          }
+        },
+        "required": [
+          "gas_species"
+        ]
+      },
+      "then": {
+        "properties": {
+          "mass_basis": {
+            "const": "CO2"
+          },
+          "flux_unit": {
+            "const": "mg_CO2_m2_h"
+          }
+        }
+      }
+    }
+  ]
+}
