@@ -42,7 +42,7 @@ jobs:
             .event_coverage_complete == false and
             .boundary_coverage_complete == false and
             .uncertainty_status == "not_propagated_in_v0_1" and
-            (.integrated_partial_mg_m2 - 0.3 | fabs < 1e-12) and
+            (.integrated_partial_mg_m2 - 0.95 | fabs < 1e-12) and
             (.input_sha256 | test("^[a-f0-9]{64}$"))
           ' "$RUNNER_TEMP/seasonal-ghg-coverage-report.json"
           if cargo run --quiet --manifest-path research/terra-preta/tools/seasonal-ghg-coverage/Cargo.toml -- \
