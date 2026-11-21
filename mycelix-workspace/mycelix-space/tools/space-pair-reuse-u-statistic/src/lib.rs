@@ -504,19 +504,19 @@ mod tests {
     #[test]
     fn rejects_reused_trajectory_ids_and_invalid_matrix_digest() {
         let matrix = vec![vec![false, true], vec![true, false]];
-        let mut evidence = evidence(2, 2);
-        evidence.primary_trajectory_ids[1] = evidence.primary_trajectory_ids[0].clone();
+        let mut duplicate_evidence = evidence(2, 2);
+        duplicate_evidence.primary_trajectory_ids[1] = duplicate_evidence.primary_trajectory_ids[0].clone();
         assert_eq!(
-            estimate_pair_reuse_collision_probability(&matrix, 0.05, &evidence),
+            estimate_pair_reuse_collision_probability(&matrix, 0.05, &duplicate_evidence),
             Err(PairReuseError::DuplicateTrajectoryId(
                 "primary-trajectory-0".into()
             ))
         );
 
-        let mut evidence = evidence(2, 2);
-        evidence.collision_matrix_sha256 = "not-a-sha256".into();
+        let mut invalid_evidence = evidence(2, 2);
+        invalid_evidence.collision_matrix_sha256 = "not-a-sha256".into();
         assert_eq!(
-            estimate_pair_reuse_collision_probability(&matrix, 0.05, &evidence),
+            estimate_pair_reuse_collision_probability(&matrix, 0.05, &invalid_evidence),
             Err(PairReuseError::InvalidSha256("collision_matrix_sha256"))
         );
     }
@@ -546,7 +546,7 @@ mod tests {
         ];
         let mut row_reversed = matrix.clone();
         row_reversed.reverse();
-        let mut column_reversed = row_reversed
+        let column_reversed = row_reversed
             .iter()
             .map(|row| row.iter().rev().copied().collect::<Vec<_>>())
             .collect::<Vec<_>>();
