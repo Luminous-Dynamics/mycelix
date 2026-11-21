@@ -538,10 +538,9 @@ mod tests {
     fn fixed_five_minute_schedule_captures_both_pulses_but_exceeds_budget() {
         let t: Truth =
             serde_json::from_str(include_str!("../fixtures/synthetic-event-truth.json")).unwrap();
-        let s: Schedule = serde_json::from_str(include_str!(
-            "../fixtures/synthetic-fixed-5m-schedule.json"
-        ))
-        .unwrap();
+        let s: Schedule =
+            serde_json::from_str(include_str!("../fixtures/synthetic-fixed-5m-schedule.json"))
+                .unwrap();
         validate_truth(&t).unwrap();
         validate_schedule(&s, &t).unwrap();
         let report = build_report(&t, &s, "0".repeat(64), "1".repeat(64));
@@ -549,9 +548,12 @@ mod tests {
         assert_eq!(report.detected_pulse_count, 2);
         assert_eq!(report.pulse_recall, 1.0);
         assert_eq!(report.budget_status, "over_budget");
-        assert!(report.pulses.iter().all(|pulse| {
-            pulse.integral_status == "qualified_complete_pulse_integral"
-        }));
+        assert!(
+            report
+                .pulses
+                .iter()
+                .all(|pulse| { pulse.integral_status == "qualified_complete_pulse_integral" })
+        );
     }
 
     #[test]
