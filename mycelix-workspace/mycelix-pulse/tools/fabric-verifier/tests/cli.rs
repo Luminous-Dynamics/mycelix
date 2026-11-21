@@ -1,6 +1,7 @@
 use serde_json::Value;
 use std::path::PathBuf;
 use std::process::{Command, Output};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn run_cli(fixture: &str, expected_source_sha: Option<&str>) -> Output {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -73,4 +74,33 @@ fn cli_rejects_external_source_sha_pin_mismatch() {
     assert!(!output.status.success());
     let result = stdout_json(&output);
     assert_eq!(result["status"], "INVALID_EVIDENCE_TRACE");
+}
+
+#[test]
+fn cli_rejects_a_schema_that_differs_from_the_compiled_schema() {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let trace = manifest_dir.join("tests").join("fixtures").join("valid-success.json");
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock must be after UNIX epoch")
+        .as_nanos();
+    let schema = std::env::temp_dir().join(format!(
+        "pulse-invalid-trace-schema-{}-{nonce}.json",
+        std::process::id()
+    ));
+    fs::write(&schema, "{}").expect("altered schema must be written");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_pulse-fabric-verifier"))
+        .arg("verify")
+        .arg(trace)
+        .arg("--schema")
+        .arg(&schema)
+        .output()
+        .expect("verifier CLI must start");
+
+    assert!(!output.status.success());
+    let result = stdout_json(&output);
+    assert_eq!(result["status"], "SCHEMA_PIN_MISMATCH");
+
+    fs::remove_file(schema).expect("temporary schema must be removed");
 }
