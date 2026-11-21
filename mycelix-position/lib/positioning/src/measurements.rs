@@ -32,7 +32,7 @@ pub enum ReferenceFrame {
     Local,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum MeasurementValue {
     Range { distance_m: f64, sigma_m: f64 },
     Position { xyz: [f64; 3], sigma: [f64; 3] },

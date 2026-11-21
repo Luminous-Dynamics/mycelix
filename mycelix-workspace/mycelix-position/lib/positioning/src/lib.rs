@@ -26,6 +26,8 @@ pub mod dead_reckoning;
 pub mod fusion;
 pub mod kalman;
 pub mod measurements;
+pub mod navigation_v2;
+pub mod time_correlation_v2;
 pub mod navigation_runtime;
 pub mod ranging;
 pub mod space_navigation;
@@ -41,6 +43,9 @@ pub use fusion::{
 pub use kalman::{FilterConfig, FilterState, PositionFilter};
 pub use measurements::{
     Measurement, MeasurementModality, MeasurementProvenance, MeasurementValue, ReferenceFrame,
+};
+pub use navigation_v2::{
+    NavigationClaimV2, PositionEstimateV2, PositionObservationV2, PredictedPositionV2,
 };
 pub use navigation_runtime::{
     confidence_from_sigma, fix_age_s, DomainNavigator, MeasurementRouter, MeasurementRoutingPolicy,
