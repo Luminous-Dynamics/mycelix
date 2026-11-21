@@ -24,7 +24,7 @@ jobs:
         run: cargo install jsonschema-cli --version 0.61.0 --locked
       - name: Validate synthetic source examples
         run: |
-          for fixture in agis_map_inventory soils4africa_point_survey soter_pedotransfer; do
+          for fixture in agis_map_inventory soils4africa_point_survey soils4africa_mir_estimates soter_pedotransfer; do
             jsonschema-cli validate research/terra-preta/schemas/sa-soil-source-admission.schema.json \
               --instance "research/terra-preta/examples/sa-soil-source-admission/$fixture.json" \
               --draft 2020 --assert-format
@@ -54,5 +54,11 @@ jobs:
             "$base/agis_map_inventory.json" > "$RUNNER_TEMP/missing-sha.json"
           if jsonschema-cli validate "$schema" --instance "$RUNNER_TEMP/missing-sha.json" --draft 2020 --assert-format; then
             echo "Verified artifact passed without SHA-256"
+            exit 1
+          fi
+          jq '.variables[0].model_training_lineage = []' \
+            "$base/soils4africa_mir_estimates.json" > "$RUNNER_TEMP/mir-no-lineage.json"
+          if jsonschema-cli validate "$schema" --instance "$RUNNER_TEMP/mir-no-lineage.json" --draft 2020 --assert-format; then
+            echo "Spectral prediction passed without model/training lineage"
             exit 1
           fi
