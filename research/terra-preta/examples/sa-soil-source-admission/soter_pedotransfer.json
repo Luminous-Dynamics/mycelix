@@ -1,0 +1,99 @@
+{
+  "schema_version": "sa-soil-source-admission-v0.1",
+  "fixture_status": "synthetic_metadata_example_not_source_evidence",
+  "evidence_class": "synthetic",
+  "source_record": {
+    "source_id": "soter-ptf-syn",
+    "source_type": "pedotransfer_product",
+    "title": "SOTER-like pedotransfer soil water estimates — synthetic metadata example",
+    "custodian": "Synthetic model custodian",
+    "canonical_uri": "https://example.invalid/soter-ptf",
+    "release_id": "manufactured-ptf-v2",
+    "published_or_updated_at": "2022-01-01"
+  },
+  "provenance": {
+    "source_method": "Manufactured pedotransfer estimate generated from taxonomic class and texture inputs.",
+    "source_lineage": [
+      "synthetic-soter-map-unit",
+      "synthetic-pedotransfer-model"
+    ],
+    "acquisition_timestamp": "2026-11-21T17:00:00+02:00"
+  },
+  "rights": {
+    "license_status": "unknown",
+    "license_or_agreement": "Synthetic rights status unknown.",
+    "access_terms": "No source file acquired",
+    "redistribution_allowed": false,
+    "purpose_restrictions": [
+      "No public redistribution pending rights review"
+    ]
+  },
+  "artifact": {
+    "acquisition_status": "publisher_checksum_only",
+    "file_name": "synthetic-soter-ptf-grid.tif",
+    "byte_size": 1000,
+    "publisher_checksum": "synthetic-publisher-checksum",
+    "publisher_checksum_algorithm": "md5"
+  },
+  "spatial_support": {
+    "support_type": "raster",
+    "crs": "EPSG:4326",
+    "native_support_description": "Manufactured regional raster grid; no finer resolution is asserted.",
+    "spatial_accuracy_status": "estimated",
+    "native_resolution_m": 1000,
+    "geometry_type": "grid",
+    "coverage_description": "Synthetic regional grid."
+  },
+  "depth_support": {
+    "depth_status": "known_interval",
+    "min_depth_m": 0,
+    "max_depth_m": 1,
+    "description": "Manufactured 0–100 cm model depth aggregation."
+  },
+  "temporal_support": {
+    "temporal_status": "model_reference_period",
+    "description": "Static model product with historical input vintage."
+  },
+  "variables": [
+    {
+      "variable_id": "awc-est",
+      "property_name": "available_water_capacity",
+      "value_semantics": "pedotransfer_estimate",
+      "unit": "mm_m-1",
+      "definition": "Synthetic available-water-capacity estimate derived from soil texture and taxonomic attributes.",
+      "method": "Synthetic pedotransfer regression",
+      "model_name": "Synthetic PTF model",
+      "model_version": "2.0",
+      "model_training_lineage": [
+        "synthetic-reference-profiles-v1"
+      ],
+      "uncertainty_status": "partially_quantified",
+      "uncertainty_description": "Synthetic model uncertainty only."
+    }
+  ],
+  "intended_uses": [
+    "regional_stratification",
+    "regional_context",
+    "sampling_design"
+  ],
+  "lineage": {
+    "study_ids": [
+      "synthetic-ptf-study"
+    ],
+    "survey_ids": [
+      "synthetic-soil-survey-ptf"
+    ],
+    "independence_group_ids": [
+      "synthetic-ptf-model-lineage"
+    ],
+    "shared_source_dependencies": [
+      "synthetic-reference-profiles-v1"
+    ]
+  },
+  "admission_status": "discovered_unreviewed",
+  "limitations": [
+    "Synthetic metadata only; not an actual SOTER/SOTWIS data artifact.",
+    "Pedotransfer estimates are not direct measurements.",
+    "Native resolution and model transfer must be reviewed before downstream use."
+  ]
+}
