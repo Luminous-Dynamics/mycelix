@@ -9,6 +9,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
+pub mod causal_cut;
+pub mod receipts;
+
 pub const MAX_IDENTIFIER_BYTES: usize = 512;
 pub type Digest = [u8; 32];
 
@@ -196,6 +199,16 @@ pub enum FrontierRelation {
     Incomparable,
 }
 
+/// Coverage of one exact required authority position by an observed snapshot.
+/// A higher sequence without an exact covered-position witness is incomparable.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AuthorityPositionCoverage {
+    Exact,
+    CoveredByVerifiedAncestry,
+    Behind,
+    Incomparable,
+}
+
 /// A snapshot's frontier plus exact older positions that an independent
 /// verifier has already established as covered by the snapshot's authority
 /// histories. This crate checks exact binding and shape only; it does not
@@ -255,6 +268,38 @@ impl FrontierEvidence {
 
     pub fn frontier(&self) -> &AuthorityFrontier {
         &self.frontier
+    }
+
+    /// Compares one exact authority dependency against this snapshot.
+    /// This is structural evidence matching only; ancestry proof authenticity
+    /// must already have been established by the caller's independent verifier.
+    pub fn coverage_of(
+        &self,
+        required: &AuthorityPosition,
+    ) -> AuthorityPositionCoverage {
+        match self.frontier.position(&required.authority) {
+            None if required.sequence == 0 && required.head_digest == [0; 32] => {
+                AuthorityPositionCoverage::Exact
+            }
+            None => AuthorityPositionCoverage::Behind,
+            Some(current) => match current.sequence.cmp(&required.sequence) {
+                std::cmp::Ordering::Less => AuthorityPositionCoverage::Behind,
+                std::cmp::Ordering::Equal => {
+                    if current.head_digest == required.head_digest {
+                        AuthorityPositionCoverage::Exact
+                    } else {
+                        AuthorityPositionCoverage::Incomparable
+                    }
+                }
+                std::cmp::Ordering::Greater => {
+                    if self.covered_positions.iter().any(|covered| covered == required) {
+                        AuthorityPositionCoverage::CoveredByVerifiedAncestry
+                    } else {
+                        AuthorityPositionCoverage::Incomparable
+                    }
+                }
+            },
+        }
     }
 
     /// Determines whether this local snapshot covers a caller's minimum
