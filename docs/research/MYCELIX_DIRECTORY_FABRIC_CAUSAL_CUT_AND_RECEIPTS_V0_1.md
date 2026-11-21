@@ -396,6 +396,8 @@ The preregistration now includes:
 
 The safety claim is scoped precisely: **after** every required owner has durably acknowledged the fence, no earlier-generation mutation may commit through a correctly integrated owner. It does not promise that revocation has completed before that acknowledgement point.
 
+The finite-state companion `DirectoryFabricEffectFence.tla` models per-owner generation installation, exact acknowledgement aggregation and delayed command arrival. Its negative-control configuration deliberately accepts a stale command after all owners acknowledge, and the invariant is expected to fail under that mutant. Model/config files are source-present only; TLC has not been run.
+
 ## 13. Explicit claim ceiling
 
 This work is a pure reference contract and finite synthetic corpus. It does not establish:
