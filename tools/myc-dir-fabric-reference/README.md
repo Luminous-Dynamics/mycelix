@@ -103,7 +103,7 @@ cargo clippy --manifest-path tools/myc-dir-fabric-reference/Cargo.toml --all-tar
 cargo fmt --manifest-path tools/myc-dir-fabric-reference/Cargo.toml -- --check
 ```
 
-The crate has no third-party dependencies. The branch currently authors 94 deterministic unit tests across frontier/snapshot/lease/group, request-scoped closure, decision/effect receipts, owner fencing and effect-surface inventory closure. They are source-present only until run on the exact head. They do not substitute for independent closure-proof validation, external property-testing, mutation testing, or a proof assistant.
+The crate has no third-party dependencies. The branch currently authors 106 deterministic unit tests across frontier/snapshot/lease/group, request-scoped closure, decision/effect receipts, owner fencing and effect-surface inventory closure. They are source-present only until run on the exact head. They do not substitute for independent closure-proof validation, external property-testing, mutation testing, or a proof assistant.
 
 ## Explicit claim ceiling
 
@@ -113,3 +113,6 @@ No compile/test/Clippy result is claimed until these commands run against the ex
 
 
 Queue delivery adds 14 authored Rust unit tests. Current total across the six reference modules: 94 authored tests; none has been compiled or executed in this environment.
+
+
+The queue-worker module also exposes WorkerClaimToken and WorkerClaimState. The resource owner must authenticate the claim proof and compare its current durable claim epoch together with the resource fence. Queue worker module tests: 22 authored; total across reference modules: 106 authored tests, not compiled or executed here.
