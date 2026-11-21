@@ -40,6 +40,7 @@ jobs:
             .audit_version == "0.1.0" and
             .fixture_status == "synthetic_only_not_empirical_evidence" and
             .point_count == 3 and
+            .interfacial_flux_density_source == "synthetic_manufactured" and
             (.transient_interface_exchange.signed_transfer_volume_m3 - 0.0198 | fabs < 1e-12) and
             .controls.pairwise_exchange_cancellation_pass == true and
             .controls.water_balance_closure_pass == true and
