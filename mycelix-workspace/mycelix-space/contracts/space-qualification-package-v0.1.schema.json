@@ -20,7 +20,8 @@
     "authority",
     "claim_matrix",
     "result",
-    "notices"
+    "notices",
+    "package_manifest_sha256"
   ],
   "properties": {
     "schema_version": {
@@ -1389,6 +1390,10 @@
           }
         }
       }
+    },
+    "package_manifest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
     }
   },
   "allOf": [
