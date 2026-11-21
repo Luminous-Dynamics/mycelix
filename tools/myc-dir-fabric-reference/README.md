@@ -27,12 +27,14 @@ The dependency closure verifier is an external trust boundary. The module **does
 
 ## Decision and effect receipts
 
-`src/receipts.rs` separates:
-- an authorization decision receipt (request, policy, cut, closure receipt, snapshot, evaluator build, nonce, clock profile, validity window and exact outcome basis);
-- an effect observation receipt (same request and decision receipt, logical operation, physical attempt, idempotency commitment, effect owner and observed outcome);
-- a logical effect-history checker that rejects identity substitution, attempt gaps, duplicate commits and new mutations while an earlier attempt remains unresolved.
+`src/receipts.rs` separates three records:
+- an authorization decision receipt (request, policy, cut, closure receipt, snapshot, evaluator build, nonce, clock profile and validity window);
+- a physical effect-attempt receipt (same request and decision receipt, logical operation, unique attempt ID/number, idempotency commitment, effect owner and observed outcome);
+- a separate effect-reconciliation receipt (exact prior Unknown/NotObserved attempt ID and number, same logical operation/request/decision/idempotency/effect-owner bindings, and ConfirmedCommitted or ConfirmedNoEffect).
 
-A known exact forbid remains a denial. A permit or default-deny result cannot become a final decision while required dependencies are incomplete. An Allow receipt is not proof that an effect occurred. Unknown effect outcome is not no-effect: the same logical operation must be reconciled before retry.
+Reconciliation does not consume a physical attempt number. A retry is eligible only after the exact previous attempt is confirmed to have produced no effect. If the retry becomes Unknown, the operation becomes unresolved again. The history checker rejects identity substitution, attempt gaps, duplicate reconciliation, reconciliation of resolved/mismatched attempts, duplicate commits and new attempts while an earlier outcome remains unresolved.
+
+A known exact forbid remains a denial. A permit or default-deny result cannot become a final decision while required dependencies are incomplete. An Allow receipt is not proof that an effect occurred. Unknown effect outcome is not no-effect: a separate reconciliation receipt must identify the exact prior attempt and confirm no effect before a retry.
 
 These modules emit versioned, domain-separated canonical bytes. They do not hash/sign/verify those bytes or authenticate evaluator/effect-owner identities. Signature verification, trusted-root rotation, nonce consumption, trusted time, complete owner inventory and actual effect observation remain external qualification gates.
 
