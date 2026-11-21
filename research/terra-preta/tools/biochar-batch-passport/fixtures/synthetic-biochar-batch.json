@@ -60,7 +60,8 @@
         "direction": "maximum",
         "limit": 5
       }
-    ]
+    ],
+    "minimum_retention_duration_days": 730
   },
   "batch": {
     "batch_id": "SYNTH-BIOCHAR-BATCH-001",
