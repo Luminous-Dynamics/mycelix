@@ -5,7 +5,7 @@
   "created_at": "2026-11-21T09:00:00Z",
   "request": {
     "run_id": "synthetic-screen-run-001",
-    "request_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "request_sha256": "dd4a5f0fdbc0c5b1fe50861c8bbcb200645643e33bebd57e9bb451162a3c994e",
     "primary_object_id": "SIM-OBJ-A",
     "requested_object_ids": [
       "SIM-OBJ-A",
@@ -165,7 +165,7 @@
         "reason_codes": []
       }
     ],
-    "coverage_manifest_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    "coverage_manifest_sha256": "056218faf68c3dac2910b38298aa8156d6dce025b1a680f2848529f8485d4df3"
   },
   "assessments": [
     {
