@@ -56,13 +56,31 @@ particularly relevant to poor-connectivity and mobile-offline scenarios.
 Pulse V2 must not claim these ratchet properties merely because it uses a
 hybrid envelope.
 
-The MLS PQ ciphersuite draft -08 is an active Internet-Draft, published
-18 November 2026, with IESG Last Call due 3 December 2026. It includes
-traditional/hybrid KEM profiles and PQ-signature variants. A PQ KEM does not
-automatically imply post-quantum authentication: the draft explicitly
-distinguishes suites that retain traditional signatures from suites that
-also use ML-DSA. Track the exact suite and threat model, not just the
+The MLS PQ ciphersuite draft -08 is an active Internet-Draft,
+published 18 November 2026. As checked on 21 November, the IETF Datatracker
+shows it in IESG Last Call through 3 December 2026, with a 17 December IESG
+telechat date; it is not yet an RFC. The draft defines eleven suites: the
+first eight combine ML-KEM or hybrid PQ/traditional KEMs with classical
+Ed25519/ECDSA signatures and therefore promise PQ confidentiality, not PQ
+authentication; the final three use ML-DSA signatures. A PQ KEM does not
+automatically imply post-quantum authentication. Track the exact suite,
+credential binding, signature algorithm and adversary model, not just the
 "post-quantum" label.
+
+OpenMLS 0.9.2 is a current Rust implementation of RFC 9420, but its published
+supported-ciphersuite list still contains three classical suites
+(X25519/Ed25519 or P-256/ECDSA); the current release documentation does not
+list the new draft's ML-KEM/ML-DSA suites. It is a fair mature baseline for
+classical MLS group lifecycle, tree updates and epoch operations, not yet a
+drop-in implementation baseline for the PQ draft.
+
+vodozemac 0.11.2 is a current pure-Rust Matrix implementation of Olm and
+Megolm: Olm provides a 1:1 Double Ratchet channel and Megolm is used for group
+encryption. Its documented API and published release should be measured as a
+classical ratchet/group-encryption reference, not as a post-quantum ratchet.
+Its crate documentation reports one Least Authority security audit with no
+significant findings; this is useful assurance context, not a substitute for
+review of the exact version, integration and threat model.
 
 The strategic bet for Pulse is therefore not a bespoke ratchet. Use
 Signal's mature 1:1 protocol direction and MLS for group key management as
@@ -72,6 +90,39 @@ effects, privacy-preserving manifests, portable recovery and independently
 replayable evidence. The fair win condition is a better **verified effect per
 joule/byte and per failure-domain outage**, with no reduction in the underlying
 cryptographic guarantee.
+
+
+### Matched comparison protocol
+
+Do not publish one composite score that mixes different cryptographic
+guarantees. Compare each reference only inside a matched capability tier:
+
+1. **1:1 classical ratchet:** vodozemac Olm and libsignal Double Ratchet
+   reference; include key setup, message cost, skipped/out-of-order handling,
+   backup/restore, device linking and compromise recovery.
+2. **Classical group lifecycle:** OpenMLS RFC 9420 and vodozemac Megolm
+   reference; measure group sizes 2/10/100/1,000, membership add/remove,
+   update fan-out bytes, epoch commit latency, offline catch-up and
+   per-recipient decryption/acceptance.
+3. **PQ key agreement / ratcheting:** implement or integrate an actual
+   ML-KEM Braid/SCKA-capable candidate when available. Measure vulnerable
+   message-set size, time and bytes to heal after compromise, chunk-loss
+   tolerance, offline durations, and the impact of unequal message frequency.
+   Do not label a static ML-KEM envelope or a PQ KEM plus classical signature
+   as a full PQ ratchet/authentication design.
+4. **End-to-end delivery semantics:** compare Pulse, Matrix/Olm/Megolm,
+   MLS-based systems and Signal-compatible paths under identical topology,
+   outage schedule, recipient set, device policy and measurement point.
+   Count only recipient-verified logical effects for the primary outcome.
+   Report transport ACKs, relay acceptances, DHT visibility and inbox commits
+   as separate intermediate events.
+
+For each tier, publish the protocol/version, exact ciphersuite, credential
+scheme, key lifecycle, group/device semantics, state-storage model, test
+harness SHA, compiler/toolchain, dependency lock, workload seed, event schema
+and independent verifier build. A candidate that cannot supply the required
+capability is marked not supported / not comparable, never assigned zero
+latency or zero cost.
 
 
 ## Frozen workload
