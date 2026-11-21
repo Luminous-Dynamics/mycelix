@@ -19,7 +19,8 @@
     "dependency_cut_profiles",
     "causal_cut_corpus_binding",
     "graph_proof_workload_profiles",
-    "effect_fence_profiles"
+    "effect_fence_profiles",
+    "postgres_effect_owner_profiles"
   ],
   "properties": {
     "profile": {
@@ -595,6 +596,76 @@
           "purpose": {
             "type": "string",
             "minLength": 10
+          }
+        }
+      }
+    },
+    "postgres_effect_owner_profiles": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "postgres_major_versions",
+          "writer_concurrency",
+          "object_count",
+          "isolation_profile",
+          "synchronous_commit",
+          "purpose"
+        ],
+        "properties": {
+          "id": {
+            "enum": [
+              "pg_parallel_writer_read_committed",
+              "pg_revocation_barrier_contention",
+              "pg_commit_unknown_idempotency_replay",
+              "pg_synchronous_failover_fence_recovery"
+            ]
+          },
+          "postgres_major_versions": {
+            "type": "array",
+            "minItems": 4,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                15,
+                16,
+                17,
+                18,
+                19
+              ]
+            }
+          },
+          "writer_concurrency": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "object_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "isolation_profile": {
+            "enum": [
+              "READ COMMITTED",
+              "SERIALIZABLE"
+            ]
+          },
+          "synchronous_commit": {
+            "enum": [
+              "on",
+              "off_negative_control"
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 20
           }
         }
       }
