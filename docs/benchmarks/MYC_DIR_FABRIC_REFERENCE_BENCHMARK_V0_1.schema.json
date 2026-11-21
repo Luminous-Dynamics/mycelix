@@ -1,0 +1,333 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/MYC_DIR_FABRIC_REFERENCE_BENCHMARK_V0_1.schema.json",
+  "title": "Mycelix Directory Fabric reference benchmark preregistration v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile",
+    "version",
+    "status",
+    "claim_ceiling",
+    "source_binding",
+    "repetition_protocol",
+    "corpus_binding",
+    "workload_profiles",
+    "metrics",
+    "fault_schedules",
+    "comparators"
+  ],
+  "properties": {
+    "profile": {
+      "const": "MYC-DIR-FABRIC-REFERENCE-BENCHMARK-0.1"
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "const": "preregistered_not_executed"
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 30
+    },
+    "source_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_at_execution",
+        "bind_each_sample_to_exact_commit",
+        "no_moving_branch_references"
+      ],
+      "properties": {
+        "required_at_execution": {
+          "type": "array",
+          "minItems": 10,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 2
+          }
+        },
+        "bind_each_sample_to_exact_commit": {
+          "const": true
+        },
+        "no_moving_branch_references": {
+          "const": true
+        }
+      }
+    },
+    "repetition_protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "independent_repetitions_minimum",
+        "load_generation",
+        "report_per_run",
+        "raw_samples_required",
+        "do_not_average_percentiles_across_runs",
+        "separate_real_and_simulated_peers",
+        "include_warm_and_cold_cache_profiles",
+        "include_overload_and_recovery"
+      ],
+      "properties": {
+        "independent_repetitions_minimum": {
+          "type": "integer",
+          "minimum": 10
+        },
+        "load_generation": {
+          "const": "open_loop"
+        },
+        "report_per_run": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "p50",
+              "p95",
+              "p99",
+              "maximum",
+              "offered_rate",
+              "accepted_rate",
+              "error_rate"
+            ]
+          }
+        },
+        "raw_samples_required": {
+          "const": true
+        },
+        "do_not_average_percentiles_across_runs": {
+          "const": true
+        },
+        "separate_real_and_simulated_peers": {
+          "const": true
+        },
+        "include_warm_and_cold_cache_profiles": {
+          "const": true
+        },
+        "include_overload_and_recovery": {
+          "const": true
+        }
+      }
+    },
+    "corpus_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "schema_path",
+        "declared_scenario_count",
+        "expected_decision_counts",
+        "held_out_corpus_required",
+        "independent_oracle_required"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "schema_path": {
+          "type": "string"
+        },
+        "declared_scenario_count": {
+          "const": 30
+        },
+        "expected_decision_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ALLOW",
+            "DENY",
+            "INDETERMINATE"
+          ],
+          "properties": {
+            "ALLOW": {
+              "const": 5
+            },
+            "DENY": {
+              "const": 14
+            },
+            "INDETERMINATE": {
+              "const": 11
+            }
+          }
+        },
+        "held_out_corpus_required": {
+          "const": true
+        },
+        "independent_oracle_required": {
+          "const": true
+        }
+      }
+    },
+    "workload_profiles": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "principals",
+          "relationship_edges",
+          "real_conductors_min",
+          "real_conductors_max",
+          "purpose"
+        ],
+        "properties": {
+          "id": {
+            "enum": [
+              "smoke",
+              "development",
+              "qualification",
+              "stress"
+            ]
+          },
+          "principals": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "relationship_edges": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "real_conductors_min": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "real_conductors_max": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 5
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "layer",
+          "metric",
+          "unit",
+          "statistic",
+          "workload_profile",
+          "target",
+          "gate",
+          "measurement_state"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$"
+          },
+          "layer": {
+            "type": "string",
+            "minLength": 2
+          },
+          "metric": {
+            "type": "string",
+            "minLength": 10
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "statistic": {
+            "type": "string",
+            "minLength": 2
+          },
+          "workload_profile": {
+            "enum": [
+              "smoke",
+              "development",
+              "qualification",
+              "stress"
+            ]
+          },
+          "target": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operator",
+                  "value"
+                ],
+                "properties": {
+                  "operator": {
+                    "enum": [
+                      "==",
+                      "<=",
+                      "<",
+                      ">=",
+                      ">"
+                    ]
+                  },
+                  "value": {
+                    "type": "number"
+                  }
+                }
+              }
+            ]
+          },
+          "gate": {
+            "enum": [
+              "non_compensable",
+              "performance_target",
+              "report_only"
+            ]
+          },
+          "measurement_state": {
+            "const": "not_measured"
+          }
+        }
+      }
+    },
+    "fault_schedules": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "string",
+        "minLength": 10
+      }
+    },
+    "comparators": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "scope",
+          "consistency_profile"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 10
+          },
+          "consistency_profile": {
+            "type": "string",
+            "minLength": 10
+          }
+        }
+      }
+    }
+  }
+}
