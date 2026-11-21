@@ -14,6 +14,7 @@
     "source_artifacts",
     "object_dispositions",
     "coverage",
+    "pair_coverage",
     "assessments",
     "execution_evidence",
     "authority",
@@ -596,7 +597,9 @@
           "covariance_status",
           "collision_probability",
           "output_sha256",
-          "claim_ceiling"
+          "claim_ceiling",
+          "pair_id",
+          "output_artifact_id"
         ],
         "properties": {
           "assessment_id": {
@@ -759,6 +762,18 @@
           "claim_ceiling": {
             "type": "string",
             "minLength": 1
+          },
+          "pair_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "output_artifact_id": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       }
@@ -1073,6 +1088,302 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "pair_coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope_kind",
+        "disposition",
+        "requested_pair_count",
+        "retained_candidate_count",
+        "proven_excluded_count",
+        "unresolved_count",
+        "unsupported_count",
+        "pairs",
+        "pair_manifest_sha256"
+      ],
+      "properties": {
+        "scope_kind": {
+          "const": "primary_vs_each_requested_secondary"
+        },
+        "disposition": {
+          "enum": [
+            "complete",
+            "partial",
+            "unknown",
+            "rejected"
+          ]
+        },
+        "requested_pair_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retained_candidate_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "proven_excluded_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unresolved_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pair_manifest_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "pairs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "pair_id",
+              "primary_object_id",
+              "secondary_object_id",
+              "disposition",
+              "source_artifact_ids",
+              "method_profile_id",
+              "prune_witness_artifact_id",
+              "prune_witness_sha256",
+              "narrow_phase_status",
+              "narrow_phase_assessment_id",
+              "reason_codes"
+            ],
+            "properties": {
+              "pair_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "primary_object_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "secondary_object_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "disposition": {
+                "enum": [
+                  "retained_candidate",
+                  "proven_excluded",
+                  "unresolved",
+                  "unsupported"
+                ]
+              },
+              "source_artifact_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "method_profile_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "prune_witness_artifact_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "prune_witness_sha256": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "narrow_phase_status": {
+                "enum": [
+                  "not_applicable",
+                  "not_run",
+                  "searched_no_event",
+                  "event_found",
+                  "inconclusive"
+                ]
+              },
+              "narrow_phase_assessment_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "reason_codes": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Z0-9][A-Z0-9_:-]{0,127}$"
+                }
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "disposition": {
+                      "const": "proven_excluded"
+                    }
+                  },
+                  "required": [
+                    "disposition"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "method_profile_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "prune_witness_artifact_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "prune_witness_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "narrow_phase_status": {
+                      "const": "not_applicable"
+                    },
+                    "narrow_phase_assessment_id": {
+                      "type": "null"
+                    },
+                    "reason_codes": {
+                      "minItems": 1
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "disposition": {
+                      "const": "retained_candidate"
+                    }
+                  },
+                  "required": [
+                    "disposition"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "prune_witness_artifact_id": {
+                      "type": "null"
+                    },
+                    "prune_witness_sha256": {
+                      "type": "null"
+                    },
+                    "method_profile_id": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "narrow_phase_status": {
+                            "enum": [
+                              "searched_no_event",
+                              "event_found"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "narrow_phase_status"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "narrow_phase_assessment_id": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "narrow_phase_status": {
+                            "enum": [
+                              "not_run",
+                              "inconclusive"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "narrow_phase_status"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "narrow_phase_assessment_id": {
+                            "type": "null"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "disposition": {
+                      "enum": [
+                        "unresolved",
+                        "unsupported"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "disposition"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "reason_codes": {
+                      "minItems": 1
+                    },
+                    "prune_witness_artifact_id": {
+                      "type": "null"
+                    },
+                    "prune_witness_sha256": {
+                      "type": "null"
+                    },
+                    "narrow_phase_assessment_id": {
+                      "type": "null"
+                    },
+                    "narrow_phase_status": {
+                      "enum": [
+                        "not_run",
+                        "inconclusive"
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
     }
   },
   "allOf": [
@@ -1113,5 +1424,11 @@
         }
       }
     }
-  ]
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
 }
