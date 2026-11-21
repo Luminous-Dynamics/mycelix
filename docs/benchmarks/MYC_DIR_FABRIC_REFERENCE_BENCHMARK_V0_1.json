@@ -5,6 +5,7 @@
   "claim_ceiling": "Provisional target profile only. No latency, scale, revocation, privacy, Holochain runtime or superiority result is measured or established.",
   "source_binding": {
     "required_at_execution": [
+      "benchmark_profile_digest",
       "repository",
       "commit_sha",
       "tree_sha",
@@ -85,7 +86,7 @@
       "principals": 1000000,
       "relationship_edges": 10000000,
       "real_conductors_min": 500,
-      "real_conductors_max": 500,
+      "real_conductors_max": null,
       "purpose": "Capacity and failure-domain study; not an initial release gate"
     }
   ],
@@ -96,7 +97,7 @@
       "metric": "Warm local PEP decision latency excluding external authentication and MFA",
       "unit": "ms",
       "statistic": "p95",
-      "workload_profile": "smoke",
+      "workload_profile": "all",
       "target": {
         "operator": "<=",
         "value": 10
@@ -110,7 +111,7 @@
       "metric": "Warm local PEP decision latency excluding external authentication and MFA",
       "unit": "ms",
       "statistic": "p99",
-      "workload_profile": "smoke",
+      "workload_profile": "all",
       "target": {
         "operator": "<=",
         "value": 25
@@ -124,7 +125,7 @@
       "metric": "Pure frontier comparison latency with up to 64 authority components",
       "unit": "us",
       "statistic": "p95",
-      "workload_profile": "smoke",
+      "workload_profile": "all",
       "target": {
         "operator": "<=",
         "value": 250
@@ -138,7 +139,7 @@
       "metric": "Pure offline lease precondition evaluation, including exact scope, epoch, digest, frontier and clock-profile checks",
       "unit": "us",
       "statistic": "p99",
-      "workload_profile": "smoke",
+      "workload_profile": "all",
       "target": {
         "operator": "<=",
         "value": 50
@@ -152,7 +153,7 @@
       "metric": "Agreement with an independently authored decision oracle on frozen and held-out fixtures",
       "unit": "percent",
       "statistic": "all_cases",
-      "workload_profile": "smoke",
+      "workload_profile": "all",
       "target": {
         "operator": "==",
         "value": 100
@@ -166,7 +167,7 @@
       "metric": "False ALLOW decisions across frozen and held-out adversarial cases",
       "unit": "count",
       "statistic": "total",
-      "workload_profile": "smoke",
+      "workload_profile": "all",
       "target": {
         "operator": "==",
         "value": 0
@@ -180,7 +181,7 @@
       "metric": "Prohibited private-attribute disclosures through public DHT payloads, links, indexes, logs, telemetry or receipts",
       "unit": "count",
       "statistic": "total",
-      "workload_profile": "qualification",
+      "workload_profile": "all",
       "target": {
         "operator": "==",
         "value": 0
@@ -194,7 +195,7 @@
       "metric": "High-risk or write operations admitted after required freshness or lease expiry",
       "unit": "count",
       "statistic": "total",
-      "workload_profile": "smoke",
+      "workload_profile": "all",
       "target": {
         "operator": "==",
         "value": 0
@@ -208,7 +209,7 @@
       "metric": "Same-sequence fork or unproven descendant incorrectly classified as sufficiently fresh",
       "unit": "count",
       "statistic": "total",
-      "workload_profile": "smoke",
+      "workload_profile": "all",
       "target": {
         "operator": "==",
         "value": 0
@@ -222,7 +223,7 @@
       "metric": "Partial group expansion results returned after cycle or depth/node/edge budget failure",
       "unit": "count",
       "statistic": "total",
-      "workload_profile": "smoke",
+      "workload_profile": "all",
       "target": {
         "operator": "==",
         "value": 0
