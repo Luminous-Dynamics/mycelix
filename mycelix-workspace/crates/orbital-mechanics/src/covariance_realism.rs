@@ -10,6 +10,7 @@
 //! verdict, or claim of future predictive validity.
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 
 /// One independently sourced predicted-versus-observed position residual.
@@ -52,8 +53,6 @@ pub struct CovarianceRealismConfig {
     /// A data sufficiency floor only; reaching it does not create an inferential
     /// confidence claim. The caller must choose independent-group semantics.
     pub minimum_independent_groups: usize,
-    /// SHA-256 of the canonical sample-ID-sorted residual sample manifest.
-    pub sample_manifest_sha256: String,
     /// Relative symmetry tolerance. No matrix repair or diagonal jitter occurs.
     pub symmetry_relative_tolerance_ppb: u64,
 }
@@ -238,6 +237,60 @@ fn position_nees(
     Ok(nees)
 }
 
+fn hash_string(hasher: &mut Sha256, value: &str) {
+    hasher.update((value.len() as u64).to_be_bytes());
+    hasher.update(value.as_bytes());
+}
+
+fn hash_f64(hasher: &mut Sha256, value: f64) {
+    hasher.update(value.to_bits().to_be_bytes());
+}
+
+/// Compute the canonical SHA-256 manifest digest for the exact sample values.
+///
+/// The encoding is versioned, length-prefixed for strings, uses big-endian
+/// integer/f64 bit patterns, and sorts by sample ID. It covers provenance,
+/// artifact digests, both epochs, residual components and all covariance
+/// matrix entries. The assessment function computes this digest itself.
+pub fn position_residual_manifest_sha256(samples: &[PositionResidualSample]) -> String {
+    let mut ordered: Vec<&PositionResidualSample> = samples.iter().collect();
+    ordered.sort_by(|left, right| left.sample_id.cmp(&right.sample_id));
+    let mut hasher = Sha256::new();
+    hasher.update(b"mycelix-position-residual-manifest-v1");
+    hasher.update((ordered.len() as u64).to_be_bytes());
+
+    for sample in ordered {
+        for value in [
+            sample.sample_id.as_str(),
+            sample.object_id.as_str(),
+            sample.independent_group_id.as_str(),
+            sample.time_basis_id.as_str(),
+            sample.frame_realization_id.as_str(),
+            sample.covariance_profile_id.as_str(),
+            sample.force_model_revision.as_str(),
+            sample.covariance_source_id.as_str(),
+            sample.observation_source_id.as_str(),
+            sample.predicted_ephemeris_sha256.as_str(),
+            sample.covariance_artifact_sha256.as_str(),
+            sample.observed_state_sha256.as_str(),
+        ] {
+            hash_string(&mut hasher, value);
+        }
+        hasher.update(sample.prediction_epoch_tai_micros.to_be_bytes());
+        hasher.update(sample.observation_epoch_tai_micros.to_be_bytes());
+        for value in sample.residual_position_km {
+            hash_f64(&mut hasher, value);
+        }
+        for row in sample.position_covariance_km2 {
+            for value in row {
+                hash_f64(&mut hasher, value);
+            }
+        }
+    }
+
+    format!("{:x}", hasher.finalize())
+}
+
 /// Evaluate observed 3D position residuals against their predicted covariance.
 ///
 /// The report is descriptive and cohort-specific. It does not infer statistical
@@ -263,12 +316,6 @@ pub fn assess_position_covariance_realism(
     }
     if config.symmetry_relative_tolerance_ppb == 0 {
         return Err(CovarianceRealismError::ZeroSymmetryTolerance);
-    }
-    if !is_sha256_hex(&config.sample_manifest_sha256) {
-        return Err(CovarianceRealismError::InvalidArtifactDigest {
-            sample_id: config.report_id.clone(),
-            field: "sample_manifest_sha256".to_string(),
-        });
     }
     if samples.is_empty() {
         return Err(CovarianceRealismError::EmptySampleSet);
@@ -474,7 +521,7 @@ pub fn assess_position_covariance_realism(
     Ok(CovarianceRealismReport {
         report_id: config.report_id.clone(),
         cohort_id: config.cohort_id.clone(),
-        sample_manifest_sha256: config.sample_manifest_sha256.clone(),
+        sample_manifest_sha256: position_residual_manifest_sha256(samples),
         algorithm_profile_id: "mycelix-position-covariance-nees-v0.1".to_string(),
         time_basis_id: cohort_time_basis,
         frame_realization_id: cohort_frame,
@@ -539,7 +586,6 @@ mod tests {
             report_id: "cov-realism-report-1".to_string(),
             cohort_id: "leo-operator-cov-1".to_string(),
             minimum_independent_groups: min_groups,
-            sample_manifest_sha256: DIGEST_A.to_string(),
             symmetry_relative_tolerance_ppb: 100,
         }
     }
@@ -609,7 +655,10 @@ mod tests {
         let report_a = assess_position_covariance_realism(&config(2), &first).unwrap();
         let report_b = assess_position_covariance_realism(&config(2), &second).unwrap();
         assert_eq!(report_a, report_b);
-        assert_eq!(report_a.sample_manifest_sha256, DIGEST_A);
+        assert_eq!(
+            report_a.sample_manifest_sha256,
+            position_residual_manifest_sha256(&first)
+        );
         assert_eq!(
             report_a.algorithm_profile_id,
             "mycelix-position-covariance-nees-v0.1"
@@ -617,15 +666,36 @@ mod tests {
     }
 
     #[test]
-    fn report_rejects_invalid_sample_manifest_digest() {
-        let mut cfg = config(1);
-        cfg.sample_manifest_sha256 = "not-a-digest".to_string();
+    fn sample_manifest_changes_when_residual_or_covariance_changes() {
+        let original = [sample("s1", "arc-1", [0.0, 0.0, 0.0])];
+        let original_digest = position_residual_manifest_sha256(&original);
+
+        let mut altered = original.clone();
+        altered[0].residual_position_km[0] = 0.125;
+        assert_ne!(original_digest, position_residual_manifest_sha256(&altered));
+
+        altered = original.clone();
+        altered[0].position_covariance_km2[0][0] = 1.25;
+        assert_ne!(original_digest, position_residual_manifest_sha256(&altered));
+    }
+
+    #[test]
+    fn canonical_manifest_digest_is_order_independent_and_binds_all_values() {
+        let first = [
+            sample("z-last", "arc-2", [0.2, 0.0, 0.0]),
+            sample("a-first", "arc-1", [0.1, 0.0, 0.0]),
+        ];
+        let second = [first[1].clone(), first[0].clone()];
         assert_eq!(
-            assess_position_covariance_realism(&cfg, &[sample("s1", "arc-1", [0.0; 3])]),
-            Err(CovarianceRealismError::InvalidArtifactDigest {
-                sample_id: cfg.report_id,
-                field: "sample_manifest_sha256".to_string(),
-            })
+            position_residual_manifest_sha256(&first),
+            position_residual_manifest_sha256(&second)
+        );
+
+        let mut altered = first.clone();
+        altered[0].residual_position_km[0] += 0.01;
+        assert_ne!(
+            position_residual_manifest_sha256(&first),
+            position_residual_manifest_sha256(&altered)
         );
     }
 
