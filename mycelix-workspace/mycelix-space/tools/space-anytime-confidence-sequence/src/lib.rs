@@ -1,16 +1,18 @@
 #![forbid(unsafe_code)]
 
-//! Finite-mixture betting e-process for a one-sided conditional Bernoulli
-//! mean cap. For each candidate null p0 and bet fraction r in (0, 1], the
-//! increment is 1 + (r / p0) * (X_t - p0). Under the conditional null
-//! E[X_t | F_(t-1)] <= p0 this is a nonnegative supermartingale. A fixed
-//! mixture over r is also a nonnegative supermartingale; Ville's inequality
-//! makes inversion time-uniform.
+//! Finite-mixture betting e-process for a one-sided upper bound on the
+//! conditional Bernoulli violation probability. For candidate null p0 and
+//! bet fraction r in (0, 1], the process bets on non-violations Y_t = 1-X_t
+//! with increment 1 + (r / (1-p0)) * (Y_t - (1-p0)). Under the conditional null
+//! P(X_t=1 | F_(t-1)) >= p0 for every t, each component is a nonnegative
+//! supermartingale. A fixed mixture over r is also a nonnegative
+//! supermartingale; Ville's inequality makes inversion time-uniform.
 //!
-//! This does NOT bound an unconditional average unless the conditional null
-//! implies that target. It does NOT repair hidden common-cause dependence,
-//! unobserved selection, or a misspecified filtration. The caller must bind
-//! the conditional-mean model and evidence used to justify it.
+//! The result upper-bounds the minimum conditional violation probability
+//! across the declared sequence. Under IID Bernoulli trials this is the common
+//! violation probability. It is not an upper bound on an arbitrary average
+//! across heterogeneous conditional probabilities. Hidden common causes,
+//! unobserved selection and a misspecified filtration remain unsupported.
 
 use std::fmt;
 
@@ -124,7 +126,7 @@ pub fn log_mixture_e_value(
     grid: &BetGrid,
 ) -> Result<f64, SequenceError> {
     grid.validate()?;
-    if !p0.is_finite() || p0 <= 0.0 || p0 > 1.0 {
+    if !p0.is_finite() || p0 <= 0.0 || p0 >= 1.0 {
         return Err(SequenceError::InvalidBetFraction(p0));
     }
 
@@ -133,12 +135,16 @@ pub fn log_mixture_e_value(
         let mut log_product = 0.0;
         for observation in observations {
             let increment_log = if *observation {
-                // ln(1 + (r/p0)(1-p0)) = ln(p0 + r(1-p0)) - ln(p0)
-                (p0 + fraction * (1.0 - p0)).ln() - p0.ln()
-            } else if *fraction == 1.0 {
-                f64::NEG_INFINITY
+                // X=1 is a violation; Y=1-X=0 and the bet factor is 1-r.
+                if *fraction == 1.0 {
+                    f64::NEG_INFINITY
+                } else {
+                    (1.0 - fraction).ln()
+                }
             } else {
-                (1.0 - fraction).ln()
+                // X=0 is a non-violation; Y=1:
+                // 1 + r*p0/(1-p0) = (1-p0 + r*p0)/(1-p0).
+                ((1.0 - p0) + fraction * p0).ln() - (1.0 - p0).ln()
             };
             if increment_log == f64::NEG_INFINITY {
                 log_product = f64::NEG_INFINITY;
@@ -181,32 +187,28 @@ pub fn upper_bound_at(
     }
     let threshold = -delta.ln();
 
-    // At p0 -> 0, any observed violation makes the e-value diverge. With no
-    // violations all component products are <= 1, so no positive threshold
-    // can be crossed and the honest upper bound remains one.
-    if !observations.iter().any(|value| *value) {
+    // With all observations violating, the evidence never supports a smaller
+    // upper bound; return one. Otherwise log M_t(p0) increases with p0.
+    if observations.iter().all(|value| *value) {
         return Ok(1.0);
     }
 
-    let log_at_zero = f64::INFINITY;
-    if log_at_zero < threshold {
-        return Ok(1.0);
-    }
-
-    // log M_t(p0) is non-increasing in p0 for this fixed bet grid.
-    let mut low = 0.0; // rejected
-    let mut high = 1.0; // not rejected because M_t(1) <= 1 < 1/delta
+    // The null for candidate p0 is P(X_t=1 | F_(t-1)) >= p0 at every step.
+    // Frequent non-violations reject overly large p0. At p0=0, M <= 1;
+    // with at least one non-violation M diverges as p0 approaches one.
+    let mut low = 0.0; // not rejected
+    let mut high = 1.0; // rejected in the limit
     for _ in 0..BISECTION_STEPS {
         let mid = low + (high - low) * 0.5;
-        if mid == 0.0 {
-            low = mid;
+        if mid == 0.0 || mid == 1.0 {
+            high = mid.max(high.min(1.0));
             continue;
         }
         let log_e = log_mixture_e_value(observations, mid, grid)?;
         if log_e >= threshold {
-            low = mid;
-        } else {
             high = mid;
+        } else {
+            low = mid;
         }
     }
     Ok(high.clamp(0.0, 1.0))
@@ -251,9 +253,9 @@ pub fn confidence_sequence(
         bet_fractions: grid.fractions.clone(),
         conditional_mean_model_id: evidence.model_id,
         conditional_mean_evidence_ref: evidence.evidence_ref,
-        null_hypothesis: "E[X_t | F_(t-1)] <= p0 for every t",
+        null_hypothesis: "P(X_t=1 | F_(t-1)) >= p0 for every t",
         points,
-        claim_ceiling: "time_uniform_statistical_bound_conditional_on_declared_predictable_mean_model_not_physical_or_operational_safety",
+        claim_ceiling: "time_uniform_upper_bound_on_minimum_conditional_violation_probability_under_declared_model_not_physical_or_operational_safety",
     })
 }
 
@@ -287,16 +289,18 @@ mod tests {
     }
 
     #[test]
-    fn no_violations_does_not_claim_zero_risk() {
-        let result = confidence_sequence(&[false; 100], 0.05, &grid(), evidence()).unwrap();
-        assert!(result.points.iter().all(|point| point.upper_confidence_bound == 1.0));
+    fn repeated_non_violations_lower_the_upper_bound_but_not_to_zero() {
+        let short = upper_bound_at(&[false; 5], 0.05, &grid()).unwrap();
+        let long = upper_bound_at(&[false; 100], 0.05, &grid()).unwrap();
+        assert!(long < short);
+        assert!(long > 0.0);
     }
 
     #[test]
-    fn repeated_violations_lower_the_upper_bound() {
-        let one = upper_bound_at(&[true], 0.05, &grid()).unwrap();
-        let many = upper_bound_at(&[true; 20], 0.05, &grid()).unwrap();
-        assert!(many < one);
+    fn observed_violations_do_not_create_false_reassurance() {
+        let no_violations = upper_bound_at(&[false; 20], 0.05, &grid()).unwrap();
+        let with_violations = upper_bound_at(&[false, false, true, false, true], 0.05, &grid()).unwrap();
+        assert!(with_violations > no_violations);
     }
 
     #[test]
@@ -318,7 +322,7 @@ mod tests {
         assert_eq!(report.bet_grid_id, grid().id);
         assert_eq!(report.conditional_mean_model_id, "conditional-bernoulli-cap-v1");
         assert_eq!(report.conditional_mean_evidence_ref, "fixture://conditional-mean-model/v1");
-        assert_eq!(report.null_hypothesis, "E[X_t | F_(t-1)] <= p0 for every t");
+        assert_eq!(report.null_hypothesis, "P(X_t=1 | F_(t-1)) >= p0 for every t");
     }
 
     #[test]
@@ -338,19 +342,19 @@ mod tests {
     }
 
     #[test]
-    fn fixed_p0_e_process_is_nonincreasing_when_p0_increases() {
+    fn fixed_p0_e_process_is_non_decreasing_when_p0_increases() {
         let observations = [true, false, true, true, false];
         let mut last = f64::INFINITY;
         for p0 in [0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0] {
             let value = log_mixture_e_value(&observations, p0, &grid()).unwrap();
-            assert!(value <= last + 1e-12);
+            assert!(value + 1e-12 >= last);
             last = value;
         }
     }
 
     // Enumerate all paths of a predictable history-dependent Bernoulli process.
-    // Every conditional probability is <= p0, so the e-process should cross
-    // the threshold on at most delta probability mass over the finite horizon.
+    // Every conditional violation probability is >= p0, so the e-process
+    // should cross on at most delta probability mass over the finite horizon.
     fn enumerate_predictable(
         history: &mut Vec<bool>,
         mass: f64,
@@ -367,11 +371,11 @@ mod tests {
             return;
         }
         let q = if history.last() == Some(&true) {
-            p0 * 0.85
-        } else if history.len() % 2 == 0 {
             p0
+        } else if history.len() % 2 == 0 {
+            p0 + (1.0 - p0) * 0.5
         } else {
-            p0 * 0.4
+            p0 + (1.0 - p0) * 0.2
         };
         history.push(false);
         enumerate_predictable(history, mass * (1.0 - q), p0, delta, horizon, crossed_mass);
