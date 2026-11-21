@@ -4,7 +4,7 @@
 //! sandbox profile, and extraction outputs. It does not run validators, verify
 //! a runner signature, enforce a sandbox, parse QIF XML, or authenticate tools.
 
-use aero_adapter_run_receipt::{verify_artifact_bytes, ContentArtifactV1, ReceiptError};
+use aero_adapter_run_receipt::{ContentArtifactV1, ReceiptError, verify_artifact_bytes};
 use aero_evidence_types::ArtifactRef;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
