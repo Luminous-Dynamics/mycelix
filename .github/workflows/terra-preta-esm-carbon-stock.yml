@@ -1,0 +1,80 @@
+name: Terra Preta equivalent-soil-mass carbon stock audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/ESM_CARBON_STOCK_BENCHMARK_V0.1.md'
+      - 'research/terra-preta/schemas/esm-carbon-stock-input.schema.json'
+      - 'research/terra-preta/schemas/esm-carbon-stock-report.schema.json'
+      - 'research/terra-preta/tools/esm-carbon-stock-audit/**'
+      - '.github/workflows/terra-preta-esm-carbon-stock.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  esm-carbon-stock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/esm-carbon-stock-audit/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/esm-carbon-stock-audit/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/esm-carbon-stock-audit/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate fixture and report
+        run: |
+          jsonschema-cli validate research/terra-preta/schemas/esm-carbon-stock-input.schema.json \
+            --instance research/terra-preta/tools/esm-carbon-stock-audit/fixtures/synthetic-compaction-only.json \
+            --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/esm-carbon-stock-audit/Cargo.toml -- \
+            research/terra-preta/tools/esm-carbon-stock-audit/fixtures/synthetic-compaction-only.json \
+            "$RUNNER_TEMP/esm-carbon-stock-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/esm-carbon-stock-report.schema.json \
+            --instance "$RUNNER_TEMP/esm-carbon-stock-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .rounds[0].round_role == "baseline" and
+            .rounds[1].round_role == "follow_up" and
+            (.rounds[1].fixed_depth_stock_mean_mg_c_ha > .rounds[0].fixed_depth_stock_mean_mg_c_ha) and
+            ((.rounds[1].equivalent_soil_mass_stock_mean_mg_c_ha - .rounds[0].equivalent_soil_mass_stock_mean_mg_c_ha) | fabs < 0.000001) and
+            (.controls.no_extrapolation_pass == true) and
+            (.controls.cores_not_counted_as_independent_treatment_replicates_pass == true)
+          ' "$RUNNER_TEMP/esm-carbon-stock-report.json"
+      - name: Reject target mass above measured profile mass
+        run: |
+          fixture=research/terra-preta/tools/esm-carbon-stock-audit/fixtures/synthetic-compaction-only.json
+          jq '.reference_fine_earth_mass_mg_ha = 999999' "$fixture" > "$RUNNER_TEMP/esm-overmass.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/esm-carbon-stock-audit/Cargo.toml -- \
+            "$RUNNER_TEMP/esm-overmass.json" "$RUNNER_TEMP/esm-overmass-report.json"; then
+            echo "Expected ESM target-mass overrun rejection"
+            exit 1
+          fi
+      - name: Reject layer support mismatch
+        run: |
+          fixture=research/terra-preta/tools/esm-carbon-stock-audit/fixtures/synthetic-compaction-only.json
+          jq '.rounds[1].cores[0].layers[1].depth_top_cm = 9' "$fixture" > "$RUNNER_TEMP/esm-layer-gap.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/esm-carbon-stock-audit/Cargo.toml -- \
+            "$RUNNER_TEMP/esm-layer-gap.json" "$RUNNER_TEMP/esm-layer-gap-report.json"; then
+            echo "Expected vertical support mismatch rejection"
+            exit 1
+          fi
+      - name: Reject output overwrite
+        run: |
+          fixture=research/terra-preta/tools/esm-carbon-stock-audit/fixtures/synthetic-compaction-only.json
+          report="$RUNNER_TEMP/existing-esm-report.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/esm-carbon-stock-audit/Cargo.toml -- "$fixture" "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"
