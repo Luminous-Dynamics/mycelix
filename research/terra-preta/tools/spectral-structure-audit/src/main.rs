@@ -46,7 +46,6 @@ struct DatasetSource {
     retrieval_sha256: Option<String>,
     expected_sample_rows: Option<usize>,
     license_status: String,
-    retrieval_sha256: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
