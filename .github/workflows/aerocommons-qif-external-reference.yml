@@ -32,6 +32,12 @@ jobs:
         uses: dtolnay/rust-toolchain@1.96.1
         with:
           components: rustfmt, clippy
+      - name: Ensure Clippy component is installed
+        run: rustup component add clippy --toolchain 1.96.1
+        with:
+          components: rustfmt, clippy
+      - name: Ensure Clippy component is installed
+        run: rustup component add clippy --toolchain 1.96.1
       - name: Check formatting
         run: cargo fmt --manifest-path tools/aero-qif-external-reference/Cargo.toml -- --check
       - name: Run QIF xId trace tests
