@@ -1,0 +1,78 @@
+name: Terra Preta known-truth event sampling evaluator
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/EVENT_SAMPLING_POLICY_EVALUATOR_V0.1.md'
+      - 'research/terra-preta/schemas/event-sampling-evaluator-*.schema.json'
+      - 'research/terra-preta/tools/event-sampling-evaluator/**'
+      - '.github/workflows/terra-preta-event-sampling-evaluator.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  event-sampling-evaluator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/event-sampling-evaluator/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/event-sampling-evaluator/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/event-sampling-evaluator/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate synthetic fixture and report
+        run: |
+          input=research/terra-preta/schemas/event-sampling-evaluator-input.schema.json
+          output=research/terra-preta/schemas/event-sampling-evaluator-report.schema.json
+          fixture=research/terra-preta/tools/event-sampling-evaluator/fixtures/synthetic-short-pulse.json
+          jsonschema-cli validate "$input" --instance "$fixture" --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/event-sampling-evaluator/Cargo.toml -- \
+            "$fixture" "$RUNNER_TEMP/event-sampling-report.json"
+          jsonschema-cli validate "$output" --instance "$RUNNER_TEMP/event-sampling-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_only_policy_evaluator_not_field_data" and
+            .true_peak_value == 16 and
+            .true_peak_time_hours == 9 and
+            (.policy_results[] | select(.policy_id == "fixed-6h") |
+              .pulse_capture_status == "missed" and
+              .event_integral_status == "gap_exceeded" and
+              .sampled_event_integral_absolute_anomaly_unit_hours == null) and
+            (.policy_results[] | select(.policy_id == "adaptive-from-past") |
+              .pulse_capture_status == "captured" and
+              .event_integral_status == "qualified" and
+              .sample_count == 11) and
+            (.policy_results[] | select(.policy_id == "oracle-1h") |
+              .evaluation_role == "evaluation_ceiling_only" and
+              .sample_count == 25 and .peak_absolute_error == 0) and
+            (.controls.policy_future_observation_leakage_rejected == true) and
+            (.controls.no_unobserved_peak_interpolation == true)
+          ' "$RUNNER_TEMP/event-sampling-report.json"
+      - name: Reject future observation leakage
+        run: |
+          fixture=research/terra-preta/tools/event-sampling-evaluator/fixtures/synthetic-short-pulse.json
+          jq '.policies[1].sample_actions[1].decision_basis_observation_ids = ["adaptive-2"]' "$fixture" > "$RUNNER_TEMP/future-leak.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/event-sampling-evaluator/Cargo.toml -- \
+            "$RUNNER_TEMP/future-leak.json" "$RUNNER_TEMP/future-leak-report.json"; then
+            echo "Expected future-observation leakage rejection"
+            exit 1
+          fi
+      - name: Reject output overwrite
+        run: |
+          fixture=research/terra-preta/tools/event-sampling-evaluator/fixtures/synthetic-short-pulse.json
+          report="$RUNNER_TEMP/existing-sampling-report.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/event-sampling-evaluator/Cargo.toml -- "$fixture" "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"
