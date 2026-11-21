@@ -269,6 +269,13 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
     for event in &campaign.events {
         nonblank(&event.event_id, "event.event_id")?;
         nonblank(&event.event_type, "event.event_type")?;
+        if !matches!(
+            event.event_type.as_str(),
+            "rainfall" | "irrigation" | "fertilizer" | "manure" | "tillage"
+                | "wetting_drying" | "other"
+        ) {
+            return Err(format!("event {} has unsupported event type", event.event_id));
+        }
         let start = parse_utc_seconds(&event.window_start)?;
         let occurred = parse_utc_seconds(&event.occurred_at)?;
         let end = parse_utc_seconds(&event.window_end)?;
@@ -385,7 +392,11 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
 
     let first_slot = slot_times[0];
     let last_slot = *slot_times.last().expect("at least two schedule slots");
-    let boundary_coverage_complete = first_slot - window_start <= campaign.boundary_tolerance_seconds
+    let first_slot_id = campaign.schedule_slots[0].slot_id.as_str();
+    let last_slot_id = campaign.schedule_slots[campaign.schedule_slots.len() - 1]
+        .slot_id
+        .as_str();
+    let boundary_schedule_near = first_slot - window_start <= campaign.boundary_tolerance_seconds
         && window_end - last_slot <= campaign.boundary_tolerance_seconds;
 
     let mut missing_schedule_slot_ids = Vec::new();
@@ -404,6 +415,12 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
                 missing_schedule_slot_ids.push(slot.slot_id.clone());
             }
             Some(observation) => {
+                if slot.missing_reason.is_some() {
+                    return Err(format!(
+                        "observed slot {} must not also declare missing_reason",
+                        slot.slot_id
+                    ));
+                }
                 if !is_usable(observation) {
                     unusable_schedule_slot_ids.push(slot.slot_id.clone());
                     if observation.quantification_status == "left_censored" {
@@ -421,6 +438,10 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
             }
         }
     }
+
+    let boundary_coverage_complete = boundary_schedule_near
+        && usable_by_slot.contains_key(first_slot_id)
+        && usable_by_slot.contains_key(last_slot_id);
 
     let mut max_schedule_gap: Option<f64> = None;
     for pair in slot_times.windows(2) {
