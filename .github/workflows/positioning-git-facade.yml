@@ -1,0 +1,33 @@
+name: Mycelix Position standalone Git facade
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-position/lib/positioning/**"
+      - "mycelix-position/positioning-git/**"
+      - ".github/workflows/positioning-git-facade.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  positioning-git-facade:
+    name: Compile canonical Position source through standalone facade
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Check facade formatting
+        run: cargo fmt --manifest-path mycelix-position/positioning-git/Cargo.toml -- --check
+
+      - name: Clippy canonical Position source
+        run: cargo clippy --manifest-path mycelix-position/positioning-git/Cargo.toml --all-targets -- -D warnings
+
+      - name: Test canonical Position source
+        run: cargo test --manifest-path mycelix-position/positioning-git/Cargo.toml --all-targets
