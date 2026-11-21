@@ -223,7 +223,58 @@ SCIM, OIDC/OAuth, SPIFFE/SPIRE and LDAP adapters should translate external ident
 
 The v1 migration path remains read-only import → shadow decisions → SCIM lifecycle → OIDC application → SPIFFE workload bridge → one local Linux PEP → narrow production pilot. Kerberos/Windows remains a separate programme.
 
-## 7. Benchmark protocol additions
+## 7. New research direction: zero-knowledge dependency-closure queries
+
+A significant adjacent result appeared on 3 November 2026: **VerfGraph: Efficient Zero-Knowledge Verifiable Graph Query Evaluation System** ([arXiv:2611.04240](https://arxiv.org/abs/2611.04240)). It builds on the expansion-centric model of ZKGraph and proves graph-query correctness and completeness over a committed graph without revealing private graph records or intermediate values beyond the query result. The authors implement it using Plonky3 AIR with a transparent FRI-based polynomial commitment backend and report, on LDBC SNB workloads, 33.9×–59.7× proof-generation speedups and 4.5×–6.6× lower peak prover memory for complex IC queries versus ZKGraph; verification stays in the millisecond range and proofs remain below 1 MB. The same-backend comparison also isolates improvements to expansion/SSSP proof constructions. These are preprint author-reported results, not an independent Mycelix replication.
+
+This is directly relevant to RSCAC. Instead of returning a private dependency list to every verifier, a realm could commit to a policy/entity graph snapshot and prove that a specified dependency-closure query produced the exact answer over that snapshot. Candidate graph operations include:
+
+- one-hop expansion over membership, group, role, delegation, issuer, revocation and explicit-deny edges;
+- bounded multi-hop expansion for inherited group/delegation authority;
+- set union/deduplication across dependency families;
+- filtered expansion over resource, action, audience, purpose and policy epoch;
+- count/cardinality and path/ancestor queries where they support a complete policy proof.
+
+The public statement would bind the exact request digest, query-plan/schema digest, policy graph root, authority frontier, resolver version, closure result commitment and proof. The private witness would contain sensitive relationship records and intermediate traversal state. The relying PEP would verify the proof, then independently check that the graph root is signed/admitted by the correct realm/issuer and that its per-authority frontier satisfies the request's required freshness.
+
+### Crucial distinction: proof of query completeness is not proof of graph completeness
+
+VerfGraph can establish that the answer is complete with respect to the committed graph and exact query semantics. It does not prove that the authority graph contains every real-world fact, that the graph root was authorized, or that an issuer did not omit a revocation before committing the graph.
+
+Mycelix therefore needs two independent guarantees:
+
+1. **Authoritative graph snapshot:** each realm/issuer root is authenticated under its own admitted authority, key epoch, sequence and lifecycle rules. Root rotation, fork detection, append-only history and revocation remain under Mycelix's existing authority/frontier work.
+2. **Private query completeness:** a proof establishes that the dependency cut is the complete result of the pinned query over those exact committed roots, without disclosing unrelated private relationships.
+
+For a cross-realm request, do not collapse all roots into one global sequence. Prove closure over a tuple of realm/issuer roots and retain the partial-order frontier semantics for each authority.
+
+### Privacy and side-channel contract
+
+Never publish the raw cut, employee group edges, private resource relationships or unsalted stable relationship hashes to the public DHT or a transparency log by default. Even a hash can be linkable when identifiers or candidate relationships have low entropy. Use local/private or encrypted transport for the full witness; publish only purpose/audience/expiry-bound commitments and proof material whose disclosure profile has been reviewed. The public proof may still leak graph-root epochs, query shape, result cardinality or timing; these are explicit side channels to measure, not assume away.
+
+Explore a staged path:
+1. prototype authenticated graph-query completeness without privacy, over a frozen synthetic directory graph;
+2. prove set-based expansion and negative/deny-edge coverage over a committed snapshot;
+3. adapt a zero-knowledge backend for sensitive relationship records;
+4. add multiple independently signed authority roots and request-scoped causal frontier checks;
+5. measure prover latency, verifier latency, proof size, memory, update costs and leakage.
+
+Do not write a new ZK engine before running a matched feasibility spike against VerfGraph/ZKGraph and existing Mycelix graph representations. The research question is integration/adaptation: can a complete authorization-dependency query be expressed in the supported operator set without changing its semantics, especially around explicit denies, revocation and nested delegation?
+
+### Proposed VerfGraph comparison
+
+Use LDBC SNB Interactive/Business Intelligence workloads as external graph-query baselines where useful, but build a separate Directory Fabric corpus with synthetic and consented enterprise-like membership/delegation/revocation graphs. Report:
+- exact query semantics and completeness oracle;
+- graph root and update snapshot binding;
+- proof-generation time, peak prover memory, proof bytes and verifier time;
+- query cardinality, branching factor, depth, cycle and deny-edge handling;
+- incremental update / root rollover / proof regeneration costs;
+- private-record leakage and metadata leakage;
+- whether the proof remains valid after graph-root or authority-frontier advance.
+
+The potential Mycelix differentiator is not “we use zero knowledge.” It is **a privacy-preserving, independently verifiable proof that the request's complete authority dependency cut was derived from the exact sovereign graph snapshots whose authority histories the PEP accepts**. This remains a research target, not an implemented capability.
+
+## 8. Benchmark protocol additions
 
 The machine-readable benchmark preregistration now includes 29 metrics, six dependency-cut-size profiles (1/8/32/64/128/256 dependencies), 19 fault schedules and comparators for Cedar and SCITT. The causal-cut corpus has 24 scenarios (8 Allow, 4 Deny, 12 Indeterminate) and its own schema.
 
@@ -285,7 +336,7 @@ The companion 24-case corpus includes positive controls and attacks across:
 
 The corpus is finite and synthetic. It does not establish completeness of any real policy graph.
 
-## 10. Implementation and qualification gates
+## 11. Implementation and qualification gates
 
 1. Review the RSCAC dependency vocabulary, resolver/verifier independence and policy-graph snapshot semantics.
 2. Independently implement the closure resolver and hidden completeness oracle; do not derive both expected and observed dependencies from the same code.
@@ -300,7 +351,7 @@ The corpus is finite and synthetic. It does not establish completeness of any re
 
 The selected Holochain version matrix and runtime regression gate remain in [MYC-DIR-HC-QUAL-001 / #6435](https://github.com/Luminous-Dynamics/mycelix/issues/6435). This reference composition does not bypass that gate.
 
-## 11. External standards and comparator references
+## 12. External standards and comparator references
 
 - **Cedar authorization algorithm:** [Cedar Authorization](https://docs.cedarpolicy.com/auth/authorization.html). Keep policy evaluation errors distinct from missing, mandatory Mycelix authority dependencies. A Cedar `permit` result cannot repair an incomplete request-scoped authority cut.
 - **SCITT transparency:** [RFC 9943](https://www.rfc-editor.org/rfc/rfc9943.html). Use transparency registration for signed decision statements only after a relying party pins the transparency-service profile and roots. Inclusion is not truth, permission or effect.
@@ -309,7 +360,7 @@ The selected Holochain version matrix and runtime regression gate remain in [MYC
 - **OAuth security:** [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700.html) and [DPoP / RFC 9449](https://www.rfc-editor.org/rfc/rfc9449.html). Audience and sender binding are adapter security controls; neither token validity nor proof-of-possession establishes local organizational authority.
 - **SPIFFE federation:** [SPIFFE Federation Specification](https://spiffe.io/docs/latest/spiffe-specs/spiffe_federation/). Bundle trust is trust-domain scoped; do not treat an arbitrary valid SVID or bundle as a Mycelix membership or resource permission.
 
-## 12. Explicit claim ceiling
+## 13. Explicit claim ceiling
 
 This work is a pure reference contract and finite synthetic corpus. It does not establish:
 
