@@ -109,3 +109,12 @@ Canonicalization uses the verifier's sorted-object-key `serde_json` encoding, co
 ### Pair-to-source join (implementation increment)
 
 The offline verifier also reconciles each pair's source-artifact set against the union of the source artifacts declared for its primary and secondary objects. A completed pair-specific narrow-phase assessment must consume every artifact declared by that pair. This prevents a superficially valid pair record from being assessed using an unrelated or incomplete input set.
+
+
+## Full Draft 2020-12 validation
+
+The standalone verifier now compiles the package schema with the Rust `jsonschema` crate pinned to `0.62.0`, first validates the schema document against the Draft 2020-12 meta-schema, then validates each package instance with format checking enabled. The validator is configured without the crate's default remote-reference features: the package uses only local JSON Schema references and verification must not fetch network resources.
+
+This general schema pass complements rather than replaces the explicit cross-field verifier. Schema validation checks required fields, types, enums, patterns, conditional constraints, array uniqueness, object closure and declared formats. The Rust domain verifier separately checks digest-to-byte binding, identity/reference joins, count reconciliation, temporal/pair coverage semantics, output lineage, replay state and claim ceilings.
+
+The frozen corpus includes a valid synthetic package, a missing required package-manifest digest, an undeclared top-level field, and an invalid schema meta-document. JSON syntax alone is no longer treated as schema conformance.
