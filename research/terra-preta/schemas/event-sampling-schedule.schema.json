@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic candidate soil event sampling schedule",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "evidence_class",
+    "schedule_id",
+    "policy_name",
+    "maximum_sample_budget",
+    "maximum_gap_for_pulse_integral_hours",
+    "wakeup_gap_threshold_hours",
+    "resource_cost_model",
+    "observations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "soil-event-schedule-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "evidence_class": {
+      "const": "synthetic_candidate_policy"
+    },
+    "schedule_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "maximum_sample_budget": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "maximum_gap_for_pulse_integral_hours": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "wakeup_gap_threshold_hours": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "resource_cost_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sample_energy_joules",
+        "wake_energy_joules",
+        "compute_cycles_per_sample",
+        "transmitted_bytes_per_sample"
+      ],
+      "properties": {
+        "sample_energy_joules": {
+          "type": "number",
+          "minimum": 0
+        },
+        "wake_energy_joules": {
+          "type": "number",
+          "minimum": 0
+        },
+        "compute_cycles_per_sample": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "transmitted_bytes_per_sample": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "observations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "observation_id",
+          "time_hours",
+          "response_value"
+        ],
+        "properties": {
+          "observation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "time_hours": {
+            "type": "number"
+          },
+          "response_value": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  }
+}

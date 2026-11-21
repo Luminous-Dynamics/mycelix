@@ -1,0 +1,88 @@
+name: Terra Preta event sampling observability evaluator
+
+on:
+  push:
+    branches:
+      - research/terra-sampling-observability-v0.1
+    paths:
+      - 'research/terra-preta/EVENT_SAMPLING_OBSERVABILITY_BENCHMARK_V0.1.md'
+      - 'research/terra-preta/schemas/event-sampling-*.schema.json'
+      - 'research/terra-preta/tools/event-sampling-audit/**'
+      - '.github/workflows/terra-preta-event-sampling.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/EVENT_SAMPLING_OBSERVABILITY_BENCHMARK_V0.1.md'
+      - 'research/terra-preta/schemas/event-sampling-*.schema.json'
+      - 'research/terra-preta/tools/event-sampling-audit/**'
+      - '.github/workflows/terra-preta-event-sampling.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sampling-observability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/event-sampling-audit/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/event-sampling-audit/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/event-sampling-audit/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate policy fixtures and reports
+        run: |
+          truth=research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-event-truth.json
+          schema=research/terra-preta/schemas/event-sampling-schedule.schema.json
+          report_schema=research/terra-preta/schemas/event-sampling-report.schema.json
+          jsonschema-cli validate research/terra-preta/schemas/event-sampling-truth.schema.json --instance "$truth" --draft 2020 --assert-format
+
+          adaptive=research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-candidate-schedule.json
+          fixed=research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-fixed-30m-schedule.json
+          dense=research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-fixed-5m-schedule.json
+          jsonschema-cli validate "$schema" --instance "$adaptive" --draft 2020 --assert-format
+          jsonschema-cli validate "$schema" --instance "$fixed" --draft 2020 --assert-format
+          jsonschema-cli validate "$schema" --instance "$dense" --draft 2020 --assert-format
+
+          cargo run --quiet --manifest-path research/terra-preta/tools/event-sampling-audit/Cargo.toml -- "$truth" "$adaptive" "$RUNNER_TEMP/adaptive-report.json"
+          cargo run --quiet --manifest-path research/terra-preta/tools/event-sampling-audit/Cargo.toml -- "$truth" "$fixed" "$RUNNER_TEMP/fixed-report.json"
+          cargo run --quiet --manifest-path research/terra-preta/tools/event-sampling-audit/Cargo.toml -- "$truth" "$dense" "$RUNNER_TEMP/dense-report.json"
+
+          jsonschema-cli validate "$report_schema" --instance "$RUNNER_TEMP/adaptive-report.json" --draft 2020 --assert-format
+          jsonschema-cli validate "$report_schema" --instance "$RUNNER_TEMP/fixed-report.json" --draft 2020 --assert-format
+          jsonschema-cli validate "$report_schema" --instance "$RUNNER_TEMP/dense-report.json" --draft 2020 --assert-format
+
+          jq -e '.fixture_status == "synthetic_only_not_empirical_evidence" and .candidate_sample_count == 54 and .detected_pulse_count == 1 and .pulse_recall == 0.5 and .budget_status == "within_budget" and .pulses[0].integral_status == "qualified_complete_pulse_integral" and .pulses[1].integral_status == "not_detected" and .controls.no_interpolation_pass == true and .controls.evaluator_only_truth_separation_pass == true' "$RUNNER_TEMP/adaptive-report.json"
+          jq -e '.candidate_sample_count == 49 and .detected_pulse_count == 0 and .pulse_recall == 0 and .budget_status == "within_budget"' "$RUNNER_TEMP/fixed-report.json"
+          jq -e '.candidate_sample_count == 289 and .detected_pulse_count == 2 and .pulse_recall == 1 and .budget_status == "over_budget" and all(.pulses[]; .integral_status == "qualified_complete_pulse_integral")' "$RUNNER_TEMP/dense-report.json"
+      - name: Reject fabricated source value and unobserved timestamp
+        run: |
+          truth=research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-event-truth.json
+          schedule=research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-candidate-schedule.json
+          jq '.observations[0].response_value += 0.01' "$schedule" > "$RUNNER_TEMP/fabricated-value.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/event-sampling-audit/Cargo.toml -- "$truth" "$RUNNER_TEMP/fabricated-value.json" "$RUNNER_TEMP/invalid-value-report.json"; then
+            echo "Expected source-value mismatch rejection"
+            exit 1
+          fi
+          jq '.observations[0].time_hours += 0.01' "$schedule" > "$RUNNER_TEMP/unobserved-time.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/event-sampling-audit/Cargo.toml -- "$truth" "$RUNNER_TEMP/unobserved-time.json" "$RUNNER_TEMP/invalid-time-report.json"; then
+            echo "Expected unobserved timestamp rejection"
+            exit 1
+          fi
+      - name: Reject output overwrite
+        run: |
+          report="$RUNNER_TEMP/existing-sampling-report.json"
+          printf '%s\n' 'do-not-overwrite' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/event-sampling-audit/Cargo.toml -- research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-event-truth.json research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-candidate-schedule.json "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"
