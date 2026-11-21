@@ -435,7 +435,9 @@ pub enum IngestError {
     SourceMappingInventoryMismatch,
     #[error("source mapping records do not match the pinned manifest artifact bytes")]
     SourceMappingManifestMismatch,
-    #[error("extraction stage Passed despite unresolved, ambiguous, unsupported or dropped mappings")]
+    #[error(
+        "extraction stage Passed despite unresolved, ambiguous, unsupported or dropped mappings"
+    )]
     FalseExtractionPass,
     #[error("extraction stage has dropped mappings")]
     DroppedMappings,
@@ -467,13 +469,22 @@ pub fn parse_ingest_qualification_json(
 }
 
 fn valid_sha256(value: &str) -> bool {
-    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }
 
 fn valid_uuid(value: &str) -> bool {
-    if value.len() != 36 { return false; }
+    if value.len() != 36 {
+        return false;
+    }
     value.bytes().enumerate().all(|(index, byte)| {
-        if matches!(index, 8 | 13 | 18 | 23) { byte == b'-' } else { byte.is_ascii_hexdigit() }
+        if matches!(index, 8 | 13 | 18 | 23) {
+            byte == b'-'
+        } else {
+            byte.is_ascii_hexdigit()
+        }
     })
 }
 
@@ -492,8 +503,7 @@ fn validate_content_artifact(artifact: &ContentArtifactV1) -> Result<(), IngestE
 }
 
 fn valid_source_uri(value: &str) -> bool {
-    !value.trim().is_empty()
-        && !value.chars().any(|character| character.is_control())
+    !value.trim().is_empty() && !value.chars().any(|character| character.is_control())
 }
 
 fn safe_relative_path(value: &str) -> bool {
@@ -511,9 +521,9 @@ fn safe_relative_path(value: &str) -> bool {
         !part.is_empty()
             && part != "."
             && part != ".."
-            && part.bytes().all(|byte| {
-                byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-')
-            })
+            && part
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
     })
 }
 
@@ -522,7 +532,10 @@ fn add_artifact(
     artifact: &ContentArtifactV1,
 ) -> Result<(), IngestError> {
     validate_content_artifact(artifact)?;
-    let key = (artifact.reference.id.clone(), artifact.reference.kind.clone());
+    let key = (
+        artifact.reference.id.clone(),
+        artifact.reference.kind.clone(),
+    );
     if let Some(existing) = artifacts.get(&key) {
         if existing != artifact {
             return Err(IngestError::ArtifactMetadataConflict(key.0));
@@ -536,18 +549,39 @@ fn add_artifact(
 fn canonical_body(body: &QifIngestQualificationBodyV1) -> QifIngestQualificationBodyV1 {
     let mut canonical = body.clone();
     canonical.documents.sort_by(|left, right| {
-        left.qpid.to_ascii_lowercase().cmp(&right.qpid.to_ascii_lowercase())
+        left.qpid
+            .to_ascii_lowercase()
+            .cmp(&right.qpid.to_ascii_lowercase())
     });
     canonical.external_document_bindings.sort_by(|left, right| {
-        (left.results_qpid.to_ascii_lowercase(), left.local_reference_id)
-            .cmp(&(right.results_qpid.to_ascii_lowercase(), right.local_reference_id))
+        (
+            left.results_qpid.to_ascii_lowercase(),
+            left.local_reference_id,
+        )
+            .cmp(&(
+                right.results_qpid.to_ascii_lowercase(),
+                right.local_reference_id,
+            ))
     });
-    canonical.bundles.xsd.files.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
-    canonical.bundles.xslt.files.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
-    canonical.tools.sort_by(|left, right| left.tool_id.cmp(&right.tool_id));
-    canonical.stage_results.sort_by(|left, right| left.stage.key().cmp(right.stage.key()));
+    canonical
+        .bundles
+        .xsd
+        .files
+        .sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+    canonical
+        .bundles
+        .xslt
+        .files
+        .sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+    canonical
+        .tools
+        .sort_by(|left, right| left.tool_id.cmp(&right.tool_id));
+    canonical
+        .stage_results
+        .sort_by(|left, right| left.stage.key().cmp(right.stage.key()));
     if let Some(extraction) = &mut canonical.extraction {
-        extraction.required_locators = canonical_source_field_locators(&extraction.required_locators);
+        extraction.required_locators =
+            canonical_source_field_locators(&extraction.required_locators);
         extraction.mappings = canonical_source_mapping_records(&extraction.mappings);
     }
     for stage in &mut canonical.stage_results {
@@ -556,9 +590,7 @@ fn canonical_body(body: &QifIngestQualificationBodyV1) -> QifIngestQualification
     canonical
 }
 
-fn canonical_source_field_locators(
-    locators: &[SourceFieldLocatorV1],
-) -> Vec<SourceFieldLocatorV1> {
+fn canonical_source_field_locators(locators: &[SourceFieldLocatorV1]) -> Vec<SourceFieldLocatorV1> {
     let mut canonical = locators.to_vec();
     for locator in &mut canonical {
         locator.document_qpid = locator.document_qpid.to_ascii_lowercase();
@@ -592,15 +624,16 @@ fn canonical_source_mapping_records(
             left.parent_external_document_reference_id,
             left.external_document_reference_id,
             left.external_xid,
-        ).cmp(&(
-            right.document_qpid.to_ascii_lowercase(),
-            right.source_path.clone(),
-            right.source_element_id,
-            right.local_reference_id,
-            right.parent_external_document_reference_id,
-            right.external_document_reference_id,
-            right.external_xid,
-        ))
+        )
+            .cmp(&(
+                right.document_qpid.to_ascii_lowercase(),
+                right.source_path.clone(),
+                right.source_element_id,
+                right.local_reference_id,
+                right.parent_external_document_reference_id,
+                right.external_document_reference_id,
+                right.external_xid,
+            ))
     });
     canonical
 }
@@ -619,7 +652,10 @@ pub fn source_mapping_manifest_bytes(
 }
 
 fn digest_hex(bytes: &[u8]) -> String {
-    Sha256::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect()
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 fn validate_source_field_locator(
@@ -629,11 +665,16 @@ fn validate_source_field_locator(
 ) -> Result<SourceFieldLocatorV1, IngestError> {
     let qpid = locator.document_qpid.to_ascii_lowercase();
     let Some(document) = documents.get(&qpid) else {
-        return Err(IngestError::InvalidSourceMappingLocator(locator.document_qpid.clone()));
+        return Err(IngestError::InvalidSourceMappingLocator(
+            locator.document_qpid.clone(),
+        ));
     };
     if !valid_uuid(&locator.document_qpid)
         || !locator.source_path.starts_with("/QIFDocument/")
-        || locator.source_path.chars().any(|character| character.is_control())
+        || locator
+            .source_path
+            .chars()
+            .any(|character| character.is_control())
         || locator.source_path.trim().is_empty()
         || locator.source_element_id == Some(0)
         || locator.local_reference_id == Some(0)
@@ -647,7 +688,9 @@ fn validate_source_field_locator(
         || locator.external_document_reference_id == Some(0)
         || locator.external_xid == Some(0)
     {
-        return Err(IngestError::InvalidSourceMappingLocator(locator.source_path.clone()));
+        return Err(IngestError::InvalidSourceMappingLocator(
+            locator.source_path.clone(),
+        ));
     }
     if let (Some(reference_id), Some(_xid)) =
         (locator.external_document_reference_id, locator.external_xid)
@@ -655,14 +698,18 @@ fn validate_source_field_locator(
         if document.role != QifDocumentRole::Results
             || !reference_ids.contains(&(qpid.clone(), reference_id))
         {
-            return Err(IngestError::InvalidSourceMappingLocator(locator.source_path.clone()));
+            return Err(IngestError::InvalidSourceMappingLocator(
+                locator.source_path.clone(),
+            ));
         }
     }
     if let Some(parent_reference_id) = locator.parent_external_document_reference_id {
         if document.role != QifDocumentRole::Results
             || !reference_ids.contains(&(qpid.clone(), parent_reference_id))
         {
-            return Err(IngestError::InvalidSourceMappingLocator(locator.source_path.clone()));
+            return Err(IngestError::InvalidSourceMappingLocator(
+                locator.source_path.clone(),
+            ));
         }
     }
     Ok(SourceFieldLocatorV1 {
@@ -691,7 +738,9 @@ fn validate_source_mapping_records(
     for locator in required_locators {
         let canonical = validate_source_field_locator(locator, documents, reference_ids)?;
         if !expected.insert(canonical) {
-            return Err(IngestError::DuplicateSourceMappingLocator(locator.source_path.clone()));
+            return Err(IngestError::DuplicateSourceMappingLocator(
+                locator.source_path.clone(),
+            ));
         }
     }
 
@@ -710,20 +759,34 @@ fn validate_source_mapping_records(
             return Err(IngestError::SourceMappingInventoryMismatch);
         }
         if !observed.insert(canonical) {
-            return Err(IngestError::DuplicateSourceMappingLocator(record.source_path.clone()));
+            return Err(IngestError::DuplicateSourceMappingLocator(
+                record.source_path.clone(),
+            ));
         }
-        if record.mapping_rule_id.trim().is_empty() || record.mapping_profile_version.trim().is_empty() {
-            return Err(IngestError::InvalidSourceMappingRecord(record.source_path.clone()));
+        if record.mapping_rule_id.trim().is_empty()
+            || record.mapping_profile_version.trim().is_empty()
+        {
+            return Err(IngestError::InvalidSourceMappingRecord(
+                record.source_path.clone(),
+            ));
         }
 
         match record.disposition {
             SourceMappingDisposition::Mapped => {
                 mapped += 1;
-                if record.target_object_kind.as_ref().is_none_or(|value| value.trim().is_empty())
-                    || record.target_object_id.as_ref().is_none_or(|value| value.trim().is_empty())
+                if record
+                    .target_object_kind
+                    .as_ref()
+                    .is_none_or(|value| value.trim().is_empty())
+                    || record
+                        .target_object_id
+                        .as_ref()
+                        .is_none_or(|value| value.trim().is_empty())
                     || record.reason_code.is_some()
                 {
-                    return Err(IngestError::InvalidSourceMappingRecord(record.source_path.clone()));
+                    return Err(IngestError::InvalidSourceMappingRecord(
+                        record.source_path.clone(),
+                    ));
                 }
             }
             SourceMappingDisposition::Unresolved
@@ -739,9 +802,14 @@ fn validate_source_mapping_records(
                 }
                 if record.target_object_kind.is_some()
                     || record.target_object_id.is_some()
-                    || record.reason_code.as_ref().is_none_or(|value| value.trim().is_empty())
+                    || record
+                        .reason_code
+                        .as_ref()
+                        .is_none_or(|value| value.trim().is_empty())
                 {
-                    return Err(IngestError::InvalidSourceMappingRecord(record.source_path.clone()));
+                    return Err(IngestError::InvalidSourceMappingRecord(
+                        record.source_path.clone(),
+                    ));
                 }
             }
         }
@@ -796,7 +864,9 @@ pub fn validate_ingest_qualification(
         || qualification.body.benchmark_case_id.trim().is_empty()
         || qualification.body.qif_standard_version != "3.0.0"
     {
-        return Err(IngestError::InvalidIdentity("qualification_id/benchmark_case_id".into()));
+        return Err(IngestError::InvalidIdentity(
+            "qualification_id/benchmark_case_id".into(),
+        ));
     }
 
     let body = &qualification.body;
@@ -812,8 +882,14 @@ pub fn validate_ingest_qualification(
     let mut results_docs = Vec::new();
     let mut plan_docs = BTreeSet::new();
     for document in &body.documents {
-        if document.source_uri.as_ref().is_some_and(|uri| !valid_source_uri(uri)) {
-            return Err(IngestError::InvalidSourceUri(document.source_uri.clone().unwrap_or_default()));
+        if document
+            .source_uri
+            .as_ref()
+            .is_some_and(|uri| !valid_source_uri(uri))
+        {
+            return Err(IngestError::InvalidSourceUri(
+                document.source_uri.clone().unwrap_or_default(),
+            ));
         }
         if !valid_uuid(&document.qpid) {
             return Err(IngestError::InvalidQpid(document.qpid.clone()));
@@ -826,11 +902,14 @@ pub fn validate_ingest_qualification(
         if document.artifact.byte_length > body.sandbox.max_document_bytes {
             return Err(IngestError::DocumentExceedsLimit(document.qpid.clone()));
         }
-        total_source_bytes = total_source_bytes.checked_add(document.artifact.byte_length)
+        total_source_bytes = total_source_bytes
+            .checked_add(document.artifact.byte_length)
             .ok_or(IngestError::TotalInputExceedsLimit)?;
         match document.role {
             QifDocumentRole::Results => results_docs.push(key),
-            QifDocumentRole::Plan => { plan_docs.insert(key); },
+            QifDocumentRole::Plan => {
+                plan_docs.insert(key);
+            }
             QifDocumentRole::Auxiliary => {}
         }
     }
@@ -844,28 +923,49 @@ pub fn validate_ingest_qualification(
     let mut linked_plans = BTreeSet::new();
     for binding in &body.external_document_bindings {
         if binding.local_reference_id == 0
-            || !reference_ids.insert((binding.results_qpid.to_ascii_lowercase(), binding.local_reference_id))
+            || !reference_ids.insert((
+                binding.results_qpid.to_ascii_lowercase(),
+                binding.local_reference_id,
+            ))
         {
-            return Err(IngestError::DuplicateExternalReference(binding.local_reference_id));
+            return Err(IngestError::DuplicateExternalReference(
+                binding.local_reference_id,
+            ));
         }
         if !binding.results_qpid.eq_ignore_ascii_case(&results_qpid) {
-            return Err(IngestError::MissingResultsDocument(binding.results_qpid.clone()));
+            return Err(IngestError::MissingResultsDocument(
+                binding.results_qpid.clone(),
+            ));
         }
         let Some(plan) = documents.get(&binding.target_plan_qpid.to_ascii_lowercase()) else {
-            return Err(IngestError::MissingPlanDocument(binding.target_plan_qpid.clone()));
+            return Err(IngestError::MissingPlanDocument(
+                binding.target_plan_qpid.clone(),
+            ));
         };
         if plan.role != QifDocumentRole::Plan {
-            return Err(IngestError::MissingPlanDocument(binding.target_plan_qpid.clone()));
+            return Err(IngestError::MissingPlanDocument(
+                binding.target_plan_qpid.clone(),
+            ));
         }
-        if binding.source_uri.as_ref().is_some_and(|uri| !valid_source_uri(uri)) {
-            return Err(IngestError::InvalidSourceUri(binding.source_uri.clone().unwrap_or_default()));
+        if binding
+            .source_uri
+            .as_ref()
+            .is_some_and(|uri| !valid_source_uri(uri))
+        {
+            return Err(IngestError::InvalidSourceUri(
+                binding.source_uri.clone().unwrap_or_default(),
+            ));
         }
         if !safe_relative_path(&binding.staged_relative_path) {
-            return Err(IngestError::UnsafeStagedPath(binding.staged_relative_path.clone()));
+            return Err(IngestError::UnsafeStagedPath(
+                binding.staged_relative_path.clone(),
+            ));
         }
         if let Some(existing) = staged_paths.get(&binding.staged_relative_path) {
             if existing != &binding.target_plan_qpid.to_ascii_lowercase() {
-                return Err(IngestError::DuplicateStagedPath(binding.staged_relative_path.clone()));
+                return Err(IngestError::DuplicateStagedPath(
+                    binding.staged_relative_path.clone(),
+                ));
             }
         } else {
             staged_paths.insert(
@@ -874,25 +974,37 @@ pub fn validate_ingest_qualification(
             );
         }
         if plan.source_uri != binding.source_uri {
-            return Err(IngestError::SourceUriMismatch(binding.target_plan_qpid.clone()));
+            return Err(IngestError::SourceUriMismatch(
+                binding.target_plan_qpid.clone(),
+            ));
         }
         linked_plans.insert(binding.target_plan_qpid.to_ascii_lowercase());
     }
     if linked_plans != plan_docs {
-        let unlinked = plan_docs.difference(&linked_plans).next().cloned().unwrap_or_default();
+        let unlinked = plan_docs
+            .difference(&linked_plans)
+            .next()
+            .cloned()
+            .unwrap_or_default();
         return Err(IngestError::UnlinkedPlan(unlinked));
     }
 
     validate_bundle_files(&body.bundles.xsd.entrypoint, &body.bundles.xsd.files)?;
     validate_bundle_files(&body.bundles.xslt.root_stylesheet, &body.bundles.xslt.files)?;
     validate_content_artifact(&body.bundles.xslt.check_parameters)?;
-    let bundle_bytes = body.bundles.xsd.files.iter()
+    let bundle_bytes = body
+        .bundles
+        .xsd
+        .files
+        .iter()
         .chain(body.bundles.xslt.files.iter())
-        .try_fold(body.bundles.xslt.check_parameters.byte_length, |total, file| {
-            total.checked_add(file.artifact.byte_length)
-        })
+        .try_fold(
+            body.bundles.xslt.check_parameters.byte_length,
+            |total, file| total.checked_add(file.artifact.byte_length),
+        )
         .ok_or(IngestError::TotalInputExceedsLimit)?;
-    let total_staged_bytes = total_source_bytes.checked_add(bundle_bytes)
+    let total_staged_bytes = total_source_bytes
+        .checked_add(bundle_bytes)
         .ok_or(IngestError::TotalInputExceedsLimit)?;
     if total_staged_bytes > body.sandbox.max_total_input_bytes {
         return Err(IngestError::TotalInputExceedsLimit);
@@ -912,7 +1024,8 @@ pub fn validate_ingest_qualification(
     }
 
     validate_content_artifact(&body.runtime.runtime_image)?;
-    if body.runtime.runtime_name.trim().is_empty() || body.runtime.runtime_version.trim().is_empty() {
+    if body.runtime.runtime_name.trim().is_empty() || body.runtime.runtime_version.trim().is_empty()
+    {
         return Err(IngestError::InvalidIdentity("runtime".into()));
     }
     if body.runtime.runtime_name.eq_ignore_ascii_case("dotnet")
@@ -929,7 +1042,10 @@ pub fn validate_ingest_qualification(
             || tool.version.trim().is_empty()
             || tool.source_repository.trim().is_empty()
             || tool.source_commit_sha.len() != 40
-            || !tool.source_commit_sha.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+            || !tool
+                .source_commit_sha
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
         {
             return Err(IngestError::InvalidToolCommit(tool.tool_id.clone()));
         }
@@ -938,7 +1054,12 @@ pub fn validate_ingest_qualification(
             return Err(IngestError::ValidatorToolCardinality);
         }
     }
-    for kind in [ValidatorKind::XmlSchema, ValidatorKind::Xslt, ValidatorKind::Extractor, ValidatorKind::TraceResolver] {
+    for kind in [
+        ValidatorKind::XmlSchema,
+        ValidatorKind::Xslt,
+        ValidatorKind::Extractor,
+        ValidatorKind::TraceResolver,
+    ] {
         if tools.values().filter(|tool| tool.kind == kind).count() != 1 {
             return Err(IngestError::ValidatorToolCardinality);
         }
@@ -951,13 +1072,20 @@ pub fn validate_ingest_qualification(
     {
         return Err(IngestError::UnsafeSandboxProfile);
     }
-    if body.sandbox.cpu_limit_seconds == 0 || body.sandbox.cpu_limit_seconds > 600
-        || body.sandbox.memory_limit_bytes == 0 || body.sandbox.memory_limit_bytes > 8 * 1024 * 1024 * 1024
-        || body.sandbox.wall_time_limit_ms == 0 || body.sandbox.wall_time_limit_ms > 600_000
-        || body.sandbox.max_document_bytes == 0 || body.sandbox.max_document_bytes > 100 * 1024 * 1024
-        || body.sandbox.max_total_input_bytes == 0 || body.sandbox.max_total_input_bytes > 1024 * 1024 * 1024
-        || body.sandbox.max_document_count == 0 || body.sandbox.max_document_count > 128
-        || body.sandbox.max_link_recursion_depth == 0 || body.sandbox.max_link_recursion_depth > 8
+    if body.sandbox.cpu_limit_seconds == 0
+        || body.sandbox.cpu_limit_seconds > 600
+        || body.sandbox.memory_limit_bytes == 0
+        || body.sandbox.memory_limit_bytes > 8 * 1024 * 1024 * 1024
+        || body.sandbox.wall_time_limit_ms == 0
+        || body.sandbox.wall_time_limit_ms > 600_000
+        || body.sandbox.max_document_bytes == 0
+        || body.sandbox.max_document_bytes > 100 * 1024 * 1024
+        || body.sandbox.max_total_input_bytes == 0
+        || body.sandbox.max_total_input_bytes > 1024 * 1024 * 1024
+        || body.sandbox.max_document_count == 0
+        || body.sandbox.max_document_count > 128
+        || body.sandbox.max_link_recursion_depth == 0
+        || body.sandbox.max_link_recursion_depth > 8
     {
         return Err(IngestError::InvalidSandboxLimit);
     }
@@ -1005,13 +1133,21 @@ pub fn validate_ingest_qualification(
                 validate_content_artifact(report)?;
             }
         }
-        if matches!(stage.disposition, StageDisposition::Failed | StageDisposition::Warning | StageDisposition::Unknown)
-            && stage.reason_codes.is_empty()
+        if matches!(
+            stage.disposition,
+            StageDisposition::Failed | StageDisposition::Warning | StageDisposition::Unknown
+        ) && stage.reason_codes.is_empty()
         {
-            return Err(IngestError::InvalidIdentity(format!("missing reason_codes:{}", stage.stage.key())));
+            return Err(IngestError::InvalidIdentity(format!(
+                "missing reason_codes:{}",
+                stage.stage.key()
+            )));
         }
         if stage.reason_codes.iter().any(|code| code.trim().is_empty()) {
-            return Err(IngestError::InvalidIdentity(format!("reason_codes:{}", stage.stage.key())));
+            return Err(IngestError::InvalidIdentity(format!(
+                "reason_codes:{}",
+                stage.stage.key()
+            )));
         }
     }
     for stage in ValidationStage::all() {
@@ -1021,15 +1157,27 @@ pub fn validate_ingest_qualification(
     }
 
     let prerequisite_pairs = [
-        (ValidationStage::XsdStructure, ValidationStage::XmlWellFormedness),
+        (
+            ValidationStage::XsdStructure,
+            ValidationStage::XmlWellFormedness,
+        ),
         (ValidationStage::XsltFormat, ValidationStage::XsdStructure),
         (ValidationStage::XsltQuality, ValidationStage::XsdStructure),
         (ValidationStage::XsltQuality, ValidationStage::XsltFormat),
         (ValidationStage::XsltSemantic, ValidationStage::XsdStructure),
         (ValidationStage::XsltSemantic, ValidationStage::XsltFormat),
-        (ValidationStage::ExtractionFidelity, ValidationStage::XsltQuality),
-        (ValidationStage::ExtractionFidelity, ValidationStage::XsltSemantic),
-        (ValidationStage::ExternalReferenceResolution, ValidationStage::ExtractionFidelity),
+        (
+            ValidationStage::ExtractionFidelity,
+            ValidationStage::XsltQuality,
+        ),
+        (
+            ValidationStage::ExtractionFidelity,
+            ValidationStage::XsltSemantic,
+        ),
+        (
+            ValidationStage::ExternalReferenceResolution,
+            ValidationStage::ExtractionFidelity,
+        ),
     ];
     for (stage, prerequisite) in prerequisite_pairs {
         if stages[stage.key()].disposition == StageDisposition::Passed
@@ -1042,7 +1190,10 @@ pub fn validate_ingest_qualification(
         }
     }
 
-    match (stages[ValidationStage::ExtractionFidelity.key()].disposition, &body.extraction) {
+    match (
+        stages[ValidationStage::ExtractionFidelity.key()].disposition,
+        &body.extraction,
+    ) {
         (StageDisposition::NotRun, None) => {}
         (StageDisposition::NotRun, Some(_)) | (_, None) => {
             return Err(IngestError::InvalidExtractionEvidence);
@@ -1064,16 +1215,16 @@ pub fn validate_ingest_qualification(
                 &documents,
                 &reference_ids,
             )?;
-            let canonical_mapping_bytes = source_mapping_manifest_bytes(
-                &extraction.required_locators,
-                &extraction.mappings,
-            )?;
-            if extraction.source_mapping_manifest.byte_length != canonical_mapping_bytes.len() as u64
+            let canonical_mapping_bytes =
+                source_mapping_manifest_bytes(&extraction.required_locators, &extraction.mappings)?;
+            if extraction.source_mapping_manifest.byte_length
+                != canonical_mapping_bytes.len() as u64
                 || extraction.source_mapping_manifest.sha256 != digest_hex(&canonical_mapping_bytes)
             {
                 return Err(IngestError::SourceMappingManifestMismatch);
             }
-            let accounted = counts.mapped
+            let accounted = counts
+                .mapped
                 .checked_add(counts.unresolved)
                 .and_then(|value| value.checked_add(counts.ambiguous))
                 .and_then(|value| value.checked_add(counts.unsupported))
@@ -1097,7 +1248,8 @@ pub fn validate_ingest_qualification(
         }
     }
 
-    if stages[ValidationStage::ExternalReferenceResolution.key()].disposition == StageDisposition::Passed
+    if stages[ValidationStage::ExternalReferenceResolution.key()].disposition
+        == StageDisposition::Passed
         && body.extraction.is_none()
     {
         return Err(IngestError::InvalidExtractionEvidence);
@@ -1141,14 +1293,23 @@ pub fn verify_ingest_payloads(
     for file in &qualification.body.bundles.xslt.files {
         add_artifact(&mut expected, &file.artifact)?;
     }
-    add_artifact(&mut expected, &qualification.body.bundles.xslt.root_stylesheet)?;
-    add_artifact(&mut expected, &qualification.body.bundles.xslt.check_parameters)?;
+    add_artifact(
+        &mut expected,
+        &qualification.body.bundles.xslt.root_stylesheet,
+    )?;
+    add_artifact(
+        &mut expected,
+        &qualification.body.bundles.xslt.check_parameters,
+    )?;
     add_artifact(&mut expected, &qualification.body.runtime.runtime_image)?;
     for tool in &qualification.body.tools {
         add_artifact(&mut expected, &tool.executable)?;
     }
     add_artifact(&mut expected, &qualification.body.sandbox.policy_artifact)?;
-    add_artifact(&mut expected, &qualification.body.sandbox.runner_attestation)?;
+    add_artifact(
+        &mut expected,
+        &qualification.body.sandbox.runner_attestation,
+    )?;
     for stage in &qualification.body.stage_results {
         if let Some(report) = &stage.report_artifact {
             add_artifact(&mut expected, report)?;
@@ -1183,7 +1344,10 @@ pub fn verify_ingest_payloads(
         checked_artifacts: expected.len(),
         profile_is_normative: qualification.body.qif_profile.is_normative(),
         legacy_runtime: qualification.body.runtime.support == RuntimeSupport::UnsupportedLegacy,
-        all_stages_passed: qualification.body.stage_results.iter()
+        all_stages_passed: qualification
+            .body
+            .stage_results
+            .iter()
             .all(|stage| stage.disposition == StageDisposition::Passed),
         sandbox_profile_declared: true,
     })
@@ -1196,9 +1360,15 @@ mod tests {
 
     fn artifact(kind: &str, format_id: &str, bytes: &[u8]) -> ContentArtifactV1 {
         let digest = Sha256::digest(bytes);
-        let sha256 = digest.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+        let sha256 = digest
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
         ContentArtifactV1 {
-            reference: ArtifactRef { id: format!("sha256:{sha256}"), kind: kind.into() },
+            reference: ArtifactRef {
+                id: format!("sha256:{sha256}"),
+                kind: kind.into(),
+            },
             sha256,
             byte_length: bytes.len() as u64,
             media_type: "application/octet-stream".into(),
@@ -1237,46 +1407,80 @@ mod tests {
         let parameters = artifact("xslt_parameters", "QIF_CHECK_PARAMETERS_V1", params_bytes);
         let runtime = artifact("runtime_image", "DOTNET_10_LTS", runtime_bytes);
         let policy = artifact("sandbox_policy", "QIF_OFFLINE_SANDBOX_V1", policy_bytes);
-        let runner = artifact("runner_attestation", "HOST_RUNNER_ATTESTATION_V1", runner_bytes);
+        let runner = artifact(
+            "runner_attestation",
+            "HOST_RUNNER_ATTESTATION_V1",
+            runner_bytes,
+        );
         let tools = [
             ValidatorToolV1 {
-                tool_id: "xml".into(), kind: ValidatorKind::XmlSchema, name: "xml-validator".into(),
-                version: "1.0".into(), source_repository: "https://example.invalid/validator".into(),
-                source_commit_sha: "a".repeat(40), executable: artifact("validator_xml", "XML_VALIDATOR", tool_bytes[0]),
+                tool_id: "xml".into(),
+                kind: ValidatorKind::XmlSchema,
+                name: "xml-validator".into(),
+                version: "1.0".into(),
+                source_repository: "https://example.invalid/validator".into(),
+                source_commit_sha: "a".repeat(40),
+                executable: artifact("validator_xml", "XML_VALIDATOR", tool_bytes[0]),
             },
             ValidatorToolV1 {
-                tool_id: "xslt".into(), kind: ValidatorKind::Xslt, name: "qif-xslt".into(),
-                version: "1.0".into(), source_repository: "https://example.invalid/validator".into(),
-                source_commit_sha: "b".repeat(40), executable: artifact("validator_xslt", "XSLT_VALIDATOR", tool_bytes[1]),
+                tool_id: "xslt".into(),
+                kind: ValidatorKind::Xslt,
+                name: "qif-xslt".into(),
+                version: "1.0".into(),
+                source_repository: "https://example.invalid/validator".into(),
+                source_commit_sha: "b".repeat(40),
+                executable: artifact("validator_xslt", "XSLT_VALIDATOR", tool_bytes[1]),
             },
             ValidatorToolV1 {
-                tool_id: "extractor".into(), kind: ValidatorKind::Extractor, name: "qif-extractor".into(),
-                version: "1.0".into(), source_repository: "https://example.invalid/extractor".into(),
-                source_commit_sha: "c".repeat(40), executable: artifact("qif_extractor", "QIF_EXTRACTOR", tool_bytes[2]),
+                tool_id: "extractor".into(),
+                kind: ValidatorKind::Extractor,
+                name: "qif-extractor".into(),
+                version: "1.0".into(),
+                source_repository: "https://example.invalid/extractor".into(),
+                source_commit_sha: "c".repeat(40),
+                executable: artifact("qif_extractor", "QIF_EXTRACTOR", tool_bytes[2]),
             },
             ValidatorToolV1 {
-                tool_id: "trace".into(), kind: ValidatorKind::TraceResolver, name: "qif-trace".into(),
-                version: "1.0".into(), source_repository: "https://example.invalid/trace".into(),
-                source_commit_sha: "d".repeat(40), executable: artifact("qif_trace", "QIF_TRACE_RESOLVER", tool_bytes[3]),
+                tool_id: "trace".into(),
+                kind: ValidatorKind::TraceResolver,
+                name: "qif-trace".into(),
+                version: "1.0".into(),
+                source_repository: "https://example.invalid/trace".into(),
+                source_commit_sha: "d".repeat(40),
+                executable: artifact("qif_trace", "QIF_TRACE_RESOLVER", tool_bytes[3]),
             },
         ];
-        let stages = ValidationStage::all().into_iter().enumerate().map(|(index, stage)| {
-            let tool_id = match stage {
-                ValidationStage::XmlWellFormedness | ValidationStage::XsdStructure => "xml",
-                ValidationStage::XsltFormat | ValidationStage::XsltQuality | ValidationStage::XsltSemantic => "xslt",
-                ValidationStage::ExtractionFidelity => "extractor",
-                ValidationStage::ExternalReferenceResolution => "trace",
-            };
-            StageResultV1 {
-                stage,
-                disposition: StageDisposition::Passed,
-                validator_tool_id: Some(tool_id.into()),
-                report_artifact: Some(artifact("stage_report", "QIF_STAGE_REPORT", report_bytes[index])),
-                reason_codes: Vec::new(),
-            }
-        }).collect();
+        let stages = ValidationStage::all()
+            .into_iter()
+            .enumerate()
+            .map(|(index, stage)| {
+                let tool_id = match stage {
+                    ValidationStage::XmlWellFormedness | ValidationStage::XsdStructure => "xml",
+                    ValidationStage::XsltFormat
+                    | ValidationStage::XsltQuality
+                    | ValidationStage::XsltSemantic => "xslt",
+                    ValidationStage::ExtractionFidelity => "extractor",
+                    ValidationStage::ExternalReferenceResolution => "trace",
+                };
+                StageResultV1 {
+                    stage,
+                    disposition: StageDisposition::Passed,
+                    validator_tool_id: Some(tool_id.into()),
+                    report_artifact: Some(artifact(
+                        "stage_report",
+                        "QIF_STAGE_REPORT",
+                        report_bytes[index],
+                    )),
+                    reason_codes: Vec::new(),
+                }
+            })
+            .collect();
 
-        let normalized_trace = artifact("normalized_qif_trace", "AeroQifExternalReferenceTraceV1", b"normalized trace bytes");
+        let normalized_trace = artifact(
+            "normalized_qif_trace",
+            "AeroQifExternalReferenceTraceV1",
+            b"normalized trace bytes",
+        );
         let mapping_records: Vec<SourceMappingRecordV1> = (1u32..=10).map(|id| {
             SourceMappingRecordV1 {
                 document_qpid: "10000000-0000-4000-8000-000000000001".into(),
@@ -1297,7 +1501,8 @@ mod tests {
                 reason_code: None,
             }
         }).collect();
-        let required_locators: Vec<SourceFieldLocatorV1> = mapping_records.iter()
+        let required_locators: Vec<SourceFieldLocatorV1> = mapping_records
+            .iter()
             .map(source_locator_from_mapping)
             .collect();
         let mapping_manifest_bytes =
@@ -1313,33 +1518,49 @@ mod tests {
             qif_standard_version: "3.0.0".into(),
             qif_profile: QifValidationProfile::Qif3Normative,
             documents: vec![
-                QifDocumentInputV1 { qpid: "10000000-0000-4000-8000-000000000001".into(), role: QifDocumentRole::Results, artifact: results.clone(), source_uri: None },
-                QifDocumentInputV1 { qpid: "20000000-0000-4000-8000-000000000002".into(), role: QifDocumentRole::Plan, artifact: plan.clone(), source_uri: Some("https://vendor.example/qif/Plan%20A.qif".into()) },
-            ],
-            external_document_bindings: vec![
-                ExternalDocumentBindingV1 {
-                    results_qpid: "10000000-0000-4000-8000-000000000001".into(),
-                    local_reference_id: 7,
-                    target_plan_qpid: "20000000-0000-4000-8000-000000000002".into(),
+                QifDocumentInputV1 {
+                    qpid: "10000000-0000-4000-8000-000000000001".into(),
+                    role: QifDocumentRole::Results,
+                    artifact: results.clone(),
+                    source_uri: None,
+                },
+                QifDocumentInputV1 {
+                    qpid: "20000000-0000-4000-8000-000000000002".into(),
+                    role: QifDocumentRole::Plan,
+                    artifact: plan.clone(),
                     source_uri: Some("https://vendor.example/qif/Plan%20A.qif".into()),
-                    staged_relative_path: "linked/Plan-A.qif".into(),
                 },
             ],
+            external_document_bindings: vec![ExternalDocumentBindingV1 {
+                results_qpid: "10000000-0000-4000-8000-000000000001".into(),
+                local_reference_id: 7,
+                target_plan_qpid: "20000000-0000-4000-8000-000000000002".into(),
+                source_uri: Some("https://vendor.example/qif/Plan%20A.qif".into()),
+                staged_relative_path: "linked/Plan-A.qif".into(),
+            }],
             bundles: ValidationBundlesV1 {
                 xsd: XsdBundleV1 {
                     entrypoint: xsd.clone(),
-                    files: vec![BundleFileV1 { relative_path: "QIFDocument.xsd".into(), artifact: xsd.clone() }],
+                    files: vec![BundleFileV1 {
+                        relative_path: "QIFDocument.xsd".into(),
+                        artifact: xsd.clone(),
+                    }],
                 },
                 xslt: XsltBundleV1 {
                     root_stylesheet: xslt.clone(),
-                    files: vec![BundleFileV1 { relative_path: "Check.xsl".into(), artifact: xslt.clone() }],
+                    files: vec![BundleFileV1 {
+                        relative_path: "Check.xsl".into(),
+                        artifact: xslt.clone(),
+                    }],
                     check_parameters: parameters.clone(),
                     profile: QifValidationProfile::Qif3Normative,
                 },
             },
             runtime: ValidatorRuntimeV1 {
-                runtime_name: "dotnet".into(), runtime_version: "10.0 LTS".into(),
-                support: RuntimeSupport::SupportedLts, runtime_image: runtime.clone(),
+                runtime_name: "dotnet".into(),
+                runtime_version: "10.0 LTS".into(),
+                support: RuntimeSupport::SupportedLts,
+                runtime_image: runtime.clone(),
             },
             tools: tools.to_vec(),
             sandbox: SandboxProfileV1 {
@@ -1364,7 +1585,12 @@ mod tests {
                 required_locators,
                 mappings: mapping_records,
                 mapping_counts: ExtractionMappingCountsV1 {
-                    total_required: 10, mapped: 10, unresolved: 0, ambiguous: 0, unsupported: 0, dropped: 0,
+                    total_required: 10,
+                    mapped: 10,
+                    unresolved: 0,
+                    ambiguous: 0,
+                    unsupported: 0,
+                    dropped: 0,
                 },
             }),
         };
@@ -1386,30 +1612,38 @@ mod tests {
             (runner.reference.clone(), runner_bytes.to_vec()),
         ];
         for (index, tool) in tools.iter().enumerate() {
-            payloads.push((tool.executable.reference.clone(), tool_bytes[index].to_vec()));
+            payloads.push((
+                tool.executable.reference.clone(),
+                tool_bytes[index].to_vec(),
+            ));
         }
         for (index, stage) in qualification.body.stage_results.iter().enumerate() {
-            payloads.push((stage.report_artifact.as_ref().unwrap().reference.clone(), report_bytes[index].to_vec()));
+            payloads.push((
+                stage.report_artifact.as_ref().unwrap().reference.clone(),
+                report_bytes[index].to_vec(),
+            ));
         }
-        payloads.push((normalized_trace.reference.clone(), b"normalized trace bytes".to_vec()));
+        payloads.push((
+            normalized_trace.reference.clone(),
+            b"normalized trace bytes".to_vec(),
+        ));
         payloads.push((mapping_manifest.reference.clone(), mapping_manifest_bytes));
         (qualification, payloads)
     }
 
     fn borrowed(payloads: &[(ArtifactRef, Vec<u8>)]) -> Vec<(&ArtifactRef, &[u8])> {
-        payloads.iter().map(|(reference, bytes)| (reference, bytes.as_slice())).collect()
+        payloads
+            .iter()
+            .map(|(reference, bytes)| (reference, bytes.as_slice()))
+            .collect()
     }
 
     fn refresh_mapping_manifest(extraction: &mut ExtractionEvidenceV1) {
-        let bytes = source_mapping_manifest_bytes(
-            &extraction.required_locators,
-            &extraction.mappings,
-        ).unwrap();
-        extraction.source_mapping_manifest = artifact(
-            "source_mapping",
-            "AERO_QIF_SOURCE_MAPPING_V1",
-            &bytes,
-        );
+        let bytes =
+            source_mapping_manifest_bytes(&extraction.required_locators, &extraction.mappings)
+                .unwrap();
+        extraction.source_mapping_manifest =
+            artifact("source_mapping", "AERO_QIF_SOURCE_MAPPING_V1", &bytes);
     }
 
     #[test]
@@ -1428,7 +1662,9 @@ mod tests {
         let (qualification, _) = fixture();
         assert!(validate_ingest_qualification(&qualification).is_ok());
         assert_eq!(
-            qualification.body.external_document_bindings[0].source_uri.as_deref(),
+            qualification.body.external_document_bindings[0]
+                .source_uri
+                .as_deref(),
             Some("https://vendor.example/qif/Plan%20A.qif")
         );
         assert_eq!(
@@ -1471,8 +1707,12 @@ mod tests {
     #[test]
     fn stage_cannot_pass_when_prerequisite_failed() {
         let (mut qualification, _) = fixture();
-        let xsd = qualification.body.stage_results.iter_mut()
-            .find(|stage| stage.stage == ValidationStage::XsdStructure).unwrap();
+        let xsd = qualification
+            .body
+            .stage_results
+            .iter_mut()
+            .find(|stage| stage.stage == ValidationStage::XsdStructure)
+            .unwrap();
         xsd.disposition = StageDisposition::Failed;
         xsd.reason_codes.push("XSD_INVALID".into());
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
@@ -1485,19 +1725,33 @@ mod tests {
     #[test]
     fn blocked_stage_is_distinct_from_not_run_and_requires_reason() {
         let (mut qualification, _) = fixture();
-        let semantic = qualification.body.stage_results.iter_mut()
-            .find(|stage| stage.stage == ValidationStage::XsltSemantic).unwrap();
+        let semantic = qualification
+            .body
+            .stage_results
+            .iter_mut()
+            .find(|stage| stage.stage == ValidationStage::XsltSemantic)
+            .unwrap();
         semantic.disposition = StageDisposition::Blocked;
         semantic.validator_tool_id = None;
         semantic.report_artifact = None;
-        semantic.reason_codes.push("LINKED_DOCUMENT_STAGING_BLOCKED".into());
-        let extraction = qualification.body.stage_results.iter_mut()
-            .find(|stage| stage.stage == ValidationStage::ExtractionFidelity).unwrap();
+        semantic
+            .reason_codes
+            .push("LINKED_DOCUMENT_STAGING_BLOCKED".into());
+        let extraction = qualification
+            .body
+            .stage_results
+            .iter_mut()
+            .find(|stage| stage.stage == ValidationStage::ExtractionFidelity)
+            .unwrap();
         extraction.disposition = StageDisposition::NotRun;
         extraction.validator_tool_id = None;
         extraction.report_artifact = None;
-        let trace = qualification.body.stage_results.iter_mut()
-            .find(|stage| stage.stage == ValidationStage::ExternalReferenceResolution).unwrap();
+        let trace = qualification
+            .body
+            .stage_results
+            .iter_mut()
+            .find(|stage| stage.stage == ValidationStage::ExternalReferenceResolution)
+            .unwrap();
         trace.disposition = StageDisposition::NotRun;
         trace.validator_tool_id = None;
         trace.report_artifact = None;
@@ -1509,8 +1763,12 @@ mod tests {
     #[test]
     fn stage_with_unexplained_warning_is_rejected() {
         let (mut qualification, _) = fixture();
-        let stage = qualification.body.stage_results.iter_mut()
-            .find(|stage| stage.stage == ValidationStage::XsltQuality).unwrap();
+        let stage = qualification
+            .body
+            .stage_results
+            .iter_mut()
+            .find(|stage| stage.stage == ValidationStage::XsltQuality)
+            .unwrap();
         stage.disposition = StageDisposition::Warning;
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
         assert!(matches!(
@@ -1572,7 +1830,10 @@ mod tests {
         let (mut qualification, _) = fixture();
         qualification.body.sandbox.network = NetworkPolicy::Enabled;
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
-        assert_eq!(validate_ingest_qualification(&qualification), Err(IngestError::UnsafeSandboxProfile));
+        assert_eq!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::UnsafeSandboxProfile)
+        );
     }
 
     #[test]
@@ -1580,15 +1841,22 @@ mod tests {
         let (mut qualification, _) = fixture();
         qualification.body.sandbox.filesystem = FilesystemPolicy::Unrestricted;
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
-        assert_eq!(validate_ingest_qualification(&qualification), Err(IngestError::UnsafeSandboxProfile));
+        assert_eq!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::UnsafeSandboxProfile)
+        );
     }
 
     #[test]
     fn staged_path_traversal_is_rejected() {
         let (mut qualification, _) = fixture();
-        qualification.body.external_document_bindings[0].staged_relative_path = "../outside/Plan.qif".into();
+        qualification.body.external_document_bindings[0].staged_relative_path =
+            "../outside/Plan.qif".into();
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
-        assert!(matches!(validate_ingest_qualification(&qualification), Err(IngestError::UnsafeStagedPath(_))));
+        assert!(matches!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::UnsafeStagedPath(_))
+        ));
     }
 
     #[test]
@@ -1596,7 +1864,10 @@ mod tests {
         let (mut qualification, _) = fixture();
         qualification.body.bundles.xslt.profile = QifValidationProfile::Qif3PlusPreview;
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
-        assert_eq!(validate_ingest_qualification(&qualification), Err(IngestError::BundleProfileMismatch));
+        assert_eq!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::BundleProfileMismatch)
+        );
     }
 
     #[test]
@@ -1620,7 +1891,10 @@ mod tests {
         extraction.mappings[0].reason_code = Some("TARGET_NOT_FOUND".into());
         refresh_mapping_manifest(extraction);
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
-        assert_eq!(validate_ingest_qualification(&qualification), Err(IngestError::FalseExtractionPass));
+        assert_eq!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::FalseExtractionPass)
+        );
     }
 
     #[test]
@@ -1634,18 +1908,31 @@ mod tests {
         extraction.mappings[0].target_object_id = None;
         extraction.mappings[0].reason_code = Some("UNMAPPED_SOURCE_FIELD".into());
         refresh_mapping_manifest(extraction);
-        let stage = qualification.body.stage_results.iter_mut()
-            .find(|stage| stage.stage == ValidationStage::ExtractionFidelity).unwrap();
+        let stage = qualification
+            .body
+            .stage_results
+            .iter_mut()
+            .find(|stage| stage.stage == ValidationStage::ExtractionFidelity)
+            .unwrap();
         stage.disposition = StageDisposition::Warning;
         stage.reason_codes.push("DROPPED_SOURCE_FIELDS".into());
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
-        assert_eq!(validate_ingest_qualification(&qualification), Err(IngestError::DroppedMappings));
+        assert_eq!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::DroppedMappings)
+        );
     }
 
     #[test]
     fn missing_mapping_row_cannot_shrink_the_frozen_source_inventory() {
         let (mut qualification, _) = fixture();
-        qualification.body.extraction.as_mut().unwrap().mappings.pop();
+        qualification
+            .body
+            .extraction
+            .as_mut()
+            .unwrap()
+            .mappings
+            .pop();
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
         assert_eq!(
             validate_ingest_qualification(&qualification),
@@ -1657,7 +1944,9 @@ mod tests {
     fn mapping_row_cannot_add_a_locator_outside_the_frozen_inventory() {
         let (mut qualification, _) = fixture();
         let extraction = qualification.body.extraction.as_mut().unwrap();
-        extraction.mappings[0].source_path.push_str("/UnlistedField");
+        extraction.mappings[0]
+            .source_path
+            .push_str("/UnlistedField");
         refresh_mapping_manifest(extraction);
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
         assert_eq!(
@@ -1774,15 +2063,15 @@ mod tests {
     fn source_mapping_manifest_bytes_are_order_invariant() {
         let (qualification, _) = fixture();
         let extraction = qualification.body.extraction.as_ref().unwrap();
-        let forward = source_mapping_manifest_bytes(
-            &extraction.required_locators,
-            &extraction.mappings,
-        ).unwrap();
+        let forward =
+            source_mapping_manifest_bytes(&extraction.required_locators, &extraction.mappings)
+                .unwrap();
         let mut reversed_mappings = extraction.mappings.clone();
         reversed_mappings.reverse();
         let mut reversed_locators = extraction.required_locators.clone();
         reversed_locators.reverse();
-        let backward = source_mapping_manifest_bytes(&reversed_locators, &reversed_mappings).unwrap();
+        let backward =
+            source_mapping_manifest_bytes(&reversed_locators, &reversed_mappings).unwrap();
         assert_eq!(forward, backward);
     }
 
@@ -1801,7 +2090,13 @@ mod tests {
     #[test]
     fn source_mapping_counts_must_match_declared_rows() {
         let (mut qualification, _) = fixture();
-        qualification.body.extraction.as_mut().unwrap().mapping_counts.mapped = 9;
+        qualification
+            .body
+            .extraction
+            .as_mut()
+            .unwrap()
+            .mapping_counts
+            .mapped = 9;
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
         assert_eq!(
             validate_ingest_qualification(&qualification),
@@ -1837,7 +2132,8 @@ mod tests {
     #[test]
     fn external_source_locator_must_reference_a_declared_results_binding() {
         let (mut qualification, _) = fixture();
-        qualification.body.extraction.as_mut().unwrap().mappings[0].external_document_reference_id = Some(99);
+        qualification.body.extraction.as_mut().unwrap().mappings[0]
+            .external_document_reference_id = Some(99);
         refresh_mapping_manifest(qualification.body.extraction.as_mut().unwrap());
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
         assert!(matches!(
@@ -1851,24 +2147,37 @@ mod tests {
         let (mut qualification, _) = fixture();
         qualification.body.stage_results.pop();
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
-        assert_eq!(validate_ingest_qualification(&qualification), Err(IngestError::StageSetMismatch));
+        assert_eq!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::StageSetMismatch)
+        );
     }
 
     #[test]
     fn wrong_tool_kind_for_stage_is_rejected() {
         let (mut qualification, _) = fixture();
-        let stage = qualification.body.stage_results.iter_mut()
-            .find(|stage| stage.stage == ValidationStage::XsltSemantic).unwrap();
+        let stage = qualification
+            .body
+            .stage_results
+            .iter_mut()
+            .find(|stage| stage.stage == ValidationStage::XsltSemantic)
+            .unwrap();
         stage.validator_tool_id = Some("xml".into());
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
-        assert!(matches!(validate_ingest_qualification(&qualification), Err(IngestError::WrongStageToolKind { .. })));
+        assert!(matches!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::WrongStageToolKind { .. })
+        ));
     }
 
     #[test]
     fn receipt_digest_mutation_is_rejected() {
         let (mut qualification, _) = fixture();
         qualification.receipt_sha256 = "0".repeat(64);
-        assert_eq!(validate_ingest_qualification(&qualification), Err(IngestError::ReceiptDigestMismatch));
+        assert_eq!(
+            validate_ingest_qualification(&qualification),
+            Err(IngestError::ReceiptDigestMismatch)
+        );
     }
 
     #[test]
@@ -1879,8 +2188,17 @@ mod tests {
         qualification.body.external_document_bindings.reverse();
         qualification.body.tools.reverse();
         qualification.body.stage_results.reverse();
-        qualification.body.extraction.as_mut().unwrap().mappings.reverse();
-        assert_eq!(compute_ingest_receipt_digest(&qualification).unwrap(), before);
+        qualification
+            .body
+            .extraction
+            .as_mut()
+            .unwrap()
+            .mappings
+            .reverse();
+        assert_eq!(
+            compute_ingest_receipt_digest(&qualification).unwrap(),
+            before
+        );
     }
 
     #[test]
@@ -1889,7 +2207,10 @@ mod tests {
         let mut value = serde_json::to_value(&qualification).unwrap();
         value["body"]["sandbox"]["network_bypass"] = Value::Bool(true);
         let bytes = serde_json::to_vec(&value).unwrap();
-        assert!(matches!(parse_ingest_qualification_json(&bytes), Err(IngestError::InvalidJson(_))));
+        assert!(matches!(
+            parse_ingest_qualification_json(&bytes),
+            Err(IngestError::InvalidJson(_))
+        ));
     }
 
     #[test]
@@ -1898,7 +2219,9 @@ mod tests {
         payloads[0].1.push(b'X');
         assert!(matches!(
             verify_ingest_payloads(&qualification, &borrowed(&payloads)),
-            Err(IngestError::ArtifactVerification(ReceiptError::ArtifactByteLengthMismatch(_)))
+            Err(IngestError::ArtifactVerification(
+                ReceiptError::ArtifactByteLengthMismatch(_)
+            ))
         ));
     }
 }
