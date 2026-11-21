@@ -746,6 +746,21 @@ fn verify_assessments(
     (ids, completed_screen, evidence_by_id)
 }
 
+fn canonical_pair_manifest_sha256(pairs: &[Value]) -> Option<String> {
+    let mut ordered = pairs.to_vec();
+    ordered.sort_by(|left, right| {
+        get_str(left, "pair_id").unwrap_or("").cmp(get_str(right, "pair_id").unwrap_or(""))
+    });
+    // serde_json::Map is key-sorted in this build; domain separation and
+    // length-prefixing make the digest contract explicit and versioned.
+    let canonical = serde_json::to_vec(&ordered).ok()?;
+    let mut hasher = Sha256::new();
+    hasher.update(b"mycelix-space-pair-manifest-v1");
+    hasher.update((canonical.len() as u64).to_be_bytes());
+    hasher.update(canonical);
+    Some(format!("{:x}", hasher.finalize()))
+}
+
 fn verify_pair_coverage(
     package: &Value,
     requested_ids: &BTreeSet<String>,
@@ -770,7 +785,21 @@ fn verify_pair_coverage(
     if get_str(ledger, "scope_kind") != Some("primary_vs_each_requested_secondary") {
         findings.fail("INVALID_PAIR_SCOPE", "pair coverage must enumerate the primary against every requested secondary");
     }
-    if !get_str(ledger, "pair_manifest_sha256").is_some_and(is_sha256) {
+    let declared_pair_digest = get_str(ledger, "pair_manifest_sha256");
+    match canonical_pair_manifest_sha256(pairs) {
+        Some(actual) if declared_pair_digest == Some(actual.as_str()) => {
+            findings.check("canonical_pair_manifest_sha256");
+        }
+        Some(_) => findings.fail(
+            "PAIR_MANIFEST_DIGEST_MISMATCH",
+            "pair_manifest_sha256 does not match the canonical, pair-id-sorted ledger",
+        ),
+        None => findings.fail(
+            "PAIR_MANIFEST_DIGEST_UNAVAILABLE",
+            "pair ledger could not be canonically serialized for digest verification",
+        ),
+    }
+    if !declared_pair_digest.is_some_and(is_sha256) {
         findings.fail("INVALID_PAIR_MANIFEST_DIGEST", "pair_manifest_sha256 must be a lowercase SHA-256 digest");
     }
     if get_u64(ledger, "requested_pair_count") != Some(expected_count as u64) {
