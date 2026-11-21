@@ -1149,6 +1149,81 @@ mod tests {
     }
 
     #[test]
+    fn group_limits_reject_edge_and_unique_node_overflow() {
+        let one_edge = [GroupEdge {
+            child: group("a"),
+            parent: group("b"),
+        }];
+        assert_eq!(
+            expand_group_ancestors(
+                &[group("a")],
+                &one_edge,
+                ExpansionLimits {
+                    max_depth: 2,
+                    max_nodes: 2,
+                    max_edges: 0,
+                }
+            ),
+            Err(GroupExpansionError::EdgeLimitExceeded)
+        );
+        assert_eq!(
+            expand_group_ancestors(
+                &[group("a")],
+                &one_edge,
+                ExpansionLimits {
+                    max_depth: 2,
+                    max_nodes: 1,
+                    max_edges: 1,
+                }
+            ),
+            Err(GroupExpansionError::NodeLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn canonical_lease_encoding_commits_clock_profile_and_minimum_frontier() {
+        let scope = scope();
+        let base = OfflineLease::new(
+            scope.clone(),
+            12,
+            frontier(vec![]),
+            [7; 32],
+            clock_profile("trusted-utc-v1"),
+            100,
+            100,
+            200,
+            5,
+        )
+        .unwrap();
+        let other_clock = OfflineLease::new(
+            scope.clone(),
+            12,
+            frontier(vec![]),
+            [7; 32],
+            clock_profile("local-wall-clock"),
+            100,
+            100,
+            200,
+            5,
+        )
+        .unwrap();
+        let other_frontier = OfflineLease::new(
+            scope,
+            12,
+            frontier(vec![position("issuer-a", 4, 4)]),
+            [7; 32],
+            clock_profile("trusted-utc-v1"),
+            100,
+            100,
+            200,
+            5,
+        )
+        .unwrap();
+        assert_ne!(base.canonical_bytes().unwrap(), other_clock.canonical_bytes().unwrap());
+        assert_ne!(base.canonical_bytes().unwrap(), other_frontier.canonical_bytes().unwrap());
+    }
+
+    #[test]
     fn group_budget_exhaustion_is_not_silently_truncated() {
         let result = expand_group_ancestors(
             &[group("a")],
