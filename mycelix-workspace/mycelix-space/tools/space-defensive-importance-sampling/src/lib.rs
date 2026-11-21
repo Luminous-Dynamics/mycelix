@@ -724,6 +724,7 @@ pub fn estimate_collision_probability(
 
     let cap = 1.0 / proposal.epsilon;
     let mut contributions = Vec::with_capacity(observations.len());
+    let mut weights = Vec::with_capacity(observations.len());
     let mut collision_count = 0usize;
 
     for observation in observations {
