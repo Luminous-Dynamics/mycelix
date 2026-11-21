@@ -624,7 +624,8 @@
               "pg_parallel_writer_read_committed",
               "pg_revocation_barrier_contention",
               "pg_commit_unknown_idempotency_replay",
-              "pg_synchronous_failover_fence_recovery"
+              "pg_synchronous_failover_fence_recovery",
+              "pg_worker_claim_reassignment_race"
             ]
           },
           "postgres_major_versions": {
