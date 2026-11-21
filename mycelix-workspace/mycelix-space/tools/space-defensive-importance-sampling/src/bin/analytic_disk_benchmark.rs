@@ -2,8 +2,8 @@ use space_defensive_importance_sampling::{
     CollisionObservation, DefensiveGaussianMixture, EvaluationEvidence, GaussianComponent,
     MultifidelityResidualObservation, MultifidelityResidualParameters,
     MultifidelitySurrogateEvidence, ResidualSupportContract, WhiteningTransform,
-    estimate_collision_probability,
-    estimate_multifidelity_residual_probability, exact_standard_normal_2d_disk_probability,
+    estimate_collision_probability, estimate_multifidelity_residual_probability,
+    exact_standard_normal_2d_disk_probability,
 };
 use std::process;
 
