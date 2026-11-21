@@ -221,15 +221,93 @@ pub struct ProposalSample {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct WhiteningTransform {
+    pub id: String,
+    pub revision: String,
+    pub state_frame_id: String,
+    pub state_units_id: String,
+    pub mean: Vec<f64>,
+    /// Lower-triangular L such that physical_state = mean + L * z.
+    pub cholesky: Vec<Vec<f64>>,
+}
+
+impl WhiteningTransform {
+    pub fn validate(&self, dimension: usize) -> Result<(), EstimateError> {
+        for (field, value) in [
+            ("whitening_transform_id", &self.id),
+            ("whitening_transform_revision", &self.revision),
+            ("state_frame_id", &self.state_frame_id),
+            ("state_units_id", &self.state_units_id),
+        ] {
+            if !valid_identifier(value) {
+                return Err(EstimateError::InvalidIdentifier(field));
+            }
+        }
+        if self.mean.len() != dimension {
+            return Err(EstimateError::DimensionMismatch {
+                expected: dimension,
+                actual: self.mean.len(),
+                field: "whitening_transform_mean",
+            });
+        }
+        if self.mean.iter().any(|value| !value.is_finite()) {
+            return Err(EstimateError::NonFiniteValue("whitening_transform_mean"));
+        }
+        if self.cholesky.len() != dimension
+            || self.cholesky.iter().any(|row| row.len() != dimension)
+        {
+            return Err(EstimateError::InvalidCholeskyShape);
+        }
+        for i in 0..dimension {
+            for j in 0..dimension {
+                let value = self.cholesky[i][j];
+                if !value.is_finite() {
+                    return Err(EstimateError::NonFiniteValue("whitening_transform_cholesky"));
+                }
+                if j > i && value.abs() > NUMERIC_TOLERANCE {
+                    return Err(EstimateError::CholeskyNotLowerTriangular);
+                }
+            }
+            if self.cholesky[i][i] <= 0.0 {
+                return Err(EstimateError::CholeskyNonPositiveDiagonal);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn to_physical_state(&self, whitened_point: &[f64]) -> Result<Vec<f64>, EstimateError> {
+        self.validate(self.mean.len())?;
+        if whitened_point.len() != self.mean.len() {
+            return Err(EstimateError::DimensionMismatch {
+                expected: self.mean.len(),
+                actual: whitened_point.len(),
+                field: "whitened_point",
+            });
+        }
+        if whitened_point.iter().any(|value| !value.is_finite()) {
+            return Err(EstimateError::NonFiniteValue("whitened_point"));
+        }
+        affine_standard_normal(&self.mean, &self.cholesky, whitened_point)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct CollisionObservation {
+    /// z-space draw used for the nominal/proposal density ratio.
     pub point: Vec<f64>,
-    /// Must be the output of the declared high-fidelity continuous-time oracle.
+    /// Exact physical state passed to the high-fidelity event oracle.
+    pub physical_state: Vec<f64>,
+    /// Output of the declared high-fidelity continuous-time event oracle.
     pub collision: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EvaluationEvidence {
     pub proposal_id: String,
+    pub whitening_transform_id: String,
+    pub whitening_transform_revision: String,
+    pub state_frame_id: String,
+    pub state_units_id: String,
     /// Frozen proposal-training split/configuration reference.
     pub proposal_training_id: String,
     /// Independent final-estimation split reference; must differ from training.
@@ -257,6 +335,10 @@ pub struct ImportanceSamplingReport {
     pub sample_order_digest: String,
     pub event_oracle_id: String,
     pub event_oracle_revision: String,
+    pub whitening_transform_id: String,
+    pub whitening_transform_revision: String,
+    pub state_frame_id: String,
+    pub state_units_id: String,
     pub sample_count: usize,
     pub collision_count: usize,
     pub defensive_fraction: f64,
@@ -302,6 +384,8 @@ pub enum EstimateError {
     InvalidDelta(f64),
     InsufficientSamples(usize),
     EvidenceProposalMismatch,
+    WhiteningTransformMismatch,
+    PhysicalStateMismatch,
     TrainingAndEvaluationMustBeDisjoint,
     ProposalNotFrozen,
     NonIidOrUnattestedSampling,
@@ -380,6 +464,14 @@ impl fmt::Display for EstimateError {
                 f,
                 "evaluation evidence proposal ID does not match the proposal object"
             ),
+            Self::WhiteningTransformMismatch => write!(
+                f,
+                "evaluation evidence does not bind the exact whitening transform, frame and units"
+            ),
+            Self::PhysicalStateMismatch => write!(
+                f,
+                "high-fidelity event-oracle physical state does not match the declared whitening transform applied to the weighted sample"
+            ),
             Self::TrainingAndEvaluationMustBeDisjoint => write!(
                 f,
                 "proposal training and final evaluation split IDs must differ"
@@ -418,13 +510,15 @@ impl std::error::Error for EstimateError {}
 /// proposal and event-oracle assumptions, not a physical-safety certification.
 pub fn estimate_collision_probability(
     proposal: &DefensiveGaussianMixture,
+    whitening: &WhiteningTransform,
     observations: &[CollisionObservation],
     delta: f64,
     evidence: &EvaluationEvidence,
 ) -> Result<ImportanceSamplingReport, EstimateError> {
     proposal.validate()?;
+    whitening.validate(proposal.dimension)?;
     validate_delta(delta)?;
-    validate_evidence(proposal, evidence)?;
+    validate_evidence(proposal, whitening, evidence)?;
 
     if observations.len() < 2 {
         return Err(EstimateError::InsufficientSamples(observations.len()));
@@ -436,6 +530,25 @@ pub fn estimate_collision_probability(
     let mut collision_count = 0usize;
 
     for observation in observations {
+        let expected_physical_state = whitening.to_physical_state(&observation.point)?;
+        if observation.physical_state.len() != proposal.dimension {
+            return Err(EstimateError::DimensionMismatch {
+                expected: proposal.dimension,
+                actual: observation.physical_state.len(),
+                field: "physical_state",
+            });
+        }
+        if observation
+            .physical_state
+            .iter()
+            .zip(expected_physical_state.iter())
+            .any(|(actual, expected)| {
+                (actual - expected).abs()
+                    > NUMERIC_TOLERANCE * actual.abs().max(expected.abs()).max(1.0)
+            })
+        {
+            return Err(EstimateError::PhysicalStateMismatch);
+        }
         let weight = proposal.likelihood_ratio(&observation.point)?;
         let contribution = if observation.collision {
             collision_count += 1;
@@ -494,6 +607,10 @@ pub fn estimate_collision_probability(
         sample_order_digest: evidence.sample_order_digest.clone(),
         event_oracle_id: evidence.event_oracle_id.clone(),
         event_oracle_revision: evidence.event_oracle_revision.clone(),
+        whitening_transform_id: whitening.id.clone(),
+        whitening_transform_revision: whitening.revision.clone(),
+        state_frame_id: whitening.state_frame_id.clone(),
+        state_units_id: whitening.state_units_id.clone(),
         sample_count: n,
         collision_count,
         defensive_fraction: proposal.epsilon,
@@ -516,6 +633,7 @@ pub fn estimate_collision_probability(
 
 fn validate_evidence(
     proposal: &DefensiveGaussianMixture,
+    whitening: &WhiteningTransform,
     evidence: &EvaluationEvidence,
 ) -> Result<(), EstimateError> {
     if !valid_identifier(&evidence.proposal_id)
@@ -532,6 +650,13 @@ fn validate_evidence(
     }
     if evidence.proposal_id != proposal.id {
         return Err(EstimateError::EvidenceProposalMismatch);
+    }
+    if evidence.whitening_transform_id != whitening.id
+        || evidence.whitening_transform_revision != whitening.revision
+        || evidence.state_frame_id != whitening.state_frame_id
+        || evidence.state_units_id != whitening.state_units_id
+    {
+        return Err(EstimateError::WhiteningTransformMismatch);
     }
     if evidence.proposal_training_id == evidence.evaluation_sample_id {
         return Err(EstimateError::TrainingAndEvaluationMustBeDisjoint);
