@@ -1,0 +1,75 @@
+{
+  "profile_version": "terra-preta-western-highveld-nir-mir-v0.1",
+  "dataset_source": {
+    "article_doi": "10.1016/j.dib.2026.113160",
+    "zenodo_version_doi": "10.5281/zenodo.21640671",
+    "zenodo_record_id": "21640671",
+    "version": "2",
+    "filename": "NWU_NIR_MIR_Dataset.csv",
+    "publisher_md5_reference": "c351dca52863991d7e862182464d0e9c",
+    "expected_sample_rows": 790,
+    "license_status": "must_be_confirmed_from_versioned_zenodo_metadata_before_redistribution",
+    "retrieval_sha256": null
+  },
+  "sample_id_column": "Sample Name",
+  "properties": [
+    {
+      "column": "pH (KCl)",
+      "unit": "pH",
+      "reference_method": "1:2.5 soil:1 M KCl"
+    },
+    {
+      "column": "P (Bray 1)",
+      "unit": "mg kg-1",
+      "reference_method": "Bray-1 extraction; colorimetry"
+    },
+    {
+      "column": "K",
+      "unit": "mg kg-1",
+      "reference_method": "1 M ammonium acetate at pH 7"
+    },
+    {
+      "column": "Ca",
+      "unit": "mg kg-1",
+      "reference_method": "1 M ammonium acetate at pH 7"
+    },
+    {
+      "column": "Mg",
+      "unit": "mg kg-1",
+      "reference_method": "1 M ammonium acetate at pH 7"
+    },
+    {
+      "column": "Na",
+      "unit": "mg kg-1",
+      "reference_method": "1 M ammonium acetate at pH 7"
+    }
+  ],
+  "spectral_column_prefix": "spec.",
+  "spectral_axis_unit": "cm-1",
+  "spectral_axis_descending": true,
+  "spectral_regions": [
+    {
+      "region_id": "NIR",
+      "minimum_cm1": 4003,
+      "maximum_cm1": 7407,
+      "instrument": "NeoSpectra handheld FT-NIR"
+    },
+    {
+      "region_id": "MIR",
+      "minimum_cm1": 600,
+      "maximum_cm1": 3997,
+      "instrument": "Bruker Alpha II DRIFT"
+    }
+  ],
+  "expected_nir_to_mir_gap_cm1": 6,
+  "spectral_value_semantics": "unresolved_source_description_conflict",
+  "sample_support": "composite cultivated-grain-field topsoil, 0-15 cm, one 2020 winter sampling season",
+  "georeferenced_sample_count": 178,
+  "georeferenced_sample_count_is_subset": true,
+  "notes": [
+    "This dataset is soil-property and spectral-metrology context, not a biochar treatment-effect dataset.",
+    "The 2026 article states a common absorbance/wavenumber axis but also describes NIR as reflectance percentage in its spectral-column discussion; preserve this source-description conflict pending inspection of source processing files or author clarification.",
+    "The 2026 dataset extends the 2024 Western Highveld soil-property/MIR cohort with paired NIR; do not treat the datasets as independent until a reviewed sample-ID crosswalk exists.",
+    "Do not infer coordinates for samples without released field coordinates."
+  ]
+}
