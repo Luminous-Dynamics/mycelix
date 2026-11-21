@@ -7,7 +7,6 @@
 use aero_adapter_run_receipt::{verify_artifact_bytes, ContentArtifactV1, ReceiptError};
 use aero_evidence_types::ArtifactRef;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
@@ -762,15 +761,6 @@ fn validate_source_mapping_records(
     Ok(())
 }
 
-pub fn compute_ingest_receipt_digest(
-    qualification: &QifIngestQualificationV1,
-) -> Result<String, IngestError> {
-    let body = canonical_body(&qualification.body);
-    let bytes = serde_json::to_vec(&body).map_err(|_| IngestError::CanonicalizationFailed)?;
-    let digest = Sha256::digest(&bytes);
-    Ok(digest.iter().map(|byte| format!("{byte:02x}")).collect())
-}
-
 fn validate_bundle_files(
     entrypoint: &ContentArtifactV1,
     files: &[BundleFileV1],
@@ -1202,6 +1192,7 @@ pub fn verify_ingest_payloads(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
 
     fn artifact(kind: &str, format_id: &str, bytes: &[u8]) -> ContentArtifactV1 {
         let digest = Sha256::digest(bytes);
