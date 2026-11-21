@@ -30,7 +30,7 @@ struct Truth {
     pulses: Vec<Pulse>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct TruthSample {
     time_hours: f64,
