@@ -8,7 +8,7 @@
     "DENY",
     "INDETERMINATE"
   ],
-  "scenario_count": 23,
+  "scenario_count": 26,
   "scenarios": [
     {
       "id": "DIR-001",
@@ -285,6 +285,42 @@
       "expected_enforcement": "Do not issue a new mutation; reconcile the original idempotency key and external state first.",
       "invariant": "Authorization, dispatch and observed effect are separate states.",
       "claim_ceiling": "No external-effect execution claim."
+    },
+    {
+      "id": "DIR-024",
+      "category": "authority_frontier",
+      "title": "Local snapshot is behind the caller's required authority frontier",
+      "principal_type": "Human",
+      "premise": "The request carries an authenticated, realm-scoped minimum authority frontier that records an authority update the PEP has not integrated. All other identity and permission evidence is valid.",
+      "requested_operation": "Execute the protected action after a newer revocation or policy update",
+      "expected_decision": "INDETERMINATE",
+      "expected_enforcement": "Do not execute; refresh or reconcile the required frontier before re-evaluation.",
+      "invariant": "A PEP may allow only when its verified local snapshot dominates the request's minimum authority frontier.",
+      "claim_ceiling": "Finite partial-order freshness fixture; not proof of globally current authority."
+    },
+    {
+      "id": "DIR-025",
+      "category": "authority_frontier",
+      "title": "Independent authority frontiers are concurrent and incomparable",
+      "principal_type": "Administrator",
+      "premise": "Two independently authorized sources publish concurrent frontier components. No policy-defined merge has established a common descendant; wall-clock timestamps suggest an order but are not authoritative.",
+      "requested_operation": "Install a merged administrative policy snapshot",
+      "expected_decision": "INDETERMINATE",
+      "expected_enforcement": "Do not select a winner by wall-clock or arbitrary last-writer-wins; require the declared merge/reconciliation ceremony.",
+      "invariant": "Incomparable authority frontiers are not made comparable by timestamp, peer count or transport arrival order.",
+      "claim_ceiling": "Finite concurrency control; merge algebra and trust assumptions remain to be qualified."
+    },
+    {
+      "id": "DIR-026",
+      "category": "authority_frontier",
+      "title": "Verified local snapshot dominates the required multi-authority frontier",
+      "principal_type": "Human",
+      "premise": "Every required authority component is authenticated and current under the pinned realm profile; the PEP's snapshot dominates the caller's minimum frontier and the exact permission tuple is allowed.",
+      "requested_operation": "Read the permitted resource under the new policy epoch",
+      "expected_decision": "ALLOW",
+      "expected_enforcement": "Allow only this exact request and record the frontier and policy digest in the decision receipt.",
+      "invariant": "Minimum-freshness proof is necessary but not sufficient; the complete authorization policy must still allow the request.",
+      "claim_ceiling": "Finite positive-control fixture only."
     }
   ]
 }
