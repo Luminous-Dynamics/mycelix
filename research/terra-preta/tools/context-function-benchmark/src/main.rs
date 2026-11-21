@@ -268,8 +268,14 @@ fn validate(s: &Scenario) -> Result<(), String> {
         for (name, value) in [
             ("depth_min_m", indicator.depth_min_m),
             ("depth_max_m", indicator.depth_max_m),
-            ("reference_depth_min_m", indicator.reference_model.reference_depth_min_m),
-            ("reference_depth_max_m", indicator.reference_model.reference_depth_max_m),
+            (
+                "reference_depth_min_m",
+                indicator.reference_model.reference_depth_min_m,
+            ),
+            (
+                "reference_depth_max_m",
+                indicator.reference_model.reference_depth_max_m,
+            ),
             (
                 "mean_annual_temperature_c",
                 indicator.context.mean_annual_temperature_c,
@@ -305,9 +311,21 @@ fn validate(s: &Scenario) -> Result<(), String> {
         if indicator.context.reference_soil_group.trim().is_empty()
             || indicator.reference_model.model_id.trim().is_empty()
             || indicator.reference_model.model_version.trim().is_empty()
-            || indicator.reference_model.reference_dataset_id.trim().is_empty()
-            || indicator.reference_model.reference_measurement_method.trim().is_empty()
-            || indicator.reference_model.reference_measurement_unit.trim().is_empty()
+            || indicator
+                .reference_model
+                .reference_dataset_id
+                .trim()
+                .is_empty()
+            || indicator
+                .reference_model
+                .reference_measurement_method
+                .trim()
+                .is_empty()
+            || indicator
+                .reference_model
+                .reference_measurement_unit
+                .trim()
+                .is_empty()
             || indicator.reference_model.peer_group_id.trim().is_empty()
         {
             return Err(format!(
@@ -325,8 +343,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
         }
         if indicator.reference_model.reference_measurement_method != indicator.measurement_method
             || indicator.reference_model.reference_measurement_unit != indicator.unit
-            || (indicator.reference_model.reference_depth_min_m - indicator.depth_min_m).abs() > 1e-9
-            || (indicator.reference_model.reference_depth_max_m - indicator.depth_max_m).abs() > 1e-9
+            || (indicator.reference_model.reference_depth_min_m - indicator.depth_min_m).abs()
+                > 1e-9
+            || (indicator.reference_model.reference_depth_max_m - indicator.depth_max_m).abs()
+                > 1e-9
         {
             return Err(format!(
                 "{} current measurement and peer reference differ in method, unit or depth support",
@@ -855,10 +875,7 @@ mod tests {
         assert_eq!(peer.reference_soil_group, "synthetic-RSG-X");
         assert_eq!(peer.mean_annual_temperature_c, 18.0);
         assert_eq!(peer.reference_dataset_id, "synthetic-reference-dataset-v1");
-        assert_eq!(
-            peer.reference_dataset_sha256,
-            "a".repeat(64)
-        );
+        assert_eq!(peer.reference_dataset_sha256, "a".repeat(64));
     }
 
     #[test]
