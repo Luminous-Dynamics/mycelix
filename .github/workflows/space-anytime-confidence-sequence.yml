@@ -1,0 +1,39 @@
+name: Space anytime confidence sequence
+
+on:
+  push:
+    branches:
+      - "research/space-anytime-confidence-sequence-v0-1"
+    paths:
+      - "mycelix-workspace/mycelix-space/tools/space-anytime-confidence-sequence/**"
+      - "mycelix-workspace/mycelix-space/Cargo.toml"
+      - ".github/workflows/space-anytime-confidence-sequence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-space-anytime-confidence-sequence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact branch head
+        uses: actions/checkout@v4
+
+      - name: Set up stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run anytime confidence sequence tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path mycelix-workspace/mycelix-space/tools/space-anytime-confidence-sequence/Cargo.toml
+
+      - name: Verify no-violation prefix lowers but never zeros the upper bound
+        shell: bash
+        run: |
+          set -euo pipefail
+          report="$(cargo run --quiet --manifest-path mycelix-workspace/mycelix-space/tools/space-anytime-confidence-sequence/Cargo.toml -- 0.05 00000000000000000000 conditional-violation-cap-v1 fixture://conditional-mean-model/v1)"
+          echo "$report"
+          jq -e '.points | length == 20 and .[0].upper_confidence_bound < 1 and .[-1].upper_confidence_bound > 0 and .[-1].upper_confidence_bound < .[0].upper_confidence_bound' <<< "$report" >/dev/null
