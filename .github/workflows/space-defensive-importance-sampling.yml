@@ -69,4 +69,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo run --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-defensive-importance-sampling/Cargo.toml --bin analytic-disk-benchmark
+          cargo run --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-defensive-importance-sampling/Cargo.toml --bin analytic_disk_benchmark
