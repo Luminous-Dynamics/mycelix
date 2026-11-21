@@ -459,7 +459,13 @@
         "partial_and_unknown",
         "threshold_policy",
         "device_semantics",
-        "membership_semantics"
+        "membership_semantics",
+        "per_recipient_outcome",
+        "complete_group_outcome",
+        "snapshot_freeze_point",
+        "recipient_unit_semantics",
+        "recipient_set_authority",
+        "current_v0_1_claim"
       ],
       "properties": {
         "parent_fanout_identity": {
@@ -497,6 +503,36 @@
         "membership_semantics": {
           "type": "string",
           "minLength": 1
+        },
+        "per_recipient_outcome": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Numerator is required child recipients with cryptographically authenticated receipt by trusted deadline D; denominator is all required recipient children from admitted fanout intents, including missing child traces."
+        },
+        "complete_group_outcome": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Numerator is admitted fanout intents for which every required child in the independently authenticated frozen membership snapshot has an authenticated receipt by D; denominator is all admitted fanout intents."
+        },
+        "snapshot_freeze_point": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Freeze the recipient set at the externally authenticated group-membership epoch when the sender admits the fanout intent, before transport attempts or outcomes are observed."
+        },
+        "recipient_unit_semantics": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Each manifest declares ACCOUNT or DEVICE. ACCOUNT success is not all-device synchronization; DEVICE requires every required device child."
+        },
+        "recipient_set_authority": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The sender-authored manifest digest alone cannot decide who was required. Authenticate the membership snapshot and fanout authority under a separately provisioned policy root."
+        },
+        "current_v0_1_claim": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The prototype only reports ALL_REQUIRED_RECEIPT_CLAIMS_CONSISTENT; it does not authenticate signatures, membership truth or trusted deadlines."
         }
       }
     }
