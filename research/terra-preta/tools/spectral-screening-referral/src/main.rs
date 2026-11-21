@@ -160,8 +160,14 @@ fn validate(scenario: &Scenario) -> Result<(), String> {
     }
     for (name, value) in [
         ("nir_screening_cost", scenario.config.nir_screening_cost),
-        ("confirmatory_test_cost", scenario.config.confirmatory_test_cost),
-        ("fixed_uncertainty_threshold", scenario.config.fixed_uncertainty_threshold),
+        (
+            "confirmatory_test_cost",
+            scenario.config.confirmatory_test_cost,
+        ),
+        (
+            "fixed_uncertainty_threshold",
+            scenario.config.fixed_uncertainty_threshold,
+        ),
     ] {
         if !value.is_finite() || value < 0.0 {
             return Err(format!("{name} must be finite and non-negative"));
@@ -170,8 +176,13 @@ fn validate(scenario: &Scenario) -> Result<(), String> {
     if scenario.config.fixed_uncertainty_threshold == 0.0 {
         return Err("fixed_uncertainty_threshold must be greater than zero".into());
     }
-    if !scenario.evaluator_only.reference_assumed_perfect_for_synthetic_fixture {
-        return Err("v0.1 requires explicit perfect-reference synthetic evaluator semantics".into());
+    if !scenario
+        .evaluator_only
+        .reference_assumed_perfect_for_synthetic_fixture
+    {
+        return Err(
+            "v0.1 requires explicit perfect-reference synthetic evaluator semantics".into(),
+        );
     }
 
     let mut sample_ids = BTreeSet::new();
@@ -197,7 +208,10 @@ fn validate(scenario: &Scenario) -> Result<(), String> {
             || candidate.false_positive_loss < 0.0
             || candidate.false_negative_loss < 0.0
         {
-            return Err(format!("{} has invalid uncertainty or loss weight", candidate.sample_id));
+            return Err(format!(
+                "{} has invalid uncertainty or loss weight",
+                candidate.sample_id
+            ));
         }
     }
 
@@ -232,7 +246,8 @@ fn normal_tail(z_abs: f64) -> f64 {
     let density = (-0.5 * z * z).exp() * 0.398_942_280_401_432_7;
     let polynomial = t
         * (0.319_381_530
-            + t * (-0.356_563_782 + t * (1.781_477_937 + t * (-1.821_255_978 + t * 1.330_274_429))));
+            + t * (-0.356_563_782
+                + t * (1.781_477_937 + t * (-1.821_255_978 + t * 1.330_274_429))));
     (density * polynomial).clamp(0.0, 0.5)
 }
 
@@ -242,8 +257,8 @@ fn expected_threshold_loss(candidate: &ScreenCandidate) -> f64 {
         candidate.decision_threshold,
         candidate.positive_if_above,
     );
-    let z = (candidate.predicted_mean - candidate.decision_threshold).abs()
-        / candidate.predictive_sd;
+    let z =
+        (candidate.predicted_mean - candidate.decision_threshold).abs() / candidate.predictive_sd;
     let probability_wrong = normal_tail(z);
     let loss = if is_positive {
         candidate.false_positive_loss
@@ -269,11 +284,7 @@ fn random_score(seed: u64, sample_id: &str) -> f64 {
     (hash as f64) / (u64::MAX as f64)
 }
 
-fn ranked_ids<F>(
-    candidates: &[ScreenCandidate],
-    capacity: usize,
-    score: F,
-) -> Vec<String>
+fn ranked_ids<F>(candidates: &[ScreenCandidate], capacity: usize, score: F) -> Vec<String>
 where
     F: Fn(&ScreenCandidate) -> f64,
 {
@@ -438,7 +449,11 @@ fn evaluate_policy(
         nir_screening_count as f64 * config.nir_screening_cost + confirmatory_cost
     };
     let repeated_selection = if matches!(policy, Policy::PerfectInformationHindsightOracle) {
-        oracle_ids(candidates, truths, config.referral_capacity.min(candidates.len()))
+        oracle_ids(
+            candidates,
+            truths,
+            config.referral_capacity.min(candidates.len()),
+        )
     } else {
         select(policy, candidates, config)
     };
