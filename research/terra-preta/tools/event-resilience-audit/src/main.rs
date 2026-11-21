@@ -155,9 +155,15 @@ fn valid_date(date: &str) -> bool {
             .bytes()
             .enumerate()
             .all(|(i, byte)| i == 4 || i == 7 || byte.is_ascii_digit())
-        && date[0..4].parse::<u32>().is_ok_and(|x| (1..=9999).contains(&x))
-        && date[5..7].parse::<u32>().is_ok_and(|x| (1..=12).contains(&x))
-        && date[8..10].parse::<u32>().is_ok_and(|x| (1..=31).contains(&x))
+        && date[0..4]
+            .parse::<u32>()
+            .is_ok_and(|x| (1..=9999).contains(&x))
+        && date[5..7]
+            .parse::<u32>()
+            .is_ok_and(|x| (1..=12).contains(&x))
+        && date[8..10]
+            .parse::<u32>()
+            .is_ok_and(|x| (1..=31).contains(&x))
 }
 
 fn expected_phase(event: &Event, time: f64) -> Option<&'static str> {
@@ -186,22 +192,38 @@ fn validate(s: &Scenario) -> Result<(), String> {
         || s.response.variable.trim().is_empty()
         || s.response.unit.trim().is_empty()
         || s.response.measurement_method.trim().is_empty()
-        || s.response.support_description.as_deref().unwrap_or("").trim().is_empty()
+        || s.response
+            .support_description
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .is_empty()
         || s.forcing.variable.trim().is_empty()
         || s.forcing.unit.trim().is_empty()
         || s.forcing.measurement_method.trim().is_empty()
     {
-        return Err("scenario, event, variable, method, unit and unit-group metadata must be present".into());
+        return Err(
+            "scenario, event, variable, method, unit and unit-group metadata must be present"
+                .into(),
+        );
     }
     if !matches!(
         s.event.event_type.as_str(),
-        "drought_rewetting" | "heat_stress" | "intense_rainfall" | "flooding"
-            | "wet_dry_cycle" | "compound_stress" | "other"
+        "drought_rewetting"
+            | "heat_stress"
+            | "intense_rainfall"
+            | "flooding"
+            | "wet_dry_cycle"
+            | "compound_stress"
+            | "other"
     ) {
         return Err("unsupported event type".into());
     }
     for (name, value) in [
-        ("maximum_inter_observation_gap_hours", s.config.maximum_inter_observation_gap_hours),
+        (
+            "maximum_inter_observation_gap_hours",
+            s.config.maximum_inter_observation_gap_hours,
+        ),
         ("baseline_start_hours", s.event.baseline_start_hours),
         ("event_start_hours", s.event.event_start_hours),
         ("stress_end_hours", s.event.stress_end_hours),
@@ -238,14 +260,16 @@ fn validate(s: &Scenario) -> Result<(), String> {
         for (name, value) in [
             ("elapsed_hours", observation.elapsed_hours),
             ("response_value", observation.response_value),
-            ("response_standard_error", observation.response_standard_error),
+            (
+                "response_standard_error",
+                observation.response_standard_error,
+            ),
             ("forcing_value", observation.forcing_value),
             ("forcing_standard_error", observation.forcing_standard_error),
         ] {
             finite(name, value)?;
         }
-        if observation.response_standard_error < 0.0
-            || observation.forcing_standard_error < 0.0
+        if observation.response_standard_error < 0.0 || observation.forcing_standard_error < 0.0
         {
             return Err("observation standard errors cannot be negative".into());
         }
@@ -279,13 +303,17 @@ fn validate_tolerance(t: &RecoveryTolerance) -> Result<(), String> {
                 || t.approval_reference.is_some()
                 || t.approval_date.is_some()
             {
-                return Err("not_set recovery tolerance cannot carry threshold/approval fields".into());
+                return Err(
+                    "not_set recovery tolerance cannot carry threshold/approval fields".into(),
+                );
             }
         }
         "synthetic_fixture" | "externally_approved" => {
-            let tolerance = t.absolute_deviation_tolerance
+            let tolerance = t
+                .absolute_deviation_tolerance
                 .ok_or_else(|| "recovery tolerance needs a deviation bound".to_string())?;
-            let count = t.required_consecutive_observations
+            let count = t
+                .required_consecutive_observations
                 .ok_or_else(|| "recovery tolerance needs consecutive count".to_string())?;
             finite("absolute_deviation_tolerance", tolerance)?;
             if tolerance < 0.0 || count < 2 {
@@ -293,10 +321,16 @@ fn validate_tolerance(t: &RecoveryTolerance) -> Result<(), String> {
             }
             if t.status == "externally_approved"
                 && (t.authority.as_deref().unwrap_or("").trim().is_empty()
-                    || t.approval_reference.as_deref().unwrap_or("").trim().is_empty()
+                    || t.approval_reference
+                        .as_deref()
+                        .unwrap_or("")
+                        .trim()
+                        .is_empty()
                     || !t.approval_date.as_deref().is_some_and(valid_date))
             {
-                return Err("externally approved recovery tolerance lacks approval evidence".into());
+                return Err(
+                    "externally approved recovery tolerance lacks approval evidence".into(),
+                );
             }
         }
         _ => return Err("unsupported recovery tolerance status".into()),
@@ -316,9 +350,15 @@ fn mean(values: impl Iterator<Item = f64>) -> Option<f64> {
 
 fn phase_counts(observations: &[Observation]) -> PhaseCounts {
     PhaseCounts {
-        baseline: observations.iter().filter(|o| o.phase == "baseline").count(),
+        baseline: observations
+            .iter()
+            .filter(|o| o.phase == "baseline")
+            .count(),
         stress: observations.iter().filter(|o| o.phase == "stress").count(),
-        recovery: observations.iter().filter(|o| o.phase == "recovery").count(),
+        recovery: observations
+            .iter()
+            .filter(|o| o.phase == "recovery")
+            .count(),
     }
 }
 
@@ -337,15 +377,23 @@ fn compute_recovery_time(
     if s.recovery_tolerance.status == "not_set" {
         return (None, "threshold_not_set");
     }
-    let tolerance = s.recovery_tolerance.absolute_deviation_tolerance.unwrap_or(0.0);
-    let required = s.recovery_tolerance.required_consecutive_observations.unwrap_or(usize::MAX);
+    let tolerance = s
+        .recovery_tolerance
+        .absolute_deviation_tolerance
+        .unwrap_or(0.0);
+    let required = s
+        .recovery_tolerance
+        .required_consecutive_observations
+        .unwrap_or(usize::MAX);
     for start in 0..recovery.len() {
         let end = start.saturating_add(required);
         if end > recovery.len() {
             break;
         }
         let window = &recovery[start..end];
-        let inside = window.iter().all(|o| (o.response_value - baseline).abs() <= tolerance)
+        let inside = window
+            .iter()
+            .all(|o| (o.response_value - baseline).abs() <= tolerance)
             && window.windows(2).all(|pair| {
                 pair[1].elapsed_hours - pair[0].elapsed_hours
                     <= s.config.maximum_inter_observation_gap_hours
@@ -361,14 +409,24 @@ fn compute_recovery_time(
 }
 
 fn pulse_burden(s: &Scenario, baseline: f64) -> (Option<f64>, &'static str) {
-    let onset = s.observations.iter().any(|o| o.elapsed_hours == s.event.event_start_hours);
-    let end = s.observations.iter().any(|o| o.elapsed_hours == s.event.recovery_end_hours);
+    let onset = s
+        .observations
+        .iter()
+        .any(|o| o.elapsed_hours == s.event.event_start_hours);
+    let end = s
+        .observations
+        .iter()
+        .any(|o| o.elapsed_hours == s.event.recovery_end_hours);
     if !onset || !end {
         return (None, "missing_event_boundary");
     }
-    let series: Vec<&Observation> = s.observations.iter()
-        .filter(|o| o.elapsed_hours >= s.event.event_start_hours
-            && o.elapsed_hours <= s.event.recovery_end_hours)
+    let series: Vec<&Observation> = s
+        .observations
+        .iter()
+        .filter(|o| {
+            o.elapsed_hours >= s.event.event_start_hours
+                && o.elapsed_hours <= s.event.recovery_end_hours
+        })
         .collect();
     if series.len() < 2 {
         return (None, "missing_event_boundary");
@@ -391,13 +449,27 @@ fn build_report(s: &Scenario, digest: String) -> Report {
     let enough = counts.baseline >= s.config.minimum_baseline_observations
         && counts.stress >= s.config.minimum_stress_observations
         && counts.recovery >= s.config.minimum_recovery_observations;
-    let baseline_obs: Vec<&Observation> = s.observations.iter().filter(|o| o.phase == "baseline").collect();
-    let stress_obs: Vec<&Observation> = s.observations.iter().filter(|o| o.phase == "stress").collect();
-    let recovery_obs: Vec<&Observation> = s.observations.iter().filter(|o| o.phase == "recovery").collect();
+    let baseline_obs: Vec<&Observation> = s
+        .observations
+        .iter()
+        .filter(|o| o.phase == "baseline")
+        .collect();
+    let stress_obs: Vec<&Observation> = s
+        .observations
+        .iter()
+        .filter(|o| o.phase == "stress")
+        .collect();
+    let recovery_obs: Vec<&Observation> = s
+        .observations
+        .iter()
+        .filter(|o| o.phase == "recovery")
+        .collect();
     let baseline = mean(baseline_obs.iter().map(|o| o.response_value));
     let stress_peak = baseline.and_then(|b| {
         stress_obs.iter().copied().max_by(|a, other| {
-            (a.response_value - b).abs().total_cmp(&(other.response_value - b).abs())
+            (a.response_value - b)
+                .abs()
+                .total_cmp(&(other.response_value - b).abs())
         })
     });
     let recovery_mean = mean(recovery_obs.iter().map(|o| o.response_value));
@@ -407,9 +479,9 @@ fn build_report(s: &Scenario, digest: String) -> Report {
     let stress_departure = baseline_value.zip(peak).map(|(b, p)| p.response_value - b);
     let peak_abs = stress_departure.map(f64::abs);
     let recovery_departure = baseline_value.zip(recovery).map(|(b, r)| r - b);
-    let recovery_fraction = recovery_departure.zip(peak_abs).and_then(|(r, p)| {
-        (p > f64::EPSILON).then_some(1.0 - r.abs() / p)
-    });
+    let recovery_fraction = recovery_departure
+        .zip(peak_abs)
+        .and_then(|(r, p)| (p > f64::EPSILON).then_some(1.0 - r.abs() / p));
 
     let (recovery_time, recovery_time_status) = if !enough {
         (None, "insufficient_phase_coverage")
@@ -438,7 +510,11 @@ fn build_report(s: &Scenario, digest: String) -> Report {
         response_support_description: s.response.support_description.clone().unwrap_or_default(),
         forcing_variable: s.forcing.variable.clone(),
         forcing_unit: s.forcing.unit.clone(),
-        analysis_status: if enough { "qualified_descriptive_event" } else { "insufficient_phase_coverage" },
+        analysis_status: if enough {
+            "qualified_descriptive_event"
+        } else {
+            "insufficient_phase_coverage"
+        },
         phase_counts: counts,
         baseline_mean: baseline_value,
         stress_peak_value: peak.map(|p| p.response_value),
@@ -469,7 +545,9 @@ fn build_report(s: &Scenario, digest: String) -> Report {
 
 fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if output_path.exists() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into());
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into(),
+        );
     }
     let bytes = fs::read(input_path)?;
     let scenario: Scenario = serde_json::from_slice(&bytes)?;
@@ -477,7 +555,10 @@ fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::
     let digest = format!("{:x}", Sha256::digest(&bytes));
     let report = build_report(&scenario, digest);
     let json = serde_json::to_vec_pretty(&report)?;
-    let mut output = OpenOptions::new().write(true).create_new(true).open(output_path)?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output_path)?;
     output.write_all(&json)?;
     output.write_all(b"\n")?;
     Ok(())
