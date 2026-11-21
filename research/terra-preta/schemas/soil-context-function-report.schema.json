@@ -108,7 +108,14 @@
               "distance_to_q95",
               "distance_to_q99",
               "distance_standard_errors",
-              "interpretation"
+              "interpretation",
+              "reference_dataset_id",
+              "reference_dataset_sha256",
+              "reference_model_sha256",
+              "texture_class",
+              "reference_soil_group",
+              "mean_annual_temperature_c",
+              "mean_annual_precipitation_mm"
             ],
             "properties": {
               "status": {
@@ -196,6 +203,33 @@
               "interpretation": {
                 "type": "string",
                 "minLength": 1
+              },
+              "reference_dataset_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference_dataset_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "reference_model_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "texture_class": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference_soil_group": {
+                "type": "string",
+                "minLength": 1
+              },
+              "mean_annual_temperature_c": {
+                "type": "number"
+              },
+              "mean_annual_precipitation_mm": {
+                "type": "number",
+                "minimum": 0
               }
             }
           },
