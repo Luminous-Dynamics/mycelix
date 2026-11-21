@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS myc_effect_owner.effect_fence_state (
     action_id TEXT NOT NULL CHECK (btrim(action_id) <> ''),
     effect_owner_id TEXT NOT NULL CHECK (btrim(effect_owner_id) <> ''),
     generation BIGINT NOT NULL CHECK (generation > 0),
+    owner_clock_profile_id TEXT NOT NULL DEFAULT 'postgres-db-clock-v1'
+        CHECK (btrim(owner_clock_profile_id) <> ''),
+    max_clock_uncertainty_ms BIGINT NOT NULL DEFAULT 25
+        CHECK (max_clock_uncertainty_ms >= 0),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     PRIMARY KEY (realm_id, resource_id, action_id, effect_owner_id)
 );
@@ -158,8 +162,8 @@ BEGIN
             USING ERRCODE = '22023';
     END IF;
 
-    SELECT generation
-      INTO v_current_generation
+    SELECT generation, owner_clock_profile_id, max_clock_uncertainty_ms
+      INTO v_current_generation, v_owner_clock_profile_id, v_max_clock_uncertainty_ms
       FROM myc_effect_owner.effect_fence_state
      WHERE realm_id = p_realm_id
        AND resource_id = p_resource_id
@@ -238,7 +242,10 @@ CREATE OR REPLACE FUNCTION myc_effect_owner.apply_balance_delta(
     p_request_digest BYTEA,
     p_decision_receipt_digest BYTEA,
     p_payload_digest BYTEA,
-    p_delta_minor BIGINT
+    p_delta_minor BIGINT,
+    p_decision_clock_profile_id TEXT,
+    p_decision_issued_at TIMESTAMPTZ,
+    p_decision_expires_at TIMESTAMPTZ
 )
 RETURNS TABLE (
     replayed BOOLEAN,
@@ -255,6 +262,12 @@ DECLARE
     v_first_lock BIGINT;
     v_second_lock BIGINT;
     v_current_generation BIGINT;
+    v_owner_clock_profile_id TEXT;
+    v_max_clock_uncertainty_ms BIGINT;
+    v_now TIMESTAMPTZ;
+    v_lower_bound TIMESTAMPTZ;
+    v_upper_bound TIMESTAMPTZ;
+    v_uncertainty INTERVAL;
     v_existing myc_effect_owner.effect_commits%ROWTYPE;
     v_balance_after BIGINT;
     v_effect_id UUID;
@@ -385,6 +398,47 @@ BEGIN
             USING ERRCODE = 'P0001';
     END IF;
 
+    IF p_decision_clock_profile_id IS NULL
+       OR p_decision_clock_profile_id IS DISTINCT FROM v_owner_clock_profile_id THEN
+        RAISE EXCEPTION 'decision clock profile differs from the effect owner profile'
+            USING ERRCODE = 'P0001';
+    END IF;
+    IF p_decision_issued_at IS NULL OR p_decision_expires_at IS NULL
+       OR p_decision_issued_at >= p_decision_expires_at THEN
+        RAISE EXCEPTION 'decision validity interval is invalid'
+            USING ERRCODE = '22023';
+    END IF;
+
+    -- Acquire the protected-object row before the final time check. The next
+    -- UPDATE therefore does not queue behind another writer after validation.
+    PERFORM 1
+      FROM myc_effect_owner.protected_balance
+     WHERE realm_id = p_realm_id
+       AND resource_id = p_resource_id
+       AND action_id = p_action_id
+       AND effect_owner_id = p_effect_owner_id
+       AND object_id = p_object_id
+       AND currency_code = p_currency_code
+     FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'protected balance object does not exist'
+            USING ERRCODE = 'P0001';
+    END IF;
+
+    v_now := clock_timestamp();
+    v_uncertainty := make_interval(
+        secs => v_max_clock_uncertainty_ms::double precision / 1000.0
+    );
+    v_lower_bound := v_now - v_uncertainty;
+    v_upper_bound := v_now + v_uncertainty;
+
+    IF v_lower_bound < p_decision_issued_at
+       OR v_upper_bound >= p_decision_expires_at THEN
+        RAISE EXCEPTION 'Allow decision is not valid for the full owner clock uncertainty interval'
+            USING ERRCODE = 'P0001';
+    END IF;
+
     UPDATE myc_effect_owner.protected_balance
        SET balance_minor = balance_minor + p_delta_minor
      WHERE realm_id = p_realm_id
@@ -428,9 +482,9 @@ COMMENT ON TABLE myc_effect_owner.effect_fence_state IS
 COMMENT ON TABLE myc_effect_owner.effect_commits IS
 'Append-only DB-local effect journal and idempotency ledger. It does not prove delivery to a remote API.';
 COMMENT ON FUNCTION myc_effect_owner.apply_balance_delta(
-    TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BIGINT, BYTEA, TEXT, BYTEA, BYTEA, BYTEA, BIGINT
+    TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BIGINT, BYTEA, TEXT, BYTEA, BYTEA, BYTEA, BIGINT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ
 ) IS
-'Assumes the caller independently verified an exact Allow decision. Applies a sample balance mutation and its idempotency receipt atomically under a shared owner-fence lock.';
+'Assumes the caller independently verified an exact Allow decision. Rechecks the full decision validity interval after operation, fence and protected-object locks are acquired, then atomically mutates and records the effect.';
 COMMENT ON FUNCTION myc_effect_owner.advance_effect_fence(TEXT, TEXT, TEXT, TEXT, BYTEA) IS
 'Advances an owner-local generation. Publish the owner acknowledgement only after the enclosing transaction durably commits.';
 
