@@ -22,8 +22,9 @@ This is stronger than a self-reported extraction count, but remains limited to t
 The source profile is pinned to namespace `http://qifstandards.org/xsd/qif3` and versionQIF `3.0.0`.
 
 Relevant QIF 3.0 schema facts:
-- `QIFDocument` includes a QPId and `ExternalQIFReferences`.
-- Each `ExternalQIFDocument` has a local id, child QPId and optional child URI.
+- `QIFDocument` has one required QPId; `ExternalQIFReferences` is optional at the standard level and has a declared array count when present.
+- Each `ExternalQIFDocument` has a required local id and child QPId, plus an optional child URI. The current trace profile deliberately requires at least one linked Plan document, although QIF permits documents without external references.
+- `MeasurementResults` has a required InspectionStatus choice; each concrete CharacteristicMeasurement has a required Status choice. The scanner enforces exactly one enum-or-Other status field per measurement/result in this profile.
 - A `QIFReferenceType` can reference an object in the same file or in an external file. With xId, two QIF identifiers participate: the local external-document reference ID in simple content and the external object ID in xId.
 - `CharacteristicMeasurement` is a substitution-group head; concrete measurement element names occur in its place.
 - Measurement and inspection status types are choices between enum and `Other...` textual alternatives.
@@ -40,9 +41,27 @@ Sources:
 - CharacteristicStatusType: https://qualityinformationframework.github.io/qif3-browser/Characteristics_xsd_Complex_Type_CharacteristicStatusType.html
 - quick-xml 0.42.0 NsReader: https://docs.rs/quick-xml/0.42.0/quick_xml/reader/struct.NsReader.html
 
+## Command-line runner
+
+The crate exposes a library and a small executable. Example invocation inside a disposable offline worker:
+
+```text
+qif-locator-inventory \
+  --inventory-id campaign-2026-001 \
+  --profile profiles/aero-qif-test7-8-trace-v1.json \
+  --results-qpid 10000000-0000-4000-8000-000000000001 \
+  --results staged/Results.qif \
+  --plan 20000000-0000-4000-8000-000000000002=staged/Plan.qif \
+  --inventory-out out/inventory.json \
+  --required-locators-out out/required_locators.json \
+  --report-out out/report.json
+```
+
+The CLI validates the profile before reading staged files, applies the profile's source-byte cap, rejects output/input path aliasing and never dereferences QIF URIs. `required_locators.json` is the exact `SourceFieldLocatorV1[]` input expected by #6372. The executable itself, arguments, runtime and outputs must be bound by an independent adapter-run receipt; the report identifies the package and parser version but is not a signed attestation.
+
 ## Parser contract
 
-- Exact UTF-8 profile. Non-UTF-8 bytes and unsupported XML declaration encodings are explicit errors; no transcoding guess.
+- Exact UTF-8/XML 1.0 profile. Non-UTF-8 bytes and unsupported XML declaration encodings are explicit errors; no transcoding guess.
 - Namespace resolution by URI + local name. Prefix changes must not change locator identity.
 - Streaming `NsReader`; no DOM and no external resolution.
 - Reject DTD/DOCTYPE and custom entities, malformed/mismatched tags, unbound namespace prefixes and duplicate/malformed attributes.
