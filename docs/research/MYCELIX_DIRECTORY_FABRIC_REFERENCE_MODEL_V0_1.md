@@ -100,6 +100,8 @@ For workload identity, use SPIFFE ID/SVID and trust-domain semantics. For applic
 
 ## 6. Qualification protocol: hard correctness gates before speed
 
+A machine-readable target contract is preregistered at [MYC_DIR_FABRIC_REFERENCE_BENCHMARK_V0_1.json](../benchmarks/MYC_DIR_FABRIC_REFERENCE_BENCHMARK_V0_1.json), with its [Draft 2020-12 schema](../benchmarks/MYC_DIR_FABRIC_REFERENCE_BENCHMARK_V0_1.schema.json). The profile is explicitly `preregistered_not_executed`: numeric values are provisional targets, report-only dimensions are intentionally unthresholded until a baseline exists, and every result must bind to exact source, hardware, runtime, topology, dataset and fault-schedule identities.
+
 ### 6.1 Non-compensable correctness gates
 
 A benchmark profile fails regardless of throughput if any of these occur:
