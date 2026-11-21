@@ -318,14 +318,14 @@
     }
   ],
   "limits": {
-    "max_source_bytes: 1024 * 1024,": null,
-    "max_elements: 10_000,": null,
-    "max_depth: 32,": null,
-    "max_attributes_per_element: 32,": null,
-    "max_attribute_bytes: 16 * 1024,": null,
-    "max_text_bytes_per_element: 4096,": null,
-    "max_total_text_bytes: 1024 * 1024,": null,
-    "max_locators: 10_000,": null,
-    "max_namespace_bindings: 64,": null
+    "max_source_bytes": 1048576,
+    "max_elements": 10000,
+    "max_depth": 32,
+    "max_attributes_per_element": 32,
+    "max_attribute_bytes": 16384,
+    "max_text_bytes_per_element": 4096,
+    "max_total_text_bytes": 1048576,
+    "max_locators": 10000,
+    "max_namespace_bindings": 64
   }
 }
