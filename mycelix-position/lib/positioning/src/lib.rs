@@ -27,6 +27,7 @@ pub mod fusion;
 pub mod kalman;
 pub mod measurements;
 pub mod navigation_v2;
+pub mod time_correlation_v2;
 pub mod navigation_runtime;
 pub mod ranging;
 pub mod space_navigation;
