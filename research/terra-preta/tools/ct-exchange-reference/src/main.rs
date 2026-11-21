@@ -319,7 +319,10 @@ fn validate_fixture(fixture: &Fixture) -> Result<(), String> {
         return Err("scenario_id must be non-empty".to_string());
     }
     if fixture.interfacial_flux_density_source != "synthetic_manufactured" {
-        return Err("v0.1 fixture must identify its interfacial flux density as synthetic_manufactured".to_string());
+        return Err(
+            "v0.1 fixture must identify its interfacial flux density as synthetic_manufactured"
+                .to_string(),
+        );
     }
     positive(fixture.bulk_volume_m3, "bulk_volume_m3")?;
     positive(fixture.maximum_gap_seconds, "maximum_gap_seconds")?;
@@ -350,7 +353,9 @@ fn validate_fixture(fixture: &Fixture) -> Result<(), String> {
             &format!("point {index} wetted interface area"),
         )?;
         if !point.interfacial_exchange_flux_density_m_per_s.is_finite() {
-            return Err(format!("point {index} interfacial exchange flux density is non-finite"));
+            return Err(format!(
+                "point {index} interfacial exchange flux density is non-finite"
+            ));
         }
         if index > 0 && point.elapsed_seconds <= fixture.points[index - 1].elapsed_seconds {
             return Err("time points must be strictly increasing".to_string());
@@ -554,10 +559,8 @@ mod tests {
         let mut value = fixture();
         value["points"][0]["wetted_interface_area_m2_per_m3"] = Value::from(0.8);
         value["points"][1]["wetted_interface_area_m2_per_m3"] = Value::from(0.8);
-        value["points"][0]["interfacial_exchange_flux_density_m_per_s"] =
-            Value::from(1e-3);
-        value["points"][1]["interfacial_exchange_flux_density_m_per_s"] =
-            Value::from(-1e-3);
+        value["points"][0]["interfacial_exchange_flux_density_m_per_s"] = Value::from(1e-3);
+        value["points"][1]["interfacial_exchange_flux_density_m_per_s"] = Value::from(-1e-3);
         value["macropore_water_initial_m3"] = Value::from(0.3);
         // The signed net trapezoid is zero, but the positive half-interval
         // would transfer 0.72 m3 and overdraw the 0.3 m3 donor pool.
