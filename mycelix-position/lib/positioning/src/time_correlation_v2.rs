@@ -18,6 +18,7 @@ pub enum TimeCorrelationError {
     InvalidDestinationBasis,
     SourceClockMismatch,
     DestinationBasisMismatch,
+    DestinationUnitMismatch,
     SourceUnitMismatch,
     SourceOutsideValidity,
     CorrelationIdentityMismatch,
@@ -38,6 +39,7 @@ impl fmt::Display for TimeCorrelationError {
             Self::InvalidDestinationBasis => write!(f, "clock correlation destination must be an explicit time scale"),
             Self::SourceClockMismatch => write!(f, "source reading does not match the correlated clock and boot epoch"),
             Self::DestinationBasisMismatch => write!(f, "normalized reading does not match the declared destination scale and epoch"),
+            Self::DestinationUnitMismatch => write!(f, "normalized reading unit differs from the declared destination unit"),
             Self::SourceUnitMismatch => write!(f, "source reading unit differs from the correlation validity interval"),
             Self::SourceOutsideValidity => write!(f, "source reading is outside the correlation validity interval"),
             Self::CorrelationIdentityMismatch => write!(f, "normalized reading references a different correlation"),
@@ -171,7 +173,9 @@ pub struct QualifiedInstantV2 {
     pub value: f64,
     pub unit: TimeUnitV2,
     pub basis: TimeBasisV2,
-    /// A hard absolute error bound, not an implicit standard deviation.
+    /// Absolute bound in the numeric reading's own declared unit.
+    pub uncertainty_bound_in_reading_units: f64,
+    /// A hard absolute error bound in seconds, not an implicit standard deviation.
     pub uncertainty_bound_seconds: f64,
     /// Commitment to this exact source or normalized instant record.
     pub content_commitment: TimeCommitmentV2,
@@ -182,7 +186,11 @@ impl QualifiedInstantV2 {
         if !self.value.is_finite() {
             return Err(TimeCorrelationError::InvalidTimeValue);
         }
-        if !self.uncertainty_bound_seconds.is_finite() || self.uncertainty_bound_seconds < 0.0 {
+        if !self.uncertainty_bound_in_reading_units.is_finite()
+            || self.uncertainty_bound_in_reading_units < 0.0
+            || !self.uncertainty_bound_seconds.is_finite()
+            || self.uncertainty_bound_seconds < 0.0
+        {
             return Err(TimeCorrelationError::InvalidUncertainty);
         }
         self.basis.validate()?;
@@ -216,6 +224,21 @@ impl SourceClockValidityV2 {
     pub fn contains(&self, value: f64) -> bool {
         value >= self.start_value && value <= self.end_value
     }
+
+    /// The entire bounded source reading must lie inside the correlation's
+    /// validity interval. A centre value inside the interval is insufficient
+    /// when its uncertainty envelope crosses either boundary.
+    pub fn contains_with_uncertainty(&self, value: f64, bound: f64) -> bool {
+        if !value.is_finite() || !bound.is_finite() || bound < 0.0 {
+            return false;
+        }
+        let lower = value - bound;
+        let upper = value + bound;
+        lower.is_finite()
+            && upper.is_finite()
+            && lower >= self.start_value
+            && upper <= self.end_value
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -245,6 +268,8 @@ pub struct ClockCorrelationV2 {
     pub source_clock: ClockDomainV2,
     /// Must be a scale plus an explicit epoch (e.g. TAI/J2000 or Unix/1970).
     pub destination_basis: TimeBasisV2,
+    /// The numeric unit of every normalized output using this correlation.
+    pub destination_unit: TimeUnitV2,
     pub profile_id: String,
     pub profile_version: String,
     /// SPICE kernel, calibration, correlation table, or other profile material.
@@ -313,11 +338,17 @@ impl NormalizedInstantV2 {
         if self.source_reading.unit != correlation.valid_source_interval.unit {
             return Err(TimeCorrelationError::SourceUnitMismatch);
         }
-        if !correlation.valid_source_interval.contains(self.source_reading.value) {
+        if !correlation.valid_source_interval.contains_with_uncertainty(
+            self.source_reading.value,
+            self.source_reading.uncertainty_bound_in_reading_units,
+        ) {
             return Err(TimeCorrelationError::SourceOutsideValidity);
         }
         if self.normalized_reading.basis != correlation.destination_basis {
             return Err(TimeCorrelationError::DestinationBasisMismatch);
+        }
+        if self.normalized_reading.unit != correlation.destination_unit {
+            return Err(TimeCorrelationError::DestinationUnitMismatch);
         }
         if self.input_commitment != self.source_reading.content_commitment {
             return Err(TimeCorrelationError::InputCommitmentMismatch);
@@ -364,6 +395,7 @@ mod tests {
             correlation_id: "corr-1".into(),
             source_clock: source_clock(),
             destination_basis: destination_basis(),
+            destination_unit: TimeUnitV2::Seconds,
             profile_id: "phone-clock-correlation".into(),
             profile_version: "2".into(),
             calibration_or_kernel_commitment: commitment("kernel-a"),
@@ -386,6 +418,7 @@ mod tests {
             value: 42.0,
             unit: TimeUnitV2::DeviceTicks,
             basis: TimeBasisV2::Clock(source_clock()),
+            uncertainty_bound_in_reading_units: 0.25,
             uncertainty_bound_seconds: 0.001,
             content_commitment: commitment("raw-reading-a"),
         };
@@ -393,6 +426,7 @@ mod tests {
             value: 1_700_000_000.0,
             unit: TimeUnitV2::Seconds,
             basis: destination_basis(),
+            uncertainty_bound_in_reading_units: 0.000_001,
             uncertainty_bound_seconds: 0.006,
             content_commitment: commitment("normalized-reading-a"),
         };
@@ -435,6 +469,36 @@ mod tests {
         assert_eq!(
             value.validate_against(&correlation()),
             Err(TimeCorrelationError::DestinationBasisMismatch)
+        );
+    }
+
+
+    #[test]
+    fn destination_unit_must_match_the_declared_correlation_output_unit() {
+        let mut value = normalized();
+        value.normalized_reading.unit = TimeUnitV2::Milliseconds;
+        assert_eq!(
+            value.validate_against(&correlation()),
+            Err(TimeCorrelationError::DestinationUnitMismatch)
+        );
+    }
+
+    #[test]
+    fn full_source_uncertainty_envelope_must_fit_inside_validity_interval() {
+        let mut value = normalized();
+        value.source_reading.value = 0.1;
+        value.source_reading.uncertainty_bound_in_reading_units = 0.2;
+        assert_eq!(
+            value.validate_against(&correlation()),
+            Err(TimeCorrelationError::SourceOutsideValidity)
+        );
+
+        let mut value = normalized();
+        value.source_reading.value = 99.9;
+        value.source_reading.uncertainty_bound_in_reading_units = 0.2;
+        assert_eq!(
+            value.validate_against(&correlation()),
+            Err(TimeCorrelationError::SourceOutsideValidity)
         );
     }
 
