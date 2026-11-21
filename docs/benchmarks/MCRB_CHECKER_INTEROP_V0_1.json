@@ -901,9 +901,9 @@
       "expected": {
         "structural": "valid",
         "jepsen": {
-          "applicable": true,
-          "disposition": "invalid",
-          "profile_id": "snapshot-isolation-write-skew-v1"
+          "applicable": false,
+          "disposition": "not-applicable",
+          "reason": "This fixture's transaction dependency-cycle oracle is routed to Elle; no separate Jepsen checker profile is declared."
         },
         "elle": {
           "applicable": true,
