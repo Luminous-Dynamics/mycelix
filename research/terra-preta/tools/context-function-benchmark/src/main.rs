@@ -160,6 +160,7 @@ struct PeerReference {
     distance_to_q90: Option<f64>,
     distance_to_q95: Option<f64>,
     distance_to_q99: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     distance_standard_errors: Option<QuantileErrors>,
     interpretation: &'static str,
 }
@@ -556,11 +557,7 @@ fn peer_reference(indicator: &Indicator, latest: &Measurement, config: &Config) 
             distance_to_q90: None,
             distance_to_q95: None,
             distance_to_q99: None,
-            distance_standard_errors: Some(QuantileErrors {
-                q90: None,
-                q95: None,
-                q99: None,
-            }),
+            distance_standard_errors: None,
             interpretation: "No peer percentile emitted: reference domain or peer-group support is insufficient.",
         };
     }
