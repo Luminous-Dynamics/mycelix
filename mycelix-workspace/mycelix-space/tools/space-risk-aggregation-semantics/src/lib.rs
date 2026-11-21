@@ -156,7 +156,10 @@ pub struct ObservationSignificance {
 pub enum AggregationError {
     EmptyEventSet,
     InvalidIdentifier(&'static str),
-    InvalidProbability { event_id: String, value: f64 },
+    InvalidProbability {
+        event_id: String,
+        value: f64,
+    },
     IncompatibleProbabilitySpaces,
     IncompatibleConditioningContexts,
     IncompatibleEventDefinitions,
@@ -173,7 +176,11 @@ pub enum AggregationError {
     JointScenarioSamplingNotIid,
     JointScenarioDependenciesOmitted,
     JointScenarioEventSetNotFrozen,
-    JointScenarioOutcomeCountMismatch { scenario_id: String, expected: usize, actual: usize },
+    JointScenarioOutcomeCountMismatch {
+        scenario_id: String,
+        expected: usize,
+        actual: usize,
+    },
     InvalidDelta(f64),
     InvalidFrequencyExposure,
     InvalidProbabilityOfDetection,
@@ -185,29 +192,88 @@ impl fmt::Display for AggregationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::EmptyEventSet => write!(f, "at least one event marginal is required"),
-            Self::InvalidIdentifier(field) => write!(f, "{field} must be non-empty and use only ASCII letters, digits, dot, underscore, colon, slash and hyphen"),
-            Self::InvalidProbability { event_id, value } => write!(f, "event {event_id} has invalid probability {value}; expected a finite value in [0,1]"),
-            Self::IncompatibleProbabilitySpaces => write!(f, "event marginals do not share one declared probability space"),
-            Self::IncompatibleConditioningContexts => write!(f, "event marginals have incompatible conditioning contexts"),
-            Self::IncompatibleEventDefinitions => write!(f, "event marginals use incompatible event definitions"),
-            Self::IncompatibleEventHorizons => write!(f, "event marginals use incompatible risk horizons"),
-            Self::IncompatibleSourceModelRevisions => write!(f, "event marginals use incompatible source model revisions"),
+            Self::InvalidIdentifier(field) => write!(
+                f,
+                "{field} must be non-empty and use only ASCII letters, digits, dot, underscore, colon, slash and hyphen"
+            ),
+            Self::InvalidProbability { event_id, value } => write!(
+                f,
+                "event {event_id} has invalid probability {value}; expected a finite value in [0,1]"
+            ),
+            Self::IncompatibleProbabilitySpaces => write!(
+                f,
+                "event marginals do not share one declared probability space"
+            ),
+            Self::IncompatibleConditioningContexts => {
+                write!(f, "event marginals have incompatible conditioning contexts")
+            }
+            Self::IncompatibleEventDefinitions => {
+                write!(f, "event marginals use incompatible event definitions")
+            }
+            Self::IncompatibleEventHorizons => {
+                write!(f, "event marginals use incompatible risk horizons")
+            }
+            Self::IncompatibleSourceModelRevisions => {
+                write!(f, "event marginals use incompatible source model revisions")
+            }
             Self::DuplicateEventId(value) => write!(f, "duplicate event ID {value}"),
-            Self::IndependenceEvidenceMissing => write!(f, "mutual-independence evidence reference and event-family ID are required"),
-            Self::IndependenceNotAttested => write!(f, "product aggregation requires explicit mutual-independence evidence"),
-            Self::EmptyJointScenarioSet => write!(f, "at least one complete joint scenario is required"),
-            Self::InsufficientJointScenarios(count) => write!(f, "at least two independent joint scenarios are required; got {count}"),
+            Self::IndependenceEvidenceMissing => write!(
+                f,
+                "mutual-independence evidence reference and event-family ID are required"
+            ),
+            Self::IndependenceNotAttested => write!(
+                f,
+                "product aggregation requires explicit mutual-independence evidence"
+            ),
+            Self::EmptyJointScenarioSet => {
+                write!(f, "at least one complete joint scenario is required")
+            }
+            Self::InsufficientJointScenarios(count) => write!(
+                f,
+                "at least two independent joint scenarios are required; got {count}"
+            ),
             Self::DuplicateScenarioId(value) => write!(f, "duplicate joint scenario ID {value}"),
-            Self::InvalidScenarioOrderDigest => write!(f, "scenario order digest must be lowercase SHA-256"),
-            Self::JointScenarioEvidenceMissing => write!(f, "joint scenario set, probability space, conditioning, event, horizon and model evidence are required"),
-            Self::JointScenarioSamplingNotIid => write!(f, "complete joint scenarios must be IID under the declared joint model"),
-            Self::JointScenarioDependenciesOmitted => write!(f, "joint scenario model must include all declared shared dependencies"),
-            Self::JointScenarioEventSetNotFrozen => write!(f, "the event set must be frozen before scenario evaluation"),
-            Self::JointScenarioOutcomeCountMismatch { scenario_id, expected, actual } => write!(f, "scenario {scenario_id} has {actual} event outcomes; expected {expected}"),
-            Self::InvalidDelta(value) => write!(f, "delta must be finite and in (0,1); got {value}"),
-            Self::InvalidFrequencyExposure => write!(f, "collision frequency requires a positive finite exposure and a non-negative finite rate"),
-            Self::InvalidProbabilityOfDetection => write!(f, "P_d and its threshold must be finite probabilities in [0,1], with model and policy provenance"),
-            Self::InvalidObservationSignificance => write!(f, "p_obs and significance level must be finite probabilities in [0,1], with a declared null and test"),
+            Self::InvalidScenarioOrderDigest => {
+                write!(f, "scenario order digest must be lowercase SHA-256")
+            }
+            Self::JointScenarioEvidenceMissing => write!(
+                f,
+                "joint scenario set, probability space, conditioning, event, horizon and model evidence are required"
+            ),
+            Self::JointScenarioSamplingNotIid => write!(
+                f,
+                "complete joint scenarios must be IID under the declared joint model"
+            ),
+            Self::JointScenarioDependenciesOmitted => write!(
+                f,
+                "joint scenario model must include all declared shared dependencies"
+            ),
+            Self::JointScenarioEventSetNotFrozen => {
+                write!(f, "the event set must be frozen before scenario evaluation")
+            }
+            Self::JointScenarioOutcomeCountMismatch {
+                scenario_id,
+                expected,
+                actual,
+            } => write!(
+                f,
+                "scenario {scenario_id} has {actual} event outcomes; expected {expected}"
+            ),
+            Self::InvalidDelta(value) => {
+                write!(f, "delta must be finite and in (0,1); got {value}")
+            }
+            Self::InvalidFrequencyExposure => write!(
+                f,
+                "collision frequency requires a positive finite exposure and a non-negative finite rate"
+            ),
+            Self::InvalidProbabilityOfDetection => write!(
+                f,
+                "P_d and its threshold must be finite probabilities in [0,1], with model and policy provenance"
+            ),
+            Self::InvalidObservationSignificance => write!(
+                f,
+                "p_obs and significance level must be finite probabilities in [0,1], with a declared null and test"
+            ),
             Self::ArithmeticOverflow => write!(f, "event/scenario count overflowed usize"),
         }
     }
@@ -268,7 +334,9 @@ pub fn validate_event_marginals(events: &[EventLevelPc]) -> Result<(), Aggregati
 
 /// Return sharp Frechet union bounds from compatible marginals without an
 /// independence assumption. No point estimate is returned.
-pub fn frechet_union_bounds(events: &[EventLevelPc]) -> Result<FrechetUnionBounds, AggregationError> {
+pub fn frechet_union_bounds(
+    events: &[EventLevelPc],
+) -> Result<FrechetUnionBounds, AggregationError> {
     validate_event_marginals(events)?;
     let lower = events.iter().map(|event| event.value).fold(0.0, f64::max);
     let sum = events.iter().map(|event| event.value).sum::<f64>();
@@ -362,11 +430,16 @@ pub fn joint_path_risk(
         return Err(AggregationError::EmptyJointScenarioSet);
     }
     if scenarios.len() < 2 {
-        return Err(AggregationError::InsufficientJointScenarios(scenarios.len()));
+        return Err(AggregationError::InsufficientJointScenarios(
+            scenarios.len(),
+        ));
     }
     for (field, value) in [
         ("scenario_set_id", &evidence.scenario_set_id),
-        ("scenario_sampling_design_id", &evidence.scenario_sampling_design_id),
+        (
+            "scenario_sampling_design_id",
+            &evidence.scenario_sampling_design_id,
+        ),
         ("probability_space_id", &evidence.probability_space_id),
         ("conditioning_context_id", &evidence.conditioning_context_id),
         ("event_definition_id", &evidence.event_definition_id),
@@ -411,7 +484,9 @@ pub fn joint_path_risk(
             return Err(AggregationError::InvalidIdentifier("scenario_id"));
         }
         if !scenario_ids.insert(scenario.scenario_id.as_str()) {
-            return Err(AggregationError::DuplicateScenarioId(scenario.scenario_id.clone()));
+            return Err(AggregationError::DuplicateScenarioId(
+                scenario.scenario_id.clone(),
+            ));
         }
         if scenario.event_outcomes.len() != event_ids.len() {
             return Err(AggregationError::JointScenarioOutcomeCountMismatch {
@@ -444,7 +519,9 @@ pub fn joint_path_risk(
         joint_model_revision: evidence.joint_model_revision.clone(),
         event_count: event_ids.len(),
         independent_joint_scenario_count: k,
-        total_event_outcomes: k.checked_mul(event_ids.len()).ok_or(AggregationError::ArithmeticOverflow)?,
+        total_event_outcomes: k
+            .checked_mul(event_ids.len())
+            .ok_or(AggregationError::ArithmeticOverflow)?,
         scenarios_with_any_collision: any_collision_count,
         estimate_any_collision: estimate,
         confidence_delta: delta,
@@ -538,16 +615,16 @@ fn valid_probability(value: f64) -> bool {
 
 fn valid_identifier(value: &str) -> bool {
     !value.trim().is_empty()
-        && value.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric() || b"._:/-".contains(&byte)
-        })
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"._:/-".contains(&byte))
 }
 
 fn valid_sha256(value: &str) -> bool {
     value.len() == 64
-        && value.bytes().all(|byte| {
-            byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)
-        })
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 fn validate_delta(delta: f64) -> Result<(), AggregationError> {
@@ -588,7 +665,8 @@ mod tests {
             scenario_set_id: "joint-scenario-set-v1".into(),
             scenario_sampling_design_id: "iid-complete-joint-scenarios-v1".into(),
             scenario_sampling_evidence_ref: "fixture://joint-scenarios/iid-design-v1".into(),
-            scenario_order_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+            scenario_order_sha256:
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
             probability_space_id: "probability-space-v1".into(),
             conditioning_context_id: "conditioned-on-current-od-v1".into(),
             event_definition_id: "hard-body-contact-v1".into(),
@@ -603,7 +681,11 @@ mod tests {
 
     #[test]
     fn frechet_bounds_hold_without_independence() {
-        let events = vec![event("event-a", 0.2), event("event-b", 0.3), event("event-c", 0.4)];
+        let events = vec![
+            event("event-a", 0.2),
+            event("event-b", 0.3),
+            event("event-c", 0.4),
+        ];
         let report = frechet_union_bounds(&events).unwrap();
         assert!((report.lower_bound - 0.4).abs() < 1e-14);
         assert!((report.upper_bound - 0.9).abs() < 1e-14);
@@ -613,7 +695,10 @@ mod tests {
     #[test]
     fn frechet_bounds_cover_perfect_positive_dependence_and_mutual_exclusion() {
         let same_event_probability = 0.25;
-        let events = vec![event("a", same_event_probability), event("b", same_event_probability)];
+        let events = vec![
+            event("a", same_event_probability),
+            event("b", same_event_probability),
+        ];
         let bounds = frechet_union_bounds(&events).unwrap();
         // Perfect positive dependence: union = 0.25.
         assert!(bounds.lower_bound <= 0.25 && 0.25 <= bounds.upper_bound);
@@ -651,17 +736,32 @@ mod tests {
     fn incompatible_contexts_cannot_be_aggregated() {
         let mut events = vec![event("a", 0.1), event("b", 0.2)];
         events[1].conditioning_context_id = "different-od-context".into();
-        assert_eq!(frechet_union_bounds(&events), Err(AggregationError::IncompatibleConditioningContexts));
+        assert_eq!(
+            frechet_union_bounds(&events),
+            Err(AggregationError::IncompatibleConditioningContexts)
+        );
     }
 
     #[test]
     fn joint_scenario_any_collision_uses_joint_scenario_count() {
         let event_ids = vec!["event-a".into(), "event-b".into(), "event-c".into()];
         let scenarios = vec![
-            JointScenario { scenario_id: "scenario-1".into(), event_outcomes: vec![false, false, false] },
-            JointScenario { scenario_id: "scenario-2".into(), event_outcomes: vec![true, true, false] },
-            JointScenario { scenario_id: "scenario-3".into(), event_outcomes: vec![false, true, true] },
-            JointScenario { scenario_id: "scenario-4".into(), event_outcomes: vec![false, false, false] },
+            JointScenario {
+                scenario_id: "scenario-1".into(),
+                event_outcomes: vec![false, false, false],
+            },
+            JointScenario {
+                scenario_id: "scenario-2".into(),
+                event_outcomes: vec![true, true, false],
+            },
+            JointScenario {
+                scenario_id: "scenario-3".into(),
+                event_outcomes: vec![false, true, true],
+            },
+            JointScenario {
+                scenario_id: "scenario-4".into(),
+                event_outcomes: vec![false, false, false],
+            },
         ];
         let report = joint_path_risk(&event_ids, &scenarios, 0.05, &scenario_evidence()).unwrap();
         assert_eq!(report.total_event_outcomes, 12);
@@ -675,8 +775,14 @@ mod tests {
     fn joint_scenario_model_rejects_omitted_shared_dependencies_and_bad_shape() {
         let event_ids = vec!["event-a".into(), "event-b".into()];
         let scenarios = vec![
-            JointScenario { scenario_id: "scenario-1".into(), event_outcomes: vec![false, false] },
-            JointScenario { scenario_id: "scenario-2".into(), event_outcomes: vec![true, false] },
+            JointScenario {
+                scenario_id: "scenario-1".into(),
+                event_outcomes: vec![false, false],
+            },
+            JointScenario {
+                scenario_id: "scenario-2".into(),
+                event_outcomes: vec![true, false],
+            },
         ];
         let mut evidence = scenario_evidence();
         evidence.all_shared_dependencies_are_included = false;
@@ -685,32 +791,70 @@ mod tests {
             Err(AggregationError::JointScenarioDependenciesOmitted)
         );
         assert!(matches!(
-            joint_path_risk(&event_ids, &[JointScenario { scenario_id: "scenario-1".into(), event_outcomes: vec![false] }], 0.05, &scenario_evidence()),
+            joint_path_risk(
+                &event_ids,
+                &[JointScenario {
+                    scenario_id: "scenario-1".into(),
+                    event_outcomes: vec![false]
+                }],
+                0.05,
+                &scenario_evidence()
+            ),
             Err(AggregationError::InsufficientJointScenarios(1))
         ));
     }
 
     #[test]
     fn frequency_pd_and_significance_remain_separate_typed_quantities() {
-        let frequency = long_term_collision_frequency(3, 1000.0, "tracked-leo-population-v1".into(), "flux-model-v1".into(), "sha256:flux-v1".into(), "observed-count-over-exposure-v1".into()).unwrap();
+        let frequency = long_term_collision_frequency(
+            3,
+            1000.0,
+            "tracked-leo-population-v1".into(),
+            "flux-model-v1".into(),
+            "sha256:flux-v1".into(),
+            "observed-count-over-exposure-v1".into(),
+        )
+        .unwrap();
         assert!((frequency.rate_per_object_year - 0.003).abs() < 1e-14);
 
-        let pd = probability_of_detection(0.95, 1.0e-4, "maneuver-policy-v1".into(), "policy-calibration-v1".into()).unwrap();
+        let pd = probability_of_detection(
+            0.95,
+            1.0e-4,
+            "maneuver-policy-v1".into(),
+            "policy-calibration-v1".into(),
+        )
+        .unwrap();
         assert_eq!(pd.value, 0.95);
 
-        let significance = observation_significance(0.01, 0.05, "collision-null-v1".into(), "miss-distance-test-v1".into(), "measurement-model-v1".into()).unwrap();
+        let significance = observation_significance(
+            0.01,
+            0.05,
+            "collision-null-v1".into(),
+            "miss-distance-test-v1".into(),
+            "measurement-model-v1".into(),
+        )
+        .unwrap();
         assert_eq!(significance.p_value, 0.01);
     }
 
     #[test]
     fn duplicate_event_and_scenario_ids_are_rejected() {
         let duplicated = vec![event("a", 0.1), event("a", 0.2)];
-        assert_eq!(frechet_union_bounds(&duplicated), Err(AggregationError::DuplicateEventId("a".into())));
+        assert_eq!(
+            frechet_union_bounds(&duplicated),
+            Err(AggregationError::DuplicateEventId("a".into()))
+        );
 
         let event_ids = vec!["a".into()];
         let scenarios = vec![
-            JointScenario { scenario_id: "same".into(), event_outcomes: vec![false] },
-            JointScenario { scenario_id: "same".into(), event_outcomes: vec![true] },
+            JointScenario {
+                scenario_id: "same".into(),
+                event_outcomes: vec![false],
+            },
+            JointScenario {
+                scenario_id: "same".into(),
+                event_outcomes: vec![true],
+            },
         ];
         assert_eq!(
             joint_path_risk(&event_ids, &scenarios, 0.05, &scenario_evidence()),
