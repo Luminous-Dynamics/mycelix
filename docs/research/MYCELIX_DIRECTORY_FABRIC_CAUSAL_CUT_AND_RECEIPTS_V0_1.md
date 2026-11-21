@@ -163,9 +163,11 @@ The v0.1 canonical decision record binds:
 
 These bytes are versioned and domain-separated. The relying party must hash and sign them using a pinned signature/hash profile. The current Rust reference emits canonical bytes but does not compute the digest, sign, verify signer identity, provide durable nonce consumption, or prove trusted time.
 
-### 5.2 Effect observation receipt
+### 5.2 Effect-attempt and effect-reconciliation receipts
 
-The effect owner produces a distinct record binding:
+Keep two different record types.
+
+**Physical attempt receipt** is emitted for each actual dispatch/attempt and binds:
 
 - same request digest;
 - exact authorization decision receipt digest;
@@ -173,10 +175,14 @@ The effect owner produces a distinct record binding:
 - unique physical attempt ID and consecutive attempt number;
 - stable idempotency-key commitment;
 - effect-owner identity;
-- outcome: Committed, RejectedNoEffect, Unknown, ReconciledCommitted, ReconciledNoEffect or NotObserved;
+- outcome: Committed, RejectedNoEffect, Unknown or NotObserved;
 - exact observation digest.
 
-The verifier must check every physical attempt for the same logical operation preserves request, idempotency commitment and effect owner. There may be at most one commit for the logical operation. Unknown does not mean no effect and therefore blocks a new mutation until the effect owner reconciles the exact logical/idempotency key. A no-effect reconciliation may permit a retry of that same logical operation; if a subsequent retry becomes Unknown, unresolved status returns.
+**Reconciliation receipt** is a separate owner-side observation. It binds the exact prior attempt ID and number, same logical operation/request/idempotency commitment, same effect owner, and one outcome: ConfirmedCommitted or ConfirmedNoEffect. A reconciliation does not consume a physical attempt number and cannot be used as a new execution event.
+
+The verifier must check every physical attempt for the same logical operation preserves request, idempotency commitment and effect owner. There may be at most one effective commit for the logical operation, considering both direct attempt observations and reconciliations of Unknown attempts. Unknown does not mean no effect and blocks a new physical attempt until a reconciliation receipt explicitly targets that exact Unknown/NotObserved attempt. ConfirmedNoEffect may permit a retry of the same logical operation with the next consecutive physical attempt number; if that retry becomes Unknown, unresolved status returns. ConfirmedCommitted closes the logical operation and makes any later physical attempt invalid.
+
+A reconciliation must not target an attempt already reported as Committed/RejectedNoEffect, must reference the exact decision receipt used for that attempt, and must not be duplicated. The reference crate checks these relationships structurally; it does not authenticate the effect owner or prove its observation inventory complete.
 
 The local reference history checker enforces these structural rules. It does not authenticate effect-owner identity or prove that the owner enumerated every route/session/worker capable of producing an effect. That stronger inventory and observation obligation belongs with LISE #6236.
 
