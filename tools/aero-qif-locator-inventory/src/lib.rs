@@ -232,6 +232,8 @@ pub enum InventoryError {
     ElementStackMismatch,
     #[error("document has no root element or did not close completely")]
     IncompleteDocument,
+    #[error("non-whitespace character data is outside the document root")]
+    TextOutsideRoot,
     #[error("trace-reference field has missing or invalid numeric content at {0}")]
     InvalidQifReference(String),
     #[error("QIF element identity is missing or not a positive integer at {0}")]
@@ -886,8 +888,8 @@ fn scan_document(
                 finalize_frame(frame, profile, qpid, &mut locator_rows, &mut declared_external_ids)?;
             }
             Event::Text(text) => {
+                let value = text.xml_content(XmlVersion::Implicit1_0).into_owned();
                 if let Some(frame) = stack.last_mut() {
-                    let value = text.as_ref();
                     let new_len = frame.direct_text.len() as u64 + value.len() as u64;
                     if new_len > profile.limits.max_text_bytes_per_element {
                         return Err(InventoryError::ElementTextLimitExceeded);
@@ -896,12 +898,14 @@ fn scan_document(
                     if total_text_bytes > profile.limits.max_total_text_bytes {
                         return Err(InventoryError::TotalTextLimitExceeded);
                     }
-                    frame.direct_text.push_str(value);
+                    frame.direct_text.push_str(&value);
+                } else if !value.trim().is_empty() {
+                    return Err(InventoryError::TextOutsideRoot);
                 }
             }
             Event::CData(text) => {
+                let value = text.xml_content(XmlVersion::Implicit1_0).into_owned();
                 if let Some(frame) = stack.last_mut() {
-                    let value = text.as_ref();
                     let new_len = frame.direct_text.len() as u64 + value.len() as u64;
                     if new_len > profile.limits.max_text_bytes_per_element {
                         return Err(InventoryError::ElementTextLimitExceeded);
@@ -910,7 +914,9 @@ fn scan_document(
                     if total_text_bytes > profile.limits.max_total_text_bytes {
                         return Err(InventoryError::TotalTextLimitExceeded);
                     }
-                    frame.direct_text.push_str(value);
+                    frame.direct_text.push_str(&value);
+                } else {
+                    return Err(InventoryError::TextOutsideRoot);
                 }
             }
             Event::GeneralRef(reference) => {
@@ -934,6 +940,8 @@ fn scan_document(
                         return Err(InventoryError::TotalTextLimitExceeded);
                     }
                     frame.direct_text.push_str(&replacement);
+                } else {
+                    return Err(InventoryError::TextOutsideRoot);
                 }
             }
             Event::DocType(_) => return Err(InventoryError::DoctypeForbidden),
