@@ -1121,7 +1121,23 @@ mod tests {
             .inputs
             .push(packet.process_plan.reference.clone());
         set_artifact_payload(&mut packet.inspection_result, inspection);
+        packet
+            .inspection_evidence
+            .inputs
+            .retain(|reference| reference.kind != "qif_result");
+        packet
+            .inspection_evidence
+            .inputs
+            .push(packet.inspection_result.reference.clone());
         set_artifact_payload(&mut packet.test_result, test);
+        packet
+            .test_evidence
+            .inputs
+            .retain(|reference| reference.kind != "test_result");
+        packet
+            .test_evidence
+            .inputs
+            .push(packet.test_result.reference.clone());
 
         let payloads = [
             (&packet.design_definition, design.as_slice()),
