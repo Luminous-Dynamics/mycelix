@@ -120,7 +120,9 @@ fn validate(s: &Scenario) -> Result<(), String> {
         || s.outcome_definitions.is_empty()
         || s.candidates.is_empty()
     {
-        return Err("scenario, threshold authority, outcomes and candidates must be non-empty".into());
+        return Err(
+            "scenario, threshold authority, outcomes and candidates must be non-empty".into(),
+        );
     }
 
     let mut outcome_ids = BTreeSet::new();
@@ -147,7 +149,11 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 finite(name, value)?;
             }
         }
-        if outcome.hard_minimum.zip(outcome.hard_maximum).is_some_and(|(a, b)| a > b) {
+        if outcome
+            .hard_minimum
+            .zip(outcome.hard_maximum)
+            .is_some_and(|(a, b)| a > b)
+        {
             return Err(format!("{} has reversed hard limits", outcome.outcome_id));
         }
         if outcome.direction == "target_range"
@@ -155,7 +161,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 || outcome.target_max.is_none()
                 || outcome.target_min.unwrap_or(0.0) > outcome.target_max.unwrap_or(0.0))
         {
-            return Err(format!("{} requires an ordered target range", outcome.outcome_id));
+            return Err(format!(
+                "{} requires an ordered target range",
+                outcome.outcome_id
+            ));
         }
         if !matches!(
             outcome.hard_guardrail_status.as_str(),
@@ -182,10 +191,18 @@ fn validate(s: &Scenario) -> Result<(), String> {
         }
         if !matches!(
             candidate.candidate_class.as_str(),
-            "no_action" | "management" | "compost" | "biochar"
-                | "mineral_amendment" | "water_management" | "other"
+            "no_action"
+                | "management"
+                | "compost"
+                | "biochar"
+                | "mineral_amendment"
+                | "water_management"
+                | "other"
         ) {
-            return Err(format!("{} has unsupported candidate class", candidate.candidate_id));
+            return Err(format!(
+                "{} has unsupported candidate class",
+                candidate.candidate_id
+            ));
         }
         if !matches!(
             candidate.domain_status.as_str(),
@@ -200,7 +217,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
             candidate.sourcing_status.as_str(),
             "approved" | "not_applicable" | "unknown" | "prohibited"
         ) {
-            return Err(format!("{} has an unsupported evidence state", candidate.candidate_id));
+            return Err(format!(
+                "{} has an unsupported evidence state",
+                candidate.candidate_id
+            ));
         }
 
         let product_required = matches!(
@@ -274,7 +294,9 @@ fn assess_candidate(candidate: &Candidate, s: &Scenario) -> CandidateAssessment 
     let mut unresolved = Vec::new();
 
     match candidate.domain_status.as_str() {
-        "out_of_domain" => blocked.push("candidate is outside the assessed applicability domain".into()),
+        "out_of_domain" => {
+            blocked.push("candidate is outside the assessed applicability domain".into())
+        }
         "unassessed" => unresolved.push("candidate applicability domain is unassessed".into()),
         _ => {}
     }
@@ -289,7 +311,9 @@ fn assess_candidate(candidate: &Candidate, s: &Scenario) -> CandidateAssessment 
         _ => {}
     }
     match candidate.sourcing_status.as_str() {
-        "prohibited" => blocked.push("sourcing is prohibited by the declared evidence profile".into()),
+        "prohibited" => {
+            blocked.push("sourcing is prohibited by the declared evidence profile".into())
+        }
         "unknown" => unresolved.push("sourcing or ecological-retention evidence is unknown".into()),
         _ => {}
     }
@@ -361,27 +385,27 @@ fn interval_distance(value: f64, minimum: f64, maximum: f64) -> f64 {
     }
 }
 
-fn target_worst_distance(
-    interval: &CandidateOutcome,
-    definition: &OutcomeDefinition,
-) -> f64 {
+fn target_worst_distance(interval: &CandidateOutcome, definition: &OutcomeDefinition) -> f64 {
     let min = definition.target_min.unwrap_or(0.0);
     let max = definition.target_max.unwrap_or(0.0);
-    interval_distance(interval.lower_bound, min, max)
-        .max(interval_distance(interval.upper_bound, min, max))
+    interval_distance(interval.lower_bound, min, max).max(interval_distance(
+        interval.upper_bound,
+        min,
+        max,
+    ))
 }
 
-fn target_best_distance(
-    interval: &CandidateOutcome,
-    definition: &OutcomeDefinition,
-) -> f64 {
+fn target_best_distance(interval: &CandidateOutcome, definition: &OutcomeDefinition) -> f64 {
     let min = definition.target_min.unwrap_or(0.0);
     let max = definition.target_max.unwrap_or(0.0);
     if interval.upper_bound >= min && interval.lower_bound <= max {
         0.0
     } else {
-        interval_distance(interval.lower_bound, min, max)
-            .min(interval_distance(interval.upper_bound, min, max))
+        interval_distance(interval.lower_bound, min, max).min(interval_distance(
+            interval.upper_bound,
+            min,
+            max,
+        ))
     }
 }
 
@@ -460,7 +484,14 @@ fn build_report(s: &Scenario, digest: String) -> Report {
         }
         for other in &eligible {
             if other.candidate_id != assessment.candidate_id
-                && robustly_dominates(other, &s.candidates.iter().find(|x| x.candidate_id == assessment.candidate_id).unwrap(), s)
+                && robustly_dominates(
+                    other,
+                    &s.candidates
+                        .iter()
+                        .find(|x| x.candidate_id == assessment.candidate_id)
+                        .unwrap(),
+                    s,
+                )
             {
                 assessment.dominated_by.push(other.candidate_id.clone());
             }
@@ -504,7 +535,9 @@ fn build_report(s: &Scenario, digest: String) -> Report {
 
 fn run(input: &Path, output: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if output.exists() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into());
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into(),
+        );
     }
     let bytes = fs::read(input)?;
     let scenario: Scenario = serde_json::from_slice(&bytes)?;
@@ -512,7 +545,10 @@ fn run(input: &Path, output: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let digest = format!("{:x}", Sha256::digest(&bytes));
     let report = build_report(&scenario, digest);
     let json = serde_json::to_vec_pretty(&report)?;
-    let mut file = OpenOptions::new().write(true).create_new(true).open(output)?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output)?;
     file.write_all(&json)?;
     file.write_all(b"\n")?;
     Ok(())
@@ -535,12 +571,18 @@ mod tests {
     use super::*;
 
     fn scenario() -> Scenario {
-        serde_json::from_str(include_str!("../fixtures/synthetic-intervention-frontier.json"))
-            .expect("synthetic fixture parses")
+        serde_json::from_str(include_str!(
+            "../fixtures/synthetic-intervention-frontier.json"
+        ))
+        .expect("synthetic fixture parses")
     }
 
     fn assessment<'a>(report: &'a Report, id: &str) -> &'a CandidateAssessment {
-        report.candidate_assessments.iter().find(|x| x.candidate_id == id).unwrap()
+        report
+            .candidate_assessments
+            .iter()
+            .find(|x| x.candidate_id == id)
+            .unwrap()
     }
 
     #[test]
@@ -548,29 +590,54 @@ mod tests {
         let s = scenario();
         validate(&s).expect("valid scenario");
         let report = build_report(&s, "0".repeat(64));
-        assert!(!report.pareto_frontier_candidate_ids.contains(&"biochar-uncertain-chloride".into()));
-        assert!(!report.pareto_frontier_candidate_ids.contains(&"compost-quality-unknown".into()));
-        assert!(!report.pareto_frontier_candidate_ids.contains(&"biochar-failed-quality".into()));
+        assert!(
+            !report
+                .pareto_frontier_candidate_ids
+                .contains(&"biochar-uncertain-chloride".into())
+        );
+        assert!(
+            !report
+                .pareto_frontier_candidate_ids
+                .contains(&"compost-quality-unknown".into())
+        );
+        assert!(
+            !report
+                .pareto_frontier_candidate_ids
+                .contains(&"biochar-failed-quality".into())
+        );
     }
 
     #[test]
     fn unknown_quality_and_chloride_overlap_are_unresolved() {
         let report = build_report(&scenario(), "0".repeat(64));
-        assert_eq!(assessment(&report, "compost-quality-unknown").eligibility_status, "unresolved");
-        assert_eq!(assessment(&report, "biochar-uncertain-chloride").eligibility_status, "unresolved");
+        assert_eq!(
+            assessment(&report, "compost-quality-unknown").eligibility_status,
+            "unresolved"
+        );
+        assert_eq!(
+            assessment(&report, "biochar-uncertain-chloride").eligibility_status,
+            "unresolved"
+        );
     }
 
     #[test]
     fn failed_product_quality_is_blocked() {
         let report = build_report(&scenario(), "0".repeat(64));
-        assert_eq!(assessment(&report, "biochar-failed-quality").eligibility_status, "blocked");
+        assert_eq!(
+            assessment(&report, "biochar-failed-quality").eligibility_status,
+            "blocked"
+        );
     }
 
     #[test]
     fn management_candidate_robustly_dominates_no_action_but_does_not_become_a_recommendation() {
         let report = build_report(&scenario(), "0".repeat(64));
         assert!(!assessment(&report, "no-action").on_frontier);
-        assert!(assessment(&report, "no-action").dominated_by.contains(&"residue-cover-management".into()));
+        assert!(
+            assessment(&report, "no-action")
+                .dominated_by
+                .contains(&"residue-cover-management".into())
+        );
         assert!(report.no_weighted_score_emitted);
     }
 
@@ -585,11 +652,22 @@ mod tests {
     #[test]
     fn interval_overlap_at_hard_bound_is_not_eligible() {
         let mut s = scenario();
-        let candidate = s.candidates.iter_mut().find(|x| x.candidate_id == "biochar-low-chloride").unwrap();
-        let cl = candidate.outcomes.iter_mut().find(|x| x.outcome_id == "chloride_index").unwrap();
+        let candidate = s
+            .candidates
+            .iter_mut()
+            .find(|x| x.candidate_id == "biochar-low-chloride")
+            .unwrap();
+        let cl = candidate
+            .outcomes
+            .iter_mut()
+            .find(|x| x.outcome_id == "chloride_index")
+            .unwrap();
         cl.upper_bound = 6.2;
         let report = build_report(&s, "0".repeat(64));
-        assert_eq!(assessment(&report, "biochar-low-chloride").eligibility_status, "unresolved");
+        assert_eq!(
+            assessment(&report, "biochar-low-chloride").eligibility_status,
+            "unresolved"
+        );
     }
 
     #[test]
@@ -597,7 +675,10 @@ mod tests {
         let mut s = scenario();
         s.candidates[1].domain_status = "unassessed".into();
         let report = build_report(&s, "0".repeat(64));
-        assert_eq!(assessment(&report, "residue-cover-management").eligibility_status, "unresolved");
+        assert_eq!(
+            assessment(&report, "residue-cover-management").eligibility_status,
+            "unresolved"
+        );
     }
 
     #[test]
