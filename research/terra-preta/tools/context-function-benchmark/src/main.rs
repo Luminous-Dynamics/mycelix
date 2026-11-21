@@ -191,7 +191,9 @@ struct LongitudinalChange {
 #[derive(Debug, Serialize)]
 struct GuardrailResult {
     status: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
     minimum_value: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     maximum_value: Option<f64>,
     interpretation: &'static str,
 }
