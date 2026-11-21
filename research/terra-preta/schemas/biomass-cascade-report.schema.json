@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic biomass cascading-use ledger report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "source_assessments",
+    "allocation_assessments",
+    "controls",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_biomass_eligibility_not_harvest_authorization"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_assessments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "status",
+          "gross_dry_mass_kg",
+          "conservative_available_surplus_lower_kg",
+          "conservative_available_surplus_upper_kg",
+          "approved_cap_remaining_lower_kg",
+          "approved_cap_remaining_upper_kg",
+          "requested_allocation_total_kg",
+          "reasons"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "eligible",
+              "blocked",
+              "unresolved"
+            ]
+          },
+          "gross_dry_mass_kg": {
+            "type": "number"
+          },
+          "conservative_available_surplus_lower_kg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "conservative_available_surplus_upper_kg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "approved_cap_remaining_lower_kg": {
+            "type": "number"
+          },
+          "approved_cap_remaining_upper_kg": {
+            "type": "number"
+          },
+          "requested_allocation_total_kg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "allocation_assessments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "allocation_id",
+          "batch_id",
+          "source_id",
+          "requested_dry_mass_kg",
+          "status",
+          "nutrient_removed_kg_interval",
+          "reasons"
+        ],
+        "properties": {
+          "allocation_id": {
+            "type": "string"
+          },
+          "batch_id": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "requested_dry_mass_kg": {
+            "type": "number"
+          },
+          "status": {
+            "enum": [
+              "eligible",
+              "blocked",
+              "unresolved"
+            ]
+          },
+          "nutrient_removed_kg_interval": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "carbon_lower",
+              "carbon_upper",
+              "nitrogen_lower",
+              "nitrogen_upper",
+              "phosphorus_lower",
+              "phosphorus_upper",
+              "potassium_lower",
+              "potassium_upper"
+            ],
+            "properties": {
+              "carbon_lower": {
+                "type": "number",
+                "minimum": 0
+              },
+              "carbon_upper": {
+                "type": "number",
+                "minimum": 0
+              },
+              "nitrogen_lower": {
+                "type": "number",
+                "minimum": 0
+              },
+              "nitrogen_upper": {
+                "type": "number",
+                "minimum": 0
+              },
+              "phosphorus_lower": {
+                "type": "number",
+                "minimum": 0
+              },
+              "phosphorus_upper": {
+                "type": "number",
+                "minimum": 0
+              },
+              "potassium_lower": {
+                "type": "number",
+                "minimum": 0
+              },
+              "potassium_upper": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rights_and_consent_required_pass",
+        "ecological_retention_required_pass",
+        "prior_and_competing_uses_deducted_pass",
+        "seasonal_cap_enforced_pass",
+        "no_double_allocation_pass",
+        "nutrient_export_reported_pass"
+      ],
+      "properties": {
+        "rights_and_consent_required_pass": {
+          "const": true
+        },
+        "ecological_retention_required_pass": {
+          "const": true
+        },
+        "prior_and_competing_uses_deducted_pass": {
+          "const": true
+        },
+        "seasonal_cap_enforced_pass": {
+          "const": true
+        },
+        "no_double_allocation_pass": {
+          "const": true
+        },
+        "nutrient_export_reported_pass": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
