@@ -154,6 +154,7 @@ Use at least 10 independent repetitions for headline numbers; publish raw sample
 | Warm local PEP decision, excluding external IdP/MFA | p95 ≤10 ms; p99 ≤25 ms |
 | Pure frontier comparison, up to 64 authority components | p95 ≤250 μs |
 | Pure lease check | p99 ≤50 μs |
+| Healthy-mesh revocation to last accepted protected effect | p95 ≤5 s; p99 ≤30 s |
 | False authorization on frozen and held-out controls | 0 |
 | Known-answer decision agreement with independent oracle | 100% |
 | Sensitive disclosure through public DHT/logs/telemetry | 0 |
