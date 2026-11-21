@@ -8,8 +8,12 @@ It is intentionally **not** a complete authorization engine, identity provider, 
 
 1. **Causal authority-frontier checks.** A local snapshot is compared with a caller-supplied minimum frontier. A higher per-authority sequence number is not accepted as proof of ancestry by itself: the snapshot must carry an exact older authority position that an independent verifier has already validated. Same-sequence/different-digest positions and unproven descendants are incomparable. No wall-clock or last-writer-wins ordering is used.
 2. **Snapshot rollback checks.** A realm mismatch and a policy epoch below the persisted local high-water mark are rejected. A result of `SatisfiesRequiredFrontier` is only a freshness precondition; it is not an Allow decision and does not establish global freshness.
-3. **Bounded offline leases.** A lease binds realm, principal, resource, action, audience, purpose and policy digest. Only an explicitly classified low-risk read may use this offline path. A clock interval that overlaps the not-before or expiry boundary is indeterminate; clock uncertainty cannot extend the lease.
+3. **Bounded offline leases.** A lease binds realm, principal, resource, action, audience, purpose, exact policy epoch and digest, and its minimum authority frontier. Only an explicitly classified low-risk read may use this offline path. A clock interval that overlaps the not-before or expiry boundary is indeterminate; clock uncertainty cannot extend the lease.
 4. **Bounded group expansion.** Child-to-parent group inheritance is deterministic. Cycles and depth/node/edge budget exhaustion reject the entire expansion; no partial closure is returned.
+
+## Canonical evidence bytes
+
+The frontier, frontier-evidence, policy-snapshot and offline-lease types expose versioned, domain-separated canonical byte encodings. The frontier-evidence encoding includes the exact covered authority positions; the lease encoding includes the exact policy epoch and minimum frontier it pins. External signing or digest code must sign these bytes together with the required signer/key and schema profile. This crate does not hash, sign, verify signatures, or validate ancestry proofs.
 
 ## Deliberate reuse boundary
 
