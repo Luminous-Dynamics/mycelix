@@ -1072,8 +1072,9 @@ mod tests {
             format_id: "ISO_10303_242:2025".into(),
         };
         assert_eq!(verify_artifact_bytes(&artifact, bytes), Ok(()));
+        let changed_bytes = vec![b'x'; bytes.len()];
         assert!(matches!(
-            verify_artifact_bytes(&artifact, &[b'x'; 63]),
+            verify_artifact_bytes(&artifact, &changed_bytes),
             Err(PacketError::ArtifactDigestMismatch(_))
         ));
         assert!(matches!(
