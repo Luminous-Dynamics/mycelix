@@ -35,6 +35,7 @@ const CONTENT_BOUND_EVENT_TYPES: &[&str] = &[
 pub struct FanoutSummary {
     pub status: &'static str,
     pub fanout_id: String,
+    pub recipient_unit: String,
     pub manifest_sha256: String,
     pub disposition: &'static str,
     pub required_recipients: usize,
@@ -263,6 +264,17 @@ pub fn verify_fanout(
         );
     }
 
+    let recipient_unit =
+        required_string(&manifest, "recipient_unit", "$.manifest", &mut findings)
+            .unwrap_or_default();
+    if !["ACCOUNT", "DEVICE"].contains(&recipient_unit.as_str()) {
+        push_finding(
+            &mut findings,
+            "$.manifest.recipient_unit",
+            "recipient_unit must be ACCOUNT or DEVICE",
+        );
+    }
+
     let group_id_commitment =
         required_digest(&manifest, "group_id_commitment", "$.manifest", &mut findings);
     let membership_snapshot_digest = required_digest(
@@ -474,6 +486,14 @@ pub fn verify_fanout(
             &mut findings,
         );
 
+        compare_group_string(
+            group,
+            "recipient_unit",
+            &recipient_unit,
+            &format!("{child_path}.group_fanout"),
+            &mut findings,
+        );
+
         if let Some(expected) = group_id_commitment.as_deref() {
             compare_group_string(
                 group,
@@ -654,6 +674,7 @@ pub fn verify_fanout(
     Ok(FanoutSummary {
         status: "FANOUT_EVIDENCE_CONSISTENT",
         fanout_id,
+        recipient_unit,
         manifest_sha256: actual_manifest_sha256,
         disposition,
         required_recipients,
@@ -709,6 +730,7 @@ mod tests {
             "required_recipient_set_commitment": recipient_set,
             "recipient_commitment": recipient_commitment,
             "content_commitment": "a".repeat(64),
+            "recipient_unit": "ACCOUNT",
             "aggregation_policy": "ALL_REQUIRED"
         });
 
@@ -770,6 +792,7 @@ mod tests {
             "membership_snapshot_digest": "2".repeat(64),
             "required_recipient_set_commitment": recipient_set,
             "content_commitment": "a".repeat(64),
+            "recipient_unit": "ACCOUNT",
             "aggregation_policy": "ALL_REQUIRED",
             "children": manifest_children,
             "claim_ceiling": [
@@ -828,6 +851,7 @@ mod tests {
         .expect("complete child trace should qualify structurally");
 
         assert_eq!(result.disposition, "ALL_REQUIRED_RECEIPT_CLAIMS_CONSISTENT");
+        assert_eq!(result.recipient_unit, "ACCOUNT");
         assert_eq!(result.required_recipients, 1);
         assert_eq!(result.verified_recipients, 1);
     }
