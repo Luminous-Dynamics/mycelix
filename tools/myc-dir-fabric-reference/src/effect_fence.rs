@@ -320,7 +320,7 @@ impl RevocationFencePlan {
     }
 
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, FenceError> {
-        let mut bytes = b"MYC-DIR-REVOCATION-FENCE-PLAN\\0\\x02".to_vec();
+        let mut bytes = b"MYC-DIR-REVOCATION-FENCE-PLAN\0\x02".to_vec();
         self.scope.append_canonical(&mut bytes)?;
         bytes.extend_from_slice(&self.revocation_digest);
         bytes.extend_from_slice(&self.inventory_epoch.to_be_bytes());
@@ -541,6 +541,10 @@ impl FencedEffectCommand {
 mod tests {
     use super::*;
     use crate::causal_cut::CausalCutAssessment;
+    use crate::effect_inventory::{
+        EffectRouteEnforcement, EffectRouteId, EffectSurfaceClosureStatus,
+        EffectSurfaceKind, EffectSurfaceRoute,
+    };
     use crate::receipts::{
         ClockProfileId, PolicyEvaluation, ReceiptId,
     };
@@ -593,10 +597,53 @@ mod tests {
         .unwrap()
     }
 
+    fn two_owner_inventory() -> (EffectSurfaceInventory, EffectSurfaceClosureReceipt) {
+        let inventory_scope = scope();
+        let revocation = [8; 32];
+        let inventory = EffectSurfaceInventory::new(
+            inventory_scope.clone(),
+            revocation,
+            7,
+            [2; 32],
+            [3; 32],
+            [4; 32],
+            vec![
+                EffectSurfaceRoute::new(
+                    EffectRouteId::new("api-write").unwrap(),
+                    EffectSurfaceKind::Database,
+                    owner("db-a"),
+                    EffectRouteEnforcement::AtomicOwnerFence,
+                ),
+                EffectSurfaceRoute::new(
+                    EffectRouteId::new("worker-write").unwrap(),
+                    EffectSurfaceKind::MessageBroker,
+                    owner("queue-b"),
+                    EffectRouteEnforcement::AtomicOwnerFence,
+                ),
+            ],
+        )
+        .unwrap();
+        let receipt = EffectSurfaceClosureReceipt::new(
+            inventory_scope,
+            revocation,
+            7,
+            [2; 32],
+            [3; 32],
+            [4; 32],
+            "effect-inventory-verifier",
+            [5; 32],
+            [6; 32],
+            EffectSurfaceClosureStatus::VerifiedComplete,
+        )
+        .unwrap();
+        (inventory, receipt)
+    }
+
     fn two_owner_plan() -> RevocationFencePlan {
-        RevocationFencePlan::new(
-            scope(),
-            [8; 32],
+        let (inventory, closure) = two_owner_inventory();
+        RevocationFencePlan::from_verified_inventory(
+            &inventory,
+            &closure,
             vec![
                 OwnerFenceTarget::new(owner("db-a"), 4).unwrap(),
                 OwnerFenceTarget::new(owner("queue-b"), 9).unwrap(),
@@ -773,19 +820,63 @@ mod tests {
     }
 
     #[test]
-    fn fence_plan_encoding_is_domain_separated_and_order_independent() {
-        let plan_a = RevocationFencePlan::new(
+    fn owner_targets_must_cover_every_owner_in_verified_route_inventory() {
+        let (inventory, closure) = two_owner_inventory();
+        assert_eq!(
+            RevocationFencePlan::from_verified_inventory(
+                &inventory,
+                &closure,
+                vec![OwnerFenceTarget::new(owner("db-a"), 4).unwrap()],
+            ),
+            Err(FenceError::EffectOwnerSetMismatch)
+        );
+    }
+
+    #[test]
+    fn unverified_inventory_cannot_produce_strict_revocation_plan() {
+        let (inventory, _) = two_owner_inventory();
+        let closure = EffectSurfaceClosureReceipt::new(
             scope(),
             [8; 32],
+            7,
+            [2; 32],
+            [3; 32],
+            [4; 32],
+            "effect-inventory-verifier",
+            [5; 32],
+            [6; 32],
+            EffectSurfaceClosureStatus::Unverified,
+        )
+        .unwrap();
+        assert_eq!(
+            RevocationFencePlan::from_verified_inventory(
+                &inventory,
+                &closure,
+                vec![
+                    OwnerFenceTarget::new(owner("db-a"), 4).unwrap(),
+                    OwnerFenceTarget::new(owner("queue-b"), 9).unwrap(),
+                ],
+            ),
+            Err(FenceError::InventoryNotStronglyCovered)
+        );
+    }
+
+    #[test]
+    fn fence_plan_encoding_is_domain_separated_and_order_independent() {
+        let (inventory_a, closure_a) = two_owner_inventory();
+        let (inventory_b, closure_b) = two_owner_inventory();
+        let plan_a = RevocationFencePlan::from_verified_inventory(
+            &inventory_a,
+            &closure_a,
             vec![
                 OwnerFenceTarget::new(owner("db-a"), 4).unwrap(),
                 OwnerFenceTarget::new(owner("queue-b"), 9).unwrap(),
             ],
         )
         .unwrap();
-        let plan_b = RevocationFencePlan::new(
-            scope(),
-            [8; 32],
+        let plan_b = RevocationFencePlan::from_verified_inventory(
+            &inventory_b,
+            &closure_b,
             vec![
                 OwnerFenceTarget::new(owner("queue-b"), 9).unwrap(),
                 OwnerFenceTarget::new(owner("db-a"), 4).unwrap(),
