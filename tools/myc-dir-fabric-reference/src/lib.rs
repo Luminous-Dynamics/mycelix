@@ -66,6 +66,7 @@ string_id!(ActionId);
 string_id!(AudienceId);
 string_id!(PurposeId);
 string_id!(GroupId);
+string_id!(ClockProfileId);
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct AuthorityPosition {
@@ -422,6 +423,7 @@ pub enum OperationRisk {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ClockWindow {
+    profile: ClockProfileId,
     earliest_ms: u64,
     latest_ms: u64,
 }
@@ -432,11 +434,16 @@ pub enum ClockError {
 }
 
 impl ClockWindow {
-    pub fn new(earliest_ms: u64, latest_ms: u64) -> Result<Self, ClockError> {
+    pub fn new(
+        profile: ClockProfileId,
+        earliest_ms: u64,
+        latest_ms: u64,
+    ) -> Result<Self, ClockError> {
         if earliest_ms > latest_ms {
             return Err(ClockError::InvertedInterval);
         }
         Ok(Self {
+            profile,
             earliest_ms,
             latest_ms,
         })
@@ -453,6 +460,7 @@ pub struct OfflineLease {
     policy_epoch: u64,
     minimum_frontier: AuthorityFrontier,
     policy_digest: Digest,
+    clock_profile: ClockProfileId,
     issued_at_ms: u64,
     not_before_ms: u64,
     expires_at_ms: u64,
@@ -470,6 +478,7 @@ impl OfflineLease {
         policy_epoch: u64,
         minimum_frontier: AuthorityFrontier,
         policy_digest: Digest,
+        clock_profile: ClockProfileId,
         issued_at_ms: u64,
         not_before_ms: u64,
         expires_at_ms: u64,
@@ -483,6 +492,7 @@ impl OfflineLease {
             policy_epoch,
             minimum_frontier,
             policy_digest,
+            clock_profile,
             issued_at_ms,
             not_before_ms,
             expires_at_ms,
@@ -505,6 +515,7 @@ impl OfflineLease {
         append_identifier(&mut bytes, self.scope.purpose.as_str())?;
         bytes.extend_from_slice(&self.policy_epoch.to_be_bytes());
         bytes.extend_from_slice(&self.policy_digest);
+        append_identifier(&mut bytes, self.clock_profile.as_str())?;
         bytes.extend_from_slice(&frontier_length.to_be_bytes());
         bytes.extend_from_slice(&frontier);
         bytes.extend_from_slice(&self.issued_at_ms.to_be_bytes());
@@ -531,6 +542,7 @@ pub enum LeaseAssessment {
     SnapshotRollbackDetected,
     PolicyEpochMismatch,
     PolicyDigestMismatch,
+    ClockProfileMismatch,
     BehindLeaseFrontier,
     IncomparableLeaseFrontier,
     RiskNotEligibleForOfflineLease,
@@ -564,6 +576,9 @@ pub fn assess_offline_lease(
     }
     if &lease.policy_digest != snapshot.policy_digest() {
         return LeaseAssessment::PolicyDigestMismatch;
+    }
+    if lease.clock_profile != now.profile {
+        return LeaseAssessment::ClockProfileMismatch;
     }
     match snapshot
         .frontier_evidence
@@ -618,6 +633,7 @@ struct DfsFrame {
     group: GroupId,
     next_parent: usize,
     depth: usize,
+    max_descendant_depth: usize,
 }
 
 /// Expands direct group memberships through child -> parent inheritance.
@@ -650,6 +666,7 @@ pub fn expand_group_ancestors(
     }
 
     let mut completed = BTreeSet::new();
+    let mut max_depth_from_node: BTreeMap<GroupId, usize> = BTreeMap::new();
 
     for root in roots {
         if completed.contains(&root) {
@@ -665,6 +682,7 @@ pub fn expand_group_ancestors(
             group: root,
             next_parent: 0,
             depth: 0,
+            max_descendant_depth: 0,
         }];
 
         while !stack.is_empty() {
@@ -685,13 +703,18 @@ pub fn expand_group_ancestors(
                     if active.contains(&parent) {
                         return Err(GroupExpansionError::CycleDetected);
                     }
-                    if completed.contains(&parent) {
-                        continue;
-                    }
 
                     let depth = parent_depth + 1;
                     if depth > limits.max_depth {
                         return Err(GroupExpansionError::DepthLimitExceeded);
+                    }
+                    if completed.contains(&parent) {
+                        let descendant_depth =
+                            max_depth_from_node.get(&parent).copied().unwrap_or(0);
+                        if depth.saturating_add(descendant_depth) > limits.max_depth {
+                            return Err(GroupExpansionError::DepthLimitExceeded);
+                        }
+                        continue;
                     }
                     if completed.len() + active.len() >= limits.max_nodes {
                         return Err(GroupExpansionError::NodeLimitExceeded);
@@ -702,12 +725,20 @@ pub fn expand_group_ancestors(
                         group: parent,
                         next_parent: 0,
                         depth,
+                        max_descendant_depth: 0,
                     });
                 }
                 None => {
                     let frame = stack.pop().expect("stack is checked as non-empty");
                     active.remove(&frame.group);
+                    let descendant_depth = frame.max_descendant_depth;
+                    max_depth_from_node.insert(frame.group.clone(), descendant_depth);
                     completed.insert(frame.group);
+                    if let Some(parent_frame) = stack.last_mut() {
+                        parent_frame.max_descendant_depth = parent_frame
+                            .max_descendant_depth
+                            .max(descendant_depth.saturating_add(1));
+                    }
                 }
             }
         }
@@ -757,6 +788,10 @@ mod tests {
 
     fn group(value: &str) -> GroupId {
         identifier(value, GroupId::new)
+    }
+
+    fn clock_profile(value: &str) -> ClockProfileId {
+        identifier(value, ClockProfileId::new)
     }
 
     fn position(name: &str, sequence: u64, marker: u8) -> AuthorityPosition {
@@ -874,8 +909,8 @@ mod tests {
         let requested = scope();
         let empty = FrontierEvidence::new(frontier(vec![]), vec![]).unwrap();
         let snapshot = policy_snapshot(empty);
-        let lease = OfflineLease::new(requested.clone(), 12, frontier(vec![]), [7; 32], 100, 100, 200, 5).unwrap();
-        let now = ClockWindow::new(150, 152).unwrap();
+        let lease = OfflineLease::new(requested.clone(), 12, frontier(vec![]), [7; 32], clock_profile("utc-ms-v1"), 100, 100, 200, 5).unwrap();
+        let now = ClockWindow::new(clock_profile("utc-ms-v1"), 150, 152).unwrap();
 
         assert_eq!(
             assess_offline_lease(
@@ -921,6 +956,7 @@ mod tests {
             12,
             frontier(vec![old.clone()]),
             [7; 32],
+            clock_profile("utc-ms-v1"),
             100,
             100,
             200,
@@ -937,7 +973,7 @@ mod tests {
                 &requested,
                 &snapshot,
                 OperationRisk::LowRiskReadOnly,
-                ClockWindow::new(150, 152).unwrap()
+                ClockWindow::new(clock_profile("utc-ms-v1"), 150, 152).unwrap()
             ),
             LeaseAssessment::BehindLeaseFrontier
         );
@@ -954,9 +990,37 @@ mod tests {
                 &requested,
                 &wrong_epoch,
                 OperationRisk::LowRiskReadOnly,
-                ClockWindow::new(150, 152).unwrap()
+                ClockWindow::new(clock_profile("utc-ms-v1"), 150, 152).unwrap()
             ),
             LeaseAssessment::PolicyEpochMismatch
+        );
+    }
+
+    #[test]
+    fn offline_lease_rejects_unrelated_clock_profile() {
+        let requested = scope();
+        let snapshot = policy_snapshot(FrontierEvidence::new(frontier(vec![]), vec![]).unwrap());
+        let lease = OfflineLease::new(
+            requested.clone(),
+            12,
+            frontier(vec![]),
+            [7; 32],
+            clock_profile("trusted-utc-v1"),
+            100,
+            100,
+            200,
+            5,
+        )
+        .unwrap();
+        assert_eq!(
+            assess_offline_lease(
+                &lease,
+                &requested,
+                &snapshot,
+                OperationRisk::LowRiskReadOnly,
+                ClockWindow::new(clock_profile("local-wall-clock"), 150, 152).unwrap()
+            ),
+            LeaseAssessment::ClockProfileMismatch
         );
     }
 
@@ -973,9 +1037,9 @@ mod tests {
         let requested = scope();
         let evidence = FrontierEvidence::new(frontier(vec![]), vec![]).unwrap();
         let snapshot = policy_snapshot(evidence);
-        let lease = OfflineLease::new(requested.clone(), 12, frontier(vec![]), [7; 32], 100, 100, 200, 5).unwrap();
+        let lease = OfflineLease::new(requested.clone(), 12, frontier(vec![]), [7; 32], clock_profile("utc-ms-v1"), 100, 100, 200, 5).unwrap();
 
-        let too_uncertain = ClockWindow::new(150, 160).unwrap();
+        let too_uncertain = ClockWindow::new(clock_profile("utc-ms-v1"), 150, 160).unwrap();
         assert_eq!(
             assess_offline_lease(
                 &lease,
@@ -987,7 +1051,7 @@ mod tests {
             LeaseAssessment::ClockUncertaintyTooWide
         );
 
-        let straddles_expiry = ClockWindow::new(198, 202).unwrap();
+        let straddles_expiry = ClockWindow::new(clock_profile("utc-ms-v1"), 198, 202).unwrap();
         assert_eq!(
             assess_offline_lease(
                 &lease,
@@ -999,7 +1063,7 @@ mod tests {
             LeaseAssessment::TimeBoundaryAmbiguous
         );
 
-        let exact_after_expiry = ClockWindow::new(200, 200).unwrap();
+        let exact_after_expiry = ClockWindow::new(clock_profile("utc-ms-v1"), 200, 200).unwrap();
         assert_eq!(
             assess_offline_lease(
                 &lease,
@@ -1069,6 +1133,22 @@ mod tests {
     }
 
     #[test]
+    fn group_expansion_checks_long_paths_through_cached_shared_ancestors() {
+        let result = expand_group_ancestors(
+            &[group("a-short-root"), group("z-long-root")],
+            &[
+                GroupEdge { child: group("a-short-root"), parent: group("shared") },
+                GroupEdge { child: group("shared"), parent: group("upper") },
+                GroupEdge { child: group("upper"), parent: group("top") },
+                GroupEdge { child: group("z-long-root"), parent: group("middle") },
+                GroupEdge { child: group("middle"), parent: group("shared") },
+            ],
+            ExpansionLimits { max_depth: 3, max_nodes: 6, max_edges: 5 },
+        );
+        assert_eq!(result, Err(GroupExpansionError::DepthLimitExceeded));
+    }
+
+    #[test]
     fn group_budget_exhaustion_is_not_silently_truncated() {
         let result = expand_group_ancestors(
             &[group("a")],
@@ -1094,6 +1174,6 @@ mod tests {
 
     #[test]
     fn clock_window_rejects_inverted_bounds() {
-        assert_eq!(ClockWindow::new(20, 10), Err(ClockError::InvertedInterval));
+        assert_eq!(ClockWindow::new(clock_profile("utc-ms-v1"), 20, 10), Err(ClockError::InvertedInterval));
     }
 }
