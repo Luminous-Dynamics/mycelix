@@ -1,7 +1,6 @@
 use space_defensive_importance_sampling::{
-    estimate_collision_probability, exact_standard_normal_2d_disk_probability,
     CollisionObservation, DefensiveGaussianMixture, EvaluationEvidence, GaussianComponent,
-    WhiteningTransform,
+    WhiteningTransform, estimate_collision_probability, exact_standard_normal_2d_disk_probability,
 };
 use std::process;
 
@@ -63,10 +62,7 @@ fn proposal(id: &str, epsilon: f64, adaptive_sigma: f64) -> DefensiveGaussianMix
             id: "single-adaptive-gaussian".into(),
             mixture_weight: 1.0,
             mean: vec![0.0, 0.0],
-            cholesky: vec![
-                vec![adaptive_sigma, 0.0],
-                vec![0.0, adaptive_sigma],
-            ],
+            cholesky: vec![vec![adaptive_sigma, 0.0], vec![0.0, adaptive_sigma]],
         }],
     }
 }
@@ -83,13 +79,9 @@ fn run_replicate(
 
     for _ in 0..SAMPLES_PER_REPLICATE {
         let latent = rng.normal_pair();
-        let sample = proposal.sample_from_latents(
-            rng.uniform_open(),
-            rng.uniform_open(),
-            &latent,
-        )?;
-        let squared_radius = sample.point[0] * sample.point[0]
-            + sample.point[1] * sample.point[1];
+        let sample =
+            proposal.sample_from_latents(rng.uniform_open(), rng.uniform_open(), &latent)?;
+        let squared_radius = sample.point[0] * sample.point[0] + sample.point[1] * sample.point[1];
         observations.push(CollisionObservation {
             point: sample.point.clone(),
             physical_state: sample.point,
@@ -111,7 +103,8 @@ fn run_replicate(
         proposal_training_id: "analytic-fixture-proposal-training-v1".into(),
         evaluation_sample_id: evaluation_id.clone(),
         sampling_design_id: "seeded-splitmix-box-muller-synthetic-regression-v1".into(),
-        sampling_evidence_ref: "fixture://prng-regression-only/not-production-rng-certification".into(),
+        sampling_evidence_ref: "fixture://prng-regression-only/not-production-rng-certification"
+            .into(),
         sample_order_digest: format!("fixture-order-seed-{seed:016x}"),
         event_oracle_id: "exact-centered-standard-normal-disk".into(),
         event_oracle_revision: "closed-form-1-exp-minus-r2-over-2-v1".into(),
@@ -121,13 +114,8 @@ fn run_replicate(
         evaluation_draws_are_iid_from_full_mixture: true,
     };
 
-    let report = estimate_collision_probability(
-        proposal,
-        &whitening(),
-        &observations,
-        DELTA,
-        &evidence,
-    )?;
+    let report =
+        estimate_collision_probability(proposal, &whitening(), &observations, DELTA, &evidence)?;
     Ok((report.estimate, report.upper_confidence_bound))
 }
 
@@ -157,7 +145,11 @@ fn main() {
 
         // q_adapt = p, so the defensive mixture is exactly the nominal target:
         // this is crude Monte Carlo represented through the same estimator.
-        let crude = proposal(&format!("crude-target-{case_index}"), DEFENSIVE_EPSILON, 1.0);
+        let crude = proposal(
+            &format!("crude-target-{case_index}"),
+            DEFENSIVE_EPSILON,
+            1.0,
+        );
         let importance = proposal(
             &format!("defensive-is-{case_index}"),
             DEFENSIVE_EPSILON,
@@ -170,12 +162,10 @@ fn main() {
         let mut is_upper = Vec::with_capacity(REPLICATES);
 
         for replicate in 0..REPLICATES {
-            let crude_seed = 0x4352_5544_4500_0000_u64
-                ^ ((case_index as u64) << 32)
-                ^ replicate as u64;
-            let is_seed = 0x4953_4445_4600_0000_u64
-                ^ ((case_index as u64) << 32)
-                ^ replicate as u64;
+            let crude_seed =
+                0x4352_5544_4500_0000_u64 ^ ((case_index as u64) << 32) ^ replicate as u64;
+            let is_seed =
+                0x4953_4445_4600_0000_u64 ^ ((case_index as u64) << 32) ^ replicate as u64;
 
             match run_replicate(&crude, radius, crude_seed, replicate, "crude") {
                 Ok((estimate, upper)) => {
@@ -201,7 +191,11 @@ fn main() {
 
         let crude_rmse = rms_error(&crude_estimates, truth);
         let is_rmse = rms_error(&is_estimates, truth);
-        let improvement = if is_rmse > 0.0 { crude_rmse / is_rmse } else { f64::INFINITY };
+        let improvement = if is_rmse > 0.0 {
+            crude_rmse / is_rmse
+        } else {
+            f64::INFINITY
+        };
 
         println!(
             "crude_mc,{radius:.6},{truth:.12},{:.12},{crude_rmse:.12},{:.12}",

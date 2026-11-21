@@ -757,7 +757,11 @@ impl fmt::Display for EstimateError {
                 f,
                 "counterfactual comparison requires distinct plan IDs/revisions, a fixed horizon and encounter order, and the same initial samples and full-horizon oracle"
             ),
-            Self::CounterfactualOutcomeCountMismatch { expected, baseline_actual, candidate_actual } => write!(
+            Self::CounterfactualOutcomeCountMismatch {
+                expected,
+                baseline_actual,
+                candidate_actual,
+            } => write!(
                 f,
                 "counterfactual row has baseline/candidate outcome counts {baseline_actual}/{candidate_actual}; expected {expected} for each"
             ),
@@ -1093,9 +1097,11 @@ pub fn compare_counterfactual_maneuver_risk(
         return Err(EstimateError::InvalidCounterfactualManeuverDesign);
     }
     let mut seen_ids = BTreeSet::new();
-    if design.encounter_ids.iter().any(|id| {
-        !valid_identifier(id) || !seen_ids.insert(id.as_str())
-    }) {
+    if design
+        .encounter_ids
+        .iter()
+        .any(|id| !valid_identifier(id) || !seen_ids.insert(id.as_str()))
+    {
         return Err(EstimateError::InvalidCounterfactualManeuverDesign);
     }
     if observations.len() < 2 {
@@ -1106,7 +1112,8 @@ pub fn compare_counterfactual_maneuver_risk(
     let mut baseline_observations = Vec::with_capacity(observations.len());
     let mut candidate_observations = Vec::with_capacity(observations.len());
     let mut paired_differences = Vec::with_capacity(observations.len());
-    let mut encounter_differences = vec![Vec::<f64>::with_capacity(observations.len()); encounter_count];
+    let mut encounter_differences =
+        vec![Vec::<f64>::with_capacity(observations.len()); encounter_count];
     let mut encounter_baseline_contributions =
         vec![Vec::<f64>::with_capacity(observations.len()); encounter_count];
     let mut introduced_counts = vec![0usize; encounter_count];
@@ -1122,8 +1129,14 @@ pub fn compare_counterfactual_maneuver_risk(
                 candidate_actual: observation.candidate_collision_by_encounter.len(),
             });
         }
-        let baseline_union = observation.baseline_collision_by_encounter.iter().any(|hit| *hit);
-        let candidate_union = observation.candidate_collision_by_encounter.iter().any(|hit| *hit);
+        let baseline_union = observation
+            .baseline_collision_by_encounter
+            .iter()
+            .any(|hit| *hit);
+        let candidate_union = observation
+            .candidate_collision_by_encounter
+            .iter()
+            .any(|hit| *hit);
         baseline_observations.push(CollisionObservation {
             point: observation.point.clone(),
             physical_state: observation.physical_state.clone(),
@@ -1156,10 +1169,18 @@ pub fn compare_counterfactual_maneuver_risk(
     }
 
     let baseline_union = estimate_collision_probability(
-        proposal, whitening, &baseline_observations, delta, evaluation_evidence
+        proposal,
+        whitening,
+        &baseline_observations,
+        delta,
+        evaluation_evidence,
     )?;
     let candidate_union = estimate_collision_probability(
-        proposal, whitening, &candidate_observations, delta, evaluation_evidence
+        proposal,
+        whitening,
+        &candidate_observations,
+        delta,
+        evaluation_evidence,
     )?;
 
     let n = paired_differences.len();
@@ -1176,18 +1197,14 @@ pub fn compare_counterfactual_maneuver_risk(
     let lower = (paired_change - radius).max(-1.0);
     let upper = (paired_change + radius).min(1.0);
 
-    let independent_stream_difference_standard_error =
-        (baseline_union.sample_variance / n as f64
-            + candidate_union.sample_variance / n as f64)
-            .sqrt();
+    let independent_stream_difference_standard_error = (baseline_union.sample_variance / n as f64
+        + candidate_union.sample_variance / n as f64)
+        .sqrt();
     let paired_variance_is_zero = paired_variance <= f64::EPSILON;
     let paired_variance_reduction_ratio = if paired_variance_is_zero {
         None
     } else {
-        Some(
-            independent_stream_difference_standard_error.powi(2)
-                / paired_standard_error.powi(2)
-        )
+        Some(independent_stream_difference_standard_error.powi(2) / paired_standard_error.powi(2))
     };
 
     let encounter_changes = design
@@ -1943,14 +1960,18 @@ mod tests {
             0.05,
             &repeated_evidence(&proposal.id),
             &counterfactual_design(),
-        ).unwrap();
+        )
+        .unwrap();
 
         assert!(report.paired_probability_change.abs() < 1e-12);
         assert!(report.paired_standard_error.abs() < 1e-12);
         assert!(report.paired_variance_is_zero);
         assert!(report.paired_variance_reduction_ratio.is_none());
         assert!(report.independent_stream_difference_standard_error > 0.0);
-        assert_eq!(report.baseline_union.estimate, report.candidate_union.estimate);
+        assert_eq!(
+            report.baseline_union.estimate,
+            report.candidate_union.estimate
+        );
     }
 
     #[test]
@@ -1969,13 +1990,17 @@ mod tests {
             0.05,
             &repeated_evidence(&proposal.id),
             &counterfactual_design(),
-        ).unwrap();
+        )
+        .unwrap();
 
         assert!((report.baseline_union.estimate - 0.5).abs() < 1e-12);
         assert!((report.candidate_union.estimate - 0.25).abs() < 1e-12);
         assert!((report.paired_probability_change + 0.25).abs() < 1e-12);
         assert_eq!(report.encounter_changes[0].mitigated_collision_samples, 1);
-        assert_eq!(report.encounter_changes[0].newly_introduced_collision_samples, 0);
+        assert_eq!(
+            report.encounter_changes[0].newly_introduced_collision_samples,
+            0
+        );
     }
 
     #[test]
@@ -1994,10 +2019,14 @@ mod tests {
             0.05,
             &repeated_evidence(&proposal.id),
             &counterfactual_design(),
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(report.encounter_changes[0].mitigated_collision_samples, 1);
-        assert_eq!(report.encounter_changes[1].newly_introduced_collision_samples, 1);
+        assert_eq!(
+            report.encounter_changes[1].newly_introduced_collision_samples,
+            1
+        );
         assert!(report.encounter_changes[0].probability_change_estimate < 0.0);
         assert!(report.encounter_changes[1].probability_change_estimate > 0.0);
         assert!(report.paired_probability_change.abs() < 1e-12);
@@ -2014,8 +2043,12 @@ mod tests {
         ]);
         assert_eq!(
             compare_counterfactual_maneuver_risk(
-                &proposal, &whitening(2), &observations, 0.05,
-                &repeated_evidence(&proposal.id), &design,
+                &proposal,
+                &whitening(2),
+                &observations,
+                0.05,
+                &repeated_evidence(&proposal.id),
+                &design,
             ),
             Err(EstimateError::InvalidCounterfactualManeuverDesign)
         );
@@ -2024,8 +2057,12 @@ mod tests {
         malformed[0].candidate_collision_by_encounter.pop();
         assert_eq!(
             compare_counterfactual_maneuver_risk(
-                &proposal, &whitening(2), &malformed, 0.05,
-                &repeated_evidence(&proposal.id), &counterfactual_design(),
+                &proposal,
+                &whitening(2),
+                &malformed,
+                0.05,
+                &repeated_evidence(&proposal.id),
+                &counterfactual_design(),
             ),
             Err(EstimateError::CounterfactualOutcomeCountMismatch {
                 expected: 2,
