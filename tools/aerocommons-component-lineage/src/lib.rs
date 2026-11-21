@@ -1105,6 +1105,21 @@ mod tests {
         let test = b"synthetic test result";
         set_artifact_payload(&mut packet.design_definition, design);
         set_artifact_payload(&mut packet.process_plan, process);
+        // Content-addressed identity changes must propagate to the build
+        // evidence inputs and declared manufacturing method.
+        packet.build_evidence.method = Some(packet.process_plan.reference.clone());
+        packet.build_evidence.inputs.retain(|reference| {
+            reference.kind != "design_definition"
+                && reference.kind != "manufacturing_process_plan"
+        });
+        packet
+            .build_evidence
+            .inputs
+            .push(packet.design_definition.reference.clone());
+        packet
+            .build_evidence
+            .inputs
+            .push(packet.process_plan.reference.clone());
         set_artifact_payload(&mut packet.inspection_result, inspection);
         set_artifact_payload(&mut packet.test_result, test);
 
