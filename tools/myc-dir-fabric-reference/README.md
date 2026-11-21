@@ -105,7 +105,7 @@ cargo clippy --manifest-path tools/myc-dir-fabric-reference/Cargo.toml --all-tar
 cargo fmt --manifest-path tools/myc-dir-fabric-reference/Cargo.toml -- --check
 ```
 
-The crate has no third-party dependencies. The branch currently authors 106 deterministic unit tests across frontier/snapshot/lease/group, request-scoped closure, decision/effect receipts, owner fencing and effect-surface inventory closure. They are source-present only until run on the exact head. They do not substitute for independent closure-proof validation, external property-testing, mutation testing, or a proof assistant.
+The crate has no third-party dependencies. The branch currently authors 106 deterministic unit tests across six modules: reference frontier/snapshot/lease/group (20), request-scoped closure (11), decision/effect receipts (21), resource fencing (22), effect-surface inventory (10), and queue delivery/worker claims (22). All are source-present only until run on the exact head. They are source-present only until run on the exact head. They do not substitute for independent closure-proof validation, external property-testing, mutation testing, or a proof assistant.
 
 ## Explicit claim ceiling
 
