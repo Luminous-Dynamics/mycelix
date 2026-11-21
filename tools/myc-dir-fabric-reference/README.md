@@ -64,6 +64,8 @@ The crate does not implement a new policy language or a second constraint algebr
 
 A production PEP must require both a sufficient snapshot assessment and the existing authoritative full-context policy result before an effect. An offline lease is a bounded freshness/availability condition, not a permission grant.
 
+The same folder includes `DirectoryFabricEffectFence.tla`, a finite-state model of per-owner generation installation, exact owner acknowledgements and delayed mutation commands. `DirectoryFabricEffectFence.cfg` is the safe configuration; `DirectoryFabricEffectFence-stale-accept-mutant.cfg` deliberately accepts stale commands after all owners acknowledge and should violate `NoStaleMutationAcceptanceAfterFence`. The model is source-present only; TLC has not been run.
+
 ## Run
 
 ```sh
