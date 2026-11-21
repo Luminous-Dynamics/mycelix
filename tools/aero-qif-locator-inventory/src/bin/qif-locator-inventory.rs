@@ -1,6 +1,6 @@
 use aero_qif_ingest_qualification::QifDocumentRole;
 use aero_qif_locator_inventory::{
-    derive_trace_locator_inventory, RawQifDocument, TraceLocatorProfileV1,
+    derive_trace_locator_inventory, validate_profile, RawQifDocument, TraceLocatorProfileV1,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -77,6 +77,10 @@ fn run() -> Result<(), String> {
     let mut report_out = None;
 
     while let Some(arg) = args.next() {
+        if arg == "--help" || arg == "-h" {
+            println!("{}", usage());
+            return Ok(());
+        }
         let value = args.next().ok_or_else(|| format!("missing value after {arg}"))?;
         match arg.as_str() {
             "--inventory-id" => inventory_id = Some(value),
@@ -102,10 +106,30 @@ fn run() -> Result<(), String> {
         return Err("--plan must be supplied at least once".into());
     }
 
+    let profile_metadata = fs::metadata(&profile_path)
+        .map_err(|error| format!("cannot stat profile {}: {error}", profile_path.display()))?;
+    if !profile_metadata.is_file() || profile_metadata.len() > 1024 * 1024 {
+        return Err("profile must be a regular file no larger than 1 MiB".into());
+    }
     let profile_bytes = fs::read(&profile_path)
         .map_err(|error| format!("cannot read profile {}: {error}", profile_path.display()))?;
+    if profile_bytes.len() > 1024 * 1024 {
+        return Err("profile grew beyond 1 MiB while being read".into());
+    }
     let profile: TraceLocatorProfileV1 = serde_json::from_slice(&profile_bytes)
         .map_err(|error| format!("invalid profile {}: {error}", profile_path.display()))?;
+    validate_profile(&profile).map_err(|error| format!("invalid profile: {error}"))?;
+
+    let input_paths = std::iter::once(&results_path)
+        .chain(plans.iter().map(|(_, path)| path))
+        .collect::<Vec<_>>();
+    if input_paths.iter().any(|path| **path == profile_path)
+        || input_paths.iter().any(|path| **path == inventory_out)
+        || input_paths.iter().any(|path| **path == report_out)
+        || inventory_out == report_out
+    {
+        return Err("profile, source inputs, inventory output and report output must use distinct paths".into());
+    }
 
     let mut inputs = Vec::with_capacity(plans.len() + 1);
     inputs.push(Input {
