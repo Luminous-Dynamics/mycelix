@@ -187,9 +187,7 @@ fn position_nees(
         .max(f64::MIN_POSITIVE);
     for row in 0..3 {
         for col in (row + 1)..3 {
-            if (covariance[row][col] - covariance[col][row]).abs()
-                > symmetry_tolerance * scale
-            {
+            if (covariance[row][col] - covariance[col][row]).abs() > symmetry_tolerance * scale {
                 return Err(CovarianceRealismError::AsymmetricCovariance {
                     sample_id: sample_id.to_string(),
                 });
@@ -425,12 +423,10 @@ pub fn assess_position_covariance_realism(
                         expected: expected.clone(),
                         actual: actual.clone(),
                     },
-                    "force_model_revision" => {
-                        CovarianceRealismError::MixedForceModelRevision {
-                            expected: expected.clone(),
-                            actual: actual.clone(),
-                        }
-                    }
+                    "force_model_revision" => CovarianceRealismError::MixedForceModelRevision {
+                        expected: expected.clone(),
+                        actual: actual.clone(),
+                    },
                     "covariance_source_id" => CovarianceRealismError::MixedCovarianceSource {
                         expected: expected.clone(),
                         actual: actual.clone(),
@@ -444,8 +440,14 @@ pub fn assess_position_covariance_realism(
         }
 
         for (field, digest) in [
-            ("predicted_ephemeris_sha256", &sample.predicted_ephemeris_sha256),
-            ("covariance_artifact_sha256", &sample.covariance_artifact_sha256),
+            (
+                "predicted_ephemeris_sha256",
+                &sample.predicted_ephemeris_sha256,
+            ),
+            (
+                "covariance_artifact_sha256",
+                &sample.covariance_artifact_sha256,
+            ),
             ("observed_state_sha256", &sample.observed_state_sha256),
         ] {
             if !is_sha256_hex(digest) {
@@ -532,8 +534,7 @@ pub fn assess_position_covariance_realism(
         sample_count: samples.len(),
         independent_group_count,
         minimum_independent_groups: config.minimum_independent_groups,
-        independent_group_floor_met: independent_group_count
-            >= config.minimum_independent_groups,
+        independent_group_floor_met: independent_group_count >= config.minimum_independent_groups,
         mean_position_bias_km,
         mean_position_bias_norm_km,
         mean_nees,
@@ -549,12 +550,9 @@ pub fn assess_position_covariance_realism(
 mod tests {
     use super::*;
 
-    const DIGEST_A: &str =
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    const DIGEST_B: &str =
-        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-    const DIGEST_C: &str =
-        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+    const DIGEST_A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const DIGEST_B: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const DIGEST_C: &str = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
 
     fn sample(id: &str, group: &str, residual: [f64; 3]) -> PositionResidualSample {
         PositionResidualSample {
@@ -573,11 +571,7 @@ mod tests {
             covariance_artifact_sha256: DIGEST_B.to_string(),
             observed_state_sha256: DIGEST_C.to_string(),
             residual_position_km: residual,
-            position_covariance_km2: [
-                [1.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0],
-                [0.0, 0.0, 1.0],
-            ],
+            position_covariance_km2: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
         }
     }
 
@@ -601,11 +595,7 @@ mod tests {
     #[test]
     fn correlated_covariance_cholesky_known_answer_is_reproduced() {
         let mut sample = sample("s1", "arc-1", [2.0, 1.0, 2.0]);
-        sample.position_covariance_km2 = [
-            [4.0, 1.0, 0.0],
-            [1.0, 3.0, 0.0],
-            [0.0, 0.0, 2.0],
-        ];
+        sample.position_covariance_km2 = [[4.0, 1.0, 0.0], [1.0, 3.0, 0.0], [0.0, 0.0, 2.0]];
         let report = assess_position_covariance_realism(&config(1), &[sample]).unwrap();
         assert!((report.mean_nees - (34.0 / 11.0)).abs() < 1e-12);
     }
