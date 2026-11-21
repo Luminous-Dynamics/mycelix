@@ -62,7 +62,7 @@
     }
   ],
   "expected_nir_to_mir_gap_cm1": 6,
-  "spectral_value_semantics": "unresolved_internal_source_conflict_raw_reflectance_vs_converted_absorbance",
+  "spectral_value_semantics": "unresolved_source_description_conflict",
   "sample_support": "composite cultivated-grain-field topsoil, 0-15 cm, one 2020 winter sampling season",
   "georeferenced_sample_count": 178,
   "georeferenced_sample_count_is_subset": true,
