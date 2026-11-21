@@ -18,7 +18,8 @@
     "comparators",
     "dependency_cut_profiles",
     "causal_cut_corpus_binding",
-    "graph_proof_workload_profiles"
+    "graph_proof_workload_profiles",
+    "effect_fence_profiles"
   ],
   "properties": {
     "profile": {
@@ -558,6 +559,44 @@
             }
           }
         ]
+      }
+    },
+    "effect_fence_profiles": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "effect_owners",
+          "atomic_mutation_guard",
+          "strict_completion_requires_all_owner_acks",
+          "purpose"
+        ],
+        "properties": {
+          "id": {
+            "enum": [
+              "single_owner_atomic_mutation",
+              "multi_owner_all_ack",
+              "non_fenceable_external_adapter"
+            ]
+          },
+          "effect_owners": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "atomic_mutation_guard": {
+            "type": "boolean"
+          },
+          "strict_completion_requires_all_owner_acks": {
+            "const": true
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 10
+          }
+        }
       }
     }
   }
