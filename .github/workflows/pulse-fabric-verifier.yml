@@ -20,10 +20,10 @@ on:
 permissions:
   contents: read
 
-# Keep immutable exact-head evidence runs. A newer push must not cancel a run
-# that may still be producing the qualification receipt for its original SHA.
+# Never cancel an in-progress exact-head run. GitHub retains only the newest
+# pending run in this branch-scoped group, preventing one queued run per push.
 concurrency:
-  group: pulse-fabric-verifier-${{ github.sha }}
+  group: pulse-fabric-verifier-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 env:
