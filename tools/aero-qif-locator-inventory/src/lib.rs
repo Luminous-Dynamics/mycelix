@@ -1793,13 +1793,16 @@ mod tests {
     #[test]
     fn same_numeric_xid_in_other_plan_document_does_not_change_source_inventory() {
         let plan2 = PLAN
-            .replace("20000000-0000-4000-8000-000000000002", "30000000-0000-4000-8000-000000000003")
-            .replace("id=\"301\"", "id=\"301\"");
+            .replace("20000000-0000-4000-8000-000000000002", "30000000-0000-4000-8000-000000000003");
+        let results = RESULTS.replace(
+            "</ExternalQIFReferences>",
+            "<ExternalQIFDocument id=\"8\"><QPId>30000000-0000-4000-8000-000000000003</QPId></ExternalQIFDocument></ExternalQIFReferences>"
+        );
         let documents = vec![
             RawQifDocument {
                 qpid: "10000000-0000-4000-8000-000000000001",
                 role: QifDocumentRole::Results,
-                bytes: RESULTS.as_bytes(),
+                bytes: results.as_bytes(),
             },
             RawQifDocument {
                 qpid: "20000000-0000-4000-8000-000000000002",
