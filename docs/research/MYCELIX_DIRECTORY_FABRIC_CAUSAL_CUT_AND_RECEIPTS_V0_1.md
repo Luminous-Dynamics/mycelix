@@ -272,11 +272,11 @@ Use LDBC SNB Interactive/Business Intelligence workloads as external graph-query
 - private-record leakage and metadata leakage;
 - whether the proof remains valid after graph-root or authority-frontier advance.
 
-The potential Mycelix differentiator is not “we use zero knowledge.” It is **a privacy-preserving, independently verifiable proof that the request's complete authority dependency cut was derived from the exact sovereign graph snapshots whose authority histories the PEP accepts**. This remains a research target, not an implemented capability.
+The potential Mycelix differentiator is not “we use zero knowledge.” It is **a privacy-preserving, independently verifiable proof that the request's complete authority dependency cut was derived from the exact sovereign graph snapshots whose authority histories the PEP accepts**. This remains a research target, not an implemented capability. The proposed VerfGraph comparator is an arXiv preprint dated 3 November 2026; its LDBC SNB results are author-reported and have not been independently reproduced by Mycelix. The supported operator/query semantics, graph-root authentication and multi-authority/deny closure requirements must be matched before any comparison or reuse claim.
 
 ## 8. Benchmark protocol additions
 
-The machine-readable benchmark preregistration now includes 29 metrics, six dependency-cut-size profiles (1/8/32/64/128/256 dependencies), 19 fault schedules and comparators for Cedar and SCITT. The causal-cut corpus has 24 scenarios (8 Allow, 4 Deny, 12 Indeterminate) and its own schema.
+The machine-readable benchmark preregistration now includes 38 metrics, six dependency-cut-size profiles (1/8/32/64/128/256 dependencies), 25 fault schedules and 12 comparator groups covering Cedar, SCITT, VerfGraph, ZKGraph and LDBC SNB. The causal-cut corpus has 24 scenarios (8 Allow, 4 Deny, 12 Indeterminate) and its own schema.
 
 New non-compensable gates:
 
@@ -303,7 +303,7 @@ Provisional pure-model targets (not measured):
 | Duplicate logical effect | 0 |
 | Retry while unknown/unreconciled | 0 |
 
-Report dependency-cut size relative to the reachable policy/entity graph so the project can measure whether request-scoped resolution actually reduces the currentness burden. Report worst-case and distribution, not just averages. Do not measure only the pure local function: also measure independent closure resolver latency, signature verification, cache hits/misses, proof bytes, graph snapshot storage and effect reconciliation.
+Report dependency-cut size relative to the reachable policy/entity graph so the project can measure whether request-scoped resolution actually reduces the currentness burden. Report worst-case and distribution, not just averages. Do not measure only the pure local function: also measure independent closure resolver latency, signature verification, cache hits/misses, proof bytes, graph snapshot storage and effect reconciliation. For zero-knowledge closure, measure proof generation, verifier time, proof bytes, prover memory, graph-root rollover and leakage; add a held-out test that mutates or omits deny/revocation edges from the query plan. A proof over an authentic but stale graph root must remain non-authorizing when the request requires a newer authority frontier.
 
 Use at least 10 independent process-level repetitions, open-loop offered load and exact source/build/runtime/graph/corpus digests. Keep actual Holochain conductor tests separate from pure-reference tests and synthetic peer simulations. Benchmark all comparators on matched policy/request semantics and freshness requirements; do not collapse security and sovereignty into a single weighted score.
 
