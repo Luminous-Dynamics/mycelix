@@ -60,7 +60,7 @@ The existing identity project already contains DID registry, credential-schema, 
 | interoperability TCK (#889) | Protocol fixture ownership | Current TCK is non-authoritative; no protocol pass is implied |
 | PEP / lease work (#1149, #1191) | Local enforcement and bounded cached authority | Each concrete enforcement path still needs qualification |
 
-The repository's own top-level README describes the Identity cluster as pre-alpha and warns that multi-agent coverage and deployment maturity differ by cluster. Accordingly, this programme begins with architecture, contracts and adversarial fixtures. Do not infer production readiness from the existence of zomes or unit tests.
+The repository's own top-level README describes the Identity cluster as pre-alpha and warns that multi-agent coverage and deployment maturity differ by cluster. Accordingly, this programme begins with architecture, contracts and adversarial fixtures. Do not infer production readiness from the existence of zomes or unit tests. In the inspected DID-registry and revocation integrity source, entry types are defined without explicit per-variant visibility annotations; before reuse, review the target HDI version's defaults and freeze a field-by-field public/private decision. Do not assume that a type is private because its consumers are organizational or because its source-chain content is not shown in a UI.
 
 ## 4. Paradigm shifts
 
@@ -180,6 +180,7 @@ Recommended division:
 ### Critical Holochain constraints
 
 1. **DHT visibility is asynchronous.** A peer's current view can be incomplete. A missing update is not proof that no update exists.
+2. **Private entry content does not make the action private.** Holochain documents that private entry payloads remain on the author's source chain while the action portion is still shared. A privacy review must account for author identity, timestamp, action/entry-type metadata, hashes, links, tags, indexes and network timing. Treat these as potentially revealing relationship metadata even when the entry payload is private.
 2. **Host capabilities are a call boundary, not the entire policy model.** Holochain checks whether a caller can reach a zome function. The application must still check the exact realm, principal, resource, action, audience, purpose, epoch and delegation.
 3. **The author-grant case matters.** Components sharing the same agent key may be able to call without a remote grant; semantic authorization must also cover local/cross-cell paths.
 4. **Capability revocation is not retroactive erasure.** Already disclosed data cannot be made unknown again. A removed grant must be tested at the actual host enforcement point, not just in an application projection.
