@@ -352,7 +352,7 @@ fn verify_object_and_coverage_ledgers(
     package: &Value,
     artifact_ids: &BTreeMap<String, String>,
     findings: &mut Findings,
-) -> (BTreeSet<String>, BTreeSet<String>, usize, usize, usize, usize) {
+) -> (BTreeSet<String>, BTreeSet<String>, usize, usize, usize, usize, BTreeMap<String, BTreeSet<String>>) {
     let request = package.get("request").unwrap_or(&Value::Null);
     let requested = request
         .get("requested_object_ids")
@@ -374,10 +374,11 @@ fn verify_object_and_coverage_ledgers(
 
     let Some(dispositions) = get_array(package, "object_dispositions") else {
         findings.fail("MISSING_OBJECT_DISPOSITIONS", "object_dispositions must be an array");
-        return (requested_set, BTreeSet::new(), 0, 0, 0, 0);
+        return (requested_set, BTreeSet::new(), 0, 0, 0, 0, BTreeMap::new());
     };
 
     let mut disposition_by_id = BTreeMap::<String, String>::new();
+    let mut object_artifacts = BTreeMap::<String, BTreeSet<String>>::new();
     let mut screened_count = 0usize;
     let mut excluded_count = 0usize;
     let mut unassessed_count = 0usize;
@@ -399,6 +400,7 @@ fn verify_object_and_coverage_ledgers(
             .map(|value| string_list(value, &format!("object {id} source_artifact_ids"), findings))
             .unwrap_or_default();
         check_unique(&artifact_refs, &format!("object {id} source_artifact_ids"), findings);
+        object_artifacts.insert(id.to_string(), artifact_refs.iter().cloned().collect());
         for artifact_id in &artifact_refs {
             if !artifact_ids.contains_key(artifact_id) {
                 findings.fail(
@@ -617,6 +619,7 @@ fn verify_object_and_coverage_ledgers(
         excluded_count,
         unassessed_count,
         segment_unassessed_count,
+        object_artifacts,
     )
 }
 
@@ -627,6 +630,7 @@ struct AssessmentEvidence {
     pair_id: Option<String>,
     output_artifact_id: Option<String>,
     output_sha256: Option<String>,
+    input_artifact_ids: BTreeSet<String>,
 }
 
 fn verify_assessments(
@@ -665,6 +669,7 @@ fn verify_assessments(
             .get("input_artifact_ids")
             .map(|value| string_list(value, &format!("assessment {id} input_artifact_ids"), findings))
             .unwrap_or_default();
+        let input_artifact_ids: BTreeSet<String> = references.iter().cloned().collect();
         for reference in references {
             if !artifact_ids.contains_key(&reference) {
                 findings.fail(
@@ -707,6 +712,7 @@ fn verify_assessments(
                 pair_id,
                 output_artifact_id,
                 output_sha256,
+                input_artifact_ids,
             },
         );
 
@@ -774,6 +780,7 @@ fn canonical_pair_manifest_sha256(pairs: &[Value]) -> Option<String> {
 fn verify_pair_coverage(
     package: &Value,
     requested_ids: &BTreeSet<String>,
+    object_artifacts: &BTreeMap<String, BTreeSet<String>>,
     artifact_digests: &BTreeMap<String, String>,
     assessments: &BTreeMap<String, AssessmentEvidence>,
     findings: &mut Findings,
@@ -863,6 +870,19 @@ fn verify_pair_coverage(
             .map(|value| string_list(value, &format!("pair {pair_id} source_artifact_ids"), findings))
             .unwrap_or_default();
         check_unique(&source_refs, &format!("pair {pair_id} source_artifact_ids"), findings);
+        let pair_source_set: BTreeSet<String> = source_refs.iter().cloned().collect();
+        let mut required_object_sources = BTreeSet::new();
+        for object_id in [primary_id, secondary_id] {
+            if let Some(sources) = object_artifacts.get(object_id) {
+                required_object_sources.extend(sources.iter().cloned());
+            }
+        }
+        if !required_object_sources.is_subset(&pair_source_set) {
+            findings.fail(
+                "PAIR_SOURCES_OMIT_OBJECT_INPUTS",
+                format!("pair {pair_id} does not include all source artifacts declared for both objects"),
+            );
+        }
         for artifact_id in &source_refs {
             if !artifact_digests.contains_key(artifact_id) {
                 findings.fail(
@@ -943,6 +963,7 @@ fn verify_pair_coverage(
                                 if assessment.assessment_type == "conjunction_screen"
                                     && assessment.status == "completed"
                                     && assessment.pair_id.as_deref() == Some(pair_id)
+                                    && assessment.input_artifact_ids.is_superset(&pair_source_set)
                                     && assessment.output_artifact_id.is_some()
                                     && assessment.output_sha256.is_some() =>
                             {
@@ -1317,12 +1338,12 @@ fn verify_value(package: &Value, repo_root: &Path) -> Findings {
             "request must bind configuration_sha256 to configuration_artifact_id",
         ),
     }
-    let (requested, segments, screened, excluded, unassessed, segment_unassessed) =
+    let (requested, segments, screened, excluded, unassessed, segment_unassessed, object_artifacts) =
         verify_object_and_coverage_ledgers(package, &artifacts, &mut findings);
     let (assessments, completed_screen, assessment_evidence) =
         verify_assessments(package, &artifacts, &mut findings);
     let pair_negative_ready =
-        verify_pair_coverage(package, &requested, &artifacts, &assessment_evidence, &mut findings);
+        verify_pair_coverage(package, &requested, &object_artifacts, &artifacts, &assessment_evidence, &mut findings);
 
     let mut producer_revisions = BTreeSet::new();
     verify_execution_and_authority(package, &mut producer_revisions, &mut findings);
@@ -1512,6 +1533,24 @@ mod tests {
         let report = verify_value(&package, &repo_root());
         assert_eq!(report.status(), "FAIL");
         assert!(report.failures.contains_key("UNSUPPORTED_NEGATIVE_CONCLUSION"));
+    }
+
+    #[test]
+    fn pair_must_include_source_artifacts_declared_for_both_objects() {
+        let mut package = fixture();
+        package["pair_coverage"]["pairs"][0]["source_artifact_ids"] = json!([]);
+        let report = verify_value(&package, &repo_root());
+        assert_eq!(report.status(), "FAIL");
+        assert!(report.failures.contains_key("PAIR_SOURCES_OMIT_OBJECT_INPUTS"));
+    }
+
+    #[test]
+    fn narrow_phase_assessment_must_consume_pair_source_artifacts() {
+        let mut package = fixture();
+        package["assessments"][1]["input_artifact_ids"] = json!([]);
+        let report = verify_value(&package, &repo_root());
+        assert_eq!(report.status(), "FAIL");
+        assert!(report.failures.contains_key("PAIR_NARROW_PHASE_ASSESSMENT_MISMATCH"));
     }
 
     #[test]
