@@ -452,6 +452,41 @@
       "id": "small_group_membership_inference_auc",
       "unit": "auc",
       "required": true
+    },
+    {
+      "id": "vulnerable_message_set_size_after_compromise",
+      "unit": "messages",
+      "required": true,
+      "candidate_applicability": "ratchet_capable_only"
+    },
+    {
+      "id": "messages_until_post_compromise_healing",
+      "unit": "messages",
+      "required": true,
+      "candidate_applicability": "ratchet_capable_only"
+    },
+    {
+      "id": "elapsed_time_to_post_compromise_healing",
+      "unit": "seconds",
+      "quantiles": [
+        "p50",
+        "p95",
+        "p99"
+      ],
+      "required": true,
+      "candidate_applicability": "ratchet_capable_only"
+    },
+    {
+      "id": "control_bytes_until_post_compromise_healing",
+      "unit": "bytes",
+      "required": true,
+      "candidate_applicability": "ratchet_capable_only"
+    },
+    {
+      "id": "unhealed_sessions_at_measurement_horizon_rate",
+      "unit": "fraction",
+      "required": true,
+      "candidate_applicability": "ratchet_capable_only"
     }
   ],
   "non_compensable_gates": [
@@ -492,7 +527,9 @@
     "Group fan-out is reported per recipient and as an explicit aggregate; one recipient receipt cannot establish complete group delivery.",
     "A v0.1 fan-out structural verdict is not a cryptographically verified group delivery; report it as ALL_REQUIRED_RECEIPT_CLAIMS_CONSISTENT until manifest, membership, receipt signatures, principal independence and trusted time are authenticated.",
     "Measure group-level CPU, peak memory, storage, network and physical energy per recipient-verified effect and per fully verified group send; publish failures and partial fan-outs separately.",
-    "Evaluate recipient commitments against dictionary attacks, cross-epoch linkability and small-group membership inference; do not expose raw rosters."
+    "Evaluate recipient commitments against dictionary attacks, cross-epoch linkability and small-group membership inference; do not expose raw rosters.",
+    "For ratchet-capable candidates, measure the vulnerable message set after injected compromise, messages and bytes until post-compromise healing, elapsed healing time, and sessions not healed by the declared horizon. These depend on peer message schedules and offline behavior; report asymmetric and non-responsive peer cases.",
+    "For candidates without a ratcheting key-agreement design, mark post-compromise healing metrics NOT_SUPPORTED. Never encode not-supported cryptographic properties as zero latency or zero vulnerable messages."
   ],
   "sources": [
     {
