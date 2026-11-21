@@ -242,7 +242,7 @@ fn parse_rfc3339_seconds(value: &str) -> Result<f64, String> {
     if bytes.get(position) == Some(&b'.') {
         position += 1;
         let start = position;
-        while bytes.get(position).is_some_and(u8::is_ascii_digit) {
+        while bytes.get(position).is_some_and(|byte| byte.is_ascii_digit()) {
             position += 1;
         }
         if position == start {
@@ -254,7 +254,7 @@ fn parse_rfc3339_seconds(value: &str) -> Result<f64, String> {
             .map_err(|_| format!("invalid fractional seconds in timestamp {value}"))?;
     }
 
-    let offset_seconds: i64 = match bytes.get(position) {
+    let offset_seconds: i64 = match bytes.get(position).copied() {
         Some(b'Z') if position + 1 == bytes.len() => 0,
         Some(sign @ (b'+' | b'-')) if position + 6 == bytes.len() => {
             if bytes[position + 3] != b':' {
@@ -270,7 +270,7 @@ fn parse_rfc3339_seconds(value: &str) -> Result<f64, String> {
                 return Err(format!("out-of-range timezone offset in timestamp {value}"));
             }
             let magnitude = offset_hour * 3_600 + offset_minute * 60;
-            if *sign == b'+' { magnitude } else { -magnitude }
+            if sign == b'+' { magnitude } else { -magnitude }
         }
         _ => return Err(format!("timestamp must end with Z or ±HH:MM: {value}")),
     };
@@ -511,26 +511,36 @@ fn validate_observation(observation: &Observation, index: usize) -> Result<Vec<S
     }
 
     for (value, field) in [
+        (observation.material_batch_id.as_deref(), "material_batch_id"),
         (observation.crop_id.as_deref(), "crop_id"),
         (observation.management_event.as_deref(), "management_event"),
         (observation.missingness_reason.as_deref(), "missingness_reason"),
+        (observation.uncertainty.method.as_deref(), "uncertainty.method"),
+        (observation.instrument.calibration_reference.as_deref(), "instrument.calibration_reference"),
+        (observation.method.flux_calculation_version.as_deref(), "method.flux_calculation_version"),
     ] {
         if let Some(value) = value {
-            if !value.trim().is_empty() && value.trim() != value {
+            if !value.is_empty() && value.trim() != value {
                 return Err(format!("{label}.{field} must not have surrounding whitespace"));
+            }
+            if field == "material_batch_id" || field == "uncertainty.method" {
+                nonblank(value, &format!("{label}.{field}"))?;
+            }
+        }
+    }
+    if let Some(limit) = &observation.detection_limit {
+        if let Some(method) = limit.censoring_method.as_deref() {
+            if !method.is_empty() && method.trim() != method {
+                return Err(format!("{label}.detection_limit.censoring_method must not have surrounding whitespace"));
             }
         }
     }
     for (value, field) in [
         (observation.raw_artifact.source_uri.as_deref(), "raw_artifact.source_uri"),
         (observation.source_record_uri.as_deref(), "source_record_uri"),
-        (observation.instrument.calibration_reference.as_deref(), "instrument.calibration_reference"),
-        (observation.method.flux_calculation_version.as_deref(), "method.flux_calculation_version"),
     ] {
         if let Some(value) = value {
-            if !value.is_empty() {
-                require_uri_scheme(value, &format!("{label}.{field}"))?;
-            }
+            require_uri_scheme(value, &format!("{label}.{field}"))?;
         }
     }
 
