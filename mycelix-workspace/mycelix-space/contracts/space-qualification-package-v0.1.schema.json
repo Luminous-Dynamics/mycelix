@@ -54,7 +54,8 @@
         "scope_kind",
         "time_window",
         "screening_profile_id",
-        "configuration_sha256"
+        "configuration_sha256",
+        "configuration_artifact_id"
       ],
       "properties": {
         "run_id": {
@@ -137,6 +138,10 @@
         "configuration_sha256": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
+        },
+        "configuration_artifact_id": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "allOf": [
