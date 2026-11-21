@@ -70,3 +70,27 @@ The standalone Rust verifier lives at `mycelix-workspace/mycelix-space/tools/spa
 The executable emits a machine-readable `PASS`, `FAIL` or `INCOMPLETE` result. `--allow-incomplete` is intended for fixture CI: it permits a structurally valid synthetic fixture to exit successfully while retaining the `INCOMPLETE` result in its JSON output. It does not turn the fixture into an operational qualification.
 
 The verifier is a consistency and evidence-integrity checker. It does not implement the full JSON Schema Draft 2020-12 evaluator, cryptographic signature/key validation, physical truth, orbit propagation, continuous-time event completeness, Pc correctness or covariance calibration.
+
+
+## Pair-universe coverage and proof-carrying pruning
+
+Object coverage and time-segment coverage are not sufficient to qualify a broad-phase conjunction sieve. A screening run may disposition every object while silently omitting one or more primary-secondary pairs. The v0.1 package therefore adds a distinct `pair_coverage` ledger for the declared primary-versus-each-requested-secondary universe.
+
+Every requested pair receives exactly one disposition:
+
+- `retained_candidate`: pass to the narrow-phase encounter search; any retained candidate must have a terminal pair-specific narrow-phase assessment before it can support a negative result.
+- `proven_excluded`: a pruning decision with a retained witness artifact, exact witness SHA-256, named method/profile, and deterministic reason code.
+- `unresolved`: the sieve cannot establish either safe exclusion or a complete candidate disposition.
+- `unsupported`: the pair falls outside the declared model/profile envelope.
+
+The verifier reconciles the full requested pair set and counts. It binds a proven-excluded pair to the exact retained witness bytes. A retained pair's `searched_no_event` / `event_found` outcome must join to a completed pair-specific conjunction-screen assessment whose output artifact and digest are bound. An unresolved or unsupported pair, or a retained pair that has not completed narrow-phase search, blocks a complete negative conclusion.
+
+This creates a **proof-carrying sieve**: candidate reduction is allowed, but every removed pair has an inspectable exclusion witness. If the required bound cannot be established, the pair remains retained, unresolved or unsupported; it is never silently pruned.
+
+For adaptive uncertainty-aware broad phases, this is the important research distinction:
+- uncertainty may widen candidate intervals when the source or propagated uncertainty grows;
+- unknown, synthetic-only or uncalibrated covariance must not narrow exclusion bounds;
+- a learned or data-derived threshold is a candidate-generation heuristic until its capture envelope is independently qualified;
+- candidate capture, time-domain event search, covariance realism, Pc applicability and publication policy remain distinct claim layers.
+
+The exact synthetic fixture contains one requested primary-secondary pair and a manufactured narrow-phase output artifact. It proves only pair-ledger shape and joins; it is not a physical screening run.
