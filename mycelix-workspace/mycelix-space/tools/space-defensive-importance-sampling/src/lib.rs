@@ -2366,26 +2366,38 @@ mod tests {
             &multifidelity_parameters(surrogate_pc, 0.0),
             &evaluation,
             &surrogate,
-        ).unwrap();
+        )
+        .unwrap();
         let certified = estimate_multifidelity_residual_probability(
             &proposal,
             &whitening,
             &observations,
             &multifidelity_disk_superset_parameters(
-                surrogate_pc, 0.0, high_radius, surrogate_radius,
+                surrogate_pc,
+                0.0,
+                high_radius,
+                surrogate_radius,
             ),
             &evaluation,
             &surrogate,
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(certified.false_negative_count, 0);
         assert_eq!(certified.residual_support_lower, -4.0);
         assert_eq!(certified.residual_support_upper, 0.0);
         assert_eq!(certified.residual_support_range_width, 4.0);
-        assert_eq!(certified.residual_support_contract_id, "verified_centered_gaussian_disk_superset_v1");
+        assert_eq!(
+            certified.residual_support_contract_id,
+            "verified_centered_gaussian_disk_superset_v1"
+        );
         assert_eq!(general.residual_support_range_width, 8.0);
-        assert!((certified.corrected_high_fidelity_probability_estimate
-            - general.corrected_high_fidelity_probability_estimate).abs() < 1e-12);
+        assert!(
+            (certified.corrected_high_fidelity_probability_estimate
+                - general.corrected_high_fidelity_probability_estimate)
+                .abs()
+                < 1e-12
+        );
         assert!(certified.empirical_bernstein_radius < general.empirical_bernstein_radius);
         assert!(certified.total_confidence_radius < general.total_confidence_radius);
     }
@@ -2407,7 +2419,10 @@ mod tests {
                 &whitening,
                 &observations,
                 &multifidelity_disk_superset_parameters(
-                    surrogate_pc, 0.0, high_radius, surrogate_radius,
+                    surrogate_pc,
+                    0.0,
+                    high_radius,
+                    surrogate_radius,
                 ),
                 &evaluation,
                 &surrogate,
@@ -2423,9 +2438,7 @@ mod tests {
                 &proposal,
                 &whitening,
                 &contradicting,
-                &multifidelity_disk_superset_parameters(
-                    surrogate_pc, 0.0, 0.5, 0.75,
-                ),
+                &multifidelity_disk_superset_parameters(surrogate_pc, 0.0, 0.5, 0.75,),
                 &evaluation,
                 &surrogate,
             ),
