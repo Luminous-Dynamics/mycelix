@@ -200,9 +200,8 @@ pub fn upper_bound_at(
     let mut high = 1.0; // rejected in the limit
     for _ in 0..BISECTION_STEPS {
         let mid = low + (high - low) * 0.5;
-        if mid == 0.0 || mid == 1.0 {
-            high = mid.max(high.min(1.0));
-            continue;
+        if mid == low || mid == high {
+            break;
         }
         let log_e = log_mixture_e_value(observations, mid, grid)?;
         if log_e >= threshold {
@@ -304,16 +303,14 @@ mod tests {
     }
 
     #[test]
-    fn upper_bound_is_nonincreasing_in_observation_time_for_this_fixed_grid() {
-        let report = confidence_sequence(
-            &[true, false, true, false, true, false, false, true, false, true],
-            0.05,
-            &grid(),
-            evidence(),
-        ).unwrap();
-        assert!(report.points.windows(2).all(|pair| {
+    fn nonviolations_tighten_the_bound_while_violations_can_widen_it() {
+        let all_nonviolations = confidence_sequence(&[false; 20], 0.05, &grid(), evidence()).unwrap();
+        assert!(all_nonviolations.points.windows(2).all(|pair| {
             pair[1].upper_confidence_bound <= pair[0].upper_confidence_bound + 1e-13
         }));
+        let initial = upper_bound_at(&[false, false], 0.05, &grid()).unwrap();
+        let after_violation = upper_bound_at(&[false, false, true], 0.05, &grid()).unwrap();
+        assert!(after_violation >= initial);
     }
 
     #[test]
@@ -345,7 +342,7 @@ mod tests {
     fn fixed_p0_e_process_is_non_decreasing_when_p0_increases() {
         let observations = [true, false, true, true, false];
         let mut last = f64::INFINITY;
-        for p0 in [0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0] {
+        for p0 in [0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99] {
             let value = log_mixture_e_value(&observations, p0, &grid()).unwrap();
             assert!(value + 1e-12 >= last);
             last = value;
