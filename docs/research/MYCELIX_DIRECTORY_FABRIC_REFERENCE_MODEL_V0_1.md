@@ -27,7 +27,7 @@ The crate models three deterministic boundaries:
 |---|---|---|
 | Causal frontier | Canonical vector of authority positions; exact ancestry witness required to cover an older position; forks and incomplete comparisons are incomparable | Signature verification, inclusion proofs, authority admission, merge protocol and Holochain replication |
 | Snapshot lifecycle | Realm binding and persisted policy high-water rollback check | Durable storage, crash consistency, policy signature and recovery ceremony |
-| Offline lease | Exact scope + policy epoch/digest + minimum authority frontier + clock interval + low-risk read-only restriction | Trusted clock attestation, risk classification provenance, session/token revocation and actual resource enforcement |
+| Offline lease | Exact scope + policy epoch/digest + minimum authority frontier + named clock profile/interval + low-risk read-only restriction | Trusted clock attestation, risk classification provenance, session/token revocation and actual resource enforcement |
 | Group projection | Bounded child-to-parent closure; cycles or budget overrun reject all output | Full policy evaluation, role composition and deny/allow subsumption |
 
 The model intentionally does **not** implement complete authorization. Mycelix #4743 owns the one-coherent-authority-witness rule over the entire evaluation context. #4854 owns decidable constraint subsumption, normalization semantics and deny preservation. Directory Fabric should project realm membership and graph inputs into those authorities, not fork their semantics.
@@ -59,17 +59,17 @@ A freshness result is a precondition, never an authorization Allow. A production
 3. local frontier covers the caller's minimum frontier;
 4. any offline lease matches the complete request scope, exact policy epoch and policy digest;
 5. the snapshot covers the lease's authenticated minimum authority frontier;
-6. the trusted-time interval is wholly within the lease interval and within its clock uncertainty budget;
+6. the trusted-time interval uses the lease's named clock profile and is wholly within the lease interval and within its clock uncertainty budget;
 7. the operation is independently classified as a low-risk read;
 8. the full authorization evaluator returns a positive result for one coherent witness under #4743/#4854.
 
 Missing or incomparable evidence is non-allow. High-risk and write operations are not eligible for this offline lease path.
 
-The implementation exposes versioned, domain-separated canonical byte encodings for the frontier, evidence set, policy snapshot and offline lease. The evidence encoding includes exact covered authority positions; the lease encoding includes its exact policy epoch, policy digest and minimum frontier. These bytes make those fields available for a downstream signature/digest envelope. The crate itself does not hash, sign, authenticate the issuer, or verify the ancestry proof. A remote snapshot's canonical bytes intentionally exclude the local persisted high-water mark, because that value is local anti-rollback state rather than an issuer assertion.
+The implementation exposes versioned, domain-separated canonical byte encodings for the frontier, evidence set, policy snapshot and offline lease. The evidence encoding includes exact covered authority positions; the lease encoding includes its exact policy epoch, policy digest, minimum frontier and named clock-profile identifier. These bytes make those fields available for a downstream signature/digest envelope. The crate itself does not hash, sign, authenticate the issuer, or verify the ancestry proof. A remote snapshot's canonical bytes intentionally exclude the local persisted high-water mark, because that value is local anti-rollback state rather than an issuer assertion.
 
 ### 3.3 Group graph semantics
 
-Group expansion is a projection, not authorization. It has explicit maximum depth, node and edge budgets. Cycles and resource-budget exhaustion reject the entire operation, rather than silently truncating and returning a potentially over-permissive partial closure.
+Group expansion is a projection, not authorization. It has explicit maximum depth, node and edge budgets. Cycles and resource-budget exhaustion reject the entire operation, rather than silently truncating and returning a potentially over-permissive partial closure. The implementation tracks maximum remaining ancestor depth for completed shared subgraphs, so a second, longer path to an already-visited ancestor cannot bypass the maximum-depth bound.
 
 ## 4. Industry comparison and where Mycelix could differentiate
 
@@ -109,8 +109,8 @@ A benchmark profile fails regardless of throughput if any of these occur:
 - A same-sequence fork or incomparable frontier treated as current.
 - A missing or stale required authority component treated as absent revocation.
 - Policy rollback below a persisted high-water mark accepted.
-- An offline lease used for a different realm, principal, resource, action, audience, purpose or policy digest.
-- An uncertain time interval that crosses expiry treated as valid.
+- An offline lease used for a different realm, principal, resource, action, audience, purpose, policy epoch, policy digest, minimum frontier or clock profile.
+- An uncertain time interval that crosses not-before or expiry treated as valid.
 - A high-risk/write operation accepted through the low-risk offline path.
 - A cyclic or over-budget group graph returns a partial successful closure.
 - Private DHT payloads, links, logs, telemetry or receipts disclose prohibited attributes.
