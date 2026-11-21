@@ -69,6 +69,10 @@ jobs:
         run: cargo test --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p conjunctions_coordinator
 
       - name: Compile conjunction coordinator for Holochain WASM
+        env:
+          # Holochain 0.6 supplies the getrandom 0.3 custom backend at runtime.
+          # Do not enable wasm_js: wasm-bindgen is not part of the Holochain host ABI.
+          CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS: '--cfg getrandom_backend="custom"'
         run: cargo check --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p conjunctions_coordinator --target wasm32-unknown-unknown
 
       - name: Test orbital objects coordinator
