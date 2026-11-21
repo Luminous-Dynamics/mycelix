@@ -51,3 +51,22 @@ The JSON Schema provides structural validation only. It cannot by itself prove:
 - numerical correctness, covariance calibration, physical truth or operational safety.
 
 The next implementation increment should add a small dependency-light Rust verifier for those cross-field joins and exact-byte checks, plus frozen negative controls. The verifier must emit `PASS`, `FAIL` or `INCOMPLETE` with reason codes, and it must never upgrade synthetic evidence to a reference-replay or operational class.
+
+
+## Executable verifier contract
+
+The standalone Rust verifier lives at `mycelix-workspace/mycelix-space/tools/space-qualification-verifier/`. It verifies cross-field invariants that JSON Schema cannot establish:
+
+- requested object IDs exactly match one-per-object terminal dispositions;
+- count fields reconcile (`eligible = assessed + unassessed`, `requested = eligible + excluded`);
+- per-object time-segment references match the coverage ledger;
+- source and assessment references resolve;
+- retained artifact paths remain repository-relative and cannot escape the declared repository root;
+- exact source byte lengths and SHA-256 digests match the retained files;
+- `absent_optional` values remain null, never numeric zero;
+- a negative event-screening conclusion requires complete object and time-segment coverage, no exclusions, completed conjunction-screen assessment, and a non-synthetic evidence class;
+- synthetic packages and unexecuted replay remain `INCOMPLETE`, even when package integrity checks pass.
+
+The executable emits a machine-readable `PASS`, `FAIL` or `INCOMPLETE` result. `--allow-incomplete` is intended for fixture CI: it permits a structurally valid synthetic fixture to exit successfully while retaining the `INCOMPLETE` result in its JSON output. It does not turn the fixture into an operational qualification.
+
+The verifier is a consistency and evidence-integrity checker. It does not implement the full JSON Schema Draft 2020-12 evaluator, cryptographic signature/key validation, physical truth, orbit propagation, continuous-time event completeness, Pc correctness or covariance calibration.
