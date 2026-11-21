@@ -193,6 +193,21 @@ fn verify_source_artifacts(
             continue;
         }
 
+        if !get_str(artifact, "raw_bytes_sha256").is_some_and(is_sha256) {
+            findings.fail(
+                "INVALID_ARTIFACT_DIGEST",
+                format!("artifact {id} must declare a lowercase SHA-256 digest"),
+            );
+        }
+        if let Some(source_sha) = artifact.pointer("/parser/source_sha256").and_then(Value::as_str) {
+            if !is_sha256(source_sha) {
+                findings.fail(
+                    "INVALID_PARSER_SOURCE_DIGEST",
+                    format!("artifact {id} parser source_sha256 is malformed"),
+                );
+            }
+        }
+
         let preservation = get_str(artifact, "preservation").unwrap_or("unknown");
         match preservation {
             "exact_bytes_retained" => {
@@ -267,7 +282,7 @@ fn verify_source_artifacts(
                 let status = get_str(field, "status").unwrap_or("unknown");
                 let normalized = field.get("normalized_value");
                 match status {
-                    "absent_optional" | "invalid" | "unsupported" => {
+                    "absent_optional" => {
                         if normalized.is_some_and(|value| !value.is_null()) {
                             findings.fail(
                                 "NONVALUE_FIELD_COERCED",
@@ -276,6 +291,20 @@ fn verify_source_artifacts(
                                 ),
                             );
                         }
+                    }
+                    "invalid" | "unsupported" => {
+                        if normalized.is_some_and(|value| !value.is_null()) {
+                            findings.fail(
+                                "NONVALUE_FIELD_COERCED",
+                                format!(
+                                    "artifact {id} field_semantics[{field_index}] has status {status} but a normalized value"
+                                ),
+                            );
+                        }
+                        findings.mark_incomplete(
+                            "SOURCE_FIELD_NOT_USABLE",
+                            format!("artifact {id} contains a {status} source field"),
+                        );
                     }
                     "transformed" => {
                         if !is_nonempty(get_str(field, "transform_id")) {
@@ -293,6 +322,12 @@ fn verify_source_artifacts(
                 }
             }
             findings.check("field_presence_semantics");
+        }
+        if artifact.get("unknown_fields_preserved").and_then(Value::as_bool) == Some(false) {
+            findings.mark_incomplete(
+                "UNKNOWN_SOURCE_FIELDS_DROPPED",
+                format!("artifact {id} does not preserve unknown source fields"),
+            );
         }
 
         match get_str(artifact, "parse_disposition").unwrap_or("unknown") {
@@ -765,6 +800,9 @@ fn verify_claims(
         findings.fail("MISSING_CLAIM_MATRIX", "claim_matrix must be an array");
         return;
     };
+    if claims.is_empty() {
+        findings.fail("EMPTY_CLAIM_MATRIX", "claim_matrix must contain at least one layer claim");
+    }
     for (index, claim) in claims.iter().enumerate() {
         let outcome = get_str(claim, "outcome").unwrap_or("unknown");
         let layer = get_str(claim, "layer").unwrap_or("unknown");
@@ -807,6 +845,21 @@ fn verify_value(package: &Value, repo_root: &Path) -> Findings {
         findings.fail("MISSING_PACKAGE_ID", "package_id must be a non-empty string");
     }
     let package_class = get_str(package, "package_class").unwrap_or("unknown");
+    if !matches!(package_class, "synthetic_only" | "public_reference_replay" | "operator_shadow" | "operational_record") {
+        findings.fail("INVALID_PACKAGE_CLASS", format!("unsupported package_class {package_class}"));
+    }
+    let request = package.get("request").unwrap_or(&Value::Null);
+    for (field, location) in [
+        ("request_sha256", "request.request_sha256"),
+        ("configuration_sha256", "request.configuration_sha256"),
+    ] {
+        if !get_str(request, field).is_some_and(is_sha256) {
+            findings.fail("INVALID_REQUEST_DIGEST", format!("{location} must be a lowercase SHA-256 digest"));
+        }
+    }
+    if !package.pointer("/coverage/coverage_manifest_sha256").and_then(Value::as_str).is_some_and(is_sha256) {
+        findings.fail("INVALID_COVERAGE_DIGEST", "coverage_manifest_sha256 must be a lowercase SHA-256 digest");
+    }
     if package_class == "synthetic_only" {
         findings.mark_incomplete(
             "SYNTHETIC_ONLY",
