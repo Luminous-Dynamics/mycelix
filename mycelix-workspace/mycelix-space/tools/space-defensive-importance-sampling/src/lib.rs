@@ -329,6 +329,9 @@ impl fmt::Display for EstimateError {
             Self::EmptyAdaptiveMixture => {
                 write!(f, "adaptive proposal must contain at least one component")
             }
+            Self::DuplicateComponentId(value) => {
+                write!(f, "duplicate adaptive component ID {value}")
+            }
             Self::InvalidMixtureWeight(value) => write!(
                 f,
                 "adaptive component weight must be finite and positive; got {value}"
