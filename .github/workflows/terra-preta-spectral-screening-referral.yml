@@ -45,7 +45,12 @@ jobs:
             .fixture_status == "synthetic_only_not_empirical_evidence" and
             .sample_count == 8 and
             ([.policies[].policy_id] | length == 8) and
-            (.sample_count as $n | all(.policies[]; if .policy_id == "all_reference" then .referral_count == $n else .referral_count <= .referral_capacity end)) and
+            (.sample_count as $n | .referral_capacity as $capacity |
+              all(.policies[];
+                if .policy_id == "all_reference"
+                then .referral_count == $n
+                else .referral_count <= $capacity
+                end)) and
             all(.policies[]; .deterministic_replay_pass == true) and
             (.controls.truth_mutation_selection_invariant == true) and
             (.controls.hidden_truth_not_used_by_selectors == true) and
