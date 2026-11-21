@@ -192,6 +192,10 @@ pub enum InventoryError {
     UnsupportedEncoding,
     #[error("XML declaration specifies an unsupported encoding")]
     UnsupportedDeclaredEncoding,
+    #[error("XML declaration specifies unsupported XML version {0}")]
+    UnsupportedDeclaredXmlVersion(String),
+    #[error("document role is outside this bounded Results/Plan profile: {0}")]
+    UnsupportedDocumentRole(String),
     #[error("multiple XML root elements")]
     MultipleRoots,
     #[error("document root is not QIFDocument")]
@@ -471,28 +475,50 @@ fn expanded_path_matches(pattern: &[String], actual: &[String]) -> bool {
         })
 }
 
+fn xml_declaration_attribute<'a>(
+    declaration: &'a str,
+    name: &str,
+) -> Result<Option<&'a str>, InventoryError> {
+    let Some(position) = declaration.find(name) else {
+        return Ok(None);
+    };
+    let before_is_boundary = position == 0
+        || declaration[..position].chars().last().is_some_and(char::is_whitespace);
+    let after_name = &declaration[position + name.len()..];
+    if !before_is_boundary {
+        return Err(InventoryError::UnsupportedDeclaredEncoding);
+    }
+    let after_equals = after_name.trim_start();
+    let after_equals = after_equals.strip_prefix('=')
+        .ok_or(InventoryError::UnsupportedDeclaredEncoding)?
+        .trim_start();
+    let quote = after_equals.chars().next()
+        .ok_or(InventoryError::UnsupportedDeclaredEncoding)?;
+    if quote != '\'' && quote != '"' {
+        return Err(InventoryError::UnsupportedDeclaredEncoding);
+    }
+    let value_start = quote.len_utf8();
+    let end = after_equals[value_start..].find(quote)
+        .ok_or(InventoryError::UnsupportedDeclaredEncoding)?;
+    Ok(Some(&after_equals[value_start..value_start + end]))
+}
+
 fn parse_utf8_profile(bytes: &[u8]) -> Result<&str, InventoryError> {
     let text = std::str::from_utf8(bytes).map_err(|_| InventoryError::UnsupportedEncoding)?;
     let prefix: String = text.trim_start_matches('\u{feff}').chars().take(256).collect();
-    if let Some(declaration_end) = prefix.find("?>") {
-        let declaration = prefix[..declaration_end].to_ascii_lowercase();
-        if let Some(encoding_pos) = declaration.find("encoding") {
-            let after = &declaration[encoding_pos + "encoding".len()..];
-            let Some(eq_pos) = after.find('=') else {
-                return Err(InventoryError::UnsupportedDeclaredEncoding);
-            };
-            let value = after[eq_pos + 1..].trim_start();
-            let Some(quote) = value.chars().next() else {
-                return Err(InventoryError::UnsupportedDeclaredEncoding);
-            };
-            if quote != '\'' && quote != '"' {
-                return Err(InventoryError::UnsupportedDeclaredEncoding);
-            }
-            let Some(end) = value[1..].find(quote) else {
-                return Err(InventoryError::UnsupportedDeclaredEncoding);
-            };
-            let encoding = &value[1..1 + end];
-            if !matches!(encoding, "utf-8" | "utf8") {
+    if prefix.starts_with("<?xml")
+        && prefix["<?xml".len()..].chars().next().is_some_and(char::is_whitespace)
+    {
+        let declaration_end = prefix.find("?>")
+            .ok_or(InventoryError::UnsupportedDeclaredEncoding)?;
+        let declaration = &prefix[..declaration_end];
+        let version = xml_declaration_attribute(declaration, "version")?
+            .ok_or(InventoryError::UnsupportedDeclaredXmlVersion("missing".into()))?;
+        if version != "1.0" {
+            return Err(InventoryError::UnsupportedDeclaredXmlVersion(version.into()));
+        }
+        if let Some(encoding) = xml_declaration_attribute(declaration, "encoding")? {
+            if !encoding.eq_ignore_ascii_case("utf-8") && !encoding.eq_ignore_ascii_case("utf8") {
                 return Err(InventoryError::UnsupportedDeclaredEncoding);
             }
         }
@@ -1011,6 +1037,9 @@ pub fn derive_trace_locator_inventory(
     if inventory_id.trim().is_empty() || documents.is_empty() {
         return Err(InventoryError::InvalidIdentity("inventory_id/documents".into()));
     }
+    if profile.qif_standard_version != "3.0.0" {
+        return Err(InventoryError::UnsupportedQifVersion(profile.qif_standard_version.clone()));
+    }
     let profile_sha256 = compute_profile_digest(profile)?;
     if !valid_sha256(&profile_sha256) {
         return Err(InventoryError::ProfileDigestMismatch);
@@ -1019,6 +1048,9 @@ pub fn derive_trace_locator_inventory(
     let mut qpid_set = BTreeSet::new();
     let mut scanned = Vec::new();
     for document in documents {
+        if !matches!(document.role, QifDocumentRole::Results | QifDocumentRole::Plan) {
+            return Err(InventoryError::UnsupportedDocumentRole(format!("{:?}", document.role)));
+        }
         if !valid_qpid(document.qpid) {
             return Err(InventoryError::InvalidQpid(document.qpid.into()));
         }
@@ -1630,6 +1662,89 @@ mod tests {
             compute_profile_digest(&first).unwrap(),
             compute_profile_digest(&second).unwrap()
         );
+    }
+
+    #[test]
+    fn xml_11_declaration_is_not_misclassified_as_xml_10() {
+        let results = RESULTS.replace(
+            "versionQIF=\"3.0.0\"",
+            "versionQIF=\"3.0.0\""
+        ).replacen(
+            "<QIFDocument",
+            "<?xml version=\"1.1\"?><QIFDocument",
+            1
+        );
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "xml-11",
+                &profile(),
+                &docs(results.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::UnsupportedDeclaredXmlVersion("1.1".into()))
+        );
+    }
+
+    #[test]
+    fn auxiliary_document_role_is_explicitly_outside_this_profile() {
+        let documents = vec![
+            RawQifDocument {
+                qpid: "10000000-0000-4000-8000-000000000001",
+                role: QifDocumentRole::Results,
+                bytes: RESULTS.as_bytes(),
+            },
+            RawQifDocument {
+                qpid: "20000000-0000-4000-8000-000000000002",
+                role: QifDocumentRole::Auxiliary,
+                bytes: PLAN.as_bytes(),
+            },
+        ];
+        assert!(matches!(
+            derive_trace_locator_inventory("aux-role", &profile(), &documents),
+            Err(InventoryError::UnsupportedDocumentRole(_))
+        ));
+    }
+
+    #[test]
+    fn non_whitespace_content_before_root_is_rejected() {
+        let results = format!("unsafe-prefix{}", RESULTS);
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "text-before-root",
+                &profile(),
+                &docs(results.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::TextOutsideRoot)
+        );
+    }
+
+    #[test]
+    fn malformed_xml_comment_is_rejected() {
+        let results = RESULTS.replace(
+            "<Results>",
+            "<!-- invalid -- comment --><Results>"
+        );
+        assert!(matches!(
+            derive_trace_locator_inventory(
+                "bad-comment",
+                &profile(),
+                &docs(results.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::XmlParse { .. })
+        ));
+    }
+
+    #[test]
+    fn external_plan_qpid_locator_uses_parent_external_reference_namespace() {
+        let (inventory, _) = derive_trace_locator_inventory(
+            "parent-reference-qpid",
+            &profile(),
+            &docs(RESULTS.as_bytes(), PLAN.as_bytes())
+        ).unwrap();
+        let qpid_record = inventory.body.locators.iter()
+            .find(|record| record.rule_id == "results.external_document_plan_qpid")
+            .unwrap();
+        assert_eq!(qpid_record.locator.parent_external_document_reference_id, Some(7));
+        assert_eq!(qpid_record.locator.external_document_reference_id, None);
     }
 
     #[test]
