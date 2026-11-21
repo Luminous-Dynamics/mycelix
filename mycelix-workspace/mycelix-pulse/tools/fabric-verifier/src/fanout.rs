@@ -177,13 +177,14 @@ fn disposition_counts(
 fn aggregate_disposition(
     required: usize,
     verified: usize,
+    partial: usize,
     unknown: usize,
     incomplete: usize,
     expired: usize,
 ) -> &'static str {
     if required > 0 && verified == required {
         "ALL_REQUIRED_RECEIPT_CLAIMS_CONSISTENT"
-    } else if verified > 0 {
+    } else if verified > 0 || partial > 0 {
         "PARTIAL_RECEIPT_EVIDENCE"
     } else if unknown > 0 {
         "UNKNOWN"
@@ -644,6 +645,7 @@ pub fn verify_fanout(
     let disposition = aggregate_disposition(
         required_recipients,
         verified,
+        partial,
         unknown,
         incomplete,
         expired,
@@ -814,6 +816,14 @@ mod tests {
         assert!(result.unwrap_err().iter().any(|finding| {
             finding.message.contains("required child trace is missing")
         }));
+    }
+
+    #[test]
+    fn partial_child_progress_is_not_reported_as_total_failure() {
+        assert_eq!(
+            aggregate_disposition(2, 0, 1, 0, 0, 0),
+            "PARTIAL_RECEIPT_EVIDENCE"
+        );
     }
 
     #[test]
