@@ -795,7 +795,7 @@
           "const": "docs/benchmarks/MYC_DIR_QUEUE_WORKER_V0_1.schema.json"
         },
         "declared_scenario_count": {
-          "const": 27
+          "const": 29
         },
         "unique_scenario_ids_required": {
           "const": true
