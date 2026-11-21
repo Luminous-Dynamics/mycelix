@@ -1,0 +1,35 @@
+name: Mycelix Position Adapter Contract
+
+on:
+  pull_request:
+    paths:
+      - "mycelix-position/lib/positioning/**"
+      - "mycelix-workspace/mycelix-position/lib/positioning/**"
+      - ".github/workflows/position-adapter-contract.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  position-contract:
+    name: Pure positioning library tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Test both mirrored positioning workspaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          for manifest in \
+            mycelix-position/Cargo.toml \
+            mycelix-workspace/mycelix-position/Cargo.toml
+          do
+            echo "::group::cargo test --package positioning --manifest-path $manifest"
+            cargo test --package positioning --manifest-path "$manifest"
+            echo "::endgroup::"
+          done

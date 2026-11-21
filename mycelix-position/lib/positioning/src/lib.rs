@@ -14,11 +14,11 @@
 //!
 //! # Modules
 //!
-//! - [`bodies`] — Celestial body trait + Earth/Moon/Mars implementations
-//! - [`ranging`] — Sensor models: RSSI, LoRa ToA, UWB ToF, WiFi RTT
-//! - [`trilateration`] — Core positioning: N ranges → position estimate
-//! - [`coverage`] — GDOP/PDOP geometric dilution of precision
-//! - [`kalman`] — Extended Kalman Filter for continuous tracking
+//! - [bodies] — Celestial body trait + Earth/Moon/Mars implementations
+//! - [ranging] — Sensor models: RSSI, LoRa ToA, UWB ToF, WiFi RTT
+//! - [trilateration] — Core positioning: N ranges → position estimate
+//! - [coverage] — GDOP/PDOP geometric dilution of precision
+//! - [kalman] — Extended Kalman Filter for continuous tracking
 
 pub mod bodies;
 pub mod coverage;
@@ -35,7 +35,7 @@ pub use bodies::{CelestialBody, Earth, Mars, Moon};
 pub use coverage::{gdop, pdop, CoveragePoint};
 pub use dead_reckoning::{barometric_altitude, PdrConfig, PedestrianDeadReckoning};
 pub use fusion::{
-    covariance_intersection_3d, GaussianEstimate3D, PeerEstimate3D, PeerFusion3D,
+    covariance_intersection_3d, FusionError, GaussianEstimate3D, PeerEstimate3D, PeerFusion3D,
     PublishableEstimate3D,
 };
 pub use kalman::{FilterConfig, FilterState, PositionFilter};
