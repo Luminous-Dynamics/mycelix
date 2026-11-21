@@ -166,9 +166,9 @@ struct PeerReference {
 
 #[derive(Debug, Serialize)]
 struct QuantileErrors {
-    q90: f64,
-    q95: f64,
-    q99: f64,
+    q90: Option<f64>,
+    q95: Option<f64>,
+    q99: Option<f64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -556,7 +556,11 @@ fn peer_reference(indicator: &Indicator, latest: &Measurement, config: &Config) 
             distance_to_q90: None,
             distance_to_q95: None,
             distance_to_q99: None,
-            distance_standard_errors: None,
+            distance_standard_errors: Some(QuantileErrors {
+                q90: None,
+                q95: None,
+                q99: None,
+            }),
             interpretation: "No peer percentile emitted: reference domain or peer-group support is insufficient.",
         };
     }
@@ -608,9 +612,9 @@ fn peer_reference(indicator: &Indicator, latest: &Measurement, config: &Config) 
         distance_to_q95: Some(model.q95 - latest.value),
         distance_to_q99: Some(model.q99 - latest.value),
         distance_standard_errors: Some(QuantileErrors {
-            q90: q90_se,
-            q95: q95_se,
-            q99: q99_se,
+            q90: Some(q90_se),
+            q95: Some(q95_se),
+            q99: Some(q99_se),
         }),
         interpretation: "Relative position within a conditional empirical peer reference only; quantile distances are not causal or guaranteed recoverable gaps.",
     }
