@@ -7,8 +7,16 @@
       "epoch": "2026-01-01T00:00:00Z",
       "time_basis": "UTC",
       "frame": "SIM-EARTH-CENTERED-INERTIAL-V0",
-      "position_km": [7000.0, 0.0, 0.0],
-      "velocity_km_s": [0.0, 7.5, 0.0],
+      "position_km": [
+        7000.0,
+        0.0,
+        0.0
+      ],
+      "velocity_km_s": [
+        0.0,
+        7.5,
+        0.0
+      ],
       "covariance": null,
       "covariance_status": "absent"
     },
@@ -17,8 +25,16 @@
       "epoch": "2026-01-01T00:00:00Z",
       "time_basis": "UTC",
       "frame": "SIM-EARTH-CENTERED-INERTIAL-V0",
-      "position_km": [7000.0, 1.0, 0.0],
-      "velocity_km_s": [0.0, 7.5, 0.0],
+      "position_km": [
+        7000.0,
+        1.0,
+        0.0
+      ],
+      "velocity_km_s": [
+        0.0,
+        7.5,
+        0.0
+      ],
       "covariance": null,
       "covariance_status": "absent"
     }
