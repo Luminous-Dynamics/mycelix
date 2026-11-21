@@ -392,10 +392,60 @@
       "then": {
         "properties": {
           "mass_basis": {
+            "enum": [
+              "N2O",
+              "N2O_N"
+            ]
+          },
+          "flux_unit": {
+            "enum": [
+              "mg_N2O_m2_h",
+              "mg_N2O_N_m2_h"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mass_basis": {
+            "const": "N2O"
+          }
+        },
+        "required": [
+          "mass_basis"
+        ]
+      },
+      "then": {
+        "properties": {
+          "gas_species": {
             "const": "N2O"
           },
           "flux_unit": {
             "const": "mg_N2O_m2_h"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mass_basis": {
+            "const": "N2O_N"
+          }
+        },
+        "required": [
+          "mass_basis"
+        ]
+      },
+      "then": {
+        "properties": {
+          "gas_species": {
+            "const": "N2O"
+          },
+          "flux_unit": {
+            "const": "mg_N2O_N_m2_h"
           }
         }
       }
