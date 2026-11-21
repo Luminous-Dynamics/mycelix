@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Field GHG observation audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "status",
+    "fixture_status",
+    "fixture_version",
+    "input_sha256",
+    "observation_count",
+    "gas_species_counts",
+    "evidence_class_counts",
+    "qc_state_counts",
+    "observations",
+    "warnings",
+    "interpretation_boundary",
+    "calculation_controls"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "enum": [
+        "synthetic_fixture_records_validated_only",
+        "synthetic_fixture_unqualified_due_to_qc_or_uncertainty"
+      ]
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "fixture_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "observation_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "gas_species_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1
+      }
+    },
+    "evidence_class_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1
+      }
+    },
+    "qc_state_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1
+      }
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "observation_id",
+          "gas_species",
+          "mass_basis",
+          "flux_value",
+          "flux_unit",
+          "evidence_class",
+          "experimental_unit_id",
+          "qc_state",
+          "uncertainty_status",
+          "n2o_n_equivalent_flux_mg_n2o_n_m2_h"
+        ],
+        "properties": {
+          "observation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "gas_species": {
+            "enum": [
+              "N2O",
+              "CH4",
+              "CO2"
+            ]
+          },
+          "mass_basis": {
+            "enum": [
+              "N2O",
+              "N2O_N",
+              "CH4",
+              "CO2"
+            ]
+          },
+          "flux_value": {
+            "type": "number"
+          },
+          "flux_unit": {
+            "enum": [
+              "mg_N2O_m2_h",
+              "mg_N2O_N_m2_h",
+              "mg_CH4_m2_h",
+              "mg_CO2_m2_h"
+            ]
+          },
+          "evidence_class": {
+            "enum": [
+              "laboratory_incubation",
+              "pot_mesocosm",
+              "field_plot",
+              "field_farm"
+            ]
+          },
+          "experimental_unit_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "qc_state": {
+            "enum": [
+              "pending",
+              "pass",
+              "flagged",
+              "rejected"
+            ]
+          },
+          "uncertainty_status": {
+            "enum": [
+              "reported",
+              "not_available"
+            ]
+          },
+          "n2o_n_equivalent_flux_mg_n2o_n_m2_h": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "calculation_controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "n2o_mass_basis_conversion_pass",
+        "explicit_gap_trapezoidal_integration_pass"
+      ],
+      "properties": {
+        "n2o_mass_basis_conversion_pass": {
+          "const": true
+        },
+        "explicit_gap_trapezoidal_integration_pass": {
+          "const": true
+        }
+      }
+    }
+  }
+}

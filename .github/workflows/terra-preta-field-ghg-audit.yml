@@ -1,0 +1,56 @@
+name: Terra Preta field GHG observation audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/tools/field-ghg-audit/**'
+      - 'research/terra-preta/fixtures/synthetic-field-ghg-observations.json'
+      - 'research/terra-preta/schemas/field-ghg-observation.schema.json'
+      - 'research/terra-preta/schemas/field-ghg-audit-report.schema.json'
+      - '.github/workflows/terra-preta-field-ghg-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  field-ghg-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/field-ghg-audit/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/field-ghg-audit/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/field-ghg-audit/Cargo.toml --all-targets -- -D warnings
+      - name: Execute synthetic fixture audit
+        run: |
+          cargo run --quiet --manifest-path research/terra-preta/tools/field-ghg-audit/Cargo.toml -- \
+            research/terra-preta/fixtures/synthetic-field-ghg-observations.json \
+            "$RUNNER_TEMP/field-ghg-audit-report.json"
+          jq -e '
+            .audit_version == "0.1.0" and
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .status == "synthetic_fixture_unqualified_due_to_qc_or_uncertainty" and
+            .observation_count == 3 and
+            .gas_species_counts.N2O == 2 and
+            .gas_species_counts.CH4 == 1 and
+            .gas_species_counts.CO2 == null and
+            .calculation_controls.n2o_mass_basis_conversion_pass == true and
+            .calculation_controls.explicit_gap_trapezoidal_integration_pass == true and
+            (.observations[0].n2o_n_equivalent_flux_mg_n2o_n_m2_h - 0.2672727272727273 | fabs < 1e-12) and
+            (.input_sha256 | test("^[a-f0-9]{64}$")) and
+            (.warnings | length >= 2)
+          ' "$RUNNER_TEMP/field-ghg-audit-report.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/field-ghg-audit/Cargo.toml -- \
+            research/terra-preta/fixtures/synthetic-field-ghg-observations.json \
+            "$RUNNER_TEMP/field-ghg-audit-report.json"; then
+            echo "auditor unexpectedly overwrote existing output" >&2
+            exit 1
+          fi
