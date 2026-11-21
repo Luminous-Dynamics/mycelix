@@ -92,7 +92,6 @@ struct AuditReport {
     sample_id_column: String,
     unique_sample_id_count: usize,
     duplicate_sample_id_count: usize,
-    blank_sample_id_count: usize,
     spectral_column_count: usize,
     spectral_axis_unit: String,
     spectral_axis_descending: bool,
@@ -259,15 +258,15 @@ fn validate_profile(profile: &Profile) -> Result<(), String> {
             ));
         }
     }
-    if let Some(expected) = profile.expected_nir_to_mir_gap_cm1 {
-        if !expected.is_finite() || expected <= 0.0 {
-            return Err("expected_nir_to_mir_gap_cm1 must be finite and positive".to_string());
-        }
+    if let Some(expected) = profile.expected_nir_to_mir_gap_cm1
+        && (!expected.is_finite() || expected <= 0.0)
+    {
+        return Err("expected_nir_to_mir_gap_cm1 must be finite and positive".to_string());
     }
-    if let Some(rows) = profile.dataset_source.expected_sample_rows {
-        if rows == 0 {
-            return Err("expected_sample_rows must be positive when supplied".to_string());
-        }
+    if let Some(rows) = profile.dataset_source.expected_sample_rows
+        && rows == 0
+    {
+        return Err("expected_sample_rows must be positive when supplied".to_string());
     }
     if profile.georeferenced_sample_count_is_subset
         && profile
@@ -424,7 +423,6 @@ fn audit_csv_bytes(csv_bytes: &[u8], profile_bytes: &[u8]) -> Result<AuditReport
 
     let mut sample_ids = HashSet::new();
     let mut duplicate_sample_id_count = 0usize;
-    let mut blank_sample_id_count = 0usize;
     let mut actual_rows = 0usize;
     let mut rows_with_spectral_missingness = 0usize;
     let mut total_missing_spectral_cells = 0usize;
@@ -449,7 +447,6 @@ fn audit_csv_bytes(csv_bytes: &[u8], profile_bytes: &[u8]) -> Result<AuditReport
             .get(sample_id_index)
             .ok_or_else(|| format!("missing sample ID cell at data row {}", row_index + 1))?;
         if sample_id.trim().is_empty() {
-            blank_sample_id_count += 1;
             return Err(format!("blank sample ID at data row {}", row_index + 1));
         }
         if sample_id.trim() != sample_id {
@@ -589,14 +586,14 @@ fn audit_csv_bytes(csv_bytes: &[u8], profile_bytes: &[u8]) -> Result<AuditReport
             .max_by(f64::total_cmp);
         if let (Some(nir_edge), Some(mir_edge)) = (nir_edge, mir_edge) {
             boundary_gap = Some(nir_edge - mir_edge);
-            if let Some(expected_gap) = profile.expected_nir_to_mir_gap_cm1 {
-                if (nir_edge - mir_edge - expected_gap).abs() > 1e-6 {
-                    warnings.push(format!(
-                        "NIR/MIR boundary gap is {} cm-1; profile expects {} cm-1",
-                        nir_edge - mir_edge,
-                        expected_gap
-                    ));
-                }
+            if let Some(expected_gap) = profile.expected_nir_to_mir_gap_cm1
+                && (nir_edge - mir_edge - expected_gap).abs() > 1e-6
+            {
+                warnings.push(format!(
+                    "NIR/MIR boundary gap is {} cm-1; profile expects {} cm-1",
+                    nir_edge - mir_edge,
+                    expected_gap
+                ));
             }
         }
     }
@@ -663,7 +660,6 @@ fn audit_csv_bytes(csv_bytes: &[u8], profile_bytes: &[u8]) -> Result<AuditReport
         sample_id_column: profile.sample_id_column,
         unique_sample_id_count: sample_ids.len(),
         duplicate_sample_id_count,
-        blank_sample_id_count,
         spectral_column_count: spectral_columns.len(),
         spectral_axis_unit: profile.spectral_axis_unit,
         spectral_axis_descending: profile.spectral_axis_descending,
