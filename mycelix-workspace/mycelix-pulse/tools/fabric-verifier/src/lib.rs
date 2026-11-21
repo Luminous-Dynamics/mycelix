@@ -7,6 +7,8 @@
 //! projection to be supported by recipient-side events and a separately
 //! attributed receipt-verifier event.
 
+pub mod fanout;
+
 use serde_json::{Map, Value};
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 
