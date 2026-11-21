@@ -54,6 +54,29 @@ This prevents the importance weight for one whitened sample from being paired wi
 
 The metadata are caller-declared and must be bound to the exact source covariance / OD epoch and frame-conversion evidence. This validation establishes internal correspondence, not that the declared orbit frame, epoch or covariance is physically correct.
 
+## Repeating encounters: shared trajectory, joint path event
+
+The crate also exposes `estimate_repeating_encounter_risk`. One observation row contains:
+- one whitened initial-state sample z;
+- its exact physical state x = mu + Lz;
+- an ordered vector of high-fidelity collision flags, one for each encounter in a fixed assessment horizon.
+
+All encounter outcomes on a row therefore share the same sampled initial uncertainty and high-fidelity trajectory. The horizon event is the union:
+
+    U(z) = 1{ any encounter k collides }
+
+The union estimator uses one importance weight p(z)/q(z) for the row. It does not estimate encounters from unrelated draws, sum marginal probabilities, or assume event independence.
+
+The report retains weighted marginal estimates for each encounter, weighted pairwise co-occurrence estimates and target-event covariance diagnostics. It also reports the naive independence approximation:
+
+    Pc_union_independent = 1 - product_k (1 - Pc_k)
+
+This is only a comparator. It is never substituted for the direct shared-path union estimate. It is absent if finite-sample marginal estimates fall outside [0,1]. The evidence contract binds the fixed encounter ordering digest, assessment horizon, one-trajectory-per-row design, full-horizon event-oracle identity, proposal and sample order.
+
+A synthetic perfect-dependence fixture shows why this matters: two encounters each have marginal probability 0.5, but if they always occur together the horizon union is 0.5, not the 0.75 obtained by multiplying complements as if independent. The independent and mutually-exclusive fixtures produce 0.75 and 1.0 respectively.
+
+NASA CARA has a high-fidelity brute-force Monte Carlo precedent for repeating LEO/GEO conjunctions: https://ntrs.nasa.gov/citations/20190028903. This implementation is a statistical composition layer; it does not replace the high-fidelity propagator/event-search engine.
+
 ## Proposal training versus final evaluation
 
 The evidence contract requires distinct training and evaluation split identifiers, a frozen proposal, an IID evaluation design, a sample-order digest and a versioned high-fidelity continuous-time event oracle. These are caller attestations, not proofs. The estimator rejects split-ID reuse, non-IID evaluation claims, missing sampling evidence and low-fidelity event labels.
