@@ -845,7 +845,7 @@ mod tests {
                 OperationRisk::LowRiskReadOnly,
                 straddles_expiry
             ),
-            LeaseAssessment::ClockUncertaintyTooWide
+            LeaseAssessment::TimeBoundaryAmbiguous
         );
 
         let exact_after_expiry = ClockWindow::new(200, 200).unwrap();
