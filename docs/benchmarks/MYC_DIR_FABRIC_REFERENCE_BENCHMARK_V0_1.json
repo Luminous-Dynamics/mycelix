@@ -1177,6 +1177,59 @@
       "target": null,
       "gate": "report_only",
       "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_stale_worker_claim_effect_accept_count",
+      "layer": "postgres_effect_owner",
+      "metric": "PostgreSQL effects accepted under a superseded worker claim epoch after reassignment commit",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_worker_claim_reassignment_lock_wait_p95_ms",
+      "layer": "postgres_effect_owner",
+      "metric": "p95 wait for claim reassignment while in-flight effect holds the current claim row FOR SHARE",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_decision_expiry_effect_accept_count",
+      "layer": "postgres_effect_owner",
+      "metric": "PostgreSQL mutations accepted when the owner-clock uncertainty interval touches or exceeds the Allow expiry",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_decision_clock_profile_mismatch_accept_count",
+      "layer": "postgres_effect_owner",
+      "metric": "PostgreSQL effects accepted with a decision/claim clock profile different from the owner profile",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
     }
   ],
   "fault_schedules": [
@@ -1250,7 +1303,11 @@
     "Queue retention/TTL discards a message while an authoritative outbox record remains pending; recovery must not mark work complete",
     "Worker claim epoch changes while old process is partitioned; delayed old worker submits a correctly signed but stale claim token",
     "Worker claim proof commitment is substituted independently of the queue payload and command decision receipt",
-    "Decision Allow remains valid but the short worker claim expires before delayed execution; the effect owner must require a fresh claim"
+    "Decision Allow remains valid but the short worker claim expires before delayed execution; the effect owner must require a fresh claim",
+    "PostgreSQL worker claim reassignment contends with an in-flight effect holding FOR SHARE; reassignment must commit only after the prior effect resolves",
+    "PostgreSQL worker-claim update commits, then a delayed previous worker presents its correctly signed but stale epoch",
+    "PostgreSQL effect waits on advisory/fence/protected-object locks until the Allow decision approaches expiry; mutation-time validity check must execute after those locks are held",
+    "Exact read-only effect replay is requested after expiry; return the same prior receipt without a second physical mutation"
   ],
   "comparators": [
     {
@@ -1561,6 +1618,23 @@
       "isolation_profile": "READ COMMITTED",
       "synchronous_commit": "on",
       "purpose": "Test promotion, WAL durability, epoch reconciliation and monotonic fence restoration across eligible primaries"
+    },
+    {
+      "id": "pg_worker_claim_reassignment_race",
+      "postgres_major_versions": [
+        16,
+        17,
+        18
+      ],
+      "writer_concurrency": [
+        1,
+        8,
+        32
+      ],
+      "object_count": 10000,
+      "isolation_profile": "READ COMMITTED",
+      "synchronous_commit": "on",
+      "purpose": "Measure claim-row reassignment serialization with active worker effects and prove old claims cannot mutate after new claim commit"
     }
   ],
   "effect_surface_inventory_profiles": [
@@ -1679,7 +1753,7 @@
   "queue_worker_corpus_binding": {
     "path": "docs/benchmarks/MYC_DIR_QUEUE_WORKER_V0_1.json",
     "schema_path": "docs/benchmarks/MYC_DIR_QUEUE_WORKER_V0_1.schema.json",
-    "declared_scenario_count": 27,
+    "declared_scenario_count": 29,
     "unique_scenario_ids_required": true,
     "independent_oracle_required": true,
     "broker_delivery_and_effect_owner_results_separated": true
