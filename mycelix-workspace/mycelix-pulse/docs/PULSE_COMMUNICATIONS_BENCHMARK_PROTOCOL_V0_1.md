@@ -108,17 +108,48 @@ The numerical targets must be revisited after a blinded baseline pilot. They are
 
 ## Group fan-out: per-recipient truth before aggregate claims
 
-Group messaging uses a parent fanout identity and independent recipient-child logical operations. The parent identity and recipient-set commitment are coordination metadata, not delivery receipts or bearer authority. Every required recipient gets one stable child logical operation; retries and alternate routes create new attempt IDs without creating a second logical recipient effect.
+The target product semantics use a parent fanout identity and independent
+recipient-child logical operations. The parent identity and recipient-set
+commitment are coordination metadata, not delivery receipts or bearer
+authority. Every required recipient gets one stable child logical operation;
+retries and alternate routes create new attempt IDs without creating a second
+logical recipient effect.
 
-The recipient-set snapshot binds the send to a declared membership/epoch state. Qualification traces carry only a redacted commitment and the exact policy/runtime evidence references; they do not expose the raw roster. A child is successful only after recipient admission, one logical inbox commit, decryption verification, and an independently verified receipt for that recipient and content commitment.
+The recipient-set snapshot binds the send to a declared membership/epoch
+state. Qualification traces carry only a redacted commitment and exact
+policy/runtime evidence references; they do not expose the raw roster. A child
+success claim requires recipient admission, one logical inbox commit,
+decryption verification and a separately attributed receipt-verification
+event. The target aggregate semantics are COMPLETE_VERIFIED only when every
+required child is cryptographically verified by the trusted deadline.
 
-The default aggregate policy is **all required recipients**. The group may be shown as COMPLETE_VERIFIED only after every child in the committed recipient-set snapshot has a verified receipt by the declared deadline. PARTIAL, UNKNOWN, INCOMPLETE, EXPIRED and FAILED remain distinct. A quorum/threshold override is permitted only as an explicit user-visible policy bound to an authenticated policy snapshot; it must not be silently substituted for full completion.
+The current v0.1 verifier does not yet establish that stronger claim. It checks
+exact parent/child byte digests, recipient-set completeness, child causal
+consistency and receipt-event bindings. Its honest output is
+ALL_REQUIRED_RECEIPT_CLAIMS_CONSISTENT. It does not verify receipt signatures,
+manifest authority, membership snapshot authenticity, principal independence
+or trusted time. Therefore, the benchmark must not count this structural
+verdict as a production COMPLETE_VERIFIED event until a trust-root and
+trusted-time layer is separately implemented and qualified.
 
-Device semantics also need a declared policy. A receipt from one device does not imply all-device synchronization. Membership removal, late join and historical-message decryption are separate cases evaluated against the precise membership epoch; the benchmark must not infer their security from the group cipher name alone.
+The default target aggregate policy is all required recipients. PARTIAL,
+UNKNOWN, INCOMPLETE, EXPIRED and FAILED remain distinct. A quorum/threshold
+override is permitted only as an explicit user-visible policy bound to an
+authenticated policy snapshot; it must not be silently substituted for full
+completion. Device semantics must be declared: one device receipt does not
+imply all-device synchronization. Membership removal, late join and
+historical-message decryption are separate cases evaluated against the exact
+membership epoch.
 
-Group-specific metrics now include per-recipient verified delivery by deadline, complete-group delivery by deadline, partial fan-out coverage distribution, worst-required-recipient latency, group epoch commit time/bytes, post-removal acceptance, and late-joiner historical-decrypt acceptance. Report both recipient-level and aggregate results; a high average must not hide one unreachable or unauthorized member.
-
-This group fan-out qualification is tracked separately in [PULSE-GROUP-FANOUT-QUAL-001 / #6401](https://github.com/Luminous-Dynamics/mycelix/issues/6401), and composes with [PULSE-FABRIC-QUAL-001 / #6376](https://github.com/Luminous-Dynamics/mycelix/issues/6376).
+Group-specific metrics include per-recipient delivery by deadline,
+complete-group delivery by deadline, partial coverage distribution,
+worst-required-recipient latency, group epoch commit time/bytes,
+post-removal acceptance, late-joiner historical-decrypt acceptance, and
+CPU/memory/storage/network/physical-energy cost per recipient-verified
+effect and per fully verified group send. Report both recipient-level and
+aggregate results; a high average must not hide one unreachable or
+unauthorized member. Commitment privacy tests must include dictionary attacks,
+correlation across epochs and small-group membership inference from metadata.
 
 ## Execution order
 
