@@ -2,7 +2,7 @@
 
 This is a small, dependency-free Rust reference crate for the pure semantics that sit between replicated identity evidence and a local Policy Enforcement Point (PEP).
 
-It is intentionally **not** a complete authorization engine, identity provider, Holochain zome, LDAP server, SCIM server, OIDC provider, Kerberos KDC, or production enforcement agent.
+It is intentionally **not** a complete authorization engine, identity provider, Holochain zome, LDAP server, SCIM server, OIDC provider, Kerberos KDC, dependency-closure proof verifier, signature service, or production enforcement agent.
 
 ## What it models
 
@@ -14,6 +14,29 @@ It is intentionally **not** a complete authorization engine, identity provider, 
 ## Canonical evidence bytes
 
 The frontier, frontier-evidence, policy-snapshot and offline-lease types expose versioned, domain-separated canonical byte encodings. The frontier-evidence encoding includes the exact covered authority positions; the lease encoding includes the exact policy epoch, minimum frontier and clock-profile identifier it pins. External signing or digest code must sign these bytes together with the required signer/key and schema profile. This crate does not hash, sign, verify signatures, or validate ancestry proofs.
+
+## Request-scoped causal cuts
+
+`src/causal_cut.rs` defines:
+- typed authority dependency kinds (realm policy, membership, issuer admission, credential status, group/role, delegation, federation, device/workload trust, resource policy, revocation and explicit deny);
+- deterministic request-scoped cut encoding bound to exact request, realm, policy, dependency-graph snapshot and resolver profile digests;
+- a separate closure-verification receipt bound to the exact cut and graph snapshot;
+- a fail-closed assessment requiring every required authority position to be exact or covered by a supplied, independently verified ancestry witness.
+
+The dependency closure verifier is an external trust boundary. The module **does not** prove the resolver listed every dependency, authenticate the verifier, verify its signature/proof, or authenticate the policy/entity graph snapshot. A caller must not set `VerifiedComplete` from its own unverified dependency list.
+
+## Decision and effect receipts
+
+`src/receipts.rs` separates:
+- an authorization decision receipt (request, policy, cut, closure receipt, snapshot, evaluator build, nonce, clock profile, validity window and exact outcome basis);
+- an effect observation receipt (same request and decision receipt, logical operation, physical attempt, idempotency commitment, effect owner and observed outcome);
+- a logical effect-history checker that rejects identity substitution, attempt gaps, duplicate commits and new mutations while an earlier attempt remains unresolved.
+
+A known exact forbid remains a denial. A permit or default-deny result cannot become a final decision while required dependencies are incomplete. An Allow receipt is not proof that an effect occurred. Unknown effect outcome is not no-effect: the same logical operation must be reconciled before retry.
+
+These modules emit versioned, domain-separated canonical bytes. They do not hash/sign/verify those bytes or authenticate evaluator/effect-owner identities. Signature verification, trusted-root rotation, nonce consumption, trusted time, complete owner inventory and actual effect observation remain external qualification gates.
+
+See [the RSCAC and receipt composition design](../../docs/research/MYCELIX_DIRECTORY_FABRIC_CAUSAL_CUT_AND_RECEIPTS_V0_1.md), [the 24-case adversarial corpus](../../docs/benchmarks/MYC_DIR_CAUSAL_CUT_RECEIPTS_V0_1.json), and [its Draft 2020-12 schema](../../docs/benchmarks/MYC_DIR_CAUSAL_CUT_RECEIPTS_V0_1.schema.json).
 
 ## Deliberate reuse boundary
 
@@ -32,7 +55,7 @@ cargo clippy --manifest-path tools/myc-dir-fabric-reference/Cargo.toml --all-tar
 cargo fmt --manifest-path tools/myc-dir-fabric-reference/Cargo.toml -- --check
 ```
 
-The crate has no third-party dependencies. The test suite contains deterministic unit and adversarial controls; it does not substitute for external property-testing, mutation testing, or a proof assistant.
+The crate has no third-party dependencies. The branch currently authors 44 deterministic unit tests across frontier/snapshot/lease/group, dependency-closure, decision-receipt and effect-history semantics. They are source-present only until run on the exact head. They do not substitute for independent closure-proof validation, external property-testing, mutation testing, or a proof assistant.
 
 ## Explicit claim ceiling
 
