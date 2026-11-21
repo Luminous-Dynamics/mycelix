@@ -29,8 +29,13 @@ file error. A valid trace with terminal disposition `UNKNOWN` or
 outcome. Consumers must inspect `terminal_disposition`; verifier success is
 not message-delivery success.
 
-The CLI first meta-validates the supplied schema and validates the trace with
-JSON Schema Draft 2020-12, then applies the causal and lifecycle checks below.
+The CLI compares every supplied schema document with the corresponding
+schema compiled into this verifier. A caller cannot substitute a permissive
+schema without receiving SCHEMA_PIN_MISMATCH. The exact schemas are therefore
+bound to the verifier source/build; the binary's source SHA and implementation
+digest must still be pinned by the external qualification process. After that
+comparison, the CLI meta-validates the embedded-equivalent schema and applies
+Draft 2020-12 instance validation and the causal/lifecycle checks below.
 The schema engine is pinned to `jsonschema = 0.61.2`; default features are
 disabled so the verifier cannot resolve remote schema references at runtime.
 Keep the schema self-contained. A package-specific Cargo.lock is not
@@ -174,6 +179,10 @@ The CLI integration tests consume three actual checked-in JSON traces:
    evidence record.
 3. An ACK incorrectly promoted to SUCCESS_VERIFIED, expected to be rejected.
 
-A fourth CLI integration test checks rejection of an externally supplied
-source-SHA mismatch. The benchmark profile and schema are validated by tests,
-but remain pre-registered artifacts, not measured results.
+The CLI integration tests also reject an externally supplied source-SHA
+mismatch and a caller-substituted schema that differs from the compiled
+reference. Two fan-out CLI tests cover an all-recipient receipt-backed claim
+set and reject an incorrect external manifest pin. Unit tests include a
+two-recipient missing-child negative control and a golden vector for the
+recipient-set commitment. The benchmark profile and schema are validated by
+tests, but remain pre-registered artifacts, not measured results.
