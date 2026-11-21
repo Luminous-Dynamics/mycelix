@@ -2,7 +2,7 @@
   "profile": "MYC-DIR-FABRIC-REFERENCE-BENCHMARK-0.1",
   "version": "0.1.0",
   "status": "preregistered_not_executed",
-  "claim_ceiling": "Provisional target profile only. No latency, scale, revocation, privacy, Holochain runtime or superiority result is measured or established.",
+  "claim_ceiling": "Provisional target profile only. No latency, scale, revocation, privacy, Holochain runtime or superiority result is measured or established. Queue worker reference semantics and broker profiles are source-present only; no NATS, RabbitMQ or Kafka runtime adapter or measurement is qualified.",
   "source_binding": {
     "required_at_execution": [
       "benchmark_profile_digest",
@@ -25,7 +25,12 @@
       "dependency_graph_snapshot_digest",
       "closure_proof_digest",
       "decision_receipt_digest",
-      "effect_owner_inventory_digest"
+      "effect_owner_inventory_digest",
+      "queue_worker_corpus_digest",
+      "broker_configuration_digest",
+      "worker_image_digest",
+      "effect_owner_database_digest",
+      "queue_security_configuration_digest"
     ],
     "bind_each_sample_to_exact_commit": true,
     "no_moving_branch_references": true
@@ -971,6 +976,168 @@
       },
       "gate": "non_compensable",
       "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_delivery_binding_check_p95_us",
+      "layer": "queue_worker",
+      "metric": "Pure command-envelope and delivery binding assessment latency",
+      "unit": "us",
+      "statistic": "p95",
+      "workload_profile": "all",
+      "target": {
+        "operator": "<=",
+        "value": 250
+      },
+      "gate": "performance_target",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_delivery_to_owner_revalidation_p95_ms",
+      "layer": "queue_worker",
+      "metric": "Time from broker delivery to effect-owner revalidation request",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "all",
+      "target": {
+        "operator": "<=",
+        "value": 5
+      },
+      "gate": "performance_target",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_stale_generation_effect_accept_count",
+      "layer": "queue_worker_safety",
+      "metric": "Effects accepted with an old owner-fence generation after owner acknowledgement",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_stale_worker_claim_effect_accept_count",
+      "layer": "queue_worker_safety",
+      "metric": "Effects accepted from a superseded worker claim epoch",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_expired_command_effect_accept_count",
+      "layer": "queue_worker_safety",
+      "metric": "Effects accepted after command decision validity expired",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_payload_or_route_substitution_accept_count",
+      "layer": "queue_worker_safety",
+      "metric": "Payload, broker, destination or message-key substitutions accepted",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_duplicate_logical_effect_count",
+      "layer": "queue_worker_safety",
+      "metric": "Duplicate physical effect commits for one logical operation",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_unknown_outcome_retry_count",
+      "layer": "queue_worker_safety",
+      "metric": "New physical attempts started before exact Unknown outcome reconciliation",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_ack_without_durable_disposition_count",
+      "layer": "queue_worker_safety",
+      "metric": "Broker acknowledgements without terminal owner receipt or durable reconciliation handoff",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_delivery_without_terminal_or_recovery_state_count",
+      "layer": "queue_worker_safety",
+      "metric": "Accepted deliveries with neither durable terminal disposition nor durable recovery task",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "all",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_unknown_to_reconciliation_resolution_p95_ms",
+      "layer": "queue_recovery",
+      "metric": "Time from durable Unknown handoff to exact owner reconciliation",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "all",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "queue_broker_publish_confirm_p95_ms",
+      "layer": "queue_transport",
+      "metric": "Broker publish confirmation latency under the pinned durability profile",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "all",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
     }
   ],
   "fault_schedules": [
@@ -1025,7 +1192,23 @@
     "A CAEP receiver is partitioned while a revocation is propagated; the route remains pending and prevents strict all-owner completion",
     "OAuth access-token revocation succeeds at the authorization server while a resource server still accepts an unexpired self-contained token; classify as propagation/TTL exposure, not strong fencing",
     "CAEP Session Revoked / Token Claims Change signal is delivered while a resource owner remains partitioned and has not durably advanced its fence generation",
-    "Duplicate or delayed CAEP signal arrives after owner fence installation; event replay must not lower, re-advance or falsely acknowledge the durable generation"
+    "Duplicate or delayed CAEP signal arrives after owner fence installation; event replay must not lower, re-advance or falsely acknowledge the durable generation",
+    "Broker publish confirm succeeds but no worker has received, revalidated or executed the command; do not count a resource effect",
+    "Worker crashes after the effect owner commits but before the worker observes the effect receipt; reconcile the exact logical operation",
+    "Broker consumer acknowledgement is lost after a committed effect and the same message is redelivered",
+    "Broker message de-duplication window expires and an old logical operation is republished with the same operation and idempotency commitments",
+    "Destination, subject, routing key or message body digest is substituted while the application message key remains unchanged",
+    "Worker lease expires during a process pause; a second worker claims a higher epoch and the old process resumes",
+    "Command is delayed for 24 hours in a backlog and delivered after its Allow validity interval has expired",
+    "NATS JetStream AckWait expires while the original worker is still alive and processing; both workers race the same logical operation",
+    "RabbitMQ quorum at-least-once dead-letter transfer duplicates a delivery at the target queue",
+    "Kafka transactional offset and output-topic commit succeeds but external database output is not in the same Kafka transaction",
+    "External database effect commits but Kafka offset acknowledgement is lost; consumer restarts and must reconcile the external effect",
+    "CAEP revocation signal arrives out of order while messages are queued; older signal must not regress the owner generation",
+    "Unknown effect outcome is handed off to a durable reconciliation task; broker may ack but no fresh attempt is allowed",
+    "Effect-surface inventory omits a worker pool, broker consumer, retry scheduler or direct API route; strict revocation remains blocked",
+    "Broker leader failover or consumer rebalance occurs while one worker holds an old claim; stale claim must fail at effect owner",
+    "Queue retention/TTL discards a message while an authoritative outbox record remains pending; recovery must not mark work complete"
   ],
   "comparators": [
     {
@@ -1102,6 +1285,21 @@
       "name": "OAuth RFC 7009 token revocation",
       "scope": "Authorization-server token revocation and related grant invalidation",
       "consistency_profile": "Measure resource-server propagation, introspection/cache behavior and residual unexpired-token acceptance separately from effect-owner fence completion"
+    },
+    {
+      "name": "NATS JetStream",
+      "scope": "Durable streams, consumer redelivery, explicit acknowledgements and publisher deduplication",
+      "consistency_profile": "Freeze file/memory storage, replicas, retention, consumer AckPolicy/AckWait/MaxDeliver, deduplication window and client version; report broker delivery separate from effect commits"
+    },
+    {
+      "name": "RabbitMQ 4.4 quorum queues",
+      "scope": "Raft-replicated queue durability, publisher confirms, manual acknowledgements, redelivery and dead-letter transfer",
+      "consistency_profile": "Freeze quorum size, publisher confirms, consumer acknowledgement mode, prefetch, delivery limit, dead-letter strategy and overflow; include duplicate dead-letter transfer"
+    },
+    {
+      "name": "Apache Kafka 4.4",
+      "scope": "Transactional producer and consumer-offset semantics for topic-to-topic processing",
+      "consistency_profile": "Freeze replication/ISR, producer idempotence and transactional.id, read_committed isolation and consumer offsets; external effect destinations need their own atomic coordination"
     }
   ],
   "dependency_cut_profiles": [
@@ -1384,5 +1582,64 @@
       "inventory_churn_per_minute": 20,
       "purpose": "Measure CAEP fanout, replay handling and receiver attenuation separately from durable fence completion"
     }
-  ]
+  ],
+  "queue_worker_profiles": [
+    {
+      "id": "queue_worker_small",
+      "messages_per_second": 100,
+      "worker_count": 1,
+      "backlog_messages": 1000,
+      "command_age_seconds": [
+        0,
+        60,
+        3600
+      ],
+      "purpose": "Establish baseline envelope checks and one-worker recovery semantics"
+    },
+    {
+      "id": "queue_worker_production",
+      "messages_per_second": 10000,
+      "worker_count": 32,
+      "backlog_messages": 1000000,
+      "command_age_seconds": [
+        0,
+        60,
+        3600
+      ],
+      "purpose": "Measure broker and worker behavior at moderate enterprise workload"
+    },
+    {
+      "id": "queue_worker_enterprise_stress",
+      "messages_per_second": 100000,
+      "worker_count": 256,
+      "backlog_messages": 10000000,
+      "command_age_seconds": [
+        0,
+        60,
+        3600
+      ],
+      "purpose": "Stress redelivery, rebalances, owner lock contention and recovery capacity"
+    },
+    {
+      "id": "queue_worker_revocation_backlog",
+      "messages_per_second": 10000,
+      "worker_count": 32,
+      "backlog_messages": 1000000,
+      "command_age_seconds": [
+        0,
+        60,
+        3600,
+        86400
+      ],
+      "purpose": "Revoke while commands are queued, delivered, in flight, delayed and recovering; require zero post-ack stale-generation effect"
+    }
+  ],
+  "queue_worker_corpus_binding": {
+    "path": "docs/benchmarks/MYC_DIR_QUEUE_WORKER_V0_1.json",
+    "schema_path": "docs/benchmarks/MYC_DIR_QUEUE_WORKER_V0_1.schema.json",
+    "declared_scenario_count": 24,
+    "unique_scenario_ids_required": true,
+    "independent_oracle_required": true,
+    "broker_delivery_and_effect_owner_results_separated": true
+  }
 }
