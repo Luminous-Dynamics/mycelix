@@ -2093,6 +2093,68 @@ mod tests {
             .collect()
     }
 
+    fn multifidelity_proposal() -> DefensiveGaussianMixture {
+        DefensiveGaussianMixture {
+            id: "proposal-multifidelity-exact-target".into(),
+            epsilon: 0.25,
+            dimension: 2,
+            components: vec![GaussianComponent {
+                id: "nominal-standard-normal".into(),
+                mixture_weight: 1.0,
+                mean: vec![0.0, 0.0],
+                cholesky: identity(2),
+            }],
+        }
+    }
+
+    fn multifidelity_evaluation_evidence() -> EvaluationEvidence {
+        let mut value = evidence();
+        value.proposal_id = "proposal-multifidelity-exact-target".into();
+        value.event_oracle_id = "analytic-high-fidelity-disk-oracle".into();
+        value.event_oracle_revision = "closed-form-hf-disk-v1".into();
+        value.event_oracle_is_high_fidelity_continuous_time = false;
+        value.event_oracle_is_analytic_reference_fixture = true;
+        value
+    }
+
+    fn multifidelity_surrogate_evidence(
+        evaluation: &EvaluationEvidence,
+        is_exact: bool,
+    ) -> MultifidelitySurrogateEvidence {
+        MultifidelitySurrogateEvidence {
+            surrogate_model_id: "analytic-low-fidelity-disk".into(),
+            surrogate_model_revision: "closed-form-lf-disk-v1".into(),
+            surrogate_training_id: "surrogate-training-independent-v1".into(),
+            surrogate_evaluation_sample_id: evaluation.evaluation_sample_id.clone(),
+            target_distribution_id: "whitened-standard-normal-N0I-v1".into(),
+            surrogate_probability_evidence_ref: "fixture://surrogate-probability/radius-0.5-v1".into(),
+            surrogate_probability_artifact_digest: "sha256:surrogate-pc-fixture".into(),
+            sample_order_digest: evaluation.sample_order_digest.clone(),
+            surrogate_probability_is_exact: is_exact,
+        }
+    }
+
+    fn multifidelity_observations(
+        high_fidelity_radius: f64,
+        surrogate_radius: f64,
+    ) -> Vec<MultifidelityResidualObservation> {
+        [0.1_f64, 0.6, 0.9, 1.3]
+            .into_iter()
+            .enumerate()
+            .map(|(index, x)| {
+                let point = vec![x, 0.0];
+                let collision_by_radius = |radius: f64| x * x <= radius * radius;
+                MultifidelityResidualObservation {
+                    sample_id: format!("evaluation-row-{index:04}"),
+                    point: point.clone(),
+                    physical_state: point,
+                    surrogate_collision: collision_by_radius(surrogate_radius),
+                    high_fidelity_collision: collision_by_radius(high_fidelity_radius),
+                }
+            })
+            .collect()
+    }
+
     fn evidence() -> EvaluationEvidence {
         EvaluationEvidence {
             proposal_id: "proposal-gmm-v1".into(),
@@ -2116,6 +2178,167 @@ mod tests {
             proposal_frozen_before_evaluation: true,
             evaluation_draws_are_iid_from_full_mixture: true,
         }
+    }
+
+    #[test]
+    fn multifidelity_residual_corrects_surrogate_probability_with_paired_disagreement() {
+        let proposal = multifidelity_proposal();
+        let whitening = whitening(2);
+        let evaluation = multifidelity_evaluation_evidence();
+        let surrogate = multifidelity_surrogate_evidence(&evaluation, true);
+        let surrogate_pc = exact_standard_normal_2d_disk_probability(0.5).unwrap();
+        let observations = multifidelity_observations(0.75, 0.5);
+
+        let report = estimate_multifidelity_residual_probability(
+            &proposal,
+            &whitening,
+            &observations,
+            surrogate_pc,
+            0.0,
+            0.05,
+            &evaluation,
+            &surrogate,
+        ).unwrap();
+
+        assert_eq!(report.high_fidelity_collision_count, 2);
+        assert_eq!(report.surrogate_collision_count, 1);
+        assert_eq!(report.false_negative_count, 1);
+        assert_eq!(report.false_positive_count, 0);
+        assert!((report.direct_high_fidelity_importance_sampling_estimate - 0.5).abs() < 1e-12);
+        assert!((report.residual_mean - 0.25).abs() < 1e-12);
+        assert!((report.corrected_high_fidelity_probability_estimate - (surrogate_pc + 0.25)).abs() < 1e-12);
+        assert!(report.confidence_lower <= report.corrected_high_fidelity_probability_estimate);
+        assert!(report.confidence_upper >= report.corrected_high_fidelity_probability_estimate);
+        assert!(report.direct_to_residual_variance_ratio.unwrap() > 1.0);
+        assert_eq!(report.inference_horizon, "fixed_sample_only_not_anytime_valid");
+    }
+
+    #[test]
+    fn multifidelity_residual_preserves_negative_corrections_for_surrogate_false_positives() {
+        let proposal = multifidelity_proposal();
+        let whitening = whitening(2);
+        let evaluation = multifidelity_evaluation_evidence();
+        let surrogate = multifidelity_surrogate_evidence(&evaluation, true);
+        let surrogate_pc = exact_standard_normal_2d_disk_probability(0.75).unwrap();
+        let observations = multifidelity_observations(0.5, 0.75);
+
+        let report = estimate_multifidelity_residual_probability(
+            &proposal,
+            &whitening,
+            &observations,
+            surrogate_pc,
+            0.0,
+            0.05,
+            &evaluation,
+            &surrogate,
+        ).unwrap();
+
+        assert_eq!(report.high_fidelity_collision_count, 1);
+        assert_eq!(report.surrogate_collision_count, 3);
+        assert_eq!(report.false_negative_count, 0);
+        assert_eq!(report.false_positive_count, 2);
+        assert!((report.residual_mean + 0.5).abs() < 1e-12);
+        assert!((report.corrected_high_fidelity_probability_estimate - (surrogate_pc - 0.5)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn multifidelity_residual_widens_interval_by_surrogate_probability_error() {
+        let proposal = multifidelity_proposal();
+        let whitening = whitening(2);
+        let evaluation = multifidelity_evaluation_evidence();
+        let surrogate = multifidelity_surrogate_evidence(&evaluation, false);
+        let surrogate_pc = exact_standard_normal_2d_disk_probability(0.5).unwrap();
+        let observations = multifidelity_observations(0.75, 0.5);
+
+        let report = estimate_multifidelity_residual_probability(
+            &proposal,
+            &whitening,
+            &observations,
+            surrogate_pc,
+            0.01,
+            0.05,
+            &evaluation,
+            &surrogate,
+        ).unwrap();
+
+        assert!((report.total_confidence_radius - report.empirical_bernstein_radius - 0.01).abs() < 1e-12);
+    }
+
+    #[test]
+    fn multifidelity_residual_rejects_unqualified_or_mismatched_surrogate_probability() {
+        let proposal = multifidelity_proposal();
+        let whitening = whitening(2);
+        let evaluation = multifidelity_evaluation_evidence();
+        let observations = multifidelity_observations(0.75, 0.5);
+        let pc = exact_standard_normal_2d_disk_probability(0.5).unwrap();
+
+        let mut missing_error = multifidelity_surrogate_evidence(&evaluation, false);
+        assert_eq!(
+            estimate_multifidelity_residual_probability(
+                &proposal, &whitening, &observations, pc, 0.0, 0.05,
+                &evaluation, &missing_error,
+            ),
+            Err(EstimateError::SurrogateProbabilityNotQualified)
+        );
+
+        let mut wrong_target = multifidelity_surrogate_evidence(&evaluation, true);
+        wrong_target.target_distribution_id = "different-target-measure-v1".into();
+        assert_eq!(
+            estimate_multifidelity_residual_probability(
+                &proposal, &whitening, &observations, pc, 0.0, 0.05,
+                &evaluation, &wrong_target,
+            ),
+            Err(EstimateError::SurrogateTargetMismatch)
+        );
+
+        let mut wrong_order = multifidelity_surrogate_evidence(&evaluation, true);
+        wrong_order.sample_order_digest = "sha256:different-sample-order".into();
+        assert_eq!(
+            estimate_multifidelity_residual_probability(
+                &proposal, &whitening, &observations, pc, 0.0, 0.05,
+                &evaluation, &wrong_order,
+            ),
+            Err(EstimateError::SurrogateSampleOrderMismatch)
+        );
+
+        let mut training_leak = multifidelity_surrogate_evidence(&evaluation, true);
+        training_leak.surrogate_training_id = evaluation.evaluation_sample_id.clone();
+        assert_eq!(
+            estimate_multifidelity_residual_probability(
+                &proposal, &whitening, &observations, pc, 0.0, 0.05,
+                &evaluation, &training_leak,
+            ),
+            Err(EstimateError::SurrogateTrainingEvaluationLeakage)
+        );
+    }
+
+    #[test]
+    fn multifidelity_residual_rejects_duplicate_rows_and_physical_state_mismatch() {
+        let proposal = multifidelity_proposal();
+        let whitening = whitening(2);
+        let evaluation = multifidelity_evaluation_evidence();
+        let surrogate = multifidelity_surrogate_evidence(&evaluation, true);
+        let pc = exact_standard_normal_2d_disk_probability(0.5).unwrap();
+        let mut observations = multifidelity_observations(0.75, 0.5);
+
+        observations[1].sample_id = observations[0].sample_id.clone();
+        assert_eq!(
+            estimate_multifidelity_residual_probability(
+                &proposal, &whitening, &observations, pc, 0.0, 0.05,
+                &evaluation, &surrogate,
+            ),
+            Err(EstimateError::DuplicateEvaluationSampleId("evaluation-row-0000".into()))
+        );
+
+        let mut observations = multifidelity_observations(0.75, 0.5);
+        observations[1].physical_state[0] += 0.01;
+        assert_eq!(
+            estimate_multifidelity_residual_probability(
+                &proposal, &whitening, &observations, pc, 0.0, 0.05,
+                &evaluation, &surrogate,
+            ),
+            Err(EstimateError::PhysicalStateMismatch)
+        );
     }
 
     #[test]
