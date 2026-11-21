@@ -725,6 +725,13 @@ mod tests {
     }
 
     #[test]
+    fn missing_start_or_end_observation_breaks_boundary_coverage() {
+        let report = audit(&fixture()).unwrap();
+        assert!(!report.boundary_coverage_complete);
+        assert!(report.missing_schedule_slot_ids.contains(&"s4".to_string()));
+    }
+
+    #[test]
     fn left_censored_observation_is_not_zero_and_blocks_qualification() {
         let mut value = fixture();
         value["campaign"]["observations"][1]["quantification_status"] =
@@ -742,7 +749,7 @@ mod tests {
         let mut value = fixture();
         value["campaign"]["maximum_gap_seconds"] = serde_json::json!(1800);
         let report = audit(&value).unwrap();
-        assert_eq!(report.excessive_observation_gap_count, 2);
+        assert_eq!(report.excessive_observation_gap_count, 4);
         assert!((report.integrated_support_seconds - 0.0).abs() < 1e-12);
         assert_eq!(report.integrated_partial_mg_m2, None);
     }
