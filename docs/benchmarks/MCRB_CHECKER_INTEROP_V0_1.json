@@ -600,6 +600,28 @@
             "evidence_refs": [
               "fixture://MCRB-HI-05/event/hi05-i2"
             ]
+          },
+          {
+            "event_id": "hi05-f2",
+            "operation_id": "op-stable",
+            "attempt_id": 2,
+            "process_id": "client-a",
+            "process_sequence": 4,
+            "operation": "dispatch-effect",
+            "phase": "fail",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 430,
+            "request_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "effect_state": "ConfirmedNotApplied",
+            "result": {
+              "reason": "idempotency-fingerprint-conflict"
+            },
+            "evidence_refs": [
+              "fixture://MCRB-HI-05/event/hi05-f2"
+            ]
           }
         ],
         "causal_edges": [
@@ -614,6 +636,12 @@
             "to_event": "hi05-i2",
             "relation": "same-process-retry",
             "evidence_ref": "fixture://hi05/changed-retry"
+          },
+          {
+            "from_event": "hi05-i2",
+            "to_event": "hi05-f2",
+            "relation": "invocation-completion",
+            "evidence_ref": "fixture://hi05/changed-retry-response"
           }
         ]
       },
