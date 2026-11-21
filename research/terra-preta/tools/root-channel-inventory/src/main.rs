@@ -461,7 +461,7 @@ mod tests {
     }
 
     #[test]
-    fn 2d_synthetic_fixture_does_not_claim_direct_connectivity() {
+    fn planar_synthetic_fixture_does_not_claim_direct_connectivity() {
         let report = build_report(&scenario(), "0".repeat(64));
         assert_eq!(report.direct_3d_connectivity_count, 0);
         assert!(report.controls.no_2d_to_3d_promotion_pass);
