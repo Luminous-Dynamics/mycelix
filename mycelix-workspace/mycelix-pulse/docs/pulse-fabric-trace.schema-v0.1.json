@@ -517,6 +517,7 @@
     "terminal_disposition": {
       "enum": [
         "SUCCESS_VERIFIED",
+        "PARTIAL",
         "FAILED",
         "EXPIRED",
         "REVOKED",
