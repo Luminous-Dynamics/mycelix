@@ -101,9 +101,13 @@ Apply and test on a disposable PostgreSQL database:
 - Table/function grants must prevent application roles from directly updating protected balances, fence rows or effect history. After creating dedicated deployment roles, grant only:
   
       GRANT USAGE ON SCHEMA myc_effect_owner TO myc_effect_owner_pep, myc_effect_owner_revoker;
-      GRANT EXECUTE ON FUNCTION myc_effect_owner.apply_balance_delta(
-        TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BIGINT, BYTEA, TEXT, BYTEA, BYTEA, BYTEA, BIGINT
+      GRANT EXECUTE ON FUNCTION myc_effect_owner.apply_claim_fenced_balance_delta(
+        TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BIGINT, BYTEA, TEXT, BYTEA, BYTEA, BYTEA,
+        BIGINT, TEXT, BIGINT, BYTEA, TEXT, TIMESTAMPTZ, TIMESTAMPTZ
       ) TO myc_effect_owner_pep;
+      GRANT EXECUTE ON FUNCTION myc_effect_owner.install_worker_claim(
+        TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BIGINT, BYTEA, TEXT, TIMESTAMPTZ, TIMESTAMPTZ
+      ) TO myc_effect_owner_claim_installer;
       GRANT EXECUTE ON FUNCTION myc_effect_owner.advance_effect_fence(
         TEXT, TEXT, TEXT, TEXT, BYTEA
       ) TO myc_effect_owner_revoker;
@@ -138,3 +142,6 @@ owner_clock_profile_id and max_clock_uncertainty_ms are added to effect_fence_st
 The application PEP must still authenticate the exact Allow receipt and claim issuer before calling SQL. The SQL validates stored commitments and validity bindings; it does not derive policy or verify Ed25519. The PEP role should receive EXECUTE only on apply_claim_fenced_balance_delta; it must not have EXECUTE on the unwrapped apply_balance_delta or direct table DML. A separate trusted claim-installer role may execute install_worker_claim.
 
 Run test_worker_claim_fencing.sql after applying both migrations. This is an authored single-session transactional self-test only; two-session claim-reassignment/effect races, clock drift, role-bypass, crash/recovery and synchronous failover remain runtime qualification requirements.
+
+
+The base apply_balance_delta function accepts the exact decision clock profile, issued-at and expiry timestamps. It acquires advisory locks, the owner-fence row and the protected-object row before checking the full owner-clock uncertainty interval immediately before the write. Exact read-only idempotency replay remains available to reconcile an earlier commit; a new mutation outside the decision window is rejected. The queue-facing PEP role is granted only the worker-claim wrapper, not the unwrapped base mutation function.
