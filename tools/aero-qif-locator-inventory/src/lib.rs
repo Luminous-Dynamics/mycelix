@@ -983,6 +983,25 @@ pub fn derive_trace_locator_inventory(
     if results.len() != 1 {
         return Err(InventoryError::InvalidIdentity("results_document_cardinality".into()));
     }
+    let measurement_results_paths: BTreeSet<_> = results[0].locators.iter()
+        .filter(|record| record.rule_id == "results.measurement_results")
+        .filter_map(|record| record.locator.source_path.strip_suffix("@id"))
+        .map(str::to_owned)
+        .collect();
+    let inspection_status_paths: BTreeSet<_> = results[0].locators.iter()
+        .filter(|record| matches!(
+            record.rule_id.as_str(),
+            "results.inspection_status" | "results.inspection_other_status"
+        ))
+        .filter_map(|record| record.locator.source_path.split("/InspectionStatus[").next())
+        .map(str::to_owned)
+        .collect();
+    if measurement_results_paths != inspection_status_paths {
+        return Err(InventoryError::SourceRuleCoverageMismatch(
+            "MeasurementResults inspection-status choice".into()
+        ));
+    }
+
     let results_measurements = results[0].locators.iter()
         .filter(|record| record.rule_id == "results.characteristic_measurement")
         .count();
@@ -1317,7 +1336,24 @@ mod tests {
                         expanded("InspectionStatusEnum"),
                     ],
                     capture: LocatorCaptureMode::Text,
-                    min_occurrences: 1,
+                    min_occurrences: 0,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.inspection_other_status".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                        expanded("MeasurementResults"),
+                        expanded("InspectionStatus"),
+                        expanded("OtherInspectionStatus"),
+                    ],
+                    capture: LocatorCaptureMode::Text,
+                    min_occurrences: 0,
                     max_occurrences: None,
                     capture_attributes: Vec::new(),
                     declares_external_document_reference: false,
@@ -1679,6 +1715,23 @@ mod tests {
             inventory_required_locators(&inventory).unwrap().len(),
             23
         );
+    }
+
+    #[test]
+    fn human_readable_inspection_status_is_supported_as_the_alternate_choice() {
+        let results = RESULTS.replace(
+            "<InspectionStatusEnum>PASS</InspectionStatusEnum>",
+            "<OtherInspectionStatus>partially inspected per customer deviation</OtherInspectionStatus>"
+        );
+        let (inventory, _) = derive_trace_locator_inventory(
+            "inspection-status-other",
+            &profile(),
+            &docs(results.as_bytes(), PLAN.as_bytes())
+        ).unwrap();
+        let other = inventory.body.locators.iter()
+            .find(|record| record.rule_id == "results.inspection_other_status")
+            .and_then(|record| record.captured_value.as_deref());
+        assert_eq!(other, Some("partially inspected per customer deviation"));
     }
 
     #[test]
