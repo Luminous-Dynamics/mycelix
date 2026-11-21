@@ -5,11 +5,11 @@ Synthetic-only reference kernel for the CT-informed transient exchange term disc
 ## Dimensional contract
 
 - (a_{wetted}): specific wetted interface area, m² interface per m³ bulk soil.
-- (j_{macro}): signed macropore flux density, m/s.
+- (j_{macro}): signed interfacial exchange flux density, m/s.
 - (r_{exchange}=a_{wetted}j_{macro}): volumetric exchange-rate density, 1/s.
 - (dV_{exchange}=r_{exchange}V_{bulk}dt): water volume transferred, m³.
 
-Positive transfer is macropore → matrix; negative transfer reverses direction. A transfer is subtracted from one compartment and added to the other.
+Positive transfer is macropore → matrix; negative transfer reverses direction. A transfer is subtracted from one compartment and added to the other. The reference fixture's flux density is explicitly synthetic; the cited paper derives its flux-density term from a horizontal Richards-equation representation of the matrix, so a future physical integration must preserve that model/provenance distinction.
 
 ## Run
 
