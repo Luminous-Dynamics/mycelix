@@ -93,9 +93,27 @@ A synthetic perfect-dependence fixture shows why this matters: two encounters ea
 
 NASA CARA has a high-fidelity brute-force Monte Carlo precedent for repeating LEO/GEO conjunctions: https://ntrs.nasa.gov/citations/20190028903. This implementation is a statistical composition layer; it does not replace the high-fidelity propagator/event-search engine.
 
+## Paired counterfactual maneuver comparisons
+
+The crate exposes `compare_counterfactual_maneuver_risk` for comparing one baseline plan with one candidate plan on the **same initial-state samples**, using the same frozen defensive proposal, encounter order, assessment horizon and event-oracle revision.
+
+For sample j, the paired weighted difference is:
+
+    D_j = w_j * (I_candidate,j - I_baseline,j)
+
+The estimate is candidate minus baseline. Negative means the candidate has lower estimated event probability on the declared sample population. Since each event-weighted term is bounded by 1/epsilon, D_j lies in [-1/epsilon, +1/epsilon]. The crate reports a two-sided fixed-sample empirical-Bernstein interval using that known range.
+
+This common-random-numbers approach can reduce the variance of the difference when baseline and candidate outcomes are positively correlated. It does not guarantee a variance reduction for all plan pairs; the report includes an unpaired-stream standard-error comparator and the measured paired/unpaired variance ratio.
+
+The per-encounter ledger reports baseline and candidate marginal estimates, newly introduced collision samples and mitigated collision samples. A candidate can improve one encounter while introducing risk at another; the ledger keeps those changes visible. The path-level union is estimated directly from each plan's full-horizon outcomes.
+
+All candidate comparisons must be predeclared or use an appropriate simultaneous error budget. Repeatedly evaluating many plans and selecting the best one with unadjusted intervals introduces selection bias. The paired interval is fixed-sample only, not an anytime-valid stopping rule. No maneuver authorization or command authority is provided.
+
+The design binds baseline/candidate plan IDs and revisions, the shared encounter order, horizon and same-oracle requirement. These are evidence attestations; a physical propagator must still execute both plan variants from the same retained initial state and the same high-fidelity event oracle must screen all relevant secondary objects.
+
 ## Proposal training versus final evaluation
 
-The evidence contract requires distinct training and evaluation split identifiers, a frozen proposal, an IID evaluation design, a sample-order digest and a versioned high-fidelity continuous-time event oracle. These are caller attestations, not proofs. The estimator rejects split-ID reuse, non-IID evaluation claims, missing sampling evidence and low-fidelity event labels.
+The evidence contract requires distinct training and evaluation split identifiers, a frozen proposal, an IID evaluation design, a sample-order digest and a versioned high-fidelity continuous-time event oracle. These are caller attestations, not proofs. The estimator rejects split-ID reuse, non-IID evaluation claims, missing sampling evidence and low-fidelity event labels. A mathematical test fixture may explicitly identify an exact analytic reference oracle; that permission is not available for physical mission estimates.
 
 The intended workflow is:
 1. Fit/tune a Gaussian or Gaussian-mixture proposal using a low-fidelity conjunction model or a dedicated training split.
