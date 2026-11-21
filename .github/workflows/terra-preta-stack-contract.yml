@@ -43,11 +43,30 @@ jobs:
             ([.observations[].observation_id] | length == (unique | length))
           ' "$fixture"
           jq -e '
-            ([.provenance.sources[].source_id] as $sources |
-             [.experimental_units[].unit_id] as $units |
-             all(.observations[];
-               (.source_id as $id | ($sources | index($id)) != null) and
-               (.unit_id as $id | ($units | index($id)) != null)))
+            (.provenance.sources | map(.source_id)) as $sources |
+            (.experimental_units | map(.unit_id)) as $units |
+            (.observations | map(.observation_id)) as $observations |
+            (.models | map(.model_run_id)) as $models |
+            (.claims | map(.claim_id)) as $claims |
+            (.experiment_proposals | map(.proposal_id)) as $proposals |
+            all(.observations[];
+              (.source_id as $id | ($sources | index($id)) != null) and
+              (.unit_id as $id | ($units | index($id)) != null)) and
+            all(.experimental_units[];
+              (.parent_unit_id == null) or
+              (.parent_unit_id as $id | ($units | index($id)) != null)) and
+            all(.claims[];
+              (if has("model_run_id") then (.model_run_id as $id | ($models | index($id)) != null) else true end) and
+              all(.evidence_refs[];
+                if startswith("observation:") then (.[12:] as $id | ($observations | index($id)) != null)
+                elif startswith("model:") then (.[6:] as $id | ($models | index($id)) != null)
+                elif startswith("source:") then (.[7:] as $id | ($sources | index($id)) != null)
+                elif startswith("proposal:") then (.[9:] as $id | ($proposals | index($id)) != null)
+                else false end)) and
+            (if has("sol_atlas_projection") then
+              all(.sol_atlas_projection.source_claim_ids[];
+                . as $id | ($claims | index($id)) != null)
+             else true end)
           ' "$fixture"
       - name: Reject authority escalation
         run: |
@@ -56,6 +75,21 @@ jobs:
           if jsonschema-cli validate research/terra-preta/schemas/soil-twin-package.schema.json \
             --instance "$RUNNER_TEMP/unauthorized.json" --draft 2020 --assert-format; then
             echo "Schema accepted an unauthorized field action"
+            exit 1
+          fi
+      - name: Reject synthetic evidence promotion
+        run: |
+          fixture=research/terra-preta/examples/synthetic-soil-twin-package-v0.1.json
+          jq '.package_status = "qualified_evidence_package"' "$fixture" > "$RUNNER_TEMP/promoted-package.json"
+          if jsonschema-cli validate research/terra-preta/schemas/soil-twin-package.schema.json \
+            --instance "$RUNNER_TEMP/promoted-package.json" --draft 2020 --assert-format; then
+            echo "Schema accepted synthetic package promotion"
+            exit 1
+          fi
+          jq '.observations[0].qc_status = "accepted"' "$fixture" > "$RUNNER_TEMP/promoted-observation.json"
+          if jsonschema-cli validate research/terra-preta/schemas/soil-twin-package.schema.json \
+            --instance "$RUNNER_TEMP/promoted-observation.json" --draft 2020 --assert-format; then
+            echo "Schema accepted synthetic observation promotion"
             exit 1
           fi
       - name: Reject unknown fields
