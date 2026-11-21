@@ -1023,6 +1023,23 @@ mod tests {
     }
 
     #[test]
+    fn confirmed_commit_reconciliation_requires_allow_decision_receipt() {
+        let denied = receipt(
+            CausalCutAssessment::Sufficient,
+            PolicyEvaluation::DefaultDeny { evaluated_set_digest: [9; 32] },
+        );
+        let reconciliation = reconcile(
+            1,
+            ReconciliationOutcome::ConfirmedCommitted,
+            [10; 32],
+        );
+        assert_eq!(
+            reconciliation.validate_against_decision(&denied, &[10; 32]),
+            Err(ReceiptError::EffectCannotCommitWithoutAllow)
+        );
+    }
+
+    #[test]
     fn reconciliation_decision_mismatch_is_rejected() {
         let unknown = effect(1, EffectOutcome::Unknown, [10; 32]);
         let wrong_decision = reconcile(1, ReconciliationOutcome::ConfirmedNoEffect, [99; 32]);
