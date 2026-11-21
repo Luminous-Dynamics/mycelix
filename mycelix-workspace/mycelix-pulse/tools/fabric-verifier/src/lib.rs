@@ -2403,6 +2403,11 @@ mod tests {
             "recipient_commitment_dictionary_attack_success_rate",
             "cross_epoch_recipient_linkability_auc",
             "small_group_membership_inference_auc",
+            "vulnerable_message_set_size_after_compromise",
+            "messages_until_post_compromise_healing",
+            "elapsed_time_to_post_compromise_healing",
+            "control_bytes_until_post_compromise_healing",
+            "unhealed_sessions_at_measurement_horizon_rate",
         ] {
             assert!(
                 metric_ids.contains(&required_metric),
@@ -2414,6 +2419,30 @@ mod tests {
             benchmark["status"].as_str(),
             Some("pre_registered_not_executed"),
             "benchmark artifacts must not imply that any measurements were performed"
+        );
+        let scka_metrics = benchmark["metrics"]
+            .as_array()
+            .expect("benchmark metrics")
+            .iter()
+            .filter(|metric| {
+                metric["id"]
+                    .as_str()
+                    .is_some_and(|id| id.contains("post_compromise") || id.contains("vulnerable_message"))
+            });
+        for metric in scka_metrics {
+            assert_eq!(
+                metric["candidate_applicability"].as_str(),
+                Some("ratchet_capable_only"),
+                "post-compromise metrics must be capability-scoped"
+            );
+        }
+        assert!(
+            benchmark["reporting_rules"]
+                .as_array()
+                .is_some_and(|rules| rules.iter().any(|rule| {
+                    rule.as_str()
+                        .is_some_and(|value| value.contains("Never encode not-supported"))
+                }))
         );
         let benchmark_schema: Value = serde_json::from_str(include_str!(
             "../../../docs/pulse-fabric-benchmark.schema-v0.1.json"
