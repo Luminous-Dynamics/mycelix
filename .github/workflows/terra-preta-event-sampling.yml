@@ -1,13 +1,19 @@
 name: Terra Preta event sampling observability evaluator
 
 on:
+  push:
+    branches:
+      - research/terra-sampling-observability-v0.1
+    paths:
+      - 'research/terra-preta/EVENT_SAMPLING_OBSERVABILITY_BENCHMARK_V0.1.md'
+      - 'research/terra-preta/schemas/event-sampling-*.schema.json'
+      - 'research/terra-preta/tools/event-sampling-audit/**'
+      - '.github/workflows/terra-preta-event-sampling.yml'
   pull_request:
     branches: [main]
     paths:
       - 'research/terra-preta/EVENT_SAMPLING_OBSERVABILITY_BENCHMARK_V0.1.md'
-      - 'research/terra-preta/schemas/event-sampling-truth.schema.json'
-      - 'research/terra-preta/schemas/event-sampling-schedule.schema.json'
-      - 'research/terra-preta/schemas/event-sampling-report.schema.json'
+      - 'research/terra-preta/schemas/event-sampling-*.schema.json'
       - 'research/terra-preta/tools/event-sampling-audit/**'
       - '.github/workflows/terra-preta-event-sampling.yml'
   workflow_dispatch:
@@ -36,19 +42,9 @@ jobs:
         run: |
           jsonschema-cli validate research/terra-preta/schemas/event-sampling-truth.schema.json --instance research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-event-truth.json --draft 2020 --assert-format
           jsonschema-cli validate research/terra-preta/schemas/event-sampling-schedule.schema.json --instance research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-candidate-schedule.json --draft 2020 --assert-format
-          cargo run --quiet --manifest-path research/terra-preta/tools/event-sampling-audit/Cargo.toml --             research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-event-truth.json             research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-candidate-schedule.json             "$RUNNER_TEMP/event-sampling-report.json"
+          cargo run --quiet --manifest-path research/terra-preta/tools/event-sampling-audit/Cargo.toml -- research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-event-truth.json research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-candidate-schedule.json "$RUNNER_TEMP/event-sampling-report.json"
           jsonschema-cli validate research/terra-preta/schemas/event-sampling-report.schema.json --instance "$RUNNER_TEMP/event-sampling-report.json" --draft 2020 --assert-format
-          jq -e '
-            .fixture_status == "synthetic_only_not_empirical_evidence" and
-            .candidate_sample_count == 54 and
-            .detected_pulse_count == 1 and
-            .pulse_recall == 0.5 and
-            .budget_status == "within_budget" and
-            .pulses[0].integral_status == "qualified_complete_pulse_integral" and
-            .pulses[1].integral_status == "not_detected" and
-            (.controls.no_interpolation_pass == true) and
-            (.controls.evaluator_only_truth_separation_pass == true)
-          ' "$RUNNER_TEMP/event-sampling-report.json"
+          jq -e '.fixture_status == "synthetic_only_not_empirical_evidence" and .candidate_sample_count == 54 and .detected_pulse_count == 1 and .pulse_recall == 0.5 and .budget_status == "within_budget" and .pulses[0].integral_status == "qualified_complete_pulse_integral" and .pulses[1].integral_status == "not_detected" and .controls.no_interpolation_pass == true and .controls.evaluator_only_truth_separation_pass == true' "$RUNNER_TEMP/event-sampling-report.json"
       - name: Reject fabricated source value and unobserved timestamp
         run: |
           truth=research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-event-truth.json
@@ -66,9 +62,8 @@ jobs:
       - name: Reject output overwrite
         run: |
           report="$RUNNER_TEMP/existing-sampling-report.json"
-          printf 'do-not-overwrite
-' > "$report"
-          if cargo run --quiet --manifest-path research/terra-preta/tools/event-sampling-audit/Cargo.toml --             research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-event-truth.json             research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-candidate-schedule.json "$report"; then
+          printf '%s\n' 'do-not-overwrite' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/event-sampling-audit/Cargo.toml -- research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-event-truth.json research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-candidate-schedule.json "$report"; then
             echo "Expected create-new output protection"
             exit 1
           fi
