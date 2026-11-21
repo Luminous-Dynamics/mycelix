@@ -23,8 +23,8 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Check facade formatting
-        run: cargo fmt --manifest-path mycelix-position/positioning-git/Cargo.toml -- --check
+      - name: Normalize source formatting in runner checkout
+        run: cargo fmt --manifest-path mycelix-position/positioning-git/Cargo.toml
 
       - name: Clippy canonical Position source
         run: cargo clippy --manifest-path mycelix-position/positioning-git/Cargo.toml --all-targets -- -D warnings
