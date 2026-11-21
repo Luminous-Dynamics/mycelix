@@ -7,6 +7,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::effect_inventory::{
+    assess_effect_surface_closure, EffectSurfaceAssessment, EffectSurfaceClosureReceipt,
+    EffectSurfaceInventory,
+};
 use crate::receipts::{
     DecisionOutcome, DecisionReceipt, EffectOwnerId, LogicalOperationId,
 };
@@ -26,6 +30,8 @@ pub enum FenceError {
     ScopeMismatch,
     GenerationMismatch,
     RevocationBindingMismatch,
+    InventoryNotStronglyCovered,
+    EffectOwnerSetMismatch,
 }
 
 impl std::fmt::Display for FenceError {
@@ -239,45 +245,91 @@ impl OwnerFenceTarget {
     }
 }
 
-/// Exact owner inventory and target generations for one revocation operation.
-/// Completeness of this inventory is an external, independently qualified
-/// obligation; the rollup never assumes that caller-supplied inventory is true.
+/// A revocation plan can be constructed only from a structurally bound,
+/// independently verified complete effect-surface inventory. Its exact owner
+/// set is derived from enumerated routes; caller-supplied targets must match it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RevocationFencePlan {
     scope: EffectFenceScope,
     revocation_digest: Digest,
+    inventory_epoch: u64,
+    inventory_manifest_digest: Digest,
+    route_set_digest: Digest,
+    closure_proof_digest: Digest,
+    route_count: usize,
     targets: Vec<OwnerFenceTarget>,
 }
 
 impl RevocationFencePlan {
-    pub fn new(
-        scope: EffectFenceScope,
-        revocation_digest: Digest,
+    pub fn from_verified_inventory(
+        inventory: &EffectSurfaceInventory,
+        closure_receipt: &EffectSurfaceClosureReceipt,
         mut targets: Vec<OwnerFenceTarget>,
     ) -> Result<Self, FenceError> {
-        if revocation_digest == [0; 32] {
-            return Err(FenceError::ZeroDigest);
+        if assess_effect_surface_closure(inventory, closure_receipt)
+            != EffectSurfaceAssessment::StrongFenceEligible
+        {
+            return Err(FenceError::InventoryNotStronglyCovered);
         }
         if targets.is_empty() {
             return Err(FenceError::EmptyOwnerInventory);
         }
+
         targets.sort_by(|left, right| left.owner.cmp(&right.owner));
         for pair in targets.windows(2) {
             if pair[0].owner == pair[1].owner {
                 return Err(FenceError::DuplicateRequiredOwner);
             }
         }
-        Ok(Self { scope, revocation_digest, targets })
+
+        let expected_owners: BTreeSet<EffectOwnerId> = inventory
+            .routes()
+            .iter()
+            .map(|route| route.owner().clone())
+            .collect();
+        let supplied_owners: BTreeSet<EffectOwnerId> = targets
+            .iter()
+            .map(|target| target.owner.clone())
+            .collect();
+        if expected_owners != supplied_owners {
+            return Err(FenceError::EffectOwnerSetMismatch);
+        }
+
+        Ok(Self {
+            scope: inventory.scope().clone(),
+            revocation_digest: *inventory.revocation_digest(),
+            inventory_epoch: inventory.inventory_epoch(),
+            inventory_manifest_digest: *inventory.inventory_manifest_digest(),
+            route_set_digest: *inventory.route_set_digest(),
+            closure_proof_digest: *closure_receipt.proof_digest(),
+            route_count: inventory.routes().len(),
+            targets,
+        })
     }
 
     pub fn targets(&self) -> &[OwnerFenceTarget] {
         &self.targets
     }
 
+    pub fn inventory_epoch(&self) -> u64 {
+        self.inventory_epoch
+    }
+
+    pub fn route_count(&self) -> usize {
+        self.route_count
+    }
+
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, FenceError> {
-        let mut bytes = b"MYC-DIR-REVOCATION-FENCE-PLAN\0\x01".to_vec();
+        let mut bytes = b"MYC-DIR-REVOCATION-FENCE-PLAN\\0\\x02".to_vec();
         self.scope.append_canonical(&mut bytes)?;
         bytes.extend_from_slice(&self.revocation_digest);
+        bytes.extend_from_slice(&self.inventory_epoch.to_be_bytes());
+        bytes.extend_from_slice(&self.inventory_manifest_digest);
+        bytes.extend_from_slice(&self.route_set_digest);
+        bytes.extend_from_slice(&self.closure_proof_digest);
+        let route_count =
+            u32::try_from(self.route_count).map_err(|_| FenceError::EmptyOwnerInventory)?;
+        bytes.extend_from_slice(&route_count.to_be_bytes());
         let count = u32::try_from(self.targets.len()).map_err(|_| FenceError::EmptyOwnerInventory)?;
         bytes.extend_from_slice(&count.to_be_bytes());
         for target in &self.targets {
@@ -345,6 +397,8 @@ pub struct RevocationFenceRollup {
     status: RevocationFenceStatus,
     acknowledged_owner_count: usize,
     missing_owners: Vec<EffectOwnerId>,
+    inventory_epoch: u64,
+    route_count: usize,
 }
 
 impl RevocationFenceRollup {
@@ -358,6 +412,14 @@ impl RevocationFenceRollup {
 
     pub fn missing_owners(&self) -> &[EffectOwnerId] {
         &self.missing_owners
+    }
+
+    pub fn inventory_epoch(&self) -> u64 {
+        self.inventory_epoch
+    }
+
+    pub fn route_count(&self) -> usize {
+        self.route_count
     }
 }
 
@@ -410,6 +472,8 @@ pub fn assess_revocation_fence(
         status,
         acknowledged_owner_count: seen.len(),
         missing_owners,
+        inventory_epoch: plan.inventory_epoch,
+        route_count: plan.route_count,
     })
 }
 
