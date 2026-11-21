@@ -1,0 +1,24 @@
+[package]
+name = "mycelix-positioning-v2"
+version = "0.1.0"
+edition = "2024"
+description = "Standalone Git-consumable package facade for Mycelix Position v2"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[lib]
+# Keep the established Rust import path while giving the Git package a
+# unique Cargo package name distinct from Symthaea's development stub.
+name = "positioning"
+path = "../lib/positioning/src/lib.rs"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1.0"
+
+# Keep this facade isolated from the larger Mycelix workspace. Its lib path
+# intentionally compiles the canonical Position source tree directly.
+[workspace]
+resolver = "3"
