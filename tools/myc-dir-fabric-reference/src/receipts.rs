@@ -120,6 +120,7 @@ pub struct DecisionReceipt {
     request_digest: Digest,
     policy_digest: Digest,
     cut_digest: Digest,
+    closure_receipt_digest: Digest,
     snapshot_digest: Digest,
     evaluator_build_digest: Digest,
     nonce_digest: Digest,
@@ -140,6 +141,7 @@ impl DecisionReceipt {
         request_digest: Digest,
         policy_digest: Digest,
         cut_digest: Digest,
+        closure_receipt_digest: Digest,
         snapshot_digest: Digest,
         evaluator_build_digest: Digest,
         nonce_digest: Digest,
@@ -156,6 +158,7 @@ impl DecisionReceipt {
             request_digest,
             policy_digest,
             cut_digest,
+            closure_receipt_digest,
             snapshot_digest,
             evaluator_build_digest,
             nonce_digest,
@@ -232,6 +235,7 @@ impl DecisionReceipt {
             request_digest,
             policy_digest,
             cut_digest,
+            closure_receipt_digest,
             snapshot_digest,
             evaluator_build_digest,
             nonce_digest,
@@ -276,6 +280,7 @@ impl DecisionReceipt {
         bytes.extend_from_slice(&self.request_digest);
         bytes.extend_from_slice(&self.policy_digest);
         bytes.extend_from_slice(&self.cut_digest);
+        bytes.extend_from_slice(&self.closure_receipt_digest);
         bytes.extend_from_slice(&self.snapshot_digest);
         bytes.extend_from_slice(&self.evaluator_build_digest);
         bytes.extend_from_slice(&self.nonce_digest);
@@ -569,6 +574,7 @@ mod tests {
             [1; 32],
             [2; 32],
             [3; 32],
+            [13; 32],
             [4; 32],
             [5; 32],
             [6; 32],
@@ -656,6 +662,7 @@ mod tests {
             *base.request_digest(),
             [22; 32],
             *base.cut_digest,
+            *base.closure_receipt_digest,
             *base.snapshot_digest,
             *base.evaluator_build_digest,
             *base.nonce_digest,
