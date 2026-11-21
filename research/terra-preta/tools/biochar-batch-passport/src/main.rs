@@ -244,9 +244,15 @@ fn validate(s: &Scenario) -> Result<(), String> {
     for (value, label) in [
         (s.scenario_id.as_str(), "scenario_id"),
         (s.quality_profile.profile_id.as_str(), "profile_id"),
-        (s.quality_profile.profile_version.as_str(), "profile_version"),
+        (
+            s.quality_profile.profile_version.as_str(),
+            "profile_version",
+        ),
         (s.quality_profile.authority.as_str(), "profile authority"),
-        (s.quality_profile.jurisdiction.as_str(), "profile jurisdiction"),
+        (
+            s.quality_profile.jurisdiction.as_str(),
+            "profile jurisdiction",
+        ),
         (s.batch.batch_id.as_str(), "batch_id"),
         (s.batch.production_unit_id.as_str(), "production_unit_id"),
     ] {
@@ -263,8 +269,7 @@ fn validate(s: &Scenario) -> Result<(), String> {
         return Err("batch intended end use does not match the quality profile".into());
     }
     if !valid_date(&s.quality_profile.effective_from)
-        || s
-            .quality_profile
+        || s.quality_profile
             .effective_until
             .as_deref()
             .is_some_and(|date| !valid_date(date))
@@ -280,7 +285,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
         return Err("quality profile must define at least one analyte criterion".into());
     }
     for (name, value) in [
-        ("minimum_temperature_c", s.quality_profile.minimum_temperature_c),
+        (
+            "minimum_temperature_c",
+            s.quality_profile.minimum_temperature_c,
+        ),
         (
             "minimum_residence_time_min",
             s.quality_profile.minimum_residence_time_min,
@@ -367,7 +375,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
         ("minimum process temperature", p.temperature_min_c),
         ("maximum process temperature", p.temperature_max_c),
         ("residence time", p.residence_time_min),
-        ("dry feedstock input", s.batch.mass_accounting.dry_feedstock_input_kg),
+        (
+            "dry feedstock input",
+            s.batch.mass_accounting.dry_feedstock_input_kg,
+        ),
         ("biochar output", s.batch.mass_accounting.biochar_output_kg),
         (
             "other co-product output",
@@ -559,7 +570,10 @@ fn compare_result(
         };
     };
 
-    if result.unit != criterion.unit || result.basis != criterion.basis || result.method_id != criterion.method_id {
+    if result.unit != criterion.unit
+        || result.basis != criterion.basis
+        || result.method_id != criterion.method_id
+    {
         return AnalyteResult {
             analyte_id: criterion.analyte_id.clone(),
             status: "indeterminate",
@@ -572,7 +586,10 @@ fn compare_result(
     }
     if require_accredited_labs
         && (result.accreditation_status != "accredited"
-            || !result.accreditation_scope.iter().any(|x| x == &criterion.analyte_id))
+            || !result
+                .accreditation_scope
+                .iter()
+                .any(|x| x == &criterion.analyte_id))
     {
         return AnalyteResult {
             analyte_id: criterion.analyte_id.clone(),
@@ -615,12 +632,24 @@ fn compare_result(
     let lower = value - uncertainty;
     let upper = value + uncertainty;
     let (status, reason) = match criterion.direction.as_str() {
-        "maximum" if upper <= criterion.limit => ("pass", "upper uncertainty bound is at or below maximum"),
+        "maximum" if upper <= criterion.limit => {
+            ("pass", "upper uncertainty bound is at or below maximum")
+        }
         "maximum" if lower > criterion.limit => ("fail", "lower uncertainty bound exceeds maximum"),
-        "maximum" => ("indeterminate", "expanded uncertainty overlaps the maximum limit"),
-        "minimum" if lower >= criterion.limit => ("pass", "lower uncertainty bound is at or above minimum"),
-        "minimum" if upper < criterion.limit => ("fail", "upper uncertainty bound is below minimum"),
-        "minimum" => ("indeterminate", "expanded uncertainty overlaps the minimum limit"),
+        "maximum" => (
+            "indeterminate",
+            "expanded uncertainty overlaps the maximum limit",
+        ),
+        "minimum" if lower >= criterion.limit => {
+            ("pass", "lower uncertainty bound is at or above minimum")
+        }
+        "minimum" if upper < criterion.limit => {
+            ("fail", "upper uncertainty bound is below minimum")
+        }
+        "minimum" => (
+            "indeterminate",
+            "expanded uncertainty overlaps the minimum limit",
+        ),
         _ => ("indeterminate", "unsupported comparison direction"),
     };
     AnalyteResult {
@@ -659,7 +688,9 @@ fn build_report(s: &Scenario, digest: String) -> Report {
         })
         .collect();
 
-    let has_missing = analyte_results.iter().any(|result| result.status == "missing");
+    let has_missing = analyte_results
+        .iter()
+        .any(|result| result.status == "missing");
     let has_fail = analyte_results.iter().any(|result| result.status == "fail");
     let has_indeterminate = analyte_results
         .iter()
@@ -693,9 +724,21 @@ fn build_report(s: &Scenario, digest: String) -> Report {
         batch_id: s.batch.batch_id.clone(),
         quality_profile_id: s.quality_profile.profile_id.clone(),
         quality_profile_sha256: s.quality_profile.profile_sha256.clone(),
-        feedstock_gate: if feedstock_ok { "pass_synthetic" } else { "blocked" },
-        process_gate: if process_ok { "pass_synthetic" } else { "blocked" },
-        sampling_gate: if sampling_ok { "pass_synthetic" } else { "blocked" },
+        feedstock_gate: if feedstock_ok {
+            "pass_synthetic"
+        } else {
+            "blocked"
+        },
+        process_gate: if process_ok {
+            "pass_synthetic"
+        } else {
+            "blocked"
+        },
+        sampling_gate: if sampling_ok {
+            "pass_synthetic"
+        } else {
+            "blocked"
+        },
         analytical_gate,
         analyte_results,
         quality_conformity_status: quality_status,
@@ -716,7 +759,9 @@ fn build_report(s: &Scenario, digest: String) -> Report {
 
 fn run(input: &Path, output: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if output.exists() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into());
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into(),
+        );
     }
     let bytes = fs::read(input)?;
     let scenario: Scenario = serde_json::from_slice(&bytes)?;
@@ -724,7 +769,10 @@ fn run(input: &Path, output: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let digest = format!("{:x}", Sha256::digest(&bytes));
     let report = build_report(&scenario, digest);
     let json = serde_json::to_vec_pretty(&report)?;
-    let mut file = OpenOptions::new().write(true).create_new(true).open(output)?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output)?;
     file.write_all(&json)?;
     file.write_all(b"\n")?;
     Ok(())
@@ -784,14 +832,25 @@ mod tests {
     #[test]
     fn uncertainty_overlapping_maximum_is_indeterminate_not_pass() {
         let mut s = scenario();
-        let lead = s.batch.laboratory_results.iter_mut()
-            .find(|x| x.analyte_id == "lead_mg_kg").unwrap();
+        let lead = s
+            .batch
+            .laboratory_results
+            .iter_mut()
+            .find(|x| x.analyte_id == "lead_mg_kg")
+            .unwrap();
         lead.measured_value = Some(99.0);
         lead.expanded_uncertainty = 3.0;
         let r = build_report(&s, "0".repeat(64));
-        let lead = r.analyte_results.iter().find(|x| x.analyte_id == "lead_mg_kg").unwrap();
+        let lead = r
+            .analyte_results
+            .iter()
+            .find(|x| x.analyte_id == "lead_mg_kg")
+            .unwrap();
         assert_eq!(lead.status, "indeterminate");
-        assert_eq!(r.quality_conformity_status, "synthetic_profile_indeterminate");
+        assert_eq!(
+            r.quality_conformity_status,
+            "synthetic_profile_indeterminate"
+        );
     }
 
     #[test]
@@ -808,7 +867,9 @@ mod tests {
     #[test]
     fn missing_required_analyte_is_incomplete_not_pass() {
         let mut s = scenario();
-        s.batch.laboratory_results.retain(|x| x.analyte_id != "cadmium_mg_kg");
+        s.batch
+            .laboratory_results
+            .retain(|x| x.analyte_id != "cadmium_mg_kg");
         let r = build_report(&s, "0".repeat(64));
         assert_eq!(r.analytical_gate, "incomplete");
         assert_eq!(r.quality_conformity_status, "incomplete_or_blocked");
@@ -822,7 +883,11 @@ mod tests {
         lead.basis = "as_received".into();
         let r = build_report(&s, "0".repeat(64));
         assert_eq!(
-            r.analyte_results.iter().find(|x| x.analyte_id == "lead_mg_kg").unwrap().status,
+            r.analyte_results
+                .iter()
+                .find(|x| x.analyte_id == "lead_mg_kg")
+                .unwrap()
+                .status,
             "indeterminate"
         );
     }
@@ -835,7 +900,11 @@ mod tests {
         pah.quantification_limit = 8.0;
         let r = build_report(&s, "0".repeat(64));
         assert_eq!(
-            r.analyte_results.iter().find(|x| x.analyte_id == "pah16_mg_kg").unwrap().status,
+            r.analyte_results
+                .iter()
+                .find(|x| x.analyte_id == "pah16_mg_kg")
+                .unwrap()
+                .status,
             "indeterminate"
         );
     }
