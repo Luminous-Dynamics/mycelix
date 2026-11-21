@@ -466,6 +466,10 @@
               "null"
             ],
             "maxLength": 128
+          },
+          "recipient_commitment": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
           }
         },
         "allOf": [
@@ -535,6 +539,54 @@
       "items": {
         "type": "string",
         "minLength": 1
+      }
+    },
+    "group_fanout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fanout_id",
+        "group_id_commitment",
+        "membership_epoch",
+        "membership_snapshot_digest",
+        "required_recipient_set_commitment",
+        "recipient_commitment",
+        "content_commitment",
+        "aggregation_policy"
+      ],
+      "properties": {
+        "fanout_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "group_id_commitment": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "membership_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "membership_snapshot_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "required_recipient_set_commitment": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "recipient_commitment": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "content_commitment": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "aggregation_policy": {
+          "const": "ALL_REQUIRED"
+        }
       }
     }
   }
