@@ -35,11 +35,11 @@ jobs:
       - name: Set up stable Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Test standalone evidence verifier
+      - name: Generate exact verifier dependency lock
         shell: bash
         run: |
           set -euo pipefail
-          cargo test --manifest-path mycelix-workspace/mycelix-space/tools/space-qualification-verifier/Cargo.toml
+          cargo generate-lockfile --manifest-path mycelix-workspace/mycelix-space/tools/space-qualification-verifier/Cargo.toml
 
       - name: Upload runner-resolved verifier lockfile
         uses: actions/upload-artifact@v4
@@ -48,6 +48,12 @@ jobs:
           path: mycelix-workspace/mycelix-space/tools/space-qualification-verifier/Cargo.lock
           if-no-files-found: error
           retention-days: 1
+
+      - name: Test standalone evidence verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path mycelix-workspace/mycelix-space/tools/space-qualification-verifier/Cargo.toml
 
       - name: Verify synthetic package without upgrading its claim status
         shell: bash
