@@ -1,0 +1,82 @@
+name: Terra Preta event-resolved soil resilience
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/EVENT_RESILIENCE_BENCHMARK_V0.1.md'
+      - 'research/terra-preta/schemas/event-resilience-input.schema.json'
+      - 'research/terra-preta/schemas/event-resilience-report.schema.json'
+      - 'research/terra-preta/tools/event-resilience-audit/**'
+      - '.github/workflows/terra-preta-event-resilience.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  event-resilience:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/event-resilience-audit/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/event-resilience-audit/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/event-resilience-audit/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate fixture and report
+        run: |
+          jsonschema-cli validate research/terra-preta/schemas/event-resilience-input.schema.json \
+            --instance research/terra-preta/tools/event-resilience-audit/fixtures/synthetic-rewetting-event.json \
+            --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/event-resilience-audit/Cargo.toml -- \
+            research/terra-preta/tools/event-resilience-audit/fixtures/synthetic-rewetting-event.json \
+            "$RUNNER_TEMP/event-resilience-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/event-resilience-report.schema.json \
+            --instance "$RUNNER_TEMP/event-resilience-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .analysis_status == "qualified_descriptive_event" and
+            .phase_counts.baseline == 3 and
+            .phase_counts.stress == 4 and
+            .phase_counts.recovery == 4 and
+            .stress_peak_value == 14 and
+            .stress_peak_time_hours == 12 and
+            .recovery_time_status == "qualified_sustained_recovery" and
+            .pulse_burden_status == "qualified_complete_event_integral" and
+            (.controls.no_gap_bridging_pass == true) and
+            (.controls.no_causal_claim_pass == true) and
+            (.controls.no_aggregate_resilience_score_pass == true)
+          ' "$RUNNER_TEMP/event-resilience-report.json"
+      - name: Reject phase / experimental-unit mismatch
+        run: |
+          fixture=research/terra-preta/tools/event-resilience-audit/fixtures/synthetic-rewetting-event.json
+          jq '.observations[3].phase = "recovery"' "$fixture" > "$RUNNER_TEMP/wrong-phase.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/event-resilience-audit/Cargo.toml -- \
+            "$RUNNER_TEMP/wrong-phase.json" "$RUNNER_TEMP/wrong-phase-report.json"; then
+            echo "Expected wrong phase rejection"
+            exit 1
+          fi
+          jq '.observations[3].experimental_unit_id = "other-plot"' "$fixture" > "$RUNNER_TEMP/other-unit.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/event-resilience-audit/Cargo.toml -- \
+            "$RUNNER_TEMP/other-unit.json" "$RUNNER_TEMP/other-unit-report.json"; then
+            echo "Expected experimental-unit mismatch rejection"
+            exit 1
+          fi
+      - name: Reject output overwrite
+        run: |
+          fixture=research/terra-preta/tools/event-resilience-audit/fixtures/synthetic-rewetting-event.json
+          report="$RUNNER_TEMP/existing-event-report.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/event-resilience-audit/Cargo.toml -- "$fixture" "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"
