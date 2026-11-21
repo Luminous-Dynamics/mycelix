@@ -1,0 +1,48 @@
+name: Space chance-constraint confidence reference
+
+on:
+  push:
+    branches:
+      - "research/space-chance-confidence-bounds-v0-1"
+    paths:
+      - "mycelix-workspace/mycelix-space/tools/chance-constraint-confidence/**"
+      - "mycelix-workspace/mycelix-space/Cargo.toml"
+      - ".github/workflows/space-chance-confidence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-chance-confidence-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact branch head
+        uses: actions/checkout@v4
+
+      - name: Set up stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run statistical reference unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path mycelix-workspace/mycelix-space/tools/chance-constraint-confidence/Cargo.toml
+
+      - name: Check the 1-in-27 literature example
+        shell: bash
+        run: |
+          set -euo pipefail
+          report="$(cargo run --quiet --manifest-path mycelix-workspace/mycelix-space/tools/chance-constraint-confidence/Cargo.toml -- 1 27 0.95 frozen-iid-seed-design-v1 fixture://sampling-design/independent-seeds-v1)"
+          echo "$report"
+          upper="$(printf '%s' "$report" | jq -r '.upper_confidence_bound')"
+          python3 -c 'import math,sys; assert math.isclose(float(sys.argv[1]), 0.16397439474530717, rel_tol=0.0, abs_tol=2e-10)' "$upper"
+
+      - name: Check the zero-in-100 literature example
+        shell: bash
+        run: |
+          set -euo pipefail
+          report="$(cargo run --quiet --manifest-path mycelix-workspace/mycelix-space/tools/chance-constraint-confidence/Cargo.toml -- 0 100 0.95 frozen-iid-seed-design-v1 fixture://sampling-design/independent-seeds-v1)"
+          upper="$(printf '%s' "$report" | jq -r '.upper_confidence_bound')"
+          python3 -c 'import math,sys; assert math.isclose(float(sys.argv[1]), 0.029513049607039925, rel_tol=0.0, abs_tol=1e-13)' "$upper"
