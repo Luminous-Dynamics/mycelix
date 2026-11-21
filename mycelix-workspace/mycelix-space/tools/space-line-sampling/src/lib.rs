@@ -744,7 +744,7 @@ mod tests {
     #[test]
     fn tail_interval_mass_avoids_cdf_cancellation() {
         let mass = standard_normal_interval_mass(5.0, 6.0).unwrap();
-        assert!((mass - 2.856649842231107e-7).abs() < 2.0e-19);
+        assert!((mass - 2.856649842341562e-7).abs() < 2.0e-19);
         assert!(mass > 0.0);
     }
 
@@ -864,6 +864,8 @@ mod tests {
         ));
 
         let mut duplicate = overlapping.clone();
+        duplicate[0].collision_intervals.clear();
+        duplicate[1].collision_intervals.clear();
         duplicate[1].line_id = duplicate[0].line_id.clone();
         assert_eq!(
             estimate_gaussian_line_probability(&frame(), &duplicate, 0.05, &evidence()),
