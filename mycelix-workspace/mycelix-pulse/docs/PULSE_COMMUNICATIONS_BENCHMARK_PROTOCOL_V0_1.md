@@ -106,10 +106,14 @@ guarantees. Compare each reference only inside a matched capability tier:
    per-recipient decryption/acceptance.
 3. **PQ key agreement / ratcheting:** implement or integrate an actual
    ML-KEM Braid/SCKA-capable candidate when available. Measure vulnerable
-   message-set size, time and bytes to heal after compromise, chunk-loss
-   tolerance, offline durations, and the impact of unequal message frequency.
-   Do not label a static ML-KEM envelope or a PQ KEM plus classical signature
-   as a full PQ ratchet/authentication design.
+   message-set size after compromise, messages/bytes/time until healing,
+   sessions still unhealed at the measurement horizon, chunk-loss tolerance,
+   offline durations, and unequal peer message frequencies. The vulnerable
+   message set is schedule-dependent and may be unbounded when one peer never
+   responds while the other keeps sending; do not censor these sessions out of
+   the result. Metrics are capability-scoped: classical-only candidates are
+   `NOT_SUPPORTED`, never zero. Do not label a static ML-KEM envelope or a
+   PQ KEM plus classical signature as a full PQ ratchet/authentication design.
 4. **End-to-end delivery semantics:** compare Pulse, Matrix/Olm/Megolm,
    MLS-based systems and Signal-compatible paths under identical topology,
    outage schedule, recipient set, device policy and measurement point.
