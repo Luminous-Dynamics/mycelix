@@ -1,0 +1,937 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/terra-preta/schemas/soil-twin-package.schema.json",
+  "title": "Terra Preta soil-twin evidence hand-off package v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "package_id",
+    "created_at",
+    "package_status",
+    "evidence_class",
+    "provenance",
+    "experimental_units",
+    "observations",
+    "models",
+    "claims",
+    "experiment_proposals",
+    "mycelix_attestation",
+    "decision_authority"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "soil-twin-package-v0.1"
+    },
+    "package_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "package_status": {
+      "enum": [
+        "synthetic_only",
+        "research_candidate",
+        "observation_package",
+        "qualified_evidence_package",
+        "withdrawn"
+      ]
+    },
+    "evidence_class": {
+      "enum": [
+        "synthetic",
+        "source_published",
+        "laboratory_observation",
+        "controlled_experiment",
+        "field_observation",
+        "historical_archaeological"
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sources"
+      ],
+      "properties": {
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/source"
+          }
+        },
+        "collection_protocol_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operator_or_institution": {
+          "type": "string",
+          "minLength": 1
+        },
+        "permission_status": {
+          "enum": [
+            "public_license",
+            "consented",
+            "restricted",
+            "pending_review",
+            "not_applicable_synthetic"
+          ]
+        }
+      }
+    },
+    "experimental_units": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/experimental_unit"
+      }
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/observation"
+      }
+    },
+    "models": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/model_run"
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/claim"
+      }
+    },
+    "experiment_proposals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/proposal"
+      }
+    },
+    "mycelix_attestation": {
+      "$ref": "#/$defs/attestation"
+    },
+    "decision_authority": {
+      "$ref": "#/$defs/decision_authority"
+    },
+    "sol_atlas_projection": {
+      "$ref": "#/$defs/sol_atlas_projection"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "related_package_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "source_type",
+        "locator",
+        "sha256",
+        "license_or_permission",
+        "description"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_type": {
+          "enum": [
+            "synthetic_fixture",
+            "published_dataset",
+            "published_article",
+            "laboratory_record",
+            "field_record",
+            "instrument_record",
+            "protocol",
+            "other"
+          ]
+        },
+        "locator": {
+          "type": "string",
+          "format": "uri"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "license_or_permission": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "collected_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "experimental_unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit_id",
+        "level",
+        "parent_unit_id",
+        "dependency_group_id",
+        "grouping_keys"
+      ],
+      "properties": {
+        "unit_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "level": {
+          "enum": [
+            "site",
+            "farm",
+            "field",
+            "block",
+            "plot",
+            "core",
+            "sample",
+            "aliquot",
+            "batch",
+            "instrument_run",
+            "other"
+          ]
+        },
+        "parent_unit_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dependency_group_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "grouping_keys": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "location_disclosure": {
+          "enum": [
+            "not_collected",
+            "exact_shared",
+            "generalized",
+            "withheld",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "uncertainty": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "reason"
+          ],
+          "properties": {
+            "kind": {
+              "const": "none"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "standard_uncertainty",
+            "distribution"
+          ],
+          "properties": {
+            "kind": {
+              "const": "standard_uncertainty"
+            },
+            "standard_uncertainty": {
+              "type": "number",
+              "minimum": 0
+            },
+            "distribution": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "lower",
+            "upper",
+            "coverage"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "confidence_interval",
+                "credible_interval",
+                "prediction_interval"
+              ]
+            },
+            "lower": {
+              "type": "number"
+            },
+            "upper": {
+              "type": "number"
+            },
+            "coverage": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "exclusiveMaximum": 1
+            }
+          }
+        }
+      ]
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_id",
+        "unit_id",
+        "source_id",
+        "variable",
+        "value",
+        "unit",
+        "observed_at",
+        "method",
+        "reference_method",
+        "qc_status",
+        "replicate_group_id",
+        "censoring",
+        "uncertainty"
+      ],
+      "properties": {
+        "observation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "variable": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reference_method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "qc_status": {
+          "enum": [
+            "synthetic_fixture",
+            "accepted",
+            "flagged",
+            "rejected",
+            "not_assessed"
+          ]
+        },
+        "replicate_group_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "censoring": {
+          "enum": [
+            "none",
+            "left",
+            "right",
+            "interval"
+          ]
+        },
+        "detection_limit": {
+          "type": "number",
+          "minimum": 0
+        },
+        "uncertainty": {
+          "$ref": "#/$defs/uncertainty"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "model_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_run_id",
+        "system",
+        "role",
+        "model_name",
+        "model_version",
+        "run_status",
+        "qualification_status",
+        "scope"
+      ],
+      "properties": {
+        "model_run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "system": {
+          "enum": [
+            "symthaea",
+            "symtropy",
+            "mycelix",
+            "sol_atlas",
+            "external_reference",
+            "external_other"
+          ]
+        },
+        "role": {
+          "enum": [
+            "experiment_planner",
+            "physical_dynamics",
+            "hydrology",
+            "solute_transport",
+            "biogeochemistry",
+            "statistical_model",
+            "emulator",
+            "visualization",
+            "provenance",
+            "governance",
+            "other"
+          ]
+        },
+        "model_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "run_status": {
+          "enum": [
+            "not_run",
+            "completed",
+            "failed"
+          ]
+        },
+        "qualification_status": {
+          "enum": [
+            "not_assessed",
+            "unqualified",
+            "synthetic_only",
+            "structural_only",
+            "benchmark_tested",
+            "externally_validated",
+            "field_qualified",
+            "withdrawn"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "code_commit": {
+          "type": "string",
+          "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+        },
+        "config_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "input_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "output_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "execution_environment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "benchmark_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "run_status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "run_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "code_commit",
+              "config_sha256",
+              "input_sha256",
+              "output_sha256",
+              "execution_environment"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "qualification_status": {
+                "const": "field_qualified"
+              }
+            },
+            "required": [
+              "qualification_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "benchmark_id",
+              "evidence_refs"
+            ]
+          }
+        }
+      ]
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "claim_type",
+        "statement",
+        "estimate",
+        "unit",
+        "uncertainty",
+        "validation_status",
+        "applicability_domain",
+        "evidence_refs",
+        "limitations"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claim_type": {
+          "enum": [
+            "synthetic_demonstration",
+            "descriptive",
+            "model_prediction",
+            "benchmark_result",
+            "causal_effect_estimate",
+            "mechanistic_hypothesis",
+            "field_outcome"
+          ]
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "estimate": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uncertainty": {
+          "$ref": "#/$defs/uncertainty"
+        },
+        "validation_status": {
+          "enum": [
+            "not_validated",
+            "synthetic_only",
+            "internal_holdout",
+            "grouped_holdout",
+            "external_validation",
+            "prospective_field_validation",
+            "multi_year_field_validation",
+            "withdrawn"
+          ]
+        },
+        "applicability_domain": {
+          "enum": [
+            "not_assessed",
+            "in_domain",
+            "out_of_domain",
+            "abstain"
+          ]
+        },
+        "model_run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposal_id",
+        "producer",
+        "action_class",
+        "hypothesis",
+        "description",
+        "proposal_status",
+        "field_action_authorized",
+        "evidence_refs"
+      ],
+      "properties": {
+        "proposal_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "producer": {
+          "enum": [
+            "symthaea",
+            "human_reviewer",
+            "external_planner"
+          ]
+        },
+        "action_class": {
+          "enum": [
+            "measurement",
+            "analysis",
+            "simulation",
+            "review"
+          ]
+        },
+        "hypothesis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_variables": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "proposal_status": {
+          "const": "proposal_only"
+        },
+        "field_action_authorized": {
+          "const": false
+        },
+        "expected_information_gain": {
+          "type": "number",
+          "minimum": 0
+        },
+        "expected_cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "risk_notes": {
+          "type": "string"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "scope",
+        "scientific_truth_attested"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not_attested",
+            "record_written",
+            "signature_verified",
+            "multi_party_receipt_verified"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scientific_truth_attested": {
+          "const": false
+        },
+        "receipt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "signer_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "decision_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field_action_authorized",
+        "authorization_status",
+        "human_review_status"
+      ],
+      "properties": {
+        "field_action_authorized": {
+          "const": false
+        },
+        "authorization_status": {
+          "const": "not_authorized"
+        },
+        "human_review_status": {
+          "enum": [
+            "not_reviewed",
+            "pending",
+            "completed",
+            "rejected"
+          ]
+        }
+      }
+    },
+    "sol_atlas_projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer_id",
+        "source_claim_ids",
+        "geometry_sha256",
+        "crs",
+        "spatial_support",
+        "temporal_support",
+        "interpolation_status",
+        "uncertainty_visualized",
+        "rendering_only",
+        "coordinate_inference_status"
+      ],
+      "properties": {
+        "layer_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_claim_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "geometry_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "crs": {
+          "type": "string",
+          "minLength": 1
+        },
+        "spatial_support": {
+          "type": "string",
+          "minLength": 1
+        },
+        "temporal_support": {
+          "type": "string",
+          "minLength": 1
+        },
+        "interpolation_status": {
+          "enum": [
+            "none",
+            "explicitly_documented"
+          ]
+        },
+        "uncertainty_visualized": {
+          "type": "boolean"
+        },
+        "rendering_only": {
+          "const": true
+        },
+        "coordinate_inference_status": {
+          "const": "none"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "evidence_class": {
+            "const": "synthetic"
+          }
+        },
+        "required": [
+          "evidence_class"
+        ]
+      },
+      "then": {
+        "properties": {
+          "package_status": {
+            "const": "synthetic_only"
+          },
+          "observations": {
+            "items": {
+              "properties": {
+                "qc_status": {
+                  "const": "synthetic_fixture"
+                }
+              },
+              "required": [
+                "qc_status"
+              ]
+            }
+          },
+          "claims": {
+            "items": {
+              "properties": {
+                "claim_type": {
+                  "const": "synthetic_demonstration"
+                },
+                "validation_status": {
+                  "const": "synthetic_only"
+                }
+              },
+              "required": [
+                "claim_type",
+                "validation_status"
+              ]
+            }
+          },
+          "models": {
+            "items": {
+              "properties": {
+                "qualification_status": {
+                  "enum": [
+                    "not_assessed",
+                    "unqualified",
+                    "synthetic_only"
+                  ]
+                }
+              },
+              "required": [
+                "qualification_status"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "package_status": {
+            "const": "qualified_evidence_package"
+          }
+        },
+        "required": [
+          "package_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_class": {
+            "not": {
+              "const": "synthetic"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

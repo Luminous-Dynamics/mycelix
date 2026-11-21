@@ -1,0 +1,160 @@
+{
+  "schema_version": "soil-twin-package-v0.1",
+  "package_id": "synthetic-soil-twin-demo-v0.1",
+  "created_at": "2026-11-21T15:00:00+02:00",
+  "package_status": "synthetic_only",
+  "evidence_class": "synthetic",
+  "provenance": {
+    "sources": [
+      {
+        "source_id": "src-synthetic-001",
+        "source_type": "synthetic_fixture",
+        "locator": "urn:luminous:terra-preta:synthetic-fixture:v0.1",
+        "sha256": "1a84fce9ac11056994957da8615183547f4d8938392980f83d5c02cbf52ef81e",
+        "license_or_permission": "Manufactured test artifact; no third-party data or field observations",
+        "description": "Deterministic synthetic example used only to exercise the hand-off contract",
+        "method": "Manufactured numeric values"
+      }
+    ],
+    "permission_status": "not_applicable_synthetic"
+  },
+  "experimental_units": [
+    {
+      "unit_id": "site-syn-01",
+      "level": "site",
+      "parent_unit_id": null,
+      "dependency_group_id": "dep-syn-01",
+      "grouping_keys": [
+        "site-syn-01"
+      ],
+      "location_disclosure": "not_collected"
+    },
+    {
+      "unit_id": "field-syn-01",
+      "level": "field",
+      "parent_unit_id": "site-syn-01",
+      "dependency_group_id": "dep-syn-01",
+      "grouping_keys": [
+        "site-syn-01",
+        "field-syn-01"
+      ],
+      "location_disclosure": "not_collected"
+    },
+    {
+      "unit_id": "plot-syn-01",
+      "level": "plot",
+      "parent_unit_id": "field-syn-01",
+      "dependency_group_id": "dep-syn-01",
+      "grouping_keys": [
+        "site-syn-01",
+        "field-syn-01",
+        "plot-syn-01"
+      ],
+      "location_disclosure": "not_collected"
+    },
+    {
+      "unit_id": "core-syn-01",
+      "level": "core",
+      "parent_unit_id": "plot-syn-01",
+      "dependency_group_id": "dep-syn-01",
+      "grouping_keys": [
+        "site-syn-01",
+        "field-syn-01",
+        "plot-syn-01",
+        "core-syn-01"
+      ],
+      "location_disclosure": "not_collected"
+    },
+    {
+      "unit_id": "sample-syn-01",
+      "level": "sample",
+      "parent_unit_id": "core-syn-01",
+      "dependency_group_id": "dep-syn-01",
+      "grouping_keys": [
+        "site-syn-01",
+        "field-syn-01",
+        "plot-syn-01",
+        "core-syn-01",
+        "sample-syn-01"
+      ],
+      "location_disclosure": "not_collected"
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "obs-syn-001",
+      "unit_id": "sample-syn-01",
+      "source_id": "src-synthetic-001",
+      "variable": "volumetric_water_content",
+      "value": 0.23,
+      "unit": "m3 m-3",
+      "observed_at": "2026-11-21T12:00:00+02:00",
+      "method": "synthetic manufactured value",
+      "reference_method": "not applicable to synthetic fixture",
+      "qc_status": "synthetic_fixture",
+      "replicate_group_id": "rep-syn-01",
+      "censoring": "none",
+      "uncertainty": {
+        "kind": "none",
+        "reason": "Synthetic value; no empirical measurement uncertainty exists"
+      }
+    }
+  ],
+  "models": [],
+  "claims": [
+    {
+      "claim_id": "claim-syn-001",
+      "claim_type": "synthetic_demonstration",
+      "statement": "The package carries one manufactured volumetric water-content observation; this is not a field measurement or a soil prediction.",
+      "estimate": 0.23,
+      "unit": "m3 m-3",
+      "uncertainty": {
+        "kind": "none",
+        "reason": "Synthetic-only illustration; no empirical uncertainty"
+      },
+      "validation_status": "synthetic_only",
+      "applicability_domain": "not_assessed",
+      "evidence_refs": [
+        "observation:obs-syn-001"
+      ],
+      "limitations": [
+        "Synthetic fixture only",
+        "No physical model was run",
+        "No field inference or agronomic recommendation"
+      ]
+    }
+  ],
+  "experiment_proposals": [
+    {
+      "proposal_id": "proposal-syn-001",
+      "producer": "symthaea",
+      "action_class": "measurement",
+      "hypothesis": "A paired post-rain moisture profile could help distinguish matrix storage from rapid preferential redistribution.",
+      "description": "Illustrative proposal object only. It has not been optimized, reviewed, scheduled, or authorized.",
+      "target_variables": [
+        "volumetric_water_content",
+        "matric_potential"
+      ],
+      "proposal_status": "proposal_only",
+      "field_action_authorized": false,
+      "evidence_refs": [
+        "observation:obs-syn-001"
+      ]
+    }
+  ],
+  "mycelix_attestation": {
+    "status": "not_attested",
+    "scope": "No identity, custody, signature or governance receipt has been created for this synthetic example.",
+    "scientific_truth_attested": false
+  },
+  "decision_authority": {
+    "field_action_authorized": false,
+    "authorization_status": "not_authorized",
+    "human_review_status": "not_reviewed"
+  },
+  "limitations": [
+    "Every numeric value in this fixture is manufactured.",
+    "No Symthaea, Symtropy, Mycelix or Sol-Atlas adapter was executed.",
+    "A signed or ledger-recorded package would not by itself establish scientific truth."
+  ]
+}
