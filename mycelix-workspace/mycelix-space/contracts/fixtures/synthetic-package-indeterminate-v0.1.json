@@ -20,7 +20,7 @@
       "origin_id": "SIM-EARTH-CENTER"
     },
     "screening_profile_id": "synthetic-neighborhood-capture-v0.1",
-    "configuration_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "configuration_sha256": "3c4527eb3caffd54bc6f2bda28e6a544e5c240d1f06b8bedc8697c8600c707f4",
     "configuration_artifact_id": "synthetic-screening-config"
   },
   "source_artifacts": [
