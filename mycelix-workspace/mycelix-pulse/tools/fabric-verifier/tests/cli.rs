@@ -8,11 +8,7 @@ fn run_cli(fixture: &str, expected_source_sha: Option<&str>) -> Output {
     let schema = manifest_dir.join("../../docs/pulse-fabric-trace.schema-v0.1.json");
 
     let mut command = Command::new(env!("CARGO_BIN_EXE_pulse-fabric-verifier"));
-    command
-        .arg("verify")
-        .arg(trace)
-        .arg("--schema")
-        .arg(schema);
+    command.arg("verify").arg(trace).arg("--schema").arg(schema);
 
     if let Some(source_sha) = expected_source_sha {
         command.arg("--expected-source-sha").arg(source_sha);
