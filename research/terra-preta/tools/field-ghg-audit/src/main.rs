@@ -15,8 +15,7 @@ use std::path::Path;
 
 const AUDIT_VERSION: &str = "0.1.0";
 const FIXTURE_STATUS: &str = "synthetic_only_not_empirical_evidence";
-const INTERPRETATION_BOUNDARY: &str =
-    "Synthetic observation-record validation only; not flux integration, treatment-effect estimation, instrument qualification, field validation, product certification, regulatory approval, or carbon-credit verification.";
+const INTERPRETATION_BOUNDARY: &str = "Synthetic observation-record validation only; not flux integration, treatment-effect estimation, instrument qualification, field validation, product certification, regulatory approval, or carbon-credit verification.";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -158,7 +157,9 @@ fn sha256_hex(bytes: &[u8]) -> String {
 
 fn nonblank(value: &str, field: &str) -> Result<(), String> {
     if value.trim().is_empty() || value.trim() != value {
-        return Err(format!("{field} must be non-empty with no surrounding whitespace"));
+        return Err(format!(
+            "{field} must be non-empty with no surrounding whitespace"
+        ));
     }
     Ok(())
 }
@@ -250,7 +251,10 @@ fn parse_rfc3339_seconds(value: &str) -> Result<f64, String> {
     if bytes.get(position) == Some(&b'.') {
         position += 1;
         let start = position;
-        while bytes.get(position).is_some_and(|byte| byte.is_ascii_digit()) {
+        while bytes
+            .get(position)
+            .is_some_and(|byte| byte.is_ascii_digit())
+        {
             position += 1;
         }
         if position == start {
@@ -304,7 +308,9 @@ fn convert_n2o_mass_basis(value: f64, from: &str, to: &str) -> Result<f64, Strin
         ("N2O", "N2O") | ("N2O_N", "N2O_N") => Ok(value),
         ("N2O", "N2O_N") => Ok(value * N2O_N_MASS_FRACTION),
         ("N2O_N", "N2O") => Ok(value / N2O_N_MASS_FRACTION),
-        _ => Err(format!("unsupported N2O mass-basis conversion: {from} -> {to}")),
+        _ => Err(format!(
+            "unsupported N2O mass-basis conversion: {from} -> {to}"
+        )),
     }
 }
 
@@ -372,7 +378,11 @@ fn require_uri_scheme(value: &str, field: &str) -> Result<(), String> {
 }
 
 fn validate_required_shape(payload: &serde_json::Value) -> Result<(), String> {
-    require_keys(payload, &["fixture_status", "fixture_version", "observations"], "root")?;
+    require_keys(
+        payload,
+        &["fixture_status", "fixture_version", "observations"],
+        "root",
+    )?;
     let observations = payload["observations"]
         .as_array()
         .ok_or_else(|| "observations must be an array".to_string())?;
@@ -456,7 +466,10 @@ fn validate_observation(observation: &Observation, index: usize) -> Result<Vec<S
         (&observation.block_id, "block_id"),
         (&observation.experimental_unit_id, "experimental_unit_id"),
         (&observation.plot_or_vessel_id, "plot_or_vessel_id"),
-        (&observation.treatment_assignment_id, "treatment_assignment_id"),
+        (
+            &observation.treatment_assignment_id,
+            "treatment_assignment_id",
+        ),
         (&observation.soil_source_id, "soil_source_id"),
         (&observation.gas_species, "gas_species"),
         (&observation.mass_basis, "mass_basis"),
@@ -465,9 +478,18 @@ fn validate_observation(observation: &Observation, index: usize) -> Result<Vec<S
         (&observation.method.method_id, "method.method_id"),
         (&observation.method.method_version, "method.method_version"),
         (&observation.method.chamber_type, "method.chamber_type"),
-        (&observation.instrument.instrument_id, "instrument.instrument_id"),
-        (&observation.instrument.calibration_state, "instrument.calibration_state"),
-        (&observation.raw_artifact.artifact_kind, "raw_artifact.artifact_kind"),
+        (
+            &observation.instrument.instrument_id,
+            "instrument.instrument_id",
+        ),
+        (
+            &observation.instrument.calibration_state,
+            "instrument.calibration_state",
+        ),
+        (
+            &observation.raw_artifact.artifact_kind,
+            "raw_artifact.artifact_kind",
+        ),
         (&observation.uncertainty.status, "uncertainty.status"),
         (&observation.qc_state, "qc_state"),
     ];
@@ -497,11 +519,17 @@ fn validate_observation(observation: &Observation, index: usize) -> Result<Vec<S
         observation.instrument.calibration_state.as_str(),
         "in_date" | "out_of_date" | "unknown" | "not_applicable"
     ) {
-        return Err(format!("{label}.instrument.calibration_state is unsupported"));
+        return Err(format!(
+            "{label}.instrument.calibration_state is unsupported"
+        ));
     }
     if !matches!(
         observation.raw_artifact.artifact_kind.as_str(),
-        "raw_chromatogram" | "raw_concentration_series" | "instrument_export" | "lab_report" | "other"
+        "raw_chromatogram"
+            | "raw_concentration_series"
+            | "instrument_export"
+            | "lab_report"
+            | "other"
     ) {
         return Err(format!("{label}.raw_artifact.artifact_kind is unsupported"));
     }
@@ -512,7 +540,9 @@ fn validate_observation(observation: &Observation, index: usize) -> Result<Vec<S
         return Err(format!("{label}.qc_state is unsupported"));
     }
     if !valid_sha256(&observation.raw_artifact.sha256) {
-        return Err(format!("{label}.raw_artifact.sha256 must be 64 lowercase hexadecimal characters"));
+        return Err(format!(
+            "{label}.raw_artifact.sha256 must be 64 lowercase hexadecimal characters"
+        ));
     }
 
     let expected_unit = match (
@@ -523,7 +553,11 @@ fn validate_observation(observation: &Observation, index: usize) -> Result<Vec<S
         ("N2O", "N2O_N") => "mg_N2O_N_m2_h",
         ("CH4", "CH4") => "mg_CH4_m2_h",
         ("CO2", "CO2") => "mg_CO2_m2_h",
-        _ => return Err(format!("{label} has an incompatible gas_species / mass_basis pair")),
+        _ => {
+            return Err(format!(
+                "{label} has an incompatible gas_species / mass_basis pair"
+            ));
+        }
     };
     if observation.flux_unit != expected_unit {
         return Err(format!(
@@ -531,9 +565,18 @@ fn validate_observation(observation: &Observation, index: usize) -> Result<Vec<S
         ));
     }
 
-    finite_positive(observation.method.chamber_area_m2, &format!("{label}.method.chamber_area_m2"))?;
-    finite_positive(observation.method.chamber_volume_m3, &format!("{label}.method.chamber_volume_m3"))?;
-    finite_positive(observation.method.closure_duration_s, &format!("{label}.method.closure_duration_s"))?;
+    finite_positive(
+        observation.method.chamber_area_m2,
+        &format!("{label}.method.chamber_area_m2"),
+    )?;
+    finite_positive(
+        observation.method.chamber_volume_m3,
+        &format!("{label}.method.chamber_volume_m3"),
+    )?;
+    finite_positive(
+        observation.method.closure_duration_s,
+        &format!("{label}.method.closure_duration_s"),
+    )?;
     if !observation.flux_value.is_finite() {
         return Err(format!("{label}.flux_value must be finite"));
     }
@@ -542,14 +585,21 @@ fn validate_observation(observation: &Observation, index: usize) -> Result<Vec<S
     let observed = parse_rfc3339_seconds(&observation.observed_at)?;
     let end = parse_rfc3339_seconds(&observation.interval_end)?;
     if start >= end || observed < start || observed > end {
-        return Err(format!("{label} requires interval_start <= observed_at <= interval_end"));
+        return Err(format!(
+            "{label} requires interval_start <= observed_at <= interval_end"
+        ));
     }
 
     match observation.uncertainty.status.as_str() {
         "reported" => {
-            let value = observation.uncertainty.standard_uncertainty.ok_or_else(|| {
-                format!("{label}.uncertainty.standard_uncertainty is required when status=reported")
-            })?;
+            let value = observation
+                .uncertainty
+                .standard_uncertainty
+                .ok_or_else(|| {
+                    format!(
+                        "{label}.uncertainty.standard_uncertainty is required when status=reported"
+                    )
+                })?;
             finite_nonnegative(value, &format!("{label}.uncertainty.standard_uncertainty"))?;
             let unit = observation.uncertainty.unit.as_deref().ok_or_else(|| {
                 format!("{label}.uncertainty.unit is required when status=reported")
@@ -562,10 +612,16 @@ fn validate_observation(observation: &Observation, index: usize) -> Result<Vec<S
             if observation.uncertainty.standard_uncertainty.is_some()
                 || observation.uncertainty.unit.is_some()
             {
-                return Err(format!("{label} must not supply an uncertainty value/unit when status=not_available"));
+                return Err(format!(
+                    "{label} must not supply an uncertainty value/unit when status=not_available"
+                ));
             }
             nonblank(
-                observation.uncertainty.reason_not_available.as_deref().unwrap_or(""),
+                observation
+                    .uncertainty
+                    .reason_not_available
+                    .as_deref()
+                    .unwrap_or(""),
                 &format!("{label}.uncertainty.reason_not_available"),
             )?;
         }
@@ -584,17 +640,34 @@ fn validate_observation(observation: &Observation, index: usize) -> Result<Vec<S
     }
 
     for (value, field) in [
-        (observation.material_batch_id.as_deref(), "material_batch_id"),
+        (
+            observation.material_batch_id.as_deref(),
+            "material_batch_id",
+        ),
         (observation.crop_id.as_deref(), "crop_id"),
         (observation.management_event.as_deref(), "management_event"),
-        (observation.missingness_reason.as_deref(), "missingness_reason"),
-        (observation.uncertainty.method.as_deref(), "uncertainty.method"),
-        (observation.instrument.calibration_reference.as_deref(), "instrument.calibration_reference"),
-        (observation.method.flux_calculation_version.as_deref(), "method.flux_calculation_version"),
+        (
+            observation.missingness_reason.as_deref(),
+            "missingness_reason",
+        ),
+        (
+            observation.uncertainty.method.as_deref(),
+            "uncertainty.method",
+        ),
+        (
+            observation.instrument.calibration_reference.as_deref(),
+            "instrument.calibration_reference",
+        ),
+        (
+            observation.method.flux_calculation_version.as_deref(),
+            "method.flux_calculation_version",
+        ),
     ] {
         if let Some(value) = value {
             if !value.is_empty() && value.trim() != value {
-                return Err(format!("{label}.{field} must not have surrounding whitespace"));
+                return Err(format!(
+                    "{label}.{field} must not have surrounding whitespace"
+                ));
             }
             if field == "material_batch_id" || field == "uncertainty.method" {
                 nonblank(value, &format!("{label}.{field}"))?;
@@ -604,13 +677,21 @@ fn validate_observation(observation: &Observation, index: usize) -> Result<Vec<S
     if let Some(limit) = &observation.detection_limit {
         if let Some(method) = limit.censoring_method.as_deref() {
             if !method.is_empty() && method.trim() != method {
-                return Err(format!("{label}.detection_limit.censoring_method must not have surrounding whitespace"));
+                return Err(format!(
+                    "{label}.detection_limit.censoring_method must not have surrounding whitespace"
+                ));
             }
         }
     }
     for (value, field) in [
-        (observation.raw_artifact.source_uri.as_deref(), "raw_artifact.source_uri"),
-        (observation.source_record_uri.as_deref(), "source_record_uri"),
+        (
+            observation.raw_artifact.source_uri.as_deref(),
+            "raw_artifact.source_uri",
+        ),
+        (
+            observation.source_record_uri.as_deref(),
+            "source_record_uri",
+        ),
     ] {
         if let Some(value) = value {
             require_uri_scheme(value, &format!("{label}.{field}"))?;
@@ -649,8 +730,8 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
     let payload: serde_json::Value =
         serde_json::from_slice(bytes).map_err(|error| format!("invalid JSON: {error}"))?;
     validate_required_shape(&payload)?;
-    let envelope: FixtureEnvelope =
-        serde_json::from_value(payload).map_err(|error| format!("invalid fixture shape: {error}"))?;
+    let envelope: FixtureEnvelope = serde_json::from_value(payload)
+        .map_err(|error| format!("invalid fixture shape: {error}"))?;
 
     if envelope.fixture_status != FIXTURE_STATUS {
         return Err("only explicitly synthetic fixture envelopes are accepted by v0.1".to_string());
@@ -692,12 +773,21 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
 
     for (index, observation) in envelope.observations.iter().enumerate() {
         if !ids.insert(observation.observation_id.clone()) {
-            return Err(format!("duplicate observation_id: {}", observation.observation_id));
+            return Err(format!(
+                "duplicate observation_id: {}",
+                observation.observation_id
+            ));
         }
         warnings.extend(validate_observation(observation, index)?);
-        *gas_species_counts.entry(observation.gas_species.clone()).or_insert(0) += 1;
-        *evidence_class_counts.entry(observation.evidence_class.clone()).or_insert(0) += 1;
-        *qc_state_counts.entry(observation.qc_state.clone()).or_insert(0) += 1;
+        *gas_species_counts
+            .entry(observation.gas_species.clone())
+            .or_insert(0) += 1;
+        *evidence_class_counts
+            .entry(observation.evidence_class.clone())
+            .or_insert(0) += 1;
+        *qc_state_counts
+            .entry(observation.qc_state.clone())
+            .or_insert(0) += 1;
 
         if observation.qc_state != "pass"
             || observation.uncertainty.status != "reported"
@@ -769,7 +859,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if args.len() != 3 {
         return Err(format!(
             "usage: {} <synthetic-fixture.json> <new-report.json>",
-            args.first().map(String::as_str).unwrap_or("field-ghg-audit")
+            args.first()
+                .map(String::as_str)
+                .unwrap_or("field-ghg-audit")
         )
         .into());
     }
@@ -777,7 +869,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let input_path = Path::new(&args[1]);
     let output_path = Path::new(&args[2]);
     if output_path.exists() {
-        return Err(format!("refusing to overwrite existing report: {}", output_path.display()).into());
+        return Err(format!(
+            "refusing to overwrite existing report: {}",
+            output_path.display()
+        )
+        .into());
     }
 
     let bytes = fs::read(input_path)?;
@@ -818,7 +914,10 @@ mod tests {
     fn committed_fixture_is_structurally_valid_but_not_qualified() {
         let report = audit_value(&fixture_value()).expect("fixture should validate");
         assert_eq!(report.observation_count, 3);
-        assert_eq!(report.status, "synthetic_fixture_unqualified_due_to_qc_or_uncertainty");
+        assert_eq!(
+            report.status,
+            "synthetic_fixture_unqualified_due_to_qc_or_uncertainty"
+        );
         assert_eq!(report.gas_species_counts.get("N2O"), Some(&1));
         assert_eq!(report.gas_species_counts.get("CH4"), Some(&1));
     }
@@ -860,8 +959,7 @@ mod tests {
     #[test]
     fn observed_timestamp_outside_chamber_interval_is_rejected() {
         let mut value = fixture_value();
-        value["observations"][0]["observed_at"] =
-            Value::String("2026-11-20T09:01:00Z".to_string());
+        value["observations"][0]["observed_at"] = Value::String("2026-11-20T09:01:00Z".to_string());
         assert!(audit_value(&value).is_err());
     }
 
@@ -884,7 +982,8 @@ mod tests {
         assert!(audit_value(&value).is_err());
         uncertainty["reason_not_available"] =
             Value::String("not measured in synthetic negative control".to_string());
-        let report = audit_value(&value).expect("explicit unavailable status should remain auditable");
+        let report =
+            audit_value(&value).expect("explicit unavailable status should remain auditable");
         assert_eq!(
             report.status,
             "synthetic_fixture_unqualified_due_to_qc_or_uncertainty"
