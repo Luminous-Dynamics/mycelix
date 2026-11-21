@@ -57,6 +57,33 @@
       ],
       "unknown_fields_preserved": true,
       "artifact_path": "mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-source-state-set-v0.1.json"
+    },
+    {
+      "artifact_id": "synthetic-pair-screen-result",
+      "source_type": "other",
+      "source_profile": {
+        "ecosystem": "mycelix-synthetic",
+        "document_release": null,
+        "payload_version": "synthetic-0",
+        "encoding_profile": "synthetic-pair-screen-result-v0.1"
+      },
+      "media_type": "application/json",
+      "byte_length": 438,
+      "raw_bytes_sha256": "143e850f92026d08552eb6b3d5a4ee4fe5537c2afb6b64de35fb3251a04988f5",
+      "source_epoch": null,
+      "source_created_at": null,
+      "received_at": "2026-11-21T09:00:00Z",
+      "processing_at": "2026-11-21T09:00:02Z",
+      "preservation": "exact_bytes_retained",
+      "artifact_path": "mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-pair-screen-result-v0.1.json",
+      "parser": {
+        "parser_id": "synthetic-fixture-reader-v0.1",
+        "source_sha256": null,
+        "adapter_profile_id": "synthetic-pair-screen-result-v0.1"
+      },
+      "parse_disposition": "parsed",
+      "field_semantics": [],
+      "unknown_fields_preserved": true
     }
   ],
   "object_dispositions": [
@@ -129,7 +156,29 @@
         "applicability": "not_evaluated"
       },
       "output_sha256": null,
-      "claim_ceiling": "Synthetic candidate-pairing contract shape only; not an orbit assessment or collision-risk result."
+      "claim_ceiling": "Synthetic candidate-pairing contract shape only; not an orbit assessment or collision-risk result.",
+      "pair_id": null,
+      "output_artifact_id": null
+    },
+    {
+      "assessment_id": "screen-pair-sim-a-b",
+      "assessment_type": "conjunction_screen",
+      "status": "completed",
+      "pair_id": "pair-sim-a-b",
+      "input_artifact_ids": [
+        "synthetic-state-set"
+      ],
+      "method_profile_id": "synthetic-neighborhood-capture-v0.1",
+      "covariance_status": "absent_optional",
+      "collision_probability": {
+        "status": "not_calculated",
+        "value": null,
+        "method_id": null,
+        "applicability": "not_evaluated"
+      },
+      "output_sha256": "143e850f92026d08552eb6b3d5a4ee4fe5537c2afb6b64de35fb3251a04988f5",
+      "output_artifact_id": "synthetic-pair-screen-result",
+      "claim_ceiling": "Synthetic narrow-phase contract fixture only; no real event search or physical conclusion."
     }
   ],
   "execution_evidence": {
@@ -198,5 +247,32 @@
     "This fixture is synthetic-only and uses manufactured data.",
     "Coverage-complete means complete only relative to this explicit synthetic request set and declared synthetic time segments.",
     "Complete input coverage does not imply a complete numerical risk assessment or a negative collision conclusion."
-  ]
+  ],
+  "pair_coverage": {
+    "scope_kind": "primary_vs_each_requested_secondary",
+    "disposition": "complete",
+    "requested_pair_count": 1,
+    "retained_candidate_count": 1,
+    "proven_excluded_count": 0,
+    "unresolved_count": 0,
+    "unsupported_count": 0,
+    "pair_manifest_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+    "pairs": [
+      {
+        "pair_id": "pair-sim-a-b",
+        "primary_object_id": "SIM-OBJ-A",
+        "secondary_object_id": "SIM-OBJ-B",
+        "disposition": "retained_candidate",
+        "source_artifact_ids": [
+          "synthetic-state-set"
+        ],
+        "method_profile_id": "synthetic-neighborhood-capture-v0.1",
+        "prune_witness_artifact_id": null,
+        "prune_witness_sha256": null,
+        "narrow_phase_status": "searched_no_event",
+        "narrow_phase_assessment_id": "screen-pair-sim-a-b",
+        "reason_codes": []
+      }
+    ]
+  }
 }
