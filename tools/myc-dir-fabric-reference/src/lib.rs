@@ -122,6 +122,25 @@ impl fmt::Display for FrontierError {
 
 impl std::error::Error for FrontierError {}
 
+fn append_identifier(bytes: &mut Vec<u8>, value: &str) -> Result<(), FrontierError> {
+    let identifier = value.as_bytes();
+    let length =
+        u16::try_from(identifier.len()).map_err(|_| FrontierError::IdentifierTooLong)?;
+    bytes.extend_from_slice(&length.to_be_bytes());
+    bytes.extend_from_slice(identifier);
+    Ok(())
+}
+
+fn append_position(
+    bytes: &mut Vec<u8>,
+    position: &AuthorityPosition,
+) -> Result<(), FrontierError> {
+    append_identifier(bytes, position.authority.as_str())?;
+    bytes.extend_from_slice(&position.sequence.to_be_bytes());
+    bytes.extend_from_slice(&position.head_digest);
+    Ok(())
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AuthorityFrontier {
     components: Vec<AuthorityPosition>,
@@ -161,13 +180,7 @@ impl AuthorityFrontier {
         bytes.extend_from_slice(&count.to_be_bytes());
 
         for component in &self.components {
-            let identifier = component.authority.as_str().as_bytes();
-            let length = u16::try_from(identifier.len())
-                .map_err(|_| FrontierError::IdentifierTooLong)?;
-            bytes.extend_from_slice(&length.to_be_bytes());
-            bytes.extend_from_slice(identifier);
-            bytes.extend_from_slice(&component.sequence.to_be_bytes());
-            bytes.extend_from_slice(&component.head_digest);
+            append_position(&mut bytes, component)?;
         }
 
         Ok(bytes)
@@ -193,6 +206,24 @@ pub struct FrontierEvidence {
 }
 
 impl FrontierEvidence {
+    /// Canonical encoding binds both the frontier heads and the exact ancestry
+    /// positions supplied to the independent proof verifier.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, FrontierError> {
+        let frontier_bytes = self.frontier.canonical_bytes()?;
+        let frontier_length = u32::try_from(frontier_bytes.len())
+            .map_err(|_| FrontierError::TooManyComponents)?;
+        let count = u32::try_from(self.covered_positions.len())
+            .map_err(|_| FrontierError::TooManyComponents)?;
+        let mut bytes = b"MYC-DIR-FRONTIER-EVIDENCE\\0\\x01".to_vec();
+        bytes.extend_from_slice(&frontier_length.to_be_bytes());
+        bytes.extend_from_slice(&frontier_bytes);
+        bytes.extend_from_slice(&count.to_be_bytes());
+        for position in &self.covered_positions {
+            append_position(&mut bytes, position)?;
+        }
+        Ok(bytes)
+    }
+
     pub fn new(
         frontier: AuthorityFrontier,
         mut covered_positions: Vec<AuthorityPosition>,
@@ -317,6 +348,22 @@ impl PolicySnapshot {
         &self.policy_digest
     }
 
+    /// Canonical encoding of the remote policy snapshot. The persisted local
+    /// high-water mark is intentionally excluded: it is local anti-rollback
+    /// state, not a field asserted by the snapshot issuer.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, FrontierError> {
+        let evidence = self.frontier_evidence.canonical_bytes()?;
+        let evidence_length =
+            u32::try_from(evidence.len()).map_err(|_| FrontierError::TooManyComponents)?;
+        let mut bytes = b"MYC-DIR-POLICY-SNAPSHOT\\0\\x01".to_vec();
+        append_identifier(&mut bytes, self.realm.as_str())?;
+        bytes.extend_from_slice(&self.policy_epoch.to_be_bytes());
+        bytes.extend_from_slice(&self.policy_digest);
+        bytes.extend_from_slice(&evidence_length.to_be_bytes());
+        bytes.extend_from_slice(&evidence);
+        Ok(bytes)
+    }
+
     pub fn frontier_evidence(&self) -> &FrontierEvidence {
         &self.frontier_evidence
     }
@@ -403,6 +450,8 @@ impl ClockWindow {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OfflineLease {
     scope: AccessScope,
+    policy_epoch: u64,
+    minimum_frontier: AuthorityFrontier,
     policy_digest: Digest,
     issued_at_ms: u64,
     not_before_ms: u64,
@@ -418,6 +467,8 @@ pub enum LeaseError {
 impl OfflineLease {
     pub fn new(
         scope: AccessScope,
+        policy_epoch: u64,
+        minimum_frontier: AuthorityFrontier,
         policy_digest: Digest,
         issued_at_ms: u64,
         not_before_ms: u64,
@@ -429,12 +480,38 @@ impl OfflineLease {
         }
         Ok(Self {
             scope,
+            policy_epoch,
+            minimum_frontier,
             policy_digest,
             issued_at_ms,
             not_before_ms,
             expires_at_ms,
             max_clock_uncertainty_ms,
         })
+    }
+
+    /// Canonical bytes for signing or digesting the complete lease contract.
+    /// This does not create or verify a signature.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, FrontierError> {
+        let frontier = self.minimum_frontier.canonical_bytes()?;
+        let frontier_length =
+            u32::try_from(frontier.len()).map_err(|_| FrontierError::TooManyComponents)?;
+        let mut bytes = b"MYC-DIR-OFFLINE-LEASE\\0\\x01".to_vec();
+        append_identifier(&mut bytes, self.scope.realm.as_str())?;
+        append_identifier(&mut bytes, self.scope.principal.as_str())?;
+        append_identifier(&mut bytes, self.scope.resource.as_str())?;
+        append_identifier(&mut bytes, self.scope.action.as_str())?;
+        append_identifier(&mut bytes, self.scope.audience.as_str())?;
+        append_identifier(&mut bytes, self.scope.purpose.as_str())?;
+        bytes.extend_from_slice(&self.policy_epoch.to_be_bytes());
+        bytes.extend_from_slice(&self.policy_digest);
+        bytes.extend_from_slice(&frontier_length.to_be_bytes());
+        bytes.extend_from_slice(&frontier);
+        bytes.extend_from_slice(&self.issued_at_ms.to_be_bytes());
+        bytes.extend_from_slice(&self.not_before_ms.to_be_bytes());
+        bytes.extend_from_slice(&self.expires_at_ms.to_be_bytes());
+        bytes.extend_from_slice(&self.max_clock_uncertainty_ms.to_be_bytes());
+        Ok(bytes)
     }
 
     pub fn expires_at_ms(&self) -> u64 {
@@ -451,7 +528,11 @@ pub enum LeaseAssessment {
     ValidForBoundedOfflineRead,
     ScopeMismatch,
     SnapshotRealmMismatch,
+    SnapshotRollbackDetected,
+    PolicyEpochMismatch,
     PolicyDigestMismatch,
+    BehindLeaseFrontier,
+    IncomparableLeaseFrontier,
     RiskNotEligibleForOfflineLease,
     ClockUncertaintyTooWide,
     NotYetValid,
@@ -475,8 +556,22 @@ pub fn assess_offline_lease(
     if &lease.scope != requested_scope {
         return LeaseAssessment::ScopeMismatch;
     }
+    if snapshot.policy_epoch < snapshot.persisted_high_water_mark {
+        return LeaseAssessment::SnapshotRollbackDetected;
+    }
+    if lease.policy_epoch != snapshot.policy_epoch {
+        return LeaseAssessment::PolicyEpochMismatch;
+    }
     if &lease.policy_digest != snapshot.policy_digest() {
         return LeaseAssessment::PolicyDigestMismatch;
+    }
+    match snapshot
+        .frontier_evidence
+        .relation_to(&lease.minimum_frontier)
+    {
+        FrontierRelation::Equal | FrontierRelation::Dominates => {}
+        FrontierRelation::Behind => return LeaseAssessment::BehindLeaseFrontier,
+        FrontierRelation::Incomparable => return LeaseAssessment::IncomparableLeaseFrontier,
     }
     if operation_risk != OperationRisk::LowRiskReadOnly {
         return LeaseAssessment::RiskNotEligibleForOfflineLease;
@@ -779,7 +874,7 @@ mod tests {
         let requested = scope();
         let empty = FrontierEvidence::new(frontier(vec![]), vec![]).unwrap();
         let snapshot = policy_snapshot(empty);
-        let lease = OfflineLease::new(requested.clone(), [7; 32], 100, 100, 200, 5).unwrap();
+        let lease = OfflineLease::new(requested.clone(), 12, frontier(vec![]), [7; 32], 100, 100, 200, 5).unwrap();
         let now = ClockWindow::new(150, 152).unwrap();
 
         assert_eq!(
@@ -818,11 +913,67 @@ mod tests {
     }
 
     #[test]
+    fn offline_lease_requires_its_pinned_policy_epoch_and_frontier() {
+        let requested = scope();
+        let old = position("issuer-a", 3, 3);
+        let lease = OfflineLease::new(
+            requested.clone(),
+            12,
+            frontier(vec![old.clone()]),
+            [7; 32],
+            100,
+            100,
+            200,
+            5,
+        )
+        .unwrap();
+
+        let behind = FrontierEvidence::new(frontier(vec![position("issuer-a", 2, 2)]), vec![])
+            .unwrap();
+        let snapshot = policy_snapshot(behind);
+        assert_eq!(
+            assess_offline_lease(
+                &lease,
+                &requested,
+                &snapshot,
+                OperationRisk::LowRiskReadOnly,
+                ClockWindow::new(150, 152).unwrap()
+            ),
+            LeaseAssessment::BehindLeaseFrontier
+        );
+
+        let covered = FrontierEvidence::new(
+            frontier(vec![position("issuer-a", 4, 4)]),
+            vec![old],
+        )
+        .unwrap();
+        let wrong_epoch = PolicySnapshot::new(realm("realm-a"), 13, 13, [7; 32], covered);
+        assert_eq!(
+            assess_offline_lease(
+                &lease,
+                &requested,
+                &wrong_epoch,
+                OperationRisk::LowRiskReadOnly,
+                ClockWindow::new(150, 152).unwrap()
+            ),
+            LeaseAssessment::PolicyEpochMismatch
+        );
+    }
+
+    #[test]
+    fn canonical_evidence_encoding_binds_ancestry_witnesses() {
+        let head = frontier(vec![position("issuer-a", 4, 4)]);
+        let without = FrontierEvidence::new(head.clone(), vec![]).unwrap();
+        let with = FrontierEvidence::new(head, vec![position("issuer-a", 3, 3)]).unwrap();
+        assert_ne!(without.canonical_bytes().unwrap(), with.canonical_bytes().unwrap());
+    }
+
+    #[test]
     fn clock_uncertainty_and_expiry_boundary_never_extend_a_lease() {
         let requested = scope();
         let evidence = FrontierEvidence::new(frontier(vec![]), vec![]).unwrap();
         let snapshot = policy_snapshot(evidence);
-        let lease = OfflineLease::new(requested.clone(), [7; 32], 100, 100, 200, 5).unwrap();
+        let lease = OfflineLease::new(requested.clone(), 12, frontier(vec![]), [7; 32], 100, 100, 200, 5).unwrap();
 
         let too_uncertain = ClockWindow::new(150, 160).unwrap();
         assert_eq!(
