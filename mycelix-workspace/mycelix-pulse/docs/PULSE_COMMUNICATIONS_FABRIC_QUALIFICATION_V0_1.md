@@ -275,11 +275,53 @@ The verifier must be independent of the candidate's decision code. It checks sch
 
 ## 8. Group fan-out boundary
 
-The v0.1 replay verifier qualifies a recipient-level logical delivery operation. It does **not** prove that a group message reached every member, every required device, or any policy-defined quorum. One recipient receipt must never be promoted to a group-level completion claim.
+The group model is a parent operation with one stable child logical operation per
+required recipient. A group receipt is not one event: a recipient-specific
+receipt can support only that recipient's child. The parent must bind to one
+frozen membership epoch and one exact required-recipient set; retries on
+alternate paths reuse the child operation ID and allocate new attempt IDs.
 
-Group fan-out is split into [PULSE-GROUP-FANOUT-QUAL-001 / #6401](https://github.com/Luminous-Dynamics/mycelix/issues/6401): a parent fanout identity and a committed membership/recipient-set snapshot, with one stable child logical operation per required recipient and independent receipts. COMPLETE_VERIFIED is an aggregate derived only when all recipients required by the committed snapshot have verified receipts under the declared policy/deadline. PARTIAL, UNKNOWN and INCOMPLETE remain visible. Any quorum override must be explicit, user-visible and bound to an authenticated policy snapshot.
+A first independent implementation slice now exists in the verifier:
 
-The benchmark profile now includes per-recipient VDR, complete-group delivery, partial coverage distribution, worst-member latency, epoch update cost, and post-removal/late-join negative controls. Those are preregistered targets; the current v0.1 verifier does not yet implement parent/child fan-out aggregation.
+- A strict Draft 2020-12 parent-manifest schema commits to the group identity,
+  membership epoch, membership snapshot digest, content commitment, explicit
+  ALL_REQUIRED policy, and sorted recipient child set.
+- Each child manifest item pins one recipient commitment, logical operation
+  ID and SHA-256 digest of the exact child trace bytes.
+- The trace schema binds each child to the same parent fanout, membership
+  snapshot, epoch, recipient-set commitment, content commitment and its own
+  opaque recipient commitment.
+- The Rust verifier requires an externally supplied SHA-256 pin for the
+  exact manifest bytes, verifies every supplied child trace against its
+  manifest digest and recipient identity, rejects missing/extra/duplicate
+  children, and runs the existing recipient-level causal verifier on each
+  child.
+- The CLI exposes this as verify-fanout. Unit and end-to-end CLI tests are
+  authored for all-required completion, missing recipient children and
+  wrong manifest pin.
+
+The current structural verifier deliberately reports
+ALL_REQUIRED_RECEIPT_CLAIMS_CONSISTENT when every manifest child has a
+SUCCESS_VERIFIED trace claim with the required receipt-creation and
+separately-attributed receipt-verification events. It does **not** report
+COMPLETE_VERIFIED: it does not authenticate the manifest author, validate
+receipt signatures, establish membership-snapshot truth, prove actor
+independence, or verify trusted deadline compliance. The external manifest
+digest binds exact bytes, but the mechanism that authorizes that digest is
+outside this verifier. Those are mandatory future trust-layer requirements
+before product UI or compliance systems may promote the aggregate to a
+cryptographically verified group-completion claim.
+
+The public manifest and trace must not contain a raw member roster. Use opaque,
+scoped pseudonyms or keyed recipient commitments; do not publish bare hashes
+of low-entropy identifiers. A commitment must be collision-resistant and
+privacy-preserving under the actual observer threat model. Membership changes,
+late join, member removal and per-device synchronization remain separate
+qualification dimensions. An account-level child cannot imply all devices
+received the message.
+
+Tracked in [PULSE-GROUP-FANOUT-QUAL-001 / #6401](https://github.com/Luminous-Dynamics/mycelix/issues/6401), composed with
+[PULSE-FABRIC-QUAL-001 / #6376](https://github.com/Luminous-Dynamics/mycelix/issues/6376).
 
 ## 9. Phased execution
 
