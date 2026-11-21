@@ -481,7 +481,7 @@ fn verify_object_and_coverage_ledgers(
     let coverage = package.get("coverage").unwrap_or(&Value::Null);
     let Some(segments) = get_array(coverage, "time_segments") else {
         findings.fail("MISSING_TIME_SEGMENTS", "coverage.time_segments must be an array");
-        return (requested_set, BTreeSet::new(), screened_count, excluded_count, unassessed_count, 0);
+        return (requested_set, BTreeSet::new(), screened_count, excluded_count, unassessed_count, 0, object_artifacts);
     };
     let mut segment_ids = BTreeSet::new();
     let mut segments_by_object = BTreeMap::<String, BTreeSet<String>>::new();
