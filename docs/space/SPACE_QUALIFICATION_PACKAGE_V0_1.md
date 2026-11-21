@@ -83,7 +83,7 @@ Every requested pair receives exactly one disposition:
 - `unresolved`: the sieve cannot establish either safe exclusion or a complete candidate disposition.
 - `unsupported`: the pair falls outside the declared model/profile envelope.
 
-The verifier reconciles the full requested pair set and counts. It binds a proven-excluded pair to the exact retained witness bytes. A retained pair's `searched_no_event` / `event_found` outcome must join to a completed pair-specific conjunction-screen assessment whose output artifact and digest are bound. An unresolved or unsupported pair, or a retained pair that has not completed narrow-phase search, blocks a complete negative conclusion.
+The verifier reconciles the full requested pair set and counts. It recomputes a domain-separated SHA-256 over the pair entries sorted by pair ID and canonical JSON object-key order. It binds a proven-excluded pair to the exact retained witness bytes. A retained pair's `searched_no_event` / `event_found` outcome must join to a completed pair-specific conjunction-screen assessment whose output artifact and digest are bound. An unresolved or unsupported pair, or a retained pair that has not completed narrow-phase search, blocks a complete negative conclusion.
 
 This creates a **proof-carrying sieve**: candidate reduction is allowed, but every removed pair has an inspectable exclusion witness. If the required bound cannot be established, the pair remains retained, unresolved or unsupported; it is never silently pruned.
 
@@ -94,3 +94,6 @@ For adaptive uncertainty-aware broad phases, this is the important research dist
 - candidate capture, time-domain event search, covariance realism, Pc applicability and publication policy remain distinct claim layers.
 
 The exact synthetic fixture contains one requested primary-secondary pair and a manufactured narrow-phase output artifact. It proves only pair-ledger shape and joins; it is not a physical screening run.
+
+
+The pair manifest digest uses the domain prefix `mycelix-space-pair-manifest-v1`, an unsigned 64-bit big-endian length prefix, and the compact `serde_json` serialization of the pair array sorted by `pair_id`. JSON object keys are serialized in sorted order by the verifier's serde_json configuration. Any mutation to a pair disposition, source-artifact reference, witness, narrow-phase state or assessment link changes the digest.
