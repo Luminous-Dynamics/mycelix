@@ -892,7 +892,7 @@ impl std::error::Error for EstimateError {}
 ///
 /// For I_H and I_L evaluated on the same sample X:
 ///
-///     P_H = P_L + E_q[(p/q) * (I_H - I_L)]
+/// In notation, P_H equals P_L plus E_q[(p/q) * (I_H - I_L)].
 ///
 /// Because the defensive proposal satisfies q >= epsilon*p, the residual
 /// contribution lies in [-1/epsilon, +1/epsilon]. The interval is fixed-sample
