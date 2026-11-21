@@ -158,8 +158,7 @@ struct MutableRegionSummary {
     missing_cells: usize,
 }
 
-const INTERPRETATION_BOUNDARY: &str =
-    "Structural dataset audit only. Not model validation, laboratory qualification, treatment-effect evidence, field efficacy, agronomic advice, fertilizer recommendation, product certification, or regulatory approval.";
+const INTERPRETATION_BOUNDARY: &str = "Structural dataset audit only. Not model validation, laboratory qualification, treatment-effect evidence, field efficacy, agronomic advice, fertilizer recommendation, product certification, or regulatory approval.";
 
 fn sha256_hex(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
@@ -173,7 +172,9 @@ fn sha256_hex(bytes: &[u8]) -> String {
 
 fn nonblank(value: &str, field: &str) -> Result<(), String> {
     if value.trim().is_empty() || value.trim() != value {
-        return Err(format!("{field} must be non-empty with no surrounding whitespace"));
+        return Err(format!(
+            "{field} must be non-empty with no surrounding whitespace"
+        ));
     }
     Ok(())
 }
@@ -191,16 +192,31 @@ fn parse_finite(value: &str, field: &str) -> Result<f64, String> {
 fn validate_profile(profile: &Profile) -> Result<(), String> {
     for (value, field) in [
         (&profile.profile_version, "profile_version"),
-        (&profile.dataset_source.article_doi, "dataset_source.article_doi"),
-        (&profile.dataset_source.zenodo_version_doi, "dataset_source.zenodo_version_doi"),
-        (&profile.dataset_source.zenodo_record_id, "dataset_source.zenodo_record_id"),
+        (
+            &profile.dataset_source.article_doi,
+            "dataset_source.article_doi",
+        ),
+        (
+            &profile.dataset_source.zenodo_version_doi,
+            "dataset_source.zenodo_version_doi",
+        ),
+        (
+            &profile.dataset_source.zenodo_record_id,
+            "dataset_source.zenodo_record_id",
+        ),
         (&profile.dataset_source.version, "dataset_source.version"),
         (&profile.dataset_source.filename, "dataset_source.filename"),
-        (&profile.dataset_source.license_status, "dataset_source.license_status"),
+        (
+            &profile.dataset_source.license_status,
+            "dataset_source.license_status",
+        ),
         (&profile.sample_id_column, "sample_id_column"),
         (&profile.spectral_column_prefix, "spectral_column_prefix"),
         (&profile.spectral_axis_unit, "spectral_axis_unit"),
-        (&profile.spectral_value_semantics, "spectral_value_semantics"),
+        (
+            &profile.spectral_value_semantics,
+            "spectral_value_semantics",
+        ),
         (&profile.sample_support, "sample_support"),
     ] {
         nonblank(value, field)?;
@@ -217,7 +233,10 @@ fn validate_profile(profile: &Profile) -> Result<(), String> {
         nonblank(&property.unit, "property.unit")?;
         nonblank(&property.reference_method, "property.reference_method")?;
         if !property_names.insert(property.column.as_str()) {
-            return Err(format!("duplicate property column in profile: {}", property.column));
+            return Err(format!(
+                "duplicate property column in profile: {}",
+                property.column
+            ));
         }
     }
     let mut region_names = HashSet::new();
@@ -228,10 +247,16 @@ fn validate_profile(profile: &Profile) -> Result<(), String> {
             || !region.maximum_cm1.is_finite()
             || region.minimum_cm1 >= region.maximum_cm1
         {
-            return Err(format!("invalid spectral bounds for region {}", region.region_id));
+            return Err(format!(
+                "invalid spectral bounds for region {}",
+                region.region_id
+            ));
         }
         if !region_names.insert(region.region_id.as_str()) {
-            return Err(format!("duplicate spectral region id: {}", region.region_id));
+            return Err(format!(
+                "duplicate spectral region id: {}",
+                region.region_id
+            ));
         }
     }
     if let Some(expected) = profile.expected_nir_to_mir_gap_cm1 {
@@ -245,7 +270,10 @@ fn validate_profile(profile: &Profile) -> Result<(), String> {
         }
     }
     if profile.georeferenced_sample_count_is_subset
-        && profile.dataset_source.expected_sample_rows.is_some_and(|n| profile.georeferenced_sample_count > n)
+        && profile
+            .dataset_source
+            .expected_sample_rows
+            .is_some_and(|n| profile.georeferenced_sample_count > n)
     {
         return Err("georeferenced sample count cannot exceed expected sample rows".to_string());
     }
@@ -260,15 +288,14 @@ fn parse_spectral_axis(column: &str, prefix: &str) -> Result<Option<f64>, String
         .parse::<f64>()
         .map_err(|_| format!("spectral column has invalid numeric axis: {column}"))?;
     if !axis.is_finite() || axis <= 0.0 {
-        return Err(format!("spectral axis must be finite and positive: {column}"));
+        return Err(format!(
+            "spectral axis must be finite and positive: {column}"
+        ));
     }
     Ok(Some(axis))
 }
 
-fn audit_csv_bytes(
-    csv_bytes: &[u8],
-    profile_bytes: &[u8],
-) -> Result<AuditReport, String> {
+fn audit_csv_bytes(csv_bytes: &[u8], profile_bytes: &[u8]) -> Result<AuditReport, String> {
     let profile: Profile = serde_json::from_slice(profile_bytes)
         .map_err(|error| format!("invalid profile JSON: {error}"))?;
     validate_profile(&profile)?;
@@ -306,15 +333,10 @@ fn audit_csv_bytes(
 
     let mut spectral_columns = Vec::new();
     for (index, header) in headers.iter().enumerate() {
-        if let Some(axis_cm1) =
-            parse_spectral_axis(header, &profile.spectral_column_prefix)?
-        {
-            let region_index = profile
-                .spectral_regions
-                .iter()
-                .position(|region| {
-                    axis_cm1 >= region.minimum_cm1 && axis_cm1 <= region.maximum_cm1
-                });
+        if let Some(axis_cm1) = parse_spectral_axis(header, &profile.spectral_column_prefix)? {
+            let region_index = profile.spectral_regions.iter().position(|region| {
+                axis_cm1 >= region.minimum_cm1 && axis_cm1 <= region.maximum_cm1
+            });
             spectral_columns.push(SpectralColumn {
                 index,
                 axis_cm1,
@@ -354,7 +376,9 @@ fn audit_csv_bytes(
         return Err("spectral axis is not strictly monotonic in declared column order".to_string());
     }
     if axis_duplicate_count > 0 {
-        return Err(format!("spectral axis contains {axis_duplicate_count} duplicate values"));
+        return Err(format!(
+            "spectral axis contains {axis_duplicate_count} duplicate values"
+        ));
     }
 
     let mut property_stats: Vec<MutablePropertySummary> = profile
@@ -414,7 +438,10 @@ fn audit_csv_bytes(
 
     for (row_index, record_result) in reader.records().enumerate() {
         let record = record_result.map_err(|error| {
-            format!("CSV parse/row-width failure at data row {}: {error}", row_index + 1)
+            format!(
+                "CSV parse/row-width failure at data row {}: {error}",
+                row_index + 1
+            )
         })?;
         actual_rows += 1;
 
@@ -426,7 +453,10 @@ fn audit_csv_bytes(
             return Err(format!("blank sample ID at data row {}", row_index + 1));
         }
         if sample_id.trim() != sample_id {
-            return Err(format!("sample ID has surrounding whitespace at data row {}", row_index + 1));
+            return Err(format!(
+                "sample ID has surrounding whitespace at data row {}",
+                row_index + 1
+            ));
         }
         if !sample_ids.insert(sample_id.to_string()) {
             duplicate_sample_id_count += 1;
@@ -440,11 +470,14 @@ fn audit_csv_bytes(
             if raw.trim().is_empty() {
                 stat.missing_count += 1;
             } else {
-                let value = parse_finite(raw, &format!(
-                    "property {} at data row {}",
-                    profile.properties[property_index].column,
-                    row_index + 1
-                ))?;
+                let value = parse_finite(
+                    raw,
+                    &format!(
+                        "property {} at data row {}",
+                        profile.properties[property_index].column,
+                        row_index + 1
+                    ),
+                )?;
                 stat.non_missing_count += 1;
                 stat.minimum = Some(stat.minimum.map_or(value, |current| current.min(value)));
                 stat.maximum = Some(stat.maximum.map_or(value, |current| current.max(value)));
@@ -463,11 +496,14 @@ fn audit_csv_bytes(
                     region_stats[region_index].missing_cells += 1;
                 }
             } else {
-                let _ = parse_finite(raw, &format!(
-                    "spectral value spec.{} at data row {}",
-                    column.axis_cm1,
-                    row_index + 1
-                ))?;
+                let _ = parse_finite(
+                    raw,
+                    &format!(
+                        "spectral value spec.{} at data row {}",
+                        column.axis_cm1,
+                        row_index + 1
+                    ),
+                )?;
             }
         }
         if row_has_missing_spectral {
@@ -503,8 +539,7 @@ fn audit_csv_bytes(
     if profile.georeferenced_sample_count_is_subset && profile.georeferenced_sample_count > 0 {
         warnings.push(format!(
             "only {} of {} samples have released coordinates; do not infer missing locations",
-            profile.georeferenced_sample_count,
-            actual_rows
+            profile.georeferenced_sample_count, actual_rows
         ));
     }
     if !unassigned_spectral_axes.is_empty() {
@@ -681,10 +716,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     write_new_file(output_path, &output)?;
     println!(
         "audited {} samples and {} spectral columns; status={}; input_sha256={}",
-        report.actual_sample_rows,
-        report.spectral_column_count,
-        report.status,
-        report.input_sha256
+        report.actual_sample_rows, report.spectral_column_count, report.status, report.input_sha256
     );
     Ok(())
 }
@@ -742,7 +774,7 @@ mod tests {
     fn descending_spectral_axis_is_required() {
         let reordered = CSV.replace(
             "spec.7407,spec.7405,spec.4003",
-            "spec.7405,spec.7407,spec.4003"
+            "spec.7405,spec.7407,spec.4003",
         );
         assert!(run_fixture(&reordered).is_err());
     }
@@ -773,10 +805,7 @@ mod tests {
 
     #[test]
     fn duplicate_csv_headers_are_rejected() {
-        let duplicate = CSV.replace(
-            "Sample Name,pH (KCl)",
-            "Sample Name,Sample Name"
-        );
+        let duplicate = CSV.replace("Sample Name,pH (KCl)", "Sample Name,Sample Name");
         assert!(run_fixture(&duplicate).is_err());
     }
 
