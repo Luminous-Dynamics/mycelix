@@ -144,10 +144,7 @@ fn maximum_gap(times: &[f64]) -> Option<f64> {
         .max_by(f64::total_cmp)
 }
 
-fn trapezoid_absolute_anomaly(
-    values: &[(f64, f64)],
-    baseline: f64,
-) -> Option<f64> {
+fn trapezoid_absolute_anomaly(values: &[(f64, f64)], baseline: f64) -> Option<f64> {
     if values.len() < 2 {
         return None;
     }
@@ -183,10 +180,16 @@ fn validate(s: &Scenario) -> Result<(), String> {
         ("event_end_hours", c.event_end_hours),
         ("pulse_start_hours", c.pulse_start_hours),
         ("pulse_end_hours", c.pulse_end_hours),
-        ("maximum_event_sample_gap_hours", c.maximum_event_sample_gap_hours),
+        (
+            "maximum_event_sample_gap_hours",
+            c.maximum_event_sample_gap_hours,
+        ),
         ("minimum_pulse_departure", c.minimum_pulse_departure),
         ("sensor_energy_wh_per_sample", c.sensor_energy_wh_per_sample),
-        ("maximum_energy_wh_per_policy", c.maximum_energy_wh_per_policy),
+        (
+            "maximum_energy_wh_per_policy",
+            c.maximum_energy_wh_per_policy,
+        ),
     ] {
         finite(name, value)?;
     }
@@ -259,13 +262,19 @@ fn validate(s: &Scenario) -> Result<(), String> {
             policy.policy_class.as_str(),
             "fixed_cadence" | "forcing_triggered" | "adaptive_from_past" | "high_rate_oracle"
         ) {
-            return Err(format!("{} has an unsupported policy class", policy.policy_id));
+            return Err(format!(
+                "{} has an unsupported policy class",
+                policy.policy_id
+            ));
         }
         if !matches!(
             policy.evaluation_role.as_str(),
             "deployable_candidate" | "evaluation_ceiling_only"
         ) {
-            return Err(format!("{} has an unsupported evaluation role", policy.policy_id));
+            return Err(format!(
+                "{} has an unsupported evaluation role",
+                policy.policy_id
+            ));
         }
         if (policy.policy_class == "high_rate_oracle")
             != (policy.evaluation_role == "evaluation_ceiling_only")
@@ -282,19 +291,28 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 || action.reason_code.trim().is_empty()
                 || !seen_sample_ids.insert(action.sample_id.clone())
             {
-                return Err(format!("{} has empty or duplicate sample action IDs", policy.policy_id));
+                return Err(format!(
+                    "{} has empty or duplicate sample action IDs",
+                    policy.policy_id
+                ));
             }
             finite("policy decision time", action.decision_time_hours)?;
             finite("policy sample time", action.sample_time_hours)?;
             if action.decision_time_hours < 0.0
                 || action.sample_time_hours < action.decision_time_hours
             {
-                return Err(format!("{} has a sample scheduled before its decision", policy.policy_id));
+                return Err(format!(
+                    "{} has a sample scheduled before its decision",
+                    policy.policy_id
+                ));
             }
             if let Some(previous) = prior_sample_time
                 && action.sample_time_hours <= previous
             {
-                return Err(format!("{} sample times must increase strictly", policy.policy_id));
+                return Err(format!(
+                    "{} sample times must increase strictly",
+                    policy.policy_id
+                ));
             }
             prior_sample_time = Some(action.sample_time_hours);
 
@@ -311,10 +329,11 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 {
                     return Err("precommitted actions must have time-zero decisions and no observation basis".into());
                 }
-                if policy.policy_class == "adaptive_from_past"
-                    && !acquired.is_empty()
-                {
-                    return Err("adaptive policy cannot revert to precommitted actions after observing".into());
+                if policy.policy_class == "adaptive_from_past" && !acquired.is_empty() {
+                    return Err(
+                        "adaptive policy cannot revert to precommitted actions after observing"
+                            .into(),
+                    );
                 }
             } else if action.action_mode == "adaptive_from_past" {
                 if !matches!(
@@ -340,11 +359,13 @@ fn validate(s: &Scenario) -> Result<(), String> {
                         ));
                     }
                 }
-                if action.decision_time_hours < *action.decision_basis_observation_ids
-                    .iter()
-                    .filter_map(|id| acquired.get(id))
-                    .max_by(|a, b| a.total_cmp(b))
-                    .unwrap_or(&0.0)
+                if action.decision_time_hours
+                    < *action
+                        .decision_basis_observation_ids
+                        .iter()
+                        .filter_map(|id| acquired.get(id))
+                        .max_by(|a, b| a.total_cmp(b))
+                        .unwrap_or(&0.0)
                 {
                     return Err("decision time precedes one of its basis observations".into());
                 }
@@ -419,7 +440,10 @@ fn evaluate_policy(
             (None, None, None, None)
         };
 
-    let event_times: Vec<f64> = event_samples.iter().map(|observation| observation.time_hours).collect();
+    let event_times: Vec<f64> = event_samples
+        .iter()
+        .map(|observation| observation.time_hours)
+        .collect();
     let maximum_event_gap = maximum_gap(&event_times);
     let has_event_start = event_samples
         .iter()
@@ -439,10 +463,7 @@ fn evaluate_policy(
             .iter()
             .map(|observation| (observation.time_hours, observation.response_value))
             .collect();
-        (
-            trapezoid_absolute_anomaly(&values, baseline),
-            "qualified",
-        )
+        (trapezoid_absolute_anomaly(&values, baseline), "qualified")
     };
 
     let integral_error = sampled_integral.map(|estimate| (estimate - true_integral).abs());
@@ -470,8 +491,16 @@ fn evaluate_policy(
         evaluation_role: policy.evaluation_role.clone(),
         sample_count,
         sample_energy_wh: sample_energy,
-        sample_budget_status: if sample_budget_ok { "within_budget" } else { "exceeded_budget" },
-        energy_budget_status: if energy_budget_ok { "within_budget" } else { "exceeded_budget" },
+        sample_budget_status: if sample_budget_ok {
+            "within_budget"
+        } else {
+            "exceeded_budget"
+        },
+        energy_budget_status: if energy_budget_ok {
+            "within_budget"
+        } else {
+            "exceeded_budget"
+        },
         pulse_detected,
         pulse_capture_status: if pulse_detected { "captured" } else { "missed" },
         sampled_peak_value,
@@ -510,8 +539,7 @@ fn build_report(s: &Scenario, digest: String) -> Report {
         .latent_truth
         .iter()
         .filter(|truth| {
-            truth.time_hours >= c.event_start_hours
-                && truth.time_hours <= c.event_end_hours
+            truth.time_hours >= c.event_start_hours && truth.time_hours <= c.event_end_hours
         })
         .collect();
 
@@ -570,7 +598,9 @@ fn build_report(s: &Scenario, digest: String) -> Report {
 
 fn run(input: &Path, output: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if output.exists() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into());
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into(),
+        );
     }
     let bytes = fs::read(input)?;
     let scenario: Scenario = serde_json::from_slice(&bytes)?;
