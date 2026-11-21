@@ -18,7 +18,7 @@ The new module carries opaque references to those owners. It is not a second CRS
 ## Core invariants
 
 - A time record can preserve an absent raw reading explicitly (raw_value=None, unit=None) or preserve a supplied numeric reading and unit. A supplied number without a qualified time-basis remains unqualified; no UTC or common clock is invented.
-- Time intervals can be compared only when both endpoints have numeric readings, the same qualified basis and the same declared unit; #435 owns actual conversion/correlation. Missing readings cannot be replaced with zero or receipt time.
+- Time intervals can be compared only when both endpoints have numeric readings, the same qualified basis, the same declared unit and the same optional normalization commitment; #435 owns actual conversion/correlation. Mixed normalization commitments are rejected. Missing readings cannot be replaced with zero or receipt time.
 - Frame identity is an opaque qualified reference owned by #416; bare coordinate numbers cannot create a frame.
 - Observations, estimates and predictions are distinct Rust types and remain discriminated in serialized claims.
 - Estimates bind parent evidence commitments and estimator profile identity.
@@ -28,7 +28,7 @@ The new module carries opaque references to those owners. It is not a second CRS
 
 ## Tests
 
-Nine unit tests cover legacy preservation, time-basis mismatch, interval ordering/unit mismatch, estimate lineage, prediction lineage/time, uncertainty validity, duplicate failure domains, claim discrimination and empty references. These tests are authored but have not yet been compiled or run in this environment.
+Nine unit tests cover legacy preservation, time-basis mismatch, interval ordering/unit/normalization mismatch, source-time serialization round-trip, qualified-time completeness, estimate lineage, prediction lineage/time, uncertainty validity, duplicate failure domains, claim discrimination and empty references. These tests are authored but have not yet been compiled or run in this environment.
 
 ## Downstream integration
 
