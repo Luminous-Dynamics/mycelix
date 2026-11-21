@@ -6,7 +6,7 @@ on:
     paths:
       - 'research/terra-preta/SA_SOIL_SOURCE_ADMISSION_V0.1.md'
       - 'research/terra-preta/schemas/sa-soil-source-admission.schema.json'
-      - 'research/terra-preta/examples/sa-soil-source-admission-fixtures.json'
+      - 'research/terra-preta/examples/sa-soil-source-admission/**'
       - '.github/workflows/terra-preta-sa-source-admission.yml'
   workflow_dispatch:
 
