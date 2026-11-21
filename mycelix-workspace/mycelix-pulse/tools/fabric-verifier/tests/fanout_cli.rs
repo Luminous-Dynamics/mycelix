@@ -73,6 +73,7 @@ fn write_fanout_fixture(directory: &Path) -> (String, PathBuf, PathBuf, PathBuf,
         "required_recipient_set_commitment": recipient_set,
         "recipient_commitment": recipient_commitment,
         "content_commitment": "a".repeat(64),
+        "recipient_unit": "ACCOUNT",
         "aggregation_policy": "ALL_REQUIRED"
     });
 
@@ -177,6 +178,7 @@ fn cli_reports_all_required_receipt_claims_as_consistent() {
         result["aggregate_evidence_state"],
         "ALL_REQUIRED_RECEIPT_CLAIMS_CONSISTENT"
     );
+    assert_eq!(result["recipient_unit"], "ACCOUNT");
     assert_eq!(result["required_recipients"], 1);
     assert_eq!(result["verified_recipients"], 1);
     assert_eq!(
