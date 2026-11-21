@@ -1,0 +1,61 @@
+name: Terra Preta root-channel inventory audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/ROOT_CHANNEL_INVENTORY_AUDIT_V0.1.md'
+      - 'research/terra-preta/schemas/root-channel-inventory-input.schema.json'
+      - 'research/terra-preta/schemas/root-channel-inventory-report.schema.json'
+      - 'research/terra-preta/tools/root-channel-inventory/**'
+      - '.github/workflows/terra-preta-root-channel-inventory.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  root-channel-inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/root-channel-inventory/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/root-channel-inventory/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/root-channel-inventory/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate fixture and report
+        run: |
+          jsonschema-cli validate research/terra-preta/schemas/root-channel-inventory-input.schema.json \
+            --instance research/terra-preta/tools/root-channel-inventory/fixtures/synthetic-root-channel-inventory.json \
+            --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/root-channel-inventory/Cargo.toml -- \
+            research/terra-preta/tools/root-channel-inventory/fixtures/synthetic-root-channel-inventory.json \
+            "$RUNNER_TEMP/root-channel-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/root-channel-inventory-report.schema.json \
+            --instance "$RUNNER_TEMP/root-channel-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .pathway_count == 4 and
+            .snapshot_count == 3 and
+            .root_origin_evidence_resolved_count == 2 and
+            .direct_3d_connectivity_count == 0 and
+            .endpoint_graph_component_count == 1 and
+            .controls.no_2d_to_3d_promotion_pass == true
+          ' "$RUNNER_TEMP/root-channel-report.json"
+      - name: Reject 2D-to-3D promotion
+        run: |
+          fixture=research/terra-preta/tools/root-channel-inventory/fixtures/synthetic-root-channel-inventory.json
+          jq '.pathways[0].connectivity_evidence_status = "observed_3d"' "$fixture" > "$RUNNER_TEMP/false-3d.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/root-channel-inventory/Cargo.toml -- \
+            "$RUNNER_TEMP/false-3d.json" "$RUNNER_TEMP/false-3d-report.json"; then
+            echo "Expected 2D-to-3D promotion rejection"
+            exit 1
+          fi
