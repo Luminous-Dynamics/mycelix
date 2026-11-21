@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   validate-space-qualification-contract:
-    name: Validate Space qualification package fixtures
+    name: Validate Space qualification package and pair ledger
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -32,14 +32,6 @@ jobs:
           set -euo pipefail
           cargo test --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-qualification-verifier/Cargo.toml
 
-      - name: Upload resolved verifier lockfile for review
-        uses: actions/upload-artifact@v4
-        with:
-          name: space-verifier-cargo-lock
-          path: mycelix-workspace/mycelix-space/tools/space-qualification-verifier/Cargo.lock
-          if-no-files-found: error
-          retention-days: 1
-
       - name: Verify synthetic package without upgrading its claim status
         shell: bash
         run: |
@@ -49,54 +41,22 @@ jobs:
             mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-package-indeterminate-v0.1.json \
             .
 
-      - name: Parse schema and fixtures as JSON
+      - name: Parse schema and all synthetic evidence artifacts as JSON
         shell: bash
         run: |
           set -euo pipefail
           jq -e . mycelix-workspace/mycelix-space/contracts/space-qualification-package-v0.1.schema.json >/dev/null
           jq -e . mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-source-state-set-v0.1.json >/dev/null
+          jq -e . mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-pair-screen-result-v0.1.json >/dev/null
           jq -e . mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-package-indeterminate-v0.1.json >/dev/null
 
-      - name: Verify exact synthetic source bytes
+      - name: Verify exact retained artifact bytes
         shell: bash
         run: |
           set -euo pipefail
           package_file="mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-package-indeterminate-v0.1.json"
           jq -r '.source_artifacts[] | select(.preservation == "exact_bytes_retained") | [.artifact_path, .raw_bytes_sha256, (.byte_length | tostring)] | @tsv' "$package_file" |
-          while IFS=
-
-      - name: Enforce the coverage-complete but risk-indeterminate fixture
-        shell: bash
-        run: |
-          set -euo pipefail
-          package_file="mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-package-indeterminate-v0.1.json"
-          jq -e '
-            . as $package
-            | (.request.primary_object_id) as $primary
-            | .schema_version == "space-qualification-package/v0.1"
-            and .package_class == "synthetic_only"
-            and .pair_coverage.disposition == "complete"
-            and .pair_coverage.requested_pair_count == ((.request.requested_object_ids | length) - 1)
-            and ((.pair_coverage.retained_candidate_count + .pair_coverage.proven_excluded_count + .pair_coverage.unresolved_count + .pair_coverage.unsupported_count) == .pair_coverage.requested_pair_count)
-            and (([.pair_coverage.pairs[].secondary_object_id] | sort) == ([.request.requested_object_ids[] | select(. != $primary)] | sort))
-            and (.pair_coverage.pairs | all(.[]; .disposition == "proven_excluded" or (.disposition == "retained_candidate" and .narrow_phase_status == "searched_no_event" and .narrow_phase_assessment_id != null)))
-            and (.pair_coverage.pairs | all(.[]; . as $pair | any($package.assessments[]; .assessment_id == $pair.narrow_phase_assessment_id and .pair_id == $pair.pair_id and .assessment_type == "conjunction_screen" and .status == "completed" and .output_artifact_id != null and .output_sha256 != null)))
-            and .coverage.disposition == "complete"
-            and .coverage.requested_object_count == (.request.requested_object_ids | length)
-            and .coverage.assessed_object_count == (.object_dispositions | map(select(.disposition == "screened")) | length)
-            and .coverage.excluded_object_count == (.object_dispositions | map(select(.disposition == "excluded")) | length)
-            and .coverage.unassessed_object_count == (.object_dispositions | map(select(.disposition == "not_assessed")) | length)
-            and ((.request.requested_object_ids | sort) == (.object_dispositions | map(.object_id) | sort))
-            and ((.request.requested_object_ids | sort) == (.coverage.time_segments | map(select(.disposition == "assessed") | .object_id) | sort))
-            and (.assessments | all(.[]; .collision_probability.status != "reported" or (.collision_probability.value != null and .collision_probability.method_id != null)))
-            and (.source_artifacts | all(.[]; all(.field_semantics[]; .status != "absent_optional" or .normalized_value == null)))
-            and (.assessments | any(.[]; .covariance_status == "absent_optional" and .collision_probability.status == "not_calculated" and .collision_probability.value == null))
-            and .result.disposition == "indeterminate"
-            and .result.negative_conclusion == false
-            and .authority.actuation_authority == false
-            and (if .result.negative_conclusion then (.result.disposition == "complete" and .coverage.disposition == "complete") else true end)
-          ' "$package_file" >/dev/null
-\t' read -r source_file expected_sha expected_length; do
+          while IFS=$'\t' read -r source_file expected_sha expected_length; do
             test -n "$source_file"
             actual_sha="$(sha256sum "$source_file" | awk '{print $1}')"
             actual_length="$(wc -c < "$source_file" | tr -d ' ')"
@@ -104,26 +64,36 @@ jobs:
             test "$expected_length" = "$actual_length"
           done
 
-      - name: Enforce the coverage-complete but risk-indeterminate fixture
+      - name: Enforce complete object, time, pair and abstention semantics
         shell: bash
         run: |
           set -euo pipefail
           package_file="mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-package-indeterminate-v0.1.json"
           jq -e '
-            .schema_version == "space-qualification-package/v0.1"
-            and .package_class == "synthetic_only"
-            and .coverage.disposition == "complete"
-            and .coverage.requested_object_count == (.request.requested_object_ids | length)
-            and .coverage.assessed_object_count == (.object_dispositions | map(select(.disposition == "screened")) | length)
-            and .coverage.excluded_object_count == (.object_dispositions | map(select(.disposition == "excluded")) | length)
-            and .coverage.unassessed_object_count == (.object_dispositions | map(select(.disposition == "not_assessed")) | length)
-            and ((.request.requested_object_ids | sort) == (.object_dispositions | map(.object_id) | sort))
-            and ((.request.requested_object_ids | sort) == (.coverage.time_segments | map(select(.disposition == "assessed") | .object_id) | sort))
-            and (.assessments | all(.[]; .collision_probability.status != "reported" or (.collision_probability.value != null and .collision_probability.method_id != null)))
-            and (.source_artifacts | all(.[]; all(.field_semantics[]; .status != "absent_optional" or .normalized_value == null)))
-            and (.assessments | any(.[]; .covariance_status == "absent_optional" and .collision_probability.status == "not_calculated" and .collision_probability.value == null))
-            and .result.disposition == "indeterminate"
-            and .result.negative_conclusion == false
-            and .authority.actuation_authority == false
-            and (if .result.negative_conclusion then (.result.disposition == "complete" and .coverage.disposition == "complete") else true end)
+            . as $p
+            | ($p.request.primary_object_id) as $primary
+            | ($p.pair_coverage.pairs | map(.secondary_object_id) | sort) as $pair_secondaries
+            | ($p.request.requested_object_ids | map(select(. != $primary)) | sort) as $expected_secondaries
+            | $p.schema_version == "space-qualification-package/v0.1"
+            and $p.package_class == "synthetic_only"
+            and $p.pair_coverage.disposition == "complete"
+            and $p.pair_coverage.requested_pair_count == (($p.request.requested_object_ids | length) - 1)
+            and ($pair_secondaries == $expected_secondaries)
+            and (($p.pair_coverage.retained_candidate_count + $p.pair_coverage.proven_excluded_count + $p.pair_coverage.unresolved_count + $p.pair_coverage.unsupported_count) == $p.pair_coverage.requested_pair_count)
+            and ($p.pair_coverage.pairs | all(.[]; .disposition == "proven_excluded" or (.disposition == "retained_candidate" and .narrow_phase_status == "searched_no_event" and .narrow_phase_assessment_id != null)))
+            and ($p.pair_coverage.pairs | all(.[]; . as $pair | any($p.assessments[]; .assessment_id == $pair.narrow_phase_assessment_id and .pair_id == $pair.pair_id and .assessment_type == "conjunction_screen" and .status == "completed" and .output_artifact_id != null and .output_sha256 != null)))
+            and $p.coverage.disposition == "complete"
+            and $p.coverage.requested_object_count == ($p.request.requested_object_ids | length)
+            and $p.coverage.assessed_object_count == ($p.object_dispositions | map(select(.disposition == "screened")) | length)
+            and $p.coverage.excluded_object_count == ($p.object_dispositions | map(select(.disposition == "excluded")) | length)
+            and $p.coverage.unassessed_object_count == ($p.object_dispositions | map(select(.disposition == "not_assessed")) | length)
+            and (($p.request.requested_object_ids | sort) == ($p.object_dispositions | map(.object_id) | sort))
+            and (($p.request.requested_object_ids | sort) == ($p.coverage.time_segments | map(select(.disposition == "assessed") | .object_id) | sort))
+            and ($p.assessments | all(.[]; .collision_probability.status != "reported" or (.collision_probability.value != null and .collision_probability.method_id != null)))
+            and ($p.source_artifacts | all(.[]; all(.field_semantics[]; .status != "absent_optional" or .normalized_value == null)))
+            and ($p.assessments | any(.[]; .covariance_status == "absent_optional" and .collision_probability.status == "not_calculated" and .collision_probability.value == null))
+            and $p.result.disposition == "indeterminate"
+            and $p.result.negative_conclusion == false
+            and $p.authority.actuation_authority == false
+            and (if $p.result.negative_conclusion then ($p.result.disposition == "complete" and $p.coverage.disposition == "complete" and $p.pair_coverage.disposition == "complete") else true end)
           ' "$package_file" >/dev/null
