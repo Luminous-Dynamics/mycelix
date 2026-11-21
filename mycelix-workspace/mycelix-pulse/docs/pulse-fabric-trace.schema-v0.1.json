@@ -469,7 +469,8 @@
           },
           "recipient_commitment": {
             "type": "string",
-            "pattern": "^[0-9a-f]{64}$"
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Opaque, scoped recipient pseudonym that binds this event to one recipient without exposing a raw identifier."
           }
         },
         "allOf": [
@@ -563,7 +564,8 @@
         },
         "group_id_commitment": {
           "type": "string",
-          "pattern": "^[0-9a-f]{64}$"
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Opaque group identifier commitment, scoped under the declared membership epoch."
         },
         "membership_epoch": {
           "type": "integer",
@@ -579,7 +581,8 @@
         },
         "recipient_commitment": {
           "type": "string",
-          "pattern": "^[0-9a-f]{64}$"
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Opaque per-fanout or per-epoch scoped recipient pseudonym; not a raw or globally stable recipient identifier."
         },
         "content_commitment": {
           "type": "string",
