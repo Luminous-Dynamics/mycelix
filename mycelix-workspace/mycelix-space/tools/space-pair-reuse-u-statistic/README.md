@@ -12,6 +12,8 @@ Let h(X_i,Y_j) in {0,1} be the fixed high-fidelity continuous-time event indicat
 
 It is unbiased for E[h(X,Y)] under the declared product distribution.
 
+For collision avoidance, the preferred E0 kernel is a **whole-horizon path event**: h(X,Y)=1 if the high-fidelity continuous-time pair trajectory has any physical contact during the fixed declared interval, and 0 otherwise. All local minima and repeated close approaches within that interval are evaluated by the same pair kernel. This avoids multiplying separate per-TCA probabilities under an unjustified encounter-independence assumption. If the product requires per-encounter results, they must be reported as a separate dependent event vector; they are not independent Bernoulli trials.
+
 The mn outcomes are not independent: every primary trajectory is reused across n pair checks and every secondary trajectory across m pair checks. The report therefore always marks `dependent_pair_outcomes=true`. It must never apply a binomial confidence interval as though mn were independent hits/trials.
 
 ## Distribution-free one-sided bound
