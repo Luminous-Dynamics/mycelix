@@ -1,0 +1,269 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic biomass cascading-use eligibility scenario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "evidence_class",
+    "scenario_id",
+    "season_id",
+    "season_start",
+    "season_end",
+    "source_lots",
+    "allocations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "biomass-cascade-ledger-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_biomass_eligibility_not_harvest_authorization"
+    },
+    "evidence_class": {
+      "const": "synthetic"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "season_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "season_start": {
+      "type": "string",
+      "format": "date"
+    },
+    "season_end": {
+      "type": "string",
+      "format": "date"
+    },
+    "source_lots": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "source_type",
+          "custodian_id",
+          "source_record_sha256",
+          "source_start",
+          "source_end",
+          "gross_dry_mass_kg",
+          "gross_dry_mass_uncertainty_kg",
+          "retention_status",
+          "required_retention_kg",
+          "retention_uncertainty_kg",
+          "retention_method",
+          "retention_authority",
+          "retention_approval_reference",
+          "retention_approval_date",
+          "retention_approval_valid_until",
+          "rights_status",
+          "rights_authority",
+          "rights_reference",
+          "existing_competing_use_kg",
+          "existing_competing_use_uncertainty_kg",
+          "prior_batch_allocated_kg",
+          "prior_batch_allocation_uncertainty_kg",
+          "approved_harvest_cap_kg",
+          "harvest_cap_authority",
+          "harvest_cap_reference",
+          "harvest_cap_valid_until",
+          "nutrient_content_kg_per_dry_tonne"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_type": {
+            "enum": [
+              "crop_residue",
+              "forestry_residue",
+              "green_waste",
+              "manure",
+              "invasive_biomass",
+              "other"
+            ]
+          },
+          "custodian_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_record_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "source_start": {
+            "type": "string",
+            "format": "date"
+          },
+          "source_end": {
+            "type": "string",
+            "format": "date"
+          },
+          "gross_dry_mass_kg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "gross_dry_mass_uncertainty_kg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "retention_status": {
+            "enum": [
+              "approved",
+              "unknown",
+              "prohibited"
+            ]
+          },
+          "required_retention_kg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "retention_uncertainty_kg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "retention_method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "retention_authority": {
+            "type": "string",
+            "minLength": 1
+          },
+          "retention_approval_reference": {
+            "type": "string",
+            "minLength": 1
+          },
+          "retention_approval_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "retention_approval_valid_until": {
+            "type": "string",
+            "format": "date"
+          },
+          "rights_status": {
+            "enum": [
+              "verified",
+              "unknown",
+              "prohibited"
+            ]
+          },
+          "rights_authority": {
+            "type": "string",
+            "minLength": 1
+          },
+          "rights_reference": {
+            "type": "string",
+            "minLength": 1
+          },
+          "existing_competing_use_kg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "existing_competing_use_uncertainty_kg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "prior_batch_allocated_kg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "prior_batch_allocation_uncertainty_kg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "approved_harvest_cap_kg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "harvest_cap_authority": {
+            "type": "string",
+            "minLength": 1
+          },
+          "harvest_cap_reference": {
+            "type": "string",
+            "minLength": 1
+          },
+          "harvest_cap_valid_until": {
+            "type": "string",
+            "format": "date"
+          },
+          "nutrient_content_kg_per_dry_tonne": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "carbon",
+              "nitrogen",
+              "phosphorus",
+              "potassium",
+              "uncertainty"
+            ],
+            "properties": {
+              "carbon": {
+                "type": "number",
+                "minimum": 0
+              },
+              "nitrogen": {
+                "type": "number",
+                "minimum": 0
+              },
+              "phosphorus": {
+                "type": "number",
+                "minimum": 0
+              },
+              "potassium": {
+                "type": "number",
+                "minimum": 0
+              },
+              "uncertainty": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "allocations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "allocation_id",
+          "batch_id",
+          "source_id",
+          "requested_dry_mass_kg"
+        ],
+        "properties": {
+          "allocation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "batch_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requested_dry_mass_kg": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
+    }
+  }
+}
