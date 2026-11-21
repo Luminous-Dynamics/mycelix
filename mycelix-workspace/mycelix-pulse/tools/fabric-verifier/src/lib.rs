@@ -97,6 +97,7 @@ const ATTEMPT_REQUIRED: &[&str] = &[
 
 const TERMINAL_DISPOSITIONS: &[&str] = &[
     "SUCCESS_VERIFIED",
+    "PARTIAL",
     "FAILED",
     "EXPIRED",
     "REVOKED",
