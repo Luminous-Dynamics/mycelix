@@ -100,3 +100,6 @@ The present crate is an auditable estimator baseline, not a claim of better coll
 ## Claim ceiling
 
 The guarantee is conditional on correct target/proposal densities, independent draws from the frozen proposal, and correct high-fidelity event labels. It does not validate orbit determination, force models, covariance realism, event-search completeness, ISO conformity, operational suitability or maneuver safety.
+
+
+The boundary-sentinel API is implemented in `assess_boundary_sentinels`. Its counts are descriptive by design; callers must supply a separately qualified sampling design before population-level inference is allowed.
