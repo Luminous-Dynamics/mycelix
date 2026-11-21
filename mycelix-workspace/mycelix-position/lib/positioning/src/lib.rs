@@ -28,6 +28,11 @@ pub mod kalman;
 pub mod measurements;
 pub mod navigation_v2;
 pub mod time_correlation_v2;
+pub use time_correlation_v2::{
+    ClockCorrelationV2, ClockCorrelationUncertaintyV2, ClockDomainV2, NormalizedInstantV2,
+    QualifiedInstantV2, TimeBasisV2, TimeCommitmentV2, TimeScaleIdV2, TimeUnitV2,
+};
+
 pub mod navigation_runtime;
 pub mod ranging;
 pub mod space_navigation;
