@@ -76,16 +76,29 @@ impl OrthonormalLineFrame {
         if self.direction.iter().any(|value| !value.is_finite()) {
             return Err(LineSamplingError::NonFiniteValue("direction"));
         }
-        let norm = self.direction.iter().map(|value| value * value).sum::<f64>().sqrt();
+        let norm = self
+            .direction
+            .iter()
+            .map(|value| value * value)
+            .sum::<f64>()
+            .sqrt();
         if (norm - 1.0).abs() > ORTHONORMAL_TOLERANCE {
             return Err(LineSamplingError::DirectionNotUnitLength(norm));
         }
         if self.complement_basis.len() != dimension
-            || self.complement_basis.iter().any(|row| row.len() != dimension - 1)
+            || self
+                .complement_basis
+                .iter()
+                .any(|row| row.len() != dimension - 1)
         {
             return Err(LineSamplingError::InvalidComplementBasisShape);
         }
-        if self.complement_basis.iter().flatten().any(|value| !value.is_finite()) {
+        if self
+            .complement_basis
+            .iter()
+            .flatten()
+            .any(|value| !value.is_finite())
+        {
             return Err(LineSamplingError::NonFiniteValue("complement_basis"));
         }
 
@@ -98,7 +111,9 @@ impl OrthonormalLineFrame {
             }
             for other in 0..=column {
                 let dot = (0..dimension)
-                    .map(|row| self.complement_basis[row][column] * self.complement_basis[row][other])
+                    .map(|row| {
+                        self.complement_basis[row][column] * self.complement_basis[row][other]
+                    })
                     .sum::<f64>();
                 let expected = if column == other { 1.0 } else { 0.0 };
                 if (dot - expected).abs() > ORTHONORMAL_TOLERANCE {
@@ -196,8 +211,13 @@ pub enum LineSamplingError {
     EmptyDirection,
     DirectionNotUnitLength(f64),
     InvalidComplementBasisShape,
-    ComplementBasisNotOrthonormal { column_a: usize, column_b: usize },
-    ComplementBasisNotOrthogonalToDirection { column: usize },
+    ComplementBasisNotOrthonormal {
+        column_a: usize,
+        column_b: usize,
+    },
+    ComplementBasisNotOrthogonalToDirection {
+        column: usize,
+    },
     NonFiniteValue(&'static str),
     DuplicateLineId(String),
     DuplicateTransverseSampleId(String),
@@ -209,9 +229,18 @@ pub enum LineSamplingError {
     IncompleteIntervalEnumeration,
     UnresolvedCollisionIntervals,
     LowFidelityOracleNotAccepted,
-    TransverseDimensionMismatch { expected: usize, actual: usize },
-    InvalidInterval { lower: f64, upper: f64 },
-    IntervalsOverlapOrAreUnsorted { previous_upper: f64, next_lower: f64 },
+    TransverseDimensionMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    InvalidInterval {
+        lower: f64,
+        upper: f64,
+    },
+    IntervalsOverlapOrAreUnsorted {
+        previous_upper: f64,
+        next_lower: f64,
+    },
     NumericalTailRangeExceeded(f64),
     ConditionalMassExceedsOne(f64),
 }
@@ -219,32 +248,98 @@ pub enum LineSamplingError {
 impl fmt::Display for LineSamplingError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidIdentifier(field) => write!(f, "{field} must be non-empty and use only ASCII letters, digits, dot, underscore, colon, slash and hyphen"),
-            Self::InvalidSha256(field) => write!(f, "{field} must be a 64-character lowercase hexadecimal SHA-256 digest"),
-            Self::InvalidDelta(value) => write!(f, "delta must be finite and in (0,1); got {value}"),
+            Self::InvalidIdentifier(field) => write!(
+                f,
+                "{field} must be non-empty and use only ASCII letters, digits, dot, underscore, colon, slash and hyphen"
+            ),
+            Self::InvalidSha256(field) => write!(
+                f,
+                "{field} must be a 64-character lowercase hexadecimal SHA-256 digest"
+            ),
+            Self::InvalidDelta(value) => {
+                write!(f, "delta must be finite and in (0,1); got {value}")
+            }
             Self::EmptyLineSet => write!(f, "at least one transverse line is required"),
-            Self::InsufficientIndependentLines(count) => write!(f, "at least two independent transverse lines are required; got {count}"),
+            Self::InsufficientIndependentLines(count) => write!(
+                f,
+                "at least two independent transverse lines are required; got {count}"
+            ),
             Self::EmptyDirection => write!(f, "line direction must not be empty"),
-            Self::DirectionNotUnitLength(norm) => write!(f, "line direction must be unit length; norm was {norm}"),
-            Self::InvalidComplementBasisShape => write!(f, "complement basis must have d rows and d-1 columns"),
-            Self::ComplementBasisNotOrthonormal { column_a, column_b } => write!(f, "complement basis columns {column_a} and {column_b} are not orthonormal"),
-            Self::ComplementBasisNotOrthogonalToDirection { column } => write!(f, "complement basis column {column} is not orthogonal to line direction"),
-            Self::NonFiniteValue(field) => write!(f, "{field} contains NaN or infinity where a finite value is required"),
+            Self::DirectionNotUnitLength(norm) => {
+                write!(f, "line direction must be unit length; norm was {norm}")
+            }
+            Self::InvalidComplementBasisShape => {
+                write!(f, "complement basis must have d rows and d-1 columns")
+            }
+            Self::ComplementBasisNotOrthonormal { column_a, column_b } => write!(
+                f,
+                "complement basis columns {column_a} and {column_b} are not orthonormal"
+            ),
+            Self::ComplementBasisNotOrthogonalToDirection { column } => write!(
+                f,
+                "complement basis column {column} is not orthogonal to line direction"
+            ),
+            Self::NonFiniteValue(field) => write!(
+                f,
+                "{field} contains NaN or infinity where a finite value is required"
+            ),
             Self::DuplicateLineId(value) => write!(f, "duplicate line ID {value}"),
-            Self::DuplicateTransverseSampleId(value) => write!(f, "duplicate transverse sample ID {value}"),
-            Self::DuplicateDirectionTrainingAndEvaluationSet => write!(f, "direction training and transverse evaluation IDs must differ"),
-            Self::MissingSamplingEvidence => write!(f, "sampling design, evidence reference, line order and model revisions are required"),
-            Self::LinesNotIid => write!(f, "transverse lines must be IID under the declared standard-normal complement distribution"),
-            Self::DirectionNotFrozen => write!(f, "direction and complement basis must be frozen before evaluation"),
-            Self::EvaluationSetReusesDirectionTraining => write!(f, "transverse evaluation lines must be disjoint from direction training"),
-            Self::IncompleteIntervalEnumeration => write!(f, "the line solver has not attested complete enumeration of all collision intervals"),
-            Self::UnresolvedCollisionIntervals => write!(f, "unresolved collision intervals cannot be treated as non-collisions"),
-            Self::LowFidelityOracleNotAccepted => write!(f, "line intervals must be classified by a high-fidelity continuous-time event oracle"),
-            Self::TransverseDimensionMismatch { expected, actual } => write!(f, "transverse coordinate dimension mismatch: expected {expected}, got {actual}"),
-            Self::InvalidInterval { lower, upper } => write!(f, "invalid interval [{lower}, {upper}]"),
-            Self::IntervalsOverlapOrAreUnsorted { previous_upper, next_lower } => write!(f, "collision intervals overlap or are unsorted: previous upper {previous_upper}, next lower {next_lower}"),
-            Self::NumericalTailRangeExceeded(value) => write!(f, "normal tail argument {value} exceeds the qualified numerical range"),
-            Self::ConditionalMassExceedsOne(value) => write!(f, "sum of collision interval masses exceeds one: {value}"),
+            Self::DuplicateTransverseSampleId(value) => {
+                write!(f, "duplicate transverse sample ID {value}")
+            }
+            Self::DuplicateDirectionTrainingAndEvaluationSet => write!(
+                f,
+                "direction training and transverse evaluation IDs must differ"
+            ),
+            Self::MissingSamplingEvidence => write!(
+                f,
+                "sampling design, evidence reference, line order and model revisions are required"
+            ),
+            Self::LinesNotIid => write!(
+                f,
+                "transverse lines must be IID under the declared standard-normal complement distribution"
+            ),
+            Self::DirectionNotFrozen => write!(
+                f,
+                "direction and complement basis must be frozen before evaluation"
+            ),
+            Self::EvaluationSetReusesDirectionTraining => write!(
+                f,
+                "transverse evaluation lines must be disjoint from direction training"
+            ),
+            Self::IncompleteIntervalEnumeration => write!(
+                f,
+                "the line solver has not attested complete enumeration of all collision intervals"
+            ),
+            Self::UnresolvedCollisionIntervals => write!(
+                f,
+                "unresolved collision intervals cannot be treated as non-collisions"
+            ),
+            Self::LowFidelityOracleNotAccepted => write!(
+                f,
+                "line intervals must be classified by a high-fidelity continuous-time event oracle"
+            ),
+            Self::TransverseDimensionMismatch { expected, actual } => write!(
+                f,
+                "transverse coordinate dimension mismatch: expected {expected}, got {actual}"
+            ),
+            Self::InvalidInterval { lower, upper } => {
+                write!(f, "invalid interval [{lower}, {upper}]")
+            }
+            Self::IntervalsOverlapOrAreUnsorted {
+                previous_upper,
+                next_lower,
+            } => write!(
+                f,
+                "collision intervals overlap or are unsorted: previous upper {previous_upper}, next lower {next_lower}"
+            ),
+            Self::NumericalTailRangeExceeded(value) => write!(
+                f,
+                "normal tail argument {value} exceeds the qualified numerical range"
+            ),
+            Self::ConditionalMassExceedsOne(value) => {
+                write!(f, "sum of collision interval masses exceeds one: {value}")
+            }
         }
     }
 }
@@ -253,16 +348,16 @@ impl std::error::Error for LineSamplingError {}
 
 fn valid_identifier(value: &str) -> bool {
     !value.trim().is_empty()
-        && value.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric() || b"._:/-".contains(&byte)
-        })
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"._:/-".contains(&byte))
 }
 
 fn valid_sha256(value: &str) -> bool {
     value.len() == 64
-        && value.bytes().all(|byte| {
-            byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)
-        })
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 fn validate_delta(delta: f64) -> Result<(), LineSamplingError> {
@@ -316,10 +411,7 @@ pub fn standard_normal_upper_tail(x: f64) -> Result<f64, LineSamplingError> {
 ///
 /// Tail differences are used directly so far-tail intervals do not subtract
 /// two CDF values close to one.
-pub fn standard_normal_interval_mass(
-    lower: f64,
-    upper: f64,
-) -> Result<f64, LineSamplingError> {
+pub fn standard_normal_interval_mass(lower: f64, upper: f64) -> Result<f64, LineSamplingError> {
     if lower.is_nan() || upper.is_nan() || lower >= upper {
         return Err(LineSamplingError::InvalidInterval { lower, upper });
     }
@@ -346,16 +438,31 @@ fn validate_evidence(
 ) -> Result<(), LineSamplingError> {
     for (field, value) in [
         ("whitening_transform_id", &evidence.whitening_transform_id),
-        ("whitening_transform_revision", &evidence.whitening_transform_revision),
+        (
+            "whitening_transform_revision",
+            &evidence.whitening_transform_revision,
+        ),
         ("direction_training_id", &evidence.direction_training_id),
-        ("transverse_evaluation_id", &evidence.transverse_evaluation_id),
+        (
+            "transverse_evaluation_id",
+            &evidence.transverse_evaluation_id,
+        ),
         ("direction_id", &evidence.direction_id),
         ("complement_basis_id", &evidence.complement_basis_id),
-        ("transverse_sampling_design_id", &evidence.transverse_sampling_design_id),
+        (
+            "transverse_sampling_design_id",
+            &evidence.transverse_sampling_design_id,
+        ),
         ("line_solver_id", &evidence.line_solver_id),
         ("line_solver_revision", &evidence.line_solver_revision),
-        ("high_fidelity_event_oracle_id", &evidence.high_fidelity_event_oracle_id),
-        ("high_fidelity_event_oracle_revision", &evidence.high_fidelity_event_oracle_revision),
+        (
+            "high_fidelity_event_oracle_id",
+            &evidence.high_fidelity_event_oracle_id,
+        ),
+        (
+            "high_fidelity_event_oracle_revision",
+            &evidence.high_fidelity_event_oracle_revision,
+        ),
         ("event_definition_id", &evidence.event_definition_id),
         ("event_horizon_id", &evidence.event_horizon_id),
     ] {
@@ -371,7 +478,10 @@ fn validate_evidence(
     for (field, digest) in [
         ("direction_sha256", &evidence.direction_sha256),
         ("complement_basis_sha256", &evidence.complement_basis_sha256),
-        ("transverse_sample_order_sha256", &evidence.transverse_sample_order_sha256),
+        (
+            "transverse_sample_order_sha256",
+            &evidence.transverse_sample_order_sha256,
+        ),
     ] {
         if !valid_sha256(digest) {
             return Err(LineSamplingError::InvalidSha256(field));
@@ -452,7 +562,11 @@ pub fn estimate_gaussian_line_probability(
                 actual: line.transverse_coordinates.len(),
             });
         }
-        if line.transverse_coordinates.iter().any(|value| !value.is_finite()) {
+        if line
+            .transverse_coordinates
+            .iter()
+            .any(|value| !value.is_finite())
+        {
             return Err(LineSamplingError::NonFiniteValue("transverse_coordinates"));
         }
 
@@ -549,7 +663,10 @@ fn sample_variance(values: &[f64], mean: f64) -> f64 {
     if values.len() < 2 {
         return 0.0;
     }
-    values.iter().map(|value| (value - mean).powi(2)).sum::<f64>()
+    values
+        .iter()
+        .map(|value| (value - mean).powi(2))
+        .sum::<f64>()
         / (values.len() - 1) as f64
 }
 
@@ -610,10 +727,18 @@ mod tests {
 
     #[test]
     fn interval_mass_handles_full_half_and_symmetric_intervals() {
-        assert_eq!(standard_normal_interval_mass(f64::NEG_INFINITY, f64::INFINITY).unwrap(), 1.0);
+        assert_eq!(
+            standard_normal_interval_mass(f64::NEG_INFINITY, f64::INFINITY).unwrap(),
+            1.0
+        );
         assert!((standard_normal_interval_mass(0.0, f64::INFINITY).unwrap() - 0.5).abs() < 1.0e-15);
-        assert!((standard_normal_interval_mass(f64::NEG_INFINITY, 0.0).unwrap() - 0.5).abs() < 1.0e-15);
-        assert!((standard_normal_interval_mass(-1.0, 1.0).unwrap() - 0.6826894921370859).abs() < 2.0e-14);
+        assert!(
+            (standard_normal_interval_mass(f64::NEG_INFINITY, 0.0).unwrap() - 0.5).abs() < 1.0e-15
+        );
+        assert!(
+            (standard_normal_interval_mass(-1.0, 1.0).unwrap() - 0.6826894921370859).abs()
+                < 2.0e-14
+        );
     }
 
     #[test]
@@ -625,7 +750,8 @@ mod tests {
 
     #[test]
     fn disjoint_intervals_are_added_not_replaced_by_single_interval() {
-        let expected = 2.0 * (standard_normal_upper_tail(1.0).unwrap() - standard_normal_upper_tail(2.0).unwrap());
+        let expected = 2.0
+            * (standard_normal_upper_tail(1.0).unwrap() - standard_normal_upper_tail(2.0).unwrap());
         let observed = standard_normal_interval_mass(-2.0, -1.0).unwrap()
             + standard_normal_interval_mass(1.0, 2.0).unwrap();
         assert!((observed - expected).abs() < 1.0e-15);
@@ -639,8 +765,14 @@ mod tests {
                 transverse_sample_id: "v-0".into(),
                 transverse_coordinates: vec![0.0],
                 collision_intervals: vec![
-                    CollisionInterval { lower: -2.0, upper: -1.0 },
-                    CollisionInterval { lower: 1.0, upper: 2.0 },
+                    CollisionInterval {
+                        lower: -2.0,
+                        upper: -1.0,
+                    },
+                    CollisionInterval {
+                        lower: 1.0,
+                        upper: 2.0,
+                    },
                 ],
             },
             TransverseLine {
@@ -650,44 +782,81 @@ mod tests {
                 collision_intervals: vec![],
             },
         ];
-        let report = estimate_gaussian_line_probability(&frame(), &lines, 0.05, &evidence()).unwrap();
-        let expected_line_mass = 2.0 * (standard_normal_upper_tail(1.0).unwrap() - standard_normal_upper_tail(2.0).unwrap());
-        assert!((report.contributions[0].conditional_collision_probability - expected_line_mass).abs() < 1.0e-15);
-        assert_eq!(report.contributions[1].conditional_collision_probability, 0.0);
+        let report =
+            estimate_gaussian_line_probability(&frame(), &lines, 0.05, &evidence()).unwrap();
+        let expected_line_mass = 2.0
+            * (standard_normal_upper_tail(1.0).unwrap() - standard_normal_upper_tail(2.0).unwrap());
+        assert!(
+            (report.contributions[0].conditional_collision_probability - expected_line_mass).abs()
+                < 1.0e-15
+        );
+        assert_eq!(
+            report.contributions[1].conditional_collision_probability,
+            0.0
+        );
         assert_eq!(report.line_count, 2);
         assert_eq!(report.total_collision_intervals, 2);
         assert_eq!(report.lines_with_no_collision_interval, 1);
-        assert!((report.estimate - expected_line_mass/2.0).abs() < 1.0e-15);
-        let expected_radius = ((1.0_f64/0.05).ln()/4.0).sqrt();
-        assert!((report.hoeffding_radius-expected_radius).abs() < 1.0e-15);
+        assert!((report.estimate - expected_line_mass / 2.0).abs() < 1.0e-15);
+        let expected_radius = ((1.0_f64 / 0.05).ln() / 4.0).sqrt();
+        assert!((report.hoeffding_radius - expected_radius).abs() < 1.0e-15);
         assert_eq!(report.inference_unit, "independent_transverse_line");
     }
 
     #[test]
     fn rejects_incomplete_or_unresolved_interval_sets() {
         let lines = vec![
-            TransverseLine { line_id:"line-a".into(), transverse_sample_id:"v-a".into(), transverse_coordinates:vec![0.0], collision_intervals:vec![] },
-            TransverseLine { line_id:"line-b".into(), transverse_sample_id:"v-b".into(), transverse_coordinates:vec![1.0], collision_intervals:vec![] },
+            TransverseLine {
+                line_id: "line-a".into(),
+                transverse_sample_id: "v-a".into(),
+                transverse_coordinates: vec![0.0],
+                collision_intervals: vec![],
+            },
+            TransverseLine {
+                line_id: "line-b".into(),
+                transverse_sample_id: "v-b".into(),
+                transverse_coordinates: vec![1.0],
+                collision_intervals: vec![],
+            },
         ];
         let mut bad = evidence();
         bad.interval_sets_are_complete = false;
-        assert_eq!(estimate_gaussian_line_probability(&frame(), &lines, 0.05, &bad), Err(LineSamplingError::IncompleteIntervalEnumeration));
+        assert_eq!(
+            estimate_gaussian_line_probability(&frame(), &lines, 0.05, &bad),
+            Err(LineSamplingError::IncompleteIntervalEnumeration)
+        );
         let mut bad = evidence();
         bad.no_unresolved_intervals = false;
-        assert_eq!(estimate_gaussian_line_probability(&frame(), &lines, 0.05, &bad), Err(LineSamplingError::UnresolvedCollisionIntervals));
+        assert_eq!(
+            estimate_gaussian_line_probability(&frame(), &lines, 0.05, &bad),
+            Err(LineSamplingError::UnresolvedCollisionIntervals)
+        );
     }
 
     #[test]
     fn rejects_overlapping_unsorted_intervals_and_duplicate_lines() {
         let overlapping = vec![
             TransverseLine {
-                line_id:"line-a".into(), transverse_sample_id:"v-a".into(), transverse_coordinates:vec![0.0],
-                collision_intervals:vec![
-                    CollisionInterval{lower:-2.0,upper:0.5},
-                    CollisionInterval{lower:0.0,upper:1.0},
+                line_id: "line-a".into(),
+                transverse_sample_id: "v-a".into(),
+                transverse_coordinates: vec![0.0],
+                collision_intervals: vec![
+                    CollisionInterval {
+                        lower: -2.0,
+                        upper: 0.5,
+                    },
+                    CollisionInterval {
+                        lower: 0.0,
+                        upper: 1.0,
+                    },
                 ],
             },
-            TransverseLine { line_id:"line-b".into(), transverse_sample_id:"v-b".into(), transverse_coordinates:vec![1.0], collision_intervals:vec![] },
+            TransverseLine {
+                line_id: "line-b".into(),
+                transverse_sample_id: "v-b".into(),
+                transverse_coordinates: vec![1.0],
+                collision_intervals: vec![],
+            },
         ];
         assert!(matches!(
             estimate_gaussian_line_probability(&frame(), &overlapping, 0.05, &evidence()),
@@ -698,15 +867,25 @@ mod tests {
         duplicate[1].line_id = duplicate[0].line_id.clone();
         assert_eq!(
             estimate_gaussian_line_probability(&frame(), &duplicate, 0.05, &evidence()),
-            Err(LineSamplingError::DuplicateLineId("line-a".into())
-        ));
+            Err(LineSamplingError::DuplicateLineId("line-a".into()))
+        );
     }
 
     #[test]
     fn rejects_invalid_frame_and_reused_direction_training_samples() {
         let lines = vec![
-            TransverseLine { line_id:"line-a".into(), transverse_sample_id:"v-a".into(), transverse_coordinates:vec![0.0], collision_intervals:vec![] },
-            TransverseLine { line_id:"line-b".into(), transverse_sample_id:"v-b".into(), transverse_coordinates:vec![0.0], collision_intervals:vec![] },
+            TransverseLine {
+                line_id: "line-a".into(),
+                transverse_sample_id: "v-a".into(),
+                transverse_coordinates: vec![0.0],
+                collision_intervals: vec![],
+            },
+            TransverseLine {
+                line_id: "line-b".into(),
+                transverse_sample_id: "v-b".into(),
+                transverse_coordinates: vec![0.0],
+                collision_intervals: vec![],
+            },
         ];
         let mut bad_frame = frame();
         bad_frame.direction[0] = 2.0;
