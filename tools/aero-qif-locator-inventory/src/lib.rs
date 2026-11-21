@@ -1661,6 +1661,15 @@ mod tests {
     }
 
     #[test]
+    fn checked_in_profile_fixture_matches_code_profile_exactly() {
+        let checked_in: TraceLocatorProfileV1 = serde_json::from_slice(include_bytes!(
+            "../profiles/aero-qif-test7-8-trace-v1.json"
+        )).unwrap();
+        assert_eq!(checked_in, profile());
+        validate_profile(&checked_in).unwrap();
+    }
+
+    #[test]
     fn profile_capture_attribute_order_does_not_change_profile_digest() {
         let mut first = profile();
         let mut second = profile();
