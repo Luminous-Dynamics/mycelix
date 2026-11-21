@@ -1,0 +1,212 @@
+{
+  "schema_version": "biochar-batch-passport-v0.1",
+  "fixture_status": "synthetic_only_not_product_evidence",
+  "evidence_class": "synthetic",
+  "scenario_id": "synthetic-woody-residue-batch-pass",
+  "quality_profile": {
+    "profile_id": "SYNTH-AG-SOIL-QUALITY-01",
+    "profile_version": "0.1.0",
+    "profile_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "authority": "Synthetic test profile owner — not a regulatory or certification authority",
+    "jurisdiction": "synthetic_fixture_only",
+    "end_use": "agricultural_soil",
+    "status": "synthetic_fixture_not_certification",
+    "effective_from": "2026-01-01",
+    "effective_until": "2027-01-01",
+    "require_accredited_labs": true,
+    "non_biogenic_co_processing_allowed": false,
+    "minimum_temperature_c": 500,
+    "minimum_residence_time_min": 10,
+    "minimum_sampling_increments": 8,
+    "minimum_retention_sample_volume_l": 1,
+    "analyte_criteria": [
+      {
+        "analyte_id": "corg_percent",
+        "unit": "percent",
+        "basis": "dry_matter",
+        "method_id": "SYNTH-CORG-01",
+        "direction": "minimum",
+        "limit": 60
+      },
+      {
+        "analyte_id": "h_corg_molar",
+        "unit": "molar_ratio",
+        "basis": "dry_matter",
+        "method_id": "SYNTH-HCORG-01",
+        "direction": "maximum",
+        "limit": 0.4
+      },
+      {
+        "analyte_id": "lead_mg_kg",
+        "unit": "mg/kg",
+        "basis": "dry_matter",
+        "method_id": "SYNTH-ICP-01",
+        "direction": "maximum",
+        "limit": 100
+      },
+      {
+        "analyte_id": "cadmium_mg_kg",
+        "unit": "mg/kg",
+        "basis": "dry_matter",
+        "method_id": "SYNTH-ICP-01",
+        "direction": "maximum",
+        "limit": 2
+      },
+      {
+        "analyte_id": "pah16_mg_kg",
+        "unit": "mg/kg",
+        "basis": "dry_matter",
+        "method_id": "SYNTH-PAH-01",
+        "direction": "maximum",
+        "limit": 5
+      }
+    ]
+  },
+  "batch": {
+    "batch_id": "SYNTH-BIOCHAR-BATCH-001",
+    "production_unit_id": "PYROLYSER-SYNTH-01",
+    "production_start": "2026-03-01T08:00:00Z",
+    "production_end": "2026-03-01T16:00:00Z",
+    "intended_end_use": "agricultural_soil",
+    "non_biogenic_co_processed": false,
+    "feedstock_lots": [
+      {
+        "lot_id": "SYNTH-LOT-WOOD-001",
+        "feedstock_type": "documented clean untreated forestry residue",
+        "dry_mass_kg": 1000,
+        "origin_status": "documented",
+        "prior_use": "forestry residue from authorized thinning; not primary harvest for this batch",
+        "contamination_status": "screened",
+        "ecological_retention_status": "approved_residual",
+        "source_record_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    ],
+    "process": {
+      "process_record_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "common_conditions_verified": true,
+      "temperature_target_c": 550,
+      "temperature_min_c": 535,
+      "temperature_max_c": 565,
+      "residence_time_min": 20,
+      "oxygen_control_method": "sealed low-oxygen reactor with logged control",
+      "production_unit_id": "PYROLYSER-SYNTH-01",
+      "run_count": 1
+    },
+    "mass_accounting": {
+      "dry_feedstock_input_kg": 1000,
+      "biochar_output_kg": 300,
+      "other_co_product_output_kg": 350,
+      "mass_accounting_record_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    "sampling": {
+      "sampling_plan_id": "SYNTH-SAMPLING-PLAN-001",
+      "sampling_method": "eight distributed increments after homogenization",
+      "representative_sampling_confirmed": true,
+      "homogenized_before_sampling": true,
+      "increment_count": 8,
+      "sample_id": "SYNTH-SAMPLE-001",
+      "sample_seal_id": "SYNTH-SEAL-001",
+      "custody_record_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "laboratory_sample_id": "SYNTH-LAB-SAMPLE-001",
+      "sample_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "retention_sample_volume_l": 1,
+      "retention_until": "2028-03-01"
+    },
+    "laboratory_results": [
+      {
+        "analyte_id": "corg_percent",
+        "result_qualifier": "quantified",
+        "measured_value": 72,
+        "unit": "percent",
+        "basis": "dry_matter",
+        "method_id": "SYNTH-CORG-01",
+        "laboratory_id": "SYNTH-LAB-01",
+        "accreditation_status": "accredited",
+        "accreditation_scope": [
+          "corg_percent"
+        ],
+        "detection_limit": 0.1,
+        "quantification_limit": 0.3,
+        "expanded_uncertainty": 1,
+        "replicate_count": 3,
+        "lab_report_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+      },
+      {
+        "analyte_id": "h_corg_molar",
+        "result_qualifier": "quantified",
+        "measured_value": 0.32,
+        "unit": "molar_ratio",
+        "basis": "dry_matter",
+        "method_id": "SYNTH-HCORG-01",
+        "laboratory_id": "SYNTH-LAB-01",
+        "accreditation_status": "accredited",
+        "accreditation_scope": [
+          "h_corg_molar"
+        ],
+        "detection_limit": 0.01,
+        "quantification_limit": 0.02,
+        "expanded_uncertainty": 0.01,
+        "replicate_count": 3,
+        "lab_report_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+      },
+      {
+        "analyte_id": "lead_mg_kg",
+        "result_qualifier": "quantified",
+        "measured_value": 30,
+        "unit": "mg/kg",
+        "basis": "dry_matter",
+        "method_id": "SYNTH-ICP-01",
+        "laboratory_id": "SYNTH-LAB-01",
+        "accreditation_status": "accredited",
+        "accreditation_scope": [
+          "lead_mg_kg",
+          "cadmium_mg_kg"
+        ],
+        "detection_limit": 0.1,
+        "quantification_limit": 0.3,
+        "expanded_uncertainty": 2,
+        "replicate_count": 3,
+        "lab_report_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+      },
+      {
+        "analyte_id": "cadmium_mg_kg",
+        "result_qualifier": "quantified",
+        "measured_value": 0.4,
+        "unit": "mg/kg",
+        "basis": "dry_matter",
+        "method_id": "SYNTH-ICP-01",
+        "laboratory_id": "SYNTH-LAB-01",
+        "accreditation_status": "accredited",
+        "accreditation_scope": [
+          "lead_mg_kg",
+          "cadmium_mg_kg"
+        ],
+        "detection_limit": 0.01,
+        "quantification_limit": 0.03,
+        "expanded_uncertainty": 0.05,
+        "replicate_count": 3,
+        "lab_report_sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+      },
+      {
+        "analyte_id": "pah16_mg_kg",
+        "result_qualifier": "below_loq",
+        "measured_value": null,
+        "unit": "mg/kg",
+        "basis": "dry_matter",
+        "method_id": "SYNTH-PAH-01",
+        "laboratory_id": "SYNTH-LAB-01",
+        "accreditation_status": "accredited",
+        "accreditation_scope": [
+          "pah16_mg_kg"
+        ],
+        "detection_limit": 0.1,
+        "quantification_limit": 0.2,
+        "expanded_uncertainty": 0,
+        "replicate_count": 3,
+        "lab_report_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "carbon_removal_claim_requested": true,
+    "agronomic_suitability_claim_requested": true
+  }
+}
