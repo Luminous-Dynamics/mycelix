@@ -20,7 +20,8 @@
     "causal_cut_corpus_binding",
     "graph_proof_workload_profiles",
     "effect_fence_profiles",
-    "postgres_effect_owner_profiles"
+    "postgres_effect_owner_profiles",
+    "effect_surface_inventory_profiles"
   ],
   "properties": {
     "profile": {
@@ -662,6 +663,57 @@
               "on",
               "off_negative_control"
             ]
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 20
+          }
+        }
+      }
+    },
+    "effect_surface_inventory_profiles": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "route_counts",
+          "owner_counts",
+          "inventory_churn_per_minute",
+          "purpose"
+        ],
+        "properties": {
+          "id": {
+            "enum": [
+              "effect_inventory_small",
+              "effect_inventory_enterprise",
+              "effect_inventory_churn",
+              "caep_signal_fanout"
+            ]
+          },
+          "route_counts": {
+            "type": "array",
+            "minItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "owner_counts": {
+            "type": "array",
+            "minItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "inventory_churn_per_minute": {
+            "type": "integer",
+            "minimum": 0
           },
           "purpose": {
             "type": "string",
