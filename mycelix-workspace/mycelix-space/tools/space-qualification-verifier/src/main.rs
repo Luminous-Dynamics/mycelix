@@ -1173,6 +1173,30 @@ fn verify_claims(
     findings: &mut Findings,
 ) {
     let package_class = get_str(package, "package_class").unwrap_or("unknown");
+    let declared_package_digest = get_str(package, "package_manifest_sha256");
+    if !declared_package_digest.is_some_and(is_sha256) {
+        findings.fail(
+            "INVALID_PACKAGE_MANIFEST_DIGEST",
+            "package_manifest_sha256 must be a lowercase SHA-256 digest",
+        );
+    } else if let Some(package_without_digest) = without_member(package, "package_manifest_sha256") {
+        match canonical_value_sha256(
+            b"mycelix-space-qualification-package-v0.1",
+            &package_without_digest,
+        ) {
+            Some(actual) if declared_package_digest == Some(actual.as_str()) => {
+                findings.check("canonical_package_manifest_sha256");
+            }
+            Some(actual) => findings.fail(
+                "PACKAGE_MANIFEST_DIGEST_MISMATCH",
+                format!("package_manifest_sha256 does not bind the complete package; expected {actual}"),
+            ),
+            None => findings.fail(
+                "PACKAGE_MANIFEST_DIGEST_UNAVAILABLE",
+                "complete package cannot be canonically serialized",
+            ),
+        }
+    }
     let Some(claims) = get_array(package, "claim_matrix") else {
         findings.fail("MISSING_CLAIM_MATRIX", "claim_matrix must be an array");
         return;
@@ -1500,7 +1524,15 @@ mod tests {
     }
 
     #[test]
-    fn request_manifest_digest_rejects_mutated_configuration_binding() {
+    fn package_manifest_digest_rejects_claim_or_notice_tampering() {
+        let mut package = fixture();
+        package["notices"][0] = Value::String("altered notice".to_string());
+        let report = verify_value(&package, &repo_root());
+        assert_eq!(report.status(), "FAIL");
+        assert!(report.failures.contains_key("PACKAGE_MANIFEST_DIGEST_MISMATCH"));
+    }
+
+
         let mut package = fixture();
         package["request"]["configuration_artifact_id"] = Value::String("different-config".to_string());
         let report = verify_value(&package, &repo_root());
