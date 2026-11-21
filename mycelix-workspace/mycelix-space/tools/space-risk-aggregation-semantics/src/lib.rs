@@ -718,7 +718,7 @@ mod tests {
             Err(AggregationError::IndependenceNotAttested)
         );
         let report = independent_product_union_probability(&events, &independence()).unwrap();
-        assert!((report.mission_union_probability - 3.0e-12).abs() < 1.0e-24);
+        assert!((report.mission_union_probability - 2.999_999_999_998e-12).abs() < 1.0e-24);
         assert!(!report.saturation_warning);
     }
 
