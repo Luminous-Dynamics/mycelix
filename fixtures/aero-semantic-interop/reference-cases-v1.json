@@ -123,31 +123,31 @@
     {
       "mutation_id": "M-ID-001",
       "target_assertion_id": "A-UNIT-001",
-      "operation": "duplicate_persistent_id",
+      "operation": "DUPLICATE_PERSISTENT_ID",
       "expected_disposition": "WRONG_SUBJECT_JOIN"
     },
     {
       "mutation_id": "M-GRAPHIC-001",
       "target_assertion_id": "A-DATUM-001",
-      "operation": "replace_semantic_with_graphic_only",
+      "operation": "REPLACE_SEMANTIC_WITH_GRAPHIC_ONLY",
       "expected_disposition": "SEMANTIC_LOSS"
     },
     {
       "mutation_id": "M-UNIT-001",
       "target_assertion_id": "A-DIM-001",
-      "operation": "change_unit",
+      "operation": "CHANGE_UNIT",
       "expected_disposition": "SEMANTIC_LOSS"
     },
     {
       "mutation_id": "M-LINK-001",
       "target_assertion_id": "A-QIF-001",
-      "operation": "drop_trace_edge",
+      "operation": "DROP_TRACE_EDGE",
       "expected_disposition": "WRONG_SUBJECT_JOIN"
     },
     {
       "mutation_id": "M-OMIT-001",
       "target_assertion_id": "A-DATUM-001",
-      "operation": "omit_unsupported_field",
+      "operation": "OMIT_UNSUPPORTED_FIELD",
       "expected_disposition": "UNSUPPORTED"
     }
   ],
