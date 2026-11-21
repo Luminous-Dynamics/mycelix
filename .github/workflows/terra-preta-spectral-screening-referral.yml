@@ -29,21 +29,28 @@ jobs:
         run: cargo test --manifest-path research/terra-preta/tools/spectral-screening-referral/Cargo.toml
       - name: Clippy
         run: cargo clippy --manifest-path research/terra-preta/tools/spectral-screening-referral/Cargo.toml --all-targets -- -D warnings
-      - name: Validate input fixture
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate input schema and fixture
         run: |
-          jq empty research/terra-preta/schemas/spectral-screening-referral-input.schema.json
-          jq empty research/terra-preta/tools/spectral-screening-referral/fixtures/synthetic-referral.json
+          jsonschema-cli validate research/terra-preta/schemas/spectral-screening-referral-input.schema.json \
+            --instance research/terra-preta/tools/spectral-screening-referral/fixtures/synthetic-referral.json \
+            --draft 2020 --assert-format
           cargo run --quiet --manifest-path research/terra-preta/tools/spectral-screening-referral/Cargo.toml -- \
             research/terra-preta/tools/spectral-screening-referral/fixtures/synthetic-referral.json \
             "$RUNNER_TEMP/referral-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/spectral-screening-referral-report.schema.json \
+            --instance "$RUNNER_TEMP/referral-report.json" --draft 2020 --assert-format
           jq -e '
             .fixture_status == "synthetic_only_not_empirical_evidence" and
             .sample_count == 8 and
             ([.policies[].policy_id] | length == 8) and
-            all(.policies[]; .referral_count <= 3) and
+            (.sample_count as $n | all(.policies[]; if .policy_id == "all_reference" then .referral_count == $n else .referral_count <= .referral_capacity end)) and
             all(.policies[]; .deterministic_replay_pass == true) and
             (.controls.truth_mutation_selection_invariant == true) and
-            (.controls.hidden_truth_not_used_by_selectors == true)
+            (.controls.hidden_truth_not_used_by_selectors == true) and
+            (.controls.capacity_pass == true) and
+            (.controls.deterministic_replay_pass == true)
           ' "$RUNNER_TEMP/referral-report.json"
       - name: Verify no-overwrite
         run: |
