@@ -109,10 +109,7 @@ impl Policy {
     }
 
     fn is_capacity_limited(self) -> bool {
-        !matches!(
-            self,
-            Policy::AllReference | Policy::PerfectInformationHindsightOracle
-        )
+        !matches!(self, Policy::AllReference)
     }
 }
 
@@ -572,10 +569,11 @@ fn build_report(scenario: &Scenario, input_sha256: String) -> Result<Report, Str
                 )
         });
 
-    let capacity_pass = policies
+    let capacity_pass = Policy::ALL
         .iter()
-        .filter(|p| p.policy_id != Policy::AllReference.id())
-        .all(|p| p.referral_count <= scenario.config.referral_capacity);
+        .zip(&policies)
+        .filter(|(policy, _)| policy.is_capacity_limited())
+        .all(|(_, result)| result.referral_count <= scenario.config.referral_capacity);
     let deterministic_replay_pass = policies.iter().all(|p| p.deterministic_replay_pass);
 
     Ok(Report {
@@ -659,7 +657,7 @@ mod tests {
         let mut s = scenario();
         let original = s.clone();
         for truth in &mut s.evaluator_only.truth_by_sample_id {
-            truth.true_value = truth.true_value + 99_999.0;
+            truth.true_value += 99_999.0;
         }
         for policy in Policy::ALL.into_iter().filter(|x| x.is_deployable()) {
             assert_eq!(
