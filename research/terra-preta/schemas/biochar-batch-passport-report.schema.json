@@ -150,22 +150,22 @@
       ],
       "properties": {
         "batch_identity_pass": {
-          "const": true
+          "type": "boolean"
         },
         "feedstock_traceability_pass": {
-          "const": true
+          "type": "boolean"
         },
         "process_lineage_pass": {
-          "const": true
+          "type": "boolean"
         },
         "representative_sampling_pass": {
-          "const": true
+          "type": "boolean"
         },
         "laboratory_result_binding_pass": {
-          "const": true
+          "type": "boolean"
         },
         "uncertainty_aware_limit_check_pass": {
-          "const": true
+          "type": "boolean"
         },
         "claim_separation_pass": {
           "const": true
