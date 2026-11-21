@@ -14,7 +14,7 @@ use crate::effect_inventory::{
 use crate::receipts::{
     DecisionOutcome, DecisionReceipt, EffectOwnerId, LogicalOperationId,
 };
-use crate::{ActionId, Digest, RealmId, ResourceId, MAX_IDENTIFIER_BYTES};
+use crate::{ActionId, ClockWindow, Digest, RealmId, ResourceId, MAX_IDENTIFIER_BYTES};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FenceError {
@@ -156,6 +156,7 @@ pub enum FenceAssessment {
     StaleGeneration,
     FutureOrUnissuedGeneration,
     WrongDomain,
+    DecisionTimeInvalid,
 }
 
 /// Pure reference state for one resource owner's durable monotonic fence.
@@ -485,6 +486,9 @@ pub struct FencedEffectCommand {
     decision_receipt_digest: Digest,
     logical_operation: LogicalOperationId,
     idempotency_key_digest: Digest,
+    decision_clock_profile_id: String,
+    decision_issued_at_ms: u64,
+    decision_expires_at_ms: u64,
     token: EffectFenceToken,
 }
 
@@ -511,6 +515,9 @@ impl FencedEffectCommand {
             decision_receipt_digest,
             logical_operation,
             idempotency_key_digest,
+            decision_clock_profile_id: decision.clock_profile_id().to_owned(),
+            decision_issued_at_ms: decision.issued_at_ms(),
+            decision_expires_at_ms: decision.expires_at_ms(),
             token,
         })
     }
@@ -522,17 +529,35 @@ impl FencedEffectCommand {
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, FenceError> {
         let token = self.token.canonical_bytes()?;
         let token_length = u32::try_from(token.len()).map_err(|_| FenceError::IdentifierTooLong)?;
-        let mut bytes = b"MYC-DIR-FENCED-EFFECT-COMMAND\0\x01".to_vec();
+        let mut bytes = b"MYC-DIR-FENCED-EFFECT-COMMAND\0\x02".to_vec();
         bytes.extend_from_slice(&self.request_digest);
         bytes.extend_from_slice(&self.decision_receipt_digest);
         append_text(&mut bytes, self.logical_operation.as_str())?;
         bytes.extend_from_slice(&self.idempotency_key_digest);
+        append_text(&mut bytes, &self.decision_clock_profile_id)?;
+        bytes.extend_from_slice(&self.decision_issued_at_ms.to_be_bytes());
+        bytes.extend_from_slice(&self.decision_expires_at_ms.to_be_bytes());
         bytes.extend_from_slice(&token_length.to_be_bytes());
         bytes.extend_from_slice(&token);
         Ok(bytes)
     }
 
-    pub fn assess_at_owner(&self, state: &EffectFenceState) -> FenceAssessment {
+    /// Recheck validity at the resource mutation boundary. The effect owner
+    /// supplies its independently qualified clock profile and uncertainty cap.
+    /// This assessment and the generation check must be atomic with the write.
+    pub fn assess_at_owner(
+        &self,
+        state: &EffectFenceState,
+        clock: &ClockWindow,
+        max_clock_uncertainty_ms: u64,
+    ) -> FenceAssessment {
+        if clock.profile_id() != self.decision_clock_profile_id
+            || clock.earliest_ms() < self.decision_issued_at_ms
+            || clock.latest_ms() >= self.decision_expires_at_ms
+            || clock.uncertainty_ms() > max_clock_uncertainty_ms
+        {
+            return FenceAssessment::DecisionTimeInvalid;
+        }
         state.assess(&self.token)
     }
 }
@@ -548,6 +573,15 @@ mod tests {
     use crate::receipts::{
         ClockProfileId, PolicyEvaluation, ReceiptId,
     };
+
+    fn trusted_clock(earliest_ms: u64, latest_ms: u64) -> ClockWindow {
+        ClockWindow::new(
+            crate::ClockProfileId::new("monotonic-clock-v1").unwrap(),
+            earliest_ms,
+            latest_ms,
+        )
+        .unwrap()
+    }
 
     fn scope() -> EffectFenceScope {
         EffectFenceScope::new(
@@ -769,6 +803,76 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn expired_decision_is_rejected_at_the_effect_owner() {
+        let state = EffectFenceState::new(EffectFenceDomain::new(scope(), owner("db-a")));
+        let command = FencedEffectCommand::bind_allow(
+            &decision(PolicyEvaluation::Permit { witness_digest: [10; 32] }),
+            [11; 32],
+            LogicalOperationId::new("ledger-post-expired").unwrap(),
+            [12; 32],
+            state.current_token(),
+        ).unwrap();
+        assert_eq!(
+            command.assess_at_owner(&state, &trusted_clock(100, 101), 5),
+            FenceAssessment::DecisionTimeInvalid
+        );
+    }
+
+    #[test]
+    fn uncertainty_interval_touching_expiry_is_rejected() {
+        let state = EffectFenceState::new(EffectFenceDomain::new(scope(), owner("db-a")));
+        let command = FencedEffectCommand::bind_allow(
+            &decision(PolicyEvaluation::Permit { witness_digest: [10; 32] }),
+            [11; 32],
+            LogicalOperationId::new("ledger-post-boundary").unwrap(),
+            [12; 32],
+            state.current_token(),
+        ).unwrap();
+        assert_eq!(
+            command.assess_at_owner(&state, &trusted_clock(99, 100), 5),
+            FenceAssessment::DecisionTimeInvalid
+        );
+    }
+
+    #[test]
+    fn clock_profile_substitution_is_rejected_at_effect_owner() {
+        let state = EffectFenceState::new(EffectFenceDomain::new(scope(), owner("db-a")));
+        let command = FencedEffectCommand::bind_allow(
+            &decision(PolicyEvaluation::Permit { witness_digest: [10; 32] }),
+            [11; 32],
+            LogicalOperationId::new("ledger-post-clock-profile").unwrap(),
+            [12; 32],
+            state.current_token(),
+        ).unwrap();
+        let substituted = ClockWindow::new(
+            crate::ClockProfileId::new("local-wall-clock").unwrap(),
+            20,
+            21,
+        ).unwrap();
+        assert_eq!(
+            command.assess_at_owner(&state, &substituted, 5),
+            FenceAssessment::DecisionTimeInvalid
+        );
+    }
+
+    #[test]
+    fn excessive_clock_uncertainty_is_rejected_at_effect_owner() {
+        let state = EffectFenceState::new(EffectFenceDomain::new(scope(), owner("db-a")));
+        let command = FencedEffectCommand::bind_allow(
+            &decision(PolicyEvaluation::Permit { witness_digest: [10; 32] }),
+            [11; 32],
+            LogicalOperationId::new("ledger-post-clock-width").unwrap(),
+            [12; 32],
+            state.current_token(),
+        ).unwrap();
+        assert_eq!(
+            command.assess_at_owner(&state, &trusted_clock(20, 40), 5),
+            FenceAssessment::DecisionTimeInvalid
+        );
+    }
+
     #[test]
     fn fenced_command_binds_allow_to_owner_generation() {
         let decision = decision(PolicyEvaluation::Permit { witness_digest: [10; 32] });
@@ -783,7 +887,7 @@ mod tests {
             state.current_token(),
         )
         .unwrap();
-        assert_eq!(command.assess_at_owner(&state), FenceAssessment::Current);
+        assert_eq!(command.assess_at_owner(&state, &trusted_clock(20, 21), 5), FenceAssessment::Current);
         assert!(!command.canonical_bytes().unwrap().is_empty());
     }
 
@@ -800,7 +904,7 @@ mod tests {
         )
         .unwrap();
         state.advance_generation().unwrap();
-        assert_eq!(command.assess_at_owner(&state), FenceAssessment::StaleGeneration);
+        assert_eq!(command.assess_at_owner(&state, &trusted_clock(20, 21), 5), FenceAssessment::StaleGeneration);
     }
 
     #[test]
