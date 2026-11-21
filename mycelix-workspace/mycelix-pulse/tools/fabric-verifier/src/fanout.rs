@@ -163,10 +163,11 @@ fn disposition_counts(
         match disposition.as_str() {
             "SUCCESS_VERIFIED" => verified += 1,
             "UNKNOWN" => unknown += 1,
+            "PARTIAL" => partial += 1,
             "INCOMPLETE" | "NOT_APPLICABLE" => incomplete += 1,
             "EXPIRED" => expired += 1,
             "FAILED" | "REVOKED" => failed += 1,
-            _ => partial += 1,
+            _ => incomplete += 1,
         }
     }
 
@@ -181,9 +182,9 @@ fn aggregate_disposition(
     expired: usize,
 ) -> &'static str {
     if required > 0 && verified == required {
-        "COMPLETE_VERIFIED"
+        "ALL_REQUIRED_RECEIPT_CLAIMS_CONSISTENT"
     } else if verified > 0 {
-        "PARTIAL"
+        "PARTIAL_RECEIPT_EVIDENCE"
     } else if unknown > 0 {
         "UNKNOWN"
     } else if incomplete > 0 {
@@ -592,7 +593,7 @@ pub fn verify_fanout(
             push_finding(
                 &mut findings,
                 child_path.clone(),
-                "SUCCESS_VERIFIED child must contain exactly one recipient receipt creation and one independent receipt verification",
+                "SUCCESS_VERIFIED child claim must contain exactly one recipient receipt creation and one separately attributed receipt-verification event",
             );
         }
 
@@ -781,7 +782,7 @@ mod tests {
         )
         .expect("complete child trace should qualify structurally");
 
-        assert_eq!(result.disposition, "COMPLETE_VERIFIED");
+        assert_eq!(result.disposition, "ALL_REQUIRED_RECEIPT_CLAIMS_CONSISTENT");
         assert_eq!(result.required_recipients, 1);
         assert_eq!(result.verified_recipients, 1);
     }
