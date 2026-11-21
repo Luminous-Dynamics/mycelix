@@ -282,6 +282,71 @@ fn parse_rfc3339_seconds(value: &str) -> Result<f64, String> {
     Ok((local_seconds - offset_seconds) as f64 + fraction)
 }
 
+const N2O_N_MASS_FRACTION: f64 = 28.0 / 44.0;
+
+/// Convert between N2O mass and nitrogen mass contained in N2O.
+///
+/// This is a stoichiometric basis conversion only. It does not change the
+/// observation's source value, method, or uncertainty provenance.
+fn convert_n2o_mass_basis(value: f64, from: &str, to: &str) -> Result<f64, String> {
+    if !value.is_finite() {
+        return Err("N2O mass-basis conversion requires a finite value".to_string());
+    }
+    match (from, to) {
+        ("N2O", "N2O") | ("N2O_N", "N2O_N") => Ok(value),
+        ("N2O", "N2O_N") => Ok(value * N2O_N_MASS_FRACTION),
+        ("N2O_N", "N2O") => Ok(value / N2O_N_MASS_FRACTION),
+        _ => Err(format!("unsupported N2O mass-basis conversion: {from} -> {to}")),
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct FluxPoint {
+    elapsed_seconds: f64,
+    flux_mg_m2_h: f64,
+}
+
+/// Integrate explicitly supplied, time-stamped flux-rate points by trapezoid.
+///
+/// Each point must already belong to the same gas, mass basis, experimental
+/// unit, treatment, and declared time series. This helper integrates only
+/// between the first and last supplied point; it does not infer schedule
+/// completeness or fill an unobserved leading/trailing interval.
+fn integrate_flux_points_trapezoidal(
+    points: &[FluxPoint],
+    maximum_gap_seconds: f64,
+) -> Result<f64, String> {
+    if points.len() < 2 {
+        return Err("at least two flux points are required".to_string());
+    }
+    finite_positive(maximum_gap_seconds, "maximum_gap_seconds")?;
+    let mut integrated_mg_m2 = 0.0;
+    for (index, point) in points.iter().enumerate() {
+        if !point.elapsed_seconds.is_finite() || !point.flux_mg_m2_h.is_finite() {
+            return Err(format!("flux point {index} contains a non-finite value"));
+        }
+        if index == 0 {
+            continue;
+        }
+        let previous = points[index - 1];
+        let duration_seconds = point.elapsed_seconds - previous.elapsed_seconds;
+        if duration_seconds <= 0.0 {
+            return Err("flux point timestamps must be strictly increasing".to_string());
+        }
+        if duration_seconds > maximum_gap_seconds {
+            return Err(format!(
+                "flux point gap {duration_seconds}s exceeds declared maximum {maximum_gap_seconds}s"
+            ));
+        }
+        let mean_flux = (previous.flux_mg_m2_h + point.flux_mg_m2_h) / 2.0;
+        integrated_mg_m2 += mean_flux * (duration_seconds / 3_600.0);
+        if !integrated_mg_m2.is_finite() {
+            return Err("integrated flux is non-finite".to_string());
+        }
+    }
+    Ok(integrated_mg_m2)
+}
+
 fn require_uri_scheme(value: &str, field: &str) -> Result<(), String> {
     let Some((scheme, rest)) = value.split_once(':') else {
         return Err(format!("{field} must be an absolute URI"));
@@ -801,6 +866,87 @@ mod tests {
     fn invalid_calendar_date_is_rejected() {
         assert!(parse_rfc3339_seconds("2026-02-30T09:00:00Z").is_err());
         assert!(parse_rfc3339_seconds("2026-11-20T25:00:00Z").is_err());
+    }
+
+    #[test]
+    fn n2o_to_n2o_n_mass_basis_conversion_is_stoichiometric() {
+        let nitrogen_mass = convert_n2o_mass_basis(44.0, "N2O", "N2O_N").unwrap();
+        assert!((nitrogen_mass - 28.0).abs() < 1e-12);
+        let n2o_mass = convert_n2o_mass_basis(28.0, "N2O_N", "N2O").unwrap();
+        assert!((n2o_mass - 44.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn n2o_mass_basis_conversion_preserves_negative_flux_sign() {
+        let nitrogen_mass = convert_n2o_mass_basis(-44.0, "N2O", "N2O_N").unwrap();
+        assert!((nitrogen_mass + 28.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn unrelated_gas_mass_basis_conversion_is_rejected() {
+        assert!(convert_n2o_mass_basis(1.0, "CH4", "N2O_N").is_err());
+    }
+
+    #[test]
+    fn trapezoidal_flux_integration_matches_hand_calculation() {
+        let points = [
+            FluxPoint {
+                elapsed_seconds: 0.0,
+                flux_mg_m2_h: 1.0,
+            },
+            FluxPoint {
+                elapsed_seconds: 3_600.0,
+                flux_mg_m2_h: 3.0,
+            },
+        ];
+        let integrated = integrate_flux_points_trapezoidal(&points, 3_600.0).unwrap();
+        assert!((integrated - 2.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn trapezoidal_flux_integration_rejects_excessive_gap() {
+        let points = [
+            FluxPoint {
+                elapsed_seconds: 0.0,
+                flux_mg_m2_h: 1.0,
+            },
+            FluxPoint {
+                elapsed_seconds: 7_200.0,
+                flux_mg_m2_h: 3.0,
+            },
+        ];
+        assert!(integrate_flux_points_trapezoidal(&points, 3_600.0).is_err());
+    }
+
+    #[test]
+    fn trapezoidal_flux_integration_rejects_nonmonotonic_time() {
+        let points = [
+            FluxPoint {
+                elapsed_seconds: 3_600.0,
+                flux_mg_m2_h: 1.0,
+            },
+            FluxPoint {
+                elapsed_seconds: 0.0,
+                flux_mg_m2_h: 3.0,
+            },
+        ];
+        assert!(integrate_flux_points_trapezoidal(&points, 7_200.0).is_err());
+    }
+
+    #[test]
+    fn trapezoidal_flux_integration_preserves_net_negative_uptake() {
+        let points = [
+            FluxPoint {
+                elapsed_seconds: 0.0,
+                flux_mg_m2_h: -2.0,
+            },
+            FluxPoint {
+                elapsed_seconds: 3_600.0,
+                flux_mg_m2_h: -2.0,
+            },
+        ];
+        let integrated = integrate_flux_points_trapezoidal(&points, 3_600.0).unwrap();
+        assert!((integrated + 2.0).abs() < 1e-12);
     }
 
     #[test]
