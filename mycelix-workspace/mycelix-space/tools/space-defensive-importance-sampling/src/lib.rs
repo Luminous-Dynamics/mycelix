@@ -913,34 +913,38 @@ pub fn estimate_multifidelity_residual_probability(
 ) -> Result<MultifidelityResidualReport, EstimateError> {
     proposal.validate()?;
     whitening.validate(proposal.dimension)?;
-    validate_parameters.confidence_delta(parameters.confidence_parameters.confidence_delta)?;
+    validate_delta(parameters.confidence_delta)?;
     validate_evidence(proposal, whitening, evaluation_evidence)?;
 
     if observations.len() < 2 {
         return Err(EstimateError::InsufficientSamples(observations.len()));
     }
-    if !parameters.surrogate_probability.is_finite() || !(0.0..=1.0).contains(&parameters.surrogate_probability) {
-        return Err(EstimateError::InvalidSurrogateProbability(
-            parameters.surrogate_probability,
-        ));
+    let surrogate_probability = parameters.surrogate_probability;
+    let surrogate_probability_absolute_error_bound =
+        parameters.surrogate_probability_absolute_error_bound;
+    let delta = parameters.confidence_delta;
+
+    if !surrogate_probability.is_finite() || !(0.0..=1.0).contains(&surrogate_probability) {
+        return Err(EstimateError::InvalidSurrogateProbability(surrogate_probability));
     }
-    if !parameters.parameters.surrogate_probability_absolute_error_bound.is_finite()
-        || !(0.0..=1.0).contains(&parameters.parameters.surrogate_probability_absolute_error_bound)
+    if !surrogate_probability_absolute_error_bound.is_finite()
+        || !(0.0..=1.0).contains(&surrogate_probability_absolute_error_bound)
     {
         return Err(EstimateError::InvalidSurrogateProbabilityErrorBound(
-            parameters.parameters.surrogate_probability_absolute_error_bound,
+            surrogate_probability_absolute_error_bound,
         ));
     }
-    if parameters.surrogate_probability_is_invalid(
-        surrogate_evidence.parameters.surrogate_probability_is_exact,
-        parameters.parameters.surrogate_probability_absolute_error_bound,
+    if surrogate_probability_is_invalid(
+        surrogate_evidence.surrogate_probability_is_exact,
+        surrogate_probability_absolute_error_bound,
     ) {
         return Err(EstimateError::SurrogateProbabilityNotQualified);
     }
     if surrogate_evidence.target_distribution_id != "whitened-standard-normal-N0I-v1" {
         return Err(EstimateError::SurrogateTargetMismatch);
     }
-    if surrogate_evidence.surrogate_evaluation_sample_id != evaluation_evidence.evaluation_sample_id
+    if surrogate_evidence.surrogate_evaluation_sample_id
+        != evaluation_evidence.evaluation_sample_id
     {
         return Err(EstimateError::SurrogateEvaluationSampleMismatch);
     }
@@ -955,17 +959,14 @@ pub fn estimate_multifidelity_residual_probability(
     }
     for (field, value) in [
         ("surrogate_model_id", &surrogate_evidence.surrogate_model_id),
+        ("surrogate_model_revision", &surrogate_evidence.surrogate_model_revision),
         (
-            "surrogate_model_revision",
-            &surrogate_evidence.surrogate_model_revision,
+            "surrogate_probability_evidence_ref",
+            &surrogate_evidence.surrogate_probability_evidence_ref,
         ),
         (
-            "parameters.surrogate_probability_evidence_ref",
-            &surrogate_evidence.parameters.surrogate_probability_evidence_ref,
-        ),
-        (
-            "parameters.surrogate_probability_artifact_digest",
-            &surrogate_evidence.parameters.surrogate_probability_artifact_digest,
+            "surrogate_probability_artifact_digest",
+            &surrogate_evidence.surrogate_probability_artifact_digest,
         ),
     ] {
         if !valid_identifier(value) {
@@ -1012,16 +1013,8 @@ pub fn estimate_multifidelity_residual_probability(
         }
 
         let weight = proposal.likelihood_ratio(&observation.point)?;
-        let hf = if observation.high_fidelity_collision {
-            1.0
-        } else {
-            0.0
-        };
-        let lf = if observation.surrogate_collision {
-            1.0
-        } else {
-            0.0
-        };
+        let hf = if observation.high_fidelity_collision { 1.0 } else { 0.0 };
+        let lf = if observation.surrogate_collision { 1.0 } else { 0.0 };
         if observation.high_fidelity_collision {
             hf_count += 1;
         }
@@ -1057,14 +1050,14 @@ pub fn estimate_multifidelity_residual_probability(
     let residual_mean = residuals.iter().sum::<f64>() / n as f64;
     let residual_variance = sample_variance(&residuals, residual_mean);
     let residual_standard_error = (residual_variance / n as f64).sqrt();
-    let corrected_estimate = parameters.surrogate_probability + residual_mean;
+    let corrected_estimate = surrogate_probability + residual_mean;
 
-    // Two-sided empirical-Bernstein interval: allocate parameters.confidence_delta/2 to each tail.
-    // Residual support is [-cap, +cap], i.e. range width 2*cap.
-    let log_term = (4.0 / parameters.confidence_delta).ln();
+    // Two-sided empirical-Bernstein interval: allocate delta/2 to each tail.
+    // General signed residual support is [-cap, +cap], i.e. range width 2*cap.
+    let log_term = (4.0 / delta).ln();
     let empirical_radius = (2.0 * residual_variance * log_term / n as f64).sqrt()
         + (14.0 * cap * log_term) / (3.0 * (n - 1) as f64);
-    let total_radius = empirical_radius + parameters.parameters.surrogate_probability_absolute_error_bound;
+    let total_radius = empirical_radius + surrogate_probability_absolute_error_bound;
     let lower = (corrected_estimate - total_radius).clamp(0.0, 1.0);
     let upper = (corrected_estimate + total_radius).clamp(0.0, 1.0);
 
@@ -1073,13 +1066,13 @@ pub fn estimate_multifidelity_residual_probability(
     } else {
         None
     };
-    let max_abs_residual = residuals
+    let max_absolute_residual = residuals
         .iter()
         .map(|value| value.abs())
         .fold(0.0, f64::max);
-    let sum_abs_residual: f64 = residuals.iter().map(|value| value.abs()).sum();
-    let max_abs_residual_share = if sum_abs_residual > 0.0 {
-        max_abs_residual / sum_abs_residual
+    let sum_absolute_residual: f64 = residuals.iter().map(|value| value.abs()).sum();
+    let max_absolute_residual_share = if sum_absolute_residual > 0.0 {
+        max_absolute_residual / sum_absolute_residual
     } else {
         0.0
     };
@@ -1103,8 +1096,8 @@ pub fn estimate_multifidelity_residual_probability(
         false_positive_count,
         defensive_fraction: proposal.epsilon,
         residual_contribution_cap: cap,
-        parameters.surrogate_probability,
-        parameters.parameters.surrogate_probability_absolute_error_bound,
+        surrogate_probability,
+        surrogate_probability_absolute_error_bound,
         residual_mean,
         residual_sample_variance: residual_variance,
         residual_standard_error,
@@ -1115,14 +1108,14 @@ pub fn estimate_multifidelity_residual_probability(
         direct_to_residual_variance_ratio,
         empirical_bernstein_radius: empirical_radius,
         total_confidence_radius: total_radius,
-        confidence_parameters.confidence_delta: parameters.confidence_delta,
-        two_sided_confidence_level: 1.0 - parameters.confidence_delta,
+        confidence_delta: delta,
+        two_sided_confidence_level: 1.0 - delta,
         confidence_lower: lower,
         confidence_upper: upper,
-        max_absolute_residual_contribution: max_abs_residual,
-        max_absolute_residual_share: max_abs_residual_share,
+        max_absolute_residual_contribution: max_absolute_residual,
+        max_absolute_residual_share,
         inference_horizon: "fixed_sample_only_not_anytime_valid",
-        claim_ceiling: "paired_multifidelity_statistical_bound_conditional_on_exact_or_error_bounded_parameters.surrogate_probability_frozen_proposal_iid_evaluation_and_correct_high_fidelity_event_model",
+        claim_ceiling: "paired_multifidelity_statistical_bound_conditional_on_exact_or_error_bounded_surrogate_probability_frozen_proposal_iid_evaluation_and_correct_high_fidelity_event_model",
     })
 }
 
