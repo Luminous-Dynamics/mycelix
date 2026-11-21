@@ -49,6 +49,7 @@ pub mod conjunction;
 pub mod conjunction_network;
 pub mod coordinates;
 pub mod covariance;
+pub mod covariance_realism;
 pub mod fusion;
 pub mod gravity_assist;
 pub mod keplerian;
