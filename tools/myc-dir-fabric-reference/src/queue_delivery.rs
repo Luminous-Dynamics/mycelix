@@ -293,6 +293,165 @@ pub fn new_physical_attempt_permitted(disposition: DurableQueueDisposition) -> b
     )
 }
 
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WorkerClaimToken {
+    logical_operation_id: LogicalOperationId,
+    worker_id: QueueIdentifier,
+    claim_epoch: u64,
+    clock_profile_id: QueueIdentifier,
+    issued_at_ms: u64,
+    expires_at_ms: u64,
+    proof_digest: Digest,
+}
+
+impl WorkerClaimToken {
+    pub fn new(
+        logical_operation_id: LogicalOperationId,
+        worker_id: QueueIdentifier,
+        claim_epoch: u64,
+        clock_profile_id: QueueIdentifier,
+        issued_at_ms: u64,
+        expires_at_ms: u64,
+        proof_digest: Digest,
+    ) -> Result<Self, QueueDeliveryError> {
+        if claim_epoch == 0 {
+            return Err(QueueDeliveryError::InvalidGeneration);
+        }
+        if issued_at_ms >= expires_at_ms {
+            return Err(QueueDeliveryError::InvalidValidityWindow);
+        }
+        if proof_digest == [0; 32] {
+            return Err(QueueDeliveryError::ZeroDigest);
+        }
+        Ok(Self {
+            logical_operation_id,
+            worker_id,
+            claim_epoch,
+            clock_profile_id,
+            issued_at_ms,
+            expires_at_ms,
+            proof_digest,
+        })
+    }
+
+    pub fn claim_epoch(&self) -> u64 {
+        self.claim_epoch
+    }
+
+    pub fn worker_id(&self) -> &QueueIdentifier {
+        &self.worker_id
+    }
+
+    /// Canonical claim material. The caller must hash and authenticate it
+    /// under the worker-claim issuer trust profile.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, QueueDeliveryError> {
+        let mut bytes = b"MYC-DIR-WORKER-CLAIM-TOKEN\0\x01".to_vec();
+        append_identifier(&mut bytes, self.logical_operation_id.as_str())?;
+        append_identifier(&mut bytes, self.worker_id.as_str())?;
+        bytes.extend_from_slice(&self.claim_epoch.to_be_bytes());
+        append_identifier(&mut bytes, self.clock_profile_id.as_str())?;
+        bytes.extend_from_slice(&self.issued_at_ms.to_be_bytes());
+        bytes.extend_from_slice(&self.expires_at_ms.to_be_bytes());
+        bytes.extend_from_slice(&self.proof_digest);
+        Ok(bytes)
+    }
+}
+
+/// Durable effect-owner state for the latest claim of one logical operation.
+/// The proof digest is the externally authenticated claim-token commitment.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WorkerClaimState {
+    logical_operation_id: LogicalOperationId,
+    worker_id: QueueIdentifier,
+    claim_epoch: u64,
+    proof_digest: Digest,
+}
+
+impl WorkerClaimState {
+    pub fn new(
+        logical_operation_id: LogicalOperationId,
+        worker_id: QueueIdentifier,
+        claim_epoch: u64,
+        proof_digest: Digest,
+    ) -> Result<Self, QueueDeliveryError> {
+        if claim_epoch == 0 {
+            return Err(QueueDeliveryError::InvalidGeneration);
+        }
+        if proof_digest == [0; 32] {
+            return Err(QueueDeliveryError::ZeroDigest);
+        }
+        Ok(Self {
+            logical_operation_id,
+            worker_id,
+            claim_epoch,
+            proof_digest,
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum WorkerClaimAssessment {
+    Current,
+    WrongOperation,
+    WrongWorker,
+    StaleClaimEpoch,
+    ClaimProofMismatch,
+    ClockProfileMismatch,
+    ClockUncertaintyExceeded,
+    NotYetValid,
+    ExpiredOrBoundaryOverlap,
+}
+
+/// Structural reference assessment for a claim at the effect owner. The
+/// owner must authenticate the issuer's claim proof and compare this state
+/// transactionally with the resource fence and protected mutation.
+pub fn assess_worker_claim(
+    command: &QueueCommandBinding,
+    token: &WorkerClaimToken,
+    current: &WorkerClaimState,
+    clock: &ClockWindow,
+    max_clock_uncertainty_ms: u64,
+) -> WorkerClaimAssessment {
+    if token.logical_operation_id != *command.logical_operation_id()
+        || token.logical_operation_id != current.logical_operation_id
+    {
+        return WorkerClaimAssessment::WrongOperation;
+    }
+    if token.worker_id != current.worker_id {
+        return WorkerClaimAssessment::WrongWorker;
+    }
+    if token.claim_epoch != current.claim_epoch {
+        return WorkerClaimAssessment::StaleClaimEpoch;
+    }
+    if token.proof_digest != current.proof_digest {
+        return WorkerClaimAssessment::ClaimProofMismatch;
+    }
+    if clock.profile_id() != token.clock_profile_id.as_str()
+        || clock.profile_id() != command.clock_profile_id.as_str()
+    {
+        return WorkerClaimAssessment::ClockProfileMismatch;
+    }
+    if clock.uncertainty_ms() > max_clock_uncertainty_ms
+        || clock.uncertainty_ms() > command.max_clock_uncertainty_ms
+    {
+        return WorkerClaimAssessment::ClockUncertaintyExceeded;
+    }
+    if clock.latest_ms() < token.issued_at_ms
+        || clock.latest_ms() < command.not_before_ms
+    {
+        return WorkerClaimAssessment::NotYetValid;
+    }
+    if clock.earliest_ms() < token.issued_at_ms
+        || clock.earliest_ms() < command.not_before_ms
+        || clock.latest_ms() >= token.expires_at_ms
+        || clock.latest_ms() >= command.expires_at_ms
+    {
+        return WorkerClaimAssessment::ExpiredOrBoundaryOverlap;
+    }
+    WorkerClaimAssessment::Current
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -463,6 +622,119 @@ mod tests {
         assert!(!new_physical_attempt_permitted(DurableQueueDisposition::Committed));
         assert!(broker_ack_permitted(DurableQueueDisposition::Committed));
         assert!(broker_ack_permitted(DurableQueueDisposition::RejectedBeforeAttempt));
+    }
+
+
+    fn worker_claim(epoch: u64, worker: &str, proof: Digest) -> WorkerClaimToken {
+        WorkerClaimToken::new(
+            LogicalOperationId::new("invoice-post-381").unwrap(),
+            qid(worker),
+            epoch,
+            qid("trusted-utc-v1"),
+            110,
+            180,
+            proof,
+        )
+        .unwrap()
+    }
+
+    fn worker_claim_state(epoch: u64, worker: &str, proof: Digest) -> WorkerClaimState {
+        WorkerClaimState::new(
+            LogicalOperationId::new("invoice-post-381").unwrap(),
+            qid(worker),
+            epoch,
+            proof,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn exact_worker_claim_is_current_for_the_logical_operation() {
+        let token = worker_claim(4, "worker-a", [4; 32]);
+        let current = worker_claim_state(4, "worker-a", [4; 32]);
+        assert_eq!(
+            assess_worker_claim(&command(), &token, &current, &clock(120, 125), 10),
+            WorkerClaimAssessment::Current
+        );
+    }
+
+    #[test]
+    fn superseded_worker_claim_epoch_is_rejected() {
+        let token = worker_claim(4, "worker-a", [4; 32]);
+        let current = worker_claim_state(5, "worker-a", [5; 32]);
+        assert_eq!(
+            assess_worker_claim(&command(), &token, &current, &clock(120, 125), 10),
+            WorkerClaimAssessment::StaleClaimEpoch
+        );
+    }
+
+    #[test]
+    fn worker_claim_for_another_logical_operation_is_rejected() {
+        let token = WorkerClaimToken::new(
+            LogicalOperationId::new("invoice-post-382").unwrap(),
+            qid("worker-a"), 4, qid("trusted-utc-v1"), 110, 180, [4; 32]
+        ).unwrap();
+        let current = WorkerClaimState::new(
+            LogicalOperationId::new("invoice-post-382").unwrap(),
+            qid("worker-a"), 4, [4; 32]
+        ).unwrap();
+        assert_eq!(
+            assess_worker_claim(&command(), &token, &current, &clock(120, 125), 10),
+            WorkerClaimAssessment::WrongOperation
+        );
+    }
+
+    #[test]
+    fn worker_identity_substitution_is_rejected() {
+        let token = worker_claim(4, "worker-a", [4; 32]);
+        let current = worker_claim_state(4, "worker-b", [4; 32]);
+        assert_eq!(
+            assess_worker_claim(&command(), &token, &current, &clock(120, 125), 10),
+            WorkerClaimAssessment::WrongWorker
+        );
+    }
+
+    #[test]
+    fn worker_claim_proof_substitution_is_rejected() {
+        let token = worker_claim(4, "worker-a", [4; 32]);
+        let current = worker_claim_state(4, "worker-a", [9; 32]);
+        assert_eq!(
+            assess_worker_claim(&command(), &token, &current, &clock(120, 125), 10),
+            WorkerClaimAssessment::ClaimProofMismatch
+        );
+    }
+
+    #[test]
+    fn worker_claim_validity_is_checked_at_effect_time() {
+        let token = worker_claim(4, "worker-a", [4; 32]);
+        let current = worker_claim_state(4, "worker-a", [4; 32]);
+        assert_eq!(
+            assess_worker_claim(&command(), &token, &current, &clock(179, 181), 10),
+            WorkerClaimAssessment::ExpiredOrBoundaryOverlap
+        );
+    }
+
+    #[test]
+    fn worker_claim_uses_same_clock_profile_as_command() {
+        let token = WorkerClaimToken::new(
+            LogicalOperationId::new("invoice-post-381").unwrap(),
+            qid("worker-a"), 4, qid("different-clock"), 110, 180, [4; 32]
+        ).unwrap();
+        let current = worker_claim_state(4, "worker-a", [4; 32]);
+        assert_eq!(
+            assess_worker_claim(&command(), &token, &current, &clock(120, 125), 10),
+            WorkerClaimAssessment::ClockProfileMismatch
+        );
+    }
+
+    #[test]
+    fn worker_claim_rejects_excessive_clock_uncertainty() {
+        let token = worker_claim(4, "worker-a", [4; 32]);
+        let current = worker_claim_state(4, "worker-a", [4; 32]);
+        assert_eq!(
+            assess_worker_claim(&command(), &token, &current, &clock(120, 140), 10),
+            WorkerClaimAssessment::ClockUncertaintyExceeded
+        );
     }
 
     #[test]
