@@ -325,6 +325,9 @@ fn locator_sort_key(locator: &SourceFieldLocatorV1) -> (
 fn canonical_profile(profile: &TraceLocatorProfileV1) -> TraceLocatorProfileV1 {
     let mut canonical = profile.clone();
     canonical.rules.sort_by(|left, right| left.rule_id.cmp(&right.rule_id));
+    for rule in &mut canonical.rules {
+        rule.capture_attributes.sort();
+    }
     canonical
 }
 
@@ -413,6 +416,10 @@ pub fn validate_profile(profile: &TraceLocatorProfileV1) -> Result<(), Inventory
         }
         if !rule_ids.insert(rule.rule_id.as_str()) {
             return Err(InventoryError::DuplicateRule(rule.rule_id.clone()));
+        }
+        let mut unique_attributes = BTreeSet::new();
+        if rule.capture_attributes.iter().any(|name| !unique_attributes.insert(name)) {
+            return Err(InventoryError::InvalidRule(rule.rule_id.clone()));
         }
         let selector = (
             format!("{:?}", rule.document_role),
@@ -1049,6 +1056,9 @@ pub fn derive_trace_locator_inventory(
         .filter(|document| document.source.role == QifDocumentRole::Plan)
         .map(|document| document.source.qpid.to_ascii_lowercase())
         .collect();
+    if plan_qpids.is_empty() || results[0].declared_external_ids.is_empty() {
+        return Err(InventoryError::InvalidIdentity("test7_8_requires_external_plan_documents".into()));
+    }
     let mut external_document_references = Vec::new();
     let mut external_reference_ids = BTreeSet::new();
     for record in &results[0].locators {
@@ -1599,6 +1609,40 @@ mod tests {
   </q:Product>
 </q:QIFDocument>
 "#;
+
+    #[test]
+    fn source_document_cannot_omit_external_plan_relationship_set() {
+        let results = RESULTS.replace(
+            "<ExternalQIFReferences n=\"1\">",
+            "<ExternalQIFReferences n=\"0\">"
+        ).replace(
+            "<ExternalQIFDocument id=\"7\"><QPId>20000000-0000-4000-8000-000000000002</QPId><URI>https://vendor.example/qif/Plan-A.qif</URI></ExternalQIFDocument>",
+            ""
+        );
+        assert!(matches!(
+            derive_trace_locator_inventory("missing-external-plan", &profile(), &docs(results.as_bytes(), PLAN.as_bytes())),
+            Err(InventoryError::RuleMinimumNotMet(_)) | Err(InventoryError::InvalidIdentity(_))
+        ));
+    }
+
+    #[test]
+    fn profile_capture_attribute_order_does_not_change_profile_digest() {
+        let mut first = profile();
+        let mut second = profile();
+        let rule = second.rules.iter_mut()
+            .find(|rule| rule.rule_id == "plan.characteristic_item_nominal_reference")
+            .unwrap();
+        rule.capture_attributes.reverse();
+        assert_eq!(
+            compute_profile_digest(&first).unwrap(),
+            compute_profile_digest(&second).unwrap()
+        );
+        first.rules.reverse();
+        assert_eq!(
+            compute_profile_digest(&first).unwrap(),
+            compute_profile_digest(&second).unwrap()
+        );
+    }
 
     #[test]
     fn qif_root_namespace_and_declared_version_are_bound_to_profile() {
