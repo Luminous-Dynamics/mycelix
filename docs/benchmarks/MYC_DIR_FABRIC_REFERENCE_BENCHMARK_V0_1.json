@@ -676,6 +676,167 @@
       },
       "gate": "non_compensable",
       "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_shared_fence_lock_wait_p95_ms",
+      "layer": "postgres_effect_owner",
+      "metric": "Shared owner-fence row-lock acquisition wait under effect load",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_exclusive_fence_wait_p95_ms",
+      "layer": "postgres_effect_owner",
+      "metric": "Revocation exclusive-lock wait for prior effect transactions to drain",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_effect_apply_p95_ms",
+      "layer": "postgres_effect_owner",
+      "metric": "End-to-end database-local fenced effect transaction latency",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_effect_apply_p99_ms",
+      "layer": "postgres_effect_owner",
+      "metric": "End-to-end database-local fenced effect transaction latency",
+      "unit": "ms",
+      "statistic": "p99",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_effect_throughput_ops_sec_per_domain",
+      "layer": "postgres_effect_owner",
+      "metric": "Committed independent-object effects per second in one fence domain",
+      "unit": "ops_per_second",
+      "statistic": "distribution",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_concurrent_object_write_overlap_pct",
+      "layer": "postgres_effect_owner",
+      "metric": "Different-object writes that overlap while sharing one fence generation",
+      "unit": "percent",
+      "statistic": "minimum",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_idempotency_replay_duplicate_mutation_count",
+      "layer": "postgres_effect_owner",
+      "metric": "Exact concurrent or delayed replay that executes the protected mutation twice",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_idempotency_substitution_accept_count",
+      "layer": "postgres_effect_owner",
+      "metric": "Changed request, operation, payload or decision accepted under an existing idempotency identity",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_stale_generation_new_effect_accept_count",
+      "layer": "postgres_effect_owner",
+      "metric": "New protected effect accepted with a generation below the owner high-water mark",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_fence_ack_before_durable_commit_count",
+      "layer": "postgres_effect_owner",
+      "metric": "Owner revocation acknowledgement emitted before the fence transaction durably commits",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_generation_regression_after_failover_count",
+      "layer": "postgres_effect_owner",
+      "metric": "Fence generation lower on an eligible promoted primary than the last acknowledged owner generation",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_outbox_receiver_stale_generation_accept_count",
+      "layer": "postgres_effect_owner",
+      "metric": "Remote effect receiver accepts an outbox command older than its own durable fence generation",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "postgres_unknown_commit_resolution_failure_count",
+      "layer": "postgres_effect_owner",
+      "metric": "Committed or aborted transaction cannot be resolved using the exact idempotency identity after lost acknowledgement",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
     }
   ],
   "fault_schedules": [
@@ -711,7 +872,17 @@
     "One effect owner is omitted from the revocation owner inventory while all listed owners acknowledge",
     "One required owner remains unreachable or returns an acknowledgement for a different generation; revocation remains pending",
     "A non-fenceable external API bypasses the enforcement proxy and must not be reported as strongly revoked",
-    "Duplicate, replayed, cross-scope or wrong-revocation-digest owner acknowledgements"
+    "Duplicate, replayed, cross-scope or wrong-revocation-digest owner acknowledgements",
+    "One hundred concurrent requests reuse the same idempotency key, logical operation and identical payload; exactly one protected mutation may commit",
+    "Concurrent requests reuse one logical operation with different idempotency keys or payload digests; all but the exact accepted identity must fail closed",
+    "Different object rows in one fence domain perform concurrent writes under shared row locks while revocation contends for the exclusive fence lock",
+    "Revocation requests the fence update while multiple effects hold shared locks; after revocation commit, no old-generation new effect may commit",
+    "Terminate the database transaction after protected-object update but before effect receipt insertion; both must roll back",
+    "Lose the client response after synchronous commit; exact idempotent replay must resolve the original effect ID without repeating the mutation",
+    "Crash the primary after durable fence commit but before acknowledgement publication; restore/re-promote only under the governed epoch and exact generation",
+    "Asynchronous-commit negative control reports success before WAL flush; it must never trigger a strong durable-fence acknowledgement",
+    "Promote an asynchronous replica missing the last fence generation; readiness must refuse to claim a monotonic revocation guarantee",
+    "Force multi-object transactions to request fence domains in opposite order; deterministic global lock ordering or bounded deadlock retry must prevent unsafe partial outcomes"
   ],
   "comparators": [
     {
@@ -913,6 +1084,85 @@
       "atomic_mutation_guard": false,
       "strict_completion_requires_all_owner_acks": true,
       "purpose": "Negative control for external APIs that cannot atomically inspect a fence; classify as best-effort only"
+    }
+  ],
+  "postgres_effect_owner_profiles": [
+    {
+      "id": "pg_parallel_writer_read_committed",
+      "postgres_major_versions": [
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "writer_concurrency": [
+        1,
+        8,
+        32,
+        128
+      ],
+      "object_count": 1000,
+      "isolation_profile": "READ COMMITTED",
+      "synchronous_commit": "on",
+      "purpose": "Measure parallel different-object writes through compatible shared fence locks on supported PostgreSQL releases"
+    },
+    {
+      "id": "pg_revocation_barrier_contention",
+      "postgres_major_versions": [
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "writer_concurrency": [
+        8,
+        32,
+        128
+      ],
+      "object_count": 1000,
+      "isolation_profile": "READ COMMITTED",
+      "synchronous_commit": "on",
+      "purpose": "Measure exclusive revocation wait, drain time and stale-token rejection under sustained effect traffic"
+    },
+    {
+      "id": "pg_commit_unknown_idempotency_replay",
+      "postgres_major_versions": [
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "writer_concurrency": [
+        1,
+        8,
+        32
+      ],
+      "object_count": 1000,
+      "isolation_profile": "READ COMMITTED",
+      "synchronous_commit": "on",
+      "purpose": "Inject disconnects before, during and after commit and resolve outcome through exact idempotency records"
+    },
+    {
+      "id": "pg_synchronous_failover_fence_recovery",
+      "postgres_major_versions": [
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "writer_concurrency": [
+        1,
+        8,
+        32
+      ],
+      "object_count": 1000,
+      "isolation_profile": "READ COMMITTED",
+      "synchronous_commit": "on",
+      "purpose": "Test promotion, WAL durability, epoch reconciliation and monotonic fence restoration across eligible primaries"
     }
   ]
 }
