@@ -55,7 +55,8 @@
           "transform_id": null
         }
       ],
-      "unknown_fields_preserved": true
+      "unknown_fields_preserved": true,
+      "artifact_path": "mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-source-state-set-v0.1.json"
     }
   ],
   "object_dispositions": [
