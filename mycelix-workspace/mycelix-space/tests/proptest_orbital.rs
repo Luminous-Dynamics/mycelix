@@ -6,16 +6,16 @@
 //! Uses proptest to verify physical invariants hold across randomly-generated
 //! orbital states. Each property is tested over 256 cases by default.
 
-use proptest::prelude::*;
-use nalgebra::Vector3;
-use orbital_mechanics::state::{StateVector, OrbitalState, DataSource};
-use orbital_mechanics::keplerian::KeplerianElements;
-use orbital_mechanics::conjunction::ConjunctionAnalyzer;
-use orbital_mechanics::covariance::CovarianceMatrix;
-use orbital_mechanics::coordinates::{teme_to_ecef, ecef_to_teme, wgs84::MU};
-use orbital_mechanics::lambert::solve_lambert;
-use orbital_mechanics::fusion::{FusionPipeline, SensorMeasurement};
 use chrono::Utc;
+use nalgebra::Vector3;
+use orbital_mechanics::conjunction::ConjunctionAnalyzer;
+use orbital_mechanics::coordinates::{ecef_to_teme, teme_to_ecef, wgs84::MU};
+use orbital_mechanics::covariance::CovarianceMatrix;
+use orbital_mechanics::fusion::{FusionPipeline, SensorMeasurement};
+use orbital_mechanics::keplerian::KeplerianElements;
+use orbital_mechanics::lambert::solve_lambert;
+use orbital_mechanics::state::{DataSource, OrbitalState, StateVector};
+use proptest::prelude::*;
 
 // =============================================================================
 // Proptest Strategies
@@ -36,17 +36,15 @@ fn arb_state_vector() -> impl Strategy<Value = StateVector> {
     let vtheta = 0.0f64..std::f64::consts::PI;
     let vphi = 0.0f64..2.0 * std::f64::consts::PI;
 
-    (radius, theta, phi, speed, vtheta, vphi).prop_map(
-        |(r, th, ph, spd, vth, vph)| {
-            let x = r * th.sin() * ph.cos();
-            let y = r * th.sin() * ph.sin();
-            let z = r * th.cos();
-            let vx = spd * vth.sin() * vph.cos();
-            let vy = spd * vth.sin() * vph.sin();
-            let vz = spd * vth.cos();
-            StateVector::new(x, y, z, vx, vy, vz)
-        },
-    )
+    (radius, theta, phi, speed, vtheta, vphi).prop_map(|(r, th, ph, spd, vth, vph)| {
+        let x = r * th.sin() * ph.cos();
+        let y = r * th.sin() * ph.sin();
+        let z = r * th.cos();
+        let vx = spd * vth.sin() * vph.cos();
+        let vy = spd * vth.sin() * vph.sin();
+        let vz = spd * vth.cos();
+        StateVector::new(x, y, z, vx, vy, vz)
+    })
 }
 
 /// Generate a positive semi-definite 6x6 covariance matrix via A * A^T construction.
