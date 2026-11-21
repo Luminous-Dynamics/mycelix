@@ -145,6 +145,26 @@ authority. Every required recipient gets one stable child logical operation;
 retries and alternate routes create new attempt IDs without creating a second
 logical recipient effect.
 
+Two outcomes must be reported separately:
+
+- **Per-recipient verified delivery by deadline**:
+  PRD_D = required recipient children with authenticated receipts by trusted
+  deadline D / all required recipient children from admitted fanout intents.
+- **Complete-group delivery by deadline**:
+  CGDR_D = admitted fanout intents for which every required child in the
+  independently authenticated frozen membership snapshot has an authenticated
+  receipt by D / all admitted fanout intents.
+
+Freeze the recipient set at fanout-intent admission, before transport attempts
+or outcomes. Missing child traces remain in the denominator; they are failed
+or unresolved outcomes, never silently excluded. Critically, a sender-authored
+manifest alone cannot establish the true required set: the membership snapshot
+and sender authority must be authenticated under a separately provisioned
+policy root. Otherwise an implementation could improve its group-delivery
+rate simply by omitting offline members. The current prototype's manifest
+digest pins bytes but not membership authority, so it does not compute or
+claim PRD_D or CGDR_D as verified product outcomes.
+
 The recipient-set snapshot binds the send to a declared membership/epoch
 state. Qualification traces carry only a redacted commitment and exact
 policy/runtime evidence references; they do not expose the raw roster. A child
