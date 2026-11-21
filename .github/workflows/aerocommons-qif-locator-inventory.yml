@@ -8,6 +8,7 @@ on:
       - "mycelix-commons/crates/aero-evidence-types/**"
       - "docs/aerocommons/AERO_QIF_TRACE_LOCATOR_PROFILE_V1.schema.json"
       - "docs/aerocommons/AERO_QIF_TRACE_LOCATOR_INVENTORY_V1.schema.json"
+      - "docs/aerocommons/AERO_QIF_TRACE_LOCATOR_REPORT_V1.schema.json"
       - "docs/aerocommons/AERO_QIF_LOCATOR_INVENTORY_001.md"
       - ".github/workflows/aerocommons-qif-locator-inventory.yml"
   push:
