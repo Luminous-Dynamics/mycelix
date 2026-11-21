@@ -976,6 +976,63 @@ mod tests {
     }
 
     #[test]
+    fn reconciliation_does_not_consume_a_physical_attempt_number() {
+        let first_unknown = effect(1, EffectOutcome::Unknown, [10; 32]);
+        let second_rejected = effect(2, EffectOutcome::RejectedNoEffect, [11; 32]);
+        let confirmed_no_effect =
+            reconcile(1, ReconciliationOutcome::ConfirmedNoEffect, [10; 32]);
+        let status = assess_effect_history(
+            &[first_unknown, second_rejected],
+            &[confirmed_no_effect],
+        );
+        assert_eq!(status, EffectHistoryAssessment::ReconciledNoEffect);
+        assert!(status.permits_new_attempt());
+    }
+
+    #[test]
+    fn duplicate_reconciliation_for_one_attempt_is_rejected() {
+        let unknown = effect(1, EffectOutcome::Unknown, [10; 32]);
+        let first = reconcile(1, ReconciliationOutcome::ConfirmedNoEffect, [10; 32]);
+        let second = reconcile(1, ReconciliationOutcome::ConfirmedNoEffect, [10; 32]);
+        assert_eq!(
+            assess_effect_history(&[unknown], &[first, second]),
+            EffectHistoryAssessment::InvalidDuplicateReconciliation
+        );
+    }
+
+    #[test]
+    fn reconciliation_cannot_rewrite_a_resolved_attempt() {
+        let rejected = effect(1, EffectOutcome::RejectedNoEffect, [10; 32]);
+        let forged = reconcile(1, ReconciliationOutcome::ConfirmedCommitted, [10; 32]);
+        assert_eq!(
+            assess_effect_history(&[rejected], &[forged]),
+            EffectHistoryAssessment::InvalidReconciliationOfResolvedAttempt
+        );
+    }
+
+    #[test]
+    fn reconciliation_confirmed_commit_closes_the_logical_operation() {
+        let unknown = effect(1, EffectOutcome::Unknown, [10; 32]);
+        let confirmed_commit =
+            reconcile(1, ReconciliationOutcome::ConfirmedCommitted, [10; 32]);
+        assert_eq!(
+            assess_effect_history(&[unknown], &[confirmed_commit]),
+            EffectHistoryAssessment::CommittedOnce
+        );
+        assert!(!EffectHistoryAssessment::CommittedOnce.permits_new_attempt());
+    }
+
+    #[test]
+    fn reconciliation_decision_mismatch_is_rejected() {
+        let unknown = effect(1, EffectOutcome::Unknown, [10; 32]);
+        let wrong_decision = reconcile(1, ReconciliationOutcome::ConfirmedNoEffect, [99; 32]);
+        assert_eq!(
+            assess_effect_history(&[unknown], &[wrong_decision]),
+            EffectHistoryAssessment::InvalidReconciliationTarget
+        );
+    }
+
+    #[test]
     fn successful_effect_history_is_distinct_from_authorization() {
         let decision = receipt(
             CausalCutAssessment::Sufficient,
