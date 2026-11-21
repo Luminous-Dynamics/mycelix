@@ -546,6 +546,78 @@ mod tests {
     }
 
     #[test]
+    fn closure_dependency_graph_binding_mismatch_is_not_sufficient() {
+        let current = FrontierEvidence::new(
+            AuthorityFrontier::new(vec![position("issuer-a", 3, 3)]).unwrap(),
+            vec![],
+        )
+        .unwrap();
+        let cut = cut(vec![dependency("issuer", "issuer-a", 3, 3)]);
+        let wrong_graph = DependencyClosureReceipt::new(
+            *cut.request_digest(),
+            cut.realm().clone(),
+            *cut.policy_digest(),
+            [9; 32],
+            [99; 32],
+            *cut.resolver_profile_digest(),
+            "resolver-v1",
+            [4; 32],
+            [5; 32],
+            ClosureVerificationStatus::VerifiedComplete,
+        )
+        .unwrap();
+        assert_eq!(
+            assess_request_scoped_cut(&cut, &wrong_graph, &[9; 32], &current),
+            CausalCutAssessment::DependencyGraphBindingMismatch
+        );
+    }
+
+    #[test]
+    fn closure_policy_and_realm_binding_mismatches_are_not_sufficient() {
+        let current = FrontierEvidence::new(
+            AuthorityFrontier::new(vec![position("issuer-a", 3, 3)]).unwrap(),
+            vec![],
+        )
+        .unwrap();
+        let cut = cut(vec![dependency("issuer", "issuer-a", 3, 3)]);
+        let wrong_policy = DependencyClosureReceipt::new(
+            *cut.request_digest(),
+            cut.realm().clone(),
+            [77; 32],
+            [9; 32],
+            *cut.dependency_graph_digest(),
+            *cut.resolver_profile_digest(),
+            "resolver-v1",
+            [4; 32],
+            [5; 32],
+            ClosureVerificationStatus::VerifiedComplete,
+        )
+        .unwrap();
+        assert_eq!(
+            assess_request_scoped_cut(&cut, &wrong_policy, &[9; 32], &current),
+            CausalCutAssessment::PolicyBindingMismatch
+        );
+
+        let wrong_realm = DependencyClosureReceipt::new(
+            *cut.request_digest(),
+            RealmId::new("realm-b").unwrap(),
+            *cut.policy_digest(),
+            [9; 32],
+            *cut.dependency_graph_digest(),
+            *cut.resolver_profile_digest(),
+            "resolver-v1",
+            [4; 32],
+            [5; 32],
+            ClosureVerificationStatus::VerifiedComplete,
+        )
+        .unwrap();
+        assert_eq!(
+            assess_request_scoped_cut(&cut, &wrong_realm, &[9; 32], &current),
+            CausalCutAssessment::RealmBindingMismatch
+        );
+    }
+
+    #[test]
     fn one_authority_can_supply_multiple_independently_required_dependencies() {
         let current = FrontierEvidence::new(
             AuthorityFrontier::new(vec![position("realm-admin", 7, 7)]).unwrap(),
