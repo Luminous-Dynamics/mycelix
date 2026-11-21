@@ -11,6 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 pub mod causal_cut;
+pub mod effect_fence;
 pub mod receipts;
 
 pub const MAX_IDENTIFIER_BYTES: usize = 512;
