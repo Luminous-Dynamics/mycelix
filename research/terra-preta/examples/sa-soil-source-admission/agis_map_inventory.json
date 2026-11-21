@@ -1,0 +1,93 @@
+{
+  "schema_version": "sa-soil-source-admission-v0.1",
+  "fixture_status": "synthetic_metadata_example_not_source_evidence",
+  "evidence_class": "synthetic",
+  "source_record": {
+    "source_id": "agis-soil-map-syn",
+    "source_type": "map_inventory",
+    "title": "AGIS-like national soil map inventory — synthetic metadata example",
+    "custodian": "Synthetic custodian placeholder",
+    "canonical_uri": "https://example.invalid/agis-soil",
+    "release_id": "manufactured-layer-release-2004",
+    "published_or_updated_at": "2004-01-01"
+  },
+  "provenance": {
+    "source_method": "Manufactured metadata fixture representing a mapped polygon layer; not a real AGIS source admission.",
+    "source_lineage": [
+      "synthetic-map-production",
+      "synthetic-soil-survey-interpretation"
+    ],
+    "acquisition_timestamp": "2026-11-21T17:00:00+02:00",
+    "publisher_checksum_algorithm": "none"
+  },
+  "rights": {
+    "license_status": "pending_review",
+    "license_or_agreement": "Synthetic pending licence placeholder; no redistribution right is asserted.",
+    "access_terms": "Metadata-only manufactured example",
+    "redistribution_allowed": false,
+    "purpose_restrictions": [
+      "No actual source bytes",
+      "Do not infer field-scale measurements"
+    ]
+  },
+  "artifact": {
+    "acquisition_status": "not_acquired",
+    "file_name": "synthetic-map-metadata-only"
+  },
+  "spatial_support": {
+    "support_type": "polygon",
+    "crs": "EPSG:4326",
+    "native_support_description": "Manufactured polygon mapping support; no claimed real layer scale or accuracy.",
+    "spatial_accuracy_status": "not_reported",
+    "map_scale_denominator": 1000000,
+    "geometry_type": "multipolygon",
+    "coverage_description": "Synthetic region only"
+  },
+  "depth_support": {
+    "depth_status": "unknown",
+    "description": "No soil depth support is specified in this synthetic map-inventory record."
+  },
+  "temporal_support": {
+    "temporal_status": "historical_vintage",
+    "start_date": "2004-01-01",
+    "end_date": "2004-12-31",
+    "description": "Manufactured historical vintage; not current soil observations."
+  },
+  "variables": [
+    {
+      "variable_id": "soil-class",
+      "property_name": "soil_class",
+      "value_semantics": "mapped_class",
+      "unit": "class_code",
+      "definition": "Mapped soil association class, not a point assay.",
+      "method": "Historical cartographic soil-landscape interpretation",
+      "uncertainty_status": "not_quantified",
+      "uncertainty_description": "Synthetic example only."
+    }
+  ],
+  "intended_uses": [
+    "regional_stratification",
+    "sampling_design",
+    "regional_context"
+  ],
+  "lineage": {
+    "study_ids": [
+      "synthetic-map-study-01"
+    ],
+    "survey_ids": [
+      "synthetic-soil-map-survey"
+    ],
+    "independence_group_ids": [
+      "synthetic-map-dependency-group"
+    ],
+    "shared_source_dependencies": [
+      "synthetic-survey-derived-polygon"
+    ]
+  },
+  "admission_status": "discovered_unreviewed",
+  "limitations": [
+    "Synthetic metadata only; not a real AGIS layer.",
+    "Native scale / accuracy / licence require per-layer source review.",
+    "A polygon label must not be promoted to a measured field observation."
+  ]
+}

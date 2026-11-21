@@ -1,0 +1,93 @@
+{
+  "schema_version": "sa-soil-source-admission-v0.1",
+  "fixture_status": "synthetic_metadata_example_not_source_evidence",
+  "evidence_class": "synthetic",
+  "source_record": {
+    "source_id": "soils4africa-mir-estimates-syn",
+    "source_type": "spectral_estimate_dataset",
+    "title": "Soils4Africa MIR-derived soil-property estimates — synthetic metadata analogue",
+    "custodian": "ISRIC / Soil Data of Africa (source metadata only; exact product record not yet pinned)",
+    "canonical_uri": "https://africasis.isric.org/download.html",
+    "release_id": "2026-10-announcement-record-pending",
+    "published_or_updated_at": "2026-10-05"
+  },
+  "provenance": {
+    "source_method": "Synthetic analogue of a separate MIR-derived property-estimate product; not the field-observation CSV.",
+    "source_lineage": [
+      "synthetic-MIR-spectra",
+      "synthetic-calibration-reference-lineage-pending"
+    ],
+    "acquisition_timestamp": "2026-11-21T17:30:00+02:00"
+  },
+  "rights": {
+    "license_status": "pending_review",
+    "license_or_agreement": "Exact versioned data-product licence and any point-data agreement remain to be reviewed.",
+    "access_terms": "Metadata-only synthetic example; exact record and file have not been acquired.",
+    "redistribution_allowed": false,
+    "purpose_restrictions": [
+      "Do not redistribute raw product before exact licence confirmation.",
+      "Do not treat model estimates as independent wet-chemistry measurements."
+    ]
+  },
+  "artifact": {
+    "acquisition_status": "not_acquired"
+  },
+  "spatial_support": {
+    "support_type": "unknown",
+    "crs": "Unknown pending exact dataset record and file inspection.",
+    "native_support_description": "Announcement describes sample estimates for >11,000 soil samples from >6,100 locations in 21 countries; exact geometry and spatial-support definitions remain to be confirmed.",
+    "spatial_accuracy_status": "not_reported",
+    "geometry_type": "unknown",
+    "coverage_description": "Country/site coverage reported in the 5 October 2026 announcement; exact record-level sample coverage not yet pinned."
+  },
+  "depth_support": {
+    "depth_status": "unknown",
+    "description": "Depth/horizon support must be recovered from the exact MIR-derived dataset and variable definitions."
+  },
+  "temporal_support": {
+    "temporal_status": "unknown",
+    "description": "Exact sample collection windows and spectral acquisition dates must be recovered from the versioned product."
+  },
+  "variables": [
+    {
+      "variable_id": "mir-property-estimate",
+      "property_name": "soil_property_estimate",
+      "value_semantics": "spectral_prediction",
+      "unit": "unresolved_until_schema_admission",
+      "definition": "A soil-property estimate derived from MIR spectral measurements; the particular property and unit are placeholders pending inspection of the actual versioned product.",
+      "method": "MIR spectral calibration pipeline; exact preprocessing, model and reference target to be pinned from product documentation.",
+      "model_name": "MIR-calibration-identity-unresolved",
+      "model_version": "unresolved-pending-record-audit",
+      "model_training_lineage": [
+        "reference chemistry / calibration cohort / validation split not yet retrieved"
+      ],
+      "uncertainty_status": "not_quantified",
+      "uncertainty_description": "No calibrated uncertainty claim is inferred from the press announcement."
+    }
+  ],
+  "intended_uses": [
+    "regional_context",
+    "sampling_design"
+  ],
+  "lineage": {
+    "study_ids": [
+      "soils4africa-2026-mir-product-announcement"
+    ],
+    "survey_ids": [
+      "soils4africa-continental-campaign"
+    ],
+    "independence_group_ids": [
+      "soils4africa-mir-product-lineage-pending"
+    ],
+    "shared_source_dependencies": [
+      "underlying-MIR-spectra-and-reference-chemistry-lineage-pending"
+    ]
+  },
+  "admission_status": "discovered_unreviewed",
+  "limitations": [
+    "Synthetic metadata analogue only; not the live Soils4Africa MIR data product.",
+    "The announcement reports 19 MIR-derived soil-property estimates for >11,000 samples at >6,100 locations in 21 countries; exact record ID and release bytes have not yet been pinned.",
+    "MIR-derived values must not be treated as independent wet-chemistry reference measurements without identifying calibration targets and validation lineage.",
+    "The field-observation table and the MIR-derived estimate product are separate artifacts."
+  ]
+}
