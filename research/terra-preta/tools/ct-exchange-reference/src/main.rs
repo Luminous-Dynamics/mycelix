@@ -266,7 +266,9 @@ fn run_model(fixture: &Fixture, fixed_interface: bool) -> Result<ModelResult, St
     let final_total = state.matrix_m3 + state.macropore_m3;
     let residual = final_total - starting_total;
     if residual.abs() > 1e-12 * starting_total.abs().max(1.0) {
-        return Err(format!("water-balance residual {residual} m3 exceeds tolerance"));
+        return Err(format!(
+            "water-balance residual {residual} m3 exceeds tolerance"
+        ));
     }
     Ok(ModelResult {
         model_id: if fixed_interface {
@@ -303,9 +305,15 @@ fn validate_fixture(fixture: &Fixture) -> Result<(), String> {
     positive(fixture.bulk_volume_m3, "bulk_volume_m3")?;
     positive(fixture.maximum_gap_seconds, "maximum_gap_seconds")?;
     nonnegative(fixture.matrix_water_initial_m3, "matrix_water_initial_m3")?;
-    nonnegative(fixture.macropore_water_initial_m3, "macropore_water_initial_m3")?;
+    nonnegative(
+        fixture.macropore_water_initial_m3,
+        "macropore_water_initial_m3",
+    )?;
     positive(fixture.matrix_water_capacity_m3, "matrix_water_capacity_m3")?;
-    positive(fixture.macropore_water_capacity_m3, "macropore_water_capacity_m3")?;
+    positive(
+        fixture.macropore_water_capacity_m3,
+        "macropore_water_capacity_m3",
+    )?;
     if fixture.points.len() < 2 {
         return Err("at least two time points are required".to_string());
     }
@@ -338,16 +346,16 @@ fn audit_bytes(bytes: &[u8]) -> Result<Report, String> {
     validate_fixture(&fixture)?;
     let transient = run_model(&fixture, false)?;
     let fixed = run_model(&fixture, true)?;
-    let pairwise_exchange_cancellation_pass =
-        (transient.macropore_to_matrix_volume_m3 - transient.matrix_to_macropore_volume_m3
-            - transient.signed_transfer_volume_m3)
-            .abs()
-            < 1e-12;
+    let pairwise_exchange_cancellation_pass = (transient.macropore_to_matrix_volume_m3
+        - transient.matrix_to_macropore_volume_m3
+        - transient.signed_transfer_volume_m3)
+        .abs()
+        < 1e-12;
     let water_balance_closure_pass = transient.water_balance_residual_m3.abs() < 1e-12;
     let replay = run_model(&fixture, false)?;
-    let deterministic_replay_pass =
-        serde_json::to_vec(&transient).map_err(|error| error.to_string())?
-            == serde_json::to_vec(&replay).map_err(|error| error.to_string())?;
+    let deterministic_replay_pass = serde_json::to_vec(&transient)
+        .map_err(|error| error.to_string())?
+        == serde_json::to_vec(&replay).map_err(|error| error.to_string())?;
     if !pairwise_exchange_cancellation_pass
         || !water_balance_closure_pass
         || !deterministic_replay_pass
@@ -362,8 +370,8 @@ fn audit_bytes(bytes: &[u8]) -> Result<Report, String> {
         bulk_volume_m3: fixture.bulk_volume_m3,
         point_count: fixture.points.len(),
         maximum_gap_seconds: fixture.maximum_gap_seconds,
-        transient_minus_fixed_transfer_m3:
-            transient.signed_transfer_volume_m3 - fixed.signed_transfer_volume_m3,
+        transient_minus_fixed_transfer_m3: transient.signed_transfer_volume_m3
+            - fixed.signed_transfer_volume_m3,
         transient_interface_exchange: transient,
         fixed_initial_interface_ablation: fixed,
         controls: Controls {
@@ -403,7 +411,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     write_new_file(output_path, &output)?;
     println!(
         "audited synthetic scenario {}; transient transfer={:.9} m3; reference-only",
-        report.scenario_id, report.transient_interface_exchange.signed_transfer_volume_m3
+        report.scenario_id,
+        report.transient_interface_exchange.signed_transfer_volume_m3
     );
     Ok(())
 }
@@ -435,7 +444,11 @@ mod tests {
         // [4, 8, 2]e-6 s-1 over two 1800s intervals:
         // 6e-6*1800 + 5e-6*1800 = 0.0198 m3 for 1m3 bulk volume.
         assert!(
-            (report.transient_interface_exchange.signed_transfer_volume_m3 - 0.0198).abs()
+            (report
+                .transient_interface_exchange
+                .signed_transfer_volume_m3
+                - 0.0198)
+                .abs()
                 < 1e-12
         );
     }
@@ -444,8 +457,12 @@ mod tests {
     fn transient_interface_differs_from_fixed_initial_interface_ablation() {
         let report = audit(&fixture()).unwrap();
         assert!(
-            (report.transient_interface_exchange.signed_transfer_volume_m3
-                - report.fixed_initial_interface_ablation.signed_transfer_volume_m3)
+            (report
+                .transient_interface_exchange
+                .signed_transfer_volume_m3
+                - report
+                    .fixed_initial_interface_ablation
+                    .signed_transfer_volume_m3)
                 .abs()
                 > 1e-6
         );
@@ -459,7 +476,9 @@ mod tests {
         }
         let report = audit(&value).unwrap();
         assert_eq!(
-            report.transient_interface_exchange.signed_transfer_volume_m3,
+            report
+                .transient_interface_exchange
+                .signed_transfer_volume_m3,
             0.0
         );
     }
@@ -530,7 +549,9 @@ mod tests {
         let second = audit(&value).unwrap();
         assert_eq!(
             first.transient_interface_exchange.signed_transfer_volume_m3,
-            second.transient_interface_exchange.signed_transfer_volume_m3
+            second
+                .transient_interface_exchange
+                .signed_transfer_volume_m3
         );
         assert_eq!(first.input_sha256, second.input_sha256);
     }
