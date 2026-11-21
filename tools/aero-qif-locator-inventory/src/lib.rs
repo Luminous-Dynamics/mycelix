@@ -62,6 +62,8 @@ pub struct TraceLocatorRuleV1 {
 #[serde(deny_unknown_fields)]
 pub struct TraceLocatorLimitsV1 {
     pub max_source_bytes: u64,
+    pub max_documents: u32,
+    pub max_total_source_bytes: u64,
     pub max_elements: u64,
     pub max_depth: u32,
     pub max_attributes_per_element: u32,
@@ -198,6 +200,10 @@ pub enum InventoryError {
     RuleMaximumExceeded(String),
     #[error("source document exceeds maximum bytes")]
     SourceTooLarge,
+    #[error("source document count exceeds profile limit")]
+    DocumentCountLimitExceeded,
+    #[error("aggregate source document bytes exceed profile limit")]
+    TotalSourceBytesLimitExceeded,
     #[error("source document is not UTF-8 under the declared profile")]
     UnsupportedEncoding,
     #[error("XML declaration specifies an unsupported encoding")]
@@ -405,6 +411,10 @@ pub fn validate_profile(profile: &TraceLocatorProfileV1) -> Result<(), Inventory
     let limits = &profile.limits;
     if limits.max_source_bytes == 0
         || limits.max_source_bytes > 100 * 1024 * 1024
+        || limits.max_documents == 0
+        || limits.max_documents > 128
+        || limits.max_total_source_bytes == 0
+        || limits.max_total_source_bytes > 1024 * 1024 * 1024
         || limits.max_elements == 0
         || limits.max_elements > 2_000_000
         || limits.max_depth == 0
@@ -1610,6 +1620,8 @@ mod tests {
             ],
             limits: TraceLocatorLimitsV1 {
                 max_source_bytes: 1024 * 1024,
+                max_documents: 8,
+                max_total_source_bytes: 4 * 1024 * 1024,
                 max_elements: 10_000,
                 max_depth: 32,
                 max_attributes_per_element: 32,
@@ -2208,6 +2220,35 @@ mod tests {
                 &docs(results.as_bytes(), PLAN.as_bytes())
             ),
             Err(InventoryError::UnsupportedDeclaredEncoding)
+        );
+    }
+
+    #[test]
+    fn document_count_limit_is_enforced_before_scanning() {
+        let mut limited = profile();
+        limited.limits.max_documents = 1;
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "document-count-limit",
+                &limited,
+                &docs(RESULTS.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::DocumentCountLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn aggregate_source_bytes_limit_is_enforced_across_all_documents() {
+        let mut limited = profile();
+        limited.limits.max_source_bytes = 1024 * 1024;
+        limited.limits.max_total_source_bytes = 2000;
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "total-source-bytes-limit",
+                &limited,
+                &docs(RESULTS.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::TotalSourceBytesLimitExceeded)
         );
     }
 
