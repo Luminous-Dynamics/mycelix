@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::env;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
@@ -486,7 +486,7 @@ fn build_report(s: &Scenario, digest: String) -> Report {
             if other.candidate_id != assessment.candidate_id
                 && robustly_dominates(
                     other,
-                    &s.candidates
+                    s.candidates
                         .iter()
                         .find(|x| x.candidate_id == assessment.candidate_id)
                         .unwrap(),
