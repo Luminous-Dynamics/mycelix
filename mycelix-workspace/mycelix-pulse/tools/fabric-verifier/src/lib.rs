@@ -2489,7 +2489,7 @@ mod tests {
             Some("PULSE-FABRIC-QUAL-001")
         );
         let scenarios = catalog["scenarios"].as_array().expect("scenarios array");
-        assert_eq!(scenarios.len(), 18);
+        assert_eq!(scenarios.len(), 24);
 
         let mut ids = BTreeSet::new();
         let mut families = BTreeSet::new();
