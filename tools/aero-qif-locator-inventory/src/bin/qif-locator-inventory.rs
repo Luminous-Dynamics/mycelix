@@ -1,7 +1,7 @@
 use aero_qif_ingest_qualification::QifDocumentRole;
 use aero_qif_locator_inventory::{
-    derive_trace_locator_inventory, inventory_required_locators, validate_profile, RawQifDocument,
-    TraceLocatorProfileV1,
+    RawQifDocument, TraceLocatorProfileV1, derive_trace_locator_inventory,
+    inventory_required_locators, validate_profile,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -32,33 +32,48 @@ The tool reads staged local files only. QIF source URIs are never dereferenced."
 }
 
 fn parse_plan(value: &str) -> Result<(String, PathBuf), String> {
-    let (qpid, path) = value.split_once('=')
+    let (qpid, path) = value
+        .split_once('=')
         .ok_or_else(|| format!("invalid --plan value (expected QPID=PATH): {value}"))?;
     if qpid.trim().is_empty() || path.trim().is_empty() {
-        return Err(format!("invalid --plan value (expected QPID=PATH): {value}"));
+        return Err(format!(
+            "invalid --plan value (expected QPID=PATH): {value}"
+        ));
     }
     Ok((qpid.to_owned(), PathBuf::from(path)))
 }
 
 fn read_bounded(path: &Path, maximum: u64) -> Result<Vec<u8>, String> {
-    let file = File::open(path)
-        .map_err(|error| format!("cannot open {}: {error}", path.display()))?;
-    let metadata = file.metadata()
+    let file =
+        File::open(path).map_err(|error| format!("cannot open {}: {error}", path.display()))?;
+    let metadata = file
+        .metadata()
         .map_err(|error| format!("cannot stat opened file {}: {error}", path.display()))?;
     if !metadata.is_file() {
         return Err(format!("input is not a regular file: {}", path.display()));
     }
     if metadata.len() > maximum {
-        return Err(format!("input exceeds profile max_source_bytes: {}", path.display()));
+        return Err(format!(
+            "input exceeds profile max_source_bytes: {}",
+            path.display()
+        ));
     }
-    let capacity = usize::try_from(metadata.len().min(maximum))
-        .map_err(|_| format!("input size cannot be represented on this platform: {}", path.display()))?;
+    let capacity = usize::try_from(metadata.len().min(maximum)).map_err(|_| {
+        format!(
+            "input size cannot be represented on this platform: {}",
+            path.display()
+        )
+    })?;
     let mut bytes = Vec::with_capacity(capacity);
     let mut limited = file.take(maximum.saturating_add(1));
-    limited.read_to_end(&mut bytes)
+    limited
+        .read_to_end(&mut bytes)
         .map_err(|error| format!("cannot read bounded input {}: {error}", path.display()))?;
     if bytes.len() as u64 > maximum {
-        return Err(format!("input grew beyond profile max_source_bytes: {}", path.display()));
+        return Err(format!(
+            "input grew beyond profile max_source_bytes: {}",
+            path.display()
+        ));
     }
     Ok(bytes)
 }
@@ -66,13 +81,15 @@ fn read_bounded(path: &Path, maximum: u64) -> Result<Vec<u8>, String> {
 fn write_json<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
     let bytes = serde_json::to_vec_pretty(value)
         .map_err(|error| format!("cannot serialize {}: {error}", path.display()))?;
-    fs::write(path, &bytes)
-        .map_err(|error| format!("cannot write {}: {error}", path.display()))?;
+    fs::write(path, &bytes).map_err(|error| format!("cannot write {}: {error}", path.display()))?;
     Ok(())
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
-    Sha256::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect()
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 fn run() -> Result<(), String> {
@@ -91,7 +108,9 @@ fn run() -> Result<(), String> {
             println!("{}", usage());
             return Ok(());
         }
-        let value = args.next().ok_or_else(|| format!("missing value after {arg}"))?;
+        let value = args
+            .next()
+            .ok_or_else(|| format!("missing value after {arg}"))?;
         match arg.as_str() {
             "--inventory-id" => inventory_id = Some(value),
             "--profile" => profile_path = Some(PathBuf::from(value)),
@@ -102,8 +121,13 @@ fn run() -> Result<(), String> {
             "--required-locators-out" => required_locators_out = Some(PathBuf::from(value)),
             "--report-out" => report_out = Some(PathBuf::from(value)),
             "--help" | "-h" => return Err(usage().into()),
-            _ => return Err(format!("unknown option {arg}
-{}", usage())),
+            _ => {
+                return Err(format!(
+                    "unknown option {arg}
+{}",
+                    usage()
+                ));
+            }
         }
     }
 
@@ -127,15 +151,26 @@ fn run() -> Result<(), String> {
     let input_paths = std::iter::once(&results_path)
         .chain(plans.iter().map(|(_, path)| path))
         .collect::<Vec<_>>();
-    if input_paths.iter().any(|path| path.as_path() == profile_path.as_path())
-        || input_paths.iter().any(|path| path.as_path() == inventory_out.as_path())
-        || input_paths.iter().any(|path| path.as_path() == required_locators_out.as_path())
-        || input_paths.iter().any(|path| path.as_path() == report_out.as_path())
+    if input_paths
+        .iter()
+        .any(|path| path.as_path() == profile_path.as_path())
+        || input_paths
+            .iter()
+            .any(|path| path.as_path() == inventory_out.as_path())
+        || input_paths
+            .iter()
+            .any(|path| path.as_path() == required_locators_out.as_path())
+        || input_paths
+            .iter()
+            .any(|path| path.as_path() == report_out.as_path())
         || inventory_out == required_locators_out
         || inventory_out == report_out
         || required_locators_out == report_out
     {
-        return Err("profile, source inputs, inventory output and report output must use distinct paths".into());
+        return Err(
+            "profile, source inputs, inventory output and report output must use distinct paths"
+                .into(),
+        );
     }
 
     if plans.len().saturating_add(1) > profile.limits.max_documents as usize {
@@ -146,7 +181,8 @@ fn run() -> Result<(), String> {
     let results_remaining = profile.limits.max_total_source_bytes;
     let results_limit = profile.limits.max_source_bytes.min(results_remaining);
     let results_bytes = read_bounded(&results_path, results_limit)?;
-    total_source_bytes = total_source_bytes.checked_add(results_bytes.len() as u64)
+    total_source_bytes = total_source_bytes
+        .checked_add(results_bytes.len() as u64)
         .ok_or("aggregate source byte count overflow")?;
     inputs.push(Input {
         qpid: results_qpid,
@@ -155,12 +191,15 @@ fn run() -> Result<(), String> {
         path: results_path,
     });
     for (qpid, path) in plans {
-        let remaining = profile.limits.max_total_source_bytes
+        let remaining = profile
+            .limits
+            .max_total_source_bytes
             .checked_sub(total_source_bytes)
             .ok_or("aggregate source byte budget exhausted")?;
         let limit = profile.limits.max_source_bytes.min(remaining);
         let bytes = read_bounded(&path, limit)?;
-        total_source_bytes = total_source_bytes.checked_add(bytes.len() as u64)
+        total_source_bytes = total_source_bytes
+            .checked_add(bytes.len() as u64)
             .ok_or("aggregate source byte count overflow")?;
         inputs.push(Input {
             qpid,
@@ -169,17 +208,17 @@ fn run() -> Result<(), String> {
             path,
         });
     }
-    let documents = inputs.iter().map(|input| RawQifDocument {
-        qpid: &input.qpid,
-        role: input.role,
-        bytes: input.bytes.as_slice(),
-    }).collect::<Vec<_>>();
+    let documents = inputs
+        .iter()
+        .map(|input| RawQifDocument {
+            qpid: &input.qpid,
+            role: input.role,
+            bytes: input.bytes.as_slice(),
+        })
+        .collect::<Vec<_>>();
 
-    let (inventory, report) = derive_trace_locator_inventory(
-        &inventory_id,
-        &profile,
-        &documents,
-    ).map_err(|error| format!("inventory derivation failed: {error}"))?;
+    let (inventory, report) = derive_trace_locator_inventory(&inventory_id, &profile, &documents)
+        .map_err(|error| format!("inventory derivation failed: {error}"))?;
 
     let required_locators = inventory_required_locators(&inventory)
         .map_err(|error| format!("cannot derive required locator set: {error}"))?;
@@ -195,7 +234,14 @@ fn run() -> Result<(), String> {
     eprintln!("inventory_file_sha256={}", sha256_hex(&inventory_bytes));
     eprintln!("report_file_sha256={}", sha256_hex(&report_bytes));
     eprintln!("source_documents={}", inventory.body.documents.len());
-    eprintln!("source_files={}", inputs.iter().map(|input| input.path.display().to_string()).collect::<Vec<_>>().join(","));
+    eprintln!(
+        "source_files={}",
+        inputs
+            .iter()
+            .map(|input| input.path.display().to_string())
+            .collect::<Vec<_>>()
+            .join(",")
+    );
     eprintln!("locators={}", inventory.body.locators.len());
     Ok(())
 }
