@@ -505,7 +505,8 @@ mod tests {
     fn rejects_reused_trajectory_ids_and_invalid_matrix_digest() {
         let matrix = vec![vec![false, true], vec![true, false]];
         let mut duplicate_evidence = evidence(2, 2);
-        duplicate_evidence.primary_trajectory_ids[1] = duplicate_evidence.primary_trajectory_ids[0].clone();
+        duplicate_evidence.primary_trajectory_ids[1] =
+            duplicate_evidence.primary_trajectory_ids[0].clone();
         assert_eq!(
             estimate_pair_reuse_collision_probability(&matrix, 0.05, &duplicate_evidence),
             Err(PairReuseError::DuplicateTrajectoryId(
