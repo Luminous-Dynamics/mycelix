@@ -113,6 +113,65 @@
       ],
       "missingness_reason": null,
       "source_record_uri": null
+    },
+    {
+      "schema_version": "field-ghg-observation-v0.1",
+      "observation_id": "synthetic-n2o-n-003",
+      "evidence_class": "field_plot",
+      "study_id": "synthetic-study-001",
+      "site_id": "synthetic-site-001",
+      "block_id": "block-01",
+      "experimental_unit_id": "plot-02",
+      "plot_or_vessel_id": "plot-02",
+      "treatment_assignment_id": "matched-reference-arm",
+      "material_batch_id": "synthetic-biochar-batch-001",
+      "soil_source_id": "synthetic-soil-source-001",
+      "crop_id": "synthetic-maize",
+      "management_event": "synthetic-post-irrigation-event",
+      "observed_at": "2026-11-20T09:00:00Z",
+      "interval_start": "2026-11-20T08:55:00Z",
+      "interval_end": "2026-11-20T09:00:00Z",
+      "gas_species": "N2O",
+      "mass_basis": "N2O_N",
+      "flux_value": 0.2672727273,
+      "flux_unit": "mg_N2O_N_m2_h",
+      "sign_convention": "positive_to_atmosphere_negative_from_atmosphere",
+      "method": {
+        "method_id": "synthetic-static-chamber",
+        "method_version": "0.1",
+        "chamber_type": "static_vented",
+        "chamber_area_m2": 0.25,
+        "chamber_volume_m3": 0.018,
+        "closure_duration_s": 300,
+        "flux_calculation_version": "synthetic-linear-fit-v0.1"
+      },
+      "instrument": {
+        "instrument_id": "synthetic-gas-analyzer-01",
+        "calibration_state": "in_date",
+        "calibration_reference": "synthetic-calibration-record"
+      },
+      "raw_artifact": {
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "artifact_kind": "raw_concentration_series",
+        "source_uri": null
+      },
+      "uncertainty": {
+        "status": "reported",
+        "standard_uncertainty": 0.0318181818,
+        "unit": "mg_N2O_N_m2_h",
+        "method": "synthetic-known-standard-uncertainty",
+        "reason_not_available": null
+      },
+      "detection_limit": {
+        "value": 0.01,
+        "unit": "mg_N2O_N_m2_h",
+        "basis": "flux",
+        "censoring_method": "synthetic-not-censored"
+      },
+      "qc_state": "pass",
+      "qc_reasons": [],
+      "missingness_reason": null,
+      "source_record_uri": null
     }
   ]
 }
