@@ -228,7 +228,7 @@
             "drop_field",
             "change_value",
             "change_unit",
-            "change_tolerance_type",
+            "CHANGE_TOLERANCE_TYPE",
             "change_datum",
             "change_subject_id",
             "duplicate_persistent_id",
