@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
@@ -132,11 +132,6 @@ struct EventCoverage {
     qualified: bool,
 }
 
-#[derive(Clone, Copy)]
-struct Point {
-    scheduled_at: f64,
-    flux: f64,
-}
 
 fn sha256_hex(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
@@ -460,13 +455,13 @@ fn audit_bytes(bytes: &[u8]) -> Result<AuditReport, String> {
                 ));
             }
         }
-        if let Some(uncertainty) = observation.standard_uncertainty {
-            if !uncertainty.is_finite() || uncertainty < 0.0 {
-                return Err(format!(
-                    "observation {} has invalid standard uncertainty",
-                    observation.observation_id
-                ));
-            }
+        if let Some(uncertainty) = observation.standard_uncertainty
+            && (!uncertainty.is_finite() || uncertainty < 0.0)
+        {
+            return Err(format!(
+                "observation {} has invalid standard uncertainty",
+                observation.observation_id
+            ));
         }
         if let Some(group) = &observation.uncertainty_group_id {
             nonblank(group, "uncertainty_group_id")?;
