@@ -517,6 +517,44 @@ mod tests {
     }
 
     #[test]
+    fn fixed_thirty_minute_schedule_misses_both_short_pulses() {
+        let t: Truth =
+            serde_json::from_str(include_str!("../fixtures/synthetic-event-truth.json")).unwrap();
+        let s: Schedule = serde_json::from_str(include_str!(
+            "../fixtures/synthetic-fixed-30m-schedule.json"
+        ))
+        .unwrap();
+        validate_truth(&t).unwrap();
+        validate_schedule(&s, &t).unwrap();
+        let report = build_report(&t, &s, "0".repeat(64), "1".repeat(64));
+        assert_eq!(report.candidate_sample_count, 49);
+        assert_eq!(report.detected_pulse_count, 0);
+        assert_eq!(report.pulse_recall, 0.0);
+        assert_eq!(report.pulses[0].integral_status, "not_detected");
+        assert_eq!(report.pulses[1].integral_status, "not_detected");
+    }
+
+    #[test]
+    fn fixed_five_minute_schedule_captures_both_pulses_but_exceeds_budget() {
+        let t: Truth =
+            serde_json::from_str(include_str!("../fixtures/synthetic-event-truth.json")).unwrap();
+        let s: Schedule = serde_json::from_str(include_str!(
+            "../fixtures/synthetic-fixed-5m-schedule.json"
+        ))
+        .unwrap();
+        validate_truth(&t).unwrap();
+        validate_schedule(&s, &t).unwrap();
+        let report = build_report(&t, &s, "0".repeat(64), "1".repeat(64));
+        assert_eq!(report.candidate_sample_count, 289);
+        assert_eq!(report.detected_pulse_count, 2);
+        assert_eq!(report.pulse_recall, 1.0);
+        assert_eq!(report.budget_status, "over_budget");
+        assert!(report.pulses.iter().all(|pulse| {
+            pulse.integral_status == "qualified_complete_pulse_integral"
+        }));
+    }
+
+    #[test]
     fn candidate_cannot_fabricate_or_interpolate_unobserved_values() {
         let (t, mut s) = load();
         s.observations[0].response_value += 0.01;
