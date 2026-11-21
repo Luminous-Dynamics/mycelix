@@ -127,6 +127,8 @@ fn is_sha256_hex(value: &str) -> bool {
 /// A complete empty event set has an exact zero union probability; callers must
 /// not construct that empty set from missing, filtered, or unresolved candidates.
 /// An aggregate is defined only over the exact event universe proven complete by its receipt.
+/// Event dependence is deliberately unknown in this baseline; only bounds are unconditional.
+
 pub fn aggregate_finite_horizon_union_bounds(
     input: &FiniteHorizonRiskInput,
 ) -> Result<FiniteHorizonUnionBounds, FiniteHorizonRiskError> {
