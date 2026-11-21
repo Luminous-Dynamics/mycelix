@@ -82,11 +82,11 @@
     },
     "inputs": [
       {
-        "id": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
+        "id": "sha256:0786e7f77a61f509a17ae72db2df0fe3850d4c25edfcd9ee58b3eeca3f1f9b07",
         "kind": "design_definition"
       },
       {
-        "id": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
+        "id": "sha256:04b28be5ac58cd95d3621c6ead0e1c1facf80b429709267437182aa3291829bf",
         "kind": "manufacturing_process_plan"
       },
       {
