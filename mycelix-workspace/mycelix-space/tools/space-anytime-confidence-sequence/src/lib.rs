@@ -355,7 +355,7 @@ mod tests {
     #[test]
     fn fixed_p0_e_process_is_non_decreasing_when_p0_increases() {
         let observations = [true, false, true, true, false];
-        let mut last = f64::INFINITY;
+        let mut last = f64::NEG_INFINITY;
         for p0 in [0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99] {
             let value = log_mixture_e_value(&observations, p0, &grid()).unwrap();
             assert!(value + 1e-12 >= last);
