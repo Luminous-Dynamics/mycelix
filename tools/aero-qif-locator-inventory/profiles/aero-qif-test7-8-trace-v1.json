@@ -1,0 +1,331 @@
+{
+  "schema": "AeroQifTraceLocatorProfileV1",
+  "profile_id": "AERO_QIF_TEST7_8_TRACE",
+  "profile_version": "1.0.0",
+  "qif_standard_version": "3.0.0",
+  "rules": [
+    {
+      "rule_id": "results.document_qpid",
+      "document_role": "results",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}QPId"
+      ],
+      "capture": "document_qpid",
+      "min_occurrences": 1,
+      "max_occurrences": 1,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "plan.document_qpid",
+      "document_role": "plan",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}QPId"
+      ],
+      "capture": "document_qpid",
+      "min_occurrences": 1,
+      "max_occurrences": 1,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "results.external_document_reference",
+      "document_role": "results",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}ExternalQIFReferences",
+        "{http://qifstandards.org/xsd/qif3}ExternalQIFDocument"
+      ],
+      "capture": "element_id",
+      "min_occurrences": 0,
+      "max_occurrences": null,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "results.external_document_plan_qpid",
+      "document_role": "results",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}ExternalQIFReferences",
+        "{http://qifstandards.org/xsd/qif3}ExternalQIFDocument",
+        "{http://qifstandards.org/xsd/qif3}QPId"
+      ],
+      "capture": "external_plan_qpid",
+      "min_occurrences": 0,
+      "max_occurrences": null,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "results.external_document_uri",
+      "document_role": "results",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}ExternalQIFReferences",
+        "{http://qifstandards.org/xsd/qif3}ExternalQIFDocument",
+        "{http://qifstandards.org/xsd/qif3}URI"
+      ],
+      "capture": "external_plan_uri",
+      "min_occurrences": 0,
+      "max_occurrences": null,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "results.measurement_results_set",
+      "document_role": "results",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}Results",
+        "{http://qifstandards.org/xsd/qif3}MeasurementResultsSet"
+      ],
+      "capture": "element",
+      "min_occurrences": 1,
+      "max_occurrences": null,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "results.measurement_results",
+      "document_role": "results",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}Results",
+        "{http://qifstandards.org/xsd/qif3}MeasurementResultsSet",
+        "{http://qifstandards.org/xsd/qif3}MeasurementResults"
+      ],
+      "capture": "element_id",
+      "min_occurrences": 1,
+      "max_occurrences": null,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "results.characteristic_measurement",
+      "document_role": "results",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}Results",
+        "{http://qifstandards.org/xsd/qif3}MeasurementResultsSet",
+        "{http://qifstandards.org/xsd/qif3}MeasurementResults",
+        "{http://qifstandards.org/xsd/qif3}MeasuredCharacteristics",
+        "{http://qifstandards.org/xsd/qif3}CharacteristicMeasurements",
+        "{http://qifstandards.org/xsd/qif3}*"
+      ],
+      "capture": "element_id",
+      "min_occurrences": 1,
+      "max_occurrences": null,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "results.characteristic_item_external_reference",
+      "document_role": "results",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}Results",
+        "{http://qifstandards.org/xsd/qif3}MeasurementResultsSet",
+        "{http://qifstandards.org/xsd/qif3}MeasurementResults",
+        "{http://qifstandards.org/xsd/qif3}MeasuredCharacteristics",
+        "{http://qifstandards.org/xsd/qif3}CharacteristicMeasurements",
+        "{http://qifstandards.org/xsd/qif3}*",
+        "{http://qifstandards.org/xsd/qif3}CharacteristicItemId"
+      ],
+      "capture": "qif_reference",
+      "min_occurrences": 1,
+      "max_occurrences": null,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "results.inspection_status",
+      "document_role": "results",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}Results",
+        "{http://qifstandards.org/xsd/qif3}MeasurementResultsSet",
+        "{http://qifstandards.org/xsd/qif3}MeasurementResults",
+        "{http://qifstandards.org/xsd/qif3}InspectionStatus",
+        "{http://qifstandards.org/xsd/qif3}InspectionStatusEnum"
+      ],
+      "capture": "text",
+      "min_occurrences": 0,
+      "max_occurrences": null,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "results.inspection_other_status",
+      "document_role": "results",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}Results",
+        "{http://qifstandards.org/xsd/qif3}MeasurementResultsSet",
+        "{http://qifstandards.org/xsd/qif3}MeasurementResults",
+        "{http://qifstandards.org/xsd/qif3}InspectionStatus",
+        "{http://qifstandards.org/xsd/qif3}OtherInspectionStatus"
+      ],
+      "capture": "text",
+      "min_occurrences": 0,
+      "max_occurrences": null,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "results.characteristic_measurement_status_enum",
+      "document_role": "results",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}Results",
+        "{http://qifstandards.org/xsd/qif3}MeasurementResultsSet",
+        "{http://qifstandards.org/xsd/qif3}MeasurementResults",
+        "{http://qifstandards.org/xsd/qif3}MeasuredCharacteristics",
+        "{http://qifstandards.org/xsd/qif3}CharacteristicMeasurements",
+        "{http://qifstandards.org/xsd/qif3}*",
+        "{http://qifstandards.org/xsd/qif3}Status",
+        "{http://qifstandards.org/xsd/qif3}CharacteristicStatusEnum"
+      ],
+      "capture": "text",
+      "min_occurrences": 0,
+      "max_occurrences": null,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "results.characteristic_measurement_other_status",
+      "document_role": "results",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}Results",
+        "{http://qifstandards.org/xsd/qif3}MeasurementResultsSet",
+        "{http://qifstandards.org/xsd/qif3}MeasurementResults",
+        "{http://qifstandards.org/xsd/qif3}MeasuredCharacteristics",
+        "{http://qifstandards.org/xsd/qif3}CharacteristicMeasurements",
+        "{http://qifstandards.org/xsd/qif3}*",
+        "{http://qifstandards.org/xsd/qif3}Status",
+        "{http://qifstandards.org/xsd/qif3}OtherCharacteristicStatus"
+      ],
+      "capture": "text",
+      "min_occurrences": 0,
+      "max_occurrences": null,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "plan.characteristic_item",
+      "document_role": "plan",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}Characteristics",
+        "{http://qifstandards.org/xsd/qif3}CharacteristicItems",
+        "{http://qifstandards.org/xsd/qif3}*"
+      ],
+      "capture": "element_id",
+      "min_occurrences": 1,
+      "max_occurrences": null,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "plan.characteristic_item_nominal_reference",
+      "document_role": "plan",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}Characteristics",
+        "{http://qifstandards.org/xsd/qif3}CharacteristicItems",
+        "{http://qifstandards.org/xsd/qif3}*",
+        "{http://qifstandards.org/xsd/qif3}CharacteristicNominalId"
+      ],
+      "capture": "local_qif_reference",
+      "min_occurrences": 1,
+      "max_occurrences": null,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "plan.characteristic_nominal",
+      "document_role": "plan",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}Characteristics",
+        "{http://qifstandards.org/xsd/qif3}CharacteristicNominals",
+        "{http://qifstandards.org/xsd/qif3}*"
+      ],
+      "capture": "element_id",
+      "min_occurrences": 1,
+      "max_occurrences": null,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "plan.entity_external_id",
+      "document_role": "plan",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}Characteristics",
+        "{http://qifstandards.org/xsd/qif3}CharacteristicNominals",
+        "{http://qifstandards.org/xsd/qif3}*",
+        "{http://qifstandards.org/xsd/qif3}EntityExternalIds",
+        "{http://qifstandards.org/xsd/qif3}Id"
+      ],
+      "capture": "local_qif_reference",
+      "min_occurrences": 1,
+      "max_occurrences": null,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "plan.digital_model_external_entity",
+      "document_role": "plan",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}Product",
+        "{http://qifstandards.org/xsd/qif3}PartSet",
+        "{http://qifstandards.org/xsd/qif3}*",
+        "{http://qifstandards.org/xsd/qif3}DefinitionExternal",
+        "{http://qifstandards.org/xsd/qif3}DigitalModel",
+        "{http://qifstandards.org/xsd/qif3}Entities",
+        "{http://qifstandards.org/xsd/qif3}Entity"
+      ],
+      "capture": "element_id",
+      "min_occurrences": 1,
+      "max_occurrences": null,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    },
+    {
+      "rule_id": "plan.external_entity_persistent_id",
+      "document_role": "plan",
+      "expanded_path": [
+        "{http://qifstandards.org/xsd/qif3}QIFDocument",
+        "{http://qifstandards.org/xsd/qif3}Product",
+        "{http://qifstandards.org/xsd/qif3}PartSet",
+        "{http://qifstandards.org/xsd/qif3}*",
+        "{http://qifstandards.org/xsd/qif3}DefinitionExternal",
+        "{http://qifstandards.org/xsd/qif3}DigitalModel",
+        "{http://qifstandards.org/xsd/qif3}Entities",
+        "{http://qifstandards.org/xsd/qif3}Entity",
+        "{http://qifstandards.org/xsd/qif3}EntityId"
+      ],
+      "capture": "text",
+      "min_occurrences": 1,
+      "max_occurrences": null,
+      "capture_attributes": [],
+      "declares_external_document_reference": false
+    }
+  ],
+  "limits": {
+    "max_source_bytes: 1024 * 1024,": null,
+    "max_elements: 10_000,": null,
+    "max_depth: 32,": null,
+    "max_attributes_per_element: 32,": null,
+    "max_attribute_bytes: 16 * 1024,": null,
+    "max_text_bytes_per_element: 4096,": null,
+    "max_total_text_bytes: 1024 * 1024,": null,
+    "max_locators: 10_000,": null,
+    "max_namespace_bindings: 64,": null
+  }
+}
