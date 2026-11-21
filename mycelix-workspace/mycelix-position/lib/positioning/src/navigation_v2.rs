@@ -28,6 +28,7 @@ pub enum ContractError {
     MissingLineage,
     BasisMismatch,
     UnitMismatch,
+    NormalizationMismatch,
     ReversedTimeInterval,
     DuplicateFailureDomain,
 }
@@ -45,6 +46,7 @@ impl fmt::Display for ContractError {
             Self::MissingLineage => write!(f, "an estimate requires at least one parent commitment"),
             Self::BasisMismatch => write!(f, "time interval endpoints do not use the same qualified basis"),
             Self::UnitMismatch => write!(f, "time interval endpoints do not use the same declared unit"),
+            Self::NormalizationMismatch => write!(f, "time interval endpoints use different normalization commitments"),
             Self::ReversedTimeInterval => write!(f, "time interval end precedes its start"),
             Self::DuplicateFailureDomain => write!(f, "failure-domain references must be unique"),
         }
@@ -223,6 +225,9 @@ impl TimeIntervalV2 {
         let end_unit = self.end.unit.ok_or(ContractError::UnitMismatch)?;
         if start_unit != end_unit {
             return Err(ContractError::UnitMismatch);
+        }
+        if self.start.normalization != self.end.normalization {
+            return Err(ContractError::NormalizationMismatch);
         }
         let start_value = self.start.raw_value.ok_or(ContractError::InvalidTimeValue)?;
         let end_value = self.end.raw_value.ok_or(ContractError::InvalidTimeValue)?;
@@ -577,6 +582,39 @@ mod tests {
             end: missing_source_time(),
         };
         assert_eq!(interval.validate(), Err(ContractError::BasisMismatch));
+    }
+
+
+    #[test]
+    fn interval_rejects_different_clock_normalization_commitments() {
+        let mut interval = TimeIntervalV2 {
+            start: qualified_time(10.0, "clock/mono"),
+            end: qualified_time(20.0, "clock/mono"),
+        };
+        interval.start.normalization = Some(commitment("correlation-map-a"));
+        interval.end.normalization = Some(commitment("correlation-map-b"));
+        assert_eq!(interval.validate(), Err(ContractError::NormalizationMismatch));
+    }
+
+    #[test]
+    fn absent_source_timestamp_survives_serde_round_trip() {
+        let time = missing_source_time();
+        let encoded = serde_json::to_string(&time).unwrap();
+        let decoded: TimeEvidenceV2 = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(decoded, time);
+        assert!(encoded.contains("\"raw_value\":null"));
+        assert!(encoded.contains("\"unit\":null"));
+    }
+
+    #[test]
+    fn qualified_time_requires_both_raw_value_and_unit() {
+        let mut time = qualified_time(1.0, "clock/tai");
+        time.raw_value = None;
+        assert_eq!(time.validate(), Err(ContractError::InvalidTimeValue));
+
+        let mut time = qualified_time(1.0, "clock/tai");
+        time.unit = None;
+        assert_eq!(time.validate(), Err(ContractError::InvalidTimeValue));
     }
 
     #[test]
