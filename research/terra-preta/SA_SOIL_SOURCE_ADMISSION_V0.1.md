@@ -50,10 +50,11 @@ Record study, survey, site, field, sample, horizon, batch, instrument, calibrati
 
 ## Synthetic fixture
 
-The example has three manufactured records:
+The examples have four manufactured records:
 1. An AGIS-like polygon map inventory with mapped-class semantics.
-2. A Soils4Africa-like regional point survey with direct-measurement semantics and agreement-bound use.
-3. A SOTER-like pedotransfer product with explicitly derived values and model lineage.
+2. A Soils4Africa-like field-observation table with direct field-observation semantics (e.g. slope position), not laboratory soil chemistry.
+3. A distinct Soils4Africa-like MIR-derived soil-property estimate product with model-prediction semantics and unresolved calibration lineage.
+4. A SOTER-like pedotransfer product with explicitly derived values and model lineage.
 
 Names are analogues used to test metadata validation, not declarations about the real source files or live licences.
 
@@ -71,6 +72,19 @@ Names are analogues used to test metadata validation, not declarations about the
 - SOTWIS Southern Africa: https://data.moa.gov.et/dataset/soter-based-soil-parameter-estimates-sotwis-for-southern-africa
 - Western Highveld paired NIR/MIR article: https://doi.org/10.1016/j.dib.2026.113160
 - Western Highveld Zenodo v2: https://zenodo.org/records/21640671
+
+## Current Soils4Africa release distinctions
+
+The 2026 public source surface describes separate products that must remain separate in the admission graph:
+
+- **Field observations:** Zenodo 17699297 v1 (published 26 June 2026) includes a field-data CSV and its tableschema. The schema describes coordinates, survey date, plot/TSU identifiers, country, erosion, landform/slope, vegetation, crop type, tillage, residue/fertiliser inputs, irrigation and grazing context. It does not establish that this file is an analytical soil-chemistry table.
+- **MIR-derived estimates:** ISRIC announced 19 soil-property estimates derived from MIR spectra for over 11,000 samples at over 6,100 locations in 21 countries (5 October 2026). The exact versioned data record was not pinned during this review. These values are model-derived estimates and require model/reference lineage before use.
+- **Gridded map predictions:** separate GeoTIFF products derived from survey data with spatial-statistical / ML methods and per-pixel accuracy estimates.
+- **Pesticide residues:** a separate product from 272 locations, with its own analytical and rights contracts.
+
+The Zenodo field release describes more than 15,000 locations across 33 countries; the 2026 framework paper reports 24,951 soil samples from 14,311 locations across 33 countries. The README describes 1 June 2020–31 May 2025, while the paper describes the coordinated campaign as 2022–2025. These are source-specific counts/date descriptions that must be reconciled from sample/plot IDs and row dates, not silently replaced.
+
+A complementary handheld NIR transfer dataset is the NeoSpectra library v1.2 (Zenodo 13122321): 2,106 soil samples across nine scanners, including 90 African samples from Ghana, Kenya and Nigeria. It is relevant for device and geographic transfer research, but the African subset is small and cannot support country-level or South African validation alone. Keep replicate scans grouped by physical sample and scanner in all splits.
 
 ## Boundary
 
