@@ -1,0 +1,61 @@
+{
+  "schema": "AeroSemanticEvaluationReceiptV1",
+  "benchmark_id": "AEROCOMMONS-SEMANTIC-INTEROP-001",
+  "case_id": "SYN-COUPON-001",
+  "disposition": "PRESERVED",
+  "counts": {
+    "preserved": 9,
+    "semantic_loss": 0,
+    "wrong_subject_join": 0,
+    "unsupported": 0,
+    "ambiguous": 0,
+    "not_required": 0
+  },
+  "results": [
+    {
+      "assertion_id": "A-UNIT-001",
+      "status": "PRESERVED",
+      "explanation": "synthetic identity-join control"
+    },
+    {
+      "assertion_id": "A-REQ-001",
+      "status": "PRESERVED",
+      "explanation": "synthetic identity-join control"
+    },
+    {
+      "assertion_id": "A-DIM-001",
+      "status": "PRESERVED",
+      "explanation": "synthetic identity-join control"
+    },
+    {
+      "assertion_id": "A-TOL-001",
+      "status": "PRESERVED",
+      "explanation": "synthetic identity-join control"
+    },
+    {
+      "assertion_id": "A-DATUM-001",
+      "status": "PRESERVED",
+      "explanation": "synthetic identity-join control"
+    },
+    {
+      "assertion_id": "A-QIF-001",
+      "status": "PRESERVED",
+      "explanation": "synthetic identity-join control"
+    },
+    {
+      "assertion_id": "A-MAT-001",
+      "status": "PRESERVED",
+      "explanation": "synthetic identity-join control"
+    },
+    {
+      "assertion_id": "A-PROC-001",
+      "status": "PRESERVED",
+      "explanation": "synthetic identity-join control"
+    },
+    {
+      "assertion_id": "A-CAL-001",
+      "status": "PRESERVED",
+      "explanation": "synthetic identity-join control"
+    }
+  ]
+}
