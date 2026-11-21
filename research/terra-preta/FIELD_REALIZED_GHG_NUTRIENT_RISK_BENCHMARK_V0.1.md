@@ -49,7 +49,13 @@ DOI: [10.1016/j.geoderma.2025.117318](https://doi.org/10.1016/j.geoderma.2025.11
 
 **Implication:** do not infer multi-year function or permanence from a short incubation, one harvest, one gas-flux campaign or one material-carbon assay.
 
-### 2.4 Methodology and regulatory comparators
+### 2.4 South African soil-property context (not efficacy evidence)
+
+Kock & Van Zijl (2026), [A soil property and spectral near- and mid-infrared dataset from cultivated fields sampled in winter 2020, Western Highveld, South Africa](https://doi.org/10.1016/j.dib.2026.113160), publish a 790-sample dataset with pH (KCl), Bray-1 P, exchangeable K/Ca/Mg/Na and paired handheld NIR / benchtop MIR spectra. The samples are composite cultivated-grain-field topsoil (0–15 cm) from one 2020 winter season. Only 178 samples have released field coordinates; the remaining samples have regional attribution only. The source data are deposited at [Zenodo record 17510653](https://doi.org/10.5281/zenodo.17510653).
+
+This dataset is useful for local soil-property context, pedometric baseline work and NIR/MIR transfer tests. It is **not** a biochar treatment dataset, not a greenhouse-gas dataset, and not a nationally representative sample of South African soils. Do not use it to label treatment efficacy, claim local amendment effects or fabricate plot-level locations.
+
+### 2.5 Methodology and regulatory comparators
 
 - The [Puro.earth Biochar Certification Framework, Edition 2025 v2](https://puro.earth/cdr-infrastructure/methodologies/) defines a cradle-to-grave project boundary and includes operational and embodied emissions, biomass sourcing, production and end-use. It is a carbon-removal methodology comparator, not a general soil-health or South African fertilizer approval.
 - [Commission Delegated Regulation (EU) 2026/285](https://eur-lex.europa.eu/eli/reg_del/2026/285/oj) establishes EU carbon-removal certification methodologies and includes biochar soil-use requirements for contaminants, pollution prevention and ecosystem/soil-health safeguards. EU rules do not automatically apply in South Africa.
