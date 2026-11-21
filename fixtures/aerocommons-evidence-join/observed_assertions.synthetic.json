@@ -1,0 +1,159 @@
+{
+  "schema": "AeroObservedAssertionSetV1",
+  "benchmark_id": "AEROCOMMONS-SEMANTIC-INTEROP-001",
+  "case_id": "SYN-COUPON-001",
+  "assertions": [
+    {
+      "assertion_id": "A-UNIT-001",
+      "semantic_type": "persistent_identity",
+      "subject": {
+        "id": "physical-unit:coupon-001-serial-0001",
+        "kind": "physical_unit"
+      },
+      "requirement": null,
+      "value": "physical-unit:coupon-001-serial-0001",
+      "unit": null,
+      "source_locator": "synthetic://component/unit/id",
+      "required": true
+    },
+    {
+      "assertion_id": "A-REQ-001",
+      "semantic_type": "requirement_link",
+      "subject": {
+        "id": "component:coupon-001",
+        "kind": "component"
+      },
+      "requirement": {
+        "id": "requirement:dimension-a",
+        "kind": "requirement"
+      },
+      "value": "same-revision-linked",
+      "unit": null,
+      "source_locator": "synthetic://ap242/feature/hole-01",
+      "required": true
+    },
+    {
+      "assertion_id": "A-DIM-001",
+      "semantic_type": "nominal_dimension",
+      "subject": {
+        "id": "component:coupon-001",
+        "kind": "component"
+      },
+      "requirement": {
+        "id": "requirement:dimension-a",
+        "kind": "requirement"
+      },
+      "value": 10,
+      "unit": "mm",
+      "source_locator": "synthetic://ap242/pmi/dimension-001",
+      "required": true
+    },
+    {
+      "assertion_id": "A-TOL-001",
+      "semantic_type": "tolerance",
+      "subject": {
+        "id": "component:coupon-001",
+        "kind": "component"
+      },
+      "requirement": {
+        "id": "requirement:dimension-a",
+        "kind": "requirement"
+      },
+      "value": {
+        "kind": "plus_minus",
+        "upper": 0.05,
+        "lower": 0.05
+      },
+      "unit": "mm",
+      "source_locator": "synthetic://ap242/pmi/tolerance-001",
+      "required": true
+    },
+    {
+      "assertion_id": "A-DATUM-001",
+      "semantic_type": "datum_reference",
+      "subject": {
+        "id": "feature:coupon-hole-01",
+        "kind": "feature"
+      },
+      "requirement": null,
+      "value": {
+        "datum": "A",
+        "order": 1,
+        "orientation": "primary"
+      },
+      "unit": null,
+      "source_locator": "synthetic://ap242/pmi/datum-001",
+      "required": true
+    },
+    {
+      "assertion_id": "A-QIF-001",
+      "semantic_type": "measurement_result",
+      "subject": {
+        "id": "physical-unit:coupon-001-serial-0001",
+        "kind": "physical_unit"
+      },
+      "requirement": {
+        "id": "requirement:dimension-a",
+        "kind": "requirement"
+      },
+      "value": {
+        "measured": 10.02,
+        "uncertainty": 0.01,
+        "result_id": "qif-result:coupon-serial-0001-hole-01"
+      },
+      "unit": "mm",
+      "source_locator": "synthetic://qif/results/measurement-001",
+      "required": true
+    },
+    {
+      "assertion_id": "A-MAT-001",
+      "semantic_type": "material_property",
+      "subject": {
+        "id": "material-batch:al-6061-lot-01",
+        "kind": "material_batch"
+      },
+      "requirement": null,
+      "value": {
+        "alloy": "Al-6061",
+        "temper": "T6"
+      },
+      "unit": null,
+      "source_locator": "synthetic://material/batch/al-6061-lot-01",
+      "required": true
+    },
+    {
+      "assertion_id": "A-PROC-001",
+      "semantic_type": "process_operation",
+      "subject": {
+        "id": "sha256:04b28be5ac58cd95d3621c6ead0e1c1facf80b429709267437182aa3291829bf",
+        "kind": "manufacturing_process_plan"
+      },
+      "requirement": null,
+      "value": {
+        "operation": "machining",
+        "plan_id": "sha256:04b28be5ac58cd95d3621c6ead0e1c1facf80b429709267437182aa3291829bf"
+      },
+      "unit": null,
+      "source_locator": "synthetic://process/plan/op-001",
+      "required": true
+    },
+    {
+      "assertion_id": "A-CAL-001",
+      "semantic_type": "calibration_validity",
+      "subject": {
+        "id": "instrument:cmm-01",
+        "kind": "instrument"
+      },
+      "requirement": null,
+      "value": {
+        "valid_from_unix_ms": 1800000000000,
+        "valid_until_unix_ms": 1900000000000,
+        "used_at_unix_ms": 1850000000000
+      },
+      "unit": "unix_ms",
+      "source_locator": "synthetic://calibration/cmm-01",
+      "required": true
+    }
+  ],
+  "unsupported_assertion_ids": []
+}
