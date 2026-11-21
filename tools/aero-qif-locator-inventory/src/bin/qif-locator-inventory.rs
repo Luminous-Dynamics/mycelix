@@ -7,7 +7,8 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::{
     env,
-    fs,
+    fs::{self, File},
+    io::Read,
     path::{Path, PathBuf},
     process::ExitCode,
 };
@@ -40,16 +41,22 @@ fn parse_plan(value: &str) -> Result<(String, PathBuf), String> {
 }
 
 fn read_bounded(path: &Path, maximum: u64) -> Result<Vec<u8>, String> {
-    let metadata = fs::metadata(path)
-        .map_err(|error| format!("cannot stat {}: {error}", path.display()))?;
+    let file = File::open(path)
+        .map_err(|error| format!("cannot open {}: {error}", path.display()))?;
+    let metadata = file.metadata()
+        .map_err(|error| format!("cannot stat opened file {}: {error}", path.display()))?;
     if !metadata.is_file() {
         return Err(format!("input is not a regular file: {}", path.display()));
     }
     if metadata.len() > maximum {
         return Err(format!("input exceeds profile max_source_bytes: {}", path.display()));
     }
-    let bytes = fs::read(path)
-        .map_err(|error| format!("cannot read {}: {error}", path.display()))?;
+    let capacity = usize::try_from(metadata.len().min(maximum))
+        .map_err(|_| format!("input size cannot be represented on this platform: {}", path.display()))?;
+    let mut bytes = Vec::with_capacity(capacity);
+    let mut limited = file.take(maximum.saturating_add(1));
+    limited.read_to_end(&mut bytes)
+        .map_err(|error| format!("cannot read bounded input {}: {error}", path.display()))?;
     if bytes.len() as u64 > maximum {
         return Err(format!("input grew beyond profile max_source_bytes: {}", path.display()));
     }
@@ -111,16 +118,8 @@ fn run() -> Result<(), String> {
         return Err("--plan must be supplied at least once".into());
     }
 
-    let profile_metadata = fs::metadata(&profile_path)
-        .map_err(|error| format!("cannot stat profile {}: {error}", profile_path.display()))?;
-    if !profile_metadata.is_file() || profile_metadata.len() > 1024 * 1024 {
-        return Err("profile must be a regular file no larger than 1 MiB".into());
-    }
-    let profile_bytes = fs::read(&profile_path)
-        .map_err(|error| format!("cannot read profile {}: {error}", profile_path.display()))?;
-    if profile_bytes.len() > 1024 * 1024 {
-        return Err("profile grew beyond 1 MiB while being read".into());
-    }
+    let profile_bytes = read_bounded(&profile_path, 1024 * 1024)
+        .map_err(|error| format!("cannot read bounded profile: {error}"))?;
     let profile: TraceLocatorProfileV1 = serde_json::from_slice(&profile_bytes)
         .map_err(|error| format!("invalid profile {}: {error}", profile_path.display()))?;
     validate_profile(&profile).map_err(|error| format!("invalid profile: {error}"))?;
