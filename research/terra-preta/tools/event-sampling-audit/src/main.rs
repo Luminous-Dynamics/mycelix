@@ -243,10 +243,10 @@ fn validate_schedule(s: &Schedule, t: &Truth) -> Result<(), String> {
         }
         finite("candidate observation time", o.time_hours)?;
         finite("candidate response value", o.response_value)?;
-        if let Some(prev) = prior {
-            if o.time_hours <= prev {
-                return Err("candidate observation times must increase strictly".into());
-            }
+        if let Some(prev) = prior
+            && o.time_hours <= prev
+        {
+            return Err("candidate observation times must increase strictly".into());
         }
         prior = Some(o.time_hours);
         let truth = t
