@@ -264,6 +264,8 @@ fn main() {
         let mut mf_lower = Vec::with_capacity(REPLICATES);
         let mut mf_upper = Vec::with_capacity(REPLICATES);
         let mut mf_variance_ratio = Vec::with_capacity(REPLICATES);
+        let mut mf_direct_variance = Vec::with_capacity(REPLICATES);
+        let mut mf_residual_variance = Vec::with_capacity(REPLICATES);
         let mut mf_false_positives = Vec::with_capacity(REPLICATES);
         let mut mf_false_negatives = Vec::with_capacity(REPLICATES);
 
@@ -300,6 +302,8 @@ fn main() {
                     mf_lower.push(report.lower);
                     mf_upper.push(report.upper);
                     mf_variance_ratio.push(report.variance_reduction_ratio.unwrap_or(0.0));
+                    mf_direct_variance.push(report.direct_variance);
+                    mf_residual_variance.push(report.residual_variance);
                     mf_false_positives.push(report.false_positive_count as f64);
                     mf_false_negatives.push(report.false_negative_count as f64);
                 }
@@ -324,7 +328,7 @@ fn main() {
             is_upper.iter().filter(|upper| **upper >= truth).count() as f64 / REPLICATES as f64;
 
         println!(
-            "crude_mc,{radius:.6},{truth:.12},{:.12},{crude_rmse:.12},{:.12},{:.12},{:.12},{:.6},0.0,0.0,0.0",
+            "crude_mc,{radius:.6},{truth:.12},{:.12},{crude_rmse:.12},{:.12},{:.12},{:.12},{:.6},0.0,0.0,0.0,0.0,0.0",
             mean(&crude_estimates),
             0.0,
             mean(&crude_upper),
@@ -332,7 +336,7 @@ fn main() {
             crude_upper_coverage,
         );
         println!(
-            "defensive_is,{radius:.6},{truth:.12},{:.12},{is_rmse:.12},{:.12},{:.12},{:.12},{:.6},0.0,0.0,0.0",
+            "defensive_is,{radius:.6},{truth:.12},{:.12},{is_rmse:.12},{:.12},{:.12},{:.12},{:.6},0.0,0.0,0.0,0.0,0.0",
             mean(&is_estimates),
             0.0,
             mean(&is_upper),
@@ -357,9 +361,11 @@ fn main() {
             .count() as f64
             / REPLICATES as f64;
         println!(
-            "multifidelity_residual,{radius:.6},{truth:.12},{:.12},{mf_rmse:.12},{mf_mean_lower:.12},{mf_mean_upper:.12},{mf_mean_width:.12},{mf_coverage:.6},{:.6},{:.3},{:.3}",
+            "multifidelity_residual,{radius:.6},{truth:.12},{:.12},{mf_rmse:.12},{mf_mean_lower:.12},{mf_mean_upper:.12},{mf_mean_width:.12},{mf_coverage:.6},{:.6},{:.12},{:.12},{:.3},{:.3}",
             mean(&mf_estimates),
             mean(&mf_variance_ratio),
+            mean(&mf_direct_variance),
+            mean(&mf_residual_variance),
             mean(&mf_false_positives),
             mean(&mf_false_negatives),
         );
@@ -374,7 +380,7 @@ fn main() {
 
         // This assertion is a frozen synthetic regression target, not a claim
         // about a real orbital scenario or a production RNG.
-        if !(is_rmse < crude_rmse) {
+        if is_rmse.partial_cmp(&crude_rmse) != Some(std::cmp::Ordering::Less) {
             eprintln!("defensive IS did not improve RMSE for radius {radius}");
             process::exit(1);
         }
