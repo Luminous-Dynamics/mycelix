@@ -132,7 +132,6 @@ struct EventCoverage {
     qualified: bool,
 }
 
-
 fn sha256_hex(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
     let mut output = String::with_capacity(digest.len() * 2);
