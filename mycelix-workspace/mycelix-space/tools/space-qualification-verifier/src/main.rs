@@ -176,8 +176,8 @@ fn verify_source_artifacts(
     package: &Value,
     repo_root: &Path,
     findings: &mut Findings,
-) -> BTreeSet<String> {
-    let mut ids = BTreeSet::new();
+) -> BTreeMap<String, String> {
+    let mut ids = BTreeMap::new();
     let Some(artifacts) = get_array(package, "source_artifacts") else {
         findings.fail("MISSING_SOURCE_ARTIFACTS", "source_artifacts must be an array");
         return ids;
@@ -188,10 +188,12 @@ fn verify_source_artifacts(
             findings.fail("INVALID_ARTIFACT_ID", format!("source_artifacts[{index}] has no artifact_id"));
             continue;
         };
-        if !ids.insert(id.to_string()) {
+        if ids.contains_key(id) {
             findings.fail("DUPLICATE_ARTIFACT_ID", format!("duplicate artifact_id {id}"));
             continue;
         }
+        let declared_digest = get_str(artifact, "raw_bytes_sha256").unwrap_or("").to_string();
+        ids.insert(id.to_string(), declared_digest);
 
         if !get_str(artifact, "raw_bytes_sha256").is_some_and(is_sha256) {
             findings.fail(
@@ -348,7 +350,7 @@ fn verify_source_artifacts(
 
 fn verify_object_and_coverage_ledgers(
     package: &Value,
-    artifact_ids: &BTreeSet<String>,
+    artifact_ids: &BTreeMap<String, String>,
     findings: &mut Findings,
 ) -> (BTreeSet<String>, BTreeSet<String>, usize, usize, usize, usize) {
     let request = package.get("request").unwrap_or(&Value::Null);
@@ -618,17 +620,27 @@ fn verify_object_and_coverage_ledgers(
     )
 }
 
+#[derive(Clone, Debug)]
+struct AssessmentEvidence {
+    assessment_type: String,
+    status: String,
+    pair_id: Option<String>,
+    output_artifact_id: Option<String>,
+    output_sha256: Option<String>,
+}
+
 fn verify_assessments(
     package: &Value,
-    artifact_ids: &BTreeSet<String>,
+    artifact_ids: &BTreeMap<String, String>,
     findings: &mut Findings,
-) -> (BTreeSet<String>, bool) {
+) -> (BTreeSet<String>, bool, BTreeMap<String, AssessmentEvidence>) {
     let Some(assessments) = get_array(package, "assessments") else {
         findings.fail("MISSING_ASSESSMENTS", "assessments must be an array");
-        return (BTreeSet::new(), false);
+        return (BTreeSet::new(), false, BTreeMap::new());
     };
     let mut ids = BTreeSet::new();
     let mut completed_screen = false;
+    let mut evidence_by_id = BTreeMap::new();
     for (index, assessment) in assessments.iter().enumerate() {
         let Some(id) = get_str(assessment, "assessment_id").filter(|id| !id.trim().is_empty()) else {
             findings.fail("INVALID_ASSESSMENT_ID", format!("assessments[{index}] has no assessment_id"));
@@ -654,13 +666,49 @@ fn verify_assessments(
             .map(|value| string_list(value, &format!("assessment {id} input_artifact_ids"), findings))
             .unwrap_or_default();
         for reference in references {
-            if !artifact_ids.contains(&reference) {
+            if !artifact_ids.contains_key(&reference) {
                 findings.fail(
                     "UNKNOWN_ASSESSMENT_ARTIFACT",
                     format!("assessment {id} references unknown artifact {reference}"),
                 );
             }
         }
+
+        let pair_id = get_str(assessment, "pair_id").map(str::to_string);
+        let output_artifact_id = get_str(assessment, "output_artifact_id").map(str::to_string);
+        let output_sha256 = get_str(assessment, "output_sha256").map(str::to_string);
+        if let Some(output_id) = output_artifact_id.as_deref() {
+            if let Some(expected_digest) = artifact_ids.get(output_id) {
+                if output_sha256.as_deref() != Some(expected_digest.as_str()) {
+                    findings.fail(
+                        "ASSESSMENT_OUTPUT_DIGEST_MISMATCH",
+                        format!("assessment {id} output_sha256 does not match output artifact {output_id}"),
+                    );
+                } else {
+                    findings.check("assessment_output_artifact_binding");
+                }
+            } else {
+                findings.fail(
+                    "UNKNOWN_ASSESSMENT_OUTPUT_ARTIFACT",
+                    format!("assessment {id} references unknown output artifact {output_id}"),
+                );
+            }
+        } else if output_sha256.is_some() {
+            findings.fail(
+                "ASSESSMENT_OUTPUT_WITHOUT_ARTIFACT",
+                format!("assessment {id} declares output_sha256 without output_artifact_id"),
+            );
+        }
+        evidence_by_id.insert(
+            id.to_string(),
+            AssessmentEvidence {
+                assessment_type: get_str(assessment, "assessment_type").unwrap_or("unknown").to_string(),
+                status: get_str(assessment, "status").unwrap_or("unknown").to_string(),
+                pair_id,
+                output_artifact_id,
+                output_sha256,
+            },
+        );
 
         let pc = assessment.get("collision_probability").unwrap_or(&Value::Null);
         match get_str(pc, "status").unwrap_or("unknown") {
@@ -695,7 +743,297 @@ fn verify_assessments(
             other => findings.fail("INVALID_PC_STATUS", format!("assessment {id} has invalid Pc status {other}")),
         }
     }
-    (ids, completed_screen)
+    (ids, completed_screen, evidence_by_id)
+}
+
+fn verify_pair_coverage(
+    package: &Value,
+    requested_ids: &BTreeSet<String>,
+    artifact_digests: &BTreeMap<String, String>,
+    assessments: &BTreeMap<String, AssessmentEvidence>,
+    findings: &mut Findings,
+) -> bool {
+    let request = package.get("request").unwrap_or(&Value::Null);
+    let primary = get_str(request, "primary_object_id").unwrap_or("");
+    let expected_secondaries: BTreeSet<String> = requested_ids
+        .iter()
+        .filter(|object_id| object_id.as_str() != primary)
+        .cloned()
+        .collect();
+    let expected_count = expected_secondaries.len();
+    let ledger = package.get("pair_coverage").unwrap_or(&Value::Null);
+    let Some(pairs) = get_array(ledger, "pairs") else {
+        findings.fail("MISSING_PAIR_LEDGER", "pair_coverage.pairs must be an array");
+        return false;
+    };
+
+    if get_str(ledger, "scope_kind") != Some("primary_vs_each_requested_secondary") {
+        findings.fail("INVALID_PAIR_SCOPE", "pair coverage must enumerate the primary against every requested secondary");
+    }
+    if !get_str(ledger, "pair_manifest_sha256").is_some_and(is_sha256) {
+        findings.fail("INVALID_PAIR_MANIFEST_DIGEST", "pair_manifest_sha256 must be a lowercase SHA-256 digest");
+    }
+    if get_u64(ledger, "requested_pair_count") != Some(expected_count as u64) {
+        findings.fail(
+            "REQUESTED_PAIR_COUNT_MISMATCH",
+            format!("pair ledger must contain {expected_count} primary-secondary pairs"),
+        );
+    }
+
+    let mut pair_ids = BTreeSet::new();
+    let mut secondary_ids = BTreeSet::new();
+    let mut retained_count = 0usize;
+    let mut excluded_count = 0usize;
+    let mut unresolved_count = 0usize;
+    let mut unsupported_count = 0usize;
+    let mut negative_ready = true;
+
+    for (index, pair) in pairs.iter().enumerate() {
+        let Some(pair_id) = get_str(pair, "pair_id").filter(|value| !value.trim().is_empty()) else {
+            findings.fail("INVALID_PAIR_ID", format!("pair_coverage.pairs[{index}] has no pair_id"));
+            negative_ready = false;
+            continue;
+        };
+        if !pair_ids.insert(pair_id.to_string()) {
+            findings.fail("DUPLICATE_PAIR_ID", format!("duplicate pair_id {pair_id}"));
+        }
+
+        let primary_id = get_str(pair, "primary_object_id").unwrap_or("");
+        let secondary_id = get_str(pair, "secondary_object_id").unwrap_or("");
+        if primary_id != primary {
+            findings.fail(
+                "PAIR_PRIMARY_MISMATCH",
+                format!("pair {pair_id} primary does not match request.primary_object_id"),
+            );
+        }
+        if !expected_secondaries.contains(secondary_id) {
+            findings.fail(
+                "UNREQUESTED_PAIR_SECONDARY",
+                format!("pair {pair_id} secondary {secondary_id} is not a requested non-primary object"),
+            );
+        }
+        if !secondary_ids.insert(secondary_id.to_string()) {
+            findings.fail(
+                "DUPLICATE_PAIR_SECONDARY",
+                format!("requested secondary {secondary_id} appears in more than one pair"),
+            );
+        }
+
+        let source_refs = pair
+            .get("source_artifact_ids")
+            .map(|value| string_list(value, &format!("pair {pair_id} source_artifact_ids"), findings))
+            .unwrap_or_default();
+        check_unique(&source_refs, &format!("pair {pair_id} source_artifact_ids"), findings);
+        for artifact_id in &source_refs {
+            if !artifact_digests.contains_key(artifact_id) {
+                findings.fail(
+                    "UNKNOWN_PAIR_SOURCE_ARTIFACT",
+                    format!("pair {pair_id} references unknown source artifact {artifact_id}"),
+                );
+            }
+        }
+
+        let reason_codes = pair
+            .get("reason_codes")
+            .map(|value| string_list(value, &format!("pair {pair_id} reason_codes"), findings))
+            .unwrap_or_default();
+        let witness_id = get_str(pair, "prune_witness_artifact_id");
+        let witness_sha = get_str(pair, "prune_witness_sha256");
+        let method_profile = get_str(pair, "method_profile_id");
+        let narrow_status = get_str(pair, "narrow_phase_status").unwrap_or("unknown");
+        let narrow_assessment_id = get_str(pair, "narrow_phase_assessment_id");
+
+        match get_str(pair, "disposition").unwrap_or("unknown") {
+            "proven_excluded" => {
+                excluded_count += 1;
+                if reason_codes.is_empty() || !is_nonempty(method_profile) {
+                    findings.fail(
+                        "PRUNED_PAIR_WITHOUT_REASON_OR_METHOD",
+                        format!("proven-excluded pair {pair_id} needs reason_codes and method_profile_id"),
+                    );
+                }
+                let Some(artifact_id) = witness_id else {
+                    findings.fail("PRUNED_PAIR_WITHOUT_WITNESS", format!("pair {pair_id} has no prune-witness artifact"));
+                    negative_ready = false;
+                    continue;
+                };
+                match (artifact_digests.get(artifact_id), witness_sha) {
+                    (Some(actual), Some(declared)) if actual == declared && is_sha256(declared) => {
+                        findings.check("pair_prune_witness_artifact_binding");
+                    }
+                    (None, _) => findings.fail(
+                        "UNKNOWN_PRUNE_WITNESS_ARTIFACT",
+                        format!("pair {pair_id} references unknown prune-witness artifact {artifact_id}"),
+                    ),
+                    _ => findings.fail(
+                        "PRUNE_WITNESS_DIGEST_MISMATCH",
+                        format!("pair {pair_id} prune-witness digest does not match retained artifact bytes"),
+                    ),
+                }
+                if narrow_status != "not_applicable" || narrow_assessment_id.is_some() {
+                    findings.fail(
+                        "PRUNED_PAIR_HAS_NARROW_PHASE",
+                        format!("proven-excluded pair {pair_id} must not claim a narrow-phase assessment"),
+                    );
+                    negative_ready = false;
+                }
+            }
+            "retained_candidate" => {
+                retained_count += 1;
+                if !is_nonempty(method_profile) {
+                    findings.fail("RETAINED_PAIR_WITHOUT_METHOD", format!("retained pair {pair_id} needs method_profile_id"));
+                }
+                if witness_id.is_some() || witness_sha.is_some() {
+                    findings.fail(
+                        "RETAINED_PAIR_HAS_PRUNE_WITNESS",
+                        format!("retained candidate {pair_id} must not carry a prune witness"),
+                    );
+                }
+                match narrow_status {
+                    "searched_no_event" | "event_found" => {
+                        let Some(assessment_id) = narrow_assessment_id else {
+                            findings.fail(
+                                "PAIR_NARROW_PHASE_WITHOUT_ASSESSMENT",
+                                format!("pair {pair_id} has a completed narrow phase but no assessment reference"),
+                            );
+                            negative_ready = false;
+                            continue;
+                        };
+                        match assessments.get(assessment_id) {
+                            Some(assessment)
+                                if assessment.assessment_type == "conjunction_screen"
+                                    && assessment.status == "completed"
+                                    && assessment.pair_id.as_deref() == Some(pair_id)
+                                    && assessment.output_artifact_id.is_some()
+                                    && assessment.output_sha256.is_some() =>
+                            {
+                                findings.check("pair_narrow_phase_assessment_binding");
+                                if narrow_status != "searched_no_event" {
+                                    negative_ready = false;
+                                }
+                            }
+                            _ => {
+                                findings.fail(
+                                    "PAIR_NARROW_PHASE_ASSESSMENT_MISMATCH",
+                                    format!("pair {pair_id} assessment {assessment_id} is not a completed, output-bound conjunction assessment for this pair"),
+                                );
+                                negative_ready = false;
+                            }
+                        }
+                    }
+                    "not_run" | "inconclusive" => {
+                        if narrow_assessment_id.is_some() {
+                            findings.fail(
+                                "UNFINISHED_PAIR_HAS_ASSESSMENT",
+                                format!("pair {pair_id} has an assessment reference despite narrow phase {narrow_status}"),
+                            );
+                        }
+                        findings.mark_incomplete(
+                            "PAIR_NARROW_PHASE_NOT_COMPLETE",
+                            format!("retained pair {pair_id} has narrow-phase status {narrow_status}"),
+                        );
+                        negative_ready = false;
+                    }
+                    other => {
+                        findings.fail(
+                            "INVALID_PAIR_NARROW_PHASE_STATUS",
+                            format!("retained pair {pair_id} has invalid narrow-phase status {other}"),
+                        );
+                        negative_ready = false;
+                    }
+                }
+            }
+            "unresolved" | "unsupported" => {
+                if get_str(pair, "disposition") == Some("unresolved") {
+                    unresolved_count += 1;
+                } else {
+                    unsupported_count += 1;
+                }
+                if reason_codes.is_empty() || witness_id.is_some() || witness_sha.is_some() || narrow_assessment_id.is_some() {
+                    findings.fail(
+                        "UNRESOLVED_PAIR_SEMANTICS_INVALID",
+                        format!("unresolved/unsupported pair {pair_id} needs reasons and cannot claim a witness or assessment"),
+                    );
+                }
+                if !matches!(narrow_status, "not_run" | "inconclusive") {
+                    findings.fail(
+                        "UNRESOLVED_PAIR_HAS_INVALID_NARROW_PHASE",
+                        format!("unresolved/unsupported pair {pair_id} has invalid narrow-phase status {narrow_status}"),
+                    );
+                }
+                findings.mark_incomplete(
+                    "PAIR_UNIVERSE_HAS_UNRESOLVED",
+                    format!("pair {pair_id} remains unresolved or unsupported"),
+                );
+                negative_ready = false;
+            }
+            other => {
+                findings.fail("INVALID_PAIR_DISPOSITION", format!("pair {pair_id} has invalid disposition {other}"));
+                negative_ready = false;
+            }
+        }
+    }
+
+    if secondary_ids != expected_secondaries || pairs.len() != expected_count {
+        findings.fail(
+            "PAIR_UNIVERSE_OMITTED_OR_EXTRA",
+            format!("pair ledger does not enumerate every requested secondary exactly once; expected {expected_count} pairs"),
+        );
+        negative_ready = false;
+    }
+
+    for (field, expected) in [
+        ("retained_candidate_count", retained_count),
+        ("proven_excluded_count", excluded_count),
+        ("unresolved_count", unresolved_count),
+        ("unsupported_count", unsupported_count),
+    ] {
+        if get_u64(ledger, field) != Some(expected as u64) {
+            findings.fail(
+                "PAIR_COUNT_MISMATCH",
+                format!("pair_coverage.{field} does not reconcile; expected {expected}"),
+            );
+        }
+    }
+    if retained_count + excluded_count + unresolved_count + unsupported_count != expected_count {
+        findings.fail(
+            "PAIR_DISPOSITIONS_DO_NOT_RECONCILE",
+            "retained, proven-excluded, unresolved and unsupported counts must sum to requested pairs",
+        );
+        negative_ready = false;
+    }
+
+    match get_str(ledger, "disposition").unwrap_or("unknown") {
+        "complete" => {
+            if pairs.len() != expected_count || secondary_ids != expected_secondaries {
+                findings.fail(
+                    "FALSE_COMPLETE_PAIR_COVERAGE",
+                    "pair ledger is marked complete but does not enumerate the full requested pair universe",
+                );
+                negative_ready = false;
+            } else {
+                findings.check("complete_primary_secondary_pair_coverage");
+            }
+        }
+        "partial" => {
+            findings.mark_incomplete("PARTIAL_PAIR_COVERAGE", "pair ledger is partial");
+            negative_ready = false;
+        }
+        "unknown" => {
+            findings.mark_incomplete("UNKNOWN_PAIR_COVERAGE", "pair coverage is unknown");
+            negative_ready = false;
+        }
+        "rejected" => {
+            findings.fail("REJECTED_PAIR_COVERAGE", "pair coverage is rejected");
+            negative_ready = false;
+        }
+        other => {
+            findings.fail("INVALID_PAIR_COVERAGE_DISPOSITION", format!("invalid pair coverage disposition {other}"));
+            negative_ready = false;
+        }
+    }
+
+    negative_ready
 }
 
 fn verify_execution_and_authority(
@@ -789,7 +1127,7 @@ fn verify_execution_and_authority(
 
 fn verify_claims(
     package: &Value,
-    artifact_ids: &BTreeSet<String>,
+    artifact_ids: &BTreeMap<String, String>,
     assessment_ids: &BTreeSet<String>,
     requested_ids: &BTreeSet<String>,
     segment_ids: &BTreeSet<String>,
@@ -820,7 +1158,7 @@ fn verify_claims(
             .map(|value| string_list(value, &format!("claim_matrix[{index}].evidence_refs"), findings))
             .unwrap_or_default();
         for reference in references {
-            let known = artifact_ids.contains(&reference)
+            let known = artifact_ids.contains_key(&reference)
                 || assessment_ids.contains(&reference)
                 || requested_ids.contains(&reference)
                 || segment_ids.contains(&reference)
@@ -870,7 +1208,10 @@ fn verify_value(package: &Value, repo_root: &Path) -> Findings {
     let artifacts = verify_source_artifacts(package, repo_root, &mut findings);
     let (requested, segments, screened, excluded, unassessed, segment_unassessed) =
         verify_object_and_coverage_ledgers(package, &artifacts, &mut findings);
-    let (assessments, completed_screen) = verify_assessments(package, &artifacts, &mut findings);
+    let (assessments, completed_screen, assessment_evidence) =
+        verify_assessments(package, &artifacts, &mut findings);
+    let pair_negative_ready =
+        verify_pair_coverage(package, &requested, &artifacts, &assessment_evidence, &mut findings);
 
     let mut producer_revisions = BTreeSet::new();
     verify_execution_and_authority(package, &mut producer_revisions, &mut findings);
@@ -910,6 +1251,7 @@ fn verify_value(package: &Value, repo_root: &Path) -> Findings {
             || !all_objects_screened
             || !all_segments_assessed
             || !completed_screen
+            || !pair_negative_ready
         {
             findings.fail(
                 "UNSUPPORTED_NEGATIVE_CONCLUSION",
