@@ -66,7 +66,7 @@ The CLI validates the profile before reading staged files, applies the profile's
 - Streaming `NsReader`; no DOM and no external resolution.
 - Reject DTD/DOCTYPE and custom entities, malformed/mismatched tags, unbound namespace prefixes and duplicate/malformed attributes.
 - Predefined and numeric character references are handled without enabling DTD-based custom entities.
-- Hard upper bounds on source bytes, elements, depth, attributes per element, bytes per attribute, text per element, total text, locators and namespace bindings.
+- Hard upper bounds on source bytes per document, aggregate Results/Plan bytes, number of documents, elements, depth, attributes per element, bytes per attribute, text per element, total text, locators and namespace bindings.
 - For every XML element with an `n` attribute, the scanner checks that the actual direct-child element count equals `n`.
 - The source QPId must equal the supplied QPId. External Plan QPIds must point to the exact set of supplied Plan documents.
 - Source URI is captured as inert metadata and never fetched.
