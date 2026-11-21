@@ -2,7 +2,7 @@
   "schema_version": "0.1.0",
   "benchmark_id": "PULSE-FABRIC-BENCH-001",
   "status": "pre_registered_not_executed",
-  "checked_at": "2026-11-20",
+  "checked_at": "2026-11-21",
   "source_snapshot": {
     "main_sha": "b42b5af299d575864ab3649ceaad8c8e963020ec",
     "qualification_branch": "research/pulse-fabric-qualification-v0-1"
@@ -386,6 +386,71 @@
       "id": "late_joiner_historical_decrypt_acceptance_rate",
       "unit": "fraction",
       "required": true
+    },
+    {
+      "id": "group_cpu_time_per_recipient_verified_effect",
+      "unit": "milliseconds",
+      "required": true
+    },
+    {
+      "id": "group_peak_memory_per_fanout",
+      "unit": "bytes",
+      "required": true
+    },
+    {
+      "id": "group_storage_growth_per_recipient_verified_effect",
+      "unit": "bytes",
+      "required": true
+    },
+    {
+      "id": "group_network_bytes_per_recipient_verified_effect",
+      "unit": "bytes",
+      "required": true
+    },
+    {
+      "id": "group_energy_per_recipient_verified_effect",
+      "unit": "joules",
+      "required": true
+    },
+    {
+      "id": "cpu_time_per_complete_group_send",
+      "unit": "milliseconds",
+      "required": true
+    },
+    {
+      "id": "peak_memory_per_complete_group_send",
+      "unit": "bytes",
+      "required": true
+    },
+    {
+      "id": "storage_write_bytes_per_complete_group_send",
+      "unit": "bytes",
+      "required": true
+    },
+    {
+      "id": "network_bytes_per_complete_group_send",
+      "unit": "bytes",
+      "required": true
+    },
+    {
+      "id": "energy_per_complete_group_send",
+      "unit": "joules",
+      "required": true
+    },
+    {
+      "id": "recipient_commitment_dictionary_attack_success_rate",
+      "unit": "fraction",
+      "required": true
+    },
+    {
+      "id": "cross_epoch_recipient_linkability_auc",
+      "unit": "auc",
+      "required": true
+    },
+    {
+      "id": "small_group_membership_inference_auc",
+      "unit": "auc",
+      "required": true
     }
   ],
   "non_compensable_gates": [
@@ -396,7 +461,12 @@
     "zero post-revocation host admission in non-overlapping tests",
     "zero silent downgrade to a weaker or unqualified cryptographic profile",
     "zero plaintext, raw secret or capability secret in telemetry",
-    "every unresolved outcome remains UNKNOWN or INCOMPLETE"
+    "every unresolved outcome remains UNKNOWN or INCOMPLETE",
+    "zero false all-required group-completion claims when any required recipient child is missing, duplicated, unknown or unverified",
+    "zero receipt laundering across recipient commitments",
+    "zero unauthorized child recipients relative to the externally pinned manifest",
+    "zero post-removal acceptance for messages created after the effective removal epoch",
+    "zero unauthorized late-joiner historical-decryption acceptance under the declared policy"
   ],
   "proposed_targets_not_measurements": {
     "healthy_deadline_delivery_regression_max_percentage_points": 2,
@@ -413,7 +483,10 @@
     "Compare candidates only where protocol semantics, security guarantees and receipt semantics are matched.",
     "Publish per-platform, per-workload and per-failure-domain results; do not hide regressions in averages.",
     "A finite corpus result is limited to that corpus, environment, candidate build and stated threat model.",
-    "Group fan-out is reported per recipient and as an explicit aggregate; one recipient receipt cannot establish complete group delivery."
+    "Group fan-out is reported per recipient and as an explicit aggregate; one recipient receipt cannot establish complete group delivery.",
+    "A v0.1 fan-out structural verdict is not a cryptographically verified group delivery; report it as ALL_REQUIRED_RECEIPT_CLAIMS_CONSISTENT until manifest, membership, receipt signatures, principal independence and trusted time are authenticated.",
+    "Measure group-level CPU, peak memory, storage, network and physical energy per recipient-verified effect and per fully verified group send; publish failures and partial fan-outs separately.",
+    "Evaluate recipient commitments against dictionary attacks, cross-epoch linkability and small-group membership inference; do not expose raw rosters."
   ],
   "sources": [
     {
@@ -446,9 +519,9 @@
     "parent_fanout_identity": "stable per group send; not a delivery receipt or bearer credential",
     "recipient_child_identity": "one stable logical_operation_id per required recipient; multiple transport attempt IDs may exist for retries/routes",
     "recipient_set_binding": "versioned membership/epoch snapshot plus redacted recipient-set commitment; no raw roster in public qualification traces",
-    "child_success": "recipient admission, inbox commit, decryption verification and matching recipient-specific receipt are independently established",
-    "aggregate_complete": "COMPLETE_VERIFIED only when every required recipient in the committed membership snapshot has a verified child receipt by the declared deadline",
-    "partial_and_unknown": "PARTIAL, UNKNOWN, INCOMPLETE, EXPIRED and FAILED remain distinct; unknown child outcomes never count as successful delivery",
+    "child_success": "Target product semantics: recipient admission, one inbox commit, decryption verification and a cryptographically verified recipient-specific receipt. Current v0.1 verifier checks event and digest binding consistency, not receipt signatures.",
+    "aggregate_complete": "Target product semantics: COMPLETE_VERIFIED only when every required child has a cryptographically verified receipt by a trusted deadline. Current v0.1 tool reports ALL_REQUIRED_RECEIPT_CLAIMS_CONSISTENT only; manifest authority, membership truth, receipt signatures, principal independence and trusted time are not verified.",
+    "partial_and_unknown": "PARTIAL, UNKNOWN, INCOMPLETE, EXPIRED and FAILED remain distinct; unknown child outcomes never count as successful delivery. The trace schema includes PARTIAL as an explicit terminal disposition.",
     "threshold_policy": "all_required_recipients by default; any quorum/threshold override must be explicit, user-visible and bound to a separately authenticated policy snapshot",
     "device_semantics": "declare whether the child outcome is per account, per device or for a required device set; one device receipt never implies all-device sync",
     "membership_semantics": "predeclare removal, late-join and historical-decrypt policy by membership epoch; evaluate each separately"
