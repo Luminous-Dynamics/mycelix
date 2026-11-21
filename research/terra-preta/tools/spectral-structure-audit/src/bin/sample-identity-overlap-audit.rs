@@ -16,8 +16,7 @@ use std::path::Path;
 
 const AUDIT_VERSION: &str = "0.1.0";
 const MATCH_METHOD: &str = "exact_string_match_no_normalization";
-const INTERPRETATION_BOUNDARY: &str =
-    "Exact string identity overlap only. Does not establish semantic cohort independence when identifiers differ, nor experimental independence among samples; source crosswalk and field/experiment grouping still require review.";
+const INTERPRETATION_BOUNDARY: &str = "Exact string identity overlap only. Does not establish semantic cohort independence when identifiers differ, nor experimental independence among samples; source crosswalk and field/experiment grouping still require review.";
 
 #[derive(Debug, Serialize)]
 struct SourceSummary {
@@ -67,7 +66,9 @@ fn sha256_hex(bytes: &[u8]) -> String {
 
 fn nonblank(value: &str, name: &str) -> Result<(), String> {
     if value.trim().is_empty() || value.trim() != value {
-        return Err(format!("{name} must be non-empty and have no surrounding whitespace"));
+        return Err(format!(
+            "{name} must be non-empty and have no surrounding whitespace"
+        ));
     }
     Ok(())
 }
@@ -100,12 +101,16 @@ fn parse_cohort(bytes: &[u8], id_column: &str, label: &str) -> Result<Cohort, St
     let mut row_count = 0usize;
     let mut duplicate_identifier_row_count = 0usize;
     for (index, row) in reader.records().enumerate() {
-        let row = row.map_err(|error| format!("{label}: CSV row {} is invalid: {error}", index + 1))?;
+        let row =
+            row.map_err(|error| format!("{label}: CSV row {} is invalid: {error}", index + 1))?;
         row_count += 1;
         let identifier = row
             .get(id_index)
             .ok_or_else(|| format!("{label}: missing identifier cell at row {}", index + 1))?;
-        nonblank(identifier, &format!("{label}: sample ID at row {}", index + 1))?;
+        nonblank(
+            identifier,
+            &format!("{label}: sample ID at row {}", index + 1),
+        )?;
         if !identifiers.insert(identifier.to_string()) {
             duplicate_identifier_row_count += 1;
         }
@@ -141,8 +146,14 @@ fn audit_bytes(
         .intersection(&source_b.identifiers)
         .cloned()
         .collect();
-    let source_a_only = source_a.identifiers.difference(&source_b.identifiers).count();
-    let source_b_only = source_b.identifiers.difference(&source_a.identifiers).count();
+    let source_a_only = source_a
+        .identifiers
+        .difference(&source_b.identifiers)
+        .count();
+    let source_b_only = source_b
+        .identifiers
+        .difference(&source_a.identifiers)
+        .count();
 
     let overlap_fraction_of_a = overlap.len() as f64 / source_a.identifiers.len() as f64;
     let overlap_fraction_of_b = overlap.len() as f64 / source_b.identifiers.len() as f64;
@@ -271,7 +282,15 @@ mod tests {
 
     #[test]
     fn exact_overlap_is_detected_without_exposing_identifiers() {
-        let report = audit_bytes(A.as_bytes(), "Sample Name", "2024-MIR", B.as_bytes(), "Sample ID", "2026-NIR-MIR").unwrap();
+        let report = audit_bytes(
+            A.as_bytes(),
+            "Sample Name",
+            "2024-MIR",
+            B.as_bytes(),
+            "Sample ID",
+            "2026-NIR-MIR",
+        )
+        .unwrap();
         assert_eq!(report.overlap_sample_count, 1);
         assert_eq!(report.source_a_only_sample_count, 2);
         assert_eq!(report.source_b_only_sample_count, 1);
@@ -282,23 +301,52 @@ mod tests {
 
     #[test]
     fn different_column_names_are_supported() {
-        let report = audit_bytes(A.as_bytes(), "Sample Name", "source-a", B.as_bytes(), "Sample ID", "source-b").unwrap();
+        let report = audit_bytes(
+            A.as_bytes(),
+            "Sample Name",
+            "source-a",
+            B.as_bytes(),
+            "Sample ID",
+            "source-b",
+        )
+        .unwrap();
         assert_eq!(report.overlap_sample_count, 1);
     }
 
     #[test]
     fn no_overlap_is_reported_without_claiming_independence() {
         let no_overlap = "ID,value\nC-01,1\nC-02,2\n";
-        let report = audit_bytes(A.as_bytes(), "Sample Name", "source-a", no_overlap.as_bytes(), "ID", "source-c").unwrap();
+        let report = audit_bytes(
+            A.as_bytes(),
+            "Sample Name",
+            "source-a",
+            no_overlap.as_bytes(),
+            "ID",
+            "source-c",
+        )
+        .unwrap();
         assert_eq!(report.overlap_sample_count, 0);
         assert_eq!(report.status, "no_exact_identifier_overlap_detected");
-        assert!(report.warnings.iter().any(|warning| warning.contains("does not prove independent")));
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("does not prove independent"))
+        );
     }
 
     #[test]
     fn duplicate_identifiers_are_reported_not_silently_counted_as_independent() {
         let duplicate = "ID,value\nA-01,1\nA-01,2\nA-02,3\n";
-        let report = audit_bytes(duplicate.as_bytes(), "ID", "source-a", B.as_bytes(), "Sample ID", "source-b").unwrap();
+        let report = audit_bytes(
+            duplicate.as_bytes(),
+            "ID",
+            "source-a",
+            B.as_bytes(),
+            "Sample ID",
+            "source-b",
+        )
+        .unwrap();
         assert_eq!(report.source_a.row_count, 3);
         assert_eq!(report.source_a.unique_identifier_count, 2);
         assert_eq!(report.source_a.duplicate_identifier_row_count, 1);
@@ -308,22 +356,62 @@ mod tests {
     #[test]
     fn blank_identifier_is_rejected() {
         let blank = "ID,value\n,1\n";
-        assert!(audit_bytes(blank.as_bytes(), "ID", "source-a", B.as_bytes(), "Sample ID", "source-b").is_err());
+        assert!(
+            audit_bytes(
+                blank.as_bytes(),
+                "ID",
+                "source-a",
+                B.as_bytes(),
+                "Sample ID",
+                "source-b"
+            )
+            .is_err()
+        );
     }
 
     #[test]
     fn duplicate_headers_are_rejected() {
         let duplicate = "ID,ID\nA-01,A-01\n";
-        assert!(audit_bytes(duplicate.as_bytes(), "ID", "source-a", B.as_bytes(), "Sample ID", "source-b").is_err());
+        assert!(
+            audit_bytes(
+                duplicate.as_bytes(),
+                "ID",
+                "source-a",
+                B.as_bytes(),
+                "Sample ID",
+                "source-b"
+            )
+            .is_err()
+        );
     }
 
     #[test]
     fn missing_id_column_is_rejected() {
-        assert!(audit_bytes(A.as_bytes(), "unknown", "source-a", B.as_bytes(), "Sample ID", "source-b").is_err());
+        assert!(
+            audit_bytes(
+                A.as_bytes(),
+                "unknown",
+                "source-a",
+                B.as_bytes(),
+                "Sample ID",
+                "source-b"
+            )
+            .is_err()
+        );
     }
 
     #[test]
     fn same_source_label_is_rejected() {
-        assert!(audit_bytes(A.as_bytes(), "Sample Name", "same", B.as_bytes(), "Sample ID", "same").is_err());
+        assert!(
+            audit_bytes(
+                A.as_bytes(),
+                "Sample Name",
+                "same",
+                B.as_bytes(),
+                "Sample ID",
+                "same"
+            )
+            .is_err()
+        );
     }
 }
