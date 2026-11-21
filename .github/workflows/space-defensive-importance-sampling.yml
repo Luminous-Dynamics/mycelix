@@ -31,12 +31,12 @@ jobs:
         run: |
           set -euo pipefail
           manifest="mycelix-workspace/mycelix-space/tools/space-defensive-importance-sampling/Cargo.toml"
-          source="mycelix-workspace/mycelix-space/tools/space-defensive-importance-sampling/src/lib.rs"
+          source_dir="mycelix-workspace/mycelix-space/tools/space-defensive-importance-sampling/src"
           cargo fmt --manifest-path "$manifest"
-          if ! git diff --quiet -- "$source"; then
+          if ! git diff --quiet -- "$source_dir"; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add "$source"
+            git add "$source_dir"
             git commit -m "style(space): format defensive importance-sampling reference"
             pushed=false
             for attempt in 1 2 3 4 5; do
