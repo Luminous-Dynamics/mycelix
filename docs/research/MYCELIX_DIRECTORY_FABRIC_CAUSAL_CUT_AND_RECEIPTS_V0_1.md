@@ -294,7 +294,16 @@ The corpus is finite and synthetic. It does not establish completeness of any re
 
 The selected Holochain version matrix and runtime regression gate remain in [MYC-DIR-HC-QUAL-001 / #6435](https://github.com/Luminous-Dynamics/mycelix/issues/6435). This reference composition does not bypass that gate.
 
-## 10. Explicit claim ceiling
+## 10. External standards and comparator references
+
+- **Cedar authorization algorithm:** [Cedar Authorization](https://docs.cedarpolicy.com/auth/authorization.html). Keep policy evaluation errors distinct from missing, mandatory Mycelix authority dependencies. A Cedar `permit` result cannot repair an incomplete request-scoped authority cut.
+- **SCITT transparency:** [RFC 9943](https://www.rfc-editor.org/rfc/rfc9943.html). Use transparency registration for signed decision statements only after a relying party pins the transparency-service profile and roots. Inclusion is not truth, permission or effect.
+- **SpiceDB consistency:** [Authzed consistency](https://authzed.com/docs/spicedb/concepts/consistency). Compare using `at_least_as_fresh` ZedTokens and, separately, fully consistent reads. Mycelix must demonstrate the additional value of a complete cut across independent authority histories; freshness tokens alone are not a differentiator.
+- **OpenFGA consistency:** [OpenFGA consistency](https://openfga.dev/docs/interacting/consistency). Compare `HIGHER_CONSISTENCY` and `MINIMIZE_LATENCY` on equivalent relationship graphs and request sets.
+- **OAuth security:** [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700.html) and [DPoP / RFC 9449](https://www.rfc-editor.org/rfc/rfc9449.html). Audience and sender binding are adapter security controls; neither token validity nor proof-of-possession establishes local organizational authority.
+- **SPIFFE federation:** [SPIFFE Federation Specification](https://spiffe.io/docs/latest/spiffe-specs/spiffe_federation/). Bundle trust is trust-domain scoped; do not treat an arbitrary valid SVID or bundle as a Mycelix membership or resource permission.
+
+## 11. Explicit claim ceiling
 
 This work is a pure reference contract and finite synthetic corpus. It does not establish:
 
