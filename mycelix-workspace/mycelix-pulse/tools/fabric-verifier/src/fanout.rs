@@ -938,7 +938,7 @@ mod tests {
         )]);
         let manifest_sha = sha256_hex(&manifest);
         let mut mutated_child = child;
-        mutated_child.push(b'\\n');
+        mutated_child.push(b'\n');
         let (manifest_schema, trace_schema) = schemas();
 
         let result = verify_fanout(
