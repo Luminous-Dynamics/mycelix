@@ -62,6 +62,8 @@ The existing identity project already contains DID registry, credential-schema, 
 
 The repository's own top-level README describes the Identity cluster as pre-alpha and warns that multi-agent coverage and deployment maturity differ by cluster. Accordingly, this programme begins with architecture, contracts and adversarial fixtures. Do not infer production readiness from the existence of zomes or unit tests. In the inspected DID-registry and revocation integrity source, entry types are defined without explicit per-variant visibility annotations; before reuse, review the target HDI version's defaults and freeze a field-by-field public/private decision. Do not assume that a type is private because its consumers are organizational or because its source-chain content is not shown in a UI.
 
+There is also a concrete runtime-version reconciliation blocker in the inspected main-branch files: the root README lists Holochain 0.6.0, while both the standalone and workspace mirrors of `mycelix-identity/Cargo.toml` pin `hdk = 0.6.1`, `hdi = 0.7.1`, and Holochain type crates at 0.6.1. These are different component versions and should not be reduced to a single "Holochain version." Holochain 0.7.1 was released on 14 October 2026 and introduces breaking changes from 0.7.0: capability grant shapes changed, grants written under 0.7.0 cannot be read by 0.7.1 and must be re-issued, and direct signals require explicit `Capability::DirectSignal` grants. Before any integration code, publish a component-level compatibility matrix for conductor, `hc`, HDK, HDI, JS/Rust clients, Lair, DNA/WASM build toolchain and all mirrored Cargo manifests. The Identity crate pins above do not by themselves demonstrate 0.7.1 compatibility.
+
 ## 4. Paradigm shifts
 
 ### 4.1 From a central directory to realm-owned constitutional authority
@@ -184,7 +186,7 @@ Recommended division:
 2. **Host capabilities are a call boundary, not the entire policy model.** Holochain checks whether a caller can reach a zome function. The application must still check the exact realm, principal, resource, action, audience, purpose, epoch and delegation.
 3. **The author-grant case matters.** Components sharing the same agent key may be able to call without a remote grant; semantic authorization must also cover local/cross-cell paths.
 4. **Capability revocation is not retroactive erasure.** Already disclosed data cannot be made unknown again. A removed grant must be tested at the actual host enforcement point, not just in an application projection.
-5. **Version migration is security-sensitive.** Holochain 0.7.1 changes capability-grant types and requires existing 0.7.0 grants to be re-issued; direct signals also require explicit grants. The exact runtime/HDK/DNA compatibility matrix must be frozen before choosing an implementation target.
+5. **Version migration is security-sensitive.** The official 0.7.0→0.7.1 upgrade guide documents breaking changes to capability-grant types, re-issuance of grants already on 0.7.0 source chains, and explicit `Capability::DirectSignal` grants. Reconcile the actual Mycelix 0.6.1/0.7.1 component pins with the selected conductor/client before choosing an implementation target.
 6. **Do not make the DHT a password or secret store.** Never write password hashes, private keys, Kerberos long-term secrets, raw CapGrant secrets, session tokens or unencrypted sensitive attributes to public DHT records.
 
 Use Holochain to distribute independently authored and validated statements — not as an assumption of globally serializable directory state.
