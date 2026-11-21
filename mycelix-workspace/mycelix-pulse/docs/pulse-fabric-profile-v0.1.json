@@ -1,0 +1,239 @@
+{
+  "schema_version": "0.1.0",
+  "profile_id": "PULSE-FABRIC-QUAL-001",
+  "title": "Pulse Communications Fabric Qualification",
+  "status": "research_contract_not_runtime_qualified",
+  "profile_date": "2026-11-20",
+  "source_subject": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "default_branch": "main",
+    "source_sha": "b42b5af299d575864ab3649ceaad8c8e963020ec",
+    "product_status": "working_alpha",
+    "current_pulse_holochain": "0.6.1",
+    "selected_migration_target": "0.7.1",
+    "migration_qualification": "not_complete"
+  },
+  "governing_property": "A user-visible communication state is a derived claim supported by role-separated, independently replayable evidence; no signal, transport ACK, application projection or DHT link alone establishes permission or recipient delivery.",
+  "claim_ceiling": [
+    "profile_validation_is_not_runtime_qualification",
+    "synthetic_replay_is_not_real_conductor_evidence",
+    "finite_model_check_is_bounded_to_its_model",
+    "performance_results_apply_only_to_declared_hardware_and_workload",
+    "no_general_superiority_or_anonymity_claim_without_independent_evidence"
+  ],
+  "protocol_references": [
+    {
+      "id": "signal_pqxdh",
+      "maturity": "published_specification",
+      "role": "one_to_one_initial_key_establishment",
+      "pulse_status": "research_comparator",
+      "url": "https://signal.org/docs/specifications/pqxdh/"
+    },
+    {
+      "id": "signal_mlkem_braid_spqr",
+      "maturity": "published_specification",
+      "role": "sparse_continuous_post_quantum_key_agreement",
+      "pulse_status": "research_comparator_no_custom_reimplementation",
+      "url": "https://signal.org/docs/specifications/mlkembraid/"
+    },
+    {
+      "id": "ietf_mls_rfc9420",
+      "maturity": "published_rfc",
+      "role": "asynchronous_group_key_establishment",
+      "pulse_status": "group_architecture_candidate",
+      "url": "https://www.rfc-editor.org/rfc/rfc9420.html"
+    },
+    {
+      "id": "ietf_mls_pq_ciphersuites_08",
+      "maturity": "internet_draft_iesg_last_call",
+      "published": "2026-11-18",
+      "last_call_announced": "2026-11-19",
+      "last_call_due": "2026-12-03",
+      "role": "mls_ml_kem_and_hybrid_cipher_suites",
+      "pulse_status": "monitor_and_evaluate_not_deploy_as_final_standard",
+      "url": "https://datatracker.ietf.org/doc/draft-ietf-mls-pq-ciphersuites/"
+    },
+    {
+      "id": "matrix_olm_megolm",
+      "maturity": "deployed_protocol_architecture",
+      "role": "federated_encrypted_messaging",
+      "pulse_status": "federation_and_group_semantics_comparator",
+      "url": "https://matrix.org/docs/matrix-concepts/end-to-end-encryption/"
+    },
+    {
+      "id": "simplex_privacy",
+      "maturity": "deployed_design_reference",
+      "role": "per_connection_queue_and_metadata_minimization",
+      "pulse_status": "metadata_privacy_comparator",
+      "url": "https://github.com/simplex-chat/simplex-chat/blob/stable/PRIVACY.md"
+    }
+  ],
+  "layers": [
+    {
+      "id": "crypto_session",
+      "invariant": "No downgrade; exact profile and transcript binding; independently reviewed implementation; session evolution and recovery claims separated.",
+      "owner_issue": 5122
+    },
+    {
+      "id": "authority",
+      "invariant": "Host decision, domain authorization, authored action, validator, projection and caller outcome remain distinct.",
+      "owner_issues": [
+        5771,
+        5772,
+        5917,
+        5924
+      ]
+    },
+    {
+      "id": "durable_delivery",
+      "invariant": "Stable logical idempotency across attempts/routes/restarts; only verified recipient evidence may produce Delivered.",
+      "owner_issues": [
+        5062,
+        5135,
+        5148
+      ]
+    },
+    {
+      "id": "privacy",
+      "invariant": "Every observable field has a defined audience, purpose, retention and threat model; E2EE does not imply metadata anonymity.",
+      "owner_issues": [
+        5112,
+        5121
+      ]
+    },
+    {
+      "id": "recovery",
+      "invariant": "Public chain restore, private app data, session keys, device identity and host capabilities are separate restore classes.",
+      "owner_issue": 5905
+    },
+    {
+      "id": "evidence",
+      "invariant": "Role-separated evidence, partial-order causal edges and independent replay; UNKNOWN is never coerced to success.",
+      "owner_issues": [
+        5863,
+        5942
+      ]
+    }
+  ],
+  "scenario_dimensions": {
+    "payload_bytes": [
+      1024,
+      16384,
+      262144,
+      1048576
+    ],
+    "group_sizes": [
+      2,
+      10,
+      100,
+      1000
+    ],
+    "rtt_ms": [
+      20,
+      100,
+      500
+    ],
+    "packet_loss_percent": [
+      0,
+      1,
+      5,
+      20
+    ],
+    "peer_counts": [
+      1,
+      2,
+      5,
+      10
+    ],
+    "fault_families": [
+      "duplicate_delivery",
+      "reorder",
+      "replay",
+      "conflicting_idempotency_key",
+      "lost_ack_after_commit",
+      "wrong_recipient_receipt",
+      "altered_content_commitment",
+      "stale_dht_projection_after_revoke",
+      "wrong_cell",
+      "wrong_function",
+      "wrong_grantee",
+      "host_revocation_race",
+      "independent_grant_collateral_revocation",
+      "key_directory_rollback",
+      "crypto_downgrade",
+      "malformed_signature",
+      "partial_chain_restore",
+      "no_restore_peers",
+      "corrupt_backup",
+      "device_compromise",
+      "correlated_transport_failure",
+      "split_view"
+    ]
+  },
+  "release_blocking_gates": [
+    "zero_false_delivered",
+    "zero_duplicate_user_visible_logical_inbox_effect",
+    "zero_silent_loss_of_acknowledged_durable_outbox_state",
+    "zero_new_host_admission_after_observed_revocation_boundary",
+    "zero_cross_cell_function_grantee_or_protocol_generation_authority_widening",
+    "zero_crypto_downgrade_or_unqualified_fallback",
+    "all_terminal_dispositions_are_explicit",
+    "all_named_critical_mutants_detected",
+    "zero_plaintext_or_secret_material_in_telemetry",
+    "recovery_reports_exact_restored_classes_or_explicit_partial_failure"
+  ],
+  "performance_metrics": [
+    "key_establishment_latency_p50_p95_p99",
+    "ratchet_or_group_update_bytes",
+    "encrypt_decrypt_latency_p50_p95_p99",
+    "ciphertext_expansion",
+    "recipient_commit_latency_p50_p95_p99",
+    "verified_receipt_latency_p50_p95_p99",
+    "verified_receipt_by_deadline_probability",
+    "retry_amplification",
+    "recovery_time_and_completeness",
+    "cpu_peak_rss_storage_disk_writes",
+    "energy_and_network_bytes",
+    "per_peer_relay_cost_and_fairness"
+  ],
+  "performance_targets": {
+    "status": "research_targets_after_pinned_baseline",
+    "healthy_profile_max_deadline_success_regression_percentage_points": 2,
+    "correlated_outage_verified_receipt_relative_improvement_percent": 20,
+    "healthy_profile_max_energy_overhead_percent": 10,
+    "statistical_rule": "paired_confidence_interval_excludes_zero_on_preregistered_holdout",
+    "safety_rule": "no_performance_gain_compensates_for_a_release_blocking_correctness_or_privacy_failure"
+  },
+  "phases": [
+    {
+      "id": "P0",
+      "name": "freeze_contract_schema_and_scenarios",
+      "exit": "profile_schema_and_scenario_corpus_validate"
+    },
+    {
+      "id": "P1",
+      "name": "independent_replay_verifier",
+      "exit": "positive_replay_and_invariant_specific_mutant_detection"
+    },
+    {
+      "id": "P2",
+      "name": "pulse_component_adapters",
+      "exit": "existing_semantics_preserved_and_unknowns_exposed"
+    },
+    {
+      "id": "P3",
+      "name": "exact_holochain_0_7_1_runtime",
+      "exit": "canonical_parity_fresh_conductors_and_independent_client_evidence"
+    },
+    {
+      "id": "P4",
+      "name": "comparative_campaign",
+      "exit": "matched_workloads_raw_artifacts_and_claim_ceilings"
+    },
+    {
+      "id": "P5",
+      "name": "user_trials",
+      "exit": "preregistered_accessibility_privacy_recovery_and_comprehension_results"
+    }
+  ]
+}

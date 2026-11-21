@@ -196,6 +196,21 @@ We welcome documentation improvements! To contribute:
 - **Discussions**: [GitHub Discussions](https://github.com/luminous-dynamics/mycelix-mail/discussions)
 - **Contributing**: [CONTRIBUTING.md](/CONTRIBUTING.md)
 
+## Research and qualification
+
+- **[Pulse Communications Fabric Qualification v0.1](PULSE_COMMUNICATIONS_FABRIC_QUALIFICATION_V0_1.md)** — cross-layer contract for cryptographic sessions, host authority, durable delivery, metadata privacy, recovery and independent evidence replay.
+- **[Machine-readable qualification profile](pulse-fabric-profile-v0.1.json)** — protocol references, scenario dimensions, release-blocking invariants and research targets.
+- **[Qualification profile schema](pulse-fabric-profile.schema-v0.1.json)** and **[scenario catalog schema](pulse-fabric-scenarios.schema-v0.1.json)** — strict Draft 2020-12 schemas for the versioned machine-readable inputs.
+- **[Evidence trace schema](pulse-fabric-trace.schema-v0.1.json)** — redacted JSON Schema for role-separated events and causal predecessors.
+- **[Adversarial scenarios](pulse-fabric-scenarios-v0.1.json)** — 24 synthetic positive, negative and UNKNOWN/INCOMPLETE cases, including SCKA healing, PQ authentication boundaries, manifest omission and ACCOUNT/DEVICE confusion controls.
+- **[Pulse Fabric Verifier](../tools/fabric-verifier/README.md)** — standalone Rust prototype for structural checks and causal consistency; its claim ceiling and non-goals are explicit.
+- **[Communications Benchmark Protocol v0.1](PULSE_COMMUNICATIONS_BENCHMARK_PROTOCOL_V0_1.md)** — pre-registered fair comparison design, workload matrix, statistical protocol and non-compensable safety gates.
+- **[Machine-readable benchmark profile](pulse-fabric-benchmark-v0.1.json)** and [schema](pulse-fabric-benchmark.schema-v0.1.json) — validated benchmark definition; no measurements are claimed.
+- **[Group fan-out qualification / #6401](https://github.com/Luminous-Dynamics/mycelix/issues/6401)** — per-recipient logical operations, membership-epoch binding and explicit aggregate outcome semantics.
+- **[Group fan-out manifest schema](pulse-group-fanout-manifest.schema-v0.1.json)** — frozen recipient set, child-operation IDs and exact child-trace digests for the read-only fan-out verifier.
+
+These artifacts define a research and qualification contract only. The scenario catalog is not executed evidence, and none of these files qualifies the current runtime or promotes a product security claim.
+
 ## License
 
 Mycelix Pulse is licensed under the MIT License. See [LICENSE](/LICENSE) for details.

@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/pulse-group-fanout-manifest.schema-v0.1.json",
+  "title": "Pulse Group Fan-out Manifest v0.1",
+  "description": "Frozen parent manifest that commits to the exact required recipient children and their trace bytes. It is not an authenticated membership statement.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "fanout_id",
+    "group_id_commitment",
+    "membership_epoch",
+    "membership_snapshot_digest",
+    "required_recipient_set_commitment",
+    "content_commitment",
+    "recipient_unit",
+    "aggregation_policy",
+    "children",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "profile_id": {
+      "const": "PULSE-GROUP-FANOUT-QUAL-001"
+    },
+    "fanout_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "group_id_commitment": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Opaque group identifier commitment, scoped under the declared membership epoch; do not encode a raw or globally stable group identifier."
+    },
+    "membership_epoch": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "membership_snapshot_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "required_recipient_set_commitment": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 of the ASCII domain separator PULSE-GROUP-FANOUT-RECIPIENT-SET-V0 followed by a NUL byte, then lexicographically sorted 64-character lowercase recipient commitments, each UTF-8 byte string prefixed by an unsigned 64-bit big-endian length. The raw roster must not be disclosed."
+    },
+    "content_commitment": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "aggregation_policy": {
+      "const": "ALL_REQUIRED"
+    },
+    "children": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recipient_commitment",
+          "logical_operation_id",
+          "trace_sha256"
+        ],
+        "properties": {
+          "recipient_commitment": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Opaque per-fanout or per-epoch scoped recipient pseudonym, preferably keyed or randomly assigned; do not use a bare hash of a low-entropy identifier."
+          },
+          "logical_operation_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "trace_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "claim_ceiling": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "recipient_unit": {
+      "type": "string",
+      "enum": [
+        "ACCOUNT",
+        "DEVICE"
+      ],
+      "description": "Defines what one child recipient commitment represents. ACCOUNT means account-level acceptance only and never implies all devices; DEVICE means each required device must be represented by a separate child."
+    }
+  }
+}

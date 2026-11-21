@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/pulse-fabric-profile-v0.1.json",
+  "title": "Pulse Communications Fabric Qualification Profile v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "title",
+    "status",
+    "profile_date",
+    "source_subject",
+    "governing_property",
+    "claim_ceiling",
+    "protocol_references",
+    "layers",
+    "scenario_dimensions",
+    "release_blocking_gates",
+    "performance_metrics",
+    "performance_targets",
+    "phases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "profile_id": {
+      "const": "PULSE-FABRIC-QUAL-001"
+    },
+    "title": {
+      "const": "Pulse Communications Fabric Qualification"
+    },
+    "status": {
+      "const": "research_contract_not_runtime_qualified"
+    },
+    "profile_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "source_subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "default_branch",
+        "source_sha",
+        "product_status",
+        "current_pulse_holochain",
+        "selected_migration_target",
+        "migration_qualification"
+      ],
+      "properties": {
+        "repository": {
+          "const": "Luminous-Dynamics/mycelix"
+        },
+        "default_branch": {
+          "type": "string"
+        },
+        "source_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "product_status": {
+          "type": "string"
+        },
+        "current_pulse_holochain": {
+          "type": "string"
+        },
+        "selected_migration_target": {
+          "type": "string"
+        },
+        "migration_qualification": {
+          "const": "not_complete"
+        }
+      }
+    },
+    "governing_property": {
+      "type": "string",
+      "minLength": 1
+    },
+    "claim_ceiling": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "protocol_references": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "maturity",
+          "role",
+          "pulse_status",
+          "url"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "maturity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "pulse_status": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "published": {
+            "type": "string",
+            "format": "date"
+          },
+          "last_call_announced": {
+            "type": "string",
+            "format": "date"
+          },
+          "last_call_due": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      }
+    },
+    "layers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "invariant"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "invariant": {
+            "type": "string"
+          },
+          "owner_issue": {
+            "type": "integer"
+          },
+          "owner_issues": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    "scenario_dimensions": {
+      "type": "object"
+    },
+    "release_blocking_gates": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "performance_metrics": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "performance_targets": {
+      "type": "object"
+    },
+    "phases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "exit"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "exit": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

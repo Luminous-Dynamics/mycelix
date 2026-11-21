@@ -1,0 +1,406 @@
+{
+  "schema_version": "0.1.0",
+  "profile_id": "PULSE-FABRIC-QUAL-001",
+  "run": {
+    "run_id": "cli-valid-success",
+    "source_sha": "1111111111111111111111111111111111111111",
+    "toolchain_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "workload_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+    "topology_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+    "verifier": {
+      "name": "pulse-fabric-verifier",
+      "version": "0.1.0",
+      "implementation_digest": "5555555555555555555555555555555555555555555555555555555555555555"
+    }
+  },
+  "scenario": {
+    "scenario_id": "PFC-DELIVERY-001",
+    "family": "delivery",
+    "seed": 7,
+    "observation_vantage": [
+      "recipient_client",
+      "independent_verifier"
+    ]
+  },
+  "events": [
+    {
+      "event_id": "intent",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": null,
+      "event_type": "intent_recorded",
+      "evidence_role": "client",
+      "actor_ref": "sender",
+      "cell_ref": null,
+      "content_commitment": null,
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 1
+      },
+      "causal_predecessors": [],
+      "evidence_refs": [],
+      "redaction_profile": "pfc-redacted-v0"
+    },
+    {
+      "event_id": "crypto",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": null,
+      "event_type": "crypto_profile_selected",
+      "evidence_role": "client",
+      "actor_ref": "sender",
+      "cell_ref": null,
+      "content_commitment": null,
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 2
+      },
+      "causal_predecessors": [
+        {
+          "event_id": "intent",
+          "relation": "derived_from"
+        }
+      ],
+      "evidence_refs": [],
+      "redaction_profile": "pfc-redacted-v0"
+    },
+    {
+      "event_id": "host",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": "attempt-1",
+      "event_type": "authority_host_admitted",
+      "evidence_role": "host_conductor",
+      "actor_ref": "sender-conductor",
+      "cell_ref": "cell-sender",
+      "content_commitment": null,
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 3
+      },
+      "causal_predecessors": [
+        {
+          "event_id": "crypto",
+          "relation": "derived_from"
+        }
+      ],
+      "evidence_refs": [
+        {
+          "kind": "grant_action_hash",
+          "sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "scope": "cell-sender:send_message_v2"
+        }
+      ],
+      "redaction_profile": "pfc-redacted-v0"
+    },
+    {
+      "event_id": "domain",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": "attempt-1",
+      "event_type": "domain_authorized",
+      "evidence_role": "domain_coordinator",
+      "actor_ref": "sender-domain",
+      "cell_ref": "cell-sender",
+      "content_commitment": null,
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 4
+      },
+      "causal_predecessors": [
+        {
+          "event_id": "host",
+          "relation": "derived_from"
+        }
+      ],
+      "evidence_refs": [
+        {
+          "kind": "grant_action_hash",
+          "sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "scope": "cell-sender:send_message_v2"
+        }
+      ],
+      "redaction_profile": "pfc-redacted-v0"
+    },
+    {
+      "event_id": "source",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": "attempt-1",
+      "event_type": "source_action_authored",
+      "evidence_role": "source_chain_author",
+      "actor_ref": "sender",
+      "cell_ref": "cell-sender",
+      "content_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 5
+      },
+      "causal_predecessors": [
+        {
+          "event_id": "domain",
+          "relation": "derived_from"
+        }
+      ],
+      "evidence_refs": [
+        {
+          "kind": "action_hash",
+          "sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+          "scope": "same-source-action"
+        }
+      ],
+      "redaction_profile": "pfc-redacted-v0"
+    },
+    {
+      "event_id": "integrity",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": "attempt-1",
+      "event_type": "integrity_validation_accepted",
+      "evidence_role": "integrity_validator",
+      "actor_ref": "validator",
+      "cell_ref": null,
+      "content_commitment": null,
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 6
+      },
+      "causal_predecessors": [
+        {
+          "event_id": "source",
+          "relation": "verifies"
+        }
+      ],
+      "evidence_refs": [
+        {
+          "kind": "validation_receipt",
+          "sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+          "scope": "integrity-acceptance"
+        }
+      ],
+      "redaction_profile": "pfc-redacted-v0"
+    },
+    {
+      "event_id": "outbox",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": null,
+      "event_type": "outbox_committed",
+      "evidence_role": "client",
+      "actor_ref": "sender",
+      "cell_ref": null,
+      "content_commitment": null,
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 3
+      },
+      "causal_predecessors": [
+        {
+          "event_id": "intent",
+          "relation": "local_program_order"
+        }
+      ],
+      "evidence_refs": [],
+      "redaction_profile": "pfc-redacted-v0"
+    },
+    {
+      "event_id": "dht",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": null,
+      "event_type": "dht_projection_observed",
+      "evidence_role": "dht_observer",
+      "actor_ref": "dht-observer",
+      "cell_ref": null,
+      "content_commitment": null,
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 7
+      },
+      "causal_predecessors": [
+        {
+          "event_id": "integrity",
+          "relation": "derived_from"
+        }
+      ],
+      "evidence_refs": [
+        {
+          "kind": "action_hash",
+          "sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+          "scope": "same-source-action"
+        }
+      ],
+      "redaction_profile": "pfc-redacted-v0"
+    },
+    {
+      "event_id": "transport",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": "attempt-1",
+      "event_type": "transport_attempt_started",
+      "evidence_role": "transport_adapter",
+      "actor_ref": "transport",
+      "cell_ref": null,
+      "content_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 8
+      },
+      "causal_predecessors": [
+        {
+          "event_id": "integrity",
+          "relation": "transport_for"
+        },
+        {
+          "event_id": "outbox",
+          "relation": "attempt_for"
+        }
+      ],
+      "evidence_refs": [],
+      "redaction_profile": "pfc-redacted-v0"
+    },
+    {
+      "event_id": "admitted",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": "attempt-1",
+      "event_type": "recipient_admitted",
+      "evidence_role": "recipient",
+      "actor_ref": "recipient",
+      "cell_ref": null,
+      "content_commitment": null,
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 9
+      },
+      "causal_predecessors": [
+        {
+          "event_id": "transport",
+          "relation": "request_response"
+        },
+        {
+          "event_id": "dht",
+          "relation": "derived_from"
+        }
+      ],
+      "evidence_refs": [],
+      "redaction_profile": "pfc-redacted-v0"
+    },
+    {
+      "event_id": "commit",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": "attempt-1",
+      "event_type": "recipient_inbox_committed",
+      "evidence_role": "recipient",
+      "actor_ref": "recipient",
+      "cell_ref": null,
+      "content_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 10
+      },
+      "causal_predecessors": [
+        {
+          "event_id": "admitted",
+          "relation": "commits"
+        }
+      ],
+      "evidence_refs": [],
+      "redaction_profile": "pfc-redacted-v0"
+    },
+    {
+      "event_id": "decrypt",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": "attempt-1",
+      "event_type": "recipient_decryption_verified",
+      "evidence_role": "recipient",
+      "actor_ref": "recipient",
+      "cell_ref": null,
+      "content_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 11
+      },
+      "causal_predecessors": [
+        {
+          "event_id": "commit",
+          "relation": "verifies"
+        }
+      ],
+      "evidence_refs": [],
+      "redaction_profile": "pfc-redacted-v0"
+    },
+    {
+      "event_id": "receipt-create",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": "attempt-1",
+      "event_type": "receipt_created",
+      "evidence_role": "recipient",
+      "actor_ref": "recipient",
+      "cell_ref": null,
+      "content_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 12
+      },
+      "causal_predecessors": [
+        {
+          "event_id": "decrypt",
+          "relation": "receipt_for"
+        }
+      ],
+      "evidence_refs": [
+        {
+          "kind": "recipient_receipt",
+          "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "scope": "recipient-commitment"
+        }
+      ],
+      "redaction_profile": "pfc-redacted-v0"
+    },
+    {
+      "event_id": "receipt-verify",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": "attempt-1",
+      "event_type": "receipt_verified",
+      "evidence_role": "receipt_verifier",
+      "actor_ref": "independent-verifier",
+      "cell_ref": null,
+      "content_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 13
+      },
+      "causal_predecessors": [
+        {
+          "event_id": "receipt-create",
+          "relation": "verifies"
+        }
+      ],
+      "evidence_refs": [
+        {
+          "kind": "recipient_receipt",
+          "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "scope": "recipient-commitment"
+        }
+      ],
+      "redaction_profile": "pfc-redacted-v0"
+    },
+    {
+      "event_id": "projection",
+      "logical_operation_id": "logical-cli-1",
+      "attempt_id": null,
+      "event_type": "ui_projection_emitted",
+      "evidence_role": "ui_projection",
+      "actor_ref": "sender-ui",
+      "cell_ref": null,
+      "content_commitment": null,
+      "observed_at": {
+        "clock_domain": "cli-fixture-clock",
+        "monotonic_ns": 14
+      },
+      "causal_predecessors": [
+        {
+          "event_id": "receipt-verify",
+          "relation": "derived_from"
+        }
+      ],
+      "evidence_refs": [],
+      "redaction_profile": "pfc-redacted-v0"
+    }
+  ],
+  "terminal_disposition": "SUCCESS_VERIFIED",
+  "claim_ceiling": [
+    "CLI fixture validates only schema and supplied evidence-graph consistency; no runtime or signature claim"
+  ]
+}
