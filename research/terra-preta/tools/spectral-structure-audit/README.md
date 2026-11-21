@@ -35,3 +35,16 @@ This is a structural data audit, not model evaluation. A structurally sound CSV 
 The article describes NIR values both as reflectance in the instrument section and as converted absorbance on a common axis in the merging/validation discussion. The profile preserves this as unresolved source semantics and the audit emits a warning. Do not silently choose a transform. Resolve it by inspecting the delivered values/processing source or requesting author clarification.
 
 The 2026 cohort extends the earlier 2024 Western Highveld MIR cohort. It must not be treated as independent external validation until sample identities are crosswalked. The dataset contains 178 released georeferenced samples; the remaining locations must not be inferred.
+
+## Related-release identity overlap audit
+
+The crate also provides a separate `sample-identity-overlap-audit` binary. It compares exact sample ID strings across two source CSVs, supports different ID column names, reports row/unique/duplicate counts and overlap fractions, hashes the sorted overlap membership, and does not include raw sample identifiers in the report.
+
+```sh
+cargo run --manifest-path research/terra-preta/tools/spectral-structure-audit/Cargo.toml --bin sample-identity-overlap-audit -- \
+  /path/to/previous-mir.csv "Sample Name" "2024-mir" \
+  /path/to/paired-nir-mir.csv "Sample Name" "2026-nir-mir" \
+  /tmp/sample-overlap-report.json
+```
+
+The audit uses exact string matching without normalization. Different ID formats may conceal semantic overlap; no exact match therefore does not prove independent sampling. A source-reviewed crosswalk remains required when names or ID-generation schemes differ. Any overlapping sample IDs must remain in one group across training, validation and test. Duplicate IDs within one source are reported and must be grouped; they are not silently counted as independent samples.
