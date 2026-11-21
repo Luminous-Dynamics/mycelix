@@ -188,6 +188,8 @@ Recommended division:
 4. **Capability revocation is not retroactive erasure.** Already disclosed data cannot be made unknown again. A removed grant must be tested at the actual host enforcement point, not just in an application projection.
 5. **Version migration is security-sensitive.** The official 0.7.0→0.7.1 upgrade guide documents breaking changes to capability-grant types, re-issuance of grants already on 0.7.0 source chains, and explicit `Capability::DirectSignal` grants. Reconcile the actual Mycelix 0.6.1/0.7.1 component pins with the selected conductor/client before choosing an implementation target.
 6. **Do not make the DHT a password or secret store.** Never write password hashes, private keys, Kerberos long-term secrets, raw CapGrant secrets, session tokens or unencrypted sensitive attributes to public DHT records.
+7. **Treat current 0.7.1 upstream reports as qualification blockers, not as resolved by architecture.** As observed on 21 November 2026, upstream has open reports for multi-function capability revocation admitting calls in some trials after revocation ([#6071](https://github.com/holochain/holochain/issues/6071)); large gossip exchanges failing to converge without a 1 MiB budget workaround ([#6062](https://github.com/holochain/holochain/issues/6062)); existing-agent-key app installation failing when Lair holds roughly 40+ keys ([#6065](https://github.com/holochain/holochain/issues/6065)); and time-slice scans preventing conductor idleness around 100k ops ([#6066](https://github.com/holochain/holochain/issues/6066)). These are upstream reports, not independent reproductions by this programme; #6071 references a fix merged to `develop` but the issue requests a 0.7-line backport. Do not rely on multi-function grant revocation or claim high-cardinality 0.7.1 convergence until the exact chosen release has regression evidence. The current Mycelix Identity Cargo manifests are still pinned to the 0.6.1 line, so these are future migration/target risks, not proof that the existing identity build has those exact 0.7.1 defects.
+8. **Overload and missing DHT evidence must remain non-authorizing.** A gossip or conductor resource failure must not turn a missing revocation or membership update into a positive access decision. The local PEP must use its bounded frontier/lease rule and return Indeterminate when freshness cannot be demonstrated.
 
 Use Holochain to distribute independently authored and validated statements — not as an assumption of globally serializable directory state.
 
@@ -360,6 +362,7 @@ For each target, publish a baseline first. If the baseline cannot meet a target,
 - SCIM provisioning/deprovisioning throughput and cursor recovery.
 - Revocation propagation and measured stale authority exposure across every PEP/session/token/worker/connector.
 - Minimum-freshness frontier checks: domination, behind-frontier rejection, incomparable concurrent frontiers, rollback detection and merge/reconciliation cost.
+- Runtime failure injection for host-grant revocation, large gossip divergence, Lair key inventories and high-cardinality time-slice maintenance; verify that unavailable freshness never yields Allow.
 - DHT bytes, gossip bandwidth, peer CPU, memory and storage.
 - Restart/recovery time and lost or duplicated events.
 - Offline behaviour by risk tier and lease age.
