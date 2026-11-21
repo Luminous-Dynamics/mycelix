@@ -64,3 +64,9 @@ jobs:
         run: |
           set -euo pipefail
           cargo test --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-defensive-importance-sampling/Cargo.toml
+
+      - name: Run exact Gaussian disk benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-defensive-importance-sampling/Cargo.toml --bin analytic-disk-benchmark
