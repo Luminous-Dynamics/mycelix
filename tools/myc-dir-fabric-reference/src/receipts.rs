@@ -526,9 +526,13 @@ pub fn assess_effect_history(
                 saw_rejected = true;
             }
             EffectOutcome::Unknown | EffectOutcome::NotObserved => {
-                if commits > 0 || reconciled_no_effect {
+                if commits > 0 {
                     return EffectHistoryAssessment::InvalidAttemptAfterCommit;
                 }
+                // A prior ReconciledNoEffect explicitly permits a new attempt.
+                // If that new attempt is now uncertain, the logical operation
+                // becomes unresolved again until its owner reconciles it.
+                reconciled_no_effect = false;
                 pending_unknown = true;
             }
             EffectOutcome::ReconciledNoEffect => {
@@ -711,6 +715,27 @@ mod tests {
         let resolved = assess_effect_history(&[unknown, reconciled]);
         assert_eq!(resolved, EffectHistoryAssessment::ReconciledNoEffect);
         assert!(resolved.permits_new_attempt());
+    }
+
+    #[test]
+    fn retry_after_no_effect_reconciliation_can_become_unknown_again() {
+        let first_unknown = effect(1, EffectOutcome::Unknown, [10; 32]);
+        let no_effect = EffectObservationReceipt::new(
+            [1; 32],
+            [10; 32],
+            id("logical-op-1", LogicalOperationId::new),
+            id("reconcile-1", AttemptId::new),
+            2,
+            [7; 32],
+            id("resource-owner", EffectOwnerId::new),
+            EffectOutcome::ReconciledNoEffect,
+            [12; 32],
+        )
+        .unwrap();
+        let retry_unknown = effect(3, EffectOutcome::Unknown, [11; 32]);
+        let status = assess_effect_history(&[first_unknown, no_effect, retry_unknown]);
+        assert_eq!(status, EffectHistoryAssessment::UnresolvedUnknown);
+        assert!(!status.permits_new_attempt());
     }
 
     #[test]
