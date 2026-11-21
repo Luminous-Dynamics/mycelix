@@ -400,7 +400,7 @@ fn verify_object_and_coverage_ledgers(
             .unwrap_or_default();
         check_unique(&artifact_refs, &format!("object {id} source_artifact_ids"), findings);
         for artifact_id in &artifact_refs {
-            if !artifact_ids.contains(artifact_id) {
+            if !artifact_ids.contains_key(artifact_id) {
                 findings.fail(
                     "UNKNOWN_ARTIFACT_REFERENCE",
                     format!("object {id} references unknown source artifact {artifact_id}"),
