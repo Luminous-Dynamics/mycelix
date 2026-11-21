@@ -41,7 +41,8 @@
     "native_support_description": "Manufactured georeferenced survey points with unknown exact positional accuracy.",
     "spatial_accuracy_status": "not_reported",
     "geometry_type": "point",
-    "coverage_description": "Synthetic continental point coverage."
+    "coverage_description": "Synthetic continental point coverage.",
+    "positional_accuracy_m": null
   },
   "depth_support": {
     "depth_status": "known_interval",
