@@ -1307,6 +1307,7 @@ fn verify_draft202012_schema(
 
 fn verify_value(package: &Value, repo_root: &Path) -> Findings {
     let mut findings = Findings::default();
+    verify_draft202012_schema(package, repo_root, &mut findings);
     let package_id = get_str(package, "package_id");
     if get_str(package, "schema_version") != Some("space-qualification-package/v0.1") {
         findings.fail("UNSUPPORTED_SCHEMA_VERSION", "schema_version is not space-qualification-package/v0.1");
@@ -1351,8 +1352,7 @@ fn verify_value(package: &Value, repo_root: &Path) -> Findings {
             findings.fail("INVALID_REQUEST_DIGEST", format!("{location} must be a lowercase SHA-256 digest"));
         }
     }
-    let request_value = package.get("request").unwrap_or(&Value::Nu    verify_draft202012_schema(package, repo_root, &mut findings);
-ll);
+    let request_value = package.get("request").unwrap_or(&Value::Null);
     if !get_str(request_value, "request_sha256").is_some_and(is_sha256) {
         findings.fail("INVALID_REQUEST_DIGEST", "request_sha256 must be a lowercase SHA-256 digest");
     } else if let Some(request_without_digest) = without_member(request_value, "request_sha256") {
