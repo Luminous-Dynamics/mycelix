@@ -270,7 +270,8 @@ BEGIN
             USING ERRCODE = '22023';
     END IF;
     IF p_currency_code IS NULL OR p_delta_minor IS NULL
-       OR p_currency_code !~ '^[A-Z]{3}
+       OR p_currency_code !~ '^[A-Z]{3}$' OR p_delta_minor = 0 THEN
+        RAISE EXCEPTION 'currency must be three uppercase letters and delta must be nonzero'
             USING ERRCODE = '22023';
     END IF;
     IF p_fence_generation IS NULL OR p_fence_generation <= 0 THEN
