@@ -64,7 +64,14 @@ struct Context {
 struct ReferenceModel {
     model_id: String,
     model_version: String,
+    reference_dataset_id: String,
+    reference_dataset_sha256: String,
+    reference_model_sha256: String,
     reference_target_semantics: String,
+    reference_measurement_method: String,
+    reference_measurement_unit: String,
+    reference_depth_min_m: f64,
+    reference_depth_max_m: f64,
     peer_group_id: String,
     peer_sample_count: usize,
     independent_site_count: usize,
@@ -139,6 +146,13 @@ struct AbsoluteCondition {
 struct PeerReference {
     status: &'static str,
     peer_group_id: String,
+    reference_dataset_id: String,
+    reference_dataset_sha256: String,
+    reference_model_sha256: String,
+    texture_class: String,
+    reference_soil_group: String,
+    mean_annual_temperature_c: f64,
+    mean_annual_precipitation_mm: f64,
     peer_sample_count: usize,
     independent_site_count: usize,
     percentile: Option<f64>,
@@ -195,6 +209,13 @@ fn finite(name: &str, value: f64) -> Result<(), String> {
     Ok(())
 }
 
+fn valid_sha256(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+}
+
 fn valid_date(date: &str) -> bool {
     if date.len() != 10 {
         return false;
@@ -247,6 +268,8 @@ fn validate(s: &Scenario) -> Result<(), String> {
         for (name, value) in [
             ("depth_min_m", indicator.depth_min_m),
             ("depth_max_m", indicator.depth_max_m),
+            ("reference_depth_min_m", indicator.reference_model.reference_depth_min_m),
+            ("reference_depth_max_m", indicator.reference_model.reference_depth_max_m),
             (
                 "mean_annual_temperature_c",
                 indicator.context.mean_annual_temperature_c,
@@ -282,10 +305,31 @@ fn validate(s: &Scenario) -> Result<(), String> {
         if indicator.context.reference_soil_group.trim().is_empty()
             || indicator.reference_model.model_id.trim().is_empty()
             || indicator.reference_model.model_version.trim().is_empty()
+            || indicator.reference_model.reference_dataset_id.trim().is_empty()
+            || indicator.reference_model.reference_measurement_method.trim().is_empty()
+            || indicator.reference_model.reference_measurement_unit.trim().is_empty()
             || indicator.reference_model.peer_group_id.trim().is_empty()
         {
             return Err(format!(
                 "{} has incomplete peer/model identity",
+                indicator.indicator_id
+            ));
+        }
+        if !valid_sha256(&indicator.reference_model.reference_dataset_sha256)
+            || !valid_sha256(&indicator.reference_model.reference_model_sha256)
+        {
+            return Err(format!(
+                "{} reference dataset/model SHA-256 is invalid",
+                indicator.indicator_id
+            ));
+        }
+        if indicator.reference_model.reference_measurement_method != indicator.measurement_method
+            || indicator.reference_model.reference_measurement_unit != indicator.unit
+            || (indicator.reference_model.reference_depth_min_m - indicator.depth_min_m).abs() > 1e-9
+            || (indicator.reference_model.reference_depth_max_m - indicator.depth_max_m).abs() > 1e-9
+        {
+            return Err(format!(
+                "{} current measurement and peer reference differ in method, unit or depth support",
                 indicator.indicator_id
             ));
         }
@@ -358,13 +402,13 @@ fn validate(s: &Scenario) -> Result<(), String> {
                     indicator.indicator_id
                 ));
             }
-            if let Some(previous) = prior_date {
-                if measurement.date.as_str() <= previous {
-                    return Err(format!(
-                        "{} measurement dates must increase strictly",
-                        indicator.indicator_id
-                    ));
-                }
+            if let Some(previous) = prior_date
+                && measurement.date.as_str() <= previous
+            {
+                return Err(format!(
+                    "{} measurement dates must increase strictly",
+                    indicator.indicator_id
+                ));
             }
             if let Some(unit) = experimental_unit {
                 if measurement.experimental_unit_id != unit {
@@ -478,6 +522,13 @@ fn peer_reference(indicator: &Indicator, latest: &Measurement, config: &Config) 
         return PeerReference {
             status,
             peer_group_id: model.peer_group_id.clone(),
+            reference_dataset_id: model.reference_dataset_id.clone(),
+            reference_dataset_sha256: model.reference_dataset_sha256.clone(),
+            reference_model_sha256: model.reference_model_sha256.clone(),
+            texture_class: indicator.context.texture_class.clone(),
+            reference_soil_group: indicator.context.reference_soil_group.clone(),
+            mean_annual_temperature_c: indicator.context.mean_annual_temperature_c,
+            mean_annual_precipitation_mm: indicator.context.mean_annual_precipitation_mm,
             peer_sample_count: model.peer_sample_count,
             independent_site_count: model.independent_site_count,
             percentile: None,
@@ -519,6 +570,13 @@ fn peer_reference(indicator: &Indicator, latest: &Measurement, config: &Config) 
     PeerReference {
         status,
         peer_group_id: model.peer_group_id.clone(),
+        reference_dataset_id: model.reference_dataset_id.clone(),
+        reference_dataset_sha256: model.reference_dataset_sha256.clone(),
+        reference_model_sha256: model.reference_model_sha256.clone(),
+        texture_class: indicator.context.texture_class.clone(),
+        reference_soil_group: indicator.context.reference_soil_group.clone(),
+        mean_annual_temperature_c: indicator.context.mean_annual_temperature_c,
+        mean_annual_precipitation_mm: indicator.context.mean_annual_precipitation_mm,
         peer_sample_count: model.peer_sample_count,
         independent_site_count: model.independent_site_count,
         percentile: Some(percentile),
