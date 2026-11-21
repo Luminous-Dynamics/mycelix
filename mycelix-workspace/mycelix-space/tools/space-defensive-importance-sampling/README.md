@@ -48,7 +48,7 @@ The crate exposes `exact_standard_normal_2d_disk_probability(r)`, the closed-for
 
     P(||Z|| <= r) = 1 - exp(-r^2/2),    Z ~ N(0,I_2)
 
-The standalone `src/bin/analytic_disk_benchmark.rs` runs both crude Monte Carlo and defensive importance sampling through the same estimator API at disk radii 0.10, 0.05 and 0.02. It compares replicate RMSE and mean fixed-sample upper bounds against exact truth. The proposal is frozen per replicate and the final event label is produced by the exact analytic disk predicate.
+The standalone `src/bin/analytic_disk_benchmark.rs` runs crude Monte Carlo, direct defensive importance sampling, and a matched multifidelity residual estimator through the same estimator API at disk radii 0.10, 0.05 and 0.02. It compares replicate RMSE, empirical bound coverage, interval width and residual/direct variance against exact truth. The proposal is frozen per replicate and the final event label is produced by the exact analytic disk predicate.
 
 This is a regression benchmark, not orbital evidence. It uses a deterministic SplitMix64 + Box–Muller stream for reproducibility, not production RNG certification; its sampling evidence identifiers are fixture references. The analytic-oracle flag is permitted only for synthetic mathematical fixtures. Real conjunction estimates must use an identified high-fidelity continuous-time event oracle.
 
@@ -57,6 +57,19 @@ The benchmark's central metric is RMSE against analytical truth at an equal samp
 Run:
 
     cargo run --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-defensive-importance-sampling/Cargo.toml --bin analytic_disk_benchmark
+
+## Matched multifidelity synthetic benchmark
+
+The `analytic_disk_benchmark` binary now reports three methods at each radius:
+1. crude Monte Carlo from the nominal target;
+2. direct defensive importance sampling;
+3. paired multifidelity residual estimation with an exact analytic low-fidelity disk 10% larger than the high-fidelity disk.
+
+Direct IS and the multifidelity estimator use the same seed, proposal, evaluation-sample ID and sample-order digest. Their estimates can therefore be compared as a paired estimator experiment, not as unrelated Monte Carlo runs. The CSV includes estimate RMSE, lower/upper bounds, empirical coverage, bound width, residual/direct variance ratio and surrogate disagreement counts.
+
+This design deliberately makes the low-fidelity disk overpredict the collision region. The residual therefore contains negative corrections from the surrogate false-positive annulus. It tests whether the control variate can recover the high-fidelity truth without clipping or discarding negative corrections.
+
+A key expected result is that lower residual variance need not mean a narrower *valid finite-sample interval*: the generic two-sided empirical-Bernstein interval still uses the worst-case support [-1/epsilon,+1/epsilon]. The benchmark reports both RMSE/variance and interval width so that weakness remains visible. The next research step is a qualified discrepancy-region / stratified residual design or a sharper concentration bound with valid structural assumptions—not silently substituting the observed residual range for a proven bound.
 
 ## Whitening and physical-state correspondence
 
