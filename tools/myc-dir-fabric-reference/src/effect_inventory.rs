@@ -214,27 +214,75 @@ impl EffectSurfaceInventory {
         &self.routes
     }
 
-    /// Canonical material whose digest is the inventory manifest digest.
-    /// The manifest digest itself is excluded to avoid self-reference.
-    pub fn canonical_bytes(&self) -> Result<Vec<u8>, InventoryError> {
-        let mut bytes = b"MYC-DIR-EFFECT-SURFACE-INVENTORY\0\x01".to_vec();
-        append_text(&mut bytes, self.scope.realm().as_str())?;
-        append_text(&mut bytes, self.scope.resource().as_str())?;
-        append_text(&mut bytes, self.scope.action().as_str())?;
-        bytes.extend_from_slice(&self.revocation_digest);
-        bytes.extend_from_slice(&self.inventory_epoch.to_be_bytes());
-        bytes.extend_from_slice(&self.topology_snapshot_digest);
-        bytes.extend_from_slice(&self.route_set_digest);
-        let route_count =
-            u32::try_from(self.routes.len()).map_err(|_| InventoryError::EmptyRouteInventory)?;
-        bytes.extend_from_slice(&route_count.to_be_bytes());
-        for route in &self.routes {
+    /// Canonical route-set bytes. Hash these bytes externally to produce
+    /// route_set_digest, then bind that digest into canonical_manifest_bytes.
+    pub fn canonical_route_set_bytes(
+        routes: &[EffectSurfaceRoute],
+    ) -> Result<Vec<u8>, InventoryError> {
+        if routes.is_empty() {
+            return Err(InventoryError::EmptyRouteInventory);
+        }
+        let mut routes = routes.to_vec();
+        routes.sort_by(|left, right| left.route_id.cmp(&right.route_id));
+        for pair in routes.windows(2) {
+            if pair[0].route_id == pair[1].route_id {
+                return Err(InventoryError::DuplicateRouteId);
+            }
+        }
+        let mut bytes = b"MYC-DIR-EFFECT-ROUTE-SET\0\x01".to_vec();
+        let count = u32::try_from(routes.len())
+            .map_err(|_| InventoryError::EmptyRouteInventory)?;
+        bytes.extend_from_slice(&count.to_be_bytes());
+        for route in &routes {
             append_text(&mut bytes, route.route_id.as_str())?;
             bytes.push(route.kind as u8);
             append_text(&mut bytes, route.owner.as_str())?;
             bytes.push(route.enforcement as u8);
         }
         Ok(bytes)
+    }
+
+    /// Canonical manifest material. Hash the result externally to produce
+    /// inventory_manifest_digest; that digest is intentionally not included.
+    #[allow(clippy::too_many_arguments)]
+    pub fn canonical_manifest_bytes(
+        scope: &EffectFenceScope,
+        revocation_digest: &Digest,
+        inventory_epoch: u64,
+        topology_snapshot_digest: &Digest,
+        route_set_digest: &Digest,
+        routes: &[EffectSurfaceRoute],
+    ) -> Result<Vec<u8>, InventoryError> {
+        if inventory_epoch == 0 {
+            return Err(InventoryError::InvalidInventoryEpoch);
+        }
+        let mut bytes = b"MYC-DIR-EFFECT-SURFACE-INVENTORY\0\x01".to_vec();
+        append_text(&mut bytes, scope.realm().as_str())?;
+        append_text(&mut bytes, scope.resource().as_str())?;
+        append_text(&mut bytes, scope.action().as_str())?;
+        bytes.extend_from_slice(revocation_digest);
+        bytes.extend_from_slice(&inventory_epoch.to_be_bytes());
+        bytes.extend_from_slice(topology_snapshot_digest);
+        bytes.extend_from_slice(route_set_digest);
+        let route_bytes = Self::canonical_route_set_bytes(routes)?;
+        let route_bytes_length = u32::try_from(route_bytes.len())
+            .map_err(|_| InventoryError::EmptyRouteInventory)?;
+        bytes.extend_from_slice(&route_bytes_length.to_be_bytes());
+        bytes.extend_from_slice(&route_bytes);
+        Ok(bytes)
+    }
+
+    /// Canonical material whose digest is the inventory manifest digest.
+    /// The manifest digest itself is excluded to avoid self-reference.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, InventoryError> {
+        Self::canonical_manifest_bytes(
+            &self.scope,
+            &self.revocation_digest,
+            self.inventory_epoch,
+            &self.topology_snapshot_digest,
+            &self.route_set_digest,
+            &self.routes,
+        )
     }
 }
 
