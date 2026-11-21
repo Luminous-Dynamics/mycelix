@@ -257,12 +257,7 @@ fn is_lower_hex(value: &str, length: usize) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
-fn validate_digest(
-    value: Option<&str>,
-    length: usize,
-    path: &str,
-    findings: &mut Vec<Finding>,
-) {
+fn validate_digest(value: Option<&str>, length: usize, path: &str, findings: &mut Vec<Finding>) {
     match value {
         Some(digest) if is_lower_hex(digest, length) => {}
         _ => finding(
@@ -298,9 +293,9 @@ fn expected_role(event_type: &str) -> Option<&'static [&'static str]> {
         | "outbox_committed"
         | "terminal_failure"
         | "terminal_expiry" => Some(&["client"]),
-        "authority_host_admitted"
-        | "authority_host_denied"
-        | "revocation_committed" => Some(&["host_conductor"]),
+        "authority_host_admitted" | "authority_host_denied" | "revocation_committed" => {
+            Some(&["host_conductor"])
+        }
         "domain_authorized" | "domain_denied" => Some(&["domain_coordinator"]),
         "source_action_authored" => Some(&["source_chain_author"]),
         "integrity_validation_accepted" | "integrity_validation_rejected" => {
@@ -349,11 +344,7 @@ fn scan_forbidden_keys(value: &Value, path: &str, findings: &mut Vec<Finding>) {
     }
 }
 
-fn parse_event(
-    value: &Value,
-    index: usize,
-    findings: &mut Vec<Finding>,
-) -> Option<EventRecord> {
+fn parse_event(value: &Value, index: usize, findings: &mut Vec<Finding>) -> Option<EventRecord> {
     let path = format!("$.events[{index}]");
     let object = match value.as_object() {
         Some(object) => object,
@@ -364,8 +355,7 @@ fn parse_event(
     };
 
     let event_id = string_field(object, "event_id", &path, findings)?;
-    let logical_operation_id =
-        string_field(object, "logical_operation_id", &path, findings)?;
+    let logical_operation_id = string_field(object, "logical_operation_id", &path, findings)?;
     let event_type = string_field(object, "event_type", &path, findings)?;
     let evidence_role = string_field(object, "evidence_role", &path, findings)?;
     let actor_ref = string_field(object, "actor_ref", &path, findings)?;
@@ -446,8 +436,12 @@ fn parse_event(
     let observed_at = object_field(object, "observed_at", &path, findings);
     let (clock_domain, monotonic_ns) = match observed_at {
         Some(observed) => {
-            let clock_domain =
-                string_field(observed, "clock_domain", &format!("{path}.observed_at"), findings);
+            let clock_domain = string_field(
+                observed,
+                "clock_domain",
+                &format!("{path}.observed_at"),
+                findings,
+            );
             let monotonic_ns = match observed.get("monotonic_ns").and_then(Value::as_u64) {
                 Some(value) => Some(value),
                 None => {
@@ -479,8 +473,7 @@ fn parse_event(
                     continue;
                 }
             };
-            let predecessor_id =
-                string_field(edge_object, "event_id", &edge_path, findings);
+            let predecessor_id = string_field(edge_object, "event_id", &edge_path, findings);
             let relation = string_field(edge_object, "relation", &edge_path, findings);
             if let (Some(predecessor_id), Some(relation)) = (predecessor_id, relation) {
                 if !CAUSAL_RELATIONS.contains(&relation.as_str()) {
@@ -513,7 +506,11 @@ fn parse_event(
             let evidence_object = match evidence.as_object() {
                 Some(value) => value,
                 None => {
-                    finding(findings, &evidence_path, "evidence reference must be an object");
+                    finding(
+                        findings,
+                        &evidence_path,
+                        "evidence reference must be an object",
+                    );
                     continue;
                 }
             };
@@ -538,7 +535,11 @@ fn parse_event(
                 );
             }
             if let (Some(kind), Some(digest), Some(scope)) = (kind, digest, scope) {
-                evidence_refs.push(EvidenceReference { kind, sha256: digest, scope });
+                evidence_refs.push(EvidenceReference {
+                    kind,
+                    sha256: digest,
+                    scope,
+                });
             }
         }
     }
@@ -748,9 +749,7 @@ fn causal_relation_error(
                     .iter()
                     .any(|reference| reference.kind == "source_checkpoint")
             {
-                Some(
-                    "checkpoint_descendant_of requires source-checkpoint evidence on both events",
-                )
+                Some("checkpoint_descendant_of requires source-checkpoint evidence on both events")
             } else {
                 None
             }
@@ -817,10 +816,7 @@ fn verify_acyclic_graph(
                     {
                         finding(
                             findings,
-                            format!(
-                                "$.events.{}.causal_predecessors",
-                                event.event_id
-                            ),
+                            format!("$.events.{}.causal_predecessors", event.event_id),
                             format!(
                                 "causal relation {} from {} is semantically invalid: {message}",
                                 predecessor.relation, predecessor.event_id
@@ -872,17 +868,17 @@ fn verify_acyclic_graph(
 }
 
 fn evidence_reference(event: &EventRecord, kind: &str) -> Option<&EvidenceReference> {
-    event.evidence_refs.iter().find(|reference| reference.kind == kind)
+    event
+        .evidence_refs
+        .iter()
+        .find(|reference| reference.kind == kind)
 }
 
-fn has_direct_causal_edge(
-    child: &EventRecord,
-    parent: &EventRecord,
-    relation: &str,
-) -> bool {
-    child.predecessors.iter().any(|edge| {
-        edge.event_id == parent.event_id && edge.relation == relation
-    })
+fn has_direct_causal_edge(child: &EventRecord, parent: &EventRecord, relation: &str) -> bool {
+    child
+        .predecessors
+        .iter()
+        .any(|edge| edge.event_id == parent.event_id && edge.relation == relation)
 }
 
 fn verify_success_projection(
@@ -919,9 +915,7 @@ fn verify_success_projection(
     let projection_indices: Vec<usize> = events
         .iter()
         .enumerate()
-        .filter_map(|(index, event)| {
-            (event.event_type == "ui_projection_emitted").then_some(index)
-        })
+        .filter_map(|(index, event)| (event.event_type == "ui_projection_emitted").then_some(index))
         .collect();
 
     if projection_indices.is_empty() {
@@ -1079,8 +1073,7 @@ fn verify_success_projection(
                         evidence_reference(observed, "action_hash"),
                     ) {
                         (Some(authored), Some(projected)) => {
-                            authored.sha256 == projected.sha256
-                                && authored.scope == projected.scope
+                            authored.sha256 == projected.sha256 && authored.scope == projected.scope
                         }
                         _ => false,
                     }
@@ -1144,26 +1137,18 @@ fn verify_success_projection(
                 continue;
             };
 
-            let direct_transport_integrity =
-                matches!((transport_started, integrity_acceptance), (Some(child), Some(parent))
+            let direct_transport_integrity = matches!((transport_started, integrity_acceptance), (Some(child), Some(parent))
                     if has_direct_causal_edge(child, parent, "transport_for"));
-            let direct_transport_outbox =
-                matches!((transport_started, outbox), (Some(child), Some(parent))
+            let direct_transport_outbox = matches!((transport_started, outbox), (Some(child), Some(parent))
                     if has_direct_causal_edge(child, parent, "attempt_for"));
-            let direct_admission_transport =
-                matches!((admitted, transport_started), (Some(child), Some(parent))
+            let direct_admission_transport = matches!((admitted, transport_started), (Some(child), Some(parent))
                     if has_direct_causal_edge(child, parent, "request_response"));
-            let direct_admission_dht =
-                matches!((admitted, dht_projection), (Some(child), Some(parent))
+            let direct_admission_dht = matches!((admitted, dht_projection), (Some(child), Some(parent))
                     if has_direct_causal_edge(child, parent, "derived_from"));
-            let direct_commit_admission =
-                has_direct_causal_edge(committed, admitted, "commits");
-            let direct_decrypt_commit =
-                has_direct_causal_edge(decrypted, committed, "verifies");
-            let direct_receipt_decrypt =
-                has_direct_causal_edge(created, decrypted, "receipt_for");
-            let direct_verify_created =
-                has_direct_causal_edge(receipt, created, "verifies");
+            let direct_commit_admission = has_direct_causal_edge(committed, admitted, "commits");
+            let direct_decrypt_commit = has_direct_causal_edge(decrypted, committed, "verifies");
+            let direct_receipt_decrypt = has_direct_causal_edge(created, decrypted, "receipt_for");
+            let direct_verify_created = has_direct_causal_edge(receipt, created, "verifies");
             let direct_projection_receipt =
                 has_direct_causal_edge(projection, receipt, "derived_from");
 
@@ -1211,16 +1196,14 @@ fn verify_success_projection(
             }
             let created_receipt_reference = evidence_reference(created, "recipient_receipt");
             let verified_receipt_reference = evidence_reference(receipt, "recipient_receipt");
-            let receipt_references_match = match (
-                created_receipt_reference,
-                verified_receipt_reference,
-            ) {
-                (Some(created_ref), Some(verified_ref)) => {
-                    created_ref.sha256 == verified_ref.sha256
-                        && created_ref.scope == verified_ref.scope
-                }
-                _ => false,
-            };
+            let receipt_references_match =
+                match (created_receipt_reference, verified_receipt_reference) {
+                    (Some(created_ref), Some(verified_ref)) => {
+                        created_ref.sha256 == verified_ref.sha256
+                            && created_ref.scope == verified_ref.scope
+                    }
+                    _ => false,
+                };
             if !receipt_references_match {
                 continue;
             }
@@ -1245,8 +1228,7 @@ fn validate_run_and_scenario(
     let run = object_field(root, "run", "$", findings);
     let (run_id, source_sha) = if let Some(run) = run {
         let run_id = string_field(run, "run_id", "$.run", findings).unwrap_or_default();
-        let source_sha =
-            string_field(run, "source_sha", "$.run", findings).unwrap_or_default();
+        let source_sha = string_field(run, "source_sha", "$.run", findings).unwrap_or_default();
         validate_digest(Some(&source_sha), 40, "$.run.source_sha", findings);
         for digest_key in ["toolchain_digest", "workload_digest"] {
             let digest = string_field(run, digest_key, "$.run", findings);
@@ -1291,8 +1273,7 @@ fn validate_run_and_scenario(
 
     let scenario = object_field(root, "scenario", "$", findings);
     let scenario_id = if let Some(scenario) = scenario {
-        let id = string_field(scenario, "scenario_id", "$.scenario", findings)
-            .unwrap_or_default();
+        let id = string_field(scenario, "scenario_id", "$.scenario", findings).unwrap_or_default();
         if !id.starts_with("PFC-")
             || !id
                 .bytes()
@@ -1372,10 +1353,7 @@ fn validate_run_and_scenario(
 ///
 /// Remote reference resolution is disabled by the crate configuration. The
 /// qualification schema must therefore be self-contained and deterministic.
-pub fn validate_against_schema(
-    instance: &Value,
-    schema: &Value,
-) -> Result<(), Vec<String>> {
+pub fn validate_against_schema(instance: &Value, schema: &Value) -> Result<(), Vec<String>> {
     const DRAFT_2020_12: &str = "https://json-schema.org/draft/2020-12/schema";
     if schema.get("$schema").and_then(Value::as_str) != Some(DRAFT_2020_12) {
         return Err(vec![
@@ -1443,8 +1421,7 @@ pub fn verify_trace(
         );
     }
 
-    let (run_id, source_sha, scenario_id) =
-        validate_run_and_scenario(root, &mut findings);
+    let (run_id, source_sha, scenario_id) = validate_run_and_scenario(root, &mut findings);
 
     if let Some(expected) = expected_source_sha {
         if !is_lower_hex(expected, 40) {
@@ -1463,8 +1440,7 @@ pub fn verify_trace(
     }
 
     let terminal_disposition =
-        string_field(root, "terminal_disposition", "$", &mut findings)
-            .unwrap_or_default();
+        string_field(root, "terminal_disposition", "$", &mut findings).unwrap_or_default();
     if !TERMINAL_DISPOSITIONS.contains(&terminal_disposition.as_str()) {
         finding(
             &mut findings,
@@ -1496,11 +1472,7 @@ pub fn verify_trace(
     let event_values = match array_field(root, "events", "$", &mut findings) {
         Some(items) if !items.is_empty() => items,
         Some(_) => {
-            finding(
-                &mut findings,
-                "$.events",
-                "at least one event is required",
-            );
+            finding(&mut findings, "$.events", "at least one event is required");
             &empty_events
         }
         None => &empty_events,
@@ -1538,19 +1510,13 @@ pub fn verify_trace(
                     );
                 }
             } else {
-                attempt_operations.insert(
-                    attempt_id.clone(),
-                    event.logical_operation_id.clone(),
-                );
+                attempt_operations.insert(attempt_id.clone(), event.logical_operation_id.clone());
             }
         }
 
         if event.event_type == "recipient_inbox_committed" {
             *commit_counts
-                .entry((
-                    event.logical_operation_id.clone(),
-                    event.actor_ref.clone(),
-                ))
+                .entry((event.logical_operation_id.clone(), event.actor_ref.clone()))
                 .or_insert(0) += 1;
         }
     }
@@ -1582,10 +1548,7 @@ pub fn verify_trace(
             terminal_disposition,
             event_count: events.len(),
             operation_count: operations.len(),
-            causal_edge_count: events
-                .iter()
-                .map(|event| event.predecessors.len())
-                .sum(),
+            causal_edge_count: events.iter().map(|event| event.predecessors.len()).sum(),
         })
     } else {
         Err(findings)
@@ -1851,8 +1814,10 @@ mod tests {
         })
     }
     fn trace_schema() -> Value {
-        serde_json::from_str(include_str!("../../../docs/pulse-fabric-trace.schema-v0.1.json"))
-            .expect("checked-in trace schema must parse")
+        serde_json::from_str(include_str!(
+            "../../../docs/pulse-fabric-trace.schema-v0.1.json"
+        ))
+        .expect("checked-in trace schema must parse")
     }
 
     #[test]
@@ -1872,20 +1837,20 @@ mod tests {
             .iter()
             .map(|value| value.as_str().expect("role string"))
             .collect();
-        let schema_relations: Vec<&str> = event_schema["causal_predecessors"]["items"]
-            ["properties"]["relation"]["enum"]
-            .as_array()
-            .expect("causal relation enum")
-            .iter()
-            .map(|value| value.as_str().expect("causal relation string"))
-            .collect();
-        let schema_attempt_events: Vec<&str> = event_schema["allOf"][0]["if"]["properties"]
-            ["event_type"]["enum"]
-            .as_array()
-            .expect("attempt-required event enum")
-            .iter()
-            .map(|value| value.as_str().expect("attempt event string"))
-            .collect();
+        let schema_relations: Vec<&str> =
+            event_schema["causal_predecessors"]["items"]["properties"]["relation"]["enum"]
+                .as_array()
+                .expect("causal relation enum")
+                .iter()
+                .map(|value| value.as_str().expect("causal relation string"))
+                .collect();
+        let schema_attempt_events: Vec<&str> =
+            event_schema["allOf"][0]["if"]["properties"]["event_type"]["enum"]
+                .as_array()
+                .expect("attempt-required event enum")
+                .iter()
+                .map(|value| value.as_str().expect("attempt event string"))
+                .collect();
 
         assert_eq!(schema_event_types, EVENT_TYPES);
         assert_eq!(schema_roles, EVIDENCE_ROLES);
@@ -1918,10 +1883,7 @@ mod tests {
         let trace = valid_trace();
         let result = verify_trace(&trace, Some(&"1".repeat(40)));
         assert!(result.is_ok(), "{result:?}");
-        assert_eq!(
-            result.unwrap().terminal_disposition,
-            "SUCCESS_VERIFIED"
-        );
+        assert_eq!(result.unwrap().terminal_disposition, "SUCCESS_VERIFIED");
     }
 
     #[test]
@@ -1930,7 +1892,8 @@ mod tests {
         let result = verify_trace(&trace, Some(&"9".repeat(40)));
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|item| {
-            item.message.contains("externally supplied expected source SHA")
+            item.message
+                .contains("externally supplied expected source SHA")
         }));
     }
 
@@ -1938,7 +1901,16 @@ mod tests {
     fn transport_ack_alone_cannot_support_success() {
         let mut trace = valid_trace();
         trace["events"] = json!([
-            event("intent", "intent_recorded", "client", "sender", None, None, 1, vec![]),
+            event(
+                "intent",
+                "intent_recorded",
+                "client",
+                "sender",
+                None,
+                None,
+                1,
+                vec![]
+            ),
             event(
                 "ack",
                 "transport_ack_observed",
@@ -1968,7 +1940,16 @@ mod tests {
     fn accepts_ack_only_trace_when_disposition_remains_unknown() {
         let mut trace = valid_trace();
         trace["events"] = json!([
-            event("intent", "intent_recorded", "client", "sender", None, None, 1, vec![]),
+            event(
+                "intent",
+                "intent_recorded",
+                "client",
+                "sender",
+                None,
+                None,
+                1,
+                vec![]
+            ),
             event(
                 "ack",
                 "transport_ack_observed",
@@ -1994,9 +1975,12 @@ mod tests {
             json!([{"event_id": "crypto-profile", "relation": "attempt_for"}]);
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
-        assert!(result.unwrap_err().iter().any(|item| {
-            item.message.contains("lacks a causally connected")
-        }));
+        assert!(
+            result
+                .unwrap_err()
+                .iter()
+                .any(|item| { item.message.contains("lacks a causally connected") })
+        );
     }
 
     #[test]
@@ -2022,8 +2006,7 @@ mod tests {
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|item| {
-            item.message.contains("attempt_for")
-                && item.message.contains("same logical operation")
+            item.message.contains("attempt_for") && item.message.contains("same logical operation")
         }));
         assert_ne!(outbox, transport);
     }
@@ -2036,9 +2019,12 @@ mod tests {
             json!([{"event_id": "missing", "relation": "request_response"}]);
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
-        assert!(result.unwrap_err().iter().any(|item| {
-            item.message.contains("does not resolve")
-        }));
+        assert!(
+            result
+                .unwrap_err()
+                .iter()
+                .any(|item| { item.message.contains("does not resolve") })
+        );
     }
 
     #[test]
@@ -2048,9 +2034,12 @@ mod tests {
             json!([{"event_id": "projection", "relation": "derived_from"}]);
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
-        assert!(result.unwrap_err().iter().any(|item| {
-            item.message.contains("contains a cycle")
-        }));
+        assert!(
+            result
+                .unwrap_err()
+                .iter()
+                .any(|item| { item.message.contains("contains a cycle") })
+        );
     }
 
     #[test]
@@ -2061,7 +2050,8 @@ mod tests {
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|item| {
-            item.message.contains("requires one of these evidence roles")
+            item.message
+                .contains("requires one of these evidence roles")
         }));
     }
 
@@ -2072,9 +2062,12 @@ mod tests {
         trace["events"][receipt]["attempt_id"] = Value::Null;
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
-        assert!(result.unwrap_err().iter().any(|item| {
-            item.message.contains("requires a concrete attempt_id")
-        }));
+        assert!(
+            result
+                .unwrap_err()
+                .iter()
+                .any(|item| { item.message.contains("requires a concrete attempt_id") })
+        );
     }
 
     #[test]
@@ -2085,9 +2078,12 @@ mod tests {
         trace["events"].as_array_mut().unwrap().push(duplicate);
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
-        assert!(result.unwrap_err().iter().any(|item| {
-            item.message.contains("duplicate logical effects")
-        }));
+        assert!(
+            result
+                .unwrap_err()
+                .iter()
+                .any(|item| { item.message.contains("duplicate logical effects") })
+        );
     }
 
     #[test]
@@ -2098,7 +2094,8 @@ mod tests {
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|item| {
-            item.message.contains("prohibited in a redacted evidence trace")
+            item.message
+                .contains("prohibited in a redacted evidence trace")
         }));
     }
 
@@ -2117,9 +2114,12 @@ mod tests {
         trace["events"][domain]["evidence_refs"][0]["sha256"] = json!("9".repeat(64));
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
-        assert!(result.unwrap_err().iter().any(|item| {
-            item.message.contains("lacks a causally connected")
-        }));
+        assert!(
+            result
+                .unwrap_err()
+                .iter()
+                .any(|item| { item.message.contains("lacks a causally connected") })
+        );
     }
 
     #[test]
@@ -2129,9 +2129,12 @@ mod tests {
         trace["events"][receipt]["evidence_refs"][0]["sha256"] = json!("9".repeat(64));
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
-        assert!(result.unwrap_err().iter().any(|item| {
-            item.message.contains("lacks a causally connected")
-        }));
+        assert!(
+            result
+                .unwrap_err()
+                .iter()
+                .any(|item| { item.message.contains("lacks a causally connected") })
+        );
     }
 
     #[test]
@@ -2141,9 +2144,12 @@ mod tests {
         trace["events"][dht]["evidence_refs"][0]["sha256"] = json!("9".repeat(64));
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
-        assert!(result.unwrap_err().iter().any(|item| {
-            item.message.contains("lacks a causally connected")
-        }));
+        assert!(
+            result
+                .unwrap_err()
+                .iter()
+                .any(|item| { item.message.contains("lacks a causally connected") })
+        );
     }
 
     #[test]
@@ -2153,9 +2159,12 @@ mod tests {
         trace["events"][decrypt]["content_commitment"] = json!("b".repeat(64));
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
-        assert!(result.unwrap_err().iter().any(|item| {
-            item.message.contains("not causally supported")
-        }));
+        assert!(
+            result
+                .unwrap_err()
+                .iter()
+                .any(|item| { item.message.contains("not causally supported") })
+        );
     }
 
     #[test]
@@ -2234,9 +2243,12 @@ mod tests {
         trace["events"][commit]["observed_at"]["monotonic_ns"] = json!(0);
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
-        assert!(result.unwrap_err().iter().any(|item| {
-            item.message.contains("later monotonic timestamp")
-        }));
+        assert!(
+            result
+                .unwrap_err()
+                .iter()
+                .any(|item| { item.message.contains("later monotonic timestamp") })
+        );
     }
 
     #[test]
@@ -2247,16 +2259,16 @@ mod tests {
         let result = verify_trace(&trace, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().iter().any(|item| {
-            item.message.contains("reused across different logical operations")
+            item.message
+                .contains("reused across different logical operations")
         }));
     }
 
     #[test]
     fn checked_in_profile_and_schema_satisfy_draft_2020_12() {
-        let profile: Value = serde_json::from_str(include_str!(
-            "../../../docs/pulse-fabric-profile-v0.1.json"
-        ))
-        .expect("profile must parse");
+        let profile: Value =
+            serde_json::from_str(include_str!("../../../docs/pulse-fabric-profile-v0.1.json"))
+                .expect("profile must parse");
         let schema: Value = serde_json::from_str(include_str!(
             "../../../docs/pulse-fabric-profile.schema-v0.1.json"
         ))
@@ -2319,9 +2331,8 @@ mod tests {
             benchmark["reporting_rules"]
                 .as_array()
                 .is_some_and(|items| items.iter().any(|item| {
-                    item.as_str().is_some_and(|rule| {
-                        rule.contains("weighted score")
-                    })
+                    item.as_str()
+                        .is_some_and(|rule| rule.contains("weighted score"))
                 }))
         );
         let fanout = &benchmark["group_fanout_semantics"];
