@@ -777,7 +777,8 @@ mod tests {
             let relative_error = (approximation - reference_pc).abs() / reference_pc;
             assert!(
                 relative_error <= 0.01,
-                "{name}: local-density approximation relative error {relative_error:.4%} exceeded the 1% envelope for this selected case"
+                "{name}: local-density approximation relative error {:.4}% exceeded the 1% envelope for this selected case",
+                relative_error * 100.0
             );
         }
     }
