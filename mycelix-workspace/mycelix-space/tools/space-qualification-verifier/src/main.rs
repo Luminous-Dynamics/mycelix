@@ -494,7 +494,14 @@ fn verify_object_and_coverage_ledgers(
                     );
                 }
             }
-            "not_applicable" => {}
+            "not_applicable" => {
+                if disposition_by_id.get(object_id).is_some_and(|state| state == "screened") {
+                    findings.fail(
+                        "SCREENED_OBJECT_SEGMENT_NOT_APPLICABLE",
+                        format!("screened object {object_id} has a time segment marked not_applicable"),
+                    );
+                }
+            }
             other => findings.fail(
                 "INVALID_SEGMENT_DISPOSITION",
                 format!("time segment {segment_id} has invalid disposition {other}"),
@@ -520,9 +527,6 @@ fn verify_object_and_coverage_ledgers(
 
     let requested_count = requested_set.len();
     let eligible_count = requested_count.saturating_sub(excluded_count);
-    let unassessed_total = unassessed_count + segment_unassessed_count;
-    let _ = unassessed_total;
-
     let declared_counts = [
         ("requested_object_count", requested_count),
         ("eligible_object_count", eligible_count),
@@ -866,7 +870,7 @@ fn verify_value(package: &Value, repo_root: &Path) -> Findings {
     if artifacts.is_empty() {
         findings.fail("EMPTY_ARTIFACT_SET", "package must bind at least one source artifact");
     }
-    if !get_array(package, "execution_evidence").is_some() {
+    if !package.get("execution_evidence").is_some_and(Value::is_object) {
         findings.fail("MISSING_EXECUTION_EVIDENCE", "execution_evidence is required");
     }
     findings.check("package_cross_field_reconciliation");
