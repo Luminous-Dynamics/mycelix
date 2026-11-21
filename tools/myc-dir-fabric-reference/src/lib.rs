@@ -12,6 +12,7 @@ use std::fmt;
 
 pub mod causal_cut;
 pub mod effect_fence;
+pub mod effect_inventory;
 pub mod receipts;
 
 pub const MAX_IDENTIFIER_BYTES: usize = 512;
