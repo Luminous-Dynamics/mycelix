@@ -2252,7 +2252,7 @@ mod tests {
             &whitening,
             &observations,
             &multifidelity_parameters(surrogate_pc, 0.0),
-        &evaluation,
+            &evaluation,
             &surrogate,
         )
         .unwrap();
@@ -2322,7 +2322,7 @@ mod tests {
                 &whitening,
                 &observations,
                 &multifidelity_parameters(pc, 0.0),
-            &evaluation,
+                &evaluation,
                 &wrong_target,
             ),
             Err(EstimateError::SurrogateTargetMismatch)
@@ -2336,7 +2336,7 @@ mod tests {
                 &whitening,
                 &observations,
                 &multifidelity_parameters(pc, 0.0),
-            &evaluation,
+                &evaluation,
                 &wrong_order,
             ),
             Err(EstimateError::SurrogateSampleOrderMismatch)
@@ -2350,7 +2350,7 @@ mod tests {
                 &whitening,
                 &observations,
                 &multifidelity_parameters(pc, 0.0),
-            &evaluation,
+                &evaluation,
                 &training_leak,
             ),
             Err(EstimateError::SurrogateTrainingEvaluationLeakage)
@@ -2373,7 +2373,7 @@ mod tests {
                 &whitening,
                 &observations,
                 &multifidelity_parameters(pc, 0.0),
-            &evaluation,
+                &evaluation,
                 &surrogate,
             ),
             Err(EstimateError::DuplicateEvaluationSampleId(
@@ -2389,7 +2389,7 @@ mod tests {
                 &whitening,
                 &observations,
                 &multifidelity_parameters(pc, 0.0),
-            &evaluation,
+                &evaluation,
                 &surrogate,
             ),
             Err(EstimateError::PhysicalStateMismatch)
