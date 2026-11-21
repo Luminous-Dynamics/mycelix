@@ -115,3 +115,26 @@ Apply and test on a disposable PostgreSQL database:
 - Remote effects require receiver-side fencing. The local SQL lock does not reach across a network.
 
 Source-present is the current evidence state. Exact-head migration, SQL self-test, two-session race, crash recovery, synchronous-replica failover, privilege audit and production effect-owner integration are separate gates.
+
+
+## Worker claim and decision-validity extension
+
+Apply 002_worker_claim_fencing.sql after the base schema. It adds a durable worker_claim_state table keyed by exact realm/resource/action/effect-owner/logical-operation. Each row contains worker ID, monotonically increasing claim epoch, externally verified claim-proof digest, exact clock-profile ID and validity interval.
+
+The trusted worker-claim issuer must authenticate a claim before the installer invokes install_worker_claim. Exact same-epoch replay is idempotent; lower epochs and same-epoch substitutions are rejected. The SQL installer does not verify the claim issuer's signature.
+
+The effect path must call apply_claim_fenced_balance_delta, not the unwrapped apply_balance_delta. The wrapper:
+1. Holds FOR SHARE on the exact logical operation's worker-claim row through transaction commit.
+2. Rejects a worker/epoch/proof substitution.
+3. Reads the effect owner's configured clock profile and maximum uncertainty.
+4. Requires the worker claim and decision clock profiles to match the owner profile.
+5. Requires the full owner-clock uncertainty interval to fall within both the worker-claim and Allow validity windows.
+6. Calls apply_balance_delta under the same surrounding SQL transaction, retaining the claim and resource-fence locks until COMMIT.
+
+Claim reassignment uses a strictly increasing epoch. It cannot commit while a previous effect transaction holds the old claim row FOR SHARE. Once reassignment commits, old claim tokens fail. This gives a durable ordering between current executor claim and PostgreSQL-local mutation. It does not fence a remote API or outbox consumer; those remain independent effect owners.
+
+owner_clock_profile_id and max_clock_uncertainty_ms are added to effect_fence_state. The default clock profile and 25 ms uncertainty are illustrative bootstrap values, not universal safe settings. Operators must measure and qualify actual offset/uncertainty, monitor clock health, test restart/failover and disable time-bounded writes when the bound cannot be maintained. PostgreSQL clock_timestamp() is not a secure hardware clock.
+
+The application PEP must still authenticate the exact Allow receipt and claim issuer before calling SQL. The SQL validates stored commitments and validity bindings; it does not derive policy or verify Ed25519. The PEP role should receive EXECUTE only on apply_claim_fenced_balance_delta; it must not have EXECUTE on the unwrapped apply_balance_delta or direct table DML. A separate trusted claim-installer role may execute install_worker_claim.
+
+Run test_worker_claim_fencing.sql after applying both migrations. This is an authored single-session transactional self-test only; two-session claim-reassignment/effect races, clock drift, role-bypass, crash/recovery and synchronous failover remain runtime qualification requirements.
