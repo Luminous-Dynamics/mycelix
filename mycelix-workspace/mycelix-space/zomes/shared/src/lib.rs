@@ -505,7 +505,6 @@ pub fn inclusive_time_offsets(
     Ok(offsets)
 }
 
-
 /// Deterministic resolution of TLE records associated with one NORAD anchor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TleLatestDecision {
@@ -517,10 +516,19 @@ pub enum TleLatestDecision {
 /// A same-epoch TLE ambiguity or DHT anchor/entry identity mismatch.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TleLatestConflict {
-    InvalidNoradId { norad_id: u32 },
-    WrongAnchor { expected_norad_id: u32, actual_norad_id: u32 },
-    SameEpochOrbitConflict { norad_id: u32 },
-    SameEpochMetadataConflict { norad_id: u32 },
+    InvalidNoradId {
+        norad_id: u32,
+    },
+    WrongAnchor {
+        expected_norad_id: u32,
+        actual_norad_id: u32,
+    },
+    SameEpochOrbitConflict {
+        norad_id: u32,
+    },
+    SameEpochMetadataConflict {
+        norad_id: u32,
+    },
 }
 
 /// Minimal view of a TLE record used by the deterministic latest-record resolver.
@@ -608,7 +616,6 @@ pub fn select_latest_tle_candidate(
         Ok(TleLatestDecision::KeepExisting)
     }
 }
-
 
 /// Conjunction screening request
 #[derive(Clone, Debug, Serialize, Deserialize)]
