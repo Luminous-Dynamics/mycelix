@@ -1,0 +1,97 @@
+{
+  "schema_version": "sa-soil-source-admission-v0.1",
+  "fixture_status": "synthetic_metadata_example_not_source_evidence",
+  "evidence_class": "synthetic",
+  "source_record": {
+    "source_id": "soils4africa-point-syn",
+    "source_type": "point_sample_dataset",
+    "title": "Soils4Africa-like regional sample survey — synthetic metadata example",
+    "custodian": "Synthetic survey custodian",
+    "canonical_uri": "https://example.invalid/soil-data-africa",
+    "release_id": "manufactured-survey-release-v1",
+    "published_or_updated_at": "2026-01-01",
+    "collection_start": "2021-01-01",
+    "collection_end": "2024-12-31"
+  },
+  "provenance": {
+    "source_method": "Manufactured survey metadata example with direct laboratory measurement semantics.",
+    "source_lineage": [
+      "synthetic-field-sampling",
+      "synthetic-reference-chemistry"
+    ],
+    "acquisition_timestamp": "2026-11-21T17:00:00+02:00"
+  },
+  "rights": {
+    "license_status": "agreement_required",
+    "license_or_agreement": "Synthetic data access agreement placeholder.",
+    "access_terms": "Regional context and sampling-design use only under fictional agreement.",
+    "redistribution_allowed": false,
+    "purpose_restrictions": [
+      "No public redistribution",
+      "Not for field-level recommendations"
+    ]
+  },
+  "artifact": {
+    "acquisition_status": "not_acquired",
+    "file_name": "synthetic-map-metadata-only"
+  },
+  "spatial_support": {
+    "support_type": "point",
+    "crs": "EPSG:4326",
+    "native_support_description": "Manufactured georeferenced survey points with unknown exact positional accuracy.",
+    "spatial_accuracy_status": "not_reported",
+    "geometry_type": "point",
+    "coverage_description": "Synthetic continental point coverage."
+  },
+  "depth_support": {
+    "depth_status": "known_interval",
+    "min_depth_m": 0,
+    "max_depth_m": 0.2,
+    "description": "Manufactured 0–20 cm topsoil support."
+  },
+  "temporal_support": {
+    "temporal_status": "collection_interval",
+    "start_date": "2021-01-01",
+    "end_date": "2024-12-31",
+    "description": "Manufactured multi-year sample collection interval."
+  },
+  "variables": [
+    {
+      "variable_id": "ph-kcl",
+      "property_name": "soil_pH_KCl",
+      "value_semantics": "directly_measured",
+      "unit": "pH_unit",
+      "definition": "Synthetic pH measurement in KCl under a declared soil:solution ratio.",
+      "method": "Synthetic 1 M KCl extraction and electrode method",
+      "reference_method": "Synthetic laboratory reference procedure, version 1",
+      "uncertainty_status": "quantified",
+      "uncertainty_description": "Manufactured reference repeatability interval."
+    }
+  ],
+  "intended_uses": [
+    "regional_stratification",
+    "sampling_design",
+    "regional_context"
+  ],
+  "lineage": {
+    "study_ids": [
+      "synthetic-regional-survey-01"
+    ],
+    "survey_ids": [
+      "synthetic-soil-survey-01"
+    ],
+    "sample_ids": [
+      "synthetic-sample-group"
+    ],
+    "independence_group_ids": [
+      "synthetic-regional-survey-group"
+    ],
+    "shared_source_dependencies": []
+  },
+  "admission_status": "metadata_reviewed",
+  "limitations": [
+    "Synthetic metadata only; not a real Soils4Africa record.",
+    "Regional support is not evidence of plot-level representativeness.",
+    "A real dataset requires agreement and exact source file audit."
+  ]
+}
