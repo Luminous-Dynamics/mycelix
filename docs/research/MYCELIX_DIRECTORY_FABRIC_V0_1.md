@@ -143,6 +143,23 @@ Realm A does not automatically trust every identity, group or role from Realm B.
 
 A foreign identity is not automatically a local member. Cross-realm authentication is not cross-realm authorization.
 
+### 4.8 From a scalar revision to a causal authority frontier
+
+A permission check should be able to require a minimum authority state. SpiceDB's consistency-token model is a useful comparator: callers can carry a token from an earlier relationship write and require a subsequent permission check to observe at least that revision. This helps avoid the stale-cache / "New Enemy" class of authorization bug.
+
+Mycelix should explore the same *semantic capability* without assuming one globally linear order across independent realm administrators, issuer authorities, and federated realms. Define a realm-scoped authority frontier as a partial-order or vector of authenticated per-authority epochs/sequences and source commitments. A PEP may return Allow only when its verified local snapshot demonstrably dominates the request's required frontier. If it cannot, the result is Indeterminate and the operation is not executed.
+
+Do not compare incomparable frontiers by wall-clock timestamp, peer count, or arbitrary last-writer-wins. Require an explicit merge/reconciliation rule for concurrent authority branches. When no caller-provided minimum frontier exists, any offline Allow is still bounded by the declared lease and its maximum stale-authority exposure; it is not proof that no unseen revocation exists.
+
+This creates a testable contract:
+- snapshot dominates required frontier → evaluate the complete policy normally;
+- snapshot behind required frontier → Indeterminate;
+- frontiers incomparable → Indeterminate until safely merged;
+- snapshot older than persisted local high-water mark → reject rollback;
+- missing, malformed or unauthenticated frontier component → Indeterminate.
+
+Treat this as a research proposal until a canonical encoding, merge algebra, signer admission, persistence and runtime behaviour are frozen and tested.
+
 ## 5. Holochain's correct role
 
 Holochain has useful architectural properties for this design: each agent maintains a signed source chain; public data can be published to a DHT and validated by peers; private data remains local; separate DNAs define separate application networks. Holochain's own model is agent-centric rather than a single globally authoritative server.
@@ -212,7 +229,7 @@ The evaluator may return:
 - Deny — a known predicate is false or an explicit deny applies.
 - Indeterminate — evidence, freshness, issuer state, policy or required observation is incomplete/unavailable.
 
-For enforcement, Indeterminate is non-allow. Preserve the reason; do not collapse it into Deny in audit output.
+For enforcement, Indeterminate is non-allow. Preserve the reason; do not collapse it into Deny in audit output. A caller-provided minimum authority frontier must be dominated by the verified local snapshot before an Allow can be returned.
 
 ### Local policy snapshot / lease
 
@@ -222,6 +239,7 @@ A local snapshot binds:
 - source and signer identities;
 - issuer/key admission profile;
 - subject/group/resource index version;
+- authenticated realm-scoped authority frontier (partial-order/vector across authority sources), including the last integrated events;
 - revocation frontier / last integrated authority event;
 - issued-at, expires-at and trusted-clock profile;
 - allowed risk tier and actions while offline;
@@ -338,6 +356,7 @@ For each target, publish a baseline first. If the baseline cannot meet a target,
 - Group membership and nested-group resolution cost.
 - SCIM provisioning/deprovisioning throughput and cursor recovery.
 - Revocation propagation and measured stale authority exposure across every PEP/session/token/worker/connector.
+- Minimum-freshness frontier checks: domination, behind-frontier rejection, incomparable concurrent frontiers, rollback detection and merge/reconciliation cost.
 - DHT bytes, gossip bandwidth, peer CPU, memory and storage.
 - Restart/recovery time and lost or duplicated events.
 - Offline behaviour by risk tier and lease age.
@@ -355,7 +374,7 @@ Run at least 10 independent repetitions for headline results; publish raw distri
 | FreeIPA | LDAP/Kerberos/DNS/CA integration, multi-master behaviour and Linux operations | A membership graph alone is not a FreeIPA domain |
 | Keycloak / Zitadel / Authentik | OIDC/SAML interoperability, token issuance, client management and operator workflow | Authentication-server latency is not the same work unit as DHT convergence |
 | SPIRE | Workload attestation, SVID issuance, rotation and federation | SPIFFE workload identities do not replace human/organizational directories |
-| OpenFGA / SpiceDB | Relationship-based authorization semantics, graph traversal, consistency and latency | A Zanzibar-style tuple evaluation does not provide identity proof, issuer admission or Holochain distribution |
+| OpenFGA / SpiceDB | Relationship-based authorization semantics, graph traversal, consistency tokens (for example, ZedTokens), materialization and latency | A Zanzibar-style tuple evaluation does not provide identity proof, issuer admission or Holochain distribution |
 | Holochain baseline | DHT convergence, validation, partition tolerance, peer churn and local-first operation | Simulated peers or eventual data visibility are not proof of production availability |
 
 Only compare like-for-like contracts: same principal/group corpus, same operation semantics, same hardware class, same consistency/freshness policy, same offered load and same failure injection. Separate correctness, throughput, operational burden and decentralization/sovereignty; do not hide them in a single score.
