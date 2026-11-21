@@ -162,8 +162,8 @@ BEGIN
             USING ERRCODE = '22023';
     END IF;
 
-    SELECT generation, owner_clock_profile_id, max_clock_uncertainty_ms
-      INTO v_current_generation, v_owner_clock_profile_id, v_max_clock_uncertainty_ms
+    SELECT generation
+      INTO v_current_generation
       FROM myc_effect_owner.effect_fence_state
      WHERE realm_id = p_realm_id
        AND resource_id = p_resource_id
@@ -335,8 +335,8 @@ BEGIN
 
     -- Compatible shared locks allow independent effects in one fence domain
     -- to proceed in parallel. Revocation's exclusive row lock conflicts.
-    SELECT generation
-      INTO v_current_generation
+    SELECT generation, owner_clock_profile_id, max_clock_uncertainty_ms
+      INTO v_current_generation, v_owner_clock_profile_id, v_max_clock_uncertainty_ms
       FROM myc_effect_owner.effect_fence_state
      WHERE realm_id = p_realm_id
        AND resource_id = p_resource_id
