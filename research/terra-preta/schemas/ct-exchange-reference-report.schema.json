@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CT-informed macropore-matrix exchange reference report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "bulk_volume_m3",
+    "point_count",
+    "maximum_gap_seconds",
+    "transient_interface_exchange",
+    "fixed_initial_interface_ablation",
+    "transient_minus_fixed_transfer_m3",
+    "controls",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "bulk_volume_m3": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "point_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "maximum_gap_seconds": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "transient_minus_fixed_transfer_m3": {
+      "type": "number"
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pairwise_exchange_cancellation_pass",
+        "water_balance_closure_pass",
+        "deterministic_replay_pass"
+      ],
+      "properties": {
+        "pairwise_exchange_cancellation_pass": {
+          "const": true
+        },
+        "water_balance_closure_pass": {
+          "const": true
+        },
+        "deterministic_replay_pass": {
+          "const": true
+        }
+      }
+    },
+    "transient_interface_exchange": {
+      "$ref": "#/$defs/model_result"
+    },
+    "fixed_initial_interface_ablation": {
+      "$ref": "#/$defs/model_result"
+    }
+  },
+  "$defs": {
+    "model_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_id",
+        "exchange_operator",
+        "signed_transfer_volume_m3",
+        "macropore_to_matrix_volume_m3",
+        "matrix_to_macropore_volume_m3",
+        "matrix_water_final_m3",
+        "macropore_water_final_m3",
+        "water_balance_residual_m3",
+        "maximum_absolute_rate_density_per_s",
+        "intervals_integrated"
+      ],
+      "properties": {
+        "model_id": {
+          "type": "string"
+        },
+        "exchange_operator": {
+          "type": "string"
+        },
+        "signed_transfer_volume_m3": {
+          "type": "number"
+        },
+        "macropore_to_matrix_volume_m3": {
+          "type": "number",
+          "minimum": 0
+        },
+        "matrix_to_macropore_volume_m3": {
+          "type": "number",
+          "minimum": 0
+        },
+        "matrix_water_final_m3": {
+          "type": "number",
+          "minimum": 0
+        },
+        "macropore_water_final_m3": {
+          "type": "number",
+          "minimum": 0
+        },
+        "water_balance_residual_m3": {
+          "type": "number"
+        },
+        "maximum_absolute_rate_density_per_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "intervals_integrated": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}
