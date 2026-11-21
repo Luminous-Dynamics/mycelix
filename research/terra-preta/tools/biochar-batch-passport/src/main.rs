@@ -269,7 +269,8 @@ fn validate(s: &Scenario) -> Result<(), String> {
         return Err("batch intended end use does not match the quality profile".into());
     }
     if !valid_date(&s.quality_profile.effective_from)
-        || s.quality_profile.effective_until
+        || s.quality_profile
+            .effective_until
             .as_deref()
             .is_some_and(|date| !valid_date(date))
     {
