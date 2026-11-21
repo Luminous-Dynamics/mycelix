@@ -1174,7 +1174,7 @@
     {
       "pulse_id": "pulse-narrow-02",
       "start_hours": 18,
-      "end_hours": 18.166666666666668,
+      "end_hours": 18.1666666667,
       "minimum_detected_samples": 1
     }
   ]
