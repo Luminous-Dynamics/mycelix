@@ -425,6 +425,35 @@ A database-local transaction cannot atomically commit an arbitrary remote API ef
 
 See the [PostgreSQL effect-owner runbook](../../tools/myc-dir-fabric-reference/postgres/POSTGRES_EFFECT_OWNER.md). This reference schema has not been applied to a database and is not production-integrated.
 
+## 12.3 Effect-surface inventory closure and continuous access evaluation
+
+A second completeness gap remained after owner fencing: a revocation plan can require every *listed* owner and still miss a service, worker, broker, session store, token consumer or direct API route that was never listed. Therefore "all listed owners acknowledged" is not sufficient evidence of "all reachable mutation paths are fenced."
+
+The new `src/effect_inventory.rs` contract adds a revocation-specific Effect-Surface Inventory Closure:
+- each route binds route ID, surface kind, effect owner and enforcement mode;
+- inventory binds exact realm/resource/action, revocation digest, topology snapshot, inventory epoch, manifest digest and route-set digest;
+- the independent closure receipt binds the same values plus verifier ID/build, proof digest and status;
+- a strong revocation plan can be built only from a structurally matched `VerifiedComplete` receipt;
+- target owner IDs are derived from the route inventory. Missing or extra caller-provided owner targets are rejected;
+- any enumerated route whose enforcement is only CAEP signal, token expiry or best-effort invalidation makes the inventory `BestEffortOnly`, not eligible for strict all-owner completion.
+
+The manifest and route-set digests are supplied by the external canonicalization/verification service. This crate emits canonical material and checks bindings; it does not hash/sign the inventory, authenticate the verifier, prove route discovery completeness or detect undisclosed shadow routes. Those are separate qualification obligations. The route inventory itself should remain access-controlled: public transparency/DHT publication should carry privacy-reviewed commitments and minimal metadata, not raw employee-to-service relationships.
+
+### CAEP and token revocation are acceleration signals, not mutation proof
+
+OpenID CAEP 1.0 is a final profile with Session Revoked, Token Claims Change, Credential Change, Assurance Level Change, Device Compliance Change and other event types. The OpenID Shared Signals workgroup lists CAEP 1.1 as a newer draft published 17 November 2026; it is an interoperability target, not yet the same status as the final 1.0 profile. Mycelix should implement the published 1.0 profile first and version-gate any 1.1 adapter rather than inventing a competing event schema.
+
+CAEP events can quickly attenuate sessions, devices and token claims. They do not independently establish that every resource, queue, worker or database has committed a mutation fence. OAuth RFC 7009 likewise describes the possibility of propagation delay where some resource servers know about a revocation while others do not. Therefore:
+- map supported Mycelix lifecycle events to CAEP event types;
+- process events idempotently and reject stale/out-of-order state regression;
+- use event delivery to accelerate route invalidation and fence installation;
+- keep strict revocation pending until the independent effect-surface inventory is verified and every atomic effect owner acknowledges;
+- classify token-TTL-only, CAEP-only and non-fenceable third-party routes as best-effort, never as strong completion.
+
+This is the next paradigm shift: revoke the **reachable effect surface**, not merely the principal, access token or current session. A useful success claim is "all paths in topology epoch E that could mutate resource R under grant G have been enumerated, and every such path's owner has durably installed the revocation fence." It is conditional on the independent route-inventory oracle and exact topology epoch, not a universal assertion about undiscovered infrastructure.
+
+Sources: [OpenID CAEP 1.0 final](https://openid.net/specs/openid-caep-1_0-final.html), [OpenID CAEP 1.1 draft](https://openid.github.io/sharedsignals/CAEP_1.1/openid-caep-1_1.html), [OpenID Shared Signals specification status](https://openid.net/wg/sharedsignals/specifications/), [OAuth RFC 7009](https://www.rfc-editor.org/rfc/rfc7009.html).
+
 ## 13. Explicit claim ceiling
 
 This work is a pure reference contract and finite synthetic corpus. It does not establish:
