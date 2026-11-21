@@ -79,6 +79,9 @@ jobs:
         run: cargo test --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p orbital_objects
 
       - name: Compile orbital objects coordinator for Holochain WASM
+        env:
+          # Holochain 0.6 provides getrandom v0.3 through its custom host backend.
+          CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS: '--cfg getrandom_backend="custom"'
         run: cargo check --manifest-path mycelix-workspace/mycelix-space/Cargo.toml -p orbital_objects --target wasm32-unknown-unknown
 
       - name: Run Space integration and edge-case contracts
