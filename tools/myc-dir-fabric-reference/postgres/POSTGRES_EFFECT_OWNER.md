@@ -98,7 +98,17 @@ Apply and test on a disposable PostgreSQL database:
 - This is an effect-owner exemplar, not a generic arbitrary-DML executor.
 - The decision receipt and closure proof are verified by the trusted PEP, not by this SQL.
 - The owner inventory must be independently complete. A missing resource route means no all-owner guarantee.
-- Table/function grants must prevent application roles from directly updating protected balances, fence rows or effect history. Grant only required function execution to a dedicated PEP role and fence advancement to a separate revocation-owner role.
+- Table/function grants must prevent application roles from directly updating protected balances, fence rows or effect history. After creating dedicated deployment roles, grant only:
+  
+      GRANT USAGE ON SCHEMA myc_effect_owner TO myc_effect_owner_pep, myc_effect_owner_revoker;
+      GRANT EXECUTE ON FUNCTION myc_effect_owner.apply_balance_delta(
+        TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BIGINT, BYTEA, TEXT, BYTEA, BYTEA, BYTEA, BIGINT
+      ) TO myc_effect_owner_pep;
+      GRANT EXECUTE ON FUNCTION myc_effect_owner.advance_effect_fence(
+        TEXT, TEXT, TEXT, TEXT, BYTEA
+      ) TO myc_effect_owner_revoker;
+  
+  Do not grant table DML to either role. Keep migration/schema ownership separate from the PEP and revocation service identities.
 - Function owners, migration roles, superusers and database operators remain trusted control-plane principals.
 - Fence state must be initialized from a trusted bootstrap and recovered from a durable high-water mark. Never reset to generation 1 on restart or restore.
 - This example does not implement cryptographic owner acknowledgements, a signature-verifier extension, backup/restore automation or multi-primary consensus.
