@@ -333,14 +333,10 @@ fn main() {
             is_upper_coverage,
         );
 
-        let crude_upper_coverage = crude_upper
-            .iter()
-            .filter(|upper| **upper >= truth)
-            .count() as f64 / REPLICATES as f64;
-        let is_upper_coverage = is_upper
-            .iter()
-            .filter(|upper| **upper >= truth)
-            .count() as f64 / REPLICATES as f64;
+        let crude_upper_coverage =
+            crude_upper.iter().filter(|upper| **upper >= truth).count() as f64 / REPLICATES as f64;
+        let is_upper_coverage =
+            is_upper.iter().filter(|upper| **upper >= truth).count() as f64 / REPLICATES as f64;
         let mf_rmse = rms_error(&mf_estimates, truth);
         let mf_mean_lower = mean(&mf_lower);
         let mf_mean_upper = mean(&mf_upper);
