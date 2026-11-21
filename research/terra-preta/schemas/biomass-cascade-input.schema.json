@@ -74,7 +74,10 @@
           "harvest_cap_authority",
           "harvest_cap_reference",
           "harvest_cap_valid_until",
-          "nutrient_content_kg_per_dry_tonne"
+          "nutrient_content_kg_per_dry_tonne",
+          "retention_approval_sha256",
+          "rights_record_sha256",
+          "harvest_cap_sha256"
         ],
         "properties": {
           "source_id": {
@@ -229,6 +232,18 @@
                 "minimum": 0
               }
             }
+          },
+          "retention_approval_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "rights_record_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "harvest_cap_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
           }
         }
       }
