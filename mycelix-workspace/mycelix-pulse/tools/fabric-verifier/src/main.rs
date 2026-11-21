@@ -47,6 +47,26 @@ fn read_json(path: &str, failure_status: &str) -> serde_json::Value {
     }
 }
 
+fn read_pinned_schema(path: &str, embedded_schema: &str, failure_status: &str) -> serde_json::Value {
+    let schema = read_json(path, failure_status);
+    let expected: serde_json::Value = serde_json::from_str(embedded_schema)
+        .expect("compiled-in JSON schema must parse");
+
+    if schema != expected {
+        println!(
+            "{}",
+            json!({
+                "status": "SCHEMA_PIN_MISMATCH",
+                "path": path,
+                "error": "supplied schema does not equal the schema compiled into this verifier"
+            })
+        );
+        process::exit(2);
+    }
+
+    schema
+}
+
 fn run_verify(args: &[String]) {
     if args.len() < 4 || args[2] != "--schema" {
         usage();
@@ -71,7 +91,11 @@ fn run_verify(args: &[String]) {
         index += 1;
     }
 
-    let schema = read_json(schema_path, "SCHEMA_INPUT_ERROR");
+    let schema = read_pinned_schema(
+        schema_path,
+        include_str!("../../../docs/pulse-fabric-trace.schema-v0.1.json"),
+        "SCHEMA_INPUT_ERROR",
+    );
     let trace = read_json(trace_path, "TRACE_INPUT_ERROR");
 
     if let Err(errors) = validate_against_schema(&trace, &schema) {
@@ -192,8 +216,16 @@ fn run_verify_fanout(args: &[String]) {
     }
 
     let manifest_bytes = read_bytes(manifest_path, "MANIFEST_INPUT_ERROR");
-    let manifest_schema = read_json(&manifest_schema_path, "MANIFEST_SCHEMA_INPUT_ERROR");
-    let trace_schema = read_json(&trace_schema_path, "TRACE_SCHEMA_INPUT_ERROR");
+    let manifest_schema = read_pinned_schema(
+        &manifest_schema_path,
+        include_str!("../../../docs/pulse-group-fanout-manifest.schema-v0.1.json"),
+        "MANIFEST_SCHEMA_INPUT_ERROR",
+    );
+    let trace_schema = read_pinned_schema(
+        &trace_schema_path,
+        include_str!("../../../docs/pulse-fabric-trace.schema-v0.1.json"),
+        "TRACE_SCHEMA_INPUT_ERROR",
+    );
     let child_files: Vec<(String, Vec<u8>)> = child_paths
         .iter()
         .map(|path| (path.clone(), read_bytes(path, "CHILD_TRACE_INPUT_ERROR")))
