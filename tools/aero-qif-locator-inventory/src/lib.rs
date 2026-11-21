@@ -1924,6 +1924,28 @@ mod tests {
     }
 
     #[test]
+    fn execution_report_binds_scanner_library_profile_and_inventory_identity() {
+        let (inventory, report) = derive_trace_locator_inventory(
+            "report-identity",
+            &profile(),
+            &docs(RESULTS.as_bytes(), PLAN.as_bytes())
+        ).unwrap();
+        assert_eq!(report.schema, REPORT_SCHEMA);
+        assert_eq!(report.disposition, InventoryDisposition::Complete);
+        assert_eq!(report.scanner_package, env!("CARGO_PKG_NAME"));
+        assert_eq!(report.scanner_version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(report.xml_library, "quick-xml");
+        assert_eq!(report.xml_library_version, "0.42.0");
+        assert_eq!(report.qif_standard_version, "3.0.0");
+        assert_eq!(report.profile_id, inventory.body.profile_id);
+        assert_eq!(report.profile_version, inventory.body.profile_version);
+        assert_eq!(report.profile_sha256, inventory.body.profile_sha256);
+        assert_eq!(report.inventory_sha256, inventory.inventory_sha256);
+        assert_eq!(report.source_document_count, 2);
+        assert_eq!(report.locator_count, 25);
+    }
+
+    #[test]
     fn raw_qif_inventory_matches_independent_hand_enumerated_locator_oracle() {
         let oracle: HandEnumeratedLocatorOracleV1 = serde_json::from_slice(include_bytes!(
             "../fixtures/hand-enumerated-locators-v1.json"
