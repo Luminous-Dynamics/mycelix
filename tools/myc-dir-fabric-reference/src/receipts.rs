@@ -265,6 +265,18 @@ impl DecisionReceipt {
         self.outcome
     }
 
+    pub fn clock_profile_id(&self) -> &str {
+        self.clock_profile.as_str()
+    }
+
+    pub fn issued_at_ms(&self) -> u64 {
+        self.issued_at_ms
+    }
+
+    pub fn expires_at_ms(&self) -> u64 {
+        self.expires_at_ms
+    }
+
     pub fn cut_assessment(&self) -> CausalCutAssessment {
         self.cut_assessment
     }
