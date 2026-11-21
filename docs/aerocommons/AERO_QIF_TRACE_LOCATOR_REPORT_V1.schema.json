@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/aero-qif-trace-locator-report-v1.json",
+  "title": "AeroQifTraceLocatorReportV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "disposition",
+    "scanner_package",
+    "scanner_version",
+    "xml_library",
+    "xml_library_version",
+    "qif_standard_version",
+    "profile_id",
+    "profile_version",
+    "profile_sha256",
+    "inventory_sha256",
+    "source_document_count",
+    "locator_count",
+    "declared_external_reference_count",
+    "elements_scanned",
+    "text_bytes_scanned",
+    "max_observed_depth"
+  ],
+  "properties": {
+    "schema": {
+      "const": "AeroQifTraceLocatorReportV1"
+    },
+    "disposition": {
+      "const": "complete"
+    },
+    "scanner_package": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scanner_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "xml_library": {
+      "const": "quick-xml"
+    },
+    "xml_library_version": {
+      "const": "0.42.0"
+    },
+    "qif_standard_version": {
+      "const": "3.0.0"
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "inventory_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_document_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "locator_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "declared_external_reference_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "elements_scanned": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "text_bytes_scanned": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "max_observed_depth": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}
