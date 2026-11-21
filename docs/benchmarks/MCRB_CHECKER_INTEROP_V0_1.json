@@ -1,0 +1,984 @@
+{
+  "schema_version": "mycelix-mcrb-checker-interoperability-v0.1",
+  "benchmark_id": "MCRB",
+  "artifact_id": "MCRB-CHECKER-INTEROP-001",
+  "status": "proposed-not-executed",
+  "source_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6415",
+  "purpose": "Machine-readable known-answer fixture corpus and semantic routing policy for interoperability between MCRB evidence-qualified histories and established distributed-systems history checkers.",
+  "external_references": [
+    {
+      "id": "jepsen",
+      "url": "https://github.com/jepsen-io/jepsen",
+      "scope": "fault-injected operation histories and consistency checking"
+    },
+    {
+      "id": "elle",
+      "url": "https://github.com/jepsen-io/elle",
+      "scope": "transactional anomaly and dependency-cycle checking"
+    },
+    {
+      "id": "porcupine",
+      "url": "https://github.com/anishathalye/porcupine",
+      "scope": "linearizability checking against a declared sequential specification"
+    },
+    {
+      "id": "foundationdb-simulation",
+      "url": "https://github.com/apple/foundationdb/blob/main/documentation/sphinx/source/testing.rst",
+      "scope": "integrated deterministic simulation plus live performance and hardware failure testing"
+    },
+    {
+      "id": "antithesis",
+      "url": "https://antithesis.com/docs/introduction/how_antithesis_works/",
+      "scope": "deterministic full-stack simulation and hostile state-space exploration"
+    }
+  ],
+  "existing_owners": {
+    "multiconductor_partial_order": "#5843 / PR #5771",
+    "one_shot_linearizability": "#6193",
+    "deterministic_model_generation": "#6045",
+    "authenticated_outcomes": "#6357",
+    "operation_propositions": "#6392",
+    "timing_provenance": "#6335",
+    "observation_provenance": "#6140",
+    "compound_fault_schedules": "#6407 / PR #6408"
+  },
+  "canonical_input_policy": {
+    "source_of_offered_operations": "#6342 verified offer ledger",
+    "source_of_operation_semantics": "#6392 pre-dispatch operation contract",
+    "source_of_terminal_outcomes": "#6357 authenticated outcome ledger",
+    "source_of_cross_conductor_causality": "#5843 pulse-multiconductor-history-v2",
+    "source_of_timing": "#6335 raw local ticks and qualified cross-host intervals",
+    "no_runner_authored_success": true,
+    "no_wall_clock_total_order": true,
+    "no_majority_vote_between_checkers": true
+  },
+  "jepsen_mapping": {
+    "operation_phases": {
+      "invoke": "invoke",
+      "ok": "ok",
+      "fail": "fail",
+      "info": "info"
+    },
+    "info_semantics": "Possibly applied or unknown outcome. Never coerce info to fail or success; reconcile before QOPS.",
+    "nemesis_semantics": "Fault-injection operations remain separate timeline/nemesis events and never become client terminal outcomes.",
+    "retained_extensions": [
+      "operation_id",
+      "attempt_id",
+      "request_digest_sha256",
+      "idempotency_key_commitment_sha256",
+      "causal_edge_refs",
+      "evidence_refs",
+      "effect_state"
+    ],
+    "claim_boundary": "A checked history supports only the selected Jepsen consistency model and observed workload; it does not establish all MCRB authority, privacy, witness or recovery guarantees."
+  },
+  "elle_profile": {
+    "applicability": "transaction histories whose operations, transaction boundaries and declared consistency model match the supported Elle profile",
+    "non_applicability": [
+      "DHT convergence",
+      "capability revocation",
+      "external physical effect observation",
+      "institutional authority",
+      "unknown or incomplete transaction boundaries"
+    ],
+    "result_policy": "Preserve anomaly witness and consistency profile; unsupported semantics are NotApplicable or Incomplete, never coerced to pass."
+  },
+  "porcupine_profile": {
+    "applicability": "concurrent histories against one declared sequential object specification",
+    "requirements": [
+      "exact sequential-specification digest",
+      "exact input-history digest",
+      "per-operation invocation/completion identity",
+      "explicit treatment of info/unknown operations"
+    ],
+    "initial_target": "#6193 one-shot capability consume/effect-admission semantics",
+    "non_applicability": "No declared sequential object or unresolved outcomes that the adapter cannot represent without inventing a return value.",
+    "claim_boundary": "Linearizability is only relative to the declared object specification and captured history."
+  },
+  "deterministic_replay_profile": {
+    "generator_owner": "#6045",
+    "schedule_owner": "#6407",
+    "replay_inputs": [
+      "manifest_digest",
+      "scenario_id",
+      "seed_commitment",
+      "generator_binary_digest",
+      "runtime_tuple",
+      "topology_digest",
+      "scheduler_version"
+    ],
+    "statement": "Deterministic logical schedule replay is not equivalent to integrated deterministic simulation of production runtime code."
+  },
+  "result_composition": {
+    "dispositions": [
+      "valid",
+      "invalid",
+      "indeterminate",
+      "incomplete",
+      "not-applicable"
+    ],
+    "disagreement": "Any semantically comparable checker disagreement is preserved and produces Indeterminate pending independent adjudication; never majority-vote.",
+    "bind": [
+      "history_digest",
+      "source_sha_and_tree",
+      "scenario_contract_digest",
+      "operation_contract_registry_digest",
+      "runtime_tuple",
+      "topology_digest",
+      "generator_digest",
+      "seed_commitment",
+      "checker_binary_digest",
+      "model_or_spec_digest",
+      "checker_output_digest",
+      "claim_ceiling"
+    ],
+    "qops_rule": "Checker results are evidence inputs, not standalone authorization to mark QOPS eligible. The authenticated outcome, gate, timing, observer and witness policies remain mandatory."
+  },
+  "fixtures": [
+    {
+      "fixture_id": "MCRB-HI-01",
+      "title": "sequential-single-consume",
+      "status": "proposed-not-executed",
+      "description": "One capability is consumed once in a sequential single-process history.",
+      "history": {
+        "events": [
+          {
+            "event_id": "hi01-i1",
+            "operation_id": "op-1",
+            "attempt_id": 1,
+            "process_id": "client-1",
+            "process_sequence": 1,
+            "operation": "consume-capability",
+            "phase": "invoke",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 10,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "event_id": "hi01-o1",
+            "operation_id": "op-1",
+            "attempt_id": 1,
+            "process_id": "client-1",
+            "process_sequence": 2,
+            "operation": "consume-capability",
+            "phase": "ok",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 11,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "effect_state": "Applied",
+            "result": {
+              "effect_id": "effect-1",
+              "capability_state": "consumed"
+            }
+          }
+        ],
+        "causal_edges": [
+          {
+            "from_event": "hi01-i1",
+            "to_event": "hi01-o1",
+            "relation": "invocation-completion",
+            "evidence_ref": "fixture://hi01/invoke-complete"
+          }
+        ]
+      },
+      "expected": {
+        "structural": "valid",
+        "jepsen": {
+          "applicable": true,
+          "disposition": "valid",
+          "profile_id": "linearizable-one-shot-capability-v1"
+        },
+        "elle": {
+          "applicable": false,
+          "disposition": "not-applicable",
+          "reason": "not-a-multi-operation-transactional-history"
+        },
+        "porcupine": {
+          "applicable": true,
+          "disposition": "valid",
+          "specification_id": "one-shot-capability-v1"
+        },
+        "qops": "not-eligible-synthetic",
+        "reason_codes": []
+      }
+    },
+    {
+      "fixture_id": "MCRB-HI-02",
+      "title": "concurrent-double-consume",
+      "status": "proposed-not-executed",
+      "description": "Two concurrent clients both claim successful consumption of the same one-shot capability with distinct effects.",
+      "history": {
+        "events": [
+          {
+            "event_id": "hi02-i1",
+            "operation_id": "op-a",
+            "attempt_id": 1,
+            "process_id": "client-a",
+            "process_sequence": 1,
+            "operation": "consume-capability",
+            "phase": "invoke",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 100,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "event_id": "hi02-i2",
+            "operation_id": "op-b",
+            "attempt_id": 1,
+            "process_id": "client-b",
+            "process_sequence": 1,
+            "operation": "consume-capability",
+            "phase": "invoke",
+            "host_id": "conductor-b",
+            "clock_id": "conductor-b-mono-raw",
+            "clock_epoch": "conductor-b-boot-1",
+            "monotonic_tick": 80,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "event_id": "hi02-o1",
+            "operation_id": "op-a",
+            "attempt_id": 1,
+            "process_id": "client-a",
+            "process_sequence": 2,
+            "operation": "consume-capability",
+            "phase": "ok",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 110,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "effect_state": "Applied",
+            "result": {
+              "effect_id": "effect-a"
+            }
+          },
+          {
+            "event_id": "hi02-o2",
+            "operation_id": "op-b",
+            "attempt_id": 1,
+            "process_id": "client-b",
+            "process_sequence": 2,
+            "operation": "consume-capability",
+            "phase": "ok",
+            "host_id": "conductor-b",
+            "clock_id": "conductor-b-mono-raw",
+            "clock_epoch": "conductor-b-boot-1",
+            "monotonic_tick": 90,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "effect_state": "Applied",
+            "result": {
+              "effect_id": "effect-b"
+            }
+          }
+        ],
+        "causal_edges": []
+      },
+      "expected": {
+        "structural": "valid-partial-order",
+        "jepsen": {
+          "applicable": true,
+          "disposition": "invalid",
+          "profile_id": "linearizable-one-shot-capability-v1"
+        },
+        "elle": {
+          "applicable": false,
+          "disposition": "not-applicable",
+          "reason": "not-a-transactional-history"
+        },
+        "porcupine": {
+          "applicable": true,
+          "disposition": "invalid",
+          "specification_id": "one-shot-capability-v1",
+          "counterexample": "two-distinct-effects-for-one-capability"
+        },
+        "qops": "invalid",
+        "reason_codes": [
+          "one-shot-capability-multiple-effects"
+        ]
+      }
+    },
+    {
+      "fixture_id": "MCRB-HI-03",
+      "title": "lost-ack-unknown-effect",
+      "status": "proposed-not-executed",
+      "description": "An operation may have applied but the client lost its acknowledgement. The history must preserve info/Unknown.",
+      "history": {
+        "events": [
+          {
+            "event_id": "hi03-i1",
+            "operation_id": "op-ambiguous",
+            "attempt_id": 1,
+            "process_id": "client-a",
+            "process_sequence": 1,
+            "operation": "dispatch-effect",
+            "phase": "invoke",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 200,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "event_id": "hi03-u1",
+            "operation_id": "op-ambiguous",
+            "attempt_id": 1,
+            "process_id": "client-a",
+            "process_sequence": 2,
+            "operation": "dispatch-effect",
+            "phase": "info",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 250,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "effect_state": "Unknown",
+            "result": {
+              "cause": "acknowledgement-lost-after-possible-dispatch"
+            }
+          }
+        ],
+        "causal_edges": []
+      },
+      "expected": {
+        "structural": "valid",
+        "jepsen": {
+          "applicable": true,
+          "disposition": "indeterminate",
+          "profile_id": "effect-idempotency-v1"
+        },
+        "elle": {
+          "applicable": false,
+          "disposition": "not-applicable",
+          "reason": "not-a-transactional-history"
+        },
+        "porcupine": {
+          "applicable": false,
+          "disposition": "not-applicable",
+          "reason": "unresolved-info-operation-not-synthesized-into-a-terminal-value"
+        },
+        "qops": "incomplete",
+        "reason_codes": [
+          "unknown-effect-outcome",
+          "reconciliation-required"
+        ]
+      }
+    },
+    {
+      "fixture_id": "MCRB-HI-04",
+      "title": "exact-idempotent-retry",
+      "status": "proposed-not-executed",
+      "description": "A retry with the same operation identity and immutable fingerprint returns the original effect rather than creating another effect.",
+      "history": {
+        "events": [
+          {
+            "event_id": "hi04-i1",
+            "operation_id": "op-stable",
+            "attempt_id": 1,
+            "process_id": "client-a",
+            "process_sequence": 1,
+            "operation": "dispatch-effect",
+            "phase": "invoke",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 300,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "event_id": "hi04-u1",
+            "operation_id": "op-stable",
+            "attempt_id": 1,
+            "process_id": "client-a",
+            "process_sequence": 2,
+            "operation": "dispatch-effect",
+            "phase": "info",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 320,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "effect_state": "Unknown",
+            "result": {
+              "cause": "acknowledgement-lost"
+            }
+          },
+          {
+            "event_id": "hi04-i2",
+            "operation_id": "op-stable",
+            "attempt_id": 2,
+            "process_id": "client-a",
+            "process_sequence": 3,
+            "operation": "dispatch-effect",
+            "phase": "invoke",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 340,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "event_id": "hi04-o2",
+            "operation_id": "op-stable",
+            "attempt_id": 2,
+            "process_id": "client-a",
+            "process_sequence": 4,
+            "operation": "dispatch-effect",
+            "phase": "ok",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 350,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "effect_state": "Applied",
+            "result": {
+              "effect_id": "effect-stable",
+              "idempotent_replay": true
+            }
+          }
+        ],
+        "causal_edges": [
+          {
+            "from_event": "hi04-i1",
+            "to_event": "hi04-u1",
+            "relation": "invocation-completion",
+            "evidence_ref": "fixture://hi04/attempt-1"
+          },
+          {
+            "from_event": "hi04-u1",
+            "to_event": "hi04-i2",
+            "relation": "same-process-retry",
+            "evidence_ref": "fixture://hi04/retry-after-info"
+          },
+          {
+            "from_event": "hi04-i2",
+            "to_event": "hi04-o2",
+            "relation": "invocation-completion",
+            "evidence_ref": "fixture://hi04/attempt-2"
+          }
+        ]
+      },
+      "expected": {
+        "structural": "valid",
+        "jepsen": {
+          "applicable": true,
+          "disposition": "valid-after-reconciliation",
+          "profile_id": "effect-idempotency-v1"
+        },
+        "elle": {
+          "applicable": false,
+          "disposition": "not-applicable",
+          "reason": "not-a-transactional-history"
+        },
+        "porcupine": {
+          "applicable": true,
+          "disposition": "valid",
+          "specification_id": "one-shot-idempotent-operation-v1"
+        },
+        "qops": "incomplete-until-attempt-1-reconciled",
+        "reason_codes": [
+          "same-logical-operation-two-attempts",
+          "preserve-prior-unknown-until-reconciled"
+        ]
+      }
+    },
+    {
+      "fixture_id": "MCRB-HI-05",
+      "title": "changed-fingerprint-reuse",
+      "status": "proposed-not-executed",
+      "description": "The same logical operation ID is reused with a changed request digest. This is a conflict, not an idempotent retry.",
+      "history": {
+        "events": [
+          {
+            "event_id": "hi05-i1",
+            "operation_id": "op-stable",
+            "attempt_id": 1,
+            "process_id": "client-a",
+            "process_sequence": 1,
+            "operation": "dispatch-effect",
+            "phase": "invoke",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 400,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "event_id": "hi05-o1",
+            "operation_id": "op-stable",
+            "attempt_id": 1,
+            "process_id": "client-a",
+            "process_sequence": 2,
+            "operation": "dispatch-effect",
+            "phase": "ok",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 410,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "effect_state": "Applied",
+            "result": {
+              "effect_id": "effect-stable"
+            }
+          },
+          {
+            "event_id": "hi05-i2",
+            "operation_id": "op-stable",
+            "attempt_id": 2,
+            "process_id": "client-a",
+            "process_sequence": 3,
+            "operation": "dispatch-effect",
+            "phase": "invoke",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 420,
+            "request_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        ],
+        "causal_edges": [
+          {
+            "from_event": "hi05-i1",
+            "to_event": "hi05-o1",
+            "relation": "invocation-completion",
+            "evidence_ref": "fixture://hi05/attempt-1"
+          },
+          {
+            "from_event": "hi05-o1",
+            "to_event": "hi05-i2",
+            "relation": "same-process-retry",
+            "evidence_ref": "fixture://hi05/changed-retry"
+          }
+        ]
+      },
+      "expected": {
+        "structural": "invalid",
+        "jepsen": {
+          "applicable": false,
+          "disposition": "not-applicable",
+          "reason": "request-identity-contract-invalid-before-consistency-check"
+        },
+        "elle": {
+          "applicable": false,
+          "disposition": "not-applicable",
+          "reason": "not-a-transactional-history"
+        },
+        "porcupine": {
+          "applicable": true,
+          "disposition": "invalid",
+          "specification_id": "one-shot-idempotent-operation-v1",
+          "counterexample": "same-operation-id-changed-fingerprint"
+        },
+        "qops": "invalid",
+        "reason_codes": [
+          "operation-fingerprint-conflict"
+        ]
+      }
+    },
+    {
+      "fixture_id": "MCRB-HI-06",
+      "title": "independent-conductors-no-causal-edge",
+      "status": "proposed-not-executed",
+      "description": "Two conductors emit events with independent local clock epochs and no proven causal edge. No total ordering may be inferred.",
+      "history": {
+        "events": [
+          {
+            "event_id": "hi06-i-a",
+            "operation_id": "op-a",
+            "attempt_id": 1,
+            "process_id": "proc-a",
+            "process_sequence": 1,
+            "operation": "publish-record",
+            "phase": "invoke",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 100,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "event_id": "hi06-o-a",
+            "operation_id": "op-a",
+            "attempt_id": 1,
+            "process_id": "proc-a",
+            "process_sequence": 2,
+            "operation": "publish-record",
+            "phase": "ok",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 120,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "effect_state": "Applied",
+            "result": {
+              "record_digest": "d-a"
+            }
+          },
+          {
+            "event_id": "hi06-i-b",
+            "operation_id": "op-b",
+            "attempt_id": 1,
+            "process_id": "proc-b",
+            "process_sequence": 1,
+            "operation": "publish-record",
+            "phase": "invoke",
+            "host_id": "conductor-b",
+            "clock_id": "conductor-b-mono-raw",
+            "clock_epoch": "conductor-b-boot-1",
+            "monotonic_tick": 5,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "event_id": "hi06-o-b",
+            "operation_id": "op-b",
+            "attempt_id": 1,
+            "process_id": "proc-b",
+            "process_sequence": 2,
+            "operation": "publish-record",
+            "phase": "ok",
+            "host_id": "conductor-b",
+            "clock_id": "conductor-b-mono-raw",
+            "clock_epoch": "conductor-b-boot-1",
+            "monotonic_tick": 9,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "effect_state": "Applied",
+            "result": {
+              "record_digest": "d-b"
+            }
+          }
+        ],
+        "causal_edges": [
+          {
+            "from_event": "hi06-i-a",
+            "to_event": "hi06-o-a",
+            "relation": "invocation-completion",
+            "evidence_ref": "fixture://hi06/a"
+          },
+          {
+            "from_event": "hi06-i-b",
+            "to_event": "hi06-o-b",
+            "relation": "invocation-completion",
+            "evidence_ref": "fixture://hi06/b"
+          }
+        ]
+      },
+      "expected": {
+        "structural": "valid-partial-order",
+        "jepsen": {
+          "applicable": true,
+          "disposition": "inconclusive-for-global-order",
+          "profile_id": "multi-conductor-partial-order-v1"
+        },
+        "elle": {
+          "applicable": false,
+          "disposition": "not-applicable",
+          "reason": "not-a-transactional-history"
+        },
+        "porcupine": {
+          "applicable": false,
+          "disposition": "not-applicable",
+          "reason": "no-declared-shared-sequential-object"
+        },
+        "qops": "not-eligible-synthetic",
+        "reason_codes": [
+          "no-cross-conductor-edge",
+          "local-clocks-incomparable"
+        ]
+      }
+    },
+    {
+      "fixture_id": "MCRB-HI-07",
+      "title": "transactional-write-skew-cycle",
+      "status": "proposed-not-executed",
+      "description": "Two transactions exhibit a read-write dependency cycle under the declared snapshot-isolation profile; Elle is applicable to this transaction history.",
+      "history": {
+        "events": [
+          {
+            "event_id": "hi07-t1-i",
+            "operation_id": "tx-1",
+            "attempt_id": 1,
+            "process_id": "client-1",
+            "process_sequence": 1,
+            "operation": "transaction",
+            "phase": "invoke",
+            "host_id": "db-host-a",
+            "clock_id": "db-host-a-mono-raw",
+            "clock_epoch": "db-host-a-boot-1",
+            "monotonic_tick": 10,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "event_id": "hi07-t1-o",
+            "operation_id": "tx-1",
+            "attempt_id": 1,
+            "process_id": "client-1",
+            "process_sequence": 2,
+            "operation": "transaction",
+            "phase": "ok",
+            "host_id": "db-host-a",
+            "clock_id": "db-host-a-mono-raw",
+            "clock_epoch": "db-host-a-boot-1",
+            "monotonic_tick": 30,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "effect_state": "Applied",
+            "result": {
+              "reads": {
+                "x": 0,
+                "y": 0
+              },
+              "writes": {
+                "y": 1
+              }
+            }
+          },
+          {
+            "event_id": "hi07-t2-i",
+            "operation_id": "tx-2",
+            "attempt_id": 1,
+            "process_id": "client-2",
+            "process_sequence": 1,
+            "operation": "transaction",
+            "phase": "invoke",
+            "host_id": "db-host-a",
+            "clock_id": "db-host-a-mono-raw",
+            "clock_epoch": "db-host-a-boot-1",
+            "monotonic_tick": 11,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "event_id": "hi07-t2-o",
+            "operation_id": "tx-2",
+            "attempt_id": 1,
+            "process_id": "client-2",
+            "process_sequence": 2,
+            "operation": "transaction",
+            "phase": "ok",
+            "host_id": "db-host-a",
+            "clock_id": "db-host-a-mono-raw",
+            "clock_epoch": "db-host-a-boot-1",
+            "monotonic_tick": 31,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "effect_state": "Applied",
+            "result": {
+              "reads": {
+                "x": 0,
+                "y": 0
+              },
+              "writes": {
+                "x": 1
+              }
+            }
+          }
+        ],
+        "causal_edges": []
+      },
+      "expected": {
+        "structural": "valid",
+        "jepsen": {
+          "applicable": true,
+          "disposition": "invalid",
+          "profile_id": "snapshot-isolation-write-skew-v1"
+        },
+        "elle": {
+          "applicable": true,
+          "disposition": "anomaly-detected",
+          "profile_id": "elle-write-skew-v1",
+          "expected_cycle": [
+            "tx-1",
+            "tx-2",
+            "tx-1"
+          ]
+        },
+        "porcupine": {
+          "applicable": false,
+          "disposition": "not-applicable",
+          "reason": "transactional-profile-not-a-single-object-sequential-spec"
+        },
+        "qops": "not-eligible-synthetic",
+        "reason_codes": [
+          "transaction-dependency-cycle"
+        ]
+      },
+      "transaction_batches": [
+        {
+          "transaction_id": "tx-1",
+          "reads": [
+            {
+              "key": "x",
+              "value": 0
+            },
+            {
+              "key": "y",
+              "value": 0
+            }
+          ],
+          "writes": [
+            {
+              "key": "y",
+              "value": 1
+            }
+          ],
+          "commit_observed": true
+        },
+        {
+          "transaction_id": "tx-2",
+          "reads": [
+            {
+              "key": "x",
+              "value": 0
+            },
+            {
+              "key": "y",
+              "value": 0
+            }
+          ],
+          "writes": [
+            {
+              "key": "x",
+              "value": 1
+            }
+          ],
+          "commit_observed": true
+        }
+      ]
+    },
+    {
+      "fixture_id": "MCRB-HI-08",
+      "title": "missing-cross-conductor-causal-join",
+      "status": "proposed-not-executed",
+      "description": "A record is authored on one conductor but the required receiving-validator receipt or evidence-backed causal edge is missing.",
+      "history": {
+        "events": [
+          {
+            "event_id": "hi08-i1",
+            "operation_id": "op-remote",
+            "attempt_id": 1,
+            "process_id": "author",
+            "process_sequence": 1,
+            "operation": "publish-record",
+            "phase": "invoke",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 500,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "event_id": "hi08-o1",
+            "operation_id": "op-remote",
+            "attempt_id": 1,
+            "process_id": "author",
+            "process_sequence": 2,
+            "operation": "publish-record",
+            "phase": "ok",
+            "host_id": "conductor-a",
+            "clock_id": "conductor-a-mono-raw",
+            "clock_epoch": "conductor-a-boot-1",
+            "monotonic_tick": 510,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "effect_state": "Applied",
+            "result": {
+              "local_action_hash": "action-a"
+            }
+          },
+          {
+            "event_id": "hi08-i2",
+            "operation_id": "op-observe",
+            "attempt_id": 1,
+            "process_id": "observer",
+            "process_sequence": 1,
+            "operation": "observe-record",
+            "phase": "invoke",
+            "host_id": "conductor-b",
+            "clock_id": "conductor-b-mono-raw",
+            "clock_epoch": "conductor-b-boot-1",
+            "monotonic_tick": 50,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "event_id": "hi08-u2",
+            "operation_id": "op-observe",
+            "attempt_id": 1,
+            "process_id": "observer",
+            "process_sequence": 2,
+            "operation": "observe-record",
+            "phase": "info",
+            "host_id": "conductor-b",
+            "clock_id": "conductor-b-mono-raw",
+            "clock_epoch": "conductor-b-boot-1",
+            "monotonic_tick": 60,
+            "request_digest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "idempotency_key_commitment_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "effect_state": "Unknown",
+            "result": {
+              "cause": "no-receiving-validator-receipt"
+            }
+          }
+        ],
+        "causal_edges": [
+          {
+            "from_event": "hi08-i1",
+            "to_event": "hi08-o1",
+            "relation": "invocation-completion",
+            "evidence_ref": "fixture://hi08/author"
+          }
+        ]
+      },
+      "expected": {
+        "structural": "incomplete",
+        "jepsen": {
+          "applicable": true,
+          "disposition": "indeterminate",
+          "profile_id": "remote-record-visibility-v1"
+        },
+        "elle": {
+          "applicable": false,
+          "disposition": "not-applicable",
+          "reason": "not-a-transactional-history"
+        },
+        "porcupine": {
+          "applicable": false,
+          "disposition": "not-applicable",
+          "reason": "no-declared-linearizable-object"
+        },
+        "qops": "incomplete",
+        "reason_codes": [
+          "missing-validator-receipt",
+          "missing-cross-conductor-causal-join"
+        ]
+      }
+    }
+  ]
+}
