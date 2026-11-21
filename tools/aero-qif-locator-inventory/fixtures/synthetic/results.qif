@@ -1,0 +1,32 @@
+<QIFDocument xmlns="http://qifstandards.org/xsd/qif3" idMax="9999" versionQIF="3.0.0">
+  <QPId>10000000-0000-4000-8000-000000000001</QPId>
+  <ExternalQIFReferences n="1">
+    <ExternalQIFDocument id="7">
+      <QPId>20000000-0000-4000-8000-000000000002</QPId>
+      <URI>https://vendor.example/qif/Plan-A.qif</URI>
+    </ExternalQIFDocument>
+  </ExternalQIFReferences>
+  <Results>
+    <MeasurementResultsSet n="1">
+      <MeasurementResults id="100">
+        <MeasuredCharacteristics>
+          <CharacteristicMeasurements n="3">
+            <LinearCharacteristicMeasurement id="901">
+              <Status><CharacteristicStatusEnum>PASS</CharacteristicStatusEnum></Status>
+              <CharacteristicItemId xId="301">7</CharacteristicItemId>
+            </LinearCharacteristicMeasurement>
+            <LinearCharacteristicMeasurement id="902">
+              <Status><CharacteristicStatusEnum>FAIL</CharacteristicStatusEnum></Status>
+              <CharacteristicItemId xId="302">7</CharacteristicItemId>
+            </LinearCharacteristicMeasurement>
+            <LinearCharacteristicMeasurement id="903">
+              <Status><OtherCharacteristicStatus>NOT_EVALUATED</OtherCharacteristicStatus></Status>
+              <CharacteristicItemId xId="301">7</CharacteristicItemId>
+            </LinearCharacteristicMeasurement>
+          </CharacteristicMeasurements>
+        </MeasuredCharacteristics>
+        <InspectionStatus><InspectionStatusEnum>PASS</InspectionStatusEnum></InspectionStatus>
+      </MeasurementResults>
+    </MeasurementResultsSet>
+  </Results>
+</QIFDocument>
