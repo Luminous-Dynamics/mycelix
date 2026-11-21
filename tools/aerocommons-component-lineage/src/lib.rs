@@ -1073,7 +1073,7 @@ mod tests {
         };
         assert_eq!(verify_artifact_bytes(&artifact, bytes), Ok(()));
         assert!(matches!(
-            verify_artifact_bytes(&artifact, b"changed AP242 payload"),
+            verify_artifact_bytes(&artifact, &[b'x'; 63]),
             Err(PacketError::ArtifactDigestMismatch(_))
         ));
         assert!(matches!(
