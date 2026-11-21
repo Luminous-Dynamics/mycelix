@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'research/terra-preta/tools/spectral-structure-audit/**'
+      - 'research/terra-preta/schemas/spectral-dataset-profile.schema.json'
       - 'research/terra-preta/schemas/spectral-structure-audit-report.schema.json'
       - '.github/workflows/terra-preta-spectral-structure-audit.yml'
   workflow_dispatch:
@@ -42,7 +43,8 @@ jobs:
             .spectral_regions[1].column_count == 3 and
             .nir_to_mir_boundary_gap_cm1 == 6 and
             .property_summaries[1].missing_count == 1 and
-            .input_sha256 | test("^[a-f0-9]{64}$")
+            (.input_sha256 | test("^[a-f0-9]{64}$")) and
+            (.profile_sha256 | test("^[a-f0-9]{64}$"))
           ' "$RUNNER_TEMP/spectral-structure-report.json"
           if cargo run --quiet --manifest-path research/terra-preta/tools/spectral-structure-audit/Cargo.toml -- \
             research/terra-preta/tools/spectral-structure-audit/fixtures/synthetic-spectral-data.csv \
