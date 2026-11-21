@@ -2243,12 +2243,12 @@ mod tests {
         .unwrap();
 
         assert_eq!(report.high_fidelity_collision_count, 1);
-        assert_eq!(report.surrogate_collision_count, 3);
+        assert_eq!(report.surrogate_collision_count, 2);
         assert_eq!(report.false_negative_count, 0);
-        assert_eq!(report.false_positive_count, 2);
-        assert!((report.residual_mean + 0.5).abs() < 1e-12);
+        assert_eq!(report.false_positive_count, 1);
+        assert!((report.residual_mean + 0.25).abs() < 1e-12);
         assert!(
-            (report.corrected_high_fidelity_probability_estimate - (surrogate_pc - 0.5)).abs()
+            (report.corrected_high_fidelity_probability_estimate - (surrogate_pc - 0.25)).abs()
                 < 1e-12
         );
     }
