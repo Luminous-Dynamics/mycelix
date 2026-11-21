@@ -474,7 +474,12 @@
     "healthy_energy_overhead_max_percent": 10,
     "critical_mutant_detection_rate_percent": 100,
     "critical_false_verified_rate_percent": 0,
-    "critical_duplicate_logical_effect_rate_percent": 0
+    "critical_duplicate_logical_effect_rate_percent": 0,
+    "critical_false_group_complete_rate_percent": 0,
+    "critical_fanout_missing_child_miss_rate_percent": 0,
+    "critical_recipient_unit_mismatch_acceptance_rate_percent": 0,
+    "post_removal_new_message_acceptance_rate_percent": 0,
+    "unauthorized_late_join_historical_decrypt_rate_percent": 0
   },
   "reporting_rules": [
     "Do not combine hard safety gates with performance in a weighted score.",
@@ -524,6 +529,12 @@
     "partial_and_unknown": "PARTIAL, UNKNOWN, INCOMPLETE, EXPIRED and FAILED remain distinct; unknown child outcomes never count as successful delivery. The trace schema includes PARTIAL as an explicit terminal disposition.",
     "threshold_policy": "all_required_recipients by default; any quorum/threshold override must be explicit, user-visible and bound to a separately authenticated policy snapshot",
     "device_semantics": "declare whether the child outcome is per account, per device or for a required device set; one device receipt never implies all-device sync",
-    "membership_semantics": "predeclare removal, late-join and historical-decrypt policy by membership epoch; evaluate each separately"
+    "membership_semantics": "predeclare removal, late-join and historical-decrypt policy by membership epoch; evaluate each separately",
+    "per_recipient_outcome": "PRD_D = required recipient children with authenticated receipts by trusted deadline D / all required recipient children from admitted fanout intents. Missing child traces remain in the denominator and count as failures or unresolved outcomes, never disappear.",
+    "complete_group_outcome": "CGDR_D = admitted fanouts whose every required child in the independently authenticated frozen membership snapshot has an authenticated receipt by trusted deadline D / all admitted fanout intents.",
+    "snapshot_freeze_point": "Freeze the exact membership epoch and recipient set at fanout-intent admission, before sending, retries, delivery observations or terminal outcomes.",
+    "recipient_unit_semantics": "Each manifest declares ACCOUNT or DEVICE. ACCOUNT means account-level acceptance only; DEVICE means one child per required device. An account-level child never implies every device is synchronized.",
+    "recipient_set_authority": "The parent manifest hash pins bytes, not authority. A separate trusted membership/policy root must establish that the declared recipient set is complete and authorized.",
+    "current_v0_1_claim": "Structural/causal consistency only: ALL_REQUIRED_RECEIPT_CLAIMS_CONSISTENT. No receipt signature, manifest authority, membership truth, principal independence or trusted deadline verification."
   }
 }
