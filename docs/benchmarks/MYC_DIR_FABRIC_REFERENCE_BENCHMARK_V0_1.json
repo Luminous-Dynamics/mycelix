@@ -837,6 +837,126 @@
       "target": null,
       "gate": "report_only",
       "measurement_state": "not_measured"
+    },
+    {
+      "id": "effect_surface_inventory_false_complete_count",
+      "layer": "revocation_inventory",
+      "metric": "External completeness oracle finds an omitted reachable effect route after inventory claimed VerifiedComplete",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "revocation_plan_without_verified_inventory_count",
+      "layer": "revocation_inventory",
+      "metric": "Strict revocation plan built without an exact VerifiedComplete effect-surface closure receipt",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "strict_revocation_with_nonfenced_route_count",
+      "layer": "revocation_inventory",
+      "metric": "Strict revocation completion claimed while an enumerated effect route is not atomically fenced",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "effect_route_owner_coverage_pct",
+      "layer": "revocation_inventory",
+      "metric": "Reachable mutation routes represented by an acknowledged owner in the exact inventory epoch",
+      "unit": "percent",
+      "statistic": "minimum",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 100
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "effect_inventory_discovery_latency_p95_ms",
+      "layer": "revocation_inventory",
+      "metric": "Time to discover, canonicalize and attest the revocation-specific effect-surface route inventory",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "caep_event_to_receiver_attenuation_p95_ms",
+      "layer": "continuous_access_evaluation",
+      "metric": "CAEP event acceptance to receiver-side session/token/device attenuation, excluding strong fence completion",
+      "unit": "ms",
+      "statistic": "p95",
+      "workload_profile": "qualification",
+      "target": null,
+      "gate": "report_only",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "caep_duplicate_event_extra_effect_count",
+      "layer": "continuous_access_evaluation",
+      "metric": "Duplicate CAEP event triggers an additional protected mutation or duplicate session side effect",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "caep_out_of_order_event_state_regression_count",
+      "layer": "continuous_access_evaluation",
+      "metric": "Older or replayed CAEP event regresses a receiver from newer revoked/attenuated state",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
+    },
+    {
+      "id": "caep_signal_without_fence_ack_strong_claim_count",
+      "layer": "continuous_access_evaluation",
+      "metric": "CAEP signal receipt is misreported as all-owner mutation-fence completion",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
     }
   ],
   "fault_schedules": [
@@ -882,7 +1002,14 @@
     "Crash the primary after durable fence commit but before acknowledgement publication; restore/re-promote only under the governed epoch and exact generation",
     "Asynchronous-commit negative control reports success before WAL flush; it must never trigger a strong durable-fence acknowledgement",
     "Promote an asynchronous replica missing the last fence generation; readiness must refuse to claim a monotonic revocation guarantee",
-    "Force multi-object transactions to request fence domains in opposite order; deterministic global lock ordering or bounded deadlock retry must prevent unsafe partial outcomes"
+    "Force multi-object transactions to request fence domains in opposite order; deterministic global lock ordering or bounded deadlock retry must prevent unsafe partial outcomes",
+    "A reachable legacy API route is omitted from the caller-supplied owner list while all listed owners acknowledge; the independent inventory oracle must reject completeness",
+    "A newly discovered worker or service route changes the inventory epoch after closure proof generation; the old revocation plan must not be reused",
+    "An inventory is marked VerifiedComplete but includes a CAEP-signal-only route; strict revocation plan construction must fail",
+    "CAEP Session Revoked reaches the session service but not the downstream worker; session attenuation must not be reported as mutation-fence completion",
+    "Duplicate and out-of-order CAEP Session Revoked, Credential Change and Device Compliance Change events arrive under delayed network delivery; no state regression or duplicate effect is permitted",
+    "A CAEP receiver is partitioned while a revocation is propagated; the route remains pending and prevents strict all-owner completion",
+    "OAuth access-token revocation succeeds at the authorization server while a resource server still accepts an unexpired self-contained token; classify as propagation/TTL exposure, not strong fencing"
   ],
   "comparators": [
     {
@@ -944,6 +1071,21 @@
       "name": "LDBC SNB",
       "scope": "Public graph-data workload for query scale and operator comparability",
       "consistency_profile": "Use official Interactive and Business Intelligence workload definitions as graph operator baselines; add a separate authority graph corpus with deny/revocation semantics"
+    },
+    {
+      "name": "OpenID CAEP 1.0 (final)",
+      "scope": "Continuous access evaluation event types for session, token, credential, assurance, device and risk changes",
+      "consistency_profile": "Compare accepted-event-to-receiver-attenuation and replay/order handling; CAEP receipt does not assert every resource mutation path is durably fenced"
+    },
+    {
+      "name": "OpenID CAEP 1.1 (17 Nov 2026 draft)",
+      "scope": "Latest CAEP profile draft for interoperable continuous access evaluation events",
+      "consistency_profile": "Freeze draft revision and SSF profile; treat as interoperability target, not a final published standard"
+    },
+    {
+      "name": "OAuth RFC 7009 token revocation",
+      "scope": "Authorization-server token revocation and related grant invalidation",
+      "consistency_profile": "Measure resource-server propagation, introspection/cache behavior and residual unexpired-token acceptance separately from effect-owner fence completion"
     }
   ],
   "dependency_cut_profiles": [
@@ -1163,6 +1305,68 @@
       "isolation_profile": "READ COMMITTED",
       "synchronous_commit": "on",
       "purpose": "Test promotion, WAL durability, epoch reconciliation and monotonic fence restoration across eligible primaries"
+    }
+  ],
+  "effect_surface_inventory_profiles": [
+    {
+      "id": "effect_inventory_small",
+      "route_counts": [
+        1,
+        4,
+        16
+      ],
+      "owner_counts": [
+        1,
+        2,
+        4
+      ],
+      "inventory_churn_per_minute": 1,
+      "purpose": "Validate canonical route inventory and closure binding for small organizations"
+    },
+    {
+      "id": "effect_inventory_enterprise",
+      "route_counts": [
+        64,
+        256,
+        1024
+      ],
+      "owner_counts": [
+        8,
+        32,
+        128
+      ],
+      "inventory_churn_per_minute": 10,
+      "purpose": "Measure route discovery and closure across gateway, sessions, workers, brokers and data stores"
+    },
+    {
+      "id": "effect_inventory_churn",
+      "route_counts": [
+        256,
+        1024,
+        4096
+      ],
+      "owner_counts": [
+        32,
+        128,
+        512
+      ],
+      "inventory_churn_per_minute": 100,
+      "purpose": "Measure topology churn, old-proof invalidation and route-registration lag"
+    },
+    {
+      "id": "caep_signal_fanout",
+      "route_counts": [
+        32,
+        128,
+        512
+      ],
+      "owner_counts": [
+        8,
+        32,
+        128
+      ],
+      "inventory_churn_per_minute": 20,
+      "purpose": "Measure CAEP fanout, replay handling and receiver attenuation separately from durable fence completion"
     }
   ]
 }
