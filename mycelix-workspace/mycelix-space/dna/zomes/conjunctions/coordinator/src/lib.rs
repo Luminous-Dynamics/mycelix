@@ -822,7 +822,10 @@ pub fn screen_conjunction_with_staleness(
     validate_screening_coverage(&all_ids, &returned_ids).map_err(|error| {
         SpaceError::new(
             SpaceErrorCode::InvalidInput,
-            format!("Incomplete staleness-aware screening TLE coverage: {:?}", error),
+            format!(
+                "Incomplete staleness-aware screening TLE coverage: {:?}",
+                error
+            ),
         )
         .into_wasm_error()
     })?;
@@ -1008,8 +1011,8 @@ pub fn screen_conjunction_from_tles(
     }
     let coarse_step_secs: i64 = 600;
     let fine_step_secs: i64 = 10;
-    let coarse_offsets = inclusive_time_offsets(0, total_seconds, coarse_step_secs)
-        .map_err(|error| {
+    let coarse_offsets =
+        inclusive_time_offsets(0, total_seconds, coarse_step_secs).map_err(|error| {
             SpaceError::new(
                 SpaceErrorCode::InvalidInput,
                 format!("Invalid coarse screening schedule: {:?}", error),
@@ -1062,8 +1065,8 @@ pub fn screen_conjunction_from_tles(
         let mut tca_offset = best_step;
         let mut tca_distance = best_distance;
 
-        let fine_offsets = inclusive_time_offsets(fine_start, fine_end, fine_step_secs)
-            .map_err(|error| {
+        let fine_offsets =
+            inclusive_time_offsets(fine_start, fine_end, fine_step_secs).map_err(|error| {
                 SpaceError::new(
                     SpaceErrorCode::InvalidInput,
                     format!("Invalid fine screening schedule: {:?}", error),
