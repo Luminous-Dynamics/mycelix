@@ -34,7 +34,11 @@ This is a structural data audit, not model evaluation. A structurally sound CSV 
 
 The article describes NIR values both as reflectance in the instrument section and as converted absorbance on a common axis in the merging/validation discussion. The profile preserves this as unresolved source semantics and the audit emits a warning. Do not silently choose a transform. Resolve it by inspecting the delivered values/processing source or requesting author clarification.
 
-The 2026 cohort extends the earlier 2024 Western Highveld MIR cohort. It must not be treated as independent external validation until sample identities are crosswalked. The dataset contains 178 released georeferenced samples; the remaining locations must not be inferred.
+The v2 Data in Brief article (10.1016/j.dib.2026.113160) describes 790 composite cultivated topsoil samples (0–15 cm; one 2020 winter sampling season). Its data-availability row links the older Zenodo v1 record 17510653 (803 samples), while the Zenodo record identifies v2 21640671 (790 samples) as the newer version. The profile pins v2 and records v1 as a distinct historical artifact.
+
+The article's NIR value semantics are internally inconsistent: the specifications describe NIR reflectance, the spectral-column section says spectral values are absorbance while calling the NIR block reflectance percentage, the methods record reflectance R, and the data-merging/figure text describes converted absorbance without stating an exact conversion equation in the accessible text. The profile preserves the conflict. Do not silently transform the values or apply a second transform.
+
+The 2026 cohort extends the earlier 2024 Western Highveld MIR cohort. It must not be treated as independent external validation until sample identities are crosswalked. The dataset contains 178 released georeferenced samples; the remaining locations must not be inferred. The article is CC BY, but confirm the versioned Zenodo data-file licence separately before redistribution. The auditor computes SHA-256 from the acquired CSV; no checksum is claimed until the actual v2 file is retrieved and hashed.
 
 ## Related-release identity overlap audit
 
