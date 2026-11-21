@@ -77,6 +77,51 @@ are not yet pinned across separate runs by source control.
   The verified event must reference the same recipient-receipt digest.
 - Obvious plaintext and secret-bearing field names are rejected.
 
+## Group fan-out verification
+
+The verify-fanout command checks a parent manifest against the exact
+bytes of every supplied recipient child trace:
+
+~~~bash
+cargo run --manifest-path mycelix-workspace/mycelix-pulse/tools/fabric-verifier/Cargo.toml -- \
+  verify-fanout fanout-manifest.json \
+  --manifest-schema mycelix-workspace/mycelix-pulse/docs/pulse-group-fanout-manifest.schema-v0.1.json \
+  --trace-schema mycelix-workspace/mycelix-pulse/docs/pulse-fabric-trace.schema-v0.1.json \
+  --manifest-sha256 EXTERNALLY_PINNED_64_HEX_SHA256 \
+  --child recipient-a.trace.json \
+  --child recipient-b.trace.json
+~~~
+
+The external manifest SHA-256 pin is mandatory. Each child trace's exact
+byte digest is embedded in the pinned manifest. The verifier checks that the
+manifest's frozen recipient commitments map one-to-one to child logical
+operation IDs, that no child is missing or duplicated, that all child traces
+bind the same group, epoch, membership-snapshot digest, recipient-set
+commitment and content commitment, and that each child passes the v0.1
+recipient-level causal verifier. The only v0.1 aggregation policy is
+ALL_REQUIRED.
+
+A fully receipt-backed child set is reported as
+ALL_REQUIRED_RECEIPT_CLAIMS_CONSISTENT, not COMPLETE_VERIFIED. This is
+deliberate: v0.1 verifies structure, causal consistency and exact
+content-addressed inputs. It does not validate receipt signatures, authenticate
+the manifest author, establish that the membership snapshot is true, or prove
+deadline compliance. An external digest pin establishes which bytes were
+checked; the trust policy that selects that pin must be supplied independently.
+A later trust layer must verify signatures, principal independence, membership
+authority and trusted time before using a cryptographically strong
+group-completion claim.
+
+Do not put raw member identifiers or the roster in public manifests. Recipient
+commitments must be opaque, scoped pseudonyms or keyed commitments generated
+under an independently governed secret; do not use bare SHA-256 of an email
+address, phone number or other low-entropy identifier. Group sizes and
+commitment reuse can themselves leak metadata.
+
+PARTIAL is a recipient-level terminal disposition for incomplete but
+positively observed progress. UNKNOWN remains distinct: the verifier must
+not turn an absent or ambiguous outcome into a success.
+
 ## Explicit non-goals and limitations
 
 This prototype does **not**:
