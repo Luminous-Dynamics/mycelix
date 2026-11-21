@@ -20,7 +20,8 @@
       "origin_id": "SIM-EARTH-CENTER"
     },
     "screening_profile_id": "synthetic-neighborhood-capture-v0.1",
-    "configuration_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    "configuration_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "configuration_artifact_id": "synthetic-screening-config"
   },
   "source_artifacts": [
     {
@@ -80,6 +81,33 @@
         "parser_id": "synthetic-fixture-reader-v0.1",
         "source_sha256": null,
         "adapter_profile_id": "synthetic-pair-screen-result-v0.1"
+      },
+      "parse_disposition": "parsed",
+      "field_semantics": [],
+      "unknown_fields_preserved": true
+    },
+    {
+      "artifact_id": "synthetic-screening-config",
+      "source_type": "other",
+      "source_profile": {
+        "ecosystem": "mycelix-synthetic",
+        "document_release": null,
+        "payload_version": "synthetic-0",
+        "encoding_profile": "synthetic-screening-config-v0.1"
+      },
+      "media_type": "application/json",
+      "byte_length": 323,
+      "raw_bytes_sha256": "3c4527eb3caffd54bc6f2bda28e6a544e5c240d1f06b8bedc8697c8600c707f4",
+      "source_epoch": null,
+      "source_created_at": null,
+      "received_at": "2026-11-21T09:00:00Z",
+      "processing_at": "2026-11-21T09:00:03Z",
+      "preservation": "exact_bytes_retained",
+      "artifact_path": "mycelix-workspace/mycelix-space/contracts/fixtures/synthetic-screening-config-v0.1.json",
+      "parser": {
+        "parser_id": "synthetic-fixture-reader-v0.1",
+        "source_sha256": null,
+        "adapter_profile_id": "synthetic-screening-config-v0.1"
       },
       "parse_disposition": "parsed",
       "field_semantics": [],
