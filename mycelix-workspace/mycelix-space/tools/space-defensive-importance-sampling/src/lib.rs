@@ -1507,9 +1507,8 @@ mod tests {
     #[test]
     fn perfectly_correlated_encounters_use_direct_shared_path_union() {
         let proposal = repeated_nominal_proposal();
-        let observations = repeated_observations(&[
-            [true, true], [true, true], [false, false], [false, false],
-        ]);
+        let observations =
+            repeated_observations(&[[true, true], [true, true], [false, false], [false, false]]);
         let report = estimate_repeating_encounter_risk(
             &proposal,
             &whitening(2),
@@ -1517,46 +1516,66 @@ mod tests {
             0.05,
             &repeated_evidence(&proposal.id),
             &repeated_design(),
-        ).unwrap();
+        )
+        .unwrap();
 
         assert!((report.per_encounter_marginals[0].probability_estimate - 0.5).abs() < 1e-12);
         assert!((report.per_encounter_marginals[1].probability_estimate - 0.5).abs() < 1e-12);
         assert!((report.joint_path_union.estimate - 0.5).abs() < 1e-12);
         assert!((report.independent_events_union_approximation.unwrap() - 0.75).abs() < 1e-12);
         assert!((report.independence_approximation_gap.unwrap() + 0.25).abs() < 1e-12);
-        assert!((report.pairwise_joint_estimates[0].target_event_covariance_estimate - 0.25).abs() < 1e-12);
+        assert!(
+            (report.pairwise_joint_estimates[0].target_event_covariance_estimate - 0.25).abs()
+                < 1e-12
+        );
     }
 
     #[test]
     fn independent_encounter_fixture_matches_independence_comparator() {
         let proposal = repeated_nominal_proposal();
-        let observations = repeated_observations(&[
-            [true, true], [true, false], [false, true], [false, false],
-        ]);
+        let observations =
+            repeated_observations(&[[true, true], [true, false], [false, true], [false, false]]);
         let report = estimate_repeating_encounter_risk(
-            &proposal, &whitening(2), &observations, 0.05,
-            &repeated_evidence(&proposal.id), &repeated_design(),
-        ).unwrap();
+            &proposal,
+            &whitening(2),
+            &observations,
+            0.05,
+            &repeated_evidence(&proposal.id),
+            &repeated_design(),
+        )
+        .unwrap();
         assert!((report.joint_path_union.estimate - 0.75).abs() < 1e-12);
         assert!((report.independent_events_union_approximation.unwrap() - 0.75).abs() < 1e-12);
         assert!(report.independence_approximation_gap.unwrap().abs() < 1e-12);
-        assert!(report.pairwise_joint_estimates[0].target_event_covariance_estimate.abs() < 1e-12);
+        assert!(
+            report.pairwise_joint_estimates[0]
+                .target_event_covariance_estimate
+                .abs()
+                < 1e-12
+        );
     }
 
     #[test]
     fn mutually_exclusive_encounters_are_not_multiplied_as_independent() {
         let proposal = repeated_nominal_proposal();
-        let observations = repeated_observations(&[
-            [true, false], [false, true], [true, false], [false, true],
-        ]);
+        let observations =
+            repeated_observations(&[[true, false], [false, true], [true, false], [false, true]]);
         let report = estimate_repeating_encounter_risk(
-            &proposal, &whitening(2), &observations, 0.05,
-            &repeated_evidence(&proposal.id), &repeated_design(),
-        ).unwrap();
+            &proposal,
+            &whitening(2),
+            &observations,
+            0.05,
+            &repeated_evidence(&proposal.id),
+            &repeated_design(),
+        )
+        .unwrap();
         assert!((report.joint_path_union.estimate - 1.0).abs() < 1e-12);
         assert!((report.independent_events_union_approximation.unwrap() - 0.75).abs() < 1e-12);
         assert!((report.independence_approximation_gap.unwrap() - 0.25).abs() < 1e-12);
-        assert!((report.pairwise_joint_estimates[0].target_event_covariance_estimate + 0.25).abs() < 1e-12);
+        assert!(
+            (report.pairwise_joint_estimates[0].target_event_covariance_estimate + 0.25).abs()
+                < 1e-12
+        );
     }
 
     #[test]
@@ -1566,10 +1585,17 @@ mod tests {
         observations[0].collision_by_encounter.pop();
         assert_eq!(
             estimate_repeating_encounter_risk(
-                &proposal, &whitening(2), &observations, 0.05,
-                &repeated_evidence(&proposal.id), &repeated_design(),
+                &proposal,
+                &whitening(2),
+                &observations,
+                0.05,
+                &repeated_evidence(&proposal.id),
+                &repeated_design(),
             ),
-            Err(EstimateError::RepeatedEncounterOutcomeCountMismatch { expected: 2, actual: 1 })
+            Err(EstimateError::RepeatedEncounterOutcomeCountMismatch {
+                expected: 2,
+                actual: 1
+            })
         );
 
         let valid_observations = repeated_observations(&[[true, false], [false, true]]);
@@ -1577,8 +1603,12 @@ mod tests {
         invalid_design.outcomes_share_one_trajectory_sample = false;
         assert_eq!(
             estimate_repeating_encounter_risk(
-                &proposal, &whitening(2), &valid_observations, 0.05,
-                &repeated_evidence(&proposal.id), &invalid_design,
+                &proposal,
+                &whitening(2),
+                &valid_observations,
+                0.05,
+                &repeated_evidence(&proposal.id),
+                &invalid_design,
             ),
             Err(EstimateError::InvalidRepeatedEncounterDesign)
         );
