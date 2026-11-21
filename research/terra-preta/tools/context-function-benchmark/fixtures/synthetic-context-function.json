@@ -46,7 +46,14 @@
         "q95": 3.65,
         "q95_se": 0.2,
         "q99": 4,
-        "q99_se": 0.25
+        "q99_se": 0.25,
+        "reference_dataset_id": "synthetic-reference-dataset-v1",
+        "reference_dataset_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "reference_model_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reference_measurement_method": "synthetic direct dry-combustion analogue",
+        "reference_measurement_unit": "percent",
+        "reference_depth_min_m": 0,
+        "reference_depth_max_m": 0.2
       },
       "measurements": [
         {
@@ -116,7 +123,14 @@
         "q95": 1.8,
         "q95_se": 0.05,
         "q99": 1.9,
-        "q99_se": 0.06
+        "q99_se": 0.06,
+        "reference_dataset_id": "synthetic-reference-dataset-v1",
+        "reference_dataset_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "reference_model_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reference_measurement_method": "synthetic core method",
+        "reference_measurement_unit": "g_cm-3",
+        "reference_depth_min_m": 0,
+        "reference_depth_max_m": 0.2
       },
       "measurements": [
         {
