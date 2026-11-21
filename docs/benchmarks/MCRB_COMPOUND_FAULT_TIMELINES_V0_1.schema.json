@@ -1,0 +1,374 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/benchmarks/MCRB_COMPOUND_FAULT_TIMELINES_V0_1.schema.json",
+  "title": "Mycelix MCRB compound fault timeline manifest v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "artifact_id",
+    "status",
+    "purpose",
+    "source_issue",
+    "scenario_manifest_ref",
+    "schedule_model",
+    "result_vocabulary",
+    "global_invariants",
+    "related_issues",
+    "scenarios",
+    "acceptance_targets",
+    "claim_policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix-mcrb-compound-fault-timelines-v0.1"
+    },
+    "benchmark_id": {
+      "const": "MCRB"
+    },
+    "artifact_id": {
+      "const": "MCRB-COMPOUND-FAULT-TIMELINES-001"
+    },
+    "status": {
+      "const": "proposed-not-executed"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 20
+    },
+    "source_issue": {
+      "type": "string",
+      "format": "uri"
+    },
+    "scenario_manifest_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schedule_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "event_identity",
+        "ordering",
+        "randomness",
+        "clock_model",
+        "cross_host_timing",
+        "replay_requirement",
+        "simulated_actor_policy",
+        "concurrency_group_semantics"
+      ],
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "event_identity": {
+          "type": "string"
+        },
+        "ordering": {
+          "type": "string"
+        },
+        "randomness": {
+          "type": "string"
+        },
+        "clock_model": {
+          "type": "string"
+        },
+        "cross_host_timing": {
+          "type": "string"
+        },
+        "replay_requirement": {
+          "type": "string"
+        },
+        "simulated_actor_policy": {
+          "type": "string"
+        },
+        "concurrency_group_semantics": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
+    },
+    "result_vocabulary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution",
+        "effect",
+        "evidence",
+        "claim",
+        "qops"
+      ],
+      "properties": {
+        "execution": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "effect": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "claim": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "qops": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "global_invariants": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "string",
+        "minLength": 10
+      }
+    },
+    "related_issues": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario_id",
+          "name",
+          "status",
+          "risk_class",
+          "purpose",
+          "related_mcrb_scenarios",
+          "related_issues",
+          "actors",
+          "fault_domains",
+          "event_schedule",
+          "positive_controls",
+          "negative_controls",
+          "required_evidence",
+          "expected_claims",
+          "promotion_blockers",
+          "claim_ceiling"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^MCRB-CF-[0-9]{2}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 3
+          },
+          "status": {
+            "const": "proposed-not-executed"
+          },
+          "risk_class": {
+            "type": "string",
+            "minLength": 3
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 20
+          },
+          "related_mcrb_scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^MCRB-[0-9]{2}$"
+            }
+          },
+          "related_issues": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "actors": {
+            "type": "array",
+            "minItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "fault_domains": {
+            "type": "array",
+            "minItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "event_schedule": {
+            "type": "array",
+            "minItems": 5,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "event_id",
+                "actor",
+                "action",
+                "causal_predecessors",
+                "parameters",
+                "expected_observations",
+                "recovery_action"
+              ],
+              "properties": {
+                "event_id": {
+                  "type": "string",
+                  "pattern": "^cf[0-9]{2}-e[0-9]{2}$"
+                },
+                "actor": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "action": {
+                  "type": "string",
+                  "minLength": 3
+                },
+                "causal_predecessors": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^cf[0-9]{2}-e[0-9]{2}$"
+                  }
+                },
+                "parameters": {
+                  "type": "object"
+                },
+                "expected_observations": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "recovery_action": {
+                  "type": "string",
+                  "minLength": 3
+                },
+                "concurrency_group": {
+                  "type": "string",
+                  "minLength": 3
+                }
+              }
+            }
+          },
+          "positive_controls": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "negative_controls": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "required_evidence": {
+            "type": "array",
+            "minItems": 3,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "expected_claims": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string"
+            }
+          },
+          "promotion_blockers": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "claim_ceiling": {
+            "type": "string",
+            "minLength": 20
+          }
+        }
+      }
+    },
+    "acceptance_targets": {
+      "type": "object",
+      "minProperties": 8
+    },
+    "claim_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "no_scalar_resilience_or_trust_score",
+        "no_qops_when_required_evidence_is_unknown_or_incomplete",
+        "no_aggregate_over_different_runtime_or_topology_profiles",
+        "report_separate_dimensions",
+        "compare_only_semantically_matched_operation_contracts"
+      ],
+      "properties": {
+        "no_scalar_resilience_or_trust_score": {
+          "const": true
+        },
+        "no_qops_when_required_evidence_is_unknown_or_incomplete": {
+          "const": true
+        },
+        "no_aggregate_over_different_runtime_or_topology_profiles": {
+          "const": true
+        },
+        "report_separate_dimensions": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "compare_only_semantically_matched_operation_contracts": {
+          "const": true
+        }
+      }
+    }
+  }
+}

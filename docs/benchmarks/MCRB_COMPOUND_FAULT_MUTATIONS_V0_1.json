@@ -1,0 +1,425 @@
+{
+  "schema_version": "mycelix-mcrb-compound-fault-mutations-v0.1",
+  "benchmark_id": "MCRB",
+  "artifact_id": "MCRB-COMPOUND-FAULT-MUTATIONS-001",
+  "status": "proposed-not-executed",
+  "source_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6407",
+  "timeline_manifest": "docs/benchmarks/MCRB_COMPOUND_FAULT_TIMELINES_V0_1.json",
+  "purpose": "Executable mutation and metamorphic oracle definitions for compound-fault timeline scenarios. Every mutation must be rejected or produce explicit indeterminacy/incompleteness; metamorphic transformations must preserve semantics when they preserve the declared inputs.",
+  "mutation_policy": {
+    "candidate_never_controls_expected_result": true,
+    "every_mutant_binds_scenario_and_exact_target": true,
+    "mutation_seed_and_transformer_digest_required_at_execution": true,
+    "preserve_original_and_mutated_artifacts": true,
+    "mutation_must_not_silently_rewrite_expected_oracle": true,
+    "no_qops_eligibility_from_synthetic_fixture": true,
+    "hard_correctness_violation_invalidates_qops": true,
+    "incomplete_required_evidence_suppresses_qops": true
+  },
+  "mutations": [
+    {
+      "mutation_id": "CF01-M01",
+      "scenario_id": "MCRB-CF-01",
+      "name": "post-revocation-effect",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "insert-effect",
+        "target_event_id": "cf01-e06",
+        "target_field": "parameters.post_barrier_effect",
+        "details": "Applied after the recorded revocation barrier"
+      },
+      "expected": {
+        "claim_disposition": "reject",
+        "qops_disposition": "invalid",
+        "reason_code": "post_barrier_protected_effect"
+      }
+    },
+    {
+      "mutation_id": "CF01-M02",
+      "scenario_id": "MCRB-CF-01",
+      "name": "missing-revocation-barrier",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "remove-field",
+        "target_event_id": "cf01-e04",
+        "target_field": "expected_observations.barrier-identity",
+        "details": "Remove barrier identity evidence"
+      },
+      "expected": {
+        "claim_disposition": "indeterminate",
+        "qops_disposition": "incomplete",
+        "reason_code": "revocation_barrier_unproven"
+      }
+    },
+    {
+      "mutation_id": "CF01-M03",
+      "scenario_id": "MCRB-CF-01",
+      "name": "fresh-grant-identity-alias",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "replace-field",
+        "target_event_id": "cf01-e07",
+        "target_field": "parameters.grant_identity",
+        "details": "Reuse the revoked grant identity for the fresh-grant control instead of issuing a distinct grant identity."
+      },
+      "expected": {
+        "claim_disposition": "reject",
+        "qops_disposition": "invalid",
+        "reason_code": "grant_identity_alias"
+      }
+    },
+    {
+      "mutation_id": "CF02-M01",
+      "scenario_id": "MCRB-CF-02",
+      "name": "retry-with-new-idempotency-key",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "replace-field",
+        "target_event_id": "cf02-e05",
+        "target_field": "parameters.idempotency_key_commitment",
+        "details": "Change the idempotency commitment on retry"
+      },
+      "expected": {
+        "claim_disposition": "reject",
+        "qops_disposition": "invalid",
+        "reason_code": "idempotency_fingerprint_conflict"
+      }
+    },
+    {
+      "mutation_id": "CF02-M02",
+      "scenario_id": "MCRB-CF-02",
+      "name": "provider-ack-as-independent-observation",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "relabel-evidence",
+        "target_event_id": "cf02-e03",
+        "target_field": "parameters.acknowledgement",
+        "details": "Promote provider-reported acknowledgement to independent observation"
+      },
+      "expected": {
+        "claim_disposition": "reject",
+        "qops_disposition": "invalid",
+        "reason_code": "provider_report_mislabeled_independent"
+      }
+    },
+    {
+      "mutation_id": "CF02-M03",
+      "scenario_id": "MCRB-CF-02",
+      "name": "drop-effect-reconciliation",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "remove-event",
+        "target_event_id": "cf02-e06",
+        "target_field": "event_id",
+        "details": "Remove independent observation and reconciliation"
+      },
+      "expected": {
+        "claim_disposition": "indeterminate",
+        "qops_disposition": "incomplete",
+        "reason_code": "external_effect_unknown"
+      }
+    },
+    {
+      "mutation_id": "CF03-M01",
+      "scenario_id": "MCRB-CF-03",
+      "name": "required-peer-observation-missing",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "remove-event",
+        "target_event_id": "cf03-e07",
+        "target_field": "event_id",
+        "details": "Remove the required-peer record-digest observation"
+      },
+      "expected": {
+        "claim_disposition": "indeterminate",
+        "qops_disposition": "incomplete",
+        "reason_code": "required_peer_coverage_missing"
+      }
+    },
+    {
+      "mutation_id": "CF03-M02",
+      "scenario_id": "MCRB-CF-03",
+      "name": "storage-arc-as-convergence",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "replace-field",
+        "target_event_id": "cf03-e07",
+        "target_field": "parameters.observation_basis",
+        "details": "Replace record-digest agreement with storage-arc FULL only"
+      },
+      "expected": {
+        "claim_disposition": "reject",
+        "qops_disposition": "invalid",
+        "reason_code": "convergence_oracle_substitution"
+      }
+    },
+    {
+      "mutation_id": "CF03-M03",
+      "scenario_id": "MCRB-CF-03",
+      "name": "gossip-counter-truncation",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "remove-field",
+        "target_event_id": "cf03-e08",
+        "target_field": "parameters.send_receive_reconciliation_required",
+        "details": "Remove send/receive reconciliation while claiming complete exchange"
+      },
+      "expected": {
+        "claim_disposition": "reject",
+        "qops_disposition": "invalid",
+        "reason_code": "gossip_counter_reconciliation_failed"
+      }
+    },
+    {
+      "mutation_id": "CF04-M01",
+      "scenario_id": "MCRB-CF-04",
+      "name": "unknown-domain-counted-independent",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "replace-field",
+        "target_event_id": "cf04-e05",
+        "target_field": "parameters.dependency_relationship",
+        "details": "Change Unknown to Independent without new evidence"
+      },
+      "expected": {
+        "claim_disposition": "reject",
+        "qops_disposition": "invalid",
+        "reason_code": "unknown_failure_domain_promoted"
+      }
+    },
+    {
+      "mutation_id": "CF04-M02",
+      "scenario_id": "MCRB-CF-04",
+      "name": "stale-policy-replay",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "replace-field",
+        "target_event_id": "cf04-e05",
+        "target_field": "parameters.policy_epoch",
+        "details": "Accept a stale trust-policy epoch for current eligibility"
+      },
+      "expected": {
+        "claim_disposition": "reject",
+        "qops_disposition": "invalid",
+        "reason_code": "stale_trust_policy"
+      }
+    },
+    {
+      "mutation_id": "CF04-M03",
+      "scenario_id": "MCRB-CF-04",
+      "name": "split-view-consistency-proof-omitted",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "remove-field",
+        "target_event_id": "cf04-e07",
+        "target_field": "expected_observations.consistency-proof-or-failure",
+        "details": "Remove consistency evidence but retain eligible checkpoint status"
+      },
+      "expected": {
+        "claim_disposition": "indeterminate",
+        "qops_disposition": "incomplete",
+        "reason_code": "transparency_consistency_unproven"
+      }
+    },
+    {
+      "mutation_id": "CF05-M01",
+      "scenario_id": "MCRB-CF-05",
+      "name": "silent-new-agent-key-fallback",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "replace-field",
+        "target_event_id": "cf05-e04",
+        "target_field": "parameters.agent_key_source",
+        "details": "Substitute a newly generated agent key for the explicit original key"
+      },
+      "expected": {
+        "claim_disposition": "reject",
+        "qops_disposition": "invalid",
+        "reason_code": "restore_identity_mismatch"
+      }
+    },
+    {
+      "mutation_id": "CF05-M02",
+      "scenario_id": "MCRB-CF-05",
+      "name": "partial-dht-marked-restored",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "replace-field",
+        "target_event_id": "cf05-e07",
+        "target_field": "parameters.require_complete_set",
+        "details": "Mark recovery complete while promised records remain absent"
+      },
+      "expected": {
+        "claim_disposition": "reject",
+        "qops_disposition": "invalid",
+        "reason_code": "recovery_completeness_false_claim"
+      }
+    },
+    {
+      "mutation_id": "CF05-M03",
+      "scenario_id": "MCRB-CF-05",
+      "name": "promised-record-observation-missing",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "remove-field",
+        "target_event_id": "cf05-e07",
+        "target_field": "parameters.required_record_coverage",
+        "details": "Omit one required record digest from the reconstruction evidence"
+      },
+      "expected": {
+        "claim_disposition": "indeterminate",
+        "qops_disposition": "incomplete",
+        "reason_code": "recovery_record_coverage_incomplete"
+      }
+    },
+    {
+      "mutation_id": "CF06-M01",
+      "scenario_id": "MCRB-CF-06",
+      "name": "clock-epoch-cross-pair",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "replace-field",
+        "target_event_id": "cf06-e04",
+        "target_field": "parameters.cross_host_clock_epoch_match",
+        "details": "Change the receive-side epoch but retain the cross-host timing interval"
+      },
+      "expected": {
+        "claim_disposition": "indeterminate",
+        "qops_disposition": "incomplete",
+        "reason_code": "clock_epoch_mismatch"
+      }
+    },
+    {
+      "mutation_id": "CF06-M02",
+      "scenario_id": "MCRB-CF-06",
+      "name": "telemetry-loss-hidden",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "remove-field",
+        "target_event_id": "cf06-e05",
+        "target_field": "parameters.loss_counters_required",
+        "details": "Remove telemetry-loss counters while omitting observations"
+      },
+      "expected": {
+        "claim_disposition": "indeterminate",
+        "qops_disposition": "incomplete",
+        "reason_code": "observation_coverage_unknown"
+      }
+    },
+    {
+      "mutation_id": "CF06-M03",
+      "scenario_id": "MCRB-CF-06",
+      "name": "point-latency-above-uncertainty",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "replace-field",
+        "target_event_id": "cf06-e07",
+        "target_field": "parameters.point_latency_requires_valid_uncertainty",
+        "details": "Emit a point estimate even though uncertainty exceeds the measured interval"
+      },
+      "expected": {
+        "claim_disposition": "reject",
+        "qops_disposition": "invalid",
+        "reason_code": "point_latency_uncertainty_violation"
+      }
+    },
+    {
+      "mutation_id": "CF07-M01",
+      "scenario_id": "MCRB-CF-07",
+      "name": "synchrony-mislabeled-causality",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "replace-field",
+        "target_event_id": "cf07-e07",
+        "target_field": "parameters.causal_inference_basis",
+        "details": "Infer a shared cause solely because independent faults were synchronized"
+      },
+      "expected": {
+        "claim_disposition": "reject",
+        "qops_disposition": "invalid",
+        "reason_code": "correlation_presented_as_causation"
+      }
+    },
+    {
+      "mutation_id": "CF07-M02",
+      "scenario_id": "MCRB-CF-07",
+      "name": "hidden-common-dependency-promoted-independent",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "remove-field",
+        "target_event_id": "cf07-e02",
+        "target_field": "parameters.inventory_edge_visibility",
+        "details": "Hide shared parent edge then assert independent failure domains"
+      },
+      "expected": {
+        "claim_disposition": "reject",
+        "qops_disposition": "invalid",
+        "reason_code": "unknown_dependency_promoted_independent"
+      }
+    },
+    {
+      "mutation_id": "CF07-M03",
+      "scenario_id": "MCRB-CF-07",
+      "name": "collector-fault-as-system-failure",
+      "status": "proposed-not-executed",
+      "transform": {
+        "operation": "replace-field",
+        "target_event_id": "cf07-e07",
+        "target_field": "parameters.root_cause_scope",
+        "details": "Treat a shared collector outage as proof of a shared application/runtime failure"
+      },
+      "expected": {
+        "claim_disposition": "reject",
+        "qops_disposition": "invalid",
+        "reason_code": "observation_nuisance_misclassified"
+      }
+    }
+  ],
+  "metamorphic_tests": [
+    {
+      "test_id": "MCRB-MM-01",
+      "name": "independent-event-array-permutation",
+      "transformation": "Permute serialized order of events that have no causal relation while preserving event identities, local process sequence and causal edges.",
+      "invariant": "Semantic report and claim dispositions remain identical.",
+      "expected": "same-semantic-result"
+    },
+    {
+      "test_id": "MCRB-MM-02",
+      "name": "wall-clock-label-invariance",
+      "transformation": "Change descriptive wall-clock labels while preserving local monotonic ticks, clock IDs, epochs and evidence-backed causal edges.",
+      "invariant": "Causal order and local-duration results remain identical; no cross-host order may be inferred.",
+      "expected": "same-semantic-result"
+    },
+    {
+      "test_id": "MCRB-MM-03",
+      "name": "duplicate-witness-does-not-increase-quorum",
+      "transformation": "Duplicate an attestation envelope byte-for-byte under a different transport/event ID but retain the same witness identity, key and failure-domain lineage.",
+      "invariant": "Distinct witness count and quorum disposition do not increase.",
+      "expected": "same-quorum-result"
+    },
+    {
+      "test_id": "MCRB-MM-04",
+      "name": "same-seed-replay",
+      "transformation": "Replay the same frozen manifest, source inputs, seed commitment, generator digest, runtime tuple, topology and scheduler version.",
+      "invariant": "Logical schedule digest and expected oracle disposition are identical.",
+      "expected": "same-schedule-and-result"
+    },
+    {
+      "test_id": "MCRB-MM-05",
+      "name": "json-object-key-order-invariance",
+      "transformation": "Reorder JSON object member serialization without changing typed values, event identities or raw evidence commitments.",
+      "invariant": "Parsed semantic disposition is unchanged; exact-byte artifact digest is expected to change.",
+      "expected": "same-semantic-result-new-byte-digest"
+    }
+  ],
+  "acceptance": {
+    "mutation_count_minimum": 21,
+    "metamorphic_test_count_minimum": 5,
+    "every_scenario_has_at_least_three_mutations": true,
+    "every_mutation_has_expected_claim_and_qops_disposition": true,
+    "every_mutation_has_stable_reason_code": true,
+    "false_acceptance_target": 0,
+    "false_rejection_target": "report separately; never hide in aggregate accuracy",
+    "disagreements": "indeterminate-until-independent-adjudication"
+  }
+}

@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/benchmarks/MCRB_COMPOUND_FAULT_MUTATIONS_V0_1.schema.json",
+  "title": "Mycelix MCRB compound-fault mutation and metamorphic oracle pack v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "artifact_id",
+    "status",
+    "source_issue",
+    "timeline_manifest",
+    "purpose",
+    "mutation_policy",
+    "mutations",
+    "metamorphic_tests",
+    "acceptance"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix-mcrb-compound-fault-mutations-v0.1"
+    },
+    "benchmark_id": {
+      "const": "MCRB"
+    },
+    "artifact_id": {
+      "const": "MCRB-COMPOUND-FAULT-MUTATIONS-001"
+    },
+    "status": {
+      "const": "proposed-not-executed"
+    },
+    "source_issue": {
+      "type": "string",
+      "format": "uri"
+    },
+    "timeline_manifest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 30
+    },
+    "mutation_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_never_controls_expected_result",
+        "every_mutant_binds_scenario_and_exact_target",
+        "mutation_seed_and_transformer_digest_required_at_execution",
+        "preserve_original_and_mutated_artifacts",
+        "mutation_must_not_silently_rewrite_expected_oracle",
+        "no_qops_eligibility_from_synthetic_fixture",
+        "hard_correctness_violation_invalidates_qops",
+        "incomplete_required_evidence_suppresses_qops"
+      ],
+      "properties": {
+        "candidate_never_controls_expected_result": {
+          "const": true
+        },
+        "every_mutant_binds_scenario_and_exact_target": {
+          "const": true
+        },
+        "mutation_seed_and_transformer_digest_required_at_execution": {
+          "const": true
+        },
+        "preserve_original_and_mutated_artifacts": {
+          "const": true
+        },
+        "mutation_must_not_silently_rewrite_expected_oracle": {
+          "const": true
+        },
+        "no_qops_eligibility_from_synthetic_fixture": {
+          "const": true
+        },
+        "hard_correctness_violation_invalidates_qops": {
+          "const": true
+        },
+        "incomplete_required_evidence_suppresses_qops": {
+          "const": true
+        }
+      }
+    },
+    "mutations": {
+      "type": "array",
+      "minItems": 21,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mutation_id",
+          "scenario_id",
+          "name",
+          "status",
+          "transform",
+          "expected"
+        ],
+        "properties": {
+          "mutation_id": {
+            "type": "string",
+            "pattern": "^CF[0-9]{2}-M[0-9]{2}$"
+          },
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^MCRB-CF-[0-9]{2}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 3
+          },
+          "status": {
+            "const": "proposed-not-executed"
+          },
+          "transform": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation",
+              "target_event_id",
+              "target_field",
+              "details"
+            ],
+            "properties": {
+              "operation": {
+                "enum": [
+                  "insert-effect",
+                  "remove-field",
+                  "replace-field",
+                  "relabel-evidence",
+                  "remove-event"
+                ]
+              },
+              "target_event_id": {
+                "type": "string",
+                "pattern": "^cf[0-9]{2}-e[0-9]{2}$"
+              },
+              "target_field": {
+                "type": "string",
+                "minLength": 1
+              },
+              "details": {
+                "type": "string",
+                "minLength": 10
+              }
+            }
+          },
+          "expected": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "claim_disposition",
+              "qops_disposition",
+              "reason_code"
+            ],
+            "properties": {
+              "claim_disposition": {
+                "enum": [
+                  "reject",
+                  "indeterminate"
+                ]
+              },
+              "qops_disposition": {
+                "enum": [
+                  "invalid",
+                  "incomplete"
+                ]
+              },
+              "reason_code": {
+                "type": "string",
+                "pattern": "^[a-z0-9_]+$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "metamorphic_tests": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "test_id",
+          "name",
+          "transformation",
+          "invariant",
+          "expected"
+        ],
+        "properties": {
+          "test_id": {
+            "type": "string",
+            "pattern": "^MCRB-MM-[0-9]{2}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 3
+          },
+          "transformation": {
+            "type": "string",
+            "minLength": 20
+          },
+          "invariant": {
+            "type": "string",
+            "minLength": 20
+          },
+          "expected": {
+            "enum": [
+              "same-semantic-result",
+              "same-quorum-result",
+              "same-schedule-and-result",
+              "same-semantic-result-new-byte-digest"
+            ]
+          }
+        }
+      }
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mutation_count_minimum",
+        "metamorphic_test_count_minimum",
+        "every_scenario_has_at_least_three_mutations",
+        "every_mutation_has_expected_claim_and_qops_disposition",
+        "every_mutation_has_stable_reason_code",
+        "false_acceptance_target",
+        "false_rejection_target",
+        "disagreements"
+      ],
+      "properties": {
+        "mutation_count_minimum": {
+          "type": "integer",
+          "minimum": 21
+        },
+        "metamorphic_test_count_minimum": {
+          "type": "integer",
+          "minimum": 5
+        },
+        "every_scenario_has_at_least_three_mutations": {
+          "const": true
+        },
+        "every_mutation_has_expected_claim_and_qops_disposition": {
+          "const": true
+        },
+        "every_mutation_has_stable_reason_code": {
+          "const": true
+        },
+        "false_acceptance_target": {
+          "const": 0
+        },
+        "false_rejection_target": {
+          "type": "string"
+        },
+        "disagreements": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

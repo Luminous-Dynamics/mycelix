@@ -1,0 +1,1479 @@
+{
+  "schema_version": "mycelix-mcrb-compound-fault-timelines-v0.1",
+  "benchmark_id": "MCRB",
+  "artifact_id": "MCRB-COMPOUND-FAULT-TIMELINES-001",
+  "status": "proposed-not-executed",
+  "purpose": "Executable, replayable compound-fault schedules testing whether Mycelix preserves authority, effect, observation, timing, recovery and witness-qualification invariants when multiple failures overlap.",
+  "source_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6407",
+  "scenario_manifest_ref": "docs/benchmarks/MCRB_V0_1_SCENARIO_MANIFEST.json",
+  "schedule_model": {
+    "version": "causal-dag-v1",
+    "event_identity": "stable-event-id-within-scenario",
+    "ordering": "causal-predecessors-define-happens-before; independent events may be interleaved by a deterministic scheduler",
+    "randomness": "seeded-prng-with-committed-seed-digest; record generator binary digest and scheduler version",
+    "clock_model": "per-host monotonic clock identity and epoch; wall-clock timestamps are descriptive only",
+    "cross_host_timing": "emit intervals only when clock mapping, calibration validity and uncertainty bounds verify; otherwise NotEvaluated or Incomplete",
+    "replay_requirement": "same manifest, seed, scenario inputs, runtime tuple and scheduler version reproduce the same logical action schedule",
+    "simulated_actor_policy": "simulated actors must be explicitly labelled; simulated peers never count as real conductors",
+    "concurrency_group_semantics": "Events sharing a concurrency_group have no causal order implied by the group; the seeded scheduler may interleave them, while each event's explicit causal_predecessors remain mandatory."
+  },
+  "result_vocabulary": {
+    "execution": [
+      "Executed",
+      "NotRun",
+      "Unsupported",
+      "InfrastructureIncomplete"
+    ],
+    "effect": [
+      "Applied",
+      "ConfirmedNotApplied",
+      "Partial",
+      "Unknown",
+      "NotAttempted"
+    ],
+    "evidence": [
+      "QualifiedIndependent",
+      "ProviderReportedOnly",
+      "KnownSharedDependency",
+      "UnknownRelationship",
+      "Missing",
+      "Contradictory",
+      "Invalid"
+    ],
+    "claim": [
+      "SupportedWithinScope",
+      "Rejected",
+      "Indeterminate",
+      "NotEvaluated"
+    ],
+    "qops": [
+      "Eligible",
+      "Incomplete",
+      "Invalid",
+      "NotEligible"
+    ]
+  },
+  "global_invariants": [
+    "No protected effect after the qualified revocation barrier.",
+    "No duplicate external effect for an offered operation and idempotency key.",
+    "No QOPS numerator derived from caller-authored outcome labels.",
+    "Unknown, partial, contradictory, missing or unsupported required evidence never silently becomes success.",
+    "No DHT convergence claim from local zome-call success or a single peer observation.",
+    "Unknown or known-shared critical dependencies never count toward witness independence quorum.",
+    "No point cross-host latency without valid clock identity, epoch, mapping and uncertainty bounds.",
+    "No recovery-complete claim until the complete promised record set and original identity are independently checked."
+  ],
+  "related_issues": [
+    6336,
+    6337,
+    6392,
+    6342,
+    6335,
+    6346,
+    6357,
+    6140,
+    6402,
+    5981,
+    1371,
+    1335,
+    6219
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "MCRB-CF-01",
+      "name": "revocation-partition-replay",
+      "status": "proposed-not-executed",
+      "risk_class": "critical-authority",
+      "purpose": "Test multi-function capability revocation while peers are partitioned and stale calls are delayed, duplicated and replayed.",
+      "related_mcrb_scenarios": [
+        "MCRB-17"
+      ],
+      "related_issues": [
+        6336,
+        6407
+      ],
+      "actors": [
+        "authority-conductor",
+        "remote-caller",
+        "network-fault-controller",
+        "effect-observer"
+      ],
+      "fault_domains": [
+        "capability-authority",
+        "conductor",
+        "peer-network",
+        "observer"
+      ],
+      "event_schedule": [
+        {
+          "event_id": "cf01-e01",
+          "actor": "authority-conductor",
+          "action": "grant-three-function-capability",
+          "causal_predecessors": [],
+          "parameters": {
+            "function_count": 3
+          },
+          "expected_observations": [
+            "grant-identity",
+            "allowed-function-set"
+          ],
+          "recovery_action": "preserve-original-grant-context"
+        },
+        {
+          "event_id": "cf01-e02",
+          "actor": "remote-caller",
+          "action": "invoke-before-partition",
+          "causal_predecessors": [
+            "cf01-e01"
+          ],
+          "parameters": {
+            "function_index": 0
+          },
+          "expected_observations": [
+            "baseline-disposition",
+            "baseline-effect"
+          ],
+          "recovery_action": "reconcile-baseline-effect"
+        },
+        {
+          "event_id": "cf01-e03",
+          "actor": "network-fault-controller",
+          "action": "partition-peers",
+          "causal_predecessors": [
+            "cf01-e02"
+          ],
+          "parameters": {
+            "mode": "bidirectional-isolation"
+          },
+          "expected_observations": [
+            "partition-event",
+            "peer-reachability"
+          ],
+          "recovery_action": "heal-partition"
+        },
+        {
+          "event_id": "cf01-e04",
+          "actor": "authority-conductor",
+          "action": "revoke-and-record-acknowledged-barrier",
+          "causal_predecessors": [
+            "cf01-e03"
+          ],
+          "parameters": {
+            "barrier": "authority-acknowledgement"
+          },
+          "expected_observations": [
+            "revocation-record",
+            "barrier-identity"
+          ],
+          "recovery_action": "preserve-revocation-record"
+        },
+        {
+          "event_id": "cf01-e05",
+          "actor": "remote-caller",
+          "action": "queue-delayed-duplicate-stale-secret-calls",
+          "causal_predecessors": [
+            "cf01-e04"
+          ],
+          "parameters": {
+            "delivery": "delayed-duplicate-replay",
+            "calls_per_function": 3
+          },
+          "expected_observations": [
+            "attempt-identities",
+            "queue-commitment"
+          ],
+          "recovery_action": "reconcile-every-attempt"
+        },
+        {
+          "event_id": "cf01-e06",
+          "actor": "network-fault-controller",
+          "action": "heal-and-deliver-stale-calls",
+          "causal_predecessors": [
+            "cf01-e05"
+          ],
+          "parameters": {
+            "order": "seeded-interleaving",
+            "post_barrier_effect": false
+          },
+          "expected_observations": [
+            "per-function-dispositions",
+            "effect-records"
+          ],
+          "recovery_action": "account-for-all-attempts"
+        },
+        {
+          "event_id": "cf01-e07",
+          "actor": "authority-conductor",
+          "action": "issue-new-distinct-grant-and-run-control-call",
+          "causal_predecessors": [
+            "cf01-e06"
+          ],
+          "parameters": {
+            "grant_identity": "new-grant",
+            "function_index": 1
+          },
+          "expected_observations": [
+            "new-grant-identity",
+            "new-grant-call-disposition"
+          ],
+          "recovery_action": "revoke-control-grant"
+        },
+        {
+          "event_id": "cf01-e08",
+          "actor": "effect-observer",
+          "action": "reconcile-effects-against-revocation-barrier",
+          "causal_predecessors": [
+            "cf01-e06",
+            "cf01-e07"
+          ],
+          "parameters": {
+            "coverage": "all-attempts"
+          },
+          "expected_observations": [
+            "post-barrier-effect-count",
+            "observation-coverage"
+          ],
+          "recovery_action": "preserve-unknowns"
+        }
+      ],
+      "positive_controls": [
+        "single-function-revocation-control",
+        "fresh-distinct-grant-remains-usable"
+      ],
+      "negative_controls": [
+        "old-secret-after-barrier",
+        "function-order-change",
+        "duplicate-stale-call"
+      ],
+      "required_evidence": [
+        "exact-runtime-client",
+        "grant-and-revocation-records",
+        "barrier-provenance",
+        "per-attempt-records",
+        "independent-effect-observation"
+      ],
+      "expected_claims": [
+        "zero-protected-effects-after-qualified-revocation-barrier",
+        "all-attempts-reconciled-or-run-incomplete"
+      ],
+      "promotion_blockers": [
+        "any-protected-post-barrier-effect",
+        "missing-attempt-coverage",
+        "unverifiable-barrier"
+      ],
+      "claim_ceiling": "Applies only to the tested capability, runtime, grant shape, topology and barrier semantics; it does not establish universal instantaneous revocation."
+    },
+    {
+      "scenario_id": "MCRB-CF-02",
+      "name": "external-effect-crash-window-retry",
+      "status": "proposed-not-executed",
+      "risk_class": "critical-effect-integrity",
+      "purpose": "Exercise the ambiguous window where a provider applies an effect but the executor crashes before persisting its receipt.",
+      "related_mcrb_scenarios": [
+        "MCRB-08",
+        "MCRB-23"
+      ],
+      "related_issues": [
+        6342,
+        6357,
+        6140,
+        6407
+      ],
+      "actors": [
+        "offer-ledger",
+        "executor",
+        "provider",
+        "crash-controller",
+        "independent-observer",
+        "outcome-verifier"
+      ],
+      "fault_domains": [
+        "workload-generator",
+        "executor-process",
+        "provider",
+        "status-api",
+        "observer"
+      ],
+      "event_schedule": [
+        {
+          "event_id": "cf02-e01",
+          "actor": "offer-ledger",
+          "action": "commit-offer-before-dispatch",
+          "causal_predecessors": [],
+          "parameters": {
+            "operations": 1,
+            "idempotency_key_required": true
+          },
+          "expected_observations": [
+            "verified-offer",
+            "request-digest",
+            "idempotency-commitment"
+          ],
+          "recovery_action": "retain-offer-in-denominator"
+        },
+        {
+          "event_id": "cf02-e02",
+          "actor": "executor",
+          "action": "dispatch-effect",
+          "causal_predecessors": [
+            "cf02-e01"
+          ],
+          "parameters": {
+            "attempt": 1
+          },
+          "expected_observations": [
+            "attempt-identity",
+            "provider-request-digest"
+          ],
+          "recovery_action": "query-provider-and-observer"
+        },
+        {
+          "event_id": "cf02-e03",
+          "actor": "provider",
+          "action": "apply-and-acknowledge-effect",
+          "causal_predecessors": [
+            "cf02-e02"
+          ],
+          "parameters": {
+            "effects": 1,
+            "acknowledgement": "provider-reported"
+          },
+          "expected_observations": [
+            "provider-effect-id",
+            "acknowledgement"
+          ],
+          "recovery_action": "do-not-assume-local-durability"
+        },
+        {
+          "event_id": "cf02-e04",
+          "actor": "crash-controller",
+          "action": "crash-before-receipt-persistence",
+          "causal_predecessors": [
+            "cf02-e03"
+          ],
+          "parameters": {
+            "crash_point": "after-provider-acceptance"
+          },
+          "expected_observations": [
+            "crash-marker",
+            "missing-local-receipt"
+          ],
+          "recovery_action": "restart-with-same-operation-identity"
+        },
+        {
+          "event_id": "cf02-e05",
+          "actor": "executor",
+          "action": "retry-with-same-idempotency-key",
+          "causal_predecessors": [
+            "cf02-e04"
+          ],
+          "parameters": {
+            "attempt": 2,
+            "reuse_request_digest": true,
+            "idempotency_key_commitment": "same-as-original"
+          },
+          "expected_observations": [
+            "retry-identity",
+            "provider-idempotency-result"
+          ],
+          "recovery_action": "stop-new-dispatch-on-conflict"
+        },
+        {
+          "event_id": "cf02-e06",
+          "actor": "independent-observer",
+          "action": "observe-and-reconcile-provider-effect",
+          "causal_predecessors": [
+            "cf02-e05"
+          ],
+          "parameters": {
+            "relationship": "must-be-qualified"
+          },
+          "expected_observations": [
+            "observation-provenance",
+            "coverage",
+            "effect-cardinality"
+          ],
+          "recovery_action": "retain-contradictions"
+        },
+        {
+          "event_id": "cf02-e07",
+          "actor": "outcome-verifier",
+          "action": "verify-one-terminal-outcome-per-offer",
+          "causal_predecessors": [
+            "cf02-e06"
+          ],
+          "parameters": {
+            "outcomes": [
+              "Applied",
+              "ConfirmedNotApplied",
+              "Partial",
+              "Unknown"
+            ]
+          },
+          "expected_observations": [
+            "verified-outcome-ledger",
+            "qops-disposition"
+          ],
+          "recovery_action": "keep-unknown-until-reconciled"
+        }
+      ],
+      "positive_controls": [
+        "same-key-idempotent-retry",
+        "complete-independent-effect-observation"
+      ],
+      "negative_controls": [
+        "retry-with-new-key",
+        "provider-ack-as-independent-observation",
+        "drop-reconciliation-suffix",
+        "duplicate-provider-effect"
+      ],
+      "required_evidence": [
+        "verified-offer-ledger",
+        "request-and-idempotency-binding",
+        "all-dispatch-attempts",
+        "provider-receipt",
+        "observer-provenance",
+        "verified-outcome-ledger"
+      ],
+      "expected_claims": [
+        "at-most-one-effect-per-idempotency-key",
+        "unknown-outcome-suppresses-qops",
+        "provider-report-is-not-independent-observation"
+      ],
+      "promotion_blockers": [
+        "duplicate-effect",
+        "fabricated-outcome",
+        "unknown-counted-as-success",
+        "offer-removed-from-denominator"
+      ],
+      "claim_ceiling": "Provider acknowledgement proves provider assertion only; the declared effect proposition and qualified observation profile bound the claim."
+    },
+    {
+      "scenario_id": "MCRB-CF-03",
+      "name": "gossip-backlog-peer-churn-restart",
+      "status": "proposed-not-executed",
+      "risk_class": "critical-availability",
+      "purpose": "Test high-cardinality DHT convergence while peer churn and conductor restart interrupt recovery.",
+      "related_mcrb_scenarios": [
+        "MCRB-03",
+        "MCRB-18",
+        "MCRB-20",
+        "MCRB-22"
+      ],
+      "related_issues": [
+        6336,
+        6337,
+        6407
+      ],
+      "actors": [
+        "conductor-a",
+        "conductor-b",
+        "conductor-c",
+        "network-fault-controller",
+        "host-observer",
+        "peer-observer"
+      ],
+      "fault_domains": [
+        "gossip",
+        "peer-topology",
+        "conductor-process",
+        "storage",
+        "host-observer"
+      ],
+      "event_schedule": [
+        {
+          "event_id": "cf03-e01",
+          "actor": "conductor-a",
+          "action": "author-divergent-history-a",
+          "causal_predecessors": [],
+          "parameters": {
+            "minimum_missing_op_ids": 10923
+          },
+          "expected_observations": [
+            "op-set-a",
+            "DNA-hash",
+            "chain-head-a"
+          ],
+          "recovery_action": "preserve-authored-set"
+        },
+        {
+          "event_id": "cf03-e02",
+          "actor": "conductor-b",
+          "action": "author-divergent-history-b",
+          "causal_predecessors": [],
+          "parameters": {
+            "minimum_missing_op_ids": 10923
+          },
+          "expected_observations": [
+            "op-set-b",
+            "DNA-hash",
+            "chain-head-b"
+          ],
+          "recovery_action": "preserve-authored-set"
+        },
+        {
+          "event_id": "cf03-e03",
+          "actor": "network-fault-controller",
+          "action": "connect-with-pinned-gossip-config",
+          "causal_predecessors": [
+            "cf03-e01",
+            "cf03-e02"
+          ],
+          "parameters": {
+            "profiles": [
+              "release-default",
+              "pinned-1MiB-workaround"
+            ]
+          },
+          "expected_observations": [
+            "config-digest",
+            "exchange-errors"
+          ],
+          "recovery_action": "retain-failed-exchange-evidence"
+        },
+        {
+          "event_id": "cf03-e04",
+          "actor": "network-fault-controller",
+          "action": "churn-topology-during-incomplete-sync",
+          "causal_predecessors": [
+            "cf03-e03"
+          ],
+          "parameters": {
+            "actions": [
+              "remove-peer-c",
+              "rejoin-peer-c",
+              "partition-a-b"
+            ]
+          },
+          "expected_observations": [
+            "topology-epochs",
+            "membership-events"
+          ],
+          "recovery_action": "restore-target-topology"
+        },
+        {
+          "event_id": "cf03-e05",
+          "actor": "conductor-b",
+          "action": "restart-with-gossip-backlog",
+          "causal_predecessors": [
+            "cf03-e04"
+          ],
+          "parameters": {
+            "mode": "process-restart-preserve-data"
+          },
+          "expected_observations": [
+            "restart-marker",
+            "database-identity",
+            "cell-state"
+          ],
+          "recovery_action": "verify-no-data-loss"
+        },
+        {
+          "event_id": "cf03-e06",
+          "actor": "network-fault-controller",
+          "action": "heal-and-resume-gossip",
+          "causal_predecessors": [
+            "cf03-e05"
+          ],
+          "parameters": {
+            "mode": "runtime-gossip"
+          },
+          "expected_observations": [
+            "gossip-rounds",
+            "send-receive-counters"
+          ],
+          "recovery_action": "continue-to-convergence-or-timeout"
+        },
+        {
+          "event_id": "cf03-e07",
+          "actor": "peer-observer",
+          "action": "verify-required-peer-record-digests",
+          "causal_predecessors": [
+            "cf03-e06"
+          ],
+          "parameters": {
+            "coverage": "all-declared-live-peers",
+            "observation_basis": "per-peer-record-digest"
+          },
+          "expected_observations": [
+            "per-peer-record-digests",
+            "missing-record-count"
+          ],
+          "recovery_action": "classify-incomplete-peers"
+        },
+        {
+          "event_id": "cf03-e08",
+          "actor": "host-observer",
+          "action": "measure-convergence-and-resource-cost",
+          "causal_predecessors": [
+            "cf03-e05",
+            "cf03-e06"
+          ],
+          "parameters": {
+            "metrics": [
+              "CPU",
+              "RSS",
+              "disk-IO",
+              "network-IO",
+              "per-peer-lag"
+            ],
+            "send_receive_reconciliation_required": true
+          },
+          "expected_observations": [
+            "raw-host-traces",
+            "per-peer-distribution"
+          ],
+          "recovery_action": "retain-invalid-samples"
+        }
+      ],
+      "positive_controls": [
+        "one-peer-ahead-catches-up",
+        "small-history-two-peer-convergence"
+      ],
+      "negative_controls": [
+        "more-than-10922-op-ids",
+        "restart-mid-round",
+        "peer-churn-mid-sync",
+        "local-write-counted-as-convergence"
+      ],
+      "required_evidence": [
+        "exact-runtime-and-kitsune2",
+        "Wind-Tunnel-source-commit-if-used",
+        "happ-and-DNA-hashes",
+        "gossip-config-digest",
+        "per-peer-record-digests",
+        "host-traces",
+        "counter-reconciliation"
+      ],
+      "expected_claims": [
+        "all-required-peers-converge-or-run-incomplete",
+        "no-silent-lost-gossip-rounds",
+        "resource-cost-per-qualified-operation-reported"
+      ],
+      "promotion_blockers": [
+        "missing-peer-observation",
+        "unreconciled-counters",
+        "simulated-peer-counted-as-real",
+        "storage-arc-used-as-sole-oracle"
+      ],
+      "claim_ceiling": "Applies only to the tested runtime tuple and topology; results from simulated peers or different runtime dependencies do not transfer automatically."
+    },
+    {
+      "scenario_id": "MCRB-CF-04",
+      "name": "witness-compromise-key-rotation-split-view",
+      "status": "proposed-not-executed",
+      "risk_class": "critical-assurance-integrity",
+      "purpose": "Test quorum and transparency verification during key rotation, compromised witness behavior and inconsistent log views.",
+      "related_mcrb_scenarios": [
+        "MCRB-16"
+      ],
+      "related_issues": [
+        6402,
+        6346,
+        1371,
+        1335,
+        6407
+      ],
+      "actors": [
+        "witness-a",
+        "witness-b",
+        "witness-c",
+        "trust-policy-authority",
+        "log-a",
+        "log-b",
+        "offline-verifier"
+      ],
+      "fault_domains": [
+        "organization-control",
+        "execution-provider",
+        "evidence-source",
+        "signing-key",
+        "transparency-operator",
+        "trust-root"
+      ],
+      "event_schedule": [
+        {
+          "event_id": "cf04-e01",
+          "actor": "trust-policy-authority",
+          "action": "publish-pinned-witness-policy",
+          "causal_predecessors": [],
+          "parameters": {
+            "profile": "standard-benchmark",
+            "proposed_quorum": "2-of-3"
+          },
+          "expected_observations": [
+            "policy-digest",
+            "failure-domain-map",
+            "key-validity"
+          ],
+          "recovery_action": "preserve-policy-version"
+        },
+        {
+          "event_id": "cf04-e02",
+          "actor": "witness-a",
+          "action": "attest-context-bound-gate",
+          "causal_predecessors": [
+            "cf04-e01"
+          ],
+          "parameters": {
+            "binding": "run-scenario-contract-runtime-topology"
+          },
+          "expected_observations": [
+            "attestation-a",
+            "verifier-identity-a"
+          ],
+          "recovery_action": "retain-envelope"
+        },
+        {
+          "event_id": "cf04-e03",
+          "actor": "witness-b",
+          "action": "attest-from-distinct-failure-domain",
+          "causal_predecessors": [
+            "cf04-e01"
+          ],
+          "parameters": {
+            "distinct_domains_required": true
+          },
+          "expected_observations": [
+            "attestation-b",
+            "domain-proof"
+          ],
+          "recovery_action": "retain-domain-relationships"
+        },
+        {
+          "event_id": "cf04-e04",
+          "actor": "trust-policy-authority",
+          "action": "rotate-and-revoke-witness-a-key",
+          "causal_predecessors": [
+            "cf04-e02",
+            "cf04-e03"
+          ],
+          "parameters": {
+            "mode": "new-key-preserve-history"
+          },
+          "expected_observations": [
+            "rotation-lineage",
+            "revocation-epoch"
+          ],
+          "recovery_action": "retain-valid-historical-signatures"
+        },
+        {
+          "event_id": "cf04-e05",
+          "actor": "witness-c",
+          "action": "submit-stale-policy-shared-domain-attestation",
+          "causal_predecessors": [
+            "cf04-e04"
+          ],
+          "parameters": {
+            "relationship": "known-shared-or-unknown",
+            "policy_epoch": "stale",
+            "dependency_relationship": "known-shared-or-unknown"
+          },
+          "expected_observations": [
+            "stale-attestation",
+            "dependency-relationship"
+          ],
+          "recovery_action": "exclude-from-current-quorum"
+        },
+        {
+          "event_id": "cf04-e06",
+          "actor": "log-a",
+          "action": "publish-checkpoint-and-inclusion-proof",
+          "causal_predecessors": [
+            "cf04-e02",
+            "cf04-e03"
+          ],
+          "parameters": {
+            "profile": "pinned-merkle-log"
+          },
+          "expected_observations": [
+            "checkpoint-a",
+            "inclusion-proof"
+          ],
+          "recovery_action": "retain-proof-bundle"
+        },
+        {
+          "event_id": "cf04-e07",
+          "actor": "log-b",
+          "action": "present-conflicting-checkpoint-view",
+          "causal_predecessors": [
+            "cf04-e06"
+          ],
+          "parameters": {
+            "split_view": true,
+            "consistency_proof_required": true
+          },
+          "expected_observations": [
+            "checkpoint-b",
+            "consistency-proof-or-failure"
+          ],
+          "recovery_action": "raise-equivocation"
+        },
+        {
+          "event_id": "cf04-e08",
+          "actor": "offline-verifier",
+          "action": "verify-quorum-and-transparency-offline",
+          "causal_predecessors": [
+            "cf04-e04",
+            "cf04-e05",
+            "cf04-e07"
+          ],
+          "parameters": {
+            "network_during_verification": "disabled"
+          },
+          "expected_observations": [
+            "quorum-decision",
+            "key-validity",
+            "consistency-decision"
+          ],
+          "recovery_action": "withhold-eligibility-on-conflict"
+        }
+      ],
+      "positive_controls": [
+        "distinct-admin-and-execution-domains",
+        "valid-historical-signature-before-revocation"
+      ],
+      "negative_controls": [
+        "same-operator-two-keys",
+        "unknown-domain-counted-independent",
+        "stale-policy-replay",
+        "split-view-log",
+        "conflicting-results-majority-voted"
+      ],
+      "required_evidence": [
+        "pinned-witness-policy",
+        "key-rotation-lineage",
+        "attestation-envelopes",
+        "domain-dependency-closure",
+        "signed-checkpoints",
+        "inclusion-and-consistency-proofs",
+        "offline-verifier-closure"
+      ],
+      "expected_claims": [
+        "unknown-or-shared-critical-domain-does-not-count",
+        "revoked-key-not-valid-after-cutoff",
+        "split-view-or-conflict-withholds-eligibility"
+      ],
+      "promotion_blockers": [
+        "false-independent-promotion",
+        "stale-key-accepted",
+        "unverified-log-consistency",
+        "conflict-discarded"
+      ],
+      "claim_ceiling": "A valid quorum and transparency proof establish policy-conformant evidence publication, not the truth of the underlying runtime observation."
+    },
+    {
+      "scenario_id": "MCRB-CF-05",
+      "name": "large-lair-key-inventory-partial-dht-restore",
+      "status": "proposed-not-executed",
+      "risk_class": "critical-recovery-identity",
+      "purpose": "Test explicit existing-agent-key install and restore when Lair inventory is large and DHT convergence is partial.",
+      "related_mcrb_scenarios": [
+        "MCRB-21"
+      ],
+      "related_issues": [
+        6336,
+        5719,
+        6407
+      ],
+      "actors": [
+        "lair",
+        "restore-target",
+        "peer-a",
+        "peer-b",
+        "identity-observer",
+        "recovery-verifier"
+      ],
+      "fault_domains": [
+        "keystore",
+        "conductor",
+        "DHT-peer-set",
+        "restore-source",
+        "identity-observer"
+      ],
+      "event_schedule": [
+        {
+          "event_id": "cf05-e01",
+          "actor": "lair",
+          "action": "seed-existing-agent-key-inventory",
+          "causal_predecessors": [],
+          "parameters": {
+            "key_counts": [
+              3,
+              40,
+              41,
+              80,
+              120
+            ],
+            "explicit_target_key": true
+          },
+          "expected_observations": [
+            "inventory-count",
+            "target-public-key",
+            "keystore-identity"
+          ],
+          "recovery_action": "preserve-original-keystore"
+        },
+        {
+          "event_id": "cf05-e02",
+          "actor": "peer-a",
+          "action": "publish-promised-source-chain-record-set",
+          "causal_predecessors": [
+            "cf05-e01"
+          ],
+          "parameters": {
+            "record_set": "frozen-recovery-contract"
+          },
+          "expected_observations": [
+            "authored-record-set",
+            "agent-identity",
+            "record-digests"
+          ],
+          "recovery_action": "retain-source-set"
+        },
+        {
+          "event_id": "cf05-e03",
+          "actor": "network-fault-controller",
+          "action": "make-DHT-partially-converged",
+          "causal_predecessors": [
+            "cf05-e02"
+          ],
+          "parameters": {
+            "peer_a_complete": true,
+            "peer_b_missing_fraction": 0.25
+          },
+          "expected_observations": [
+            "per-peer-coverage",
+            "connectivity-state"
+          ],
+          "recovery_action": "restore-connectivity"
+        },
+        {
+          "event_id": "cf05-e04",
+          "actor": "restore-target",
+          "action": "install-and-restore-with-explicit-existing-key",
+          "causal_predecessors": [
+            "cf05-e01",
+            "cf05-e03"
+          ],
+          "parameters": {
+            "restore_from_dht": true,
+            "allow_silent_new_identity": false,
+            "agent_key_source": "explicit-existing-key"
+          },
+          "expected_observations": [
+            "install-disposition",
+            "actual-agent-public-key",
+            "restore-state"
+          ],
+          "recovery_action": "preserve-partial-state"
+        },
+        {
+          "event_id": "cf05-e05",
+          "actor": "network-fault-controller",
+          "action": "restore-connectivity-and-complete-sync",
+          "causal_predecessors": [
+            "cf05-e04"
+          ],
+          "parameters": {
+            "coverage": "all-required-peers"
+          },
+          "expected_observations": [
+            "convergence-events",
+            "record-digest-coverage"
+          ],
+          "recovery_action": "reconcile-or-report-incomplete"
+        },
+        {
+          "event_id": "cf05-e06",
+          "actor": "identity-observer",
+          "action": "verify-original-agent-identity",
+          "causal_predecessors": [
+            "cf05-e04",
+            "cf05-e05"
+          ],
+          "parameters": {
+            "identity_match_required": true
+          },
+          "expected_observations": [
+            "identity-binding-proof",
+            "authority-check"
+          ],
+          "recovery_action": "quarantine-mismatch"
+        },
+        {
+          "event_id": "cf05-e07",
+          "actor": "recovery-verifier",
+          "action": "verify-complete-promised-record-set",
+          "causal_predecessors": [
+            "cf05-e05",
+            "cf05-e06"
+          ],
+          "parameters": {
+            "require_complete_set": true,
+            "required_record_coverage": "complete"
+          },
+          "expected_observations": [
+            "recovered-digest-set",
+            "missing-count",
+            "RPO-RTO"
+          ],
+          "recovery_action": "keep-missing-records-incomplete"
+        }
+      ],
+      "positive_controls": [
+        "three-key-restore",
+        "complete-DHT-before-restore"
+      ],
+      "negative_controls": [
+        "41-plus-keys",
+        "wrong-explicit-agent-key",
+        "partial-DHT-reported-restored",
+        "silent-new-key-fallback"
+      ],
+      "required_evidence": [
+        "exact-Lair-and-Holochain-versions",
+        "keystore-inventory",
+        "explicit-agent-public-key",
+        "restore-request-and-result",
+        "per-peer-record-digests",
+        "independent-identity-check",
+        "recovery-contract"
+      ],
+      "expected_claims": [
+        "original-agent-identity-preserved",
+        "restore-complete-only-after-full-record-set",
+        "partial-DHT-remains-incomplete"
+      ],
+      "promotion_blockers": [
+        "identity-drift",
+        "partial-restore-reported-complete",
+        "missing-promised-record",
+        "new-key-fallback"
+      ],
+      "claim_ceiling": "Applies only to the tested Lair key-count range, restore path, runtime and recovery contract."
+    },
+    {
+      "scenario_id": "MCRB-CF-06",
+      "name": "clock-drift-telemetry-loss-recovery",
+      "status": "proposed-not-executed",
+      "risk_class": "critical-measurement-integrity",
+      "purpose": "Verify timing and convergence claims fail closed under clock drift, epoch changes and incomplete observation streams.",
+      "related_mcrb_scenarios": [
+        "MCRB-15",
+        "MCRB-16"
+      ],
+      "related_issues": [
+        6335,
+        6140,
+        6357,
+        6407
+      ],
+      "actors": [
+        "peer-a",
+        "peer-b",
+        "peer-c",
+        "clock-fault-controller",
+        "telemetry-collectors",
+        "metric-verifier"
+      ],
+      "fault_domains": [
+        "host-clocks",
+        "telemetry-pipeline",
+        "collector",
+        "verifier"
+      ],
+      "event_schedule": [
+        {
+          "event_id": "cf06-e01",
+          "actor": "peer-a",
+          "action": "emit-monotonic-clock-identity-and-epoch",
+          "causal_predecessors": [],
+          "parameters": {
+            "clock": "CLOCK_MONOTONIC_RAW"
+          },
+          "expected_observations": [
+            "clock-id-a",
+            "clock-epoch-a",
+            "tick-frequency"
+          ],
+          "recovery_action": "create-new-epoch-after-reset"
+        },
+        {
+          "event_id": "cf06-e02",
+          "actor": "peer-b",
+          "action": "emit-monotonic-clock-identity-and-epoch",
+          "causal_predecessors": [],
+          "parameters": {
+            "clock": "CLOCK_MONOTONIC_RAW"
+          },
+          "expected_observations": [
+            "clock-id-b",
+            "clock-epoch-b",
+            "tick-frequency"
+          ],
+          "recovery_action": "create-new-epoch-after-reset"
+        },
+        {
+          "event_id": "cf06-e03",
+          "actor": "clock-fault-controller",
+          "action": "inject-offset-drift-and-clock-reset",
+          "causal_predecessors": [
+            "cf06-e01",
+            "cf06-e02"
+          ],
+          "parameters": {
+            "faults": [
+              "offset-step",
+              "linear-drift",
+              "clock-reset"
+            ]
+          },
+          "expected_observations": [
+            "calibration-events",
+            "epoch-transition"
+          ],
+          "recovery_action": "invalidate-expired-calibration"
+        },
+        {
+          "event_id": "cf06-e04",
+          "actor": "peer-a",
+          "action": "publish-and-observe-correlated-record",
+          "causal_predecessors": [
+            "cf06-e03"
+          ],
+          "parameters": {
+            "pairing": "operation-id-and-record-digest",
+            "cross_host_clock_epoch_match": true
+          },
+          "expected_observations": [
+            "raw-send-ticks",
+            "raw-observe-ticks",
+            "record-digest"
+          ],
+          "recovery_action": "retain-unpaired-events"
+        },
+        {
+          "event_id": "cf06-e05",
+          "actor": "telemetry-collectors",
+          "action": "drop-duplicate-and-reorder-observations",
+          "causal_predecessors": [
+            "cf06-e04"
+          ],
+          "parameters": {
+            "mutations": [
+              "drop",
+              "duplicate",
+              "reorder"
+            ],
+            "loss_counters_required": true
+          },
+          "expected_observations": [
+            "loss-counters",
+            "ingest-order",
+            "event-id-set"
+          ],
+          "recovery_action": "mark-coverage-incomplete"
+        },
+        {
+          "event_id": "cf06-e06",
+          "actor": "peer-c",
+          "action": "restart-during-recovery-observation",
+          "causal_predecessors": [
+            "cf06-e05"
+          ],
+          "parameters": {
+            "mode": "process-restart"
+          },
+          "expected_observations": [
+            "restart-marker",
+            "new-clock-epoch",
+            "recovery-state"
+          ],
+          "recovery_action": "separate-clock-epochs"
+        },
+        {
+          "event_id": "cf06-e07",
+          "actor": "metric-verifier",
+          "action": "verify-clock-mapping-and-event-coverage",
+          "causal_predecessors": [
+            "cf06-e06"
+          ],
+          "parameters": {
+            "point_latency_requires_valid_uncertainty": true
+          },
+          "expected_observations": [
+            "clock-map",
+            "event-pair-coverage",
+            "counter-reconciliation"
+          ],
+          "recovery_action": "emit-indeterminate-or-incomplete"
+        },
+        {
+          "event_id": "cf06-e08",
+          "actor": "metric-verifier",
+          "action": "attempt-qops-with-incomplete-observations",
+          "causal_predecessors": [
+            "cf06-e07"
+          ],
+          "parameters": {
+            "caller_labels_authoritative": false
+          },
+          "expected_observations": [
+            "qops-status",
+            "suppressed-rate-fields"
+          ],
+          "recovery_action": "withhold-performance-claim"
+        }
+      ],
+      "positive_controls": [
+        "same-host-monotonic-duration",
+        "valid-cross-host-calibration"
+      ],
+      "negative_controls": [
+        "wall-clock-negative-duration",
+        "clock-epoch-mismatch",
+        "duplicate-event-pair",
+        "missing-observation-suffix",
+        "stale-calibration"
+      ],
+      "required_evidence": [
+        "raw-monotonic-ticks",
+        "clock-id-and-epoch",
+        "calibration-and-uncertainty",
+        "event-pair-digests",
+        "collector-completeness",
+        "send-receive-reconciliation"
+      ],
+      "expected_claims": [
+        "no-point-latency-with-invalid-map",
+        "missing-observations-suppress-convergence",
+        "invalid-metrics-suppress-qops"
+      ],
+      "promotion_blockers": [
+        "fabricated-clock-identity",
+        "unmatched-event-pair",
+        "missing-peer-coverage",
+        "qops-from-invalid-timing"
+      ],
+      "claim_ceiling": "Timing claims are limited to calibration validity and observation coverage actually demonstrated."
+    },
+    {
+      "scenario_id": "MCRB-CF-07",
+      "name": "hidden-common-cause-vs-synchronized-independent-faults",
+      "status": "proposed-not-executed",
+      "risk_class": "critical-failure-domain-assurance",
+      "purpose": "Test controlled interventions distinguish a hidden shared dependency from unrelated faults synchronized in time.",
+      "related_mcrb_scenarios": [
+        "MCRB-16"
+      ],
+      "related_issues": [
+        5981,
+        1371,
+        6402,
+        6140,
+        6407
+      ],
+      "actors": [
+        "scenario-oracle",
+        "candidate-auditor",
+        "shared-relay",
+        "peer-a",
+        "peer-b",
+        "collector",
+        "independent-evaluator"
+      ],
+      "fault_domains": [
+        "shared-relay",
+        "peer-runtime-a",
+        "peer-runtime-b",
+        "network-path",
+        "collector",
+        "observation-channel"
+      ],
+      "event_schedule": [
+        {
+          "event_id": "cf07-e01",
+          "actor": "scenario-oracle",
+          "action": "seal-ground-truth-topology-and-causal-graph",
+          "causal_predecessors": [],
+          "parameters": {
+            "visibility": "evaluator-only",
+            "inventory_omissions": "seeded"
+          },
+          "expected_observations": [
+            "ground-truth-commitment",
+            "sealed-scenario-id"
+          ],
+          "recovery_action": "retain-sealed-ground-truth"
+        },
+        {
+          "event_id": "cf07-e02",
+          "actor": "candidate-auditor",
+          "action": "receive-partial-public-dependency-inventory",
+          "causal_predecessors": [
+            "cf07-e01"
+          ],
+          "parameters": {
+            "unknown_edges_remain_unknown": true,
+            "inventory_edge_visibility": "partial-with-unknowns"
+          },
+          "expected_observations": [
+            "candidate-inventory-digest",
+            "declared-unknown-edges"
+          ],
+          "recovery_action": "preserve-input-snapshot"
+        },
+        {
+          "event_id": "cf07-e03",
+          "actor": "shared-relay",
+          "action": "intervene-on-hidden-shared-dependency",
+          "causal_predecessors": [
+            "cf07-e02"
+          ],
+          "parameters": {
+            "intervention": "bounded-service-degradation"
+          },
+          "expected_observations": [
+            "intervention-receipt",
+            "affected-endpoint-observations"
+          ],
+          "recovery_action": "restore-shared-service"
+        },
+        {
+          "event_id": "cf07-e04",
+          "actor": "peer-a",
+          "action": "inject-independent-local-fault-a",
+          "causal_predecessors": [
+            "cf07-e02"
+          ],
+          "parameters": {
+            "fault": "local-resource-exhaustion"
+          },
+          "expected_observations": [
+            "peer-a-fault-observation"
+          ],
+          "recovery_action": "restore-peer-a",
+          "concurrency_group": "cf07-independent-fault-pair"
+        },
+        {
+          "event_id": "cf07-e05",
+          "actor": "peer-b",
+          "action": "inject-time-synchronized-independent-fault-b",
+          "causal_predecessors": [
+            "cf07-e02"
+          ],
+          "parameters": {
+            "fault": "local-process-restart",
+            "sync": "logical-schedule-phase"
+          },
+          "expected_observations": [
+            "peer-b-fault-observation"
+          ],
+          "recovery_action": "restore-peer-b",
+          "concurrency_group": "cf07-independent-fault-pair"
+        },
+        {
+          "event_id": "cf07-e06",
+          "actor": "collector",
+          "action": "inject-shared-observer-pipeline-fault",
+          "causal_predecessors": [
+            "cf07-e03",
+            "cf07-e05"
+          ],
+          "parameters": {
+            "fault": "collector-outage",
+            "negative_control": true
+          },
+          "expected_observations": [
+            "collector-health",
+            "missingness-pattern"
+          ],
+          "recovery_action": "restore-and-reconcile-gap"
+        },
+        {
+          "event_id": "cf07-e07",
+          "actor": "independent-evaluator",
+          "action": "score-causal-attribution-after-candidate-lock",
+          "causal_predecessors": [
+            "cf07-e03",
+            "cf07-e04",
+            "cf07-e05",
+            "cf07-e06"
+          ],
+          "parameters": {
+            "reveal_ground_truth_after_lock": true,
+            "causal_inference_basis": "intervention-and-negative-controls",
+            "root_cause_scope": "application-runtime-versus-observation-pipeline-distinct"
+          },
+          "expected_observations": [
+            "causal-edge-attribution",
+            "false-independence",
+            "abstention"
+          ],
+          "recovery_action": "preserve-false-claims-for-scoring"
+        }
+      ],
+      "positive_controls": [
+        "intervention-on-known-shared-parent",
+        "complete-observation-of-independent-paths"
+      ],
+      "negative_controls": [
+        "synchronized-independent-faults",
+        "shared-collector-fault",
+        "sham-intervention",
+        "missing-dependency-edge"
+      ],
+      "required_evidence": [
+        "sealed-ground-truth-commitment",
+        "candidate-input-snapshot",
+        "intervention-receipts",
+        "negative-control-observations",
+        "clock-and-missingness-model",
+        "independent-post-lock-oracle"
+      ],
+      "expected_claims": [
+        "zero-false-independence-claims-on-frozen-corpus",
+        "synchrony-alone-is-not-causality",
+        "insufficient-coverage-produces-abstention"
+      ],
+      "promotion_blockers": [
+        "false-independence-claim",
+        "correlation-presented-as-causation",
+        "ground-truth-leaked-before-lock",
+        "collector-nuisance-misclassified"
+      ],
+      "claim_ceiling": "A negative finding means no common cause detected within the tested intervention and observation envelope, not proof of independence."
+    }
+  ],
+  "acceptance_targets": {
+    "frozen_corpus_false_qualified_successes": 0,
+    "frozen_corpus_post_revocation_protected_effects": 0,
+    "frozen_corpus_duplicate_external_effects": 0,
+    "frozen_corpus_false_witness_independence_promotions": 0,
+    "frozen_corpus_false_recovery_complete_claims": 0,
+    "qops_requires_verified_outcome_ledger": true,
+    "qops_requires_valid_timing_and_gate_evidence": true,
+    "held_out_set_sealed_until_subject_verifier_scheduler_and_runtime_are_frozen": true,
+    "independent_offline_replay_required": true,
+    "performance_claim_requires_all_applicable_correctness_gates": true
+  },
+  "claim_policy": {
+    "no_scalar_resilience_or_trust_score": true,
+    "no_qops_when_required_evidence_is_unknown_or_incomplete": true,
+    "no_aggregate_over_different_runtime_or_topology_profiles": true,
+    "report_separate_dimensions": [
+      "correctness",
+      "authority-safety",
+      "effect-integrity",
+      "convergence",
+      "recovery",
+      "privacy",
+      "timing-integrity",
+      "witness-diversity",
+      "verification-cost",
+      "resource-cost"
+    ],
+    "compare_only_semantically_matched_operation_contracts": true
+  }
+}
