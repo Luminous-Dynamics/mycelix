@@ -957,6 +957,20 @@
       },
       "gate": "non_compensable",
       "measurement_state": "not_measured"
+    },
+    {
+      "id": "caep_signal_false_fence_completion_count",
+      "layer": "revocation",
+      "metric": "CAEP-only session or token event counted as durable resource-owner fence installation or acknowledgement",
+      "unit": "count",
+      "statistic": "total",
+      "workload_profile": "qualification",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": "non_compensable",
+      "measurement_state": "not_measured"
     }
   ],
   "fault_schedules": [
@@ -1009,7 +1023,9 @@
     "CAEP Session Revoked reaches the session service but not the downstream worker; session attenuation must not be reported as mutation-fence completion",
     "Duplicate and out-of-order CAEP Session Revoked, Credential Change and Device Compliance Change events arrive under delayed network delivery; no state regression or duplicate effect is permitted",
     "A CAEP receiver is partitioned while a revocation is propagated; the route remains pending and prevents strict all-owner completion",
-    "OAuth access-token revocation succeeds at the authorization server while a resource server still accepts an unexpired self-contained token; classify as propagation/TTL exposure, not strong fencing"
+    "OAuth access-token revocation succeeds at the authorization server while a resource server still accepts an unexpired self-contained token; classify as propagation/TTL exposure, not strong fencing",
+    "CAEP Session Revoked / Token Claims Change signal is delivered while a resource owner remains partitioned and has not durably advanced its fence generation",
+    "Duplicate or delayed CAEP signal arrives after owner fence installation; event replay must not lower, re-advance or falsely acknowledge the durable generation"
   ],
   "comparators": [
     {
