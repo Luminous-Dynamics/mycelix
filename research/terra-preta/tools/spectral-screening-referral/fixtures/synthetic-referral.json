@@ -1,0 +1,140 @@
+{
+  "schema_version": "spectral-screening-referral-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "evidence_class": "synthetic",
+  "scenario_id": "highveld-nir-first-referral-manufactured-v0",
+  "config": {
+    "referral_capacity": 3,
+    "nir_screening_cost": 1,
+    "confirmatory_test_cost": 8,
+    "seed": 20261121,
+    "fixed_uncertainty_threshold": 0.35
+  },
+  "screen_candidates": [
+    {
+      "sample_id": "syn-001",
+      "property_id": "pH_KCl",
+      "predicted_mean": 5.3,
+      "predictive_sd": 0.08,
+      "decision_threshold": 5.5,
+      "positive_if_above": true,
+      "in_domain": true,
+      "false_positive_loss": 3,
+      "false_negative_loss": 5
+    },
+    {
+      "sample_id": "syn-002",
+      "property_id": "pH_KCl",
+      "predicted_mean": 5.7,
+      "predictive_sd": 0.12,
+      "decision_threshold": 5.5,
+      "positive_if_above": true,
+      "in_domain": true,
+      "false_positive_loss": 3,
+      "false_negative_loss": 5
+    },
+    {
+      "sample_id": "syn-003",
+      "property_id": "pH_KCl",
+      "predicted_mean": 5.45,
+      "predictive_sd": 0.4,
+      "decision_threshold": 5.5,
+      "positive_if_above": true,
+      "in_domain": false,
+      "false_positive_loss": 3,
+      "false_negative_loss": 5
+    },
+    {
+      "sample_id": "syn-004",
+      "property_id": "pH_KCl",
+      "predicted_mean": 5.2,
+      "predictive_sd": 0.5,
+      "decision_threshold": 5.5,
+      "positive_if_above": true,
+      "in_domain": true,
+      "false_positive_loss": 3,
+      "false_negative_loss": 5
+    },
+    {
+      "sample_id": "syn-005",
+      "property_id": "pH_KCl",
+      "predicted_mean": 5.8,
+      "predictive_sd": 0.16,
+      "decision_threshold": 5.5,
+      "positive_if_above": true,
+      "in_domain": true,
+      "false_positive_loss": 3,
+      "false_negative_loss": 5
+    },
+    {
+      "sample_id": "syn-006",
+      "property_id": "pH_KCl",
+      "predicted_mean": 5.52,
+      "predictive_sd": 0.3,
+      "decision_threshold": 5.5,
+      "positive_if_above": true,
+      "in_domain": true,
+      "false_positive_loss": 3,
+      "false_negative_loss": 5
+    },
+    {
+      "sample_id": "syn-007",
+      "property_id": "pH_KCl",
+      "predicted_mean": 5.1,
+      "predictive_sd": 0.1,
+      "decision_threshold": 5.5,
+      "positive_if_above": true,
+      "in_domain": true,
+      "false_positive_loss": 3,
+      "false_negative_loss": 5
+    },
+    {
+      "sample_id": "syn-008",
+      "property_id": "pH_KCl",
+      "predicted_mean": 5.9,
+      "predictive_sd": 0.55,
+      "decision_threshold": 5.5,
+      "positive_if_above": true,
+      "in_domain": false,
+      "false_positive_loss": 3,
+      "false_negative_loss": 5
+    }
+  ],
+  "evaluator_only": {
+    "truth_by_sample_id": [
+      {
+        "sample_id": "syn-001",
+        "true_value": 5.25
+      },
+      {
+        "sample_id": "syn-002",
+        "true_value": 5.7
+      },
+      {
+        "sample_id": "syn-003",
+        "true_value": 5.1
+      },
+      {
+        "sample_id": "syn-004",
+        "true_value": 5.8
+      },
+      {
+        "sample_id": "syn-005",
+        "true_value": 5.3
+      },
+      {
+        "sample_id": "syn-006",
+        "true_value": 5.7
+      },
+      {
+        "sample_id": "syn-007",
+        "true_value": 5
+      },
+      {
+        "sample_id": "syn-008",
+        "true_value": 5.1
+      }
+    ],
+    "reference_assumed_perfect_for_synthetic_fixture": true
+  }
+}
