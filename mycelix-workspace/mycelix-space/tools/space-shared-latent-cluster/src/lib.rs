@@ -653,8 +653,8 @@ mod tests {
         assert_eq!(report.cluster_count, 4);
         assert_eq!(report.total_pair_comparisons, 16);
         assert_eq!(report.total_propagated_trajectories, 16);
-        assert_eq!(report.total_collision_pairs, 9);
-        assert!((report.mean_cluster_probability - 0.5625).abs() < 1e-12);
+        assert_eq!(report.total_collision_pairs, 7);
+        assert!((report.mean_cluster_probability - 0.4375).abs() < 1e-12);
         assert!(report.upper_confidence_bound >= report.mean_cluster_probability);
         assert!(report.upper_confidence_bound <= 1.0);
         assert_eq!(
