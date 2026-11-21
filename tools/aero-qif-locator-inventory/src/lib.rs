@@ -1,0 +1,2752 @@
+//! Independent, profile-bounded QIF trace-locator inventory from raw XML bytes.
+//!
+//! This crate does not run XSD/XSLT validation, dereference URIs, resolve external
+//! entities, parse AP242, or consume adapter mapping rows. It scans immutable QIF
+//! source bytes with a namespace-aware streaming parser and emits the expected
+//! locator set for a separately versioned Test 7/8 trace profile.
+
+use aero_qif_ingest_qualification::{QifDocumentRole, SourceFieldLocatorV1};
+use quick_xml::{
+    XmlVersion,
+    escape::{resolve_xml_entity, unescape},
+    events::Event,
+    name::ResolveResult,
+    reader::NsReader,
+};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    io::Cursor,
+};
+use thiserror::Error;
+
+pub const INVENTORY_SCHEMA: &str = "AeroQifTraceLocatorInventoryV1";
+pub const PROFILE_SCHEMA: &str = "AeroQifTraceLocatorProfileV1";
+pub const REPORT_SCHEMA: &str = "AeroQifTraceLocatorReportV1";
+pub const QUICK_XML_VERSION: &str = "0.42.0";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LocatorCaptureMode {
+    Element,
+    ElementId,
+    Text,
+    QifReference,
+    LocalQifReference,
+    DocumentQpid,
+    ExternalPlanQpid,
+    ExternalPlanUri,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TraceLocatorRuleV1 {
+    pub rule_id: String,
+    pub document_role: QifDocumentRole,
+    /// Prefix-independent Clark names, including the QIFDocument root.
+    pub expanded_path: Vec<String>,
+    pub capture: LocatorCaptureMode,
+    /// Per-document occurrence bounds for this profile selector.
+    pub min_occurrences: u64,
+    pub max_occurrences: Option<u64>,
+    /// Expanded attribute names captured as inert source metadata, e.g. "{}QPId" and "{}URI".
+    pub capture_attributes: Vec<String>,
+    /// This rule captures the Results document's ExternalQIFDocumentReference/@id.
+    pub declares_external_document_reference: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TraceLocatorLimitsV1 {
+    pub max_source_bytes: u64,
+    pub max_documents: u32,
+    pub max_total_source_bytes: u64,
+    pub max_elements: u64,
+    pub max_depth: u32,
+    pub max_attributes_per_element: u32,
+    pub max_attribute_bytes: u64,
+    pub max_text_bytes_per_element: u64,
+    pub max_total_text_bytes: u64,
+    pub max_locators: u64,
+    pub max_namespace_bindings: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TraceLocatorProfileV1 {
+    pub schema: String,
+    pub profile_id: String,
+    pub profile_version: String,
+    pub qif_standard_version: String,
+    pub rules: Vec<TraceLocatorRuleV1>,
+    pub limits: TraceLocatorLimitsV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TraceLocatorRecordV1 {
+    pub rule_id: String,
+    pub capture: LocatorCaptureMode,
+    pub locator: SourceFieldLocatorV1,
+    /// SHA-256 of simple-content bytes after XML entity decoding; raw values are not copied.
+    pub field_value_sha256: Option<String>,
+    /// Decoded source value for explicitly selected identity/URI fields only.
+    pub captured_value: Option<String>,
+    /// Selected expanded-name attributes retained as source metadata; never dereferenced.
+    pub captured_attributes: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TraceLocatorSourceDocumentV1 {
+    pub qpid: String,
+    pub role: QifDocumentRole,
+    pub sha256: String,
+    pub byte_length: u64,
+    pub root_expanded_name: String,
+    pub version_qif: String,
+    pub element_count: u64,
+    pub max_observed_depth: u32,
+    pub text_bytes: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TraceLocatorInventoryBodyV1 {
+    pub inventory_id: String,
+    pub profile_id: String,
+    pub profile_version: String,
+    pub profile_sha256: String,
+    pub qif_standard_version: String,
+    pub documents: Vec<TraceLocatorSourceDocumentV1>,
+    pub locators: Vec<TraceLocatorRecordV1>,
+    pub declared_external_document_reference_ids: Vec<u32>,
+    pub external_document_references: Vec<ExternalQifDocumentReferenceV1>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExternalQifDocumentReferenceV1 {
+    pub results_qpid: String,
+    pub local_reference_id: u32,
+    pub plan_qpid: String,
+    pub source_uri: Option<String>,
+    pub source_locator: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TraceLocatorInventoryV1 {
+    pub schema: String,
+    pub body: TraceLocatorInventoryBodyV1,
+    pub inventory_sha256: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InventoryDisposition {
+    Complete,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TraceLocatorInventoryReport {
+    pub schema: String,
+    pub disposition: InventoryDisposition,
+    pub scanner_package: String,
+    pub scanner_version: String,
+    pub xml_library: String,
+    pub xml_library_version: String,
+    pub qif_standard_version: String,
+    pub profile_id: String,
+    pub profile_version: String,
+    pub profile_sha256: String,
+    pub inventory_sha256: String,
+    pub source_document_count: usize,
+    pub locator_count: usize,
+    pub declared_external_reference_count: usize,
+    pub elements_scanned: u64,
+    pub text_bytes_scanned: u64,
+    pub max_observed_depth: u32,
+}
+
+pub struct RawQifDocument<'a> {
+    pub qpid: &'a str,
+    pub role: QifDocumentRole,
+    pub bytes: &'a [u8],
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum InventoryError {
+    #[error("unsupported inventory/profile schema")]
+    WrongSchema,
+    #[error("empty profile or inventory identity at {0}")]
+    InvalidIdentity(String),
+    #[error("invalid QIF document QPId {0}")]
+    InvalidQpid(String),
+    #[error("profile has no rules")]
+    EmptyProfile,
+    #[error("duplicate trace rule {0}")]
+    DuplicateRule(String),
+    #[error("invalid trace rule {0}")]
+    InvalidRule(String),
+    #[error("duplicate selector for {0}")]
+    DuplicateSelector(String),
+    #[error("profile rule {0} occurred fewer times than its declared minimum")]
+    RuleMinimumNotMet(String),
+    #[error("profile rule {0} exceeded its declared maximum")]
+    RuleMaximumExceeded(String),
+    #[error("source document exceeds maximum bytes")]
+    SourceTooLarge,
+    #[error("source document count exceeds profile limit")]
+    DocumentCountLimitExceeded,
+    #[error("aggregate source document bytes exceed profile limit")]
+    TotalSourceBytesLimitExceeded,
+    #[error("source document is not UTF-8 under the declared profile")]
+    UnsupportedEncoding,
+    #[error("XML declaration specifies an unsupported encoding")]
+    UnsupportedDeclaredEncoding,
+    #[error("XML declaration specifies unsupported XML version {0}")]
+    UnsupportedDeclaredXmlVersion(String),
+    #[error("document role is outside this bounded Results/Plan profile: {0}")]
+    UnsupportedDocumentRole(String),
+    #[error("multiple XML root elements")]
+    MultipleRoots,
+    #[error("document root is not QIFDocument")]
+    WrongRoot,
+    #[error("document root is not in the QIF 3.0 namespace")]
+    WrongQifNamespace,
+    #[error("document declares unsupported QIF version {0}")]
+    UnsupportedQifVersion(String),
+    #[error("unbound XML namespace prefix {0}")]
+    UnboundNamespace(String),
+    #[error("XML parse failed at byte {position}: {reason}")]
+    XmlParse { position: u64, reason: String },
+    #[error("DTD/DOCTYPE declarations are forbidden in the offline locator profile")]
+    DoctypeForbidden,
+    #[error("custom XML entity {0} is not admitted in the offline locator profile")]
+    CustomEntityForbidden(String),
+    #[error("invalid XML character reference {0}")]
+    InvalidCharacterReference(String),
+    #[error("duplicate or malformed XML attribute")]
+    InvalidAttribute,
+    #[error("element count exceeds profile limit")]
+    ElementLimitExceeded,
+    #[error("XML nesting depth exceeds profile limit")]
+    DepthLimitExceeded,
+    #[error("attributes per element exceed profile limit")]
+    AttributeLimitExceeded,
+    #[error("one XML attribute exceeds the profile byte limit")]
+    AttributeBytesLimitExceeded,
+    #[error("QIF array n value disagrees with the actual number of direct child elements")]
+    ArrayCardinalityMismatch { declared: u64, observed: u64 },
+    #[error("simple content exceeds per-element text limit")]
+    ElementTextLimitExceeded,
+    #[error("document text exceeds profile limit")]
+    TotalTextLimitExceeded,
+    #[error("trace locator count exceeds profile limit")]
+    LocatorLimitExceeded,
+    #[error("malformed or mismatched XML element stack")]
+    ElementStackMismatch,
+    #[error("document has no root element or did not close completely")]
+    IncompleteDocument,
+    #[error("non-whitespace character data is outside the document root")]
+    TextOutsideRoot,
+    #[error("trace-reference field has missing or invalid numeric content at {0}")]
+    InvalidQifReference(String),
+    #[error("QIF element identity is missing or not a positive integer at {0}")]
+    InvalidElementId(String),
+    #[error("QIF reference at {0} points to an undeclared Results external-document ID {1}")]
+    UndeclaredExternalReference(String, u32),
+    #[error("external Plan QPId is missing or invalid at {0}")]
+    InvalidExternalPlanQpid(String),
+    #[error("source document QPId element does not match the supplied document identity: {0}")]
+    DocumentQpidMismatch(String),
+    #[error("external Plan QPId at {0} does not match any supplied Plan document")]
+    UnknownExternalPlanQpid(String),
+    #[error("duplicate Results external-document reference ID {0}")]
+    DuplicateExternalReferenceId(u32),
+    #[error("trace-critical child locator counts disagree at {0}")]
+    SourceRuleCoverageMismatch(String),
+    #[error("assembly-path-qualified QIF references are outside this bounded profile at {0}")]
+    UnsupportedAssemblyPathReference(String),
+    #[error("a supplied Plan document is not linked by any Results external reference: {0}")]
+    UnlinkedPlanDocument(String),
+    #[error("inventory canonicalization failed")]
+    CanonicalizationFailed,
+    #[error("inventory digest is malformed or does not match its body")]
+    InventoryDigestMismatch,
+    #[error("profile digest is malformed or does not match the profile")]
+    ProfileDigestMismatch,
+}
+
+#[derive(Debug)]
+struct ElementFrame {
+    expanded_name: String,
+    expanded_path: Vec<String>,
+    declared_child_count: Option<u64>,
+    locator_path: String,
+    child_occurrences: BTreeMap<String, u64>,
+    matching_rules: Vec<usize>,
+    element_id: Option<u32>,
+    external_xid: Option<u32>,
+    external_document_reference_id: Option<u32>,
+    is_external_document_reference: bool,
+    captured_attributes: BTreeMap<String, String>,
+    direct_text: String,
+    has_child_element: bool,
+}
+
+#[derive(Debug, Clone)]
+struct ScannedDocument {
+    source: TraceLocatorSourceDocumentV1,
+    locators: Vec<TraceLocatorRecordV1>,
+    declared_external_ids: BTreeSet<u32>,
+}
+
+fn valid_qpid(value: &str) -> bool {
+    if value.len() != 36 {
+        return false;
+    }
+    value.bytes().enumerate().all(|(index, byte)| {
+        if matches!(index, 8 | 13 | 18 | 23) {
+            byte == b'-'
+        } else {
+            byte.is_ascii_hexdigit()
+        }
+    })
+}
+
+fn valid_sha256(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+fn locator_sort_key(
+    locator: &SourceFieldLocatorV1,
+) -> (
+    String,
+    String,
+    Option<u32>,
+    Option<u32>,
+    Option<u32>,
+    Option<u32>,
+    Option<u32>,
+) {
+    (
+        locator.document_qpid.to_ascii_lowercase(),
+        locator.source_path.clone(),
+        locator.source_element_id,
+        locator.local_reference_id,
+        locator.parent_external_document_reference_id,
+        locator.external_document_reference_id,
+        locator.external_xid,
+    )
+}
+
+fn canonical_profile(profile: &TraceLocatorProfileV1) -> TraceLocatorProfileV1 {
+    let mut canonical = profile.clone();
+    canonical
+        .rules
+        .sort_by(|left, right| left.rule_id.cmp(&right.rule_id));
+    for rule in &mut canonical.rules {
+        rule.capture_attributes.sort();
+    }
+    canonical
+}
+
+fn canonical_inventory_body(body: &TraceLocatorInventoryBodyV1) -> TraceLocatorInventoryBodyV1 {
+    let mut canonical = body.clone();
+    canonical.documents.sort_by(|left, right| {
+        left.qpid
+            .to_ascii_lowercase()
+            .cmp(&right.qpid.to_ascii_lowercase())
+    });
+    canonical.locators.sort_by(|left, right| {
+        locator_sort_key(&left.locator)
+            .cmp(&locator_sort_key(&right.locator))
+            .then(left.rule_id.cmp(&right.rule_id))
+            .then(left.capture.cmp(&right.capture))
+    });
+    canonical
+        .declared_external_document_reference_ids
+        .sort_unstable();
+    canonical
+}
+
+/// Versioned Rust-struct JSON digest; this is not RFC 8785/JCS.
+pub fn compute_profile_digest(profile: &TraceLocatorProfileV1) -> Result<String, InventoryError> {
+    let bytes = serde_json::to_vec(&canonical_profile(profile))
+        .map_err(|_| InventoryError::CanonicalizationFailed)?;
+    Ok(sha256_hex(&bytes))
+}
+
+pub fn compute_inventory_digest(
+    inventory: &TraceLocatorInventoryV1,
+) -> Result<String, InventoryError> {
+    let bytes = serde_json::to_vec(&canonical_inventory_body(&inventory.body))
+        .map_err(|_| InventoryError::CanonicalizationFailed)?;
+    Ok(sha256_hex(&bytes))
+}
+
+pub fn validate_profile(profile: &TraceLocatorProfileV1) -> Result<(), InventoryError> {
+    if profile.schema != PROFILE_SCHEMA {
+        return Err(InventoryError::WrongSchema);
+    }
+    for (field, value) in [
+        ("profile_id", profile.profile_id.as_str()),
+        ("profile_version", profile.profile_version.as_str()),
+        (
+            "qif_standard_version",
+            profile.qif_standard_version.as_str(),
+        ),
+    ] {
+        if value.trim().is_empty() {
+            return Err(InventoryError::InvalidIdentity(field.into()));
+        }
+    }
+    if profile.qif_standard_version != "3.0.0" {
+        return Err(InventoryError::UnsupportedQifVersion(
+            profile.qif_standard_version.clone(),
+        ));
+    }
+    if profile.rules.is_empty() {
+        return Err(InventoryError::EmptyProfile);
+    }
+    let limits = &profile.limits;
+    if limits.max_source_bytes == 0
+        || limits.max_source_bytes > 100 * 1024 * 1024
+        || limits.max_documents == 0
+        || limits.max_documents > 128
+        || limits.max_total_source_bytes == 0
+        || limits.max_total_source_bytes > 1024 * 1024 * 1024
+        || limits.max_elements == 0
+        || limits.max_elements > 2_000_000
+        || limits.max_depth == 0
+        || limits.max_depth > 128
+        || limits.max_attributes_per_element == 0
+        || limits.max_attributes_per_element > 256
+        || limits.max_attribute_bytes == 0
+        || limits.max_attribute_bytes > 1024 * 1024
+        || limits.max_text_bytes_per_element == 0
+        || limits.max_text_bytes_per_element > 10 * 1024 * 1024
+        || limits.max_total_text_bytes == 0
+        || limits.max_total_text_bytes > 100 * 1024 * 1024
+        || limits.max_locators == 0
+        || limits.max_locators > 2_000_000
+        || limits.max_namespace_bindings == 0
+        || limits.max_namespace_bindings > 4096
+    {
+        return Err(InventoryError::InvalidIdentity("limits".into()));
+    }
+
+    let mut rule_ids = BTreeSet::new();
+    let mut selectors = BTreeSet::new();
+    for rule in &profile.rules {
+        if rule.rule_id.trim().is_empty()
+            || rule.expanded_path.len() < 2
+            || rule
+                .expanded_path
+                .first()
+                .is_none_or(|root| root != "{http://qifstandards.org/xsd/qif3}QIFDocument")
+            || rule.expanded_path.iter().enumerate().any(|(index, name)| {
+                !name.starts_with('{')
+                    || !name.contains('}')
+                    || (name.ends_with("}*") && name.len() <= 3)
+                    || (name.ends_with("}*") && index == 0)
+            })
+        {
+            return Err(InventoryError::InvalidRule(rule.rule_id.clone()));
+        }
+        if !rule_ids.insert(rule.rule_id.as_str()) {
+            return Err(InventoryError::DuplicateRule(rule.rule_id.clone()));
+        }
+        let mut unique_attributes = BTreeSet::new();
+        if rule
+            .capture_attributes
+            .iter()
+            .any(|name| !unique_attributes.insert(name))
+        {
+            return Err(InventoryError::InvalidRule(rule.rule_id.clone()));
+        }
+        let selector = (
+            format!("{:?}", rule.document_role),
+            rule.expanded_path.join("/"),
+            rule.capture,
+        );
+        if !selectors.insert(selector) {
+            return Err(InventoryError::DuplicateSelector(rule.rule_id.clone()));
+        }
+        if rule
+            .max_occurrences
+            .is_some_and(|maximum| maximum < rule.min_occurrences)
+            || rule
+                .max_occurrences
+                .is_some_and(|maximum| maximum > 2_000_000)
+            || rule.min_occurrences > 2_000_000
+        {
+            return Err(InventoryError::InvalidRule(rule.rule_id.clone()));
+        }
+        if rule
+            .capture_attributes
+            .iter()
+            .any(|name| !name.starts_with("{}") || name.len() <= 2)
+        {
+            return Err(InventoryError::InvalidRule(rule.rule_id.clone()));
+        }
+        if rule.declares_external_document_reference
+            && (rule.document_role != QifDocumentRole::Results
+                || rule.capture != LocatorCaptureMode::ElementId)
+        {
+            return Err(InventoryError::InvalidRule(rule.rule_id.clone()));
+        }
+    }
+    Ok(())
+}
+
+fn expanded_path_matches(pattern: &[String], actual: &[String]) -> bool {
+    pattern.len() == actual.len()
+        && pattern.iter().zip(actual).all(|(expected, observed)| {
+            if expected.ends_with("}*") {
+                observed.starts_with(expected.trim_end_matches('*'))
+                    && observed.len() > expected.len() - 1
+            } else {
+                expected == observed
+            }
+        })
+}
+
+fn xml_declaration_attribute<'a>(
+    declaration: &'a str,
+    name: &str,
+) -> Result<Option<&'a str>, InventoryError> {
+    let Some(position) = declaration.find(name) else {
+        return Ok(None);
+    };
+    let before_is_boundary = position == 0
+        || declaration[..position]
+            .chars()
+            .last()
+            .is_some_and(char::is_whitespace);
+    let after_name = &declaration[position + name.len()..];
+    if !before_is_boundary {
+        return Err(InventoryError::UnsupportedDeclaredEncoding);
+    }
+    let after_equals = after_name.trim_start();
+    let after_equals = after_equals
+        .strip_prefix('=')
+        .ok_or(InventoryError::UnsupportedDeclaredEncoding)?
+        .trim_start();
+    let quote = after_equals
+        .chars()
+        .next()
+        .ok_or(InventoryError::UnsupportedDeclaredEncoding)?;
+    if quote != '\'' && quote != '"' {
+        return Err(InventoryError::UnsupportedDeclaredEncoding);
+    }
+    let value_start = quote.len_utf8();
+    let end = after_equals[value_start..]
+        .find(quote)
+        .ok_or(InventoryError::UnsupportedDeclaredEncoding)?;
+    Ok(Some(&after_equals[value_start..value_start + end]))
+}
+
+fn parse_utf8_profile(bytes: &[u8]) -> Result<&str, InventoryError> {
+    let text = std::str::from_utf8(bytes).map_err(|_| InventoryError::UnsupportedEncoding)?;
+    let prefix: String = text
+        .trim_start_matches('\u{feff}')
+        .chars()
+        .take(256)
+        .collect();
+    if prefix.starts_with("<?xml")
+        && prefix["<?xml".len()..]
+            .chars()
+            .next()
+            .is_some_and(char::is_whitespace)
+    {
+        let declaration_end = prefix
+            .find("?>")
+            .ok_or(InventoryError::UnsupportedDeclaredEncoding)?;
+        let declaration = &prefix[..declaration_end];
+        let version = xml_declaration_attribute(declaration, "version")?.ok_or(
+            InventoryError::UnsupportedDeclaredXmlVersion("missing".into()),
+        )?;
+        if version != "1.0" {
+            return Err(InventoryError::UnsupportedDeclaredXmlVersion(
+                version.into(),
+            ));
+        }
+        if let Some(encoding) = xml_declaration_attribute(declaration, "encoding")? {
+            if !encoding.eq_ignore_ascii_case("utf-8") && !encoding.eq_ignore_ascii_case("utf8") {
+                return Err(InventoryError::UnsupportedDeclaredEncoding);
+            }
+        }
+    }
+    Ok(text)
+}
+
+fn expanded_name(resolve: ResolveResult<'_>, local_name: &str) -> Result<String, InventoryError> {
+    let namespace = match resolve {
+        ResolveResult::Bound(namespace) => namespace.as_ref(),
+        ResolveResult::Unbound => "",
+        ResolveResult::Unknown(prefix) => return Err(InventoryError::UnboundNamespace(prefix)),
+    };
+    Ok(format!("{{{namespace}}}{local_name}"))
+}
+
+fn parsed_numeric_attribute(value: &str, path: &str) -> Result<u32, InventoryError> {
+    let value = value.trim();
+    let parsed = value
+        .parse::<u32>()
+        .map_err(|_| InventoryError::InvalidElementId(path.into()))?;
+    if parsed == 0 {
+        return Err(InventoryError::InvalidElementId(path.into()));
+    }
+    Ok(parsed)
+}
+
+fn parsed_array_count(value: &str, path: &str) -> Result<u64, InventoryError> {
+    let parsed = value
+        .trim()
+        .parse::<u64>()
+        .map_err(|_| InventoryError::InvalidIdentity(format!("array_n:{path}")))?;
+    Ok(parsed)
+}
+
+fn attribute_values(
+    start: &quick_xml::events::BytesStart<'_>,
+    resolver: &quick_xml::name::NamespaceResolver,
+    max_attributes: u32,
+    max_attribute_bytes: u64,
+    path: &str,
+) -> Result<(Option<u32>, Option<u32>, BTreeMap<String, String>, u32), InventoryError> {
+    let mut element_id = None;
+    let mut external_xid = None;
+    let mut attributes = BTreeMap::new();
+    let mut count = 0u32;
+    for attribute in start.attributes().with_checks(true) {
+        let attribute = attribute.map_err(|_| InventoryError::InvalidAttribute)?;
+        count += 1;
+        if count > max_attributes {
+            return Err(InventoryError::AttributeLimitExceeded);
+        }
+        if attribute.value.as_ref().len() as u64 > max_attribute_bytes {
+            return Err(InventoryError::AttributeBytesLimitExceeded);
+        }
+        let (namespace, local_name) = resolver.resolve_attribute(attribute.key);
+        let expanded = expanded_name(namespace, local_name.as_ref())?;
+        // Namespace declarations are parser control metadata, not QIF fields.
+        if expanded.starts_with("{http://www.w3.org/2000/xmlns/}") {
+            continue;
+        }
+        let value = attribute
+            .normalized_value(XmlVersion::Implicit1_0)
+            .map_err(|_| InventoryError::InvalidAttribute)?
+            .into_owned();
+        if expanded == "{}id" {
+            element_id = Some(parsed_numeric_attribute(&value, path)?);
+        } else if expanded == "{}xId" {
+            external_xid = Some(parsed_numeric_attribute(&value, path)?);
+        }
+        attributes.insert(expanded, value);
+    }
+    Ok((element_id, external_xid, attributes, count))
+}
+
+fn append_locator(
+    locators: &mut Vec<TraceLocatorRecordV1>,
+    rule: &TraceLocatorRuleV1,
+    qpid: &str,
+    path: &str,
+    element_id: Option<u32>,
+    local_reference_id: Option<u32>,
+    parent_external_document_reference_id: Option<u32>,
+    external_reference_id: Option<u32>,
+    external_xid: Option<u32>,
+    field_value: Option<&str>,
+    captured_value: Option<&str>,
+    captured_attributes: &BTreeMap<String, String>,
+    max_locators: u64,
+) -> Result<(), InventoryError> {
+    if locators.len() as u64 >= max_locators {
+        return Err(InventoryError::LocatorLimitExceeded);
+    }
+    let locator = SourceFieldLocatorV1 {
+        document_qpid: qpid.to_ascii_lowercase(),
+        source_path: path.to_owned(),
+        source_element_id: element_id,
+        local_reference_id,
+        parent_external_document_reference_id,
+        external_document_reference_id: external_reference_id,
+        external_xid,
+    };
+    let field_value_sha256 = field_value.map(|value| sha256_hex(value.as_bytes()));
+    locators.push(TraceLocatorRecordV1 {
+        rule_id: rule.rule_id.clone(),
+        capture: rule.capture,
+        locator,
+        field_value_sha256,
+        captured_value: captured_value.map(str::to_owned),
+        captured_attributes: captured_attributes.clone(),
+    });
+    Ok(())
+}
+
+fn finalize_frame(
+    frame: ElementFrame,
+    profile: &TraceLocatorProfileV1,
+    qpid: &str,
+    locators: &mut Vec<TraceLocatorRecordV1>,
+    declared_external_ids: &mut BTreeSet<u32>,
+) -> Result<(), InventoryError> {
+    for rule_index in frame.matching_rules {
+        let rule = &profile.rules[rule_index];
+        match rule.capture {
+            LocatorCaptureMode::Element => {
+                append_locator(
+                    locators,
+                    rule,
+                    qpid,
+                    &frame.locator_path,
+                    frame.element_id,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    &frame.captured_attributes,
+                    profile.limits.max_locators,
+                )?;
+            }
+            LocatorCaptureMode::ElementId => {
+                let element_id = frame
+                    .element_id
+                    .ok_or_else(|| InventoryError::InvalidElementId(frame.locator_path.clone()))?;
+                append_locator(
+                    locators,
+                    rule,
+                    qpid,
+                    &format!("{}@id", frame.locator_path),
+                    Some(element_id),
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(&element_id.to_string()),
+                    None,
+                    &frame.captured_attributes,
+                    profile.limits.max_locators,
+                )?;
+                if rule.declares_external_document_reference {
+                    declared_external_ids.insert(element_id);
+                }
+            }
+            LocatorCaptureMode::Text => {
+                append_locator(
+                    locators,
+                    rule,
+                    qpid,
+                    &format!("{}#text", frame.locator_path),
+                    frame.element_id,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(&frame.direct_text),
+                    Some(&frame.direct_text),
+                    &frame.captured_attributes,
+                    profile.limits.max_locators,
+                )?;
+            }
+            LocatorCaptureMode::LocalQifReference => {
+                if frame.has_child_element || frame.external_xid.is_some() {
+                    return Err(InventoryError::InvalidQifReference(
+                        frame.locator_path.clone(),
+                    ));
+                }
+                if frame.captured_attributes.contains_key("{}asmPathId")
+                    || frame.captured_attributes.contains_key("{}asmPathXId")
+                {
+                    return Err(InventoryError::UnsupportedAssemblyPathReference(
+                        frame.locator_path.clone(),
+                    ));
+                }
+                let local_reference_id =
+                    parsed_numeric_attribute(&frame.direct_text, &frame.locator_path).map_err(
+                        |_| InventoryError::InvalidQifReference(frame.locator_path.clone()),
+                    )?;
+                append_locator(
+                    locators,
+                    rule,
+                    qpid,
+                    &format!("{}#local-qif-reference", frame.locator_path),
+                    frame.element_id,
+                    Some(local_reference_id),
+                    None,
+                    None,
+                    None,
+                    Some(&frame.direct_text),
+                    Some(&local_reference_id.to_string()),
+                    &frame.captured_attributes,
+                    profile.limits.max_locators,
+                )?;
+            }
+            LocatorCaptureMode::DocumentQpid => {
+                if frame.has_child_element {
+                    return Err(InventoryError::InvalidQpid(frame.locator_path.clone()));
+                }
+                let value = frame.direct_text.trim();
+                if !valid_qpid(value) || !value.eq_ignore_ascii_case(qpid) {
+                    return Err(InventoryError::DocumentQpidMismatch(
+                        frame.locator_path.clone(),
+                    ));
+                }
+                append_locator(
+                    locators,
+                    rule,
+                    qpid,
+                    &format!("{}#qpid", frame.locator_path),
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(value),
+                    Some(value),
+                    &frame.captured_attributes,
+                    profile.limits.max_locators,
+                )?;
+            }
+            LocatorCaptureMode::ExternalPlanQpid => {
+                if frame.has_child_element {
+                    return Err(InventoryError::InvalidExternalPlanQpid(
+                        frame.locator_path.clone(),
+                    ));
+                }
+                let value = frame.direct_text.trim();
+                if !valid_qpid(value) {
+                    return Err(InventoryError::InvalidExternalPlanQpid(
+                        frame.locator_path.clone(),
+                    ));
+                }
+                let parent_reference_id =
+                    frame.external_document_reference_id.ok_or_else(|| {
+                        InventoryError::InvalidExternalPlanQpid(frame.locator_path.clone())
+                    })?;
+                append_locator(
+                    locators,
+                    rule,
+                    qpid,
+                    &format!("{}#qpid", frame.locator_path),
+                    None,
+                    None,
+                    Some(parent_reference_id),
+                    None,
+                    None,
+                    Some(value),
+                    Some(value),
+                    &frame.captured_attributes,
+                    profile.limits.max_locators,
+                )?;
+            }
+            LocatorCaptureMode::ExternalPlanUri => {
+                if frame.has_child_element {
+                    return Err(InventoryError::InvalidIdentity(frame.locator_path.clone()));
+                }
+                if frame
+                    .direct_text
+                    .chars()
+                    .any(|character| character.is_control())
+                {
+                    return Err(InventoryError::InvalidIdentity(format!(
+                        "external_uri:{}",
+                        frame.locator_path
+                    )));
+                }
+                let parent_reference_id = frame
+                    .external_document_reference_id
+                    .ok_or_else(|| InventoryError::InvalidIdentity(frame.locator_path.clone()))?;
+                append_locator(
+                    locators,
+                    rule,
+                    qpid,
+                    &format!("{}#uri", frame.locator_path),
+                    None,
+                    None,
+                    Some(parent_reference_id),
+                    None,
+                    None,
+                    Some(&frame.direct_text),
+                    Some(&frame.direct_text),
+                    &frame.captured_attributes,
+                    profile.limits.max_locators,
+                )?;
+            }
+            LocatorCaptureMode::QifReference => {
+                if frame.has_child_element {
+                    return Err(InventoryError::InvalidQifReference(
+                        frame.locator_path.clone(),
+                    ));
+                }
+                let reference_value =
+                    parsed_numeric_attribute(&frame.direct_text, &frame.locator_path).map_err(
+                        |_| InventoryError::InvalidQifReference(frame.locator_path.clone()),
+                    )?;
+                let (local_reference_id, external_reference_id) = if frame.external_xid.is_some() {
+                    (None, Some(reference_value))
+                } else {
+                    (Some(reference_value), None)
+                };
+                append_locator(
+                    locators,
+                    rule,
+                    qpid,
+                    &format!("{}#qif-reference", frame.locator_path),
+                    frame.element_id,
+                    local_reference_id,
+                    None,
+                    external_reference_id,
+                    frame.external_xid,
+                    Some(&frame.direct_text),
+                    Some(&reference_value.to_string()),
+                    &frame.captured_attributes,
+                    profile.limits.max_locators,
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn scan_document(
+    profile: &TraceLocatorProfileV1,
+    qpid: &str,
+    role: QifDocumentRole,
+    bytes: &[u8],
+) -> Result<ScannedDocument, InventoryError> {
+    if bytes.len() as u64 > profile.limits.max_source_bytes {
+        return Err(InventoryError::SourceTooLarge);
+    }
+    let _text = parse_utf8_profile(bytes)?;
+    let mut reader = NsReader::from_reader(Cursor::new(bytes));
+    reader.config_mut().check_end_names = true;
+    reader.config_mut().check_comments = true;
+    reader.config_mut().allow_unmatched_ends = false;
+    reader.config_mut().allow_dangling_amp = false;
+    reader
+        .resolver_mut()
+        .set_max_namespace_bindings(profile.limits.max_namespace_bindings as usize);
+    let mut buffer = Vec::new();
+    let mut stack: Vec<ElementFrame> = Vec::new();
+    let mut locator_rows = Vec::new();
+    let mut declared_external_ids = BTreeSet::new();
+    let mut element_count = 0u64;
+    let mut max_depth = 0u32;
+    let mut total_text_bytes = 0u64;
+    let mut root_expanded_name = None;
+    let mut root_version_qif = None;
+
+    loop {
+        let (resolution, event) =
+            reader
+                .read_resolved_event_into(&mut buffer)
+                .map_err(|error| InventoryError::XmlParse {
+                    position: reader.error_position(),
+                    reason: error.to_string(),
+                })?;
+        let is_empty_element = matches!(&event, Event::Empty(_));
+        match event {
+            Event::Start(start) | Event::Empty(start) => {
+                element_count += 1;
+                if element_count > profile.limits.max_elements {
+                    return Err(InventoryError::ElementLimitExceeded);
+                }
+                let local = start.local_name();
+                let local_name = local.as_ref();
+                let expanded = expanded_name(resolution, local_name)?;
+                let (element_id, external_xid, raw_attributes, _) = attribute_values(
+                    &start,
+                    reader.resolver(),
+                    profile.limits.max_attributes_per_element,
+                    profile.limits.max_attribute_bytes,
+                    &expanded,
+                )?;
+                let declared_child_count = raw_attributes
+                    .get("{}n")
+                    .map(|value| parsed_array_count(value, &expanded))
+                    .transpose()?;
+
+                let occurrence = if let Some(parent) = stack.last_mut() {
+                    parent.has_child_element = true;
+                    let counter = parent
+                        .child_occurrences
+                        .entry(expanded.clone())
+                        .or_insert(0);
+                    *counter += 1;
+                    *counter
+                } else {
+                    if root_expanded_name.is_some() {
+                        return Err(InventoryError::MultipleRoots);
+                    }
+                    if local_name != "QIFDocument" {
+                        return Err(InventoryError::WrongRoot);
+                    }
+                    if expanded != "{http://qifstandards.org/xsd/qif3}QIFDocument" {
+                        return Err(InventoryError::WrongQifNamespace);
+                    }
+                    let version = raw_attributes
+                        .get("{}versionQIF")
+                        .ok_or_else(|| InventoryError::UnsupportedQifVersion("missing".into()))?;
+                    if version != &profile.qif_standard_version {
+                        return Err(InventoryError::UnsupportedQifVersion(version.clone()));
+                    }
+                    root_version_qif = Some(version.clone());
+                    root_expanded_name = Some(expanded.clone());
+                    1
+                };
+
+                let mut expanded_path = stack
+                    .last()
+                    .map(|parent| parent.expanded_path.clone())
+                    .unwrap_or_default();
+                expanded_path.push(expanded.clone());
+                let locator_path = if let Some(parent) = stack.last() {
+                    format!("{}/{}[{}]", parent.locator_path, expanded, occurrence)
+                } else {
+                    "/QIFDocument".to_owned()
+                };
+                let matching_rules = profile
+                    .rules
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, rule)| {
+                        (rule.document_role == role
+                            && expanded_path_matches(&rule.expanded_path, &expanded_path))
+                        .then_some(index)
+                    })
+                    .collect::<Vec<_>>();
+                let mut captured_attributes = BTreeMap::new();
+                for rule_index in &matching_rules {
+                    for attribute_name in &profile.rules[*rule_index].capture_attributes {
+                        if let Some(value) = raw_attributes.get(attribute_name) {
+                            captured_attributes.insert(attribute_name.clone(), value.clone());
+                        }
+                    }
+                }
+
+                let is_external_document_reference = matching_rules.iter().any(|rule_index| {
+                    profile.rules[*rule_index].declares_external_document_reference
+                });
+                let parent_external_reference_id = stack
+                    .iter()
+                    .rev()
+                    .find(|parent| parent.is_external_document_reference)
+                    .and_then(|parent| parent.element_id);
+                let frame = ElementFrame {
+                    expanded_name: expanded,
+                    expanded_path,
+                    declared_child_count,
+                    locator_path,
+                    child_occurrences: BTreeMap::new(),
+                    matching_rules,
+                    element_id,
+                    external_xid,
+                    external_document_reference_id: if is_external_document_reference {
+                        element_id
+                    } else {
+                        parent_external_reference_id
+                    },
+                    is_external_document_reference,
+                    captured_attributes,
+                    direct_text: String::new(),
+                    has_child_element: false,
+                };
+                max_depth = max_depth.max((stack.len() + 1) as u32);
+                if max_depth > profile.limits.max_depth {
+                    return Err(InventoryError::DepthLimitExceeded);
+                }
+                if is_empty_element {
+                    if let Some(declared) = frame.declared_child_count {
+                        if declared != 0 {
+                            return Err(InventoryError::ArrayCardinalityMismatch {
+                                declared,
+                                observed: 0,
+                            });
+                        }
+                    }
+                    finalize_frame(
+                        frame,
+                        profile,
+                        qpid,
+                        &mut locator_rows,
+                        &mut declared_external_ids,
+                    )?;
+                } else {
+                    stack.push(frame);
+                }
+            }
+            Event::End(end) => {
+                let frame = stack.pop().ok_or(InventoryError::ElementStackMismatch)?;
+                let local_name = end.name().local_name();
+                let actual = expanded_name(resolution, local_name.as_ref())?;
+                if frame.expanded_name != actual {
+                    return Err(InventoryError::ElementStackMismatch);
+                }
+                if let Some(declared) = frame.declared_child_count {
+                    let observed = frame.child_occurrences.values().sum::<u64>();
+                    if declared != observed {
+                        return Err(InventoryError::ArrayCardinalityMismatch {
+                            declared,
+                            observed,
+                        });
+                    }
+                }
+                finalize_frame(
+                    frame,
+                    profile,
+                    qpid,
+                    &mut locator_rows,
+                    &mut declared_external_ids,
+                )?;
+            }
+            Event::Text(text) => {
+                let value = text.xml_content(XmlVersion::Implicit1_0).into_owned();
+                if let Some(frame) = stack.last_mut() {
+                    let new_len = frame.direct_text.len() as u64 + value.len() as u64;
+                    if new_len > profile.limits.max_text_bytes_per_element {
+                        return Err(InventoryError::ElementTextLimitExceeded);
+                    }
+                    total_text_bytes = total_text_bytes.saturating_add(value.len() as u64);
+                    if total_text_bytes > profile.limits.max_total_text_bytes {
+                        return Err(InventoryError::TotalTextLimitExceeded);
+                    }
+                    frame.direct_text.push_str(&value);
+                } else if !value.trim().is_empty() {
+                    return Err(InventoryError::TextOutsideRoot);
+                }
+            }
+            Event::CData(text) => {
+                let value = text.xml_content(XmlVersion::Implicit1_0).into_owned();
+                if let Some(frame) = stack.last_mut() {
+                    let new_len = frame.direct_text.len() as u64 + value.len() as u64;
+                    if new_len > profile.limits.max_text_bytes_per_element {
+                        return Err(InventoryError::ElementTextLimitExceeded);
+                    }
+                    total_text_bytes = total_text_bytes.saturating_add(value.len() as u64);
+                    if total_text_bytes > profile.limits.max_total_text_bytes {
+                        return Err(InventoryError::TotalTextLimitExceeded);
+                    }
+                    frame.direct_text.push_str(&value);
+                } else {
+                    return Err(InventoryError::TextOutsideRoot);
+                }
+            }
+            Event::GeneralRef(reference) => {
+                let name = reference.as_ref();
+                let replacement = if let Some(value) = resolve_xml_entity(name) {
+                    value.to_owned()
+                } else if name.starts_with('#') {
+                    unescape(&format!("&{name};"))
+                        .map_err(|_| InventoryError::InvalidCharacterReference(name.into()))?
+                        .into_owned()
+                } else {
+                    return Err(InventoryError::CustomEntityForbidden(name.into()));
+                };
+                if let Some(frame) = stack.last_mut() {
+                    let new_len = frame.direct_text.len() as u64 + replacement.len() as u64;
+                    if new_len > profile.limits.max_text_bytes_per_element {
+                        return Err(InventoryError::ElementTextLimitExceeded);
+                    }
+                    total_text_bytes = total_text_bytes.saturating_add(replacement.len() as u64);
+                    if total_text_bytes > profile.limits.max_total_text_bytes {
+                        return Err(InventoryError::TotalTextLimitExceeded);
+                    }
+                    frame.direct_text.push_str(&replacement);
+                } else {
+                    return Err(InventoryError::TextOutsideRoot);
+                }
+            }
+            Event::DocType(_) => return Err(InventoryError::DoctypeForbidden),
+            Event::Eof => break,
+            Event::Decl(_) | Event::Comment(_) | Event::PI(_) => {}
+        }
+        buffer.clear();
+    }
+
+    if !stack.is_empty() || root_expanded_name.is_none() {
+        return Err(InventoryError::IncompleteDocument);
+    }
+
+    let mut locators = BTreeSet::new();
+    for record in &locator_rows {
+        if !locators.insert((
+            record.locator.document_qpid.to_ascii_lowercase(),
+            record.locator.source_path.clone(),
+        )) {
+            return Err(InventoryError::DuplicateSelector(
+                record.locator.source_path.clone(),
+            ));
+        }
+        if let Some(reference_id) = record.locator.external_document_reference_id {
+            if role != QifDocumentRole::Results || !declared_external_ids.contains(&reference_id) {
+                return Err(InventoryError::UndeclaredExternalReference(
+                    record.locator.source_path.clone(),
+                    reference_id,
+                ));
+            }
+        }
+    }
+
+    for rule in profile
+        .rules
+        .iter()
+        .filter(|rule| rule.document_role == role)
+    {
+        let observed = locator_rows
+            .iter()
+            .filter(|record| record.rule_id == rule.rule_id)
+            .count() as u64;
+        if observed < rule.min_occurrences {
+            return Err(InventoryError::RuleMinimumNotMet(rule.rule_id.clone()));
+        }
+        if rule
+            .max_occurrences
+            .is_some_and(|maximum| observed > maximum)
+        {
+            return Err(InventoryError::RuleMaximumExceeded(rule.rule_id.clone()));
+        }
+    }
+
+    Ok(ScannedDocument {
+        source: TraceLocatorSourceDocumentV1 {
+            qpid: qpid.to_ascii_lowercase(),
+            role,
+            sha256: sha256_hex(bytes),
+            byte_length: bytes.len() as u64,
+            root_expanded_name: root_expanded_name.unwrap_or_default(),
+            version_qif: root_version_qif.unwrap_or_default(),
+            element_count,
+            max_observed_depth: max_depth,
+            text_bytes: total_text_bytes,
+        },
+        locators: locator_rows,
+        declared_external_ids,
+    })
+}
+
+pub fn derive_trace_locator_inventory(
+    inventory_id: &str,
+    profile: &TraceLocatorProfileV1,
+    documents: &[RawQifDocument<'_>],
+) -> Result<(TraceLocatorInventoryV1, TraceLocatorInventoryReport), InventoryError> {
+    validate_profile(profile)?;
+    if inventory_id.trim().is_empty() || documents.is_empty() {
+        return Err(InventoryError::InvalidIdentity(
+            "inventory_id/documents".into(),
+        ));
+    }
+    if documents.len() > profile.limits.max_documents as usize {
+        return Err(InventoryError::DocumentCountLimitExceeded);
+    }
+    let mut total_source_bytes = 0u64;
+    for document in documents {
+        total_source_bytes = total_source_bytes
+            .checked_add(document.bytes.len() as u64)
+            .ok_or(InventoryError::TotalSourceBytesLimitExceeded)?;
+        if total_source_bytes > profile.limits.max_total_source_bytes {
+            return Err(InventoryError::TotalSourceBytesLimitExceeded);
+        }
+    }
+    if profile.qif_standard_version != "3.0.0" {
+        return Err(InventoryError::UnsupportedQifVersion(
+            profile.qif_standard_version.clone(),
+        ));
+    }
+    let profile_sha256 = compute_profile_digest(profile)?;
+    if !valid_sha256(&profile_sha256) {
+        return Err(InventoryError::ProfileDigestMismatch);
+    }
+
+    let mut qpid_set = BTreeSet::new();
+    let mut scanned = Vec::new();
+    for document in documents {
+        if !matches!(
+            document.role,
+            QifDocumentRole::Results | QifDocumentRole::Plan
+        ) {
+            return Err(InventoryError::UnsupportedDocumentRole(format!(
+                "{:?}",
+                document.role
+            )));
+        }
+        if !valid_qpid(document.qpid) {
+            return Err(InventoryError::InvalidQpid(document.qpid.into()));
+        }
+        if !qpid_set.insert(document.qpid.to_ascii_lowercase()) {
+            return Err(InventoryError::InvalidIdentity(format!(
+                "duplicate_qpid:{}",
+                document.qpid
+            )));
+        }
+        scanned.push(scan_document(
+            profile,
+            document.qpid,
+            document.role,
+            document.bytes,
+        )?);
+    }
+
+    let results: Vec<_> = scanned
+        .iter()
+        .filter(|document| document.source.role == QifDocumentRole::Results)
+        .collect();
+    if results.len() != 1 {
+        return Err(InventoryError::InvalidIdentity(
+            "results_document_cardinality".into(),
+        ));
+    }
+    let measurement_results_paths: BTreeSet<_> = results[0]
+        .locators
+        .iter()
+        .filter(|record| record.rule_id == "results.measurement_results")
+        .filter_map(|record| record.locator.source_path.strip_suffix("@id"))
+        .map(str::to_owned)
+        .collect();
+    let inspection_status_paths: BTreeSet<_> = results[0]
+        .locators
+        .iter()
+        .filter(|record| {
+            matches!(
+                record.rule_id.as_str(),
+                "results.inspection_status" | "results.inspection_other_status"
+            )
+        })
+        .filter_map(|record| {
+            record
+                .locator
+                .source_path
+                .split("/InspectionStatus[")
+                .next()
+        })
+        .map(str::to_owned)
+        .collect();
+    if measurement_results_paths != inspection_status_paths {
+        return Err(InventoryError::SourceRuleCoverageMismatch(
+            "MeasurementResults inspection-status choice".into(),
+        ));
+    }
+
+    let results_measurements = results[0]
+        .locators
+        .iter()
+        .filter(|record| record.rule_id == "results.characteristic_measurement")
+        .count();
+    let results_item_references = results[0]
+        .locators
+        .iter()
+        .filter(|record| record.rule_id == "results.characteristic_item_external_reference")
+        .count();
+    let mut measurement_paths = BTreeSet::new();
+    for record in results[0]
+        .locators
+        .iter()
+        .filter(|record| record.rule_id == "results.characteristic_measurement")
+    {
+        let measurement_path = record
+            .locator
+            .source_path
+            .strip_suffix("@id")
+            .ok_or_else(|| {
+                InventoryError::SourceRuleCoverageMismatch(
+                    "CharacteristicMeasurement source locator has no @id selector".into(),
+                )
+            })?;
+        measurement_paths.insert(measurement_path.to_owned());
+    }
+    let mut status_parent_paths = BTreeSet::new();
+    let status_records: Vec<_> = results[0]
+        .locators
+        .iter()
+        .filter(|record| {
+            matches!(
+                record.rule_id.as_str(),
+                "results.characteristic_measurement_status_enum"
+                    | "results.characteristic_measurement_other_status"
+            )
+        })
+        .collect();
+    for record in &status_records {
+        let parent = record
+            .locator
+            .source_path
+            .split("/Status[")
+            .next()
+            .ok_or_else(|| {
+                InventoryError::SourceRuleCoverageMismatch(
+                    "CharacteristicMeasurement Status locator has no Status parent".into(),
+                )
+            })?;
+        if !status_parent_paths.insert(parent.to_owned()) {
+            return Err(InventoryError::SourceRuleCoverageMismatch(
+                "CharacteristicMeasurement has more than one status choice".into(),
+            ));
+        }
+    }
+    if results_measurements != results_item_references || measurement_paths != status_parent_paths {
+        return Err(InventoryError::SourceRuleCoverageMismatch(
+            "Results characteristic measurement/status/item-reference".into(),
+        ));
+    }
+
+    let declared_external_document_reference_ids = results[0]
+        .declared_external_ids
+        .iter()
+        .copied()
+        .collect::<Vec<_>>();
+    let plan_qpids: BTreeSet<_> = scanned
+        .iter()
+        .filter(|document| document.source.role == QifDocumentRole::Plan)
+        .map(|document| document.source.qpid.to_ascii_lowercase())
+        .collect();
+    if plan_qpids.is_empty() || results[0].declared_external_ids.is_empty() {
+        return Err(InventoryError::InvalidIdentity(
+            "test7_8_requires_external_plan_documents".into(),
+        ));
+    }
+    let mut external_document_references = Vec::new();
+    let mut external_reference_ids = BTreeSet::new();
+    for record in &results[0].locators {
+        if record.rule_id != "results.external_document_reference" {
+            continue;
+        }
+        let local_reference_id = record
+            .locator
+            .source_element_id
+            .ok_or_else(|| InventoryError::InvalidElementId(record.locator.source_path.clone()))?;
+        if !external_reference_ids.insert(local_reference_id) {
+            return Err(InventoryError::DuplicateExternalReferenceId(
+                local_reference_id,
+            ));
+        }
+        let plan_qpid_records: Vec<_> = results[0]
+            .locators
+            .iter()
+            .filter(|candidate| {
+                candidate.rule_id == "results.external_document_plan_qpid"
+                    && candidate.locator.external_document_reference_id == Some(local_reference_id)
+            })
+            .collect();
+        if plan_qpid_records.len() != 1 {
+            return Err(InventoryError::InvalidExternalPlanQpid(
+                record.locator.source_path.clone(),
+            ));
+        }
+        let plan_qpid = plan_qpid_records[0]
+            .captured_value
+            .as_ref()
+            .ok_or_else(|| {
+                InventoryError::InvalidExternalPlanQpid(record.locator.source_path.clone())
+            })?
+            .to_ascii_lowercase();
+        if !plan_qpids.contains(&plan_qpid) {
+            return Err(InventoryError::UnknownExternalPlanQpid(
+                record.locator.source_path.clone(),
+            ));
+        }
+        let uri_records: Vec<_> = results[0]
+            .locators
+            .iter()
+            .filter(|candidate| {
+                candidate.rule_id == "results.external_document_uri"
+                    && candidate.locator.parent_external_document_reference_id
+                        == Some(local_reference_id)
+            })
+            .collect();
+        if uri_records.len() > 1 {
+            return Err(InventoryError::DuplicateExternalReferenceId(
+                local_reference_id,
+            ));
+        }
+        let source_uri = uri_records
+            .first()
+            .and_then(|candidate| candidate.captured_value.clone());
+        external_document_references.push(ExternalQifDocumentReferenceV1 {
+            results_qpid: results[0].source.qpid.to_ascii_lowercase(),
+            local_reference_id,
+            plan_qpid,
+            source_uri,
+            source_locator: record.locator.source_path.clone(),
+        });
+    }
+    external_document_references
+        .sort_by(|left, right| left.local_reference_id.cmp(&right.local_reference_id));
+    let linked_plan_qpids: BTreeSet<_> = external_document_references
+        .iter()
+        .map(|reference| reference.plan_qpid.to_ascii_lowercase())
+        .collect();
+    if linked_plan_qpids != plan_qpids {
+        let unlinked = plan_qpids
+            .difference(&linked_plan_qpids)
+            .next()
+            .cloned()
+            .unwrap_or_default();
+        return Err(InventoryError::UnlinkedPlanDocument(unlinked));
+    }
+
+    let plan_items = scanned
+        .iter()
+        .filter(|document| document.source.role == QifDocumentRole::Plan)
+        .map(|document| {
+            document
+                .locators
+                .iter()
+                .filter(|record| record.rule_id == "plan.characteristic_item")
+                .count()
+        })
+        .sum::<usize>();
+    let plan_nominal_references = scanned
+        .iter()
+        .filter(|document| document.source.role == QifDocumentRole::Plan)
+        .map(|document| {
+            document
+                .locators
+                .iter()
+                .filter(|record| record.rule_id == "plan.characteristic_item_nominal_reference")
+                .count()
+        })
+        .sum::<usize>();
+    if plan_items != plan_nominal_references {
+        return Err(InventoryError::SourceRuleCoverageMismatch(
+            "Plan characteristic-item/nominal-reference".into(),
+        ));
+    }
+
+    let mut source_documents = scanned
+        .iter()
+        .map(|document| document.source.clone())
+        .collect::<Vec<_>>();
+    source_documents.sort_by(|left, right| left.qpid.cmp(&right.qpid));
+    let mut locators = scanned
+        .iter()
+        .flat_map(|document| document.locators.clone())
+        .collect::<Vec<_>>();
+    locators.sort_by(|left, right| {
+        locator_sort_key(&left.locator)
+            .cmp(&locator_sort_key(&right.locator))
+            .then(left.rule_id.cmp(&right.rule_id))
+    });
+
+    let body = TraceLocatorInventoryBodyV1 {
+        inventory_id: inventory_id.into(),
+        profile_id: profile.profile_id.clone(),
+        profile_version: profile.profile_version.clone(),
+        profile_sha256,
+        qif_standard_version: profile.qif_standard_version.clone(),
+        documents: source_documents,
+        locators,
+        declared_external_document_reference_ids,
+        external_document_references,
+    };
+    let mut inventory = TraceLocatorInventoryV1 {
+        schema: INVENTORY_SCHEMA.into(),
+        body,
+        inventory_sha256: String::new(),
+    };
+    inventory.inventory_sha256 = compute_inventory_digest(&inventory)?;
+
+    let report = TraceLocatorInventoryReport {
+        schema: REPORT_SCHEMA.into(),
+        disposition: InventoryDisposition::Complete,
+        scanner_package: env!("CARGO_PKG_NAME").into(),
+        scanner_version: env!("CARGO_PKG_VERSION").into(),
+        xml_library: "quick-xml".into(),
+        xml_library_version: QUICK_XML_VERSION.into(),
+        qif_standard_version: inventory.body.qif_standard_version.clone(),
+        profile_id: inventory.body.profile_id.clone(),
+        profile_version: inventory.body.profile_version.clone(),
+        profile_sha256: inventory.body.profile_sha256.clone(),
+        inventory_sha256: inventory.inventory_sha256.clone(),
+        source_document_count: inventory.body.documents.len(),
+        locator_count: inventory.body.locators.len(),
+        declared_external_reference_count: inventory
+            .body
+            .declared_external_document_reference_ids
+            .len(),
+        elements_scanned: inventory
+            .body
+            .documents
+            .iter()
+            .map(|document| document.element_count)
+            .sum(),
+        text_bytes_scanned: inventory
+            .body
+            .documents
+            .iter()
+            .map(|document| document.text_bytes)
+            .sum(),
+        max_observed_depth: inventory
+            .body
+            .documents
+            .iter()
+            .map(|document| document.max_observed_depth)
+            .max()
+            .unwrap_or(0),
+    };
+    Ok((inventory, report))
+}
+
+pub fn inventory_required_locators(
+    inventory: &TraceLocatorInventoryV1,
+) -> Result<Vec<SourceFieldLocatorV1>, InventoryError> {
+    if inventory.schema != INVENTORY_SCHEMA
+        || !valid_sha256(&inventory.inventory_sha256)
+        || compute_inventory_digest(inventory)? != inventory.inventory_sha256
+        || !valid_sha256(&inventory.body.profile_sha256)
+    {
+        return Err(InventoryError::InventoryDigestMismatch);
+    }
+    let mut locators = inventory
+        .body
+        .locators
+        .iter()
+        .map(|record| record.locator.clone())
+        .collect::<Vec<_>>();
+    locators.sort_by_key(locator_sort_key);
+    Ok(locators)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const NS: &str = "http://qifstandards.org/xsd/qif3";
+
+    fn expanded(local: &str) -> String {
+        format!("{{{NS}}}{local}")
+    }
+
+    fn profile() -> TraceLocatorProfileV1 {
+        TraceLocatorProfileV1 {
+            schema: PROFILE_SCHEMA.into(),
+            profile_id: "AERO_QIF_TEST7_8_TRACE".into(),
+            profile_version: "1.0.0".into(),
+            qif_standard_version: "3.0.0".into(),
+            rules: vec![
+                TraceLocatorRuleV1 {
+                    rule_id: "results.document_qpid".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![expanded("QIFDocument"), expanded("QPId")],
+                    capture: LocatorCaptureMode::DocumentQpid,
+                    min_occurrences: 1,
+                    max_occurrences: Some(1),
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.document_qpid".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![expanded("QIFDocument"), expanded("QPId")],
+                    capture: LocatorCaptureMode::DocumentQpid,
+                    min_occurrences: 1,
+                    max_occurrences: Some(1),
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.external_document_reference".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("ExternalQIFReferences"),
+                        expanded("ExternalQIFDocument"),
+                    ],
+                    capture: LocatorCaptureMode::ElementId,
+                    min_occurrences: 0,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: true,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.external_document_plan_qpid".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("ExternalQIFReferences"),
+                        expanded("ExternalQIFDocument"),
+                        expanded("QPId"),
+                    ],
+                    capture: LocatorCaptureMode::ExternalPlanQpid,
+                    min_occurrences: 0,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.external_document_uri".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("ExternalQIFReferences"),
+                        expanded("ExternalQIFDocument"),
+                        expanded("URI"),
+                    ],
+                    capture: LocatorCaptureMode::ExternalPlanUri,
+                    min_occurrences: 0,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.measurement_results_set".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                    ],
+                    capture: LocatorCaptureMode::Element,
+                    min_occurrences: 1,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.measurement_results".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                        expanded("MeasurementResults"),
+                    ],
+                    capture: LocatorCaptureMode::ElementId,
+                    min_occurrences: 1,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.characteristic_measurement".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                        expanded("MeasurementResults"),
+                        expanded("MeasuredCharacteristics"),
+                        expanded("CharacteristicMeasurements"),
+                        expanded("*"),
+                    ],
+                    capture: LocatorCaptureMode::ElementId,
+                    min_occurrences: 1,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.characteristic_item_external_reference".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                        expanded("MeasurementResults"),
+                        expanded("MeasuredCharacteristics"),
+                        expanded("CharacteristicMeasurements"),
+                        expanded("*"),
+                        expanded("CharacteristicItemId"),
+                    ],
+                    capture: LocatorCaptureMode::QifReference,
+                    min_occurrences: 1,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.inspection_status".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                        expanded("MeasurementResults"),
+                        expanded("InspectionStatus"),
+                        expanded("InspectionStatusEnum"),
+                    ],
+                    capture: LocatorCaptureMode::Text,
+                    min_occurrences: 0,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.inspection_other_status".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                        expanded("MeasurementResults"),
+                        expanded("InspectionStatus"),
+                        expanded("OtherInspectionStatus"),
+                    ],
+                    capture: LocatorCaptureMode::Text,
+                    min_occurrences: 0,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.characteristic_measurement_status_enum".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                        expanded("MeasurementResults"),
+                        expanded("MeasuredCharacteristics"),
+                        expanded("CharacteristicMeasurements"),
+                        expanded("*"),
+                        expanded("Status"),
+                        expanded("CharacteristicStatusEnum"),
+                    ],
+                    capture: LocatorCaptureMode::Text,
+                    min_occurrences: 0,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "results.characteristic_measurement_other_status".into(),
+                    document_role: QifDocumentRole::Results,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Results"),
+                        expanded("MeasurementResultsSet"),
+                        expanded("MeasurementResults"),
+                        expanded("MeasuredCharacteristics"),
+                        expanded("CharacteristicMeasurements"),
+                        expanded("*"),
+                        expanded("Status"),
+                        expanded("OtherCharacteristicStatus"),
+                    ],
+                    capture: LocatorCaptureMode::Text,
+                    min_occurrences: 0,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.characteristic_item".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Characteristics"),
+                        expanded("CharacteristicItems"),
+                        expanded("*"),
+                    ],
+                    capture: LocatorCaptureMode::ElementId,
+                    min_occurrences: 1,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.characteristic_item_nominal_reference".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Characteristics"),
+                        expanded("CharacteristicItems"),
+                        expanded("*"),
+                        expanded("CharacteristicNominalId"),
+                    ],
+                    capture: LocatorCaptureMode::LocalQifReference,
+                    min_occurrences: 1,
+                    max_occurrences: None,
+                    capture_attributes: vec!["{}asmPathId".into(), "{}asmPathXId".into()],
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.characteristic_nominal".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Characteristics"),
+                        expanded("CharacteristicNominals"),
+                        expanded("*"),
+                    ],
+                    capture: LocatorCaptureMode::ElementId,
+                    min_occurrences: 1,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.entity_external_id".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Characteristics"),
+                        expanded("CharacteristicNominals"),
+                        expanded("*"),
+                        expanded("EntityExternalIds"),
+                        expanded("Id"),
+                    ],
+                    capture: LocatorCaptureMode::LocalQifReference,
+                    min_occurrences: 1,
+                    max_occurrences: None,
+                    capture_attributes: vec!["{}asmPathId".into(), "{}asmPathXId".into()],
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.digital_model_external_entity".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Product"),
+                        expanded("PartSet"),
+                        expanded("*"),
+                        expanded("DefinitionExternal"),
+                        expanded("DigitalModel"),
+                        expanded("Entities"),
+                        expanded("Entity"),
+                    ],
+                    capture: LocatorCaptureMode::ElementId,
+                    min_occurrences: 1,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+                TraceLocatorRuleV1 {
+                    rule_id: "plan.external_entity_persistent_id".into(),
+                    document_role: QifDocumentRole::Plan,
+                    expanded_path: vec![
+                        expanded("QIFDocument"),
+                        expanded("Product"),
+                        expanded("PartSet"),
+                        expanded("*"),
+                        expanded("DefinitionExternal"),
+                        expanded("DigitalModel"),
+                        expanded("Entities"),
+                        expanded("Entity"),
+                        expanded("EntityId"),
+                    ],
+                    capture: LocatorCaptureMode::Text,
+                    min_occurrences: 1,
+                    max_occurrences: None,
+                    capture_attributes: Vec::new(),
+                    declares_external_document_reference: false,
+                },
+            ],
+            limits: TraceLocatorLimitsV1 {
+                max_source_bytes: 1024 * 1024,
+                max_documents: 8,
+                max_total_source_bytes: 4 * 1024 * 1024,
+                max_elements: 10_000,
+                max_depth: 32,
+                max_attributes_per_element: 32,
+                max_attribute_bytes: 16 * 1024,
+                max_text_bytes_per_element: 4096,
+                max_total_text_bytes: 1024 * 1024,
+                max_locators: 10_000,
+                max_namespace_bindings: 64,
+            },
+        }
+    }
+
+    fn docs<'a>(results: &'a [u8], plan: &'a [u8]) -> Vec<RawQifDocument<'a>> {
+        vec![
+            RawQifDocument {
+                qpid: "10000000-0000-4000-8000-000000000001",
+                role: QifDocumentRole::Results,
+                bytes: results,
+            },
+            RawQifDocument {
+                qpid: "20000000-0000-4000-8000-000000000002",
+                role: QifDocumentRole::Plan,
+                bytes: plan,
+            },
+        ]
+    }
+
+    const RESULTS: &str = include_str!("../fixtures/synthetic/results.qif");
+    const PLAN: &str = include_str!("../fixtures/synthetic/plan.qif");
+
+    #[test]
+    fn source_document_cannot_omit_external_plan_relationship_set() {
+        let results = RESULTS.replace(
+            "<ExternalQIFReferences n=\"1\">",
+            "<ExternalQIFReferences n=\"0\">"
+        ).replace(
+            "<ExternalQIFDocument id=\"7\"><QPId>20000000-0000-4000-8000-000000000002</QPId><URI>https://vendor.example/qif/Plan-A.qif</URI></ExternalQIFDocument>",
+            ""
+        );
+        assert!(matches!(
+            derive_trace_locator_inventory(
+                "missing-external-plan",
+                &profile(),
+                &docs(results.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::ArrayCardinalityMismatch { .. })
+                | Err(InventoryError::RuleMinimumNotMet(_))
+                | Err(InventoryError::InvalidIdentity(_))
+        ));
+    }
+
+    #[test]
+    fn checked_in_profile_fixture_matches_code_profile_exactly() {
+        let checked_in: TraceLocatorProfileV1 =
+            serde_json::from_slice(include_bytes!("../profiles/aero-qif-test7-8-trace-v1.json"))
+                .unwrap();
+        assert_eq!(checked_in, profile());
+        validate_profile(&checked_in).unwrap();
+    }
+
+    #[test]
+    fn non_qif_30_profile_version_rejects_before_scanning() {
+        let mut unsupported = profile();
+        unsupported.qif_standard_version = "3.1.0".into();
+        assert_eq!(
+            validate_profile(&unsupported),
+            Err(InventoryError::UnsupportedQifVersion("3.1.0".into()))
+        );
+    }
+
+    #[test]
+    fn profile_capture_attribute_order_does_not_change_profile_digest() {
+        let mut first = profile();
+        let mut second = profile();
+        let rule = second
+            .rules
+            .iter_mut()
+            .find(|rule| rule.rule_id == "plan.characteristic_item_nominal_reference")
+            .unwrap();
+        rule.capture_attributes.reverse();
+        assert_eq!(
+            compute_profile_digest(&first).unwrap(),
+            compute_profile_digest(&second).unwrap()
+        );
+        first.rules.reverse();
+        assert_eq!(
+            compute_profile_digest(&first).unwrap(),
+            compute_profile_digest(&second).unwrap()
+        );
+    }
+
+    #[test]
+    fn xml_11_declaration_is_not_misclassified_as_xml_10() {
+        let results = RESULTS
+            .replace("versionQIF=\"3.0.0\"", "versionQIF=\"3.0.0\"")
+            .replacen("<QIFDocument", "<?xml version=\"1.1\"?><QIFDocument", 1);
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "xml-11",
+                &profile(),
+                &docs(results.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::UnsupportedDeclaredXmlVersion("1.1".into()))
+        );
+    }
+
+    #[test]
+    fn auxiliary_document_role_is_explicitly_outside_this_profile() {
+        let documents = vec![
+            RawQifDocument {
+                qpid: "10000000-0000-4000-8000-000000000001",
+                role: QifDocumentRole::Results,
+                bytes: RESULTS.as_bytes(),
+            },
+            RawQifDocument {
+                qpid: "20000000-0000-4000-8000-000000000002",
+                role: QifDocumentRole::Auxiliary,
+                bytes: PLAN.as_bytes(),
+            },
+        ];
+        assert!(matches!(
+            derive_trace_locator_inventory("aux-role", &profile(), &documents),
+            Err(InventoryError::UnsupportedDocumentRole(_))
+        ));
+    }
+
+    #[test]
+    fn non_whitespace_content_before_root_is_rejected() {
+        let results = format!("unsafe-prefix{}", RESULTS);
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "text-before-root",
+                &profile(),
+                &docs(results.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::TextOutsideRoot)
+        );
+    }
+
+    #[test]
+    fn malformed_xml_comment_is_rejected() {
+        let results = RESULTS.replace("<Results>", "<!-- invalid -- comment --><Results>");
+        assert!(matches!(
+            derive_trace_locator_inventory(
+                "bad-comment",
+                &profile(),
+                &docs(results.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::XmlParse { .. })
+        ));
+    }
+
+    #[test]
+    fn external_plan_qpid_locator_uses_parent_external_reference_namespace() {
+        let (inventory, _) = derive_trace_locator_inventory(
+            "parent-reference-qpid",
+            &profile(),
+            &docs(RESULTS.as_bytes(), PLAN.as_bytes()),
+        )
+        .unwrap();
+        let qpid_record = inventory
+            .body
+            .locators
+            .iter()
+            .find(|record| record.rule_id == "results.external_document_plan_qpid")
+            .unwrap();
+        assert_eq!(
+            qpid_record.locator.parent_external_document_reference_id,
+            Some(7)
+        );
+        assert_eq!(qpid_record.locator.external_document_reference_id, None);
+    }
+
+    #[test]
+    fn qif_root_namespace_and_declared_version_are_bound_to_profile() {
+        let wrong_ns = RESULTS.replace("http://qifstandards.org/xsd/qif3", "urn:untrusted:qif");
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "wrong-namespace",
+                &profile(),
+                &docs(wrong_ns.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::WrongQifNamespace)
+        );
+        let wrong_version = RESULTS.replace("versionQIF=\"3.0.0\"", "versionQIF=\"2.1.0\"");
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "wrong-version",
+                &profile(),
+                &docs(wrong_version.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::UnsupportedQifVersion("2.1.0".into()))
+        );
+    }
+
+    #[test]
+    fn full_reference_assembly_path_is_not_silently_ignored() {
+        let plan = PLAN.replace(
+            "<q:CharacteristicNominalId>501</q:CharacteristicNominalId>",
+            "<q:CharacteristicNominalId asmPathId=\"10\">501</q:CharacteristicNominalId>",
+        );
+        assert!(matches!(
+            derive_trace_locator_inventory(
+                "assembly-path",
+                &profile(),
+                &docs(RESULTS.as_bytes(), plan.as_bytes())
+            ),
+            Err(InventoryError::UnsupportedAssemblyPathReference(_))
+        ));
+    }
+
+    #[test]
+    fn source_document_qpid_must_match_the_external_supplied_identity() {
+        let results = RESULTS.replace(
+            "10000000-0000-4000-8000-000000000001</QPId>",
+            "90000000-0000-4000-8000-000000000009</QPId>",
+        );
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "wrong-document-qpid",
+                &profile(),
+                &docs(results.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::DocumentQpidMismatch(
+                "/QIFDocument/{http://qifstandards.org/xsd/qif3}QPId[1]".into()
+            ))
+        );
+    }
+
+    #[test]
+    fn external_plan_qpid_must_resolve_to_one_of_the_supplied_plan_documents() {
+        let results = RESULTS.replace(
+            "20000000-0000-4000-8000-000000000002</QPId>",
+            "30000000-0000-4000-8000-000000000003</QPId>",
+        );
+        assert!(matches!(
+            derive_trace_locator_inventory(
+                "unmatched-plan-qpid",
+                &profile(),
+                &docs(results.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::UnknownExternalPlanQpid(_))
+        ));
+    }
+
+    #[test]
+    fn external_plan_uri_is_optional_and_never_dereferenced() {
+        let results = RESULTS.replace("<URI>https://vendor.example/qif/Plan-A.qif</URI>", "");
+        let (inventory, _) = derive_trace_locator_inventory(
+            "no-uri",
+            &profile(),
+            &docs(results.as_bytes(), PLAN.as_bytes()),
+        )
+        .unwrap();
+        assert_eq!(inventory.body.external_document_references.len(), 1);
+        assert_eq!(
+            inventory.body.external_document_references[0].source_uri,
+            None
+        );
+        assert_eq!(
+            inventory.body.external_document_references[0].plan_qpid,
+            "20000000-0000-4000-8000-000000000002"
+        );
+    }
+
+    #[test]
+    fn external_plan_qpid_and_uri_are_child_elements_not_attributes() {
+        let (inventory, _) = derive_trace_locator_inventory(
+            "qif-child-fields",
+            &profile(),
+            &docs(RESULTS.as_bytes(), PLAN.as_bytes()),
+        )
+        .unwrap();
+        let reference = &inventory.body.external_document_references[0];
+        assert_eq!(reference.local_reference_id, 7);
+        assert_eq!(reference.plan_qpid, "20000000-0000-4000-8000-000000000002");
+        assert_eq!(
+            reference.source_uri.as_deref(),
+            Some("https://vendor.example/qif/Plan-A.qif")
+        );
+    }
+
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct HandEnumeratedLocatorOracleV1 {
+        schema: String,
+        profile_id: String,
+        profile_version: String,
+        qif_standard_version: String,
+        case_id: String,
+        claim_ceiling: String,
+        locators: Vec<SourceFieldLocatorV1>,
+    }
+
+    #[test]
+    fn external_qif_reference_keeps_local_reference_and_remote_xid_distinct() {
+        let (inventory, _) = derive_trace_locator_inventory(
+            "reference-namespaces",
+            &profile(),
+            &docs(RESULTS.as_bytes(), PLAN.as_bytes()),
+        )
+        .unwrap();
+        let external = inventory
+            .body
+            .locators
+            .iter()
+            .find(|record| {
+                record.rule_id == "results.characteristic_item_external_reference"
+                    && record.locator.external_xid == Some(301)
+            })
+            .unwrap();
+        assert_eq!(external.locator.local_reference_id, None);
+        assert_eq!(external.locator.parent_external_document_reference_id, None);
+        assert_eq!(external.locator.external_document_reference_id, Some(7));
+        assert_eq!(external.locator.external_xid, Some(301));
+
+        let local = inventory
+            .body
+            .locators
+            .iter()
+            .find(|record| record.rule_id == "plan.characteristic_item_nominal_reference")
+            .unwrap();
+        assert_eq!(local.locator.local_reference_id, Some(501));
+        assert_eq!(local.locator.external_document_reference_id, None);
+        assert_eq!(local.locator.external_xid, None);
+    }
+
+    #[test]
+    fn external_document_child_values_bind_to_parent_external_reference_id() {
+        let (inventory, _) = derive_trace_locator_inventory(
+            "parent-reference-namespaces",
+            &profile(),
+            &docs(RESULTS.as_bytes(), PLAN.as_bytes()),
+        )
+        .unwrap();
+        let external_qpid = inventory
+            .body
+            .locators
+            .iter()
+            .find(|record| record.rule_id == "results.external_document_plan_qpid")
+            .unwrap();
+        let external_uri = inventory
+            .body
+            .locators
+            .iter()
+            .find(|record| record.rule_id == "results.external_document_uri")
+            .unwrap();
+        assert_eq!(
+            external_qpid.locator.parent_external_document_reference_id,
+            Some(7)
+        );
+        assert_eq!(external_qpid.locator.external_document_reference_id, None);
+        assert_eq!(
+            external_qpid.captured_value.as_deref(),
+            Some("20000000-0000-4000-8000-000000000002")
+        );
+        assert_eq!(
+            external_uri.locator.parent_external_document_reference_id,
+            Some(7)
+        );
+        assert_eq!(
+            external_uri.captured_value.as_deref(),
+            Some("https://vendor.example/qif/Plan-A.qif")
+        );
+    }
+
+    #[test]
+    fn execution_report_binds_scanner_library_profile_and_inventory_identity() {
+        let (inventory, report) = derive_trace_locator_inventory(
+            "report-identity",
+            &profile(),
+            &docs(RESULTS.as_bytes(), PLAN.as_bytes()),
+        )
+        .unwrap();
+        assert_eq!(report.schema, REPORT_SCHEMA);
+        assert_eq!(report.disposition, InventoryDisposition::Complete);
+        assert_eq!(report.scanner_package, env!("CARGO_PKG_NAME"));
+        assert_eq!(report.scanner_version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(report.xml_library, "quick-xml");
+        assert_eq!(report.xml_library_version, "0.42.0");
+        assert_eq!(report.qif_standard_version, "3.0.0");
+        assert_eq!(report.profile_id, inventory.body.profile_id);
+        assert_eq!(report.profile_version, inventory.body.profile_version);
+        assert_eq!(report.profile_sha256, inventory.body.profile_sha256);
+        assert_eq!(report.inventory_sha256, inventory.inventory_sha256);
+        assert_eq!(report.source_document_count, 2);
+        assert_eq!(report.locator_count, 25);
+    }
+
+    #[test]
+    fn raw_qif_inventory_matches_independent_hand_enumerated_locator_oracle() {
+        let oracle: HandEnumeratedLocatorOracleV1 = serde_json::from_slice(include_bytes!(
+            "../fixtures/hand-enumerated-locators-v1.json"
+        ))
+        .unwrap();
+        assert_eq!(oracle.schema, "AeroQifHandEnumeratedLocatorOracleV1");
+        assert_eq!(oracle.profile_id, "AERO_QIF_TEST7_8_TRACE");
+        assert_eq!(oracle.profile_version, "1.0.0");
+        assert_eq!(oracle.qif_standard_version, "3.0.0");
+        assert_eq!(oracle.case_id, "SYNTHETIC_QIF_RESULTS_AND_PLAN_V1");
+        assert!(
+            oracle
+                .claim_ceiling
+                .contains("not a complete QIF XSD inventory")
+        );
+
+        let (inventory, report) = derive_trace_locator_inventory(
+            "hand-oracle-comparison",
+            &profile(),
+            &docs(RESULTS.as_bytes(), PLAN.as_bytes()),
+        )
+        .unwrap();
+        let actual = inventory_required_locators(&inventory).unwrap();
+        let expected_set: BTreeSet<_> = oracle.locators.iter().cloned().collect();
+        let actual_set: BTreeSet<_> = actual.iter().cloned().collect();
+
+        assert_eq!(oracle.locators.len(), 25);
+        assert_eq!(
+            expected_set.len(),
+            oracle.locators.len(),
+            "oracle must not contain duplicate locators"
+        );
+        assert_eq!(
+            actual.len(),
+            oracle.locators.len(),
+            "scanner must not add or omit rows"
+        );
+        assert_eq!(actual_set, expected_set);
+        assert_eq!(report.locator_count, oracle.locators.len());
+    }
+
+    #[test]
+    fn derives_namespace_aware_inventory_from_raw_results_and_plan() {
+        let documents = docs(RESULTS.as_bytes(), PLAN.as_bytes());
+        let (inventory, report) =
+            derive_trace_locator_inventory("test-inventory-1", &profile(), &documents).unwrap();
+        assert_eq!(report.disposition, InventoryDisposition::Complete);
+        assert_eq!(report.source_document_count, 2);
+        assert_eq!(report.declared_external_reference_count, 1);
+        assert_eq!(report.locator_count, 25);
+        assert_eq!(inventory_required_locators(&inventory).unwrap().len(), 25);
+    }
+
+    #[test]
+    fn human_readable_inspection_status_is_supported_as_the_alternate_choice() {
+        let results = RESULTS.replace(
+            "<InspectionStatusEnum>PASS</InspectionStatusEnum>",
+            "<OtherInspectionStatus>partially inspected per customer deviation</OtherInspectionStatus>"
+        );
+        let (inventory, _) = derive_trace_locator_inventory(
+            "inspection-status-other",
+            &profile(),
+            &docs(results.as_bytes(), PLAN.as_bytes()),
+        )
+        .unwrap();
+        let other = inventory
+            .body
+            .locators
+            .iter()
+            .find(|record| record.rule_id == "results.inspection_other_status")
+            .and_then(|record| record.captured_value.as_deref());
+        assert_eq!(other, Some("partially inspected per customer deviation"));
+    }
+
+    #[test]
+    fn overall_measurement_results_inspection_status_is_inventory_evidence() {
+        let (inventory, _) = derive_trace_locator_inventory(
+            "inspection-status",
+            &profile(),
+            &docs(RESULTS.as_bytes(), PLAN.as_bytes()),
+        )
+        .unwrap();
+        let status = inventory
+            .body
+            .locators
+            .iter()
+            .find(|record| record.rule_id == "results.inspection_status")
+            .and_then(|record| record.captured_value.as_deref());
+        assert_eq!(status, Some("PASS"));
+    }
+
+    #[test]
+    fn characteristic_measurement_statuses_are_preserved_as_source_fields() {
+        let (inventory, _) = derive_trace_locator_inventory(
+            "measurement-statuses",
+            &profile(),
+            &docs(RESULTS.as_bytes(), PLAN.as_bytes()),
+        )
+        .unwrap();
+        let statuses: Vec<_> = inventory
+            .body
+            .locators
+            .iter()
+            .filter(|record| {
+                matches!(
+                    record.rule_id.as_str(),
+                    "results.characteristic_measurement_status_enum"
+                        | "results.characteristic_measurement_other_status"
+                )
+            })
+            .filter_map(|record| record.captured_value.as_deref())
+            .collect();
+        assert_eq!(statuses, vec!["PASS", "FAIL", "NOT_EVALUATED"]);
+    }
+
+    #[test]
+    fn prefixes_do_not_change_expanded_name_identity_or_inventory() {
+        let names = [
+            "QIFDocument",
+            "QPId",
+            "ExternalQIFReferences",
+            "ExternalQIFDocument",
+            "URI",
+            "Results",
+            "MeasurementResultsSet",
+            "MeasurementResults",
+            "MeasuredCharacteristics",
+            "CharacteristicMeasurements",
+            "LinearCharacteristicMeasurement",
+            "Status",
+            "CharacteristicStatusEnum",
+            "CharacteristicItemId",
+        ];
+        let mut results_prefixed = RESULTS.replace(
+            "xmlns=\"http://qifstandards.org/xsd/qif3\"",
+            "xmlns:a=\"http://qifstandards.org/xsd/qif3\"",
+        );
+        for name in names {
+            results_prefixed = results_prefixed
+                .replace(&format!("<{name}"), &format!("<a:{name}"))
+                .replace(&format!("</{name}>"), &format!("</a:{name}>"));
+        }
+        let docs1 = docs(RESULTS.as_bytes(), PLAN.as_bytes());
+        let docs2 = docs(results_prefixed.as_bytes(), PLAN.as_bytes());
+        let (first, _) = derive_trace_locator_inventory("same", &profile(), &docs1).unwrap();
+        let (second, _) = derive_trace_locator_inventory("same", &profile(), &docs2).unwrap();
+        let a = inventory_required_locators(&first).unwrap();
+        let b = inventory_required_locators(&second).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn same_numeric_xid_in_other_plan_document_does_not_change_source_inventory() {
+        let plan2 = PLAN.replace(
+            "20000000-0000-4000-8000-000000000002",
+            "30000000-0000-4000-8000-000000000003",
+        );
+        let results = RESULTS
+            .replace("<ExternalQIFReferences n=\"1\">", "<ExternalQIFReferences n=\"2\">")
+            .replace(
+                "</ExternalQIFReferences>",
+                "<ExternalQIFDocument id=\"8\"><QPId>30000000-0000-4000-8000-000000000003</QPId></ExternalQIFDocument></ExternalQIFReferences>"
+            );
+        let documents = vec![
+            RawQifDocument {
+                qpid: "10000000-0000-4000-8000-000000000001",
+                role: QifDocumentRole::Results,
+                bytes: results.as_bytes(),
+            },
+            RawQifDocument {
+                qpid: "20000000-0000-4000-8000-000000000002",
+                role: QifDocumentRole::Plan,
+                bytes: PLAN.as_bytes(),
+            },
+            RawQifDocument {
+                qpid: "30000000-0000-4000-8000-000000000003",
+                role: QifDocumentRole::Plan,
+                bytes: plan2.as_bytes(),
+            },
+        ];
+        let (inventory, _) =
+            derive_trace_locator_inventory("id-scope", &profile(), &documents).unwrap();
+        let duplicate_item_ids: Vec<_> = inventory
+            .body
+            .locators
+            .iter()
+            .filter(|record| record.rule_id == "plan.characteristic_item")
+            .filter_map(|record| {
+                record
+                    .locator
+                    .source_element_id
+                    .map(|id| (record.locator.document_qpid.clone(), id))
+            })
+            .filter(|(_, id)| *id == 301)
+            .collect();
+        assert_eq!(duplicate_item_ids.len(), 2);
+        assert_ne!(duplicate_item_ids[0].0, duplicate_item_ids[1].0);
+    }
+
+    #[test]
+    fn missing_external_xid_remains_a_locator_because_qif_xid_is_optional() {
+        let results = RESULTS.replace(" xId=\"301\"", "");
+        let docs = docs(results.as_bytes(), PLAN.as_bytes());
+        let (inventory, _) =
+            derive_trace_locator_inventory("optional-xid", &profile(), &docs).unwrap();
+        let refs: Vec<_> = inventory
+            .body
+            .locators
+            .iter()
+            .filter(|record| record.rule_id == "results.characteristic_item_external_reference")
+            .collect();
+        assert_eq!(refs[0].locator.local_reference_id, Some(7));
+        assert_eq!(refs[0].locator.external_document_reference_id, None);
+        assert_eq!(refs[0].locator.external_xid, None);
+    }
+
+    #[test]
+    fn dtd_and_doctype_are_rejected_without_external_resolution() {
+        let xml = r#"<!DOCTYPE QIFDocument SYSTEM "file:///etc/passwd"><QIFDocument xmlns="http://qifstandards.org/xsd/qif3"><Results/></QIFDocument>"#;
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "doctype",
+                &profile(),
+                &docs(xml.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::DoctypeForbidden)
+        );
+    }
+
+    #[test]
+    fn custom_entity_is_rejected_but_predefined_and_numeric_refs_are_preserved() {
+        let custom = r#"<!DOCTYPE QIFDocument [<!ENTITY p "7">]><QIFDocument xmlns="http://qifstandards.org/xsd/qif3"><Results/></QIFDocument>"#;
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "custom-entity",
+                &profile(),
+                &docs(custom.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::DoctypeForbidden)
+        );
+        let results = RESULTS.replace(">7</CharacteristicItemId>", "&#55;</CharacteristicItemId>");
+        let (inventory, _) = derive_trace_locator_inventory(
+            "numeric-reference",
+            &profile(),
+            &docs(results.as_bytes(), PLAN.as_bytes()),
+        )
+        .unwrap();
+        assert_eq!(
+            inventory
+                .body
+                .locators
+                .iter()
+                .find(|row| row.rule_id == "results.characteristic_item_external_reference")
+                .unwrap()
+                .locator
+                .external_document_reference_id,
+            Some(7)
+        );
+    }
+
+    #[test]
+    fn malformed_end_tag_is_rejected() {
+        let broken = RESULTS.replace(
+            "</LinearCharacteristicMeasurement>",
+            "</MeasurementResultsSet>",
+        );
+        assert!(matches!(
+            derive_trace_locator_inventory(
+                "malformed",
+                &profile(),
+                &docs(broken.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::XmlParse { .. }) | Err(InventoryError::ElementStackMismatch)
+        ));
+    }
+
+    #[test]
+    fn unbound_prefix_is_rejected() {
+        let xml = r#"<q:QIFDocument><q:QPId>10000000-0000-4000-8000-000000000001</q:QPId><q:Results/></q:QIFDocument>"#;
+        assert!(matches!(
+            derive_trace_locator_inventory(
+                "unbound",
+                &profile(),
+                &docs(xml.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::UnboundNamespace(_))
+        ));
+    }
+
+    #[test]
+    fn declared_qif_array_n_must_match_source_children() {
+        let results = RESULTS.replace(
+            "<CharacteristicMeasurements n=\"3\">",
+            "<CharacteristicMeasurements n=\"2\">",
+        );
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "array-count-mismatch",
+                &profile(),
+                &docs(results.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::ArrayCardinalityMismatch {
+                declared: 2,
+                observed: 3
+            })
+        );
+    }
+
+    #[test]
+    fn oversized_xml_attribute_fails_before_capture() {
+        let mut limited = profile();
+        limited.limits.max_attribute_bytes = 4;
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "attribute-limit",
+                &limited,
+                &docs(RESULTS.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::AttributeBytesLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn unsupported_declared_xml_encoding_is_not_guessed() {
+        let results = RESULTS.replace(
+            "<QIFDocument",
+            "<?xml version=\"1.0\" encoding=\"UTF-16\"?><QIFDocument",
+        );
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "unsupported-encoding",
+                &profile(),
+                &docs(results.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::UnsupportedDeclaredEncoding)
+        );
+    }
+
+    #[test]
+    fn document_count_limit_is_enforced_before_scanning() {
+        let mut limited = profile();
+        limited.limits.max_documents = 1;
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "document-count-limit",
+                &limited,
+                &docs(RESULTS.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::DocumentCountLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn aggregate_source_bytes_limit_is_enforced_across_all_documents() {
+        let mut limited = profile();
+        limited.limits.max_source_bytes = 1024 * 1024;
+        limited.limits.max_total_source_bytes = 2000;
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "total-source-bytes-limit",
+                &limited,
+                &docs(RESULTS.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::TotalSourceBytesLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn byte_and_depth_limits_fail_closed() {
+        let mut small = profile();
+        small.limits.max_source_bytes = 32;
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "byte-limit",
+                &small,
+                &docs(RESULTS.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::SourceTooLarge)
+        );
+        let deep = r#"<QIFDocument xmlns="http://qifstandards.org/xsd/qif3"><QPId>10000000-0000-4000-8000-000000000001</QPId><Results><MeasurementResultsSet><MeasurementResults><MeasuredCharacteristics><CharacteristicMeasurements><LinearCharacteristicMeasurement><CharacteristicItemId>7</CharacteristicItemId></LinearCharacteristicMeasurement></CharacteristicMeasurements></MeasuredCharacteristics></MeasurementResults></MeasurementResultsSet></Results></QIFDocument>"#;
+        let mut shallow = profile();
+        shallow.limits.max_depth = 2;
+        assert_eq!(
+            derive_trace_locator_inventory(
+                "depth-limit",
+                &shallow,
+                &docs(deep.as_bytes(), PLAN.as_bytes())
+            ),
+            Err(InventoryError::DepthLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn inventory_digest_changes_when_source_bytes_or_profile_changes() {
+        let documents = docs(RESULTS.as_bytes(), PLAN.as_bytes());
+        let (first, _) = derive_trace_locator_inventory("digest", &profile(), &documents).unwrap();
+        let changed_profile = {
+            let mut value = profile();
+            value.profile_version = "1.0.1".into();
+            value
+        };
+        let (second, _) =
+            derive_trace_locator_inventory("digest", &changed_profile, &documents).unwrap();
+        assert_ne!(first.body.profile_sha256, second.body.profile_sha256);
+        assert_ne!(first.inventory_sha256, second.inventory_sha256);
+    }
+}

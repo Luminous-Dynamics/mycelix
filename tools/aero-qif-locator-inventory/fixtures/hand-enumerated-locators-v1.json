@@ -1,0 +1,235 @@
+{
+  "schema": "AeroQifHandEnumeratedLocatorOracleV1",
+  "profile_id": "AERO_QIF_TEST7_8_TRACE",
+  "profile_version": "1.0.0",
+  "qif_standard_version": "3.0.0",
+  "case_id": "SYNTHETIC_QIF_RESULTS_AND_PLAN_V1",
+  "claim_ceiling": "hand-enumerated synthetic trace-profile oracle only; not a complete QIF XSD inventory",
+  "locators": [
+    {
+      "document_qpid": "10000000-0000-4000-8000-000000000001",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}QPId[1]#qpid",
+      "source_element_id": null,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "10000000-0000-4000-8000-000000000001",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}ExternalQIFReferences[1]/{http://qifstandards.org/xsd/qif3}ExternalQIFDocument[1]@id",
+      "source_element_id": 7,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "10000000-0000-4000-8000-000000000001",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}ExternalQIFReferences[1]/{http://qifstandards.org/xsd/qif3}ExternalQIFDocument[1]/{http://qifstandards.org/xsd/qif3}QPId[1]#qpid",
+      "source_element_id": null,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": 7,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "10000000-0000-4000-8000-000000000001",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}ExternalQIFReferences[1]/{http://qifstandards.org/xsd/qif3}ExternalQIFDocument[1]/{http://qifstandards.org/xsd/qif3}URI[1]#uri",
+      "source_element_id": null,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": 7,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "10000000-0000-4000-8000-000000000001",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Results[1]/{http://qifstandards.org/xsd/qif3}MeasurementResultsSet[1]",
+      "source_element_id": null,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "10000000-0000-4000-8000-000000000001",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Results[1]/{http://qifstandards.org/xsd/qif3}MeasurementResultsSet[1]/{http://qifstandards.org/xsd/qif3}MeasurementResults[1]@id",
+      "source_element_id": 100,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "10000000-0000-4000-8000-000000000001",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Results[1]/{http://qifstandards.org/xsd/qif3}MeasurementResultsSet[1]/{http://qifstandards.org/xsd/qif3}MeasurementResults[1]/{http://qifstandards.org/xsd/qif3}MeasuredCharacteristics[1]/{http://qifstandards.org/xsd/qif3}CharacteristicMeasurements[1]/{http://qifstandards.org/xsd/qif3}LinearCharacteristicMeasurement[1]@id",
+      "source_element_id": 901,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "10000000-0000-4000-8000-000000000001",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Results[1]/{http://qifstandards.org/xsd/qif3}MeasurementResultsSet[1]/{http://qifstandards.org/xsd/qif3}MeasurementResults[1]/{http://qifstandards.org/xsd/qif3}MeasuredCharacteristics[1]/{http://qifstandards.org/xsd/qif3}CharacteristicMeasurements[1]/{http://qifstandards.org/xsd/qif3}LinearCharacteristicMeasurement[2]@id",
+      "source_element_id": 902,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "10000000-0000-4000-8000-000000000001",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Results[1]/{http://qifstandards.org/xsd/qif3}MeasurementResultsSet[1]/{http://qifstandards.org/xsd/qif3}MeasurementResults[1]/{http://qifstandards.org/xsd/qif3}MeasuredCharacteristics[1]/{http://qifstandards.org/xsd/qif3}CharacteristicMeasurements[1]/{http://qifstandards.org/xsd/qif3}LinearCharacteristicMeasurement[3]@id",
+      "source_element_id": 903,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "10000000-0000-4000-8000-000000000001",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Results[1]/{http://qifstandards.org/xsd/qif3}MeasurementResultsSet[1]/{http://qifstandards.org/xsd/qif3}MeasurementResults[1]/{http://qifstandards.org/xsd/qif3}MeasuredCharacteristics[1]/{http://qifstandards.org/xsd/qif3}CharacteristicMeasurements[1]/{http://qifstandards.org/xsd/qif3}LinearCharacteristicMeasurement[1]/{http://qifstandards.org/xsd/qif3}CharacteristicItemId[1]#qif-reference",
+      "source_element_id": null,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": 7,
+      "external_xid": 301
+    },
+    {
+      "document_qpid": "10000000-0000-4000-8000-000000000001",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Results[1]/{http://qifstandards.org/xsd/qif3}MeasurementResultsSet[1]/{http://qifstandards.org/xsd/qif3}MeasurementResults[1]/{http://qifstandards.org/xsd/qif3}MeasuredCharacteristics[1]/{http://qifstandards.org/xsd/qif3}CharacteristicMeasurements[1]/{http://qifstandards.org/xsd/qif3}LinearCharacteristicMeasurement[2]/{http://qifstandards.org/xsd/qif3}CharacteristicItemId[1]#qif-reference",
+      "source_element_id": null,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": 7,
+      "external_xid": 302
+    },
+    {
+      "document_qpid": "10000000-0000-4000-8000-000000000001",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Results[1]/{http://qifstandards.org/xsd/qif3}MeasurementResultsSet[1]/{http://qifstandards.org/xsd/qif3}MeasurementResults[1]/{http://qifstandards.org/xsd/qif3}MeasuredCharacteristics[1]/{http://qifstandards.org/xsd/qif3}CharacteristicMeasurements[1]/{http://qifstandards.org/xsd/qif3}LinearCharacteristicMeasurement[3]/{http://qifstandards.org/xsd/qif3}CharacteristicItemId[1]#qif-reference",
+      "source_element_id": null,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": 7,
+      "external_xid": 301
+    },
+    {
+      "document_qpid": "10000000-0000-4000-8000-000000000001",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Results[1]/{http://qifstandards.org/xsd/qif3}MeasurementResultsSet[1]/{http://qifstandards.org/xsd/qif3}MeasurementResults[1]/{http://qifstandards.org/xsd/qif3}InspectionStatus[1]/{http://qifstandards.org/xsd/qif3}InspectionStatusEnum[1]#text",
+      "source_element_id": null,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "10000000-0000-4000-8000-000000000001",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Results[1]/{http://qifstandards.org/xsd/qif3}MeasurementResultsSet[1]/{http://qifstandards.org/xsd/qif3}MeasurementResults[1]/{http://qifstandards.org/xsd/qif3}MeasuredCharacteristics[1]/{http://qifstandards.org/xsd/qif3}CharacteristicMeasurements[1]/{http://qifstandards.org/xsd/qif3}LinearCharacteristicMeasurement[1]/{http://qifstandards.org/xsd/qif3}Status[1]/{http://qifstandards.org/xsd/qif3}CharacteristicStatusEnum[1]#text",
+      "source_element_id": null,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "10000000-0000-4000-8000-000000000001",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Results[1]/{http://qifstandards.org/xsd/qif3}MeasurementResultsSet[1]/{http://qifstandards.org/xsd/qif3}MeasurementResults[1]/{http://qifstandards.org/xsd/qif3}MeasuredCharacteristics[1]/{http://qifstandards.org/xsd/qif3}CharacteristicMeasurements[1]/{http://qifstandards.org/xsd/qif3}LinearCharacteristicMeasurement[2]/{http://qifstandards.org/xsd/qif3}Status[1]/{http://qifstandards.org/xsd/qif3}CharacteristicStatusEnum[1]#text",
+      "source_element_id": null,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "10000000-0000-4000-8000-000000000001",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Results[1]/{http://qifstandards.org/xsd/qif3}MeasurementResultsSet[1]/{http://qifstandards.org/xsd/qif3}MeasurementResults[1]/{http://qifstandards.org/xsd/qif3}MeasuredCharacteristics[1]/{http://qifstandards.org/xsd/qif3}CharacteristicMeasurements[1]/{http://qifstandards.org/xsd/qif3}LinearCharacteristicMeasurement[3]/{http://qifstandards.org/xsd/qif3}Status[1]/{http://qifstandards.org/xsd/qif3}OtherCharacteristicStatus[1]#text",
+      "source_element_id": null,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "20000000-0000-4000-8000-000000000002",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}QPId[1]#qpid",
+      "source_element_id": null,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "20000000-0000-4000-8000-000000000002",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Characteristics[1]/{http://qifstandards.org/xsd/qif3}CharacteristicNominals[1]/{http://qifstandards.org/xsd/qif3}LinearCharacteristicNominal[1]@id",
+      "source_element_id": 501,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "20000000-0000-4000-8000-000000000002",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Characteristics[1]/{http://qifstandards.org/xsd/qif3}CharacteristicItems[1]/{http://qifstandards.org/xsd/qif3}LinearCharacteristicItem[1]@id",
+      "source_element_id": 301,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "20000000-0000-4000-8000-000000000002",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Characteristics[1]/{http://qifstandards.org/xsd/qif3}CharacteristicItems[1]/{http://qifstandards.org/xsd/qif3}LinearCharacteristicItem[1]/{http://qifstandards.org/xsd/qif3}CharacteristicNominalId[1]#local-qif-reference",
+      "source_element_id": null,
+      "local_reference_id": 501,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "20000000-0000-4000-8000-000000000002",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Characteristics[1]/{http://qifstandards.org/xsd/qif3}CharacteristicItems[1]/{http://qifstandards.org/xsd/qif3}LinearCharacteristicItem[2]@id",
+      "source_element_id": 302,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "20000000-0000-4000-8000-000000000002",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Characteristics[1]/{http://qifstandards.org/xsd/qif3}CharacteristicItems[1]/{http://qifstandards.org/xsd/qif3}LinearCharacteristicItem[2]/{http://qifstandards.org/xsd/qif3}CharacteristicNominalId[1]#local-qif-reference",
+      "source_element_id": null,
+      "local_reference_id": 501,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "20000000-0000-4000-8000-000000000002",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Characteristics[1]/{http://qifstandards.org/xsd/qif3}CharacteristicNominals[1]/{http://qifstandards.org/xsd/qif3}LinearCharacteristicNominal[1]/{http://qifstandards.org/xsd/qif3}EntityExternalIds[1]/{http://qifstandards.org/xsd/qif3}Id[1]#local-qif-reference",
+      "source_element_id": null,
+      "local_reference_id": 9001,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "20000000-0000-4000-8000-000000000002",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Product[1]/{http://qifstandards.org/xsd/qif3}PartSet[1]/{http://qifstandards.org/xsd/qif3}Part[1]/{http://qifstandards.org/xsd/qif3}DefinitionExternal[1]/{http://qifstandards.org/xsd/qif3}DigitalModel[1]/{http://qifstandards.org/xsd/qif3}Entities[1]/{http://qifstandards.org/xsd/qif3}Entity[1]@id",
+      "source_element_id": 9001,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    },
+    {
+      "document_qpid": "20000000-0000-4000-8000-000000000002",
+      "source_path": "/QIFDocument/{http://qifstandards.org/xsd/qif3}Product[1]/{http://qifstandards.org/xsd/qif3}PartSet[1]/{http://qifstandards.org/xsd/qif3}Part[1]/{http://qifstandards.org/xsd/qif3}DefinitionExternal[1]/{http://qifstandards.org/xsd/qif3}DigitalModel[1]/{http://qifstandards.org/xsd/qif3}Entities[1]/{http://qifstandards.org/xsd/qif3}Entity[1]/{http://qifstandards.org/xsd/qif3}EntityId[1]#text",
+      "source_element_id": null,
+      "local_reference_id": null,
+      "parent_external_document_reference_id": null,
+      "external_document_reference_id": null,
+      "external_xid": null
+    }
+  ]
+}

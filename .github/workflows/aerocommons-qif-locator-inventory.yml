@@ -1,0 +1,58 @@
+name: AeroCommons QIF Locator Inventory
+
+on:
+  pull_request:
+    paths:
+      - "tools/aero-qif-locator-inventory/**"
+      - "tools/aero-qif-ingest-qualification/**"
+      - "mycelix-commons/crates/aero-evidence-types/**"
+      - "docs/aerocommons/AERO_QIF_TRACE_LOCATOR_PROFILE_V1.schema.json"
+      - "docs/aerocommons/AERO_QIF_TRACE_LOCATOR_INVENTORY_V1.schema.json"
+      - "docs/aerocommons/AERO_QIF_TRACE_LOCATOR_REPORT_V1.schema.json"
+      - "docs/aerocommons/AERO_QIF_LOCATOR_INVENTORY_001.md"
+      - ".github/workflows/aerocommons-qif-locator-inventory.yml"
+  push:
+    branches:
+      - "research/aerocommons-qif-locator-inventory-001"
+    paths:
+      - "tools/aero-qif-locator-inventory/**"
+      - "tools/aero-qif-ingest-qualification/**"
+      - "mycelix-commons/crates/aero-evidence-types/**"
+      - "docs/aerocommons/AERO_QIF_TRACE_LOCATOR_PROFILE_V1.schema.json"
+      - "docs/aerocommons/AERO_QIF_TRACE_LOCATOR_INVENTORY_V1.schema.json"
+      - "docs/aerocommons/AERO_QIF_LOCATOR_INVENTORY_001.md"
+      - ".github/workflows/aerocommons-qif-locator-inventory.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  qif-locator-inventory:
+    name: Independent raw-QIF locator inventory
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Install Rust 1.96.1
+        uses: dtolnay/rust-toolchain@1.96.1
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/aero-qif-locator-inventory/Cargo.toml -- --check
+      - name: Run locator inventory oracle and adversarial tests
+        run: cargo test --manifest-path tools/aero-qif-locator-inventory/Cargo.toml
+      - name: Run CLI against synthetic QIF source files
+        run: |
+          cargo run --manifest-path tools/aero-qif-locator-inventory/Cargo.toml -- \
+            --inventory-id ci-synthetic-qif-trace-v1 \
+            --profile tools/aero-qif-locator-inventory/profiles/aero-qif-test7-8-trace-v1.json \
+            --results-qpid 10000000-0000-4000-8000-000000000001 \
+            --results tools/aero-qif-locator-inventory/fixtures/synthetic/results.qif \
+            --plan 20000000-0000-4000-8000-000000000002=tools/aero-qif-locator-inventory/fixtures/synthetic/plan.qif \
+            --inventory-out "$RUNNER_TEMP/qif-inventory.json" \
+            --required-locators-out "$RUNNER_TEMP/required-locators.json" \
+            --report-out "$RUNNER_TEMP/qif-report.json"
+          jq -e 'length == 25' "$RUNNER_TEMP/required-locators.json"
+          jq -e '.schema == "AeroQifTraceLocatorReportV1" and .locator_count == 25' "$RUNNER_TEMP/qif-report.json"
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path tools/aero-qif-locator-inventory/Cargo.toml --all-targets -- -D warnings
