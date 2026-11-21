@@ -101,6 +101,7 @@ pub struct TraceLocatorSourceDocumentV1 {
     pub sha256: String,
     pub byte_length: u64,
     pub root_expanded_name: String,
+    pub version_qif: String,
     pub element_count: u64,
     pub max_observed_depth: u32,
     pub text_bytes: u64,
@@ -193,6 +194,10 @@ pub enum InventoryError {
     MultipleRoots,
     #[error("document root is not QIFDocument")]
     WrongRoot,
+    #[error("document root is not in the QIF 3.0 namespace")]
+    WrongQifNamespace,
+    #[error("document declares unsupported QIF version {0}")]
+    UnsupportedQifVersion(String),
     #[error("unbound XML namespace prefix {0}")]
     UnboundNamespace(String),
     #[error("XML parse failed at byte {position}: {reason}")]
@@ -396,7 +401,9 @@ pub fn validate_profile(profile: &TraceLocatorProfileV1) -> Result<(), Inventory
     for rule in &profile.rules {
         if rule.rule_id.trim().is_empty()
             || rule.expanded_path.len() < 2
-            || rule.expanded_path.first().is_none_or(|root| !root.ends_with("}QIFDocument"))
+            || rule.expanded_path.first().is_none_or(|root| {
+                root != "{http://qifstandards.org/xsd/qif3}QIFDocument"
+            })
             || rule.expanded_path.iter().enumerate().any(|(index, name)| {
                 !name.starts_with('{')
                     || !name.contains('}')
@@ -718,6 +725,7 @@ fn scan_document(
     let mut max_depth = 0u32;
     let mut total_text_bytes = 0u64;
     let mut root_expanded_name = None;
+    let mut root_version_qif = None;
 
     loop {
         let (resolution, event) = reader.read_resolved_event_into(&mut buffer)
@@ -754,6 +762,15 @@ fn scan_document(
                     if local_name != "QIFDocument" {
                         return Err(InventoryError::WrongRoot);
                     }
+                    if expanded != "{http://qifstandards.org/xsd/qif3}QIFDocument" {
+                        return Err(InventoryError::WrongQifNamespace);
+                    }
+                    let version = raw_attributes.get("{}versionQIF")
+                        .ok_or_else(|| InventoryError::UnsupportedQifVersion("missing".into()))?;
+                    if version != &profile.qif_standard_version {
+                        return Err(InventoryError::UnsupportedQifVersion(version.clone()));
+                    }
+                    root_version_qif = Some(version.clone());
                     root_expanded_name = Some(expanded.clone());
                     1
                 };
@@ -924,6 +941,7 @@ fn scan_document(
             sha256: sha256_hex(bytes),
             byte_length: bytes.len() as u64,
             root_expanded_name: root_expanded_name.unwrap_or_default(),
+            version_qif: root_version_qif.unwrap_or_default(),
             element_count,
             max_observed_depth: max_depth,
             text_bytes: total_text_bytes,
@@ -1372,7 +1390,7 @@ mod tests {
                     capture: LocatorCaptureMode::LocalQifReference,
                     min_occurrences: 1,
                     max_occurrences: None,
-                    capture_attributes: Vec::new(),
+                    capture_attributes: vec!["{}asmPathId".into(), "{}asmPathXId".into()],
                     declares_external_document_reference: false,
                 },
                 TraceLocatorRuleV1 {
@@ -1547,6 +1565,35 @@ mod tests {
   </q:Product>
 </q:QIFDocument>
 "#;
+
+    #[test]
+    fn qif_root_namespace_and_declared_version_are_bound_to_profile() {
+        let wrong_ns = RESULTS.replace(
+            "http://qifstandards.org/xsd/qif3",
+            "urn:untrusted:qif"
+        );
+        assert_eq!(
+            derive_trace_locator_inventory("wrong-namespace", &profile(), &docs(wrong_ns.as_bytes(), PLAN.as_bytes())),
+            Err(InventoryError::WrongQifNamespace)
+        );
+        let wrong_version = RESULTS.replace("versionQIF=\"3.0.0\"", "versionQIF=\"2.1.0\"");
+        assert_eq!(
+            derive_trace_locator_inventory("wrong-version", &profile(), &docs(wrong_version.as_bytes(), PLAN.as_bytes())),
+            Err(InventoryError::UnsupportedQifVersion("2.1.0".into()))
+        );
+    }
+
+    #[test]
+    fn full_reference_assembly_path_is_not_silently_ignored() {
+        let plan = PLAN.replace(
+            "<q:CharacteristicNominalId>501</q:CharacteristicNominalId>",
+            "<q:CharacteristicNominalId asmPathId=\"10\">501</q:CharacteristicNominalId>"
+        );
+        assert!(matches!(
+            derive_trace_locator_inventory("assembly-path", &profile(), &docs(RESULTS.as_bytes(), plan.as_bytes())),
+            Err(InventoryError::UnsupportedAssemblyPathReference(_))
+        ));
+    }
 
     #[test]
     fn source_document_qpid_must_match_the_external_supplied_identity() {
