@@ -678,7 +678,7 @@ fn validate_agreement(agr: &NegotiationAgreement) -> ExternResult<ValidateCallba
     }
 
     // If both signatures are present, they must be different
-    if let (Some(ref primary), Some(ref secondary)) =
+    if let (Some(primary), Some(secondary)) =
         (&agr.primary_signature, &agr.secondary_signature)
     {
         if primary == secondary {
