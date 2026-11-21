@@ -32,7 +32,8 @@
     },
     "group_id_commitment": {
       "type": "string",
-      "pattern": "^[0-9a-f]{64}$"
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Opaque group identifier commitment, scoped under the declared membership epoch; do not encode a raw or globally stable group identifier."
     },
     "membership_epoch": {
       "type": "integer",
@@ -45,7 +46,7 @@
     "required_recipient_set_commitment": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$",
-      "description": "SHA-256 of the domain separator PULSE-GROUP-FANOUT-RECIPIENT-SET-V0 followed by lexicographically sorted 64-character recipient commitments, each UTF-8 byte string prefixed by an unsigned 64-bit big-endian length. The raw roster must not be disclosed."
+      "description": "SHA-256 of the ASCII domain separator PULSE-GROUP-FANOUT-RECIPIENT-SET-V0 followed by a NUL byte, then lexicographically sorted 64-character lowercase recipient commitments, each UTF-8 byte string prefixed by an unsigned 64-bit big-endian length. The raw roster must not be disclosed."
     },
     "content_commitment": {
       "type": "string",
@@ -69,7 +70,8 @@
         "properties": {
           "recipient_commitment": {
             "type": "string",
-            "pattern": "^[0-9a-f]{64}$"
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Opaque per-fanout or per-epoch scoped recipient pseudonym, preferably keyed or randomly assigned; do not use a bare hash of a low-entropy identifier."
           },
           "logical_operation_id": {
             "type": "string",
