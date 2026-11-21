@@ -1,0 +1,340 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Context-conditioned soil-function report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "indicator_count",
+    "indicators",
+    "controls",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "indicator_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "indicators": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "indicator_id",
+          "property_name",
+          "absolute_condition",
+          "peer_reference",
+          "longitudinal_change",
+          "guardrail_result",
+          "causal_inference_status"
+        ],
+        "properties": {
+          "indicator_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "property_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "absolute_condition": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value",
+              "unit",
+              "measurement_method",
+              "depth_min_m",
+              "depth_max_m",
+              "latest_date",
+              "standard_error"
+            ],
+            "properties": {
+              "value": {
+                "type": "number"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "measurement_method": {
+                "type": "string"
+              },
+              "depth_min_m": {
+                "type": "number"
+              },
+              "depth_max_m": {
+                "type": "number"
+              },
+              "latest_date": {
+                "type": "string",
+                "format": "date"
+              },
+              "standard_error": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          },
+          "peer_reference": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "peer_group_id",
+              "peer_sample_count",
+              "independent_site_count",
+              "percentile",
+              "percentile_interval_95",
+              "interpretation",
+              "reference_dataset_id",
+              "reference_dataset_sha256",
+              "reference_model_sha256",
+              "texture_class",
+              "reference_soil_group",
+              "mean_annual_temperature_c",
+              "mean_annual_precipitation_mm"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "qualified_peer_reference",
+                  "sparse_peer_group_abstain",
+                  "out_of_domain_abstain",
+                  "unassessed_domain_abstain"
+                ]
+              },
+              "peer_group_id": {
+                "type": "string"
+              },
+              "peer_sample_count": {
+                "type": "integer"
+              },
+              "independent_site_count": {
+                "type": "integer"
+              },
+              "percentile": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 100
+              },
+              "percentile_interval_95": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              },
+              "distance_to_q90": {
+                "type": "number"
+              },
+              "distance_to_q95": {
+                "type": "number"
+              },
+              "distance_to_q99": {
+                "type": "number"
+              },
+              "distance_standard_errors": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "q90",
+                  "q95",
+                  "q99"
+                ],
+                "properties": {
+                  "q90": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "q95": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "q99": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              },
+              "interpretation": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference_dataset_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference_dataset_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "reference_model_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "texture_class": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference_soil_group": {
+                "type": "string",
+                "minLength": 1
+              },
+              "mean_annual_temperature_c": {
+                "type": "number"
+              },
+              "mean_annual_precipitation_mm": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          },
+          "longitudinal_change": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "experimental_unit_id",
+              "start_date",
+              "end_date",
+              "first_value",
+              "last_value",
+              "absolute_change",
+              "change_standard_error",
+              "unit",
+              "interpretation"
+            ],
+            "properties": {
+              "experimental_unit_id": {
+                "type": "string"
+              },
+              "start_date": {
+                "type": "string",
+                "format": "date"
+              },
+              "end_date": {
+                "type": "string",
+                "format": "date"
+              },
+              "first_value": {
+                "type": "number"
+              },
+              "last_value": {
+                "type": "number"
+              },
+              "absolute_change": {
+                "type": "number"
+              },
+              "change_standard_error": {
+                "type": "number",
+                "minimum": 0
+              },
+              "unit": {
+                "type": "string"
+              },
+              "interpretation": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "guardrail_result": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "interpretation"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_set",
+                  "within_declared_bounds",
+                  "below_minimum",
+                  "above_maximum",
+                  "outside_declared_range"
+                ]
+              },
+              "minimum_value": {
+                "type": "number"
+              },
+              "maximum_value": {
+                "type": "number"
+              },
+              "interpretation": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "causal_inference_status": {
+            "const": "not_estimated_by_v0_1"
+          }
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "absolute_value_separate_from_peer_rank",
+        "longitudinal_change_separate_from_peer_rank",
+        "no_causal_claim_from_percentile",
+        "no_aggregate_score_emitted",
+        "sparse_and_ood_abstention_pass",
+        "training_group_leakage_check_pass"
+      ],
+      "properties": {
+        "absolute_value_separate_from_peer_rank": {
+          "const": true
+        },
+        "longitudinal_change_separate_from_peer_rank": {
+          "const": true
+        },
+        "no_causal_claim_from_percentile": {
+          "const": true
+        },
+        "no_aggregate_score_emitted": {
+          "const": true
+        },
+        "sparse_and_ood_abstention_pass": {
+          "const": true
+        },
+        "training_group_leakage_check_pass": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
