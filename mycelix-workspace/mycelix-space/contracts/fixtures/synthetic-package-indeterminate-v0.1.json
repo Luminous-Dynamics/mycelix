@@ -1,0 +1,201 @@
+{
+  "schema_version": "space-qualification-package/v0.1",
+  "package_id": "synthetic-indeterminate-001",
+  "package_class": "synthetic_only",
+  "created_at": "2026-11-21T09:00:00Z",
+  "request": {
+    "run_id": "synthetic-screen-run-001",
+    "request_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "primary_object_id": "SIM-OBJ-A",
+    "requested_object_ids": [
+      "SIM-OBJ-A",
+      "SIM-OBJ-B"
+    ],
+    "scope_kind": "explicit_requested_set",
+    "time_window": {
+      "start": "2026-01-01T00:00:00Z",
+      "end": "2026-01-01T00:10:00Z",
+      "time_scale_id": "UTC-synthetic-v0",
+      "frame_realization_id": "SIM-EARTH-CENTERED-INERTIAL-V0",
+      "origin_id": "SIM-EARTH-CENTER"
+    },
+    "screening_profile_id": "synthetic-neighborhood-capture-v0.1",
+    "configuration_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "source_artifacts": [
+    {
+      "artifact_id": "synthetic-state-set",
+      "source_type": "state_vector",
+      "source_profile": {
+        "ecosystem": "mycelix-synthetic",
+        "document_release": null,
+        "payload_version": "synthetic-0",
+        "encoding_profile": "synthetic-json-state-vectors-v0.1"
+      },
+      "media_type": "application/json",
+      "byte_length": 980,
+      "raw_bytes_sha256": "b8b397f3a3702750315366f207d0e435dfea17d86ebe6a3209d8a403732fd4ac",
+      "source_epoch": "2026-01-01T00:00:00Z",
+      "source_created_at": null,
+      "received_at": "2026-11-21T09:00:00Z",
+      "processing_at": "2026-11-21T09:00:01Z",
+      "preservation": "exact_bytes_retained",
+      "parser": {
+        "parser_id": "synthetic-fixture-reader-v0.1",
+        "source_sha256": null,
+        "adapter_profile_id": "synthetic-state-vector-v0.1"
+      },
+      "parse_disposition": "parsed",
+      "field_semantics": [
+        {
+          "source_keyword": "COVARIANCE",
+          "status": "absent_optional",
+          "raw_lexical_value": null,
+          "normalized_value": null,
+          "transform_id": null
+        }
+      ],
+      "unknown_fields_preserved": true
+    }
+  ],
+  "object_dispositions": [
+    {
+      "object_id": "SIM-OBJ-A",
+      "disposition": "screened",
+      "source_artifact_ids": [
+        "synthetic-state-set"
+      ],
+      "time_segment_ids": [
+        "segment-a"
+      ],
+      "reason_codes": []
+    },
+    {
+      "object_id": "SIM-OBJ-B",
+      "disposition": "screened",
+      "source_artifact_ids": [
+        "synthetic-state-set"
+      ],
+      "time_segment_ids": [
+        "segment-b"
+      ],
+      "reason_codes": []
+    }
+  ],
+  "coverage": {
+    "disposition": "complete",
+    "requested_object_count": 2,
+    "eligible_object_count": 2,
+    "assessed_object_count": 2,
+    "excluded_object_count": 0,
+    "unassessed_object_count": 0,
+    "time_segments": [
+      {
+        "segment_id": "segment-a",
+        "object_id": "SIM-OBJ-A",
+        "start": "2026-01-01T00:00:00Z",
+        "end": "2026-01-01T00:10:00Z",
+        "disposition": "assessed",
+        "method_profile_id": "synthetic-neighborhood-capture-v0.1",
+        "reason_codes": []
+      },
+      {
+        "segment_id": "segment-b",
+        "object_id": "SIM-OBJ-B",
+        "start": "2026-01-01T00:00:00Z",
+        "end": "2026-01-01T00:10:00Z",
+        "disposition": "assessed",
+        "method_profile_id": "synthetic-neighborhood-capture-v0.1",
+        "reason_codes": []
+      }
+    ],
+    "coverage_manifest_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "assessments": [
+    {
+      "assessment_id": "pairing-assessment-001",
+      "assessment_type": "candidate_pairing",
+      "status": "completed",
+      "input_artifact_ids": [
+        "synthetic-state-set"
+      ],
+      "method_profile_id": "synthetic-neighborhood-capture-v0.1",
+      "covariance_status": "absent_optional",
+      "collision_probability": {
+        "status": "not_calculated",
+        "value": null,
+        "method_id": null,
+        "applicability": "not_evaluated"
+      },
+      "output_sha256": null,
+      "claim_ceiling": "Synthetic candidate-pairing contract shape only; not an orbit assessment or collision-risk result."
+    }
+  ],
+  "execution_evidence": {
+    "producer_revisions": [],
+    "workflow_runs": [],
+    "replay": {
+      "status": "not_run",
+      "verifier_id": null,
+      "input_manifest_sha256": null,
+      "output_sha256": null,
+      "reason_codes": [
+        "SYNTHETIC_FIXTURE_NOT_EXECUTED"
+      ]
+    }
+  },
+  "authority": {
+    "coordination_records": [],
+    "actuation_authority": false
+  },
+  "claim_matrix": [
+    {
+      "layer": "input_coverage",
+      "claim": "Both members of the declared synthetic request set have explicit screening dispositions.",
+      "outcome": "supported",
+      "evidence_refs": [
+        "synthetic-state-set",
+        "coverage"
+      ],
+      "claim_ceiling": "Synthetic request-set accounting only; says nothing about catalog completeness."
+    },
+    {
+      "layer": "numerical_assessment",
+      "claim": "A collision probability was calculated.",
+      "outcome": "not_evaluated",
+      "evidence_refs": [
+        "pairing-assessment-001"
+      ],
+      "claim_ceiling": "No Pc computation is present."
+    },
+    {
+      "layer": "covariance_realism",
+      "claim": "The supplied covariance is physically realistic or calibrated.",
+      "outcome": "not_evaluated",
+      "evidence_refs": [
+        "synthetic-state-set"
+      ],
+      "claim_ceiling": "Covariance is absent; no realism inference is permitted."
+    },
+    {
+      "layer": "operational_safety",
+      "claim": "The scenario is safe for operational use.",
+      "outcome": "not_evaluated",
+      "evidence_refs": [],
+      "claim_ceiling": "Synthetic fixture; no operational or flight-safety claim."
+    }
+  ],
+  "result": {
+    "disposition": "indeterminate",
+    "negative_conclusion": false,
+    "reason_codes": [
+      "COVARIANCE_ABSENT_OPTIONAL",
+      "COLLISION_PROBABILITY_NOT_ASSESSED"
+    ]
+  },
+  "notices": [
+    "This fixture is synthetic-only and uses manufactured data.",
+    "Coverage-complete means complete only relative to this explicit synthetic request set and declared synthetic time segments.",
+    "Complete input coverage does not imply a complete numerical risk assessment or a negative collision conclusion."
+  ]
+}
