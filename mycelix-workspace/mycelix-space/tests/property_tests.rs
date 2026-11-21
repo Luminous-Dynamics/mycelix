@@ -6,15 +6,17 @@
 //! Uses proptest to verify mathematical invariants that must hold
 //! for ALL valid inputs, not just a few handpicked examples.
 
-use proptest::prelude::*;
-use orbital_mechanics::CovarianceMatrix;
-use orbital_mechanics::StateVector;
-use orbital_mechanics::OrbitalState;
-use orbital_mechanics::conjunction::{RiskLevel, ConjunctionAnalyzer, screen_catalog};
-use orbital_mechanics::coordinates::{GeodeticCoord, wgs84, teme_to_ecef, ecef_to_teme, look_angles};
-use orbital_mechanics::state::DataSource;
+use chrono::{TimeZone, Utc};
 use nalgebra::Vector3;
-use chrono::{Utc, TimeZone};
+use orbital_mechanics::CovarianceMatrix;
+use orbital_mechanics::OrbitalState;
+use orbital_mechanics::StateVector;
+use orbital_mechanics::conjunction::{ConjunctionAnalyzer, RiskLevel, screen_catalog};
+use orbital_mechanics::coordinates::{
+    GeodeticCoord, ecef_to_teme, look_angles, teme_to_ecef, wgs84,
+};
+use orbital_mechanics::state::DataSource;
+use proptest::prelude::*;
 
 // =============================================================================
 // Strategies (generators for random valid inputs)
@@ -23,41 +25,46 @@ use chrono::{Utc, TimeZone};
 /// Strategy for valid geodetic coordinates
 fn geodetic_strategy() -> impl Strategy<Value = GeodeticCoord> {
     (
-        -90.0f64..=90.0f64,     // latitude
-        -180.0f64..=180.0f64,   // longitude
-        0.0f64..2000.0f64,      // altitude (LEO to MEO, km)
-    ).prop_map(|(lat, lon, alt)| GeodeticCoord::new(lat, lon, alt))
+        -90.0f64..=90.0f64,   // latitude
+        -180.0f64..=180.0f64, // longitude
+        0.0f64..2000.0f64,    // altitude (LEO to MEO, km)
+    )
+        .prop_map(|(lat, lon, alt)| GeodeticCoord::new(lat, lon, alt))
 }
 
 /// Strategy for valid state vectors (roughly physical orbits)
 fn state_vector_strategy() -> impl Strategy<Value = StateVector> {
     (
-        -10000.0f64..10000.0f64,  // x (km)
-        -10000.0f64..10000.0f64,  // y
-        -10000.0f64..10000.0f64,  // z
-        -10.0f64..10.0f64,        // vx (km/s)
-        -10.0f64..10.0f64,        // vy
-        -10.0f64..10.0f64,        // vz
+        -10000.0f64..10000.0f64, // x (km)
+        -10000.0f64..10000.0f64, // y
+        -10000.0f64..10000.0f64, // z
+        -10.0f64..10.0f64,       // vx (km/s)
+        -10.0f64..10.0f64,       // vy
+        -10.0f64..10.0f64,       // vz
     )
-    .prop_filter("radius must be above Earth surface", |(x, y, z, _, _, _)| {
-        let r = (x * x + y * y + z * z).sqrt();
-        r > 6500.0  // above Earth
-    })
-    .prop_map(|(x, y, z, vx, vy, vz)| StateVector::new(x, y, z, vx, vy, vz))
+        .prop_filter(
+            "radius must be above Earth surface",
+            |(x, y, z, _, _, _)| {
+                let r = (x * x + y * y + z * z).sqrt();
+                r > 6500.0 // above Earth
+            },
+        )
+        .prop_map(|(x, y, z, vx, vy, vz)| StateVector::new(x, y, z, vx, vy, vz))
 }
 
 /// Strategy for valid diagonal covariance matrices (positive definite)
 fn covariance_strategy() -> impl Strategy<Value = CovarianceMatrix> {
     (
-        0.01f64..100.0f64,   // sigma_x
-        0.01f64..100.0f64,   // sigma_y
-        0.01f64..100.0f64,   // sigma_z
-        0.0001f64..1.0f64,   // sigma_vx
-        0.0001f64..1.0f64,   // sigma_vy
-        0.0001f64..1.0f64,   // sigma_vz
-    ).prop_map(|(sx, sy, sz, svx, svy, svz)| {
-        CovarianceMatrix::diagonal([sx, sy, sz, svx, svy, svz])
-    })
+        0.01f64..100.0f64, // sigma_x
+        0.01f64..100.0f64, // sigma_y
+        0.01f64..100.0f64, // sigma_z
+        0.0001f64..1.0f64, // sigma_vx
+        0.0001f64..1.0f64, // sigma_vy
+        0.0001f64..1.0f64, // sigma_vz
+    )
+        .prop_map(|(sx, sy, sz, svx, svy, svz)| {
+            CovarianceMatrix::diagonal([sx, sy, sz, svx, svy, svz])
+        })
 }
 
 /// Strategy for valid collision probabilities
@@ -66,8 +73,8 @@ fn pc_strategy() -> impl Strategy<Value = f64> {
     prop_oneof![
         Just(0.0),
         Just(1.0),
-        (0.0f64..1.0f64),        // uniform in [0, 1)
-        (1e-10f64..1e-1f64),     // typical Pc range
+        (0.0f64..1.0f64),    // uniform in [0, 1)
+        (1e-10f64..1e-1f64), // typical Pc range
     ]
 }
 

@@ -19,6 +19,8 @@ use hdi::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+pub mod finite_risk;
+
 /// NORAD Catalog Number - unique identifier for tracked space objects
 /// Valid range: 1 to 999999 (currently ~60,000 active objects)
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Hash, PartialEq, Eq, PartialOrd, Ord)]

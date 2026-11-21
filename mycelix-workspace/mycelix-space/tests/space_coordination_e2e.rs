@@ -10,19 +10,19 @@
 use std::collections::HashMap;
 
 use chrono::{Duration, Utc};
+use mycelix_space_shared::{
+    QualityScore, SpaceTimestamp, StalenessConfig, compute_staleness,
+    requirement_for_agreement_signing, requirement_for_bounty_creation,
+    requirement_for_conjunction_creation, requirement_for_observation, requirement_for_risk_update,
+    requirement_for_tle_submission,
+};
 use orbital_mechanics::{
+    CovarianceMatrix,
     conjunction::{ConjunctionAnalyzer, RiskLevel},
     fusion::{FusionPipeline, SensorMeasurement, TrustWeighting},
     propagator::Propagator,
     state::{DataSource, StateVector},
     tle::TwoLineElement,
-    CovarianceMatrix,
-};
-use mycelix_space_shared::{
-    compute_staleness, QualityScore, StalenessConfig, SpaceTimestamp,
-    requirement_for_observation, requirement_for_conjunction_creation,
-    requirement_for_risk_update, requirement_for_bounty_creation,
-    requirement_for_agreement_signing, requirement_for_tle_submission,
 };
 
 /// Sample ISS TLE for testing
@@ -133,7 +133,9 @@ fn test_trust_weighted_fusion_quality_difference() {
 
     // Fuse without trust weighting
     let pipeline_plain = FusionPipeline::new();
-    let result_plain = pipeline_plain.fuse(&measurements).expect("Plain fusion failed");
+    let result_plain = pipeline_plain
+        .fuse(&measurements)
+        .expect("Plain fusion failed");
 
     // Fuse with trust weighting: sensor-A is fully trusted, sensor-B is unknown
     let mut trust = TrustWeighting::default();
@@ -141,7 +143,9 @@ fn test_trust_weighted_fusion_quality_difference() {
     // sensor-B not in map → uses trust_floor (0.3)
 
     let pipeline_trust = FusionPipeline::new().with_trust_weighting(trust);
-    let result_trust = pipeline_trust.fuse(&measurements).expect("Trust fusion failed");
+    let result_trust = pipeline_trust
+        .fuse(&measurements)
+        .expect("Trust fusion failed");
 
     // The fused quality should differ because sensor-B gets reduced weight
     assert!(
@@ -300,10 +304,7 @@ impl ProposalStatus {
     }
 
     fn is_terminal(&self) -> bool {
-        matches!(
-            self,
-            Self::Rejected | Self::Expired | Self::Completed
-        )
+        matches!(self, Self::Rejected | Self::Expired | Self::Completed)
     }
 }
 
@@ -322,11 +323,26 @@ fn test_multi_party_proposal_lifecycle() {
     assert!(Executing.is_valid_transition(&Completed));
 
     // Invalid transitions
-    assert!(!Voting.is_valid_transition(&Completed), "Cannot skip from Voting to Completed");
-    assert!(!Voting.is_valid_transition(&Executing), "Cannot skip from Voting to Executing");
-    assert!(!Approved.is_valid_transition(&Rejected), "Cannot go from Approved back to Rejected");
-    assert!(!Executing.is_valid_transition(&Voting), "Cannot go from Executing back to Voting");
-    assert!(!Completed.is_valid_transition(&Voting), "Terminal state should block transitions");
+    assert!(
+        !Voting.is_valid_transition(&Completed),
+        "Cannot skip from Voting to Completed"
+    );
+    assert!(
+        !Voting.is_valid_transition(&Executing),
+        "Cannot skip from Voting to Executing"
+    );
+    assert!(
+        !Approved.is_valid_transition(&Rejected),
+        "Cannot go from Approved back to Rejected"
+    );
+    assert!(
+        !Executing.is_valid_transition(&Voting),
+        "Cannot go from Executing back to Voting"
+    );
+    assert!(
+        !Completed.is_valid_transition(&Voting),
+        "Terminal state should block transitions"
+    );
 
     // Terminal states block all further transitions
     let terminal_states = vec![Rejected, Expired, Completed];
@@ -363,11 +379,26 @@ fn test_vote_weight_tally() {
     }
 
     let votes = vec![
-        Vote { option_index: 0, weight: 0.9 },  // Verified operator, option A
-        Vote { option_index: 1, weight: 0.6 },  // Established operator, option B
-        Vote { option_index: 0, weight: 0.3 },  // BasicTrust, option A
-        Vote { option_index: 2, weight: 1.0 },  // FoundingMember, option C
-        Vote { option_index: 0, weight: 0.6 },  // Established operator, option A
+        Vote {
+            option_index: 0,
+            weight: 0.9,
+        }, // Verified operator, option A
+        Vote {
+            option_index: 1,
+            weight: 0.6,
+        }, // Established operator, option B
+        Vote {
+            option_index: 0,
+            weight: 0.3,
+        }, // BasicTrust, option A
+        Vote {
+            option_index: 2,
+            weight: 1.0,
+        }, // FoundingMember, option C
+        Vote {
+            option_index: 0,
+            weight: 0.6,
+        }, // Established operator, option A
     ];
 
     // Tally weighted votes per option
@@ -404,7 +435,11 @@ fn test_vote_weight_tally() {
     );
 
     // Partial participation: if founding member abstains
-    let partial_weight: f64 = votes.iter().filter(|v| v.weight < 1.0).map(|v| v.weight).sum();
+    let partial_weight: f64 = votes
+        .iter()
+        .filter(|v| v.weight < 1.0)
+        .map(|v| v.weight)
+        .sum();
     let partial_quorum = partial_weight / total_weight;
     assert!(
         partial_quorum < 1.0,
@@ -515,10 +550,7 @@ fn test_staleness_degrades_screening_confidence() {
     // Fresh TLE: epoch = now
     let fresh_epoch = SpaceTimestamp::now();
     let fresh = compute_staleness(&fresh_epoch, &quality, &config);
-    assert!(
-        !fresh.is_stale,
-        "Fresh TLE should not be stale"
-    );
+    assert!(!fresh.is_stale, "Fresh TLE should not be stale");
     assert!(
         fresh.confidence > 0.9,
         "Fresh TLE confidence should be > 0.9, got {}",
@@ -551,10 +583,7 @@ fn test_staleness_degrades_screening_confidence() {
         micros: Utc::now().timestamp_micros() - 35 * 24 * 3600 * 1_000_000,
     };
     let stale = compute_staleness(&stale_epoch, &quality, &config);
-    assert!(
-        stale.is_stale,
-        "35-day-old TLE should be stale"
-    );
+    assert!(stale.is_stale, "35-day-old TLE should be stale");
     assert!(
         stale.confidence < moderate.confidence,
         "Stale TLE confidence ({}) should be less than moderate ({})",
@@ -573,10 +602,7 @@ fn test_staleness_degrades_screening_confidence() {
         micros: Utc::now().timestamp_micros() - 60 * 24 * 3600 * 1_000_000,
     };
     let very_old = compute_staleness(&very_old_epoch, &quality, &config);
-    assert!(
-        very_old.is_stale,
-        "60-day-old TLE should be stale"
-    );
+    assert!(very_old.is_stale, "60-day-old TLE should be stale");
     assert!(
         very_old.confidence <= stale.confidence,
         "Very old TLE confidence ({}) should be <= stale ({})",
