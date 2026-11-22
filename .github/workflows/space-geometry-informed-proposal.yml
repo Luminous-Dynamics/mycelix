@@ -1,0 +1,66 @@
+name: Space geometry-informed proposal reference
+
+on:
+  push:
+    branches:
+      - "research/space-geometry-informed-proposal-v0-1"
+    paths:
+      - "mycelix-workspace/mycelix-space/tools/space-geometry-informed-proposal/**"
+      - ".github/workflows/space-geometry-informed-proposal.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test-geometry-informed-proposal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact branch head
+        uses: actions/checkout@v4
+
+      - name: Set up stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Format and commit deterministic formatting on branch push
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          manifest="mycelix-workspace/mycelix-space/tools/space-geometry-informed-proposal/Cargo.toml"
+          source_dir="mycelix-workspace/mycelix-space/tools/space-geometry-informed-proposal/src"
+          cargo fmt --manifest-path "$manifest"
+          if ! git diff --quiet -- "$source_dir"; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$source_dir"
+            git commit -m "style(space): format geometry-informed proposal reference"
+            pushed=false
+            for attempt in 1 2 3 4 5; do
+              git fetch origin "$BRANCH_NAME"
+              git rebase "origin/$BRANCH_NAME"
+              if git push origin "HEAD:$BRANCH_NAME"; then
+                pushed=true
+                break
+              fi
+            done
+            if [[ "$pushed" != true ]]; then
+              echo "Could not publish formatting commit after five attempts" >&2
+              exit 1
+            fi
+          fi
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-space/tools/space-geometry-informed-proposal/Cargo.toml -- --check
+
+      - name: Run strict Clippy
+        run: cargo clippy --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-geometry-informed-proposal/Cargo.toml --all-targets -- -D warnings
+
+      - name: Run locked tests
+        run: cargo test --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-geometry-informed-proposal/Cargo.toml
+
+      - name: Run flat-boundary geometry CLI smoke test
+        run: cargo run --quiet --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-geometry-informed-proposal/Cargo.toml
