@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/pcoe/payment-chain-checkpoint.v0.1.schema.json",
+  "title": "PCOE Payment Chain Checkpoint v0.1",
+  "description": "Externally anchored final event digest. A schema-valid checkpoint is not proof that an anchor or witness is authentic.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_type",
+    "checkpoint_id",
+    "chain_id",
+    "payment_intent_id",
+    "through_sequence",
+    "final_event_digest",
+    "checkpointed_at",
+    "anchor_evidence"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "record_type": {
+      "const": "payment_chain_checkpoint"
+    },
+    "checkpoint_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "chain_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "payment_intent_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "through_sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "final_event_digest": {
+      "type": "string",
+      "pattern": "^sha-256:[0-9a-f]{64}$"
+    },
+    "checkpointed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "anchor_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "anchor_type",
+          "service_or_witness_id",
+          "receipt_or_attestation_ref",
+          "verification_policy_ref",
+          "verification_status"
+        ],
+        "properties": {
+          "anchor_type": {
+            "enum": [
+              "scitt_transparency_service",
+              "independent_witness",
+              "external_timestamp_authority"
+            ]
+          },
+          "service_or_witness_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "receipt_or_attestation_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "verification_policy_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "verification_status": {
+            "enum": [
+              "verified",
+              "pending",
+              "rejected",
+              "indeterminate"
+            ]
+          },
+          "declared_failure_domains": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        }
+      }
+    },
+    "supersedes_checkpoint_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
