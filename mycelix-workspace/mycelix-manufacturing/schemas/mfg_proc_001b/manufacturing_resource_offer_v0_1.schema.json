@@ -1,0 +1,318 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-workspace/mycelix-manufacturing/schemas/mfg_proc_001b/manufacturing_resource_offer_v0_1.schema.json",
+  "title": "Mycelix ManufacturingResourceOffer v0.1",
+  "description": "Immutable provider-declared resource/process offer. Structural validity never implies provider authority, owner-object resolution, capability qualification, calendar availability, capacity reservation, execution or accepted output.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "schema_version",
+    "offer_id",
+    "offer_revision",
+    "provider_ref",
+    "signer_ref",
+    "resource_ref",
+    "site_ref",
+    "process_definition_ref",
+    "capability_profile_ref",
+    "configuration_ref",
+    "tooling_refs",
+    "material_applicability_refs",
+    "environment_prerequisite_refs",
+    "utility_prerequisite_refs",
+    "operator_competence_refs",
+    "qualification_evidence_refs",
+    "inspection_evidence_refs",
+    "calibration_evidence_refs",
+    "declared_capacity",
+    "calendar_source_ref",
+    "validity",
+    "offer_state",
+    "declaration"
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "ownerObjectRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner_repository",
+        "owner_commit",
+        "owner_contract",
+        "owner_schema_id",
+        "owner_schema_version",
+        "object_type",
+        "object_id",
+        "content_digest_sha256"
+      ],
+      "properties": {
+        "owner_repository": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 200,
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "owner_commit": {
+          "$ref": "#/$defs/commit"
+        },
+        "owner_contract": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "owner_schema_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "owner_schema_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "object_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96
+        },
+        "object_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "content_digest_sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "ownerRefList": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ownerObjectRef"
+      }
+    },
+    "declaredCapacity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quantity",
+        "unit",
+        "period_seconds",
+        "basis_ref",
+        "assertion_class"
+      ],
+      "properties": {
+        "quantity": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "period_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "basis_ref": {
+          "$ref": "#/$defs/ownerObjectRef"
+        },
+        "assertion_class": {
+          "const": "provider_declared"
+        }
+      }
+    },
+    "validity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issued_at",
+        "valid_from",
+        "valid_until"
+      ],
+      "properties": {
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider_identity_ref",
+        "signer_ref",
+        "signature_ref",
+        "signed_payload_digest_sha256",
+        "assertion_basis",
+        "verification_state"
+      ],
+      "properties": {
+        "provider_identity_ref": {
+          "$ref": "#/$defs/ownerObjectRef"
+        },
+        "signer_ref": {
+          "$ref": "#/$defs/ownerObjectRef"
+        },
+        "signature_ref": {
+          "$ref": "#/$defs/ownerObjectRef"
+        },
+        "signed_payload_digest_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "assertion_basis": {
+          "enum": [
+            "provider_declared",
+            "manufacturer_declared",
+            "third_party_attestation_referenced"
+          ]
+        },
+        "verification_state": {
+          "enum": [
+            "unverified",
+            "verified",
+            "revoked"
+          ]
+        }
+      }
+    }
+  },
+  "properties": {
+    "schema_id": {
+      "const": "mycelix.manufacturing.resource_offer.v0_1"
+    },
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "offer_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$"
+    },
+    "offer_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "provider_ref": {
+      "$ref": "#/$defs/ownerObjectRef"
+    },
+    "signer_ref": {
+      "$ref": "#/$defs/ownerObjectRef"
+    },
+    "resource_ref": {
+      "$ref": "#/$defs/ownerObjectRef"
+    },
+    "site_ref": {
+      "$ref": "#/$defs/ownerObjectRef"
+    },
+    "process_definition_ref": {
+      "$ref": "../mfg_proc_001a/typed_process_refs_v0_1.schema.json#/$defs/processDefinitionRef"
+    },
+    "capability_profile_ref": {
+      "$ref": "../mfg_proc_001a/typed_process_refs_v0_1.schema.json#/$defs/capabilityProfileRef"
+    },
+    "configuration_ref": {
+      "$ref": "#/$defs/ownerObjectRef"
+    },
+    "tooling_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "material_applicability_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "environment_prerequisite_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "utility_prerequisite_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "operator_competence_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "qualification_evidence_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "inspection_evidence_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "calibration_evidence_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "declared_capacity": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/declaredCapacity"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "calendar_source_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ownerObjectRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "commercial_terms_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ownerObjectRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "validity": {
+      "$ref": "#/$defs/validity"
+    },
+    "offer_state": {
+      "enum": [
+        "Published",
+        "Withdrawn",
+        "Expired",
+        "Disputed",
+        "Superseded"
+      ]
+    },
+    "supersedes_offer_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ownerObjectRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "declaration": {
+      "$ref": "#/$defs/declaration"
+    }
+  }
+}
