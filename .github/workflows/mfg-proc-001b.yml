@@ -61,5 +61,8 @@ jobs:
         run: |
           python -m json.tool mycelix-workspace/mycelix-manufacturing/schemas/mfg_proc_001b/manufacturing_resource_offer_v0_1.schema.json >/dev/null
           python -m json.tool mycelix-workspace/mycelix-manufacturing/tests/fixtures/mfg_proc_001b_resource_offers_v0_1.json >/dev/null
+          python -m json.tool mycelix-workspace/mycelix-manufacturing/tests/fixtures/mfg_proc_001b_resource_offer_example_v0_1.json >/dev/null
           jq -e '.cases | length == 16' mycelix-workspace/mycelix-manufacturing/tests/fixtures/mfg_proc_001b_resource_offers_v0_1.json >/dev/null
           jq -e 'all(.cases[]; has("id") and has("description") and has("expected") and has("mutations"))' mycelix-workspace/mycelix-manufacturing/tests/fixtures/mfg_proc_001b_resource_offers_v0_1.json >/dev/null
+          jq -e '.offer_state == "Published" and .declaration.verification_state == "unverified" and (.declared_capacity.assertion_class == "provider_declared")' mycelix-workspace/mycelix-manufacturing/tests/fixtures/mfg_proc_001b_resource_offer_example_v0_1.json >/dev/null
+          jq -e 'has("qualified") == false and has("available") == false and has("reserved") == false and has("executed") == false and has("accepted") == false' mycelix-workspace/mycelix-manufacturing/tests/fixtures/mfg_proc_001b_resource_offer_example_v0_1.json >/dev/null
