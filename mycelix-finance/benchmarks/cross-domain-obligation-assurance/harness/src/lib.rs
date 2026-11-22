@@ -20,6 +20,7 @@ pub enum KernelError {
     AuthorityRevoked,
     AuthorityStateUnknown,
     ScopeExceeded,
+    DelegationExpansion,
     CapabilityConsumed,
     HumanDispositionRequired,
     InvalidInterval,
@@ -72,6 +73,8 @@ pub enum KernelError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthorityGrant {
     pub grant_id: String,
+    pub parent_grant_id: Option<String>,
+    pub delegated_by_actor_id: Option<String>,
     pub principal_id: String,
     pub task_id: String,
     pub audience_id: String,
@@ -108,6 +111,41 @@ pub struct HumanDisposition {
     /// Test seam set only after a separate human authentication channel is verified.
     pub independent_authentication_verified: bool,
     pub approved_at: u64,
+}
+
+pub fn validate_delegation(
+    parent: &AuthorityGrant,
+    child: &AuthorityGrant,
+) -> Result<(), KernelError> {
+    if parent.grant_id.is_empty()
+        || child.grant_id.is_empty()
+        || child.grant_id == parent.grant_id
+        || child.parent_grant_id.as_deref() != Some(parent.grant_id.as_str())
+        || child.delegated_by_actor_id.as_deref() != Some(parent.actor_id.as_str())
+        || child.actor_id.is_empty()
+        || child.actor_id == parent.actor_id
+    {
+        return Err(KernelError::DelegationExpansion);
+    }
+    if child.principal_id != parent.principal_id
+        || child.task_id != parent.task_id
+        || child.audience_id != parent.audience_id
+        || child.action_class != parent.action_class
+        || child.resource_id != parent.resource_id
+        || child.max_amount == 0
+        || child.max_amount > parent.max_amount
+        || child.not_before < parent.not_before
+        || child.expires_at > parent.expires_at
+        || child.not_before >= child.expires_at
+        || child.revocation_epoch != parent.revocation_epoch
+        || (parent.requires_human_disposition && !child.requires_human_disposition)
+        || (parent.one_time && !child.one_time)
+        || child.max_human_approval_age_secs > parent.max_human_approval_age_secs
+        || !child.human_approver_ids.is_subset(&parent.human_approver_ids)
+    {
+        return Err(KernelError::DelegationExpansion);
+    }
+    Ok(())
 }
 
 pub fn authorize(
@@ -186,6 +224,26 @@ pub struct AuthorityConsumptionLedger {
 }
 
 impl AuthorityConsumptionLedger {
+    /// Checks policy before consuming a grant. A production adapter must make
+    /// authorization, grant consumption and the side effect one atomic operation.
+    pub fn authorize_and_consume(
+        &mut self,
+        grant: &AuthorityGrant,
+        request: &ActionRequest,
+        now: u64,
+        observed_revocation_epoch: u64,
+        human_disposition: Option<&HumanDisposition>,
+    ) -> Result<(), KernelError> {
+        authorize(
+            grant,
+            request,
+            now,
+            observed_revocation_epoch,
+            human_disposition,
+        )?;
+        self.consume(grant, request)
+    }
+
     /// Enforces one-time grants. Call atomically with the authorized side effect
     /// in a production integrity/transaction boundary.
     pub fn consume(
@@ -1305,7 +1363,7 @@ pub const AGENT_SCENARIO_COVERAGE: [ScenarioCoverage; 10] = [
     },
     ScenarioCoverage {
         id: "AGENT-002",
-        status: CoverageStatus::PartialOrRequiresAdapter,
+        status: CoverageStatus::ImplementedInKernelTests,
     },
     ScenarioCoverage {
         id: "AGENT-003",
@@ -1446,6 +1504,8 @@ mod tests {
     fn grant() -> AuthorityGrant {
         AuthorityGrant {
             grant_id: "grant-001".into(),
+            parent_grant_id: None,
+            delegated_by_actor_id: None,
             principal_id: "community-board".into(),
             task_id: "procure-solar-001".into(),
             audience_id: "mycelix-finance".into(),
@@ -1527,6 +1587,60 @@ mod tests {
     #[test]
     fn valid_authority_is_accepted() {
         assert_eq!(authorize(&grant(), &request(), 200, 7, None), Ok(()));
+    }
+
+    #[test]
+    fn delegation_is_attenuating_across_scope_amount_time_and_controls() {
+        let parent = grant();
+        let mut child = parent.clone();
+        child.grant_id = "grant-child".into();
+        child.parent_grant_id = Some(parent.grant_id.clone());
+        child.delegated_by_actor_id = Some(parent.actor_id.clone());
+        child.actor_id = "sub-agent".into();
+        child.max_amount = 400_000;
+        child.expires_at = 400;
+        child.not_before = 150;
+        assert_eq!(validate_delegation(&parent, &child), Ok(()));
+
+        let mut expanded = child.clone();
+        expanded.max_amount = parent.max_amount + 1;
+        assert_eq!(validate_delegation(&parent, &expanded), Err(KernelError::DelegationExpansion));
+
+        let mut longer_lived = child.clone();
+        longer_lived.expires_at = parent.expires_at + 1;
+        assert_eq!(validate_delegation(&parent, &longer_lived), Err(KernelError::DelegationExpansion));
+
+        let mut different_task = child.clone();
+        different_task.task_id = "other-task".into();
+        assert_eq!(validate_delegation(&parent, &different_task), Err(KernelError::DelegationExpansion));
+
+        let mut wrong_delegator = child.clone();
+        wrong_delegator.delegated_by_actor_id = Some("other-agent".into());
+        assert_eq!(validate_delegation(&parent, &wrong_delegator), Err(KernelError::DelegationExpansion));
+
+        let mut missing_parent = child;
+        missing_parent.parent_grant_id = None;
+        assert_eq!(validate_delegation(&parent, &missing_parent), Err(KernelError::DelegationExpansion));
+    }
+
+    #[test]
+    fn rejected_authorization_does_not_consume_one_time_grant() {
+        let grant = grant();
+        let mut oversized = request();
+        oversized.amount = grant.max_amount + 1;
+        let mut ledger = AuthorityConsumptionLedger::default();
+        assert_eq!(
+            ledger.authorize_and_consume(&grant, &oversized, 200, 7, None),
+            Err(KernelError::ScopeExceeded)
+        );
+        assert_eq!(
+            ledger.authorize_and_consume(&grant, &request(), 200, 7, None),
+            Ok(())
+        );
+        assert_eq!(
+            ledger.authorize_and_consume(&grant, &request(), 200, 7, None),
+            Err(KernelError::CapabilityConsumed)
+        );
     }
 
     #[test]
