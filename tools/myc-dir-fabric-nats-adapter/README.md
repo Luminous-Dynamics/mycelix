@@ -92,3 +92,14 @@ This branch now has 23 reference-contract tests, 18 adapter unit tests (includin
 The benchmark corpus is expanded to 36 scenarios and 26 metrics. It remains preregistered, not executed.
 
 **Important boundary:** the existing receipt table records accepted resource generation, but not owner epoch. The verifier checks the former only; owner-epoch recovery remains a separate owner-state proof. A receipt visible on the writable primary does not, by itself, prove survival after asynchronous replica promotion. The integration transaction sets synchronous_commit=on, but production synchronous replication, failover and promotion policy must be qualified separately.
+
+
+## Owner epoch and historical worker-claim execution attestation
+
+The follow-on PostgreSQL owner-epoch branch adds migration 003 and the strict SQL entry point `apply_owner_epoch_claim_fenced_balance_delta`. It writes the accepted owner epoch, resource generation, worker identity, claim epoch, claim proof commitment, claim validity interval and PostgreSQL transaction ID into the append-only `effect_execution_attestations` table in the same transaction as the new effect.
+
+The verifier now joins `effect_commits`, `effect_execution_attestations` and the corresponding `effect_owner_epoch_transitions` row. It includes the actual owner epoch, worker claim and external epoch/physical-fencing receipt commitments in the canonical receipt digest. It rejects missing attestations and non-initial owner epochs without a corresponding transition.
+
+Migration and SQL tests are under `tools/myc-dir-fabric-reference/postgres/003_owner_epoch_execution_attestation.sql` and `tools/myc-dir-fabric-reference/postgres/tests/003_owner_epoch_execution_attestation.sql`. The workflow applies them and runs the SQL test before the Rust/NATS integration tests.
+
+This is local durable evidence, not a complete distributed-fencing solution. The SQL function stores receipt commitments but cannot authenticate their signatures or prevent a former writable primary from accepting writes. Production must authenticate the epoch authority and physical-fencing receipts, physically fence the old primary, enforce a single-writer lease, and qualify synchronous replication/promotion. This branch's owner-epoch and PostgreSQL tests remain unqualified until its exact-head CI passes.
