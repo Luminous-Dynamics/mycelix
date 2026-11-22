@@ -416,6 +416,69 @@ impl JetStreamAdapter {
         &self.config
     }
 
+    fn verify_stream_profile(&self, actual: &stream::Config) -> AdapterResult<()> {
+        if !actual.subjects.iter().any(|subject| subject == &self.config.subject) {
+            return Err(AdapterError::StreamConfigurationMismatch("subjects"));
+        }
+        if actual.duplicate_window != self.config.duplicate_window {
+            return Err(AdapterError::StreamConfigurationMismatch("duplicate_window"));
+        }
+        if actual.num_replicas != self.config.expected_stream_replicas {
+            return Err(AdapterError::StreamConfigurationMismatch("num_replicas"));
+        }
+        if actual.storage != StorageType::File {
+            return Err(AdapterError::StreamConfigurationMismatch("storage"));
+        }
+        if actual.no_ack {
+            return Err(AdapterError::StreamConfigurationMismatch("no_ack"));
+        }
+        if actual.discard != DiscardPolicy::New {
+            return Err(AdapterError::StreamConfigurationMismatch("discard"));
+        }
+        if actual.retention != self.config.expected_retention {
+            return Err(AdapterError::StreamConfigurationMismatch("retention"));
+        }
+        if actual.max_messages != self.config.max_messages {
+            return Err(AdapterError::StreamConfigurationMismatch("max_messages"));
+        }
+        if actual.max_bytes != self.config.max_bytes {
+            return Err(AdapterError::StreamConfigurationMismatch("max_bytes"));
+        }
+        if actual.max_age != self.config.max_age {
+            return Err(AdapterError::StreamConfigurationMismatch("max_age"));
+        }
+        Ok(())
+    }
+
+    fn verify_consumer_profile(&self, actual: &consumer::Info) -> AdapterResult<()> {
+        if actual.stream_name != self.config.stream_name
+            || actual.name != self.config.durable_consumer
+        {
+            return Err(AdapterError::ConsumerConfigurationMismatch("identity"));
+        }
+        if actual.config.durable_name.as_deref()
+            != Some(self.config.durable_consumer.as_str())
+        {
+            return Err(AdapterError::ConsumerConfigurationMismatch("durable_name"));
+        }
+        if actual.config.ack_policy != AckPolicy::Explicit {
+            return Err(AdapterError::ConsumerConfigurationMismatch("ack_policy"));
+        }
+        if actual.config.ack_wait != self.config.ack_wait {
+            return Err(AdapterError::ConsumerConfigurationMismatch("ack_wait"));
+        }
+        if actual.config.max_ack_pending != self.config.max_ack_pending {
+            return Err(AdapterError::ConsumerConfigurationMismatch("max_ack_pending"));
+        }
+        if actual.config.max_deliver != self.config.max_deliver {
+            return Err(AdapterError::ConsumerConfigurationMismatch("max_deliver"));
+        }
+        if actual.config.filter_subject != self.config.subject {
+            return Err(AdapterError::ConsumerConfigurationMismatch("filter_subject"));
+        }
+        Ok(())
+    }
+
     /// Fetches server-side stream/consumer configuration and rejects drift.
     /// Existing stream or consumer settings are never silently rewritten.
     pub async fn verify_server_configuration(&self) -> AdapterResult<()> {
@@ -424,48 +487,9 @@ impl JetStreamAdapter {
             .get_stream(&self.config.stream_name)
             .await
             .map_err(|error| AdapterError::Nats(error.to_string()))?;
-        let stream_info = stream
-            .get_info()
-            .await
-            .map_err(|error| AdapterError::Nats(error.to_string()))?;
+        self.verify_stream_profile(&stream.cached_info().config)?;
 
-        if !stream_info
-            .config
-            .subjects
-            .iter()
-            .any(|subject| subject == &self.config.subject)
-        {
-            return Err(AdapterError::StreamConfigurationMismatch("subjects"));
-        }
-        if stream_info.config.duplicate_window != self.config.duplicate_window {
-            return Err(AdapterError::StreamConfigurationMismatch("duplicate_window"));
-        }
-        if stream_info.config.num_replicas != self.config.expected_stream_replicas {
-            return Err(AdapterError::StreamConfigurationMismatch("num_replicas"));
-        }
-        if stream_info.config.storage != StorageType::File {
-            return Err(AdapterError::StreamConfigurationMismatch("storage"));
-        }
-        if stream_info.config.no_ack {
-            return Err(AdapterError::StreamConfigurationMismatch("no_ack"));
-        }
-        if stream_info.config.discard != DiscardPolicy::New {
-            return Err(AdapterError::StreamConfigurationMismatch("discard"));
-        }
-        if stream_info.config.retention != self.config.expected_retention {
-            return Err(AdapterError::StreamConfigurationMismatch("retention"));
-        }
-        if stream_info.config.max_messages != self.config.max_messages {
-            return Err(AdapterError::StreamConfigurationMismatch("max_messages"));
-        }
-        if stream_info.config.max_bytes != self.config.max_bytes {
-            return Err(AdapterError::StreamConfigurationMismatch("max_bytes"));
-        }
-        if stream_info.config.max_age != self.config.max_age {
-            return Err(AdapterError::StreamConfigurationMismatch("max_age"));
-        }
-
-        let mut consumer = stream
+        let consumer = stream
             .get_or_create_consumer(
                 &self.config.durable_consumer,
                 consumer::pull::Config {
@@ -480,37 +504,7 @@ impl JetStreamAdapter {
             )
             .await
             .map_err(|error| AdapterError::Nats(error.to_string()))?;
-
-        let consumer_info = consumer
-            .info()
-            .await
-            .map_err(|error| AdapterError::Nats(error.to_string()))?;
-
-        if consumer_info.stream_name != self.config.stream_name
-            || consumer_info.name != self.config.durable_consumer
-        {
-            return Err(AdapterError::ConsumerConfigurationMismatch("identity"));
-        }
-        if consumer_info.config.durable_name.as_deref()
-            != Some(self.config.durable_consumer.as_str())
-        {
-            return Err(AdapterError::ConsumerConfigurationMismatch("durable_name"));
-        }
-        if consumer_info.config.ack_policy != AckPolicy::Explicit {
-            return Err(AdapterError::ConsumerConfigurationMismatch("ack_policy"));
-        }
-        if consumer_info.config.ack_wait != self.config.ack_wait {
-            return Err(AdapterError::ConsumerConfigurationMismatch("ack_wait"));
-        }
-        if consumer_info.config.max_ack_pending != self.config.max_ack_pending {
-            return Err(AdapterError::ConsumerConfigurationMismatch("max_ack_pending"));
-        }
-        if consumer_info.config.max_deliver != self.config.max_deliver {
-            return Err(AdapterError::ConsumerConfigurationMismatch("max_deliver"));
-        }
-        if consumer_info.config.filter_subject != self.config.subject {
-            return Err(AdapterError::ConsumerConfigurationMismatch("filter_subject"));
-        }
+        self.verify_consumer_profile(consumer.cached_info())?;
 
         self.server_config_verified.store(true, Ordering::Release);
         Ok(())
@@ -597,6 +591,7 @@ impl JetStreamAdapter {
             .get_stream(&self.config.stream_name)
             .await
             .map_err(|error| AdapterError::Nats(error.to_string()))?;
+        self.verify_stream_profile(&stream.cached_info().config)?;
 
         let consumer = stream
             .get_or_create_consumer(
@@ -613,6 +608,7 @@ impl JetStreamAdapter {
             )
             .await
             .map_err(|error| AdapterError::Nats(error.to_string()))?;
+        self.verify_consumer_profile(consumer.cached_info())?;
 
         let mut messages = consumer
             .fetch()
