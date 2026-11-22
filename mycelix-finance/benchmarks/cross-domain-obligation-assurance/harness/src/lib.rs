@@ -57,6 +57,15 @@ pub enum KernelError {
     InvalidFinalityPolicy,
     InvalidManualAttestation,
     DuplicateCollateral,
+    DuplicateGeneration,
+    OverlappingGenerationInterval,
+    IneligibleGenerationEvidence,
+    InvalidEacDenomination,
+    EacOverIssuance,
+    DuplicateCertificate,
+    CertificateNotFound,
+    CertificateNotOwned,
+    CertificateAlreadyRetired,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -886,6 +895,243 @@ pub struct ScenarioCoverage {
     pub status: CoverageStatus,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VerifiedGeneration {
+    pub generation_id: String,
+    pub installation_id: String,
+    pub producer_id: String,
+    pub meter_id: String,
+    pub interval_start_micros: i64,
+    pub interval_end_micros: i64,
+    pub eligible_energy_wh: u128,
+    pub boundary: MeasurementBoundary,
+    pub source: ClaimSource,
+    pub evidence_digest: Digest,
+    pub verifier_attestation_digest: Digest,
+    pub verifier_id: String,
+    /// Upstream product-code, verifier and evidence validation test seam.
+    pub independently_qualified: bool,
+    pub conflicts_declared: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EacState {
+    Held,
+    Retired {
+        claimant_id: String,
+        retirement_reference: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnergyAttributeCertificate {
+    pub certificate_id: String,
+    pub registry_id: String,
+    pub product_code_reference: String,
+    pub generation_id: String,
+    pub quantity_wh: u128,
+    pub denomination_wh: u128,
+    pub owner_id: String,
+    pub state: EacState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GenerationIssuance {
+    generation: VerifiedGeneration,
+    issued_wh: u128,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct EnergyAttributeLedger {
+    generations: BTreeMap<String, GenerationIssuance>,
+    certificates: BTreeMap<String, EnergyAttributeCertificate>,
+}
+
+impl EnergyAttributeLedger {
+    /// Registers one generation interval after an upstream verifier and the
+    /// applicable product code establish eligibility at the exact boundary.
+    /// The in-memory ledger prevents duplicate/overlapping local issuance only;
+    /// accredited registries remain authoritative for legal certificate status.
+    pub fn register_generation(
+        &mut self,
+        generation: VerifiedGeneration,
+        expected_product_boundary: MeasurementBoundary,
+    ) -> Result<(), KernelError> {
+        if generation.generation_id.is_empty()
+            || generation.installation_id.is_empty()
+            || generation.producer_id.is_empty()
+            || generation.meter_id.is_empty()
+            || generation.verifier_id.is_empty()
+            || generation.evidence_digest == [0; 32]
+            || generation.verifier_attestation_digest == [0; 32]
+            || generation.eligible_energy_wh == 0
+        {
+            return Err(KernelError::MissingReference);
+        }
+        if generation.source != ClaimSource::MeterDerived
+            || generation.verifier_id == generation.producer_id
+            || !generation.independently_qualified
+            || generation.conflicts_declared
+        {
+            return Err(KernelError::IneligibleGenerationEvidence);
+        }
+        if generation.boundary != expected_product_boundary {
+            return Err(KernelError::InvalidBoundary);
+        }
+        if generation.interval_start_micros < 0
+            || generation.interval_end_micros <= generation.interval_start_micros
+        {
+            return Err(KernelError::InvalidInterval);
+        }
+        if self.generations.contains_key(&generation.generation_id) {
+            return Err(KernelError::DuplicateGeneration);
+        }
+        let overlaps = self.generations.values().any(|existing| {
+            existing.generation.meter_id == generation.meter_id
+                && existing.generation.boundary == generation.boundary
+                && generation.interval_start_micros < existing.generation.interval_end_micros
+                && existing.generation.interval_start_micros < generation.interval_end_micros
+        });
+        if overlaps {
+            return Err(KernelError::OverlappingGenerationInterval);
+        }
+        self.generations.insert(
+            generation.generation_id.clone(),
+            GenerationIssuance {
+                generation,
+                issued_wh: 0,
+            },
+        );
+        Ok(())
+    }
+
+    /// Issues EAC units only against registered eligible generation. Denomination
+    /// and registry/product-code identity are explicit and versioned by the caller.
+    pub fn issue(
+        &mut self,
+        certificate_id: &str,
+        registry_id: &str,
+        product_code_reference: &str,
+        generation_id: &str,
+        quantity_wh: u128,
+        denomination_wh: u128,
+        owner_id: &str,
+    ) -> Result<EnergyAttributeCertificate, KernelError> {
+        if certificate_id.is_empty()
+            || registry_id.is_empty()
+            || product_code_reference.is_empty()
+            || generation_id.is_empty()
+            || owner_id.is_empty()
+        {
+            return Err(KernelError::MissingReference);
+        }
+        if self.certificates.contains_key(certificate_id) {
+            return Err(KernelError::DuplicateCertificate);
+        }
+        if denomination_wh == 0
+            || quantity_wh == 0
+            || quantity_wh % denomination_wh != 0
+        {
+            return Err(KernelError::InvalidEacDenomination);
+        }
+        let issuance = self
+            .generations
+            .get_mut(generation_id)
+            .ok_or(KernelError::InvalidClaim)?;
+        let issued_after = issuance
+            .issued_wh
+            .checked_add(quantity_wh)
+            .ok_or(KernelError::ArithmeticOverflow)?;
+        if issued_after > issuance.generation.eligible_energy_wh {
+            return Err(KernelError::EacOverIssuance);
+        }
+        let certificate = EnergyAttributeCertificate {
+            certificate_id: certificate_id.to_owned(),
+            registry_id: registry_id.to_owned(),
+            product_code_reference: product_code_reference.to_owned(),
+            generation_id: generation_id.to_owned(),
+            quantity_wh,
+            denomination_wh,
+            owner_id: owner_id.to_owned(),
+            state: EacState::Held,
+        };
+        issuance.issued_wh = issued_after;
+        self.certificates
+            .insert(certificate_id.to_owned(), certificate.clone());
+        Ok(certificate)
+    }
+
+    /// Changes certificate ownership in this local projection. Production
+    /// integrations must reconcile the authoritative accredited registry receipt.
+    pub fn transfer(
+        &mut self,
+        certificate_id: &str,
+        current_owner_id: &str,
+        new_owner_id: &str,
+    ) -> Result<EnergyAttributeCertificate, KernelError> {
+        let certificate = self
+            .certificates
+            .get_mut(certificate_id)
+            .ok_or(KernelError::CertificateNotFound)?;
+        if certificate.owner_id != current_owner_id || new_owner_id.is_empty() {
+            return Err(KernelError::CertificateNotOwned);
+        }
+        if certificate.state != EacState::Held {
+            return Err(KernelError::CertificateAlreadyRetired);
+        }
+        certificate.owner_id = new_owner_id.to_owned();
+        Ok(certificate.clone())
+    }
+
+    /// Retirement is terminal in the reference projection: the attribute unit
+    /// cannot be transferred or retired again for another claim.
+    pub fn retire(
+        &mut self,
+        certificate_id: &str,
+        owner_id: &str,
+        claimant_id: &str,
+        retirement_reference: &str,
+    ) -> Result<EnergyAttributeCertificate, KernelError> {
+        let certificate = self
+            .certificates
+            .get_mut(certificate_id)
+            .ok_or(KernelError::CertificateNotFound)?;
+        if certificate.owner_id != owner_id
+            || claimant_id.is_empty()
+            || retirement_reference.is_empty()
+        {
+            return Err(KernelError::CertificateNotOwned);
+        }
+        if certificate.state != EacState::Held {
+            return Err(KernelError::CertificateAlreadyRetired);
+        }
+        certificate.state = EacState::Retired {
+            claimant_id: claimant_id.to_owned(),
+            retirement_reference: retirement_reference.to_owned(),
+        };
+        Ok(certificate.clone())
+    }
+
+    pub fn certificate(&self, certificate_id: &str) -> Option<&EnergyAttributeCertificate> {
+        self.certificates.get(certificate_id)
+    }
+
+    pub fn issued_wh(&self, generation_id: &str) -> Option<u128> {
+        self.generations
+            .get(generation_id)
+            .map(|issuance| issuance.issued_wh)
+    }
+
+    pub fn remaining_eligible_wh(&self, generation_id: &str) -> Option<u128> {
+        self.generations.get(generation_id).and_then(|issuance| {
+            issuance
+                .generation
+                .eligible_energy_wh
+                .checked_sub(issuance.issued_wh)
+        })
+    }
+}
+
 pub const SCENARIO_COVERAGE: [ScenarioCoverage; 39] = [
     ScenarioCoverage {
         id: "AUTH-001",
@@ -1086,6 +1332,21 @@ pub const AGENT_SCENARIO_COVERAGE: [ScenarioCoverage; 10] = [
         id: "AGENT-010",
         status: CoverageStatus::NotYetImplemented,
     },
+];
+
+pub const ENERGY_ATTRIBUTE_SCENARIO_COVERAGE: [ScenarioCoverage; 12] = [
+    ScenarioCoverage { id: "EAC-001", status: CoverageStatus::ImplementedInKernelTests },
+    ScenarioCoverage { id: "EAC-002", status: CoverageStatus::ImplementedInKernelTests },
+    ScenarioCoverage { id: "EAC-003", status: CoverageStatus::ImplementedInKernelTests },
+    ScenarioCoverage { id: "EAC-004", status: CoverageStatus::ImplementedInKernelTests },
+    ScenarioCoverage { id: "EAC-005", status: CoverageStatus::PartialOrRequiresAdapter },
+    ScenarioCoverage { id: "EAC-006", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "EAC-007", status: CoverageStatus::PartialOrRequiresAdapter },
+    ScenarioCoverage { id: "EAC-008", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "EAC-009", status: CoverageStatus::PartialOrRequiresAdapter },
+    ScenarioCoverage { id: "EAC-010", status: CoverageStatus::PartialOrRequiresAdapter },
+    ScenarioCoverage { id: "EAC-011", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "EAC-012", status: CoverageStatus::PartialOrRequiresAdapter },
 ];
 
 pub const TRANSPARENCY_METROLOGY_SCENARIO_COVERAGE: [ScenarioCoverage; 10] = [
@@ -1767,6 +2028,202 @@ mod tests {
         }
         assert_eq!(ids.len(), 10);
         assert_eq!(CORPUS.matches("\"id\":").count(), 10);
+    }
+
+    fn verified_generation() -> VerifiedGeneration {
+        VerifiedGeneration {
+            generation_id: "generation-001".into(),
+            installation_id: "site-001".into(),
+            producer_id: "producer-001".into(),
+            meter_id: "meter-001".into(),
+            interval_start_micros: 1_000,
+            interval_end_micros: 3_601_000,
+            eligible_energy_wh: 2_500_000,
+            boundary: MeasurementBoundary::InverterAcOutput,
+            source: ClaimSource::MeterDerived,
+            evidence_digest: digest(11),
+            verifier_attestation_digest: digest(12),
+            verifier_id: "independent-verifier".into(),
+            independently_qualified: true,
+            conflicts_declared: false,
+        }
+    }
+
+    #[test]
+    fn eac_issuance_is_denominated_and_cannot_exceed_verified_generation() {
+        let mut ledger = EnergyAttributeLedger::default();
+        ledger
+            .register_generation(
+                verified_generation(),
+                MeasurementBoundary::InverterAcOutput,
+            )
+            .unwrap();
+        let issued = ledger
+            .issue(
+                "eac-001",
+                "accredited-registry-1",
+                "irec-e-product-code/v1",
+                "generation-001",
+                2_000_000,
+                1_000_000,
+                "producer-account",
+            )
+            .unwrap();
+        assert_eq!(issued.quantity_wh, 2_000_000);
+        assert_eq!(ledger.remaining_eligible_wh("generation-001"), Some(500_000));
+        assert_eq!(
+            ledger.issue(
+                "eac-002",
+                "accredited-registry-1",
+                "irec-e-product-code/v1",
+                "generation-001",
+                1_000_000,
+                1_000_000,
+                "producer-account",
+            ),
+            Err(KernelError::EacOverIssuance)
+        );
+        assert_eq!(
+            ledger.issue(
+                "eac-003",
+                "accredited-registry-1",
+                "irec-e-product-code/v1",
+                "generation-001",
+                500_000,
+                1_000_000,
+                "producer-account",
+            ),
+            Err(KernelError::InvalidEacDenomination)
+        );
+    }
+
+    #[test]
+    fn eac_ownership_transfer_and_retirement_are_single_use() {
+        let mut ledger = EnergyAttributeLedger::default();
+        ledger
+            .register_generation(
+                verified_generation(),
+                MeasurementBoundary::InverterAcOutput,
+            )
+            .unwrap();
+        ledger
+            .issue(
+                "eac-001",
+                "accredited-registry-1",
+                "irec-e-product-code/v1",
+                "generation-001",
+                1_000_000,
+                1_000_000,
+                "producer-account",
+            )
+            .unwrap();
+        ledger
+            .transfer("eac-001", "producer-account", "buyer-account")
+            .unwrap();
+        let retired = ledger
+            .retire("eac-001", "buyer-account", "buyer-claim-001", "registry-retirement-001")
+            .unwrap();
+        assert_eq!(
+            retired.state,
+            EacState::Retired {
+                claimant_id: "buyer-claim-001".into(),
+                retirement_reference: "registry-retirement-001".into(),
+            }
+        );
+        assert_eq!(
+            ledger.transfer("eac-001", "buyer-account", "second-buyer"),
+            Err(KernelError::CertificateAlreadyRetired)
+        );
+        assert_eq!(
+            ledger.retire("eac-001", "buyer-account", "second-claim", "retirement-2"),
+            Err(KernelError::CertificateAlreadyRetired)
+        );
+    }
+
+    #[test]
+    fn eac_generation_requires_independent_meter_derived_evidence_and_exact_boundary() {
+        let mut ledger = EnergyAttributeLedger::default();
+        let mut simulated = verified_generation();
+        simulated.source = ClaimSource::Simulation;
+        assert_eq!(
+            ledger.register_generation(simulated, MeasurementBoundary::InverterAcOutput),
+            Err(KernelError::IneligibleGenerationEvidence)
+        );
+        let mut self_verified = verified_generation();
+        self_verified.verifier_id = self_verified.producer_id.clone();
+        assert_eq!(
+            ledger.register_generation(self_verified, MeasurementBoundary::InverterAcOutput),
+            Err(KernelError::IneligibleGenerationEvidence)
+        );
+        let wrong_boundary = verified_generation();
+        assert_eq!(
+            ledger.register_generation(wrong_boundary, MeasurementBoundary::GridExport),
+            Err(KernelError::InvalidBoundary)
+        );
+    }
+
+    #[test]
+    fn eac_overlapping_generation_intervals_and_duplicate_certificates_reject() {
+        let mut ledger = EnergyAttributeLedger::default();
+        ledger
+            .register_generation(
+                verified_generation(),
+                MeasurementBoundary::InverterAcOutput,
+            )
+            .unwrap();
+        let mut overlapping = verified_generation();
+        overlapping.generation_id = "generation-002".into();
+        overlapping.interval_start_micros += 1_000;
+        overlapping.interval_end_micros += 1_000;
+        assert_eq!(
+            ledger.register_generation(overlapping, MeasurementBoundary::InverterAcOutput),
+            Err(KernelError::OverlappingGenerationInterval)
+        );
+        ledger
+            .issue(
+                "eac-001",
+                "accredited-registry-1",
+                "irec-e-product-code/v1",
+                "generation-001",
+                1_000_000,
+                1_000_000,
+                "producer-account",
+            )
+            .unwrap();
+        assert_eq!(
+            ledger.issue(
+                "eac-001",
+                "accredited-registry-1",
+                "irec-e-product-code/v1",
+                "generation-001",
+                1_000_000,
+                1_000_000,
+                "producer-account",
+            ),
+            Err(KernelError::DuplicateCertificate)
+        );
+    }
+
+    #[test]
+    fn energy_attribute_scenario_inventory_is_unique_and_linked() {
+        const CORPUS: &str =
+            include_str!("../../pcoe-energy-attribute-scenarios.v0.1.json");
+        let mut ids = BTreeSet::new();
+        for item in ENERGY_ATTRIBUTE_SCENARIO_COVERAGE {
+            assert!(
+                ids.insert(item.id),
+                "duplicate energy-attribute scenario mapping: {}",
+                item.id
+            );
+            let needle = format!("\"id\": \"{}\"", item.id);
+            assert!(
+                CORPUS.contains(&needle),
+                "scenario missing from energy-attribute corpus: {}",
+                item.id
+            );
+        }
+        assert_eq!(ids.len(), 12);
+        assert_eq!(CORPUS.matches("\"id\":").count(), 12);
     }
 
     #[test]
