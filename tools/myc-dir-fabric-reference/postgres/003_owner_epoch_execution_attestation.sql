@@ -193,6 +193,18 @@ BEGIN
             USING ERRCODE = '22023';
     END IF;
 
+    -- Lock order must match queue-backed execution:
+    -- worker_claim_state first, then effect_fence_state.
+    SELECT owner_epoch, claim_epoch
+      INTO v_existing_owner_epoch, v_existing_claim_epoch
+      FROM myc_effect_owner.worker_claim_state
+     WHERE realm_id = p_realm_id
+       AND resource_id = p_resource_id
+       AND action_id = p_action_id
+       AND effect_owner_id = p_effect_owner_id
+       AND logical_operation_id = p_logical_operation_id
+     FOR UPDATE;
+
     SELECT owner_epoch
       INTO v_current_owner_epoch
       FROM myc_effect_owner.effect_fence_state
@@ -212,17 +224,7 @@ BEGIN
             USING ERRCODE = 'P0001';
     END IF;
 
-    SELECT owner_epoch, claim_epoch
-      INTO v_existing_owner_epoch, v_existing_claim_epoch
-      FROM myc_effect_owner.worker_claim_state
-     WHERE realm_id = p_realm_id
-       AND resource_id = p_resource_id
-       AND action_id = p_action_id
-       AND effect_owner_id = p_effect_owner_id
-       AND logical_operation_id = p_logical_operation_id
-     FOR UPDATE;
-
-    IF FOUND THEN
+    IF v_existing_owner_epoch IS NOT NULL THEN
         IF v_existing_owner_epoch > p_owner_epoch THEN
             RAISE EXCEPTION 'existing worker claim belongs to a newer owner epoch'
                 USING ERRCODE = 'P0001';
