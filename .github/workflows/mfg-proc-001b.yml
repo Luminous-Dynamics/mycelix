@@ -1,0 +1,65 @@
+name: MFG-PROC-001B Resource Offer Contract
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - "mycelix-workspace/mycelix-manufacturing/schemas/mfg_proc_001b/**"
+      - "mycelix-workspace/mycelix-manufacturing/docs/MFG_PROC_001B_RESOURCE_OFFERS_V0_1.md"
+      - "mycelix-workspace/mycelix-manufacturing/tests/fixtures/mfg_proc_001b_*.json"
+      - ".github/workflows/mfg-proc-001b.yml"
+      - "mycelix-workspace/mycelix-manufacturing/crates/manufacturing_common/**"
+  push:
+    branches:
+      - "feat/mfg-proc-001b-resource-offers-v0.1"
+    paths:
+      - "mycelix-workspace/mycelix-manufacturing/schemas/mfg_proc_001b/**"
+      - "mycelix-workspace/mycelix-manufacturing/docs/MFG_PROC_001B_RESOURCE_OFFERS_V0_1.md"
+      - "mycelix-workspace/mycelix-manufacturing/tests/fixtures/mfg_proc_001b_*.json"
+      - ".github/workflows/mfg-proc-001b.yml"
+      - "mycelix-workspace/mycelix-manufacturing/crates/manufacturing_common/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mfg-proc-001b-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  resource-offer-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-manufacturing
+      - name: Check committed source formatting for prerequisite contracts
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml \
+            --package manufacturing_common \
+            --package operations_integrity \
+            --package operations \
+            --package machines_integrity \
+            --package machines -- --check
+      - name: Re-run typed process reference conformance
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml \
+            -p manufacturing_common \
+            -p operations_integrity \
+            -p operations \
+            -p machines_integrity \
+            -p machines
+      - name: Install pinned JSON Schema validator (test-only)
+        run: python -m pip install --disable-pip-version-check jsonschema==4.26.0
+      - name: Validate Draft 2020-12 schema, offer, and all adversarial fixtures
+        run: |
+          python mycelix-workspace/mycelix-manufacturing/tools/mfg_proc_001b_schema_audit.py
+
