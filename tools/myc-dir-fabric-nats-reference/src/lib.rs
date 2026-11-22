@@ -452,7 +452,7 @@ pub fn plan_acknowledgement(
     }
     AckPlan::Acknowledge {
         mode,
-        disposition_digest: *digest,
+        disposition_digest: *receipt_digest,
     }
 }
 
