@@ -111,3 +111,16 @@ The success criterion remains zero stale-claim and stale-generation effects, zer
 - No security signature, trust-root, or decision-receipt verifier is implemented in the NATS crate.
 
 This increment advances the work from reference-only transport semantics to an actual SDK adapter and an automated broker test harness, while keeping the external effect-owner boundary intact.
+
+
+## 9. PostgreSQL-backed effect-receipt verification
+
+The follow-on branch `research/myc-dir-postgres-receipt-verifier-v0-1` adds `src/postgres.rs` to the async-nats adapter. It queries the existing append-only `myc_effect_owner.effect_commits` ledger, uses `rustls-tokio-postgres 0.5.1` with a supplied CA certificate, rejects recovery/read-only sessions, binds the complete realm/resource/action/owner/object/currency tuple and verifies request/decision/payload/idempotency/generation fields. It recomputes a versioned canonical digest from the actual row and only then constructs the exact-binding owner-disposition capability.
+
+The ignored integration suite now creates a real fenced PostgreSQL effect through the existing `apply_claim_fenced_balance_delta` function within a transaction using `synchronous_commit=on`; it commits, reads the row through the verifier, and only then AckSyncs the matching JetStream delivery. Wrong-scope, request, decision, payload and accepted-generation negative controls must all fail verification.
+
+The CI workflow adds a TLS-enabled PostgreSQL 16.16 service, applies the two existing reference SQL migrations and passes the generated CA path to the integration test. The database-backed path remains source-only pending its exact-head workflow.
+
+The PostgreSQL verifier currently proves EffectCommitted only. It does not authorize terminal rejection, terminal no-effect or reconciliation handoff because those lack durable records in the current PostgreSQL reference schema. The table records accepted resource generation but not owner epoch; owner-epoch continuity remains a separate proof. A visible commit on the primary also does not independently prove that an asynchronous promotion candidate contains the WAL record.
+
+The NATS benchmark is now 36 scenarios / 26 metrics, still preregistered and not executed.
