@@ -99,8 +99,7 @@ pub struct BomItem {
 /// Exact public source location for the Symthaea manufacturing contract API.
 /// This is pinned to the source commit inspected by MFG-PROC-001A; it is not
 /// proof that the source object has been fetched, authenticated, or qualified.
-pub const SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY: &str =
-    "Luminous-Dynamics/symthaea";
+pub const SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY: &str = "Luminous-Dynamics/symthaea";
 pub const SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1: &str =
     "0b3feb49a3c2e9c1c1748ca2a0c0ff40ed320ecd";
 pub const SYMTHAEA_PROCESS_CRATE: &str = "symthaea-manufacturing-process";
@@ -128,7 +127,9 @@ impl SymthaeaManufacturingObjectRefV1 {
         if self.owner_commit != SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1
             || !is_lower_hex_digest(&self.owner_commit, 40)
         {
-            return Err("manufacturing reference is not pinned to the supported source commit".into());
+            return Err(
+                "manufacturing reference is not pinned to the supported source commit".into(),
+            );
         }
         if self.contract_crate != expected_crate || self.contract_type != expected_type {
             return Err("manufacturing reference has the wrong canonical contract type".into());
@@ -177,10 +178,8 @@ pub struct ProcessCapabilityRequirementRefV1(pub SymthaeaManufacturingObjectRefV
 
 impl ProcessCapabilityRequirementRefV1 {
     pub fn validate(&self) -> Result<(), String> {
-        self.0.validate(
-            SYMTHAEA_CONTRACTS_CRATE,
-            "ProcessCapabilityRequirementV1",
-        )
+        self.0
+            .validate(SYMTHAEA_CONTRACTS_CRATE, "ProcessCapabilityRequirementV1")
     }
 }
 
@@ -235,9 +234,7 @@ impl ProcessBindingV1 {
         {
             return Err("process definition and capability requirement IDs do not match".into());
         }
-        if self.process_definition.0.owner_commit
-            != self.capability_requirement.0.owner_commit
-        {
+        if self.process_definition.0.owner_commit != self.capability_requirement.0.owner_commit {
             return Err("process binding mixes source contract commits".into());
         }
         if let Some(recipe) = &self.recipe {
@@ -463,7 +460,9 @@ pub fn validate_bom(bom: &BillOfMaterials) -> Result<(), String> {
     }
     for (i, item) in bom.items.iter().enumerate() {
         if item.part_id.is_empty() && item.sub_assembly_bom_hash.is_none() {
-            return Err(format!("item {i}: part_id or sub_assembly_bom_hash required"));
+            return Err(format!(
+                "item {i}: part_id or sub_assembly_bom_hash required"
+            ));
         }
         if item.quantity_per == 0 {
             return Err(format!("item {i}: quantity_per must be > 0"));
@@ -557,13 +556,19 @@ mod tests {
     #[test]
     fn test_validate_work_order_empty_product() {
         let wo = make_work_order("", 100);
-        assert_eq!(validate_work_order(&wo).unwrap_err(), "product_id is required");
+        assert_eq!(
+            validate_work_order(&wo).unwrap_err(),
+            "product_id is required"
+        );
     }
 
     #[test]
     fn test_validate_work_order_zero_qty() {
         let wo = make_work_order("W", 0);
-        assert_eq!(validate_work_order(&wo).unwrap_err(), "quantity must be > 0");
+        assert_eq!(
+            validate_work_order(&wo).unwrap_err(),
+            "quantity must be > 0"
+        );
     }
 
     #[test]
@@ -591,7 +596,11 @@ mod tests {
             items: vec![],
             created_at: test_timestamp(),
         };
-        assert!(validate_bom(&bom).unwrap_err().contains("at least one item"));
+        assert!(
+            validate_bom(&bom)
+                .unwrap_err()
+                .contains("at least one item")
+        );
     }
 
     #[test]
@@ -621,7 +630,11 @@ mod tests {
             current_work_order: None,
             registered_at: test_timestamp(),
         };
-        assert!(validate_machine(&m).unwrap_err().contains("name is required"));
+        assert!(
+            validate_machine(&m)
+                .unwrap_err()
+                .contains("name is required")
+        );
     }
 
     #[test]
@@ -649,7 +662,11 @@ mod tests {
         assert_eq!(back, MachineType::Custom("Waterjet".to_string()));
     }
 
-    fn manufacturing_ref(kind: &str, crate_name: &str, object_id: char) -> SymthaeaManufacturingObjectRefV1 {
+    fn manufacturing_ref(
+        kind: &str,
+        crate_name: &str,
+        object_id: char,
+    ) -> SymthaeaManufacturingObjectRefV1 {
         let digest = |ch: char, count: usize| std::iter::repeat_n(ch, count).collect::<String>();
         SymthaeaManufacturingObjectRefV1 {
             owner_repository: SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY.into(),
@@ -694,11 +711,7 @@ mod tests {
 
     #[test]
     fn typed_process_definition_ref_requires_exact_pinned_owner_and_type() {
-        let mut reference = manufacturing_ref(
-            "ProcessDefinitionV1",
-            SYMTHAEA_PROCESS_CRATE,
-            'a',
-        );
+        let mut reference = manufacturing_ref("ProcessDefinitionV1", SYMTHAEA_PROCESS_CRATE, 'a');
         let typed = ProcessDefinitionRefV1(reference.clone());
         assert!(typed.validate().is_ok());
 
@@ -764,11 +777,8 @@ mod tests {
 
     #[test]
     fn malformed_hex_and_wrong_contract_types_are_rejected() {
-        let mut reference = manufacturing_ref(
-            "ProcessCapabilityProfileV1",
-            SYMTHAEA_CONTRACTS_CRATE,
-            'e',
-        );
+        let mut reference =
+            manufacturing_ref("ProcessCapabilityProfileV1", SYMTHAEA_CONTRACTS_CRATE, 'e');
         reference.object_id_blake3 = "not-a-digest".into();
         assert!(ProcessCapabilityProfileRefV1(reference).validate().is_err());
 
