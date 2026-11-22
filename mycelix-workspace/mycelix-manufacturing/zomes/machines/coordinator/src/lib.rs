@@ -7,7 +7,7 @@
 
 use hdk::prelude::*;
 use machines_integrity::*;
-use manufacturing_common::{MachineStatus, MachineType};
+use manufacturing_common::{MachineProcessCapabilityRefV1, MachineStatus, MachineType};
 
 // ============================================================================
 // Input types
@@ -18,6 +18,10 @@ pub struct RegisterMachineInput {
     pub name: String,
     pub machine_type: MachineType,
     pub capabilities: Vec<String>,
+    /// Optional, exact references into the canonical Symthaea process API.
+    /// Missing on legacy clients; string capabilities remain non-authoritative.
+    #[serde(default)]
+    pub process_capability_refs: Vec<MachineProcessCapabilityRefV1>,
     pub location: String,
     pub max_throughput_per_hour: u32,
 }
@@ -63,6 +67,7 @@ pub fn register_machine(input: RegisterMachineInput) -> ExternResult<ActionHash>
         name: input.name,
         machine_type: input.machine_type,
         capabilities: input.capabilities,
+        process_capability_refs: input.process_capability_refs,
         location: input.location.clone(),
         max_throughput_per_hour: input.max_throughput_per_hour,
         status: MachineStatus::Available,
@@ -229,6 +234,7 @@ mod tests {
             name: "CNC Mill #3".to_string(),
             machine_type: MachineType::CNC3Axis,
             capabilities: vec!["milling".to_string(), "drilling".to_string()],
+            process_capability_refs: vec![],
             location: "Bay 2".to_string(),
             max_throughput_per_hour: 12,
         };
@@ -236,6 +242,12 @@ mod tests {
         let back: RegisterMachineInput = serde_json::from_str(&json).unwrap();
         assert_eq!(back.name, "CNC Mill #3");
         assert_eq!(back.machine_type, MachineType::CNC3Axis);
+        assert!(back.process_capability_refs.is_empty());
+
+        // Legacy callers that omit the additive field remain deserializable.
+        let legacy = r#"{"name":"Legacy","machine_type":"CNC3Axis","capabilities":["milling"],"location":"Bay 1","max_throughput_per_hour":3}"#;
+        let decoded: RegisterMachineInput = serde_json::from_str(legacy).unwrap();
+        assert!(decoded.process_capability_refs.is_empty());
     }
 
     #[test]
@@ -282,6 +294,7 @@ mod tests {
             name: "Lathe #1".to_string(),
             machine_type: MachineType::Lathe,
             capabilities: vec!["turning".to_string()],
+            process_capability_refs: vec![],
             location: "Bay 3".to_string(),
             max_throughput_per_hour: 8,
             status: MachineStatus::Available,
