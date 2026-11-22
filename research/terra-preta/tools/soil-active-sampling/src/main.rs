@@ -33,6 +33,7 @@ struct Scenario {
 struct PublicContract {
     horizon_minutes: u32,
     maximum_sample_count: usize,
+    detection_delta_threshold: f64,
     maximum_integral_gap_minutes: u32,
 }
 
@@ -93,7 +94,6 @@ struct Observation {
 struct CandidatePublicContract {
     horizon_minutes: u32,
     maximum_sample_count: usize,
-    detection_delta_threshold: f64,
 }
 
 #[derive(Clone, Copy, Debug)]
