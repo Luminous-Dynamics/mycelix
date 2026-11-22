@@ -78,7 +78,6 @@ struct PolicyConfig {
 
 #[derive(Clone, Copy, Debug)]
 struct TruthPoint {
-    minute: u32,
     moisture: f64,
     response: f64,
 }
@@ -260,7 +259,6 @@ fn generate_truth(s: &Scenario) -> Vec<TruthPoint> {
                 .map(|p| pulse_response(minute, p))
                 .unwrap_or(0.0);
             TruthPoint {
-                minute,
                 moisture,
                 response: s.hidden_truth.baseline_response + pulse,
             }
@@ -283,6 +281,11 @@ fn next_sample_interval(
     policy: &mut CandidatePolicy,
     context: CandidateActionContext<'_>,
 ) -> u32 {
+    if context.now_minute >= context.public_contract.horizon_minutes
+        || context.observations.len() >= context.public_contract.maximum_sample_count
+    {
+        return context.public_contract.horizon_minutes.saturating_sub(context.now_minute).max(1);
+    }
     match policy {
         CandidatePolicy::Fixed { interval_minutes } => *interval_minutes,
         CandidatePolicy::RewettingTriggered {
@@ -295,7 +298,17 @@ fn next_sample_interval(
             if context.observations.len() >= 2 {
                 let last = context.observations[context.observations.len() - 1];
                 let previous = context.observations[context.observations.len() - 2];
-                if last.moisture - previous.moisture >= *rewetting_delta_threshold {
+                let baseline = context.observations
+                    .iter()
+                    .take(3)
+                    .map(|observation| observation.response)
+                    .sum::<f64>()
+                    / context.observations.len().min(3) as f64;
+                let response_changed =
+                    last.response - baseline >= context.public_contract.detection_delta_threshold;
+                let rewetting_detected =
+                    last.moisture - previous.moisture >= *rewetting_delta_threshold;
+                if response_changed || rewetting_detected {
                     *fast_until_minute = context.now_minute.saturating_add(*fast_window_minutes);
                 }
             }
@@ -393,7 +406,11 @@ fn evaluate(s: &Scenario, digest: String) -> Report {
             let peak = within.iter().map(|o| o.response).reduce(f64::max);
             let true_peak = s.hidden_truth.baseline_response + pulse.peak_amplitude;
             let true_mass = pulse_integral(&truth, pulse, s.hidden_truth.baseline_response);
-            let estimate = if within.len() >= 2 {
+            let gap_is_acceptable = within.windows(2).all(|pair| {
+                pair[1].minute.saturating_sub(pair[0].minute)
+                    <= s.public_contract.maximum_integral_gap_minutes
+            });
+            let estimate = if within.len() >= 2 && gap_is_acceptable {
                 Some(within.windows(2).map(|pair| {
                     let left = (pair[0].response - baseline).max(0.0);
                     let right = (pair[1].response - baseline).max(0.0);
@@ -401,6 +418,13 @@ fn evaluate(s: &Scenario, digest: String) -> Report {
                 }).sum::<f64>())
             } else {
                 None
+            };
+            let estimate_status = if estimate.is_some() {
+                "estimated_from_event_window_samples"
+            } else if within.len() >= 2 && !gap_is_acceptable {
+                "event_window_gap_exceeded"
+            } else {
+                "insufficient_event_window_samples"
             };
             (
                 true,
@@ -413,7 +437,7 @@ fn evaluate(s: &Scenario, digest: String) -> Report {
                 Some(true_mass),
                 estimate,
                 estimate.map(|x| (x - true_mass).abs()),
-                if estimate.is_some() { "estimated_from_event_window_samples" } else { "insufficient_event_window_samples" },
+                estimate_status,
             )
         } else {
             let false_alarm = observations.iter()
