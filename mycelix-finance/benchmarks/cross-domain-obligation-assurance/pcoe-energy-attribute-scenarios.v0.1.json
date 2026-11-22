@@ -1,0 +1,121 @@
+{
+  "benchmark": "PCOE Energy Attribute and Renewable-Claims Addendum",
+  "version": "0.1",
+  "date": "2026-11-22",
+  "status": "proposed-research-corpus-not-executed",
+  "scenario_count": 12,
+  "dispositions": [
+    "reject",
+    "hold_indeterminate"
+  ],
+  "scenarios": [
+    {
+      "id": "EAC-001",
+      "domain": "attribute_issuance",
+      "threat": "Over-issuance above eligible generation",
+      "preconditions": "A registered device has verified generation of 850 kWh for the eligible period.",
+      "adversarial_mutation": "Attempt to issue 1,000 kWh of renewable attributes for the same eligible period.",
+      "expected_disposition": "reject",
+      "required_control": "The issuance amount cannot exceed the remaining qualifying metered generation under the pinned product-code rules."
+    },
+    {
+      "id": "EAC-002",
+      "domain": "attribute_issuance",
+      "threat": "Duplicate issuance for overlapping meter intervals",
+      "preconditions": "A generation interval has already supported certificate issuance in a registry projection.",
+      "adversarial_mutation": "Submit the same meter interval and evidence digest under a second certificate ID.",
+      "expected_disposition": "reject",
+      "required_control": "Generation interval identity and registry issuance reference must be consumed once."
+    },
+    {
+      "id": "EAC-003",
+      "domain": "attribute_ownership",
+      "threat": "Transfer after retirement",
+      "preconditions": "A certificate has been redeemed/retired for an end-user claim.",
+      "adversarial_mutation": "Attempt a further transfer or resale of the retired certificate.",
+      "expected_disposition": "reject",
+      "required_control": "Retirement is terminal; the accredited registry remains authoritative for this state."
+    },
+    {
+      "id": "EAC-004",
+      "domain": "attribute_ownership",
+      "threat": "Double retirement / duplicate claim",
+      "preconditions": "An attribute unit was already retired for one claimant or purpose.",
+      "adversarial_mutation": "Submit a second retirement request or attach the same retired certificate to a second claim.",
+      "expected_disposition": "reject",
+      "required_control": "A certificate unit supports at most one final claim in the registry's scope."
+    },
+    {
+      "id": "EAC-005",
+      "domain": "registry_interoperability",
+      "threat": "Duplicate issuance across registries",
+      "preconditions": "Two registries or product codes are presented with overlapping underlying generation evidence.",
+      "adversarial_mutation": "Issue certificates in each registry against the same physical production interval without approved cross-registry reconciliation.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Registry/product-code identifiers and cross-registry issuance reconciliation must prevent duplicate attribute creation."
+    },
+    {
+      "id": "EAC-006",
+      "domain": "time_matching",
+      "threat": "Time-period or location substitution",
+      "preconditions": "A consumer claim states a specific time period or geography, but the certificate generation metadata differs.",
+      "adversarial_mutation": "Substitute an annual or foreign-region EAC for an hourly/local matching claim without an allowed matching rule.",
+      "expected_disposition": "reject",
+      "required_control": "Claims must comply with the pinned programme's time, geography and source-matching rules."
+    },
+    {
+      "id": "EAC-007",
+      "domain": "physical_delivery",
+      "threat": "Generation confused with export or consumption",
+      "preconditions": "The project records generation, behind-the-meter consumption, imports and grid exports at different boundaries.",
+      "adversarial_mutation": "Use gross generation as proof of contracted export or use grid export as proof of total gross generation.",
+      "expected_disposition": "reject",
+      "required_control": "Physical boundary and purpose must match the contract and programme rule; boundaries are not interchangeable."
+    },
+    {
+      "id": "EAC-008",
+      "domain": "storage_provenance",
+      "threat": "Battery provenance laundering",
+      "preconditions": "A battery stores mixed-source energy and later discharges it.",
+      "adversarial_mutation": "Treat the entire discharge as new renewable generation or issue attributes again for previously certified charging energy.",
+      "expected_disposition": "reject",
+      "required_control": "Storage charging/discharging must preserve provenance, conversion losses and the approved attribute accounting method."
+    },
+    {
+      "id": "EAC-009",
+      "domain": "certificate_conservation",
+      "threat": "Partial retirement/splitting breaks quantity conservation",
+      "preconditions": "A registry permits or requires units at a defined denomination and a request attempts partial redemption.",
+      "adversarial_mutation": "Split, aggregate or redeem a quantity inconsistent with the pinned registry unit rules.",
+      "expected_disposition": "reject",
+      "required_control": "Only registry-authorized splitting/retirement is allowed; original and child units conserve quantity and cannot overlap."
+    },
+    {
+      "id": "EAC-010",
+      "domain": "eligibility",
+      "threat": "Unregistered or suspended production device",
+      "preconditions": "The generation device is not registered with an issuer authorized for the jurisdiction/product or is suspended.",
+      "adversarial_mutation": "Attempt issuance using an otherwise plausible meter record with no current device eligibility.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Device/issuer/product eligibility must be established from current registry records."
+    },
+    {
+      "id": "EAC-011",
+      "domain": "correction",
+      "threat": "Cancelled or corrected certificate reused",
+      "preconditions": "A registry has cancelled or corrected a certificate because of faulty data or eligibility.",
+      "adversarial_mutation": "Continue using the prior certificate in a downstream payment or consumer claim after the correction.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Append the registry correction and reconcile dependent obligations/claims without rewriting history."
+    },
+    {
+      "id": "EAC-012",
+      "domain": "claim_provenance",
+      "threat": "Certificate detached from underlying evidence",
+      "preconditions": "A valid certificate serial is presented without the generation interval, registry transaction and verifier evidence that supported issuance.",
+      "adversarial_mutation": "Use a certificate summary or screenshot without binding the exact registry event and evidence digests.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Every claim must link to the authoritative registry event and the exact underlying generation evidence bundle."
+    }
+  ]
+}
