@@ -37,6 +37,9 @@ pub enum EnergyAssuranceError {
     InsufficientManualAttestors,
     ProducerCannotVerifyOwnClaim,
     ClaimNotMeterDerived,
+    InvalidProductionClaim,
+    ClaimDigestMismatch,
+    AttestationEvidenceNotInClaim,
     VerificationEvidenceMissing,
     ConflictedVerifier,
     UncertaintyTooHigh,
@@ -79,6 +82,9 @@ impl MeterObservation {
     pub fn interval_energy_wh(&self) -> Result<u128, EnergyAssuranceError> {
         if self.observation_id.is_empty() || self.meter_id.is_empty() {
             return Err(EnergyAssuranceError::MissingReference);
+        }
+        if self.sequence == 0 {
+            return Err(EnergyAssuranceError::MeterSequenceReplayed);
         }
         if self.interval_end_micros <= self.interval_start_micros {
             return Err(EnergyAssuranceError::InvalidInterval);
@@ -160,6 +166,7 @@ pub enum ProductionSource {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProductionClaim {
     pub claim_id: String,
+    pub claim_digest: [u8; 32],
     pub producer_id: String,
     pub project_id: String,
     pub energy_wh: u128,
@@ -210,6 +217,12 @@ impl VerifierAttestation {
         {
             return Err(EnergyAssuranceError::MissingReference);
         }
+        if claim.producer_id.is_empty() || claim.project_id.is_empty() || claim.energy_wh == 0 {
+            return Err(EnergyAssuranceError::InvalidProductionClaim);
+        }
+        if self.claim_digest != claim.claim_digest {
+            return Err(EnergyAssuranceError::ClaimDigestMismatch);
+        }
         if self.verifier_id == claim.producer_id {
             return Err(EnergyAssuranceError::ProducerCannotVerifyOwnClaim);
         }
@@ -228,6 +241,13 @@ impl VerifierAttestation {
             }
             if self.observation_digests.is_empty() || claim.evidence_digests.is_empty() {
                 return Err(EnergyAssuranceError::VerificationEvidenceMissing);
+            }
+            if self
+                .observation_digests
+                .iter()
+                .any(|digest| !claim.evidence_digests.contains(digest))
+            {
+                return Err(EnergyAssuranceError::AttestationEvidenceNotInClaim);
             }
             if matches!(
                 self.uncertainty,
@@ -681,8 +701,8 @@ mod tests {
     #[test]
     fn simulation_cannot_be_attested_as_verified_production() {
         let claim = ProductionClaim {
-            claim_id: "claim-001".into(), producer_id: "producer-001".into(),
-            project_id: "project-001".into(), energy_wh: 1000,
+            claim_id: "claim-001".into(), claim_digest: [2; 32],
+            producer_id: "producer-001".into(), project_id: "project-001".into(), energy_wh: 1000,
             source: ProductionSource::Simulation, evidence_digests: vec![[1; 32]],
         };
         let attestation = VerifierAttestation {
@@ -693,6 +713,48 @@ mod tests {
             scope: "interval-output".into(), result: VerificationResult::VerifiedForScope,
         };
         assert_eq!(attestation.validate_against(&claim), Err(EnergyAssuranceError::ClaimNotMeterDerived));
+    }
+
+    #[test]
+    fn attestation_must_bind_exact_claim_digest() {
+        let claim = ProductionClaim {
+            claim_id: "claim-001".into(), claim_digest: [1; 32],
+            producer_id: "producer-001".into(), project_id: "project-001".into(),
+            energy_wh: 1000, source: ProductionSource::MeterDerived,
+            evidence_digests: vec![[3; 32]],
+        };
+        let attestation = VerifierAttestation {
+            attestation_id: "attest-001".into(), claim_id: claim.claim_id.clone(),
+            claim_digest: [9; 32], verifier_id: "inspector-001".into(),
+            independently_qualified: true, conflicts_declared: false,
+            uncertainty: MeasurementUncertainty::Low, observation_digests: vec![[3; 32]],
+            scope: "interval-output".into(), result: VerificationResult::VerifiedForScope,
+        };
+        assert_eq!(
+            attestation.validate_against(&claim),
+            Err(EnergyAssuranceError::ClaimDigestMismatch)
+        );
+    }
+
+    #[test]
+    fn attestation_cannot_reference_observations_outside_claim_evidence() {
+        let claim = ProductionClaim {
+            claim_id: "claim-001".into(), claim_digest: [2; 32],
+            producer_id: "producer-001".into(), project_id: "project-001".into(),
+            energy_wh: 1000, source: ProductionSource::MeterDerived,
+            evidence_digests: vec![[3; 32]],
+        };
+        let attestation = VerifierAttestation {
+            attestation_id: "attest-001".into(), claim_id: claim.claim_id.clone(),
+            claim_digest: [2; 32], verifier_id: "inspector-001".into(),
+            independently_qualified: true, conflicts_declared: false,
+            uncertainty: MeasurementUncertainty::Low, observation_digests: vec![[4; 32]],
+            scope: "interval-output".into(), result: VerificationResult::VerifiedForScope,
+        };
+        assert_eq!(
+            attestation.validate_against(&claim),
+            Err(EnergyAssuranceError::AttestationEvidenceNotInClaim)
+        );
     }
 
     #[test]
