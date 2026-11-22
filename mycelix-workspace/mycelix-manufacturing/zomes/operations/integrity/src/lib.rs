@@ -93,7 +93,7 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
     match op.flattened::<EntryTypes, LinkTypes>()? {
         FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, .. }) => {
             validate_create_entry(app_entry)
-        },
+        }
         FlatOp::StoreEntry(OpEntry::UpdateEntry { .. }) => Ok(ValidateCallbackResult::Invalid(
             "Operations/routings are immutable".into(),
         )),
@@ -129,17 +129,20 @@ fn validate_create_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResu
                 Err("design_id is required".to_owned())
             } else if routing.steps.is_empty() {
                 Err("routing must have at least one step".to_owned())
-            } else if routing.steps.windows(2).any(|w| w[0].sequence >= w[1].sequence) {
+            } else if routing
+                .steps
+                .windows(2)
+                .any(|w| w[0].sequence >= w[1].sequence)
+            {
                 Err("routing steps must be in ascending sequence order".to_owned())
             } else {
-                routing.steps.iter().try_for_each(|step| {
-                    validate_binding(&step.process_binding)
-                })
+                routing
+                    .steps
+                    .iter()
+                    .try_for_each(|step| validate_binding(&step.process_binding))
             }
         }
-        EntryTypes::ProcessRegistry(registry) => {
-            validate_process_registry_entry(&registry)
-        }
+        EntryTypes::ProcessRegistry(registry) => validate_process_registry_entry(&registry),
     };
 
     Ok(match result {
@@ -148,9 +151,7 @@ fn validate_create_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResu
     })
 }
 
-fn validate_process_registry_entry(
-    entry: &ProcessRegistryEntry,
-) -> Result<(), String> {
+fn validate_process_registry_entry(entry: &ProcessRegistryEntry) -> Result<(), String> {
     entry.process_definition_ref.validate()?;
     if entry.display_label.trim().is_empty() || entry.display_label.len() > 200 {
         return Err("process registry display_label must be 1-200 characters".into());
@@ -182,12 +183,16 @@ fn validate_process_registry_entry(
 mod typed_process_reference_tests {
     use super::*;
     use manufacturing_common::{
-        ProcessCapabilityRequirementRefV1, SymthaeaManufacturingObjectRefV1,
-        SYMTHAEA_CONTRACTS_CRATE, SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1,
-        SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY, SYMTHAEA_PROCESS_CRATE,
+        ProcessCapabilityRequirementRefV1, SYMTHAEA_CONTRACTS_CRATE,
+        SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1, SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY,
+        SYMTHAEA_PROCESS_CRATE, SymthaeaManufacturingObjectRefV1,
     };
 
-    fn source_ref(contract_crate: &str, contract_type: &str, object_id: char) -> SymthaeaManufacturingObjectRefV1 {
+    fn source_ref(
+        contract_crate: &str,
+        contract_type: &str,
+        object_id: char,
+    ) -> SymthaeaManufacturingObjectRefV1 {
         SymthaeaManufacturingObjectRefV1 {
             owner_repository: SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY.into(),
             owner_commit: SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1.into(),
@@ -200,11 +205,7 @@ mod typed_process_reference_tests {
     }
 
     fn valid_process_ref() -> ProcessDefinitionRefV1 {
-        let mut source = source_ref(
-            SYMTHAEA_PROCESS_CRATE,
-            "ProcessDefinitionV1",
-            'a',
-        );
+        let mut source = source_ref(SYMTHAEA_PROCESS_CRATE, "ProcessDefinitionV1", 'a');
         source.object_id_blake3 = source.process_id_blake3.clone();
         ProcessDefinitionRefV1(source)
     }
