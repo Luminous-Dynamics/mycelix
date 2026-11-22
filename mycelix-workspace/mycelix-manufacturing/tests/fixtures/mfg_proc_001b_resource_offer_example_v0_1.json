@@ -1,0 +1,228 @@
+{
+  "schema_id": "mycelix.manufacturing.resource_offer.v0_1",
+  "schema_version": "0.1.0",
+  "offer_id": "offer:fixture:ldprint-n1-001",
+  "offer_revision": 1,
+  "provider_ref": {
+    "owner_repository": "synthetic-fixture/only",
+    "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+    "owner_contract": "fixture-only-resource-owner",
+    "owner_schema_id": "urn:fixture:owner-object.v0.1",
+    "owner_schema_version": "0.1.0",
+    "object_type": "provider-did",
+    "object_id": "did:mycelix:fixture-provider-001",
+    "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "signer_ref": {
+    "owner_repository": "synthetic-fixture/only",
+    "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+    "owner_contract": "fixture-only-resource-owner",
+    "owner_schema_id": "urn:fixture:owner-object.v0.1",
+    "owner_schema_version": "0.1.0",
+    "object_type": "provider-did",
+    "object_id": "did:mycelix:fixture-signer-001",
+    "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "resource_ref": {
+    "owner_repository": "synthetic-fixture/only",
+    "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+    "owner_contract": "fixture-only-resource-owner",
+    "owner_schema_id": "urn:fixture:owner-object.v0.1",
+    "owner_schema_version": "0.1.0",
+    "object_type": "machine-entry",
+    "object_id": "machine-action-fixture-001",
+    "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "site_ref": {
+    "owner_repository": "synthetic-fixture/only",
+    "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+    "owner_contract": "fixture-only-resource-owner",
+    "owner_schema_id": "urn:fixture:owner-object.v0.1",
+    "owner_schema_version": "0.1.0",
+    "object_type": "site",
+    "object_id": "site-fixture-n1-001",
+    "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "process_definition_ref": {
+    "owner_repository": "Luminous-Dynamics/symthaea",
+    "owner_commit": "0b3feb49a3c2e9c1c1748ca2a0c0ff40ed320ecd",
+    "contract_crate": "symthaea-manufacturing-process",
+    "contract_type": "ProcessDefinitionV1",
+    "object_id_blake3": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "process_id_blake3": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "semantic_version": "1.0.0"
+  },
+  "capability_profile_ref": {
+    "owner_repository": "Luminous-Dynamics/symthaea",
+    "owner_commit": "0b3feb49a3c2e9c1c1748ca2a0c0ff40ed320ecd",
+    "contract_crate": "symthaea-manufacturing-contracts",
+    "contract_type": "ProcessCapabilityProfileV1",
+    "object_id_blake3": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "process_id_blake3": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "semantic_version": "1.0.0"
+  },
+  "configuration_ref": {
+    "owner_repository": "synthetic-fixture/only",
+    "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+    "owner_contract": "fixture-only-resource-owner",
+    "owner_schema_id": "urn:fixture:owner-object.v0.1",
+    "owner_schema_version": "0.1.0",
+    "object_type": "machine-configuration",
+    "object_id": "ld-print-config-fixture-001",
+    "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "tooling_refs": [
+    {
+      "owner_repository": "synthetic-fixture/only",
+      "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "owner_contract": "fixture-only-resource-owner",
+      "owner_schema_id": "urn:fixture:owner-object.v0.1",
+      "owner_schema_version": "0.1.0",
+      "object_type": "tooling",
+      "object_id": "fixture-jig-001",
+      "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "material_applicability_refs": [
+    {
+      "owner_repository": "synthetic-fixture/only",
+      "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "owner_contract": "fixture-only-resource-owner",
+      "owner_schema_id": "urn:fixture:owner-object.v0.1",
+      "owner_schema_version": "0.1.0",
+      "object_type": "material-family",
+      "object_id": "polymer-material-family-001",
+      "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "environment_prerequisite_refs": [
+    {
+      "owner_repository": "synthetic-fixture/only",
+      "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "owner_contract": "fixture-only-resource-owner",
+      "owner_schema_id": "urn:fixture:owner-object.v0.1",
+      "owner_schema_version": "0.1.0",
+      "object_type": "environment",
+      "object_id": "ventilated-enclosed-zone-001",
+      "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "utility_prerequisite_refs": [
+    {
+      "owner_repository": "synthetic-fixture/only",
+      "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "owner_contract": "fixture-only-resource-owner",
+      "owner_schema_id": "urn:fixture:owner-object.v0.1",
+      "owner_schema_version": "0.1.0",
+      "object_type": "utility",
+      "object_id": "electrical-service-001",
+      "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "operator_competence_refs": [
+    {
+      "owner_repository": "synthetic-fixture/only",
+      "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "owner_contract": "fixture-only-resource-owner",
+      "owner_schema_id": "urn:fixture:owner-object.v0.1",
+      "owner_schema_version": "0.1.0",
+      "object_type": "competence",
+      "object_id": "trained-fdm-operator-001",
+      "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "qualification_evidence_refs": [],
+  "inspection_evidence_refs": [
+    {
+      "owner_repository": "synthetic-fixture/only",
+      "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "owner_contract": "fixture-only-resource-owner",
+      "owner_schema_id": "urn:fixture:owner-object.v0.1",
+      "owner_schema_version": "0.1.0",
+      "object_type": "inspection-profile",
+      "object_id": "dimensional-inspection-profile-001",
+      "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "calibration_evidence_refs": [
+    {
+      "owner_repository": "synthetic-fixture/only",
+      "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "owner_contract": "fixture-only-resource-owner",
+      "owner_schema_id": "urn:fixture:owner-object.v0.1",
+      "owner_schema_version": "0.1.0",
+      "object_type": "calibration",
+      "object_id": "calibration-profile-001",
+      "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "declared_capacity": {
+    "quantity": 10,
+    "unit": "accepted_parts",
+    "period_seconds": 86400,
+    "basis_ref": {
+      "owner_repository": "synthetic-fixture/only",
+      "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "owner_contract": "fixture-only-resource-owner",
+      "owner_schema_id": "urn:fixture:owner-object.v0.1",
+      "owner_schema_version": "0.1.0",
+      "object_type": "capacity-basis",
+      "object_id": "capacity-basis-fixture-001",
+      "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "assertion_class": "provider_declared"
+  },
+  "calendar_source_ref": {
+    "owner_repository": "synthetic-fixture/only",
+    "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+    "owner_contract": "fixture-only-resource-owner",
+    "owner_schema_id": "urn:fixture:owner-object.v0.1",
+    "owner_schema_version": "0.1.0",
+    "object_type": "calendar-source",
+    "object_id": "calendar-fixture-001",
+    "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "commercial_terms_ref": null,
+  "validity": {
+    "issued_at": "2026-11-22T12:00:00Z",
+    "valid_from": "2026-11-22T12:00:00Z",
+    "valid_until": "2026-12-22T12:00:00Z"
+  },
+  "offer_state": "Published",
+  "supersedes_offer_ref": null,
+  "declaration": {
+    "provider_identity_ref": {
+      "owner_repository": "synthetic-fixture/only",
+      "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "owner_contract": "fixture-only-resource-owner",
+      "owner_schema_id": "urn:fixture:owner-object.v0.1",
+      "owner_schema_version": "0.1.0",
+      "object_type": "provider-did",
+      "object_id": "did:mycelix:fixture-provider-001",
+      "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "signer_ref": {
+      "owner_repository": "synthetic-fixture/only",
+      "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "owner_contract": "fixture-only-resource-owner",
+      "owner_schema_id": "urn:fixture:owner-object.v0.1",
+      "owner_schema_version": "0.1.0",
+      "object_type": "provider-did",
+      "object_id": "did:mycelix:fixture-signer-001",
+      "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "signature_ref": {
+      "owner_repository": "synthetic-fixture/only",
+      "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "owner_contract": "fixture-only-resource-owner",
+      "owner_schema_id": "urn:fixture:owner-object.v0.1",
+      "owner_schema_version": "0.1.0",
+      "object_type": "signature",
+      "object_id": "signature-fixture-001",
+      "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "signed_payload_digest_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "assertion_basis": "provider_declared",
+    "verification_state": "unverified"
+  }
+}
