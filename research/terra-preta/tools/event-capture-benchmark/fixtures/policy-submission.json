@@ -29,7 +29,8 @@
         88,
         92,
         96
-      ]
+      ],
+      "policy_role": "candidate"
     },
     {
       "policy_id": "event-focused-static",
@@ -52,7 +53,8 @@
         76,
         84,
         96
-      ]
+      ],
+      "policy_role": "candidate"
     },
     {
       "policy_id": "pseudo-random-fixed-seed",
@@ -76,7 +78,8 @@
         91,
         94,
         96
-      ]
+      ],
+      "policy_role": "candidate"
     }
   ]
 }
