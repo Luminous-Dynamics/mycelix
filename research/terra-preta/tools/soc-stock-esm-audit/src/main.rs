@@ -49,7 +49,7 @@ struct Methods {
 #[serde(deny_unknown_fields)]
 struct Config {
     fixed_depth_cm: f64,
-    reference_fine_earth_mass_Mg_per_ha: f64,
+    reference_fine_earth_mass_megagrams_per_ha: f64,
     minimum_cores_per_round: usize,
 }
 
@@ -76,9 +76,9 @@ struct Layer {
     layer_id: String,
     depth_top_cm: f64,
     depth_bottom_cm: f64,
-    dry_soil_mass_Mg_per_ha: f64,
+    dry_soil_mass_megagrams_per_ha: f64,
     coarse_fragment_mass_fraction: f64,
-    soc_g_C_kg_fine_earth: f64,
+    soc_grams_carbon_per_kg_fine_earth: f64,
 }
 
 #[derive(Debug, Serialize)]
@@ -88,7 +88,7 @@ struct Report {
     scenario_id: String,
     input_sha256: String,
     fixed_depth_cm: f64,
-    reference_fine_earth_mass_Mg_per_ha: f64,
+    reference_fine_earth_mass_megagrams_per_ha: f64,
     fine_earth_mass_basis: &'static str,
     coarse_fragment_basis: &'static str,
     uncertainty_status: &'static str,
@@ -104,10 +104,10 @@ struct RoundResult {
     date: String,
     experimental_unit_id: String,
     core_count: usize,
-    mean_fixed_depth_soc_stock_Mg_C_per_ha: f64,
-    sd_fixed_depth_soc_stock_Mg_C_per_ha: Option<f64>,
-    mean_esm_soc_stock_Mg_C_per_ha: f64,
-    sd_esm_soc_stock_Mg_C_per_ha: Option<f64>,
+    mean_fixed_depth_soc_stock_megagrams_carbon_per_ha: f64,
+    sd_fixed_depth_soc_stock_megagrams_carbon_per_ha: Option<f64>,
+    mean_esm_soc_stock_megagrams_carbon_per_ha: f64,
+    sd_esm_soc_stock_megagrams_carbon_per_ha: Option<f64>,
     profiles: Vec<ProfileResult>,
 }
 
@@ -115,11 +115,11 @@ struct RoundResult {
 struct ProfileResult {
     profile_id: String,
     core_id: String,
-    observed_fine_earth_mass_Mg_per_ha: f64,
-    fixed_depth_fine_earth_mass_Mg_per_ha: f64,
-    fixed_depth_soc_stock_Mg_C_per_ha: f64,
-    esm_soc_stock_Mg_C_per_ha: f64,
-    esm_reference_mass_Mg_per_ha: f64,
+    observed_fine_earth_mass_megagrams_per_ha: f64,
+    fixed_depth_fine_earth_mass_megagrams_per_ha: f64,
+    fixed_depth_soc_stock_megagrams_carbon_per_ha: f64,
+    esm_soc_stock_megagrams_carbon_per_ha: f64,
+    esm_reference_mass_megagrams_per_ha: f64,
     esm_partial_layer_used: bool,
 }
 
@@ -127,8 +127,8 @@ struct ProfileResult {
 struct TemporalChange {
     first_round_id: String,
     last_round_id: String,
-    fixed_depth_stock_change_Mg_C_per_ha: f64,
-    esm_stock_change_Mg_C_per_ha: f64,
+    fixed_depth_stock_change_megagrams_carbon_per_ha: f64,
+    esm_stock_change_megagrams_carbon_per_ha: f64,
     interpretation: &'static str,
 }
 
@@ -172,7 +172,7 @@ fn valid_date(date: &str) -> bool {
 }
 
 fn fine_earth_mass(layer: &Layer) -> f64 {
-    layer.dry_soil_mass_Mg_per_ha * (1.0 - layer.coarse_fragment_mass_fraction)
+    layer.dry_soil_mass_megagrams_per_ha * (1.0 - layer.coarse_fragment_mass_fraction)
 }
 
 fn validate(s: &Scenario) -> Result<(), String> {
@@ -215,11 +215,11 @@ fn validate(s: &Scenario) -> Result<(), String> {
     }
     finite("fixed_depth_cm", s.config.fixed_depth_cm)?;
     finite(
-        "reference_fine_earth_mass_Mg_per_ha",
-        s.config.reference_fine_earth_mass_Mg_per_ha,
+        "reference_fine_earth_mass_megagrams_per_ha",
+        s.config.reference_fine_earth_mass_megagrams_per_ha,
     )?;
     if s.config.fixed_depth_cm <= 0.0
-        || s.config.reference_fine_earth_mass_Mg_per_ha <= 0.0
+        || s.config.reference_fine_earth_mass_megagrams_per_ha <= 0.0
         || s.config.minimum_cores_per_round < 2
     {
         return Err("fixed depth, reference mass and minimum core count must be positive (at least two cores)".into());
@@ -294,12 +294,12 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 for (name, value) in [
                     ("depth_top_cm", layer.depth_top_cm),
                     ("depth_bottom_cm", layer.depth_bottom_cm),
-                    ("dry_soil_mass_Mg_per_ha", layer.dry_soil_mass_Mg_per_ha),
+                    ("dry_soil_mass_megagrams_per_ha", layer.dry_soil_mass_megagrams_per_ha),
                     (
                         "coarse_fragment_mass_fraction",
                         layer.coarse_fragment_mass_fraction,
                     ),
-                    ("soc_g_C_kg_fine_earth", layer.soc_g_C_kg_fine_earth),
+                    ("soc_grams_carbon_per_kg_fine_earth", layer.soc_grams_carbon_per_kg_fine_earth),
                 ] {
                     finite(name, value)?;
                 }
@@ -311,9 +311,9 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 }
                 if layer.depth_top_cm < 0.0
                     || layer.depth_bottom_cm <= layer.depth_top_cm
-                    || layer.dry_soil_mass_Mg_per_ha <= 0.0
+                    || layer.dry_soil_mass_megagrams_per_ha <= 0.0
                     || !(0.0..1.0).contains(&layer.coarse_fragment_mass_fraction)
-                    || layer.soc_g_C_kg_fine_earth < 0.0
+                    || layer.soc_grams_carbon_per_kg_fine_earth < 0.0
                 {
                     return Err(format!(
                         "profile {} has physically inadmissible layer values",
@@ -347,7 +347,7 @@ fn validate(s: &Scenario) -> Result<(), String> {
                     core.profile_id
                 ));
             }
-            if observed_mass + EPS < s.config.reference_fine_earth_mass_Mg_per_ha {
+            if observed_mass + EPS < s.config.reference_fine_earth_mass_megagrams_per_ha {
                 return Err(format!(
                     "profile {} contains insufficient measured fine-earth mass for the declared ESM reference mass",
                     core.profile_id
@@ -394,12 +394,12 @@ fn calculate_profile(
 
         if layer.depth_bottom_cm <= fixed_depth_cm + EPS {
             fixed_depth_fine_mass += fine_mass;
-            fixed_depth_carbon += fine_mass * layer.soc_g_C_kg_fine_earth / 1000.0;
+            fixed_depth_carbon += fine_mass * layer.soc_grams_carbon_per_kg_fine_earth / 1000.0;
         }
 
         if remaining_reference_mass > EPS {
             let consumed = fine_mass.min(remaining_reference_mass);
-            esm_carbon += consumed * layer.soc_g_C_kg_fine_earth / 1000.0;
+            esm_carbon += consumed * layer.soc_grams_carbon_per_kg_fine_earth / 1000.0;
             if consumed + EPS < fine_mass {
                 partial_layer_used = true;
             }
@@ -417,11 +417,11 @@ fn calculate_profile(
     Ok(ProfileResult {
         profile_id: core.profile_id.clone(),
         core_id: core.core_id.clone(),
-        observed_fine_earth_mass_Mg_per_ha: observed_fine_mass,
-        fixed_depth_fine_earth_mass_Mg_per_ha: fixed_depth_fine_mass,
-        fixed_depth_soc_stock_Mg_C_per_ha: fixed_depth_carbon,
-        esm_soc_stock_Mg_C_per_ha: esm_carbon,
-        esm_reference_mass_Mg_per_ha: reference_mass,
+        observed_fine_earth_mass_megagrams_per_ha: observed_fine_mass,
+        fixed_depth_fine_earth_mass_megagrams_per_ha: fixed_depth_fine_mass,
+        fixed_depth_soc_stock_megagrams_carbon_per_ha: fixed_depth_carbon,
+        esm_soc_stock_megagrams_carbon_per_ha: esm_carbon,
+        esm_reference_mass_megagrams_per_ha: reference_mass,
         esm_partial_layer_used: partial_layer_used,
     })
 }
@@ -451,16 +451,16 @@ fn build_report(s: &Scenario, input_sha256: String) -> Result<Report, String> {
             profiles.push(calculate_profile(
                 core,
                 s.config.fixed_depth_cm,
-                s.config.reference_fine_earth_mass_Mg_per_ha,
+                s.config.reference_fine_earth_mass_megagrams_per_ha,
             )?);
         }
         let fixed_values: Vec<f64> = profiles
             .iter()
-            .map(|profile| profile.fixed_depth_soc_stock_Mg_C_per_ha)
+            .map(|profile| profile.fixed_depth_soc_stock_megagrams_carbon_per_ha)
             .collect();
         let esm_values: Vec<f64> = profiles
             .iter()
-            .map(|profile| profile.esm_soc_stock_Mg_C_per_ha)
+            .map(|profile| profile.esm_soc_stock_megagrams_carbon_per_ha)
             .collect();
 
         round_results.push(RoundResult {
@@ -468,10 +468,10 @@ fn build_report(s: &Scenario, input_sha256: String) -> Result<Report, String> {
             date: round.date.clone(),
             experimental_unit_id: round.experimental_unit_id.clone(),
             core_count: profiles.len(),
-            mean_fixed_depth_soc_stock_Mg_C_per_ha: mean(&fixed_values),
-            sd_fixed_depth_soc_stock_Mg_C_per_ha: sample_sd(&fixed_values),
-            mean_esm_soc_stock_Mg_C_per_ha: mean(&esm_values),
-            sd_esm_soc_stock_Mg_C_per_ha: sample_sd(&esm_values),
+            mean_fixed_depth_soc_stock_megagrams_carbon_per_ha: mean(&fixed_values),
+            sd_fixed_depth_soc_stock_megagrams_carbon_per_ha: sample_sd(&fixed_values),
+            mean_esm_soc_stock_megagrams_carbon_per_ha: mean(&esm_values),
+            sd_esm_soc_stock_megagrams_carbon_per_ha: sample_sd(&esm_values),
             profiles,
         });
     }
@@ -484,7 +484,7 @@ fn build_report(s: &Scenario, input_sha256: String) -> Result<Report, String> {
         scenario_id: s.scenario_id.clone(),
         input_sha256,
         fixed_depth_cm: s.config.fixed_depth_cm,
-        reference_fine_earth_mass_Mg_per_ha: s.config.reference_fine_earth_mass_Mg_per_ha,
+        reference_fine_earth_mass_megagrams_per_ha: s.config.reference_fine_earth_mass_megagrams_per_ha,
         fine_earth_mass_basis: FINE_EARTH_BASIS,
         coarse_fragment_basis: COARSE_BASIS,
         uncertainty_status: UNCERTAINTY_STATUS,
@@ -492,9 +492,9 @@ fn build_report(s: &Scenario, input_sha256: String) -> Result<Report, String> {
         temporal_change: TemporalChange {
             first_round_id: first.round_id.clone(),
             last_round_id: last.round_id.clone(),
-            fixed_depth_stock_change_Mg_C_per_ha: last.mean_fixed_depth_soc_stock_Mg_C_per_ha
-                - first.mean_fixed_depth_soc_stock_Mg_C_per_ha,
-            esm_stock_change_Mg_C_per_ha: last.mean_esm_soc_stock_Mg_C_per_ha - first.mean_esm_soc_stock_Mg_C_per_ha,
+            fixed_depth_stock_change_megagrams_carbon_per_ha: last.mean_fixed_depth_soc_stock_megagrams_carbon_per_ha
+                - first.mean_fixed_depth_soc_stock_megagrams_carbon_per_ha,
+            esm_stock_change_megagrams_carbon_per_ha: last.mean_esm_soc_stock_megagrams_carbon_per_ha - first.mean_esm_soc_stock_megagrams_carbon_per_ha,
             interpretation: "Descriptive difference between round means for one experimental unit; within-round core dispersion is subsampling variation, not independent treatment replication or causal effect.",
         },
         controls: Controls {
@@ -562,23 +562,23 @@ mod tests {
         let s = scenario();
         validate(&s).expect("valid synthetic compaction fixture");
         let report = build_report(&s, "0".repeat(64)).expect("report builds");
-        approx(report.rounds[0].mean_fixed_depth_soc_stock_Mg_C_per_ha, 39.204);
-        approx(report.rounds[1].mean_fixed_depth_soc_stock_Mg_C_per_ha, 43.1244);
-        approx(report.rounds[0].mean_esm_soc_stock_Mg_C_per_ha, 39.204);
-        approx(report.rounds[1].mean_esm_soc_stock_Mg_C_per_ha, 39.204);
-        approx(report.temporal_change.esm_stock_change_Mg_C_per_ha, 0.0);
-        assert!(report.temporal_change.fixed_depth_stock_change_Mg_C_per_ha > 3.9);
+        approx(report.rounds[0].mean_fixed_depth_soc_stock_megagrams_carbon_per_ha, 39.204);
+        approx(report.rounds[1].mean_fixed_depth_soc_stock_megagrams_carbon_per_ha, 43.1244);
+        approx(report.rounds[0].mean_esm_soc_stock_megagrams_carbon_per_ha, 39.204);
+        approx(report.rounds[1].mean_esm_soc_stock_megagrams_carbon_per_ha, 39.204);
+        approx(report.temporal_change.esm_stock_change_megagrams_carbon_per_ha, 0.0);
+        assert!(report.temporal_change.fixed_depth_stock_change_megagrams_carbon_per_ha > 3.9);
     }
 
     #[test]
     fn coarse_fragments_are_removed_from_fine_earth_mass() {
         let report = build_report(&scenario(), "0".repeat(64)).expect("report builds");
         approx(
-            report.rounds[0].profiles[0].fixed_depth_fine_earth_mass_Mg_per_ha,
+            report.rounds[0].profiles[0].fixed_depth_fine_earth_mass_megagrams_per_ha,
             3960.0,
         );
         approx(
-            report.rounds[0].profiles[0].observed_fine_earth_mass_Mg_per_ha,
+            report.rounds[0].profiles[0].observed_fine_earth_mass_megagrams_per_ha,
             5400.0,
         );
     }
@@ -586,17 +586,17 @@ mod tests {
     #[test]
     fn partial_layer_consumption_uses_declared_reference_mass() {
         let mut s = scenario();
-        s.config.reference_fine_earth_mass_Mg_per_ha = 2000.0;
+        s.config.reference_fine_earth_mass_megagrams_per_ha = 2000.0;
         validate(&s).expect("reference mass is supported");
         let report = build_report(&s, "0".repeat(64)).expect("report builds");
-        approx(report.rounds[0].profiles[0].esm_soc_stock_Mg_C_per_ha, 20.0);
+        approx(report.rounds[0].profiles[0].esm_soc_stock_megagrams_carbon_per_ha, 20.0);
         assert!(report.rounds[0].profiles[0].esm_partial_layer_used);
     }
 
     #[test]
     fn reference_mass_above_profile_support_is_rejected() {
         let mut s = scenario();
-        s.config.reference_fine_earth_mass_Mg_per_ha = 9000.0;
+        s.config.reference_fine_earth_mass_megagrams_per_ha = 9000.0;
         assert!(validate(&s).is_err());
     }
 
