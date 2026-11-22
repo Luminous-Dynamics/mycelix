@@ -14,7 +14,8 @@
     "baseline_window",
     "maximum_event_integration_gap_hours",
     "truth_series",
-    "events"
+    "events",
+    "off_event_false_trigger_absolute_departure_threshold"
   ],
   "properties": {
     "schema_version": {
@@ -143,6 +144,10 @@
           }
         }
       }
+    },
+    "off_event_false_trigger_absolute_departure_threshold": {
+      "type": "number",
+      "exclusiveMinimum": 0
     }
   }
 }
