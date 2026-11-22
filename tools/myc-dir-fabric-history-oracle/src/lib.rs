@@ -1257,6 +1257,13 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                     },
                 );
             }
+
+            _ => {}
+        }
+    }
+
+    for event in events.values() {
+        match &event.kind {
             EventKind::GlobalBarrierAcknowledged {
                 inventory_event_id,
                 revocation_digest,
