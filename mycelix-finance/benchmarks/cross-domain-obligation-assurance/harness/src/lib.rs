@@ -56,6 +56,7 @@ pub enum KernelError {
     ReceiptMismatch,
     DuplicateExternalReceipt,
     InvalidFinalityPolicy,
+    InvalidReversal,
     InvalidManualAttestation,
     DuplicateCollateral,
     DuplicateGeneration,
@@ -713,6 +714,35 @@ pub struct RailReceipt {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReversalReceipt {
+    pub external_reversal_id: String,
+    pub original_payment_receipt_id: String,
+    pub obligation_id: String,
+    pub payer_id: String,
+    pub payee_id: String,
+    pub amount_minor: u128,
+    pub currency: String,
+    pub request_digest: Digest,
+    pub reason_reference: String,
+    /// Test seam set only after upstream rail-authentication verification.
+    pub authentication_verified: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PaymentAuditEvent {
+    IntentSubmitted { request_digest: Digest },
+    OutcomeIndeterminate,
+    PaidFinal { external_receipt_id: String, finality_policy_reference: String },
+    Rejected { external_receipt_id: String },
+    ManualAttested { attestor_a: String, attestor_b: String, evidence_reference: String },
+    ReversalRecorded {
+        original_receipt_id: String,
+        reversal_receipt_id: String,
+        reason_reference: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PaymentStatus {
     Submitted,
     Indeterminate,
@@ -727,6 +757,11 @@ pub enum PaymentStatus {
         attestor_a: String,
         attestor_b: String,
         evidence_reference: String,
+    },
+    Reversed {
+        original_receipt_id: String,
+        reversal_receipt_id: String,
+        reason_reference: String,
     },
 }
 
@@ -749,6 +784,7 @@ pub enum RailOutcome {
 pub struct PaymentLedger {
     intents: BTreeMap<String, (PaymentRequest, PaymentStatus)>,
     consumed_receipts: BTreeSet<String>,
+    events: BTreeMap<String, Vec<PaymentAuditEvent>>,
     side_effect_attempts: u64,
 }
 
@@ -785,10 +821,16 @@ impl PaymentLedger {
             .side_effect_attempts
             .checked_add(1)
             .ok_or(KernelError::ArithmeticOverflow)?;
+        let idempotency_key = request.idempotency_key.clone();
+        let request_digest = request.request_digest;
         self.intents.insert(
-            request.idempotency_key.clone(),
+            idempotency_key.clone(),
             (request, PaymentStatus::Submitted),
         );
+        self.events
+            .entry(idempotency_key)
+            .or_default()
+            .push(PaymentAuditEvent::IntentSubmitted { request_digest });
         Ok(BeginPayment::NewIntent)
     }
 
@@ -810,7 +852,12 @@ impl PaymentLedger {
                     return Err(KernelError::InvalidPaymentTransition);
                 }
                 *status = PaymentStatus::Indeterminate;
-                Ok(status.clone())
+                let current = status.clone();
+                self.events
+                    .entry(idempotency_key.to_owned())
+                    .or_default()
+                    .push(PaymentAuditEvent::OutcomeIndeterminate);
+                Ok(current)
             }
             RailOutcome::PaidFinal(receipt) => {
                 self.record_rail_receipt(idempotency_key, receipt, true)
@@ -875,6 +922,25 @@ impl PaymentLedger {
             .get_mut(idempotency_key)
             .ok_or(KernelError::InvalidPaymentTransition)?
             .1 = status.clone();
+        let audit_event = match &status {
+            PaymentStatus::PaidFinal {
+                external_receipt_id,
+                finality_policy_reference,
+            } => PaymentAuditEvent::PaidFinal {
+                external_receipt_id: external_receipt_id.clone(),
+                finality_policy_reference: finality_policy_reference.clone(),
+            },
+            PaymentStatus::Rejected { external_receipt_id } => {
+                PaymentAuditEvent::Rejected {
+                    external_receipt_id: external_receipt_id.clone(),
+                }
+            }
+            _ => return Err(KernelError::InvalidPaymentTransition),
+        };
+        self.events
+            .entry(idempotency_key.to_owned())
+            .or_default()
+            .push(audit_event);
         Ok(status)
     }
 
@@ -908,7 +974,82 @@ impl PaymentLedger {
             attestor_b: attestor_b.to_owned(),
             evidence_reference: evidence_reference.to_owned(),
         };
-        Ok(status.clone())
+        let current = status.clone();
+        self.events
+            .entry(idempotency_key.to_owned())
+            .or_default()
+            .push(PaymentAuditEvent::ManualAttested {
+                attestor_a: attestor_a.to_owned(),
+                attestor_b: attestor_b.to_owned(),
+                evidence_reference: evidence_reference.to_owned(),
+            });
+        Ok(current)
+    }
+
+    /// Adds a fully authenticated reversal event while retaining the original
+    /// PaidFinal event. Partial reversals require a rail-specific policy and
+    /// are intentionally outside this reference slice.
+    pub fn record_reversal(
+        &mut self,
+        idempotency_key: &str,
+        reversal: ReversalReceipt,
+    ) -> Result<PaymentStatus, KernelError> {
+        let (request, current_status) = self
+            .intents
+            .get(idempotency_key)
+            .ok_or(KernelError::InvalidReversal)?;
+        let original_receipt_id = match current_status {
+            PaymentStatus::PaidFinal { external_receipt_id, .. } => {
+                external_receipt_id.clone()
+            }
+            _ => return Err(KernelError::InvalidReversal),
+        };
+        if !reversal.authentication_verified {
+            return Err(KernelError::UnauthenticatedReceipt);
+        }
+        if reversal.external_reversal_id.is_empty()
+            || reversal.original_payment_receipt_id.is_empty()
+            || reversal.reason_reference.is_empty()
+        {
+            return Err(KernelError::MissingReference);
+        }
+        if reversal.original_payment_receipt_id != original_receipt_id
+            || reversal.obligation_id != request.obligation_id
+            || reversal.payer_id != request.payer_id
+            || reversal.payee_id != request.payee_id
+            || reversal.amount_minor != request.amount_minor
+            || reversal.currency != request.currency
+            || reversal.request_digest != request.request_digest
+        {
+            return Err(KernelError::ReceiptMismatch);
+        }
+        if self.consumed_receipts.contains(&reversal.external_reversal_id) {
+            return Err(KernelError::DuplicateExternalReceipt);
+        }
+        self.consumed_receipts
+            .insert(reversal.external_reversal_id.clone());
+        let status = PaymentStatus::Reversed {
+            original_receipt_id: original_receipt_id.clone(),
+            reversal_receipt_id: reversal.external_reversal_id.clone(),
+            reason_reference: reversal.reason_reference.clone(),
+        };
+        self.intents
+            .get_mut(idempotency_key)
+            .ok_or(KernelError::InvalidReversal)?
+            .1 = status.clone();
+        self.events
+            .entry(idempotency_key.to_owned())
+            .or_default()
+            .push(PaymentAuditEvent::ReversalRecorded {
+                original_receipt_id,
+                reversal_receipt_id: reversal.external_reversal_id,
+                reason_reference: reversal.reason_reference,
+            });
+        Ok(status)
+    }
+
+    pub fn events_for(&self, idempotency_key: &str) -> Option<&[PaymentAuditEvent]> {
+        self.events.get(idempotency_key).map(Vec::as_slice)
     }
 
     pub fn status(&self, idempotency_key: &str) -> Option<&PaymentStatus> {
@@ -2116,6 +2257,85 @@ mod tests {
             .unwrap();
         assert!(matches!(manual, PaymentStatus::ManualAttested { .. }));
         assert!(!matches!(manual, PaymentStatus::PaidFinal { .. }));
+    }
+
+    #[test]
+    fn post_finality_reversal_appends_compensating_event_without_erasing_paid_receipt() {
+        let mut ledger = PaymentLedger::default();
+        let request = payment_request("key-1", 10_000, 1);
+        ledger.begin(request.clone()).unwrap();
+        let paid = ledger
+            .reconcile(
+                "key-1",
+                RailOutcome::PaidFinal(receipt(&request, "rail-payment-1")),
+            )
+            .unwrap();
+        assert!(matches!(paid, PaymentStatus::PaidFinal { .. }));
+        let reversed = ledger
+            .record_reversal(
+                "key-1",
+                ReversalReceipt {
+                    external_reversal_id: "rail-reversal-1".into(),
+                    original_payment_receipt_id: "rail-payment-1".into(),
+                    obligation_id: request.obligation_id.clone(),
+                    payer_id: request.payer_id.clone(),
+                    payee_id: request.payee_id.clone(),
+                    amount_minor: request.amount_minor,
+                    currency: request.currency.clone(),
+                    request_digest: request.request_digest,
+                    reason_reference: "rail-chargeback-1".into(),
+                    authentication_verified: true,
+                },
+            )
+            .unwrap();
+        assert!(matches!(reversed, PaymentStatus::Reversed { .. }));
+        let events = ledger.events_for("key-1").unwrap();
+        assert_eq!(events.len(), 3);
+        assert!(matches!(events[0], PaymentAuditEvent::IntentSubmitted { .. }));
+        assert!(matches!(events[1], PaymentAuditEvent::PaidFinal { .. }));
+        assert!(matches!(events[2], PaymentAuditEvent::ReversalRecorded { .. }));
+        assert_eq!(ledger.begin(request), Ok(BeginPayment::ExactReplay(reversed)));
+    }
+
+    #[test]
+    fn reversal_requires_exact_authenticated_final_receipt_and_cannot_repeat() {
+        let mut ledger = PaymentLedger::default();
+        let request = payment_request("key-1", 10_000, 1);
+        ledger.begin(request.clone()).unwrap();
+        ledger
+            .reconcile(
+                "key-1",
+                RailOutcome::PaidFinal(receipt(&request, "rail-payment-1")),
+            )
+            .unwrap();
+        let mut reversal = ReversalReceipt {
+            external_reversal_id: "rail-reversal-1".into(),
+            original_payment_receipt_id: "rail-payment-1".into(),
+            obligation_id: request.obligation_id.clone(),
+            payer_id: request.payer_id.clone(),
+            payee_id: request.payee_id.clone(),
+            amount_minor: request.amount_minor + 1,
+            currency: request.currency.clone(),
+            request_digest: request.request_digest,
+            reason_reference: "rail-chargeback-1".into(),
+            authentication_verified: true,
+        };
+        assert_eq!(
+            ledger.record_reversal("key-1", reversal.clone()),
+            Err(KernelError::ReceiptMismatch)
+        );
+        reversal.authentication_verified = false;
+        reversal.amount_minor = request.amount_minor;
+        assert_eq!(
+            ledger.record_reversal("key-1", reversal.clone()),
+            Err(KernelError::UnauthenticatedReceipt)
+        );
+        reversal.authentication_verified = true;
+        ledger.record_reversal("key-1", reversal.clone()).unwrap();
+        assert_eq!(
+            ledger.record_reversal("key-1", reversal),
+            Err(KernelError::InvalidReversal)
+        );
     }
 
     #[test]
