@@ -87,7 +87,7 @@
     "offer_id": "offer:machine-7:polymer-extrusion",
     "lifecycle_event_refs": []
   },
-  "case_count": 17,
+  "case_count": 18,
   "cases": [
     {
       "id": "MFG-PROC-001B-001",
@@ -245,9 +245,9 @@
     },
     {
       "id": "MFG-PROC-001B-015",
-      "description": "Provider-settable Superseded state is rejected; supersession is derived when a newer immutable offer points to this exact revision",
+      "description": "Provider cannot self-assert Superseded; supersession is derived from a newer offer referencing this exact ID/revision",
       "expected_structural_state": "TypedOfferMalformed",
-      "mutation": "publication_state=Superseded (not in the provider-settable enum)",
+      "mutation": "publication_state=Superseded (outside provider-settable enum)",
       "may_promote_to_qualified_capability": false,
       "may_claim_calendar_available": false,
       "may_claim_bookable_capacity": false,
@@ -275,7 +275,18 @@
       "may_claim_bookable_capacity": false,
       "may_claim_reserved_capacity": false,
       "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-017",
+      "description": "Self-supersession is invalid even when the referenced owner payload and digest are well-formed",
+      "expected_structural_state": "TypedOfferMalformed",
+      "mutation": "supersedes_offer_ref.subject_id=offer_id;supersedes_offer_ref.source_revision=offer_revision",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
     }
   ],
-  "claim_ceiling": "All 17 cases are synthetic. Owner references are not fetched/authenticated; a typed offer does not prove provider authority, resource existence, capability qualification, calendar availability, capacity reservation, execution or accepted output. Publication state is limited to Published/Withdrawn; Disputed and Superseded require separate lifecycle/cross-record resolution."
+  "claim_ceiling": "All 17 cases are synthetic. Owner references are not fetched or authenticated. Publication state is limited to Published/Withdrawn; expiry is time-derived; dispute and supersession require external lifecycle/cross-record resolution. No case promotes an offer to qualified, available, bookable, reserved, executed or accepted."
 }
