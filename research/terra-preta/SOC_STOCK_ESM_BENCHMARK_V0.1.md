@@ -12,9 +12,9 @@ FAO's GSOC-MRV protocol and ISO 23400 guidance emphasize soil-mass-aware monitor
 
 Each core profile supplies contiguous layers from the surface. For each layer:
 
-- `dry_soil_mass_Mg_per_ha`: total oven-dry soil mass per hectare **including coarse fragments**;
+- `dry_soil_mass_megagrams_per_ha`: total oven-dry soil mass per hectare **including coarse fragments**;
 - `coarse_fragment_mass_fraction`: dimensionless coarse-fragment **mass fraction of total dry soil mass** (0–1);
-- `soc_g_C_kg_fine_earth`: organic-carbon concentration in g C per kg fine earth.
+- `soc_grams_carbon_per_kg_fine_earth`: organic-carbon concentration in g C per kg fine earth.
 
 Fine-earth mass is calculated as:
 
