@@ -24,6 +24,7 @@ pub enum KernelError {
     InvalidInterval,
     InvalidCalibration,
     InvalidMeterSequence,
+    InvalidBoundary,
     InvalidTolerance,
     CapacityExceeded,
     ArithmeticOverflow,
@@ -84,7 +85,7 @@ pub fn authorize(
     request: &ActionRequest,
     now: u64,
     observed_revocation_epoch: u64,
-    human_disposition_recorded: bool,
+    human_disposition_reference: Option<&str>,
 ) -> Result<(), KernelError> {
     if grant.principal_id.is_empty()
         || grant.actor_id.is_empty()
@@ -123,7 +124,7 @@ pub fn authorize(
         return Err(KernelError::ScopeExceeded);
     }
     if (grant.requires_human_disposition || request.action_class.starts_with("BR3"))
-        && !human_disposition_recorded
+        && !human_disposition_reference.is_some_and(|reference| !reference.is_empty())
     {
         return Err(KernelError::HumanDispositionRequired);
     }
@@ -137,7 +138,7 @@ pub enum ClaimSource {
     Simulation,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MeasurementBoundary {
     PvDcOutput,
     InverterAcOutput,
@@ -170,7 +171,11 @@ pub struct MeterObservation {
 }
 
 impl MeterObservation {
-    pub fn interval_energy_wh(&self) -> Result<u128, KernelError> {
+    pub fn interval_energy_wh(
+        &self,
+        expected_boundary: MeasurementBoundary,
+        maximum_tolerance_bps: u16,
+    ) -> Result<u128, KernelError> {
         if self.observation_id.is_empty() || self.producer_id.is_empty() || self.meter_id.is_empty()
         {
             return Err(KernelError::MissingReference);
@@ -196,8 +201,14 @@ impl MeterObservation {
         {
             return Err(KernelError::InvalidCalibration);
         }
-        if self.tolerance_bps > 10_000 {
+        if self.boundary != expected_boundary {
+            return Err(KernelError::InvalidBoundary);
+        }
+        if self.tolerance_bps > maximum_tolerance_bps {
             return Err(KernelError::InvalidTolerance);
+        }
+        if self.raw_payload_digest == [0; 32] {
+            return Err(KernelError::MissingReference);
         }
         if self.rated_capacity_w == 0 {
             return Err(KernelError::InvalidAmount);
@@ -226,6 +237,30 @@ impl MeterObservation {
             return Err(KernelError::CapacityExceeded);
         }
         Ok(energy_wh)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct MeterSequenceLedger {
+    consumed: BTreeSet<(String, MeasurementBoundary, u64)>,
+}
+
+impl MeterSequenceLedger {
+    /// Consumes a meter sequence at the authoritative boundary.
+    /// Production implementations must persist this uniqueness constraint atomically.
+    pub fn consume(&mut self, observation: &MeterObservation) -> Result<(), KernelError> {
+        if observation.meter_id.is_empty() || observation.sequence == 0 {
+            return Err(KernelError::MissingReference);
+        }
+        let identity = (
+            observation.meter_id.clone(),
+            observation.boundary,
+            observation.sequence,
+        );
+        if !self.consumed.insert(identity) {
+            return Err(KernelError::InvalidMeterSequence);
+        }
+        Ok(())
     }
 }
 
@@ -445,7 +480,10 @@ impl OfferLedger {
             return Err(KernelError::MissingReference);
         }
         if let Some((existing_digest, receipt)) = self.consumed.get(idempotency_key) {
-            if existing_digest == &request_digest {
+            if existing_digest == &request_digest
+                && receipt.offer_id == offer_id
+                && receipt.quantity_wh == quantity_wh
+            {
                 return Ok(FillDisposition::ExactReplay(receipt.clone()));
             }
             return Err(KernelError::IdempotencyConflict);
@@ -876,46 +914,63 @@ mod tests {
 
     #[test]
     fn valid_authority_is_accepted() {
-        assert_eq!(authorize(&grant(), &request(), 200, 7, false), Ok(()));
+        assert_eq!(authorize(&grant(), &request(), 200, 7, None), Ok(()));
     }
 
     #[test]
     fn authority_expiry_scope_revocation_and_br3_fail_closed() {
-        assert_eq!(authorize(&grant(), &request(), 500, 7, false), Err(KernelError::AuthorityExpired));
-        assert_eq!(authorize(&grant(), &request(), 200, 8, false), Err(KernelError::AuthorityRevoked));
-        assert_eq!(authorize(&grant(), &request(), 200, 6, false), Err(KernelError::AuthorityStateUnknown));
+        assert_eq!(authorize(&grant(), &request(), 500, 7, None), Err(KernelError::AuthorityExpired));
+        assert_eq!(authorize(&grant(), &request(), 200, 8, None), Err(KernelError::AuthorityRevoked));
+        assert_eq!(authorize(&grant(), &request(), 200, 6, None), Err(KernelError::AuthorityStateUnknown));
         let mut oversized = request();
         oversized.amount += 1;
-        assert_eq!(authorize(&grant(), &oversized, 200, 7, false), Err(KernelError::ScopeExceeded));
+        assert_eq!(authorize(&grant(), &oversized, 200, 7, None), Err(KernelError::ScopeExceeded));
         let mut br3 = grant();
         br3.action_class = "BR3_ASSET_TRANSFER".into();
         let mut br3_request = request();
         br3_request.action_class = "BR3_ASSET_TRANSFER".into();
-        assert_eq!(authorize(&br3, &br3_request, 200, 7, false), Err(KernelError::HumanDispositionRequired));
-        assert_eq!(authorize(&br3, &br3_request, 200, 7, true), Ok(()));
+        assert_eq!(authorize(&br3, &br3_request, 200, 7, None), Err(KernelError::HumanDispositionRequired));
+        assert_eq!(authorize(&br3, &br3_request, 200, 7, Some("human-decision-001")), Ok(()));
     }
 
     #[test]
     fn simulations_and_producer_assertions_are_not_metered_facts() {
         let mut observation = meter();
         observation.source = ClaimSource::Simulation;
-        assert_eq!(observation.interval_energy_wh(), Err(KernelError::SimulationIsNotMeasurement));
+        assert_eq!(observation.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0), Err(KernelError::SimulationIsNotMeasurement));
         observation.source = ClaimSource::ProducerAssertion;
-        assert_eq!(observation.interval_energy_wh(), Err(KernelError::InvalidClaim));
+        assert_eq!(observation.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0), Err(KernelError::InvalidClaim));
     }
 
     #[test]
     fn meter_interval_calibration_sequence_and_capacity_are_checked() {
-        assert_eq!(meter().interval_energy_wh(), Ok(900_000));
+        assert_eq!(meter().interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0), Ok(900_000));
         let mut invalid = meter();
         invalid.calibration_valid_until_micros = invalid.interval_end_micros - 1;
-        assert_eq!(invalid.interval_energy_wh(), Err(KernelError::InvalidCalibration));
+        assert_eq!(invalid.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0), Err(KernelError::InvalidCalibration));
         let mut invalid = meter();
         invalid.sequence = 1;
-        assert_eq!(invalid.interval_energy_wh(), Err(KernelError::InvalidMeterSequence));
+        assert_eq!(invalid.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0), Err(KernelError::InvalidMeterSequence));
         let mut invalid = meter();
         invalid.cumulative_register_wh = 1_000_001;
-        assert_eq!(invalid.interval_energy_wh(), Err(KernelError::CapacityExceeded));
+        assert_eq!(invalid.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0), Err(KernelError::CapacityExceeded));
+        let mut invalid = meter();
+        invalid.boundary = MeasurementBoundary::GridExport;
+        assert_eq!(invalid.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0), Err(KernelError::InvalidBoundary));
+        let mut invalid = meter();
+        invalid.tolerance_bps = 10;
+        assert_eq!(invalid.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0), Err(KernelError::InvalidTolerance));
+    }
+
+    #[test]
+    fn meter_sequence_identity_is_consumed_once_across_claims() {
+        let observation = meter();
+        let mut ledger = MeterSequenceLedger::default();
+        assert_eq!(ledger.consume(&observation), Ok(()));
+        assert_eq!(ledger.consume(&observation), Err(KernelError::InvalidMeterSequence));
+        let mut next = observation.clone();
+        next.sequence += 1;
+        assert_eq!(ledger.consume(&next), Ok(()));
     }
 
     #[test]
