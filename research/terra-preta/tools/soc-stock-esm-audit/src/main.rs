@@ -140,15 +140,20 @@ fn valid_date(s: &str) -> bool {
     s.len() == 10
         && s.as_bytes()[4] == b'-'
         && s.as_bytes()[7] == b'-'
-        && s.bytes().enumerate().all(|(i, b)| i == 4 || i == 7 || b.is_ascii_digit())
-        && s[0..4].parse::<u32>().is_ok_and(|x| (1..=9999).contains(&x))
+        && s.bytes()
+            .enumerate()
+            .all(|(i, b)| i == 4 || i == 7 || b.is_ascii_digit())
+        && s[0..4]
+            .parse::<u32>()
+            .is_ok_and(|x| (1..=9999).contains(&x))
         && s[5..7].parse::<u32>().is_ok_and(|x| (1..=12).contains(&x))
         && s[8..10].parse::<u32>().is_ok_and(|x| (1..=31).contains(&x))
 }
 
 fn valid_sha256(s: &str) -> bool {
     s.len() == 64
-        && s.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+        && s.bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
 }
 
 fn validate_profile(profile: &Profile, accounting_depth: f64) -> Result<(), String> {
@@ -161,7 +166,10 @@ fn validate_profile(profile: &Profile, accounting_depth: f64) -> Result<(), Stri
         || !valid_sha256(&profile.source_sha256)
         || profile.layers.is_empty()
     {
-        return Err(format!("profile {} has invalid identity/provenance", profile.profile_id));
+        return Err(format!(
+            "profile {} has invalid identity/provenance",
+            profile.profile_id
+        ));
     }
     let mut previous_bottom = 0.0_f64;
     let mut ids = BTreeSet::new();
@@ -172,12 +180,30 @@ fn validate_profile(profile: &Profile, accounting_depth: f64) -> Result<(), Stri
         for (name, value) in [
             ("top_depth_m", layer.top_depth_m),
             ("bottom_depth_m", layer.bottom_depth_m),
-            ("fine_earth_bulk_density_kg_m3", layer.fine_earth_bulk_density_kg_m3),
-            ("coarse_fragment_volume_fraction", layer.coarse_fragment_volume_fraction),
-            ("soc_concentration_g_c_per_kg", layer.soc_concentration_g_c_per_kg),
-            ("bulk_density_standard_error_kg_m3", layer.bulk_density_standard_error_kg_m3),
-            ("coarse_fragment_fraction_standard_error", layer.coarse_fragment_fraction_standard_error),
-            ("soc_standard_error_g_c_per_kg", layer.soc_standard_error_g_c_per_kg),
+            (
+                "fine_earth_bulk_density_kg_m3",
+                layer.fine_earth_bulk_density_kg_m3,
+            ),
+            (
+                "coarse_fragment_volume_fraction",
+                layer.coarse_fragment_volume_fraction,
+            ),
+            (
+                "soc_concentration_g_c_per_kg",
+                layer.soc_concentration_g_c_per_kg,
+            ),
+            (
+                "bulk_density_standard_error_kg_m3",
+                layer.bulk_density_standard_error_kg_m3,
+            ),
+            (
+                "coarse_fragment_fraction_standard_error",
+                layer.coarse_fragment_fraction_standard_error,
+            ),
+            (
+                "soc_standard_error_g_c_per_kg",
+                layer.soc_standard_error_g_c_per_kg,
+            ),
         ] {
             finite(name, value)?;
         }
@@ -190,7 +216,10 @@ fn validate_profile(profile: &Profile, accounting_depth: f64) -> Result<(), Stri
             || layer.coarse_fragment_fraction_standard_error < 0.0
             || layer.soc_standard_error_g_c_per_kg < 0.0
         {
-            return Err(format!("profile {} layer {} has invalid depth or physical values", profile.profile_id, layer.layer_id));
+            return Err(format!(
+                "profile {} layer {} has invalid depth or physical values",
+                profile.profile_id, layer.layer_id
+            ));
         }
         previous_bottom = layer.bottom_depth_m;
     }
@@ -220,7 +249,10 @@ fn stock_to_fixed_depth(profile: &Profile, depth_m: f64) -> Option<StockAndMass>
     if profile.layers.last()?.bottom_depth_m + 1e-9 < depth_m {
         return None;
     }
-    let mut total = StockAndMass { fine_earth_mass_mg_ha: 0.0, carbon_stock_mg_c_ha: 0.0 };
+    let mut total = StockAndMass {
+        fine_earth_mass_mg_ha: 0.0,
+        carbon_stock_mg_c_ha: 0.0,
+    };
     for layer in &profile.layers {
         if layer.top_depth_m >= depth_m {
             break;
@@ -267,11 +299,17 @@ fn amendment_carbon_input(inputs: &[AmendmentInput]) -> Result<f64, String> {
             return Err("amendment input identity/date is invalid or duplicated".into());
         }
         finite("amendment dry matter rate", input.dry_matter_mg_per_ha)?;
-        finite("amendment C concentration", input.carbon_concentration_g_per_kg_dry_matter)?;
-        if input.dry_matter_mg_per_ha < 0.0 || input.carbon_concentration_g_per_kg_dry_matter < 0.0 {
+        finite(
+            "amendment C concentration",
+            input.carbon_concentration_g_per_kg_dry_matter,
+        )?;
+        if input.dry_matter_mg_per_ha < 0.0
+            || input.carbon_concentration_g_per_kg_dry_matter < 0.0
+        {
             return Err("amendment inputs cannot be negative".into());
         }
-        total += input.dry_matter_mg_per_ha * input.carbon_concentration_g_per_kg_dry_matter / 1000.0;
+        total +=
+            input.dry_matter_mg_per_ha * input.carbon_concentration_g_per_kg_dry_matter / 1000.0;
     }
     Ok(total)
 }
@@ -284,13 +322,17 @@ fn validate(s: &Scenario) -> Result<(), String> {
     {
         return Err("v0.1 accepts only the declared synthetic scenario/version".into());
     }
-    finite("fixed_accounting_depth_m", s.config.fixed_accounting_depth_m)?;
+    finite(
+        "fixed_accounting_depth_m",
+        s.config.fixed_accounting_depth_m,
+    )?;
     if s.config.fixed_accounting_depth_m <= 0.0 {
         return Err("fixed accounting depth must be positive".into());
     }
     if s.unit_semantics.bulk_density_basis != "oven_dry_fine_earth_mass_per_fine_earth_volume"
         || s.unit_semantics.soc_concentration_unit != "g_C_per_kg_dry_fine_earth"
-        || s.unit_semantics.coarse_fragment_basis != "coarse_fragment_volume_fraction_of_total_core_volume"
+        || s.unit_semantics.coarse_fragment_basis
+            != "coarse_fragment_volume_fraction_of_total_core_volume"
         || s.unit_semantics.stock_unit != "Mg_C_per_ha"
         || s.source_attribution_status != ATTRIBUTION
     {
@@ -318,12 +360,15 @@ fn validate(s: &Scenario) -> Result<(), String> {
 fn build_report(s: &Scenario, digest: String) -> Report {
     let baseline = stock_to_fixed_depth(&s.baseline_profile, s.config.fixed_accounting_depth_m)
         .expect("validation requires baseline depth coverage");
-    let followup_fixed = stock_to_fixed_depth(&s.followup_profile, s.config.fixed_accounting_depth_m);
-    let baseline_esm = stock_at_equivalent_mass(&s.baseline_profile, baseline.fine_earth_mass_mg_ha)
-        .expect("baseline mass matches own soil profile");
-    let followup_esm = stock_at_equivalent_mass(&s.followup_profile, baseline.fine_earth_mass_mg_ha);
-    let amendment_input = amendment_carbon_input(&s.amendment_inputs)
-        .expect("validation checks amendment inputs");
+    let followup_fixed =
+        stock_to_fixed_depth(&s.followup_profile, s.config.fixed_accounting_depth_m);
+    let baseline_esm =
+        stock_at_equivalent_mass(&s.baseline_profile, baseline.fine_earth_mass_mg_ha)
+            .expect("baseline mass matches own soil profile");
+    let followup_esm =
+        stock_at_equivalent_mass(&s.followup_profile, baseline.fine_earth_mass_mg_ha);
+    let amendment_input =
+        amendment_carbon_input(&s.amendment_inputs).expect("validation checks amendment inputs");
 
     Report {
         audit_version: VERSION,
@@ -336,13 +381,18 @@ fn build_report(s: &Scenario, digest: String) -> Report {
         fixed_accounting_depth_m: s.config.fixed_accounting_depth_m,
         baseline_fixed_depth_stock_mg_c_ha: baseline.carbon_stock_mg_c_ha,
         followup_fixed_depth_stock_mg_c_ha: followup_fixed.map(|x| x.carbon_stock_mg_c_ha),
-        fixed_depth_stock_change_mg_c_ha: followup_fixed.map(|x| x.carbon_stock_mg_c_ha - baseline.carbon_stock_mg_c_ha),
+        fixed_depth_stock_change_mg_c_ha: followup_fixed
+            .map(|x| x.carbon_stock_mg_c_ha - baseline.carbon_stock_mg_c_ha),
         baseline_reference_fine_earth_mass_mg_ha: baseline.fine_earth_mass_mg_ha,
         baseline_esm_stock_mg_c_ha: baseline_esm.0,
         followup_esm_stock_mg_c_ha: followup_esm.map(|x| x.0),
         followup_esm_depth_m: followup_esm.map(|x| x.1),
         esm_stock_change_mg_c_ha: followup_esm.map(|x| x.0 - baseline_esm.0),
-        esm_status: if followup_esm.is_some() { "qualified_at_baseline_reference_mass" } else { "insufficient_followup_soil_mass" },
+        esm_status: if followup_esm.is_some() {
+            "qualified_at_baseline_reference_mass"
+        } else {
+            "insufficient_followup_soil_mass"
+        },
         amendment_carbon_input_mg_c_ha: amendment_input,
         source_attribution_status: ATTRIBUTION,
         uncertainty_status: UNCERTAINTY,
@@ -361,7 +411,9 @@ fn build_report(s: &Scenario, digest: String) -> Report {
 
 fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if output_path.exists() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into());
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into(),
+        );
     }
     let bytes = fs::read(input_path)?;
     let scenario: Scenario = serde_json::from_slice(&bytes)?;
@@ -369,7 +421,10 @@ fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::
     let digest = format!("{:x}", Sha256::digest(&bytes));
     let report = build_report(&scenario, digest);
     let json = serde_json::to_vec_pretty(&report)?;
-    let mut output = OpenOptions::new().write(true).create_new(true).open(output_path)?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output_path)?;
     output.write_all(&json)?;
     output.write_all(b"\n")?;
     Ok(())
