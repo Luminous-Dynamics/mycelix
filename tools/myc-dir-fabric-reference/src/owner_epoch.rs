@@ -1039,7 +1039,6 @@ mod tests {
     fn acknowledgement_must_advance_exact_current_position() {
         let mut state = owner_state("db-a");
         state.install_next_generation().unwrap();
-        let ack = ack("db-a", position(1, 1), position(1, 2));
         state
             .record_durable_commit_readback(position(1, 2), [6; 32], [7; 32])
             .unwrap();
@@ -1185,6 +1184,26 @@ mod tests {
             Err(OwnerEpochError::RouteFencePositionMismatch)
         );
         assert_eq!(route.state(), RouteAdmissionState::Staged);
+    }
+
+    #[test]
+    fn new_route_cannot_activate_on_an_in_memory_fence_without_readback() {
+        let mut owner_state = owner_state("db-a");
+        owner_state.install_next_generation().unwrap();
+        let mut route = FencedRouteAdmission::stage(
+            EffectRouteId::new("pending-worker-route").unwrap(),
+            owner("db-a"),
+            EffectRouteEnforcement::AtomicOwnerFence,
+            position(1, 2),
+            8,
+            [44; 32],
+            [45; 32],
+        )
+        .unwrap();
+        assert_eq!(
+            route.activate(&owner_state, 8, [44; 32], [45; 32]),
+            Err(OwnerEpochError::OwnerFenceNotDurablyReadBack)
+        );
     }
 
     #[test]
