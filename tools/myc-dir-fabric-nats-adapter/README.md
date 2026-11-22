@@ -17,7 +17,7 @@ The client API version was selected against the upstream async-nats 0.53.0 API, 
 2. Call `verify_server_configuration()`.
 3. Only after that check succeeds can `publish` and `fetch_one` be used.
 
-The verification step checks the exact stream subject, duplicate window and replica count, and checks that the named durable consumer exists with Explicit AckPolicy, exact AckWait, MaxAckPending, MaxDeliver and filter subject. It never silently rewrites an existing mismatched consumer. Configuration must be reverified after any server-side reconfiguration; it is a startup guard, not proof that the server cannot drift later.
+The verification step checks exact subjects, duplicate window, replica count, file storage, ACK-enabled stream, non-destructive DiscardNew policy, retention policy, max-age, message and byte capacity; it then checks that the named durable consumer exists with Explicit AckPolicy, exact AckWait, MaxAckPending, MaxDeliver and filter subject. It never silently rewrites an existing mismatched consumer. Configuration must be reverified after any server-side reconfiguration; it is a startup guard, not proof that the server cannot drift later.
 
 ## Command wire binding
 
