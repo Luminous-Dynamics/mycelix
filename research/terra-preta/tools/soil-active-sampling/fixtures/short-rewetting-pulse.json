@@ -29,9 +29,9 @@
   },
   "policy": {
     "kind": "rewetting_triggered",
-    "normal_interval_minutes": 30,
+    "normal_interval_minutes": 60,
     "fast_interval_minutes": 1,
     "rewetting_delta_threshold": 0.05,
-    "fast_window_minutes": 15
+    "fast_window_minutes": 10
   }
 }
