@@ -140,6 +140,8 @@ async fn publish_dedup_pull_and_double_ack_are_transport_only() {
         .acknowledge(
             &DurableOwnerDisposition::EffectCommitted {
                 logical_operation_id: operation,
+                effect_owner_id: "postgres-owner-a".into(),
+                idempotency_digest: [3; 32],
                 effect_receipt_digest: [9; 32],
             },
             AckMode::AckSync,
@@ -204,6 +206,8 @@ async fn unacked_pull_is_redelivered_with_same_stream_sequence_and_higher_delive
         .acknowledge(
             &DurableOwnerDisposition::ReconciliationHandoffDurable {
                 logical_operation_id: operation,
+                effect_owner_id: "postgres-owner-a".into(),
+                idempotency_digest: [3; 32],
                 attempt_id: format!("attempt-{suffix}"),
                 handoff_receipt_digest: [10; 32],
             },
