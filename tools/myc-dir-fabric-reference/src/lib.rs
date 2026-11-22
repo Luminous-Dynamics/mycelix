@@ -15,6 +15,7 @@ pub mod effect_fence;
 pub mod effect_inventory;
 pub mod receipts;
 pub mod queue_delivery;
+pub mod owner_epoch;
 
 pub const MAX_IDENTIFIER_BYTES: usize = 512;
 pub type Digest = [u8; 32];
