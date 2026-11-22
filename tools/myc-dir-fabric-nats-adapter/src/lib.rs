@@ -122,10 +122,12 @@ fn header_text(
     headers: &async_nats::HeaderMap,
     name: &'static str,
 ) -> AdapterResult<String> {
-    headers
-        .get_last(name)
-        .map(|value| value.as_ref().to_owned())
-        .ok_or(AdapterError::MissingHeader(name))
+    let mut values = headers.get_all(name);
+    let first = values.next().ok_or(AdapterError::MissingHeader(name))?;
+    if values.next().is_some() {
+        return Err(AdapterError::InvalidHeader(name));
+    }
+    Ok(first.as_ref().to_owned())
 }
 
 fn header_digest(
@@ -765,6 +767,17 @@ mod tests {
         assert!(matches!(
             hex_decode_32(&"gg".repeat(32), HEADER_PAYLOAD_DIGEST),
             Err(AdapterError::InvalidHeader(HEADER_PAYLOAD_DIGEST))
+        ));
+    }
+
+    #[test]
+    fn duplicate_authority_header_is_rejected() {
+        let mut headers = async_nats::HeaderMap::new();
+        headers.append(HEADER_OWNER_EPOCH, "7");
+        headers.append(HEADER_OWNER_EPOCH, "8");
+        assert!(matches!(
+            header_text(&headers, HEADER_OWNER_EPOCH),
+            Err(AdapterError::InvalidHeader(HEADER_OWNER_EPOCH))
         ));
     }
 }
