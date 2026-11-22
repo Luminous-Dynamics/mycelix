@@ -307,10 +307,7 @@ fn validate_schedule(s: &Schedule, t: &Truth) -> Result<(), String> {
 
         prior_sample_time = Some(observation.time_hours);
         prior_decision_time = Some(observation.decision_time_hours);
-        previously_sampled.insert(
-            observation.observation_id.clone(),
-            observation.time_hours,
-        );
+        previously_sampled.insert(observation.observation_id.clone(), observation.time_hours);
     }
     Ok(())
 }
@@ -367,9 +364,9 @@ fn pulse_result(t: &Truth, s: &Schedule, p: &Pulse) -> PulseResult {
         .copied()
         .max_by(|a, b| a.1.total_cmp(&b.1));
     let detected = observed_values.len() >= p.minimum_detected_samples
-        && observed_values.iter().any(|(_, value)| {
-            *value - t.baseline_value > t.detection_threshold_above_baseline
-        });
+        && observed_values
+            .iter()
+            .any(|(_, value)| *value - t.baseline_value > t.detection_threshold_above_baseline);
     let candidate_peak = if detected {
         observed_peak.map(|(_, value)| value)
     } else {
