@@ -484,6 +484,12 @@ fn build_report(s: &Scenario, input_sha256: String) -> Result<Report, String> {
 
     let first = round_results.first().expect("validation requires rounds");
     let last = round_results.last().expect("validation requires rounds");
+    let first_round_id = first.round_id.clone();
+    let last_round_id = last.round_id.clone();
+    let fixed_depth_stock_change = last.mean_fixed_depth_soc_stock_megagrams_carbon_per_ha
+        - first.mean_fixed_depth_soc_stock_megagrams_carbon_per_ha;
+    let esm_stock_change = last.mean_esm_soc_stock_megagrams_carbon_per_ha
+        - first.mean_esm_soc_stock_megagrams_carbon_per_ha;
     Ok(Report {
         audit_version: VERSION,
         fixture_status: FIXTURE_STATUS,
@@ -498,14 +504,10 @@ fn build_report(s: &Scenario, input_sha256: String) -> Result<Report, String> {
         uncertainty_status: UNCERTAINTY_STATUS,
         rounds: round_results,
         temporal_change: TemporalChange {
-            first_round_id: first.round_id.clone(),
-            last_round_id: last.round_id.clone(),
-            fixed_depth_stock_change_megagrams_carbon_per_ha: last
-                .mean_fixed_depth_soc_stock_megagrams_carbon_per_ha
-                - first.mean_fixed_depth_soc_stock_megagrams_carbon_per_ha,
-            esm_stock_change_megagrams_carbon_per_ha: last
-                .mean_esm_soc_stock_megagrams_carbon_per_ha
-                - first.mean_esm_soc_stock_megagrams_carbon_per_ha,
+            first_round_id,
+            last_round_id,
+            fixed_depth_stock_change_megagrams_carbon_per_ha: fixed_depth_stock_change,
+            esm_stock_change_megagrams_carbon_per_ha: esm_stock_change,
             interpretation: "Descriptive difference between round means for one experimental unit; within-round core dispersion is subsampling variation, not independent treatment replication or causal effect.",
         },
         controls: Controls {
