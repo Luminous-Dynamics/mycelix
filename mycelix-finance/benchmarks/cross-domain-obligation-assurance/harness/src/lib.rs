@@ -1033,10 +1033,7 @@ impl EnergyAttributeLedger {
         if self.certificates.contains_key(certificate_id) {
             return Err(KernelError::DuplicateCertificate);
         }
-        if denomination_wh == 0
-            || quantity_wh == 0
-            || quantity_wh % denomination_wh != 0
-        {
+        if denomination_wh == 0 || quantity_wh == 0 || quantity_wh % denomination_wh != 0 {
             return Err(KernelError::InvalidEacDenomination);
         }
         let issuance = self
@@ -1345,18 +1342,54 @@ pub const AGENT_SCENARIO_COVERAGE: [ScenarioCoverage; 10] = [
 ];
 
 pub const ENERGY_ATTRIBUTE_SCENARIO_COVERAGE: [ScenarioCoverage; 12] = [
-    ScenarioCoverage { id: "EAC-001", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "EAC-002", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "EAC-003", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "EAC-004", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "EAC-005", status: CoverageStatus::PartialOrRequiresAdapter },
-    ScenarioCoverage { id: "EAC-006", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "EAC-007", status: CoverageStatus::PartialOrRequiresAdapter },
-    ScenarioCoverage { id: "EAC-008", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "EAC-009", status: CoverageStatus::PartialOrRequiresAdapter },
-    ScenarioCoverage { id: "EAC-010", status: CoverageStatus::PartialOrRequiresAdapter },
-    ScenarioCoverage { id: "EAC-011", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "EAC-012", status: CoverageStatus::PartialOrRequiresAdapter },
+    ScenarioCoverage {
+        id: "EAC-001",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "EAC-002",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "EAC-003",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "EAC-004",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "EAC-005",
+        status: CoverageStatus::PartialOrRequiresAdapter,
+    },
+    ScenarioCoverage {
+        id: "EAC-006",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "EAC-007",
+        status: CoverageStatus::PartialOrRequiresAdapter,
+    },
+    ScenarioCoverage {
+        id: "EAC-008",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "EAC-009",
+        status: CoverageStatus::PartialOrRequiresAdapter,
+    },
+    ScenarioCoverage {
+        id: "EAC-010",
+        status: CoverageStatus::PartialOrRequiresAdapter,
+    },
+    ScenarioCoverage {
+        id: "EAC-011",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "EAC-012",
+        status: CoverageStatus::PartialOrRequiresAdapter,
+    },
 ];
 
 pub const TRANSPARENCY_METROLOGY_SCENARIO_COVERAGE: [ScenarioCoverage; 10] = [
@@ -2065,10 +2098,7 @@ mod tests {
     fn eac_issuance_is_denominated_and_cannot_exceed_verified_generation() {
         let mut ledger = EnergyAttributeLedger::default();
         ledger
-            .register_generation(
-                verified_generation(),
-                MeasurementBoundary::InverterAcOutput,
-            )
+            .register_generation(verified_generation(), MeasurementBoundary::InverterAcOutput)
             .unwrap();
         let issued = ledger
             .issue(
@@ -2082,7 +2112,10 @@ mod tests {
             )
             .unwrap();
         assert_eq!(issued.quantity_wh, 2_000_000);
-        assert_eq!(ledger.remaining_eligible_wh("generation-001"), Some(500_000));
+        assert_eq!(
+            ledger.remaining_eligible_wh("generation-001"),
+            Some(500_000)
+        );
         assert_eq!(
             ledger.issue(
                 "eac-002",
@@ -2125,10 +2158,7 @@ mod tests {
     fn eac_ownership_transfer_and_retirement_are_single_use() {
         let mut ledger = EnergyAttributeLedger::default();
         ledger
-            .register_generation(
-                verified_generation(),
-                MeasurementBoundary::InverterAcOutput,
-            )
+            .register_generation(verified_generation(), MeasurementBoundary::InverterAcOutput)
             .unwrap();
         ledger
             .issue(
@@ -2145,7 +2175,12 @@ mod tests {
             .transfer("eac-001", "producer-account", "buyer-account")
             .unwrap();
         let retired = ledger
-            .retire("eac-001", "buyer-account", "buyer-claim-001", "registry-retirement-001")
+            .retire(
+                "eac-001",
+                "buyer-account",
+                "buyer-claim-001",
+                "registry-retirement-001",
+            )
             .unwrap();
         assert_eq!(
             retired.state,
@@ -2169,9 +2204,7 @@ mod tests {
         const INITIAL_WH: u128 = 1_000_000;
         for seed in 0u64..256 {
             let mut ledger = OfferLedger::default();
-            ledger
-                .create_offer("property-offer", INITIAL_WH)
-                .unwrap();
+            ledger.create_offer("property-offer", INITIAL_WH).unwrap();
             let mut random = seed.wrapping_add(1);
             let mut filled_wh = 0u128;
             let mut successful_fills = 0u64;
@@ -2258,10 +2291,7 @@ mod tests {
     fn eac_overlapping_generation_intervals_and_duplicate_certificates_reject() {
         let mut ledger = EnergyAttributeLedger::default();
         ledger
-            .register_generation(
-                verified_generation(),
-                MeasurementBoundary::InverterAcOutput,
-            )
+            .register_generation(verified_generation(), MeasurementBoundary::InverterAcOutput)
             .unwrap();
         let mut overlapping = verified_generation();
         overlapping.generation_id = "generation-002".into();
@@ -2306,14 +2336,10 @@ mod tests {
             generation.generation_id = format!("generation-{seed}");
             generation.meter_id = format!("meter-{seed}");
             generation.interval_start_micros = (seed as i64) * 10_000_000_000;
-            generation.interval_end_micros =
-                generation.interval_start_micros + 3_600_000_000;
+            generation.interval_end_micros = generation.interval_start_micros + 3_600_000_000;
             generation.eligible_energy_wh = ELIGIBLE_WH;
             ledger
-                .register_generation(
-                    generation,
-                    MeasurementBoundary::InverterAcOutput,
-                )
+                .register_generation(generation, MeasurementBoundary::InverterAcOutput)
                 .unwrap();
             let generation_id = format!("generation-{seed}");
             let mut random = seed.wrapping_add(17);
@@ -2322,8 +2348,7 @@ mod tests {
                 random = random
                     .wrapping_mul(2_862_933_555_777_941_757)
                     .wrapping_add(3_037_000_493);
-                let quantity_wh =
-                    ((random % 4) as u128 + 1) * DENOMINATION_WH;
+                let quantity_wh = ((random % 4) as u128 + 1) * DENOMINATION_WH;
                 let certificate_id = format!("eac-{seed}-{index}");
                 if issued + quantity_wh <= ELIGIBLE_WH {
                     ledger
@@ -2339,11 +2364,7 @@ mod tests {
                         .unwrap();
                     issued += quantity_wh;
                     ledger
-                        .transfer(
-                            &certificate_id,
-                            "producer-account",
-                            "buyer-account",
-                        )
+                        .transfer(&certificate_id, "producer-account", "buyer-account")
                         .unwrap();
                     ledger
                         .retire(
@@ -2383,8 +2404,7 @@ mod tests {
 
     #[test]
     fn energy_attribute_scenario_inventory_is_unique_and_linked() {
-        const CORPUS: &str =
-            include_str!("../../pcoe-energy-attribute-scenarios.v0.1.json");
+        const CORPUS: &str = include_str!("../../pcoe-energy-attribute-scenarios.v0.1.json");
         let mut ids = BTreeSet::new();
         for item in ENERGY_ATTRIBUTE_SCENARIO_COVERAGE {
             assert!(
