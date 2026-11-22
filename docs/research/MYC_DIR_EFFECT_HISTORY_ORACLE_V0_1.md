@@ -184,6 +184,7 @@ The crate is intentionally separate from the production reference crate. It impl
 - owner-local sequence uniqueness and consistency with the causal DAG;
 - owner bootstrap and monotonic epoch/generation fencing;
 - effect commit against the owner position current at the owner-local commit sequence;
+- owner-scoped idempotency-key uniqueness and operation identity;
 - worker-claim freshness at that same commit point;
 - effect-attempt, idempotency and logical-operation bindings;
 - Unknown outcome reconciliation and exact retry-after-confirmed-no-effect;
@@ -191,7 +192,7 @@ The crate is intentionally separate from the production reference crate. It impl
 - exact global owner-set equality;
 - post-barrier route activation with exact inventory membership and owner read-back.
 
-There are currently 13 authored unit tests. These are **not compiled or executed**. Source inspection and GitHub fetch-back are not compiler evidence.
+There are currently 17 authored unit tests. These are **not compiled or executed**. Source inspection and GitHub fetch-back are not compiler evidence.
 
 The current oracle deliberately treats source completeness and authentication as upstream trust boundaries. Its caller must independently authenticate source records, verify signatures/proofs and set `event_set_complete` / `complete_owner_streams` only when that completeness is established. A false completeness assertion can invalidate the result. The checker does not prove inventory completeness, cryptographic authenticity, WAL durability or a distributed consensus protocol.
 
