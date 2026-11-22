@@ -2565,8 +2565,7 @@ mod tests {
                 digest_and_signature_verified: true,
             },
         ];
-        let replayed =
-            replay_payment_event_chain(&request, &envelopes, digest(12)).unwrap();
+        let replayed = replay_payment_event_chain(&request, &envelopes, digest(12)).unwrap();
         assert!(matches!(replayed, PaymentStatus::Reversed { .. }));
 
         let mut broken_link = envelopes.clone();
