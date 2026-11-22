@@ -1538,8 +1538,23 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                     "non-fenceable route was activated into strict execution",
                 );
             }
-            if !inventory.required_owners.contains(owner)
+            let readback_fence_matches_barrier = match (
+                fence_commits.get(&readback.fence_commit_event_id),
+                &barrier.kind,
+            ) {
+                (
+                    Some(commit),
+                    EventKind::GlobalBarrierAcknowledged {
+                        revocation_digest, ..
+                    },
+                ) => commit.installed == *position
+                    && commit.revocation_digest == *revocation_digest,
+                _ => false,
+            };
+            if event.owner.as_deref() != Some(owner.as_str())
+                || !inventory.required_owners.contains(owner)
                 || !inventory.required_routes.contains(route_id)
+                || !readback_fence_matches_barrier
                 || readback.owner != *owner
                 || readback.position != *position
                 || !has_parent(event, inventory_event_id)
@@ -1577,7 +1592,8 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
         } = &event.kind
         {
             if let Some(inventory) = inventory_events.get(inventory_event_id) {
-                if !inventory.required_owners.contains(owner)
+                if event.owner.as_deref() != Some(owner.as_str())
+                    || !inventory.required_owners.contains(owner)
                     || !inventory.required_routes.contains(route_id)
                 {
                     findings.violation(
