@@ -246,7 +246,9 @@ fn validate(s: &Scenario) -> Result<(), String> {
             return Err(format!("unit {} has an invalid date", unit.unit_id));
         }
         let randomized_date = &d.randomized_at[0..10];
-        if unit.baseline_date >= randomized_date || unit.followup_date <= randomized_date {
+        if unit.baseline_date.as_str() >= randomized_date
+            || unit.followup_date.as_str() <= randomized_date
+        {
             return Err(format!(
                 "unit {} baseline/randomization/follow-up chronology is invalid",
                 unit.unit_id
