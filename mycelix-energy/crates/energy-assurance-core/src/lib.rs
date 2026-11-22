@@ -760,8 +760,9 @@ mod tests {
     #[test]
     fn producer_cannot_verify_own_claim() {
         let claim = ProductionClaim {
-            claim_id: "claim-001".into(), producer_id: "producer-001".into(),
-            project_id: "project-001".into(), energy_wh: 1000,
+            claim_id: "claim-001".into(), claim_digest: [2; 32],
+            producer_id: "producer-001".into(), project_id: "project-001".into(),
+            energy_wh: 1000,
             source: ProductionSource::MeterDerived, evidence_digests: vec![[1; 32]],
         };
         let attestation = VerifierAttestation {
@@ -777,8 +778,9 @@ mod tests {
     #[test]
     fn valid_independent_meter_attestation_passes_scope_checks() {
         let claim = ProductionClaim {
-            claim_id: "claim-001".into(), producer_id: "producer-001".into(),
-            project_id: "project-001".into(), energy_wh: 1000,
+            claim_id: "claim-001".into(), claim_digest: [2; 32],
+            producer_id: "producer-001".into(), project_id: "project-001".into(),
+            energy_wh: 1000,
             source: ProductionSource::MeterDerived, evidence_digests: vec![[1; 32]],
         };
         let attestation = VerifierAttestation {
