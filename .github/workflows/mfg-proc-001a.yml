@@ -57,4 +57,5 @@ jobs:
       - name: Validate frozen schema and migration fixtures
         run: |
           python -m json.tool mycelix-workspace/mycelix-manufacturing/schemas/mfg_proc_001a/typed_process_refs_v0_1.schema.json >/dev/null
+          python -m json.tool mycelix-workspace/mycelix-manufacturing/schemas/mfg_proc_001a/process_registry_entry_v0_1.schema.json >/dev/null
           python -m json.tool mycelix-workspace/mycelix-manufacturing/tests/fixtures/mfg_proc_001a_typed_process_refs_v0_1.json >/dev/null
