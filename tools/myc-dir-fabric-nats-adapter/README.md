@@ -103,3 +103,12 @@ The verifier now joins `effect_commits`, `effect_execution_attestations` and the
 Migration and SQL tests are under `tools/myc-dir-fabric-reference/postgres/003_owner_epoch_execution_attestation.sql` and `tools/myc-dir-fabric-reference/postgres/tests/003_owner_epoch_execution_attestation.sql`. The workflow applies them and runs the SQL test before the Rust/NATS integration tests.
 
 This is local durable evidence, not a complete distributed-fencing solution. The SQL function stores receipt commitments but cannot authenticate their signatures or prevent a former writable primary from accepting writes. Production must authenticate the epoch authority and physical-fencing receipts, physically fence the old primary, enforce a single-writer lease, and qualify synchronous replication/promotion. This branch's owner-epoch and PostgreSQL tests remain unqualified until its exact-head CI passes.
+
+
+## Owner-epoch-bound worker claims
+
+Migration 003 also adds `owner_epoch` to `worker_claim_state` and the explicit `install_worker_claim_for_owner_epoch` entry point. Claim installation and effect execution use the same lock order: worker-claim row first, then owner-fence row. A claim from an earlier owner epoch cannot execute after promotion. Crossing owner epochs requires a strictly higher worker claim epoch; the strict effect function rejects a claim whose recorded owner epoch differs from the current fence epoch.
+
+The SQL adversarial test covers: stale claim reuse after owner-epoch transition, failure to increment claim epoch, successful epoch-2 claim installation, and later worker reassignment to a higher claim epoch. It also checks UPDATE/DELETE/TRUNCATE rejection on the append-only owner/attestation evidence tables.
+
+The bounded state-machine companion is `specs/owner-epoch/OwnerEpochExecutionAttestation.tla` with configuration `OwnerEpochExecutionAttestation.cfg`. It is authored but not yet model-checked with TLC.
