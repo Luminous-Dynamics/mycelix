@@ -33,7 +33,6 @@ struct Scenario {
 struct PublicContract {
     horizon_minutes: u32,
     maximum_sample_count: usize,
-    detection_delta_threshold: f64,
     maximum_integral_gap_minutes: u32,
 }
 
@@ -323,18 +322,9 @@ fn next_sample_interval(policy: &mut CandidatePolicy, context: CandidateActionCo
             if context.observations.len() >= 2 {
                 let last = context.observations[context.observations.len() - 1];
                 let previous = context.observations[context.observations.len() - 2];
-                let baseline = context
-                    .observations
-                    .iter()
-                    .take(3)
-                    .map(|observation| observation.response)
-                    .sum::<f64>()
-                    / context.observations.len().min(3) as f64;
-                let response_changed =
-                    last.response - baseline >= context.public_contract.detection_delta_threshold;
                 let rewetting_detected =
                     last.moisture - previous.moisture >= *rewetting_delta_threshold;
-                if response_changed || rewetting_detected {
+                if rewetting_detected && context.now_minute >= *fast_until_minute {
                     *fast_until_minute = context.now_minute.saturating_add(*fast_window_minutes);
                 }
             }
@@ -395,7 +385,6 @@ fn evaluate(s: &Scenario, digest: String) -> Report {
     let public_contract = CandidatePublicContract {
         horizon_minutes: s.public_contract.horizon_minutes,
         maximum_sample_count: s.public_contract.maximum_sample_count,
-        detection_delta_threshold: s.public_contract.detection_delta_threshold,
     };
     let mut observations = Vec::new();
     let mut now = 0_u32;
