@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mycelix.net/finance/sap-redemption-receipt/0.1/schema.json",
+  "title": "Mycelix SAP-ZAR Redemption Receipt",
+  "description": "Receipt for a redemption request and its externally reconciled payout outcome. The event is not final until the payment rail finality policy and corresponding liability burn/compensation are verified.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "redemption_id",
+    "issuer_did",
+    "instrument_id",
+    "currency",
+    "holder_did",
+    "amount_minor_units",
+    "idempotency_key",
+    "requested_at",
+    "result_state",
+    "reconciliation_state",
+    "policy_version",
+    "integrity"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "redemption_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "issuer_did": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "instrument_id": {
+      "const": "SAP-ZAR"
+    },
+    "currency": {
+      "const": "ZAR"
+    },
+    "holder_did": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "amount_minor_units": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 256
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "result_state": {
+      "enum": [
+        "paid_and_burned",
+        "rejected",
+        "indeterminate",
+        "compensated"
+      ]
+    },
+    "payout_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 512
+    },
+    "payout_finality_policy_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 512
+    },
+    "liability_burn_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 512
+    },
+    "reconciliation_state": {
+      "enum": [
+        "complete",
+        "pending",
+        "conflicted",
+        "requires_recovery"
+      ]
+    },
+    "reconciliation_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 512
+    },
+    "failure_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2048
+    },
+    "policy_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalization",
+        "verification_method",
+        "key_id",
+        "proof"
+      ],
+      "properties": {
+        "canonicalization": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "verification_method": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "key_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "proof": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "result_state": {
+            "const": "paid_and_burned"
+          }
+        },
+        "required": [
+          "result_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payout_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payout_finality_policy_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "liability_burn_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reconciliation_state": {
+            "const": "complete"
+          },
+          "reconciliation_ref": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "result_state": {
+            "const": "indeterminate"
+          }
+        },
+        "required": [
+          "result_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reconciliation_state": {
+            "enum": [
+              "pending",
+              "conflicted",
+              "requires_recovery"
+            ]
+          },
+          "failure_reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "result_state": {
+            "const": "rejected"
+          }
+        },
+        "required": [
+          "result_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "failure_reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "result_state": {
+            "const": "compensated"
+          }
+        },
+        "required": [
+          "result_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reconciliation_state": {
+            "const": "complete"
+          },
+          "reconciliation_ref": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  ]
+}
