@@ -1097,7 +1097,8 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                     else {
                         unreachable!()
                     };
-                    if started_operation != operation_id
+                    if attempt.owner != event.owner
+                        || started_operation != operation_id
                         || started_attempt != attempt_id
                         || started_number != attempt_number
                         || started_worker != worker_id
@@ -1522,6 +1523,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                         }) if committed_operation == operation_id
                             && committed_attempt == attempt_id
                             && committed_number == attempt_number
+                            && events.get(commit_id).and_then(|commit| commit.owner.as_ref()) == event.owner.as_ref()
                             && has_parent(event, commit_id) => {}
                         _ => findings.violation(
                             FindingCode::ReconciliationBindingMismatch,
@@ -1653,7 +1655,8 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                         revocation_digest, ..
                     },
                 ) => commit.installed == *position
-                    && commit.revocation_digest == *revocation_digest,
+                    && commit.revocation_digest == *revocation_digest
+                    && inventory.revocation_digest == *revocation_digest,
                 _ => false,
             };
             if event.owner.as_deref() != Some(owner.as_str())
@@ -1988,10 +1991,6 @@ mod tests {
             .into_iter()
             .map(str::to_owned)
             .collect::<BTreeSet<_>>();
-        let routes = ["worker-route-a"]
-            .into_iter()
-            .map(str::to_owned)
-            .collect::<BTreeSet<_>>();
         history.events.extend([
             record(
                 "route-inventory",
@@ -2045,6 +2044,43 @@ mod tests {
         let mut history = base_history(false);
         add_post_barrier_route(&mut history, RouteEnforcement::AtomicOwnerFence);
         assert_eq!(audit_history(&history).verdict, Verdict::Valid);
+    }
+
+    #[test]
+    fn effect_commit_cannot_substitute_another_effect_owner() {
+        let mut history = base_history(false);
+        let mut effect = history
+            .events
+            .iter()
+            .find(|event| event.id == "effect-a")
+            .unwrap()
+            .clone();
+        effect.id = "effect-owner-substitution".into();
+        effect.owner = Some("owner-b".into());
+        effect.owner_sequence = Some(4);
+        history.events.push(effect);
+        let report = audit_history(&history);
+        assert_eq!(report.verdict, Verdict::Violation);
+        assert!(report.findings.iter().any(|finding| {
+            finding.code == FindingCode::EffectAttemptBindingMismatch
+        }));
+    }
+
+    #[test]
+    fn route_inventory_cannot_substitute_the_revocation() {
+        let mut history = base_history(false);
+        add_post_barrier_route(&mut history, RouteEnforcement::AtomicOwnerFence);
+        let inventory = history.events.iter_mut()
+            .find(|event| event.id == "route-inventory")
+            .unwrap();
+        if let EventKind::InventoryClosed { revocation_digest, .. } = &mut inventory.kind {
+            *revocation_digest = digest(31);
+        }
+        let report = audit_history(&history);
+        assert_eq!(report.verdict, Verdict::Violation);
+        assert!(report.findings.iter().any(|finding| {
+            finding.code == FindingCode::RouteAdmissionBindingMismatch
+        }));
     }
 
     #[test]
