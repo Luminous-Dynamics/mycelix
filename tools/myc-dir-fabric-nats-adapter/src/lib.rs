@@ -6,6 +6,10 @@
 //! the resource owner at the atomic mutation boundary.
 
 use std::fmt;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use std::time::Duration;
 
 use async_nats::jetstream::{
@@ -27,6 +31,7 @@ use sha2::{Digest as ShaDigest, Sha256};
 
 const WIRE_VERSION: &str = "1";
 const HEADER_VERSION: &str = "Mycelix-Wire-Version";
+const HEADER_PUBLICATION_ID: &str = "Mycelix-Publication-Id";
 const HEADER_LOGICAL_OPERATION: &str = "Mycelix-Logical-Operation-Id";
 const HEADER_REQUEST_DIGEST: &str = "Mycelix-Request-SHA256";
 const HEADER_DECISION_DIGEST: &str = "Mycelix-Decision-SHA256";
@@ -42,6 +47,7 @@ pub type AdapterResult<T> = std::result::Result<T, AdapterError>;
 #[derive(Debug)]
 pub enum AdapterError {
     InvalidConfiguration(&'static str),
+    NotInitialized,
     Nats(String),
     MissingHeader(&'static str),
     InvalidHeader(&'static str),
@@ -61,6 +67,7 @@ impl fmt::Display for AdapterError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidConfiguration(field) => write!(f, "invalid adapter configuration: {field}"),
+            Self::NotInitialized => write!(f, "JetStream stream/consumer configuration has not been verified"),
             Self::Nats(error) => write!(f, "NATS JetStream error: {error}"),
             Self::MissingHeader(header) => write!(f, "missing required command header {header}"),
             Self::InvalidHeader(header) => write!(f, "invalid command header {header}"),
@@ -299,6 +306,7 @@ impl ReceivedDelivery {
 pub struct JetStreamAdapter {
     context: jetstream::Context,
     config: JetStreamAdapterConfig,
+    server_config_verified: Arc<AtomicBool>,
 }
 
 impl JetStreamAdapter {
@@ -307,7 +315,11 @@ impl JetStreamAdapter {
         config: JetStreamAdapterConfig,
     ) -> AdapterResult<Self> {
         config.validate()?;
-        Ok(Self { context, config })
+        Ok(Self {
+            context,
+            config,
+            server_config_verified: Arc::new(AtomicBool::new(false)),
+        })
     }
 
     pub async fn connect(
@@ -399,7 +411,16 @@ impl JetStreamAdapter {
             return Err(AdapterError::ConsumerConfigurationMismatch("filter_subject"));
         }
 
+        self.server_config_verified.store(true, Ordering::Release);
         Ok(())
+    }
+
+    fn require_server_configuration_verified(&self) -> AdapterResult<()> {
+        if self.server_config_verified.load(Ordering::Acquire) {
+            Ok(())
+        } else {
+            Err(AdapterError::NotInitialized)
+        }
     }
 
     /// Publishes a raw command payload with immutable authority/effect metadata
@@ -410,6 +431,7 @@ impl JetStreamAdapter {
         mut input: NatsCommandBindingInput,
         payload: &[u8],
     ) -> AdapterResult<PublishEvidence> {
+        self.require_server_configuration_verified()?;
         if input.account_id != self.config.account_id
             || input.stream_name != self.config.stream_name
             || input.subject != self.config.subject
@@ -430,6 +452,7 @@ impl JetStreamAdapter {
             .payload(Bytes::copy_from_slice(payload))
             .message_id(&input.nats_message_id)
             .header(HEADER_VERSION, WIRE_VERSION)
+            .header(HEADER_PUBLICATION_ID, &input.nats_message_id)
             .header(HEADER_LOGICAL_OPERATION, &input.logical_operation_id)
             .header(HEADER_REQUEST_DIGEST, hex_encode(&input.request_digest))
             .header(HEADER_DECISION_DIGEST, hex_encode(&input.decision_receipt_digest))
@@ -467,6 +490,7 @@ impl JetStreamAdapter {
     /// Fetches at most one delivery from the configured durable pull consumer.
     /// An absent message is a normal None result; no implicit ACK is sent.
     pub async fn fetch_one(&self) -> AdapterResult<Option<ReceivedDelivery>> {
+        self.require_server_configuration_verified()?;
         let stream = self
             .context
             .get_stream(&self.config.stream_name)
@@ -548,7 +572,7 @@ impl JetStreamAdapter {
             return Err(AdapterError::InvalidWireVersion);
         }
 
-        let nats_message_id = header_text(headers, "Nats-Msg-Id")?;
+        let nats_message_id = header_text(headers, HEADER_PUBLICATION_ID)?;
         let request_digest = header_digest(headers, HEADER_REQUEST_DIGEST)?;
         let decision_receipt_digest = header_digest(headers, HEADER_DECISION_DIGEST)?;
         let idempotency_digest = header_digest(headers, HEADER_IDEMPOTENCY_DIGEST)?;
