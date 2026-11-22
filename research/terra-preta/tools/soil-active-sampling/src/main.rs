@@ -520,7 +520,7 @@ mod tests {
         let mut fixed = scenario();
         fixed.policy = PolicyConfig {
             kind: "fixed_cadence".into(),
-            fixed_interval_minutes: Some(30),
+            fixed_interval_minutes: Some(15),
             normal_interval_minutes: None,
             fast_interval_minutes: None,
             rewetting_delta_threshold: None,
@@ -532,16 +532,16 @@ mod tests {
         adaptive.policy = PolicyConfig {
             kind: "rewetting_triggered".into(),
             fixed_interval_minutes: None,
-            normal_interval_minutes: Some(30),
+            normal_interval_minutes: Some(60),
             fast_interval_minutes: Some(1),
             rewetting_delta_threshold: Some(0.05),
-            fast_window_minutes: Some(15),
+            fast_window_minutes: Some(10),
         };
         let adaptive_report = evaluate(&adaptive, "0".repeat(64));
 
         assert!(!fixed_report.event_detected);
         assert!(adaptive_report.event_detected);
-        assert!(adaptive_report.sample_count > fixed_report.sample_count);
+        assert!(adaptive_report.sample_count < fixed_report.sample_count);
         assert!(adaptive_report.sample_count <= adaptive_report.sample_budget);
         assert_eq!(adaptive_report.candidate_truth_access, false);
     }
