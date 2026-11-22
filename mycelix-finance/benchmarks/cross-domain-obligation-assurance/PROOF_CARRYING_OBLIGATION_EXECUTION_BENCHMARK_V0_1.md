@@ -107,7 +107,7 @@ The benchmark now has four separate machine-readable suites comprising **71 scen
 - `pcoe-transparency-metrology-scenarios.v0.1.json`: 10 transparency, legal-metrology and regulatory-adapter scenarios.
 - `pcoe-energy-attribute-scenarios.v0.1.json`: 12 renewable energy-attribute issuance/ownership/retirement scenarios.
 
-The Rust reference kernel maps all 71 IDs into explicit coverage classes: 29 implemented in reference-kernel tests, 16 partial/adapter-dependent, and 26 not yet implemented. These labels are not full PCOE conformance. Adapter-level suites are not replaced by in-memory policy tests.
+The Rust reference kernel maps all 71 IDs into explicit coverage classes: 30 implemented in reference-kernel tests, 15 partial/adapter-dependent, and 26 not yet implemented. These labels are not full PCOE conformance. Adapter-level suites are not replaced by in-memory policy tests.
 
 The corpus is intentionally cross-layer. It includes:
 - expired, revoked, replayed, or escalated delegated authority;
