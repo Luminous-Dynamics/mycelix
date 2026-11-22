@@ -156,7 +156,9 @@ pub fn authorize(
             || disposition.decision_reference.is_empty()
             || disposition.decision_maker_id == request.actor_id
             || disposition.request_digest != request.request_digest
-            || !grant.human_approver_ids.contains(&disposition.decision_maker_id)
+            || !grant
+                .human_approver_ids
+                .contains(&disposition.decision_maker_id)
             || grant.max_human_approval_age_secs == 0
             || disposition.approved_at > now
             || now - disposition.approved_at > grant.max_human_approval_age_secs
@@ -193,7 +195,8 @@ impl AuthorityConsumptionLedger {
             }
             return Err(KernelError::IdempotencyConflict);
         }
-        self.consumed_grants.insert(grant.grant_id.clone(), request.request_digest);
+        self.consumed_grants
+            .insert(grant.grant_id.clone(), request.request_digest);
         Ok(())
     }
 }
@@ -260,7 +263,8 @@ impl MeterObservation {
         {
             return Err(KernelError::InvalidMeterSequence);
         }
-        if self.interval_start_micros < 0 || self.interval_end_micros <= self.interval_start_micros {
+        if self.interval_start_micros < 0 || self.interval_end_micros <= self.interval_start_micros
+        {
             return Err(KernelError::InvalidInterval);
         }
         if self.calibration_valid_from_micros > self.interval_start_micros
@@ -418,7 +422,11 @@ pub fn validate_attestation(
         return Err(KernelError::VerifierNotQualified);
     }
     validate_witness_independence(&claim.producer_id, &attestation.witnesses)?;
-    if !attestation.witnesses.iter().any(|witness| witness.verifier_id == attestation.verifier_id) {
+    if !attestation
+        .witnesses
+        .iter()
+        .any(|witness| witness.verifier_id == attestation.verifier_id)
+    {
         return Err(KernelError::InsufficientWitnesses);
     }
     if attestation.conflicts_declared {
@@ -565,7 +573,10 @@ impl OfferLedger {
         if quantity_wh == 0 {
             return Err(KernelError::InvalidAmount);
         }
-        let offer = self.offers.get_mut(offer_id).ok_or(KernelError::OfferNotFound)?;
+        let offer = self
+            .offers
+            .get_mut(offer_id)
+            .ok_or(KernelError::OfferNotFound)?;
         if offer.revision != expected_revision {
             return Err(KernelError::OfferRevisionConflict {
                 expected: expected_revision,
@@ -678,7 +689,10 @@ impl PaymentLedger {
             || request.payee_id.is_empty()
             || request.idempotency_key.is_empty()
             || request.currency.len() != 3
-            || !request.currency.bytes().all(|byte| byte.is_ascii_uppercase())
+            || !request
+                .currency
+                .bytes()
+                .all(|byte| byte.is_ascii_uppercase())
         {
             return Err(KernelError::MissingReference);
         }
@@ -719,7 +733,10 @@ impl PaymentLedger {
                     .intents
                     .get_mut(idempotency_key)
                     .ok_or(KernelError::InvalidPaymentTransition)?;
-                if !matches!(status, PaymentStatus::Submitted | PaymentStatus::Indeterminate) {
+                if !matches!(
+                    status,
+                    PaymentStatus::Submitted | PaymentStatus::Indeterminate
+                ) {
                     return Err(KernelError::InvalidPaymentTransition);
                 }
                 *status = PaymentStatus::Indeterminate;
@@ -744,15 +761,16 @@ impl PaymentLedger {
             .intents
             .get(idempotency_key)
             .ok_or(KernelError::InvalidPaymentTransition)?;
-        if !matches!(current_status, PaymentStatus::Submitted | PaymentStatus::Indeterminate) {
+        if !matches!(
+            current_status,
+            PaymentStatus::Submitted | PaymentStatus::Indeterminate
+        ) {
             return Err(KernelError::InvalidPaymentTransition);
         }
         if !receipt.authentication_verified {
             return Err(KernelError::UnauthenticatedReceipt);
         }
-        if receipt.external_receipt_id.is_empty()
-            || receipt.finality_policy_reference.is_empty()
-        {
+        if receipt.external_receipt_id.is_empty() || receipt.finality_policy_reference.is_empty() {
             return Err(KernelError::InvalidFinalityPolicy);
         }
         if receipt.obligation_id != request.obligation_id
@@ -765,10 +783,14 @@ impl PaymentLedger {
         {
             return Err(KernelError::ReceiptMismatch);
         }
-        if self.consumed_receipts.contains(&receipt.external_receipt_id) {
+        if self
+            .consumed_receipts
+            .contains(&receipt.external_receipt_id)
+        {
             return Err(KernelError::DuplicateExternalReceipt);
         }
-        self.consumed_receipts.insert(receipt.external_receipt_id.clone());
+        self.consumed_receipts
+            .insert(receipt.external_receipt_id.clone());
         let status = if is_paid {
             PaymentStatus::PaidFinal {
                 external_receipt_id: receipt.external_receipt_id,
@@ -865,71 +887,248 @@ pub struct ScenarioCoverage {
 }
 
 pub const SCENARIO_COVERAGE: [ScenarioCoverage; 39] = [
-    ScenarioCoverage { id: "AUTH-001", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "AUTH-002", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "AUTH-003", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "AUTH-004", status: CoverageStatus::PartialOrRequiresAdapter },
-    ScenarioCoverage { id: "AUTH-005", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "AUTH-006", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "EVID-001", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "EVID-002", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "EVID-003", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "EVID-004", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "EVID-005", status: CoverageStatus::PartialOrRequiresAdapter },
-    ScenarioCoverage { id: "EVID-006", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "VER-001", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "VER-002", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "VER-003", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "VER-004", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "VER-005", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "ACC-001", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "ACC-002", status: CoverageStatus::PartialOrRequiresAdapter },
-    ScenarioCoverage { id: "ACC-003", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "OFFER-001", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "COLL-001", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "PAY-001", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "PAY-002", status: CoverageStatus::PartialOrRequiresAdapter },
-    ScenarioCoverage { id: "PAY-003", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "PAY-004", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "PAY-005", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "PAY-006", status: CoverageStatus::PartialOrRequiresAdapter },
-    ScenarioCoverage { id: "PAY-007", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "PAY-008", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "PAY-009", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "DIST-001", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "DIST-002", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "DIST-003", status: CoverageStatus::PartialOrRequiresAdapter },
-    ScenarioCoverage { id: "PRIV-001", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "HRM-001", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "MODEL-001", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "MODEL-002", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "RECON-001", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage {
+        id: "AUTH-001",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "AUTH-002",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "AUTH-003",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "AUTH-004",
+        status: CoverageStatus::PartialOrRequiresAdapter,
+    },
+    ScenarioCoverage {
+        id: "AUTH-005",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "AUTH-006",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "EVID-001",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "EVID-002",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "EVID-003",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "EVID-004",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "EVID-005",
+        status: CoverageStatus::PartialOrRequiresAdapter,
+    },
+    ScenarioCoverage {
+        id: "EVID-006",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "VER-001",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "VER-002",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "VER-003",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "VER-004",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "VER-005",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "ACC-001",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "ACC-002",
+        status: CoverageStatus::PartialOrRequiresAdapter,
+    },
+    ScenarioCoverage {
+        id: "ACC-003",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "OFFER-001",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "COLL-001",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "PAY-001",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "PAY-002",
+        status: CoverageStatus::PartialOrRequiresAdapter,
+    },
+    ScenarioCoverage {
+        id: "PAY-003",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "PAY-004",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "PAY-005",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "PAY-006",
+        status: CoverageStatus::PartialOrRequiresAdapter,
+    },
+    ScenarioCoverage {
+        id: "PAY-007",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "PAY-008",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "PAY-009",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "DIST-001",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "DIST-002",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "DIST-003",
+        status: CoverageStatus::PartialOrRequiresAdapter,
+    },
+    ScenarioCoverage {
+        id: "PRIV-001",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "HRM-001",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "MODEL-001",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "MODEL-002",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "RECON-001",
+        status: CoverageStatus::NotYetImplemented,
+    },
 ];
 
 pub const AGENT_SCENARIO_COVERAGE: [ScenarioCoverage; 10] = [
-    ScenarioCoverage { id: "AGENT-001", status: CoverageStatus::PartialOrRequiresAdapter },
-    ScenarioCoverage { id: "AGENT-002", status: CoverageStatus::PartialOrRequiresAdapter },
-    ScenarioCoverage { id: "AGENT-003", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "AGENT-004", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "AGENT-005", status: CoverageStatus::PartialOrRequiresAdapter },
-    ScenarioCoverage { id: "AGENT-006", status: CoverageStatus::PartialOrRequiresAdapter },
-    ScenarioCoverage { id: "AGENT-007", status: CoverageStatus::PartialOrRequiresAdapter },
-    ScenarioCoverage { id: "AGENT-008", status: CoverageStatus::ImplementedInKernelTests },
-    ScenarioCoverage { id: "AGENT-009", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "AGENT-010", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage {
+        id: "AGENT-001",
+        status: CoverageStatus::PartialOrRequiresAdapter,
+    },
+    ScenarioCoverage {
+        id: "AGENT-002",
+        status: CoverageStatus::PartialOrRequiresAdapter,
+    },
+    ScenarioCoverage {
+        id: "AGENT-003",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "AGENT-004",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "AGENT-005",
+        status: CoverageStatus::PartialOrRequiresAdapter,
+    },
+    ScenarioCoverage {
+        id: "AGENT-006",
+        status: CoverageStatus::PartialOrRequiresAdapter,
+    },
+    ScenarioCoverage {
+        id: "AGENT-007",
+        status: CoverageStatus::PartialOrRequiresAdapter,
+    },
+    ScenarioCoverage {
+        id: "AGENT-008",
+        status: CoverageStatus::ImplementedInKernelTests,
+    },
+    ScenarioCoverage {
+        id: "AGENT-009",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "AGENT-010",
+        status: CoverageStatus::NotYetImplemented,
+    },
 ];
 
 pub const TRANSPARENCY_METROLOGY_SCENARIO_COVERAGE: [ScenarioCoverage; 10] = [
-    ScenarioCoverage { id: "TSP-001", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "TSP-002", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "TSP-003", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "TSP-004", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "TSP-005", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "MET-001", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "MET-002", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "MET-003", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "MET-004", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "MARKET-001", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage {
+        id: "TSP-001",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "TSP-002",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "TSP-003",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "TSP-004",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "TSP-005",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "MET-001",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "MET-002",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "MET-003",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "MET-004",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "MARKET-001",
+        status: CoverageStatus::NotYetImplemented,
+    },
 ];
 
 #[cfg(test)]
@@ -1028,23 +1227,44 @@ mod tests {
 
     #[test]
     fn authority_expiry_scope_revocation_and_br3_fail_closed() {
-        assert_eq!(authorize(&grant(), &request(), 500, 7, None), Err(KernelError::AuthorityExpired));
-        assert_eq!(authorize(&grant(), &request(), 200, 8, None), Err(KernelError::AuthorityRevoked));
-        assert_eq!(authorize(&grant(), &request(), 200, 6, None), Err(KernelError::AuthorityStateUnknown));
+        assert_eq!(
+            authorize(&grant(), &request(), 500, 7, None),
+            Err(KernelError::AuthorityExpired)
+        );
+        assert_eq!(
+            authorize(&grant(), &request(), 200, 8, None),
+            Err(KernelError::AuthorityRevoked)
+        );
+        assert_eq!(
+            authorize(&grant(), &request(), 200, 6, None),
+            Err(KernelError::AuthorityStateUnknown)
+        );
         let mut oversized = request();
         oversized.amount += 1;
-        assert_eq!(authorize(&grant(), &oversized, 200, 7, None), Err(KernelError::ScopeExceeded));
+        assert_eq!(
+            authorize(&grant(), &oversized, 200, 7, None),
+            Err(KernelError::ScopeExceeded)
+        );
         let mut wrong_audience = request();
         wrong_audience.audience_id = "other-service".into();
-        assert_eq!(authorize(&grant(), &wrong_audience, 200, 7, None), Err(KernelError::Unauthorized));
+        assert_eq!(
+            authorize(&grant(), &wrong_audience, 200, 7, None),
+            Err(KernelError::Unauthorized)
+        );
         let mut wrong_task = request();
         wrong_task.task_id = "different-task".into();
-        assert_eq!(authorize(&grant(), &wrong_task, 200, 7, None), Err(KernelError::Unauthorized));
+        assert_eq!(
+            authorize(&grant(), &wrong_task, 200, 7, None),
+            Err(KernelError::Unauthorized)
+        );
         let mut br3 = grant();
         br3.action_class = "BR3_ASSET_TRANSFER".into();
         let mut br3_request = request();
         br3_request.action_class = "BR3_ASSET_TRANSFER".into();
-        assert_eq!(authorize(&br3, &br3_request, 200, 7, None), Err(KernelError::HumanDispositionRequired));
+        assert_eq!(
+            authorize(&br3, &br3_request, 200, 7, None),
+            Err(KernelError::HumanDispositionRequired)
+        );
         br3.human_approver_ids.insert("board-member".into());
         br3.max_human_approval_age_secs = 30;
         let approval = HumanDisposition {
@@ -1054,32 +1274,50 @@ mod tests {
             independent_authentication_verified: true,
             approved_at: 190,
         };
-        assert_eq!(authorize(&br3, &br3_request, 200, 7, Some(&approval)), Ok(()));
+        assert_eq!(
+            authorize(&br3, &br3_request, 200, 7, Some(&approval)),
+            Ok(())
+        );
         let agent_approval = HumanDisposition {
             decision_maker_id: br3_request.actor_id.clone(),
             ..approval.clone()
         };
-        assert_eq!(authorize(&br3, &br3_request, 200, 7, Some(&agent_approval)), Err(KernelError::HumanDispositionRequired));
+        assert_eq!(
+            authorize(&br3, &br3_request, 200, 7, Some(&agent_approval)),
+            Err(KernelError::HumanDispositionRequired)
+        );
         let unknown_approver = HumanDisposition {
             decision_maker_id: "unlisted-person".into(),
             ..approval.clone()
         };
-        assert_eq!(authorize(&br3, &br3_request, 200, 7, Some(&unknown_approver)), Err(KernelError::HumanDispositionRequired));
+        assert_eq!(
+            authorize(&br3, &br3_request, 200, 7, Some(&unknown_approver)),
+            Err(KernelError::HumanDispositionRequired)
+        );
         let stale_approval = HumanDisposition {
             approved_at: 100,
             ..approval.clone()
         };
-        assert_eq!(authorize(&br3, &br3_request, 200, 7, Some(&stale_approval)), Err(KernelError::HumanDispositionRequired));
+        assert_eq!(
+            authorize(&br3, &br3_request, 200, 7, Some(&stale_approval)),
+            Err(KernelError::HumanDispositionRequired)
+        );
         let future_approval = HumanDisposition {
             approved_at: 201,
             ..approval.clone()
         };
-        assert_eq!(authorize(&br3, &br3_request, 200, 7, Some(&future_approval)), Err(KernelError::HumanDispositionRequired));
+        assert_eq!(
+            authorize(&br3, &br3_request, 200, 7, Some(&future_approval)),
+            Err(KernelError::HumanDispositionRequired)
+        );
         let mismatched_approval = HumanDisposition {
             request_digest: digest(99),
             ..approval
         };
-        assert_eq!(authorize(&br3, &br3_request, 200, 7, Some(&mismatched_approval)), Err(KernelError::HumanDispositionRequired));
+        assert_eq!(
+            authorize(&br3, &br3_request, 200, 7, Some(&mismatched_approval)),
+            Err(KernelError::HumanDispositionRequired)
+        );
     }
 
     #[test]
@@ -1088,39 +1326,69 @@ mod tests {
         let request = request();
         let mut ledger = AuthorityConsumptionLedger::default();
         assert_eq!(ledger.consume(&grant, &request), Ok(()));
-        assert_eq!(ledger.consume(&grant, &request), Err(KernelError::CapabilityConsumed));
+        assert_eq!(
+            ledger.consume(&grant, &request),
+            Err(KernelError::CapabilityConsumed)
+        );
         let mut changed = request.clone();
         changed.request_digest = digest(44);
-        assert_eq!(ledger.consume(&grant, &changed), Err(KernelError::IdempotencyConflict));
+        assert_eq!(
+            ledger.consume(&grant, &changed),
+            Err(KernelError::IdempotencyConflict)
+        );
     }
 
     #[test]
     fn simulations_and_producer_assertions_are_not_metered_facts() {
         let mut observation = meter();
         observation.source = ClaimSource::Simulation;
-        assert_eq!(observation.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0), Err(KernelError::SimulationIsNotMeasurement));
+        assert_eq!(
+            observation.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0),
+            Err(KernelError::SimulationIsNotMeasurement)
+        );
         observation.source = ClaimSource::ProducerAssertion;
-        assert_eq!(observation.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0), Err(KernelError::InvalidClaim));
+        assert_eq!(
+            observation.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0),
+            Err(KernelError::InvalidClaim)
+        );
     }
 
     #[test]
     fn meter_interval_calibration_sequence_and_capacity_are_checked() {
-        assert_eq!(meter().interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0), Ok(900_000));
+        assert_eq!(
+            meter().interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0),
+            Ok(900_000)
+        );
         let mut invalid = meter();
         invalid.calibration_valid_until_micros = invalid.interval_end_micros - 1;
-        assert_eq!(invalid.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0), Err(KernelError::InvalidCalibration));
+        assert_eq!(
+            invalid.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0),
+            Err(KernelError::InvalidCalibration)
+        );
         let mut invalid = meter();
         invalid.sequence = 1;
-        assert_eq!(invalid.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0), Err(KernelError::InvalidMeterSequence));
+        assert_eq!(
+            invalid.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0),
+            Err(KernelError::InvalidMeterSequence)
+        );
         let mut invalid = meter();
         invalid.cumulative_register_wh = 1_000_001;
-        assert_eq!(invalid.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0), Err(KernelError::CapacityExceeded));
+        assert_eq!(
+            invalid.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0),
+            Err(KernelError::CapacityExceeded)
+        );
         let mut invalid = meter();
         invalid.boundary = MeasurementBoundary::GridExport;
-        assert_eq!(invalid.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0), Err(KernelError::InvalidBoundary));
+        assert_eq!(
+            invalid.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0),
+            Err(KernelError::InvalidBoundary)
+        );
         let mut invalid = meter();
         invalid.tolerance_bps = 10;
-        assert_eq!(invalid.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0), Err(KernelError::InvalidTolerance));
+        assert_eq!(
+            invalid.interval_energy_wh(MeasurementBoundary::InverterAcOutput, 0),
+            Err(KernelError::InvalidTolerance)
+        );
     }
 
     #[test]
@@ -1128,7 +1396,10 @@ mod tests {
         let observation = meter();
         let mut ledger = MeterSequenceLedger::default();
         assert_eq!(ledger.consume(&observation), Ok(()));
-        assert_eq!(ledger.consume(&observation), Err(KernelError::InvalidMeterSequence));
+        assert_eq!(
+            ledger.consume(&observation),
+            Err(KernelError::InvalidMeterSequence)
+        );
         let mut next = observation.clone();
         next.sequence += 1;
         assert_eq!(ledger.consume(&next), Ok(()));
@@ -1153,11 +1424,17 @@ mod tests {
             witnesses: vec![
                 VerifierWitness {
                     verifier_id: "verifier-001".into(),
-                    failure_domains: BTreeSet::from(["legal-entity-a".to_owned(), "meter-admin-a".to_owned()]),
+                    failure_domains: BTreeSet::from([
+                        "legal-entity-a".to_owned(),
+                        "meter-admin-a".to_owned(),
+                    ]),
                 },
                 VerifierWitness {
                     verifier_id: "verifier-002".into(),
-                    failure_domains: BTreeSet::from(["legal-entity-b".to_owned(), "meter-admin-b".to_owned()]),
+                    failure_domains: BTreeSet::from([
+                        "legal-entity-b".to_owned(),
+                        "meter-admin-b".to_owned(),
+                    ]),
                 },
             ],
             scope: "metered inverter AC output".into(),
@@ -1167,10 +1444,16 @@ mod tests {
         assert_eq!(validate_attestation(&claim, &valid), Ok(()));
         let mut tampered = valid.clone();
         tampered.claim_digest = digest(8);
-        assert_eq!(validate_attestation(&claim, &tampered), Err(KernelError::ClaimDigestMismatch));
+        assert_eq!(
+            validate_attestation(&claim, &tampered),
+            Err(KernelError::ClaimDigestMismatch)
+        );
         let mut wrong_evidence = valid.clone();
         wrong_evidence.evidence_digests = vec![digest(1)];
-        assert_eq!(validate_attestation(&claim, &wrong_evidence), Err(KernelError::EvidenceDigestMismatch));
+        assert_eq!(
+            validate_attestation(&claim, &wrong_evidence),
+            Err(KernelError::EvidenceDigestMismatch)
+        );
     }
 
     #[test]
@@ -1190,8 +1473,14 @@ mod tests {
         second_domains.insert("operator-b".to_owned());
         second_domains.insert("cloud-a".to_owned());
         let witnesses = [
-            VerifierWitness { verifier_id: "verifier-a".into(), failure_domains: first_domains },
-            VerifierWitness { verifier_id: "verifier-b".into(), failure_domains: second_domains },
+            VerifierWitness {
+                verifier_id: "verifier-a".into(),
+                failure_domains: first_domains,
+            },
+            VerifierWitness {
+                verifier_id: "verifier-b".into(),
+                failure_domains: second_domains,
+            },
         ];
         assert_eq!(
             validate_witness_independence("producer-001", &witnesses),
@@ -1208,10 +1497,19 @@ mod tests {
         second.insert("legal-entity-b".to_owned());
         second.insert("device-admin-b".to_owned());
         let witnesses = [
-            VerifierWitness { verifier_id: "verifier-a".into(), failure_domains: first },
-            VerifierWitness { verifier_id: "verifier-b".into(), failure_domains: second },
+            VerifierWitness {
+                verifier_id: "verifier-a".into(),
+                failure_domains: first,
+            },
+            VerifierWitness {
+                verifier_id: "verifier-b".into(),
+                failure_domains: second,
+            },
         ];
-        assert_eq!(validate_witness_independence("producer-001", &witnesses), Ok(()));
+        assert_eq!(
+            validate_witness_independence("producer-001", &witnesses),
+            Ok(())
+        );
     }
 
     #[test]
@@ -1226,11 +1524,23 @@ mod tests {
             authority_reference: "mandate-001".into(),
         };
         assert_eq!(
-            validate_acceptance(&acceptance, "obligation-001", digest(3), digest(4), &[digest(1), digest(2)]),
+            validate_acceptance(
+                &acceptance,
+                "obligation-001",
+                digest(3),
+                digest(4),
+                &[digest(1), digest(2)]
+            ),
             Ok(())
         );
         assert_eq!(
-            validate_acceptance(&acceptance, "obligation-001", digest(8), digest(4), &[digest(1), digest(2)]),
+            validate_acceptance(
+                &acceptance,
+                "obligation-001",
+                digest(8),
+                digest(4),
+                &[digest(1), digest(2)]
+            ),
             Err(KernelError::ContractDigestMismatch)
         );
     }
@@ -1239,32 +1549,50 @@ mod tests {
     fn offer_fills_conserve_quantity_and_reject_stale_or_oversized_fills() {
         let mut ledger = OfferLedger::default();
         ledger.create_offer("offer-001", 1_000).unwrap();
-        let first = ledger.fill("offer-001", 0, 600, "fill-1", digest(1)).unwrap();
+        let first = ledger
+            .fill("offer-001", 0, 600, "fill-1", digest(1))
+            .unwrap();
         assert!(matches!(first, FillDisposition::Applied(_)));
         assert_eq!(
             ledger.fill("offer-001", 0, 500, "fill-2", digest(2)),
-            Err(KernelError::OfferRevisionConflict { expected: 0, actual: 1 })
+            Err(KernelError::OfferRevisionConflict {
+                expected: 0,
+                actual: 1
+            })
         );
         assert_eq!(ledger.offer("offer-001").unwrap().remaining_wh, 400);
-        assert_eq!(ledger.fill("offer-001", 1, 401, "fill-3", digest(3)), Err(KernelError::OfferOverfilled));
+        assert_eq!(
+            ledger.fill("offer-001", 1, 401, "fill-3", digest(3)),
+            Err(KernelError::OfferOverfilled)
+        );
     }
 
     #[test]
     fn exact_offer_retry_returns_receipt_without_consuming_more_quantity() {
         let mut ledger = OfferLedger::default();
         ledger.create_offer("offer-001", 1_000).unwrap();
-        let first = ledger.fill("offer-001", 0, 400, "fill-1", digest(1)).unwrap();
-        let replay = ledger.fill("offer-001", 0, 400, "fill-1", digest(1)).unwrap();
+        let first = ledger
+            .fill("offer-001", 0, 400, "fill-1", digest(1))
+            .unwrap();
+        let replay = ledger
+            .fill("offer-001", 0, 400, "fill-1", digest(1))
+            .unwrap();
         assert_eq!(first, replay);
         assert_eq!(ledger.offer("offer-001").unwrap().remaining_wh, 600);
-        assert_eq!(ledger.fill("offer-001", 0, 400, "fill-1", digest(9)), Err(KernelError::IdempotencyConflict));
+        assert_eq!(
+            ledger.fill("offer-001", 0, 400, "fill-1", digest(9)),
+            Err(KernelError::IdempotencyConflict)
+        );
     }
 
     #[test]
     fn collateral_identity_can_only_be_pledged_once() {
         let mut ledger = CollateralLedger::default();
         ledger.pledge("asset-001", "loan-001").unwrap();
-        assert_eq!(ledger.pledge("asset-001", "loan-002"), Err(KernelError::DuplicateCollateral));
+        assert_eq!(
+            ledger.pledge("asset-001", "loan-002"),
+            Err(KernelError::DuplicateCollateral)
+        );
         assert_eq!(ledger.pledged_to("asset-001"), Some("loan-001"));
     }
 
@@ -1273,8 +1601,13 @@ mod tests {
         let mut ledger = PaymentLedger::default();
         let request = payment_request("key-1", 10_000, 1);
         assert_eq!(ledger.begin(request.clone()), Ok(BeginPayment::NewIntent));
-        ledger.reconcile("key-1", RailOutcome::Indeterminate).unwrap();
-        assert_eq!(ledger.begin(request), Ok(BeginPayment::ReconciliationRequired));
+        ledger
+            .reconcile("key-1", RailOutcome::Indeterminate)
+            .unwrap();
+        assert_eq!(
+            ledger.begin(request),
+            Ok(BeginPayment::ReconciliationRequired)
+        );
         assert_eq!(ledger.side_effect_attempts(), 1);
     }
 
@@ -1283,12 +1616,17 @@ mod tests {
         let mut ledger = PaymentLedger::default();
         let request = payment_request("key-1", 10_000, 1);
         ledger.begin(request.clone()).unwrap();
-        let final_status = ledger.reconcile(
-            "key-1",
-            RailOutcome::PaidFinal(receipt(&request, "rail-receipt-1")),
-        ).unwrap();
+        let final_status = ledger
+            .reconcile(
+                "key-1",
+                RailOutcome::PaidFinal(receipt(&request, "rail-receipt-1")),
+            )
+            .unwrap();
         assert!(matches!(final_status, PaymentStatus::PaidFinal { .. }));
-        assert_eq!(ledger.begin(request), Ok(BeginPayment::ExactReplay(final_status)));
+        assert_eq!(
+            ledger.begin(request),
+            Ok(BeginPayment::ExactReplay(final_status))
+        );
         assert_eq!(ledger.side_effect_attempts(), 1);
     }
 
@@ -1316,10 +1654,19 @@ mod tests {
     fn manual_attestation_is_not_paid_final() {
         let mut ledger = PaymentLedger::default();
         ledger.begin(payment_request("key-1", 10_000, 1)).unwrap();
-        ledger.reconcile("key-1", RailOutcome::Indeterminate).unwrap();
-        let manual = ledger.record_manual_attestation(
-            "key-1", "observer-a", "observer-b", "community", "installer", "manual-evidence-1"
-        ).unwrap();
+        ledger
+            .reconcile("key-1", RailOutcome::Indeterminate)
+            .unwrap();
+        let manual = ledger
+            .record_manual_attestation(
+                "key-1",
+                "observer-a",
+                "observer-b",
+                "community",
+                "installer",
+                "manual-evidence-1",
+            )
+            .unwrap();
         assert!(matches!(manual, PaymentStatus::ManualAttested { .. }));
         assert!(!matches!(manual, PaymentStatus::PaidFinal { .. }));
     }
@@ -1329,11 +1676,19 @@ mod tests {
         let mut ledger = PaymentLedger::default();
         let first = payment_request("key-1", 10_000, 1);
         ledger.begin(first.clone()).unwrap();
-        ledger.reconcile("key-1", RailOutcome::PaidFinal(receipt(&first, "shared-receipt"))).unwrap();
+        ledger
+            .reconcile(
+                "key-1",
+                RailOutcome::PaidFinal(receipt(&first, "shared-receipt")),
+            )
+            .unwrap();
         let second = payment_request("key-2", 10_000, 2);
         ledger.begin(second.clone()).unwrap();
         assert_eq!(
-            ledger.reconcile("key-2", RailOutcome::PaidFinal(receipt(&second, "shared-receipt"))),
+            ledger.reconcile(
+                "key-2",
+                RailOutcome::PaidFinal(receipt(&second, "shared-receipt"))
+            ),
             Err(KernelError::DuplicateExternalReceipt)
         );
         assert_eq!(ledger.status("key-2"), Some(&PaymentStatus::Submitted));
@@ -1344,9 +1699,17 @@ mod tests {
         const CORPUS: &str = include_str!("../pcoe-scenarios.v0.1.json");
         let mut ids = BTreeSet::new();
         for item in SCENARIO_COVERAGE {
-            assert!(ids.insert(item.id), "duplicate scenario mapping: {}", item.id);
+            assert!(
+                ids.insert(item.id),
+                "duplicate scenario mapping: {}",
+                item.id
+            );
             let needle = format!("\"id\": \"{}\"", item.id);
-            assert!(CORPUS.contains(&needle), "scenario missing from corpus: {}", item.id);
+            assert!(
+                CORPUS.contains(&needle),
+                "scenario missing from corpus: {}",
+                item.id
+            );
         }
         assert_eq!(ids.len(), 39);
         assert_eq!(CORPUS.matches("\"id\":").count(), 39);
@@ -1357,9 +1720,17 @@ mod tests {
         const CORPUS: &str = include_str!("../pcoe-agent-authority-scenarios.v0.1.json");
         let mut ids = BTreeSet::new();
         for item in AGENT_SCENARIO_COVERAGE {
-            assert!(ids.insert(item.id), "duplicate agent scenario mapping: {}", item.id);
+            assert!(
+                ids.insert(item.id),
+                "duplicate agent scenario mapping: {}",
+                item.id
+            );
             let needle = format!("\"id\": \"{}\"", item.id);
-            assert!(CORPUS.contains(&needle), "agent scenario missing from corpus: {}", item.id);
+            assert!(
+                CORPUS.contains(&needle),
+                "agent scenario missing from corpus: {}",
+                item.id
+            );
         }
         assert_eq!(ids.len(), 10);
         assert_eq!(CORPUS.matches("\"id\":").count(), 10);
@@ -1370,9 +1741,17 @@ mod tests {
         const CORPUS: &str = include_str!("../pcoe-transparency-metrology-scenarios.v0.1.json");
         let mut ids = BTreeSet::new();
         for item in TRANSPARENCY_METROLOGY_SCENARIO_COVERAGE {
-            assert!(ids.insert(item.id), "duplicate transparency/metrology scenario mapping: {}", item.id);
+            assert!(
+                ids.insert(item.id),
+                "duplicate transparency/metrology scenario mapping: {}",
+                item.id
+            );
             let needle = format!("\"id\": \"{}\"", item.id);
-            assert!(CORPUS.contains(&needle), "scenario missing from transparency/metrology corpus: {}", item.id);
+            assert!(
+                CORPUS.contains(&needle),
+                "scenario missing from transparency/metrology corpus: {}",
+                item.id
+            );
         }
         assert_eq!(ids.len(), 10);
         assert_eq!(CORPUS.matches("\"id\":").count(), 10);
