@@ -865,6 +865,11 @@ mod tests {
         let original = binding("publish-123");
         let mut recovered_input = NatsCommandBindingInput {
             account_id: "account-a".into(),
+            realm_id: "realm-a".into(),
+            resource_id: "resource-a".into(),
+            action_id: "balance-adjust".into(),
+            object_id: "account-a".into(),
+            currency_code: "USD".into(),
             stream_name: "MYCELIX_COMMANDS".into(),
             subject: "mycelix.command.resource-a".into(),
             consumer_name: "effect-workers".into(),
