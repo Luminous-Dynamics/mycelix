@@ -188,11 +188,7 @@
           ]
         },
         "verification_state": {
-          "enum": [
-            "unverified",
-            "verified",
-            "revoked"
-          ]
+          "const": "unverified"
         }
       }
     }
