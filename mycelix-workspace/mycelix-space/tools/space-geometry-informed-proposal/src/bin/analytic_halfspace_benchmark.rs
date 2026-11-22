@@ -43,7 +43,7 @@ fn phi(x: f64) -> f64 {
 }
 
 // Midpoint quadrature on [a,10]; omitted standard-normal tail beyond 10 is negligible.
-fn exact_normal_tail(a: f64) -> f64 {
+fn reference_normal_tail(a: f64) -> f64 {
     let h = 0.0005;
     let count = ((10.0 - a) / h).ceil() as usize;
     (0..count)
@@ -133,10 +133,10 @@ fn mean(values: &[f64]) -> f64 {
 
 fn main() {
     println!(
-        "threshold,exact_normal_tail,method,mean_estimate,rmse,rmse_gain_vs_crude,mean_upper_95pct,upper_coverage,mean_event_ess,samples_per_replicate,replicates"
+        "threshold,reference_normal_tail,method,mean_estimate,rmse,rmse_gain_vs_crude,mean_upper_95pct,upper_coverage,mean_event_ess,samples_per_replicate,replicates"
     );
     for (case, threshold) in [2.5_f64, 3.5, 4.5].into_iter().enumerate() {
-        let truth = exact_normal_tail(threshold);
+        let truth = reference_normal_tail(threshold);
         let proposal = proposal(threshold, &format!("geo-halfspace-{case}"));
         if let Err(error) = proposal.validate() {
             eprintln!("invalid proposal: {error}");
