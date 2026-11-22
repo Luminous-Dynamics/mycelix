@@ -118,7 +118,7 @@ The real PostgreSQL/NATS integration test:
 8. publishes the command to JetStream and receives it through the durable pull consumer;
 9. uses the verified PostgreSQL receipt capability to request AckSync for the exact delivery.
 
-The workflow provisions PostgreSQL 16.16 with TLS, applies both existing reference SQL migrations, starts NATS 2.15.3 with JetStream, and then runs the contract, adapter and real-service tests.
+The base PostgreSQL receipt-verifier workflow provisioned PostgreSQL 16.16 with TLS, applied migrations 001/002 and started NATS 2.15.3. The owner-epoch follow-on adds migration 003, executes its SQL adversarial script, and changes the PostgreSQL/NATS integration to require the resulting execution-attestation row. That follow-on still requires its own exact-head run.
 
 ## 8. Benchmarks
 
@@ -138,7 +138,7 @@ The performance corpus remains preregistered until CI and a repeatable open-loop
 - No PostgreSQL-backed verifier result has been executed yet.
 - No production PostgreSQL credentials, client certificate, CA rotation or service discovery policy is qualified.
 - The test uses a generated CA and a superuser on a disposable database; production should use a dedicated read-only receipt-verifier role and tightly scoped database grants, while still routing to the authoritative primary.
-- The current ledger does not persist owner epoch. This verifier compares accepted resource generation only; epoch monotonicity remains independently enforced/verified.
+- The pre-migration effect_commits row did not persist owner epoch or worker-claim history. Migration 003 adds effect_execution_attestations and the verifier follow-on joins it with effect_commits and the owner-epoch transition ledger. This owner-epoch implementation remains unqualified until its own exact-head workflow passes.
 - Synchronous commit in the test does not qualify synchronous replication, failover or promotion.
 - Terminal rejection, terminal no-effect and reconciliation handoff are unsupported until they have their own durable receipt tables.
 - No clustered NATS, PostgreSQL failover, latency, throughput or SOTA result is claimed.
