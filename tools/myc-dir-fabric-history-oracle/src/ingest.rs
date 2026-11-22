@@ -49,7 +49,14 @@ pub enum VerificationStatus {
 /// OwnerAcknowledged event receipts. A boolean supplied by the caller is not
 /// accepted as proof.
 pub trait EvidenceAuthenticator {
-    fn verify_source_manifest(&self, manifest: &SourceStreamManifest) -> VerificationStatus;
+    /// Verify the signed manifest and independently recompute its event-set
+    /// commitment over these exact records in canonical event-ID order. The
+    /// adapter must also establish that the signed cursor interval is complete.
+    fn verify_source_manifest(
+        &self,
+        manifest: &SourceStreamManifest,
+        covered_events: &[&EventRecord],
+    ) -> VerificationStatus;
 
     fn verify_inventory_closure(&self, inventory_event: &EventRecord) -> VerificationStatus;
 
@@ -418,9 +425,14 @@ pub fn ingest_history(
             );
         }
 
+        let covered_events: Vec<&EventRecord> = manifest
+            .expected_event_ids
+            .iter()
+            .filter_map(|event_id| events_by_id.get(event_id).copied())
+            .collect();
         record_verification(
             &mut findings,
-            authenticator.verify_source_manifest(manifest),
+            authenticator.verify_source_manifest(manifest, &covered_events),
             IngestFindingCode::SourceManifestInvalid,
             IngestFindingCode::SourceManifestUnavailable,
             Some(&stream_label),
@@ -557,7 +569,7 @@ pub fn ingest_history(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{FencePosition, FindingCode};
+    use crate::FencePosition;
 
     struct TestAuthenticator {
         source: VerificationStatus,
@@ -566,7 +578,11 @@ mod tests {
     }
 
     impl EvidenceAuthenticator for TestAuthenticator {
-        fn verify_source_manifest(&self, _manifest: &SourceStreamManifest) -> VerificationStatus {
+        fn verify_source_manifest(
+            &self,
+            _manifest: &SourceStreamManifest,
+            _covered_events: &[&EventRecord],
+        ) -> VerificationStatus {
             self.source
         }
 
