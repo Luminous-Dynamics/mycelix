@@ -23,7 +23,7 @@ From the repository root:
 cargo test --manifest-path tools/myc-dir-fabric-nats-reference/Cargo.toml
 ```
 
-There are currently 21 authored unit tests. They have **not** been compiled or executed in the editing environment.
+There are 21 unit tests. On exact PR head `1105375305704c019b7d2ccecda78a18dc0e7faf`, GitHub Actions run [#45000430944](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45000430944) passed all 21 tests, formatting and Clippy.
 
 ## Explicit limits
 
