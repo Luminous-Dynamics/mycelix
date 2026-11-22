@@ -171,8 +171,34 @@ Adopt a layered approach similar to established rigorous distributed-database te
 
 The initial qualification should use one real PostgreSQL owner and one NATS JetStream adapter. Then add heterogeneous owner instances and the full RabbitMQ/Kafka matrix. Run at least ten independent open-loop performance repetitions only after correctness gates pass.
 
-## 10. Evidence boundaries
+## 10. Initial source implementation (2026-11-22)
 
-This note is a research contract, not an implemented history checker. Porcupine, Jepsen and FoundationDB are comparators and sources of methodology; no claim is made that Mycelix currently matches their implementation depth, fault volume or maturity. No history has been independently checked and no oracle performance is measured yet.
+The first independent checker source is now present in the standalone, dependency-free crate:
+
+- `tools/myc-dir-fabric-history-oracle/Cargo.toml`
+- `tools/myc-dir-fabric-history-oracle/src/lib.rs`
+- `tools/myc-dir-fabric-history-oracle/README.md`
+
+The crate is intentionally separate from the production reference crate. It implements a three-valued audit result and checks:
+- unique event IDs, causal parent existence and cycle detection;
+- owner-local sequence uniqueness and consistency with the causal DAG;
+- owner bootstrap and monotonic epoch/generation fencing;
+- effect commit against the owner position current at the owner-local commit sequence;
+- worker-claim freshness at that same commit point;
+- effect-attempt, idempotency and logical-operation bindings;
+- Unknown outcome reconciliation and exact retry-after-confirmed-no-effect;
+- fence commit, durable read-back and owner acknowledgement lineage;
+- exact global owner-set equality;
+- post-barrier route activation with exact inventory membership and owner read-back.
+
+There are currently 13 authored unit tests. These are **not compiled or executed**. Source inspection and GitHub fetch-back are not compiler evidence.
+
+The current oracle deliberately treats source completeness and authentication as upstream trust boundaries. Its caller must independently authenticate source records, verify signatures/proofs and set `event_set_complete` / `complete_owner_streams` only when that completeness is established. A false completeness assertion can invalidate the result. The checker does not prove inventory completeness, cryptographic authenticity, WAL durability or a distributed consensus protocol.
+
+The first slice is not yet a Porcupine or Jepsen replacement. The next step is to build a separate evidence-ingest adapter and an executable safe/unsafe history corpus, then compare generic operation-history checks with Porcupine/Jepsen-compatible models.
+
+## 11. Evidence boundaries
+
+This note is a research contract plus an initial source-present checker. Porcupine, Jepsen and FoundationDB are comparators and sources of methodology; no claim is made that Mycelix currently matches their implementation depth, fault volume or maturity. No history has been checked by an executed checker and no oracle performance is measured yet.
 
 The production reference crate remains dependency-free. The checker may live in a separate qualification harness so that independent tooling does not become part of the production authorization path.
