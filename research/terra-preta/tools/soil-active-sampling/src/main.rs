@@ -612,7 +612,7 @@ mod tests {
             adaptive_report.event_detected
         );
         assert!(adaptive_report.sample_count <= adaptive_report.sample_budget);
-        assert_eq!(adaptive_report.candidate_truth_access, false);
+        assert!(!adaptive_report.candidate_truth_access);
     }
 
     #[test]
