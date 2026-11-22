@@ -542,7 +542,7 @@ mod tests {
         if history.len() == horizon {
             return;
         }
-        if log_crosses(history, p0, delta, &grid()) {
+        if log_crosses(history, p0, delta) {
             *crossing_mass += mass;
             return;
         }
