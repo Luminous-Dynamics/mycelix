@@ -663,16 +663,14 @@ fn robustly_dominates(a: &Alternative, b: &Alternative, indicators: &[Indicator]
     for i in indicators {
         let am = measurement(a, &i.indicator_id);
         let bm = measurement(b, &i.indicator_id);
-        let (a_low, a_high, b_high) = if i.direction == "higher_is_better" {
+        let (a_low, b_high) = if i.direction == "higher_is_better" {
             (
                 am.value - 1.96 * am.standard_error,
-                am.value + 1.96 * am.standard_error,
                 bm.value + 1.96 * bm.standard_error,
             )
         } else {
             (
                 -(am.value + 1.96 * am.standard_error),
-                -(am.value - 1.96 * am.standard_error),
                 -(bm.value - 1.96 * bm.standard_error),
             )
         };
