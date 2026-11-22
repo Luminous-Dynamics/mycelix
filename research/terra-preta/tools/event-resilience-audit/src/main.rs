@@ -115,8 +115,14 @@ struct Report {
     recovery_time_from_stress_end_hours: Option<f64>,
     recovery_time_status: &'static str,
     pulse_burden_absolute_anomaly_unit_hours: Option<f64>,
+    pulse_burden_positive_anomaly_unit_hours: Option<f64>,
+    pulse_burden_negative_anomaly_unit_hours: Option<f64>,
+    pulse_burden_signed_anomaly_unit_hours: Option<f64>,
     pulse_burden_status: &'static str,
     maximum_inter_observation_gap_hours: f64,
+    baseline_max_gap_hours: Option<f64>,
+    stress_max_gap_hours: Option<f64>,
+    recovery_max_gap_hours: Option<f64>,
     max_observed_gap_hours: Option<f64>,
     uncertainty_status: &'static str,
     controls: Controls,
@@ -368,6 +374,24 @@ fn max_gap(observations: &[Observation]) -> Option<f64> {
         .max_by(f64::total_cmp)
 }
 
+fn phase_max_gap(observations: &[Observation], phase: &str) -> Option<f64> {
+    let phase_observations: Vec<&Observation> =
+        observations.iter().filter(|o| o.phase == phase).collect();
+    phase_observations
+        .windows(2)
+        .map(|pair| pair[1].elapsed_hours - pair[0].elapsed_hours)
+        .max_by(f64::total_cmp)
+}
+
+#[derive(Debug, Default)]
+struct PulseBurden {
+    absolute: Option<f64>,
+    positive: Option<f64>,
+    negative: Option<f64>,
+    signed: Option<f64>,
+    status: &'static str,
+}
+
 fn compute_recovery_time(
     s: &Scenario,
     baseline: f64,
@@ -407,17 +431,11 @@ fn compute_recovery_time(
     (None, "no_sustained_recovery_observed")
 }
 
-fn pulse_burden(s: &Scenario, baseline: f64) -> (Option<f64>, &'static str) {
-    let onset = s
-        .observations
-        .iter()
-        .any(|o| o.elapsed_hours == s.event.event_start_hours);
-    let end = s
-        .observations
-        .iter()
-        .any(|o| o.elapsed_hours == s.event.recovery_end_hours);
+fn pulse_burden(s: &Scenario, baseline: f64) -> PulseBurden {
+    let onset = s.observations.iter().any(|o| o.elapsed_hours == s.event.event_start_hours);
+    let end = s.observations.iter().any(|o| o.elapsed_hours == s.event.recovery_end_hours);
     if !onset || !end {
-        return (None, "missing_event_boundary");
+        return PulseBurden { status: "missing_event_boundary", ..PulseBurden::default() };
     }
     let series: Vec<&Observation> = s
         .observations
@@ -428,26 +446,62 @@ fn pulse_burden(s: &Scenario, baseline: f64) -> (Option<f64>, &'static str) {
         })
         .collect();
     if series.len() < 2 {
-        return (None, "missing_event_boundary");
+        return PulseBurden { status: "missing_event_boundary", ..PulseBurden::default() };
     }
-    let mut area = 0.0;
+
+    let mut positive_area = 0.0;
+    let mut negative_area = 0.0;
     for pair in series.windows(2) {
         let gap = pair[1].elapsed_hours - pair[0].elapsed_hours;
         if gap > s.config.maximum_inter_observation_gap_hours {
-            return (None, "gap_exceeded");
+            return PulseBurden { status: "gap_exceeded", ..PulseBurden::default() };
         }
-        let a = (pair[0].response_value - baseline).abs();
-        let b = (pair[1].response_value - baseline).abs();
-        area += 0.5 * (a + b) * gap;
+
+        // Integrate the piecewise-linear anomaly exactly. If the response
+        // crosses baseline, split the interval at the zero crossing instead
+        // of applying a trapezoid to endpoint absolute values (which would
+        // overstate area for a V-shaped absolute-anomaly curve).
+        let d0 = pair[0].response_value - baseline;
+        let d1 = pair[1].response_value - baseline;
+        if d0 >= 0.0 && d1 >= 0.0 {
+            positive_area += 0.5 * (d0 + d1) * gap;
+        } else if d0 <= 0.0 && d1 <= 0.0 {
+            negative_area += 0.5 * (d0.abs() + d1.abs()) * gap;
+        } else {
+            let fraction_to_zero = d0.abs() / (d0.abs() + d1.abs());
+            let first_duration = gap * fraction_to_zero;
+            let second_duration = gap - first_duration;
+            if d0 > 0.0 {
+                positive_area += 0.5 * d0.abs() * first_duration;
+                negative_area += 0.5 * d1.abs() * second_duration;
+            } else {
+                negative_area += 0.5 * d0.abs() * first_duration;
+                positive_area += 0.5 * d1.abs() * second_duration;
+            }
+        }
     }
-    (Some(area), "qualified_complete_event_integral")
+
+    PulseBurden {
+        absolute: Some(positive_area + negative_area),
+        positive: Some(positive_area),
+        negative: Some(negative_area),
+        signed: Some(positive_area - negative_area),
+        status: "qualified_complete_event_integral",
+    }
 }
 
 fn build_report(s: &Scenario, digest: String) -> Report {
     let counts = phase_counts(&s.observations);
-    let enough = counts.baseline >= s.config.minimum_baseline_observations
+    let enough_counts = counts.baseline >= s.config.minimum_baseline_observations
         && counts.stress >= s.config.minimum_stress_observations
         && counts.recovery >= s.config.minimum_recovery_observations;
+    let baseline_max_gap = phase_max_gap(&s.observations, "baseline");
+    let stress_max_gap = phase_max_gap(&s.observations, "stress");
+    let recovery_max_gap = phase_max_gap(&s.observations, "recovery");
+    let cadence_ok = [baseline_max_gap, stress_max_gap, recovery_max_gap]
+        .into_iter()
+        .all(|gap| gap.is_some_and(|value| value <= s.config.maximum_inter_observation_gap_hours));
+    let enough = enough_counts && cadence_ok;
     let baseline_obs: Vec<&Observation> = s
         .observations
         .iter()
@@ -489,8 +543,15 @@ fn build_report(s: &Scenario, digest: String) -> Report {
     } else {
         compute_recovery_time(s, baseline_value.unwrap_or(0.0), &recovery_obs)
     };
-    let (burden, burden_status) = if !enough {
-        (None, "insufficient_phase_coverage")
+    let burden = if !enough {
+        PulseBurden {
+            status: if !enough_counts {
+                "insufficient_phase_coverage"
+            } else {
+                "gap_exceeded"
+            },
+            ..PulseBurden::default()
+        }
     } else {
         pulse_burden(s, baseline_value.unwrap_or(0.0))
     };
@@ -509,10 +570,12 @@ fn build_report(s: &Scenario, digest: String) -> Report {
         response_support_description: s.response.support_description.clone().unwrap_or_default(),
         forcing_variable: s.forcing.variable.clone(),
         forcing_unit: s.forcing.unit.clone(),
-        analysis_status: if enough {
-            "qualified_descriptive_event"
-        } else {
+        analysis_status: if !enough_counts {
             "insufficient_phase_coverage"
+        } else if !cadence_ok {
+            "sampling_gap_exceeded"
+        } else {
+            "qualified_descriptive_event"
         },
         phase_counts: counts,
         baseline_mean: baseline_value,
@@ -525,16 +588,22 @@ fn build_report(s: &Scenario, digest: String) -> Report {
         recovery_fraction,
         recovery_time_from_stress_end_hours: recovery_time,
         recovery_time_status,
-        pulse_burden_absolute_anomaly_unit_hours: burden,
-        pulse_burden_status: burden_status,
+        pulse_burden_absolute_anomaly_unit_hours: burden.absolute,
+        pulse_burden_positive_anomaly_unit_hours: burden.positive,
+        pulse_burden_negative_anomaly_unit_hours: burden.negative,
+        pulse_burden_signed_anomaly_unit_hours: burden.signed,
+        pulse_burden_status: burden.status,
         maximum_inter_observation_gap_hours: s.config.maximum_inter_observation_gap_hours,
+        baseline_max_gap_hours: baseline_max_gap,
+        stress_max_gap_hours: stress_max_gap,
+        recovery_max_gap_hours: recovery_max_gap,
         max_observed_gap_hours: max_gap(&s.observations),
         uncertainty_status: UNCERTAINTY_STATUS,
         controls: Controls {
             same_experimental_unit_pass: true,
             strict_time_order_pass: true,
             phase_window_consistency_pass: true,
-            no_gap_bridging_pass: true,
+            no_gap_bridging_pass: cadence_ok,
             no_causal_claim_pass: true,
             no_aggregate_resilience_score_pass: true,
         },
@@ -610,6 +679,25 @@ mod tests {
         let r = build_report(&s, "0".repeat(64));
         assert_eq!(r.pulse_burden_absolute_anomaly_unit_hours, None);
         assert_eq!(r.pulse_burden_status, "gap_exceeded");
+        assert_eq!(r.analysis_status, "sampling_gap_exceeded");
+        assert!(!r.controls.no_gap_bridging_pass);
+    }
+
+    #[test]
+    fn absolute_pulse_integral_splits_at_zero_crossings() {
+        let mut s = scenario();
+        s.observations[3].response_value = 12.0;
+        s.observations[4].response_value = 8.0;
+        s.observations[5].response_value = 10.0;
+        s.observations[6].response_value = 10.0;
+        for o in s.observations.iter_mut().skip(7) {
+            o.response_value = 10.0;
+        }
+        let r = build_report(&s, "0".repeat(64));
+        assert_eq!(r.pulse_burden_positive_anomaly_unit_hours, Some(9.0));
+        assert_eq!(r.pulse_burden_negative_anomaly_unit_hours, Some(3.0));
+        assert_eq!(r.pulse_burden_absolute_anomaly_unit_hours, Some(12.0));
+        assert_eq!(r.pulse_burden_signed_anomaly_unit_hours, Some(6.0));
     }
 
     #[test]
