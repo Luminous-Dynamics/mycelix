@@ -447,9 +447,9 @@ mod tests {
     fn active_publication_window_does_not_imply_capacity_availability() {
         let offer = valid_offer();
         assert_eq!(
-            offer.publication_disposition_at(1_500),
+            offer.publication_disposition_at(1_500).unwrap(),
             ResourceOfferPublicationDispositionV1::ActiveOfferWindow
-        ).unwrap();
+        );
         assert!(offer.availability_calendar_ref.is_none());
     }
 
@@ -457,9 +457,9 @@ mod tests {
     fn expiry_is_derived_from_the_validity_interval() {
         let offer = valid_offer();
         assert_eq!(
-            offer.publication_disposition_at(2_000),
+            offer.publication_disposition_at(2_000).unwrap(),
             ResourceOfferPublicationDispositionV1::Expired
-        ).unwrap();
+        );
     }
 
     #[test]
