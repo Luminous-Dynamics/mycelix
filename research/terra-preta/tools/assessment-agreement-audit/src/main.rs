@@ -674,10 +674,11 @@ fn robustly_dominates(a: &Alternative, b: &Alternative, indicators: &[Indicator]
                 -(bm.value - 1.96 * bm.standard_error),
             )
         };
-        if a_low < b_high {
+        const COMPARISON_EPSILON: f64 = 1e-10;
+        if a_low + COMPARISON_EPSILON < b_high {
             return false;
         }
-        if a_low > b_high {
+        if a_low > b_high + COMPARISON_EPSILON {
             strict = true;
         }
     }
@@ -1018,6 +1019,45 @@ mod tests {
                 .map(|x| (&x.alternative_id, x.eligible))
                 .collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn touching_uncertainty_intervals_do_not_create_strict_dominance() {
+        let s = scenario();
+        let mut a = s
+            .alternatives
+            .iter()
+            .find(|x| x.alternative_id == "A-carbon-heavy")
+            .unwrap()
+            .clone();
+        let mut b = s
+            .alternatives
+            .iter()
+            .find(|x| x.alternative_id == "B-balanced")
+            .unwrap()
+            .clone();
+
+        for indicator in &s.indicators {
+            let am = a
+                .measurements
+                .iter_mut()
+                .find(|m| m.indicator_id == indicator.indicator_id)
+                .unwrap();
+            let bm = b
+                .measurements
+                .iter_mut()
+                .find(|m| m.indicator_id == indicator.indicator_id)
+                .unwrap();
+            am.standard_error = 0.1;
+            bm.standard_error = 0.1;
+            let gap = 1.96 * (am.standard_error + bm.standard_error);
+            if indicator.direction == "higher_is_better" {
+                am.value = bm.value + gap;
+            } else {
+                am.value = bm.value - gap;
+            }
+        }
+        assert!(!robustly_dominates(&a, &b, &s.indicators));
     }
 
     #[test]
