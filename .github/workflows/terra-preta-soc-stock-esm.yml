@@ -41,11 +41,12 @@ jobs:
             "$RUNNER_TEMP/soc-stock-esm-report.json"
           jsonschema-cli validate research/terra-preta/schemas/soc-stock-esm-report.schema.json \
             --instance "$RUNNER_TEMP/soc-stock-esm-report.json" --draft 2020 --assert-format
+          jq '{rounds: [.rounds[] | {round_id, mean_fixed_depth_soc_stock_megagrams_carbon_per_ha, mean_esm_soc_stock_megagrams_carbon_per_ha}], temporal_change}' "$RUNNER_TEMP/soc-stock-esm-report.json"
           jq -e '
             .fixture_status == "synthetic_only_not_empirical_evidence" and
             (.rounds | length) == 2 and
-            (.rounds[0].mean_fixed_depth_soc_stock_megagrams_carbon_per_ha == 39.204) and
-            (.rounds[1].mean_fixed_depth_soc_stock_megagrams_carbon_per_ha == 43.1244) and
+            ((.rounds[0].mean_fixed_depth_soc_stock_megagrams_carbon_per_ha - 39.204) | fabs) < 0.000001 and
+            ((.rounds[1].mean_fixed_depth_soc_stock_megagrams_carbon_per_ha - 43.1244) | fabs) < 0.000001 and
             ((.rounds[0].mean_esm_soc_stock_megagrams_carbon_per_ha - .rounds[1].mean_esm_soc_stock_megagrams_carbon_per_ha) | fabs) < 0.000001 and
             (.temporal_change.fixed_depth_stock_change_megagrams_carbon_per_ha > 3.9) and
             ((.temporal_change.esm_stock_change_megagrams_carbon_per_ha | fabs) < 0.000001) and
