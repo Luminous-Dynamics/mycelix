@@ -264,22 +264,22 @@ impl ManufacturingResourceOfferV1 {
             ResourceOfferPublicationDispositionV1::LifecycleEventsUnresolved
         } else {
             match self.publication_state {
-            ResourceOfferPublicationStateV1::Withdrawn => {
-                ResourceOfferPublicationDispositionV1::Withdrawn
-            }
-            ResourceOfferPublicationStateV1::Published
-                if evaluation_time_unix_s < self.valid_from_unix_s =>
-            {
-                ResourceOfferPublicationDispositionV1::NotYetValid
-            }
-            ResourceOfferPublicationStateV1::Published
-                if evaluation_time_unix_s >= self.valid_until_unix_s =>
-            {
-                ResourceOfferPublicationDispositionV1::Expired
-            }
-            ResourceOfferPublicationStateV1::Published => {
-                ResourceOfferPublicationDispositionV1::ActiveOfferWindow
-            }
+                ResourceOfferPublicationStateV1::Withdrawn => {
+                    ResourceOfferPublicationDispositionV1::Withdrawn
+                }
+                ResourceOfferPublicationStateV1::Published
+                    if evaluation_time_unix_s < self.valid_from_unix_s =>
+                {
+                    ResourceOfferPublicationDispositionV1::NotYetValid
+                }
+                ResourceOfferPublicationStateV1::Published
+                    if evaluation_time_unix_s >= self.valid_until_unix_s =>
+                {
+                    ResourceOfferPublicationDispositionV1::Expired
+                }
+                ResourceOfferPublicationStateV1::Published => {
+                    ResourceOfferPublicationDispositionV1::ActiveOfferWindow
+                }
             }
         };
         Ok(disposition)
