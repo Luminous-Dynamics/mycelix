@@ -256,7 +256,14 @@ impl ManufacturingResourceOfferV1 {
         evaluation_time_unix_s: u64,
     ) -> Result<ResourceOfferPublicationDispositionV1, String> {
         self.validate()?;
-        let disposition = match self.publication_state {
+        let disposition = if self.publication_state == ResourceOfferPublicationStateV1::Withdrawn {
+            ResourceOfferPublicationDispositionV1::Withdrawn
+        } else if !self.lifecycle_event_refs.is_empty() {
+            // Presence means an event must be resolved. Unknown event state
+            // cannot safely fall through to an active publication window.
+            ResourceOfferPublicationDispositionV1::LifecycleEventsUnresolved
+        } else {
+            match self.publication_state {
             ResourceOfferPublicationStateV1::Withdrawn => {
                 ResourceOfferPublicationDispositionV1::Withdrawn
             }
@@ -272,6 +279,7 @@ impl ManufacturingResourceOfferV1 {
             }
             ResourceOfferPublicationStateV1::Published => {
                 ResourceOfferPublicationDispositionV1::ActiveOfferWindow
+            }
             }
         };
         Ok(disposition)
@@ -297,6 +305,7 @@ pub enum ResourceOfferPublicationDispositionV1 {
     ActiveOfferWindow,
     Expired,
     Withdrawn,
+    LifecycleEventsUnresolved,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -484,7 +493,7 @@ mod tests {
         assert_eq!(offer.validate(), Ok(()));
         assert_eq!(
             offer.publication_disposition_at(1_500).unwrap(),
-            ResourceOfferPublicationDispositionV1::ActiveOfferWindow
+            ResourceOfferPublicationDispositionV1::LifecycleEventsUnresolved
         );
         // The event remains unresolved until its owner-native resolver runs.
     }
@@ -509,6 +518,17 @@ mod tests {
             ResourceOfferPublicationDispositionV1::ActiveOfferWindow
         );
         assert!(offer.availability_calendar_ref.is_none());
+    }
+
+    #[test]
+    fn unresolved_lifecycle_event_never_falls_through_to_an_active_offer_window() {
+        let mut offer = valid_offer();
+        offer.lifecycle_event_refs = vec![owner_ref("resource.lifecycle/1", "event-unknown", '8')];
+        assert_eq!(
+            offer.publication_disposition_at(1_500).unwrap(),
+            ResourceOfferPublicationDispositionV1::LifecycleEventsUnresolved
+        );
+        // The event may be benign or adverse; until resolved it cannot support a positive state.
     }
 
     #[test]
