@@ -1,0 +1,262 @@
+{
+  "profile": "MYC-DIR-EFFECT-HISTORY-ORACLE-0.1",
+  "version": "0.1.0",
+  "status": "preregistered_not_executed",
+  "claim_ceiling": "Synthetic conformance corpus for an independent Directory Fabric effect-history checker. No oracle test, benchmark, database, broker, or fault-injection result is executed or qualified.",
+  "verdicts": [
+    "VALID",
+    "VIOLATION",
+    "INCONCLUSIVE"
+  ],
+  "core_rule": "Incomplete, missing, unauthenticated, or contradictory evidence must never be coerced into VALID.",
+  "required_repetitions": 10,
+  "metrics": [
+    {
+      "id": "HO-M01",
+      "name": "history_check_throughput",
+      "unit": "events_per_second",
+      "kind": "performance",
+      "target": null
+    },
+    {
+      "id": "HO-M02",
+      "name": "history_check_latency_p50",
+      "unit": "milliseconds",
+      "kind": "performance",
+      "target": null
+    },
+    {
+      "id": "HO-M03",
+      "name": "history_check_latency_p95",
+      "unit": "milliseconds",
+      "kind": "performance",
+      "target": null
+    },
+    {
+      "id": "HO-M04",
+      "name": "history_check_latency_p99",
+      "unit": "milliseconds",
+      "kind": "performance",
+      "target": null
+    },
+    {
+      "id": "HO-M05",
+      "name": "checker_peak_memory",
+      "unit": "bytes",
+      "kind": "resource",
+      "target": null
+    },
+    {
+      "id": "HO-M06",
+      "name": "false_valid_on_known_violation",
+      "unit": "histories",
+      "kind": "correctness",
+      "target": 0
+    },
+    {
+      "id": "HO-M07",
+      "name": "false_violation_on_known_valid",
+      "unit": "histories",
+      "kind": "correctness",
+      "target": 0
+    },
+    {
+      "id": "HO-M08",
+      "name": "missing_evidence_marked_valid",
+      "unit": "histories",
+      "kind": "correctness",
+      "target": 0
+    },
+    {
+      "id": "HO-M09",
+      "name": "counterexample_discovery_latency",
+      "unit": "milliseconds",
+      "kind": "diagnostic",
+      "target": null
+    },
+    {
+      "id": "HO-M10",
+      "name": "evidence_ingest_throughput",
+      "unit": "events_per_second",
+      "kind": "performance",
+      "target": null
+    },
+    {
+      "id": "HO-M11",
+      "name": "max_history_size_checked",
+      "unit": "events",
+      "kind": "capacity",
+      "target": null
+    },
+    {
+      "id": "HO-M12",
+      "name": "verdict_distribution",
+      "unit": "fraction",
+      "kind": "diagnostic",
+      "target": null
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "HO-001",
+      "class": "known_valid",
+      "description": "Effect obtains and commits under the old owner fence before the fence transaction commits; owner acknowledgement follows durable read-back.",
+      "expected_verdict": "VALID",
+      "finding_codes": []
+    },
+    {
+      "id": "HO-002",
+      "class": "known_violation",
+      "description": "An old-generation effect commits at a later owner-local sequence after the new fence commit.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "EffectPositionNotCurrent"
+      ]
+    },
+    {
+      "id": "HO-003",
+      "class": "incomplete_evidence",
+      "description": "One required owner stream is not complete in the supplied evidence bundle.",
+      "expected_verdict": "INCONCLUSIVE",
+      "finding_codes": [
+        "InventoryOwnerStreamIncomplete"
+      ]
+    },
+    {
+      "id": "HO-004",
+      "class": "known_violation",
+      "description": "Two event records reuse the same event identity.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "DuplicateEventId"
+      ]
+    },
+    {
+      "id": "HO-005",
+      "class": "incomplete_evidence",
+      "description": "An event references a causal parent omitted from the evidence bundle.",
+      "expected_verdict": "INCONCLUSIVE",
+      "finding_codes": [
+        "MissingCausalParent"
+      ]
+    },
+    {
+      "id": "HO-006",
+      "class": "known_violation",
+      "description": "The same owner-scoped logical operation commits more than one protected effect.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "DuplicateLogicalEffect"
+      ]
+    },
+    {
+      "id": "HO-007",
+      "class": "known_violation",
+      "description": "The global acknowledgement omits one required owner acknowledgement.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "GlobalBarrierOwnerSetMismatch"
+      ]
+    },
+    {
+      "id": "HO-008",
+      "class": "incomplete_evidence",
+      "description": "A physical effect attempt remains Unknown without exact terminal reconciliation.",
+      "expected_verdict": "INCONCLUSIVE",
+      "finding_codes": [
+        "UnknownAttemptUnreconciled"
+      ]
+    },
+    {
+      "id": "HO-009",
+      "class": "known_valid",
+      "description": "A new route is admitted after a global barrier using an exact current inventory mapping, atomic owner fence and durable owner read-back.",
+      "expected_verdict": "VALID",
+      "finding_codes": []
+    },
+    {
+      "id": "HO-010",
+      "class": "known_violation",
+      "description": "A route with best-effort or signal-only enforcement is activated into strict execution.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "RouteNonFenceable"
+      ]
+    },
+    {
+      "id": "HO-011",
+      "class": "known_violation",
+      "description": "A worker with a superseded claim epoch commits after a newer claim was installed in the owner stream.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "EffectClaimNotCurrent"
+      ]
+    },
+    {
+      "id": "HO-012",
+      "class": "known_violation",
+      "description": "The causal DAG orders a later owner-local durable sequence before an earlier one.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "OwnerSequenceCausalOrderMismatch"
+      ]
+    },
+    {
+      "id": "HO-013",
+      "class": "known_violation",
+      "description": "A new physical attempt starts while the preceding attempt remains Unknown and has no ConfirmedNoEffect reconciliation.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "RetryWithoutNoEffectReconciliation"
+      ]
+    },
+    {
+      "id": "HO-014",
+      "class": "known_valid",
+      "description": "The exact immediately preceding attempt is independently reconciled as terminal ConfirmedNoEffect before the retry starts.",
+      "expected_verdict": "VALID",
+      "finding_codes": []
+    },
+    {
+      "id": "HO-015",
+      "class": "known_violation",
+      "description": "A route ID is paired with an owner different from the exact route-to-owner mapping in the verified inventory.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "RouteAdmissionBindingMismatch"
+      ]
+    },
+    {
+      "id": "HO-016",
+      "class": "known_violation",
+      "description": "One owner acknowledgement binds a different inventory epoch or manifest from the global acknowledgement.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "GlobalBarrierAckBindingMismatch"
+      ]
+    },
+    {
+      "id": "HO-017",
+      "class": "known_violation",
+      "description": "The same owner-scoped idempotency key commits two distinct logical operations.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "IdempotencyKeyReused"
+      ]
+    }
+  ],
+  "comparator_methods": [
+    "Porcupine executable sequential model and concurrent history linearizability checking",
+    "Jepsen-style captured history, fault injection and independent consistency checking",
+    "Mycelix domain-specific oracle over owner epochs, exact route inventory, worker claims, durable fence/read-back chains and global barrier receipts"
+  ],
+  "evidence_requirements": [
+    "exact checker source SHA and binary digest",
+    "raw input event bundle and corpus digest",
+    "ingestion adapter source/build digest and completeness evidence",
+    "all verdicts and finding codes, including INCONCLUSIVE",
+    "per-run raw timing and peak-memory samples",
+    "reproducible random seeds and fault schedule",
+    "no dropped failed histories or omitted inconclusive runs"
+  ]
+}
