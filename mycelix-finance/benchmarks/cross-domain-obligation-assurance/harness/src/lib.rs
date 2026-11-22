@@ -1240,7 +1240,7 @@ mod tests {
             Err(KernelError::AuthorityStateUnknown)
         );
         let mut oversized = request();
-        oversized.amount += 1;
+        oversized.amount = grant().max_amount + 1;
         assert_eq!(
             authorize(&grant(), &oversized, 200, 7, None),
             Err(KernelError::ScopeExceeded)
@@ -1577,10 +1577,22 @@ mod tests {
         let replay = ledger
             .fill("offer-001", 0, 400, "fill-1", digest(1))
             .unwrap();
-        assert_eq!(first, replay);
+        let first_receipt = match first {
+            FillDisposition::Applied(receipt) => receipt,
+            other => panic!("first fill should apply, got {other:?}"),
+        };
+        let replay_receipt = match replay {
+            FillDisposition::ExactReplay(receipt) => receipt,
+            other => panic!("retry should return the prior receipt, got {other:?}"),
+        };
+        assert_eq!(first_receipt, replay_receipt);
         assert_eq!(ledger.offer("offer-001").unwrap().remaining_wh, 600);
         assert_eq!(
             ledger.fill("offer-001", 0, 400, "fill-1", digest(9)),
+            Err(KernelError::IdempotencyConflict)
+        );
+        assert_eq!(
+            ledger.fill("offer-001", 1, 400, "fill-1", digest(1)),
             Err(KernelError::IdempotencyConflict)
         );
     }
