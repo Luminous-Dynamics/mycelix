@@ -128,12 +128,33 @@ CREATE TRIGGER epoch_transitions_no_update_delete
 BEFORE UPDATE OR DELETE ON myc_effect_owner.effect_owner_epoch_transitions
 FOR EACH ROW EXECUTE FUNCTION myc_effect_owner.reject_execution_attestation_mutation();
 
+DROP TRIGGER IF EXISTS epoch_transitions_no_truncate
+ON myc_effect_owner.effect_owner_epoch_transitions;
+
+CREATE TRIGGER epoch_transitions_no_truncate
+BEFORE TRUNCATE ON myc_effect_owner.effect_owner_epoch_transitions
+FOR EACH STATEMENT EXECUTE FUNCTION myc_effect_owner.reject_execution_attestation_mutation();
+
 DROP TRIGGER IF EXISTS execution_attestations_no_update_delete
 ON myc_effect_owner.effect_execution_attestations;
 
 CREATE TRIGGER execution_attestations_no_update_delete
 BEFORE UPDATE OR DELETE ON myc_effect_owner.effect_execution_attestations
 FOR EACH ROW EXECUTE FUNCTION myc_effect_owner.reject_execution_attestation_mutation();
+
+DROP TRIGGER IF EXISTS execution_attestations_no_truncate
+ON myc_effect_owner.effect_execution_attestations;
+
+CREATE TRIGGER execution_attestations_no_truncate
+BEFORE TRUNCATE ON myc_effect_owner.effect_execution_attestations
+FOR EACH STATEMENT EXECUTE FUNCTION myc_effect_owner.reject_execution_attestation_mutation();
+
+DROP TRIGGER IF EXISTS effect_commits_no_truncate
+ON myc_effect_owner.effect_commits;
+
+CREATE TRIGGER effect_commits_no_truncate
+BEFORE TRUNCATE ON myc_effect_owner.effect_commits
+FOR EACH STATEMENT EXECUTE FUNCTION myc_effect_owner.reject_effect_commit_mutation();
 
 -- Installs a strictly newer owner epoch and advances the resource generation
 -- in the same row lock/transaction. The two receipt digests must have been
