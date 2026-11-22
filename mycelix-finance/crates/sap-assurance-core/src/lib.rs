@@ -53,7 +53,6 @@ pub enum AssuranceError {
     IssuanceWouldBreachCoverage,
     BurnExceedsIssued,
     IdempotencyKeyConflict,
-    IdempotencyAlreadyConsumed,
     InvalidRedemptionState { expected: RedemptionState, actual: RedemptionState },
     MissingEvidenceReference,
 }
@@ -214,27 +213,38 @@ impl SapSupply {
     }
 }
 
-/// Consumes a one-time evidence/authorization reference against an exact payload digest.
-/// The digest must be computed by a trusted canonicalization/signature layer upstream.
+/// Outcome of checking an idempotency key against an exact request digest.
+/// An exact retry must return the previously stored receipt/result, not execute again.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IdempotencyDisposition {
+    NewRequest,
+    ExactReplay,
+}
+
+/// Records a one-time request digest under an idempotency key digest.
+///
+/// The digests must be computed by a trusted canonicalization/signature layer upstream.
+/// Production adapters must persist this mapping in the same authoritative transaction
+/// boundary as the side effect and its receipt.
 #[derive(Debug, Clone, Default)]
 pub struct IdempotencyLedger {
     consumed: BTreeMap<[u8; 32], [u8; 32]>,
 }
 
 impl IdempotencyLedger {
-    pub fn consume(
+    pub fn check_and_consume(
         &mut self,
         idempotency_key_digest: [u8; 32],
         request_payload_digest: [u8; 32],
-    ) -> Result<(), AssuranceError> {
+    ) -> Result<IdempotencyDisposition, AssuranceError> {
         match self.consumed.get(&idempotency_key_digest) {
             Some(existing) if existing == &request_payload_digest => {
-                Err(AssuranceError::IdempotencyAlreadyConsumed)
+                Ok(IdempotencyDisposition::ExactReplay)
             }
             Some(_) => Err(AssuranceError::IdempotencyKeyConflict),
             None => {
                 self.consumed.insert(idempotency_key_digest, request_payload_digest);
-                Ok(())
+                Ok(IdempotencyDisposition::NewRequest)
             }
         }
     }
@@ -459,9 +469,18 @@ mod tests {
     fn idempotency_rejects_exact_replay_and_changed_payload() {
         let mut ledger = IdempotencyLedger::default();
         let key = [7_u8; 32];
-        assert_eq!(ledger.consume(key, [1_u8; 32]), Ok(()));
-        assert_eq!(ledger.consume(key, [1_u8; 32]), Err(AssuranceError::IdempotencyAlreadyConsumed));
-        assert_eq!(ledger.consume(key, [2_u8; 32]), Err(AssuranceError::IdempotencyKeyConflict));
+        assert_eq!(
+            ledger.check_and_consume(key, [1_u8; 32]),
+            Ok(IdempotencyDisposition::NewRequest)
+        );
+        assert_eq!(
+            ledger.check_and_consume(key, [1_u8; 32]),
+            Ok(IdempotencyDisposition::ExactReplay)
+        );
+        assert_eq!(
+            ledger.check_and_consume(key, [2_u8; 32]),
+            Err(AssuranceError::IdempotencyKeyConflict)
+        );
         assert!(ledger.contains(&key));
     }
 
