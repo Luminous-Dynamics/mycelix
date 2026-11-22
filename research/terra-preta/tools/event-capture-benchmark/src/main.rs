@@ -132,6 +132,7 @@ struct PolicyResult {
 #[derive(Debug, Serialize)]
 struct EventResult {
     event_id: String,
+    event_type: String,
     event_detected: bool,
     detection_time_hours: Option<f64>,
     detection_delay_hours: Option<f64>,
@@ -364,7 +365,7 @@ fn validate_schedule_against_truth(p: &PolicySubmission, t: &Truth) -> Result<()
     Ok(())
 }
 
-fn truth_at<'a>(truth: &'a Truth, timestamp: f64) -> Option<&'a TruthPoint> {
+fn truth_at(truth: &Truth, timestamp: f64) -> Option<&TruthPoint> {
     truth
         .truth_series
         .iter()
@@ -479,6 +480,7 @@ fn event_result(
         });
     EventResult {
         event_id: event.event_id.clone(),
+        event_type: event.event_type.clone(),
         event_detected: detected,
         detection_time_hours: first_detected.map(|x| x.elapsed_hours),
         detection_delay_hours: first_detected.map(|x| x.elapsed_hours - event.start_hours),
@@ -597,9 +599,7 @@ fn run(
     let truth: Truth = serde_json::from_slice(&truth_bytes)?;
     validate_policy_submission(&submission).map_err(io::Error::other)?;
     validate_truth(&truth).map_err(io::Error::other)?;
-    for policy in &submission.policies {
-        validate_schedule_against_truth(&submission, &truth).map_err(io::Error::other)?;
-    }
+    validate_schedule_against_truth(&submission, &truth).map_err(io::Error::other)?;
     let policy_hash = format!("{:x}", Sha256::digest(&policy_bytes));
     let truth_hash = format!("{:x}", Sha256::digest(&truth_bytes));
     let report = score(&submission, &truth, policy_hash, truth_hash);
