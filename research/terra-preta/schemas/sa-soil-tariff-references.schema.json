@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Published South African soil analysis tariff reference",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "catalogue_version",
+    "evidence_class",
+    "tariffs"
+  ],
+  "properties": {
+    "catalogue_version": {
+      "const": "sa-soil-tariff-references-v0.1"
+    },
+    "evidence_class": {
+      "const": "published_external_references_not_quotes"
+    },
+    "tariffs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tariff_id",
+          "provider",
+          "service",
+          "method_scope",
+          "price_zar",
+          "price_basis",
+          "valid_from",
+          "valid_to",
+          "source_url",
+          "limitations"
+        ],
+        "properties": {
+          "tariff_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "provider": {
+            "type": "string",
+            "minLength": 1
+          },
+          "service": {
+            "type": "string",
+            "minLength": 1
+          },
+          "method_scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "price_zar": {
+            "type": "number",
+            "minimum": 0
+          },
+          "price_basis": {
+            "enum": [
+              "per_sample",
+              "per_hectare",
+              "per_hour",
+              "per_visit",
+              "per_package"
+            ]
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date"
+          },
+          "valid_to": {
+            "type": "string",
+            "format": "date"
+          },
+          "source_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "limitations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}
