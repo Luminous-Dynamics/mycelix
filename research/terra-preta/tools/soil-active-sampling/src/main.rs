@@ -106,7 +106,9 @@ struct CandidateActionContext<'a> {
 
 #[derive(Clone, Debug)]
 enum CandidatePolicy {
-    Fixed { interval_minutes: u32 },
+    Fixed {
+        interval_minutes: u32,
+    },
     RewettingTriggered {
         normal_interval_minutes: u32,
         fast_interval_minutes: u32,
@@ -167,7 +169,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
         return Err("scenario identity and public sample contract are invalid".into());
     }
     for (name, value) in [
-        ("detection_delta_threshold", s.public_contract.detection_delta_threshold),
+        (
+            "detection_delta_threshold",
+            s.public_contract.detection_delta_threshold,
+        ),
         ("response_noise_sd", s.sensor_model.response_noise_sd),
         ("moisture_noise_sd", s.sensor_model.moisture_noise_sd),
         ("baseline_response", s.hidden_truth.baseline_response),
@@ -190,7 +195,8 @@ fn validate(s: &Scenario) -> Result<(), String> {
         if pulse.width_minutes < 2
             || pulse.peak_amplitude <= 0.0
             || pulse.start_minute == 0
-            || pulse.start_minute.saturating_add(pulse.width_minutes) > s.public_contract.horizon_minutes
+            || pulse.start_minute.saturating_add(pulse.width_minutes)
+                > s.public_contract.horizon_minutes
         {
             return Err("pulse timing/width/amplitude is invalid".into());
         }
@@ -206,10 +212,13 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 || s.policy.fast_interval_minutes.unwrap_or(0) == 0
                 || s.policy.fast_window_minutes.unwrap_or(0) == 0
             {
-                return Err("rewetting policy needs positive normal/fast intervals and window".into());
+                return Err(
+                    "rewetting policy needs positive normal/fast intervals and window".into(),
+                );
             }
-            let threshold = s.policy.rewetting_delta_threshold
-                .ok_or_else(|| "rewetting policy needs an observed moisture delta threshold".to_string())?;
+            let threshold = s.policy.rewetting_delta_threshold.ok_or_else(|| {
+                "rewetting policy needs an observed moisture delta threshold".to_string()
+            })?;
             finite("rewetting_delta_threshold", threshold)?;
             if threshold < 0.0 {
                 return Err("rewetting delta threshold cannot be negative".into());
@@ -256,7 +265,10 @@ fn generate_truth(s: &Scenario) -> Vec<TruthPoint> {
             } else {
                 s.hidden_truth.baseline_moisture
             };
-            let pulse = s.hidden_truth.pulse.as_ref()
+            let pulse = s
+                .hidden_truth
+                .pulse
+                .as_ref()
                 .map(|p| pulse_response(minute, p))
                 .unwrap_or(0.0);
             TruthPoint {
@@ -272,21 +284,32 @@ fn sensor_observation(s: &Scenario, truth: TruthPoint) -> Observation {
     Observation {
         minute: truth.minute,
         moisture: truth.moisture
-            + noise(s.sensor_model.seed, truth.minute, 0x4D4F4953, s.sensor_model.moisture_noise_sd),
+            + noise(
+                s.sensor_model.seed,
+                truth.minute,
+                0x4D4F4953,
+                s.sensor_model.moisture_noise_sd,
+            ),
         response: truth.response
-            + noise(s.sensor_model.seed, truth.minute, 0x52455350, s.sensor_model.response_noise_sd),
+            + noise(
+                s.sensor_model.seed,
+                truth.minute,
+                0x52455350,
+                s.sensor_model.response_noise_sd,
+            ),
     }
 }
 
 /// Candidate-only API: no truth series, event time, pulse width or oracle labels are arguments.
-fn next_sample_interval(
-    policy: &mut CandidatePolicy,
-    context: CandidateActionContext<'_>,
-) -> u32 {
+fn next_sample_interval(policy: &mut CandidatePolicy, context: CandidateActionContext<'_>) -> u32 {
     if context.now_minute >= context.public_contract.horizon_minutes
         || context.observations.len() >= context.public_contract.maximum_sample_count
     {
-        return context.public_contract.horizon_minutes.saturating_sub(context.now_minute).max(1);
+        return context
+            .public_contract
+            .horizon_minutes
+            .saturating_sub(context.now_minute)
+            .max(1);
     }
     match policy {
         CandidatePolicy::Fixed { interval_minutes } => *interval_minutes,
@@ -300,7 +323,8 @@ fn next_sample_interval(
             if context.observations.len() >= 2 {
                 let last = context.observations[context.observations.len() - 1];
                 let previous = context.observations[context.observations.len() - 2];
-                let baseline = context.observations
+                let baseline = context
+                    .observations
                     .iter()
                     .take(3)
                     .map(|observation| observation.response)
@@ -342,19 +366,24 @@ fn candidate_policy(s: &Scenario) -> CandidatePolicy {
 fn pulse_integral(truth: &[TruthPoint], pulse: &PulseConfig, baseline: f64) -> f64 {
     let start = pulse.start_minute;
     let end = start + pulse.width_minutes;
-    let series: Vec<TruthPoint> = truth.iter()
+    let series: Vec<TruthPoint> = truth
+        .iter()
         .copied()
         .filter(|point| point.minute >= start && point.minute <= end)
         .collect();
-    series.windows(2).map(|pair| {
-        let left = (pair[0].response - baseline).max(0.0);
-        let right = (pair[1].response - baseline).max(0.0);
-        0.5 * (left + right) * f64::from(pair[1].minute - pair[0].minute)
-    }).sum()
+    series
+        .windows(2)
+        .map(|pair| {
+            let left = (pair[0].response - baseline).max(0.0);
+            let right = (pair[1].response - baseline).max(0.0);
+            0.5 * (left + right) * f64::from(pair[1].minute - pair[0].minute)
+        })
+        .sum()
 }
 
 fn maximum_gap(observations: &[Observation]) -> u32 {
-    observations.windows(2)
+    observations
+        .windows(2)
         .map(|pair| pair[1].minute.saturating_sub(pair[0].minute))
         .max()
         .unwrap_or(0)
@@ -391,65 +420,104 @@ fn evaluate(s: &Scenario, digest: String) -> Report {
         now = now.saturating_add(interval);
     }
 
-    let baseline = observations.iter().take(3)
-        .map(|o| o.response).sum::<f64>()
+    let baseline = observations.iter().take(3).map(|o| o.response).sum::<f64>()
         / observations.len().min(3) as f64;
     let event = s.hidden_truth.pulse.as_ref();
-    let (event_present, event_detected, false_positive, delay, event_observations,
-        peak_estimate, peak_error, true_integral, estimated_integral, integral_error, integral_status) =
-        if let Some(pulse) = event {
-            let event_end = pulse.start_minute + pulse.width_minutes;
-            let within: Vec<Observation> = observations.iter().copied()
-                .filter(|o| o.minute >= pulse.start_minute && o.minute <= event_end)
-                .collect();
-            let detections: Vec<Observation> = within.iter().copied()
-                .filter(|o| o.response - baseline >= public_contract.detection_delta_threshold)
-                .collect();
-            let peak = within.iter().map(|o| o.response).reduce(f64::max);
-            let true_peak = s.hidden_truth.baseline_response + pulse.peak_amplitude;
-            let true_mass = pulse_integral(&truth, pulse, s.hidden_truth.baseline_response);
-            let gap_is_acceptable = within.windows(2).all(|pair| {
-                pair[1].minute.saturating_sub(pair[0].minute)
-                    <= s.public_contract.maximum_integral_gap_minutes
-            });
-            let estimate = if within.len() >= 2 && gap_is_acceptable {
-                Some(within.windows(2).map(|pair| {
-                    let left = (pair[0].response - baseline).max(0.0);
-                    let right = (pair[1].response - baseline).max(0.0);
-                    0.5 * (left + right) * f64::from(pair[1].minute - pair[0].minute)
-                }).sum::<f64>())
-            } else {
-                None
-            };
-            let estimate_status = if estimate.is_some() {
-                "estimated_from_event_window_samples"
-            } else if within.len() >= 2 && !gap_is_acceptable {
-                "event_window_gap_exceeded"
-            } else {
-                "insufficient_event_window_samples"
-            };
-            (
-                true,
-                !detections.is_empty(),
-                false,
-                detections.first().map(|o| o.minute.saturating_sub(pulse.start_minute)),
-                within.len(),
-                peak,
-                peak.map(|x| (x - true_peak).abs()),
-                Some(true_mass),
-                estimate,
-                estimate.map(|x| (x - true_mass).abs()),
-                estimate_status,
+    let (
+        event_present,
+        event_detected,
+        false_positive,
+        delay,
+        event_observations,
+        peak_estimate,
+        peak_error,
+        true_integral,
+        estimated_integral,
+        integral_error,
+        integral_status,
+    ) = if let Some(pulse) = event {
+        let event_end = pulse.start_minute + pulse.width_minutes;
+        let within: Vec<Observation> = observations
+            .iter()
+            .copied()
+            .filter(|o| o.minute >= pulse.start_minute && o.minute <= event_end)
+            .collect();
+        let detections: Vec<Observation> = within
+            .iter()
+            .copied()
+            .filter(|o| o.response - baseline >= public_contract.detection_delta_threshold)
+            .collect();
+        let peak = within.iter().map(|o| o.response).reduce(f64::max);
+        let true_peak = s.hidden_truth.baseline_response + pulse.peak_amplitude;
+        let true_mass = pulse_integral(&truth, pulse, s.hidden_truth.baseline_response);
+        let gap_is_acceptable = within.windows(2).all(|pair| {
+            pair[1].minute.saturating_sub(pair[0].minute)
+                <= s.public_contract.maximum_integral_gap_minutes
+        });
+        let estimate = if within.len() >= 2 && gap_is_acceptable {
+            Some(
+                within
+                    .windows(2)
+                    .map(|pair| {
+                        let left = (pair[0].response - baseline).max(0.0);
+                        let right = (pair[1].response - baseline).max(0.0);
+                        0.5 * (left + right) * f64::from(pair[1].minute - pair[0].minute)
+                    })
+                    .sum::<f64>(),
             )
         } else {
-            let false_alarm = observations.iter()
-                .any(|o| o.response - baseline >= public_contract.detection_delta_threshold);
-            (false, false_alarm, false_alarm, None, 0, None, None, None, None, None, "no_event_present")
+            None
         };
+        let estimate_status = if estimate.is_some() {
+            "estimated_from_event_window_samples"
+        } else if within.len() >= 2 && !gap_is_acceptable {
+            "event_window_gap_exceeded"
+        } else {
+            "insufficient_event_window_samples"
+        };
+        (
+            true,
+            !detections.is_empty(),
+            false,
+            detections
+                .first()
+                .map(|o| o.minute.saturating_sub(pulse.start_minute)),
+            within.len(),
+            peak,
+            peak.map(|x| (x - true_peak).abs()),
+            Some(true_mass),
+            estimate,
+            estimate.map(|x| (x - true_mass).abs()),
+            estimate_status,
+        )
+    } else {
+        let false_alarm = observations
+            .iter()
+            .any(|o| o.response - baseline >= public_contract.detection_delta_threshold);
+        (
+            false,
+            false_alarm,
+            false_alarm,
+            None,
+            0,
+            None,
+            None,
+            None,
+            None,
+            None,
+            "no_event_present",
+        )
+    };
 
     let count = observations.len();
-    let sensor_energy = s.sensor_model.sensor_energy_nj_per_sample.saturating_mul(count as u64);
-    let wake_energy = s.sensor_model.wake_energy_nj_per_sample.saturating_mul(count as u64);
+    let sensor_energy = s
+        .sensor_model
+        .sensor_energy_nj_per_sample
+        .saturating_mul(count as u64);
+    let wake_energy = s
+        .sensor_model
+        .wake_energy_nj_per_sample
+        .saturating_mul(count as u64);
     Report {
         audit_version: VERSION,
         fixture_status: FIXTURE_STATUS,
@@ -480,7 +548,9 @@ fn evaluate(s: &Scenario, digest: String) -> Report {
 
 fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if output_path.exists() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into());
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into(),
+        );
     }
     let bytes = fs::read(input_path)?;
     let scenario: Scenario = serde_json::from_slice(&bytes)?;
@@ -488,7 +558,10 @@ fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::
     let digest = format!("{:x}", Sha256::digest(&bytes));
     let report = evaluate(&scenario, digest);
     let json = serde_json::to_vec_pretty(&report)?;
-    let mut output = OpenOptions::new().write(true).create_new(true).open(output_path)?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output_path)?;
     output.write_all(&json)?;
     output.write_all(b"\n")?;
     Ok(())
@@ -571,8 +644,14 @@ mod tests {
         let first = evaluate(&s, "0".repeat(64));
         let second = evaluate(&s, "0".repeat(64));
         assert_eq!(first.sample_count, second.sample_count);
-        assert_eq!(first.detection_delay_minutes, second.detection_delay_minutes);
-        assert_eq!(first.pulse_integral_absolute_error, second.pulse_integral_absolute_error);
+        assert_eq!(
+            first.detection_delay_minutes,
+            second.detection_delay_minutes
+        );
+        assert_eq!(
+            first.pulse_integral_absolute_error,
+            second.pulse_integral_absolute_error
+        );
     }
 
     #[test]
@@ -602,8 +681,16 @@ mod tests {
             fast_until_minute: 0,
         };
         let history = [
-            Observation { minute: 90, moisture: 0.10, response: 10.0 },
-            Observation { minute: 120, moisture: 0.22, response: 10.0 },
+            Observation {
+                minute: 90,
+                moisture: 0.10,
+                response: 10.0,
+            },
+            Observation {
+                minute: 120,
+                moisture: 0.22,
+                response: 10.0,
+            },
         ];
         let context = CandidateActionContext {
             now_minute: 120,
