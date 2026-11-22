@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/MYC_DIR_NATS_JETSTREAM_V0_1.schema.json",
+  "title": "Mycelix Directory Fabric NATS JetStream transport contract corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile",
+    "version",
+    "status",
+    "claim_ceiling",
+    "verdicts",
+    "core_rule",
+    "required_repetitions",
+    "workload_profiles",
+    "metrics",
+    "scenarios",
+    "comparator_methods",
+    "evidence_requirements"
+  ],
+  "properties": {
+    "profile": {
+      "const": "MYC-DIR-NATS-JETSTREAM-0.1"
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "const": "preregistered_not_executed"
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 80
+    },
+    "verdicts": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "ELIGIBLE_FOR_OWNER_REVALIDATION",
+          "REJECT",
+          "ACK_ALLOWED",
+          "DO_NOT_ACK"
+        ]
+      }
+    },
+    "core_rule": {
+      "type": "string",
+      "minLength": 80
+    },
+    "required_repetitions": {
+      "type": "integer",
+      "minimum": 10
+    },
+    "workload_profiles": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "offered_rate_messages_per_second",
+          "workers",
+          "backlog_messages",
+          "duplicate_window_seconds",
+          "command_age_seconds"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^NJ-P[0-9]{2}$"
+          },
+          "offered_rate_messages_per_second": {
+            "type": "integer",
+            "enum": [
+              100,
+              10000,
+              100000
+            ]
+          },
+          "workers": {
+            "type": "integer",
+            "enum": [
+              1,
+              32,
+              256
+            ]
+          },
+          "backlog_messages": {
+            "type": "integer",
+            "enum": [
+              1000,
+              100000,
+              1000000,
+              10000000
+            ]
+          },
+          "duplicate_window_seconds": {
+            "type": "integer",
+            "enum": [
+              120,
+              600,
+              3600,
+              86400
+            ]
+          },
+          "command_age_seconds": {
+            "type": "integer",
+            "enum": [
+              0,
+              60,
+              3600,
+              86400
+            ]
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 14,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "unit",
+          "hard_limit"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^NJ-M[0-9]{2}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 3
+          },
+          "kind": {
+            "enum": [
+              "safety",
+              "performance",
+              "recovery",
+              "capacity"
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "hard_limit": {
+            "type": [
+              "integer",
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "class",
+          "description",
+          "expected_outcome"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^NJ-[0-9]{3}$"
+          },
+          "class": {
+            "enum": [
+              "known_valid",
+              "known_reject"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 30
+          },
+          "expected_outcome": {
+            "enum": [
+              "ELIGIBLE_FOR_OWNER_REVALIDATION",
+              "REJECT",
+              "ACK_ALLOWED",
+              "DO_NOT_ACK",
+              "BROKER_DEDUP_ONLY",
+              "OWNER_IDEMPOTENCY_STILL_REQUIRED",
+              "OWNER_REJECTS_STALE_CLAIM"
+            ]
+          }
+        }
+      }
+    },
+    "comparator_methods": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 20
+      }
+    },
+    "evidence_requirements": {
+      "type": "array",
+      "minItems": 9,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 5
+      }
+    }
+  }
+}
