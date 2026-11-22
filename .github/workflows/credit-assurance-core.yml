@@ -1,0 +1,46 @@
+name: Credit Assurance Core
+
+on:
+  push:
+    branches: [research/credit-assurance-core-stack-v0.1-20261122]
+    paths:
+      - "mycelix-finance/Cargo.toml"
+      - "mycelix-finance/Cargo.lock"
+      - "mycelix-finance/crates/credit-assurance-core/**"
+      - ".github/workflows/credit-assurance-core.yml"
+  pull_request:
+    branches: [research/web4-regenerative-finance-v0.1-20261122]
+    paths:
+      - "mycelix-finance/Cargo.toml"
+      - "mycelix-finance/Cargo.lock"
+      - "mycelix-finance/crates/credit-assurance-core/**"
+      - ".github/workflows/credit-assurance-core.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: credit-assurance-core-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pure-kernel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-finance/Cargo.toml --package credit-assurance-core -- --check
+      - name: Test pure credit assurance kernel
+        run: cargo test --locked --manifest-path mycelix-finance/Cargo.toml --package credit-assurance-core
+      - name: Detect uncommitted lockfile mutation
+        if: always()
+        run: |
+          if ! git diff --quiet -- mycelix-finance/Cargo.lock; then
+            git --no-pager diff -- mycelix-finance/Cargo.lock
+            exit 1
+          fi
