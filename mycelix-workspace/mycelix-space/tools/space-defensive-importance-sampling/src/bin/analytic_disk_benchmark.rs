@@ -238,7 +238,7 @@ fn mean(values: &[f64]) -> f64 {
 
 fn main() {
     println!(
-        "method,radius,exact_probability,mean_estimate,rmse,mean_lower_95pct,mean_upper_95pct,mean_interval_width,empirical_coverage,mean_variance_ratio,mean_false_positive_count,mean_false_negative_count"
+        "method,radius,exact_probability,mean_estimate,rmse,mean_lower_95pct,mean_upper_95pct,mean_interval_width,empirical_coverage,mean_variance_ratio,mean_direct_variance,mean_residual_variance,mean_false_positive_count,mean_false_negative_count"
     );
     for (case_index, radius) in [0.10_f64, 0.05, 0.02].into_iter().enumerate() {
         let truth = match exact_standard_normal_2d_disk_probability(radius) {
