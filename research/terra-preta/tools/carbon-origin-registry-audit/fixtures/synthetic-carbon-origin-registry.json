@@ -1,0 +1,62 @@
+{
+  "schema_version": "carbon-origin-registry-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "evidence_class": "synthetic",
+  "scenario_id": "synthetic-kruger-background-pyc-and-biochar-overlap",
+  "registry_manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "application_records": [
+    {
+      "application_record_id": "application-001",
+      "batch_id": "batch-biochar-001",
+      "field_id": "field-01",
+      "spatial_overlap_group_id": "overlap-group-01",
+      "geometry_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "application_date": "2026-05-01",
+      "applied_biochar_carbon_mg_c": 10,
+      "batch_passport_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "application_record_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  ],
+  "registry_entries": [
+    {
+      "registry_entry_id": "registry-biochar-001",
+      "carbon_tranche_id": "tranche-biochar-001",
+      "sink_type": "biochar_batch_cdr",
+      "batch_id": "batch-biochar-001",
+      "field_id": "field-01",
+      "spatial_overlap_group_id": "overlap-group-01",
+      "geometry_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "application_date": "2026-05-01",
+      "claim_period_start": "2026-05-01",
+      "claim_period_end": "2026-05-01",
+      "credited_mg_c": 8,
+      "status": "active",
+      "methodology_id": "synthetic-biochar-cdr-method",
+      "methodology_version": "1",
+      "evidence_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  ],
+  "soc_claim": {
+    "claim_id": "soc-claim-001",
+    "project_id": "synthetic-project-001",
+    "field_id": "field-01",
+    "spatial_overlap_group_id": "overlap-group-01",
+    "geometry_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "spatial_relationship_status": "exact_overlap_group_resolved",
+    "period_start": "2026-01-01",
+    "period_end": "2026-12-31",
+    "gross_soc_stock_change_mg_c": 12,
+    "stock_basis": "equivalent_soil_mass",
+    "esm_method_id": "multi_layer_esm",
+    "esm_method_version": "0.1",
+    "esm_reference_fine_earth_mass_mg_ha": 3000,
+    "esm_report_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "declared_biochar_correction_mg_c": 8,
+    "pyc_evidence": {
+      "status": "total_pyrogenic_only",
+      "measured_total_pyc_mg_c": 4.2,
+      "measurement_method": "synthetic H2O2/HNO3 digestion",
+      "measurement_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  }
+}
