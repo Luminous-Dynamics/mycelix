@@ -28,7 +28,7 @@ From the repository root:
 cargo test --manifest-path tools/myc-dir-fabric-history-oracle/Cargo.toml
 ```
 
-There are currently 17 authored tests. They have **not yet been compiled or executed** in the editing environment.
+There are currently 19 authored tests. They have **not yet been compiled or executed** in the editing environment.
 
 ## Evidence adapter contract
 
