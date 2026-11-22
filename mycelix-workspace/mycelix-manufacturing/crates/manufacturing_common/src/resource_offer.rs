@@ -233,8 +233,9 @@ impl ManufacturingResourceOfferV1 {
     pub fn publication_disposition_at(
         &self,
         evaluation_time_unix_s: u64,
-    ) -> ResourceOfferPublicationDispositionV1 {
-        match self.publication_state {
+    ) -> Result<ResourceOfferPublicationDispositionV1, String> {
+        self.validate()?;
+        let disposition = match self.publication_state {
             ResourceOfferPublicationStateV1::Withdrawn => {
                 ResourceOfferPublicationDispositionV1::Withdrawn
             }
@@ -257,7 +258,8 @@ impl ManufacturingResourceOfferV1 {
             ResourceOfferPublicationStateV1::Published => {
                 ResourceOfferPublicationDispositionV1::ActiveOfferWindow
             }
-        }
+        };
+        Ok(disposition)
     }
 
     /// Local syntax classification only. A valid pointer is not owner-object
@@ -447,7 +449,7 @@ mod tests {
         assert_eq!(
             offer.publication_disposition_at(1_500),
             ResourceOfferPublicationDispositionV1::ActiveOfferWindow
-        );
+        ).unwrap();
         assert!(offer.availability_calendar_ref.is_none());
     }
 
@@ -457,7 +459,7 @@ mod tests {
         assert_eq!(
             offer.publication_disposition_at(2_000),
             ResourceOfferPublicationDispositionV1::Expired
-        );
+        ).unwrap();
     }
 
     #[test]
