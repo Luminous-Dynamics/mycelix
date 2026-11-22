@@ -544,7 +544,8 @@ impl TradeSettlement {
         if attestation.evidence_reference.is_empty() {
             return Err(EnergyAssuranceError::MissingSettlementEvidence);
         }
-        let unique: std::collections::BTreeSet<_> = attestation.attestor_ids.iter().collect();
+        let unique: std::collections::BTreeSet<String> =
+            attestation.attestor_ids.iter().cloned().collect();
         if unique.len() < 2
             || attestation.attestor_ids.len() < 2
             || unique.contains(&attestation.buyer_id)
