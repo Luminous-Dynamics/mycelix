@@ -479,7 +479,8 @@ mod tests {
     #[test]
     fn dispute_event_reference_does_not_self_promote_publication_state() {
         let mut offer = valid_offer();
-        offer.lifecycle_event_refs = vec![owner_ref("resource.dispute/1", "dispute-event-001", '8')];
+        offer.lifecycle_event_refs =
+            vec![owner_ref("resource.dispute/1", "dispute-event-001", '8')];
         assert_eq!(offer.validate(), Ok(()));
         assert_eq!(
             offer.publication_disposition_at(1_500).unwrap(),
