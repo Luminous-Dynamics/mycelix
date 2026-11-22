@@ -456,7 +456,9 @@ mod tests {
         assert!(
             r.assays[0]
                 .failure_reasons
-                .contains(&"optical_quench_exceeds_limit_without_correction".into())
+                .contains(
+                    &"optical_quench_exceeds_v0_1_support_even_with_declared_correction".into()
+                )
         );
     }
 
