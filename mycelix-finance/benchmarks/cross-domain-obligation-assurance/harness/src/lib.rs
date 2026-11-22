@@ -919,6 +919,19 @@ pub const AGENT_SCENARIO_COVERAGE: [ScenarioCoverage; 10] = [
     ScenarioCoverage { id: "AGENT-010", status: CoverageStatus::NotYetImplemented },
 ];
 
+pub const TRANSPARENCY_METROLOGY_SCENARIO_COVERAGE: [ScenarioCoverage; 10] = [
+    ScenarioCoverage { id: "TSP-001", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "TSP-002", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "TSP-003", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "TSP-004", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "TSP-005", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "MET-001", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "MET-002", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "MET-003", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "MET-004", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "MARKET-001", status: CoverageStatus::NotYetImplemented },
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1347,6 +1360,19 @@ mod tests {
             assert!(ids.insert(item.id), "duplicate agent scenario mapping: {}", item.id);
             let needle = format!("\"id\": \"{}\"", item.id);
             assert!(CORPUS.contains(&needle), "agent scenario missing from corpus: {}", item.id);
+        }
+        assert_eq!(ids.len(), 10);
+        assert_eq!(CORPUS.matches("\"id\":").count(), 10);
+    }
+
+    #[test]
+    fn transparency_metrology_market_inventory_is_unique_and_linked() {
+        const CORPUS: &str = include_str!("../pcoe-transparency-metrology-scenarios.v0.1.json");
+        let mut ids = BTreeSet::new();
+        for item in TRANSPARENCY_METROLOGY_SCENARIO_COVERAGE {
+            assert!(ids.insert(item.id), "duplicate transparency/metrology scenario mapping: {}", item.id);
+            let needle = format!("\"id\": \"{}\"", item.id);
+            assert!(CORPUS.contains(&needle), "scenario missing from transparency/metrology corpus: {}", item.id);
         }
         assert_eq!(ids.len(), 10);
         assert_eq!(CORPUS.matches("\"id\":").count(), 10);
