@@ -9,6 +9,23 @@ The original 39-case PCOE corpus covers core authority, evidence, acceptance, se
 
 NIST's tenets cover distinct agent identification; cryptographic linking and attenuation of delegation; least/zero standing privilege; short-lived, dynamic and revocable authorization; human-in-the-loop triggers; mandates and constraints; architectural separation of policy from reasoning; deterministic access decisions; continuous monitoring; and immutable evidence. These are emerging design guidance, not a final normative standard.
 
+## OWASP AISVS crosswalk
+
+Add an explicit, version-pinned OWASP Artificial Intelligence Security Verification Standard (AISVS) mapping. The OWASP repository lists AISVS 1.01 as its latest stable release and 1.02 as active development at the time of this research. Pin every requirement with the version, because identifiers can change.
+
+| AISVS 1.01 | PCOE authority requirement |
+|---|---|
+| C9.2.1, C9.2.8–C9.2.11 | Trusted high-impact approval, canonical action binding, single-use nonce, key isolation, highest-impact chain approval and reapproval when action chains expand |
+| C9.3.1–C9.3.9 | Least-privilege tool isolation, schema validation, untrusted-output separation and automatic containment |
+| C9.4.1–C9.4.4 | Distinct cryptographic agent identity, stepwise execution attribution, credential rotation and protected persisted state |
+| C9.5.1–C9.5.7 | Fine-grained policy enforcement, integrity-protected scoped tokens, policy/model separation, explicit delegation, per-action refresh and attenuation |
+| C9.6.1–C9.6.3 | Human-controlled kill switch, approval timeout blocks and out-of-band shutdown |
+| C10.2.4–C10.2.5 | Authorized MCP tool discovery and per-invocation authorization of the tool and supplied argument values |
+
+The PCOE suite should target AISVS Level 2 controls for ordinary production agents and Level 3 controls for high-assurance financial/critical-infrastructure actions. This is a proposed target profile; the Rust kernel is not an AISVS assessment.
+
+Reference: https://github.com/OWASP/AISVS and https://github.com/OWASP/AISVS/blob/main/1.01/en/0x10-C09-Orchestration-and-Agentic-Action.md
+
 ## Qualification profile
 
 | NIST design tenet | PCOE qualification requirement | Existing kernel coverage |
