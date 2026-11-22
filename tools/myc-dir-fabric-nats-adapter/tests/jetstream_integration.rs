@@ -5,12 +5,9 @@ use async_nats::jetstream::{
     stream::{Config as StreamConfig, DiscardPolicy, RetentionPolicy, StorageType},
 };
 use myc_dir_fabric_nats_adapter::{
-    JetStreamAdapter, JetStreamAdapterConfig, OwnerDispositionVerifier,
-    VerifiedOwnerDisposition,
+    JetStreamAdapter, JetStreamAdapterConfig, OwnerDispositionVerifier, VerifiedOwnerDisposition,
 };
-use myc_dir_fabric_nats_reference::{
-    AckMode, DurableOwnerDisposition, NatsCommandBindingInput,
-};
+use myc_dir_fabric_nats_reference::{AckMode, DurableOwnerDisposition, NatsCommandBindingInput};
 
 struct SyntheticOwnerReceiptVerifier;
 
@@ -20,11 +17,8 @@ impl OwnerDispositionVerifier for SyntheticOwnerReceiptVerifier {
         binding: &myc_dir_fabric_nats_reference::NatsCommandBinding,
         disposition: &DurableOwnerDisposition,
     ) -> Result<(), String> {
-        let plan = myc_dir_fabric_nats_reference::plan_acknowledgement(
-            binding,
-            disposition,
-            AckMode::Ack,
-        );
+        let plan =
+            myc_dir_fabric_nats_reference::plan_acknowledgement(binding, disposition, AckMode::Ack);
         match plan {
             myc_dir_fabric_nats_reference::AckPlan::Acknowledge { .. } => Ok(()),
             myc_dir_fabric_nats_reference::AckPlan::DoNotAcknowledge => {
@@ -43,8 +37,8 @@ fn unique_suffix() -> String {
 }
 
 async fn provision_adapter() -> (JetStreamAdapter, String, String) {
-    let url = std::env::var("NATS_URL")
-        .expect("NATS_URL must point at a disposable JetStream server");
+    let url =
+        std::env::var("NATS_URL").expect("NATS_URL must point at a disposable JetStream server");
     let suffix = unique_suffix();
     let stream_name = format!("MYC_TEST_{suffix}");
     let subject = format!("mycelix.test.{suffix}");
@@ -177,7 +171,8 @@ async fn publish_dedup_pull_and_double_ack_are_transport_only() {
             effect_receipt_digest: [9; 32],
         },
         &SyntheticOwnerReceiptVerifier,
-    ).expect("test owner verifier should accept the matching durable receipt");
+    )
+    .expect("test owner verifier should accept the matching durable receipt");
     let ack = delivery
         .acknowledge(&verified, AckMode::AckSync)
         .await
@@ -228,7 +223,10 @@ async fn unacked_pull_is_redelivered_with_same_stream_sequence_and_higher_delive
         .await
         .expect("redelivery pull succeeds")
         .expect("the unacked message must be redelivered");
-    assert_eq!(redelivery.observation.stream_sequence, first_observation.stream_sequence);
+    assert_eq!(
+        redelivery.observation.stream_sequence,
+        first_observation.stream_sequence
+    );
     assert!(
         redelivery.observation.delivery_count > first_observation.delivery_count,
         "delivery count should advance after AckWait redelivery"
@@ -246,7 +244,8 @@ async fn unacked_pull_is_redelivered_with_same_stream_sequence_and_higher_delive
             handoff_receipt_digest: [10; 32],
         },
         &SyntheticOwnerReceiptVerifier,
-    ).expect("test owner verifier should accept the matching reconciliation handoff");
+    )
+    .expect("test owner verifier should accept the matching reconciliation handoff");
     let ack = redelivery
         .acknowledge(&verified, AckMode::AckSync)
         .await
