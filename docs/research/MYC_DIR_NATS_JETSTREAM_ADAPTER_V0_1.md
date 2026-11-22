@@ -84,7 +84,7 @@ Two ignored integration tests cover:
 
 The crate also adds 13 adapter unit tests for config validation, hex digest parsing, and duplicate authority-header rejection. The separate contract crate now contributes 21 authored tests; the adapter adds 13 unit tests and two ignored real-server integration tests.
 
-The tests are source-present. No compile, formatting, test, broker or latency result is claimed before the exact-head workflow completes.
+**Execution evidence (2026-11-22):** GitHub Actions run [#45000430944](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45000430944) on exact head `1105375305704c019b7d2ccecda78a18dc0e7faf` passed formatting, 21/21 reference tests, 18/18 adapter unit tests, 2/2 live JetStream integration tests, and Clippy with warnings denied. The NATS server was `2.15.3`. This is single-node broker evidence only; the integration harness uses a synthetic owner-receipt verifier and does not qualify a production cryptographic verifier, PostgreSQL owner integration, clustered replica failover or performance.
 
 ## 7. Benchmark updates
 
