@@ -1041,7 +1041,8 @@ mod tests {
         };
         manifest.manifest_sha256 = compute_benchmark_manifest_digest(&manifest).unwrap();
 
-        let payloads = vec![
+        let payloads =
+            vec![
             (
                 ArtifactRef {
                     id: "sha256:2c78684bbce9e4a714c337d848eb938a5ce64fe85d052f53adb7e617eeffa6c0"
