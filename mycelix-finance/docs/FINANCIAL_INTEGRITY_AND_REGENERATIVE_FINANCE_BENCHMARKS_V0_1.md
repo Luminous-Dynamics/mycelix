@@ -308,7 +308,11 @@ Do not say "better than industry" because a synthetic happy-path test passes. Us
 9. Run paired comparisons and publish complete scorecards.
 10. Invite an external financial auditor, security reviewer and borrower/community advocate to review the results.
 
-## 13. Research references
+## 13. Machine-readable scenario corpus
+
+The initial SAP adversarial corpus is published at https://github.com/Luminous-Dynamics/mycelix/blob/research/web4-regenerative-finance-v0.1-20261122/mycelix-finance/benchmarks/sap/sap-adversarial-scenarios.v0.1.json. It defines 14 replay, concurrency, reserve, collateral, key-compromise and recovery scenarios. The corpus is specification-only; no execution result is claimed. Each scenario must be converted into a harness test with exact-head source references, expected state, negative control and raw receipt evidence.
+
+## 14. Research references
 
 - Basel Committee, Principles for the Management of Credit Risk (30 April 2025): https://www.bis.org/publications/202504-guidelines-principles-management-credit-risk
 - BIS, General Credit Risk Management, consolidated guidance (1 January 2026): https://www.bis.org/committees/bcbs/basel-consolidated-guidelines/module/cri/10
