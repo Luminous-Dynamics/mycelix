@@ -534,20 +534,6 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                 .push((sequence, event.id.clone()));
         }
     }
-    for (operation_id, attempts) in &attempts_by_operation {
-        let mut expected_number = 1u32;
-        for (number, attempt_id) in attempts {
-            if *number != expected_number {
-                findings.inconclusive(
-                    FindingCode::AttemptNumberGap,
-                    attempt_starts.get(attempt_id).map(|event| event.id.as_str()),
-                    format!("operation {operation_id} has a missing physical attempt number before {number}"),
-                );
-            }
-            expected_number = number.saturating_add(1);
-        }
-    }
-
 
     for (owner, stream) in owner_streams.iter_mut() {
         stream.sort_by_key(|(sequence, _)| *sequence);
@@ -772,6 +758,22 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
             _ => {}
         }
     }
+
+    for (operation_id, attempts) in &attempts_by_operation {
+        let mut expected_number = 1u32;
+        for (number, attempt_id) in attempts {
+            if *number != expected_number {
+                findings.inconclusive(
+                    FindingCode::AttemptNumberGap,
+                    attempt_starts.get(attempt_id).map(|event| event.id.as_str()),
+                    format!("operation {operation_id} has a missing physical attempt number before {number}"),
+                );
+            }
+            expected_number = number.saturating_add(1);
+        }
+    }
+
+
 
     for (owner, stream) in &owner_streams {
         let mut current_position: Option<FencePosition> = None;
