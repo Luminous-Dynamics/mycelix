@@ -161,8 +161,7 @@ RestoreOwnerFromStaleBackup(o) ==
     /\ ownerReadBack' = [ownerReadBack EXCEPT ![o] = FALSE]
     /\ routeState' = [routeState EXCEPT ![o] = "paused"]
     /\ UNCHANGED
-        <<globalBarrierAcknowledged, ownerHighWaterEpoch,
-          ownerHighWaterGeneration, ownerFenceAcknowledged>>
+        <<globalBarrierAcknowledged, ownerFenceAcknowledged>>
 
 RecoverOwner(o) ==
     /\ o \in Owners
