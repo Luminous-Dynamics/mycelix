@@ -32,6 +32,7 @@ The v0.1 validator checks only local structure and cross-reference consistency. 
 The schema is `schemas/mfg_proc_001b/manufacturing_resource_offer_v0_1.schema.json` and the synthetic corpus is `tests/fixtures/mfg_proc_001b_resource_offer_v0_1.json`.
 
 An offer binds:
+- a stable provider-issued offer ID plus an immutable revision identifier;
 - provider identity and optional provider-authority reference;
 - resource/equipment and facility/site references;
 - canonical Symthaea process definition and capability profile references;
@@ -41,7 +42,7 @@ An offer binds:
 - optional availability-calendar reference;
 - optional commercial terms reference;
 - capacity-claim provenance class and supporting evidence references;
-- publication lifecycle, issue time, validity window, revision and optional supersession pointer.
+- provider publication state (Published or Withdrawn only), lifecycle-event references, issue time, validity window, revision and optional supersession pointer.
 
 Engineering quantities, units, dimensional limits, material properties and calendar slot semantics remain in their canonical owner schemas. The resource-offer contract does not define a second unit or measurement ontology.
 
@@ -69,10 +70,11 @@ A provider's statement that a machine can produce N units per hour is not a cale
 - A digest is an identifier/check value, not proof that bytes were fetched, the source is authentic or the issuer controls the resource.
 - `provider_authority_ref` is a reference, not verified delegation.
 - Non-provider capacity-claim sources require at least one evidence reference; the reference remains unresolved until an owner-specific resolver validates it.
-- `publication_state` applies to the offer statement, not the underlying machine's availability or physical state.
+- `publication_state` is limited to Published or Withdrawn; it applies to the provider's immutable offer statement, not the underlying machine's availability or physical state.
 - Expiry is derived from `valid_from_unix_s` and `valid_until_unix_s`; it does not rewrite history.
-- Supersession is a reference only. Graph-wide cycle/currentness checks require a resolver and are not claimed by this tranche.
-- Unknown, unresolved, withdrawn, disputed, superseded or expired offers never become positive production capability through fallback.
+- Disputed is derived from a separately owned lifecycle/dispute event. Superseded is derived when a newer immutable offer references this exact offer ID and revision. Neither is a provider-settable state in v0.1.
+- A new offer may point to a prior offer revision; self-supersession is rejected locally. Graph-wide cycle/currentness checks require a resolver and are not claimed by this tranche.
+- Unknown, unresolved, withdrawn, disputed, superseded or expired offers never become positive production capability through fallback. Only Published/Withdrawn are stored on the provider offer; the other lifecycle dispositions remain projections.
 
 ## Explicit non-goals
 
@@ -82,7 +84,7 @@ Mycelix #6533 owns resource-offer and distributed provenance semantics. Symthaea
 
 ## Initial benchmark cases
 
-The 16-case synthetic corpus covers valid typed offers, missing/malformed owner refs, wrong process identity, mixed source commits, malformed digests, duplicate prerequisites, reversed validity, optional calendar evidence, unresolved provider authority, capacity claim source evidence, withdrawal/supersession and commercial-terms absence.
+The 17-case synthetic corpus covers valid typed offers, missing/malformed owner refs, wrong process identity, mixed source commits, malformed digests, duplicate prerequisites, reversed validity, optional calendar evidence, unresolved provider authority, capacity claim source evidence, withdrawal, provider attempts to self-assert Disputed/Superseded, self-supersession rejection and commercial-terms absence.
 
 Every case asserts:
 - no promotion to qualified capability;
