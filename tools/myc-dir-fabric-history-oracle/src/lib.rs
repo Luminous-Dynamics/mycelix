@@ -669,24 +669,32 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                         "reconciliation must directly reference the exact Unknown event",
                     );
                 }
-                match &unknown.kind {
-                    EventKind::AttemptOutcomeUnknown {
-                        operation_id: unknown_operation,
-                        attempt_id: unknown_attempt,
-                        attempt_number: unknown_number,
-                    } if unknown_operation == match &event.kind {
-                        EventKind::AttemptReconciled { operation_id, .. } => operation_id,
-                        _ => unreachable!(),
-                    } && unknown_attempt == attempt_id
-                        && unknown_number == match &event.kind {
-                            EventKind::AttemptReconciled { attempt_number, .. } => attempt_number,
-                            _ => unreachable!(),
-                        } => {}
-                    _ => findings.violation(
+                let same_attempt = match (&unknown.kind, &event.kind) {
+                    (
+                        EventKind::AttemptOutcomeUnknown {
+                            operation_id: unknown_operation,
+                            attempt_id: unknown_attempt,
+                            attempt_number: unknown_number,
+                        },
+                        EventKind::AttemptReconciled {
+                            operation_id,
+                            attempt_id: reconciled_attempt,
+                            attempt_number,
+                            ..
+                        },
+                    ) => {
+                        unknown_operation == operation_id
+                            && unknown_attempt == reconciled_attempt
+                            && unknown_number == attempt_number
+                    }
+                    _ => false,
+                };
+                if !same_attempt {
+                    findings.violation(
                         FindingCode::ReconciliationBindingMismatch,
                         Some(&event.id),
                         "Unknown event does not identify the same operation and physical attempt",
-                    ),
+                    );
                 }
                 match outcome {
                     ReconciledOutcome::ConfirmedNoEffect => {
@@ -742,7 +750,8 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                         );
                     }
                     bootstrap_seen = true;
-                    if *position == FencePosition { owner_epoch: 0, generation: 0 }
+                    if position.owner_epoch == 0
+                        || position.generation == 0
                         || !digest_is_nonzero(bootstrap_digest)
                     {
                         findings.violation(
@@ -978,10 +987,10 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                             );
                         }
                     } else {
-                        findings.inconclusive(
+                        findings.violation(
                             FindingCode::EffectClaimNotCurrent,
                             Some(event_id),
-                            "no worker claim exists in the owner stream before this effect",
+                            "no worker claim exists in the complete owner stream before this effect",
                         );
                     }
                     if let Some(current) = current_position {
@@ -1302,7 +1311,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
     }
 
     for event in events.values() {
-        if let EventKind::GlobalBarrierAcknowledged { .. } = event.kind {
+        if matches!(&event.kind, EventKind::GlobalBarrierAcknowledged { .. }) {
             // Every declared inventory owner must have a complete owner stream.
             if let EventKind::GlobalBarrierAcknowledged {
                 inventory_event_id, ..
@@ -1422,7 +1431,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                     "route activation is not bound to the current inventory, owner read-back and global barrier",
                 );
             }
-            if !matches!(barrier.kind, EventKind::GlobalBarrierAcknowledged { .. }) {
+            if !matches!(&barrier.kind, EventKind::GlobalBarrierAcknowledged { .. }) {
                 findings.violation(
                     FindingCode::RouteMissingGlobalBarrier,
                     Some(&event.id),
