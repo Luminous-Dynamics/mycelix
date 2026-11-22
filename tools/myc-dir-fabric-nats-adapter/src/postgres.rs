@@ -359,6 +359,37 @@ fn digest_column(row: &Row, index: usize, name: &str) -> Result<Digest, String> 
     Ok(digest)
 }
 
+impl VerifiedPostgresEffectReceipt {
+    fn recompute_digest(&self) -> Result<Digest, String> {
+        canonical_effect_receipt_digest(
+            &self.effect_id,
+            &self.attestation_id,
+            &self.realm_id,
+            &self.resource_id,
+            &self.action_id,
+            &self.effect_owner_id,
+            &self.object_id,
+            &self.currency_code,
+            &self.logical_operation_id,
+            self.owner_epoch,
+            self.accepted_generation,
+            &self.worker_id,
+            self.claim_epoch,
+            &self.claim_proof_digest,
+            &self.claim_clock_profile_id,
+            &self.claim_issued_at,
+            &self.claim_expires_at,
+            &self.database_xact_id,
+            self.delta_minor,
+            self.balance_after_minor,
+            &self.idempotency_digest,
+            &self.request_digest,
+            &self.decision_receipt_digest,
+            &self.payload_digest,
+        )
+    }
+}
+
 fn validate_receipt_binding(
     binding: &NatsCommandBinding,
     receipt: &VerifiedPostgresEffectReceipt,
@@ -366,6 +397,20 @@ fn validate_receipt_binding(
     let (command_owner_epoch, command_generation) = binding.owner_position();
     let execution_position = (receipt.owner_epoch, receipt.accepted_generation);
     let command_position = (command_owner_epoch, command_generation);
+
+    if receipt.worker_id.trim().is_empty()
+        || receipt.claim_epoch == 0
+        || receipt.claim_proof_digest.iter().all(|byte| *byte == 0)
+        || receipt.claim_clock_profile_id.trim().is_empty()
+        || receipt.claim_issued_at >= receipt.claim_expires_at
+        || receipt.database_xact_id.trim().is_empty()
+    {
+        return Err("PostgreSQL execution attestation has incomplete worker-claim coordinates".into());
+    }
+
+    if receipt.recompute_digest()? != receipt.effect_receipt_digest {
+        return Err("canonical PostgreSQL effect/execution receipt digest does not match its fields".into());
+    }
 
     if receipt.realm_id != binding.realm_id()
         || receipt.resource_id != binding.resource_id()
@@ -617,8 +662,7 @@ mod tests {
 
         let mut receipt = original;
         receipt.claim_proof_digest = digest(24);
-        assert_ne!(receipt.effect_receipt_digest, digest(24));
-        assert!(validate_receipt_binding(&binding, &receipt).is_ok());
+        assert!(validate_receipt_binding(&binding, &receipt).is_err());
     }
 
     #[test]
