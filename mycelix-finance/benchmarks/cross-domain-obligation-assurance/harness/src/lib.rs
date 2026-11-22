@@ -730,11 +730,22 @@ pub struct ReversalReceipt {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PaymentAuditEvent {
-    IntentSubmitted { request_digest: Digest },
+    IntentSubmitted {
+        request_digest: Digest,
+    },
     OutcomeIndeterminate,
-    PaidFinal { external_receipt_id: String, finality_policy_reference: String },
-    Rejected { external_receipt_id: String },
-    ManualAttested { attestor_a: String, attestor_b: String, evidence_reference: String },
+    PaidFinal {
+        external_receipt_id: String,
+        finality_policy_reference: String,
+    },
+    Rejected {
+        external_receipt_id: String,
+    },
+    ManualAttested {
+        attestor_a: String,
+        attestor_b: String,
+        evidence_reference: String,
+    },
     ReversalRecorded {
         original_receipt_id: String,
         reversal_receipt_id: String,
@@ -823,10 +834,8 @@ impl PaymentLedger {
             .ok_or(KernelError::ArithmeticOverflow)?;
         let idempotency_key = request.idempotency_key.clone();
         let request_digest = request.request_digest;
-        self.intents.insert(
-            idempotency_key.clone(),
-            (request, PaymentStatus::Submitted),
-        );
+        self.intents
+            .insert(idempotency_key.clone(), (request, PaymentStatus::Submitted));
         self.events
             .entry(idempotency_key)
             .or_default()
@@ -930,11 +939,11 @@ impl PaymentLedger {
                 external_receipt_id: external_receipt_id.clone(),
                 finality_policy_reference: finality_policy_reference.clone(),
             },
-            PaymentStatus::Rejected { external_receipt_id } => {
-                PaymentAuditEvent::Rejected {
-                    external_receipt_id: external_receipt_id.clone(),
-                }
-            }
+            PaymentStatus::Rejected {
+                external_receipt_id,
+            } => PaymentAuditEvent::Rejected {
+                external_receipt_id: external_receipt_id.clone(),
+            },
             _ => return Err(KernelError::InvalidPaymentTransition),
         };
         self.events
@@ -999,9 +1008,10 @@ impl PaymentLedger {
             .get(idempotency_key)
             .ok_or(KernelError::InvalidReversal)?;
         let original_receipt_id = match current_status {
-            PaymentStatus::PaidFinal { external_receipt_id, .. } => {
-                external_receipt_id.clone()
-            }
+            PaymentStatus::PaidFinal {
+                external_receipt_id,
+                ..
+            } => external_receipt_id.clone(),
             _ => return Err(KernelError::InvalidReversal),
         };
         if !reversal.authentication_verified {
@@ -1023,7 +1033,10 @@ impl PaymentLedger {
         {
             return Err(KernelError::ReceiptMismatch);
         }
-        if self.consumed_receipts.contains(&reversal.external_reversal_id) {
+        if self
+            .consumed_receipts
+            .contains(&reversal.external_reversal_id)
+        {
             return Err(KernelError::DuplicateExternalReceipt);
         }
         self.consumed_receipts
@@ -2291,10 +2304,19 @@ mod tests {
         assert!(matches!(reversed, PaymentStatus::Reversed { .. }));
         let events = ledger.events_for("key-1").unwrap();
         assert_eq!(events.len(), 3);
-        assert!(matches!(events[0], PaymentAuditEvent::IntentSubmitted { .. }));
+        assert!(matches!(
+            events[0],
+            PaymentAuditEvent::IntentSubmitted { .. }
+        ));
         assert!(matches!(events[1], PaymentAuditEvent::PaidFinal { .. }));
-        assert!(matches!(events[2], PaymentAuditEvent::ReversalRecorded { .. }));
-        assert_eq!(ledger.begin(request), Ok(BeginPayment::ExactReplay(reversed)));
+        assert!(matches!(
+            events[2],
+            PaymentAuditEvent::ReversalRecorded { .. }
+        ));
+        assert_eq!(
+            ledger.begin(request),
+            Ok(BeginPayment::ExactReplay(reversed))
+        );
     }
 
     #[test]
