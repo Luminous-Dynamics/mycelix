@@ -9,7 +9,7 @@
     "scenario_id",
     "input_sha256",
     "fixed_depth_cm",
-    "reference_fine_earth_mass_Mg_per_ha",
+    "reference_fine_earth_mass_megagrams_per_ha",
     "fine_earth_mass_basis",
     "coarse_fragment_basis",
     "uncertainty_status",
@@ -37,7 +37,7 @@
       "type": "number",
       "exclusiveMinimum": 0
     },
-    "reference_fine_earth_mass_Mg_per_ha": {
+    "reference_fine_earth_mass_megagrams_per_ha": {
       "type": "number",
       "exclusiveMinimum": 0
     },
@@ -61,10 +61,10 @@
           "date",
           "experimental_unit_id",
           "core_count",
-          "mean_fixed_depth_soc_stock_Mg_C_per_ha",
-          "sd_fixed_depth_soc_stock_Mg_C_per_ha",
-          "mean_esm_soc_stock_Mg_C_per_ha",
-          "sd_esm_soc_stock_Mg_C_per_ha",
+          "mean_fixed_depth_soc_stock_megagrams_carbon_per_ha",
+          "sd_fixed_depth_soc_stock_megagrams_carbon_per_ha",
+          "mean_esm_soc_stock_megagrams_carbon_per_ha",
+          "sd_esm_soc_stock_megagrams_carbon_per_ha",
           "profiles"
         ],
         "properties": {
@@ -82,22 +82,22 @@
             "type": "integer",
             "minimum": 1
           },
-          "mean_fixed_depth_soc_stock_Mg_C_per_ha": {
+          "mean_fixed_depth_soc_stock_megagrams_carbon_per_ha": {
             "type": "number",
             "minimum": 0
           },
-          "sd_fixed_depth_soc_stock_Mg_C_per_ha": {
+          "sd_fixed_depth_soc_stock_megagrams_carbon_per_ha": {
             "type": [
               "number",
               "null"
             ],
             "minimum": 0
           },
-          "mean_esm_soc_stock_Mg_C_per_ha": {
+          "mean_esm_soc_stock_megagrams_carbon_per_ha": {
             "type": "number",
             "minimum": 0
           },
-          "sd_esm_soc_stock_Mg_C_per_ha": {
+          "sd_esm_soc_stock_megagrams_carbon_per_ha": {
             "type": [
               "number",
               "null"
@@ -113,11 +113,11 @@
               "required": [
                 "profile_id",
                 "core_id",
-                "observed_fine_earth_mass_Mg_per_ha",
-                "fixed_depth_fine_earth_mass_Mg_per_ha",
-                "fixed_depth_soc_stock_Mg_C_per_ha",
-                "esm_soc_stock_Mg_C_per_ha",
-                "esm_reference_mass_Mg_per_ha",
+                "observed_fine_earth_mass_megagrams_per_ha",
+                "fixed_depth_fine_earth_mass_megagrams_per_ha",
+                "fixed_depth_soc_stock_megagrams_carbon_per_ha",
+                "esm_soc_stock_megagrams_carbon_per_ha",
+                "esm_reference_mass_megagrams_per_ha",
                 "esm_partial_layer_used"
               ],
               "properties": {
@@ -127,23 +127,23 @@
                 "core_id": {
                   "type": "string"
                 },
-                "observed_fine_earth_mass_Mg_per_ha": {
+                "observed_fine_earth_mass_megagrams_per_ha": {
                   "type": "number",
                   "minimum": 0
                 },
-                "fixed_depth_fine_earth_mass_Mg_per_ha": {
+                "fixed_depth_fine_earth_mass_megagrams_per_ha": {
                   "type": "number",
                   "minimum": 0
                 },
-                "fixed_depth_soc_stock_Mg_C_per_ha": {
+                "fixed_depth_soc_stock_megagrams_carbon_per_ha": {
                   "type": "number",
                   "minimum": 0
                 },
-                "esm_soc_stock_Mg_C_per_ha": {
+                "esm_soc_stock_megagrams_carbon_per_ha": {
                   "type": "number",
                   "minimum": 0
                 },
-                "esm_reference_mass_Mg_per_ha": {
+                "esm_reference_mass_megagrams_per_ha": {
                   "type": "number",
                   "minimum": 0
                 },
@@ -162,8 +162,8 @@
       "required": [
         "first_round_id",
         "last_round_id",
-        "fixed_depth_stock_change_Mg_C_per_ha",
-        "esm_stock_change_Mg_C_per_ha",
+        "fixed_depth_stock_change_megagrams_carbon_per_ha",
+        "esm_stock_change_megagrams_carbon_per_ha",
         "interpretation"
       ],
       "properties": {
@@ -173,10 +173,10 @@
         "last_round_id": {
           "type": "string"
         },
-        "fixed_depth_stock_change_Mg_C_per_ha": {
+        "fixed_depth_stock_change_megagrams_carbon_per_ha": {
           "type": "number"
         },
-        "esm_stock_change_Mg_C_per_ha": {
+        "esm_stock_change_megagrams_carbon_per_ha": {
           "type": "number"
         },
         "interpretation": {
