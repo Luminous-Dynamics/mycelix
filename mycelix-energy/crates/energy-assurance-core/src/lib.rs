@@ -40,6 +40,7 @@ pub enum EnergyAssuranceError {
     InvalidProductionClaim,
     ClaimDigestMismatch,
     AttestationEvidenceNotInClaim,
+    DuplicateEvidenceDigest,
     VerificationEvidenceMissing,
     ConflictedVerifier,
     UncertaintyTooHigh,
@@ -242,10 +243,19 @@ impl VerifierAttestation {
             if self.observation_digests.is_empty() || claim.evidence_digests.is_empty() {
                 return Err(EnergyAssuranceError::VerificationEvidenceMissing);
             }
+            let unique_observations: std::collections::BTreeSet<_> =
+                self.observation_digests.iter().collect();
+            let unique_claim_evidence: std::collections::BTreeSet<_> =
+                claim.evidence_digests.iter().collect();
+            if unique_observations.len() != self.observation_digests.len()
+                || unique_claim_evidence.len() != claim.evidence_digests.len()
+            {
+                return Err(EnergyAssuranceError::DuplicateEvidenceDigest);
+            }
             if self
                 .observation_digests
                 .iter()
-                .any(|digest| !claim.evidence_digests.contains(digest))
+                .any(|digest| !unique_claim_evidence.contains(digest))
             {
                 return Err(EnergyAssuranceError::AttestationEvidenceNotInClaim);
             }
@@ -364,7 +374,7 @@ impl EnergyOfferLedger {
         if buyer_id == offer.seller_id {
             return Err(EnergyAssuranceError::SelfTrade);
         }
-        if now_micros < offer.available_from_micros || now_micros > offer.available_until_micros {
+        if now_micros < offer.available_from_micros || now_micros >= offer.available_until_micros {
             return Err(EnergyAssuranceError::OfferUnavailable);
         }
         if expected_revision != offer.revision {
@@ -754,6 +764,35 @@ mod tests {
         assert_eq!(
             attestation.validate_against(&claim),
             Err(EnergyAssuranceError::AttestationEvidenceNotInClaim)
+        );
+    }
+
+    #[test]
+    fn duplicate_evidence_digest_is_rejected() {
+        let claim = ProductionClaim {
+            claim_id: "claim-001".into(),
+            claim_digest: [2; 32],
+            producer_id: "producer-001".into(),
+            project_id: "project-001".into(),
+            energy_wh: 1000,
+            source: ProductionSource::MeterDerived,
+            evidence_digests: vec![[3; 32], [3; 32]],
+        };
+        let attestation = VerifierAttestation {
+            attestation_id: "attest-001".into(),
+            claim_id: claim.claim_id.clone(),
+            claim_digest: [2; 32],
+            verifier_id: "inspector-001".into(),
+            independently_qualified: true,
+            conflicts_declared: false,
+            uncertainty: MeasurementUncertainty::Low,
+            observation_digests: vec![[3; 32]],
+            scope: "interval-output".into(),
+            result: VerificationResult::VerifiedForScope,
+        };
+        assert_eq!(
+            attestation.validate_against(&claim),
+            Err(EnergyAssuranceError::DuplicateEvidenceDigest)
         );
     }
 
