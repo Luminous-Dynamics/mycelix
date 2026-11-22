@@ -511,9 +511,7 @@ fn score(
             let event_results: Vec<EventResult> = truth
                 .events
                 .iter()
-                .map(|event| {
-                    event_result(truth, event, &policy.requested_times_hours, baseline)
-                })
+                .map(|event| event_result(truth, event, &policy.requested_times_hours, baseline))
                 .collect();
             let events_detected = event_results.iter().filter(|x| x.event_detected).count();
             let missed = event_results.len() - events_detected;
