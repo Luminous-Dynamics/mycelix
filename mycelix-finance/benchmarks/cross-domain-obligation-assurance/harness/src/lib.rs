@@ -806,7 +806,9 @@ pub fn replay_payment_history(
                     finality_policy_reference: finality_policy_reference.clone(),
                 });
             }
-            PaymentAuditEvent::Rejected { external_receipt_id } => {
+            PaymentAuditEvent::Rejected {
+                external_receipt_id,
+            } => {
                 if !matches!(
                     status.as_ref(),
                     Some(PaymentStatus::Submitted | PaymentStatus::Indeterminate)
