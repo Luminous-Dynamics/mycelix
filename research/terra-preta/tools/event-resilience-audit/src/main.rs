@@ -514,9 +514,14 @@ fn build_report(s: &Scenario, digest: String) -> Report {
     let stress_max_gap = phase_max_gap(&s.observations, "stress");
     let recovery_max_gap = phase_max_gap(&s.observations, "recovery");
     let observed_max_gap = max_gap(&s.observations);
-    let cadence_ok = [baseline_max_gap, stress_max_gap, recovery_max_gap, observed_max_gap]
-        .into_iter()
-        .all(|gap| gap.is_some_and(|value| value <= s.config.maximum_inter_observation_gap_hours));
+    let cadence_ok = [
+        baseline_max_gap,
+        stress_max_gap,
+        recovery_max_gap,
+        observed_max_gap,
+    ]
+    .into_iter()
+    .all(|gap| gap.is_some_and(|value| value <= s.config.maximum_inter_observation_gap_hours));
     let enough = enough_counts && cadence_ok;
     let baseline_obs: Vec<&Observation> = s
         .observations
