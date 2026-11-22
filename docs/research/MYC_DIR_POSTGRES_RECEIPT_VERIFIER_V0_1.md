@@ -136,12 +136,12 @@ The performance corpus remains preregistered until CI and a repeatable open-loop
 ## 9. Explicit limitations
 
 - No PostgreSQL-backed verifier result has been executed yet.
-- No production PostgreSQL credentials, client certificate, CA rotation or service discovery policy is qualified.
+- No production PostgreSQL credentials, client certificate, CA rotation, service discovery or externally signed write-lease policy is qualified.
 - The test uses a generated CA and a superuser on a disposable database; production should use a dedicated read-only receipt-verifier role and tightly scoped database grants, while still routing to the authoritative primary.
 - The pre-migration effect_commits row did not persist owner epoch or worker-claim history. Migration 003 adds effect_execution_attestations and the verifier follow-on joins it with effect_commits and the owner-epoch transition ledger. This owner-epoch implementation remains unqualified until its own exact-head workflow passes.
-- Synchronous commit in the test does not qualify synchronous replication, failover or promotion.
+- Synchronous commit in the single-node test does not qualify synchronous replication, failover or promotion.
 - Terminal rejection, terminal no-effect and reconciliation handoff are unsupported until they have their own durable receipt tables.
-- No clustered NATS, PostgreSQL failover, latency, throughput or SOTA result is claimed.
+- No clustered NATS, PostgreSQL failover, latency, throughput or SOTA result is claimed. The owner-epoch branch additionally awaits exact-head CI and TLC model checking.
 
 The next gates are the exact-head TLS/PostgreSQL + JetStream CI run, real PostgreSQL failover/replication schedules, and a production least-privilege verifier role.
 
