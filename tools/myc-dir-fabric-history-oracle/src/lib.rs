@@ -235,6 +235,7 @@ pub enum FindingCode {
     ReconciliationBindingMismatch,
     ReconciliationMissingCommit,
     ReconciliationUnexpectedCommit,
+    ReconciliationNotTerminalAtOwner,
     InventoryMissing,
     InventoryOwnerStreamIncomplete,
     InventoryEmptyOwnerSet,
@@ -744,6 +745,8 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                 attempt_id,
                 unknown_event_id,
                 outcome,
+                terminal_at_effect_owner,
+                reconciliation_evidence_digest,
                 ..
             } => {
                 if reconciliations
@@ -799,6 +802,13 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                         FindingCode::ReconciliationBindingMismatch,
                         Some(&event.id),
                         "Unknown event does not identify the same owner, operation and physical attempt",
+                    );
+                }
+                if !terminal_at_effect_owner || !digest_is_nonzero(reconciliation_evidence_digest) {
+                    findings.violation(
+                        FindingCode::ReconciliationNotTerminalAtOwner,
+                        Some(&event.id),
+                        "reconciliation is not proven terminal at the effect owner or lacks its evidence commitment",
                     );
                 }
                 match outcome {
@@ -1226,6 +1236,8 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                 inventory_epoch,
                 inventory_manifest_digest,
                 route_set_digest,
+                owner_commit_digest,
+                durable_readback_digest,
             } => {
                 let Some(commit) = fence_commits.get(fence_commit_event_id) else {
                     findings.violation(
@@ -1305,6 +1317,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                 inventory_manifest_digest,
                 route_set_digest,
                 owner_ack_event_ids,
+                owner_ack_set_digest,
                 coordinator_epoch,
                 coordinator_commit_digest,
             } => {
