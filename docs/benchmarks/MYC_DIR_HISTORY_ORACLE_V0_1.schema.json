@@ -95,7 +95,7 @@
     },
     "scenarios": {
       "type": "array",
-      "minItems": 19,
+      "minItems": 22,
       "items": {
         "type": "object",
         "additionalProperties": false,
