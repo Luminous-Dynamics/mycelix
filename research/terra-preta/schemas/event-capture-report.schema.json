@@ -120,7 +120,8 @@
                 "relative_pulse_burden_error",
                 "event_sample_count",
                 "sampled_max_inter_observation_gap_hours",
-                "pulse_burden_status"
+                "pulse_burden_status",
+                "event_type"
               ],
               "properties": {
                 "event_id": {
@@ -207,6 +208,10 @@
                     "missing_event_boundary",
                     "gap_exceeded"
                   ]
+                },
+                "event_type": {
+                  "type": "string",
+                  "minLength": 1
                 }
               }
             }
