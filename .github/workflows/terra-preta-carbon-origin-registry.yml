@@ -1,0 +1,67 @@
+name: Terra Preta carbon-origin and registry double-counting audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/PYROGENIC_CARBON_SOURCE_AND_CDR_OVERLAP_AUDIT_V0.1.md'
+      - 'research/terra-preta/schemas/carbon-origin-registry-input.schema.json'
+      - 'research/terra-preta/schemas/carbon-origin-registry-report.schema.json'
+      - 'research/terra-preta/tools/carbon-origin-registry-audit/**'
+      - '.github/workflows/terra-preta-carbon-origin-registry.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  carbon-origin-registry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/carbon-origin-registry-audit/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path research/terra-preta/tools/carbon-origin-registry-audit/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/carbon-origin-registry-audit/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate fixture and report
+        run: |
+          fixture=research/terra-preta/tools/carbon-origin-registry-audit/fixtures/synthetic-carbon-origin-registry.json
+          jsonschema-cli validate research/terra-preta/schemas/carbon-origin-registry-input.schema.json --instance "$fixture" --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/carbon-origin-registry-audit/Cargo.toml -- "$fixture" "$RUNNER_TEMP/carbon-origin-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/carbon-origin-registry-report.schema.json --instance "$RUNNER_TEMP/carbon-origin-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .gross_soc_stock_change_mg_c == 12 and
+            .overlapping_biochar_credited_mg_c == 8 and
+            .declared_biochar_correction_mg_c == 8 and
+            .eligible_residual_soc_cdr_mg_c == 4 and
+            .pyc_evidence_status == "total_pyrogenic_only" and
+            (.controls.pyc_not_promoted_to_batch_origin_pass == true)
+          ' "$RUNNER_TEMP/carbon-origin-report.json"
+      - name: Reject under-correction and unknown spatial relationship
+        run: |
+          fixture=research/terra-preta/tools/carbon-origin-registry-audit/fixtures/synthetic-carbon-origin-registry.json
+          jq '.soc_claim.declared_biochar_correction_mg_c = 1' "$fixture" > "$RUNNER_TEMP/under-corrected.json"
+          cargo run --quiet --manifest-path research/terra-preta/tools/carbon-origin-registry-audit/Cargo.toml -- "$RUNNER_TEMP/under-corrected.json" "$RUNNER_TEMP/under-corrected-report.json"
+          jq -e '.eligibility_status == "blocked_under_correction" and .eligible_residual_soc_cdr_mg_c == null' "$RUNNER_TEMP/under-corrected-report.json"
+          jq '.soc_claim.spatial_relationship_status = "unknown"' "$fixture" > "$RUNNER_TEMP/unknown-spatial.json"
+          cargo run --quiet --manifest-path research/terra-preta/tools/carbon-origin-registry-audit/Cargo.toml -- "$RUNNER_TEMP/unknown-spatial.json" "$RUNNER_TEMP/unknown-spatial-report.json"
+          jq -e '.eligibility_status == "blocked_unknown_spatial_relationship" and .eligible_residual_soc_cdr_mg_c == null' "$RUNNER_TEMP/unknown-spatial-report.json"
+      - name: Reject output overwrite
+        run: |
+          fixture=research/terra-preta/tools/carbon-origin-registry-audit/fixtures/synthetic-carbon-origin-registry.json
+          report="$RUNNER_TEMP/existing-carbon-origin-report.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/carbon-origin-registry-audit/Cargo.toml -- "$fixture" "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"

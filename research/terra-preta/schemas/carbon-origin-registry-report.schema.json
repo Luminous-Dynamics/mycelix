@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic carbon-origin registry audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "registry_manifest_sha256",
+    "claim_id",
+    "gross_soc_stock_change_mg_c",
+    "overlapping_biochar_registry_entry_ids",
+    "overlapping_biochar_credited_mg_c",
+    "declared_biochar_correction_mg_c",
+    "required_minimum_correction_mg_c",
+    "eligible_residual_soc_cdr_mg_c",
+    "eligibility_status",
+    "pyc_evidence_status",
+    "pyc_source_interpretation",
+    "spatial_relationship_status",
+    "controls",
+    "interpretation_boundary",
+    "overlapping_application_record_ids",
+    "matched_batch_passport_sha256s"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "registry_manifest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "claim_id": {
+      "type": "string"
+    },
+    "gross_soc_stock_change_mg_c": {
+      "type": "number"
+    },
+    "overlapping_biochar_registry_entry_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "overlapping_biochar_credited_mg_c": {
+      "type": "number",
+      "minimum": 0
+    },
+    "declared_biochar_correction_mg_c": {
+      "type": "number",
+      "minimum": 0
+    },
+    "required_minimum_correction_mg_c": {
+      "type": "number",
+      "minimum": 0
+    },
+    "eligible_residual_soc_cdr_mg_c": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "eligibility_status": {
+      "enum": [
+        "qualified_accounting_residual",
+        "blocked_under_correction",
+        "blocked_unknown_spatial_relationship",
+        "blocked_overlapping_soc_claim",
+        "zero_eligible_after_correction"
+      ]
+    },
+    "pyc_evidence_status": {
+      "enum": [
+        "not_measured",
+        "total_pyrogenic_only",
+        "source_unresolved"
+      ]
+    },
+    "pyc_source_interpretation": {
+      "const": "pyc_measurement_does_not_identify_applied_batch_origin"
+    },
+    "spatial_relationship_status": {
+      "enum": [
+        "exact_overlap_group_resolved",
+        "unknown"
+      ]
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "batch_registry_match_pass",
+        "no_duplicate_registry_or_tranche_ids_pass",
+        "spatial_overlap_group_gate_pass",
+        "temporal_overlap_gate_pass",
+        "soc_stock_basis_pass",
+        "pyc_not_promoted_to_batch_origin_pass",
+        "correction_floor_pass"
+      ],
+      "properties": {
+        "batch_registry_match_pass": {
+          "const": true
+        },
+        "no_duplicate_registry_or_tranche_ids_pass": {
+          "const": true
+        },
+        "spatial_overlap_group_gate_pass": {
+          "type": "boolean"
+        },
+        "temporal_overlap_gate_pass": {
+          "const": true
+        },
+        "soc_stock_basis_pass": {
+          "const": true
+        },
+        "pyc_not_promoted_to_batch_origin_pass": {
+          "const": true
+        },
+        "correction_floor_pass": {
+          "type": "boolean"
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "overlapping_application_record_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "matched_batch_passport_sha256s": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    }
+  }
+}
