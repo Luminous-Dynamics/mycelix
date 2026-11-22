@@ -56,6 +56,8 @@ pub struct ProcessRegistryEntry {
     pub display_label: String,
     pub tags: Vec<String>,
     pub status: ProcessRegistryStatusV1,
+    /// Pointer to the prior definition only. v0.1 rejects direct self-reference;
+    /// resolving the full supersession graph/cycle is deferred to the owner resolver.
     pub supersedes_process_ref: Option<Box<ProcessDefinitionRefV1>>,
     pub registered_at: Timestamp,
 }
