@@ -92,8 +92,6 @@ pub enum CapacityClaimSourceV1 {
 pub enum ResourceOfferPublicationStateV1 {
     Published,
     Withdrawn,
-    Disputed,
-    Superseded,
 }
 
 /// Exact process/resource declaration. The schema deliberately references
@@ -102,6 +100,8 @@ pub enum ResourceOfferPublicationStateV1 {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct ManufacturingResourceOfferV1 {
     pub schema_version: String,
+    /// Stable provider-issued identifier; offer_revision distinguishes immutable versions.
+    pub offer_id: String,
     pub offer_revision: String,
 
     pub provider_subject_ref: OwnerNativeSubjectRefV1,
@@ -147,6 +147,10 @@ pub struct ManufacturingResourceOfferV1 {
     pub capacity_claim_source: CapacityClaimSourceV1,
     #[serde(default)]
     pub capacity_evidence_refs: Vec<OwnerNativeSubjectRefV1>,
+    /// References to external lifecycle events. Their authority/state is not
+    /// interpreted by this schema-only contract.
+    #[serde(default)]
+    pub lifecycle_event_refs: Vec<OwnerNativeSubjectRefV1>,
 
     pub publication_state: ResourceOfferPublicationStateV1,
     pub issued_at_unix_s: u64,
@@ -162,6 +166,7 @@ impl ManufacturingResourceOfferV1 {
         if self.schema_version != RESOURCE_OFFER_SCHEMA_VERSION_V1 {
             return Err("unsupported resource-offer schema_version".into());
         }
+        validate_bounded_token("offer_id", &self.offer_id, 128)?;
         validate_bounded_token("offer_revision", &self.offer_revision, 64)?;
         if self.valid_from_unix_s >= self.valid_until_unix_s {
             return Err("offer validity window must be ordered".into());
@@ -190,7 +195,13 @@ impl ManufacturingResourceOfferV1 {
         }
         if let Some(reference) = &self.supersedes_offer_ref {
             reference.validate()?;
+            if reference.subject_id == self.offer_id
+                && reference.source_revision == self.offer_revision
+            {
+                return Err("resource offer cannot supersede itself".into());
+            }
         }
+        validate_unique_refs("lifecycle_event_refs", &self.lifecycle_event_refs)?;
 
         self.process_definition_ref.validate()?;
         self.capability_profile_ref.validate()?;
@@ -249,13 +260,7 @@ impl ManufacturingResourceOfferV1 {
             ResourceOfferPublicationStateV1::Withdrawn => {
                 ResourceOfferPublicationDispositionV1::Withdrawn
             }
-            ResourceOfferPublicationStateV1::Disputed => {
-                ResourceOfferPublicationDispositionV1::Disputed
-            }
-            ResourceOfferPublicationStateV1::Superseded => {
-                ResourceOfferPublicationDispositionV1::Superseded
-            }
-            ResourceOfferPublicationStateV1::Published
+remove derived status assertion            ResourceOfferPublicationStateV1::Published
                 if evaluation_time_unix_s < self.valid_from_unix_s =>
             {
                 ResourceOfferPublicationDispositionV1::NotYetValid
@@ -283,16 +288,15 @@ impl ManufacturingResourceOfferV1 {
     }
 }
 
-/// Offer publication/validity disposition only; none of these states
-/// asserts machine capability or time-slot availability.
+/// Offer publication/validity disposition only. Disputed and Superseded
+/// require separately resolved lifecycle events/newer-offer history and are
+/// not emitted by this local time-window evaluator.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResourceOfferPublicationDispositionV1 {
     NotYetValid,
     ActiveOfferWindow,
     Expired,
     Withdrawn,
-    Disputed,
-    Superseded,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -358,6 +362,7 @@ mod tests {
         process.object_id_blake3 = process.process_id_blake3.clone();
         ManufacturingResourceOfferV1 {
             schema_version: RESOURCE_OFFER_SCHEMA_VERSION_V1.into(),
+            offer_id: "offer:machine-7:polymer-extrusion".into(),
             offer_revision: "A".into(),
             provider_subject_ref: owner_ref("provider.identity/1", "provider-1", '1'),
             provider_authority_ref: None,
@@ -384,6 +389,7 @@ mod tests {
             commercial_terms_ref: None,
             capacity_claim_source: CapacityClaimSourceV1::ProviderDeclared,
             capacity_evidence_refs: vec![],
+            lifecycle_event_refs: vec![],
             publication_state: ResourceOfferPublicationStateV1::Published,
             issued_at_unix_s: 1_000,
             valid_from_unix_s: 1_001,
@@ -448,6 +454,38 @@ mod tests {
         let reference = owner_ref("material.profile/1", "polymer-grade-a", '6');
         offer.material_applicability_refs = vec![reference.clone(), reference];
         assert!(offer.validate().is_err());
+    }
+
+    #[test]
+    fn self_supersession_is_rejected() {
+        let mut offer = valid_offer();
+        let mut previous = owner_ref("resource.offer/1", &offer.offer_id, '9');
+        previous.source_revision = offer.offer_revision.clone();
+        offer.supersedes_offer_ref = Some(previous);
+        assert!(offer.validate().is_err());
+    }
+
+    #[test]
+    fn superseding_another_immutable_offer_is_only_a_reference() {
+        let mut offer = valid_offer();
+        let mut previous = owner_ref("resource.offer/1", &offer.offer_id, '9');
+        previous.source_revision = "A".into();
+        offer.offer_revision = "B".into();
+        offer.supersedes_offer_ref = Some(previous);
+        assert_eq!(offer.validate(), Ok(()));
+        // A resolver must fetch the exact prior offer and validate its ancestry.
+    }
+
+    #[test]
+    fn dispute_event_reference_does_not_self_promote_publication_state() {
+        let mut offer = valid_offer();
+        offer.lifecycle_event_refs = vec![owner_ref("resource.dispute/1", "dispute-event-001", '8')];
+        assert_eq!(offer.validate(), Ok(()));
+        assert_eq!(
+            offer.publication_disposition_at(1_500).unwrap(),
+            ResourceOfferPublicationDispositionV1::ActiveOfferWindow
+        );
+        // The event remains unresolved until its owner-native resolver runs.
     }
 
     #[test]
