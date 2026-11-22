@@ -14,3 +14,7 @@ name = "space-geometry-informed-proposal"
 path = "src/main.rs"
 
 [workspace]
+
+[[bin]]
+name = "analytic_halfspace_benchmark"
+path = "src/bin/analytic_halfspace_benchmark.rs"
