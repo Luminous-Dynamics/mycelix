@@ -282,6 +282,67 @@ Compare collateral valuation, liquidation, oracle dependencies, custody, governa
 
 Compare accessibility, local knowledge, asset verification, liquidation experience, community governance and resilience. Existing cooperative/warehouse-receipt finance is prior art; Mycelix should integrate and improve it rather than claim to invent it.
 
+## 10.1 Position against leading financial infrastructure
+
+### Wholesale tokenized settlement: integrate with BIS Project Agorá
+
+Project Agorá has already demonstrated a prototype for wholesale cross-border payments using tokenized commercial-bank deposits and tokenized central-bank reserves on a shared programmable platform. The BIS and participating central banks have reported participation by more than 40 financial institutions. It is aimed at atomic multi-currency wholesale settlement, not community-scale retail credit or asset finance.
+
+Mycelix should not claim to beat Agorá at central-bank-money settlement. The stronger strategy is to interoperate with regulated banks, PSPs and future wholesale tokenized-settlement rails. Mycelix's differentiation should be the upstream/downstream layer: evidence-backed productive collateral, small-business and cooperative financing, authority-bound agents, physical-project verification, local mutual credit, and portable community governance.
+
+Benchmark the external rail as a dependency: exact settlement-finality semantics, fees, availability, counterparty risk, reconciliation delay, FX transparency and failure/recovery behavior. A token wrapper around a bank transfer does not create atomic settlement.
+
+Sources:
+- BIS Project Agorá prototype outcome, 27 May 2026: https://www.bis.org/press/p260527.htm
+- BIS Project Agorá project page: https://www.bis.org/about/bisih/topics/cbdc/agora.htm
+
+### Stablecoins and tokenized money: exceed the assurance perimeter, not the ticker
+
+The FSB's 2025 peer review found material gaps and inconsistent implementation across jurisdictions for crypto-asset and global stablecoin recommendations, including reserve, redemption, liquidity, governance, service-provider and cross-border supervisory issues. The South African IFWG's 2026 consultation on rand-pegged stablecoin arrangements focuses attention on reserves, redemption/stabilization, operational and cyber risk, disclosures and financial interlinkages.
+
+SAP-ZAR should therefore be compared on an instrument-equivalent basis:
+- identical legal claim and redemption promise;
+- identical currency denomination and redemption window;
+- comparable eligible reserves, liquidity horizon, concentration and haircuts;
+- comparable custody, segregation, insolvency and recovery arrangements;
+- independent liability reconciliation and public disclosures.
+
+A 100% reserve arithmetic test is not enough. The launch claim must include enforceable holder rights and evidence of actual custody and liquidity. Do not compare SAP-ZAR with an unbacked or non-redeemable token and then claim superiority.
+
+Sources:
+- FSB 2025 implementation review: https://www.fsb.org/2025/10/fsb-finds-significant-gaps-and-inconsistencies-in-implementation-of-crypto-and-stablecoin-recommendations/
+- IFWG, 2026 rand-pegged stablecoin arrangements: https://www.ifwg.co.za/Reports/Functional%20analysis%20of%20existing%20regulatory%20frameworks%20and%20rand-pegged%20stablecoin%20arrangements.pdf
+
+### Credit risk: complement Basel controls rather than replace them with an AI score
+
+Basel's 2025 credit-risk principles organize the discipline around an appropriate credit-risk environment, sound granting, ongoing administration/measurement/monitoring, and adequate controls. Mycelix should preserve those core disciplines while testing whether richer cash-flow, contracted-revenue and asset-condition evidence improves access and loss prediction for underserved micro and small enterprises.
+
+The comparison must include an affordability/rule-based baseline and a human-underwriter arm. Symthaea is an advisory model, not a bank's credit officer or legal decision-maker. Report expected loss, calibration, false rejection, borrower outcome, operational cost and fairness—not only discrimination metrics or application approval rate.
+
+Sources:
+- Basel Committee, Principles for the Management of Credit Risk (2025): https://www.bis.org/publications/202504-guidelines-principles-management-credit-risk
+- Basel consolidated credit risk management guidance (1 January 2026): https://www.bis.org/committees/bcbs/basel-consolidated-guidelines/module/cri/10
+
+### Productive collateral: build on warehouse-receipt finance, do not claim to invent it
+
+Warehouse-receipt finance and movable-asset registries already provide established precedents for financing inventory and equipment. Mycelix's research claim should be narrower and testable: can the common evidence/authority layer reduce duplication, improve title/custody verification, shorten reconciliation and enable more asset classes without increasing loss or legal uncertainty?
+
+Compare by asset class against actual recovery time, liquidation discount, custody failures, title disputes, duplicate pledges, financing cost and borrower inclusion. A digital receipt alone is not a perfected security interest.
+
+### Mycelix's proposed competitive wedge
+
+The candidate advantage is a cross-domain contract from verified asset or business activity to accountable financing and reconciled repayment:
+1. prove identity/authority and consent;
+2. verify the underlying business or asset evidence;
+3. assess affordability, projected cash flow and downside scenarios;
+4. disclose legal rights, fees, loss allocation and recourse;
+5. fund through a regulated lender/settlement partner;
+6. observe delivery/performance independently;
+7. reconcile payments, hardship, restructuring and collateral release;
+8. export a portable, privacy-preserving evidence history.
+
+This is a research hypothesis. It only becomes an advantage if a matched field pilot demonstrates lower cost/time, wider appropriate access, comparable or lower realized losses, better borrower outcomes, and no increase in fraud, privacy harm or legal failure.
+
 ## 11. Research targets and claims policy
 
 A benchmark result qualifies only if:
