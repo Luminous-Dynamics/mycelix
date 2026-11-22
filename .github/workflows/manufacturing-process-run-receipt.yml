@@ -1,0 +1,45 @@
+name: Manufacturing Process-Run Receipt
+
+on:
+  pull_request:
+    paths:
+      - "crates/mycelix-bridge-entry-types/src/**"
+      - "crates/mycelix-bridge-entry-types/Cargo.toml"
+      - "docs/manufacturing/PROCESS_RUN_RECEIPT_V0_1.md"
+      - ".github/workflows/manufacturing-process-run-receipt.yml"
+  push:
+    paths:
+      - "crates/mycelix-bridge-entry-types/src/**"
+      - "crates/mycelix-bridge-entry-types/Cargo.toml"
+      - "docs/manufacturing/PROCESS_RUN_RECEIPT_V0_1.md"
+      - ".github/workflows/manufacturing-process-run-receipt.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manufacturing-process-run-receipt-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  receipt-contract:
+    name: Receipt Contract Tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+      - name: Format check
+        run: cargo fmt --check --manifest-path crates/mycelix-bridge-entry-types/Cargo.toml
+      - name: Receipt mutation and round-trip tests
+        run: cargo test --manifest-path crates/mycelix-bridge-entry-types/Cargo.toml manufacturing_run_receipt
+      - name: Clippy with warnings denied
+        run: cargo clippy --manifest-path crates/mycelix-bridge-entry-types/Cargo.toml --all-targets -- -D warnings
