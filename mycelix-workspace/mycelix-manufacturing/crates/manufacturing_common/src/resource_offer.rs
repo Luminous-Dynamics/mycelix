@@ -16,9 +16,7 @@ pub const RESOURCE_OFFER_SCHEMA_VERSION_V1: &str = "0.1.0";
 
 /// A pointer to an owner-native record. The referenced payload is not fetched,
 /// authenticated or interpreted by the manufacturing-offer validator.
-#[derive(
-    Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord,
-)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct OwnerNativeSubjectRefV1 {
     pub owner_repository: String,
     pub schema_id: String,
@@ -50,17 +48,15 @@ impl OwnerNativeSubjectRefV1 {
     }
 }
 
-fn validate_bounded_token(
-    field: &str,
-    value: &str,
-    max_bytes: usize,
-) -> Result<(), String> {
+fn validate_bounded_token(field: &str, value: &str, max_bytes: usize) -> Result<(), String> {
     if value.is_empty()
         || value.len() > max_bytes
         || value.trim() != value
         || value.chars().any(char::is_control)
     {
-        return Err(format!("{field} must be a canonical 1-{max_bytes} byte token"));
+        return Err(format!(
+            "{field} must be a canonical 1-{max_bytes} byte token"
+        ));
     }
     Ok(())
 }
@@ -194,10 +190,11 @@ impl ManufacturingResourceOfferV1 {
         if self.process_definition_ref.0.object_id_blake3
             != self.capability_profile_ref.0.process_id_blake3
         {
-            return Err("resource offer capability profile must match the process definition".into());
+            return Err(
+                "resource offer capability profile must match the process definition".into(),
+            );
         }
-        if self.process_definition_ref.0.owner_commit
-            != self.capability_profile_ref.0.owner_commit
+        if self.process_definition_ref.0.owner_commit != self.capability_profile_ref.0.owner_commit
         {
             return Err("resource offer mixes Symthaea contract source commits".into());
         }
@@ -214,8 +211,14 @@ impl ManufacturingResourceOfferV1 {
         for (field, references) in [
             ("tooling_refs", &self.tooling_refs),
             ("fixture_workholding_refs", &self.fixture_workholding_refs),
-            ("material_applicability_refs", &self.material_applicability_refs),
-            ("environment_requirement_refs", &self.environment_requirement_refs),
+            (
+                "material_applicability_refs",
+                &self.material_applicability_refs,
+            ),
+            (
+                "environment_requirement_refs",
+                &self.environment_requirement_refs,
+            ),
             ("utility_requirement_refs", &self.utility_requirement_refs),
             ("operator_competence_refs", &self.operator_competence_refs),
             ("safety_profile_refs", &self.safety_profile_refs),
@@ -291,10 +294,7 @@ pub enum ResourceOfferReferenceStateV1 {
     TypedOfferMalformed,
 }
 
-fn validate_unique_refs(
-    field: &str,
-    references: &[OwnerNativeSubjectRefV1],
-) -> Result<(), String> {
+fn validate_unique_refs(field: &str, references: &[OwnerNativeSubjectRefV1]) -> Result<(), String> {
     if references.len() > 64 {
         return Err(format!("{field} exceeds the 64-reference limit"));
     }
@@ -302,7 +302,9 @@ fn validate_unique_refs(
     for reference in references {
         reference.validate()?;
         if !unique.insert(reference) {
-            return Err(format!("{field} contains a duplicate owner-native reference"));
+            return Err(format!(
+                "{field} contains a duplicate owner-native reference"
+            ));
         }
     }
     Ok(())
@@ -312,10 +314,9 @@ fn validate_unique_refs(
 mod tests {
     use super::*;
     use crate::{
-        ProcessCapabilityProfileRefV1, ProcessDefinitionRefV1,
-        SymthaeaManufacturingObjectRefV1, SYMTHAEA_CONTRACTS_CRATE,
-        SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1,
-        SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY, SYMTHAEA_PROCESS_CRATE,
+        ProcessCapabilityProfileRefV1, ProcessDefinitionRefV1, SYMTHAEA_CONTRACTS_CRATE,
+        SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1, SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY,
+        SYMTHAEA_PROCESS_CRATE, SymthaeaManufacturingObjectRefV1,
     };
 
     fn owner_ref(schema: &str, subject: &str, digest_char: char) -> OwnerNativeSubjectRefV1 {
@@ -346,11 +347,7 @@ mod tests {
     }
 
     fn valid_offer() -> ManufacturingResourceOfferV1 {
-        let mut process = symthaea_ref(
-            SYMTHAEA_PROCESS_CRATE,
-            "ProcessDefinitionV1",
-            'a',
-        );
+        let mut process = symthaea_ref(SYMTHAEA_PROCESS_CRATE, "ProcessDefinitionV1", 'a');
         process.object_id_blake3 = process.process_id_blake3.clone();
         ManufacturingResourceOfferV1 {
             schema_version: RESOURCE_OFFER_SCHEMA_VERSION_V1.into(),
@@ -439,7 +436,10 @@ mod tests {
         let offer = valid_offer();
         assert!(offer.availability_calendar_ref.is_none());
         assert!(offer.supersedes_offer_ref.is_none());
-        assert_eq!(offer.publication_state, ResourceOfferPublicationStateV1::Published);
+        assert_eq!(
+            offer.publication_state,
+            ResourceOfferPublicationStateV1::Published
+        );
         // The offer schema has no available-now, bookable, reserved or executed boolean.
     }
 
@@ -465,12 +465,10 @@ mod tests {
     #[test]
     fn non_provider_capacity_claim_requires_a_supporting_reference() {
         let mut offer = valid_offer();
-        offer.capacity_claim_source =
-            CapacityClaimSourceV1::ThirdPartyEvidenceReferenced;
+        offer.capacity_claim_source = CapacityClaimSourceV1::ThirdPartyEvidenceReferenced;
         assert!(offer.validate().is_err());
 
-        offer.capacity_evidence_refs =
-            vec![owner_ref("inspection.evidence/1", "evidence-1", '8')];
+        offer.capacity_evidence_refs = vec![owner_ref("inspection.evidence/1", "evidence-1", '8')];
         assert_eq!(offer.validate(), Ok(()));
         // The referenced evidence is not authenticated or independently qualified here.
     }
