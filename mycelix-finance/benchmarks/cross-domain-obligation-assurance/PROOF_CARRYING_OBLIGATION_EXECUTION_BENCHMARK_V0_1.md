@@ -100,7 +100,14 @@ A passing L0 or L1 result does not qualify L2–L4. A synthetic fixture cannot e
 
 ## 4. Adversarial corpus
 
-The companion file `pcoe-scenarios.v0.1.json` defines 39 initial scenarios. Each scenario includes a threat, preconditions, the injected mutation, expected disposition, and the control that must be demonstrated.
+The benchmark now has four separate machine-readable suites comprising **71 scenarios**. Each scenario includes a threat, preconditions, the injected mutation, expected disposition, and the control that must be demonstrated:
+
+- `pcoe-scenarios.v0.1.json`: 39 core obligation scenarios.
+- `pcoe-agent-authority-scenarios.v0.1.json`: 10 agent identity/delegation/approval scenarios.
+- `pcoe-transparency-metrology-scenarios.v0.1.json`: 10 transparency, legal-metrology and regulatory-adapter scenarios.
+- `pcoe-energy-attribute-scenarios.v0.1.json`: 12 renewable energy-attribute issuance/ownership/retirement scenarios.
+
+The Rust reference kernel maps all 71 IDs into explicit coverage classes: 29 implemented in reference-kernel tests, 16 partial/adapter-dependent, and 26 not yet implemented. These labels are not full PCOE conformance. Adapter-level suites are not replaced by in-memory policy tests.
 
 The corpus is intentionally cross-layer. It includes:
 - expired, revoked, replayed, or escalated delegated authority;
@@ -108,7 +115,10 @@ The corpus is intentionally cross-layer. It includes:
 - self-verification, common-cause witnesses, conflicts, evidence-digest mismatch, and tampered records;
 - contract-version substitution, absent acceptance authority, partial delivery presented as full delivery, concurrent oversell, and duplicate collateral;
 - timeout ambiguity, malformed responses, duplicate side effects, idempotency conflicts, beneficiary/amount mismatch, manual-attestation promotion, stale receipts, and post-finality reversals;
-- pending transparency anchors, fork/split-brain histories, privacy over-disclosure, model outage, prediction/measurement confusion, and unreconciled physical/financial quantities.
+- pending transparency anchors, fork/split-brain histories, privacy over-disclosure, model outage, prediction/measurement confusion, and unreconciled physical/financial quantities;
+- unregistered or suspended generation devices, overlapping intervals, EAC over-issuance, duplicate certificate IDs, double transfer/retirement, cross-registry conflicts, storage-provenance laundering and certificate correction/claim-reconciliation failures.
+
+The EAC suite preserves a strict distinction between physical generation, contractual delivery/consumption, certificate ownership/retirement and a consumer's renewable-energy claim. PCOE should interoperate with an accredited EAC registry; it is not a shadow certificate registry.
 
 A scenario is not passed because an error was logged. The harness must assert the resulting state, the absence of unauthorized side effects, and relevant balance/quantity deltas. Every negative control must fail when its corresponding safeguard is removed.
 
@@ -227,6 +237,10 @@ Blocking issues to keep visible:
 - IETF RFC 9396, OAuth 2.0 Rich Authorization Requests: https://www.rfc-editor.org/rfc/rfc9396
 - IFRS Foundation, IFRS 9 project summary — impairment / measuring expected credit losses: https://www.ifrs.org/content/dam/ifrs/project/fi-impairment/ifrs-standard/published-documents/project-summary-july-2014.pdf
 - South African Government, Electricity Regulation Amendment Act 38 of 2024: https://www.gov.za/documents/acts/electricity-regulation-amendment-act-38-2024-english-isizulu-20-aug-2024
+- I-TRACK Foundation, Product Code for Electricity (I-REC(E)): https://www.trackingstandard.org/product-code/electricity/
+- U.S. EPA, How to Avoid Double Counting Renewable Energy Certificates: https://www.epa.gov/green-power-markets/double-counting
+- IEC 62052-11:2020, electricity meter general requirements and type tests: https://webstore.iec.ch/en/publication/28212
+- Efficiency Valuation Organization, IPMVP Core Concepts 2022: https://evo-world.org/en/products-services-mainmenu-en/protocols/ipmvp
 
 ---
 
