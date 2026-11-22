@@ -7,6 +7,7 @@
   "additionalProperties": false,
   "required": [
     "schema_version",
+    "offer_id",
     "offer_revision",
     "provider_subject_ref",
     "resource_subject_ref",
@@ -19,7 +20,8 @@
     "publication_state",
     "issued_at_unix_s",
     "valid_from_unix_s",
-    "valid_until_unix_s"
+    "valid_until_unix_s",
+    "lifecycle_event_refs"
   ],
   "$defs": {
     "ownerNativeSubjectRef": {
@@ -183,9 +185,7 @@
     "publication_state": {
       "enum": [
         "Published",
-        "Withdrawn",
-        "Disputed",
-        "Superseded"
+        "Withdrawn"
       ]
     },
     "issued_at_unix_s": {
@@ -209,6 +209,15 @@
           "type": "null"
         }
       ]
+    },
+    "offer_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$"
+    },
+    "lifecycle_event_refs": {
+      "$ref": "#/$defs/ownerRefList"
     }
   }
 }
