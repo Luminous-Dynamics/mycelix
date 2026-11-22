@@ -229,8 +229,8 @@ async fn create_committed_postgres_effect(
 
     transaction
         .query_one(
-            "SELECT myc_effect_owner.install_worker_claim( \
-               $1, $2, $3, $4, $5, $6, 1, $7, \
+            "SELECT myc_effect_owner.install_worker_claim_for_owner_epoch( \
+               $1, $2, $3, $4, 2, $5, $6, 2, $7, \
                'postgres-db-clock-v1', \
                clock_timestamp() - interval '1 minute', \
                clock_timestamp() + interval '1 hour')",
@@ -245,7 +245,7 @@ async fn create_committed_postgres_effect(
             ],
         )
         .await
-        .expect("install initial worker claim");
+        .expect("install owner-epoch-bound worker claim");
 
     let effect_row = transaction
         .query_one(
@@ -253,7 +253,7 @@ async fn create_committed_postgres_effect(
                     accepted_worker_id, accepted_claim_epoch, execution_attestation_id::text \
              FROM myc_effect_owner.apply_owner_epoch_claim_fenced_balance_delta( \
                $1, $2, $3, $4, $5, $6, 2, 2, $7, $8, $9, $10, $11, 100, \
-               $12, 1, $13, 'postgres-db-clock-v1', \
+               $12, 2, $13, 'postgres-db-clock-v1', \
                clock_timestamp() - interval '1 minute', \
                clock_timestamp() + interval '1 hour')",
             &[
@@ -287,7 +287,7 @@ async fn create_committed_postgres_effect(
     assert_eq!(accepted_owner_epoch, 2);
     assert_eq!(accepted_generation, 2);
     assert_eq!(accepted_worker_id, worker);
-    assert_eq!(accepted_claim_epoch, 1);
+    assert_eq!(accepted_claim_epoch, 2);
     transaction
         .commit()
         .await
