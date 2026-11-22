@@ -15,7 +15,16 @@
     "run_url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/45002358868",
     "job_id": 137146458042,
     "job_url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/45002358868/job/137146458042",
-    "event": "push"
+    "event": "push",
+    "additional_pull_request_run": {
+      "workflow_run_id": 45002361876,
+      "run_url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/45002361876",
+      "job_id": 137146467569,
+      "job_url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/45002361876/job/137146467569",
+      "event": "pull_request",
+      "conclusion": "success",
+      "note": "The PR event run also passed the same rustfmt, locked test and lockfile-mutation steps for the tested code head."
+    }
   },
   "source_blobs": {
     "mycelix-energy/crates/energy-assurance-core/src/lib.rs": "1b24de9af4b601a822b1aeeed44e0664b3f709fd",
