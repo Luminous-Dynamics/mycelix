@@ -268,9 +268,9 @@ pub enum BenchmarkError {
     CorpusArtifactVerification(ReceiptError),
     #[error("benchmark offered {expected} tool/case slots but received {actual} run records")]
     RunGridMismatch { expected: usize, actual: usize },
-    #[error("duplicate run record for tool {tool_id} case {case_id}")]
+    #[error("duplicate run record for tool {0} case {1}")]
     DuplicateRun(String, String),
-    #[error("missing run record for tool {tool_id} case {case_id}")]
+    #[error("missing run record for tool {0} case {1}")]
     MissingRun(String, String),
     #[error("run references unregistered tool {0}")]
     UnknownTool(String),
@@ -1116,7 +1116,7 @@ mod tests {
         (manifest, receipt, payloads)
     }
 
-    fn borrowed(payloads: &[(ArtifactRef, Vec<u8>)]) -> Vec<(&ArtifactRef, &[u8])> {
+    fn borrow_payloads(payloads: &[(ArtifactRef, Vec<u8>)]) -> Vec<(&ArtifactRef, &[u8])> {
         payloads
             .iter()
             .map(|(reference, bytes)| (reference, bytes.as_slice()))
@@ -1170,9 +1170,9 @@ mod tests {
         let (mut manifest, receipt, payloads) = fixture();
         manifest.body.tools[0].timezone = "Africa/Johannesburg".into();
         manifest.manifest_sha256 = compute_benchmark_manifest_digest(&manifest).unwrap();
-        let run_payloads = borrowed(&payloads);
+        let run_payloads = borrow_payloads(&payloads);
         let corpus_owned = corpus_payloads(&manifest, &payloads);
-        let corpus_borrowed = borrowed(&corpus_owned);
+        let corpus_borrowed = borrow_payloads(&corpus_owned);
         let observations = vec![
             ClaimObservationV1 {
                 claim_id: "trace.characteristic_identity".into(),
@@ -1206,9 +1206,9 @@ mod tests {
     #[test]
     fn full_grid_verifies_receipt_and_reports_false_pass_without_aggregate_score() {
         let (manifest, receipt, payloads) = fixture();
-        let borrowed = borrowed(&payloads);
+        let borrowed = borrow_payloads(&payloads);
         let corpus_owned = corpus_payloads(&manifest, &payloads);
-        let corpus_borrowed = borrowed(&corpus_owned);
+        let corpus_borrowed = borrow_payloads(&corpus_owned);
         let observations = vec![
             ClaimObservationV1 {
                 claim_id: "trace.characteristic_identity".into(),
@@ -1255,9 +1255,9 @@ mod tests {
         receipt.exit_code = Some(2);
         receipt.outputs.clear();
         receipt.receipt_sha256 = compute_receipt_digest(&receipt).unwrap();
-        let borrowed = borrowed(&payloads[..5]);
+        let borrowed = borrow_payloads(&payloads[..5]);
         let corpus_owned = corpus_payloads(&manifest, &payloads);
-        let corpus_borrowed = borrowed(&corpus_owned);
+        let corpus_borrowed = borrow_payloads(&corpus_owned);
         let run = ToolRunEvidence {
             tool_id: "synthetic-step-to-qif",
             case_id: "synthetic-ap242-qif-001",
@@ -1281,9 +1281,9 @@ mod tests {
         receipt.elapsed_ms = receipt.invocation.timeout_ms;
         receipt.outputs.clear();
         receipt.receipt_sha256 = compute_receipt_digest(&receipt).unwrap();
-        let run_payloads = borrowed(&payloads[..5]);
+        let run_payloads = borrow_payloads(&payloads[..5]);
         let corpus_owned = corpus_payloads(&manifest, &payloads);
-        let corpus_borrowed = borrowed(&corpus_owned);
+        let corpus_borrowed = borrow_payloads(&corpus_owned);
         let run = ToolRunEvidence {
             tool_id: "synthetic-step-to-qif",
             case_id: "synthetic-ap242-qif-001",
@@ -1309,7 +1309,7 @@ mod tests {
     fn blocked_case_is_retained_without_fabricated_receipt() {
         let (manifest, _, payloads) = fixture();
         let corpus_owned = corpus_payloads(&manifest, &payloads);
-        let corpus_borrowed = borrowed(&corpus_owned);
+        let corpus_borrowed = borrow_payloads(&corpus_owned);
         let run = ToolRunEvidence {
             tool_id: "synthetic-step-to-qif",
             case_id: "synthetic-ap242-qif-001",
@@ -1334,7 +1334,7 @@ mod tests {
     fn exact_corpus_and_tool_artifacts_are_verified_against_manifest() {
         let (manifest, _, payloads) = fixture();
         let corpus_owned = corpus_payloads(&manifest, &payloads);
-        let mut corpus_borrowed = borrowed(&corpus_owned);
+        let mut corpus_borrowed = borrow_payloads(&corpus_owned);
         assert_eq!(
             verify_benchmark_corpus_payloads(&manifest, &corpus_borrowed).unwrap(),
             6
@@ -1351,7 +1351,7 @@ mod tests {
         let (manifest, _, payloads) = fixture();
         let mut corpus_owned = corpus_payloads(&manifest, &payloads);
         corpus_owned[0].1.push(b'X');
-        let corpus_borrowed = borrowed(&corpus_owned);
+        let corpus_borrowed = borrow_payloads(&corpus_owned);
         assert!(matches!(
             verify_benchmark_corpus_payloads(&manifest, &corpus_borrowed),
             Err(BenchmarkError::CorpusArtifactVerification(_))
@@ -1363,7 +1363,7 @@ mod tests {
         let (manifest, _, payloads) = fixture();
         let mut corpus_owned = corpus_payloads(&manifest, &payloads);
         corpus_owned.remove(0);
-        let corpus_borrowed = borrowed(&corpus_owned);
+        let corpus_borrowed = borrow_payloads(&corpus_owned);
         assert_eq!(
             verify_benchmark_corpus_payloads(&manifest, &corpus_borrowed),
             Err(BenchmarkError::CorpusPayloadSetMismatch)
@@ -1374,7 +1374,7 @@ mod tests {
     fn missing_tool_case_slot_is_not_removed_from_denominator() {
         let (manifest, _, payloads) = fixture();
         let corpus_owned = corpus_payloads(&manifest, &payloads);
-        let corpus_borrowed = borrowed(&corpus_owned);
+        let corpus_borrowed = borrow_payloads(&corpus_owned);
         assert_eq!(
             evaluate_benchmark(&manifest, &corpus_borrowed, &[]),
             Err(BenchmarkError::RunGridMismatch {
@@ -1387,9 +1387,9 @@ mod tests {
     #[test]
     fn duplicate_claim_observation_is_rejected() {
         let (manifest, receipt, payloads) = fixture();
-        let borrowed = borrowed(&payloads);
+        let borrowed = borrow_payloads(&payloads);
         let corpus_owned = corpus_payloads(&manifest, &payloads);
-        let corpus_borrowed = borrowed(&corpus_owned);
+        let corpus_borrowed = borrow_payloads(&corpus_owned);
         let observations = vec![
             ClaimObservationV1 {
                 claim_id: "trace.characteristic_identity".into(),
@@ -1430,9 +1430,9 @@ mod tests {
         let (manifest, mut receipt, payloads) = fixture();
         receipt.case_id = "other-case".into();
         receipt.receipt_sha256 = compute_receipt_digest(&receipt).unwrap();
-        let borrowed = borrowed(&payloads);
+        let borrowed = borrow_payloads(&payloads);
         let corpus_owned = corpus_payloads(&manifest, &payloads);
-        let corpus_borrowed = borrowed(&corpus_owned);
+        let corpus_borrowed = borrow_payloads(&corpus_owned);
         let observations = vec![
             ClaimObservationV1 {
                 claim_id: "trace.characteristic_identity".into(),
@@ -1491,9 +1491,9 @@ mod tests {
     #[test]
     fn oracle_unadjudicated_is_not_scored_as_accept_or_reject() {
         let (manifest, receipt, payloads) = fixture();
-        let borrowed = borrowed(&payloads);
+        let borrowed = borrow_payloads(&payloads);
         let corpus_owned = corpus_payloads(&manifest, &payloads);
-        let corpus_borrowed = borrowed(&corpus_owned);
+        let corpus_borrowed = borrow_payloads(&corpus_owned);
         let observations = vec![
             ClaimObservationV1 {
                 claim_id: "trace.characteristic_identity".into(),
