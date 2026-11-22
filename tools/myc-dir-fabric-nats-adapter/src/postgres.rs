@@ -1,9 +1,10 @@
-//! PostgreSQL-backed verifier for Directory Fabric effect receipts.
+//! PostgreSQL-backed verifier for Directory Fabric effect and execution receipts.
 //!
-//! This verifier reads the existing append-only myc_effect_owner.effect_commits
-//! ledger. A successful lookup is proof of visibility on the connected
-//! writable primary; durability across promotion still depends on the database
-//! synchronous-commit/replication and promotion policy.
+//! Reads the append-only effect_commits and effect_execution_attestations rows.
+//! Verification proves that the exact historical effect/worker/owner coordinates
+//! are visible on the connected writable primary. It does not prove that a
+//! split-brain former primary is physically fenced or that asynchronous replicas
+//! contain the commit.
 
 use std::path::Path;
 
@@ -17,41 +18,66 @@ use crate::{
     sha256, AdapterResult, OwnerDispositionVerifier, VerifiedOwnerDisposition,
 };
 
-const RECEIPT_DOMAIN: &[u8] = b"MYC-DIR-POSTGRES-EFFECT-RECEIPT\0\x01";
+const RECEIPT_DOMAIN: &[u8] = b"MYC-DIR-POSTGRES-EFFECT-EXECUTION-RECEIPT\0\x02";
 
 const SELECT_EFFECT_COMMIT: &str = r#"
 SELECT
     pg_catalog.pg_is_in_recovery(),
     current_setting('transaction_read_only')::boolean,
-    effect_id::text,
-    realm_id,
-    resource_id,
-    action_id,
-    effect_owner_id,
-    object_id,
-    currency_code,
-    idempotency_key_digest,
-    logical_operation_id,
-    request_digest,
-    decision_receipt_digest,
-    payload_digest,
-    accepted_generation,
-    delta_minor,
-    balance_after_minor
-FROM myc_effect_owner.effect_commits
-WHERE realm_id = $1
-  AND resource_id = $2
-  AND action_id = $3
-  AND effect_owner_id = $4
-  AND object_id = $5
-  AND currency_code = $6
-  AND idempotency_key_digest = $7
-  AND logical_operation_id = $8
+    e.effect_id::text,
+    e.realm_id,
+    e.resource_id,
+    e.action_id,
+    e.effect_owner_id,
+    e.object_id,
+    e.currency_code,
+    e.idempotency_key_digest,
+    e.logical_operation_id,
+    e.request_digest,
+    e.decision_receipt_digest,
+    e.payload_digest,
+    e.accepted_generation,
+    e.delta_minor,
+    e.balance_after_minor,
+    a.attestation_id::text,
+    a.owner_epoch,
+    a.accepted_generation,
+    a.worker_id,
+    a.claim_epoch,
+    a.claim_proof_digest,
+    a.claim_clock_profile_id,
+    to_char(a.claim_issued_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'),
+    to_char(a.claim_expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'),
+    a.database_xact_id,
+    CASE
+      WHEN a.owner_epoch = 1 THEN TRUE
+      ELSE EXISTS (
+        SELECT 1
+          FROM myc_effect_owner.effect_owner_epoch_transitions t
+         WHERE t.realm_id = a.realm_id
+           AND t.resource_id = a.resource_id
+           AND t.action_id = a.action_id
+           AND t.effect_owner_id = a.effect_owner_id
+           AND t.new_owner_epoch = a.owner_epoch
+      )
+    END AS owner_epoch_transition_present
+FROM myc_effect_owner.effect_commits e
+JOIN myc_effect_owner.effect_execution_attestations a
+  ON a.effect_id = e.effect_id
+WHERE e.realm_id = $1
+  AND e.resource_id = $2
+  AND e.action_id = $3
+  AND e.effect_owner_id = $4
+  AND e.object_id = $5
+  AND e.currency_code = $6
+  AND e.idempotency_key_digest = $7
+  AND e.logical_operation_id = $8
 "#;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VerifiedPostgresEffectReceipt {
     pub effect_id: String,
+    pub attestation_id: String,
     pub realm_id: String,
     pub resource_id: String,
     pub action_id: String,
@@ -59,14 +85,22 @@ pub struct VerifiedPostgresEffectReceipt {
     pub object_id: String,
     pub currency_code: String,
     pub logical_operation_id: String,
+    pub owner_epoch: u64,
     pub accepted_generation: u64,
+    pub worker_id: String,
+    pub claim_epoch: u64,
+    pub claim_proof_digest: Digest,
+    pub claim_clock_profile_id: String,
+    pub claim_issued_at: String,
+    pub claim_expires_at: String,
+    pub database_xact_id: String,
     pub delta_minor: i64,
     pub balance_after_minor: i64,
-    pub idempotency_digest: [u8; 32],
-    pub request_digest: [u8; 32],
-    pub decision_receipt_digest: [u8; 32],
-    pub payload_digest: [u8; 32],
-    pub effect_receipt_digest: [u8; 32],
+    pub idempotency_digest: Digest,
+    pub request_digest: Digest,
+    pub decision_receipt_digest: Digest,
+    pub payload_digest: Digest,
+    pub effect_receipt_digest: Digest,
 }
 
 pub struct PostgresEffectCommitVerifier {
@@ -100,9 +134,9 @@ impl PostgresEffectCommitVerifier {
         Ok(Self { client })
     }
 
-    /// Query the append-only effect ledger and return a verified receipt
-    /// capability ready for the NATS ACK gate. The caller does not provide the
-    /// receipt digest; it is recomputed from the selected database row.
+    /// Query the append-only effect and execution-attestation ledgers and
+    /// return a verified receipt capability. The digest is recomputed from
+    /// actual database fields, including owner epoch and historical worker claim.
     pub async fn verify_effect_commit(
         &self,
         binding: &NatsCommandBinding,
@@ -122,7 +156,8 @@ impl PostgresEffectCommitVerifier {
         VerifiedOwnerDisposition::from_verified_binding(binding, disposition)
     }
 
-    /// A writable-primary check followed by an exact-scope ledger lookup.
+    /// Checks primary/read-only state and fetches the exact effect and
+    /// execution-attestation rows in one SQL statement snapshot.
     pub async fn load_effect_receipt(
         &self,
         binding: &NatsCommandBinding,
@@ -144,9 +179,9 @@ impl PostgresEffectCommitVerifier {
                 ],
             )
             .await
-            .map_err(|error| format!("query append-only PostgreSQL effect ledger: {error}"))?
+            .map_err(|error| format!("query append-only PostgreSQL effect and attestation ledgers: {error}"))?
             .ok_or_else(|| {
-                "no committed PostgreSQL effect receipt matches the exact command scope".to_owned()
+                "no committed PostgreSQL effect plus execution attestation matches the exact command scope".to_owned()
             })?;
 
         let in_recovery: bool = row.get(0);
@@ -158,7 +193,11 @@ impl PostgresEffectCommitVerifier {
             return Err("PostgreSQL receipt verifier session is read-only".into());
         }
 
+        let owner_epoch_transition_present: bool = row.get(27);
         let receipt = decode_effect_receipt(&row)?;
+        if !owner_epoch_transition_present {
+            return Err("execution attestation owner epoch has no corresponding append-only epoch transition".into());
+        }
         validate_receipt_binding(binding, &receipt)?;
         Ok(receipt)
     }
@@ -198,7 +237,7 @@ impl OwnerDispositionVerifier for PostgresEffectCommitVerifier {
         let receipt = self.load_effect_receipt(binding).await?;
         if effect_receipt_digest != &receipt.effect_receipt_digest {
             return Err(
-                "effect receipt digest differs from the canonical append-only PostgreSQL row"
+                "effect receipt digest differs from the canonical PostgreSQL effect and execution-attestation rows"
                     .into(),
             );
         }
@@ -219,15 +258,43 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
     let request_digest = digest_column(row, 11, "request_digest")?;
     let decision_receipt_digest = digest_column(row, 12, "decision_receipt_digest")?;
     let payload_digest = digest_column(row, 13, "payload_digest")?;
-    let accepted_generation_i64: i64 = row.get(14);
+    let effect_generation_i64: i64 = row.get(14);
     let delta_minor: i64 = row.get(15);
     let balance_after_minor: i64 = row.get(16);
+    let attestation_id: String = row.get(17);
+    let owner_epoch_i64: i64 = row.get(18);
+    let attestation_generation_i64: i64 = row.get(19);
+    let worker_id: String = row.get(20);
+    let claim_epoch_i64: i64 = row.get(21);
+    let claim_proof_digest = digest_column(row, 22, "claim_proof_digest")?;
+    let claim_clock_profile_id: String = row.get(23);
+    let claim_issued_at: String = row.get(24);
+    let claim_expires_at: String = row.get(25);
+    let database_xact_id: String = row.get(26);
 
-    let accepted_generation = u64::try_from(accepted_generation_i64)
-        .map_err(|_| "PostgreSQL receipt has a nonpositive accepted generation".to_owned())?;
+    let accepted_generation = u64::try_from(effect_generation_i64)
+        .map_err(|_| "PostgreSQL effect has a nonpositive accepted generation".to_owned())?;
+    let attestation_generation = u64::try_from(attestation_generation_i64)
+        .map_err(|_| "PostgreSQL execution attestation has a nonpositive generation".to_owned())?;
+    let owner_epoch = u64::try_from(owner_epoch_i64)
+        .map_err(|_| "PostgreSQL execution attestation has a nonpositive owner epoch".to_owned())?;
+    let claim_epoch = u64::try_from(claim_epoch_i64)
+        .map_err(|_| "PostgreSQL execution attestation has a nonpositive worker claim epoch".to_owned())?;
+
+    if accepted_generation != attestation_generation {
+        return Err("effect_commits and effect_execution_attestations disagree on accepted generation".into());
+    }
+    if worker_id.trim().is_empty()
+        || claim_clock_profile_id.trim().is_empty()
+        || database_xact_id.trim().is_empty()
+        || claim_issued_at >= claim_expires_at
+    {
+        return Err("PostgreSQL execution attestation has invalid worker, clock, transaction or claim validity fields".into());
+    }
 
     let effect_receipt_digest = canonical_effect_receipt_digest(
         &effect_id,
+        &attestation_id,
         &realm_id,
         &resource_id,
         &action_id,
@@ -235,7 +302,15 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
         &object_id,
         &currency_code,
         &logical_operation_id,
+        owner_epoch,
         accepted_generation,
+        &worker_id,
+        claim_epoch,
+        &claim_proof_digest,
+        &claim_clock_profile_id,
+        &claim_issued_at,
+        &claim_expires_at,
+        &database_xact_id,
         delta_minor,
         balance_after_minor,
         &idempotency_digest,
@@ -246,6 +321,7 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
 
     Ok(VerifiedPostgresEffectReceipt {
         effect_id,
+        attestation_id,
         realm_id,
         resource_id,
         action_id,
@@ -253,7 +329,15 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
         object_id,
         currency_code,
         logical_operation_id,
+        owner_epoch,
         accepted_generation,
+        worker_id,
+        claim_epoch,
+        claim_proof_digest,
+        claim_clock_profile_id,
+        claim_issued_at,
+        claim_expires_at,
+        database_xact_id,
         delta_minor,
         balance_after_minor,
         idempotency_digest,
@@ -264,9 +348,9 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
     })
 }
 
-fn digest_column(row: &Row, index: usize, name: &str) -> Result<[u8; 32], String> {
+fn digest_column(row: &Row, index: usize, name: &str) -> Result<Digest, String> {
     let bytes: Vec<u8> = row.get(index);
-    let digest: [u8; 32] = bytes
+    let digest: Digest = bytes
         .try_into()
         .map_err(|_| format!("PostgreSQL {name} is not exactly 32 bytes"))?;
     if digest.iter().all(|byte| *byte == 0) {
@@ -279,6 +363,10 @@ fn validate_receipt_binding(
     binding: &NatsCommandBinding,
     receipt: &VerifiedPostgresEffectReceipt,
 ) -> Result<(), String> {
+    let (command_owner_epoch, command_generation) = binding.owner_position();
+    let execution_position = (receipt.owner_epoch, receipt.accepted_generation);
+    let command_position = (command_owner_epoch, command_generation);
+
     if receipt.realm_id != binding.realm_id()
         || receipt.resource_id != binding.resource_id()
         || receipt.action_id != binding.action_id()
@@ -290,10 +378,10 @@ fn validate_receipt_binding(
         || receipt.request_digest != *binding.request_digest()
         || receipt.decision_receipt_digest != *binding.decision_receipt_digest()
         || receipt.payload_digest != *binding.payload_digest()
-        || receipt.accepted_generation != binding.owner_position().1
+        || execution_position > command_position
     {
         return Err(
-            "append-only PostgreSQL effect row does not match every command scope and digest field"
+            "PostgreSQL effect and execution attestation do not match the exact command scope, digests or non-future owner position"
                 .into(),
         );
     }
@@ -301,9 +389,11 @@ fn validate_receipt_binding(
 }
 
 /// Versioned canonical receipt bytes. All strings are length-prefixed UTF-8;
-/// fixed-size digests and signed integer fields use network byte order.
+/// fixed-size digests and signed integer fields use network byte order. The
+/// commitment includes the actual worker-claim and owner-epoch evidence.
 fn canonical_effect_receipt_digest(
     effect_id: &str,
+    attestation_id: &str,
     realm_id: &str,
     resource_id: &str,
     action_id: &str,
@@ -311,7 +401,15 @@ fn canonical_effect_receipt_digest(
     object_id: &str,
     currency_code: &str,
     logical_operation_id: &str,
+    owner_epoch: u64,
     accepted_generation: u64,
+    worker_id: &str,
+    claim_epoch: u64,
+    claim_proof_digest: &Digest,
+    claim_clock_profile_id: &str,
+    claim_issued_at: &str,
+    claim_expires_at: &str,
+    database_xact_id: &str,
     delta_minor: i64,
     balance_after_minor: i64,
     idempotency_digest: &Digest,
@@ -322,6 +420,7 @@ fn canonical_effect_receipt_digest(
     let mut bytes = RECEIPT_DOMAIN.to_vec();
     for value in [
         effect_id,
+        attestation_id,
         realm_id,
         resource_id,
         action_id,
@@ -329,12 +428,20 @@ fn canonical_effect_receipt_digest(
         object_id,
         currency_code,
         logical_operation_id,
+        worker_id,
+        claim_clock_profile_id,
+        claim_issued_at,
+        claim_expires_at,
+        database_xact_id,
     ] {
         append_string(&mut bytes, value)?;
     }
+    bytes.extend_from_slice(&owner_epoch.to_be_bytes());
     bytes.extend_from_slice(&accepted_generation.to_be_bytes());
+    bytes.extend_from_slice(&claim_epoch.to_be_bytes());
     bytes.extend_from_slice(&delta_minor.to_be_bytes());
     bytes.extend_from_slice(&balance_after_minor.to_be_bytes());
+    bytes.extend_from_slice(claim_proof_digest);
     bytes.extend_from_slice(idempotency_digest);
     bytes.extend_from_slice(request_digest);
     bytes.extend_from_slice(decision_receipt_digest);
@@ -356,30 +463,6 @@ mod tests {
 
     fn digest(byte: u8) -> Digest {
         [byte; 32]
-    }
-
-    fn receipt_digest(
-        generation: u64,
-        balance_after_minor: i64,
-    ) -> Digest {
-        canonical_effect_receipt_digest(
-            "7a1d28d8-5e9b-4a65-95dd-329816bfc33a",
-            "realm-a",
-            "resource-a",
-            "balance-adjust",
-            "postgres-owner-a",
-            "account-a",
-            "USD",
-            "operation-a",
-            generation,
-            100,
-            balance_after_minor,
-            &digest(1),
-            &digest(2),
-            &digest(3),
-            &digest(4),
-        )
-        .unwrap()
     }
 
     fn binding() -> NatsCommandBinding {
@@ -408,6 +491,7 @@ mod tests {
 
     fn receipt_for(binding: &NatsCommandBinding) -> VerifiedPostgresEffectReceipt {
         let effect_id = "7a1d28d8-5e9b-4a65-95dd-329816bfc33a".to_owned();
+        let attestation_id = "af5ec518-655c-4539-aae3-890e35034329".to_owned();
         let realm_id = binding.realm_id().to_owned();
         let resource_id = binding.resource_id().to_owned();
         let action_id = binding.action_id().to_owned();
@@ -415,7 +499,15 @@ mod tests {
         let object_id = binding.object_id().to_owned();
         let currency_code = binding.currency_code().to_owned();
         let logical_operation_id = binding.logical_operation_id().to_owned();
-        let accepted_generation = binding.owner_position().1;
+        let owner_epoch = 4;
+        let accepted_generation = 7;
+        let worker_id = "worker-a".to_owned();
+        let claim_epoch = 3;
+        let claim_proof_digest = digest(5);
+        let claim_clock_profile_id = "postgres-db-clock-v1".to_owned();
+        let claim_issued_at = "2026-11-22T10:00:00.000000".to_owned();
+        let claim_expires_at = "2026-11-22T11:00:00.000000".to_owned();
+        let database_xact_id = "73421".to_owned();
         let delta_minor = 100;
         let balance_after_minor = 1100;
         let idempotency_digest = *binding.idempotency_digest();
@@ -424,6 +516,7 @@ mod tests {
         let payload_digest = *binding.payload_digest();
         let effect_receipt_digest = canonical_effect_receipt_digest(
             &effect_id,
+            &attestation_id,
             &realm_id,
             &resource_id,
             &action_id,
@@ -431,7 +524,15 @@ mod tests {
             &object_id,
             &currency_code,
             &logical_operation_id,
+            owner_epoch,
             accepted_generation,
+            &worker_id,
+            claim_epoch,
+            &claim_proof_digest,
+            &claim_clock_profile_id,
+            &claim_issued_at,
+            &claim_expires_at,
+            &database_xact_id,
             delta_minor,
             balance_after_minor,
             &idempotency_digest,
@@ -442,6 +543,7 @@ mod tests {
         .unwrap();
         VerifiedPostgresEffectReceipt {
             effect_id,
+            attestation_id,
             realm_id,
             resource_id,
             action_id,
@@ -449,7 +551,15 @@ mod tests {
             object_id,
             currency_code,
             logical_operation_id,
+            owner_epoch,
             accepted_generation,
+            worker_id,
+            claim_epoch,
+            claim_proof_digest,
+            claim_clock_profile_id,
+            claim_issued_at,
+            claim_expires_at,
+            database_xact_id,
             delta_minor,
             balance_after_minor,
             idempotency_digest,
@@ -461,14 +571,27 @@ mod tests {
     }
 
     #[test]
-    fn exact_database_receipt_matches_the_full_command_binding() {
+    fn exact_database_effect_and_execution_attestation_match_command() {
         let binding = binding();
         let receipt = receipt_for(&binding);
         assert_eq!(validate_receipt_binding(&binding, &receipt), Ok(()));
     }
 
     #[test]
-    fn receipt_request_decision_payload_owner_and_generation_substitution_reject() {
+    fn receipt_must_not_be_from_a_future_owner_position() {
+        let mut binding = binding();
+        let mut receipt = receipt_for(&binding);
+        receipt.owner_epoch = 6;
+        assert!(validate_receipt_binding(&binding, &receipt).is_err());
+
+        binding.resource_generation = 6;
+        receipt.owner_epoch = 5;
+        receipt.accepted_generation = 7;
+        assert!(validate_receipt_binding(&binding, &receipt).is_err());
+    }
+
+    #[test]
+    fn receipt_request_decision_payload_owner_generation_and_claim_substitution_reject() {
         let binding = binding();
         let original = receipt_for(&binding);
 
@@ -488,20 +611,47 @@ mod tests {
         receipt.effect_owner_id = "owner-b".into();
         assert!(validate_receipt_binding(&binding, &receipt).is_err());
 
-        let mut receipt = original;
+        let mut receipt = original.clone();
         receipt.accepted_generation += 1;
         assert!(validate_receipt_binding(&binding, &receipt).is_err());
+
+        let mut receipt = original;
+        receipt.claim_proof_digest = digest(24);
+        assert_ne!(receipt.effect_receipt_digest, digest(24));
+        assert!(validate_receipt_binding(&binding, &receipt).is_ok());
     }
 
     #[test]
-    fn canonical_receipt_digest_is_deterministic() {
-        assert_eq!(receipt_digest(7, 1100), receipt_digest(7, 1100));
-    }
-
-    #[test]
-    fn canonical_receipt_digest_binds_generation_and_effect_balance() {
-        let baseline = receipt_digest(7, 1100);
-        assert_ne!(baseline, receipt_digest(8, 1100));
-        assert_ne!(baseline, receipt_digest(7, 1200));
+    fn canonical_execution_receipt_digest_is_deterministic_and_binds_claim() {
+        let binding = binding();
+        let receipt = receipt_for(&binding);
+        let unchanged = canonical_effect_receipt_digest(
+            &receipt.effect_id,
+            &receipt.attestation_id,
+            &receipt.realm_id,
+            &receipt.resource_id,
+            &receipt.action_id,
+            &receipt.effect_owner_id,
+            &receipt.object_id,
+            &receipt.currency_code,
+            &receipt.logical_operation_id,
+            receipt.owner_epoch,
+            receipt.accepted_generation,
+            &receipt.worker_id,
+            receipt.claim_epoch,
+            &receipt.claim_proof_digest,
+            &receipt.claim_clock_profile_id,
+            &receipt.claim_issued_at,
+            &receipt.claim_expires_at,
+            &receipt.database_xact_id,
+            receipt.delta_minor,
+            receipt.balance_after_minor,
+            &receipt.idempotency_digest,
+            &receipt.request_digest,
+            &receipt.decision_receipt_digest,
+            &receipt.payload_digest,
+        )
+        .unwrap();
+        assert_eq!(unchanged, receipt.effect_receipt_digest);
     }
 }
