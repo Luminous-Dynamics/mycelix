@@ -182,7 +182,7 @@
                 },
                 "unit_cost_zar": {
                   "type": "number",
-                  "minimum": 0
+                  "exclusiveMinimum": 0
                 },
                 "source_name": {
                   "type": "string",
