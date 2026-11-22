@@ -103,6 +103,8 @@ Configurations:
 - [new-route fence bypass negative control](../../mycelix-workspace/mycelix-pulse/docs/security/DirectoryFabricPostBarrierRouteAdmission_no_fence.cfg);
 - [stale-restore high-water bypass negative control](../../mycelix-workspace/mycelix-pulse/docs/security/DirectoryFabricPostBarrierRouteAdmission_stale_restore.cfg).
 
+The stale-restore high-water invariant requires both the recovered owner epoch and the recovered generation to be at least their independently durable high-water values; advancing the epoch cannot mask a lower restored generation. The stale-restore negative control intentionally violates that rule.
+
 This is a finite abstraction. It does not model cryptographic verification, a real consensus/lease service, database WAL, actual split-brain network fencing, broker behavior or arbitrary multi-route-per-owner topology. The existing queue-worker model and global-barrier model cover other slices. All models are source-present only until TLC runs and negative controls produce the expected counterexamples.
 
 ## 7. Qualification requirements
