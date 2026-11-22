@@ -393,11 +393,4 @@ mod tests {
         assert_ne!(baseline, receipt_digest(8, 1100));
         assert_ne!(baseline, receipt_digest(7, 1200));
     }
-
-    #[test]
-    fn zero_or_short_database_digest_is_rejected() {
-        let mut row = Vec::new();
-        row.extend_from_slice(&[]);
-        assert_ne!(row.len(), 32);
-    }
 }
