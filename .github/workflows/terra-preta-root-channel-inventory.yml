@@ -47,6 +47,10 @@ jobs:
             .snapshot_count == 3 and
             .root_origin_evidence_resolved_count == 2 and
             .direct_3d_connectivity_count == 0 and
+            .root_flow_expression_counts.shallow_root_network_dominated == 1 and
+            .root_flow_expression_counts.interface_guided == 1 and
+            .root_flow_expression_counts.legacy_root_biopore_dominated == 1 and
+            .root_flow_expression_unresolved_count == 0 and
             .endpoint_graph_component_count == 1 and
             .controls.no_2d_to_3d_promotion_pass == true
           ' "$RUNNER_TEMP/root-channel-report.json"
