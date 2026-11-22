@@ -144,38 +144,77 @@ fn valid_date(value: &str) -> bool {
             .bytes()
             .enumerate()
             .all(|(i, b)| i == 4 || i == 7 || b.is_ascii_digit())
-        && value[0..4].parse::<u32>().is_ok_and(|x| (1..=9999).contains(&x))
-        && value[5..7].parse::<u32>().is_ok_and(|x| (1..=12).contains(&x))
-        && value[8..10].parse::<u32>().is_ok_and(|x| (1..=31).contains(&x))
+        && value[0..4]
+            .parse::<u32>()
+            .is_ok_and(|x| (1..=9999).contains(&x))
+        && value[5..7]
+            .parse::<u32>()
+            .is_ok_and(|x| (1..=12).contains(&x))
+        && value[8..10]
+            .parse::<u32>()
+            .is_ok_and(|x| (1..=31).contains(&x))
 }
 
 fn validate_component(c: &CostComponent) -> Result<(), String> {
     if !CATEGORIES.contains(&c.category.as_str()) {
         return Err(format!("unsupported cost category {}", c.category));
     }
-    if !matches!(c.evidence_class.as_str(), "published_tariff" | "written_quote" | "measured_actual_cost" | "synthetic_assumption") {
-        return Err(format!("{} has unsupported cost evidence class", c.category));
+    if !matches!(
+        c.evidence_class.as_str(),
+        "published_tariff" | "written_quote" | "measured_actual_cost" | "synthetic_assumption"
+    ) {
+        return Err(format!(
+            "{} has unsupported cost evidence class",
+            c.category
+        ));
     }
     match c.status.as_str() {
         "not_applicable" => {
-            if c.not_applicable_reason.as_deref().unwrap_or("").trim().is_empty()
+            if c.not_applicable_reason
+                .as_deref()
+                .unwrap_or("")
+                .trim()
+                .is_empty()
                 || c.quantity.is_some()
                 || c.unit.is_some()
                 || c.unit_cost_zar.is_some()
             {
-                return Err(format!("{} not_applicable requires a reason and no hidden zero price", c.category));
+                return Err(format!(
+                    "{} not_applicable requires a reason and no hidden zero price",
+                    c.category
+                ));
             }
         }
         "priced" => {
-            let quantity = c.quantity.ok_or_else(|| format!("{} quantity is missing", c.category))?;
-            let unit_price = c.unit_cost_zar.ok_or_else(|| format!("{} unit price is missing", c.category))?;
-            if !quantity.is_finite() || quantity <= 0.0 || !unit_price.is_finite() || unit_price <= 0.0
+            let quantity = c
+                .quantity
+                .ok_or_else(|| format!("{} quantity is missing", c.category))?;
+            let unit_price = c
+                .unit_cost_zar
+                .ok_or_else(|| format!("{} unit price is missing", c.category))?;
+            if !quantity.is_finite()
+                || quantity <= 0.0
+                || !unit_price.is_finite()
+                || unit_price <= 0.0
                 || !(quantity * unit_price).is_finite()
             {
                 return Err(format!("{} priced quantity/price is invalid", c.category));
             }
             let unit = c.unit.as_deref().unwrap_or("");
-            if !matches!(unit, "sample" | "scan" | "hectare" | "hour" | "visit" | "km" | "batch" | "campaign" | "instrument_year" | "month" | "package") {
+            if !matches!(
+                unit,
+                "sample"
+                    | "scan"
+                    | "hectare"
+                    | "hour"
+                    | "visit"
+                    | "km"
+                    | "batch"
+                    | "campaign"
+                    | "instrument_year"
+                    | "month"
+                    | "package"
+            ) {
                 return Err(format!("{} has unsupported cost unit", c.category));
             }
             if c.method_scope.as_deref().unwrap_or("").trim().is_empty() {
@@ -188,21 +227,38 @@ fn validate_component(c: &CostComponent) -> Result<(), String> {
                         || !c.valid_from.as_deref().is_some_and(valid_date)
                         || !c.valid_to.as_deref().is_some_and(valid_date)
                     {
-                        return Err(format!("{} tariff/quote requires source and validity", c.category));
+                        return Err(format!(
+                            "{} tariff/quote requires source and validity",
+                            c.category
+                        ));
                     }
                 }
                 "measured_actual_cost" => {
-                    if c.cost_record_reference.as_deref().unwrap_or("").trim().is_empty()
-                        || c.measurement_period.as_deref().unwrap_or("").trim().is_empty()
+                    if c.cost_record_reference
+                        .as_deref()
+                        .unwrap_or("")
+                        .trim()
+                        .is_empty()
+                        || c.measurement_period
+                            .as_deref()
+                            .unwrap_or("")
+                            .trim()
+                            .is_empty()
                     {
-                        return Err(format!("{} actual cost requires a record reference and period", c.category));
+                        return Err(format!(
+                            "{} actual cost requires a record reference and period",
+                            c.category
+                        ));
                     }
                 }
                 "synthetic_assumption" => {}
                 _ => unreachable!(),
             }
             if c.not_applicable_reason.is_some() {
-                return Err(format!("{} priced component cannot carry not_applicable_reason", c.category));
+                return Err(format!(
+                    "{} priced component cannot carry not_applicable_reason",
+                    c.category
+                ));
             }
         }
         _ => return Err(format!("{} has unsupported status", c.category)),
@@ -233,34 +289,59 @@ fn validate(s: &Scenario) -> Result<(), String> {
             || !strategy_ids.insert(strategy.strategy_id.clone())
             || strategy.sample_count == 0
         {
-            return Err("strategy identity, description and sample_count must be valid and unique".into());
+            return Err(
+                "strategy identity, description and sample_count must be valid and unique".into(),
+            );
         }
         if !matches!(
             strategy.strategy_family.as_str(),
-            "all_reference_lab" | "soil_health_panel" | "nir_only" | "fixed_referral"
-                | "uncertainty_referral" | "decision_evsi_referral" | "proximal_sensing_service"
+            "all_reference_lab"
+                | "soil_health_panel"
+                | "nir_only"
+                | "fixed_referral"
+                | "uncertainty_referral"
+                | "decision_evsi_referral"
+                | "proximal_sensing_service"
         ) {
-            return Err(format!("{} has unsupported strategy family", strategy.strategy_id));
+            return Err(format!(
+                "{} has unsupported strategy family",
+                strategy.strategy_id
+            ));
         }
         let d = &strategy.decision_counts;
         if d.true_positive + d.false_negative + d.unresolved_positive != s.reference_positive_count
-            || d.true_negative + d.false_positive + d.unresolved_negative != s.reference_negative_count
+            || d.true_negative + d.false_positive + d.unresolved_negative
+                != s.reference_negative_count
         {
-            return Err(format!("{} decision counts do not reconcile to reference totals", strategy.strategy_id));
+            return Err(format!(
+                "{} decision counts do not reconcile to reference totals",
+                strategy.strategy_id
+            ));
         }
 
         let mut categories = BTreeSet::new();
         if strategy.cost_components.len() != CATEGORIES.len() {
-            return Err(format!("{} must account for all ten cost categories", strategy.strategy_id));
+            return Err(format!(
+                "{} must account for all ten cost categories",
+                strategy.strategy_id
+            ));
         }
         for component in &strategy.cost_components {
             validate_component(component)?;
             if !categories.insert(component.category.clone()) {
-                return Err(format!("{} duplicates cost category {}", strategy.strategy_id, component.category));
+                return Err(format!(
+                    "{} duplicates cost category {}",
+                    strategy.strategy_id, component.category
+                ));
             }
         }
-        if categories.len() != CATEGORIES.len() || CATEGORIES.iter().any(|x| !categories.contains(*x)) {
-            return Err(format!("{} is missing one or more cost categories", strategy.strategy_id));
+        if categories.len() != CATEGORIES.len()
+            || CATEGORIES.iter().any(|x| !categories.contains(*x))
+        {
+            return Err(format!(
+                "{} is missing one or more cost categories",
+                strategy.strategy_id
+            ));
         }
     }
     Ok(())
@@ -288,7 +369,8 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
         let positive_resolved = d.true_positive + d.false_negative;
         let coverage = resolved as f64 / s.eligible_decisions as f64;
         let accuracy = (resolved > 0).then_some(correct as f64 / resolved as f64);
-        let fn_rate = (positive_resolved > 0).then_some(d.false_negative as f64 / positive_resolved as f64);
+        let fn_rate =
+            (positive_resolved > 0).then_some(d.false_negative as f64 / positive_resolved as f64);
         let unresolved_positive_fraction = (s.reference_positive_count > 0)
             .then_some(d.unresolved_positive as f64 / s.reference_positive_count as f64);
         output.push(StrategyResult {
@@ -332,7 +414,9 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
 
 fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if output_path.exists() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into());
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into(),
+        );
     }
     let bytes = fs::read(input_path)?;
     let scenario: Scenario = serde_json::from_slice(&bytes)?;
@@ -340,7 +424,10 @@ fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::
     let digest = format!("{:x}", Sha256::digest(&bytes));
     let report = build_report(&scenario, digest);
     let json = serde_json::to_vec_pretty(&report)?;
-    let mut output = OpenOptions::new().write(true).create_new(true).open(output_path)?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output_path)?;
     output.write_all(&json)?;
     output.write_all(b"\n")?;
     Ok(())
@@ -374,7 +461,11 @@ mod tests {
         let r = build_report(&s, "0".repeat(64));
         assert_eq!(r.strategies.len(), 3);
         assert!(r.controls.no_aggregate_strategy_score);
-        assert!(r.strategies.iter().all(|x| x.category_costs_zar.len() == 10));
+        assert!(
+            r.strategies
+                .iter()
+                .all(|x| x.category_costs_zar.len() == 10)
+        );
     }
 
     #[test]
