@@ -141,7 +141,9 @@ pub fn validate_delegation(
         || (parent.requires_human_disposition && !child.requires_human_disposition)
         || (parent.one_time && !child.one_time)
         || child.max_human_approval_age_secs > parent.max_human_approval_age_secs
-        || !child.human_approver_ids.is_subset(&parent.human_approver_ids)
+        || !child
+            .human_approver_ids
+            .is_subset(&parent.human_approver_ids)
     {
         return Err(KernelError::DelegationExpansion);
     }
@@ -1604,23 +1606,38 @@ mod tests {
 
         let mut expanded = child.clone();
         expanded.max_amount = parent.max_amount + 1;
-        assert_eq!(validate_delegation(&parent, &expanded), Err(KernelError::DelegationExpansion));
+        assert_eq!(
+            validate_delegation(&parent, &expanded),
+            Err(KernelError::DelegationExpansion)
+        );
 
         let mut longer_lived = child.clone();
         longer_lived.expires_at = parent.expires_at + 1;
-        assert_eq!(validate_delegation(&parent, &longer_lived), Err(KernelError::DelegationExpansion));
+        assert_eq!(
+            validate_delegation(&parent, &longer_lived),
+            Err(KernelError::DelegationExpansion)
+        );
 
         let mut different_task = child.clone();
         different_task.task_id = "other-task".into();
-        assert_eq!(validate_delegation(&parent, &different_task), Err(KernelError::DelegationExpansion));
+        assert_eq!(
+            validate_delegation(&parent, &different_task),
+            Err(KernelError::DelegationExpansion)
+        );
 
         let mut wrong_delegator = child.clone();
         wrong_delegator.delegated_by_actor_id = Some("other-agent".into());
-        assert_eq!(validate_delegation(&parent, &wrong_delegator), Err(KernelError::DelegationExpansion));
+        assert_eq!(
+            validate_delegation(&parent, &wrong_delegator),
+            Err(KernelError::DelegationExpansion)
+        );
 
         let mut missing_parent = child;
         missing_parent.parent_grant_id = None;
-        assert_eq!(validate_delegation(&parent, &missing_parent), Err(KernelError::DelegationExpansion));
+        assert_eq!(
+            validate_delegation(&parent, &missing_parent),
+            Err(KernelError::DelegationExpansion)
+        );
     }
 
     #[test]
