@@ -1,0 +1,287 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic soil assessment agreement report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "indicator_count",
+    "alternative_count",
+    "method_rankings",
+    "pairwise_method_agreement",
+    "kendall_w",
+    "mean_pairwise_spearman",
+    "weight_profile_rankings",
+    "weight_profile_pairwise_reversals",
+    "nominal_pareto_front_ids",
+    "robust_pareto_front_ids",
+    "robust_dominance_relations",
+    "alternative_guardrails",
+    "controls",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "indicator_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "alternative_count": {
+      "type": "integer",
+      "minimum": 3
+    },
+    "method_rankings": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "method_id",
+          "method_family",
+          "interpretation_boundary",
+          "ranked_alternatives"
+        ],
+        "properties": {
+          "method_id": {
+            "type": "string"
+          },
+          "method_family": {
+            "type": "string"
+          },
+          "interpretation_boundary": {
+            "type": "string"
+          },
+          "ranked_alternatives": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "alternative_id",
+                "score",
+                "rank"
+              ],
+              "properties": {
+                "alternative_id": {
+                  "type": "string"
+                },
+                "score": {
+                  "type": "number"
+                },
+                "rank": {
+                  "type": "number",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "pairwise_method_agreement": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "method_a",
+          "method_b",
+          "spearman_rho"
+        ],
+        "properties": {
+          "method_a": {
+            "type": "string"
+          },
+          "method_b": {
+            "type": "string"
+          },
+          "spearman_rho": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "kendall_w": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "mean_pairwise_spearman": {
+      "type": "number",
+      "minimum": -1,
+      "maximum": 1
+    },
+    "weight_profile_rankings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "profile_id",
+          "ranked_alternatives"
+        ],
+        "properties": {
+          "profile_id": {
+            "type": "string"
+          },
+          "ranked_alternatives": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "alternative_id",
+                "score",
+                "rank"
+              ],
+              "properties": {
+                "alternative_id": {
+                  "type": "string"
+                },
+                "score": {
+                  "type": "number"
+                },
+                "rank": {
+                  "type": "number",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "weight_profile_pairwise_reversals": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "nominal_pareto_front_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "robust_pareto_front_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "robust_dominance_relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "dominant_alternative_id",
+          "dominated_alternative_id"
+        ],
+        "properties": {
+          "dominant_alternative_id": {
+            "type": "string"
+          },
+          "dominated_alternative_id": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "alternative_guardrails": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "alternative_id",
+          "eligible",
+          "guardrail_results"
+        ],
+        "properties": {
+          "alternative_id": {
+            "type": "string"
+          },
+          "eligible": {
+            "type": "boolean"
+          },
+          "guardrail_results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "guardrail_id",
+                "status"
+              ],
+              "properties": {
+                "guardrail_id": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "clear",
+                    "uncertain",
+                    "violated"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "no_method_promoted_as_universal_truth",
+        "guardrails_separate_from_scores",
+        "pareto_separate_from_scalar_ranks",
+        "uncertainty_overlap_abstains",
+        "permutation_invariant",
+        "no_industry_reproduction_claim"
+      ],
+      "properties": {
+        "no_method_promoted_as_universal_truth": {
+          "const": true
+        },
+        "guardrails_separate_from_scores": {
+          "const": true
+        },
+        "pareto_separate_from_scalar_ranks": {
+          "const": true
+        },
+        "uncertainty_overlap_abstains": {
+          "const": true
+        },
+        "permutation_invariant": {
+          "const": true
+        },
+        "no_industry_reproduction_claim": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
