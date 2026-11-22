@@ -383,8 +383,8 @@ fn evaluate(s: &Scenario, digest: String) -> Report {
     let truth = generate_truth(s);
     let mut policy = candidate_policy(s);
     let candidate_contract = CandidatePublicContract {
-        horizon_minutes: s.candidate_contract.horizon_minutes,
-        maximum_sample_count: s.candidate_contract.maximum_sample_count,
+        horizon_minutes: s.public_contract.horizon_minutes,
+        maximum_sample_count: s.public_contract.maximum_sample_count,
     };
     let mut observations = Vec::new();
     let mut now = 0_u32;
