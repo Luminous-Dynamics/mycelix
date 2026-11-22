@@ -73,6 +73,7 @@ A provider's statement that a machine can produce N units per hour is not a cale
 - `publication_state` is limited to Published or Withdrawn; it applies to the provider's immutable offer statement, not the underlying machine's availability or physical state.
 - Expiry is derived from `valid_from_unix_s` and `valid_until_unix_s`; it does not rewrite history.
 - Disputed is derived from a separately owned lifecycle/dispute event. Superseded is derived when a newer immutable offer references this exact offer ID and revision. Neither is a provider-settable state in v0.1.
+- Any unresolved lifecycle-event reference produces `LifecycleEventsUnresolved`, not `ActiveOfferWindow`; a pointer alone cannot establish whether the event is benign, adverse, valid or authoritative.
 - A new offer may point to a prior offer revision; self-supersession is rejected locally. Graph-wide cycle/currentness checks require a resolver and are not claimed by this tranche.
 - Unknown, unresolved, withdrawn, disputed, superseded or expired offers never become positive production capability through fallback. Only Published/Withdrawn are stored on the provider offer; the other lifecycle dispositions remain projections.
 
