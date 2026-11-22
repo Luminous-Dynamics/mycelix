@@ -649,8 +649,9 @@ mod tests {
             1.0e308,
             0.05,
             &grid(),
-            evidence()
-        ).unwrap();
+            evidence(),
+        )
+        .unwrap();
         assert_eq!(report.points.last().unwrap().observed_mean, 1.0e307);
     }
 
