@@ -178,7 +178,6 @@ fn validate_process_registry_entry(entry: &ProcessRegistryEntry) -> Result<(), S
     Ok(())
 }
 
-
 #[cfg(test)]
 mod typed_process_reference_tests {
     use super::*;
