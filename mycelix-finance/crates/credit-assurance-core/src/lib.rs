@@ -272,7 +272,9 @@ impl Loan {
         if funding_receipt_ref.is_empty() {
             return Err(CreditError::MissingReference);
         }
-        if day >= self.terms.maturity_day {
+        if day >= self.terms.maturity_day
+            || self.terms.maturity_day - day > self.policy.max_term_days
+        {
             return Err(CreditError::InvalidMaturity);
         }
         self.push_event("funded", funding_receipt_ref, day)?;
@@ -334,7 +336,10 @@ impl Loan {
         if agreement_ref.is_empty() || approval_ref.is_empty() {
             return Err(CreditError::MissingReference);
         }
-        if new_apr_bps > self.policy.max_apr_bps || new_maturity_day <= day {
+        if new_apr_bps > self.policy.max_apr_bps
+            || new_maturity_day <= day
+            || new_maturity_day - day > self.policy.max_term_days
+        {
             return Err(CreditError::InvalidRestructureTerms);
         }
         self.terms.apr_bps = new_apr_bps;
@@ -462,6 +467,9 @@ impl Loan {
             .ok_or(CreditError::InvalidStateTransition)?;
         if day < from_day {
             return Err(CreditError::TimeMovedBackwards);
+        }
+        if day > self.terms.maturity_day {
+            return Err(CreditError::InvalidMaturity);
         }
         if day == from_day {
             return Ok(0);
@@ -844,6 +852,27 @@ mod tests {
         loan.fund("bank-funding-receipt", 2).unwrap();
         loan.activate("service-start", 2).unwrap();
         assert_eq!(loan.state(), LoanState::Active);
+    }
+
+    #[test]
+    fn funding_rejects_terms_beyond_policy_maximum() {
+        let mut loan = Loan::new(terms(), LoanPolicy {
+            max_apr_bps: 3_000,
+            max_term_days: 100,
+        }).unwrap();
+        loan.offer("offer", 0).unwrap();
+        loan.accept("accept", 0).unwrap();
+        assert_eq!(loan.fund("fund", 0), Err(CreditError::InvalidMaturity));
+        assert_eq!(loan.state(), LoanState::Accepted);
+    }
+
+    #[test]
+    fn interest_cannot_accrue_beyond_contractual_maturity() {
+        let mut loan = active_loan();
+        assert_eq!(
+            loan.accrue_interest_to_day(501, InterestTreatment::Contractual, None),
+            Err(CreditError::InvalidMaturity)
+        );
     }
 
     #[test]
