@@ -450,7 +450,10 @@ pub fn plan_acknowledgement(
     {
         return AckPlan::DoNotAcknowledge;
     }
-    AckPlan::Acknowledge { mode, disposition_digest: *digest }
+    AckPlan::Acknowledge {
+        mode,
+        disposition_digest: *digest,
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -679,10 +682,7 @@ mod tests {
             ack_policy: AckPolicy::All,
             ..consumer_profile()
         };
-        assert_eq!(
-            bad.validate(),
-            Err(NatsContractError::UnsupportedAckPolicy)
-        );
+        assert_eq!(bad.validate(), Err(NatsContractError::UnsupportedAckPolicy));
     }
     #[test]
     fn stream_duplicate_window_is_pinned_separately() {
@@ -833,7 +833,10 @@ mod tests {
             idempotency_digest: digest(99),
             effect_receipt_digest: digest(5),
         };
-        assert_eq!(plan_acknowledgement(&b, &disposition, AckMode::Ack), AckPlan::DoNotAcknowledge);
+        assert_eq!(
+            plan_acknowledgement(&b, &disposition, AckMode::Ack),
+            AckPlan::DoNotAcknowledge
+        );
     }
 
     #[test]
