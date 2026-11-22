@@ -27,7 +27,14 @@
     "causal_claim_status",
     "interference_status",
     "controls",
-    "interpretation_boundary"
+    "interpretation_boundary",
+    "preregistration_sha256",
+    "allocation_sha256",
+    "allocation_algorithm",
+    "randomization_seed",
+    "registered_at",
+    "randomized_at",
+    "input_sha256"
   ],
   "properties": {
     "audit_version": {
@@ -191,6 +198,34 @@
     "interpretation_boundary": {
       "type": "string",
       "minLength": 1
+    },
+    "preregistration_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "allocation_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "allocation_algorithm": {
+      "type": "string",
+      "minLength": 1
+    },
+    "randomization_seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "registered_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "randomized_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
     }
   }
 }
