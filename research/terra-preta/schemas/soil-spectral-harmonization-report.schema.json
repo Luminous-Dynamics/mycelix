@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic spectral harmonization registry audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "registry_id",
+    "input_sha256",
+    "source_count",
+    "transform_count",
+    "target_comparison_count",
+    "directly_comparable_count",
+    "bridge_required_count",
+    "non_comparable_count",
+    "unresolved_count",
+    "sample_row_count",
+    "physical_sample_group_count",
+    "split_group_count",
+    "controls",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_metadata_and_transforms_not_source_data"
+    },
+    "registry_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "transform_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "target_comparison_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "directly_comparable_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "bridge_required_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "non_comparable_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unresolved_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sample_row_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "physical_sample_group_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "split_group_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_and_manifest_digests_valid",
+        "transform_chain_continuity_pass",
+        "no_double_reflectance_to_absorbance_pass",
+        "no_axis_extrapolation_pass",
+        "direct_target_semantics_match_pass",
+        "sample_group_split_integrity_pass",
+        "no_aggregate_equivalence_claim"
+      ],
+      "properties": {
+        "source_and_manifest_digests_valid": {
+          "const": true
+        },
+        "transform_chain_continuity_pass": {
+          "const": true
+        },
+        "no_double_reflectance_to_absorbance_pass": {
+          "const": true
+        },
+        "no_axis_extrapolation_pass": {
+          "const": true
+        },
+        "direct_target_semantics_match_pass": {
+          "const": true
+        },
+        "sample_group_split_integrity_pass": {
+          "const": true
+        },
+        "no_aggregate_equivalence_claim": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
