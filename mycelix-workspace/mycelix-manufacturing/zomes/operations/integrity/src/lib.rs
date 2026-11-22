@@ -20,7 +20,7 @@ pub struct OperationEntry {
     /// Absent on legacy records. When present, this exact external binding
     /// supersedes string matching for process semantics; it is not execution authority.
     #[serde(default)]
-    pub process_binding: Option<ProcessBindingV1>,
+    pub process_binding: Option<Box<ProcessBindingV1>>,
 }
 
 #[hdk_entry_helper]
@@ -52,11 +52,11 @@ pub struct RoutingStepEntry {
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
 pub struct ProcessRegistryEntry {
-    pub process_definition_ref: ProcessDefinitionRefV1,
+    pub process_definition_ref: Box<ProcessDefinitionRefV1>,
     pub display_label: String,
     pub tags: Vec<String>,
     pub status: ProcessRegistryStatusV1,
-    pub supersedes_process_ref: Option<ProcessDefinitionRefV1>,
+    pub supersedes_process_ref: Option<Box<ProcessDefinitionRefV1>>,
     pub registered_at: Timestamp,
 }
 
@@ -252,7 +252,7 @@ mod typed_process_reference_tests {
             setup_time_min: 1,
             cycle_time_min: 1,
             tooling: None,
-            process_binding: Some(binding),
+            process_binding: Some(Box::new(binding)),
         };
         assert_eq!(
             validate_create_entry(EntryTypes::Operation(operation)).unwrap(),
@@ -313,7 +313,7 @@ mod typed_process_reference_tests {
     fn registry_rejects_duplicate_tags_and_self_supersession() {
         let process_ref = valid_process_ref();
         let duplicate_tags = ProcessRegistryEntry {
-            process_definition_ref: process_ref.clone(),
+            process_definition_ref: Box::new(process_ref.clone()),
             display_label: "Material extrusion".into(),
             tags: vec!["additive".into(), "additive".into()],
             status: ProcessRegistryStatusV1::Active,
@@ -327,7 +327,7 @@ mod typed_process_reference_tests {
             display_label: "Material extrusion".into(),
             tags: vec!["additive".into()],
             status: ProcessRegistryStatusV1::Deprecated,
-            supersedes_process_ref: Some(process_ref),
+            supersedes_process_ref: Some(Box::new(process_ref)),
             registered_at: Timestamp::from_micros(0),
         };
         assert!(validate_process_registry_entry(&self_superseding).is_err());
