@@ -165,6 +165,20 @@
       "kind": "safety",
       "unit": "messages",
       "hard_limit": 0
+    },
+    {
+      "id": "NJ-M17",
+      "name": "ackless_stream_configuration_accepted",
+      "kind": "safety",
+      "unit": "streams",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M18",
+      "name": "discard_old_stream_configuration_accepted",
+      "kind": "safety",
+      "unit": "streams",
+      "hard_limit": 0
     }
   ],
   "scenarios": [
@@ -299,6 +313,30 @@
       "class": "known_valid",
       "description": "The adapter calls AckSync only after an exact durable effect-owner receipt or reconciliation handoff and confirms the broker ACK for the exact stream consumer and sequence.",
       "expected_outcome": "ACK_ALLOWED"
+    },
+    {
+      "id": "NJ-025",
+      "class": "known_reject",
+      "description": "The adapter is pointed at a stream configured with no_ack so publisher durability acknowledgement is disabled.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-026",
+      "class": "known_reject",
+      "description": "The adapter is pointed at a stream configured with DiscardOld, which can delete older unprocessed commands on capacity pressure.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-027",
+      "class": "known_reject",
+      "description": "The adapter is pointed at an in-memory stream rather than the required file-backed durable storage profile.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-028",
+      "class": "known_reject",
+      "description": "The stream message count, byte capacity, or max-age differs from the pinned operational profile.",
+      "expected_outcome": "REJECT"
     }
   ],
   "comparator_methods": [
