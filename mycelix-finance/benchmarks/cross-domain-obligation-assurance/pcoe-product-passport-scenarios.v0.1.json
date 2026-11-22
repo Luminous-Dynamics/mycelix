@@ -1,0 +1,138 @@
+{
+  "benchmark": "PCOE Product Passport and Asset Lifecycle Qualification",
+  "version": "0.1",
+  "date": "2026-11-22",
+  "status": "proposed-research-corpus-not-executed",
+  "scenario_count": 12,
+  "jurisdiction_profiles": [
+    "EU-ESPR-DPP-readiness",
+    "EU-Battery-Passport-2027-applicable-categories",
+    "other-jurisdictions-explicitly-versioned"
+  ],
+  "scenario_fields": [
+    "id",
+    "domain",
+    "threat",
+    "preconditions",
+    "adversarial_mutation",
+    "expected_disposition",
+    "required_control"
+  ],
+  "disposition_vocabulary": [
+    "reject",
+    "hold_indeterminate",
+    "reject_or_minimize",
+    "hold_and_requalify",
+    "reject_and_preserve_history"
+  ],
+  "scenarios": [
+    {
+      "id": "DPP-001",
+      "domain": "product_identity",
+      "threat": "Duplicate product/passport identity",
+      "preconditions": "Two physical assets or suppliers present the same serial, batch or passport identifier.",
+      "adversarial_mutation": "Reuse a registry product identifier on a different installed asset.",
+      "expected_disposition": "reject",
+      "required_control": "Bind passport and product identifiers to the actual manufacturer, product instance/batch and registry; detect duplicate identities."
+    },
+    {
+      "id": "DPP-002",
+      "domain": "operator_authority",
+      "threat": "Unauthorized responsible-operator delegate",
+      "preconditions": "A service provider attempts to create/update a passport without valid written authorization.",
+      "adversarial_mutation": "Remove the written authorization, narrow its scope, or expire it before the update.",
+      "expected_disposition": "reject",
+      "required_control": "Validate the responsible economic operator's mandate, delegate identity, scope, validity and revocation."
+    },
+    {
+      "id": "DPP-003",
+      "domain": "registry_status",
+      "threat": "Pending passport registration promoted to current",
+      "preconditions": "A local system caches a passport submission but the registry has not confirmed registration.",
+      "adversarial_mutation": "Use a pending, rejected or unavailable registry response as registered/current.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Only an authenticated registry status/receipt under the applicable profile can establish registration."
+    },
+    {
+      "id": "DPP-004",
+      "domain": "restricted_data",
+      "threat": "Restricted product data disclosure",
+      "preconditions": "An unauthorized agent, buyer or public transparency service requests restricted battery or facility information.",
+      "adversarial_mutation": "Attempt to disclose a restricted data point beyond the caller's purpose and authority.",
+      "expected_disposition": "reject_or_minimize",
+      "required_control": "Enforce product-data access rights, purpose limitation and selective disclosure."
+    },
+    {
+      "id": "DPP-005",
+      "domain": "component_substitution",
+      "threat": "Component substitution after conformity",
+      "preconditions": "The installed component differs from the product/component identity covered by procurement and conformity evidence.",
+      "adversarial_mutation": "Replace an inverter, cell module or critical controller without updating the evidence graph.",
+      "expected_disposition": "hold_and_requalify",
+      "required_control": "Bind installed serial/configuration to accepted product and conformity evidence; require applicable reassessment."
+    },
+    {
+      "id": "DPP-006",
+      "domain": "maintenance",
+      "threat": "Maintenance promoted to certified repair",
+      "preconditions": "A maintenance work order is treated as proof of successful repair or restored safety.",
+      "adversarial_mutation": "Omit post-repair test/inspection evidence while marking the asset serviceable.",
+      "expected_disposition": "reject",
+      "required_control": "Keep service record, repair disposition and qualified safety inspection as separate evidence types."
+    },
+    {
+      "id": "DPP-007",
+      "domain": "lifecycle_lineage",
+      "threat": "Repurposing/remanufacturing loses predecessor lineage",
+      "preconditions": "A used battery is repurposed/remanufactured and a new passport is created without linking the prior passport.",
+      "adversarial_mutation": "Create a new product/passport identity without the required predecessor reference.",
+      "expected_disposition": "reject",
+      "required_control": "Create the legally required linked new passport and preserve the predecessor's provenance."
+    },
+    {
+      "id": "DPP-008",
+      "domain": "recall_safety",
+      "threat": "Recall or suspension omitted",
+      "preconditions": "An issuer/authority publishes a safety recall or suspension but local asset projections remain active.",
+      "adversarial_mutation": "Replay a cached passport after a relevant recall, suspension or safety notice.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Propagate authoritative recall/suspension events and block consequential acceptance until resolved."
+    },
+    {
+      "id": "DPP-009",
+      "domain": "stale_cache",
+      "threat": "Stale offline passport accepted",
+      "preconditions": "The registry is unavailable or the local cache is older than the allowed freshness window.",
+      "adversarial_mutation": "Use old data as proof of current registration, ownership or compliance.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Declare freshness, last verified checkpoint and offline policy; stale status cannot become current."
+    },
+    {
+      "id": "DPP-010",
+      "domain": "correction_lineage",
+      "threat": "Passport correction rewrites history",
+      "preconditions": "A correction or invalidated product claim overwrites prior records and breaks auditability.",
+      "adversarial_mutation": "Delete or mutate predecessor statement rather than append a correction/supersession.",
+      "expected_disposition": "reject_and_preserve_history",
+      "required_control": "Use append-only correction and supersession links; reevaluate dependent obligations."
+    },
+    {
+      "id": "DPP-011",
+      "domain": "materials_provenance",
+      "threat": "Unsubstantiated origin or recycled-content claim",
+      "preconditions": "Material composition or recycled-content claim lacks a traceable issuer/evidence chain.",
+      "adversarial_mutation": "Promote an unsupported supplier declaration to independently verified claim.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Bind exact data points to supplier evidence, applicable verification method and issuer/assessor scope."
+    },
+    {
+      "id": "DPP-012",
+      "domain": "asset_obligation_binding",
+      "threat": "Passport does not bind to financed/installed asset",
+      "preconditions": "A procurement, warranty or maintenance obligation references a model/SKU instead of the exact installed product identity.",
+      "adversarial_mutation": "Substitute a different product instance while retaining the old contract/commissioning evidence.",
+      "expected_disposition": "reject",
+      "required_control": "Bind contract, delivery, commissioning, warranty and service events to a stable product/asset identity."
+    }
+  ]
+}
