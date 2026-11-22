@@ -25,6 +25,7 @@
     "false_alarm_count",
     "resource_vector",
     "pulses",
+    "policy_evaluator_isolation_status",
     "controls",
     "interpretation_boundary"
   ],
@@ -204,17 +205,14 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "candidate_values_bind_to_truth_source",
         "strict_schedule_order_pass",
         "no_duplicate_sample_time_pass",
         "no_interpolation_pass",
-        "evaluator_only_truth_separation_pass",
-        "no_scalar_cost_aggregation_pass"
+        "no_scalar_cost_aggregation_pass",
+        "decision_information_causality_pass",
+        "candidate_timestamps_bind_to_truth_source"
       ],
       "properties": {
-        "candidate_values_bind_to_truth_source": {
-          "const": true
-        },
         "strict_schedule_order_pass": {
           "const": true
         },
@@ -224,10 +222,13 @@
         "no_interpolation_pass": {
           "const": true
         },
-        "evaluator_only_truth_separation_pass": {
+        "no_scalar_cost_aggregation_pass": {
           "const": true
         },
-        "no_scalar_cost_aggregation_pass": {
+        "decision_information_causality_pass": {
+          "const": true
+        },
+        "candidate_timestamps_bind_to_truth_source": {
           "const": true
         }
       }
@@ -235,6 +236,9 @@
     "interpretation_boundary": {
       "type": "string",
       "minLength": 1
+    },
+    "policy_evaluator_isolation_status": {
+      "const": "not_enforced_by_offline_evaluator"
     }
   }
 }
