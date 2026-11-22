@@ -303,9 +303,7 @@ fn amendment_carbon_input(inputs: &[AmendmentInput]) -> Result<f64, String> {
             "amendment C concentration",
             input.carbon_concentration_g_per_kg_dry_matter,
         )?;
-        if input.dry_matter_mg_per_ha < 0.0
-            || input.carbon_concentration_g_per_kg_dry_matter < 0.0
-        {
+        if input.dry_matter_mg_per_ha < 0.0 || input.carbon_concentration_g_per_kg_dry_matter < 0.0 {
             return Err("amendment inputs cannot be negative".into());
         }
         total +=
