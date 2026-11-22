@@ -35,7 +35,13 @@
     "max_observed_gap_hours",
     "uncertainty_status",
     "controls",
-    "interpretation_boundary"
+    "interpretation_boundary",
+    "pulse_burden_positive_anomaly_unit_hours",
+    "pulse_burden_negative_anomaly_unit_hours",
+    "pulse_burden_signed_anomaly_unit_hours",
+    "baseline_max_gap_hours",
+    "stress_max_gap_hours",
+    "recovery_max_gap_hours"
   ],
   "properties": {
     "audit_version": {
@@ -82,7 +88,8 @@
     "analysis_status": {
       "enum": [
         "qualified_descriptive_event",
-        "insufficient_phase_coverage"
+        "insufficient_phase_coverage",
+        "sampling_gap_exceeded"
       ]
     },
     "phase_counts": {
@@ -168,7 +175,8 @@
         "threshold_not_set",
         "no_sustained_recovery_observed",
         "zero_stress_departure",
-        "insufficient_phase_coverage"
+        "insufficient_phase_coverage",
+        "sampling_gap_exceeded"
       ]
     },
     "pulse_burden_absolute_anomaly_unit_hours": {
@@ -182,7 +190,8 @@
         "qualified_complete_event_integral",
         "missing_event_boundary",
         "gap_exceeded",
-        "insufficient_phase_coverage"
+        "insufficient_phase_coverage",
+        "sampling_gap_exceeded"
       ]
     },
     "maximum_inter_observation_gap_hours": {
@@ -234,6 +243,45 @@
     "interpretation_boundary": {
       "type": "string",
       "minLength": 1
+    },
+    "pulse_burden_positive_anomaly_unit_hours": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "pulse_burden_negative_anomaly_unit_hours": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "pulse_burden_signed_anomaly_unit_hours": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_max_gap_hours": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "stress_max_gap_hours": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "recovery_max_gap_hours": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
     }
   }
 }
