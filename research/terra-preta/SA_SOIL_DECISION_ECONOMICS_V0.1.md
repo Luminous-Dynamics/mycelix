@@ -15,6 +15,18 @@ A South African deployment must beat the actual local alternative, not an abstra
 
 Primary tariff/source URLs are retained in `published-tariff-references.json`. All values need renewed source verification and scope review before procurement. Public tariff data does not establish what an actual farmer pays after field sampling, courier, VAT, report interpretation, repeat testing or service support.
 
+## 1A. South African laboratory / spectroscopy landscape
+
+The published tariff list is not the full industry map. Publicly documented service and capability surfaces include:
+
+- **ARC Soil, Climate and Water Analytical Services:** the ARC page describes soil, water and plant analytical services, QC, sample submission and an established inter-laboratory proficiency-scheme context. Its page states participation in the AgriLASA and WEPAL proficiency schemes for soil/water/plant/fertilizer matrices, but says its current SANAS accreditation is for water anions. Do not describe all ARC soil chemistry as SANAS-accredited merely because the lab participates in proficiency schemes. Obtain the exact current scope/accreditation certificate per analyte/method before selecting it as a reference laboratory.
+- **ARC / ICFR spectroscopy capabilities:** ICFR's Forestry Research Analytical Laboratory describes NIR reflectance research for low-cost, non-destructive analysis, including soil organic carbon and soil texture, and work to transfer applications to portable instruments. This is a valuable South African research comparator and possible calibration-transfer partner; it is not evidence that an NIR method is already qualified for all farms, crops or soil properties.
+- **SGS South Africa:** publicly describes configurable soil nutrient and physical-property testing, pH, organic carbon, nematodes/pathogens, and accredited testing by appropriate laboratory/network methods. Exact analyte, laboratory site, method, accreditation scope, turnaround, sampling and reporting must be confirmed by quotation.
+- **AgriLASA member directory:** useful for building an auditable supplier sampling frame; membership listing alone does not establish accreditation, method suitability, price or service quality.
+- **ARC expertise locator:** lists mobile soil testing / soil spectroscopy expertise as a capability lead; confirm current availability, geographic service area, technology and fees before treating it as a deployable mobile service.
+
+The benchmark should distinguish at least four supplier classes: reference analytical laboratories; physical / biological soil-health laboratories; research spectroscopy platforms; and proximal mapping / sensing service providers. Compare method scope, analytical QA/proficiency evidence, service coverage, turnaround, pricing basis and field logistics separately. A supplier's statement of "accredited testing" needs an analyte/method/laboratory scope match, not a logo-level assumption.
+
 ## 2. Paradigm shift: price per assay → cost per correct, qualified decision
 
 The primary economic metric is **total cost per correctly resolved decision at a stated coverage and error profile**.
@@ -94,6 +106,13 @@ All arms need matched area, sampling coverage, depth, intended decisions, target
 - require prospective local invoice / labour / travel capture before claiming real savings.
 
 ## 7. Sources
+
+- ARC Analytical Services (published QA/proficiency and accreditation-scope context): https://www.arc.agric.za/arc-iscw/Pages/Analytical-Services.aspx
+- ARC / ICFR Forestry Research Analytical Laboratory (NIRS research and soil SOC/texture applications): https://icfr.co.za/research_focus/forest-analytical-laboratory/
+- SGS South Africa analytical soil testing: https://www.sgs.com/en-za/services/soil-testing
+- AgriLASA laboratory member directory: https://agrilasa.co.za/members/admin/member_list.php
+- ARC Soil Science / Analytical Services capability surface: https://arc.agric.za/arc-itsc/Pages/Soil-Science.aspx
+
 
 - Western Cape 2026/27 tariff: https://www.elsenburg.com/wp-content/uploads/2026/05/Price-list-2026-2027.pdf
 - KZN 2026/27 analytical tariff: https://www.kzndard.gov.za/images/Documents/researchandtechnologydevelopment/LABORATORY_FORMS/Analytical-Services-Pricelist-2026-2027.pdf
