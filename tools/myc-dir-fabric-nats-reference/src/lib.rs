@@ -173,6 +173,21 @@ impl NatsCommandBinding {
     pub fn currency_code(&self) -> &str {
         &self.currency_code
     }
+    pub fn realm_id(&self) -> &str {
+        &self.realm_id
+    }
+    pub fn resource_id(&self) -> &str {
+        &self.resource_id
+    }
+    pub fn action_id(&self) -> &str {
+        &self.action_id
+    }
+    pub fn object_id(&self) -> &str {
+        &self.object_id
+    }
+    pub fn currency_code(&self) -> &str {
+        &self.currency_code
+    }
     pub fn stream_name(&self) -> &str {
         &self.stream_name
     }
@@ -196,6 +211,12 @@ impl NatsCommandBinding {
     }
     pub fn payload_digest(&self) -> &Digest {
         &self.payload_digest
+    }
+    pub fn request_digest(&self) -> &Digest {
+        &self.request_digest
+    }
+    pub fn decision_receipt_digest(&self) -> &Digest {
+        &self.decision_receipt_digest
     }
     pub fn owner_position(&self) -> (u64, u64) {
         (self.owner_epoch, self.resource_generation)
@@ -892,6 +913,64 @@ mod tests {
         assert_eq!(
             plan_acknowledgement(&b, &disposition, AckMode::Ack),
             AckPlan::DoNotAcknowledge
+        );
+    }
+
+    #[test]
+    fn exact_database_scope_is_part_of_canonical_command_identity() {
+        let original = binding("publish-123");
+        let mut altered = NatsCommandBindingInput {
+            account_id: "account-a".into(),
+            realm_id: "realm-b".into(),
+            resource_id: "resource-a".into(),
+            action_id: "balance-adjust".into(),
+            object_id: "account-a".into(),
+            currency_code: "USD".into(),
+            stream_name: "MYCELIX_COMMANDS".into(),
+            subject: "mycelix.command.resource-a".into(),
+            consumer_name: "effect-workers".into(),
+            nats_message_id: "publish-123".into(),
+            payload_digest: digest(1),
+            request_digest: digest(2),
+            decision_receipt_digest: digest(3),
+            logical_operation_id: "logical-op-a".into(),
+            idempotency_digest: digest(4),
+            effect_owner_id: "postgres-owner-a".into(),
+            owner_epoch: 3,
+            resource_generation: 9,
+        };
+        altered.realm_id = "realm-b".into();
+        let altered = NatsCommandBinding::new(altered).unwrap();
+        assert_ne!(original.canonical_bytes().unwrap(), altered.canonical_bytes().unwrap());
+        assert!(!original.same_logical_effect(&altered));
+    }
+
+    #[test]
+    fn invalid_currency_code_is_rejected() {
+        let mut input = NatsCommandBindingInput {
+            account_id: "account-a".into(),
+            realm_id: "realm-a".into(),
+            resource_id: "resource-a".into(),
+            action_id: "balance-adjust".into(),
+            object_id: "account-a".into(),
+            currency_code: "usd".into(),
+            stream_name: "MYCELIX_COMMANDS".into(),
+            subject: "mycelix.command.resource-a".into(),
+            consumer_name: "effect-workers".into(),
+            nats_message_id: "publish-123".into(),
+            payload_digest: digest(1),
+            request_digest: digest(2),
+            decision_receipt_digest: digest(3),
+            logical_operation_id: "logical-op-a".into(),
+            idempotency_digest: digest(4),
+            effect_owner_id: "postgres-owner-a".into(),
+            owner_epoch: 3,
+            resource_generation: 9,
+        };
+        input.currency_code = "usd".into();
+        assert_eq!(
+            NatsCommandBinding::new(input),
+            Err(NatsContractError::InvalidCurrencyCode)
         );
     }
 
