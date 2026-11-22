@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic soil active-sensing policy report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "policy_kind",
+    "input_sha256",
+    "event_present",
+    "event_detected",
+    "false_positive_detection",
+    "detection_delay_minutes",
+    "observations_within_event",
+    "sample_count",
+    "sample_budget",
+    "budget_respected",
+    "maximum_observed_gap_minutes",
+    "peak_estimate",
+    "peak_absolute_error",
+    "true_pulse_integral_response_unit_minutes",
+    "estimated_pulse_integral_response_unit_minutes",
+    "pulse_integral_absolute_error",
+    "pulse_integral_status",
+    "sensor_energy_nj",
+    "wake_energy_nj",
+    "candidate_truth_access",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "policy_kind": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "event_present": {
+      "type": "boolean"
+    },
+    "event_detected": {
+      "type": "boolean"
+    },
+    "false_positive_detection": {
+      "type": "boolean"
+    },
+    "detection_delay_minutes": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "observations_within_event": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sample_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sample_budget": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "budget_respected": {
+      "const": true
+    },
+    "maximum_observed_gap_minutes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "peak_estimate": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "peak_absolute_error": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "true_pulse_integral_response_unit_minutes": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "estimated_pulse_integral_response_unit_minutes": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "pulse_integral_absolute_error": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "pulse_integral_status": {
+      "enum": [
+        "estimated_from_event_window_samples",
+        "insufficient_event_window_samples",
+        "no_event_present",
+        "event_window_gap_exceeded"
+      ]
+    },
+    "sensor_energy_nj": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "wake_energy_nj": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "candidate_truth_access": {
+      "const": false
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
