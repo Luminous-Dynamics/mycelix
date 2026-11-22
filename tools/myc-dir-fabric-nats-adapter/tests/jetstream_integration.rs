@@ -2,7 +2,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use async_nats::jetstream::{
     self,
-    stream::{Config as StreamConfig, RetentionPolicy, StorageType},
+    stream::{Config as StreamConfig, DiscardPolicy, RetentionPolicy, StorageType},
 };
 use myc_dir_fabric_nats_adapter::{JetStreamAdapter, JetStreamAdapterConfig};
 use myc_dir_fabric_nats_reference::{
@@ -36,8 +36,11 @@ async fn provision_adapter() -> (JetStreamAdapter, String, String) {
             retention: RetentionPolicy::Limits,
             storage: StorageType::File,
             num_replicas: 1,
+            discard: DiscardPolicy::New,
+            max_messages: 10_000,
+            max_bytes: 32 * 1024 * 1024,
             duplicate_window: Duration::from_secs(30),
-            max_age: Duration::from_secs(300),
+            max_age: Duration::from_secs(7 * 24 * 60 * 60),
             ..Default::default()
         })
         .await
@@ -52,6 +55,10 @@ async fn provision_adapter() -> (JetStreamAdapter, String, String) {
             durable_consumer: durable,
             duplicate_window: Duration::from_secs(30),
             expected_stream_replicas: 1,
+            expected_retention: RetentionPolicy::Limits,
+            max_messages: 10_000,
+            max_bytes: 32 * 1024 * 1024,
+            max_age: Duration::from_secs(7 * 24 * 60 * 60),
             expected_domain: None,
             expected_account_hash: None,
             ack_wait: Duration::from_millis(500),
