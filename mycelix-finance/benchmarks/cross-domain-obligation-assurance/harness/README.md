@@ -18,7 +18,7 @@ cargo test --locked --manifest-path Cargo.toml
 - Milestone acceptance binds the exact obligation, contract digest, milestone digest and required evidence set.
 - Offer fills use expected revisions, conservation, request-digest idempotency and replay receipts.
 - Collateral identities are consumed once in the reference ledger.
-- Payment intents distinguish in-flight, indeterminate, paid-final, rejected and manual-attested outcomes. Unknown outcomes block retry; final receipts must authenticate and match the exact obligation, parties, amount, currency, idempotency key and request digest.
+- Payment intents distinguish in-flight, indeterminate, paid-final, rejected, manual-attested and reversed outcomes. Unknown outcomes block retry; final receipts must authenticate and match the exact obligation, parties, amount, currency, idempotency key and request digest. Post-finality reversal appends a compensating event while preserving the original paid receipt.
 - External receipt identifiers cannot settle two intents.
 - Energy attributes are a separate ledger projection from physical generation and power delivery. Eligible generation is bound to a registry/product code and exact measurement boundary; issuance is denomination-bound and cannot exceed verified eligible generation; ownership transfers are distinct from terminal retirement.
 - Deterministic stress tests exercise offer-fill conservation and EAC issuance/transfer/retirement over thousands of operations.
