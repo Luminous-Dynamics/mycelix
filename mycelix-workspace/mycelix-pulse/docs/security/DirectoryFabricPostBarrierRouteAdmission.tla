@@ -154,7 +154,7 @@ RestoreOwnerFromStaleBackup(o) ==
     /\ globalBarrierAcknowledged
     /\ routeState[o] = "active"
     /\ ownerReady[o]
-    /\ ownerFenceAcknowledged[o] \/ (o \notin InitialOwners)
+    /\ (ownerFenceAcknowledged[o] \/ o \notin InitialOwners)
     /\ ownerEpoch' = [ownerEpoch EXCEPT ![o] = 0]
     /\ ownerGeneration' = [ownerGeneration EXCEPT ![o] = CommandGeneration]
     /\ ownerReady' = [ownerReady EXCEPT ![o] = FALSE]
@@ -179,6 +179,14 @@ RecoverOwner(o) ==
             IF IgnoreRecoveryHighWater
             THEN @
             ELSE ownerHighWaterGeneration[o]]
+    /\ ownerHighWaterEpoch' =
+        IF IgnoreRecoveryHighWater
+        THEN ownerHighWaterEpoch
+        ELSE [ownerHighWaterEpoch EXCEPT ![o] = ownerHighWaterEpoch[o] + 1]
+    /\ ownerHighWaterGeneration' =
+        IF IgnoreRecoveryHighWater
+        THEN ownerHighWaterGeneration
+        ELSE [ownerHighWaterGeneration EXCEPT ![o] = ownerHighWaterGeneration[o]]
     /\ ownerReady' = [ownerReady EXCEPT ![o] = TRUE]
     /\ ownerReadBack' = [ownerReadBack EXCEPT ![o] = TRUE]
     /\ routeState' = [routeState EXCEPT ![o] = "active"]
@@ -226,7 +234,7 @@ NoActiveRouteBelowAcknowledgedHighWater ==
     globalBarrierAcknowledged =>
         \A o \in Owners :
             routeState[o] = "active" =>
-                \/ ownerEpoch[o] > ownerHighWaterEpoch[o]
+                (ownerEpoch[o] > ownerHighWaterEpoch[o])
                 \/ /\ ownerEpoch[o] = ownerHighWaterEpoch[o]
                    /\ ownerGeneration[o] >= ownerHighWaterGeneration[o]
 
