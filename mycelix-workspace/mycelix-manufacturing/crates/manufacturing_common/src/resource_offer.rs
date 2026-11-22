@@ -260,7 +260,7 @@ impl ManufacturingResourceOfferV1 {
             ResourceOfferPublicationStateV1::Withdrawn => {
                 ResourceOfferPublicationDispositionV1::Withdrawn
             }
-remove derived status assertion            ResourceOfferPublicationStateV1::Published
+            ResourceOfferPublicationStateV1::Published
                 if evaluation_time_unix_s < self.valid_from_unix_s =>
             {
                 ResourceOfferPublicationDispositionV1::NotYetValid
