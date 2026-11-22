@@ -177,3 +177,152 @@ fn validate_process_registry_entry(
     }
     Ok(())
 }
+
+
+#[cfg(test)]
+mod typed_process_reference_tests {
+    use super::*;
+    use manufacturing_common::{
+        ProcessCapabilityRequirementRefV1, SymthaeaManufacturingObjectRefV1,
+        SYMTHAEA_CONTRACTS_CRATE, SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1,
+        SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY, SYMTHAEA_PROCESS_CRATE,
+    };
+
+    fn source_ref(contract_crate: &str, contract_type: &str, object_id: char) -> SymthaeaManufacturingObjectRefV1 {
+        SymthaeaManufacturingObjectRefV1 {
+            owner_repository: SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY.into(),
+            owner_commit: SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1.into(),
+            contract_crate: contract_crate.into(),
+            contract_type: contract_type.into(),
+            object_id_blake3: object_id.to_string().repeat(64),
+            process_id_blake3: "a".repeat(64),
+            semantic_version: "1.0.0".into(),
+        }
+    }
+
+    fn valid_process_ref() -> ProcessDefinitionRefV1 {
+        let mut source = source_ref(
+            SYMTHAEA_PROCESS_CRATE,
+            "ProcessDefinitionV1",
+            'a',
+        );
+        source.object_id_blake3 = source.process_id_blake3.clone();
+        ProcessDefinitionRefV1(source)
+    }
+
+    #[test]
+    fn legacy_operation_without_binding_remains_valid() {
+        let operation = OperationEntry {
+            name: "Legacy milling".into(),
+            description: "Old record".into(),
+            machine_type: "CNC".into(),
+            setup_time_min: 3,
+            cycle_time_min: 4,
+            tooling: None,
+            process_binding: None,
+        };
+        assert_eq!(
+            validate_create_entry(EntryTypes::Operation(operation)).unwrap(),
+            ValidateCallbackResult::Valid
+        );
+    }
+
+    #[test]
+    fn typed_operation_requires_matching_process_requirement() {
+        let binding = ProcessBindingV1 {
+            process_definition: valid_process_ref(),
+            capability_requirement: ProcessCapabilityRequirementRefV1(source_ref(
+                SYMTHAEA_CONTRACTS_CRATE,
+                "ProcessCapabilityRequirementV1",
+                'b',
+            )),
+            recipe: None,
+        };
+        let operation = OperationEntry {
+            name: "FDM fixture".into(),
+            description: "Typed process route".into(),
+            machine_type: "FDM".into(),
+            setup_time_min: 1,
+            cycle_time_min: 1,
+            tooling: None,
+            process_binding: Some(binding),
+        };
+        assert_eq!(
+            validate_create_entry(EntryTypes::Operation(operation)).unwrap(),
+            ValidateCallbackResult::Valid
+        );
+    }
+
+    #[test]
+    fn partial_or_mismatched_typed_operation_binding_is_rejected() {
+        let mut requirement = source_ref(
+            SYMTHAEA_CONTRACTS_CRATE,
+            "ProcessCapabilityRequirementV1",
+            'b',
+        );
+        requirement.process_id_blake3 = "c".repeat(64);
+        let operation = OperationEntry {
+            name: "Invalid binding".into(),
+            description: String::new(),
+            machine_type: "CNC".into(),
+            setup_time_min: 1,
+            cycle_time_min: 1,
+            tooling: None,
+            process_binding: Some(ProcessBindingV1 {
+                process_definition: valid_process_ref(),
+                capability_requirement: ProcessCapabilityRequirementRefV1(requirement),
+                recipe: None,
+            }),
+        };
+        assert!(matches!(
+            validate_create_entry(EntryTypes::Operation(operation)).unwrap(),
+            ValidateCallbackResult::Invalid(_)
+        ));
+    }
+
+    #[test]
+    fn legacy_routing_step_without_binding_remains_valid() {
+        let routing = RoutingEntry {
+            design_id: "D-001".into(),
+            revision: "A".into(),
+            steps: vec![RoutingStepEntry {
+                sequence: 10,
+                operation_name: "Mill".into(),
+                machine_type: "CNC".into(),
+                setup_time_min: 1,
+                cycle_time_min: 1,
+                description: "Legacy".into(),
+                process_binding: None,
+            }],
+            created_at: Timestamp::from_micros(0),
+        };
+        assert_eq!(
+            validate_create_entry(EntryTypes::Routing(routing)).unwrap(),
+            ValidateCallbackResult::Valid
+        );
+    }
+
+    #[test]
+    fn registry_rejects_duplicate_tags_and_self_supersession() {
+        let process_ref = valid_process_ref();
+        let duplicate_tags = ProcessRegistryEntry {
+            process_definition_ref: process_ref.clone(),
+            display_label: "Material extrusion".into(),
+            tags: vec!["additive".into(), "additive".into()],
+            status: ProcessRegistryStatusV1::Active,
+            supersedes_process_ref: None,
+            registered_at: Timestamp::from_micros(0),
+        };
+        assert!(validate_process_registry_entry(&duplicate_tags).is_err());
+
+        let self_superseding = ProcessRegistryEntry {
+            process_definition_ref: process_ref.clone(),
+            display_label: "Material extrusion".into(),
+            tags: vec!["additive".into()],
+            status: ProcessRegistryStatusV1::Deprecated,
+            supersedes_process_ref: Some(process_ref),
+            registered_at: Timestamp::from_micros(0),
+        };
+        assert!(validate_process_registry_entry(&self_superseding).is_err());
+    }
+}
