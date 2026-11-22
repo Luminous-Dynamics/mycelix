@@ -72,3 +72,8 @@ The ingest API authenticates each source manifest against the exact covered even
 The `EvidenceAuthenticator` is an explicit external cryptographic trust boundary. It must authenticate source signatures/build identity, verify complete cursor intervals, recompute event-set commitments over the supplied canonical event records, verify inventory closure and recompute the owner acknowledgement set. Unavailable verification remains INCONCLUSIVE. The ingest layer is source-present only; the verifier, event decoder, WAL/broker capture adapters and production trust-root policy remain separate implementations.
 
 The companion preregistered corpus is `docs/benchmarks/MYC_DIR_HISTORY_INGEST_V0_1.json` with Draft 2020-12 schema `MYC_DIR_HISTORY_INGEST_V0_1.schema.json`. It currently contains 18 scenarios, 12 metrics and five scale profiles. Neither the ingest tests nor corpus has been executed.
+
+
+### Canonical event and event-set bytes
+
+`ingest::canonical_event_bytes` provides a versioned, typed encoding for every EventKind, including scope, owner, owner-local sequence and causal parent IDs. Parent IDs are sorted; set/map fields use deterministic order. `canonical_event_set_bytes` sorts events by ID, length-prefixes every event and rejects duplicate IDs. The source authenticator must hash these exact bytes and compare them with the signed manifest's event-set digest. Hashing and signature verification remain external.
