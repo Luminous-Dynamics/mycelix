@@ -97,6 +97,14 @@ The reference kernel now separates two checks:
 
 These are distinct from cryptographic and transparency-service verification. The in-memory kernel does not calculate secure hashes, validate issuer signatures, authenticate a witness, or verify a SCITT inclusion proof. A production adapter must perform those operations over canonical bytes and anchor the final digest in an independently governed transparency service or equivalent external witness. A locally stored hash chain with no independent checkpoint is not independent tamper evidence.
 
+The current interchange package adds:
+- `schemas/payment-event-envelope.v0.1.schema.json`: typed event envelope with chain identity, monotonic sequence, predecessor/event digests, issuer/key references, typed event payload, signature container, event/record times, supersession and receipt references.
+- `schemas/payment-chain-checkpoint.v0.1.schema.json`: expected final sequence/digest and one or more declared external anchor/witness records.
+- `fixtures/payment-event-chain.v0.1.json`: synthetic intent → indeterminate → paid-final → reversal history.
+
+The example fixture's signature values are explicitly placeholders and its checkpoint is marked pending. These JSON artifacts have been parsed and checked for sequence/predecessor/checkpoint consistency; this is not yet a full Draft 2020-12 JSON Schema validation or a cryptographic/SCITT conformance result. The implementation task is tracked in [#6530](https://github.com/Luminous-Dynamics/mycelix/issues/6530).
+
+
 
 ## 3. Benchmark levels
 
