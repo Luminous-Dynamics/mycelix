@@ -22,6 +22,14 @@ Do not attempt to win by inventing another universal soil-health scalar. Build a
 - report Pareto and uncertainty-aware partial orders rather than forcing every pair into a winner;
 - distinguish local soil-function assessment from broad-scale soil-health evaluation.
 
+## External comparison target: Zwaan et al. 2026
+
+The September 2026 review's six comparison methods were: linear scoring, minimum data set (MDS), Soil Navigator, Soil Assessment System (SAS), average multifunctionality index, and clustered multifunctionality index. The modelling cluster was excluded from the six-method comparison because no representative method and scale fit the local 87-farm dataset.
+
+For the Netherlands dataset of 87 farms, the paper reports overall ICC approximately -0.00 and Kendall's W = 0.19 (p = 0.19). Linear scoring and MDS had a negative Spearman correlation (R = -0.26, p = 0.0129). These are external literature comparators, not acceptance thresholds to optimize toward. Different methods may legitimately target different purposes; forcing agreement can erase valid function-specific distinctions.
+
+A real-data reproduction lane should first pin the exact method supplement, input requirements, adaptations, indicator transformations and weighting rules for each method. Report method-specific missing-data treatment and the deviations from each published protocol. Do not claim reproduction if thresholds or functions are substituted.
+
 ## V0.1 assessment archetypes
 
 The synthetic tool compares six deliberately transparent method families:
