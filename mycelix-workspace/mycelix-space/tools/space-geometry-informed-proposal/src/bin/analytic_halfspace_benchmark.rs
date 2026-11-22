@@ -186,7 +186,7 @@ fn main() {
             mean(&event_ess)
         );
         eprintln!(
-            "threshold={threshold:.2}: geometry/defensive RMSE gain={gain:.2}x, exact_tail={truth:.6e}, samples={SAMPLES}, replicates={REPLICATES}"
+            "threshold={threshold:.2}: geometry/defensive RMSE gain={gain:.2}x, quadrature_reference_tail={truth:.6e}, samples={SAMPLES}, replicates={REPLICATES}"
         );
     }
 }
