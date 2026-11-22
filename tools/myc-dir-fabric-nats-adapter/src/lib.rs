@@ -247,8 +247,9 @@ pub struct PublishEvidence {
 /// implementations must authenticate the owner signature/proof and compare
 /// the receipt's operation, owner, idempotency, scope and terminal disposition
 /// with this exact immutable command binding.
-pub trait OwnerDispositionVerifier {
-    fn verify_durable_disposition(
+#[async_trait::async_trait]
+pub trait OwnerDispositionVerifier: Send + Sync {
+    async fn verify_durable_disposition(
         &self,
         binding: &NatsCommandBinding,
         disposition: &DurableOwnerDisposition,
@@ -263,7 +264,7 @@ pub struct VerifiedOwnerDisposition {
 }
 
 impl VerifiedOwnerDisposition {
-    pub fn verify(
+    pub async fn verify(
         binding: &NatsCommandBinding,
         disposition: DurableOwnerDisposition,
         verifier: &impl OwnerDispositionVerifier,
@@ -276,6 +277,7 @@ impl VerifiedOwnerDisposition {
         }
         verifier
             .verify_durable_disposition(binding, &disposition)
+            .await
             .map_err(AdapterError::OwnerDispositionVerification)?;
         let binding_bytes = binding.canonical_bytes().map_err(AdapterError::Binding)?;
         Ok(Self {
@@ -922,8 +924,9 @@ mod tests {
     }
 
     struct AcceptOwnerDisposition;
+    #[async_trait::async_trait]
     impl OwnerDispositionVerifier for AcceptOwnerDisposition {
-        fn verify_durable_disposition(
+        async fn verify_durable_disposition(
             &self,
             _binding: &NatsCommandBinding,
             _disposition: &DurableOwnerDisposition,
@@ -933,8 +936,9 @@ mod tests {
     }
 
     struct RejectOwnerDisposition;
+    #[async_trait::async_trait]
     impl OwnerDispositionVerifier for RejectOwnerDisposition {
-        fn verify_durable_disposition(
+        async fn verify_durable_disposition(
             &self,
             _binding: &NatsCommandBinding,
             _disposition: &DurableOwnerDisposition,
@@ -971,25 +975,27 @@ mod tests {
         }
     }
 
-    #[test]
-    fn verified_owner_disposition_requires_external_verifier() {
+    #[tokio::test]
+    async fn verified_owner_disposition_requires_external_verifier() {
         let result = VerifiedOwnerDisposition::verify(
             &test_binding("message-a"),
             test_disposition(),
             &RejectOwnerDisposition,
-        );
+        )
+        .await;
         assert!(matches!(
             result,
             Err(AdapterError::OwnerDispositionVerification(_))
         ));
     }
 
-    #[test]
-    fn verified_owner_disposition_is_bound_to_exact_command() {
+    #[tokio::test]
+    async fn verified_owner_disposition_is_bound_to_exact_command() {
         let first = test_binding("message-a");
         let second = test_binding("message-b");
         let verified =
             VerifiedOwnerDisposition::verify(&first, test_disposition(), &AcceptOwnerDisposition)
+                .await
                 .unwrap();
         assert!(verified.is_for_binding(&first).unwrap());
         assert!(!verified.is_for_binding(&second).unwrap());
