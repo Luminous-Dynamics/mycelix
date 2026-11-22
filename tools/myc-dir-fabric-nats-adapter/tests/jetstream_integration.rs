@@ -1,4 +1,10 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::path::PathBuf;
+use sha2::{Digest as ShaDigest, Sha256};
+use myc_dir_fabric_nats_adapter::postgres::PostgresEffectCommitVerifier;
+use myc_dir_fabric_nats_reference::{NatsCommandBinding, NatsCommandBindingInput};
+use rustls_tokio_postgres::{config_from_ca_cert, MakeRustlsConnect};
+use tokio_postgres::Client;
 
 use async_nats::jetstream::{
     self,
@@ -126,6 +132,210 @@ fn command_input(
         owner_epoch: 7,
         resource_generation: 19,
     }
+}
+
+async fn connect_postgres_for_test() -> Client {
+    let dsn = std::env::var("POSTGRES_DSN")
+        .expect("POSTGRES_DSN must point at the disposable TLS PostgreSQL primary");
+    let ca_file = PathBuf::from(
+        std::env::var("POSTGRES_CA_FILE")
+            .expect("POSTGRES_CA_FILE must point at the test CA certificate"),
+    );
+    let tls = MakeRustlsConnect::new(
+        config_from_ca_cert(ca_file).expect("load test PostgreSQL CA"),
+    );
+    let (client, connection) = tokio_postgres::connect(&dsn, tls)
+        .await
+        .expect("connect to PostgreSQL primary with CA-verified TLS");
+    tokio::spawn(async move {
+        if let Err(error) = connection.await {
+            eprintln!("test PostgreSQL connection ended: {error}");
+        }
+    });
+    client
+}
+
+async fn create_committed_postgres_effect(
+    suffix: &str,
+    payload: &[u8],
+) -> NatsCommandBindingInput {
+    let realm = format!("myc-realm-{suffix}");
+    let resource = format!("myc-resource-{suffix}");
+    let action = "balance-adjust".to_owned();
+    let owner = "postgres-effect-owner".to_owned();
+    let object = format!("myc-account-{suffix}");
+    let currency = "USD".to_owned();
+    let operation = format!("myc-operation-{suffix}");
+    let worker = "worker-a".to_owned();
+    let claim_proof = [0x55_u8; 32];
+    let idempotency = [0x44_u8; 32];
+    let request = [0x11_u8; 32];
+    let decision = [0x22_u8; 32];
+    let payload_digest: [u8; 32] = Sha256::digest(payload).into();
+    let mut client = connect_postgres_for_test().await;
+    let transaction = client
+        .transaction()
+        .await
+        .expect("start PostgreSQL effect transaction");
+    transaction
+        .batch_execute("SET LOCAL synchronous_commit = on")
+        .await
+        .expect("enable synchronous commit for effect transaction");
+
+    transaction
+        .execute(
+            "INSERT INTO myc_effect_owner.effect_fence_state \
+             (realm_id, resource_id, action_id, effect_owner_id, generation) \
+             VALUES ($1, $2, $3, $4, 1)",
+            &[&realm, &resource, &action, &owner],
+        )
+        .await
+        .expect("create test owner fence");
+    transaction
+        .execute(
+            "INSERT INTO myc_effect_owner.protected_balance \
+             (realm_id, resource_id, action_id, effect_owner_id, object_id, currency_code, balance_minor) \
+             VALUES ($1, $2, $3, $4, $5, $6, 1000)",
+            &[&realm, &resource, &action, &owner, &object, &currency],
+        )
+        .await
+        .expect("create test protected balance");
+
+    transaction
+        .query_one(
+            "SELECT myc_effect_owner.install_worker_claim( \
+               $1, $2, $3, $4, $5, $6, 1, $7, \
+               'postgres-db-clock-v1', \
+               clock_timestamp() - interval '1 minute', \
+               clock_timestamp() + interval '1 hour')",
+            &[
+                &realm,
+                &resource,
+                &action,
+                &owner,
+                &operation,
+                &worker,
+                &&claim_proof[..],
+            ],
+        )
+        .await
+        .expect("install initial worker claim");
+
+    let effect_row = transaction
+        .query_one(
+            "SELECT replayed, effect_id::text, accepted_generation \
+             FROM myc_effect_owner.apply_claim_fenced_balance_delta( \
+               $1, $2, $3, $4, $5, $6, 1, $7, $8, $9, $10, $11, 100, \
+               $12, 1, $13, 'postgres-db-clock-v1', \
+               clock_timestamp() - interval '1 minute', \
+               clock_timestamp() + interval '1 hour')",
+            &[
+                &realm,
+                &resource,
+                &action,
+                &owner,
+                &object,
+                &currency,
+                &&idempotency[..],
+                &operation,
+                &&request[..],
+                &&decision[..],
+                &&payload_digest[..],
+                &worker,
+                &&claim_proof[..],
+            ],
+        )
+        .await
+        .expect("execute protected effect and append the receipt");
+    let replayed: bool = effect_row.get(0);
+    let effect_id: String = effect_row.get(1);
+    let accepted_generation: i64 = effect_row.get(2);
+    assert!(!replayed, "first physical effect attempt must not be a replay");
+    assert!(!effect_id.is_empty());
+    assert_eq!(accepted_generation, 1);
+    transaction
+        .commit()
+        .await
+        .expect("durably commit effect and append-only receipt");
+
+    NatsCommandBindingInput {
+        account_id: "default".into(),
+        realm_id: realm,
+        resource_id: resource,
+        action_id: action,
+        object_id: object,
+        currency_code: currency,
+        stream_name: String::new(),
+        subject: String::new(),
+        consumer_name: String::new(),
+        nats_message_id: String::new(),
+        payload_digest,
+        request_digest: request,
+        decision_receipt_digest: decision,
+        logical_operation_id: operation,
+        idempotency_digest: idempotency,
+        effect_owner_id: owner,
+        owner_epoch: 1,
+        resource_generation: 1,
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires disposable NATS JetStream and CA-verified PostgreSQL services"]
+async fn postgres_effect_commit_is_the_evidence_that_permits_jetstream_acksync() {
+    let (adapter, stream_name, suffix) = provision_adapter().await;
+    let subject = adapter.config().subject.clone();
+    let consumer_name = adapter.config().durable_consumer.clone();
+    let payload = format!("postgres-effect-command-{suffix}").into_bytes();
+
+    let mut input = create_committed_postgres_effect(&suffix, &payload).await;
+    input.stream_name = stream_name.clone();
+    input.subject = subject.clone();
+    input.consumer_name = consumer_name;
+    input.nats_message_id = format!("postgres-effect-publication-{suffix}");
+
+    let verifier = PostgresEffectCommitVerifier::connect_with_ca(
+        &std::env::var("POSTGRES_DSN").expect("POSTGRES_DSN is configured"),
+        std::env::var("POSTGRES_CA_FILE").expect("POSTGRES_CA_FILE is configured"),
+    )
+    .await
+    .expect("construct CA-verified PostgreSQL effect verifier");
+
+    let wrong_scope = NatsCommandBinding::new(NatsCommandBindingInput {
+        resource_id: format!("wrong-resource-{suffix}"),
+        ..input.clone()
+    })
+    .expect("construct wrong-scope negative control");
+    assert!(
+        verifier.verify_effect_commit(&wrong_scope).await.is_err(),
+        "receipt for a different resource scope must not authorize ACK"
+    );
+
+    let publish = adapter
+        .publish(input.clone(), &payload)
+        .await
+        .expect("publish command for a committed PostgreSQL effect");
+    let delivery = adapter
+        .fetch_one()
+        .await
+        .expect("fetch NATS delivery")
+        .expect("published command must be delivered");
+    assert_eq!(delivery.observation.stream_sequence, publish.sequence);
+
+    let verified = verifier
+        .verify_effect_commit(&delivery.binding)
+        .await
+        .expect("load and verify the exact append-only PostgreSQL effect row");
+    let ack = delivery
+        .acknowledge(&verified, AckMode::AckSync)
+        .await
+        .expect("only the PostgreSQL-verified receipt permits AckSync");
+    assert!(ack.broker_confirmed);
+    assert_eq!(
+        ack.assessment,
+        myc_dir_fabric_nats_reference::BrokerAckAssessment::Confirmed
+    );
+    assert_eq!(ack.stream, stream_name);
 }
 
 #[tokio::test]
