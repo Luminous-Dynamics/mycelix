@@ -1,0 +1,9 @@
+[package]
+name = "energy-assurance-core"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Pure validation and settlement state-machine kernel for Mycelix energy trading"
+
+[lib]
+path = "src/lib.rs"
