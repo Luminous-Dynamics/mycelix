@@ -314,13 +314,11 @@ impl Findings {
 struct FenceInfo {
     owner: String,
     sequence: u64,
-    previous: FencePosition,
     installed: FencePosition,
     revocation_digest: Digest,
     inventory_epoch: u64,
     inventory_manifest_digest: Digest,
     route_set_digest: Digest,
-    owner_commit_digest: Digest,
 }
 
 #[derive(Clone)]
@@ -933,13 +931,11 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                         FenceInfo {
                             owner: owner.clone(),
                             sequence: event.owner_sequence.unwrap_or(0),
-                            previous: *previous,
                             installed: *installed,
                             revocation_digest: *revocation_digest,
                             inventory_epoch: *inventory_epoch,
                             inventory_manifest_digest: *inventory_manifest_digest,
                             route_set_digest: *route_set_digest,
-                            owner_commit_digest: *owner_commit_digest,
                         },
                     );
                 }
@@ -1166,6 +1162,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                     || readback.owner != commit.owner
                     || readback.fence_commit_event_id != *fence_commit_event_id
                     || readback.position != commit.installed
+                    || !digest_is_nonzero(&readback.durable_readback_digest)
                     || readback.sequence <= commit.sequence
                 {
                     findings.violation(
@@ -1586,7 +1583,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
         if let EventKind::RouteStaged {
             route_id,
             owner,
-            enforcement,
+            enforcement: _,
             required_position,
             inventory_event_id,
         } = &event.kind
@@ -1601,10 +1598,6 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                         Some(&event.id),
                         format!("staged route {route_id} or its owner {owner} is absent from the current inventory"),
                     );
-                }
-                if *enforcement != RouteEnforcement::AtomicOwnerFence {
-                    // Staging a weak route is allowed for signal-only purposes;
-                    // only activation into strict execution is disallowed.
                 }
                 if !has_parent(event, inventory_event_id) {
                     findings.violation(
