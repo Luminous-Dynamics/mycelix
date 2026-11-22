@@ -35,24 +35,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mycelix-workspace/mycelix-manufacturing
-      - name: Apply formatter to the shared manufacturing contract crate
-        run: |
-          cargo fmt --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml \
-            --package manufacturing_common
-      - name: Check formatter output
+      - name: Check committed manufacturing contract formatting
         run: |
           cargo fmt --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml \
             --package manufacturing_common -- --check
-      - name: Capture formatter patch
-        if: always()
-        run: git diff --binary > mfg-proc-001b-rustfmt.patch
-      - name: Upload formatter patch
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: mfg-proc-001b-rustfmt-patch
-          path: mfg-proc-001b-rustfmt.patch
-          if-no-files-found: warn
       - name: Test shared resource-offer contract
         run: |
           cargo test --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml \
