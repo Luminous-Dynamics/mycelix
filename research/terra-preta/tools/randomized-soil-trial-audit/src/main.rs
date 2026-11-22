@@ -137,9 +137,15 @@ fn valid_date(value: &str) -> bool {
             .bytes()
             .enumerate()
             .all(|(i, b)| i == 4 || i == 7 || b.is_ascii_digit())
-        && value[0..4].parse::<u32>().is_ok_and(|x| (1..=9999).contains(&x))
-        && value[5..7].parse::<u32>().is_ok_and(|x| (1..=12).contains(&x))
-        && value[8..10].parse::<u32>().is_ok_and(|x| (1..=31).contains(&x))
+        && value[0..4]
+            .parse::<u32>()
+            .is_ok_and(|x| (1..=9999).contains(&x))
+        && value[5..7]
+            .parse::<u32>()
+            .is_ok_and(|x| (1..=12).contains(&x))
+        && value[8..10]
+            .parse::<u32>()
+            .is_ok_and(|x| (1..=31).contains(&x))
 }
 
 fn finite(name: &str, value: f64) -> Result<(), String> {
@@ -205,14 +211,19 @@ fn validate(s: &Scenario) -> Result<(), String> {
             || unit.block_id.trim().is_empty()
             || !unit_ids.insert(unit.unit_id.as_str())
         {
-            return Err("randomized unit IDs, sites and blocks must be non-empty; unit IDs unique".into());
+            return Err(
+                "randomized unit IDs, sites and blocks must be non-empty; unit IDs unique".into(),
+            );
         }
         finite("assignment_probability", unit.assignment_probability)?;
         finite("baseline_value", unit.baseline_value)?;
         if let Some(value) = unit.followup_value {
             finite("followup_value", value)?;
         } else {
-            return Err(format!("unit {} has a missing endpoint; causal qualification abstains", unit.unit_id));
+            return Err(format!(
+                "unit {} has a missing endpoint; causal qualification abstains",
+                unit.unit_id
+            ));
         }
         finite("depth_min_m", unit.depth_min_m)?;
         finite("depth_max_m", unit.depth_max_m)?;
@@ -222,18 +233,30 @@ fn validate(s: &Scenario) -> Result<(), String> {
         if !matches!(unit.assignment.as_str(), "treatment" | "control") {
             return Err(format!("unit {} has unsupported assignment", unit.unit_id));
         }
-        if !matches!(unit.contamination_status.as_str(), "none_reported" | "possible_spillover") {
-            return Err(format!("unit {} has unsupported contamination status", unit.unit_id));
+        if !matches!(
+            unit.contamination_status.as_str(),
+            "none_reported" | "possible_spillover"
+        ) {
+            return Err(format!(
+                "unit {} has unsupported contamination status",
+                unit.unit_id
+            ));
         }
         if !valid_date(&unit.baseline_date) || !valid_date(&unit.followup_date) {
             return Err(format!("unit {} has an invalid date", unit.unit_id));
         }
         let randomized_date = &d.randomized_at[0..10];
         if unit.baseline_date >= randomized_date || unit.followup_date <= randomized_date {
-            return Err(format!("unit {} baseline/randomization/follow-up chronology is invalid", unit.unit_id));
+            return Err(format!(
+                "unit {} baseline/randomization/follow-up chronology is invalid",
+                unit.unit_id
+            ));
         }
         if unit.outcome_unit.trim().is_empty() || unit.measurement_method.trim().is_empty() {
-            return Err(format!("unit {} has incomplete outcome measurement basis", unit.unit_id));
+            return Err(format!(
+                "unit {} has incomplete outcome measurement basis",
+                unit.unit_id
+            ));
         }
         if unit.depth_min_m < 0.0 || unit.depth_max_m <= unit.depth_min_m {
             return Err(format!("unit {} has invalid depth support", unit.unit_id));
@@ -261,12 +284,16 @@ fn validate(s: &Scenario) -> Result<(), String> {
     }
     for (block_id, units) in &blocks {
         if units.len() != 2 {
-            return Err(format!("block {block_id} must contain exactly one treatment and one control plot"));
+            return Err(format!(
+                "block {block_id} must contain exactly one treatment and one control plot"
+            ));
         }
         let treatment_count = units.iter().filter(|u| u.assignment == "treatment").count();
         let control_count = units.iter().filter(|u| u.assignment == "control").count();
         if treatment_count != 1 || control_count != 1 {
-            return Err(format!("block {block_id} must contain one treatment and one control assignment"));
+            return Err(format!(
+                "block {block_id} must contain one treatment and one control assignment"
+            ));
         }
         if units[0].site_id != units[1].site_id {
             return Err(format!("block {block_id} crosses site boundaries"));
@@ -286,8 +313,16 @@ fn calculate(s: &Scenario, input_digest: String) -> Report {
     let mut control_crossover = 0usize;
     let mut subsamples = 0usize;
     for (block_id, units) in groups {
-        let treatment = units.iter().copied().find(|u| u.assignment == "treatment").unwrap();
-        let control = units.iter().copied().find(|u| u.assignment == "control").unwrap();
+        let treatment = units
+            .iter()
+            .copied()
+            .find(|u| u.assignment == "treatment")
+            .unwrap();
+        let control = units
+            .iter()
+            .copied()
+            .find(|u| u.assignment == "control")
+            .unwrap();
         let treatment_change = treatment.followup_value.unwrap() - treatment.baseline_value;
         let control_change = control.followup_value.unwrap() - control.baseline_value;
         if !treatment.received_treatment {
@@ -305,29 +340,55 @@ fn calculate(s: &Scenario, input_digest: String) -> Report {
         });
     }
     block_contrasts.sort_by(|a, b| a.block_id.cmp(&b.block_id));
-    let values: Vec<f64> = block_contrasts.iter().map(|b| b.assignment_contrast).collect();
+    let values: Vec<f64> = block_contrasts
+        .iter()
+        .map(|b| b.assignment_contrast)
+        .collect();
     let mean = values.iter().sum::<f64>() / values.len() as f64;
-    let variance = values.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (values.len() - 1) as f64;
+    let variance =
+        values.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (values.len() - 1) as f64;
     let se = (variance / values.len() as f64).sqrt();
 
     let interference_clear = s.design.interference_status == "none_reported"
-        && s.units.iter().all(|u| u.contamination_status == "none_reported");
+        && s.units
+            .iter()
+            .all(|u| u.contamination_status == "none_reported");
     let (itt, itt_se, p_value, assignments, status) = if interference_clear {
         let n = values.len();
         let total = 1usize << n;
         let mut extreme = 0usize;
         for mask in 0..total {
-            let permuted_sum: f64 = values.iter().enumerate()
-                .map(|(i, value)| if ((mask >> i) & 1) == 0 { *value } else { -*value })
+            let permuted_sum: f64 = values
+                .iter()
+                .enumerate()
+                .map(|(i, value)| {
+                    if ((mask >> i) & 1) == 0 {
+                        *value
+                    } else {
+                        -*value
+                    }
+                })
                 .sum();
             let statistic = permuted_sum / n as f64;
             if statistic.abs() + 1e-12 >= mean.abs() {
                 extreme += 1;
             }
         }
-        (Some(mean), Some(se), Some(extreme as f64 / total as f64), total, "causal_itt_qualified_synthetic")
+        (
+            Some(mean),
+            Some(se),
+            Some(extreme as f64 / total as f64),
+            total,
+            "causal_itt_qualified_synthetic",
+        )
     } else if s.design.interference_status == "unassessed" {
-        (None, None, None, 0, "causal_claim_abstain_unassessed_interference")
+        (
+            None,
+            None,
+            None,
+            0,
+            "causal_claim_abstain_unassessed_interference",
+        )
     } else {
         (None, None, None, 0, "causal_claim_abstain_interference")
     };
@@ -350,7 +411,11 @@ fn calculate(s: &Scenario, input_digest: String) -> Report {
         randomized_unit_count: s.units.len(),
         block_count: block_contrasts.len(),
         subsample_count_not_in_n: subsamples,
-        treatment_assigned_count: s.units.iter().filter(|u| u.assignment == "treatment").count(),
+        treatment_assigned_count: s
+            .units
+            .iter()
+            .filter(|u| u.assignment == "treatment")
+            .count(),
         control_assigned_count: s.units.iter().filter(|u| u.assignment == "control").count(),
         treatment_nonadherence_count: treatment_nonadherence,
         control_crossover_count: control_crossover,
@@ -386,7 +451,10 @@ fn run(input: &Path, output: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let digest = format!("{:x}", Sha256::digest(&bytes));
     let report = calculate(&scenario, digest);
     let output_bytes = serde_json::to_vec_pretty(&report)?;
-    let mut file = OpenOptions::new().write(true).create_new(true).open(output)?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output)?;
     file.write_all(&output_bytes)?;
     file.write_all(b"\n")?;
     Ok(())
