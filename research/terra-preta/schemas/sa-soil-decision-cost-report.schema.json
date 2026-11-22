@@ -13,7 +13,8 @@
     "reference_negative_count",
     "strategies",
     "controls",
-    "interpretation_boundary"
+    "interpretation_boundary",
+    "input_sha256"
   ],
   "properties": {
     "audit_version": {
@@ -178,6 +179,10 @@
     "interpretation_boundary": {
       "type": "string",
       "minLength": 1
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
     }
   }
 }
