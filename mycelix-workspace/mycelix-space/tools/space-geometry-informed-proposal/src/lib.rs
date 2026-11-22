@@ -40,7 +40,10 @@ impl GeometryMode {
             return Err(ProposalError::InvalidFrameDimension);
         }
         if self.tangent_basis.len() + 1 != dimension
-            || self.tangent_basis.iter().any(|v| v.len() != dimension || v.iter().any(|x| !x.is_finite()))
+            || self
+                .tangent_basis
+                .iter()
+                .any(|v| v.len() != dimension || v.iter().any(|x| !x.is_finite()))
         {
             return Err(ProposalError::InvalidFrameDimension);
         }
@@ -73,7 +76,11 @@ impl GeometryMode {
         if s < self.threshold {
             return f64::NEG_INFINITY;
         }
-        let tangent = self.tangent_basis.iter().map(|basis| dot(basis, point)).collect::<Vec<_>>();
+        let tangent = self
+            .tangent_basis
+            .iter()
+            .map(|basis| dot(basis, point))
+            .collect::<Vec<_>>();
         let log_phi = -0.5 * tangent.len() as f64 * LOG_2PI
             - 0.5 * tangent.iter().map(|x| x * x).sum::<f64>();
         log_phi + self.exponential_rate.ln() - self.exponential_rate * (s - self.threshold)
@@ -107,7 +114,9 @@ impl DefensiveGeometryProposal {
         if self.dimension == 0 {
             return Err(ProposalError::ZeroDimension);
         }
-        if !self.epsilon.is_finite() || self.epsilon <= 0.0 || self.epsilon >= 1.0
+        if !self.epsilon.is_finite()
+            || self.epsilon <= 0.0
+            || self.epsilon >= 1.0
             || !(1.0 / self.epsilon).is_finite()
         {
             return Err(ProposalError::InvalidDefensiveFraction(self.epsilon));
@@ -142,7 +151,9 @@ impl DefensiveGeometryProposal {
 
     pub fn log_geometry_density(&self, point: &[f64]) -> Result<f64, ProposalError> {
         self.validate_point(point)?;
-        let terms = self.modes.iter()
+        let terms = self
+            .modes
+            .iter()
             .map(|mode| mode.mixture_weight.ln() + mode.log_density(point))
             .collect::<Vec<_>>();
         Ok(log_sum_exp(&terms))
@@ -163,7 +174,10 @@ impl DefensiveGeometryProposal {
         let log_weight = self.log_target_density(point)? - self.log_proposal_density(point)?;
         let log_cap = -self.epsilon.ln();
         if log_weight > log_cap + TOL {
-            return Err(ProposalError::DefensiveWeightCapViolated { log_weight, log_cap });
+            return Err(ProposalError::DefensiveWeightCapViolated {
+                log_weight,
+                log_cap,
+            });
         }
         Ok(log_weight)
     }
@@ -176,7 +190,10 @@ impl DefensiveGeometryProposal {
     /// Physical adapters must use a versioned high-fidelity event oracle.
     pub fn is_event(&self, point: &[f64]) -> Result<bool, ProposalError> {
         self.validate_point(point)?;
-        Ok(self.modes.iter().any(|mode| dot(&mode.normal, point) >= mode.threshold))
+        Ok(self
+            .modes
+            .iter()
+            .any(|mode| dot(&mode.normal, point) >= mode.threshold))
     }
 
     /// Deterministically map externally generated independent latent variates
@@ -191,10 +208,13 @@ impl DefensiveGeometryProposal {
     ) -> Result<GeometrySample, ProposalError> {
         self.validate()?;
         self.validate_point(nominal_normals)?;
-        if tangent_normals.len() + 1 != self.dimension || tangent_normals.iter().any(|x| !x.is_finite()) {
+        if tangent_normals.len() + 1 != self.dimension
+            || tangent_normals.iter().any(|x| !x.is_finite())
+        {
             return Err(ProposalError::InvalidFrameDimension);
         }
-        if !unit_open(mixture_gate) || !unit_open(mode_selector) || !unit_open(exponential_uniform) {
+        if !unit_open(mixture_gate) || !unit_open(mode_selector) || !unit_open(exponential_uniform)
+        {
             return Err(ProposalError::UniformVariateOutOfRange);
         }
         if mixture_gate < self.epsilon {
@@ -222,7 +242,10 @@ impl DefensiveGeometryProposal {
 
     fn validate_point(&self, point: &[f64]) -> Result<(), ProposalError> {
         if point.len() != self.dimension {
-            return Err(ProposalError::DimensionMismatch { expected: self.dimension, actual: point.len() });
+            return Err(ProposalError::DimensionMismatch {
+                expected: self.dimension,
+                actual: point.len(),
+            });
         }
         if point.iter().any(|x| !x.is_finite()) {
             return Err(ProposalError::NonFinitePoint);
@@ -291,10 +314,16 @@ pub enum ProposalError {
     InvalidFrameDimension,
     FrameNotOrthonormal,
     InvalidExponentialRate(f64),
-    DimensionMismatch { expected: usize, actual: usize },
+    DimensionMismatch {
+        expected: usize,
+        actual: usize,
+    },
     NonFinitePoint,
     UniformVariateOutOfRange,
-    DefensiveWeightCapViolated { log_weight: f64, log_cap: f64 },
+    DefensiveWeightCapViolated {
+        log_weight: f64,
+        log_cap: f64,
+    },
     InvalidDelta(f64),
     InsufficientSamples(usize),
     InvalidEvaluationEvidence,
@@ -304,36 +333,83 @@ pub enum ProposalError {
     MissingSampleId,
     DuplicateSampleId(String),
     UnknownGeneratingComponent(String),
-    EventLabelMismatch { sample_id: String, supplied: bool, computed: bool },
+    EventLabelMismatch {
+        sample_id: String,
+        supplied: bool,
+        computed: bool,
+    },
 }
 
 impl fmt::Display for ProposalError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidIdentifier(field) => write!(f, "{field} must be a non-empty safe identifier"),
+            Self::InvalidIdentifier(field) => {
+                write!(f, "{field} must be a non-empty safe identifier")
+            }
             Self::ZeroDimension => write!(f, "proposal dimension must be positive"),
-            Self::InvalidDefensiveFraction(value) => write!(f, "epsilon must be finite and in (0,1); got {value}"),
-            Self::EmptyGeometryMixture => write!(f, "at least one geometric boundary mode is required"),
+            Self::InvalidDefensiveFraction(value) => {
+                write!(f, "epsilon must be finite and in (0,1); got {value}")
+            }
+            Self::EmptyGeometryMixture => {
+                write!(f, "at least one geometric boundary mode is required")
+            }
             Self::DuplicateModeId(value) => write!(f, "duplicate geometric mode ID {value}"),
-            Self::InvalidMixtureWeight(value) => write!(f, "geometric mode weight must be finite and positive; got {value}"),
-            Self::GeometryWeightsDoNotSumToOne(value) => write!(f, "geometry weights sum to {value}, not 1"),
-            Self::InvalidFrameDimension => write!(f, "normal/tangent frame dimensions do not match"),
-            Self::FrameNotOrthonormal => write!(f, "normal and tangent vectors must form an orthonormal frame"),
-            Self::InvalidExponentialRate(value) => write!(f, "exponential rate must be finite and positive; got {value}"),
-            Self::DimensionMismatch { expected, actual } => write!(f, "point dimension mismatch: expected {expected}, got {actual}"),
+            Self::InvalidMixtureWeight(value) => write!(
+                f,
+                "geometric mode weight must be finite and positive; got {value}"
+            ),
+            Self::GeometryWeightsDoNotSumToOne(value) => {
+                write!(f, "geometry weights sum to {value}, not 1")
+            }
+            Self::InvalidFrameDimension => {
+                write!(f, "normal/tangent frame dimensions do not match")
+            }
+            Self::FrameNotOrthonormal => write!(
+                f,
+                "normal and tangent vectors must form an orthonormal frame"
+            ),
+            Self::InvalidExponentialRate(value) => write!(
+                f,
+                "exponential rate must be finite and positive; got {value}"
+            ),
+            Self::DimensionMismatch { expected, actual } => write!(
+                f,
+                "point dimension mismatch: expected {expected}, got {actual}"
+            ),
             Self::NonFinitePoint => write!(f, "point contains non-finite coordinates"),
             Self::UniformVariateOutOfRange => write!(f, "uniform variates must lie in (0,1)"),
-            Self::DefensiveWeightCapViolated { log_weight, log_cap } => write!(f, "likelihood ratio exceeds cap: {log_weight} > {log_cap}"),
-            Self::InvalidDelta(value) => write!(f, "delta must be finite and in (0,1); got {value}"),
-            Self::InsufficientSamples(value) => write!(f, "at least two observations are required; got {value}"),
-            Self::InvalidEvaluationEvidence => write!(f, "sampling evidence is missing or malformed"),
+            Self::DefensiveWeightCapViolated {
+                log_weight,
+                log_cap,
+            } => write!(f, "likelihood ratio exceeds cap: {log_weight} > {log_cap}"),
+            Self::InvalidDelta(value) => {
+                write!(f, "delta must be finite and in (0,1); got {value}")
+            }
+            Self::InsufficientSamples(value) => {
+                write!(f, "at least two observations are required; got {value}")
+            }
+            Self::InvalidEvaluationEvidence => {
+                write!(f, "sampling evidence is missing or malformed")
+            }
             Self::TrainingEvaluationLeakage => write!(f, "training and evaluation IDs must differ"),
             Self::ProposalNotFrozen => write!(f, "proposal must be frozen before evaluation"),
-            Self::NonIidEvaluation => write!(f, "fixed-sample inference requires IID draws from the full proposal"),
+            Self::NonIidEvaluation => write!(
+                f,
+                "fixed-sample inference requires IID draws from the full proposal"
+            ),
             Self::MissingSampleId => write!(f, "each sample needs a stable identifier"),
             Self::DuplicateSampleId(value) => write!(f, "duplicate sample ID {value}"),
-            Self::UnknownGeneratingComponent(value) => write!(f, "unknown generating component {value}"),
-            Self::EventLabelMismatch { sample_id, supplied, computed } => write!(f, "event label mismatch for {sample_id}: supplied={supplied}, computed={computed}"),
+            Self::UnknownGeneratingComponent(value) => {
+                write!(f, "unknown generating component {value}")
+            }
+            Self::EventLabelMismatch {
+                sample_id,
+                supplied,
+                computed,
+            } => write!(
+                f,
+                "event label mismatch for {sample_id}: supplied={supplied}, computed={computed}"
+            ),
         }
     }
 }
@@ -367,7 +443,11 @@ pub fn estimate_geometry_event_probability(
     let mut contributions = Vec::with_capacity(observations.len());
     let mut weights = Vec::with_capacity(observations.len());
     let mut ids = BTreeSet::new();
-    let mut mode_counts = proposal.modes.iter().map(|m| (m.id.clone(), 0usize)).collect::<Vec<_>>();
+    let mut mode_counts = proposal
+        .modes
+        .iter()
+        .map(|m| (m.id.clone(), 0usize))
+        .collect::<Vec<_>>();
     mode_counts.push(("nominal-defensive-component".into(), 0));
 
     for observation in observations {
@@ -375,7 +455,9 @@ pub fn estimate_geometry_event_probability(
             return Err(ProposalError::MissingSampleId);
         }
         if !ids.insert(observation.sample_id.as_str()) {
-            return Err(ProposalError::DuplicateSampleId(observation.sample_id.clone()));
+            return Err(ProposalError::DuplicateSampleId(
+                observation.sample_id.clone(),
+            ));
         }
         let computed_event = proposal.is_event(&observation.point)?;
         if computed_event != observation.event {
@@ -385,10 +467,15 @@ pub fn estimate_geometry_event_probability(
                 computed: computed_event,
             });
         }
-        if let Some((_, count)) = mode_counts.iter_mut().find(|(id, _)| id == &observation.generating_component_id) {
+        if let Some((_, count)) = mode_counts
+            .iter_mut()
+            .find(|(id, _)| id == &observation.generating_component_id)
+        {
             *count += 1;
         } else {
-            return Err(ProposalError::UnknownGeneratingComponent(observation.generating_component_id.clone()));
+            return Err(ProposalError::UnknownGeneratingComponent(
+                observation.generating_component_id.clone(),
+            ));
         }
 
         let weight = proposal.likelihood_ratio(&observation.point)?;
@@ -414,11 +501,23 @@ pub fn estimate_geometry_event_probability(
 
     let sum_w = weights.iter().sum::<f64>();
     let sum_w2 = weights.iter().map(|x| x * x).sum::<f64>();
-    let weight_ess = if sum_w2 > 0.0 { (sum_w * sum_w / sum_w2).clamp(0.0, n as f64) } else { 0.0 };
+    let weight_ess = if sum_w2 > 0.0 {
+        (sum_w * sum_w / sum_w2).clamp(0.0, n as f64)
+    } else {
+        0.0
+    };
     let sum_c = contributions.iter().sum::<f64>();
     let sum_c2 = contributions.iter().map(|x| x * x).sum::<f64>();
-    let event_ess = if sum_c2 > 0.0 { (sum_c * sum_c / sum_c2).clamp(0.0, n as f64) } else { 0.0 };
-    let max_share = if sum_c > 0.0 { contributions.iter().copied().fold(0.0, f64::max) / sum_c } else { 0.0 };
+    let event_ess = if sum_c2 > 0.0 {
+        (sum_c * sum_c / sum_c2).clamp(0.0, n as f64)
+    } else {
+        0.0
+    };
+    let max_share = if sum_c > 0.0 {
+        contributions.iter().copied().fold(0.0, f64::max) / sum_c
+    } else {
+        0.0
+    };
 
     Ok(GeometryEstimateReport {
         method: "defensive_flat_boundary_geometry_importance_sampling",
@@ -460,7 +559,9 @@ fn validate_evidence(evidence: &EvaluationEvidence) -> Result<(), ProposalError>
 
 fn valid_identifier(value: &str) -> bool {
     !value.trim().is_empty()
-        && value.bytes().all(|b| b.is_ascii_alphanumeric() || b"._:/-".contains(&b))
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"._:/-".contains(&b))
 }
 
 fn unit_open(value: f64) -> bool {
@@ -472,19 +573,24 @@ fn dot(a: &[f64], b: &[f64]) -> f64 {
 }
 
 fn log_standard_normal(point: &[f64]) -> f64 {
-    -0.5 * point.len() as f64 * LOG_2PI
-        - 0.5 * point.iter().map(|x| x * x).sum::<f64>()
+    -0.5 * point.len() as f64 * LOG_2PI - 0.5 * point.iter().map(|x| x * x).sum::<f64>()
 }
 
 fn log_sum_exp(values: &[f64]) -> f64 {
     let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    if max == f64::NEG_INFINITY { return max; }
-    if max == f64::INFINITY { return max; }
+    if max == f64::NEG_INFINITY {
+        return max;
+    }
+    if max == f64::INFINITY {
+        return max;
+    }
     max + values.iter().map(|x| (x - max).exp()).sum::<f64>().ln()
 }
 
 fn sample_variance(values: &[f64], mean: f64) -> f64 {
-    if values.len() < 2 { return 0.0; }
+    if values.len() < 2 {
+        return 0.0;
+    }
     values.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (values.len() - 1) as f64
 }
 
@@ -568,7 +674,13 @@ mod tests {
     fn defensive_full_mixture_density_has_bounded_likelihood_ratio() {
         let proposal = one_sided_proposal();
         let cap = proposal.contribution_cap().unwrap();
-        for point in [vec![-100.0, -25.0], vec![0.0, 0.0], vec![2.0, 0.0], vec![3.5, -2.0], vec![100.0, 20.0]] {
+        for point in [
+            vec![-100.0, -25.0],
+            vec![0.0, 0.0],
+            vec![2.0, 0.0],
+            vec![3.5, -2.0],
+            vec![100.0, 20.0],
+        ] {
             assert!(proposal.likelihood_ratio(&point).unwrap() <= cap * (1.0 + 1.0e-9));
         }
     }
@@ -577,7 +689,10 @@ mod tests {
     fn missed_geometric_mode_remains_supported_by_nominal_component() {
         let proposal = one_sided_proposal();
         let missed = vec![-2.5, 0.0];
-        assert_eq!(proposal.log_geometry_density(&missed).unwrap(), f64::NEG_INFINITY);
+        assert_eq!(
+            proposal.log_geometry_density(&missed).unwrap(),
+            f64::NEG_INFINITY
+        );
         assert!(proposal.log_proposal_density(&missed).unwrap().is_finite());
         assert!(proposal.likelihood_ratio(&missed).unwrap() <= 1.0 / proposal.epsilon + 1.0e-9);
     }
@@ -586,20 +701,36 @@ mod tests {
     fn disconnected_two_tail_proposal_covers_both_declared_modes() {
         let proposal = two_tail_proposal();
         proposal.validate().unwrap();
-        let positive = proposal.sample_from_latents(0.5, 0.2, &[0.0, 0.0], &[0.3], 0.5).unwrap();
-        let negative = proposal.sample_from_latents(0.5, 0.8, &[0.0, 0.0], &[0.3], 0.5).unwrap();
+        let positive = proposal
+            .sample_from_latents(0.5, 0.2, &[0.0, 0.0], &[0.3], 0.5)
+            .unwrap();
+        let negative = proposal
+            .sample_from_latents(0.5, 0.8, &[0.0, 0.0], &[0.3], 0.5)
+            .unwrap();
         assert_eq!(positive.generating_component_id, "positive-tail");
         assert_eq!(negative.generating_component_id, "negative-tail");
         assert!(positive.point[0] >= 2.0);
         assert!(negative.point[0] <= -2.0);
-        assert!(proposal.log_proposal_density(&positive.point).unwrap().is_finite());
-        assert!(proposal.log_proposal_density(&negative.point).unwrap().is_finite());
+        assert!(
+            proposal
+                .log_proposal_density(&positive.point)
+                .unwrap()
+                .is_finite()
+        );
+        assert!(
+            proposal
+                .log_proposal_density(&negative.point)
+                .unwrap()
+                .is_finite()
+        );
     }
 
     #[test]
     fn deterministic_sampler_uses_full_frame_and_declared_mode() {
         let proposal = one_sided_proposal();
-        let sample = proposal.sample_from_latents(0.5, 0.5, &[0.0, 0.0], &[0.25], 0.5).unwrap();
+        let sample = proposal
+            .sample_from_latents(0.5, 0.5, &[0.0, 0.0], &[0.25], 0.5)
+            .unwrap();
         assert_eq!(sample.generating_component_id, "right-tail-instanton");
         assert!((sample.point[0] - (2.0 + 0.5_f64.ln() / 1.5)).abs() < 1.0e-12);
         assert_eq!(sample.point[1], 0.25);
@@ -609,19 +740,35 @@ mod tests {
     fn rejects_nonorthogonal_frames_and_bad_mixture_weights() {
         let mut bad_frame = one_sided_proposal();
         bad_frame.modes[0].tangent_basis[0] = vec![1.0, 0.0];
-        assert_eq!(bad_frame.validate(), Err(ProposalError::FrameNotOrthonormal));
+        assert_eq!(
+            bad_frame.validate(),
+            Err(ProposalError::FrameNotOrthonormal)
+        );
 
         let mut bad_weight = one_sided_proposal();
         bad_weight.modes[0].mixture_weight = 0.9;
-        assert_eq!(bad_weight.validate(), Err(ProposalError::GeometryWeightsDoNotSumToOne(0.9)));
+        assert_eq!(
+            bad_weight.validate(),
+            Err(ProposalError::GeometryWeightsDoNotSumToOne(0.9))
+        );
     }
 
     #[test]
     fn estimator_checks_event_labels_and_training_evaluation_separation() {
         let proposal = one_sided_proposal();
         let bad = vec![
-            GeometryObservation { sample_id: "row-1".into(), point: vec![1.0, 0.0], generating_component_id: "right-tail-instanton".into(), event: true },
-            GeometryObservation { sample_id: "row-2".into(), point: vec![3.0, 0.0], generating_component_id: "right-tail-instanton".into(), event: true },
+            GeometryObservation {
+                sample_id: "row-1".into(),
+                point: vec![1.0, 0.0],
+                generating_component_id: "right-tail-instanton".into(),
+                event: true,
+            },
+            GeometryObservation {
+                sample_id: "row-2".into(),
+                point: vec![3.0, 0.0],
+                generating_component_id: "right-tail-instanton".into(),
+                event: true,
+            },
         ];
         assert!(matches!(
             estimate_geometry_event_probability(&proposal, &bad, 0.05, &evidence()),
@@ -629,8 +776,18 @@ mod tests {
         ));
 
         let good = vec![
-            GeometryObservation { sample_id: "row-a".into(), point: vec![1.0, 0.0], generating_component_id: "nominal-defensive-component".into(), event: false },
-            GeometryObservation { sample_id: "row-b".into(), point: vec![3.0, 0.0], generating_component_id: "right-tail-instanton".into(), event: true },
+            GeometryObservation {
+                sample_id: "row-a".into(),
+                point: vec![1.0, 0.0],
+                generating_component_id: "nominal-defensive-component".into(),
+                event: false,
+            },
+            GeometryObservation {
+                sample_id: "row-b".into(),
+                point: vec![3.0, 0.0],
+                generating_component_id: "right-tail-instanton".into(),
+                event: true,
+            },
         ];
         let mut bad_evidence = evidence();
         bad_evidence.evaluation_sample_id = bad_evidence.proposal_training_id.clone();
@@ -644,17 +801,47 @@ mod tests {
     fn estimate_uses_full_mixture_and_reports_component_counts() {
         let proposal = one_sided_proposal();
         let observations = vec![
-            GeometryObservation { sample_id: "row-1".into(), point: vec![1.0, 0.0], generating_component_id: "nominal-defensive-component".into(), event: false },
-            GeometryObservation { sample_id: "row-2".into(), point: vec![2.2, 0.1], generating_component_id: "right-tail-instanton".into(), event: true },
-            GeometryObservation { sample_id: "row-3".into(), point: vec![-2.2, -0.2], generating_component_id: "nominal-defensive-component".into(), event: false },
-            GeometryObservation { sample_id: "row-4".into(), point: vec![3.0, 0.4], generating_component_id: "right-tail-instanton".into(), event: true },
+            GeometryObservation {
+                sample_id: "row-1".into(),
+                point: vec![1.0, 0.0],
+                generating_component_id: "nominal-defensive-component".into(),
+                event: false,
+            },
+            GeometryObservation {
+                sample_id: "row-2".into(),
+                point: vec![2.2, 0.1],
+                generating_component_id: "right-tail-instanton".into(),
+                event: true,
+            },
+            GeometryObservation {
+                sample_id: "row-3".into(),
+                point: vec![-2.2, -0.2],
+                generating_component_id: "nominal-defensive-component".into(),
+                event: false,
+            },
+            GeometryObservation {
+                sample_id: "row-4".into(),
+                point: vec![3.0, 0.4],
+                generating_component_id: "right-tail-instanton".into(),
+                event: true,
+            },
         ];
-        let report = estimate_geometry_event_probability(&proposal, &observations, 0.05, &evidence()).unwrap();
+        let report =
+            estimate_geometry_event_probability(&proposal, &observations, 0.05, &evidence())
+                .unwrap();
         assert_eq!(report.event_count, 2);
         assert!(report.estimate > 0.0);
         assert!(report.upper_confidence_bound >= report.estimate);
         assert!(report.upper_confidence_bound <= 1.0);
-        assert_eq!(report.generating_mode_counts.iter().find(|(id, _)| id == "right-tail-instanton").unwrap().1, 2);
+        assert_eq!(
+            report
+                .generating_mode_counts
+                .iter()
+                .find(|(id, _)| id == "right-tail-instanton")
+                .unwrap()
+                .1,
+            2
+        );
         assert!(report.max_likelihood_ratio <= report.weighted_contribution_cap * (1.0 + 1.0e-9));
     }
 }
