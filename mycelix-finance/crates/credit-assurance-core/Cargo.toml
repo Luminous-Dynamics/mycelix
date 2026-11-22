@@ -1,0 +1,9 @@
+[package]
+name = "credit-assurance-core"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Pure loan lifecycle, repayment and credit-risk arithmetic kernel for Mycelix"
+
+[lib]
+path = "src/lib.rs"
