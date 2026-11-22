@@ -159,3 +159,8 @@ The PostgreSQL verifier now joins all three append-only records and includes own
 The workflow applies migration 003 and executes the SQL adversarial test script before the Rust/NATS integration suite. The integration fixture advances to owner epoch 2 / generation 2 and then creates the protected effect using the strict function, so the live verifier test exercises a non-initial epoch transition.
 
 **Status:** source and test harness are present; this owner-epoch branch has not yet completed its exact-head migration/Rust/NATS CI run. The earlier NATS-only green run does not qualify these changes. Split-brain fencing, synchronous replication/promotion, production role grants, and performance remain separate qualification gates.
+
+
+## 11. Worker-claim epoch binding
+
+The owner-epoch SQL extension also adds `worker_claim_state.owner_epoch` and `install_worker_claim_for_owner_epoch`. An existing worker claim cannot cross an owner-epoch transition with the same claim epoch: it must be reinstalled under the current owner epoch with a strictly higher claim epoch. The strict mutation function verifies the claim's recorded owner epoch equals the current fence owner epoch. The installer uses the same claim-row-first, owner-fence-row-second lock order as the effect path to avoid a lock-order inversion.
