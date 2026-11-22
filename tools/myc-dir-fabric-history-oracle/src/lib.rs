@@ -2249,6 +2249,54 @@ mod tests {
     }
 
     #[test]
+    fn owner_scoped_idempotency_key_cannot_commit_two_logical_operations() {
+        let mut history = base_history(false);
+        let fence = history.events.iter_mut().find(|event| event.id == "fence-a").unwrap();
+        fence.owner_sequence = Some(5);
+        fence.parents.push("effect-b".into());
+        let readback = history.events.iter_mut().find(|event| event.id == "readback-a").unwrap();
+        readback.owner_sequence = Some(6);
+        history.events.push(record(
+            "attempt-b",
+            &["claim-a"],
+            Some("owner-a"),
+            None,
+            EventKind::EffectAttemptStarted {
+                operation_id: "op-b".into(),
+                attempt_id: "attempt-b".into(),
+                attempt_number: 1,
+                worker_id: "worker-a".into(),
+                claim_epoch: 1,
+                claim_event_id: "claim-a".into(),
+                position: pos(1, 1),
+                idempotency_digest: digest(7),
+                retry_after_outcome_event_id: None,
+            },
+        ));
+        history.events.push(record(
+            "effect-b",
+            &["attempt-b"],
+            Some("owner-a"),
+            Some(4),
+            EventKind::EffectCommitted {
+                operation_id: "op-b".into(),
+                attempt_id: "attempt-b".into(),
+                attempt_number: 1,
+                worker_id: "worker-a".into(),
+                claim_epoch: 1,
+                position: pos(1, 1),
+                idempotency_digest: digest(7),
+                effect_digest: digest(17),
+            },
+        ));
+        let report = audit_history(&history);
+        assert_eq!(report.verdict, Verdict::Violation);
+        assert!(report.findings
+            .iter()
+            .any(|finding| finding.code == FindingCode::IdempotencyKeyReused));
+    }
+
+    #[test]
     fn accepts_effect_that_committed_before_owner_fence() {
         assert_eq!(audit_history(&base_history(false)).verdict, Verdict::Valid);
     }
