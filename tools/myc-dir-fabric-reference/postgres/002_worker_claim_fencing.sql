@@ -351,8 +351,8 @@ BEGIN
         p_delta_minor
     , p_decision_clock_profile_id,
             p_decision_issued_at, p_decision_expires_at);
-END
-$function$
+END;
+$function$;
 
 REVOKE ALL ON TABLE myc_effect_owner.worker_claim_state FROM PUBLIC;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA myc_effect_owner FROM PUBLIC;
