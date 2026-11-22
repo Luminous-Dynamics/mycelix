@@ -54,9 +54,9 @@ apply_owner_epoch_claim_fenced_balance_delta is the strict queue-backed entry po
 4. writes the execution attestation before commit;
 5. returns the new attestation identity and accepted authority coordinates.
 
-Both the epoch-transition and execution-attestation tables have append-only update/delete guards.
+Both the epoch-transition and execution-attestation tables have append-only UPDATE, DELETE and TRUNCATE guards. The effect_commits table also receives a TRUNCATE guard.
 
-The prior entry points remain reference functions. Production application roles must be granted only the strict new entry point; do not grant worker roles direct execution access to the older mutation functions.
+Migration 003 also adds `owner_epoch` to `worker_claim_state` and introduces `install_worker_claim_for_owner_epoch`. It locks claim then owner-fence, matching the effect path lock order. When the owner epoch changes, the worker claim epoch must strictly increase; the strict effect entry point rejects a claim installed under a different owner epoch. The prior entry points remain reference functions. Production application roles must be granted only the epoch-aware installer and strict mutation entry point; do not grant worker roles direct execution access to older mutation functions.
 
 ## 3. Replay semantics
 
@@ -103,9 +103,11 @@ The script runs in a disposable transaction and checks:
 - old worker claim rejected after reassignment;
 - exact replay after an epoch transition returns the original effect ID/attestation/worker coordinates;
 - a new effect under epoch 2 stores the new owner and worker-claim coordinates;
+- an owner-epoch-1 worker claim cannot execute under epoch 2 even when the command supplies current epoch/generation;
+- crossing to owner epoch 2 requires claim epoch 2 (reusing claim epoch 1 rejects);
 - an old claim is rejected after a later claim epoch;
 - repeated/non-advancing owner epoch rejected;
-- execution attestations and owner-epoch transitions reject UPDATE/DELETE.
+- execution attestations and owner-epoch transitions reject UPDATE/DELETE/TRUNCATE; the effect ledger also rejects TRUNCATE.
 
 The workflow applies migrations 001, 002 and 003, then executes this SQL test script before Rust/NATS integration tests.
 
@@ -144,3 +146,16 @@ The test receipt commitments are synthetic fixtures. They exercise persistence a
 6. Open-loop database benchmark: 10 repetitions, p50/p95/p99 commit and verifier latency, WAL bytes/effect, attestation write overhead and recovery time.
 
 The performance corpus is preregistered; no measured result is claimed.
+
+
+## 9. Bounded state-machine model
+
+Adds `specs/owner-epoch/OwnerEpochExecutionAttestation.tla` and a bounded TLC configuration. The model covers:
+- owner epoch, resource generation and independent lease-generation high-water;
+- old/current primary write capability and physical-fencing actions;
+- restore to a stale backup, quarantine, former-primary fencing and epoch re-promotion;
+- worker claims bound to owner epoch with monotonic claim epoch;
+- effect plus execution-attestation written in one transition;
+- exact replay returning the original attestation.
+
+The TLA+ module and configuration are authored source, not a model-check result. No TLC execution is claimed. The SQL and Rust tests still require exact-head CI.
