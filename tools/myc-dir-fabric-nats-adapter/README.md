@@ -72,7 +72,7 @@ The integration suite uses a single-node File-storage server. It is not a cluste
 - No local Cargo compilation or NATS runtime result is claimed until the exact-head workflow completes.
 
 
-The adapter crate adds 13 pure unit tests and two ignored JetStream integration tests. The reference contract has 21 unit tests. GitHub Actions run [#45000430944](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45000430944) on source head `1105375305704c019b7d2ccecda78a18dc0e7faf` passed formatting, 21/21 contract tests, 18/18 adapter tests, 2/2 JetStream integration tests and Clippy.
+The **earlier NATS-only** source head `1105375305704c019b7d2ccecda78a18dc0e7faf` passed GitHub Actions run [#45000430944](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45000430944): formatting, 21/21 contract tests, 18/18 adapter tests, 2/2 JetStream integration tests and Clippy. This later owner-epoch branch has expanded the contract and adapter tests and is not covered by that earlier run.
 
 ## Authenticated owner-disposition gate
 
@@ -87,9 +87,9 @@ The adapter now exposes `postgres::PostgresEffectCommitVerifier`. It connects wi
 
 The verifier only accepts `EffectCommitted`, because the current reference SQL ledger has no durable terminal-rejection, terminal-no-effect or reconciliation-handoff tables. It returns no ACK capability when the row is missing or mismatched. The test path creates an effect using the existing fenced SQL function in a transaction with `synchronous_commit=on`, commits, reads the row over CA-verified TLS, then AckSyncs the exact NATS message using that verified capability.
 
-This branch now has 23 reference-contract tests, 18 adapter unit tests (including 2 PostgreSQL canonical-receipt tests), and 3 ignored real-service integration tests (2 JetStream transport tests plus 1 PostgreSQL effect -> verifier -> JetStream AckSync test). These counts are source inventory only until this branch's workflow passes.
+This owner-epoch branch currently contains 23 reference-contract tests, 16 adapter-core unit tests, 4 PostgreSQL receipt/attestation unit tests, 3 ignored real-service integration tests, and a 20-assertion PostgreSQL SQL adversarial script. These are source counts only until this branch's own exact-head workflow passes.
 
-The benchmark corpus is expanded to 36 scenarios and 26 metrics. It remains preregistered, not executed.
+The benchmark corpus is expanded to 52 scenarios and 37 metrics. It remains preregistered, not executed.
 
 **Important boundary:** the existing receipt table records accepted resource generation, but not owner epoch. The verifier checks the former only; owner-epoch recovery remains a separate owner-state proof. A receipt visible on the writable primary does not, by itself, prove survival after asynchronous replica promotion. The integration transaction sets synchronous_commit=on, but production synchronous replication, failover and promotion policy must be qualified separately.
 
