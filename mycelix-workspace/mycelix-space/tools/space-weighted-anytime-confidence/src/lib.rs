@@ -343,6 +343,12 @@ pub fn bounded_mean_confidence_sequence(
     }
 
     let width = range_upper - range_lower;
+    if !width.is_finite() || width <= 0.0 {
+        return Err(SequenceError::InvalidRange {
+            lower: range_lower,
+            upper: range_upper,
+        });
+    }
     let mut normalized = Vec::with_capacity(observations.len());
     for (index, value) in observations.iter().enumerate() {
         if !value.is_finite() {
@@ -539,11 +545,11 @@ mod tests {
         horizon: usize,
         crossing_mass: &mut f64,
     ) {
-        if history.len() == horizon {
-            return;
-        }
         if log_crosses(history, p0, delta) {
             *crossing_mass += mass;
+            return;
+        }
+        if history.len() == horizon {
             return;
         }
 
@@ -588,6 +594,21 @@ mod tests {
             crossing_mass <= delta + 1.0e-12,
             "crossing probability={crossing_mass}"
         );
+    }
+
+    #[test]
+    fn rejects_overflowing_finite_endpoints() {
+        assert!(matches!(
+            bounded_mean_confidence_sequence(
+                &[0.0],
+                -f64::MAX,
+                f64::MAX,
+                0.05,
+                &grid(),
+                evidence()
+            ),
+            Err(SequenceError::InvalidRange { .. })
+        ));
     }
 
     #[test]
