@@ -679,7 +679,7 @@ fn robustly_dominates(a: &Alternative, b: &Alternative, indicators: &[Indicator]
         if a_low < b_high {
             return false;
         }
-        if a_low > b_high || a_high > b_high {
+        if a_low > b_high {
             strict = true;
         }
     }
