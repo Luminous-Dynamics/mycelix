@@ -179,6 +179,20 @@
       "kind": "safety",
       "unit": "streams",
       "hard_limit": 0
+    },
+    {
+      "id": "NJ-M19",
+      "name": "unverified_owner_disposition_acks",
+      "kind": "safety",
+      "unit": "acks",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M20",
+      "name": "cross_owner_or_idempotency_mismatch_acks",
+      "kind": "safety",
+      "unit": "acks",
+      "hard_limit": 0
     }
   ],
   "scenarios": [
@@ -337,6 +351,18 @@
       "class": "known_reject",
       "description": "The stream message count, byte capacity, or max-age differs from the pinned operational profile.",
       "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-029",
+      "class": "known_reject",
+      "description": "The worker presents a structurally valid owner disposition but the external owner-receipt verifier rejects its signature or provenance; no ACK may be sent.",
+      "expected_outcome": "DO_NOT_ACK"
+    },
+    {
+      "id": "NJ-030",
+      "class": "known_reject",
+      "description": "A verified disposition has the same logical operation ID but a different effect-owner ID or owner-scoped idempotency commitment from the exact command binding.",
+      "expected_outcome": "DO_NOT_ACK"
     }
   ],
   "comparator_methods": [
