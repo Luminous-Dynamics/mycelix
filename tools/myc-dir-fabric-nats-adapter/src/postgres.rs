@@ -21,6 +21,8 @@ const RECEIPT_DOMAIN: &[u8] = b"MYC-DIR-POSTGRES-EFFECT-RECEIPT\0\x01";
 
 const SELECT_EFFECT_COMMIT: &str = r#"
 SELECT
+    pg_catalog.pg_is_in_recovery(),
+    current_setting('transaction_read_only')::boolean,
     effect_id::text,
     realm_id,
     resource_id,
@@ -45,11 +47,6 @@ WHERE realm_id = $1
   AND currency_code = $6
   AND idempotency_key_digest = $7
   AND logical_operation_id = $8
-"#;
-
-const CHECK_PRIMARY: &str = r#"
-SELECT pg_catalog.pg_is_in_recovery(),
-       current_setting('transaction_read_only')::boolean
 "#;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -130,20 +127,6 @@ impl PostgresEffectCommitVerifier {
         &self,
         binding: &NatsCommandBinding,
     ) -> Result<VerifiedPostgresEffectReceipt, String> {
-        let server_state = self
-            .client
-            .query_one(CHECK_PRIMARY, &[])
-            .await
-            .map_err(|error| format!("check PostgreSQL primary state: {error}"))?;
-        let in_recovery: bool = server_state.get(0);
-        let transaction_read_only: bool = server_state.get(1);
-        if in_recovery {
-            return Err("PostgreSQL receipt verifier connected to a recovery/read replica".into());
-        }
-        if transaction_read_only {
-            return Err("PostgreSQL receipt verifier session is read-only".into());
-        }
-
         let idempotency_bytes: &[u8] = binding.idempotency_digest();
         let row = self
             .client
@@ -165,6 +148,15 @@ impl PostgresEffectCommitVerifier {
             .ok_or_else(|| {
                 "no committed PostgreSQL effect receipt matches the exact command scope".to_owned()
             })?;
+
+        let in_recovery: bool = row.get(0);
+        let transaction_read_only: bool = row.get(1);
+        if in_recovery {
+            return Err("PostgreSQL receipt verifier connected to a recovery/read replica".into());
+        }
+        if transaction_read_only {
+            return Err("PostgreSQL receipt verifier session is read-only".into());
+        }
 
         let receipt = decode_effect_receipt(&row)?;
         validate_receipt_binding(binding, &receipt)?;
@@ -215,21 +207,21 @@ impl OwnerDispositionVerifier for PostgresEffectCommitVerifier {
 }
 
 fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, String> {
-    let effect_id: String = row.get(0);
-    let realm_id: String = row.get(1);
-    let resource_id: String = row.get(2);
-    let action_id: String = row.get(3);
-    let effect_owner_id: String = row.get(4);
-    let object_id: String = row.get(5);
-    let currency_code: String = row.get(6);
-    let idempotency_digest = digest_column(row, 7, "idempotency_key_digest")?;
-    let logical_operation_id: String = row.get(8);
-    let request_digest = digest_column(row, 9, "request_digest")?;
-    let decision_receipt_digest = digest_column(row, 10, "decision_receipt_digest")?;
-    let payload_digest = digest_column(row, 11, "payload_digest")?;
-    let accepted_generation_i64: i64 = row.get(12);
-    let delta_minor: i64 = row.get(13);
-    let balance_after_minor: i64 = row.get(14);
+    let effect_id: String = row.get(2);
+    let realm_id: String = row.get(3);
+    let resource_id: String = row.get(4);
+    let action_id: String = row.get(5);
+    let effect_owner_id: String = row.get(6);
+    let object_id: String = row.get(7);
+    let currency_code: String = row.get(8);
+    let idempotency_digest = digest_column(row, 9, "idempotency_key_digest")?;
+    let logical_operation_id: String = row.get(10);
+    let request_digest = digest_column(row, 11, "request_digest")?;
+    let decision_receipt_digest = digest_column(row, 12, "decision_receipt_digest")?;
+    let payload_digest = digest_column(row, 13, "payload_digest")?;
+    let accepted_generation_i64: i64 = row.get(14);
+    let delta_minor: i64 = row.get(15);
+    let balance_after_minor: i64 = row.get(16);
 
     let accepted_generation = u64::try_from(accepted_generation_i64)
         .map_err(|_| "PostgreSQL receipt has a nonpositive accepted generation".to_owned())?;
