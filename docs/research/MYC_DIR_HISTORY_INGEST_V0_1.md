@@ -103,7 +103,7 @@ This is not a claim that Mycelix has invented evidence provenance or signed logs
 - The authenticity/completeness guarantee depends on the `EvidenceAuthenticator` implementation.
 - The adapter does not prove that a source's claimed cursor interval is complete; it delegates this to the source-specific verifier.
 - The adapter does not read PostgreSQL WAL, Kafka offsets, JetStream sequence records or broker logs itself.
-- The 14 tests are authored but not executed.
+- The 17 tests are authored but not executed.
 - No runtime, safety, performance or SOTA result is claimed.
 
 
