@@ -119,7 +119,8 @@
       "enum": [
         "estimated_from_event_window_samples",
         "insufficient_event_window_samples",
-        "no_event_present"
+        "no_event_present",
+        "event_window_gap_exceeded"
       ]
     },
     "sensor_energy_nj": {
