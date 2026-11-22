@@ -61,6 +61,7 @@ pub enum KernelError {
     OverlappingGenerationInterval,
     IneligibleGenerationEvidence,
     InvalidEacDenomination,
+    RegistryProductMismatch,
     EacOverIssuance,
     DuplicateCertificate,
     CertificateNotFound,
@@ -898,6 +899,8 @@ pub struct ScenarioCoverage {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerifiedGeneration {
     pub generation_id: String,
+    pub registry_id: String,
+    pub product_code_reference: String,
     pub installation_id: String,
     pub producer_id: String,
     pub meter_id: String,
@@ -958,6 +961,8 @@ impl EnergyAttributeLedger {
         expected_product_boundary: MeasurementBoundary,
     ) -> Result<(), KernelError> {
         if generation.generation_id.is_empty()
+            || generation.registry_id.is_empty()
+            || generation.product_code_reference.is_empty()
             || generation.installation_id.is_empty()
             || generation.producer_id.is_empty()
             || generation.meter_id.is_empty()
@@ -1038,6 +1043,11 @@ impl EnergyAttributeLedger {
             .generations
             .get_mut(generation_id)
             .ok_or(KernelError::InvalidClaim)?;
+        if issuance.generation.registry_id != registry_id
+            || issuance.generation.product_code_reference != product_code_reference
+        {
+            return Err(KernelError::RegistryProductMismatch);
+        }
         let issued_after = issuance
             .issued_wh
             .checked_add(quantity_wh)
@@ -2033,6 +2043,8 @@ mod tests {
     fn verified_generation() -> VerifiedGeneration {
         VerifiedGeneration {
             generation_id: "generation-001".into(),
+            registry_id: "accredited-registry-1".into(),
+            product_code_reference: "irec-e-product-code/v1".into(),
             installation_id: "site-001".into(),
             producer_id: "producer-001".into(),
             meter_id: "meter-001".into(),
@@ -2094,6 +2106,18 @@ mod tests {
                 "producer-account",
             ),
             Err(KernelError::InvalidEacDenomination)
+        );
+        assert_eq!(
+            ledger.issue(
+                "eac-004",
+                "different-registry",
+                "irec-e-product-code/v1",
+                "generation-001",
+                1_000_000,
+                1_000_000,
+                "producer-account",
+            ),
+            Err(KernelError::RegistryProductMismatch)
         );
     }
 
