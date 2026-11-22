@@ -1,0 +1,377 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/terra-preta/schemas/soil-context-function-input.schema.json",
+  "title": "Synthetic context-conditioned soil-function scenario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "evidence_class",
+    "scenario_id",
+    "config",
+    "indicators"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "soil-context-function-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "evidence_class": {
+      "const": "synthetic"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_peer_samples",
+        "minimum_independent_sites"
+      ],
+      "properties": {
+        "minimum_peer_samples": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "minimum_independent_sites": {
+          "type": "integer",
+          "minimum": 2
+        }
+      }
+    },
+    "indicators": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "indicator_id",
+          "property_name",
+          "unit",
+          "measurement_method",
+          "depth_min_m",
+          "depth_max_m",
+          "evaluation_independence_group_id",
+          "context",
+          "reference_model",
+          "measurements",
+          "guardrail"
+        ],
+        "properties": {
+          "indicator_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "property_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "measurement_method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "depth_min_m": {
+            "type": "number",
+            "minimum": 0
+          },
+          "depth_max_m": {
+            "type": "number",
+            "minimum": 0
+          },
+          "evaluation_independence_group_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "context": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "texture_class",
+              "reference_soil_group",
+              "mean_annual_temperature_c",
+              "mean_annual_precipitation_mm"
+            ],
+            "properties": {
+              "texture_class": {
+                "enum": [
+                  "coarse",
+                  "medium",
+                  "fine",
+                  "other",
+                  "unknown"
+                ]
+              },
+              "reference_soil_group": {
+                "type": "string",
+                "minLength": 1
+              },
+              "mean_annual_temperature_c": {
+                "type": "number"
+              },
+              "mean_annual_precipitation_mm": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          },
+          "reference_model": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "model_id",
+              "model_version",
+              "reference_target_semantics",
+              "peer_group_id",
+              "peer_sample_count",
+              "independent_site_count",
+              "domain_status",
+              "training_independence_group_ids",
+              "predictive_mean",
+              "predictive_sd",
+              "predictive_mean_se",
+              "q90",
+              "q90_se",
+              "q95",
+              "q95_se",
+              "q99",
+              "q99_se",
+              "reference_dataset_id",
+              "reference_dataset_sha256",
+              "reference_model_sha256",
+              "reference_measurement_method",
+              "reference_measurement_unit",
+              "reference_depth_min_m",
+              "reference_depth_max_m"
+            ],
+            "properties": {
+              "model_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "model_version": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference_target_semantics": {
+                "const": "direct_measurement"
+              },
+              "peer_group_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "peer_sample_count": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "independent_site_count": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "domain_status": {
+                "enum": [
+                  "in_domain",
+                  "out_of_domain",
+                  "unassessed"
+                ]
+              },
+              "training_independence_group_ids": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "predictive_mean": {
+                "type": "number"
+              },
+              "predictive_sd": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "predictive_mean_se": {
+                "type": "number",
+                "minimum": 0
+              },
+              "q90": {
+                "type": "number"
+              },
+              "q90_se": {
+                "type": "number",
+                "minimum": 0
+              },
+              "q95": {
+                "type": "number"
+              },
+              "q95_se": {
+                "type": "number",
+                "minimum": 0
+              },
+              "q99": {
+                "type": "number"
+              },
+              "q99_se": {
+                "type": "number",
+                "minimum": 0
+              },
+              "reference_dataset_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference_dataset_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "reference_model_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "reference_measurement_method": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference_measurement_unit": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference_depth_min_m": {
+                "type": "number",
+                "minimum": 0
+              },
+              "reference_depth_max_m": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              }
+            }
+          },
+          "measurements": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "date",
+                "experimental_unit_id",
+                "value",
+                "standard_error"
+              ],
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "experimental_unit_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "value": {
+                  "type": "number"
+                },
+                "standard_error": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "guardrail": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_set",
+                  "synthetic_fixture",
+                  "externally_approved"
+                ]
+              },
+              "minimum_value": {
+                "type": "number"
+              },
+              "maximum_value": {
+                "type": "number"
+              },
+              "authority": {
+                "type": "string",
+                "minLength": 1
+              },
+              "approval_reference": {
+                "type": "string",
+                "minLength": 1
+              },
+              "approval_date": {
+                "type": "string",
+                "format": "date"
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "synthetic_fixture",
+                        "externally_approved"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                },
+                "then": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "minimum_value"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "maximum_value"
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "status": {
+                      "const": "externally_approved"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                },
+                "then": {
+                  "required": [
+                    "authority",
+                    "approval_reference",
+                    "approval_date"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

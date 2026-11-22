@@ -1,0 +1,164 @@
+{
+  "schema_version": "soil-context-function-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "evidence_class": "synthetic",
+  "scenario_id": "manufactured-context-percentile-vs-absolute-and-trend",
+  "config": {
+    "minimum_peer_samples": 50,
+    "minimum_independent_sites": 4
+  },
+  "indicators": [
+    {
+      "indicator_id": "synthetic-soc-01",
+      "property_name": "soil_organic_carbon",
+      "unit": "percent",
+      "measurement_method": "synthetic direct dry-combustion analogue",
+      "depth_min_m": 0,
+      "depth_max_m": 0.2,
+      "evaluation_independence_group_id": "evaluation-site-A-plot-01",
+      "context": {
+        "texture_class": "fine",
+        "reference_soil_group": "synthetic-RSG-X",
+        "mean_annual_temperature_c": 18,
+        "mean_annual_precipitation_mm": 650
+      },
+      "reference_model": {
+        "model_id": "synthetic-hierarchical-peer-reference",
+        "model_version": "0.1",
+        "reference_target_semantics": "direct_measurement",
+        "peer_group_id": "fine-synthetic-RSG-X-MAT18-MAP650",
+        "peer_sample_count": 180,
+        "independent_site_count": 8,
+        "domain_status": "in_domain",
+        "training_independence_group_ids": [
+          "training-site-01",
+          "training-site-02",
+          "training-site-03",
+          "training-site-04",
+          "training-site-05",
+          "training-site-06"
+        ],
+        "predictive_mean": 2.4,
+        "predictive_sd": 0.75,
+        "predictive_mean_se": 0.12,
+        "q90": 3.35,
+        "q90_se": 0.18,
+        "q95": 3.65,
+        "q95_se": 0.2,
+        "q99": 4,
+        "q99_se": 0.25,
+        "reference_dataset_id": "synthetic-reference-dataset-v1",
+        "reference_dataset_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "reference_model_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reference_measurement_method": "synthetic direct dry-combustion analogue",
+        "reference_measurement_unit": "percent",
+        "reference_depth_min_m": 0,
+        "reference_depth_max_m": 0.2
+      },
+      "measurements": [
+        {
+          "date": "2021-06-01",
+          "experimental_unit_id": "plot-A-01",
+          "value": 0.9,
+          "standard_error": 0.1
+        },
+        {
+          "date": "2022-06-01",
+          "experimental_unit_id": "plot-A-01",
+          "value": 1,
+          "standard_error": 0.1
+        },
+        {
+          "date": "2023-06-01",
+          "experimental_unit_id": "plot-A-01",
+          "value": 1.1,
+          "standard_error": 0.1
+        },
+        {
+          "date": "2025-06-01",
+          "experimental_unit_id": "plot-A-01",
+          "value": 1.25,
+          "standard_error": 0.1
+        }
+      ],
+      "guardrail": {
+        "status": "not_set"
+      }
+    },
+    {
+      "indicator_id": "synthetic-bulk-density-01",
+      "property_name": "bulk_density",
+      "unit": "g_cm-3",
+      "measurement_method": "synthetic core method",
+      "depth_min_m": 0,
+      "depth_max_m": 0.2,
+      "evaluation_independence_group_id": "evaluation-site-A-plot-01",
+      "context": {
+        "texture_class": "fine",
+        "reference_soil_group": "synthetic-RSG-X",
+        "mean_annual_temperature_c": 18,
+        "mean_annual_precipitation_mm": 650
+      },
+      "reference_model": {
+        "model_id": "synthetic-hierarchical-peer-reference",
+        "model_version": "0.1",
+        "reference_target_semantics": "direct_measurement",
+        "peer_group_id": "fine-synthetic-RSG-X-MAT18-MAP650",
+        "peer_sample_count": 180,
+        "independent_site_count": 8,
+        "domain_status": "in_domain",
+        "training_independence_group_ids": [
+          "training-site-01",
+          "training-site-02",
+          "training-site-03",
+          "training-site-04",
+          "training-site-05",
+          "training-site-06"
+        ],
+        "predictive_mean": 1.45,
+        "predictive_sd": 0.22,
+        "predictive_mean_se": 0.03,
+        "q90": 1.72,
+        "q90_se": 0.04,
+        "q95": 1.8,
+        "q95_se": 0.05,
+        "q99": 1.9,
+        "q99_se": 0.06,
+        "reference_dataset_id": "synthetic-reference-dataset-v1",
+        "reference_dataset_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "reference_model_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reference_measurement_method": "synthetic core method",
+        "reference_measurement_unit": "g_cm-3",
+        "reference_depth_min_m": 0,
+        "reference_depth_max_m": 0.2
+      },
+      "measurements": [
+        {
+          "date": "2021-06-01",
+          "experimental_unit_id": "plot-A-01",
+          "value": 1.8,
+          "standard_error": 0.02
+        },
+        {
+          "date": "2023-06-01",
+          "experimental_unit_id": "plot-A-01",
+          "value": 1.76,
+          "standard_error": 0.02
+        },
+        {
+          "date": "2025-06-01",
+          "experimental_unit_id": "plot-A-01",
+          "value": 1.72,
+          "standard_error": 0.02
+        }
+      ],
+      "guardrail": {
+        "status": "synthetic_fixture",
+        "maximum_value": 1.6,
+        "authority": "Manufactured test profile only",
+        "approval_reference": "https://example.invalid/synthetic-guardrail",
+        "approval_date": "2026-01-01"
+      }
+    }
+  ]
+}
