@@ -1463,7 +1463,7 @@ pub const SCENARIO_COVERAGE: [ScenarioCoverage; 39] = [
     },
     ScenarioCoverage {
         id: "PAY-009",
-        status: CoverageStatus::NotYetImplemented,
+        status: CoverageStatus::PartialOrRequiresAdapter,
     },
     ScenarioCoverage {
         id: "DIST-001",
