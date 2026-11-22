@@ -702,7 +702,7 @@ mod tests {
         s.observations[10].elapsed_hours = 96.0;
         let r = build_report(&s, "0".repeat(64));
         assert_eq!(r.pulse_burden_absolute_anomaly_unit_hours, None);
-        assert_eq!(r.pulse_burden_status, "gap_exceeded");
+        assert_eq!(r.pulse_burden_status, "sampling_gap_exceeded");
         assert_eq!(r.analysis_status, "sampling_gap_exceeded");
         assert!(!r.controls.no_gap_bridging_pass);
     }
