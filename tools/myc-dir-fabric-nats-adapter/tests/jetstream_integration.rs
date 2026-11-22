@@ -4,10 +4,35 @@ use async_nats::jetstream::{
     self,
     stream::{Config as StreamConfig, DiscardPolicy, RetentionPolicy, StorageType},
 };
-use myc_dir_fabric_nats_adapter::{JetStreamAdapter, JetStreamAdapterConfig};
+use myc_dir_fabric_nats_adapter::{
+    JetStreamAdapter, JetStreamAdapterConfig, OwnerDispositionVerifier,
+    VerifiedOwnerDisposition,
+};
 use myc_dir_fabric_nats_reference::{
     AckMode, DurableOwnerDisposition, NatsCommandBindingInput,
 };
+
+struct SyntheticOwnerReceiptVerifier;
+
+impl OwnerDispositionVerifier for SyntheticOwnerReceiptVerifier {
+    fn verify_durable_disposition(
+        &self,
+        binding: &myc_dir_fabric_nats_reference::NatsCommandBinding,
+        disposition: &DurableOwnerDisposition,
+    ) -> Result<(), String> {
+        let plan = myc_dir_fabric_nats_reference::plan_acknowledgement(
+            binding,
+            disposition,
+            AckMode::Ack,
+        );
+        match plan {
+            myc_dir_fabric_nats_reference::AckPlan::Acknowledge { .. } => Ok(()),
+            myc_dir_fabric_nats_reference::AckPlan::DoNotAcknowledge => {
+                Err("synthetic receipt does not match exact test command".into())
+            }
+        }
+    }
+}
 
 fn unique_suffix() -> String {
     let nanos = SystemTime::now()
@@ -143,18 +168,20 @@ async fn publish_dedup_pull_and_double_ack_are_transport_only() {
     assert_eq!(delivery.observation.delivery_count, 1);
     assert_eq!(delivery.payload.as_ref(), payload.as_slice());
 
+    let verified = VerifiedOwnerDisposition::verify(
+        &delivery.binding,
+        DurableOwnerDisposition::EffectCommitted {
+            logical_operation_id: operation,
+            effect_owner_id: "postgres-owner-a".into(),
+            idempotency_digest: [3; 32],
+            effect_receipt_digest: [9; 32],
+        },
+        &SyntheticOwnerReceiptVerifier,
+    ).expect("test owner verifier should accept the matching durable receipt");
     let ack = delivery
-        .acknowledge(
-            &DurableOwnerDisposition::EffectCommitted {
-                logical_operation_id: operation,
-                effect_owner_id: "postgres-owner-a".into(),
-                idempotency_digest: [3; 32],
-                effect_receipt_digest: [9; 32],
-            },
-            AckMode::AckSync,
-        )
+        .acknowledge(&verified, AckMode::AckSync)
         .await
-        .expect("durable owner disposition should permit AckSync");
+        .expect("verified durable owner disposition should permit AckSync");
     assert!(ack.broker_confirmed);
     assert_eq!(
         ack.assessment,
@@ -209,19 +236,21 @@ async fn unacked_pull_is_redelivered_with_same_stream_sequence_and_higher_delive
 
     // A durable handoff is a valid transport disposition, but it is not an
     // effect-success receipt. The independent reconciler now owns the outcome.
+    let verified = VerifiedOwnerDisposition::verify(
+        &redelivery.binding,
+        DurableOwnerDisposition::ReconciliationHandoffDurable {
+            logical_operation_id: operation,
+            effect_owner_id: "postgres-owner-a".into(),
+            idempotency_digest: [3; 32],
+            attempt_id: format!("attempt-{suffix}"),
+            handoff_receipt_digest: [10; 32],
+        },
+        &SyntheticOwnerReceiptVerifier,
+    ).expect("test owner verifier should accept the matching reconciliation handoff");
     let ack = redelivery
-        .acknowledge(
-            &DurableOwnerDisposition::ReconciliationHandoffDurable {
-                logical_operation_id: operation,
-                effect_owner_id: "postgres-owner-a".into(),
-                idempotency_digest: [3; 32],
-                attempt_id: format!("attempt-{suffix}"),
-                handoff_receipt_digest: [10; 32],
-            },
-            AckMode::AckSync,
-        )
+        .acknowledge(&verified, AckMode::AckSync)
         .await
-        .expect("durable reconciliation handoff should permit AckSync");
+        .expect("verified durable reconciliation handoff should permit AckSync");
     assert!(ack.broker_confirmed);
     assert_eq!(
         ack.assessment,
