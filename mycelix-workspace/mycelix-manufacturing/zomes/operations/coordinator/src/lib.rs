@@ -203,6 +203,7 @@ mod tests {
             setup_time_min: 15,
             cycle_time_min: 8,
             tooling: Some("EM-10mm".to_string()),
+            process_binding: None,
         };
         let json = serde_json::to_string(&input).unwrap();
         let back: CreateOperationInput = serde_json::from_str(&json).unwrap();
@@ -226,6 +227,7 @@ mod tests {
                 setup_time_min: 5,
                 cycle_time_min: 2,
                 description: "Cut blank".to_string(),
+                process_binding: None,
             },
             RoutingStepInput {
                 sequence: 20,
@@ -234,6 +236,7 @@ mod tests {
                 setup_time_min: 15,
                 cycle_time_min: 8,
                 description: "Mill profile".to_string(),
+                process_binding: None,
             },
         ];
         // Verify ascending order
@@ -254,6 +257,7 @@ mod tests {
                 setup_time_min: 5,
                 cycle_time_min: 2,
                 description: "Cut blank".to_string(),
+                process_binding: None,
             }],
         };
         let json = serde_json::to_string(&input).unwrap();
