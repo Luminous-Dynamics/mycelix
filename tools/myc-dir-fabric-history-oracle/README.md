@@ -10,7 +10,7 @@ The first slice checks:
 - unique event identities and causal-parent graph structure;
 - owner-local durable sequence uniqueness and consistency with causal order;
 - owner bootstrap and monotonic `(owner_epoch, generation)` transitions;
-- effect commits against the owner position current at the owner-local commit sequence;
+- effect commits against the owner position current at the owner-local commit sequence; owner-scoped logical-operation and idempotency-key uniqueness;
 - worker-claim epoch freshness at the mutation commit point;
 - exact attempt, logical-operation and idempotency bindings;
 - Unknown outcome reconciliation and retry-after-confirmed-no-effect;
@@ -28,7 +28,7 @@ From the repository root:
 cargo test --manifest-path tools/myc-dir-fabric-history-oracle/Cargo.toml
 ```
 
-There are currently 13 authored tests. They have **not yet been compiled or executed** in the editing environment.
+There are currently 17 authored tests. They have **not yet been compiled or executed** in the editing environment.
 
 ## Evidence adapter contract
 
@@ -36,7 +36,7 @@ Before calling `audit_history`, the ingestion adapter must:
 1. authenticate each source and verifier/build identity;
 2. independently verify signed decision, claim, owner and barrier receipts;
 3. establish the completeness of the event bundle and each required owner stream;
-4. preserve owner-local durable sequence/commit positions;
+4. preserve owner-local durable sequence/commit positions; the exact route-to-owner map; and the single realm/resource/action scope commitment for the bundle;
 5. canonicalize digests and event IDs exactly as specified by the producer protocol;
 6. supply the required owner-stream set from the verified inventory closure.
 
