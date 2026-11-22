@@ -205,6 +205,18 @@ impl ProcessRecipeRefV1 {
     }
 }
 
+/// Epistemic state of a reference into an external process contract.
+/// v0.1 can classify only legacy, syntactically present, and malformed refs;
+/// Unavailable/Verified require a future exact owner-resolution adapter.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProcessReferenceResolutionV1 {
+    LegacyUnbound,
+    TypedReferencePresent,
+    TypedReferenceMalformed,
+    OwnerObjectUnavailable,
+    OwnerObjectVerified,
+}
+
 /// A typed routing binding to canonical process semantics. The legacy
 /// machine_type string remains descriptive compatibility metadata only.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -237,6 +249,25 @@ impl ProcessBindingV1 {
             }
         }
         Ok(())
+    }
+
+    /// Classify only local structure. Presence is not proof that the external
+    /// object exists or has been authenticated.
+    pub fn resolution_state(&self) -> ProcessReferenceResolutionV1 {
+        if self.validate().is_ok() {
+            ProcessReferenceResolutionV1::TypedReferencePresent
+        } else {
+            ProcessReferenceResolutionV1::TypedReferenceMalformed
+        }
+    }
+}
+
+pub fn process_binding_resolution(
+    binding: Option<&ProcessBindingV1>,
+) -> ProcessReferenceResolutionV1 {
+    match binding {
+        None => ProcessReferenceResolutionV1::LegacyUnbound,
+        Some(binding) => binding.resolution_state(),
     }
 }
 
