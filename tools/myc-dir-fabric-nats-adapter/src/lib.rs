@@ -328,7 +328,8 @@ impl ReceivedDelivery {
         let plan = plan_acknowledgement(&self.binding, &verified.disposition, mode);
         let AckPlan::Acknowledge {
             disposition_digest, ..
-        } = plan else {
+        } = plan
+        else {
             return Err(AdapterError::AckNotPermitted);
         };
 
