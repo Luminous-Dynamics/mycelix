@@ -28,14 +28,21 @@ pub struct OwnerNativeSubjectRefV1 {
 
 impl OwnerNativeSubjectRefV1 {
     pub fn validate(&self) -> Result<(), String> {
+        let mut repository_parts = self.owner_repository.split('/');
+        let owner = repository_parts.next().unwrap_or_default();
+        let repository = repository_parts.next().unwrap_or_default();
         if self.owner_repository.len() > 128
-            || self.owner_repository.matches('/').count() != 1
+            || owner.is_empty()
+            || repository.is_empty()
+            || repository_parts.next().is_some()
             || self
                 .owner_repository
                 .bytes()
                 .any(|b| !(b.is_ascii_alphanumeric() || b"-._/".contains(&b)))
         {
-            return Err("owner_repository must be a bounded owner/repository coordinate".into());
+            return Err(
+                "owner_repository must be a bounded non-empty owner/repository coordinate".into(),
+            );
         }
         validate_bounded_token("schema_id", &self.schema_id, 256)?;
         validate_bounded_token("schema_version", &self.schema_version, 64)?;
@@ -414,6 +421,15 @@ mod tests {
         let mut offer = valid_offer();
         offer.provider_subject_ref.owner_repository = "provider".into();
         assert!(offer.validate().is_err());
+    }
+
+    #[test]
+    fn owner_repository_requires_two_nonempty_segments() {
+        for invalid in ["/provider", "owner/", "owner/repository/extra"] {
+            let mut offer = valid_offer();
+            offer.provider_subject_ref.owner_repository = invalid.into();
+            assert!(offer.validate().is_err(), "accepted invalid repo coordinate: {invalid}");
+        }
     }
 
     #[test]
