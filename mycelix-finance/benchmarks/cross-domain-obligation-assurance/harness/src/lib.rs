@@ -58,6 +58,8 @@ pub enum KernelError {
     InvalidFinalityPolicy,
     InvalidReversal,
     InvalidPaymentHistory,
+    BrokenEventChain,
+    UnverifiedEventDigest,
     InvalidManualAttestation,
     DuplicateCollateral,
     DuplicateGeneration,
@@ -871,6 +873,62 @@ pub fn replay_payment_history(
         }
     }
     status.ok_or(KernelError::InvalidPaymentHistory)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PaymentEventEnvelope {
+    pub sequence: u64,
+    pub previous_event_digest: Option<Digest>,
+    pub event_digest: Digest,
+    pub event: PaymentAuditEvent,
+    /// Test seam set only after an upstream canonicalization/signature verifier
+    /// authenticates the event payload and its issuer.
+    pub digest_and_signature_verified: bool,
+}
+
+/// Validates a linear event chain and then reconstructs the payment disposition.
+/// The final digest must be anchored by an independent checkpoint, e.g. a
+/// transparency receipt or separately controlled witness. This function does
+/// not compute cryptographic hashes or authenticate signatures itself.
+pub fn replay_payment_event_chain(
+    request: &PaymentRequest,
+    envelopes: &[PaymentEventEnvelope],
+    independently_anchored_final_digest: Digest,
+) -> Result<PaymentStatus, KernelError> {
+    if envelopes.is_empty() || independently_anchored_final_digest == [0; 32] {
+        return Err(KernelError::BrokenEventChain);
+    }
+    let mut seen_digests = BTreeSet::new();
+    let mut payload_events = Vec::with_capacity(envelopes.len());
+    for (index, envelope) in envelopes.iter().enumerate() {
+        let expected_sequence = (index as u64)
+            .checked_add(1)
+            .ok_or(KernelError::ArithmeticOverflow)?;
+        if envelope.sequence != expected_sequence || envelope.event_digest == [0; 32] {
+            return Err(KernelError::BrokenEventChain);
+        }
+        if !envelope.digest_and_signature_verified {
+            return Err(KernelError::UnverifiedEventDigest);
+        }
+        let expected_previous = if index == 0 {
+            None
+        } else {
+            Some(envelopes[index - 1].event_digest)
+        };
+        if envelope.previous_event_digest != expected_previous {
+            return Err(KernelError::BrokenEventChain);
+        }
+        if !seen_digests.insert(envelope.event_digest) {
+            return Err(KernelError::BrokenEventChain);
+        }
+        payload_events.push(envelope.event.clone());
+    }
+    if envelopes.last().map(|envelope| envelope.event_digest)
+        != Some(independently_anchored_final_digest)
+    {
+        return Err(KernelError::BrokenEventChain);
+    }
+    replay_payment_history(request, &payload_events)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2470,6 +2528,72 @@ mod tests {
         let reconstructed =
             replay_payment_history(&request, ledger.events_for("key-1").unwrap()).unwrap();
         assert_eq!(Some(&reconstructed), ledger.status("key-1"));
+    }
+
+    #[test]
+    fn anchored_payment_event_chain_replays_and_detects_tampering_or_truncation() {
+        let request = payment_request("key-1", 10_000, 1);
+        let envelopes = vec![
+            PaymentEventEnvelope {
+                sequence: 1,
+                previous_event_digest: None,
+                event_digest: digest(10),
+                event: PaymentAuditEvent::IntentSubmitted {
+                    request_digest: request.request_digest,
+                },
+                digest_and_signature_verified: true,
+            },
+            PaymentEventEnvelope {
+                sequence: 2,
+                previous_event_digest: Some(digest(10)),
+                event_digest: digest(11),
+                event: PaymentAuditEvent::PaidFinal {
+                    external_receipt_id: "payment-1".into(),
+                    finality_policy_reference: "rail-finality/v1".into(),
+                },
+                digest_and_signature_verified: true,
+            },
+            PaymentEventEnvelope {
+                sequence: 3,
+                previous_event_digest: Some(digest(11)),
+                event_digest: digest(12),
+                event: PaymentAuditEvent::ReversalRecorded {
+                    original_receipt_id: "payment-1".into(),
+                    reversal_receipt_id: "reversal-1".into(),
+                    reason_reference: "chargeback-1".into(),
+                },
+                digest_and_signature_verified: true,
+            },
+        ];
+        let replayed =
+            replay_payment_event_chain(&request, &envelopes, digest(12)).unwrap();
+        assert!(matches!(replayed, PaymentStatus::Reversed { .. }));
+
+        let mut broken_link = envelopes.clone();
+        broken_link[2].previous_event_digest = Some(digest(99));
+        assert_eq!(
+            replay_payment_event_chain(&request, &broken_link, digest(12)),
+            Err(KernelError::BrokenEventChain)
+        );
+
+        let mut unverified = envelopes.clone();
+        unverified[1].digest_and_signature_verified = false;
+        assert_eq!(
+            replay_payment_event_chain(&request, &unverified, digest(12)),
+            Err(KernelError::UnverifiedEventDigest)
+        );
+
+        let mut duplicate_digest = envelopes.clone();
+        duplicate_digest[2].event_digest = digest(11);
+        assert_eq!(
+            replay_payment_event_chain(&request, &duplicate_digest, digest(11)),
+            Err(KernelError::BrokenEventChain)
+        );
+
+        assert_eq!(
+            replay_payment_event_chain(&request, &envelopes[..2], digest(12)),
+            Err(KernelError::BrokenEventChain)
+        );
     }
 
     #[test]
