@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mycelix.net/finance/sap-issuance-receipt/0.1/schema.json",
+  "title": "Mycelix SAP-ZAR Issuance Receipt",
+  "description": "Receipt for one authorized SAP-ZAR issuance against cleared ZAR funding and an independently reconciled eligible reserve. It is not an authorization to mint and does not prove off-ledger custody by itself.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "issuer_did",
+    "instrument_id",
+    "currency",
+    "amount_minor_units",
+    "holder_did",
+    "funding_evidence_ref",
+    "external_settlement_ref",
+    "custody_receipt_ref",
+    "reserve_snapshot_ref",
+    "eligible_reserve_after_minor_units",
+    "liabilities_after_minor_units",
+    "policy_version",
+    "authorization",
+    "idempotency_key",
+    "event_time",
+    "integrity"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "receipt_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "issuer_did": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "instrument_id": {
+      "const": "SAP-ZAR"
+    },
+    "currency": {
+      "const": "ZAR"
+    },
+    "amount_minor_units": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "holder_did": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "funding_evidence_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "external_settlement_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "custody_receipt_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "reserve_snapshot_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "eligible_reserve_after_minor_units": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$"
+    },
+    "liabilities_after_minor_units": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$"
+    },
+    "reserve_coverage_after_ppm": {
+      "type": "integer",
+      "minimum": 1000000
+    },
+    "policy_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issuance_policy_ref",
+        "approved_by",
+        "consumed_authorization_ref"
+      ],
+      "properties": {
+        "issuance_policy_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "approved_by": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "consumed_authorization_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "governance_decision_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        }
+      }
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 256
+    },
+    "event_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalization",
+        "verification_method",
+        "key_id",
+        "proof"
+      ],
+      "properties": {
+        "canonicalization": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "verification_method": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "key_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "proof": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        }
+      }
+    }
+  }
+}
