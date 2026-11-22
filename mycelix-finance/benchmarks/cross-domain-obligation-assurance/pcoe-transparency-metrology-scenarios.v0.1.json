@@ -1,0 +1,103 @@
+{
+  "benchmark": "PCOE Transparency, Metrology and Market Adapter Addendum",
+  "version": "0.1",
+  "date": "2026-11-22",
+  "status": "proposed-research-corpus-not-executed",
+  "scenario_count": 10,
+  "disposition_vocabulary": [
+    "reject",
+    "hold_indeterminate"
+  ],
+  "scenarios": [
+    {
+      "id": "TSP-001",
+      "domain": "transparency",
+      "threat": "Pending or absent transparency receipt",
+      "preconditions": "A signed statement has been submitted, but the transparency service has not returned a verifiable receipt.",
+      "adversarial_mutation": "Treat a pending registration request or client acknowledgement as a registration receipt.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Only a verified receipt proving inclusion in the identified transparency service's verifiable data structure can satisfy the inclusion requirement."
+    },
+    {
+      "id": "TSP-002",
+      "domain": "transparency",
+      "threat": "Issuer signature or protected-header mismatch",
+      "preconditions": "A receipt exists, but the signed statement's issuer key, protected headers or content digest does not match the accepted issuer/profile.",
+      "adversarial_mutation": "Alter the issuer, key identifier, protected header or payload after signing.",
+      "expected_disposition": "reject",
+      "required_control": "Verify the issuer signature, policy-required protected headers and exact statement digest before trusting the receipt."
+    },
+    {
+      "id": "TSP-003",
+      "domain": "transparency",
+      "threat": "Registered false physical assertion",
+      "preconditions": "A producer makes a false claim that is correctly signed and registered in SCITT.",
+      "adversarial_mutation": "Present a valid transparency receipt as proof that the claimed energy was physically produced.",
+      "expected_disposition": "reject",
+      "required_control": "Registration proves statement inclusion/traceability, not factual truth; independent metrology and verifier evidence remain required."
+    },
+    {
+      "id": "TSP-004",
+      "domain": "transparency",
+      "threat": "Selective statement omission",
+      "preconditions": "An issuer registers favorable statements but omits adverse statements or a known expected sequence.",
+      "adversarial_mutation": "Infer that an unregistered interval or incident did not occur because no receipt is present.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Use independently defined expected-set manifests, meter sequence continuity and reconciliation; absence from a log is not proof of non-occurrence."
+    },
+    {
+      "id": "TSP-005",
+      "domain": "transparency",
+      "threat": "Inconsistent transparency-service histories",
+      "preconditions": "Two services or replicas return inconsistent checkpoints or receipt paths for the same statement/history.",
+      "adversarial_mutation": "Supply one receipt from a stale/forked log while suppressing the conflicting checkpoint.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Validate receipts and consistency evidence against pinned service keys, checkpoints and independent witness policies."
+    },
+    {
+      "id": "MET-001",
+      "domain": "metrology",
+      "threat": "Missing or mismatched type approval",
+      "preconditions": "The meter model or configuration has no valid type approval for the relevant legal-metrology regime.",
+      "adversarial_mutation": "Substitute an unapproved model or firmware/configuration for the approved device.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Require applicable type-approval and device/configuration evidence from the recognized authority."
+    },
+    {
+      "id": "MET-002",
+      "domain": "metrology",
+      "threat": "Expired or revoked verification",
+      "preconditions": "The meter's legally required verification/re-verification is expired, revoked or does not cover the observation interval.",
+      "adversarial_mutation": "Submit intervals outside the validity period or after revocation.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Check the authentic instrument status and validity scope; software calibration fields alone are insufficient."
+    },
+    {
+      "id": "MET-003",
+      "domain": "metrology",
+      "threat": "Incorrect metering boundary or transformer ratio",
+      "preconditions": "The meter channel, CT/PT ratio, wiring or declared boundary differs from the value used for commercial settlement.",
+      "adversarial_mutation": "Change the ratio, channel mapping or boundary while retaining the old attestation.",
+      "expected_disposition": "reject",
+      "required_control": "Bind installation/configuration records, ratios, boundary, unit and tariff/settlement method to the exact meter observations."
+    },
+    {
+      "id": "MET-004",
+      "domain": "metrology",
+      "threat": "Modification after approval without reassessment",
+      "preconditions": "A device or installation is modified after verification in a way that affects measurement characteristics.",
+      "adversarial_mutation": "Change firmware, seal, wiring or measurement parameters without the required re-verification.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Require the legal-metrology process applicable to modifications and preserve superseding qualification records."
+    },
+    {
+      "id": "MARKET-001",
+      "domain": "market_adapter",
+      "threat": "Consultation draft promoted to binding market rule",
+      "preconditions": "An adapter consumes the NERSA Version 03 consultation paper or a target completion date as if it were a final adopted trading rule.",
+      "adversarial_mutation": "Authorize live market participation using a consultation draft or stale regulatory snapshot.",
+      "expected_disposition": "reject",
+      "required_control": "Pin the currently effective instrument and obtain jurisdiction-specific legal/regulatory confirmation; draft or unknown status blocks live execution."
+    }
+  ]
+}
