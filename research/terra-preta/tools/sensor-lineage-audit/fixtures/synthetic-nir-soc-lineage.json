@@ -1,0 +1,91 @@
+{
+  "schema_version": "soil-sensor-lineage-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "evidence_class": "synthetic",
+  "scenario_id": "manufactured-handheld-nir-to-soc-estimate",
+  "instruments": [
+    {
+      "instrument_id": "instrument-neo-syn-01",
+      "manufacturer_model": "Synthetic handheld NIR instrument analogue",
+      "serial_id": "SYN-NIR-0001",
+      "firmware_version": "synthetic-fw-1",
+      "calibration_id": "synthetic-instrument-calibration-v1",
+      "calibration_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  ],
+  "sensor_observations": [
+    {
+      "observation_id": "observation-spectrum-001",
+      "physical_sample_id": "sample-eval-001",
+      "independence_group_id": "evaluation-site-A-field-01",
+      "instrument_id": "instrument-neo-syn-01",
+      "modality": "vis_nir_spectroscopy",
+      "signal_type": "diffuse_reflectance_spectrum",
+      "signal_unit": "dimensionless_reflectance",
+      "measurement_semantics": "direct_sensor_signal",
+      "calibration_id": "synthetic-instrument-calibration-v1",
+      "acquired_at": "2026-08-15T10:30:00Z",
+      "sample_preparation": "synthetic dried and ground sample",
+      "sample_moisture_status": "dry",
+      "measurement_geometry": "synthetic fixed reflectance cup geometry",
+      "raw_artifact": {
+        "uri": "https://example.invalid/synthetic-spectrum-001.csv",
+        "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "byte_size": 4096
+      },
+      "qa_status": "pass",
+      "replicate_group_id": "replicate-group-sample-eval-001"
+    }
+  ],
+  "reference_assays": [
+    {
+      "assay_id": "reference-soc-001",
+      "physical_sample_id": "sample-eval-001",
+      "independence_group_id": "evaluation-site-A-field-01",
+      "target_property": "soil_organic_carbon",
+      "value": 1.82,
+      "unit": "percent",
+      "method": "synthetic dry combustion reference method",
+      "extraction_basis": "total organic carbon after inorganic carbon correction",
+      "depth_min_m": 0,
+      "depth_max_m": 0.15,
+      "standard_error": 0.06,
+      "role": "independent_validation_reference",
+      "laboratory_id": "synthetic-lab-01",
+      "batch_id": "synthetic-batch-2026-08"
+    }
+  ],
+  "derived_estimates": [
+    {
+      "estimate_id": "soc-estimate-001",
+      "physical_sample_id": "sample-eval-001",
+      "independence_group_id": "evaluation-site-A-field-01",
+      "target_property": "soil_organic_carbon",
+      "unit": "percent",
+      "value": 1.76,
+      "standard_error": 0.18,
+      "measurement_semantics": "derived_prediction",
+      "input_observation_ids": [
+        "observation-spectrum-001"
+      ],
+      "model": {
+        "model_id": "synthetic-soc-calibration-model",
+        "model_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "preprocessing_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "training_sample_ids": [
+          "training-sample-01",
+          "training-sample-02",
+          "training-sample-03"
+        ],
+        "training_independence_group_ids": [
+          "training-field-A",
+          "training-field-B"
+        ],
+        "calibration_reference_assay_ids": [],
+        "domain_status": "in_domain"
+      },
+      "assessment_status": "candidate_unqualified",
+      "reference_assay_id": "reference-soc-001"
+    }
+  ]
+}
