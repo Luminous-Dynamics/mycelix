@@ -64,3 +64,6 @@ jobs:
 
       - name: Run flat-boundary geometry CLI smoke test
         run: cargo run --quiet --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-geometry-informed-proposal/Cargo.toml
+
+      - name: Run analytic Gaussian half-space benchmark
+        run: cargo run --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-geometry-informed-proposal/Cargo.toml --bin analytic_halfspace_benchmark
