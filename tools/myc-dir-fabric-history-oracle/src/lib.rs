@@ -345,6 +345,15 @@ struct InventoryInfo {
     required_routes: BTreeSet<String>,
 }
 
+#[derive(Clone)]
+struct OwnerAckInfo {
+    owner: String,
+    revocation_digest: Digest,
+    inventory_epoch: u64,
+    inventory_manifest_digest: Digest,
+    route_set_digest: Digest,
+}
+
 fn digest_is_nonzero(digest: &Digest) -> bool {
     digest.iter().any(|byte| *byte != 0)
 }
@@ -665,7 +674,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
 
     let mut fence_commits: BTreeMap<String, FenceInfo> = BTreeMap::new();
     let mut readbacks: BTreeMap<String, ReadBackInfo> = BTreeMap::new();
-    let mut owner_ack_valid: BTreeMap<String, String> = BTreeMap::new();
+    let mut owner_ack_valid: BTreeMap<String, OwnerAckInfo> = BTreeMap::new();
     let mut effect_commits_by_operation: BTreeMap<(String, String), String> = BTreeMap::new();
     let mut attempt_starts: BTreeMap<String, EventRecord> = BTreeMap::new();
     let mut attempts_by_operation: BTreeMap<(String, String), BTreeMap<u32, String>> = BTreeMap::new();
@@ -1237,7 +1246,16 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                         "owner acknowledgement must directly bind both fence commit and read-back",
                     );
                 }
-                owner_ack_valid.insert(event.id.clone(), commit.owner.clone());
+                owner_ack_valid.insert(
+                    event.id.clone(),
+                    OwnerAckInfo {
+                        owner: commit.owner.clone(),
+                        revocation_digest: *revocation_digest,
+                        inventory_epoch: *inventory_epoch,
+                        inventory_manifest_digest: *inventory_manifest_digest,
+                        route_set_digest: *route_set_digest,
+                    },
+                );
             }
             EventKind::GlobalBarrierAcknowledged {
                 inventory_event_id,
@@ -1293,7 +1311,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                             format!("global acknowledgement does not directly reference owner ack {ack_id}"),
                         );
                     }
-                    let Some(owner) = owner_ack_valid.get(ack_id) else {
+                    let Some(ack) = owner_ack_valid.get(ack_id) else {
                         findings.violation(
                             FindingCode::GlobalBarrierMissingOwnerAck,
                             Some(&event.id),
@@ -1301,11 +1319,22 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                         );
                         continue;
                     };
-                    if !acknowledged_owners.insert(owner.clone()) {
+                    if ack.revocation_digest != *revocation_digest
+                        || ack.inventory_epoch != *inventory_epoch
+                        || ack.inventory_manifest_digest != *inventory_manifest_digest
+                        || ack.route_set_digest != *route_set_digest
+                    {
+                        findings.violation(
+                            FindingCode::GlobalBarrierAckBindingMismatch,
+                            Some(&event.id),
+                            format!("owner acknowledgement {ack_id} binds a different revocation or inventory"),
+                        );
+                    }
+                    if !acknowledged_owners.insert(ack.owner.clone()) {
                         findings.violation(
                             FindingCode::GlobalBarrierOwnerSetMismatch,
                             Some(&event.id),
-                            format!("owner {owner} appears more than once in the owner acknowledgement set"),
+                            format!("owner {} appears more than once in the owner acknowledgement set", ack.owner),
                         );
                     }
                 }
