@@ -151,6 +151,9 @@ pub enum EventKind {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EventRecord {
     pub id: String,
+    /// Canonical commitment to the exact realm/resource/action scope. Every
+    /// event in one HistoryEvidence bundle must carry the same scope digest.
+    pub scope_digest: Digest,
     /// Direct causal predecessors. Wall-clock timestamps are intentionally not
     /// used to establish safety ordering.
     pub parents: Vec<String>,
@@ -163,6 +166,8 @@ pub struct EventRecord {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HistoryEvidence {
+    /// Exact canonical realm/resource/action scope for this one history.
+    pub scope_digest: Digest,
     /// True only if the ingestion layer has verified that the event bundle is
     /// complete for the declared interval and has checked source authenticity.
     pub event_set_complete: bool,
@@ -479,6 +484,13 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
     let mut findings = Findings::default();
     let checked_events = evidence.events.len();
 
+    if !digest_is_nonzero(&evidence.scope_digest) {
+        findings.violation(
+            FindingCode::InvalidDigest,
+            None,
+            "history scope digest is zero",
+        );
+    }
     if !evidence.event_set_complete {
         findings.inconclusive(
             FindingCode::MissingCausalParent,
@@ -498,6 +510,13 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
 
     let mut events = BTreeMap::new();
     for event in &evidence.events {
+        if event.scope_digest != evidence.scope_digest {
+            findings.violation(
+                FindingCode::OwnerAckBindingMismatch,
+                Some(&event.id),
+                "event belongs to a different realm/resource/action scope",
+            );
+        }
         if event.id.trim().is_empty() {
             findings.violation(
                 FindingCode::EmptyEventId,
@@ -647,9 +666,9 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
     let mut fence_commits: BTreeMap<String, FenceInfo> = BTreeMap::new();
     let mut readbacks: BTreeMap<String, ReadBackInfo> = BTreeMap::new();
     let mut owner_ack_valid: BTreeMap<String, String> = BTreeMap::new();
-    let mut effect_commits_by_operation: BTreeMap<String, String> = BTreeMap::new();
+    let mut effect_commits_by_operation: BTreeMap<(String, String), String> = BTreeMap::new();
     let mut attempt_starts: BTreeMap<String, EventRecord> = BTreeMap::new();
-    let mut attempts_by_operation: BTreeMap<String, BTreeMap<u32, String>> = BTreeMap::new();
+    let mut attempts_by_operation: BTreeMap<(String, String), BTreeMap<u32, String>> = BTreeMap::new();
     let mut unknown_attempts: BTreeMap<String, String> = BTreeMap::new();
     let mut reconciliations: BTreeMap<String, (String, ReconciledOutcome)> = BTreeMap::new();
 
@@ -668,8 +687,12 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                         format!("physical attempt id {attempt_id} is reused"),
                     );
                 }
+                let operation_key = (
+                    event.owner.clone().unwrap_or_default(),
+                    operation_id.clone(),
+                );
                 if attempts_by_operation
-                    .entry(operation_id.clone())
+                    .entry(operation_key)
                     .or_default()
                     .insert(*attempt_number, attempt_id.clone())
                     .is_some()
@@ -1132,7 +1155,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                         );
                     }
                     if effect_commits_by_operation
-                        .insert(operation_id.clone(), event_id.clone())
+                        .insert((owner.clone(), operation_id.clone()), event_id.clone())
                         .is_some()
                     {
                         findings.violation(
@@ -1359,8 +1382,12 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                             "retry must directly reference its prior-attempt outcome evidence",
                         );
                     }
+                    let operation_key = (
+                        event.owner.clone().unwrap_or_default(),
+                        operation_id.clone(),
+                    );
                     let previous_attempt_id = attempts_by_operation
-                        .get(operation_id)
+                        .get(&operation_key)
                         .and_then(|attempts| attempts.get(&attempt_number.saturating_sub(1)));
                     match (
                         previous_attempt_id,
@@ -1664,6 +1691,7 @@ mod tests {
     ) -> EventRecord {
         EventRecord {
             id: id.to_owned(),
+            scope_digest: digest(2),
             parents: parents.iter().map(|s| (*s).to_owned()).collect(),
             owner: owner.map(str::to_owned),
             owner_sequence: sequence,
@@ -1885,6 +1913,7 @@ mod tests {
         ]);
 
         HistoryEvidence {
+            scope_digest: digest(2),
             event_set_complete: true,
             complete_owner_streams: owners,
             events,
