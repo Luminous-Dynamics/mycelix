@@ -897,7 +897,7 @@ mod tests {
             project_id: "project-001".into(),
             energy_wh: 1000,
             source: ProductionSource::MeterDerived,
-            evidence_digests: vec![[1; 32]],
+            evidence_digests: vec![[3; 32]],
         };
         let attestation = VerifierAttestation {
             attestation_id: "attest-001".into(),
