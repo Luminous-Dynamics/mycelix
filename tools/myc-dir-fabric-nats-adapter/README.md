@@ -72,10 +72,10 @@ The integration suite uses a single-node File-storage server. It is not a cluste
 - No local Cargo compilation or NATS runtime result is claimed until the exact-head workflow completes.
 
 
-The adapter crate adds 13 pure unit tests and two ignored JetStream integration tests. The reference contract currently has 21 unit tests. They remain uncompiled until the exact-head workflow completes.
+The adapter crate adds 13 pure unit tests and two ignored JetStream integration tests. The reference contract has 21 unit tests. GitHub Actions run [#45000430944](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45000430944) on source head `1105375305704c019b7d2ccecda78a18dc0e7faf` passed formatting, 21/21 contract tests, 18/18 adapter tests, 2/2 JetStream integration tests and Clippy.
 
 ## Authenticated owner-disposition gate
 
 The adapter does not accept a raw public `DurableOwnerDisposition` as sufficient proof to ACK. Call `VerifiedOwnerDisposition::verify(binding, disposition, verifier)`. The external `OwnerDispositionVerifier` must authenticate the actual durable effect-owner receipt against the exact binding. The resulting token stores a digest of that exact canonical binding, and `ReceivedDelivery::acknowledge` rechecks the binding before sending ACK/AckSync.
 
-The integration suite uses a clearly labelled synthetic verifier only to exercise transport behaviour. A production deployment must supply a verifier backed by the real owner receipt signature / attestation and durable receipt ledger.
+The integration suite uses a clearly labelled synthetic verifier only to exercise transport behaviour. A production deployment must supply a verifier backed by the real owner receipt signature / attestation and durable receipt ledger. The CI integration profile is single-node; it does not qualify cluster failover or PostgreSQL effect-owner integration.
