@@ -182,7 +182,9 @@ fn validate(s: &Scenario) -> Result<(), String> {
         || s.weight_profiles.len() < 2
         || s.hard_guardrails.is_empty()
     {
-        return Err("scenario requires indicators, alternatives, profiles and hard guardrails".into());
+        return Err(
+            "scenario requires indicators, alternatives, profiles and hard guardrails".into(),
+        );
     }
 
     let mut indicator_ids = BTreeSet::new();
@@ -243,7 +245,9 @@ fn validate(s: &Scenario) -> Result<(), String> {
         }
     }
     if !profile_ids.contains("declared_expert") {
-        return Err("a declared_expert weight profile is required for the expert-weighted archetype".into());
+        return Err(
+            "a declared_expert weight profile is required for the expert-weighted archetype".into(),
+        );
     }
 
     let mut guardrail_ids = BTreeSet::new();
@@ -396,7 +400,11 @@ fn empirical_percentile_scores(s: &Scenario) -> BTreeMap<String, f64> {
         let ranks = average_ranks_desc(&values);
         let n = alternatives.len() as f64;
         for (id, rank) in ranks {
-            let percentile = if n <= 1.0 { 1.0 } else { (n - rank) / (n - 1.0) };
+            let percentile = if n <= 1.0 {
+                1.0
+            } else {
+                (n - rank) / (n - 1.0)
+            };
             *total.entry(id).or_insert(0.0) += percentile;
         }
     }
@@ -423,8 +431,7 @@ fn weighted_scores(s: &Scenario, profile: &WeightProfile) -> Vec<(String, f64)> 
                 .indicators
                 .iter()
                 .map(|i| {
-                    normalized(measurement(a, &i.indicator_id).value, i)
-                        * weights[&i.indicator_id]
+                    normalized(measurement(a, &i.indicator_id).value, i) * weights[&i.indicator_id]
                 })
                 .sum();
             (a.alternative_id.clone(), score)
@@ -502,9 +509,7 @@ fn geometric_scores(s: &Scenario) -> Vec<(String, f64)> {
         .collect()
 }
 
-fn method_scores(
-    s: &Scenario,
-) -> Vec<(String, &'static str, &'static str, Vec<(String, f64)>)> {
+fn method_scores(s: &Scenario) -> Vec<(String, &'static str, &'static str, Vec<(String, f64)>)> {
     let expert = s
         .weight_profiles
         .iter()
@@ -567,7 +572,11 @@ fn pearson(x: &[f64], y: &[f64]) -> f64 {
     }
     let mx = x.iter().sum::<f64>() / x.len() as f64;
     let my = y.iter().sum::<f64>() / y.len() as f64;
-    let cov = x.iter().zip(y).map(|(a, b)| (a - mx) * (b - my)).sum::<f64>();
+    let cov = x
+        .iter()
+        .zip(y)
+        .map(|(a, b)| (a - mx) * (b - my))
+        .sum::<f64>();
     let vx = x.iter().map(|a| (a - mx).powi(2)).sum::<f64>();
     let vy = y.iter().map(|b| (b - my).powi(2)).sum::<f64>();
     if vx <= f64::EPSILON || vy <= f64::EPSILON {
@@ -778,9 +787,7 @@ fn build_report(s: &Scenario, digest: String) -> Report {
     let mut dominance = Vec::new();
     for a in &alternatives {
         for b in &alternatives {
-            if a.alternative_id != b.alternative_id
-                && robustly_dominates(a, b, &s.indicators)
-            {
+            if a.alternative_id != b.alternative_id && robustly_dominates(a, b, &s.indicators) {
                 dominance.push(DominanceRelation {
                     dominant_alternative_id: a.alternative_id.clone(),
                     dominated_alternative_id: b.alternative_id.clone(),
@@ -876,8 +883,10 @@ mod tests {
     use super::*;
 
     fn scenario() -> Scenario {
-        serde_json::from_str(include_str!("../fixtures/synthetic-assessment-agreement.json"))
-            .expect("fixture parses")
+        serde_json::from_str(include_str!(
+            "../fixtures/synthetic-assessment-agreement.json"
+        ))
+        .expect("fixture parses")
     }
 
     #[test]
@@ -915,10 +924,15 @@ mod tests {
     #[test]
     fn strictly_dominated_known_truth_alternative_is_not_on_nominal_front() {
         let r = build_report(&scenario(), "0".repeat(64));
-        assert!(!r.nominal_pareto_front_ids.contains(&"F-dominated".to_string()));
-        assert!(r.robust_dominance_relations
-            .iter()
-            .any(|x| x.dominated_alternative_id == "F-dominated"));
+        assert!(
+            !r.nominal_pareto_front_ids
+                .contains(&"F-dominated".to_string())
+        );
+        assert!(
+            r.robust_dominance_relations
+                .iter()
+                .any(|x| x.dominated_alternative_id == "F-dominated")
+        );
     }
 
     #[test]
@@ -971,7 +985,10 @@ mod tests {
             a.measurements.reverse();
         }
         let after = build_report(&t, "0".repeat(64));
-        assert_eq!(before.nominal_pareto_front_ids, after.nominal_pareto_front_ids);
+        assert_eq!(
+            before.nominal_pareto_front_ids,
+            after.nominal_pareto_front_ids
+        );
         assert_eq!(
             before.robust_dominance_relations.len(),
             after.robust_dominance_relations.len()
@@ -989,11 +1006,13 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         assert_eq!(
-            before.alternative_guardrails
+            before
+                .alternative_guardrails
                 .iter()
                 .map(|x| (&x.alternative_id, x.eligible))
                 .collect::<Vec<_>>(),
-            after.alternative_guardrails
+            after
+                .alternative_guardrails
                 .iter()
                 .map(|x| (&x.alternative_id, x.eligible))
                 .collect::<Vec<_>>()
