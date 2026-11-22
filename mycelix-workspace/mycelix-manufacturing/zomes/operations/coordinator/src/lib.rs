@@ -20,6 +20,8 @@ pub struct CreateOperationInput {
     pub setup_time_min: u32,
     pub cycle_time_min: u32,
     pub tooling: Option<String>,
+    #[serde(default)]
+    pub process_binding: Option<ProcessBindingV1>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -27,6 +29,17 @@ pub struct CreateRoutingInput {
     pub design_id: String,
     pub revision: String,
     pub steps: Vec<RoutingStepInput>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CreateProcessRegistryEntryInput {
+    pub process_definition_ref: ProcessDefinitionRefV1,
+    pub display_label: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    pub status: ProcessRegistryStatusV1,
+    #[serde(default)]
+    pub supersedes_process_ref: Option<ProcessDefinitionRefV1>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -37,6 +50,8 @@ pub struct RoutingStepInput {
     pub setup_time_min: u32,
     pub cycle_time_min: u32,
     pub description: String,
+    #[serde(default)]
+    pub process_binding: Option<ProcessBindingV1>,
 }
 
 // ============================================================================
@@ -59,6 +74,7 @@ pub fn create_operation(input: CreateOperationInput) -> ExternResult<ActionHash>
         setup_time_min: input.setup_time_min,
         cycle_time_min: input.cycle_time_min,
         tooling: input.tooling,
+        process_binding: input.process_binding.map(Box::new),
     };
 
     let action_hash = create_entry(EntryTypes::Operation(entry))?;
@@ -108,6 +124,7 @@ pub fn create_routing(input: CreateRoutingInput) -> ExternResult<ActionHash> {
             setup_time_min: s.setup_time_min,
             cycle_time_min: s.cycle_time_min,
             description: s.description,
+            process_binding: s.process_binding.map(Box::new),
         })
         .collect();
 
@@ -134,6 +151,35 @@ pub fn create_routing(input: CreateRoutingInput) -> ExternResult<ActionHash> {
     Ok(action_hash)
 }
 
+/// Register an immutable Mycelix index to an exact Symthaea process definition.
+/// This stores references/display metadata only; it does not verify the external
+/// object or qualify the process.
+#[hdk_extern]
+pub fn register_process_definition(
+    input: CreateProcessRegistryEntryInput,
+) -> ExternResult<ActionHash> {
+    let now = sys_time()?;
+    let entry = ProcessRegistryEntry {
+        process_definition_ref: Box::new(input.process_definition_ref),
+        display_label: input.display_label,
+        tags: input.tags,
+        status: input.status,
+        supersedes_process_ref: input.supersedes_process_ref.map(Box::new),
+        registered_at: now,
+    };
+    let action_hash = create_entry(EntryTypes::ProcessRegistry(entry))?;
+    let all_path =
+        Path::from("all_process_registry_entries").typed(LinkTypes::AllProcessRegistryEntries)?;
+    all_path.ensure()?;
+    create_link(
+        all_path.path_entry_hash()?,
+        action_hash.clone(),
+        LinkTypes::AllProcessRegistryEntries,
+        (),
+    )?;
+    Ok(action_hash)
+}
+
 /// Get a routing by action hash.
 #[hdk_extern]
 pub fn get_routing(hash: ActionHash) -> ExternResult<Option<Record>> {
@@ -157,16 +203,23 @@ mod tests {
             setup_time_min: 15,
             cycle_time_min: 8,
             tooling: Some("EM-10mm".to_string()),
+            process_binding: None,
         };
         let json = serde_json::to_string(&input).unwrap();
         let back: CreateOperationInput = serde_json::from_str(&json).unwrap();
         assert_eq!(back.name, "Mill profile");
         assert_eq!(back.cycle_time_min, 8);
+        assert!(back.process_binding.is_none());
+
+        // Pre-001A clients can omit the newly additive field.
+        let legacy = r#"{"name":"Legacy","description":"","machine_type":"CNC","setup_time_min":1,"cycle_time_min":2,"tooling":null}"#;
+        let decoded: CreateOperationInput = serde_json::from_str(legacy).unwrap();
+        assert!(decoded.process_binding.is_none());
     }
 
     #[test]
     fn test_routing_step_ordering() {
-        let steps = vec![
+        let steps = [
             RoutingStepInput {
                 sequence: 10,
                 operation_name: "Cut".to_string(),
@@ -174,6 +227,7 @@ mod tests {
                 setup_time_min: 5,
                 cycle_time_min: 2,
                 description: "Cut blank".to_string(),
+                process_binding: None,
             },
             RoutingStepInput {
                 sequence: 20,
@@ -182,6 +236,7 @@ mod tests {
                 setup_time_min: 15,
                 cycle_time_min: 8,
                 description: "Mill profile".to_string(),
+                process_binding: None,
             },
         ];
         // Verify ascending order
@@ -202,11 +257,17 @@ mod tests {
                 setup_time_min: 5,
                 cycle_time_min: 2,
                 description: "Cut blank".to_string(),
+                process_binding: None,
             }],
         };
         let json = serde_json::to_string(&input).unwrap();
         let back: CreateRoutingInput = serde_json::from_str(&json).unwrap();
         assert_eq!(back.design_id, "BRACKET-v2");
         assert_eq!(back.steps.len(), 1);
+        assert!(back.steps[0].process_binding.is_none());
+
+        let legacy = r#"{"sequence":10,"operation_name":"Cut","machine_type":"Saw","setup_time_min":5,"cycle_time_min":2,"description":"Cut blank"}"#;
+        let decoded: RoutingStepInput = serde_json::from_str(legacy).unwrap();
+        assert!(decoded.process_binding.is_none());
     }
 }

@@ -1,0 +1,67 @@
+name: MFG-PROC-001A Typed Reference Qualification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - "mycelix-workspace/mycelix-manufacturing/**"
+      - ".github/workflows/mfg-proc-001a.yml"
+  push:
+    branches:
+      - "feat/mfg-proc-001a-typed-process-refs-v0.1"
+    paths:
+      - "mycelix-workspace/mycelix-manufacturing/**"
+      - ".github/workflows/mfg-proc-001a.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mfg-proc-001a-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  typed-reference-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-manufacturing
+      - name: Check committed source formatting
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml \
+            --package manufacturing_common \
+            --package operations_integrity \
+            --package operations \
+            --package machines_integrity \
+            --package machines -- --check
+      - name: Test manufacturing common and typed zome contracts
+        run: |
+          cargo test --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml \
+            -p manufacturing_common \
+            -p operations_integrity \
+            -p operations \
+            -p machines_integrity \
+            -p machines
+      - name: Run strict Clippy on changed Rust packages
+        run: |
+          cargo clippy --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml \
+            -p manufacturing_common \
+            -p operations_integrity \
+            -p operations \
+            -p machines_integrity \
+            -p machines \
+            --all-targets -- -D warnings
+      - name: Validate frozen schema and migration fixtures
+        run: |
+          python -m json.tool mycelix-workspace/mycelix-manufacturing/schemas/mfg_proc_001a/typed_process_refs_v0_1.schema.json >/dev/null
+          python -m json.tool mycelix-workspace/mycelix-manufacturing/schemas/mfg_proc_001a/process_registry_entry_v0_1.schema.json >/dev/null
+          python -m json.tool mycelix-workspace/mycelix-manufacturing/tests/fixtures/mfg_proc_001a_typed_process_refs_v0_1.json >/dev/null

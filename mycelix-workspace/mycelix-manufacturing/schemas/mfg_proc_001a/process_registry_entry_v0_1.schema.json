@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-workspace/mycelix-manufacturing/schemas/mfg_proc_001a/process_registry_entry_v0_1.schema.json",
+  "title": "Mycelix ProcessRegistryEntry v0.1",
+  "description": "Mycelix-native registry projection to an exact Symthaea ProcessDefinitionV1; contains display/provenance metadata only, not engineering semantics or execution authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "process_definition_ref",
+    "display_label",
+    "tags",
+    "status",
+    "supersedes_process_ref"
+  ],
+  "properties": {
+    "process_definition_ref": {
+      "$ref": "typed_process_refs_v0_1.schema.json#/$defs/processDefinitionRef"
+    },
+    "display_label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "tags": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "status": {
+      "enum": [
+        "Active",
+        "Deprecated"
+      ]
+    },
+    "supersedes_process_ref": {
+      "anyOf": [
+        {
+          "$ref": "typed_process_refs_v0_1.schema.json#/$defs/processDefinitionRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "registered_at": {
+      "description": "Holochain Timestamp assigned by the coordinator, not supplied by caller"
+    }
+  }
+}

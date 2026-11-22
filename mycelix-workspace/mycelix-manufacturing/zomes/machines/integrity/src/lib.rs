@@ -6,7 +6,7 @@
 //! Entry types and validation for the machine registry.
 
 use hdi::prelude::*;
-use manufacturing_common::{MachineStatus, MachineType};
+use manufacturing_common::{MachineProcessCapabilityRefV1, MachineStatus, MachineType};
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -14,6 +14,10 @@ pub struct MachineEntry {
     pub name: String,
     pub machine_type: MachineType,
     pub capabilities: Vec<String>,
+    /// Typed canonical process-capability refs; legacy strings remain readable
+    /// but never satisfy typed process matching on their own.
+    #[serde(default)]
+    pub process_capability_refs: Vec<MachineProcessCapabilityRefV1>,
     pub location: String,
     pub max_throughput_per_hour: u32,
     pub status: MachineStatus,
@@ -92,6 +96,17 @@ fn validate_create_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResu
                     "max_throughput_per_hour must be > 0".into(),
                 ));
             }
+            let mut seen = std::collections::BTreeSet::new();
+            for reference in &m.process_capability_refs {
+                if let Err(error) = reference.validate() {
+                    return Ok(ValidateCallbackResult::Invalid(error));
+                }
+                if !seen.insert(reference.capability_profile.0.object_id_blake3.clone()) {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "duplicate typed process capability reference".into(),
+                    ));
+                }
+            }
             Ok(ValidateCallbackResult::Valid)
         }
         EntryTypes::StatusLog(log) => {
@@ -124,6 +139,7 @@ fn validate_update_entry(
             if m.name != original.name
                 || m.machine_type != original.machine_type
                 || m.capabilities != original.capabilities
+                || m.process_capability_refs != original.process_capability_refs
                 || m.location != original.location
                 || m.max_throughput_per_hour != original.max_throughput_per_hour
                 || m.registered_at != original.registered_at
@@ -157,6 +173,7 @@ mod content_restriction_tests {
             name: "Mill-1".into(),
             machine_type: MachineType::CNC3Axis,
             capabilities: vec![],
+            process_capability_refs: vec![],
             location: "Bay 1".into(),
             max_throughput_per_hour: 10,
             status: MachineStatus::Available,
@@ -198,6 +215,65 @@ mod content_restriction_tests {
         };
         let result = validate_create_entry(EntryTypes::StatusLog(log)).unwrap();
         assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn machine_with_typed_process_profile_ref_is_structurally_valid() {
+        use manufacturing_common::{
+            ProcessCapabilityProfileRefV1, SYMTHAEA_CONTRACTS_CRATE,
+            SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1, SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY,
+            SymthaeaManufacturingObjectRefV1,
+        };
+        let mut machine = valid_machine();
+        machine
+            .process_capability_refs
+            .push(MachineProcessCapabilityRefV1 {
+                capability_profile: ProcessCapabilityProfileRefV1(
+                    SymthaeaManufacturingObjectRefV1 {
+                        owner_repository: SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY.into(),
+                        owner_commit: SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1.into(),
+                        contract_crate: SYMTHAEA_CONTRACTS_CRATE.into(),
+                        contract_type: "ProcessCapabilityProfileV1".into(),
+                        object_id_blake3: "b".repeat(64),
+                        process_id_blake3: "a".repeat(64),
+                        semantic_version: "1.0.0".into(),
+                    },
+                ),
+            });
+        let result = validate_create_entry(EntryTypes::Machine(machine)).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
+    }
+
+    #[test]
+    fn machine_rejects_duplicate_typed_profile_refs() {
+        let mut machine = valid_machine();
+        let reference = MachineProcessCapabilityRefV1 {
+            capability_profile: manufacturing_common::ProcessCapabilityProfileRefV1(
+                manufacturing_common::SymthaeaManufacturingObjectRefV1 {
+                    owner_repository:
+                        manufacturing_common::SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY.into(),
+                    owner_commit: manufacturing_common::SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1
+                        .into(),
+                    contract_crate: manufacturing_common::SYMTHAEA_CONTRACTS_CRATE.into(),
+                    contract_type: "ProcessCapabilityProfileV1".into(),
+                    object_id_blake3: "b".repeat(64),
+                    process_id_blake3: "a".repeat(64),
+                    semantic_version: "1.0.0".into(),
+                },
+            ),
+        };
+        machine.process_capability_refs = vec![reference.clone(), reference];
+        let result = validate_create_entry(EntryTypes::Machine(machine)).unwrap();
+        assert!(matches!(result, ValidateCallbackResult::Invalid(_)));
+    }
+
+    #[test]
+    fn legacy_string_capability_does_not_create_typed_reference() {
+        let mut machine = valid_machine();
+        machine.capabilities = vec!["material extrusion".into()];
+        assert!(machine.process_capability_refs.is_empty());
+        let result = validate_create_entry(EntryTypes::Machine(machine)).unwrap();
+        assert_eq!(result, ValidateCallbackResult::Valid);
     }
 
     // validate_update_entry calls must_get_valid_record, which requires a

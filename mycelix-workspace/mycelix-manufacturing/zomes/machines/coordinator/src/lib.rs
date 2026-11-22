@@ -7,7 +7,7 @@
 
 use hdk::prelude::*;
 use machines_integrity::*;
-use manufacturing_common::{MachineStatus, MachineType};
+use manufacturing_common::{MachineProcessCapabilityRefV1, MachineStatus, MachineType};
 
 // ============================================================================
 // Input types
@@ -18,6 +18,10 @@ pub struct RegisterMachineInput {
     pub name: String,
     pub machine_type: MachineType,
     pub capabilities: Vec<String>,
+    /// Optional, exact references into the canonical Symthaea process API.
+    /// Missing on legacy clients; string capabilities remain non-authoritative.
+    #[serde(default)]
+    pub process_capability_refs: Vec<MachineProcessCapabilityRefV1>,
     pub location: String,
     pub max_throughput_per_hour: u32,
 }
@@ -63,6 +67,7 @@ pub fn register_machine(input: RegisterMachineInput) -> ExternResult<ActionHash>
         name: input.name,
         machine_type: input.machine_type,
         capabilities: input.capabilities,
+        process_capability_refs: input.process_capability_refs,
         location: input.location.clone(),
         max_throughput_per_hour: input.max_throughput_per_hour,
         status: MachineStatus::Available,
@@ -83,7 +88,8 @@ pub fn register_machine(input: RegisterMachineInput) -> ExternResult<ActionHash>
     )?;
 
     // Link from machine type
-    let type_path = Path::from(format!("machine_type/{type_tag}")).typed(LinkTypes::TypeToMachines)?;
+    let type_path =
+        Path::from(format!("machine_type/{type_tag}")).typed(LinkTypes::TypeToMachines)?;
     type_path.ensure()?;
     create_link(
         type_path.path_entry_hash()?,
@@ -115,9 +121,9 @@ pub fn get_machine(hash: ActionHash) -> ExternResult<Option<Record>> {
 /// Update machine status (e.g., Available -> Running).
 #[hdk_extern]
 pub fn update_machine_status(input: UpdateMachineStatusInput) -> ExternResult<ActionHash> {
-    let record = get(input.machine_hash.clone(), GetOptions::default())?.ok_or(
-        wasm_error!(WasmErrorInner::Guest("Machine not found".to_string())),
-    )?;
+    let record = get(input.machine_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Machine not found".to_string())
+    ))?;
 
     let machine: MachineEntry = record
         .entry()
@@ -171,19 +177,16 @@ pub fn get_available_machines(_: ()) -> ExternResult<Vec<Record>> {
 
     let mut available = Vec::new();
     for link in links {
-        if let Some(hash) = link.target.into_action_hash() {
-            if let Some(record) = get(hash, GetOptions::default())? {
-                if let Some(machine) = record
-                    .entry()
-                    .to_app_option::<MachineEntry>()
-                    .ok()
-                    .flatten()
-                {
-                    if machine.status == MachineStatus::Available {
-                        available.push(record);
-                    }
-                }
-            }
+        if let Some(hash) = link.target.into_action_hash()
+            && let Some(record) = get(hash, GetOptions::default())?
+            && let Some(machine) = record
+                .entry()
+                .to_app_option::<MachineEntry>()
+                .ok()
+                .flatten()
+            && machine.status == MachineStatus::Available
+        {
+            available.push(record);
         }
     }
     Ok(available)
@@ -229,6 +232,7 @@ mod tests {
             name: "CNC Mill #3".to_string(),
             machine_type: MachineType::CNC3Axis,
             capabilities: vec!["milling".to_string(), "drilling".to_string()],
+            process_capability_refs: vec![],
             location: "Bay 2".to_string(),
             max_throughput_per_hour: 12,
         };
@@ -236,6 +240,12 @@ mod tests {
         let back: RegisterMachineInput = serde_json::from_str(&json).unwrap();
         assert_eq!(back.name, "CNC Mill #3");
         assert_eq!(back.machine_type, MachineType::CNC3Axis);
+        assert!(back.process_capability_refs.is_empty());
+
+        // Legacy callers that omit the additive field remain deserializable.
+        let legacy = r#"{"name":"Legacy","machine_type":"CNC3Axis","capabilities":["milling"],"location":"Bay 1","max_throughput_per_hour":3}"#;
+        let decoded: RegisterMachineInput = serde_json::from_str(legacy).unwrap();
+        assert!(decoded.process_capability_refs.is_empty());
     }
 
     #[test]
@@ -263,6 +273,14 @@ mod tests {
     }
 
     #[test]
+    fn legacy_machine_entry_without_typed_refs_remains_deserializable() {
+        let legacy = r#"{"name":"Legacy mill","machine_type":"CNC3Axis","capabilities":["milling"],"location":"Bay 1","max_throughput_per_hour":4,"status":"Available","current_work_order":null,"registered_at":0}"#;
+        let decoded: MachineEntry = serde_json::from_str(legacy).unwrap();
+        assert!(decoded.process_capability_refs.is_empty());
+        assert_eq!(decoded.capabilities, vec!["milling".to_owned()]);
+    }
+
+    #[test]
     fn test_machine_status_all_variants_serde() {
         for s in [
             MachineStatus::Available,
@@ -282,6 +300,7 @@ mod tests {
             name: "Lathe #1".to_string(),
             machine_type: MachineType::Lathe,
             capabilities: vec!["turning".to_string()],
+            process_capability_refs: vec![],
             location: "Bay 3".to_string(),
             max_throughput_per_hour: 8,
             status: MachineStatus::Available,
