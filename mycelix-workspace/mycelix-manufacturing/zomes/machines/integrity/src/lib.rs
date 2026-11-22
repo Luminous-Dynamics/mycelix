@@ -6,7 +6,7 @@
 //! Entry types and validation for the machine registry.
 
 use hdi::prelude::*;
-use manufacturing_common::{MachineStatus, MachineType};
+use manufacturing_common::{MachineProcessCapabilityRefV1, MachineStatus, MachineType};
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
@@ -14,6 +14,10 @@ pub struct MachineEntry {
     pub name: String,
     pub machine_type: MachineType,
     pub capabilities: Vec<String>,
+    /// Typed canonical process-capability refs; legacy strings remain readable
+    /// but never satisfy typed process matching on their own.
+    #[serde(default)]
+    pub process_capability_refs: Vec<MachineProcessCapabilityRefV1>,
     pub location: String,
     pub max_throughput_per_hour: u32,
     pub status: MachineStatus,
@@ -92,6 +96,17 @@ fn validate_create_entry(entry: EntryTypes) -> ExternResult<ValidateCallbackResu
                     "max_throughput_per_hour must be > 0".into(),
                 ));
             }
+            let mut seen = std::collections::BTreeSet::new();
+            for reference in &m.process_capability_refs {
+                if let Err(error) = reference.validate() {
+                    return Ok(ValidateCallbackResult::Invalid(error));
+                }
+                if !seen.insert(reference.capability_profile.0.object_id_blake3.clone()) {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "duplicate typed process capability reference".into(),
+                    ));
+                }
+            }
             Ok(ValidateCallbackResult::Valid)
         }
         EntryTypes::StatusLog(log) => {
@@ -124,6 +139,7 @@ fn validate_update_entry(
             if m.name != original.name
                 || m.machine_type != original.machine_type
                 || m.capabilities != original.capabilities
+                || m.process_capability_refs != original.process_capability_refs
                 || m.location != original.location
                 || m.max_throughput_per_hour != original.max_throughput_per_hour
                 || m.registered_at != original.registered_at
@@ -157,6 +173,7 @@ mod content_restriction_tests {
             name: "Mill-1".into(),
             machine_type: MachineType::CNC3Axis,
             capabilities: vec![],
+            process_capability_refs: vec![],
             location: "Bay 1".into(),
             max_throughput_per_hour: 10,
             status: MachineStatus::Available,
