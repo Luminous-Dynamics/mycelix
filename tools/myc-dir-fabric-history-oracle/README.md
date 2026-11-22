@@ -13,8 +13,8 @@ The first slice checks:
 - effect commits against the owner position current at the owner-local commit sequence; owner-scoped logical-operation and idempotency-key uniqueness;
 - worker-claim epoch freshness at the mutation commit point;
 - exact attempt, logical-operation and idempotency bindings;
-- Unknown outcome reconciliation and retry-after-confirmed-no-effect;
-- fence commit -> durable read-back -> owner acknowledgement chains;
+- Unknown outcome reconciliation and retry-after-confirmed-no-effect only when terminality at the effect owner is evidenced;
+- fence commit -> durable read-back -> owner acknowledgement chains with explicit commit/read-back digest bindings and owner-ack-set commitments;
 - exact owner-set equality for global barrier acknowledgement;
 - post-barrier route staging and activation against current inventory, owner read-back and atomic fence enforcement.
 
@@ -28,7 +28,7 @@ From the repository root:
 cargo test --manifest-path tools/myc-dir-fabric-history-oracle/Cargo.toml
 ```
 
-There are currently 19 authored tests. They have **not yet been compiled or executed** in the editing environment.
+There are currently 22 authored tests. They have **not yet been compiled or executed** in the editing environment.
 
 ## Evidence adapter contract
 
