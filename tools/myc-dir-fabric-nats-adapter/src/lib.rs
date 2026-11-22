@@ -29,6 +29,8 @@ use myc_dir_fabric_nats_reference::{
 };
 use sha2::{Digest as ShaDigest, Sha256};
 
+pub mod postgres;
+
 const WIRE_VERSION: &str = "1";
 const HEADER_VERSION: &str = "Mycelix-Wire-Version";
 const HEADER_PUBLICATION_ID: &str = "Mycelix-Publication-Id";
@@ -279,6 +281,19 @@ impl VerifiedOwnerDisposition {
             .verify_durable_disposition(binding, &disposition)
             .await
             .map_err(AdapterError::OwnerDispositionVerification)?;
+        Self::from_verified_binding(binding, disposition)
+    }
+
+    pub(crate) fn from_verified_binding(
+        binding: &NatsCommandBinding,
+        disposition: DurableOwnerDisposition,
+    ) -> AdapterResult<Self> {
+        if matches!(
+            plan_acknowledgement(binding, &disposition, AckMode::Ack),
+            AckPlan::DoNotAcknowledge
+        ) {
+            return Err(AdapterError::AckNotPermitted);
+        }
         let binding_bytes = binding.canonical_bytes().map_err(AdapterError::Binding)?;
         Ok(Self {
             binding_digest: sha256(&binding_bytes),
