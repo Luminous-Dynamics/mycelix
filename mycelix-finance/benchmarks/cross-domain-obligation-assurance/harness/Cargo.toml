@@ -1,0 +1,11 @@
+[package]
+name = "pcoe-assurance-kernel"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Dependency-free executable invariants for the Proof-Carrying Obligation Execution benchmark"
+
+[lib]
+path = "src/lib.rs"
+
+[workspace]
