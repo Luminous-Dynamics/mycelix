@@ -275,7 +275,9 @@ fn validate_truth(t: &Truth) -> Result<(), String> {
         || t.baseline_window.start_hours >= t.baseline_window.end_hours
         || !t.maximum_event_integration_gap_hours.is_finite()
         || t.maximum_event_integration_gap_hours <= 0.0
-        || !t.off_event_false_trigger_absolute_departure_threshold.is_finite()
+        || !t
+            .off_event_false_trigger_absolute_departure_threshold
+            .is_finite()
         || t.off_event_false_trigger_absolute_departure_threshold <= 0.0
         || t.truth_series.len() < 3
         || t.events.is_empty()
@@ -513,13 +515,14 @@ fn score(
                 .iter()
                 .filter_map(|time| truth_at(truth, *time))
                 .collect();
-                let out_of_event_count = policy
+            let out_of_event_count = policy
                 .requested_times_hours
                 .iter()
                 .filter(|time| {
-                    !truth.events.iter().any(|event| {
-                        **time >= event.start_hours && **time <= event.end_hours
-                    })
+                    !truth
+                        .events
+                        .iter()
+                        .any(|event| **time >= event.start_hours && **time <= event.end_hours)
                 })
                 .count();
             let false_trigger_count = sampled
