@@ -23,7 +23,7 @@ From the repository root:
 cargo test --manifest-path tools/myc-dir-fabric-nats-reference/Cargo.toml
 ```
 
-There are 23 unit tests in the current scope-bound command contract. The earlier NATS-only exact-head run passed 21 tests before this PostgreSQL-scope expansion; the new 23-test version is pending its own CI run. On exact PR head `1105375305704c019b7d2ccecda78a18dc0e7faf`, GitHub Actions run [#45000430944](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45000430944) passed all 21 tests, formatting and Clippy.
+There are 23 unit tests in the current scope-bound command contract. The earlier NATS-only exact-head run passed 21 tests before the PostgreSQL-scope expansion. The 23-test scope-aware contract on the PostgreSQL-verifier branch is pending its own exact-head CI run. On exact PR head `1105375305704c019b7d2ccecda78a18dc0e7faf`, GitHub Actions run [#45000430944](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45000430944) passed all 21 tests, formatting and Clippy.
 
 ## Explicit limits
 
