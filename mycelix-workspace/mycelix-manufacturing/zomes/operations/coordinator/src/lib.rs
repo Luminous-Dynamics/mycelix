@@ -168,8 +168,8 @@ pub fn register_process_definition(
         registered_at: now,
     };
     let action_hash = create_entry(EntryTypes::ProcessRegistry(entry))?;
-    let all_path = Path::from("all_process_registry_entries")
-        .typed(LinkTypes::AllProcessRegistryEntries)?;
+    let all_path =
+        Path::from("all_process_registry_entries").typed(LinkTypes::AllProcessRegistryEntries)?;
     all_path.ensure()?;
     create_link(
         all_path.path_entry_hash()?,
