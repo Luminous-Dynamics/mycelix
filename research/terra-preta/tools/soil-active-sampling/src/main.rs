@@ -382,15 +382,15 @@ fn maximum_gap(observations: &[Observation]) -> u32 {
 fn evaluate(s: &Scenario, digest: String) -> Report {
     let truth = generate_truth(s);
     let mut policy = candidate_policy(s);
-    let public_contract = CandidatePublicContract {
-        horizon_minutes: s.public_contract.horizon_minutes,
-        maximum_sample_count: s.public_contract.maximum_sample_count,
+    let candidate_contract = CandidatePublicContract {
+        horizon_minutes: s.candidate_contract.horizon_minutes,
+        maximum_sample_count: s.candidate_contract.maximum_sample_count,
     };
     let mut observations = Vec::new();
     let mut now = 0_u32;
 
-    while now <= public_contract.horizon_minutes
-        && observations.len() < public_contract.maximum_sample_count
+    while now <= candidate_contract.horizon_minutes
+        && observations.len() < candidate_contract.maximum_sample_count
     {
         let truth_point = truth[now as usize];
         let observation = sensor_observation(s, truth_point);
@@ -403,7 +403,7 @@ fn evaluate(s: &Scenario, digest: String) -> Report {
         let context = CandidateActionContext {
             now_minute: now,
             observations: &observations,
-            public_contract,
+            public_contract: candidate_contract,
         };
         let interval = next_sample_interval(&mut policy, context).max(1);
         now = now.saturating_add(interval);
@@ -434,7 +434,7 @@ fn evaluate(s: &Scenario, digest: String) -> Report {
         let detections: Vec<Observation> = within
             .iter()
             .copied()
-            .filter(|o| o.response - baseline >= public_contract.detection_delta_threshold)
+            .filter(|o| o.response - baseline >= s.public_contract.detection_delta_threshold)
             .collect();
         let peak = within.iter().map(|o| o.response).reduce(f64::max);
         let true_peak = s.hidden_truth.baseline_response + pulse.peak_amplitude;
