@@ -173,21 +173,6 @@ impl NatsCommandBinding {
     pub fn currency_code(&self) -> &str {
         &self.currency_code
     }
-    pub fn realm_id(&self) -> &str {
-        &self.realm_id
-    }
-    pub fn resource_id(&self) -> &str {
-        &self.resource_id
-    }
-    pub fn action_id(&self) -> &str {
-        &self.action_id
-    }
-    pub fn object_id(&self) -> &str {
-        &self.object_id
-    }
-    pub fn currency_code(&self) -> &str {
-        &self.currency_code
-    }
     pub fn stream_name(&self) -> &str {
         &self.stream_name
     }
