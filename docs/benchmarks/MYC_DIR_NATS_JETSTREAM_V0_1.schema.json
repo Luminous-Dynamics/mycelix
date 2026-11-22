@@ -119,7 +119,7 @@
     },
     "metrics": {
       "type": "array",
-      "minItems": 14,
+      "minItems": 20,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -164,7 +164,7 @@
     },
     "scenarios": {
       "type": "array",
-      "minItems": 20,
+      "minItems": 28,
       "items": {
         "type": "object",
         "additionalProperties": false,

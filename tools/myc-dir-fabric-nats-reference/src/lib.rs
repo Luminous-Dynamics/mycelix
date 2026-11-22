@@ -129,15 +129,33 @@ impl NatsCommandBinding {
         })
     }
 
-    pub fn account_id(&self) -> &str { &self.account_id }
-    pub fn stream_name(&self) -> &str { &self.stream_name }
-    pub fn subject(&self) -> &str { &self.subject }
-    pub fn consumer_name(&self) -> &str { &self.consumer_name }
-    pub fn nats_message_id(&self) -> &str { &self.nats_message_id }
-    pub fn logical_operation_id(&self) -> &str { &self.logical_operation_id }
-    pub fn idempotency_digest(&self) -> &Digest { &self.idempotency_digest }
-    pub fn effect_owner_id(&self) -> &str { &self.effect_owner_id }
-    pub fn payload_digest(&self) -> &Digest { &self.payload_digest }
+    pub fn account_id(&self) -> &str {
+        &self.account_id
+    }
+    pub fn stream_name(&self) -> &str {
+        &self.stream_name
+    }
+    pub fn subject(&self) -> &str {
+        &self.subject
+    }
+    pub fn consumer_name(&self) -> &str {
+        &self.consumer_name
+    }
+    pub fn nats_message_id(&self) -> &str {
+        &self.nats_message_id
+    }
+    pub fn logical_operation_id(&self) -> &str {
+        &self.logical_operation_id
+    }
+    pub fn idempotency_digest(&self) -> &Digest {
+        &self.idempotency_digest
+    }
+    pub fn effect_owner_id(&self) -> &str {
+        &self.effect_owner_id
+    }
+    pub fn payload_digest(&self) -> &Digest {
+        &self.payload_digest
+    }
     pub fn owner_position(&self) -> (u64, u64) {
         (self.owner_epoch, self.resource_generation)
     }
@@ -166,16 +184,16 @@ impl NatsCommandBinding {
         Ok(bytes)
     }
 
-    /// Distinct Nats-Msg-Ids can still denote the same Mycelix effect.
+    /// The same protected logical effect may be republished with a new
+    /// Nats-Msg-Id, renewed decision receipt or newer owner position. The
+    /// immutable operation/request/effect-owner/idempotency identity remains
+    /// stable; authority and fence freshness are revalidated separately.
     pub fn same_logical_effect(&self, other: &Self) -> bool {
         self.logical_operation_id == other.logical_operation_id
             && self.idempotency_digest == other.idempotency_digest
             && self.effect_owner_id == other.effect_owner_id
             && self.payload_digest == other.payload_digest
             && self.request_digest == other.request_digest
-            && self.decision_receipt_digest == other.decision_receipt_digest
-            && self.owner_epoch == other.owner_epoch
-            && self.resource_generation == other.resource_generation
     }
 }
 
@@ -215,7 +233,9 @@ impl JetStreamDeliveryObservation {
         Ok(())
     }
 
-    pub fn is_redelivery(&self) -> bool { self.delivery_count > 1 }
+    pub fn is_redelivery(&self) -> bool {
+        self.delivery_count > 1
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -239,17 +259,33 @@ pub fn assess_delivery(
     if observation.validate().is_err() {
         return DeliveryAssessment::RejectInvalidObservation;
     }
-    if observation.account_id != binding.account_id { return DeliveryAssessment::RejectAccount; }
-    if observation.stream_name != binding.stream_name { return DeliveryAssessment::RejectStream; }
-    if observation.subject != binding.subject { return DeliveryAssessment::RejectSubject; }
-    if observation.consumer_name != binding.consumer_name { return DeliveryAssessment::RejectConsumer; }
-    if observation.nats_message_id != binding.nats_message_id { return DeliveryAssessment::RejectMessageId; }
-    if observation.payload_digest != binding.payload_digest { return DeliveryAssessment::RejectPayload; }
+    if observation.account_id != binding.account_id {
+        return DeliveryAssessment::RejectAccount;
+    }
+    if observation.stream_name != binding.stream_name {
+        return DeliveryAssessment::RejectStream;
+    }
+    if observation.subject != binding.subject {
+        return DeliveryAssessment::RejectSubject;
+    }
+    if observation.consumer_name != binding.consumer_name {
+        return DeliveryAssessment::RejectConsumer;
+    }
+    if observation.nats_message_id != binding.nats_message_id {
+        return DeliveryAssessment::RejectMessageId;
+    }
+    if observation.payload_digest != binding.payload_digest {
+        return DeliveryAssessment::RejectPayload;
+    }
     DeliveryAssessment::EligibleForOwnerRevalidation
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum AckPolicy { Explicit, All, None }
+pub enum AckPolicy {
+    Explicit,
+    All,
+    None,
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct JetStreamStreamProfile {
@@ -258,7 +294,9 @@ pub struct JetStreamStreamProfile {
 
 impl JetStreamStreamProfile {
     pub fn validate(&self) -> Result<(), NatsContractError> {
-        if self.duplicate_window_ms == 0 { return Err(NatsContractError::ZeroDuplicateWindow); }
+        if self.duplicate_window_ms == 0 {
+            return Err(NatsContractError::ZeroDuplicateWindow);
+        }
         Ok(())
     }
 }
@@ -273,29 +311,54 @@ pub struct JetStreamConsumerProfile {
 
 impl JetStreamConsumerProfile {
     pub fn validate(&self) -> Result<(), NatsContractError> {
-        if self.ack_policy != AckPolicy::Explicit { return Err(NatsContractError::UnsupportedAckPolicy); }
-        if self.ack_wait_ms == 0 { return Err(NatsContractError::ZeroAckWait); }
-        if self.max_ack_pending == 0 { return Err(NatsContractError::ZeroMaxAckPending); }
-        if self.max_deliver == Some(0) { return Err(NatsContractError::ZeroMaxDeliver); }
+        if self.ack_policy != AckPolicy::Explicit {
+            return Err(NatsContractError::UnsupportedAckPolicy);
+        }
+        if self.ack_wait_ms == 0 {
+            return Err(NatsContractError::ZeroAckWait);
+        }
+        if self.max_ack_pending == 0 {
+            return Err(NatsContractError::ZeroMaxAckPending);
+        }
+        if self.max_deliver == Some(0) {
+            return Err(NatsContractError::ZeroMaxDeliver);
+        }
         Ok(())
     }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum AckMode { Ack, AckSync }
+pub enum AckMode {
+    Ack,
+    AckSync,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DurableOwnerDisposition {
-    EffectCommitted { logical_operation_id: String, effect_receipt_digest: Digest },
-    TerminalRejected { logical_operation_id: String, rejection_receipt_digest: Digest },
+    EffectCommitted {
+        logical_operation_id: String,
+        effect_owner_id: String,
+        idempotency_digest: Digest,
+        effect_receipt_digest: Digest,
+    },
+    TerminalRejected {
+        logical_operation_id: String,
+        effect_owner_id: String,
+        idempotency_digest: Digest,
+        rejection_receipt_digest: Digest,
+    },
     TerminalNoEffect {
         logical_operation_id: String,
+        effect_owner_id: String,
+        idempotency_digest: Digest,
         attempt_id: String,
         terminal_at_effect_owner: bool,
         outcome_receipt_digest: Digest,
     },
     ReconciliationHandoffDurable {
         logical_operation_id: String,
+        effect_owner_id: String,
+        idempotency_digest: Digest,
         attempt_id: String,
         handoff_receipt_digest: Digest,
     },
@@ -306,7 +369,10 @@ pub enum DurableOwnerDisposition {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AckPlan {
     DoNotAcknowledge,
-    Acknowledge { mode: AckMode, disposition_digest: Digest },
+    Acknowledge {
+        mode: AckMode,
+        disposition_digest: Digest,
+    },
 }
 
 pub fn plan_acknowledgement(
@@ -314,33 +380,80 @@ pub fn plan_acknowledgement(
     disposition: &DurableOwnerDisposition,
     mode: AckMode,
 ) -> AckPlan {
-    let (operation_id, digest) = match disposition {
-        DurableOwnerDisposition::EffectCommitted { logical_operation_id, effect_receipt_digest } =>
-            (logical_operation_id, effect_receipt_digest),
-        DurableOwnerDisposition::TerminalRejected { logical_operation_id, rejection_receipt_digest } =>
-            (logical_operation_id, rejection_receipt_digest),
+    let (operation_id, effect_owner_id, idempotency_digest, receipt_digest) = match disposition {
+        DurableOwnerDisposition::EffectCommitted {
+            logical_operation_id,
+            effect_owner_id,
+            idempotency_digest,
+            effect_receipt_digest,
+        } => (
+            logical_operation_id,
+            effect_owner_id,
+            idempotency_digest,
+            effect_receipt_digest,
+        ),
+        DurableOwnerDisposition::TerminalRejected {
+            logical_operation_id,
+            effect_owner_id,
+            idempotency_digest,
+            rejection_receipt_digest,
+        } => (
+            logical_operation_id,
+            effect_owner_id,
+            idempotency_digest,
+            rejection_receipt_digest,
+        ),
         DurableOwnerDisposition::TerminalNoEffect {
-            logical_operation_id, attempt_id, terminal_at_effect_owner, outcome_receipt_digest,
+            logical_operation_id,
+            effect_owner_id,
+            idempotency_digest,
+            attempt_id,
+            terminal_at_effect_owner,
+            outcome_receipt_digest,
         } => {
             if check_identifier(attempt_id).is_err() || !terminal_at_effect_owner {
                 return AckPlan::DoNotAcknowledge;
             }
-            (logical_operation_id, outcome_receipt_digest)
+            (
+                logical_operation_id,
+                effect_owner_id,
+                idempotency_digest,
+                outcome_receipt_digest,
+            )
         }
         DurableOwnerDisposition::ReconciliationHandoffDurable {
-            logical_operation_id, attempt_id, handoff_receipt_digest,
+            logical_operation_id,
+            effect_owner_id,
+            idempotency_digest,
+            attempt_id,
+            handoff_receipt_digest,
         } => {
-            if check_identifier(attempt_id).is_err() { return AckPlan::DoNotAcknowledge; }
-            (logical_operation_id, handoff_receipt_digest)
+            if check_identifier(attempt_id).is_err() {
+                return AckPlan::DoNotAcknowledge;
+            }
+            (
+                logical_operation_id,
+                effect_owner_id,
+                idempotency_digest,
+                handoff_receipt_digest,
+            )
         }
-        DurableOwnerDisposition::InFlight | DurableOwnerDisposition::Unknown =>
-            return AckPlan::DoNotAcknowledge,
+        DurableOwnerDisposition::InFlight | DurableOwnerDisposition::Unknown => {
+            return AckPlan::DoNotAcknowledge
+        }
     };
 
-    if operation_id != &binding.logical_operation_id || !digest_is_nonzero(digest) {
+    if operation_id != &binding.logical_operation_id
+        || effect_owner_id != &binding.effect_owner_id
+        || idempotency_digest != &binding.idempotency_digest
+        || !digest_is_nonzero(receipt_digest)
+    {
         return AckPlan::DoNotAcknowledge;
     }
-    AckPlan::Acknowledge { mode, disposition_digest: *digest }
+    AckPlan::Acknowledge {
+        mode,
+        disposition_digest: *receipt_digest,
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -375,12 +488,23 @@ pub fn assess_ack_confirmation(
         || check_identifier(&confirmation.consumer_name).is_err()
         || confirmation.stream_sequence == 0
         || expected_stream_sequence == 0
-    { return BrokerAckAssessment::InvalidConfirmation; }
-    if confirmation.stream_name != expected_stream { return BrokerAckAssessment::WrongStream; }
-    if confirmation.consumer_name != expected_consumer { return BrokerAckAssessment::WrongConsumer; }
-    if confirmation.stream_sequence != expected_stream_sequence { return BrokerAckAssessment::WrongSequence; }
-    if confirmation.ack_received_by_broker { BrokerAckAssessment::Confirmed }
-    else { BrokerAckAssessment::NotConfirmed }
+    {
+        return BrokerAckAssessment::InvalidConfirmation;
+    }
+    if confirmation.stream_name != expected_stream {
+        return BrokerAckAssessment::WrongStream;
+    }
+    if confirmation.consumer_name != expected_consumer {
+        return BrokerAckAssessment::WrongConsumer;
+    }
+    if confirmation.stream_sequence != expected_stream_sequence {
+        return BrokerAckAssessment::WrongSequence;
+    }
+    if confirmation.ack_received_by_broker {
+        BrokerAckAssessment::Confirmed
+    } else {
+        BrokerAckAssessment::NotConfirmed
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -391,7 +515,10 @@ pub struct JetStreamPublishAck {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum PublishAssessment { StoredByBroker, BrokerDeduplicated }
+pub enum PublishAssessment {
+    StoredByBroker,
+    BrokerDeduplicated,
+}
 
 pub fn assess_publish_ack(
     expected_stream: &str,
@@ -399,9 +526,17 @@ pub fn assess_publish_ack(
 ) -> Result<PublishAssessment, NatsContractError> {
     check_identifier(expected_stream)?;
     check_identifier(&ack.stream_name)?;
-    if ack.stream_name != expected_stream { return Err(NatsContractError::WrongStream); }
-    if ack.stream_sequence == 0 { return Err(NatsContractError::ZeroSequence); }
-    Ok(if ack.duplicate { PublishAssessment::BrokerDeduplicated } else { PublishAssessment::StoredByBroker })
+    if ack.stream_name != expected_stream {
+        return Err(NatsContractError::WrongStream);
+    }
+    if ack.stream_sequence == 0 {
+        return Err(NatsContractError::ZeroSequence);
+    }
+    Ok(if ack.duplicate {
+        PublishAssessment::BrokerDeduplicated
+    } else {
+        PublishAssessment::StoredByBroker
+    })
 }
 
 pub fn is_consistent_redelivery(
@@ -424,7 +559,9 @@ pub fn is_consistent_redelivery(
 mod tests {
     use super::*;
 
-    fn digest(byte: u8) -> Digest { [byte; 32] }
+    fn digest(byte: u8) -> Digest {
+        [byte; 32]
+    }
 
     fn binding(message_id: &str) -> NatsCommandBinding {
         NatsCommandBinding::new(NatsCommandBindingInput {
@@ -441,7 +578,8 @@ mod tests {
             effect_owner_id: "postgres-owner-a".into(),
             owner_epoch: 3,
             resource_generation: 9,
-        }).unwrap()
+        })
+        .unwrap()
     }
 
     fn delivery(count: u32) -> JetStreamDeliveryObservation {
@@ -469,81 +607,142 @@ mod tests {
 
     #[test]
     fn exact_delivery_is_only_eligible_for_owner_revalidation() {
-        assert_eq!(assess_delivery(&binding("publish-123"), &delivery(1)),
-            DeliveryAssessment::EligibleForOwnerRevalidation);
+        assert_eq!(
+            assess_delivery(&binding("publish-123"), &delivery(1)),
+            DeliveryAssessment::EligibleForOwnerRevalidation
+        );
     }
     #[test]
     fn account_substitution_is_rejected() {
-        let mut item = delivery(1); item.account_id = "other".into();
-        assert_eq!(assess_delivery(&binding("publish-123"), &item), DeliveryAssessment::RejectAccount);
+        let mut item = delivery(1);
+        item.account_id = "other".into();
+        assert_eq!(
+            assess_delivery(&binding("publish-123"), &item),
+            DeliveryAssessment::RejectAccount
+        );
     }
     #[test]
     fn stream_substitution_is_rejected() {
-        let mut item = delivery(1); item.stream_name = "OTHER".into();
-        assert_eq!(assess_delivery(&binding("publish-123"), &item), DeliveryAssessment::RejectStream);
+        let mut item = delivery(1);
+        item.stream_name = "OTHER".into();
+        assert_eq!(
+            assess_delivery(&binding("publish-123"), &item),
+            DeliveryAssessment::RejectStream
+        );
     }
     #[test]
     fn subject_substitution_is_rejected() {
-        let mut item = delivery(1); item.subject = "mycelix.admin".into();
-        assert_eq!(assess_delivery(&binding("publish-123"), &item), DeliveryAssessment::RejectSubject);
+        let mut item = delivery(1);
+        item.subject = "mycelix.admin".into();
+        assert_eq!(
+            assess_delivery(&binding("publish-123"), &item),
+            DeliveryAssessment::RejectSubject
+        );
     }
     #[test]
     fn consumer_substitution_is_rejected() {
-        let mut item = delivery(1); item.consumer_name = "admin".into();
-        assert_eq!(assess_delivery(&binding("publish-123"), &item), DeliveryAssessment::RejectConsumer);
+        let mut item = delivery(1);
+        item.consumer_name = "admin".into();
+        assert_eq!(
+            assess_delivery(&binding("publish-123"), &item),
+            DeliveryAssessment::RejectConsumer
+        );
     }
     #[test]
     fn message_id_substitution_is_rejected() {
-        let mut item = delivery(1); item.nats_message_id = "other".into();
-        assert_eq!(assess_delivery(&binding("publish-123"), &item), DeliveryAssessment::RejectMessageId);
+        let mut item = delivery(1);
+        item.nats_message_id = "other".into();
+        assert_eq!(
+            assess_delivery(&binding("publish-123"), &item),
+            DeliveryAssessment::RejectMessageId
+        );
     }
     #[test]
     fn payload_substitution_is_rejected() {
-        let mut item = delivery(1); item.payload_digest = digest(99);
-        assert_eq!(assess_delivery(&binding("publish-123"), &item), DeliveryAssessment::RejectPayload);
+        let mut item = delivery(1);
+        item.payload_digest = digest(99);
+        assert_eq!(
+            assess_delivery(&binding("publish-123"), &item),
+            DeliveryAssessment::RejectPayload
+        );
     }
     #[test]
     fn invalid_delivery_sequence_is_rejected() {
-        let mut item = delivery(1); item.stream_sequence = 0;
-        assert_eq!(assess_delivery(&binding("publish-123"), &item), DeliveryAssessment::RejectInvalidObservation);
+        let mut item = delivery(1);
+        item.stream_sequence = 0;
+        assert_eq!(
+            assess_delivery(&binding("publish-123"), &item),
+            DeliveryAssessment::RejectInvalidObservation
+        );
     }
     #[test]
     fn explicit_ack_policy_is_required() {
         assert_eq!(consumer_profile().validate(), Ok(()));
-        let bad = JetStreamConsumerProfile { ack_policy: AckPolicy::All, ..consumer_profile() };
+        let bad = JetStreamConsumerProfile {
+            ack_policy: AckPolicy::All,
+            ..consumer_profile()
+        };
         assert_eq!(bad.validate(), Err(NatsContractError::UnsupportedAckPolicy));
     }
     #[test]
     fn stream_duplicate_window_is_pinned_separately() {
-        assert_eq!(JetStreamStreamProfile { duplicate_window_ms: 120_000 }.validate(), Ok(()));
-        assert_eq!(JetStreamStreamProfile { duplicate_window_ms: 0 }.validate(), Err(NatsContractError::ZeroDuplicateWindow));
+        assert_eq!(
+            JetStreamStreamProfile {
+                duplicate_window_ms: 120_000
+            }
+            .validate(),
+            Ok(())
+        );
+        assert_eq!(
+            JetStreamStreamProfile {
+                duplicate_window_ms: 0
+            }
+            .validate(),
+            Err(NatsContractError::ZeroDuplicateWindow)
+        );
     }
     #[test]
     fn unknown_and_inflight_outcomes_cannot_be_acked() {
         let b = binding("publish-123");
-        assert_eq!(plan_acknowledgement(&b, &DurableOwnerDisposition::Unknown, AckMode::AckSync), AckPlan::DoNotAcknowledge);
-        assert_eq!(plan_acknowledgement(&b, &DurableOwnerDisposition::InFlight, AckMode::Ack), AckPlan::DoNotAcknowledge);
+        assert_eq!(
+            plan_acknowledgement(&b, &DurableOwnerDisposition::Unknown, AckMode::AckSync),
+            AckPlan::DoNotAcknowledge
+        );
+        assert_eq!(
+            plan_acknowledgement(&b, &DurableOwnerDisposition::InFlight, AckMode::Ack),
+            AckPlan::DoNotAcknowledge
+        );
     }
     #[test]
     fn terminal_no_effect_requires_owner_terminal_evidence() {
         let b = binding("publish-123");
         let disposition = DurableOwnerDisposition::TerminalNoEffect {
             logical_operation_id: "logical-op-a".into(),
+            effect_owner_id: "postgres-owner-a".into(),
+            idempotency_digest: digest(4),
             attempt_id: "attempt-1".into(),
             terminal_at_effect_owner: false,
             outcome_receipt_digest: digest(5),
         };
-        assert_eq!(plan_acknowledgement(&b, &disposition, AckMode::Ack), AckPlan::DoNotAcknowledge);
+        assert_eq!(
+            plan_acknowledgement(&b, &disposition, AckMode::Ack),
+            AckPlan::DoNotAcknowledge
+        );
     }
     #[test]
     fn durable_reconciliation_handoff_can_be_acked() {
         let b = binding("publish-123");
         let disposition = DurableOwnerDisposition::ReconciliationHandoffDurable {
             logical_operation_id: "logical-op-a".into(),
+            effect_owner_id: "postgres-owner-a".into(),
+            idempotency_digest: digest(4),
             attempt_id: "attempt-1".into(),
             handoff_receipt_digest: digest(5),
         };
-        assert!(matches!(plan_acknowledgement(&b, &disposition, AckMode::AckSync), AckPlan::Acknowledge { .. }));
+        assert!(matches!(
+            plan_acknowledgement(&b, &disposition, AckMode::AckSync),
+            AckPlan::Acknowledge { .. }
+        ));
     }
     #[test]
     fn ack_confirmation_requires_exact_stream_consumer_and_sequence() {
@@ -553,28 +752,105 @@ mod tests {
             stream_sequence: 100,
             ack_received_by_broker: true,
         };
-        assert_eq!(assess_ack_confirmation("MYCELIX_COMMANDS", "effect-workers", 100, &confirmation), BrokerAckAssessment::Confirmed);
-        assert_eq!(assess_ack_confirmation("MYCELIX_COMMANDS", "other", 100, &confirmation), BrokerAckAssessment::WrongConsumer);
-        assert_eq!(assess_ack_confirmation("MYCELIX_COMMANDS", "effect-workers", 101, &confirmation), BrokerAckAssessment::WrongSequence);
+        assert_eq!(
+            assess_ack_confirmation("MYCELIX_COMMANDS", "effect-workers", 100, &confirmation),
+            BrokerAckAssessment::Confirmed
+        );
+        assert_eq!(
+            assess_ack_confirmation("MYCELIX_COMMANDS", "other", 100, &confirmation),
+            BrokerAckAssessment::WrongConsumer
+        );
+        assert_eq!(
+            assess_ack_confirmation("MYCELIX_COMMANDS", "effect-workers", 101, &confirmation),
+            BrokerAckAssessment::WrongSequence
+        );
     }
     #[test]
     fn puback_is_transport_only_and_duplicate_is_explicit() {
-        assert_eq!(assess_publish_ack("MYCELIX_COMMANDS", &JetStreamPublishAck {
-            stream_name: "MYCELIX_COMMANDS".into(), stream_sequence: 100, duplicate: true,
-        }), Ok(PublishAssessment::BrokerDeduplicated));
+        assert_eq!(
+            assess_publish_ack(
+                "MYCELIX_COMMANDS",
+                &JetStreamPublishAck {
+                    stream_name: "MYCELIX_COMMANDS".into(),
+                    stream_sequence: 100,
+                    duplicate: true,
+                }
+            ),
+            Ok(PublishAssessment::BrokerDeduplicated)
+        );
     }
     #[test]
     fn republish_with_new_message_id_preserves_logical_effect_identity() {
         assert!(binding("publish-123").same_logical_effect(&binding("publish-456")));
     }
     #[test]
+    fn same_logical_effect_survives_owner_recovery_and_new_decision() {
+        let original = binding("publish-123");
+        let mut recovered_input = NatsCommandBindingInput {
+            account_id: "account-a".into(),
+            stream_name: "MYCELIX_COMMANDS".into(),
+            subject: "mycelix.command.resource-a".into(),
+            consumer_name: "effect-workers".into(),
+            nats_message_id: "publish-after-recovery".into(),
+            payload_digest: digest(1),
+            request_digest: digest(2),
+            decision_receipt_digest: digest(99),
+            logical_operation_id: "logical-op-a".into(),
+            idempotency_digest: digest(4),
+            effect_owner_id: "postgres-owner-a".into(),
+            owner_epoch: 4,
+            resource_generation: 1,
+        };
+        // A higher owner epoch with a resource generation reset is not a
+        // valid recovery position; the identity comparison intentionally does
+        // not validate recovery. The owner-state recovery gate does that.
+        recovered_input.resource_generation = 19;
+        let recovered = NatsCommandBinding::new(recovered_input).unwrap();
+        assert!(original.same_logical_effect(&recovered));
+    }
+
+    #[test]
+    fn acknowledgement_disposition_must_match_exact_effect_owner() {
+        let b = binding("publish-123");
+        let disposition = DurableOwnerDisposition::EffectCommitted {
+            logical_operation_id: "logical-op-a".into(),
+            effect_owner_id: "different-owner".into(),
+            idempotency_digest: digest(4),
+            effect_receipt_digest: digest(5),
+        };
+        assert_eq!(
+            plan_acknowledgement(&b, &disposition, AckMode::Ack),
+            AckPlan::DoNotAcknowledge
+        );
+    }
+
+    #[test]
+    fn acknowledgement_disposition_must_match_idempotency_commitment() {
+        let b = binding("publish-123");
+        let disposition = DurableOwnerDisposition::EffectCommitted {
+            logical_operation_id: "logical-op-a".into(),
+            effect_owner_id: "postgres-owner-a".into(),
+            idempotency_digest: digest(99),
+            effect_receipt_digest: digest(5),
+        };
+        assert_eq!(
+            plan_acknowledgement(&b, &disposition, AckMode::Ack),
+            AckPlan::DoNotAcknowledge
+        );
+    }
+
+    #[test]
     fn canonical_binding_changes_when_message_id_changes() {
-        assert_ne!(binding("publish-123").canonical_bytes().unwrap(), binding("publish-456").canonical_bytes().unwrap());
+        assert_ne!(
+            binding("publish-123").canonical_bytes().unwrap(),
+            binding("publish-456").canonical_bytes().unwrap()
+        );
     }
     #[test]
     fn redelivery_preserves_stream_message_and_increments_count() {
         assert!(is_consistent_redelivery(&delivery(1), &delivery(2)));
-        let mut changed = delivery(2); changed.stream_sequence += 1;
+        let mut changed = delivery(2);
+        changed.stream_sequence += 1;
         assert!(!is_consistent_redelivery(&delivery(1), &changed));
     }
 }

@@ -1,0 +1,20 @@
+[package]
+name = "myc-dir-fabric-nats-adapter"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+async-nats = { version = "=0.53.0", features = ["jetstream"] }
+bytes = "=1.11.1"
+futures-util = "=0.3.31"
+myc-dir-fabric-nats-reference = { path = "../myc-dir-fabric-nats-reference" }
+sha2 = "=0.10.9"
+tokio = { version = "=1.48.0", features = ["macros", "rt-multi-thread", "time"] }
+
+[profile.release]
+overflow-checks = true

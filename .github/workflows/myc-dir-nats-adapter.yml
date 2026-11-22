@@ -1,0 +1,83 @@
+name: Mycelix NATS JetStream adapter
+
+on:
+  pull_request:
+    paths:
+      - "tools/myc-dir-fabric-nats-adapter/**"
+      - "tools/myc-dir-fabric-nats-reference/**"
+      - ".github/workflows/myc-dir-nats-adapter.yml"
+      - ".github/nats-jetstream-test.conf"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: myc-dir-nats-adapter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract-and-jetstream-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            tools/myc-dir-fabric-nats-reference
+            tools/myc-dir-fabric-nats-adapter
+
+      - name: Start pinned NATS server with JetStream domain
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name myc-dir-nats \
+            -p 4222:4222 -p 8222:8222 \
+            -v "${GITHUB_WORKSPACE}/.github/nats-jetstream-test.conf:/etc/nats/nats.conf:ro" \
+            nats:2.15.3 -c /etc/nats/nats.conf
+
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8222/healthz >/dev/null; then
+              docker logs myc-dir-nats
+              exit 0
+            fi
+            sleep 1
+          done
+
+          docker logs myc-dir-nats
+          echo "NATS JetStream did not become healthy" >&2
+          exit 1
+
+      - name: Check reference and adapter formatting
+        run: |
+          cargo fmt --manifest-path tools/myc-dir-fabric-nats-reference/Cargo.toml --check
+          cargo fmt --manifest-path tools/myc-dir-fabric-nats-adapter/Cargo.toml --check
+
+      - name: Run dependency-free NATS contract tests
+        run: cargo test --manifest-path tools/myc-dir-fabric-nats-reference/Cargo.toml
+
+      - name: Run adapter unit tests
+        run: cargo test --manifest-path tools/myc-dir-fabric-nats-adapter/Cargo.toml --lib
+
+      - name: Run real JetStream publish, duplicate, pull, AckSync and redelivery tests
+        env:
+          NATS_URL: nats://127.0.0.1:4222
+        run: cargo test --manifest-path tools/myc-dir-fabric-nats-adapter/Cargo.toml --test jetstream_integration -- --ignored --nocapture
+
+      - name: Run Clippy on both Rust crates
+        run: |
+          cargo clippy --manifest-path tools/myc-dir-fabric-nats-reference/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path tools/myc-dir-fabric-nats-adapter/Cargo.toml --all-targets -- -D warnings
+
+      - name: Preserve NATS server logs
+        if: always()
+        run: docker logs myc-dir-nats || true
