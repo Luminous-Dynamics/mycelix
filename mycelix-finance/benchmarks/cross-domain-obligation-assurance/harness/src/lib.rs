@@ -2165,6 +2165,74 @@ mod tests {
     }
 
     #[test]
+    fn offer_ledger_conserves_quantity_under_deterministic_adversarial_schedules() {
+        const INITIAL_WH: u128 = 1_000_000;
+        for seed in 0u64..256 {
+            let mut ledger = OfferLedger::default();
+            ledger
+                .create_offer("property-offer", INITIAL_WH)
+                .unwrap();
+            let mut random = seed.wrapping_add(1);
+            let mut filled_wh = 0u128;
+            let mut successful_fills = 0u64;
+            for index in 0u64..32 {
+                random = random
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                let quantity_wh = (random % 200_000 + 1) as u128;
+                let current = ledger.offer("property-offer").unwrap().clone();
+                let key = format!("fill-{seed}-{index}");
+                let request_digest = digest((seed.wrapping_add(index) % 251) as u8);
+                if quantity_wh <= current.remaining_wh {
+                    let applied = ledger
+                        .fill(
+                            "property-offer",
+                            current.revision,
+                            quantity_wh,
+                            &key,
+                            request_digest,
+                        )
+                        .unwrap();
+                    let receipt = match applied {
+                        FillDisposition::Applied(receipt) => receipt,
+                        other => panic!("new fill must apply, got {other:?}"),
+                    };
+                    filled_wh += quantity_wh;
+                    successful_fills += 1;
+                    let replay = ledger
+                        .fill(
+                            "property-offer",
+                            current.revision,
+                            quantity_wh,
+                            &key,
+                            request_digest,
+                        )
+                        .unwrap();
+                    let replay_receipt = match replay {
+                        FillDisposition::ExactReplay(receipt) => receipt,
+                        other => panic!("exact fill retry must replay, got {other:?}"),
+                    };
+                    assert_eq!(receipt, replay_receipt);
+                } else {
+                    assert_eq!(
+                        ledger.fill(
+                            "property-offer",
+                            current.revision,
+                            quantity_wh,
+                            &key,
+                            request_digest,
+                        ),
+                        Err(KernelError::OfferOverfilled)
+                    );
+                }
+                let after = ledger.offer("property-offer").unwrap();
+                assert_eq!(filled_wh + after.remaining_wh, INITIAL_WH);
+                assert_eq!(after.revision, successful_fills);
+            }
+        }
+    }
+
+    #[test]
     fn eac_generation_requires_independent_meter_derived_evidence_and_exact_boundary() {
         let mut ledger = EnergyAttributeLedger::default();
         let mut simulated = verified_generation();
@@ -2226,6 +2294,91 @@ mod tests {
             ),
             Err(KernelError::DuplicateCertificate)
         );
+    }
+
+    #[test]
+    fn eac_ledger_conserves_eligible_generation_under_deterministic_schedules() {
+        const ELIGIBLE_WH: u128 = 20_000_000;
+        const DENOMINATION_WH: u128 = 1_000_000;
+        for seed in 0u64..128 {
+            let mut ledger = EnergyAttributeLedger::default();
+            let mut generation = verified_generation();
+            generation.generation_id = format!("generation-{seed}");
+            generation.meter_id = format!("meter-{seed}");
+            generation.interval_start_micros = (seed as i64) * 10_000_000_000;
+            generation.interval_end_micros =
+                generation.interval_start_micros + 3_600_000_000;
+            generation.eligible_energy_wh = ELIGIBLE_WH;
+            ledger
+                .register_generation(
+                    generation,
+                    MeasurementBoundary::InverterAcOutput,
+                )
+                .unwrap();
+            let generation_id = format!("generation-{seed}");
+            let mut random = seed.wrapping_add(17);
+            let mut issued = 0u128;
+            for index in 0u64..32 {
+                random = random
+                    .wrapping_mul(2_862_933_555_777_941_757)
+                    .wrapping_add(3_037_000_493);
+                let quantity_wh =
+                    ((random % 4) as u128 + 1) * DENOMINATION_WH;
+                let certificate_id = format!("eac-{seed}-{index}");
+                if issued + quantity_wh <= ELIGIBLE_WH {
+                    ledger
+                        .issue(
+                            &certificate_id,
+                            "accredited-registry-1",
+                            "irec-e-product-code/v1",
+                            &generation_id,
+                            quantity_wh,
+                            DENOMINATION_WH,
+                            "producer-account",
+                        )
+                        .unwrap();
+                    issued += quantity_wh;
+                    ledger
+                        .transfer(
+                            &certificate_id,
+                            "producer-account",
+                            "buyer-account",
+                        )
+                        .unwrap();
+                    ledger
+                        .retire(
+                            &certificate_id,
+                            "buyer-account",
+                            "buyer-claim",
+                            &format!("retirement-{seed}-{index}"),
+                        )
+                        .unwrap();
+                } else {
+                    assert_eq!(
+                        ledger.issue(
+                            &certificate_id,
+                            "accredited-registry-1",
+                            "irec-e-product-code/v1",
+                            &generation_id,
+                            quantity_wh,
+                            DENOMINATION_WH,
+                            "producer-account",
+                        ),
+                        Err(KernelError::EacOverIssuance)
+                    );
+                }
+                assert_eq!(ledger.issued_wh(&generation_id), Some(issued));
+                assert_eq!(
+                    ledger.remaining_eligible_wh(&generation_id),
+                    Some(ELIGIBLE_WH - issued)
+                );
+                assert_eq!(
+                    ledger.issued_wh(&generation_id).unwrap()
+                        + ledger.remaining_eligible_wh(&generation_id).unwrap(),
+                    ELIGIBLE_WH
+                );
+            }
+        }
     }
 
     #[test]
