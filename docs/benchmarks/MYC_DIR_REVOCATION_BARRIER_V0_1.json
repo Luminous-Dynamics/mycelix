@@ -188,6 +188,62 @@
       "kind": "recovery",
       "hard_limit": null,
       "unit": "milliseconds"
+    },
+    {
+      "id": "RB-M19",
+      "name": "owner_epoch_regressions",
+      "kind": "safety",
+      "hard_limit": 0,
+      "unit": "events"
+    },
+    {
+      "id": "RB-M20",
+      "name": "active_unfenced_routes_after_global_ack",
+      "kind": "safety",
+      "hard_limit": 0,
+      "unit": "routes"
+    },
+    {
+      "id": "RB-M21",
+      "name": "route_activation_with_inventory_digest_mismatch",
+      "kind": "safety",
+      "hard_limit": 0,
+      "unit": "activations"
+    },
+    {
+      "id": "RB-M22",
+      "name": "owner_mutations_while_recovery_incomplete",
+      "kind": "safety",
+      "hard_limit": 0,
+      "unit": "mutations"
+    },
+    {
+      "id": "RB-M23",
+      "name": "reused_owner_epoch_after_restore",
+      "kind": "safety",
+      "hard_limit": 0,
+      "unit": "recoveries"
+    },
+    {
+      "id": "RB-M24",
+      "name": "restore_quarantine_duration",
+      "kind": "recovery",
+      "hard_limit": null,
+      "unit": "milliseconds"
+    },
+    {
+      "id": "RB-M25",
+      "name": "post_barrier_route_admission_latency",
+      "kind": "performance",
+      "hard_limit": null,
+      "unit": "milliseconds"
+    },
+    {
+      "id": "RB-M26",
+      "name": "inventory_reclosure_time_after_route_change",
+      "kind": "recovery",
+      "hard_limit": null,
+      "unit": "milliseconds"
     }
   ],
   "required_repetitions": 10,
@@ -443,6 +499,78 @@
       "strict_ack_allowed": false,
       "max_old_generation_effects_after_owner_ack": 0,
       "required_evidence": "event receipt triggers owner work but does not count as owner acknowledgement"
+    },
+    {
+      "id": "RB-029",
+      "area": "route_admission",
+      "fault": "A new worker route is introduced after global revocation acknowledgement; it is staged but attempts to execute before inheriting the current owner fence.",
+      "expected_state": "NEW_ROUTE_STAGED_NOT_EXECUTABLE",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "route remains non-executable until owner position is adopted, committed, read back and included in a verified inventory"
+    },
+    {
+      "id": "RB-030",
+      "area": "route_admission",
+      "fault": "A new route presents the current owner epoch and generation but a stale inventory manifest digest or route-set digest.",
+      "expected_state": "ROUTE_ADMISSION_REJECTED",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "exact inventory epoch, manifest digest and route-set digest comparison rejects substitution"
+    },
+    {
+      "id": "RB-031",
+      "area": "recovery",
+      "fault": "An acknowledged owner is restored from a backup whose owner epoch and generation predate the acknowledged high-water mark.",
+      "expected_state": "OWNER_AND_ROUTES_QUARANTINED",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "owner and routes remain closed until a fresh owner epoch and generation at least the high-water mark are durably read back"
+    },
+    {
+      "id": "RB-032",
+      "area": "recovery",
+      "fault": "The same owner undergoes multiple restore/failover cycles and attempts to reuse a previously issued owner epoch.",
+      "expected_state": "OWNER_EPOCH_REUSE_REJECTED",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "recovery requires an epoch greater than both the restored candidate and independently durable epoch high-water"
+    },
+    {
+      "id": "RB-033",
+      "area": "recovery",
+      "fault": "A token presents the currently matching generation but an older owner epoch after a failover.",
+      "expected_state": "STALE_OWNER_EPOCH_REJECTED",
+      "strict_ack_allowed": true,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "owner checks the complete (owner epoch, generation) coordinate rather than generation alone"
+    },
+    {
+      "id": "RB-034",
+      "area": "route_admission",
+      "fault": "The owner generation was advanced in memory but the owner transaction has not committed or been durably read back.",
+      "expected_state": "ROUTE_ACTIVATION_BLOCKED",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "route admission rejects a proposed-only fence position without commit and read-back commitments"
+    },
+    {
+      "id": "RB-035",
+      "area": "recovery",
+      "fault": "A restored owner receives a new mutation request before high-water reconciliation is complete.",
+      "expected_state": "OWNER_MUTATION_FAILS_CLOSED",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "unverified restore candidate cannot authorize an effect; no write path is enabled"
+    },
+    {
+      "id": "RB-036",
+      "area": "route_admission",
+      "fault": "A post-barrier route targets an owner classified as CAEP-only, token-expiry-only or best-effort rather than AtomicOwnerFence.",
+      "expected_state": "STRICT_ROUTE_ADMISSION_REJECTED",
+      "strict_ack_allowed": false,
+      "max_old_generation_effects_after_owner_ack": 0,
+      "required_evidence": "non-fenceable enforcement modes cannot enter the strict executable route set"
     }
   ]
 }
