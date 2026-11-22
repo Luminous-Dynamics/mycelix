@@ -143,6 +143,23 @@ BEGIN
         RAISE EXCEPTION 'owner epoch advance must also advance resource generation';
     END IF;
 
+    -- A new owner epoch must not reuse the previous worker claim epoch.
+    v_rejected := FALSE;
+    BEGIN
+        PERFORM myc_effect_owner.install_worker_claim_for_owner_epoch(
+            v_realm, v_resource, v_action, v_owner, 2,
+            v_operation_a, v_worker_b, 1, v_claim_b,
+            'postgres-db-clock-v1',
+            clock_timestamp() - interval '1 minute',
+            clock_timestamp() + interval '1 hour'
+        );
+    EXCEPTION WHEN SQLSTATE 'P0001' THEN
+        v_rejected := TRUE;
+    END;
+    IF NOT v_rejected THEN
+        RAISE EXCEPTION 'worker claim epoch did not strictly advance across owner epoch transition';
+    END IF;
+
     -- Claim reassignment is strictly increasing and the old worker must fail.
     SELECT myc_effect_owner.install_worker_claim_for_owner_epoch(
         v_realm, v_resource, v_action, v_owner, 2,
