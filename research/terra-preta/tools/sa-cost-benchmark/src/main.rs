@@ -192,12 +192,9 @@ fn validate_component(c: &CostComponent) -> Result<(), String> {
             let unit_price = c
                 .unit_cost_zar
                 .ok_or_else(|| format!("{} unit price is missing", c.category))?;
-            if !quantity.is_finite()
-                || quantity <= 0.0
-                || !unit_price.is_finite()
-                || unit_price <= 0.0
-                || !(quantity * unit_price).is_finite()
-            {
+            finite("cost quantity", quantity)?;
+            finite("cost unit price", unit_price)?;
+            if quantity <= 0.0 || unit_price <= 0.0 || !(quantity * unit_price).is_finite() {
                 return Err(format!("{} priced quantity/price is invalid", c.category));
             }
             let unit = c.unit.as_deref().unwrap_or("");
@@ -273,9 +270,9 @@ fn validate(s: &Scenario) -> Result<(), String> {
     {
         return Err("v0.1 accepts only the declared synthetic scenario".into());
     }
+    finite("comparison_area_ha", s.comparison_area_ha)?;
     if s.scenario_id.trim().is_empty()
         || s.strategies.len() < 2
-        || !s.comparison_area_ha.is_finite()
         || s.comparison_area_ha <= 0.0
         || s.eligible_decisions == 0
         || s.reference_positive_count + s.reference_negative_count != s.eligible_decisions
