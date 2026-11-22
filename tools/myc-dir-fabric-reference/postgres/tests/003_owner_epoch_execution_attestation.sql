@@ -295,6 +295,36 @@ BEGIN
     IF NOT v_rejected THEN
         RAISE EXCEPTION 'owner epoch transition deletion unexpectedly succeeded';
     END IF;
+
+    v_rejected := FALSE;
+    BEGIN
+        EXECUTE 'TRUNCATE TABLE myc_effect_owner.effect_execution_attestations';
+    EXCEPTION WHEN SQLSTATE '55000' THEN
+        v_rejected := TRUE;
+    END;
+    IF NOT v_rejected THEN
+        RAISE EXCEPTION 'execution attestation TRUNCATE unexpectedly succeeded';
+    END IF;
+
+    v_rejected := FALSE;
+    BEGIN
+        EXECUTE 'TRUNCATE TABLE myc_effect_owner.effect_owner_epoch_transitions';
+    EXCEPTION WHEN SQLSTATE '55000' THEN
+        v_rejected := TRUE;
+    END;
+    IF NOT v_rejected THEN
+        RAISE EXCEPTION 'owner epoch transition TRUNCATE unexpectedly succeeded';
+    END IF;
+
+    v_rejected := FALSE;
+    BEGIN
+        EXECUTE 'TRUNCATE TABLE myc_effect_owner.effect_commits';
+    EXCEPTION WHEN SQLSTATE '55000' THEN
+        v_rejected := TRUE;
+    END;
+    IF NOT v_rejected THEN
+        RAISE EXCEPTION 'effect ledger TRUNCATE unexpectedly succeeded';
+    END IF;
 END
 $test$;
 
