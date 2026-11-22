@@ -206,5 +206,6 @@
       "may_satisfy_typed_matching": false
     }
   ],
-  "claim_ceiling": "All fixtures are synthetic contract examples. The Symthaea source API is pinned to an open draft commit and has not been qualified on current main. No external object is fetched/authenticated here; no process, resource, machine or manufacturing route is qualified. Even OwnerObjectVerified is unreachable in this tranche. Direct self-supersession is rejected, but multi-record supersession cycles are not checked without owner-object resolution."
+  "claim_ceiling": "All fixtures are synthetic contract examples. The Symthaea source API is pinned to an open draft commit and has not been qualified on current main. No external object is fetched/authenticated here; no process, resource, machine or manufacturing route is qualified. Even OwnerObjectVerified is unreachable in this tranche. Direct self-supersession is rejected, but multi-record supersession cycles are not checked without owner-object resolution.",
+  "case_count": 16
 }
