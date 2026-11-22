@@ -55,7 +55,8 @@
           "policy_version",
           "policy_code_sha256",
           "policy_config_sha256",
-          "requested_times_hours"
+          "requested_times_hours",
+          "policy_role"
         ],
         "properties": {
           "policy_id": {
@@ -98,8 +99,56 @@
             "items": {
               "type": "number"
             }
+          },
+          "policy_role": {
+            "enum": [
+              "candidate",
+              "evaluator_only_reference"
+            ]
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "policy_family": {
+                  "const": "hindsight_oracle"
+                }
+              },
+              "required": [
+                "policy_family"
+              ]
+            },
+            "then": {
+              "properties": {
+                "policy_role": {
+                  "const": "evaluator_only_reference"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "policy_family": {
+                  "not": {
+                    "const": "hindsight_oracle"
+                  }
+                }
+              },
+              "required": [
+                "policy_family"
+              ]
+            },
+            "then": {
+              "properties": {
+                "policy_role": {
+                  "const": "candidate"
+                }
+              }
+            }
+          }
+        ]
       }
     }
   }
