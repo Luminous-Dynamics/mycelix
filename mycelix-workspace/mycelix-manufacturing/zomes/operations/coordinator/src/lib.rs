@@ -219,7 +219,7 @@ mod tests {
 
     #[test]
     fn test_routing_step_ordering() {
-        let steps = vec![
+        let steps = [
             RoutingStepInput {
                 sequence: 10,
                 operation_name: "Cut".to_string(),
