@@ -1,0 +1,82 @@
+{
+  "schema_version": "event-capture-policy-v0.1",
+  "fixture_status": "synthetic_policy_schedule_only_not_empirical",
+  "evidence_class": "synthetic",
+  "submission_id": "manufactured-matched-budget-policy-schedules-v0",
+  "policy_resource_limits": {
+    "maximum_samples_per_policy": 14,
+    "sample_cost_units": 1
+  },
+  "policies": [
+    {
+      "policy_id": "fixed-8h",
+      "policy_family": "fixed_cadence",
+      "policy_version": "fixture-1",
+      "policy_code_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "policy_config_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "requested_times_hours": [
+        0,
+        8,
+        16,
+        24,
+        32,
+        40,
+        48,
+        56,
+        64,
+        72,
+        80,
+        88,
+        92,
+        96
+      ]
+    },
+    {
+      "policy_id": "event-focused-static",
+      "policy_family": "event_triggered",
+      "policy_version": "fixture-1",
+      "policy_code_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "policy_config_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "requested_times_hours": [
+        0,
+        12,
+        24,
+        27,
+        30,
+        32,
+        48,
+        64,
+        72,
+        73,
+        74,
+        76,
+        84,
+        96
+      ]
+    },
+    {
+      "policy_id": "pseudo-random-fixed-seed",
+      "policy_family": "random",
+      "policy_version": "fixture-1",
+      "policy_code_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "policy_config_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "random_seed": 20261122,
+      "requested_times_hours": [
+        0,
+        7,
+        15,
+        23,
+        34,
+        43,
+        50,
+        61,
+        70,
+        77,
+        82,
+        91,
+        94,
+        96
+      ]
+    }
+  ]
+}
