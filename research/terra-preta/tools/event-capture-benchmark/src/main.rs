@@ -204,17 +204,26 @@ fn validate_policy_submission(p: &PolicySubmission) -> Result<(), String> {
                 | "decision_evsi"
                 | "hindsight_oracle"
         ) {
-            return Err(format!("policy {} has unsupported family", policy.policy_id));
+            return Err(format!(
+                "policy {} has unsupported family",
+                policy.policy_id
+            ));
         }
-        if !valid_sha256(&policy.policy_code_sha256)
-            || !valid_sha256(&policy.policy_config_sha256)
+        if !valid_sha256(&policy.policy_code_sha256) || !valid_sha256(&policy.policy_config_sha256)
         {
-            return Err(format!("policy {} has invalid code/config digest", policy.policy_id));
+            return Err(format!(
+                "policy {} has invalid code/config digest",
+                policy.policy_id
+            ));
         }
         if policy.requested_times_hours.len() < 2
-            || policy.requested_times_hours.len() > p.policy_resource_limits.maximum_samples_per_policy
+            || policy.requested_times_hours.len()
+                > p.policy_resource_limits.maximum_samples_per_policy
         {
-            return Err(format!("policy {} violates sample-count budget", policy.policy_id));
+            return Err(format!(
+                "policy {} violates sample-count budget",
+                policy.policy_id
+            ));
         }
         let mut prior: Option<f64> = None;
         for time in &policy.requested_times_hours {
@@ -222,7 +231,10 @@ fn validate_policy_submission(p: &PolicySubmission) -> Result<(), String> {
             if let Some(previous) = prior
                 && *time <= previous
             {
-                return Err(format!("policy {} timestamps must increase strictly", policy.policy_id));
+                return Err(format!(
+                    "policy {} timestamps must increase strictly",
+                    policy.policy_id
+                ));
             }
             prior = Some(*time);
         }
@@ -267,14 +279,24 @@ fn validate_truth(t: &Truth) -> Result<(), String> {
     }
     if t.baseline_window.start_hours < t.truth_series[0].elapsed_hours
         || t.baseline_window.end_hours > t.truth_series.last().unwrap().elapsed_hours
-        || !t.truth_series.iter().any(|x| x.elapsed_hours == t.baseline_window.start_hours)
-        || !t.truth_series.iter().any(|x| x.elapsed_hours == t.baseline_window.end_hours)
+        || !t
+            .truth_series
+            .iter()
+            .any(|x| x.elapsed_hours == t.baseline_window.start_hours)
+        || !t
+            .truth_series
+            .iter()
+            .any(|x| x.elapsed_hours == t.baseline_window.end_hours)
     {
         return Err("baseline window must be inside and aligned with truth timestamps".into());
     }
-    let baseline_points: Vec<&TruthPoint> = t.truth_series.iter()
-        .filter(|x| x.elapsed_hours >= t.baseline_window.start_hours
-            && x.elapsed_hours <= t.baseline_window.end_hours)
+    let baseline_points: Vec<&TruthPoint> = t
+        .truth_series
+        .iter()
+        .filter(|x| {
+            x.elapsed_hours >= t.baseline_window.start_hours
+                && x.elapsed_hours <= t.baseline_window.end_hours
+        })
         .collect();
     if baseline_points.len() < 2 {
         return Err("baseline window needs at least two truth points".into());
@@ -283,28 +305,47 @@ fn validate_truth(t: &Truth) -> Result<(), String> {
     for event in &t.events {
         finite("event start", event.start_hours)?;
         finite("event end", event.end_hours)?;
-        finite("event detection threshold", event.minimum_detectable_absolute_departure)?;
+        finite(
+            "event detection threshold",
+            event.minimum_detectable_absolute_departure,
+        )?;
         if event.event_id.trim().is_empty()
             || !event_ids.insert(event.event_id.clone())
             || event.start_hours >= event.end_hours
             || event.minimum_detectable_absolute_departure <= 0.0
-            || !t.truth_series.iter().any(|x| x.elapsed_hours == event.start_hours)
-            || !t.truth_series.iter().any(|x| x.elapsed_hours == event.end_hours)
+            || !t
+                .truth_series
+                .iter()
+                .any(|x| x.elapsed_hours == event.start_hours)
+            || !t
+                .truth_series
+                .iter()
+                .any(|x| x.elapsed_hours == event.end_hours)
         {
-            return Err(format!("event {} has invalid identity, boundaries or threshold", event.event_id));
+            return Err(format!(
+                "event {} has invalid identity, boundaries or threshold",
+                event.event_id
+            ));
         }
     }
     Ok(())
 }
 
 fn truth_at<'a>(truth: &'a Truth, timestamp: f64) -> Option<&'a TruthPoint> {
-    truth.truth_series.iter().find(|x| x.elapsed_hours == timestamp)
+    truth
+        .truth_series
+        .iter()
+        .find(|x| x.elapsed_hours == timestamp)
 }
 
 fn baseline_mean(truth: &Truth) -> f64 {
-    let points: Vec<&TruthPoint> = truth.truth_series.iter()
-        .filter(|x| x.elapsed_hours >= truth.baseline_window.start_hours
-            && x.elapsed_hours <= truth.baseline_window.end_hours)
+    let points: Vec<&TruthPoint> = truth
+        .truth_series
+        .iter()
+        .filter(|x| {
+            x.elapsed_hours >= truth.baseline_window.start_hours
+                && x.elapsed_hours <= truth.baseline_window.end_hours
+        })
         .collect();
     points.iter().map(|x| x.response_value).sum::<f64>() / points.len() as f64
 }
@@ -324,12 +365,20 @@ fn integrate_anomaly(points: &[&TruthPoint], baseline: f64) -> Option<f64> {
 }
 
 fn truth_event_metrics(truth: &Truth, event: &Event, baseline: f64) -> (f64, f64, f64) {
-    let points: Vec<&TruthPoint> = truth.truth_series.iter()
+    let points: Vec<&TruthPoint> = truth
+        .truth_series
+        .iter()
         .filter(|x| x.elapsed_hours >= event.start_hours && x.elapsed_hours <= event.end_hours)
         .collect();
-    let peak = points.iter().copied().max_by(|a, b| {
-        (a.response_value - baseline).abs().total_cmp(&(b.response_value - baseline).abs())
-    }).expect("validated event has boundary truth points");
+    let peak = points
+        .iter()
+        .copied()
+        .max_by(|a, b| {
+            (a.response_value - baseline)
+                .abs()
+                .total_cmp(&(b.response_value - baseline).abs())
+        })
+        .expect("validated event has boundary truth points");
     let integral = integrate_anomaly(&points, baseline).expect("validated event has endpoints");
     (peak.response_value, peak.elapsed_hours, integral)
 }
@@ -340,7 +389,8 @@ fn event_result(
     requested_times: &[f64],
     baseline: f64,
 ) -> EventResult {
-    let sampled: Vec<&TruthPoint> = requested_times.iter()
+    let sampled: Vec<&TruthPoint> = requested_times
+        .iter()
         .filter(|time| **time >= event.start_hours && **time <= event.end_hours)
         .filter_map(|time| truth_at(truth, *time))
         .collect();
@@ -353,35 +403,47 @@ fn event_result(
         (x.response_value - baseline).abs() >= event.minimum_detectable_absolute_departure
     });
     let sampled_peak = sampled.iter().copied().max_by(|a, b| {
-        (a.response_value - baseline).abs().total_cmp(&(b.response_value - baseline).abs())
+        (a.response_value - baseline)
+            .abs()
+            .total_cmp(&(b.response_value - baseline).abs())
     });
-    let (sampled_integral, integral_status, max_gap) = if !sampled.iter().any(|x| x.elapsed_hours == event.start_hours)
-        || !sampled.iter().any(|x| x.elapsed_hours == event.end_hours)
-    {
-        (None, "missing_event_boundary", None)
-    } else {
-        let gaps: Vec<f64> = sampled.windows(2)
-            .map(|pair| pair[1].elapsed_hours - pair[0].elapsed_hours)
-            .collect();
-        let largest = gaps.iter().copied().max_by(f64::total_cmp);
-        if largest.is_some_and(|x| x > truth.maximum_event_integration_gap_hours) {
-            (None, "gap_exceeded", largest)
+    let (sampled_integral, integral_status, max_gap) =
+        if !sampled.iter().any(|x| x.elapsed_hours == event.start_hours)
+            || !sampled.iter().any(|x| x.elapsed_hours == event.end_hours)
+        {
+            (None, "missing_event_boundary", None)
         } else {
-            (integrate_anomaly(&sampled, baseline), "qualified_integral", largest)
-        }
-    };
-    let (abs_integral_error, relative_integral_error) = sampled_integral.map_or((None, None), |estimate| {
-        let error = (estimate - true_integral).abs();
-        (Some(error), (true_integral > f64::EPSILON).then_some(error / true_integral))
-    });
-    let (sampled_peak_value, sampled_peak_time, peak_error) = sampled_peak.map_or(
-        (None, None, None),
-        |peak| (
-            Some(peak.response_value),
-            Some(peak.elapsed_hours),
-            Some((peak.response_value - true_peak_value).abs()),
-        ),
-    );
+            let gaps: Vec<f64> = sampled
+                .windows(2)
+                .map(|pair| pair[1].elapsed_hours - pair[0].elapsed_hours)
+                .collect();
+            let largest = gaps.iter().copied().max_by(f64::total_cmp);
+            if largest.is_some_and(|x| x > truth.maximum_event_integration_gap_hours) {
+                (None, "gap_exceeded", largest)
+            } else {
+                (
+                    integrate_anomaly(&sampled, baseline),
+                    "qualified_integral",
+                    largest,
+                )
+            }
+        };
+    let (abs_integral_error, relative_integral_error) =
+        sampled_integral.map_or((None, None), |estimate| {
+            let error = (estimate - true_integral).abs();
+            (
+                Some(error),
+                (true_integral > f64::EPSILON).then_some(error / true_integral),
+            )
+        });
+    let (sampled_peak_value, sampled_peak_time, peak_error) =
+        sampled_peak.map_or((None, None, None), |peak| {
+            (
+                Some(peak.response_value),
+                Some(peak.elapsed_hours),
+                Some((peak.response_value - true_peak_value).abs()),
+            )
+        });
     EventResult {
         event_id: event.event_id.clone(),
         event_detected: detected,
@@ -410,47 +472,69 @@ fn score(
 ) -> Report {
     let baseline = baseline_mean(truth);
     let events_all: BTreeSet<String> = truth.events.iter().map(|x| x.event_id.clone()).collect();
-    let policies = submission.policies.iter().map(|policy| {
-        let schedule = serde_json::to_vec(policy).expect("serializable policy");
-        let schedule_hash = format!("{:x}", Sha256::digest(schedule));
-        let sampled: Vec<&TruthPoint> = policy.requested_times_hours.iter()
-            .filter_map(|time| truth_at(truth, *time))
-            .collect();
-        let in_event_times: BTreeSet<String> = truth.events.iter().flat_map(|event| {
-            policy.requested_times_hours.iter()
-                .filter(|time| **time >= event.start_hours && **time <= event.end_hours)
-                .map(|time| format!("{time:.9}"))
-        }).collect();
-        let out_of_event_count = policy.requested_times_hours.iter()
-            .filter(|time| !in_event_times.contains(&format!("{time:.9}")))
-            .count();
-        let false_trigger_count = sampled.iter().filter(|point| {
-            !truth.events.iter().any(|event| {
-                point.elapsed_hours >= event.start_hours && point.elapsed_hours <= event.end_hours
-            }) && (point.response_value - baseline).abs() >= 1.0
-        }).count();
-        let event_results: Vec<EventResult> = truth.events.iter()
-            .map(|event| event_result(truth, event, &policy.requested_times_hours, baseline))
-            .collect();
-        let events_detected = event_results.iter().filter(|x| x.event_detected).count();
-        let missed = event_results.len() - events_detected;
-        PolicyResult {
-            policy_id: policy.policy_id.clone(),
-            policy_family: policy.policy_family.clone(),
-            policy_schedule_sha256: schedule_hash,
-            sample_count: policy.requested_times_hours.len(),
-            sample_cost_units: policy.requested_times_hours.len() as f64
-                * submission.policy_resource_limits.sample_cost_units,
-            sample_budget_pass: policy.requested_times_hours.len()
-                <= submission.policy_resource_limits.maximum_samples_per_policy,
-            out_of_event_sample_count: out_of_event_count,
-            false_trigger_count,
-            events_detected,
-            event_count: events_all.len(),
-            missed_event_count: missed,
-            events: event_results,
-        }
-    }).collect();
+    let policies = submission
+        .policies
+        .iter()
+        .map(|policy| {
+            let schedule = serde_json::to_vec(policy).expect("serializable policy");
+            let schedule_hash = format!("{:x}", Sha256::digest(schedule));
+            let sampled: Vec<&TruthPoint> = policy
+                .requested_times_hours
+                .iter()
+                .filter_map(|time| truth_at(truth, *time))
+                .collect();
+            let in_event_times: BTreeSet<String> = truth
+                .events
+                .iter()
+                .flat_map(|event| {
+                    policy
+                        .requested_times_hours
+                        .iter()
+                        .filter(|time| **time >= event.start_hours && **time <= event.end_hours)
+                        .map(|time| format!("{time:.9}"))
+                })
+                .collect();
+            let out_of_event_count = policy
+                .requested_times_hours
+                .iter()
+                .filter(|time| !in_event_times.contains(&format!("{time:.9}")))
+                .count();
+            let false_trigger_count = sampled
+                .iter()
+                .filter(|point| {
+                    !truth.events.iter().any(|event| {
+                        point.elapsed_hours >= event.start_hours
+                            && point.elapsed_hours <= event.end_hours
+                    }) && (point.response_value - baseline).abs() >= 1.0
+                })
+                .count();
+            let event_results: Vec<EventResult> = truth
+                .events
+                .iter()
+                .map(|event| {
+                    event_result(truth, event, &policy.requested_times_hours, baseline)
+                })
+                .collect();
+            let events_detected = event_results.iter().filter(|x| x.event_detected).count();
+            let missed = event_results.len() - events_detected;
+            PolicyResult {
+                policy_id: policy.policy_id.clone(),
+                policy_family: policy.policy_family.clone(),
+                policy_schedule_sha256: schedule_hash,
+                sample_count: policy.requested_times_hours.len(),
+                sample_cost_units: policy.requested_times_hours.len() as f64
+                    * submission.policy_resource_limits.sample_cost_units,
+                sample_budget_pass: policy.requested_times_hours.len()
+                    <= submission.policy_resource_limits.maximum_samples_per_policy,
+                out_of_event_sample_count: out_of_event_count,
+                false_trigger_count,
+                events_detected,
+                event_count: events_all.len(),
+                missed_event_count: missed,
+                events: event_results,
+            }
+        })
+        .collect();
 
     Report {
         audit_version: VERSION,
@@ -477,7 +561,9 @@ fn run(
     output_path: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if output_path.exists() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into());
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into(),
+        );
     }
     let policy_bytes = fs::read(policy_path)?;
     let truth_bytes = fs::read(truth_path)?;
@@ -499,7 +585,10 @@ fn run(
     let truth_hash = format!("{:x}", Sha256::digest(&truth_bytes));
     let report = score(&submission, &truth, policy_hash, truth_hash);
     let json = serde_json::to_vec_pretty(&report)?;
-    let mut output = OpenOptions::new().write(true).create_new(true).open(output_path)?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output_path)?;
     output.write_all(&json)?;
     output.write_all(b"\n")?;
     Ok(())
@@ -508,10 +597,16 @@ fn run(
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 4 {
-        eprintln!("usage: event-capture-audit <policy-submission.json> <evaluator-truth.json> <new-report.json>");
+        eprintln!(
+            "usage: event-capture-audit <policy-submission.json> <evaluator-truth.json> <new-report.json>"
+        );
         std::process::exit(2);
     }
-    if let Err(error) = run(Path::new(&args[1]), Path::new(&args[2]), Path::new(&args[3])) {
+    if let Err(error) = run(
+        Path::new(&args[1]),
+        Path::new(&args[2]),
+        Path::new(&args[3]),
+    ) {
         eprintln!("event-capture audit failed: {error}");
         std::process::exit(1);
     }
@@ -522,8 +617,9 @@ mod tests {
     use super::*;
 
     fn fixtures() -> (PolicySubmission, Truth) {
-        let policy: PolicySubmission = serde_json::from_str(include_str!("../fixtures/policy-submission.json"))
-            .expect("policy fixture parses");
+        let policy: PolicySubmission =
+            serde_json::from_str(include_str!("../fixtures/policy-submission.json"))
+                .expect("policy fixture parses");
         let truth: Truth = serde_json::from_str(include_str!("../fixtures/evaluator-truth.json"))
             .expect("evaluator truth fixture parses");
         (policy, truth)
@@ -540,31 +636,56 @@ mod tests {
     fn event_focused_schedule_detects_broad_and_narrow_pulses() {
         let (p, t) = fixtures();
         let report = score(&p, &t, "0".repeat(64), "1".repeat(64));
-        let adaptive = report.policies.iter().find(|x| x.policy_id == "event-focused-static").unwrap();
+        let adaptive = report
+            .policies
+            .iter()
+            .find(|x| x.policy_id == "event-focused-static")
+            .unwrap();
         assert_eq!(adaptive.sample_count, 14);
         assert_eq!(adaptive.events_detected, 2);
         assert_eq!(adaptive.missed_event_count, 0);
-        assert!(adaptive.events.iter().all(|x| x.pulse_burden_status == "qualified_integral"));
+        assert!(
+            adaptive
+                .events
+                .iter()
+                .all(|x| x.pulse_burden_status == "qualified_integral")
+        );
     }
 
     #[test]
     fn fixed_cadence_misses_narrow_pulses_and_abstains_on_gap() {
         let (p, t) = fixtures();
         let report = score(&p, &t, "0".repeat(64), "1".repeat(64));
-        let fixed = report.policies.iter().find(|x| x.policy_id == "fixed-8h").unwrap();
+        let fixed = report
+            .policies
+            .iter()
+            .find(|x| x.policy_id == "fixed-8h")
+            .unwrap();
         assert_eq!(fixed.sample_count, 14);
         assert_eq!(fixed.events_detected, 0);
         assert_eq!(fixed.missed_event_count, 2);
-        assert!(fixed.events.iter().all(|x| x.sampled_pulse_burden_anomaly_unit_hours.is_none()));
+        assert!(
+            fixed
+                .events
+                .iter()
+                .all(|x| x.sampled_pulse_burden_anomaly_unit_hours.is_none())
+        );
         assert_eq!(fixed.events[0].pulse_burden_status, "gap_exceeded");
-        assert_eq!(fixed.events[1].pulse_burden_status, "missing_event_boundary");
+        assert_eq!(
+            fixed.events[1].pulse_burden_status,
+            "missing_event_boundary"
+        );
     }
 
     #[test]
     fn random_schedule_is_scored_without_claiming_policy_superiority() {
         let (p, t) = fixtures();
         let report = score(&p, &t, "0".repeat(64), "1".repeat(64));
-        let random = report.policies.iter().find(|x| x.policy_id == "pseudo-random-fixed-seed").unwrap();
+        let random = report
+            .policies
+            .iter()
+            .find(|x| x.policy_id == "pseudo-random-fixed-seed")
+            .unwrap();
         assert_eq!(random.sample_count, 14);
         assert_eq!(random.events.len(), 2);
     }
@@ -581,7 +702,10 @@ mod tests {
     fn off_grid_sample_request_is_rejected_without_interpolation() {
         let (mut p, t) = fixtures();
         p.policies[0].requested_times_hours[1] = 8.5;
-        let exists = p.policies[0].requested_times_hours.iter().all(|x| truth_at(&t, *x).is_some());
+        let exists = p.policies[0]
+            .requested_times_hours
+            .iter()
+            .all(|x| truth_at(&t, *x).is_some());
         assert!(!exists);
     }
 
@@ -589,9 +713,16 @@ mod tests {
     fn missing_event_boundary_blocks_integral() {
         let (p, t) = fixtures();
         let mut altered = p;
-        altered.policies[1].requested_times_hours.retain(|x| *x != 76.0);
+        altered.policies[1]
+            .requested_times_hours
+            .retain(|x| *x != 76.0);
         let r = score(&altered, &t, "0".repeat(64), "1".repeat(64));
-        let event_b = &r.policies.iter().find(|x| x.policy_id == "event-focused-static").unwrap().events[1];
+        let event_b = &r
+            .policies
+            .iter()
+            .find(|x| x.policy_id == "event-focused-static")
+            .unwrap()
+            .events[1];
         assert_eq!(event_b.pulse_burden_status, "missing_event_boundary");
         assert!(event_b.sampled_pulse_burden_anomaly_unit_hours.is_none());
     }
@@ -601,7 +732,12 @@ mod tests {
         let (p, mut t) = fixtures();
         t.maximum_event_integration_gap_hours = 1.0;
         let r = score(&p, &t, "0".repeat(64), "1".repeat(64));
-        let broad = &r.policies.iter().find(|x| x.policy_id == "event-focused-static").unwrap().events[0];
+        let broad = &r
+            .policies
+            .iter()
+            .find(|x| x.policy_id == "event-focused-static")
+            .unwrap()
+            .events[0];
         assert_eq!(broad.pulse_burden_status, "gap_exceeded");
     }
 
