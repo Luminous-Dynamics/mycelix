@@ -105,3 +105,17 @@ This is not a claim that Mycelix has invented evidence provenance or signed logs
 - The adapter does not read PostgreSQL WAL, Kafka offsets, JetStream sequence records or broker logs itself.
 - The 14 tests are authored but not executed.
 - No runtime, safety, performance or SOTA result is claimed.
+
+
+## 8. Canonical event-set serialization
+
+The ingest module now defines versioned canonical bytes for every typed EventKind and a deterministic event-set encoding:
+- event identity, scope, owner, owner-local sequence and sorted causal parents are encoded;
+- each event kind has a stable numeric tag and all of its typed fields are included;
+- set/map fields are encoded in sorted order;
+- the event set is sorted by event ID and each event is length-prefixed;
+- duplicate event IDs are rejected before the event-set commitment can be computed.
+
+The source authenticator must hash `canonical_event_set_bytes(covered_events)` and compare it with the signed manifest's event-set digest. The digest algorithm, signature and trust-root verification remain external. The canonical byte contract is versioned so the producers and verifier cannot silently choose different encodings.
+
+The ingest crate now has 17 authored tests, including event-set ordering independence, duplicate event rejection and payload substitution detection. These tests remain uncompiled and unexecuted.
