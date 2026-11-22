@@ -1,0 +1,281 @@
+{
+  "schema_id": "mycelix.manufacturing.mfg-proc-001b.resource-offer.cases.v0_1",
+  "schema_version": "0.1.0",
+  "classification": "synthetic_contract_conformance_only",
+  "owner_issue": "Luminous-Dynamics/mycelix#6533",
+  "depends_on": "Luminous-Dynamics/mycelix#6531",
+  "template_offer": {
+    "schema_version": "0.1.0",
+    "offer_revision": "A",
+    "provider_subject_ref": {
+      "owner_repository": "example/provider",
+      "schema_id": "provider.identity/1",
+      "schema_version": "1.0",
+      "source_revision": "rev-2026-11-23",
+      "subject_id": "provider-1",
+      "payload_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "provider_authority_ref": null,
+    "resource_subject_ref": {
+      "owner_repository": "example/provider",
+      "schema_id": "equipment.catalog/1",
+      "schema_version": "1.0",
+      "source_revision": "rev-2026-11-23",
+      "subject_id": "machine-7",
+      "payload_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    "site_subject_ref": {
+      "owner_repository": "example/provider",
+      "schema_id": "facility.site/1",
+      "schema_version": "1.0",
+      "source_revision": "rev-2026-11-23",
+      "subject_id": "site-2",
+      "payload_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    "process_definition_ref": {
+      "owner_repository": "Luminous-Dynamics/symthaea",
+      "owner_commit": "0b3feb49a3c2e9c1c1748ca2a0c0ff40ed320ecd",
+      "contract_crate": "symthaea-manufacturing-process",
+      "contract_type": "ProcessDefinitionV1",
+      "object_id_blake3": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "process_id_blake3": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_version": "1.0.0"
+    },
+    "capability_profile_ref": {
+      "owner_repository": "Luminous-Dynamics/symthaea",
+      "owner_commit": "0b3feb49a3c2e9c1c1748ca2a0c0ff40ed320ecd",
+      "contract_crate": "symthaea-manufacturing-contracts",
+      "contract_type": "ProcessCapabilityProfileV1",
+      "object_id_blake3": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "process_id_blake3": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_version": "1.0.0"
+    },
+    "configuration_ref": {
+      "owner_repository": "example/provider",
+      "schema_id": "equipment.config/1",
+      "schema_version": "1.0",
+      "source_revision": "rev-2026-11-23",
+      "subject_id": "machine-7-config-a",
+      "payload_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    "tooling_refs": [],
+    "fixture_workholding_refs": [],
+    "material_applicability_refs": [],
+    "environment_requirement_refs": [],
+    "utility_requirement_refs": [],
+    "operator_competence_refs": [],
+    "safety_profile_refs": [],
+    "inspection_profile_refs": [],
+    "calibration_profile_refs": [],
+    "declared_capacity_profile_ref": {
+      "owner_repository": "example/provider",
+      "schema_id": "capacity.profile/1",
+      "schema_version": "1.0",
+      "source_revision": "rev-2026-11-23",
+      "subject_id": "capacity-a",
+      "payload_sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    "availability_calendar_ref": null,
+    "commercial_terms_ref": null,
+    "capacity_claim_source": "ProviderDeclared",
+    "capacity_evidence_refs": [],
+    "publication_state": "Published",
+    "issued_at_unix_s": 1000,
+    "valid_from_unix_s": 1001,
+    "valid_until_unix_s": 2000,
+    "supersedes_offer_ref": null,
+    "offer_id": "offer:machine-7:polymer-extrusion",
+    "lifecycle_event_refs": []
+  },
+  "case_count": 17,
+  "cases": [
+    {
+      "id": "MFG-PROC-001B-001",
+      "description": "Exact typed process/capability pair with provider-declared capacity only",
+      "expected_structural_state": "TypedOfferPresent",
+      "mutation": null,
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-002",
+      "description": "Calendar evidence pointer exists but no open-slot or bookable claim is inferred",
+      "expected_structural_state": "TypedOfferPresent",
+      "mutation": "availability_calendar_ref=owner_native_ref",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-003",
+      "description": "Provider identity reference is malformed",
+      "expected_structural_state": "TypedOfferMalformed",
+      "mutation": "provider_subject_ref.payload_sha256=invalid",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-004",
+      "description": "Resource subject reference is missing",
+      "expected_structural_state": "TypedOfferMalformed",
+      "mutation": "resource_subject_ref=missing",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-005",
+      "description": "Site reference payload digest is malformed",
+      "expected_structural_state": "TypedOfferMalformed",
+      "mutation": "site_subject_ref.payload_sha256=invalid",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-006",
+      "description": "Capability profile belongs to a different canonical process ID",
+      "expected_structural_state": "TypedOfferMalformed",
+      "mutation": "capability_profile_ref.process_id_blake3=mismatch",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-007",
+      "description": "Process and capability profile mix source commits",
+      "expected_structural_state": "TypedOfferMalformed",
+      "mutation": "capability_profile_ref.owner_commit=mismatch",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-008",
+      "description": "Configuration ref has unbounded/empty schema ID",
+      "expected_structural_state": "TypedOfferMalformed",
+      "mutation": "configuration_ref.schema_id=empty",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-009",
+      "description": "Duplicate material-applicability references are rejected",
+      "expected_structural_state": "TypedOfferMalformed",
+      "mutation": "material_applicability_refs=duplicate",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-010",
+      "description": "Offer validity window is reversed",
+      "expected_structural_state": "TypedOfferMalformed",
+      "mutation": "valid_from_unix_s=valid_until_unix_s",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-011",
+      "description": "Offer expires at valid_until; expiry is not a stored booking state",
+      "expected_structural_state": "TypedOfferPresent",
+      "mutation": "valid_until_unix_s=already_elapsed_at_evaluation",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-012",
+      "description": "Provider authority reference is present but remains unresolved",
+      "expected_structural_state": "TypedOfferPresent",
+      "mutation": "provider_authority_ref=unresolved",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-013",
+      "description": "Third-party capacity evidence ref is preserved without promoting qualification",
+      "expected_structural_state": "TypedOfferPresent",
+      "mutation": "capacity_claim_source=ThirdPartyEvidenceReferenced;capacity_evidence_refs=[owner-native-inspection-evidence-ref]",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-014",
+      "description": "Withdrawn publication state does not erase or imply prior execution",
+      "expected_structural_state": "TypedOfferPresent",
+      "mutation": "publication_state=Withdrawn",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-015",
+      "description": "Provider cannot self-assert Superseded; supersession is derived from a newer offer referencing this exact ID/revision",
+      "expected_structural_state": "TypedOfferMalformed",
+      "mutation": "publication_state=Superseded (outside provider-settable enum)",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-016",
+      "description": "Commercial terms can be absent without changing process feasibility semantics",
+      "expected_structural_state": "TypedOfferPresent",
+      "mutation": "commercial_terms_ref=null",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-017",
+      "description": "A provider cannot make an offer supersede itself by pointing to its own immutable offer ID and revision",
+      "expected_structural_state": "TypedOfferMalformed",
+      "mutation": "supersedes_offer_ref.subject_id=offer_id;supersedes_offer_ref.source_revision=offer_revision",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
+    }
+  ],
+  "claim_ceiling": "All 17 cases are synthetic. Owner references are not fetched or authenticated. Publication state is limited to Published/Withdrawn; expiry is time-derived; dispute and supersession require external lifecycle/cross-record resolution. No case promotes an offer to qualified, available, bookable, reserved, executed or accepted."
+}

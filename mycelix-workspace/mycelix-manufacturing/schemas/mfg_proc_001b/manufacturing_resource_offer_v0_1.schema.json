@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-workspace/mycelix-manufacturing/schemas/mfg_proc_001b/manufacturing_resource_offer_v0_1.schema.json",
+  "title": "ManufacturingResourceOfferV1",
+  "description": "Versioned provider statement linking an exact resource, site and configuration to canonical process/capability references. This schema is not a capacity scheduler, availability assertion, reservation or qualification authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "offer_id",
+    "offer_revision",
+    "provider_subject_ref",
+    "resource_subject_ref",
+    "site_subject_ref",
+    "process_definition_ref",
+    "capability_profile_ref",
+    "configuration_ref",
+    "declared_capacity_profile_ref",
+    "capacity_claim_source",
+    "publication_state",
+    "issued_at_unix_s",
+    "valid_from_unix_s",
+    "valid_until_unix_s",
+    "lifecycle_event_refs"
+  ],
+  "$defs": {
+    "ownerNativeSubjectRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner_repository",
+        "schema_id",
+        "schema_version",
+        "source_revision",
+        "subject_id",
+        "payload_sha256"
+      ],
+      "properties": {
+        "owner_repository": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$"
+        },
+        "schema_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "schema_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "source_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "subject_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "payload_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "processDefinitionRef": {
+      "$ref": "../mfg_proc_001a/typed_process_refs_v0_1.schema.json#/$defs/processDefinitionRef"
+    },
+    "capabilityProfileRef": {
+      "$ref": "../mfg_proc_001a/typed_process_refs_v0_1.schema.json#/$defs/capabilityProfileRef"
+    },
+    "ownerRefList": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ownerNativeSubjectRef"
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "offer_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "provider_subject_ref": {
+      "$ref": "#/$defs/ownerNativeSubjectRef"
+    },
+    "provider_authority_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ownerNativeSubjectRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "resource_subject_ref": {
+      "$ref": "#/$defs/ownerNativeSubjectRef"
+    },
+    "site_subject_ref": {
+      "$ref": "#/$defs/ownerNativeSubjectRef"
+    },
+    "process_definition_ref": {
+      "$ref": "#/$defs/processDefinitionRef"
+    },
+    "capability_profile_ref": {
+      "$ref": "#/$defs/capabilityProfileRef"
+    },
+    "configuration_ref": {
+      "$ref": "#/$defs/ownerNativeSubjectRef"
+    },
+    "tooling_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "fixture_workholding_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "material_applicability_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "environment_requirement_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "utility_requirement_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "operator_competence_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "safety_profile_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "inspection_profile_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "calibration_profile_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "declared_capacity_profile_ref": {
+      "$ref": "#/$defs/ownerNativeSubjectRef"
+    },
+    "availability_calendar_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ownerNativeSubjectRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "commercial_terms_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ownerNativeSubjectRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "capacity_claim_source": {
+      "enum": [
+        "ProviderDeclared",
+        "ManufacturerDocumentReferenced",
+        "ThirdPartyEvidenceReferenced",
+        "InstrumentObservationReferenced",
+        "QualificationEvidenceReferenced"
+      ]
+    },
+    "capacity_evidence_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    },
+    "publication_state": {
+      "enum": [
+        "Published",
+        "Withdrawn"
+      ]
+    },
+    "issued_at_unix_s": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "valid_from_unix_s": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "valid_until_unix_s": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "supersedes_offer_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ownerNativeSubjectRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "offer_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$"
+    },
+    "lifecycle_event_refs": {
+      "$ref": "#/$defs/ownerRefList"
+    }
+  }
+}

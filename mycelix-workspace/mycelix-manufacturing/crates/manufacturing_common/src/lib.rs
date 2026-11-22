@@ -9,6 +9,9 @@
 use hdi::prelude::*;
 use serde::{Deserialize, Serialize};
 
+pub mod resource_offer;
+pub use resource_offer::*;
+
 // ============================================================================
 // Work Orders
 // ============================================================================
