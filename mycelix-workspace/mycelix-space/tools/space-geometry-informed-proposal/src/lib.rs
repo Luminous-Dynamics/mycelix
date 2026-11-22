@@ -734,7 +734,7 @@ mod tests {
             .sample_from_latents(0.5, 0.5, &[0.0, 0.0], &[0.25], 0.5)
             .unwrap();
         assert_eq!(sample.generating_component_id, "right-tail-instanton");
-        assert!((sample.point[0] - (2.0 + 0.5_f64.ln() / 1.5)).abs() < 1.0e-12);
+        assert!((sample.point[0] - (2.0 - 0.5_f64.ln() / 1.5)).abs() < 1.0e-12);
         assert_eq!(sample.point[1], 0.25);
     }
 
