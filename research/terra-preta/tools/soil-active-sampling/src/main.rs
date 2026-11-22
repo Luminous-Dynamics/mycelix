@@ -694,7 +694,6 @@ mod tests {
             public_contract: CandidatePublicContract {
                 horizon_minutes: 360,
                 maximum_sample_count: 100,
-                detection_delta_threshold: 1.0,
             },
         };
         assert_eq!(next_sample_interval(&mut policy, context), 1);
