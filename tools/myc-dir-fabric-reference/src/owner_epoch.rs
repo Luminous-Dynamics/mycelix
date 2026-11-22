@@ -137,6 +137,9 @@ pub struct OwnerEpochState {
     current: OwnerFencePosition,
     high_water: OwnerHighWaterMark,
     recovery_ready: bool,
+    durable_position: Option<OwnerFencePosition>,
+    owner_commit_digest: Option<Digest>,
+    durable_readback_digest: Option<Digest>,
 }
 
 impl OwnerEpochState {
@@ -157,6 +160,9 @@ impl OwnerEpochState {
             current: position,
             high_water,
             recovery_ready: true,
+            durable_position: Some(position),
+            owner_commit_digest: Some(bootstrap_receipt_digest),
+            durable_readback_digest: Some(durable_readback_digest),
         })
     }
 
@@ -176,6 +182,9 @@ impl OwnerEpochState {
             current: restored_candidate,
             high_water,
             recovery_ready: false,
+            durable_position: None,
+            owner_commit_digest: None,
+            durable_readback_digest: None,
         })
     }
 
@@ -193,6 +202,35 @@ impl OwnerEpochState {
 
     pub fn recovery_ready(&self) -> bool {
         self.recovery_ready
+    }
+
+    pub fn current_is_durable(&self) -> bool {
+        self.durable_position == Some(self.current)
+            && self.owner_commit_digest.is_some()
+            && self.durable_readback_digest.is_some()
+    }
+
+    /// Record the exact durable commit and post-commit read-back for the
+    /// current position. A route or owner acknowledgement cannot rely on a
+    /// merely proposed/in-memory generation.
+    pub fn record_durable_commit_readback(
+        &mut self,
+        position: OwnerFencePosition,
+        owner_commit_digest: Digest,
+        durable_readback_digest: Digest,
+    ) -> Result<(), OwnerEpochError> {
+        if !self.recovery_ready {
+            return Err(OwnerEpochError::RecoveryRequired);
+        }
+        if position != self.current {
+            return Err(OwnerEpochError::AcknowledgementPositionMismatch);
+        }
+        require_digest(&owner_commit_digest)?;
+        require_digest(&durable_readback_digest)?;
+        self.durable_position = Some(position);
+        self.owner_commit_digest = Some(owner_commit_digest);
+        self.durable_readback_digest = Some(durable_readback_digest);
+        Ok(())
     }
 
     /// Reconcile a restored or failed-over owner to a fresh owner epoch. The
@@ -226,6 +264,9 @@ impl OwnerEpochState {
         self.high_water =
             OwnerHighWaterMark::new(self.owner.clone(), recovered, recovery_receipt_digest)?;
         self.recovery_ready = true;
+        self.durable_position = Some(recovered);
+        self.owner_commit_digest = Some(recovery_receipt_digest);
+        self.durable_readback_digest = Some(durable_readback_digest);
         Ok(recovered)
     }
 
@@ -242,6 +283,9 @@ impl OwnerEpochState {
             .checked_add(1)
             .ok_or(OwnerEpochError::GenerationExhausted)?;
         self.current = OwnerFencePosition::new(self.current.owner_epoch, next)?;
+        self.durable_position = None;
+        self.owner_commit_digest = None;
+        self.durable_readback_digest = None;
         Ok(self.current)
     }
 
@@ -286,6 +330,14 @@ impl OwnerEpochState {
             || acknowledgement.installed_position <= acknowledgement.previous_position
         {
             return Err(OwnerEpochError::AcknowledgementPositionMismatch);
+        }
+        if !self.current_is_durable() {
+            return Err(OwnerEpochError::OwnerFenceNotDurablyReadBack);
+        }
+        if acknowledgement.owner_commit_digest != self.owner_commit_digest.unwrap()
+            || acknowledgement.durable_readback_digest != self.durable_readback_digest.unwrap()
+        {
+            return Err(OwnerEpochError::AcknowledgementEvidenceMismatch);
         }
         self.high_water = OwnerHighWaterMark::new(
             self.owner.clone(),
@@ -750,6 +802,9 @@ impl FencedRouteAdmission {
         if !owner_state.recovery_ready {
             return Err(OwnerEpochError::RecoveryRequired);
         }
+        if !owner_state.current_is_durable() {
+            return Err(OwnerEpochError::OwnerFenceNotDurablyReadBack);
+        }
         if current_inventory_epoch != self.inventory_epoch {
             return Err(OwnerEpochError::InventoryEpochMismatch);
         }
@@ -810,6 +865,8 @@ pub enum OwnerEpochError {
     NonFenceableRoute,
     RouteAlreadyActive,
     RouteFencePositionMismatch,
+    OwnerFenceNotDurablyReadBack,
+    AcknowledgementEvidenceMismatch,
 }
 
 impl std::fmt::Display for OwnerEpochError {
@@ -984,6 +1041,22 @@ mod tests {
         state.install_next_generation().unwrap();
         let ack = ack("db-a", position(1, 1), position(1, 2));
         state
+            .record_durable_commit_readback(position(1, 2), [6; 32], [7; 32])
+            .unwrap();
+        let ack = OwnerEpochFenceAck::new(
+            scope(),
+            owner("db-a"),
+            position(1, 1),
+            position(1, 2),
+            [3; 32],
+            7,
+            [4; 32],
+            [5; 32],
+            [6; 32],
+            [7; 32],
+        )
+        .unwrap();
+        state
             .record_acknowledgement(
                 &ack,
                 [11; 32],
@@ -1118,6 +1191,10 @@ mod tests {
     fn new_route_activates_only_after_current_owner_fence_and_inventory_match() {
         let mut owner_state = owner_state("db-a");
         owner_state.install_next_generation().unwrap();
+        assert_eq!(
+            owner_state.record_durable_commit_readback(position(1, 2), [46; 32], [47; 32]),
+            Ok(())
+        );
         let mut route = FencedRouteAdmission::stage(
             EffectRouteId::new("new-worker-route").unwrap(),
             owner("db-a"),
