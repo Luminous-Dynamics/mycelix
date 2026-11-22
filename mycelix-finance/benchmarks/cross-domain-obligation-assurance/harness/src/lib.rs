@@ -2200,6 +2200,45 @@ mod tests {
     }
 
     #[test]
+    fn capacity_tolerance_floor_is_conservative_and_monotonic_for_one_million_cases() {
+        const MICROS_PER_HOUR: u128 = 3_600_000_000;
+        const BASIS_POINTS: u128 = 10_000;
+        for sample in 0u128..1_000_000 {
+            let rated_capacity_w = sample % 2_000_000 + 1;
+            let duration_micros = (sample * 97 + 29) % 86_400_000_000 + 1;
+            let tolerance_bps = sample % 1_001;
+            let raw_capacity_time = rated_capacity_w
+                .checked_mul(duration_micros)
+                .expect("bounded property inputs");
+            let theoretical_wh = raw_capacity_time / MICROS_PER_HOUR;
+            let tolerance_multiplier = BASIS_POINTS + tolerance_bps;
+            let tolerated_wh = theoretical_wh
+                .checked_mul(tolerance_multiplier)
+                .expect("bounded tolerance product")
+                / BASIS_POINTS;
+            let conservative_scaled = tolerated_wh
+                .checked_mul(MICROS_PER_HOUR)
+                .and_then(|value| value.checked_mul(BASIS_POINTS))
+                .expect("bounded conservative product");
+            let exact_scaled_bound = raw_capacity_time
+                .checked_mul(tolerance_multiplier)
+                .expect("bounded exact product");
+            assert!(
+                conservative_scaled <= exact_scaled_bound,
+                "rounding must not inflate physical capacity at sample {sample}"
+            );
+            let next_tolerance_wh = theoretical_wh
+                .checked_mul(tolerance_multiplier + 1)
+                .expect("bounded next tolerance product")
+                / BASIS_POINTS;
+            assert!(
+                next_tolerance_wh >= tolerated_wh,
+                "increasing tolerance cannot lower the integer capacity bound at sample {sample}"
+            );
+        }
+    }
+
+    #[test]
     fn offer_ledger_conserves_quantity_under_deterministic_adversarial_schedules() {
         const INITIAL_WH: u128 = 1_000_000;
         for seed in 0u64..256 {
