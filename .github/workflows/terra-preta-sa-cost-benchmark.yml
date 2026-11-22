@@ -47,7 +47,8 @@ jobs:
             --instance "$RUNNER_TEMP/sa-cost-report.json" --draft 2020 --assert-format
           jq -e '
             .fixture_status == "synthetic_cost_decision_report_not_market_evidence" and
-            .strategies | length == 3
+            (.input_sha256 | test("^[a-f0-9]{64}$")) and
+            (.strategies | length == 3)
           ' "$RUNNER_TEMP/sa-cost-report.json"
       - name: Reject missing component category
         run: |
