@@ -435,6 +435,31 @@ fn has_parent(event: &EventRecord, parent_id: &str) -> bool {
     event.parents.iter().any(|parent| parent == parent_id)
 }
 
+/// Returns true only when the causal-parent graph proves that one event
+/// happened before another. A topological sort's arbitrary tie-breaking
+/// order is not itself causal evidence.
+fn is_causal_ancestor(
+    ancestor: &str,
+    descendant: &str,
+    events: &BTreeMap<String, EventRecord>,
+) -> bool {
+    let mut stack = vec![descendant.to_owned()];
+    let mut visited = BTreeSet::new();
+    while let Some(current) = stack.pop() {
+        if current == ancestor {
+            return true;
+        }
+        if let Some(event) = events.get(&current) {
+            for parent in &event.parents {
+                if visited.insert(parent.clone()) {
+                    stack.push(parent.clone());
+                }
+            }
+        }
+    }
+    false
+}
+
 fn parent_index(order: &[String]) -> BTreeMap<String, usize> {
     order
         .iter()
@@ -545,13 +570,11 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                     format!("owner {owner} has two events at durable sequence {}", pair[1].0),
                 );
             }
-            let prior_index = order_index.get(&pair[0].1).copied().unwrap_or(usize::MAX);
-            let next_index = order_index.get(&pair[1].1).copied().unwrap_or(usize::MAX);
-            if prior_index >= next_index {
+            if is_causal_ancestor(&pair[1].1, &pair[0].1, events) {
                 findings.violation(
                     FindingCode::OwnerSequenceCausalOrderMismatch,
                     Some(&pair[1].1),
-                    format!("owner {owner} causal graph contradicts its durable local sequence"),
+                    format!("owner {owner} causal graph puts a later durable sequence before an earlier one"),
                 );
             }
         }
