@@ -36,7 +36,7 @@ jobs:
       - name: Check formatting
         run: cargo fmt --manifest-path mycelix-energy/Cargo.toml --package energy-assurance-core -- --check
       - name: Test pure energy assurance kernel
-        run: cargo test --locked --manifest-path mycelix-energy/Cargo.toml --package energy-assurance-core
+        run: cargo test --manifest-path mycelix-energy/Cargo.toml --package energy-assurance-core
       - name: Detect uncommitted lockfile mutation
         if: always()
         run: |
