@@ -43,7 +43,7 @@ struct ApplicationRecord {
     application_record_sha256: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RegistryEntry {
     registry_entry_id: String,
