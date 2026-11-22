@@ -174,12 +174,18 @@ fn validate(s: &Scenario) -> Result<(), String> {
         return Err("scenario or synthetic method-profile identity is invalid".into());
     }
     for (name, value) in [
-        ("minimum_calibration_r_squared", p.minimum_calibration_r_squared),
+        (
+            "minimum_calibration_r_squared",
+            p.minimum_calibration_r_squared,
+        ),
         ("spike_recovery_min_percent", p.spike_recovery_min_percent),
         ("spike_recovery_max_percent", p.spike_recovery_max_percent),
         ("matrix_recovery_min_percent", p.matrix_recovery_min_percent),
         ("matrix_recovery_max_percent", p.matrix_recovery_max_percent),
-        ("maximum_uncorrected_quench_percent", p.maximum_uncorrected_quench_percent),
+        (
+            "maximum_uncorrected_quench_percent",
+            p.maximum_uncorrected_quench_percent,
+        ),
     ] {
         finite(name, value)?;
     }
@@ -223,7 +229,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
         }
         for (name, value) in [
             ("reported_rate", a.reported_rate),
-            ("reported_rate_standard_error", a.reported_rate_standard_error),
+            (
+                "reported_rate_standard_error",
+                a.reported_rate_standard_error,
+            ),
             ("substrate_concentration", a.substrate_concentration),
             ("assay_ph", a.assay_ph),
             ("assay_temperature_c", a.assay_temperature_c),
@@ -234,12 +243,24 @@ fn validate(s: &Scenario) -> Result<(), String> {
             ("signal_min", a.calibration.signal_min),
             ("signal_max", a.calibration.signal_max),
             ("sample_signal", a.calibration.sample_signal),
-            ("substrate_only_blank_signal", a.blanks.substrate_only_blank_signal),
+            (
+                "substrate_only_blank_signal",
+                a.blanks.substrate_only_blank_signal,
+            ),
             ("matrix_blank_signal", a.blanks.matrix_blank_signal),
             ("sample_blank_signal", a.blanks.sample_blank_signal),
-            ("spike_recovery_percent", a.matrix_controls.spike_recovery_percent),
-            ("matrix_spike_recovery_percent", a.matrix_controls.matrix_spike_recovery_percent),
-            ("optical_quench_percent", a.matrix_controls.optical_quench_percent),
+            (
+                "spike_recovery_percent",
+                a.matrix_controls.spike_recovery_percent,
+            ),
+            (
+                "matrix_spike_recovery_percent",
+                a.matrix_controls.matrix_spike_recovery_percent,
+            ),
+            (
+                "optical_quench_percent",
+                a.matrix_controls.optical_quench_percent,
+            ),
         ] {
             finite(name, value)?;
         }
@@ -254,11 +275,23 @@ fn validate(s: &Scenario) -> Result<(), String> {
             || a.matrix_controls.matrix_spike_recovery_percent < 0.0
             || !(0.0..=100.0).contains(&a.matrix_controls.optical_quench_percent)
         {
-            return Err(format!("assay {} has physically invalid numeric metadata", a.assay_id));
+            return Err(format!(
+                "assay {} has physically invalid numeric metadata",
+                a.assay_id
+            ));
         }
         if a.matrix_controls.quench_correction_applied {
-            if a.matrix_controls.correction_method_id.as_deref().unwrap_or("").trim().is_empty()
-                || !a.matrix_controls.correction_method_sha256.as_deref().is_some_and(valid_sha256)
+            if a.matrix_controls
+                .correction_method_id
+                .as_deref()
+                .unwrap_or("")
+                .trim()
+                .is_empty()
+                || !a
+                    .matrix_controls
+                    .correction_method_sha256
+                    .as_deref()
+                    .is_some_and(valid_sha256)
             {
                 return Err(format!(
                     "assay {} reports quench correction without method identity/digest",
@@ -297,10 +330,10 @@ fn qualify(a: &Assay, p: &AcceptanceProfile) -> AssayResult {
     {
         failures.push("matrix_spike_recovery_outside_method_profile".into());
     }
-    if a.matrix_controls.optical_quench_percent > p.maximum_uncorrected_quench_percent
-        && !a.matrix_controls.quench_correction_applied
-    {
-        failures.push("optical_quench_exceeds_limit_without_correction".into());
+    if a.matrix_controls.optical_quench_percent > p.maximum_uncorrected_quench_percent {
+        failures.push(
+            "optical_quench_exceeds_v0_1_support_even_with_declared_correction".into(),
+        );
     }
     if a.saturation_detected {
         failures.push("assay_signal_saturation_detected".into());
@@ -360,7 +393,10 @@ fn run(input: &Path, output: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let digest = format!("{:x}", Sha256::digest(&bytes));
     let report = build_report(&scenario, digest);
     let bytes = serde_json::to_vec_pretty(&report)?;
-    let mut file = OpenOptions::new().write(true).create_new(true).open(output)?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output)?;
     file.write_all(&bytes)?;
     file.write_all(b"\n")?;
     Ok(())
@@ -393,9 +429,19 @@ mod tests {
         validate(&s).expect("valid synthetic assay records");
         let r = build_report(&s, "0".repeat(64));
         assert_eq!(r.assay_count, 2);
-        assert_eq!(r.assays[0].qualification_status, "qualified_potential_activity");
-        assert_eq!(r.assays[1].qualification_status, "unqualified_potential_activity");
-        assert!(r.assays[1].failure_reasons.contains(&"spike_recovery_outside_method_profile".into()));
+        assert_eq!(
+            r.assays[0].qualification_status,
+            "qualified_potential_activity"
+        );
+        assert_eq!(
+            r.assays[1].qualification_status,
+            "unqualified_potential_activity"
+        );
+        assert!(
+            r.assays[1]
+                .failure_reasons
+                .contains(&"spike_recovery_outside_method_profile".into())
+        );
     }
 
     #[test]
@@ -403,22 +449,36 @@ mod tests {
         let mut s = scenario();
         s.assays[0].matrix_controls.optical_quench_percent = 40.0;
         let r = build_report(&s, "0".repeat(64));
-        assert_eq!(r.assays[0].qualification_status, "unqualified_potential_activity");
-        assert!(r.assays[0].failure_reasons.contains(&"optical_quench_exceeds_limit_without_correction".into()));
+        assert_eq!(
+            r.assays[0].qualification_status,
+            "unqualified_potential_activity"
+        );
+        assert!(
+            r.assays[0]
+                .failure_reasons
+                .contains(&"optical_quench_exceeds_limit_without_correction".into())
+        );
     }
 
     #[test]
-    fn corrected_quench_requires_digest_bound_correction_method() {
+    fn declared_quench_correction_is_not_executed_or_qualified_in_v0_1() {
         let mut s = scenario();
         s.assays[0].matrix_controls.optical_quench_percent = 40.0;
         s.assays[0].matrix_controls.quench_correction_applied = true;
         assert!(validate(&s).is_err());
 
-        s.assays[0].matrix_controls.correction_method_id = Some("synthetic-quench-correction".into());
+        s.assays[0].matrix_controls.correction_method_id =
+            Some("synthetic-quench-correction".into());
         s.assays[0].matrix_controls.correction_method_sha256 = Some("c".repeat(64));
         validate(&s).expect("correction method identity is bound");
         let r = build_report(&s, "0".repeat(64));
-        assert_eq!(r.assays[0].qualification_status, "qualified_potential_activity");
+        assert_eq!(
+            r.assays[0].qualification_status,
+            "unqualified_potential_activity"
+        );
+        assert!(r.assays[0].failure_reasons.contains(
+            &"optical_quench_exceeds_v0_1_support_even_with_declared_correction".into()
+        ));
     }
 
     #[test]
@@ -427,8 +487,16 @@ mod tests {
         s.assays[0].calibration.sample_signal = 900.0;
         s.assays[0].calibration.r_squared = 0.8;
         let r = build_report(&s, "0".repeat(64));
-        assert!(r.assays[0].failure_reasons.contains(&"sample_signal_outside_calibration_range".into()));
-        assert!(r.assays[0].failure_reasons.contains(&"calibration_r_squared_below_method_profile".into()));
+        assert!(
+            r.assays[0]
+                .failure_reasons
+                .contains(&"sample_signal_outside_calibration_range".into())
+        );
+        assert!(
+            r.assays[0]
+                .failure_reasons
+                .contains(&"calibration_r_squared_below_method_profile".into())
+        );
     }
 
     #[test]
@@ -436,7 +504,10 @@ mod tests {
         let mut s = scenario();
         s.assays[0].saturation_detected = true;
         let r = build_report(&s, "0".repeat(64));
-        assert_eq!(r.assays[0].qualification_status, "unqualified_potential_activity");
+        assert_eq!(
+            r.assays[0].qualification_status,
+            "unqualified_potential_activity"
+        );
     }
 
     #[test]
@@ -452,7 +523,11 @@ mod tests {
     #[test]
     fn potential_activity_never_becomes_a_process_rate_or_composite_score() {
         let r = build_report(&scenario(), "0".repeat(64));
-        assert!(r.assays.iter().all(|a| a.process_rate_claim == "not_estimated"));
+        assert!(
+            r.assays
+                .iter()
+                .all(|a| a.process_rate_claim == "not_estimated")
+        );
         assert!(r.controls.no_aggregate_biological_score);
     }
 
