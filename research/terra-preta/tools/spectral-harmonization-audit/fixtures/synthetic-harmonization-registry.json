@@ -1,0 +1,224 @@
+{
+  "schema_version": "soil-spectral-harmonization-v0.1",
+  "fixture_status": "synthetic_metadata_and_transforms_not_source_data",
+  "evidence_class": "synthetic",
+  "registry_id": "manufactured-highveld-ossl-harmonization-example",
+  "sources": [
+    {
+      "source_dataset_id": "highveld-nir-v2-synthetic",
+      "source_release_id": "manufactured-release-v2",
+      "source_uri": "https://example.invalid/highveld-nir-v2",
+      "source_artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "rights_status": "pending_review",
+      "instrument_id": "synthetic-neospectra-device-A",
+      "measurement_mode": "reflectance",
+      "native_spectral_definition": {
+        "representation": "reflectance",
+        "axis_unit": "nm",
+        "axis_min": 1350,
+        "axis_max": 2500,
+        "point_count": 231,
+        "axis_direction": "ascending"
+      },
+      "analysis_view": {
+        "representation": "absorbance",
+        "axis_unit": "nm",
+        "axis_min": 1350,
+        "axis_max": 2500,
+        "point_count": 231,
+        "axis_direction": "ascending"
+      },
+      "transform_chain": [
+        {
+          "sequence": 1,
+          "operation_id": "r-to-a-001",
+          "operation": "reflectance_to_absorbance",
+          "input_representation": "reflectance",
+          "output_representation": "absorbance",
+          "input_axis_unit": "nm",
+          "input_axis_min": 1350,
+          "input_axis_max": 2500,
+          "output_axis_unit": "nm",
+          "output_axis_min": 1350,
+          "output_axis_max": 2500,
+          "output_point_count": 231,
+          "parameters": {
+            "formula": "-log10(R)",
+            "zero_reflectance_policy": "invalid"
+          },
+          "code_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "config_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "software_version": "synthetic-transform-0.1",
+          "lossy": true,
+          "extrapolation_allowed": false
+        },
+        {
+          "sequence": 2,
+          "operation_id": "resample-001",
+          "operation": "resample_axis",
+          "input_representation": "absorbance",
+          "output_representation": "absorbance",
+          "input_axis_unit": "nm",
+          "input_axis_min": 1350,
+          "input_axis_max": 2500,
+          "output_axis_unit": "nm",
+          "output_axis_min": 1350,
+          "output_axis_max": 2500,
+          "output_point_count": 231,
+          "parameters": {
+            "grid_step_nm": 5,
+            "interpolation": "linear"
+          },
+          "code_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "config_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "software_version": "synthetic-transform-0.1",
+          "lossy": true,
+          "extrapolation_allowed": false
+        }
+      ],
+      "target_definitions": [
+        {
+          "target_id": "soc-dumas",
+          "property_name": "soil_organic_carbon",
+          "definition": "Synthetic carbon-corrected SOC target.",
+          "value_semantics": "direct_measurement",
+          "unit": "g_kg-1",
+          "method_id": "DUMAS-CNS-SOC-CORRECTED-V1",
+          "extraction_basis": "dry-combustion with carbonate correction",
+          "depth_min_m": 0,
+          "depth_max_m": 0.15
+        },
+        {
+          "target_id": "p-bray1",
+          "property_name": "available_phosphorus",
+          "definition": "Synthetic Bray-1 extractable phosphorus target.",
+          "value_semantics": "direct_measurement",
+          "unit": "mg_kg-1",
+          "method_id": "BRAY1-V1",
+          "extraction_basis": "Bray-1 extraction",
+          "depth_min_m": 0,
+          "depth_max_m": 0.15
+        }
+      ]
+    },
+    {
+      "source_dataset_id": "ossl-afsis1-v1.3-synthetic",
+      "source_release_id": "manufactured-ossl-v1.3-afsis1",
+      "source_uri": "https://example.invalid/ossl-afsis1-v1.3",
+      "source_artifact_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "manifest_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "rights_status": "pending_review",
+      "instrument_id": "synthetic-mir-instrument-B",
+      "measurement_mode": "absorbance",
+      "native_spectral_definition": {
+        "representation": "absorbance",
+        "axis_unit": "cm-1",
+        "axis_min": 600,
+        "axis_max": 4000,
+        "point_count": 1701,
+        "axis_direction": "ascending"
+      },
+      "analysis_view": {
+        "representation": "absorbance",
+        "axis_unit": "cm-1",
+        "axis_min": 600,
+        "axis_max": 4000,
+        "point_count": 1701,
+        "axis_direction": "ascending"
+      },
+      "transform_chain": [],
+      "target_definitions": [
+        {
+          "target_id": "soc-dumas",
+          "property_name": "soil_organic_carbon",
+          "definition": "Synthetic carbon-corrected SOC target.",
+          "value_semantics": "direct_measurement",
+          "unit": "g_kg-1",
+          "method_id": "DUMAS-CNS-SOC-CORRECTED-V1",
+          "extraction_basis": "dry-combustion with carbonate correction",
+          "depth_min_m": 0,
+          "depth_max_m": 0.15
+        },
+        {
+          "target_id": "p-olsen",
+          "property_name": "available_phosphorus",
+          "definition": "Synthetic Olsen extractable phosphorus target.",
+          "value_semantics": "direct_measurement",
+          "unit": "mg_kg-1",
+          "method_id": "OLSEN-V1",
+          "extraction_basis": "Olsen bicarbonate extraction",
+          "depth_min_m": 0,
+          "depth_max_m": 0.15
+        }
+      ]
+    }
+  ],
+  "target_comparisons": [
+    {
+      "comparison_id": "soc-direct-method-match",
+      "left_source_dataset_id": "highveld-nir-v2-synthetic",
+      "right_source_dataset_id": "ossl-afsis1-v1.3-synthetic",
+      "left_target_id": "soc-dumas",
+      "right_target_id": "soc-dumas",
+      "comparison_status": "directly_comparable",
+      "rationale": "Manufactured example: exact same target definition, method, unit, extraction basis and depth."
+    },
+    {
+      "comparison_id": "phosphorus-method-mismatch",
+      "left_source_dataset_id": "highveld-nir-v2-synthetic",
+      "right_source_dataset_id": "ossl-afsis1-v1.3-synthetic",
+      "left_target_id": "p-bray1",
+      "right_target_id": "p-olsen",
+      "comparison_status": "non_comparable",
+      "rationale": "Same property label but Bray-1 and Olsen methods differ; do not pool without a validated bridge."
+    }
+  ],
+  "sample_rows": [
+    {
+      "row_id": "h-phys01-rep1",
+      "source_dataset_id": "highveld-nir-v2-synthetic",
+      "physical_sample_group_id": "phys-sample-01",
+      "split_group_id": "group-01",
+      "split": "train",
+      "instrument_id": "synthetic-neospectra-device-A",
+      "replicate_id": "replicate-1"
+    },
+    {
+      "row_id": "h-phys01-rep2",
+      "source_dataset_id": "highveld-nir-v2-synthetic",
+      "physical_sample_group_id": "phys-sample-01",
+      "split_group_id": "group-01",
+      "split": "train",
+      "instrument_id": "synthetic-neospectra-device-A",
+      "replicate_id": "replicate-2"
+    },
+    {
+      "row_id": "o-phys01-copy",
+      "source_dataset_id": "ossl-afsis1-v1.3-synthetic",
+      "physical_sample_group_id": "phys-sample-01",
+      "split_group_id": "group-01",
+      "split": "train",
+      "instrument_id": "synthetic-mir-instrument-B",
+      "replicate_id": "replicate-1"
+    },
+    {
+      "row_id": "h-phys02",
+      "source_dataset_id": "highveld-nir-v2-synthetic",
+      "physical_sample_group_id": "phys-sample-02",
+      "split_group_id": "group-02",
+      "split": "validation",
+      "instrument_id": "synthetic-neospectra-device-A",
+      "replicate_id": "replicate-1"
+    },
+    {
+      "row_id": "o-phys03",
+      "source_dataset_id": "ossl-afsis1-v1.3-synthetic",
+      "physical_sample_group_id": "phys-sample-03",
+      "split_group_id": "group-03",
+      "split": "test",
+      "instrument_id": "synthetic-mir-instrument-B",
+      "replicate_id": "replicate-1"
+    }
+  ]
+}
