@@ -536,20 +536,23 @@ fn build_report(s: &Scenario, digest: String) -> Report {
         .zip(peak_abs)
         .and_then(|(r, p)| (p > f64::EPSILON).then_some(1.0 - r.abs() / p));
 
-    let (recovery_time, recovery_time_status) = if !enough {
+    let (recovery_time, recovery_time_status) = if !enough_counts {
         (None, "insufficient_phase_coverage")
+    } else if !cadence_ok {
+        (None, "sampling_gap_exceeded")
     } else if peak_abs.is_some_and(|x| x <= f64::EPSILON) {
         (None, "zero_stress_departure")
     } else {
         compute_recovery_time(s, baseline_value.unwrap_or(0.0), &recovery_obs)
     };
-    let burden = if !enough {
+    let burden = if !enough_counts {
         PulseBurden {
-            status: if !enough_counts {
-                "insufficient_phase_coverage"
-            } else {
-                "gap_exceeded"
-            },
+            status: "insufficient_phase_coverage",
+            ..PulseBurden::default()
+        }
+    } else if !cadence_ok {
+        PulseBurden {
+            status: "sampling_gap_exceeded",
             ..PulseBurden::default()
         }
     } else {
@@ -695,9 +698,9 @@ mod tests {
         }
         let r = build_report(&s, "0".repeat(64));
         assert_eq!(r.pulse_burden_positive_anomaly_unit_hours, Some(9.0));
-        assert_eq!(r.pulse_burden_negative_anomaly_unit_hours, Some(3.0));
-        assert_eq!(r.pulse_burden_absolute_anomaly_unit_hours, Some(12.0));
-        assert_eq!(r.pulse_burden_signed_anomaly_unit_hours, Some(6.0));
+        assert_eq!(r.pulse_burden_negative_anomaly_unit_hours, Some(9.0));
+        assert_eq!(r.pulse_burden_absolute_anomaly_unit_hours, Some(18.0));
+        assert_eq!(r.pulse_burden_signed_anomaly_unit_hours, Some(0.0));
     }
 
     #[test]
