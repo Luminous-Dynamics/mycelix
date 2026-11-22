@@ -1,0 +1,71 @@
+name: Terra Preta potential biological assay QC
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/BIO_ASSAY_QC_BENCHMARK_V0.1.md'
+      - 'research/terra-preta/schemas/bio-assay-qc-input.schema.json'
+      - 'research/terra-preta/schemas/bio-assay-qc-report.schema.json'
+      - 'research/terra-preta/tools/bio-assay-qc/**'
+      - '.github/workflows/terra-preta-bio-assay-qc.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  assay-qc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/bio-assay-qc/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path research/terra-preta/tools/bio-assay-qc/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/bio-assay-qc/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate fixture and report
+        run: |
+          jsonschema-cli validate research/terra-preta/schemas/bio-assay-qc-input.schema.json \
+            --instance research/terra-preta/tools/bio-assay-qc/fixtures/synthetic-bio-assay-qc.json \
+            --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/bio-assay-qc/Cargo.toml -- \
+            research/terra-preta/tools/bio-assay-qc/fixtures/synthetic-bio-assay-qc.json \
+            "$RUNNER_TEMP/bio-assay-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/bio-assay-qc-report.schema.json \
+            --instance "$RUNNER_TEMP/bio-assay-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .assay_count == 2 and
+            .assays[0].qualification_status == "qualified_potential_activity" and
+            .assays[1].qualification_status == "unqualified_potential_activity" and
+            (.controls.no_potential_to_process_rate_promotion == true) and
+            (.controls.no_aggregate_biological_score == true)
+          ' "$RUNNER_TEMP/bio-assay-report.json"
+      - name: Reject method-profile mismatch
+        run: |
+          fixture=research/terra-preta/tools/bio-assay-qc/fixtures/synthetic-bio-assay-qc.json
+          jq '.assays[0].method_profile_sha256 = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"' \
+            "$fixture" > "$RUNNER_TEMP/profile-mismatch.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/bio-assay-qc/Cargo.toml -- \
+            "$RUNNER_TEMP/profile-mismatch.json" "$RUNNER_TEMP/mismatch-report.json"; then
+            echo "Expected method profile mismatch rejection"
+            exit 1
+          fi
+      - name: Reject output overwrite
+        run: |
+          fixture=research/terra-preta/tools/bio-assay-qc/fixtures/synthetic-bio-assay-qc.json
+          report="$RUNNER_TEMP/existing-bio-assay-report.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/bio-assay-qc/Cargo.toml -- "$fixture" "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"
