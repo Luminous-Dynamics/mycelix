@@ -37,6 +37,8 @@ DECLARE
     v_attestation myc_effect_owner.effect_execution_attestations%ROWTYPE;
     v_current_claim_epoch BIGINT;
     v_current_claim_owner_epoch BIGINT;
+    v_balance_after BIGINT;
+    v_effect_count BIGINT;
     v_rejected BOOLEAN;
 BEGIN
     INSERT INTO myc_effect_owner.effect_fence_state (
@@ -213,6 +215,32 @@ BEGIN
        OR v_replay.accepted_claim_epoch <> 1
        OR v_replay.execution_attestation_id <> v_result.execution_attestation_id THEN
         RAISE EXCEPTION 'exact replay did not preserve the original execution attestation';
+    END IF;
+
+    SELECT balance_minor
+      INTO v_balance_after
+      FROM myc_effect_owner.protected_balance
+     WHERE realm_id = v_realm
+       AND resource_id = v_resource
+       AND action_id = v_action
+       AND effect_owner_id = v_owner
+       AND object_id = v_object
+       AND currency_code = v_currency;
+
+    SELECT COUNT(*)
+      INTO v_effect_count
+      FROM myc_effect_owner.effect_commits
+     WHERE realm_id = v_realm
+       AND resource_id = v_resource
+       AND action_id = v_action
+       AND effect_owner_id = v_owner
+       AND object_id = v_object
+       AND currency_code = v_currency
+       AND idempotency_key_digest = v_idem_a
+       AND logical_operation_id = v_operation_a;
+
+    IF v_balance_after <> 1100 OR v_effect_count <> 1 THEN
+        RAISE EXCEPTION 'exact replay changed protected balance or created another effect';
     END IF;
 
     -- Even when the command presents the current owner epoch and generation,
