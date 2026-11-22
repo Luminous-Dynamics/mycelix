@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic SOC stock / ESM audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "fixed_depth_cm",
+    "reference_fine_earth_mass_megagrams_per_ha",
+    "fine_earth_mass_basis",
+    "coarse_fragment_basis",
+    "uncertainty_status",
+    "rounds",
+    "temporal_change",
+    "controls",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "fixed_depth_cm": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "reference_fine_earth_mass_megagrams_per_ha": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "fine_earth_mass_basis": {
+      "const": "total_dry_soil_mass_times_one_minus_coarse_fragment_mass_fraction"
+    },
+    "coarse_fragment_basis": {
+      "const": "mass_fraction_of_total_dry_soil"
+    },
+    "uncertainty_status": {
+      "const": "not_propagated_laboratory_and_core_covariance_unavailable"
+    },
+    "rounds": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "round_id",
+          "date",
+          "experimental_unit_id",
+          "core_count",
+          "mean_fixed_depth_soc_stock_megagrams_carbon_per_ha",
+          "sd_fixed_depth_soc_stock_megagrams_carbon_per_ha",
+          "mean_esm_soc_stock_megagrams_carbon_per_ha",
+          "sd_esm_soc_stock_megagrams_carbon_per_ha",
+          "profiles"
+        ],
+        "properties": {
+          "round_id": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "experimental_unit_id": {
+            "type": "string"
+          },
+          "core_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "mean_fixed_depth_soc_stock_megagrams_carbon_per_ha": {
+            "type": "number",
+            "minimum": 0
+          },
+          "sd_fixed_depth_soc_stock_megagrams_carbon_per_ha": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "mean_esm_soc_stock_megagrams_carbon_per_ha": {
+            "type": "number",
+            "minimum": 0
+          },
+          "sd_esm_soc_stock_megagrams_carbon_per_ha": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "profiles": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "profile_id",
+                "core_id",
+                "observed_fine_earth_mass_megagrams_per_ha",
+                "fixed_depth_fine_earth_mass_megagrams_per_ha",
+                "fixed_depth_soc_stock_megagrams_carbon_per_ha",
+                "esm_soc_stock_megagrams_carbon_per_ha",
+                "esm_reference_mass_megagrams_per_ha",
+                "esm_partial_layer_used"
+              ],
+              "properties": {
+                "profile_id": {
+                  "type": "string"
+                },
+                "core_id": {
+                  "type": "string"
+                },
+                "observed_fine_earth_mass_megagrams_per_ha": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "fixed_depth_fine_earth_mass_megagrams_per_ha": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "fixed_depth_soc_stock_megagrams_carbon_per_ha": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "esm_soc_stock_megagrams_carbon_per_ha": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "esm_reference_mass_megagrams_per_ha": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "esm_partial_layer_used": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "temporal_change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "first_round_id",
+        "last_round_id",
+        "fixed_depth_stock_change_megagrams_carbon_per_ha",
+        "esm_stock_change_megagrams_carbon_per_ha",
+        "interpretation"
+      ],
+      "properties": {
+        "first_round_id": {
+          "type": "string"
+        },
+        "last_round_id": {
+          "type": "string"
+        },
+        "fixed_depth_stock_change_megagrams_carbon_per_ha": {
+          "type": "number"
+        },
+        "esm_stock_change_megagrams_carbon_per_ha": {
+          "type": "number"
+        },
+        "interpretation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "concentration_not_stock_pass",
+        "same_fixed_depth_support_pass",
+        "same_reference_mass_pass",
+        "coarse_fragment_basis_pass",
+        "no_extrapolation_beyond_profile_pass",
+        "same_experimental_unit_pass",
+        "no_causal_claim_pass",
+        "no_treatment_replication_claim_pass"
+      ],
+      "properties": {
+        "concentration_not_stock_pass": {
+          "const": true
+        },
+        "same_fixed_depth_support_pass": {
+          "const": true
+        },
+        "same_reference_mass_pass": {
+          "const": true
+        },
+        "coarse_fragment_basis_pass": {
+          "const": true
+        },
+        "no_extrapolation_beyond_profile_pass": {
+          "const": true
+        },
+        "same_experimental_unit_pass": {
+          "const": true
+        },
+        "no_causal_claim_pass": {
+          "const": true
+        },
+        "no_treatment_replication_claim_pass": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

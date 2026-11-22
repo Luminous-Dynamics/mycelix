@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/terra-preta/schemas/soc-stock-esm-input.schema.json",
+  "title": "Synthetic layer-resolved SOC stock scenario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "evidence_class",
+    "scenario_id",
+    "methods",
+    "config",
+    "observation_rounds"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "soc-stock-esm-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "evidence_class": {
+      "const": "synthetic"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "methods": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dry_mass_method",
+        "coarse_fragment_method",
+        "coarse_fragment_basis",
+        "soc_method",
+        "carbon_basis",
+        "inorganic_carbon_correction_status"
+      ],
+      "properties": {
+        "dry_mass_method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "coarse_fragment_method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "coarse_fragment_basis": {
+          "const": "mass_fraction_of_total_dry_soil"
+        },
+        "soc_method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "carbon_basis": {
+          "enum": [
+            "organic_carbon_direct",
+            "total_carbon_corrected_for_inorganic"
+          ]
+        },
+        "inorganic_carbon_correction_status": {
+          "enum": [
+            "corrected_by_method",
+            "not_applicable_confirmed_noncalcareous",
+            "not_assessed"
+          ]
+        }
+      }
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixed_depth_cm",
+        "reference_fine_earth_mass_megagrams_per_ha",
+        "minimum_cores_per_round"
+      ],
+      "properties": {
+        "fixed_depth_cm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "reference_fine_earth_mass_megagrams_per_ha": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "minimum_cores_per_round": {
+          "type": "integer",
+          "minimum": 2
+        }
+      }
+    },
+    "observation_rounds": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "round_id",
+          "date",
+          "experimental_unit_id",
+          "cores"
+        ],
+        "properties": {
+          "round_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "experimental_unit_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cores": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "profile_id",
+                "core_id",
+                "layers"
+              ],
+              "properties": {
+                "profile_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "core_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "layers": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "layer_id",
+                      "depth_top_cm",
+                      "depth_bottom_cm",
+                      "dry_soil_mass_megagrams_per_ha",
+                      "coarse_fragment_mass_fraction",
+                      "soc_grams_carbon_per_kg_fine_earth"
+                    ],
+                    "properties": {
+                      "layer_id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "depth_top_cm": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "depth_bottom_cm": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      },
+                      "dry_soil_mass_megagrams_per_ha": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      },
+                      "coarse_fragment_mass_fraction": {
+                        "type": "number",
+                        "minimum": 0,
+                        "exclusiveMaximum": 1
+                      },
+                      "soc_grams_carbon_per_kg_fine_earth": {
+                        "type": "number",
+                        "minimum": 0
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
