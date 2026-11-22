@@ -601,60 +601,77 @@ impl PaymentLedger {
         idempotency_key: &str,
         outcome: RailOutcome,
     ) -> Result<PaymentStatus, KernelError> {
+        match outcome {
+            RailOutcome::Indeterminate => {
+                let (_, status) = self
+                    .intents
+                    .get_mut(idempotency_key)
+                    .ok_or(KernelError::InvalidPaymentTransition)?;
+                if !matches!(status, PaymentStatus::Submitted | PaymentStatus::Indeterminate) {
+                    return Err(KernelError::InvalidPaymentTransition);
+                }
+                *status = PaymentStatus::Indeterminate;
+                Ok(status.clone())
+            }
+            RailOutcome::PaidFinal(receipt) => {
+                self.record_rail_receipt(idempotency_key, receipt, true)
+            }
+            RailOutcome::Rejected(receipt) => {
+                self.record_rail_receipt(idempotency_key, receipt, false)
+            }
+        }
+    }
+
+    fn record_rail_receipt(
+        &mut self,
+        idempotency_key: &str,
+        receipt: RailReceipt,
+        is_paid: bool,
+    ) -> Result<PaymentStatus, KernelError> {
         let (request, current_status) = self
             .intents
             .get(idempotency_key)
             .ok_or(KernelError::InvalidPaymentTransition)?;
-        if !matches!(
-            current_status,
-            PaymentStatus::Submitted | PaymentStatus::Indeterminate
-        ) {
+        if !matches!(current_status, PaymentStatus::Submitted | PaymentStatus::Indeterminate) {
             return Err(KernelError::InvalidPaymentTransition);
         }
-        match outcome {
-            RailOutcome::Indeterminate => {
-                let entry = self.intents.get_mut(idempotency_key).expect("checked above");
-                entry.1 = PaymentStatus::Indeterminate;
-                Ok(entry.1.clone())
-            }
-            RailOutcome::PaidFinal(receipt) | RailOutcome::Rejected(receipt) => {
-                let is_paid = matches!(outcome, RailOutcome::PaidFinal(_));
-                if !receipt.authentication_verified {
-                    return Err(KernelError::UnauthenticatedReceipt);
-                }
-                if receipt.external_receipt_id.is_empty()
-                    || receipt.finality_policy_reference.is_empty()
-                {
-                    return Err(KernelError::InvalidFinalityPolicy);
-                }
-                if receipt.obligation_id != request.obligation_id
-                    || receipt.payer_id != request.payer_id
-                    || receipt.payee_id != request.payee_id
-                    || receipt.amount_minor != request.amount_minor
-                    || receipt.currency != request.currency
-                    || receipt.idempotency_key != request.idempotency_key
-                    || receipt.request_digest != request.request_digest
-                {
-                    return Err(KernelError::ReceiptMismatch);
-                }
-                if self.consumed_receipts.contains(&receipt.external_receipt_id) {
-                    return Err(KernelError::DuplicateExternalReceipt);
-                }
-                self.consumed_receipts.insert(receipt.external_receipt_id.clone());
-                let status = if is_paid {
-                    PaymentStatus::PaidFinal {
-                        external_receipt_id: receipt.external_receipt_id,
-                        finality_policy_reference: receipt.finality_policy_reference,
-                    }
-                } else {
-                    PaymentStatus::Rejected {
-                        external_receipt_id: receipt.external_receipt_id,
-                    }
-                };
-                self.intents.get_mut(idempotency_key).expect("checked above").1 = status.clone();
-                Ok(status)
-            }
+        if !receipt.authentication_verified {
+            return Err(KernelError::UnauthenticatedReceipt);
         }
+        if receipt.external_receipt_id.is_empty()
+            || receipt.finality_policy_reference.is_empty()
+        {
+            return Err(KernelError::InvalidFinalityPolicy);
+        }
+        if receipt.obligation_id != request.obligation_id
+            || receipt.payer_id != request.payer_id
+            || receipt.payee_id != request.payee_id
+            || receipt.amount_minor != request.amount_minor
+            || receipt.currency != request.currency
+            || receipt.idempotency_key != request.idempotency_key
+            || receipt.request_digest != request.request_digest
+        {
+            return Err(KernelError::ReceiptMismatch);
+        }
+        if self.consumed_receipts.contains(&receipt.external_receipt_id) {
+            return Err(KernelError::DuplicateExternalReceipt);
+        }
+        self.consumed_receipts.insert(receipt.external_receipt_id.clone());
+        let status = if is_paid {
+            PaymentStatus::PaidFinal {
+                external_receipt_id: receipt.external_receipt_id,
+                finality_policy_reference: receipt.finality_policy_reference,
+            }
+        } else {
+            PaymentStatus::Rejected {
+                external_receipt_id: receipt.external_receipt_id,
+            }
+        };
+        self.intents
+            .get_mut(idempotency_key)
+            .ok_or(KernelError::InvalidPaymentTransition)?
+            .1 = status.clone();
+        Ok(status)
     }
 
     pub fn record_manual_attestation(
