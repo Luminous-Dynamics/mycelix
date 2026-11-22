@@ -428,7 +428,10 @@ mod tests {
         for invalid in ["/provider", "owner/", "owner/repository/extra"] {
             let mut offer = valid_offer();
             offer.provider_subject_ref.owner_repository = invalid.into();
-            assert!(offer.validate().is_err(), "accepted invalid repo coordinate: {invalid}");
+            assert!(
+                offer.validate().is_err(),
+                "accepted invalid repo coordinate: {invalid}"
+            );
         }
     }
 
