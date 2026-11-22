@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic soil active-sensing scenario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "evidence_class",
+    "scenario_id",
+    "public_contract",
+    "sensor_model",
+    "hidden_truth",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "soil-active-sensing-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "evidence_class": {
+      "const": "synthetic"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "public_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "horizon_minutes",
+        "maximum_sample_count",
+        "detection_delta_threshold",
+        "maximum_integral_gap_minutes"
+      ],
+      "properties": {
+        "horizon_minutes": {
+          "type": "integer",
+          "minimum": 10
+        },
+        "maximum_sample_count": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "detection_delta_threshold": {
+          "type": "number",
+          "minimum": 0
+        },
+        "maximum_integral_gap_minutes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "sensor_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seed",
+        "response_noise_sd",
+        "moisture_noise_sd",
+        "sensor_energy_nj_per_sample",
+        "wake_energy_nj_per_sample"
+      ],
+      "properties": {
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "response_noise_sd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "moisture_noise_sd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "sensor_energy_nj_per_sample": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wake_energy_nj_per_sample": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "hidden_truth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline_response",
+        "baseline_moisture",
+        "rewet_at_minute",
+        "rewet_moisture",
+        "pulse"
+      ],
+      "properties": {
+        "baseline_response": {
+          "type": "number"
+        },
+        "baseline_moisture": {
+          "type": "number",
+          "minimum": 0
+        },
+        "rewet_at_minute": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rewet_moisture": {
+          "type": "number",
+          "minimum": 0
+        },
+        "pulse": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "start_minute",
+            "width_minutes",
+            "peak_amplitude"
+          ],
+          "properties": {
+            "start_minute": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "width_minutes": {
+              "type": "integer",
+              "minimum": 2
+            },
+            "peak_amplitude": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "fixed_cadence",
+            "rewetting_triggered"
+          ]
+        },
+        "fixed_interval_minutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "normal_interval_minutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "fast_interval_minutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rewetting_delta_threshold": {
+          "type": "number",
+          "minimum": 0
+        },
+        "fast_window_minutes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "fixed_cadence"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "fixed_interval_minutes"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "rewetting_triggered"
+              }
+            },
+            "required": [
+              "normal_interval_minutes",
+              "fast_interval_minutes",
+              "rewetting_delta_threshold",
+              "fast_window_minutes"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
