@@ -1323,6 +1323,13 @@ mod tests {
         owner_state.install_next_generation().unwrap();
         assert_eq!(
             route.assess_current_owner_position(&owner_state),
+            OwnerPositionAssessment::FenceNotDurablyReadBack
+        );
+        owner_state
+            .record_durable_commit_readback(position(1, 2), [46; 32], [47; 32])
+            .unwrap();
+        assert_eq!(
+            route.assess_current_owner_position(&owner_state),
             OwnerPositionAssessment::StaleGeneration
         );
     }
