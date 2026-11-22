@@ -111,7 +111,9 @@
           "mean_diameter_m",
           "tortuosity",
           "depth_min_m",
-          "depth_max_m"
+          "depth_max_m",
+          "root_flow_expressions",
+          "root_flow_expression_evidence_status"
         ],
         "properties": {
           "pathway_id": {
@@ -175,6 +177,29 @@
           "depth_max_m": {
             "type": "number",
             "minimum": 0
+          },
+          "root_flow_expressions": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "shallow_root_network_dominated",
+                "vertical_root_controlled",
+                "interface_guided",
+                "legacy_root_biopore_dominated"
+              ]
+            }
+          },
+          "root_flow_expression_evidence_status": {
+            "enum": [
+              "directly_observed_3d",
+              "directly_observed_2d",
+              "historical_trace",
+              "model_inferred",
+              "synthetic_truth",
+              "unresolved",
+              "not_applicable"
+            ]
           }
         }
       }
