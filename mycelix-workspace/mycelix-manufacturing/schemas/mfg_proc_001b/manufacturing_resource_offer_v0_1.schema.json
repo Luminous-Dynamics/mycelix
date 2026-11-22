@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-workspace/mycelix-manufacturing/schemas/mfg_proc_001b/manufacturing_resource_offer_v0_1.schema.json",
   "title": "ManufacturingResourceOfferV1",
-  "description": "A versioned provider statement linking a resource/site/configuration to canonical process and capability references. This schema does not establish owner-object authenticity, qualified capability, calendar availability, bookable/reserved capacity, execution or product acceptance.",
+  "description": "Versioned provider statement linking an exact resource, site and configuration to canonical process/capability references. This schema is not a capacity scheduler, availability assertion, reservation or qualification authority.",
   "type": "object",
   "additionalProperties": false,
   "required": [
