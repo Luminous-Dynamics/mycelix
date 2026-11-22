@@ -166,16 +166,16 @@ impl NatsCommandBinding {
         Ok(bytes)
     }
 
-    /// Distinct Nats-Msg-Ids can still denote the same Mycelix effect.
+    /// The same protected logical effect may be republished with a new
+    /// Nats-Msg-Id, renewed decision receipt or newer owner position. The
+    /// immutable operation/request/effect-owner/idempotency identity remains
+    /// stable; authority and fence freshness are revalidated separately.
     pub fn same_logical_effect(&self, other: &Self) -> bool {
         self.logical_operation_id == other.logical_operation_id
             && self.idempotency_digest == other.idempotency_digest
             && self.effect_owner_id == other.effect_owner_id
             && self.payload_digest == other.payload_digest
             && self.request_digest == other.request_digest
-            && self.decision_receipt_digest == other.decision_receipt_digest
-            && self.owner_epoch == other.owner_epoch
-            && self.resource_generation == other.resource_generation
     }
 }
 
@@ -286,16 +286,30 @@ pub enum AckMode { Ack, AckSync }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DurableOwnerDisposition {
-    EffectCommitted { logical_operation_id: String, effect_receipt_digest: Digest },
-    TerminalRejected { logical_operation_id: String, rejection_receipt_digest: Digest },
+    EffectCommitted {
+        logical_operation_id: String,
+        effect_owner_id: String,
+        idempotency_digest: Digest,
+        effect_receipt_digest: Digest,
+    },
+    TerminalRejected {
+        logical_operation_id: String,
+        effect_owner_id: String,
+        idempotency_digest: Digest,
+        rejection_receipt_digest: Digest,
+    },
     TerminalNoEffect {
         logical_operation_id: String,
+        effect_owner_id: String,
+        idempotency_digest: Digest,
         attempt_id: String,
         terminal_at_effect_owner: bool,
         outcome_receipt_digest: Digest,
     },
     ReconciliationHandoffDurable {
         logical_operation_id: String,
+        effect_owner_id: String,
+        idempotency_digest: Digest,
         attempt_id: String,
         handoff_receipt_digest: Digest,
     },
@@ -314,30 +328,38 @@ pub fn plan_acknowledgement(
     disposition: &DurableOwnerDisposition,
     mode: AckMode,
 ) -> AckPlan {
-    let (operation_id, digest) = match disposition {
-        DurableOwnerDisposition::EffectCommitted { logical_operation_id, effect_receipt_digest } =>
-            (logical_operation_id, effect_receipt_digest),
-        DurableOwnerDisposition::TerminalRejected { logical_operation_id, rejection_receipt_digest } =>
-            (logical_operation_id, rejection_receipt_digest),
+    let (operation_id, effect_owner_id, idempotency_digest, receipt_digest) = match disposition {
+        DurableOwnerDisposition::EffectCommitted {
+            logical_operation_id, effect_owner_id, idempotency_digest, effect_receipt_digest,
+        } => (logical_operation_id, effect_owner_id, idempotency_digest, effect_receipt_digest),
+        DurableOwnerDisposition::TerminalRejected {
+            logical_operation_id, effect_owner_id, idempotency_digest, rejection_receipt_digest,
+        } => (logical_operation_id, effect_owner_id, idempotency_digest, rejection_receipt_digest),
         DurableOwnerDisposition::TerminalNoEffect {
-            logical_operation_id, attempt_id, terminal_at_effect_owner, outcome_receipt_digest,
+            logical_operation_id, effect_owner_id, idempotency_digest, attempt_id,
+            terminal_at_effect_owner, outcome_receipt_digest,
         } => {
             if check_identifier(attempt_id).is_err() || !terminal_at_effect_owner {
                 return AckPlan::DoNotAcknowledge;
             }
-            (logical_operation_id, outcome_receipt_digest)
+            (logical_operation_id, effect_owner_id, idempotency_digest, outcome_receipt_digest)
         }
         DurableOwnerDisposition::ReconciliationHandoffDurable {
-            logical_operation_id, attempt_id, handoff_receipt_digest,
+            logical_operation_id, effect_owner_id, idempotency_digest, attempt_id,
+            handoff_receipt_digest,
         } => {
             if check_identifier(attempt_id).is_err() { return AckPlan::DoNotAcknowledge; }
-            (logical_operation_id, handoff_receipt_digest)
+            (logical_operation_id, effect_owner_id, idempotency_digest, handoff_receipt_digest)
         }
         DurableOwnerDisposition::InFlight | DurableOwnerDisposition::Unknown =>
             return AckPlan::DoNotAcknowledge,
     };
 
-    if operation_id != &binding.logical_operation_id || !digest_is_nonzero(digest) {
+    if operation_id != &binding.logical_operation_id
+        || effect_owner_id != &binding.effect_owner_id
+        || idempotency_digest != &binding.idempotency_digest
+        || !digest_is_nonzero(receipt_digest)
+    {
         return AckPlan::DoNotAcknowledge;
     }
     AckPlan::Acknowledge { mode, disposition_digest: *digest }
@@ -529,6 +551,8 @@ mod tests {
         let b = binding("publish-123");
         let disposition = DurableOwnerDisposition::TerminalNoEffect {
             logical_operation_id: "logical-op-a".into(),
+            effect_owner_id: "postgres-owner-a".into(),
+            idempotency_digest: digest(4),
             attempt_id: "attempt-1".into(),
             terminal_at_effect_owner: false,
             outcome_receipt_digest: digest(5),
@@ -540,6 +564,8 @@ mod tests {
         let b = binding("publish-123");
         let disposition = DurableOwnerDisposition::ReconciliationHandoffDurable {
             logical_operation_id: "logical-op-a".into(),
+            effect_owner_id: "postgres-owner-a".into(),
+            idempotency_digest: digest(4),
             attempt_id: "attempt-1".into(),
             handoff_receipt_digest: digest(5),
         };
@@ -567,6 +593,56 @@ mod tests {
     fn republish_with_new_message_id_preserves_logical_effect_identity() {
         assert!(binding("publish-123").same_logical_effect(&binding("publish-456")));
     }
+    #[test]
+    fn same_logical_effect_survives_owner_recovery_and_new_decision() {
+        let original = binding("publish-123");
+        let mut recovered_input = NatsCommandBindingInput {
+            account_id: "account-a".into(),
+            stream_name: "MYCELIX_COMMANDS".into(),
+            subject: "mycelix.command.resource-a".into(),
+            consumer_name: "effect-workers".into(),
+            nats_message_id: "publish-after-recovery".into(),
+            payload_digest: digest(1),
+            request_digest: digest(2),
+            decision_receipt_digest: digest(99),
+            logical_operation_id: "logical-op-a".into(),
+            idempotency_digest: digest(4),
+            effect_owner_id: "postgres-owner-a".into(),
+            owner_epoch: 4,
+            resource_generation: 1,
+        };
+        // A higher owner epoch with a resource generation reset is not a
+        // valid recovery position; the identity comparison intentionally does
+        // not validate recovery. The owner-state recovery gate does that.
+        recovered_input.resource_generation = 19;
+        let recovered = NatsCommandBinding::new(recovered_input).unwrap();
+        assert!(original.same_logical_effect(&recovered));
+    }
+
+    #[test]
+    fn acknowledgement_disposition_must_match_exact_effect_owner() {
+        let b = binding("publish-123");
+        let disposition = DurableOwnerDisposition::EffectCommitted {
+            logical_operation_id: "logical-op-a".into(),
+            effect_owner_id: "different-owner".into(),
+            idempotency_digest: digest(4),
+            effect_receipt_digest: digest(5),
+        };
+        assert_eq!(plan_acknowledgement(&b, &disposition, AckMode::Ack), AckPlan::DoNotAcknowledge);
+    }
+
+    #[test]
+    fn acknowledgement_disposition_must_match_idempotency_commitment() {
+        let b = binding("publish-123");
+        let disposition = DurableOwnerDisposition::EffectCommitted {
+            logical_operation_id: "logical-op-a".into(),
+            effect_owner_id: "postgres-owner-a".into(),
+            idempotency_digest: digest(99),
+            effect_receipt_digest: digest(5),
+        };
+        assert_eq!(plan_acknowledgement(&b, &disposition, AckMode::Ack), AckPlan::DoNotAcknowledge);
+    }
+
     #[test]
     fn canonical_binding_changes_when_message_id_changes() {
         assert_ne!(binding("publish-123").canonical_bytes().unwrap(), binding("publish-456").canonical_bytes().unwrap());
