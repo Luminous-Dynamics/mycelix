@@ -108,7 +108,7 @@ fn invalid(message: impl Into<String>) -> ValidateCallbackResult {
     ValidateCallbackResult::Invalid(message.into())
 }
 
-fn validate_binding(binding: &Option<ProcessBindingV1>) -> Result<(), String> {
+fn validate_binding(binding: &Option<Box<ProcessBindingV1>>) -> Result<(), String> {
     if let Some(binding) = binding {
         binding.validate()?;
     }
@@ -275,11 +275,11 @@ mod typed_process_reference_tests {
             setup_time_min: 1,
             cycle_time_min: 1,
             tooling: None,
-            process_binding: Some(ProcessBindingV1 {
+            process_binding: Some(Box::new(ProcessBindingV1 {
                 process_definition: valid_process_ref(),
                 capability_requirement: ProcessCapabilityRequirementRefV1(requirement),
                 recipe: None,
-            }),
+            })),
         };
         assert!(matches!(
             validate_create_entry(EntryTypes::Operation(operation)).unwrap(),
@@ -323,7 +323,7 @@ mod typed_process_reference_tests {
         assert!(validate_process_registry_entry(&duplicate_tags).is_err());
 
         let self_superseding = ProcessRegistryEntry {
-            process_definition_ref: process_ref.clone(),
+            process_definition_ref: Box::new(process_ref.clone()),
             display_label: "Material extrusion".into(),
             tags: vec!["additive".into()],
             status: ProcessRegistryStatusV1::Deprecated,
