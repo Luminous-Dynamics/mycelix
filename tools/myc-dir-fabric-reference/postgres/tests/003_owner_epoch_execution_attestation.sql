@@ -117,7 +117,7 @@ BEGIN
             v_realm, v_resource, v_action, v_owner, v_object, v_currency,
             2, 1, v_idem_b, v_operation_b,
             v_request_b, v_decision, v_payload_b, 50,
-            v_worker_b, 2, v_claim_b,
+            v_worker_b, 1, v_claim_b,
             'postgres-db-clock-v1',
             clock_timestamp() - interval '1 minute',
             clock_timestamp() + interval '1 hour'
@@ -242,7 +242,7 @@ BEGIN
             v_realm, v_resource, v_action, v_owner, v_object, v_currency,
             2, 2, v_idem_b, v_operation_b,
             v_request_b, v_decision, v_payload_b, 50,
-            v_worker_b, 1, v_claim_b,
+            v_worker_b, 2, v_claim_b,
             'postgres-db-clock-v1',
             clock_timestamp() - interval '1 minute',
             clock_timestamp() + interval '1 hour'
