@@ -1,0 +1,154 @@
+{
+  "fixture_status": "synthetic_schema_fixture_only",
+  "cryptographic_status": "SIGNATURES_AND_DIGESTS_ARE_PLACEHOLDERS_AND_MUST_NOT_BE_TRUSTED",
+  "description": "A four-event intent → indeterminate → paid-final → full-reversal chain for structural schema testing. The example is not a real transaction, signature, receipt, or checkpoint.",
+  "events": [
+    {
+      "schema_version": "0.1",
+      "record_type": "payment_event_envelope",
+      "chain_id": "chain-obligation-001",
+      "event_id": "event-001",
+      "payment_intent_id": "payment-intent-001",
+      "sequence": 1,
+      "previous_event_digest": null,
+      "event_digest": "sha-256:2222222222222222222222222222222222222222222222222222222222222222",
+      "canonicalization_profile": "pcoe-canonical-json-v0.1",
+      "issuer": {
+        "issuer_id": "mycelix-finance-adapter",
+        "key_id": "test-key-not-for-production",
+        "agent_id": "payment-adapter-test"
+      },
+      "event": {
+        "event_type": "intent_submitted",
+        "request_digest": "sha-256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "idempotency_key_digest": "sha-256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "signature": {
+        "algorithm": "TEST-ONLY-NOT-A-REAL-SIGNATURE",
+        "protected_header_digest": "sha-256:1111111111111111111111111111111111111111111111111111111111111111",
+        "signature_value": "test-only-placeholder-signature-not-valid"
+      },
+      "event_time": "2026-11-22T10:00:00Z",
+      "recorded_at": "2026-11-22T10:00:01Z",
+      "transparency_receipt_refs": []
+    },
+    {
+      "schema_version": "0.1",
+      "record_type": "payment_event_envelope",
+      "chain_id": "chain-obligation-001",
+      "event_id": "event-002",
+      "payment_intent_id": "payment-intent-001",
+      "sequence": 2,
+      "previous_event_digest": "sha-256:2222222222222222222222222222222222222222222222222222222222222222",
+      "event_digest": "sha-256:3333333333333333333333333333333333333333333333333333333333333333",
+      "canonicalization_profile": "pcoe-canonical-json-v0.1",
+      "issuer": {
+        "issuer_id": "mycelix-finance-adapter",
+        "key_id": "test-key-not-for-production",
+        "agent_id": "payment-adapter-test"
+      },
+      "event": {
+        "event_type": "outcome_indeterminate",
+        "reason_code": "rail-response-timeout",
+        "reconciliation_reference": "reconcile-001"
+      },
+      "signature": {
+        "algorithm": "TEST-ONLY-NOT-A-REAL-SIGNATURE",
+        "protected_header_digest": "sha-256:1111111111111111111111111111111111111111111111111111111111111111",
+        "signature_value": "test-only-placeholder-signature-not-valid"
+      },
+      "event_time": "2026-11-22T10:00:00Z",
+      "recorded_at": "2026-11-22T10:00:01Z",
+      "transparency_receipt_refs": []
+    },
+    {
+      "schema_version": "0.1",
+      "record_type": "payment_event_envelope",
+      "chain_id": "chain-obligation-001",
+      "event_id": "event-003",
+      "payment_intent_id": "payment-intent-001",
+      "sequence": 3,
+      "previous_event_digest": "sha-256:3333333333333333333333333333333333333333333333333333333333333333",
+      "event_digest": "sha-256:4444444444444444444444444444444444444444444444444444444444444444",
+      "canonicalization_profile": "pcoe-canonical-json-v0.1",
+      "issuer": {
+        "issuer_id": "mycelix-finance-adapter",
+        "key_id": "test-key-not-for-production",
+        "agent_id": "payment-adapter-test"
+      },
+      "event": {
+        "event_type": "paid_final",
+        "external_receipt_id": "rail-payment-001",
+        "finality_policy_reference": "test-rail-finality-v1",
+        "amount_minor": "125000",
+        "currency": "ZAR",
+        "payer_id": "community-001",
+        "payee_id": "installer-001",
+        "request_digest": "sha-256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "signature": {
+        "algorithm": "TEST-ONLY-NOT-A-REAL-SIGNATURE",
+        "protected_header_digest": "sha-256:1111111111111111111111111111111111111111111111111111111111111111",
+        "signature_value": "test-only-placeholder-signature-not-valid"
+      },
+      "event_time": "2026-11-22T10:00:00Z",
+      "recorded_at": "2026-11-22T10:00:01Z",
+      "transparency_receipt_refs": []
+    },
+    {
+      "schema_version": "0.1",
+      "record_type": "payment_event_envelope",
+      "chain_id": "chain-obligation-001",
+      "event_id": "event-004",
+      "payment_intent_id": "payment-intent-001",
+      "sequence": 4,
+      "previous_event_digest": "sha-256:4444444444444444444444444444444444444444444444444444444444444444",
+      "event_digest": "sha-256:5555555555555555555555555555555555555555555555555555555555555555",
+      "canonicalization_profile": "pcoe-canonical-json-v0.1",
+      "issuer": {
+        "issuer_id": "mycelix-finance-adapter",
+        "key_id": "test-key-not-for-production",
+        "agent_id": "payment-adapter-test"
+      },
+      "event": {
+        "event_type": "reversal_recorded",
+        "original_receipt_id": "rail-payment-001",
+        "reversal_receipt_id": "rail-reversal-001",
+        "reason_reference": "test-chargeback-001",
+        "amount_minor": "125000",
+        "currency": "ZAR",
+        "request_digest": "sha-256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "signature": {
+        "algorithm": "TEST-ONLY-NOT-A-REAL-SIGNATURE",
+        "protected_header_digest": "sha-256:1111111111111111111111111111111111111111111111111111111111111111",
+        "signature_value": "test-only-placeholder-signature-not-valid"
+      },
+      "event_time": "2026-11-22T10:00:00Z",
+      "recorded_at": "2026-11-22T10:00:01Z",
+      "transparency_receipt_refs": []
+    }
+  ],
+  "checkpoint": {
+    "schema_version": "0.1",
+    "record_type": "payment_chain_checkpoint",
+    "checkpoint_id": "checkpoint-001",
+    "chain_id": "chain-obligation-001",
+    "payment_intent_id": "payment-intent-001",
+    "through_sequence": 4,
+    "final_event_digest": "sha-256:5555555555555555555555555555555555555555555555555555555555555555",
+    "checkpointed_at": "2026-11-22T10:01:00Z",
+    "anchor_evidence": [
+      {
+        "anchor_type": "independent_witness",
+        "service_or_witness_id": "test-witness-not-independent",
+        "receipt_or_attestation_ref": "test-receipt-placeholder",
+        "verification_policy_ref": "test-policy-v0.1",
+        "verification_status": "pending",
+        "declared_failure_domains": [
+          "test-only"
+        ]
+      }
+    ]
+  }
+}
