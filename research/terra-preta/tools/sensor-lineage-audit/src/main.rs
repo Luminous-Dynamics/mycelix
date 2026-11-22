@@ -186,8 +186,13 @@ fn validate(s: &Scenario) -> Result<(), String> {
         return Err("v0.1 accepts only the declared synthetic scenario".into());
     }
     nonempty("scenario_id", &s.scenario_id)?;
-    if s.instruments.is_empty() || s.sensor_observations.is_empty() || s.derived_estimates.is_empty() {
-        return Err("at least one instrument, sensor observation and derived estimate are required".into());
+    if s.instruments.is_empty()
+        || s.sensor_observations.is_empty()
+        || s.derived_estimates.is_empty()
+    {
+        return Err(
+            "at least one instrument, sensor observation and derived estimate are required".into(),
+        );
     }
 
     let mut instruments = BTreeSet::new();
@@ -208,7 +213,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
             return Err("instrument and calibration IDs must be unique".into());
         }
         if !valid_sha256(&instrument.calibration_sha256) {
-            return Err(format!("instrument {} has invalid calibration SHA-256", instrument.instrument_id));
+            return Err(format!(
+                "instrument {} has invalid calibration SHA-256",
+                instrument.instrument_id
+            ));
         }
     }
 
@@ -234,10 +242,16 @@ fn validate(s: &Scenario) -> Result<(), String> {
             return Err("sensor observation IDs must be unique".into());
         }
         if !instruments.contains(&o.instrument_id) {
-            return Err(format!("observation {} references unknown instrument", o.observation_id));
+            return Err(format!(
+                "observation {} references unknown instrument",
+                o.observation_id
+            ));
         }
         if !calibration_ids.contains(&o.calibration_id) {
-            return Err(format!("observation {} references unknown calibration", o.observation_id));
+            return Err(format!(
+                "observation {} references unknown calibration",
+                o.observation_id
+            ));
         }
         if o.measurement_semantics != "direct_sensor_signal" {
             return Err(format!(
@@ -245,7 +259,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 o.observation_id
             ));
         }
-        if !matches!(o.qa_status.as_str(), "pass" | "flagged" | "rejected" | "unknown") {
+        if !matches!(
+            o.qa_status.as_str(),
+            "pass" | "flagged" | "rejected" | "unknown"
+        ) {
             return Err("unsupported sensor observation QA status".into());
         }
         if o.qa_status != "pass" {
@@ -256,7 +273,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
             || !valid_sha256(&o.raw_artifact.sha256)
             || o.raw_artifact.byte_size == 0
         {
-            return Err(format!("observation {} has incomplete raw artifact identity", o.observation_id));
+            return Err(format!(
+                "observation {} has incomplete raw artifact identity",
+                o.observation_id
+            ));
         }
     }
 
@@ -265,7 +285,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
         for (name, value) in [
             ("assay_id", assay.assay_id.as_str()),
             ("physical_sample_id", assay.physical_sample_id.as_str()),
-            ("independence_group_id", assay.independence_group_id.as_str()),
+            (
+                "independence_group_id",
+                assay.independence_group_id.as_str(),
+            ),
             ("target_property", assay.target_property.as_str()),
             ("unit", assay.unit.as_str()),
             ("method", assay.method.as_str()),
@@ -278,8 +301,14 @@ fn validate(s: &Scenario) -> Result<(), String> {
         if !assays.insert(assay.assay_id.clone()) {
             return Err("reference assay IDs must be unique".into());
         }
-        if !matches!(assay.role.as_str(), "calibration_reference" | "independent_validation_reference") {
-            return Err(format!("assay {} has unsupported role", assay.assay_id));
+        if !matches!(
+            assay.role.as_str(),
+            "calibration_reference" | "independent_validation_reference"
+        ) {
+            return Err(format!(
+                "assay {} has unsupported role",
+                assay.assay_id
+            ));
         }
         for (name, value) in [
             ("reference assay value", assay.value),
@@ -289,20 +318,32 @@ fn validate(s: &Scenario) -> Result<(), String> {
         ] {
             finite(name, value)?;
         }
-        if assay.standard_error < 0.0 || assay.depth_min_m < 0.0 || assay.depth_max_m <= assay.depth_min_m {
-            return Err(format!("assay {} has invalid uncertainty or depth range", assay.assay_id));
+        if assay.standard_error < 0.0
+            || assay.depth_min_m < 0.0
+            || assay.depth_max_m <= assay.depth_min_m
+        {
+            return Err(format!(
+                "assay {} has invalid uncertainty or depth range",
+                assay.assay_id
+            ));
         }
     }
 
-    let assay_map: std::collections::BTreeMap<&str, &ReferenceAssay> =
-        s.reference_assays.iter().map(|a| (a.assay_id.as_str(), a)).collect();
+    let assay_map: std::collections::BTreeMap<&str, &ReferenceAssay> = s
+        .reference_assays
+        .iter()
+        .map(|a| (a.assay_id.as_str(), a))
+        .collect();
 
     let mut estimates = BTreeSet::new();
     for estimate in &s.derived_estimates {
         for (name, value) in [
             ("estimate_id", estimate.estimate_id.as_str()),
             ("physical_sample_id", estimate.physical_sample_id.as_str()),
-            ("independence_group_id", estimate.independence_group_id.as_str()),
+            (
+                "independence_group_id",
+                estimate.independence_group_id.as_str(),
+            ),
             ("target_property", estimate.target_property.as_str()),
             ("unit", estimate.unit.as_str()),
             ("model_id", estimate.model.model_id.as_str()),
@@ -321,44 +362,90 @@ fn validate(s: &Scenario) -> Result<(), String> {
         finite("derived estimate value", estimate.value)?;
         finite("derived estimate standard error", estimate.standard_error)?;
         if estimate.standard_error < 0.0 || estimate.input_observation_ids.is_empty() {
-            return Err(format!("estimate {} has invalid uncertainty or no input observations", estimate.estimate_id));
+            return Err(format!(
+                "estimate {} has invalid uncertainty or no input observations",
+                estimate.estimate_id
+            ));
         }
         if !valid_sha256(&estimate.model.model_sha256)
             || !valid_sha256(&estimate.model.preprocessing_sha256)
         {
-            return Err(format!("estimate {} lacks model/preprocessing SHA-256", estimate.estimate_id));
+            return Err(format!(
+                "estimate {} lacks model/preprocessing SHA-256",
+                estimate.estimate_id
+            ));
         }
         if estimate.model.training_sample_ids.is_empty()
             || estimate.model.training_independence_group_ids.is_empty()
         {
-            return Err(format!("estimate {} must declare training sample and independence groups", estimate.estimate_id));
+            return Err(format!(
+                "estimate {} must declare training sample and independence groups",
+                estimate.estimate_id
+            ));
         }
-        if estimate.model.training_sample_ids.contains(&estimate.physical_sample_id)
-            || estimate.model.training_independence_group_ids.contains(&estimate.independence_group_id)
+        if estimate
+            .model
+            .training_sample_ids
+            .contains(&estimate.physical_sample_id)
+            || estimate
+                .model
+                .training_independence_group_ids
+                .contains(&estimate.independence_group_id)
         {
-            return Err(format!("estimate {} leaks its evaluation sample/group into model training", estimate.estimate_id));
+            return Err(format!(
+                "estimate {} leaks its evaluation sample/group into model training",
+                estimate.estimate_id
+            ));
         }
-        if !matches!(estimate.model.domain_status.as_str(), "in_domain" | "out_of_domain" | "unassessed") {
-            return Err(format!("estimate {} has unsupported domain status", estimate.estimate_id));
+        if !matches!(
+            estimate.model.domain_status.as_str(),
+            "in_domain" | "out_of_domain" | "unassessed"
+        ) {
+            return Err(format!(
+                "estimate {} has unsupported domain status",
+                estimate.estimate_id
+            ));
         }
-        if !matches!(estimate.assessment_status.as_str(), "candidate_unqualified" | "abstain") {
-            return Err(format!("estimate {} has unsupported assessment status", estimate.estimate_id));
+        if !matches!(
+            estimate.assessment_status.as_str(),
+            "candidate_unqualified" | "abstain"
+        ) {
+            return Err(format!(
+                "estimate {} has unsupported assessment status",
+                estimate.estimate_id
+            ));
         }
         if estimate.model.domain_status != "in_domain" && estimate.assessment_status != "abstain" {
-            return Err(format!("estimate {} must abstain when out-of-domain or unassessed", estimate.estimate_id));
+            return Err(format!(
+                "estimate {} must abstain when out-of-domain or unassessed",
+                estimate.estimate_id
+            ));
         }
 
         for observation_id in &estimate.input_observation_ids {
-            let observation = s.sensor_observations.iter()
+            let observation = s
+                .sensor_observations
+                .iter()
                 .find(|o| o.observation_id == *observation_id)
-                .ok_or_else(|| format!("estimate {} references missing sensor observation", estimate.estimate_id))?;
+                .ok_or_else(|| {
+                    format!(
+                        "estimate {} references missing sensor observation",
+                        estimate.estimate_id
+                    )
+                })?;
             if observation.physical_sample_id != estimate.physical_sample_id
                 || observation.independence_group_id != estimate.independence_group_id
             {
-                return Err(format!("estimate {} input observation belongs to a different sample/group", estimate.estimate_id));
+                return Err(format!(
+                    "estimate {} input observation belongs to a different sample/group",
+                    estimate.estimate_id
+                ));
             }
             if observation.qa_status != "pass" {
-                return Err(format!("estimate {} uses a sensor observation that did not pass QA", estimate.estimate_id));
+                return Err(format!(
+                    "estimate {} uses a sensor observation that did not pass QA",
+                    estimate.estimate_id
+                ));
             }
             if observation.signal_type == estimate.target_property {
                 return Err(format!(
@@ -369,31 +456,60 @@ fn validate(s: &Scenario) -> Result<(), String> {
         }
 
         for assay_id in &estimate.model.calibration_reference_assay_ids {
-            let assay = assay_map.get(assay_id.as_str())
-                .ok_or_else(|| format!("estimate {} references missing calibration assay", estimate.estimate_id))?;
+            let assay = assay_map.get(assay_id.as_str()).ok_or_else(|| {
+                format!(
+                    "estimate {} references missing calibration assay",
+                    estimate.estimate_id
+                )
+            })?;
             if assay.role != "calibration_reference"
-                || !estimate.model.training_sample_ids.contains(&assay.physical_sample_id)
-                || !estimate.model.training_independence_group_ids.contains(&assay.independence_group_id)
+                || !estimate
+                    .model
+                    .training_sample_ids
+                    .contains(&assay.physical_sample_id)
+                || !estimate
+                    .model
+                    .training_independence_group_ids
+                    .contains(&assay.independence_group_id)
             {
-                return Err(format!("estimate {} calibration assay is inconsistent with model training lineage", estimate.estimate_id));
+                return Err(format!(
+                    "estimate {} calibration assay is inconsistent with model training lineage",
+                    estimate.estimate_id
+                ));
             }
         }
 
         if let Some(assay_id) = &estimate.reference_assay_id {
-            let assay = assay_map.get(assay_id.as_str())
-                .ok_or_else(|| format!("estimate {} references missing reference assay", estimate.estimate_id))?;
+            let assay = assay_map.get(assay_id.as_str()).ok_or_else(|| {
+                format!(
+                    "estimate {} references missing reference assay",
+                    estimate.estimate_id
+                )
+            })?;
             if assay.role != "independent_validation_reference"
                 || assay.physical_sample_id != estimate.physical_sample_id
                 || assay.independence_group_id != estimate.independence_group_id
                 || assay.target_property != estimate.target_property
                 || assay.unit != estimate.unit
             {
-                return Err(format!("estimate {} reference assay is not an independent, support-matched validation reference", estimate.estimate_id));
+                return Err(format!(
+                    "estimate {} reference assay is not an independent, support-matched validation reference",
+                    estimate.estimate_id
+                ));
             }
-            if estimate.model.training_sample_ids.contains(&assay.physical_sample_id)
-                || estimate.model.training_independence_group_ids.contains(&assay.independence_group_id)
+            if estimate
+                .model
+                .training_sample_ids
+                .contains(&assay.physical_sample_id)
+                || estimate
+                    .model
+                    .training_independence_group_ids
+                    .contains(&assay.independence_group_id)
             {
-                return Err(format!("estimate {} validation assay leaks into model training", estimate.estimate_id));
+                return Err(format!(
+                    "estimate {} validation assay leaks into model training",
+                    estimate.estimate_id
+                ));
             }
         }
     }
@@ -401,8 +517,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
 }
 
 fn build_report(s: &Scenario, digest: String) -> Report {
-    let estimate_results = s.derived_estimates.iter().map(|e| {
-        EstimateResult {
+    let estimate_results = s
+        .derived_estimates
+        .iter()
+        .map(|e| EstimateResult {
             estimate_id: e.estimate_id.clone(),
             physical_sample_id: e.physical_sample_id.clone(),
             target_property: e.target_property.clone(),
@@ -420,8 +538,8 @@ fn build_report(s: &Scenario, digest: String) -> Report {
             } else {
                 "calibration_reference_only"
             },
-        }
-    }).collect();
+        })
+        .collect();
 
     Report {
         audit_version: VERSION,
@@ -447,7 +565,9 @@ fn build_report(s: &Scenario, digest: String) -> Report {
 
 fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if output_path.exists() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into());
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into(),
+        );
     }
     let bytes = fs::read(input_path)?;
     let scenario: Scenario = serde_json::from_slice(&bytes)?;
@@ -455,7 +575,10 @@ fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::
     let digest = format!("{:x}", Sha256::digest(&bytes));
     let report = build_report(&scenario, digest);
     let json = serde_json::to_vec_pretty(&report)?;
-    let mut output = OpenOptions::new().write(true).create_new(true).open(output_path)?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output_path)?;
     output.write_all(&json)?;
     output.write_all(b"\n")?;
     Ok(())
@@ -491,14 +614,21 @@ mod tests {
         assert_eq!(report.sensor_observation_count, 1);
         assert_eq!(report.reference_assay_count, 1);
         assert_eq!(report.derived_estimate_count, 1);
-        assert_eq!(report.estimate_results[0].measurement_semantics, "derived_prediction");
-        assert_eq!(report.estimate_results[0].reference_assay_status, "independent_validation_linked");
+        assert_eq!(
+            report.estimate_results[0].measurement_semantics,
+            "derived_prediction"
+        );
+        assert_eq!(
+            report.estimate_results[0].reference_assay_status,
+            "independent_validation_linked"
+        );
     }
 
     #[test]
     fn sensor_observation_cannot_be_labelled_as_direct_soil_property() {
         let mut s = scenario();
-        s.sensor_observations[0].measurement_semantics = "directly_measured_soil_organic_carbon".into();
+        s.sensor_observations[0].measurement_semantics =
+            "directly_measured_soil_organic_carbon".into();
         assert!(validate(&s).is_err());
     }
 
@@ -519,10 +649,16 @@ mod tests {
     #[test]
     fn evaluation_sample_or_group_cannot_leak_into_training() {
         let mut s = scenario();
-        s.derived_estimates[0].model.training_sample_ids.push("sample-eval-001".into());
+        s.derived_estimates[0]
+            .model
+            .training_sample_ids
+            .push("sample-eval-001".into());
         assert!(validate(&s).is_err());
         let mut t = scenario();
-        t.derived_estimates[0].model.training_independence_group_ids.push("evaluation-site-A-field-01".into());
+        t.derived_estimates[0]
+            .model
+            .training_independence_group_ids
+            .push("evaluation-site-A-field-01".into());
         assert!(validate(&t).is_err());
     }
 
@@ -558,7 +694,8 @@ mod tests {
         calibration.independence_group_id = "training-field-A".into();
         calibration.role = "calibration_reference".into();
         s.reference_assays.push(calibration);
-        s.derived_estimates[0].model.calibration_reference_assay_ids = vec!["calibration-reference-001".into()];
+        s.derived_estimates[0].model.calibration_reference_assay_ids =
+            vec!["calibration-reference-001".into()];
         validate(&s).expect("calibration assay is part of declared training group");
     }
 }
