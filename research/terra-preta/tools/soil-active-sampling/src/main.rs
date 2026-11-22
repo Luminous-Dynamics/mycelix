@@ -78,6 +78,7 @@ struct PolicyConfig {
 
 #[derive(Clone, Copy, Debug)]
 struct TruthPoint {
+    minute: u32,
     moisture: f64,
     response: f64,
 }
@@ -259,6 +260,7 @@ fn generate_truth(s: &Scenario) -> Vec<TruthPoint> {
                 .map(|p| pulse_response(minute, p))
                 .unwrap_or(0.0);
             TruthPoint {
+                minute,
                 moisture,
                 response: s.hidden_truth.baseline_response + pulse,
             }
