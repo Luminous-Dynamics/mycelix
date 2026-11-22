@@ -370,15 +370,15 @@ pub fn bounded_mean_confidence_sequence(
 
     let one_sided_delta = delta / 2.0;
     let mut points = Vec::with_capacity(observations.len());
-    let mut running_sum = 0.0;
+    let mut running_mean = 0.0;
     for (index, value) in observations.iter().enumerate() {
-        running_sum += *value;
+        running_mean += (*value - running_mean) / (index + 1) as f64;
         let prefix = &normalized[..=index];
         let upper_normalized = upper_bound_at(prefix, one_sided_delta, grid)?;
         let lower_normalized = lower_bound_at(prefix, one_sided_delta, grid)?;
         points.push(BoundedMeanPoint {
             time: index + 1,
-            observed_mean: running_sum / (index + 1) as f64,
+            observed_mean: running_mean,
             lower_confidence_bound: range_lower + width * lower_normalized,
             upper_confidence_bound: range_lower + width * upper_normalized,
         });
@@ -620,6 +620,38 @@ mod tests {
             assert!(next + 1.0e-12 >= previous);
             previous = next;
         }
+    }
+
+    #[test]
+    fn betting_factor_is_nonnegative_and_has_conditional_expectation_at_most_one() {
+        for candidate in [0.01, 0.1, 0.25, 0.5, 0.9, 0.99] {
+            for fraction in [0.01, 0.1, 0.5, 0.9, 1.0] {
+                for conditional_mean in [candidate, candidate + (1.0 - candidate) * 0.25, 1.0] {
+                    let at_zero = 1.0 + fraction * candidate / (1.0 - candidate);
+                    let at_one = 1.0 - fraction;
+                    let expectation =
+                        (1.0 - conditional_mean) * at_zero + conditional_mean * at_one;
+                    assert!(at_zero >= 0.0 && at_one >= 0.0);
+                    assert!(
+                        expectation <= 1.0 + 2.0e-14,
+                        "candidate={candidate}, fraction={fraction}, conditional_mean={conditional_mean}, expectation={expectation}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn incremental_observed_mean_remains_finite_for_large_bounded_values() {
+        let report = bounded_mean_confidence_sequence(
+            &[1.0e307, 1.0e307, 1.0e307],
+            0.0,
+            1.0e308,
+            0.05,
+            &grid(),
+            evidence()
+        ).unwrap();
+        assert_eq!(report.points.last().unwrap().observed_mean, 1.0e307);
     }
 
     #[test]
