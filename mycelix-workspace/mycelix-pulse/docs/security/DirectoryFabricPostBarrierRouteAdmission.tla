@@ -232,9 +232,9 @@ NoActiveRouteBelowAcknowledgedHighWater ==
     globalBarrierAcknowledged =>
         \A o \in Owners :
             routeState[o] = "active" =>
-                (ownerEpoch[o] > ownerHighWaterEpoch[o])
-                \/ /\ ownerEpoch[o] = ownerHighWaterEpoch[o]
-                   /\ ownerGeneration[o] >= ownerHighWaterGeneration[o]
+                (ownerEpoch[o] > ownerHighWaterEpoch[o]
+                 \/ (ownerEpoch[o] = ownerHighWaterEpoch[o]
+                     /\ ownerGeneration[o] >= ownerHighWaterGeneration[o]))
 
 NoUnfencedNewRoute ==
     globalBarrierAcknowledged =>
