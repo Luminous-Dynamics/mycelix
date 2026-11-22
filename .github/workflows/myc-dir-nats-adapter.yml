@@ -91,11 +91,19 @@ jobs:
             myc-dir-postgres:/tmp/001_effect_owner.sql
           docker cp tools/myc-dir-fabric-reference/postgres/002_worker_claim_fencing.sql \
             myc-dir-postgres:/tmp/002_worker_claim_fencing.sql
+          docker cp tools/myc-dir-fabric-reference/postgres/003_owner_epoch_execution_attestation.sql \
+            myc-dir-postgres:/tmp/003_owner_epoch_execution_attestation.sql
+          docker cp tools/myc-dir-fabric-reference/postgres/tests/003_owner_epoch_execution_attestation.sql \
+            myc-dir-postgres:/tmp/test_003_owner_epoch_execution_attestation.sql
 
           docker exec myc-dir-postgres psql -U postgres -d postgres \
             -v ON_ERROR_STOP=1 -f /tmp/001_effect_owner.sql
           docker exec myc-dir-postgres psql -U postgres -d postgres \
             -v ON_ERROR_STOP=1 -f /tmp/002_worker_claim_fencing.sql
+          docker exec myc-dir-postgres psql -U postgres -d postgres \
+            -v ON_ERROR_STOP=1 -f /tmp/003_owner_epoch_execution_attestation.sql
+          docker exec myc-dir-postgres psql -U postgres -d postgres \
+            -v ON_ERROR_STOP=1 -f /tmp/test_003_owner_epoch_execution_attestation.sql
 
       - name: Start pinned NATS server with JetStream domain
         shell: bash
