@@ -36,6 +36,7 @@ DECLARE
     v_advanced RECORD;
     v_attestation myc_effect_owner.effect_execution_attestations%ROWTYPE;
     v_current_claim_epoch BIGINT;
+    v_current_claim_owner_epoch BIGINT;
     v_rejected BOOLEAN;
 BEGIN
     INSERT INTO myc_effect_owner.effect_fence_state (
@@ -214,6 +215,28 @@ BEGIN
         RAISE EXCEPTION 'exact replay did not preserve the original execution attestation';
     END IF;
 
+    -- Even when the command presents the current owner epoch and generation,
+    -- an old worker claim from epoch 1 is invalid until a fresh epoch-2 claim is
+    -- explicitly installed.
+    v_rejected := FALSE;
+    BEGIN
+        PERFORM *
+          FROM myc_effect_owner.apply_owner_epoch_claim_fenced_balance_delta(
+            v_realm, v_resource, v_action, v_owner, v_object, v_currency,
+            2, 2, v_idem_b, v_operation_b,
+            v_request_b, v_decision, v_payload_b, 50,
+            v_worker_b, 1, v_claim_b,
+            'postgres-db-clock-v1',
+            clock_timestamp() - interval '1 minute',
+            clock_timestamp() + interval '1 hour'
+        );
+    EXCEPTION WHEN SQLSTATE 'P0001' THEN
+        v_rejected := TRUE;
+    END;
+    IF NOT v_rejected THEN
+        RAISE EXCEPTION 'worker claim from the previous owner epoch unexpectedly executed';
+    END IF;
+
     -- A new effect under epoch 2 must produce a fresh attestation with the new
     -- owner epoch, current generation and the currently installed worker claim.
     SELECT myc_effect_owner.install_worker_claim_for_owner_epoch(
@@ -223,6 +246,18 @@ BEGIN
         clock_timestamp() - interval '1 minute',
         clock_timestamp() + interval '1 hour'
     ) INTO v_current_claim_epoch;
+
+    SELECT owner_epoch, claim_epoch
+      INTO v_current_claim_owner_epoch, v_current_claim_epoch
+      FROM myc_effect_owner.worker_claim_state
+     WHERE realm_id = v_realm
+       AND resource_id = v_resource
+       AND action_id = v_action
+       AND effect_owner_id = v_owner
+       AND logical_operation_id = v_operation_b;
+    IF v_current_claim_owner_epoch <> 2 OR v_current_claim_epoch <> 2 THEN
+        RAISE EXCEPTION 'worker claim row does not preserve the current owner epoch / renewed claim epoch';
+    END IF;
 
     SELECT * INTO v_result
       FROM myc_effect_owner.apply_owner_epoch_claim_fenced_balance_delta(
