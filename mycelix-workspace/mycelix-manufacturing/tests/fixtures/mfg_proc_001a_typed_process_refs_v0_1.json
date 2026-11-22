@@ -130,7 +130,65 @@
       "expected_state": "OwnerObjectVerified",
       "reachable_in_v0_1": false,
       "may_satisfy_typed_matching": false
+    },
+    {
+      "id": "MFG-PROC-001A-011",
+      "description": "Machine carries a typed process capability reference but remains unverified and unqualified",
+      "subject": "machine_process_capability_ref",
+      "record": {
+        "capability_profile": {
+          "owner_repository": "Luminous-Dynamics/symthaea",
+          "owner_commit": "0b3feb49a3c2e9c1c1748ca2a0c0ff40ed320ecd",
+          "contract_crate": "symthaea-manufacturing-contracts",
+          "contract_type": "ProcessCapabilityProfileV1",
+          "object_id_blake3": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "process_id_blake3": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "semantic_version": "1.0.0"
+        }
+      },
+      "expected_state": "TypedReferencePresent",
+      "may_satisfy_typed_matching": false
+    },
+    {
+      "id": "MFG-PROC-001A-012",
+      "description": "Process registry stores only exact external process pointer and display metadata",
+      "subject": "process_registry_entry",
+      "record": {
+        "process_definition_ref": {
+          "owner_repository": "Luminous-Dynamics/symthaea",
+          "owner_commit": "0b3feb49a3c2e9c1c1748ca2a0c0ff40ed320ecd",
+          "contract_crate": "symthaea-manufacturing-process",
+          "contract_type": "ProcessDefinitionV1",
+          "object_id_blake3": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "process_id_blake3": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "semantic_version": "1.0.0"
+        },
+        "display_label": "Material extrusion",
+        "tags": [
+          "additive",
+          "material-extrusion"
+        ],
+        "status": "Active",
+        "supersedes_process_ref": null
+      },
+      "expected_state": "TypedReferencePresent",
+      "may_satisfy_typed_matching": false
+    },
+    {
+      "id": "MFG-PROC-001A-013",
+      "description": "Duplicate registry tags are invalid",
+      "subject": "process_registry_entry",
+      "mutation": "tags=[additive,additive]",
+      "expected_state": "TypedReferenceMalformed",
+      "may_satisfy_typed_matching": false
+    },
+    {
+      "id": "MFG-PROC-001A-014",
+      "description": "A syntactically valid external process pointer is not a qualified production capability",
+      "subject": "process_registry_entry",
+      "expected_state": "OwnerObjectUnavailable",
+      "may_satisfy_typed_matching": false
     }
   ],
-  "claim_ceiling": "All fixtures are synthetic contract examples. The source API is pinned to an open Symthaea draft commit and has not been qualified on current main. No external object is fetched/authenticated here; no process, machine or manufacturing route is qualified."
+  "claim_ceiling": "All fixtures are synthetic contract examples. The Symthaea source API is pinned to an open draft commit and has not been qualified on current main. No external object is fetched/authenticated here; no process, resource, machine or manufacturing route is qualified. Even OwnerObjectVerified is unreachable in this tranche."
 }
