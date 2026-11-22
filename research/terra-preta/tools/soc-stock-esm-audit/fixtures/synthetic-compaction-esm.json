@@ -13,7 +13,7 @@
   },
   "config": {
     "fixed_depth_cm": 30,
-    "reference_fine_earth_mass_Mg_per_ha": 3960,
+    "reference_fine_earth_mass_megagrams_per_ha": 3960,
     "minimum_cores_per_round": 2
   },
   "observation_rounds": [
@@ -30,25 +30,25 @@
               "layer_id": "0-10",
               "depth_top_cm": 0,
               "depth_bottom_cm": 10,
-              "dry_soil_mass_Mg_per_ha": 1400,
+              "dry_soil_mass_megagrams_per_ha": 1400,
               "coarse_fragment_mass_fraction": 0.1,
-              "soc_g_C_kg_fine_earth": 10
+              "soc_grams_carbon_per_kg_fine_earth": 10
             },
             {
               "layer_id": "10-30",
               "depth_top_cm": 10,
               "depth_bottom_cm": 30,
-              "dry_soil_mass_Mg_per_ha": 3000,
+              "dry_soil_mass_megagrams_per_ha": 3000,
               "coarse_fragment_mass_fraction": 0.1,
-              "soc_g_C_kg_fine_earth": 10
+              "soc_grams_carbon_per_kg_fine_earth": 10
             },
             {
               "layer_id": "30-40",
               "depth_top_cm": 30,
               "depth_bottom_cm": 40,
-              "dry_soil_mass_Mg_per_ha": 1600,
+              "dry_soil_mass_megagrams_per_ha": 1600,
               "coarse_fragment_mass_fraction": 0.1,
-              "soc_g_C_kg_fine_earth": 10
+              "soc_grams_carbon_per_kg_fine_earth": 10
             }
           ]
         },
@@ -60,25 +60,25 @@
               "layer_id": "0-10",
               "depth_top_cm": 0,
               "depth_bottom_cm": 10,
-              "dry_soil_mass_Mg_per_ha": 1400,
+              "dry_soil_mass_megagrams_per_ha": 1400,
               "coarse_fragment_mass_fraction": 0.1,
-              "soc_g_C_kg_fine_earth": 9.8
+              "soc_grams_carbon_per_kg_fine_earth": 9.8
             },
             {
               "layer_id": "10-30",
               "depth_top_cm": 10,
               "depth_bottom_cm": 30,
-              "dry_soil_mass_Mg_per_ha": 3000,
+              "dry_soil_mass_megagrams_per_ha": 3000,
               "coarse_fragment_mass_fraction": 0.1,
-              "soc_g_C_kg_fine_earth": 9.8
+              "soc_grams_carbon_per_kg_fine_earth": 9.8
             },
             {
               "layer_id": "30-40",
               "depth_top_cm": 30,
               "depth_bottom_cm": 40,
-              "dry_soil_mass_Mg_per_ha": 1600,
+              "dry_soil_mass_megagrams_per_ha": 1600,
               "coarse_fragment_mass_fraction": 0.1,
-              "soc_g_C_kg_fine_earth": 9.8
+              "soc_grams_carbon_per_kg_fine_earth": 9.8
             }
           ]
         }
@@ -97,25 +97,25 @@
               "layer_id": "0-10",
               "depth_top_cm": 0,
               "depth_bottom_cm": 10,
-              "dry_soil_mass_Mg_per_ha": 1540,
+              "dry_soil_mass_megagrams_per_ha": 1540,
               "coarse_fragment_mass_fraction": 0.1,
-              "soc_g_C_kg_fine_earth": 10
+              "soc_grams_carbon_per_kg_fine_earth": 10
             },
             {
               "layer_id": "10-30",
               "depth_top_cm": 10,
               "depth_bottom_cm": 30,
-              "dry_soil_mass_Mg_per_ha": 3300,
+              "dry_soil_mass_megagrams_per_ha": 3300,
               "coarse_fragment_mass_fraction": 0.1,
-              "soc_g_C_kg_fine_earth": 10
+              "soc_grams_carbon_per_kg_fine_earth": 10
             },
             {
               "layer_id": "30-40",
               "depth_top_cm": 30,
               "depth_bottom_cm": 40,
-              "dry_soil_mass_Mg_per_ha": 1760,
+              "dry_soil_mass_megagrams_per_ha": 1760,
               "coarse_fragment_mass_fraction": 0.1,
-              "soc_g_C_kg_fine_earth": 10
+              "soc_grams_carbon_per_kg_fine_earth": 10
             }
           ]
         },
@@ -127,25 +127,25 @@
               "layer_id": "0-10",
               "depth_top_cm": 0,
               "depth_bottom_cm": 10,
-              "dry_soil_mass_Mg_per_ha": 1540,
+              "dry_soil_mass_megagrams_per_ha": 1540,
               "coarse_fragment_mass_fraction": 0.1,
-              "soc_g_C_kg_fine_earth": 9.8
+              "soc_grams_carbon_per_kg_fine_earth": 9.8
             },
             {
               "layer_id": "10-30",
               "depth_top_cm": 10,
               "depth_bottom_cm": 30,
-              "dry_soil_mass_Mg_per_ha": 3300,
+              "dry_soil_mass_megagrams_per_ha": 3300,
               "coarse_fragment_mass_fraction": 0.1,
-              "soc_g_C_kg_fine_earth": 9.8
+              "soc_grams_carbon_per_kg_fine_earth": 9.8
             },
             {
               "layer_id": "30-40",
               "depth_top_cm": 30,
               "depth_bottom_cm": 40,
-              "dry_soil_mass_Mg_per_ha": 1760,
+              "dry_soil_mass_megagrams_per_ha": 1760,
               "coarse_fragment_mass_fraction": 0.1,
-              "soc_g_C_kg_fine_earth": 9.8
+              "soc_grams_carbon_per_kg_fine_earth": 9.8
             }
           ]
         }
