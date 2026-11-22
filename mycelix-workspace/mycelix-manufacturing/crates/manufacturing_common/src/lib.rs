@@ -663,6 +663,36 @@ mod tests {
     }
 
     #[test]
+    fn reference_resolution_never_upgrades_syntax_to_owner_verification() {
+        assert_eq!(
+            process_binding_resolution(None),
+            ProcessReferenceResolutionV1::LegacyUnbound
+        );
+        let process = ProcessDefinitionRefV1(manufacturing_ref(
+            "ProcessDefinitionV1",
+            SYMTHAEA_PROCESS_CRATE,
+            'a',
+        ));
+        let binding = ProcessBindingV1 {
+            process_definition: process,
+            capability_requirement: ProcessCapabilityRequirementRefV1(manufacturing_ref(
+                "ProcessCapabilityRequirementV1",
+                SYMTHAEA_CONTRACTS_CRATE,
+                'b',
+            )),
+            recipe: None,
+        };
+        assert_eq!(
+            process_binding_resolution(Some(&binding)),
+            ProcessReferenceResolutionV1::TypedReferencePresent
+        );
+        assert_ne!(
+            process_binding_resolution(Some(&binding)),
+            ProcessReferenceResolutionV1::OwnerObjectVerified
+        );
+    }
+
+    #[test]
     fn typed_process_definition_ref_requires_exact_pinned_owner_and_type() {
         let mut reference = manufacturing_ref(
             "ProcessDefinitionV1",
