@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
@@ -74,8 +74,9 @@ struct ResourceCostModel {
 #[serde(deny_unknown_fields)]
 struct CandidateObservation {
     observation_id: String,
+    decision_time_hours: f64,
     time_hours: f64,
-    response_value: f64,
+    available_observation_ids: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -87,6 +88,7 @@ struct Report {
     policy_name: String,
     truth_sha256: String,
     schedule_sha256: String,
+    policy_evaluator_isolation_status: &'static str,
     truth_observation_count: usize,
     candidate_sample_count: usize,
     sample_fraction: f64,
@@ -129,11 +131,11 @@ struct PulseResult {
 
 #[derive(Debug, Serialize)]
 struct Controls {
-    candidate_values_bind_to_truth_source: bool,
+    candidate_timestamps_bind_to_truth_source: bool,
     strict_schedule_order_pass: bool,
     no_duplicate_sample_time_pass: bool,
     no_interpolation_pass: bool,
-    evaluator_only_truth_separation_pass: bool,
+    decision_information_causality_pass: bool,
     no_scalar_cost_aggregation_pass: bool,
 }
 
@@ -235,36 +237,76 @@ fn validate_schedule(s: &Schedule, t: &Truth) -> Result<(), String> {
     if s.maximum_gap_for_pulse_integral_hours <= 0.0 || s.wakeup_gap_threshold_hours <= 0.0 {
         return Err("gap thresholds must be positive".into());
     }
+
+    // A candidate file is a frozen schedule/action trace, not a source of
+    // response values. The evaluator joins exact timestamps to hidden truth
+    // only after the trace has been submitted.
     let mut ids = BTreeSet::new();
-    let mut prior: Option<f64> = None;
-    for o in &s.observations {
-        if o.observation_id.trim().is_empty() || !ids.insert(o.observation_id.clone()) {
+    let mut previously_sampled: BTreeMap<String, f64> = BTreeMap::new();
+    let mut prior_sample_time: Option<f64> = None;
+    let mut prior_decision_time: Option<f64> = None;
+
+    for observation in &s.observations {
+        if observation.observation_id.trim().is_empty()
+            || !ids.insert(observation.observation_id.clone())
+        {
             return Err("candidate observation IDs must be non-empty and unique".into());
         }
-        finite("candidate observation time", o.time_hours)?;
-        finite("candidate response value", o.response_value)?;
-        if let Some(prev) = prior
-            && o.time_hours <= prev
+        finite("candidate decision time", observation.decision_time_hours)?;
+        finite("candidate observation time", observation.time_hours)?;
+
+        if observation.decision_time_hours > observation.time_hours {
+            return Err(format!(
+                "decision for {} occurs after its requested observation time",
+                observation.observation_id
+            ));
+        }
+        if let Some(previous) = prior_decision_time
+            && observation.decision_time_hours <= previous
+        {
+            return Err("candidate decision times must increase strictly".into());
+        }
+        if let Some(previous) = prior_sample_time
+            && observation.time_hours <= previous
         {
             return Err("candidate observation times must increase strictly".into());
         }
-        prior = Some(o.time_hours);
-        let truth = t
-            .samples
-            .iter()
-            .find(|x| x.time_hours == o.time_hours)
-            .ok_or_else(|| {
+
+        let mut available_ids = BTreeSet::new();
+        for available_id in &observation.available_observation_ids {
+            if !available_ids.insert(available_id) {
+                return Err(format!(
+                    "decision for {} repeats an available observation ID",
+                    observation.observation_id
+                ));
+            }
+            let sampled_at = previously_sampled.get(available_id).ok_or_else(|| {
                 format!(
-                    "candidate time {} is not present in known-truth source",
-                    o.time_hours
+                    "decision for {} references an unknown or future observation {}",
+                    observation.observation_id, available_id
                 )
             })?;
-        if (truth.response_value - o.response_value).abs() > 1e-9 {
+            if *sampled_at > observation.decision_time_hours {
+                return Err(format!(
+                    "decision for {} references observation {} before it was sampled",
+                    observation.observation_id, available_id
+                ));
+            }
+        }
+
+        if !t.samples.iter().any(|truth| truth.time_hours == observation.time_hours) {
             return Err(format!(
-                "candidate observation {} does not match source value",
-                o.observation_id
+                "candidate time {} is not present in known-truth source",
+                observation.time_hours
             ));
         }
+
+        prior_sample_time = Some(observation.time_hours);
+        prior_decision_time = Some(observation.decision_time_hours);
+        previously_sampled.insert(
+            observation.observation_id.clone(),
+            observation.time_hours,
+        );
     }
     Ok(())
 }
@@ -278,6 +320,14 @@ fn integrate(samples: &[TruthSample], baseline: f64) -> f64 {
             0.5 * (a + b) * (pair[1].time_hours - pair[0].time_hours)
         })
         .sum()
+}
+
+fn truth_value_at(t: &Truth, time_hours: f64) -> f64 {
+    t.samples
+        .iter()
+        .find(|sample| sample.time_hours == time_hours)
+        .expect("schedule validation requires exact truth timestamp")
+        .response_value
 }
 
 fn pulse_result(t: &Truth, s: &Schedule, p: &Pulse) -> PulseResult {
@@ -304,20 +354,24 @@ fn pulse_result(t: &Truth, s: &Schedule, p: &Pulse) -> PulseResult {
         .iter()
         .filter(|x| x.time_hours >= p.start_hours && x.time_hours <= p.end_hours)
         .collect();
-    let observed_peak = observed
+    let observed_values: Vec<(&CandidateObservation, f64)> = observed
+        .iter()
+        .map(|sample| (*sample, truth_value_at(t, sample.time_hours)))
+        .collect();
+    let observed_peak = observed_values
         .iter()
         .copied()
-        .max_by(|a, b| a.response_value.total_cmp(&b.response_value));
-    let detected = observed.len() >= p.minimum_detected_samples
-        && observed
-            .iter()
-            .any(|x| x.response_value - t.baseline_value > t.detection_threshold_above_baseline);
+        .max_by(|a, b| a.1.total_cmp(&b.1));
+    let detected = observed_values.len() >= p.minimum_detected_samples
+        && observed_values.iter().any(|(_, value)| {
+            *value - t.baseline_value > t.detection_threshold_above_baseline
+        });
     let candidate_peak = if detected {
-        observed_peak.map(|x| x.response_value)
+        observed_peak.map(|(_, value)| value)
     } else {
         None
     };
-    let peak_error = candidate_peak.map(|x| (x - truth_peak.response_value).abs());
+    let peak_error = candidate_peak.map(|value| (value - truth_peak.response_value).abs());
 
     let has_start = observed.iter().any(|x| x.time_hours == p.start_hours);
     let has_end = observed.iter().any(|x| x.time_hours == p.end_hours);
@@ -332,12 +386,12 @@ fn pulse_result(t: &Truth, s: &Schedule, p: &Pulse) -> PulseResult {
         if gap_exceeded {
             (None, "gap_exceeded")
         } else {
-            let value: f64 = observed
+            let value: f64 = observed_values
                 .windows(2)
                 .map(|pair| {
-                    let a = (pair[0].response_value - t.baseline_value).max(0.0);
-                    let b = (pair[1].response_value - t.baseline_value).max(0.0);
-                    0.5 * (a + b) * (pair[1].time_hours - pair[0].time_hours)
+                    let a = (pair[0].1 - t.baseline_value).max(0.0);
+                    let b = (pair[1].1 - t.baseline_value).max(0.0);
+                    0.5 * (a + b) * (pair[1].0.time_hours - pair[0].0.time_hours)
                 })
                 .sum();
             (Some(value), "qualified_complete_pulse_integral")
@@ -369,11 +423,12 @@ fn build_report(t: &Truth, s: &Schedule, truth_digest: String, schedule_digest: 
     let false_alarm_count = s
         .observations
         .iter()
-        .filter(|o| {
-            !t.pulses
-                .iter()
-                .any(|p| o.time_hours >= p.start_hours && o.time_hours <= p.end_hours)
-                && o.response_value - t.baseline_value > t.detection_threshold_above_baseline
+        .filter(|observation| {
+            !t.pulses.iter().any(|pulse| {
+                observation.time_hours >= pulse.start_hours
+                    && observation.time_hours <= pulse.end_hours
+            }) && truth_value_at(t, observation.time_hours) - t.baseline_value
+                > t.detection_threshold_above_baseline
         })
         .count();
     let max_gap = s
@@ -402,6 +457,7 @@ fn build_report(t: &Truth, s: &Schedule, truth_digest: String, schedule_digest: 
         policy_name: s.policy_name.clone(),
         truth_sha256: truth_digest,
         schedule_sha256: schedule_digest,
+        policy_evaluator_isolation_status: "not_enforced_by_offline_evaluator",
         truth_observation_count: t.samples.len(),
         candidate_sample_count: s.observations.len(),
         sample_fraction: s.observations.len() as f64 / t.samples.len() as f64,
@@ -426,11 +482,11 @@ fn build_report(t: &Truth, s: &Schedule, truth_digest: String, schedule_digest: 
         },
         pulses,
         controls: Controls {
-            candidate_values_bind_to_truth_source: true,
+            candidate_timestamps_bind_to_truth_source: true,
             strict_schedule_order_pass: true,
             no_duplicate_sample_time_pass: true,
             no_interpolation_pass: true,
-            evaluator_only_truth_separation_pass: true,
+            decision_information_causality_pass: true,
             no_scalar_cost_aggregation_pass: true,
         },
         interpretation_boundary: BOUNDARY,
@@ -557,13 +613,42 @@ mod tests {
     }
 
     #[test]
-    fn candidate_cannot_fabricate_or_interpolate_unobserved_values() {
-        let (t, mut s) = load();
-        s.observations[0].response_value += 0.01;
-        assert!(validate_schedule(&s, &t).is_err());
+    fn candidate_cannot_request_an_unobserved_timestamp() {
         let (t, mut s) = load();
         s.observations[0].time_hours += 0.01;
         assert!(validate_schedule(&s, &t).is_err());
+    }
+
+    #[test]
+    fn decision_cannot_reference_future_or_unknown_observation() {
+        let (t, mut s) = load();
+        let future_id = s.observations.last().unwrap().observation_id.clone();
+        s.observations[0].available_observation_ids.push(future_id);
+        assert!(validate_schedule(&s, &t).is_err());
+
+        let (t, mut s) = load();
+        s.observations[0]
+            .available_observation_ids
+            .push("not-a-scheduled-observation".into());
+        assert!(validate_schedule(&s, &t).is_err());
+    }
+
+    #[test]
+    fn decision_cannot_use_an_observation_before_it_was_acquired() {
+        let (t, mut s) = load();
+        s.observations[1].decision_time_hours = s.observations[0].time_hours - 0.01;
+        assert!(validate_schedule(&s, &t).is_err());
+    }
+
+    #[test]
+    fn offline_evaluator_does_not_claim_process_isolation() {
+        let (t, s) = load();
+        let report = build_report(&t, &s, "0".repeat(64), "1".repeat(64));
+        assert_eq!(
+            report.policy_evaluator_isolation_status,
+            "not_enforced_by_offline_evaluator"
+        );
+        assert!(report.controls.decision_information_causality_pass);
     }
 
     #[test]
