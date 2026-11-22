@@ -305,10 +305,7 @@ fn validate(s: &Scenario) -> Result<(), String> {
             assay.role.as_str(),
             "calibration_reference" | "independent_validation_reference"
         ) {
-            return Err(format!(
-                "assay {} has unsupported role",
-                assay.assay_id
-            ));
+            return Err(format!("assay {} has unsupported role", assay.assay_id));
         }
         for (name, value) in [
             ("reference assay value", assay.value),
