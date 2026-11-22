@@ -52,7 +52,7 @@ async fn provision_adapter() -> (JetStreamAdapter, String, String) {
             durable_consumer: durable,
             duplicate_window: Duration::from_secs(30),
             expected_stream_replicas: 1,
-            expected_domain: Some("MYCELIX".into()),
+            expected_domain: None,
             expected_account_hash: None,
             ack_wait: Duration::from_millis(500),
             max_ack_pending: 32,
