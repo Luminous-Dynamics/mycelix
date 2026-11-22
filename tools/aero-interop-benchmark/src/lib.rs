@@ -1291,7 +1291,7 @@ mod tests {
             receipt: Some(&receipt),
             payloads: &run_payloads,
             observed_claims: &[],
-            reason_code: Some("ADAPTER_TIMEOUT".into()),
+            reason_code: Some("ADAPTER_TIMEOUT"),
         };
         let score = evaluate_benchmark(&manifest, &corpus_borrowed, &[run]).unwrap();
         let tool = &score.tools[0];
@@ -1317,7 +1317,7 @@ mod tests {
             receipt: None,
             payloads: &[],
             observed_claims: &[],
-            reason_code: Some("RIGHTS_REVIEW_BLOCKED".into()),
+            reason_code: Some("RIGHTS_REVIEW_BLOCKED"),
         };
         let score = evaluate_benchmark(&manifest, &corpus_borrowed, &[run]).unwrap();
         let tool = &score.tools[0];
