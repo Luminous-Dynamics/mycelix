@@ -87,7 +87,7 @@
     "offer_id": "offer:machine-7:polymer-extrusion",
     "lifecycle_event_refs": []
   },
-  "case_count": 18,
+  "case_count": 17,
   "cases": [
     {
       "id": "MFG-PROC-001B-001",
@@ -268,17 +268,6 @@
     {
       "id": "MFG-PROC-001B-017",
       "description": "A provider cannot make an offer supersede itself by pointing to its own immutable offer ID and revision",
-      "expected_structural_state": "TypedOfferMalformed",
-      "mutation": "supersedes_offer_ref.subject_id=offer_id;supersedes_offer_ref.source_revision=offer_revision",
-      "may_promote_to_qualified_capability": false,
-      "may_claim_calendar_available": false,
-      "may_claim_bookable_capacity": false,
-      "may_claim_reserved_capacity": false,
-      "may_claim_executed_output": false
-    },
-    {
-      "id": "MFG-PROC-001B-017",
-      "description": "Self-supersession is invalid even when the referenced owner payload and digest are well-formed",
       "expected_structural_state": "TypedOfferMalformed",
       "mutation": "supersedes_offer_ref.subject_id=offer_id;supersedes_offer_ref.source_revision=offer_revision",
       "may_promote_to_qualified_capability": false,
