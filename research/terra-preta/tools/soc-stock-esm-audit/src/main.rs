@@ -294,12 +294,18 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 for (name, value) in [
                     ("depth_top_cm", layer.depth_top_cm),
                     ("depth_bottom_cm", layer.depth_bottom_cm),
-                    ("dry_soil_mass_megagrams_per_ha", layer.dry_soil_mass_megagrams_per_ha),
+                    (
+                        "dry_soil_mass_megagrams_per_ha",
+                        layer.dry_soil_mass_megagrams_per_ha,
+                    ),
                     (
                         "coarse_fragment_mass_fraction",
                         layer.coarse_fragment_mass_fraction,
                     ),
-                    ("soc_grams_carbon_per_kg_fine_earth", layer.soc_grams_carbon_per_kg_fine_earth),
+                    (
+                        "soc_grams_carbon_per_kg_fine_earth",
+                        layer.soc_grams_carbon_per_kg_fine_earth,
+                    ),
                 ] {
                     finite(name, value)?;
                 }
@@ -484,7 +490,9 @@ fn build_report(s: &Scenario, input_sha256: String) -> Result<Report, String> {
         scenario_id: s.scenario_id.clone(),
         input_sha256,
         fixed_depth_cm: s.config.fixed_depth_cm,
-        reference_fine_earth_mass_megagrams_per_ha: s.config.reference_fine_earth_mass_megagrams_per_ha,
+        reference_fine_earth_mass_megagrams_per_ha: s
+            .config
+            .reference_fine_earth_mass_megagrams_per_ha,
         fine_earth_mass_basis: FINE_EARTH_BASIS,
         coarse_fragment_basis: COARSE_BASIS,
         uncertainty_status: UNCERTAINTY_STATUS,
@@ -492,9 +500,12 @@ fn build_report(s: &Scenario, input_sha256: String) -> Result<Report, String> {
         temporal_change: TemporalChange {
             first_round_id: first.round_id.clone(),
             last_round_id: last.round_id.clone(),
-            fixed_depth_stock_change_megagrams_carbon_per_ha: last.mean_fixed_depth_soc_stock_megagrams_carbon_per_ha
+            fixed_depth_stock_change_megagrams_carbon_per_ha: last
+                .mean_fixed_depth_soc_stock_megagrams_carbon_per_ha
                 - first.mean_fixed_depth_soc_stock_megagrams_carbon_per_ha,
-            esm_stock_change_megagrams_carbon_per_ha: last.mean_esm_soc_stock_megagrams_carbon_per_ha - first.mean_esm_soc_stock_megagrams_carbon_per_ha,
+            esm_stock_change_megagrams_carbon_per_ha: last
+                .mean_esm_soc_stock_megagrams_carbon_per_ha
+                - first.mean_esm_soc_stock_megagrams_carbon_per_ha,
             interpretation: "Descriptive difference between round means for one experimental unit; within-round core dispersion is subsampling variation, not independent treatment replication or causal effect.",
         },
         controls: Controls {
@@ -562,12 +573,34 @@ mod tests {
         let s = scenario();
         validate(&s).expect("valid synthetic compaction fixture");
         let report = build_report(&s, "0".repeat(64)).expect("report builds");
-        approx(report.rounds[0].mean_fixed_depth_soc_stock_megagrams_carbon_per_ha, 39.204);
-        approx(report.rounds[1].mean_fixed_depth_soc_stock_megagrams_carbon_per_ha, 43.1244);
-        approx(report.rounds[0].mean_esm_soc_stock_megagrams_carbon_per_ha, 39.204);
-        approx(report.rounds[1].mean_esm_soc_stock_megagrams_carbon_per_ha, 39.204);
-        approx(report.temporal_change.esm_stock_change_megagrams_carbon_per_ha, 0.0);
-        assert!(report.temporal_change.fixed_depth_stock_change_megagrams_carbon_per_ha > 3.9);
+        approx(
+            report.rounds[0].mean_fixed_depth_soc_stock_megagrams_carbon_per_ha,
+            39.204,
+        );
+        approx(
+            report.rounds[1].mean_fixed_depth_soc_stock_megagrams_carbon_per_ha,
+            43.1244,
+        );
+        approx(
+            report.rounds[0].mean_esm_soc_stock_megagrams_carbon_per_ha,
+            39.204,
+        );
+        approx(
+            report.rounds[1].mean_esm_soc_stock_megagrams_carbon_per_ha,
+            39.204,
+        );
+        approx(
+            report
+                .temporal_change
+                .esm_stock_change_megagrams_carbon_per_ha,
+            0.0,
+        );
+        assert!(
+            report
+                .temporal_change
+                .fixed_depth_stock_change_megagrams_carbon_per_ha
+                > 3.9
+        );
     }
 
     #[test]
@@ -589,7 +622,10 @@ mod tests {
         s.config.reference_fine_earth_mass_megagrams_per_ha = 2000.0;
         validate(&s).expect("reference mass is supported");
         let report = build_report(&s, "0".repeat(64)).expect("report builds");
-        approx(report.rounds[0].profiles[0].esm_soc_stock_megagrams_carbon_per_ha, 20.0);
+        approx(
+            report.rounds[0].profiles[0].esm_soc_stock_megagrams_carbon_per_ha,
+            20.0,
+        );
         assert!(report.rounds[0].profiles[0].esm_partial_layer_used);
     }
 
