@@ -43,7 +43,7 @@ pub struct RoutingStepEntry {
     /// Absent on legacy routing steps; legacy operation_name/machine_type
     /// remain descriptive compatibility fields only.
     #[serde(default)]
-    pub process_binding: Option<ProcessBindingV1>,
+    pub process_binding: Option<Box<ProcessBindingV1>>,
 }
 
 /// Mycelix's distributed index to a canonical Symthaea process definition.
