@@ -261,6 +261,33 @@
       "finding_codes": [
         "RouteAdmissionBindingMismatch"
       ]
+    },
+    {
+      "id": "HO-020",
+      "class": "known_violation",
+      "description": "An owner acknowledgement substitutes the owner commit digest or durable read-back digest referenced by its exact fence and read-back events.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "OwnerAckBindingMismatch"
+      ]
+    },
+    {
+      "id": "HO-021",
+      "class": "known_violation",
+      "description": "A global barrier acknowledgement has a zero or absent commitment to the canonical owner acknowledgement set.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "GlobalBarrierAckBindingMismatch"
+      ]
+    },
+    {
+      "id": "HO-022",
+      "class": "known_violation",
+      "description": "A no-effect reconciliation lacks terminal-at-effect-owner evidence, so a delayed external effect may still arrive after retry.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "ReconciliationNotTerminalAtOwner"
+      ]
     }
   ],
   "comparator_methods": [
