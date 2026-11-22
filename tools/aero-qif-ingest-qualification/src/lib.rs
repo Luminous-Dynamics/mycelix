@@ -1156,6 +1156,17 @@ pub fn validate_ingest_qualification(
         }
     }
 
+    // A dropped source-semantic mapping is a primary extraction failure.
+    // Report it before downstream prerequisite failures so the loss cannot be
+    // hidden behind a secondary blocked-stage disposition.
+    if body
+        .extraction
+        .as_ref()
+        .is_some_and(|extraction| extraction.mapping_counts.dropped > 0)
+    {
+        return Err(IngestError::DroppedMappings);
+    }
+
     let prerequisite_pairs = [
         (
             ValidationStage::XsdStructure,
@@ -2108,8 +2119,15 @@ mod tests {
     fn duplicate_source_locator_is_rejected() {
         let (mut qualification, _) = fixture();
         let records = &mut qualification.body.extraction.as_mut().unwrap().mappings;
+        records[1].document_qpid = records[0].document_qpid.clone();
         records[1].source_path = records[0].source_path.clone();
         records[1].source_element_id = records[0].source_element_id;
+        records[1].local_reference_id = records[0].local_reference_id;
+        records[1].parent_external_document_reference_id =
+            records[0].parent_external_document_reference_id;
+        records[1].external_document_reference_id =
+            records[0].external_document_reference_id;
+        records[1].external_xid = records[0].external_xid;
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
         assert!(matches!(
             validate_ingest_qualification(&qualification),
