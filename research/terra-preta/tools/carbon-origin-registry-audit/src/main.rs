@@ -50,6 +50,7 @@ struct RegistryEntry {
     carbon_tranche_id: String,
     sink_type: String,
     batch_id: Option<String>,
+    batch_passport_sha256: Option<String>,
     field_id: String,
     spatial_overlap_group_id: String,
     geometry_sha256: String,
@@ -103,6 +104,8 @@ struct Report {
     claim_id: String,
     gross_soc_stock_change_mg_c: f64,
     overlapping_biochar_registry_entry_ids: Vec<String>,
+    overlapping_application_record_ids: Vec<String>,
+    matched_batch_passport_sha256s: Vec<String>,
     overlapping_biochar_credited_mg_c: f64,
     declared_biochar_correction_mg_c: f64,
     required_minimum_correction_mg_c: f64,
@@ -308,9 +311,11 @@ fn validate(s: &Scenario) -> Result<(), String> {
             ))?;
             if app.spatial_overlap_group_id != entry.spatial_overlap_group_id
                 || app.geometry_sha256 != entry.geometry_sha256
+                || entry.batch_passport_sha256.as_deref()
+                    != Some(app.batch_passport_sha256.as_str())
             {
                 return Err(format!(
-                    "biochar registry entry {} footprint differs from its application record",
+                    "biochar registry entry {} footprint or batch passport differs from its application record",
                     entry.registry_entry_id
                 ));
             }
@@ -327,7 +332,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
                     batch, entry.field_id
                 ));
             }
-        } else if entry.batch_id.is_some() || entry.application_date.is_some() {
+        } else if entry.batch_id.is_some()
+            || entry.batch_passport_sha256.is_some()
+            || entry.application_date.is_some()
+        {
             return Err("soil SOC registry entries must not carry batch application identity".into());
         }
     }
@@ -337,6 +345,8 @@ fn validate(s: &Scenario) -> Result<(), String> {
 fn build_report(s: &Scenario, input_sha256: String) -> Report {
     let claim = &s.soc_claim;
     let mut overlap_ids = Vec::new();
+    let mut overlap_application_ids = Vec::new();
+    let mut matched_batch_passports = Vec::new();
     let mut overlap_amount = 0.0;
     let mut duplicate_soc_overlap = false;
 
@@ -357,6 +367,14 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
                 let applied_on = entry.application_date.as_deref().unwrap_or("");
                 if date_inclusive(applied_on, &claim.period_start, &claim.period_end) {
                     overlap_ids.push(entry.registry_entry_id.clone());
+                    if let Some(app) = s.application_records.iter().find(|app| {
+                        Some(app.batch_id.as_str()) == entry.batch_id.as_deref()
+                            && app.field_id == entry.field_id
+                            && Some(app.application_date.as_str()) == entry.application_date.as_deref()
+                    }) {
+                        overlap_application_ids.push(app.application_record_id.clone());
+                        matched_batch_passports.push(app.batch_passport_sha256.clone());
+                    }
                     overlap_amount += entry.credited_mg_c;
                 }
             }
@@ -367,6 +385,9 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
         }
     }
     overlap_ids.sort();
+    overlap_application_ids.sort();
+    matched_batch_passports.sort();
+    matched_batch_passports.dedup();
 
     let spatial_resolved = claim.spatial_relationship_status == "exact_overlap_group_resolved";
     let correction_floor_pass = claim.declared_biochar_correction_mg_c + 1e-9 >= overlap_amount;
@@ -395,6 +416,8 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
         claim_id: claim.claim_id.clone(),
         gross_soc_stock_change_mg_c: claim.gross_soc_stock_change_mg_c,
         overlapping_biochar_registry_entry_ids: overlap_ids,
+        overlapping_application_record_ids: overlap_application_ids,
+        matched_batch_passport_sha256s: matched_batch_passports,
         overlapping_biochar_credited_mg_c: overlap_amount,
         declared_biochar_correction_mg_c: claim.declared_biochar_correction_mg_c,
         required_minimum_correction_mg_c: overlap_amount,
@@ -534,6 +557,14 @@ mod tests {
         s.registry_entries.push(old);
         let r = build_report(&s, "0".repeat(64));
         assert_eq!(r.eligibility_status, "blocked_overlapping_soc_claim");
+    }
+
+    #[test]
+    fn batch_passport_digest_must_match_registry_and_application_records() {
+        let mut s = scenario();
+        s.registry_entries[0].batch_passport_sha256 =
+            Some("9999999999999999999999999999999999999999999999999999999999999999".into());
+        assert!(validate(&s).is_err());
     }
 
     #[test]
