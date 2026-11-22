@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic evaluator-only soil event truth",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "evidence_class",
+    "scenario_id",
+    "response_variable",
+    "response_unit",
+    "measurement_operator",
+    "baseline_window",
+    "maximum_event_integration_gap_hours",
+    "truth_series",
+    "events"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "event-capture-truth-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_evaluator_only_truth_not_policy_input"
+    },
+    "evidence_class": {
+      "const": "synthetic"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "response_variable": {
+      "type": "string",
+      "minLength": 1
+    },
+    "response_unit": {
+      "type": "string",
+      "minLength": 1
+    },
+    "measurement_operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operator_id",
+        "temporal_support",
+        "noise_model"
+      ],
+      "properties": {
+        "operator_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "temporal_support": {
+          "const": "point_sample_at_exact_timestamp"
+        },
+        "noise_model": {
+          "const": "zero_noise_manufactured_truth"
+        }
+      }
+    },
+    "baseline_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start_hours",
+        "end_hours"
+      ],
+      "properties": {
+        "start_hours": {
+          "type": "number"
+        },
+        "end_hours": {
+          "type": "number"
+        }
+      }
+    },
+    "maximum_event_integration_gap_hours": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "truth_series": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "elapsed_hours",
+          "response_value",
+          "forcing_value"
+        ],
+        "properties": {
+          "elapsed_hours": {
+            "type": "number"
+          },
+          "response_value": {
+            "type": "number"
+          },
+          "forcing_value": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_id",
+          "event_type",
+          "start_hours",
+          "end_hours",
+          "minimum_detectable_absolute_departure"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "event_type": {
+            "enum": [
+              "rewetting_respiration_pulse",
+              "n_oxide_pulse",
+              "nutrient_export_pulse",
+              "hydraulic_transition",
+              "compound_event",
+              "other"
+            ]
+          },
+          "start_hours": {
+            "type": "number"
+          },
+          "end_hours": {
+            "type": "number"
+          },
+          "minimum_detectable_absolute_departure": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
+    }
+  }
+}
