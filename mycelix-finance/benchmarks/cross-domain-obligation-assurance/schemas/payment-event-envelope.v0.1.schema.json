@@ -1,0 +1,355 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/pcoe/payment-event-envelope.v0.1.schema.json",
+  "title": "PCOE Payment Event Envelope v0.1",
+  "description": "Interoperable signed event envelope. Schema validation does not verify signatures, digest calculation, or transparency receipts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_type",
+    "chain_id",
+    "event_id",
+    "payment_intent_id",
+    "sequence",
+    "previous_event_digest",
+    "event_digest",
+    "canonicalization_profile",
+    "issuer",
+    "event",
+    "signature",
+    "event_time",
+    "recorded_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "record_type": {
+      "const": "payment_event_envelope"
+    },
+    "chain_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "payment_intent_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "previous_event_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^sha-256:[0-9a-f]{64}$"
+        }
+      ]
+    },
+    "event_digest": {
+      "type": "string",
+      "pattern": "^sha-256:[0-9a-f]{64}$"
+    },
+    "canonicalization_profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "issuer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issuer_id",
+        "key_id"
+      ],
+      "properties": {
+        "issuer_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "key_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "agent_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "event": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "event_type",
+            "request_digest"
+          ],
+          "properties": {
+            "event_type": {
+              "const": "intent_submitted"
+            },
+            "request_digest": {
+              "type": "string",
+              "pattern": "^sha-256:[0-9a-f]{64}$"
+            },
+            "idempotency_key_digest": {
+              "type": "string",
+              "pattern": "^sha-256:[0-9a-f]{64}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "event_type",
+            "reason_code"
+          ],
+          "properties": {
+            "event_type": {
+              "const": "outcome_indeterminate"
+            },
+            "reason_code": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "reconciliation_reference": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "event_type",
+            "external_receipt_id",
+            "finality_policy_reference",
+            "amount_minor",
+            "currency",
+            "payer_id",
+            "payee_id",
+            "request_digest"
+          ],
+          "properties": {
+            "event_type": {
+              "const": "paid_final"
+            },
+            "external_receipt_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "finality_policy_reference": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "amount_minor": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            },
+            "currency": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            },
+            "payer_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "payee_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "request_digest": {
+              "type": "string",
+              "pattern": "^sha-256:[0-9a-f]{64}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "event_type",
+            "external_receipt_id",
+            "reason_reference"
+          ],
+          "properties": {
+            "event_type": {
+              "const": "rejected"
+            },
+            "external_receipt_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "reason_reference": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "event_type",
+            "attestor_a",
+            "attestor_b",
+            "evidence_reference"
+          ],
+          "properties": {
+            "event_type": {
+              "const": "manual_attested"
+            },
+            "attestor_a": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "attestor_b": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "evidence_reference": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "event_type",
+            "original_receipt_id",
+            "reversal_receipt_id",
+            "reason_reference",
+            "amount_minor",
+            "currency",
+            "request_digest"
+          ],
+          "properties": {
+            "event_type": {
+              "const": "reversal_recorded"
+            },
+            "original_receipt_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "reversal_receipt_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "reason_reference": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "amount_minor": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            },
+            "currency": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            },
+            "request_digest": {
+              "type": "string",
+              "pattern": "^sha-256:[0-9a-f]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "protected_header_digest",
+        "signature_value"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "protected_header_digest": {
+          "type": "string",
+          "pattern": "^sha-256:[0-9a-f]{64}$"
+        },
+        "signature_value": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 8192,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      }
+    },
+    "event_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "supersedes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "transparency_receipt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    }
+  }
+}
