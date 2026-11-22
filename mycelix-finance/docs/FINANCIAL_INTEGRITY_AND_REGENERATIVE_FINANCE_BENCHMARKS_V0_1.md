@@ -286,15 +286,15 @@ Compare accessibility, local knowledge, asset verification, liquidation experien
 
 ### Wholesale tokenized settlement: integrate with BIS Project Agorá
 
-Project Agorá has already demonstrated a prototype for wholesale cross-border payments using tokenized commercial-bank deposits and tokenized central-bank reserves on a shared programmable platform. The BIS and participating central banks have reported participation by more than 40 financial institutions. It is aimed at atomic multi-currency wholesale settlement, not community-scale retail credit or asset finance.
+Project Agorá has already demonstrated a prototype for wholesale cross-border payments using tokenized commercial-bank deposits and tokenized central-bank reserves on a shared programmable platform. The May 2026 BIS project report described a collaboration involving seven central banks and more than 40 regulated financial institutions. Its July 2026 real-value testing involved 28 financial institutions and central banks completing transactions totalling approximately CHF 800,000 across 17 scenarios; the BIS reported an average initiation-to-settlement time of approximately 80 seconds in the controlled prototype. This is a real-value prototype exercise, not evidence of broad production deployment, and the prototype was not integrated with existing RTGS and core banking systems.
 
-Mycelix should not claim to beat Agorá at central-bank-money settlement. The stronger strategy is to interoperate with regulated banks, PSPs and future wholesale tokenized-settlement rails. Mycelix's differentiation should be the upstream/downstream layer: evidence-backed productive collateral, small-business and cooperative financing, authority-bound agents, physical-project verification, local mutual credit, and portable community governance.
+It is aimed at atomic multi-currency wholesale settlement, not community-scale retail credit or asset finance. Mycelix should not claim to beat Agorá at central-bank-money settlement. The stronger strategy is to interoperate with regulated banks, PSPs and wholesale tokenized-settlement rails. Mycelix's differentiated layer should be upstream and downstream: evidence-backed productive collateral, small-business and cooperative financing, authority-bound agents, physical-project verification, local mutual credit, and portable community governance.
 
-Benchmark the external rail as a dependency: exact settlement-finality semantics, fees, availability, counterparty risk, reconciliation delay, FX transparency and failure/recovery behavior. A token wrapper around a bank transfer does not create atomic settlement.
+Benchmark the external rail as a dependency: exact settlement-finality semantics, fees, availability, counterparty risk, reconciliation delay, FX transparency and failure/recovery behavior. Use the Agorá real-value-test envelope as one reference workload, while also evaluating retail/community flows that the prototype was not designed to serve. A token wrapper around a bank transfer does not create atomic settlement.
 
 Sources:
-- BIS Project Agorá prototype outcome, 27 May 2026: https://www.bis.org/press/p260527.htm
-- BIS Project Agorá project page: https://www.bis.org/about/bisih/topics/cbdc/agora.htm
+- BIS Project Agorá report, 27 May 2026: https://www.bis.org/publications/project-agora-shared-programmable-platform-wholesale-cross-border-payments
+- BIS Project Agorá project page and July 2026 real-value test summary: https://www.bis.org/project/agora
 
 ### Stablecoins and tokenized money: exceed the assurance perimeter, not the ticker
 
