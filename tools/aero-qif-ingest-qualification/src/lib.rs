@@ -2125,8 +2125,7 @@ mod tests {
         records[1].local_reference_id = records[0].local_reference_id;
         records[1].parent_external_document_reference_id =
             records[0].parent_external_document_reference_id;
-        records[1].external_document_reference_id =
-            records[0].external_document_reference_id;
+        records[1].external_document_reference_id = records[0].external_document_reference_id;
         records[1].external_xid = records[0].external_xid;
         qualification.receipt_sha256 = compute_ingest_receipt_digest(&qualification).unwrap();
         assert!(matches!(
