@@ -1,0 +1,16 @@
+[package]
+name = "space-weighted-anytime-confidence"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Anytime-valid confidence sequences for bounded weighted rare-event contributions"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "space-weighted-anytime-confidence"
+path = "src/main.rs"
+
+[workspace]
