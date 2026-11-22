@@ -77,6 +77,8 @@ pub enum EventKind {
         inventory_epoch: u64,
         inventory_manifest_digest: Digest,
         route_set_digest: Digest,
+        owner_commit_digest: Digest,
+        durable_readback_digest: Digest,
     },
     InventoryClosed {
         revocation_digest: Digest,
@@ -93,6 +95,7 @@ pub enum EventKind {
         inventory_manifest_digest: Digest,
         route_set_digest: Digest,
         owner_ack_event_ids: BTreeSet<String>,
+        owner_ack_set_digest: Digest,
         coordinator_epoch: u64,
         coordinator_commit_digest: Digest,
     },
@@ -128,6 +131,8 @@ pub enum EventKind {
         attempt_number: u32,
         unknown_event_id: String,
         outcome: ReconciledOutcome,
+        terminal_at_effect_owner: bool,
+        reconciliation_evidence_digest: Digest,
         effect_commit_event_id: Option<String>,
     },
     RouteStaged {
@@ -322,6 +327,7 @@ struct FenceInfo {
     owner: String,
     sequence: u64,
     installed: FencePosition,
+    owner_commit_digest: Digest,
     revocation_digest: Digest,
     inventory_epoch: u64,
     inventory_manifest_digest: Digest,
@@ -999,6 +1005,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                             owner: owner.clone(),
                             sequence: event.owner_sequence.unwrap_or(0),
                             installed: *installed,
+                            owner_commit_digest: *owner_commit_digest,
                             revocation_digest: *revocation_digest,
                             inventory_epoch: *inventory_epoch,
                             inventory_manifest_digest: *inventory_manifest_digest,
@@ -1249,7 +1256,11 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                         "owner acknowledgement, fence commit and read-back are not the same owner/position",
                     );
                 }
-                if *revocation_digest != commit.revocation_digest
+                if *owner_commit_digest != commit.owner_commit_digest
+                    || *durable_readback_digest != readback.durable_readback_digest
+                    || !digest_is_nonzero(owner_commit_digest)
+                    || !digest_is_nonzero(durable_readback_digest)
+                    || *revocation_digest != commit.revocation_digest
                     || *inventory_epoch != commit.inventory_epoch
                     || *inventory_manifest_digest != commit.inventory_manifest_digest
                     || *route_set_digest != commit.route_set_digest
@@ -1317,6 +1328,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                     || *inventory_manifest_digest != inventory.inventory_manifest_digest
                     || *route_set_digest != inventory.route_set_digest
                     || *coordinator_epoch == 0
+                    || !digest_is_nonzero(owner_ack_set_digest)
                     || !digest_is_nonzero(coordinator_commit_digest)
                 {
                     findings.violation(
@@ -1941,6 +1953,8 @@ mod tests {
                     inventory_epoch: 7,
                     inventory_manifest_digest: digest(4),
                     route_set_digest: digest(5),
+                    owner_commit_digest: digest(9),
+                    durable_readback_digest: digest(11),
                 },
             ),
             record(
@@ -1955,6 +1969,8 @@ mod tests {
                     inventory_epoch: 7,
                     inventory_manifest_digest: digest(4),
                     route_set_digest: digest(5),
+                    owner_commit_digest: digest(12),
+                    durable_readback_digest: digest(13),
                 },
             ),
             record(
@@ -1972,6 +1988,7 @@ mod tests {
                         .into_iter()
                         .map(str::to_owned)
                         .collect(),
+                    owner_ack_set_digest: digest(18),
                     coordinator_epoch: 1,
                     coordinator_commit_digest: digest(14),
                 },
@@ -2250,6 +2267,8 @@ mod tests {
                 attempt_number: 1,
                 unknown_event_id: "unknown-a".into(),
                 outcome: ReconciledOutcome::ConfirmedNoEffect,
+                terminal_at_effect_owner: true,
+                reconciliation_evidence_digest: digest(20),
                 effect_commit_event_id: None,
             },
         ));
