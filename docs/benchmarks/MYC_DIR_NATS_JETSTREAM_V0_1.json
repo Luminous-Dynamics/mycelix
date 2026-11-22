@@ -291,6 +291,27 @@
       "kind": "performance",
       "unit": "seconds",
       "hard_limit": null
+    },
+    {
+      "id": "NJ-M35",
+      "name": "worker_claim_owner_epoch_mismatch_effects_committed",
+      "kind": "safety",
+      "unit": "effects",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M36",
+      "name": "claim_install_effect_race_deadlocks",
+      "kind": "safety",
+      "unit": "deadlocks",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M37",
+      "name": "epoch_aware_claim_install_lock_wait_p99",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "hard_limit": null
     }
   ],
   "scenarios": [
@@ -581,6 +602,30 @@
       "class": "known_reject",
       "description": "A restored backup reports an owner epoch below the independent external high-water; the recovered owner remains quarantined until a strictly newer epoch is installed and the former primary is fenced.",
       "expected_outcome": "DO_NOT_ACK"
+    },
+    {
+      "id": "NJ-051",
+      "class": "known_reject",
+      "description": "A worker claim installed under owner epoch 1 is used after the owner advances to epoch 2, even when the submitted command presents current owner epoch and resource generation; strict mutation must reject the stale claim.",
+      "expected_outcome": "OWNER_REJECTS_STALE_CLAIM"
+    },
+    {
+      "id": "NJ-052",
+      "class": "known_reject",
+      "description": "A worker claim is reinstalled under a new owner epoch without increasing the claim epoch; the epoch-aware installer must reject it.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-053",
+      "class": "known_valid",
+      "description": "A worker claim is renewed for the current owner epoch with a strictly higher claim epoch; a new protected effect records that owner/claim pair in its immutable execution attestation.",
+      "expected_outcome": "ACK_ALLOWED"
+    },
+    {
+      "id": "NJ-054",
+      "class": "adversarial_race",
+      "description": "Effect execution races with owner-epoch transition and worker-claim renewal under the prescribed claim-row-then-owner-fence-row lock order; exactly one serial order is accepted, with no stale-claim effect or deadlock.",
+      "expected_outcome": "ONE_SERIALIZED_ORDER_NO_STALE_EFFECT"
     }
   ],
   "comparator_methods": [
