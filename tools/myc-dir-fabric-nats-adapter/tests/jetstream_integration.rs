@@ -106,6 +106,11 @@ fn command_input(
 ) -> NatsCommandBindingInput {
     NatsCommandBindingInput {
         account_id: "default".into(),
+        realm_id: "realm-test".into(),
+        resource_id: "resource-test".into(),
+        action_id: "balance-adjust".into(),
+        object_id: "account-test".into(),
+        currency_code: "USD".into(),
         stream_name: stream_name.into(),
         subject: subject.into(),
         consumer_name: consumer_name.into(),
