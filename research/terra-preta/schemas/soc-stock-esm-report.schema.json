@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SOC stock accounting report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "plot_id",
+    "baseline_profile_id",
+    "followup_profile_id",
+    "fixed_accounting_depth_m",
+    "baseline_fixed_depth_stock_mg_c_ha",
+    "followup_fixed_depth_stock_mg_c_ha",
+    "fixed_depth_stock_change_mg_c_ha",
+    "baseline_reference_fine_earth_mass_mg_ha",
+    "baseline_esm_stock_mg_c_ha",
+    "followup_esm_stock_mg_c_ha",
+    "followup_esm_depth_m",
+    "esm_stock_change_mg_c_ha",
+    "esm_status",
+    "amendment_carbon_input_mg_c_ha",
+    "source_attribution_status",
+    "uncertainty_status",
+    "controls",
+    "claim_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "plot_id": {
+      "type": "string"
+    },
+    "baseline_profile_id": {
+      "type": "string"
+    },
+    "followup_profile_id": {
+      "type": "string"
+    },
+    "fixed_accounting_depth_m": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "baseline_fixed_depth_stock_mg_c_ha": {
+      "type": "number",
+      "minimum": 0
+    },
+    "followup_fixed_depth_stock_mg_c_ha": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "fixed_depth_stock_change_mg_c_ha": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_reference_fine_earth_mass_mg_ha": {
+      "type": "number",
+      "minimum": 0
+    },
+    "baseline_esm_stock_mg_c_ha": {
+      "type": "number",
+      "minimum": 0
+    },
+    "followup_esm_stock_mg_c_ha": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "followup_esm_depth_m": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "exclusiveMinimum": 0
+    },
+    "esm_stock_change_mg_c_ha": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "esm_status": {
+      "enum": [
+        "qualified_at_baseline_reference_mass",
+        "insufficient_followup_soil_mass"
+      ]
+    },
+    "amendment_carbon_input_mg_c_ha": {
+      "type": "number",
+      "minimum": 0
+    },
+    "source_attribution_status": {
+      "const": "unresolved_bulk_soc_does_not_identify_native_vs_amendment_carbon"
+    },
+    "uncertainty_status": {
+      "const": "input_standard_errors_preserved_not_propagated_by_v0_1"
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_identity_match_pass",
+        "chronology_pass",
+        "method_and_reference_match_pass",
+        "layer_contiguity_pass",
+        "unit_semantics_pass",
+        "no_depth_extrapolation_pass",
+        "amendment_not_added_to_observed_stock_pass"
+      ],
+      "properties": {
+        "profile_identity_match_pass": {
+          "const": true
+        },
+        "chronology_pass": {
+          "const": true
+        },
+        "method_and_reference_match_pass": {
+          "const": true
+        },
+        "layer_contiguity_pass": {
+          "const": true
+        },
+        "unit_semantics_pass": {
+          "const": true
+        },
+        "no_depth_extrapolation_pass": {
+          "const": true
+        },
+        "amendment_not_added_to_observed_stock_pass": {
+          "const": true
+        }
+      }
+    },
+    "claim_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
