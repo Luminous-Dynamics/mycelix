@@ -1,0 +1,380 @@
+{
+  "benchmark": "Proof-Carrying Obligation Execution",
+  "version": "0.1",
+  "date": "2026-11-22",
+  "status": "proposed-research-corpus-not-executed",
+  "scenario_count": 39,
+  "disposition_vocabulary": [
+    "reject",
+    "hold_indeterminate",
+    "require_human_disposition",
+    "accept_exact_replay",
+    "require_partial_or_disputed_acceptance",
+    "separate_manual_attestation",
+    "append_compensating_event_and_reconcile",
+    "reject_or_minimize",
+    "require_hardship_or_manual_review"
+  ],
+  "scenario_fields": [
+    "id",
+    "domain",
+    "threat",
+    "preconditions",
+    "adversarial_mutation",
+    "expected_disposition",
+    "required_control"
+  ],
+  "scenarios": [
+    {
+      "id": "AUTH-001",
+      "domain": "authority",
+      "threat": "Missing mandate",
+      "preconditions": "An agent requests a high-impact action with no principal mandate.",
+      "adversarial_mutation": "Submit action with no grant or authority reference.",
+      "expected_disposition": "reject",
+      "required_control": "Authoritative action boundary requires a valid principal grant."
+    },
+    {
+      "id": "AUTH-002",
+      "domain": "authority",
+      "threat": "Delegation expansion",
+      "preconditions": "Delegate holds a narrower scope or lower amount cap than the requested action.",
+      "adversarial_mutation": "Attempt to add a new action class, resource, counterparty, or increase the amount cap.",
+      "expected_disposition": "reject",
+      "required_control": "Delegation must be attenuating across every dimension."
+    },
+    {
+      "id": "AUTH-003",
+      "domain": "authority",
+      "threat": "Expired authority",
+      "preconditions": "A previously valid capability is past expiry at commit time.",
+      "adversarial_mutation": "Replay the capability after its expiry timestamp.",
+      "expected_disposition": "reject",
+      "required_control": "Expiry is checked at the authoritative mutation boundary."
+    },
+    {
+      "id": "AUTH-004",
+      "domain": "authority",
+      "threat": "Revocation race",
+      "preconditions": "Authority is revoked after preflight validation but before the side effect is committed.",
+      "adversarial_mutation": "Race revocation against acceptance or payment-intent commit.",
+      "expected_disposition": "reject",
+      "required_control": "Commit-time revocation epoch must dominate stale preflight state."
+    },
+    {
+      "id": "AUTH-005",
+      "domain": "authority",
+      "threat": "Self-authorizing agent",
+      "preconditions": "An agent attempts to register itself or modify its own policy/authority.",
+      "adversarial_mutation": "Submit authority update using the agent's own delegated credential.",
+      "expected_disposition": "require_human_disposition",
+      "required_control": "Authority administration is outside the agent's granted operational scope."
+    },
+    {
+      "id": "AUTH-006",
+      "domain": "authority",
+      "threat": "One-time capability replay",
+      "preconditions": "A one-time authority token is reused for a second action.",
+      "adversarial_mutation": "Replay the same capability and action nonce.",
+      "expected_disposition": "reject",
+      "required_control": "One-time capability consumption is durable and atomic with the mutation."
+    },
+    {
+      "id": "EVID-001",
+      "domain": "physical_evidence",
+      "threat": "Simulation promoted to production",
+      "preconditions": "A digital twin predicts generation but the workflow labels it as measured production.",
+      "adversarial_mutation": "Replace a meter-derived source class with simulation/prediction while retaining verified status.",
+      "expected_disposition": "reject",
+      "required_control": "Simulation is never accepted as metered physical output."
+    },
+    {
+      "id": "EVID-002",
+      "domain": "physical_evidence",
+      "threat": "Expired calibration",
+      "preconditions": "The meter calibration validity ends before the observation interval.",
+      "adversarial_mutation": "Submit an observation covered by an expired or revoked calibration record.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Calibration authenticity and validity must be resolved before accepting the measurement."
+    },
+    {
+      "id": "EVID-003",
+      "domain": "physical_evidence",
+      "threat": "Meter sequence replay",
+      "preconditions": "A previously consumed meter sequence or nonce is submitted again.",
+      "adversarial_mutation": "Replay an old observation under a new project/claim identifier.",
+      "expected_disposition": "reject",
+      "required_control": "Sequence and nonce uniqueness are bound to the meter and metering point."
+    },
+    {
+      "id": "EVID-004",
+      "domain": "physical_evidence",
+      "threat": "Capacity/time violation",
+      "preconditions": "Observed energy exceeds rated capacity integrated over the exact interval and tolerance.",
+      "adversarial_mutation": "Increase the interval energy beyond the maximum physically plausible bound.",
+      "expected_disposition": "reject",
+      "required_control": "Use integer units and checked arithmetic; do not clamp or silently accept."
+    },
+    {
+      "id": "EVID-005",
+      "domain": "physical_evidence",
+      "threat": "Unit or boundary substitution",
+      "preconditions": "A DC output value is presented as net AC export, or kW is presented as kWh.",
+      "adversarial_mutation": "Change the measurement boundary or unit without a conversion/provenance record.",
+      "expected_disposition": "reject",
+      "required_control": "Boundary, unit, interval semantics, and conversion provenance are explicit."
+    },
+    {
+      "id": "EVID-006",
+      "domain": "physical_evidence",
+      "threat": "Clock drift and interval overlap",
+      "preconditions": "A meter timestamp is outside allowed drift or overlapping intervals are double-counted.",
+      "adversarial_mutation": "Shift event time or duplicate overlapping intervals while preserving apparent total.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Clock quality and interval reconciliation are checked independently of event ordering."
+    },
+    {
+      "id": "VER-001",
+      "domain": "verification",
+      "threat": "Producer self-verification",
+      "preconditions": "The producer also signs the independent verifier attestation.",
+      "adversarial_mutation": "Set verifier identity equal to producer or its controlled affiliate.",
+      "expected_disposition": "reject",
+      "required_control": "Independence includes legal/control relationships and declared conflicts."
+    },
+    {
+      "id": "VER-002",
+      "domain": "verification",
+      "threat": "Common-cause witnesses",
+      "preconditions": "Two different identities use the same operator, source feed, device admin, and key custodian.",
+      "adversarial_mutation": "Present two signatures while keeping the critical failure domains shared.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Witness quorum is based on documented independent failure domains, not signer count."
+    },
+    {
+      "id": "VER-003",
+      "domain": "verification",
+      "threat": "Undeclared conflict of interest",
+      "preconditions": "The verifier has a financial or governance conflict not declared in the attestation.",
+      "adversarial_mutation": "Inject a known conflict into verifier metadata or qualification registry.",
+      "expected_disposition": "reject",
+      "required_control": "A conflicted or unknown verifier cannot produce verified-for-scope."
+    },
+    {
+      "id": "VER-004",
+      "domain": "verification",
+      "threat": "Attestation digest mismatch",
+      "preconditions": "The attestation references a different claim or evidence set from the one accepted.",
+      "adversarial_mutation": "Alter claim digest or observation digest after verifier signature.",
+      "expected_disposition": "reject",
+      "required_control": "Verification binds the exact claim digest and exact evidence digests."
+    },
+    {
+      "id": "VER-005",
+      "domain": "verification",
+      "threat": "Tampered or rewritten history",
+      "preconditions": "An old observation or attestation is silently rewritten rather than superseded.",
+      "adversarial_mutation": "Change content while reusing the prior identifier or chain position.",
+      "expected_disposition": "reject",
+      "required_control": "Append-only history detects mismatch; corrections are new linked events."
+    },
+    {
+      "id": "ACC-001",
+      "domain": "contract_acceptance",
+      "threat": "Contract version substitution",
+      "preconditions": "Acceptance references a different contract version from the funded obligation.",
+      "adversarial_mutation": "Swap contract digest after commissioning but before acceptance.",
+      "expected_disposition": "reject",
+      "required_control": "Acceptance binds the exact approved contract and milestone digest."
+    },
+    {
+      "id": "ACC-002",
+      "domain": "contract_acceptance",
+      "threat": "Acceptance without mandate",
+      "preconditions": "A buyer-side actor has no authority to accept or vary the milestone.",
+      "adversarial_mutation": "Submit acceptance using an ordinary read/delegated role.",
+      "expected_disposition": "reject",
+      "required_control": "Acceptance authority is separately scoped and checked at commit."
+    },
+    {
+      "id": "ACC-003",
+      "domain": "contract_acceptance",
+      "threat": "Partial delivery presented as full",
+      "preconditions": "Measured and verified quantity is below the amount required for a full milestone.",
+      "adversarial_mutation": "Submit full acceptance and full payment request with only partial delivery evidence.",
+      "expected_disposition": "require_partial_or_disputed_acceptance",
+      "required_control": "Contract rules determine partial acceptance; unsupported quantity cannot be promoted."
+    },
+    {
+      "id": "OFFER-001",
+      "domain": "resource_conservation",
+      "threat": "Concurrent offer oversell",
+      "preconditions": "Two buyers reserve more quantity than the offer contains.",
+      "adversarial_mutation": "Race independent fills against the same offer revision.",
+      "expected_disposition": "reject",
+      "required_control": "Reservation and revision consumption are atomic at the authoritative boundary."
+    },
+    {
+      "id": "COLL-001",
+      "domain": "resource_conservation",
+      "threat": "Duplicate collateral pledge",
+      "preconditions": "The same asset is pledged to two obligations or reserve pools.",
+      "adversarial_mutation": "Reuse asset identity across concurrent collateral/issuance requests.",
+      "expected_disposition": "reject",
+      "required_control": "A unique asset/custody identity is consumed once within the relevant legal perimeter."
+    },
+    {
+      "id": "PAY-001",
+      "domain": "settlement",
+      "threat": "Timeout after external submission",
+      "preconditions": "The rail times out after the payment may have been executed.",
+      "adversarial_mutation": "Drop response after forwarding the payment request to the rail.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Do not retry or mark paid until exact rail reconciliation."
+    },
+    {
+      "id": "PAY-002",
+      "domain": "settlement",
+      "threat": "Malformed rail response",
+      "preconditions": "The adapter receives an unexpected response or decode error.",
+      "adversarial_mutation": "Return malformed or unparseable payload after submission.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Decode failure cannot be treated as success or as proof no side effect occurred."
+    },
+    {
+      "id": "PAY-003",
+      "domain": "settlement",
+      "threat": "Exact payment retry",
+      "preconditions": "The same payment request is retried after the client loses the first response.",
+      "adversarial_mutation": "Repeat the exact canonical request with the same idempotency key and digest.",
+      "expected_disposition": "accept_exact_replay",
+      "required_control": "Return the same prior receipt/result and do not execute a second payment."
+    },
+    {
+      "id": "PAY-004",
+      "domain": "settlement",
+      "threat": "Idempotency payload conflict",
+      "preconditions": "A previously used idempotency key is reused with changed amount, beneficiary, currency, or trade.",
+      "adversarial_mutation": "Keep key fixed and mutate any economically meaningful request field.",
+      "expected_disposition": "reject",
+      "required_control": "The same key with a different canonical request digest is a conflict."
+    },
+    {
+      "id": "PAY-005",
+      "domain": "settlement",
+      "threat": "Beneficiary mismatch",
+      "preconditions": "The rail receipt is for a different recipient or account than the contract requires.",
+      "adversarial_mutation": "Substitute beneficiary while keeping the expected trade reference.",
+      "expected_disposition": "reject",
+      "required_control": "Paid-final must bind payer, beneficiary, amount, currency, purpose, and obligation."
+    },
+    {
+      "id": "PAY-006",
+      "domain": "settlement",
+      "threat": "Partial payment reported as full",
+      "preconditions": "The rail transfers less than the authorized milestone amount.",
+      "adversarial_mutation": "Return a final receipt with a smaller amount and no partial settlement rule.",
+      "expected_disposition": "reject",
+      "required_control": "Receipt amount must reconcile exactly or be represented as a partial outcome."
+    },
+    {
+      "id": "PAY-007",
+      "domain": "settlement",
+      "threat": "Manual attestation promoted to rail finality",
+      "preconditions": "An operator enters a free-text payment reference after an unsupported rail response.",
+      "adversarial_mutation": "Use manual evidence to set the rail-paid state.",
+      "expected_disposition": "separate_manual_attestation",
+      "required_control": "Manual-attested is a distinct state and cannot satisfy paid-final."
+    },
+    {
+      "id": "PAY-008",
+      "domain": "settlement",
+      "threat": "Stale receipt replay",
+      "preconditions": "A valid receipt from another trade or earlier obligation is presented again.",
+      "adversarial_mutation": "Reuse the same external receipt identifier with a different obligation/request digest.",
+      "expected_disposition": "reject",
+      "required_control": "External receipt identity is consumed once and bound to exact request."
+    },
+    {
+      "id": "PAY-009",
+      "domain": "settlement",
+      "threat": "Post-finality reversal",
+      "preconditions": "A later rail reversal or chargeback affects a previously reconciled payment.",
+      "adversarial_mutation": "Inject reversal/return event after the stated finality point.",
+      "expected_disposition": "append_compensating_event_and_reconcile",
+      "required_control": "Do not erase history; apply the rail-specific reversal policy and reconcile balances."
+    },
+    {
+      "id": "DIST-001",
+      "domain": "distributed_systems",
+      "threat": "Pending anchor treated as anchored",
+      "preconditions": "A transparency witness accepted a submission but has not returned a verifiable inclusion proof.",
+      "adversarial_mutation": "Set receipt state to pending while presenting it as final anchor evidence.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Pending and verified anchor states are distinct and independently checked."
+    },
+    {
+      "id": "DIST-002",
+      "domain": "distributed_systems",
+      "threat": "Split-brain obligation state",
+      "preconditions": "Two replicas accept incompatible states during a partition.",
+      "adversarial_mutation": "Race two branches with different settlement or acceptance transitions.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Conflicting histories are surfaced; no last-writer-wins promotion to paid/accepted."
+    },
+    {
+      "id": "DIST-003",
+      "domain": "distributed_systems",
+      "threat": "Correlated witness quorum",
+      "preconditions": "Witnesses share a control plane or common credential authority despite different names.",
+      "adversarial_mutation": "Remove one common dependency and observe quorum failure.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "The declared minimum independent failure-domain condition must still hold."
+    },
+    {
+      "id": "PRIV-001",
+      "domain": "privacy",
+      "threat": "Over-disclosure",
+      "preconditions": "A verifier requests unrelated personal or financial data beyond the declared purpose.",
+      "adversarial_mutation": "Add unnecessary fields to the evidence/credential exchange.",
+      "expected_disposition": "reject_or_minimize",
+      "required_control": "Enforce purpose limitation, selective disclosure, and auditable access."
+    },
+    {
+      "id": "HRM-001",
+      "domain": "borrower_protection",
+      "threat": "Hardship caused by system outage",
+      "preconditions": "A borrower cannot complete a payment workflow because an agent or evidence service is unavailable.",
+      "adversarial_mutation": "Convert technical unavailability into automatic default or penalty.",
+      "expected_disposition": "require_hardship_or_manual_review",
+      "required_control": "Operational uncertainty is not borrower fault; preserve hardship and dispute paths."
+    },
+    {
+      "id": "MODEL-001",
+      "domain": "model_governance",
+      "threat": "Prediction treated as fact",
+      "preconditions": "A forecast or risk model output is substituted for measured energy or authenticated payment evidence.",
+      "adversarial_mutation": "Promote a probabilistic output to an observed/verified event.",
+      "expected_disposition": "reject",
+      "required_control": "Model output remains advisory and records uncertainty/model version."
+    },
+    {
+      "id": "MODEL-002",
+      "domain": "credit_risk",
+      "threat": "Uncalibrated PD/LGD used as qualified ECL",
+      "preconditions": "A model supplies unsupported point estimates with no calibration, horizon, scenario, or provenance.",
+      "adversarial_mutation": "Submit PD/LGD values as validated loss measurement without validation evidence.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "ECL arithmetic does not qualify the risk model or satisfy the measurement framework."
+    },
+    {
+      "id": "RECON-001",
+      "domain": "reconciliation",
+      "threat": "Physical and financial mismatch",
+      "preconditions": "Accepted energy quantity, contract amount, invoice, and rail receipt do not reconcile.",
+      "adversarial_mutation": "Alter one quantity or currency after acceptance while preserving a successful payment response.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "End-to-end reconciliation must bind exact quantities, amounts, currency, and contract version."
+    }
+  ]
+}
