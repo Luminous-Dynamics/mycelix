@@ -576,6 +576,16 @@ mod tests {
         assert_eq!(report.pathway_count, 4);
         assert_eq!(report.snapshot_count, 3);
         assert_eq!(report.root_origin_evidence_resolved_count, 2);
+        assert_eq!(
+            report.root_flow_expression_counts["shallow_root_network_dominated"],
+            1
+        );
+        assert_eq!(report.root_flow_expression_counts["interface_guided"], 1);
+        assert_eq!(
+            report.root_flow_expression_counts["legacy_root_biopore_dominated"],
+            1
+        );
+        assert_eq!(report.root_flow_expression_unresolved_count, 0);
         assert_eq!(report.direct_3d_connectivity_count, 0);
         assert!(report.warnings.iter().any(|w| w.contains("2D projection")));
         assert_eq!(report.endpoint_graph_component_count, 1);
@@ -648,6 +658,43 @@ mod tests {
         validate(&s).expect("3D support matches 3D connectivity claim");
         let report = build_report(&s, "0".repeat(64));
         assert_eq!(report.direct_3d_connectivity_count, 1);
+    }
+
+    #[test]
+    fn root_flow_expressions_are_multilabel_and_do_not_promote_3d_connectivity() {
+        let s = scenario();
+        validate(&s).expect("valid synthetic root expression labels");
+        let report = build_report(&s, "0".repeat(64));
+        assert_eq!(report.direct_3d_connectivity_count, 0);
+        assert_eq!(
+            report.root_flow_expression_counts["shallow_root_network_dominated"],
+            1
+        );
+    }
+
+    #[test]
+    fn abiotic_pathway_cannot_claim_root_flow_expression() {
+        let mut s = scenario();
+        s.pathways[2].root_flow_expressions = vec!["interface_guided".into()];
+        s.pathways[2].root_flow_expression_evidence_status = "synthetic_truth".into();
+        assert!(validate(&s).is_err());
+    }
+
+    #[test]
+    fn root_flow_expression_direct_3d_requires_volumetric_support() {
+        let mut s = scenario();
+        s.pathways[0].root_flow_expression_evidence_status = "directly_observed_3d".into();
+        assert!(validate(&s).is_err());
+    }
+
+    #[test]
+    fn unresolved_root_flow_expression_may_remain_unclassified() {
+        let mut s = scenario();
+        s.pathways[0].root_flow_expressions.clear();
+        s.pathways[0].root_flow_expression_evidence_status = "unresolved".into();
+        validate(&s).expect("unknown expression remains explicitly unresolved");
+        let report = build_report(&s, "0".repeat(64));
+        assert_eq!(report.root_flow_expression_unresolved_count, 1);
     }
 
     #[test]
