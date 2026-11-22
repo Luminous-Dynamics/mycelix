@@ -766,7 +766,10 @@ mod tests {
             scope: "interval-output".into(),
             result: VerificationResult::VerifiedForScope,
         };
-        assert_eq!(attestation.validate_against(&claim), Err(EnergyAssuranceError::ClaimNotMeterDerived));
+        assert_eq!(
+            attestation.validate_against(&claim),
+            Err(EnergyAssuranceError::ClaimNotMeterDerived)
+        );
     }
 
     #[test]
@@ -879,7 +882,10 @@ mod tests {
             scope: "interval-output".into(),
             result: VerificationResult::VerifiedForScope,
         };
-        assert_eq!(attestation.validate_against(&claim), Err(EnergyAssuranceError::ProducerCannotVerifyOwnClaim));
+        assert_eq!(
+            attestation.validate_against(&claim),
+            Err(EnergyAssuranceError::ProducerCannotVerifyOwnClaim)
+        );
     }
 
     #[test]
