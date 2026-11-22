@@ -211,6 +211,14 @@ mod typed_process_reference_tests {
     }
 
     #[test]
+    fn legacy_operation_entry_without_process_binding_remains_deserializable() {
+        let legacy = r#"{"name":"Legacy mill","description":"","machine_type":"CNC","setup_time_min":1,"cycle_time_min":2,"tooling":null}"#;
+        let decoded: OperationEntry = serde_json::from_str(legacy).unwrap();
+        assert!(decoded.process_binding.is_none());
+        assert_eq!(decoded.machine_type, "CNC");
+    }
+
+    #[test]
     fn legacy_operation_without_binding_remains_valid() {
         let operation = OperationEntry {
             name: "Legacy milling".into(),
