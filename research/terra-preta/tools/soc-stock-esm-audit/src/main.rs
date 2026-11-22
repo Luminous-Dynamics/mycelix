@@ -459,7 +459,7 @@ mod tests {
         assert!((report.followup_fixed_depth_stock_mg_c_ha.unwrap() - 51.84).abs() < 1e-8);
         assert!(report.fixed_depth_stock_change_mg_c_ha.unwrap() < 0.0);
         assert!((report.followup_esm_stock_mg_c_ha.unwrap() - 55.08).abs() < 1e-8);
-        assert!(report.esm_stock_change_mg_c_ha.unwrap() - 2.43).abs() < 1e-8;
+        assert!((report.esm_stock_change_mg_c_ha.unwrap() - 2.43).abs() < 1e-8);
         assert!((report.followup_esm_depth_m.unwrap() - 0.325).abs() < 1e-9);
     }
 
