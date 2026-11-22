@@ -37,6 +37,7 @@ struct Scenario {
     fixture_status: String,
     evidence_class: String,
     scenario_id: String,
+    input_sha256: String,
     comparison_area_ha: f64,
     eligible_decisions: usize,
     reference_positive_count: usize,
@@ -168,7 +169,9 @@ fn validate_component(c: &CostComponent) -> Result<(), String> {
         "priced" => {
             let quantity = c.quantity.ok_or_else(|| format!("{} quantity is missing", c.category))?;
             let unit_price = c.unit_cost_zar.ok_or_else(|| format!("{} unit price is missing", c.category))?;
-            if !quantity.is_finite() || quantity <= 0.0 || !unit_price.is_finite() || unit_price < 0.0 {
+            if !quantity.is_finite() || quantity <= 0.0 || !unit_price.is_finite() || unit_price <= 0.0
+                || !(quantity * unit_price).is_finite()
+            {
                 return Err(format!("{} priced quantity/price is invalid", c.category));
             }
             let unit = c.unit.as_deref().unwrap_or("");
@@ -263,7 +266,7 @@ fn validate(s: &Scenario) -> Result<(), String> {
     Ok(())
 }
 
-fn build_report(s: &Scenario, digest: String) -> Report {
+fn build_report(s: &Scenario, input_sha256: String) -> Report {
     let mut output = Vec::new();
     for strategy in &s.strategies {
         let mut total = 0.0;
@@ -307,11 +310,11 @@ fn build_report(s: &Scenario, digest: String) -> Report {
             not_applicable_categories: na,
         });
     }
-    let _input_digest = digest;
     Report {
         audit_version: VERSION,
         fixture_status: REPORT_STATUS,
         scenario_id: s.scenario_id.clone(),
+        input_sha256,
         comparison_area_ha: s.comparison_area_ha,
         eligible_decisions: s.eligible_decisions,
         reference_positive_count: s.reference_positive_count,
@@ -393,6 +396,21 @@ mod tests {
     fn invalid_decision_counts_are_rejected() {
         let mut s = scenario();
         s.strategies[0].decision_counts.false_negative += 1;
+        assert!(validate(&s).is_err());
+    }
+
+    #[test]
+    fn zero_cost_cannot_be_used_as_a_priced_unknown() {
+        let mut s = scenario();
+        s.strategies[0].cost_components[0].unit_cost_zar = Some(0.0);
+        assert!(validate(&s).is_err());
+    }
+
+    #[test]
+    fn measured_actual_cost_requires_record_and_period() {
+        let mut s = scenario();
+        let c = &mut s.strategies[0].cost_components[0];
+        c.evidence_class = "measured_actual_cost".into();
         assert!(validate(&s).is_err());
     }
 
