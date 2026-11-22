@@ -93,6 +93,168 @@ pub struct BomItem {
 }
 
 // ============================================================================
+// Versioned external manufacturing-contract references
+// ============================================================================
+
+/// Exact public source location for the Symthaea manufacturing contract API.
+/// This is pinned to the source commit inspected by MFG-PROC-001A; it is not
+/// proof that the source object has been fetched, authenticated, or qualified.
+pub const SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY: &str =
+    "Luminous-Dynamics/symthaea";
+pub const SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1: &str =
+    "0b3feb49a3c2e9c1c1748ca2a0c0ff40ed320ecd";
+pub const SYMTHAEA_PROCESS_CRATE: &str = "symthaea-manufacturing-process";
+pub const SYMTHAEA_CONTRACTS_CRATE: &str = "symthaea-manufacturing-contracts";
+
+/// Immutable coordinate of an object in the canonical Symthaea contract API.
+/// Object IDs use the BLAKE3 identifiers defined by that API. The source
+/// commit pins the API implementation; it does not authenticate the object.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct SymthaeaManufacturingObjectRefV1 {
+    pub owner_repository: String,
+    pub owner_commit: String,
+    pub contract_crate: String,
+    pub contract_type: String,
+    pub object_id_blake3: String,
+    pub process_id_blake3: String,
+    pub semantic_version: String,
+}
+
+impl SymthaeaManufacturingObjectRefV1 {
+    pub fn validate(&self, expected_crate: &str, expected_type: &str) -> Result<(), String> {
+        if self.owner_repository != SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY {
+            return Err("manufacturing reference has an unexpected owner repository".into());
+        }
+        if self.owner_commit != SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1
+            || !is_lower_hex_digest(&self.owner_commit, 40)
+        {
+            return Err("manufacturing reference is not pinned to the supported source commit".into());
+        }
+        if self.contract_crate != expected_crate || self.contract_type != expected_type {
+            return Err("manufacturing reference has the wrong canonical contract type".into());
+        }
+        if !is_lower_hex_digest(&self.object_id_blake3, 64)
+            || !is_lower_hex_digest(&self.process_id_blake3, 64)
+        {
+            return Err("manufacturing reference IDs must be lowercase BLAKE3 digests".into());
+        }
+        if self.semantic_version.is_empty()
+            || self.semantic_version.len() > 64
+            || self.semantic_version.trim() != self.semantic_version
+            || self.semantic_version.chars().any(char::is_control)
+        {
+            return Err("manufacturing reference semantic_version is invalid".into());
+        }
+        Ok(())
+    }
+}
+
+fn is_lower_hex_digest(value: &str, expected_len: usize) -> bool {
+    value.len() == expected_len
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(transparent)]
+pub struct ProcessDefinitionRefV1(pub SymthaeaManufacturingObjectRefV1);
+
+impl ProcessDefinitionRefV1 {
+    pub fn validate(&self) -> Result<(), String> {
+        self.0
+            .validate(SYMTHAEA_PROCESS_CRATE, "ProcessDefinitionV1")?;
+        if self.0.object_id_blake3 != self.0.process_id_blake3 {
+            return Err("process definition object ID must equal its process ID".into());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(transparent)]
+pub struct ProcessCapabilityRequirementRefV1(pub SymthaeaManufacturingObjectRefV1);
+
+impl ProcessCapabilityRequirementRefV1 {
+    pub fn validate(&self) -> Result<(), String> {
+        self.0.validate(
+            SYMTHAEA_CONTRACTS_CRATE,
+            "ProcessCapabilityRequirementV1",
+        )
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(transparent)]
+pub struct ProcessCapabilityProfileRefV1(pub SymthaeaManufacturingObjectRefV1);
+
+impl ProcessCapabilityProfileRefV1 {
+    pub fn validate(&self) -> Result<(), String> {
+        self.0
+            .validate(SYMTHAEA_CONTRACTS_CRATE, "ProcessCapabilityProfileV1")
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(transparent)]
+pub struct ProcessRecipeRefV1(pub SymthaeaManufacturingObjectRefV1);
+
+impl ProcessRecipeRefV1 {
+    pub fn validate(&self) -> Result<(), String> {
+        self.0.validate(SYMTHAEA_CONTRACTS_CRATE, "ProcessRecipeV1")
+    }
+}
+
+/// A typed routing binding to canonical process semantics. The legacy
+/// machine_type string remains descriptive compatibility metadata only.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct ProcessBindingV1 {
+    pub process_definition: ProcessDefinitionRefV1,
+    pub capability_requirement: ProcessCapabilityRequirementRefV1,
+    pub recipe: Option<ProcessRecipeRefV1>,
+}
+
+impl ProcessBindingV1 {
+    pub fn validate(&self) -> Result<(), String> {
+        self.process_definition.validate()?;
+        self.capability_requirement.validate()?;
+        if self.process_definition.0.process_id_blake3
+            != self.capability_requirement.0.process_id_blake3
+        {
+            return Err("process definition and capability requirement IDs do not match".into());
+        }
+        if self.process_definition.0.owner_commit
+            != self.capability_requirement.0.owner_commit
+        {
+            return Err("process binding mixes source contract commits".into());
+        }
+        if let Some(recipe) = &self.recipe {
+            recipe.validate()?;
+            if recipe.0.process_id_blake3 != self.process_definition.0.process_id_blake3
+                || recipe.0.owner_commit != self.process_definition.0.owner_commit
+            {
+                return Err("recipe does not match the bound process definition/commit".into());
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Typed process-capability reference on a machine. It is still only an
+/// external claim/reference; it does not mean the profile has been verified
+/// or that the machine is qualified for production.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct MachineProcessCapabilityRefV1 {
+    pub capability_profile: ProcessCapabilityProfileRefV1,
+}
+
+impl MachineProcessCapabilityRefV1 {
+    pub fn validate(&self) -> Result<(), String> {
+        self.capability_profile.validate()
+    }
+}
+
+// ============================================================================
 // Operations & Routing
 // ============================================================================
 
