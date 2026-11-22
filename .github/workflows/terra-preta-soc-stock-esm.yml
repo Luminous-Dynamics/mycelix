@@ -44,11 +44,11 @@ jobs:
           jq -e '
             .fixture_status == "synthetic_only_not_empirical_evidence" and
             (.rounds | length) == 2 and
-            (.rounds[0].mean_fixed_depth_soc_stock_Mg_C_per_ha == 39.204) and
-            (.rounds[1].mean_fixed_depth_soc_stock_Mg_C_per_ha == 43.1244) and
-            ((.rounds[0].mean_esm_soc_stock_Mg_C_per_ha - .rounds[1].mean_esm_soc_stock_Mg_C_per_ha) | fabs) < 0.000001 and
-            (.temporal_change.fixed_depth_stock_change_Mg_C_per_ha > 3.9) and
-            ((.temporal_change.esm_stock_change_Mg_C_per_ha | fabs) < 0.000001) and
+            (.rounds[0].mean_fixed_depth_soc_stock_megagrams_carbon_per_ha == 39.204) and
+            (.rounds[1].mean_fixed_depth_soc_stock_megagrams_carbon_per_ha == 43.1244) and
+            ((.rounds[0].mean_esm_soc_stock_megagrams_carbon_per_ha - .rounds[1].mean_esm_soc_stock_megagrams_carbon_per_ha) | fabs) < 0.000001 and
+            (.temporal_change.fixed_depth_stock_change_megagrams_carbon_per_ha > 3.9) and
+            ((.temporal_change.esm_stock_change_megagrams_carbon_per_ha | fabs) < 0.000001) and
             (.controls.no_extrapolation_beyond_profile_pass == true)
           ' "$RUNNER_TEMP/soc-stock-esm-report.json"
       - name: Reject unmeasured mass basis and unsupported reference mass
@@ -59,7 +59,7 @@ jobs:
             echo "Expected volume coarse-fragment basis rejection"
             exit 1
           fi
-          jq '.config.reference_fine_earth_mass_Mg_per_ha = 9000' "$fixture" > "$RUNNER_TEMP/unsupported-mass.json"
+          jq '.config.reference_fine_earth_mass_megagrams_per_ha = 9000' "$fixture" > "$RUNNER_TEMP/unsupported-mass.json"
           if cargo run --quiet --manifest-path research/terra-preta/tools/soc-stock-esm-audit/Cargo.toml -- "$RUNNER_TEMP/unsupported-mass.json" "$RUNNER_TEMP/unsupported-mass-report.json"; then
             echo "Expected insufficient observed mass rejection"
             exit 1
