@@ -128,7 +128,7 @@ fn header_text(headers: &async_nats::HeaderMap, name: &'static str) -> AdapterRe
     if values.next().is_some() {
         return Err(AdapterError::InvalidHeader(name));
     }
-    Ok(first.as_ref().to_owned())
+    Ok(first.as_str().to_owned())
 }
 
 fn header_digest(headers: &async_nats::HeaderMap, name: &'static str) -> AdapterResult<[u8; 32]> {
@@ -538,8 +538,8 @@ impl JetStreamAdapter {
             .payload(Bytes::copy_from_slice(payload))
             .message_id(&input.nats_message_id)
             .header(HEADER_VERSION, WIRE_VERSION)
-            .header(HEADER_PUBLICATION_ID, &input.nats_message_id)
-            .header(HEADER_LOGICAL_OPERATION, &input.logical_operation_id)
+            .header(HEADER_PUBLICATION_ID, input.nats_message_id.as_str())
+            .header(HEADER_LOGICAL_OPERATION, input.logical_operation_id.as_str())
             .header(HEADER_REQUEST_DIGEST, hex_encode(&input.request_digest))
             .header(
                 HEADER_DECISION_DIGEST,
@@ -549,7 +549,7 @@ impl JetStreamAdapter {
                 HEADER_IDEMPOTENCY_DIGEST,
                 hex_encode(&input.idempotency_digest),
             )
-            .header(HEADER_EFFECT_OWNER, &input.effect_owner_id)
+            .header(HEADER_EFFECT_OWNER, input.effect_owner_id.as_str())
             .header(HEADER_OWNER_EPOCH, input.owner_epoch.to_string())
             .header(
                 HEADER_RESOURCE_GENERATION,
