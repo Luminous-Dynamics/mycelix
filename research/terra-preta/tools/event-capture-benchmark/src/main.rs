@@ -41,6 +41,7 @@ struct ResourceLimits {
 struct Policy {
     policy_id: String,
     policy_family: String,
+    policy_role: String,
     policy_version: String,
     policy_code_sha256: String,
     policy_config_sha256: String,
@@ -60,6 +61,7 @@ struct Truth {
     measurement_operator: MeasurementOperator,
     baseline_window: BaselineWindow,
     maximum_event_integration_gap_hours: f64,
+    off_event_false_trigger_absolute_departure_threshold: f64,
     truth_series: Vec<TruthPoint>,
     events: Vec<Event>,
 }
@@ -114,6 +116,7 @@ struct Report {
 struct PolicyResult {
     policy_id: String,
     policy_family: String,
+    policy_role: String,
     policy_schedule_sha256: String,
     sample_count: usize,
     sample_cost_units: f64,
@@ -209,6 +212,18 @@ fn validate_policy_submission(p: &PolicySubmission) -> Result<(), String> {
                 policy.policy_id
             ));
         }
+        if (policy.policy_family == "hindsight_oracle")
+            != (policy.policy_role == "evaluator_only_reference")
+            || !matches!(
+                policy.policy_role.as_str(),
+                "candidate" | "evaluator_only_reference"
+            )
+        {
+            return Err(format!(
+                "policy {} role must match deployable vs evaluator-only family",
+                policy.policy_id
+            ));
+        }
         if !valid_sha256(&policy.policy_code_sha256) || !valid_sha256(&policy.policy_config_sha256)
         {
             return Err(format!(
@@ -260,6 +275,8 @@ fn validate_truth(t: &Truth) -> Result<(), String> {
         || t.baseline_window.start_hours >= t.baseline_window.end_hours
         || !t.maximum_event_integration_gap_hours.is_finite()
         || t.maximum_event_integration_gap_hours <= 0.0
+        || !t.off_event_false_trigger_absolute_departure_threshold.is_finite()
+        || t.off_event_false_trigger_absolute_departure_threshold <= 0.0
         || t.truth_series.len() < 3
         || t.events.is_empty()
     {
@@ -326,6 +343,20 @@ fn validate_truth(t: &Truth) -> Result<(), String> {
                 "event {} has invalid identity, boundaries or threshold",
                 event.event_id
             ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_schedule_against_truth(p: &PolicySubmission, t: &Truth) -> Result<(), String> {
+    for policy in &p.policies {
+        for time in &policy.requested_times_hours {
+            if truth_at(t, *time).is_none() {
+                return Err(format!(
+                    "policy {} requests {time}h outside exact truth timestamps; interpolation is prohibited",
+                    policy.policy_id
+                ));
+            }
         }
     }
     Ok(())
@@ -428,7 +459,7 @@ fn event_result(
                 )
             }
         };
-    let (abs_integral_error, relative_integral_error) =
+    let (abs_integral_error, relative_pulse_burden_error) =
         sampled_integral.map_or((None, None), |estimate| {
             let error = (estimate - true_integral).abs();
             (
@@ -471,8 +502,7 @@ fn score(
     evaluator_truth_sha256: String,
 ) -> Report {
     let baseline = baseline_mean(truth);
-    let events_all: BTreeSet<String> = truth.events.iter().map(|x| x.event_id.clone()).collect();
-    let policies = submission
+    let policies: Vec<PolicyResult> = submission
         .policies
         .iter()
         .map(|policy| {
@@ -483,21 +513,14 @@ fn score(
                 .iter()
                 .filter_map(|time| truth_at(truth, *time))
                 .collect();
-            let in_event_times: BTreeSet<String> = truth
-                .events
-                .iter()
-                .flat_map(|event| {
-                    policy
-                        .requested_times_hours
-                        .iter()
-                        .filter(|time| **time >= event.start_hours && **time <= event.end_hours)
-                        .map(|time| format!("{time:.9}"))
-                })
-                .collect();
-            let out_of_event_count = policy
+                let out_of_event_count = policy
                 .requested_times_hours
                 .iter()
-                .filter(|time| !in_event_times.contains(&format!("{time:.9}")))
+                .filter(|time| {
+                    !truth.events.iter().any(|event| {
+                        **time >= event.start_hours && **time <= event.end_hours
+                    })
+                })
                 .count();
             let false_trigger_count = sampled
                 .iter()
@@ -505,7 +528,8 @@ fn score(
                     !truth.events.iter().any(|event| {
                         point.elapsed_hours >= event.start_hours
                             && point.elapsed_hours <= event.end_hours
-                    }) && (point.response_value - baseline).abs() >= 1.0
+                    }) && (point.response_value - baseline).abs()
+                        >= truth.off_event_false_trigger_absolute_departure_threshold
                 })
                 .count();
             let event_results: Vec<EventResult> = truth
@@ -518,6 +542,7 @@ fn score(
             PolicyResult {
                 policy_id: policy.policy_id.clone(),
                 policy_family: policy.policy_family.clone(),
+                policy_role: policy.policy_role.clone(),
                 policy_schedule_sha256: schedule_hash,
                 sample_count: policy.requested_times_hours.len(),
                 sample_cost_units: policy.requested_times_hours.len() as f64
@@ -527,7 +552,7 @@ fn score(
                 out_of_event_sample_count: out_of_event_count,
                 false_trigger_count,
                 events_detected,
-                event_count: events_all.len(),
+                event_count: truth.events.len(),
                 missed_event_count: missed,
                 events: event_results,
             }
@@ -570,14 +595,7 @@ fn run(
     validate_policy_submission(&submission).map_err(io::Error::other)?;
     validate_truth(&truth).map_err(io::Error::other)?;
     for policy in &submission.policies {
-        for time in &policy.requested_times_hours {
-            if truth_at(&truth, *time).is_none() {
-                return Err(format!(
-                    "policy {} requests {time}h outside exact truth timestamps; interpolation is prohibited",
-                    policy.policy_id
-                ).into());
-            }
-        }
+        validate_schedule_against_truth(&submission, &truth).map_err(io::Error::other)?;
     }
     let policy_hash = format!("{:x}", Sha256::digest(&policy_bytes));
     let truth_hash = format!("{:x}", Sha256::digest(&truth_bytes));
@@ -737,6 +755,27 @@ mod tests {
             .unwrap()
             .events[0];
         assert_eq!(broad.pulse_burden_status, "gap_exceeded");
+    }
+
+    #[test]
+    fn off_grid_schedule_is_rejected_by_truth_join() {
+        let (mut p, t) = fixtures();
+        p.policies[0].requested_times_hours[1] = 8.5;
+        assert!(validate_schedule_against_truth(&p, &t).is_err());
+    }
+
+    #[test]
+    fn hindsight_oracle_must_be_evaluator_only() {
+        let (mut p, _) = fixtures();
+        p.policies[0].policy_family = "hindsight_oracle".into();
+        assert!(validate_policy_submission(&p).is_err());
+    }
+
+    #[test]
+    fn off_event_trigger_threshold_is_explicit_and_positive() {
+        let (_, mut t) = fixtures();
+        t.off_event_false_trigger_absolute_departure_threshold = 0.0;
+        assert!(validate_truth(&t).is_err());
     }
 
     #[test]
