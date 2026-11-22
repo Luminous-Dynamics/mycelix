@@ -178,6 +178,10 @@ Measure net delivered energy at an explicitly named metering boundary, with unit
 
 Meter accuracy must be qualified against the actual device class, installation, calibration and applicable legal metrology/grid rules. A software test can verify arithmetic and declared calibration coverage; it cannot prove the physical meter is honest or accurately installed.
 
+For environmental claims, distinguish **physical generation**, **contractual delivery/consumption**, **energy attribute certificate issuance/ownership**, and **final attribute retirement/claim**. These are linked but non-interchangeable events. A certificate is not proof that electricity was delivered to a buyer; a meter reading is not proof that a certificate was retired.
+
+The GHG Protocol published a Scope 2 market-based-method update on 16 October 2026. Its ongoing revision process includes proposals for hourly matching and geographic deliverability, but the technical working group and standards board were still discussing the major choices. PCOE must keep matching granularity, deliverability, incrementality and effective date as versioned policy profiles. Do not encode consultation proposals as final GHG Protocol requirements.
+
 ### 5.3 Monetary and custody extension
 
 A currency claim must identify its issuer, redemption right, seniority, legal perimeter, custody model, eligible reserve definition, valuation time, encumbrances, and independent evidence. Keep productive assets and loan receivables separate from liquid redemption reserves unless the explicit liability structure and applicable law permit otherwise. Benchmark redemption under normal and stressed conditions, direct-claim enforceability, custody/intermediary failure, reserve concentration, asset-liability mismatch, and recovery/resolution plans. The FSB global stablecoin recommendations call for robust legal claims and timely redemption; for single-fiat-referenced arrangements they call for par redemption and reserves at least equal to outstanding stablecoins unless equivalent prudential safeguards apply. Redemption and issuance must be idempotent and reconciled against external custody and payment facts.
@@ -194,6 +198,11 @@ Do not try to beat every specialist at its primary job. Integrate with them and 
 | IETF OAuth delegation | RFC 8693 defines token exchange and delegation/impersonation semantics; RFC 9396 carries fine-grained authorization details | Use interoperable tokens where appropriate, but enforce attenuation, one-time effects, revocation freshness, and human approval in the execution boundary |
 | IFRS 9 | Forward-looking, probability-weighted, discounted expected credit-loss measurement using reasonable and supportable information | Extend beyond the one-period scalar helper; qualify staging, discounting, scenario weights, calibration and outcomes |
 | BCBS 239 risk-data principles | Emphasize accurate, complete and timely risk data and reporting, including end-to-end lineage and traceability | Test provenance from source observation through model feature, decision, ledger entry and regulatory report; reconcile lineage under stress and during ad-hoc reporting |
+| IETF SCITT (RFC 9943) and COSE Receipts (RFC 9942) | Interoperable signed-statement transparency and verifiable-data-structure receipts, including inclusion and consistency proofs | Reuse the protocol; bind each receipt to the exact statement and checkpoint, while separately qualifying factual truth, issuer competence and authority |
+| I-REC(E) / I-TRACK | Accredited registry model for issuing, transferring and redeeming renewable energy attribute certificates | Integrate with the registry; reconcile eligible measured generation, product-code rules, ownership and final redemption without creating a shadow registry |
+| GHG Protocol Scope 2 revision | The 2025–26 revision process is considering hourly matching and deliverability; key options remained under technical deliberation in the 16 October 2026 update | Make temporal/geographic matching rules versioned policy inputs; benchmark hourly and annual matching without presenting consultation proposals as final rules |
+| EU Digital Product Passport | The Commission DPP Registry became operational on 20 July 2026; certain battery categories have an 18 February 2027 passport deadline | Integrate with authoritative product registries and preserve asset, component, maintenance, repair, remanufacture and recycling lineage; do not create a competing passport registry |
+| OWASP AISVS | Vendor-neutral, testable AI/agent security verification controls, including orchestration and MCP security | Map agent authority, approval, tool isolation and per-call policy checks to a pinned AISVS version; test implementation rather than claim alignment by documentation alone |
 | South African electricity market | Electricity Regulation Amendment Act 38 of 2024 commenced 1 January 2025 and provides for an open market platform and NTCSA-related functions | Treat market participation, licensing, wheeling, metering, and settlement as jurisdiction-specific legal/operational adapters; obtain NERSA and legal review before production claims |
 | Web4 Internet-Draft | An individual, informational Internet-Draft that proposes a verifiable, agent-native Web architecture; it is not an IETF-endorsed standard | Implement testable readiness profiles without claiming IETF conformance; use independent anchors, machine-readable interfaces, authority records, and disclosed curation |
 
@@ -214,6 +223,7 @@ The first field-oriented demonstration should finance, install, measure, accept,
 | Acceptance | authorized buyer/community institution | signed acceptance or partial/disputed disposition against exact contract |
 | Payment | sandbox rail first, regulated rail only after approval | idempotent payment intent, authoritative receipt, finality policy |
 | Reconciliation | independent participant | reproducible contract/energy/payment graph, exceptions and deltas |
+| Asset lifecycle | manufacturer/operator/registry + Mycelix | exact product passport, serial identity, commissioning, maintenance, component replacement and end-of-life lineage |
 
 Start with a sandbox payment rail and one installation. No SAP issuance against projected energy. No claim of verified production until measurement, calibration, independent inspection, and relevant legal requirements are satisfied. The first successful demo should publish the complete evidence bundle and its limitations.
 
@@ -259,7 +269,14 @@ Blocking issues to keep visible:
 - IETF RFC 9396, OAuth 2.0 Rich Authorization Requests: https://www.rfc-editor.org/rfc/rfc9396
 - IFRS Foundation, IFRS 9 project summary — impairment / measuring expected credit losses: https://www.ifrs.org/content/dam/ifrs/project/fi-impairment/ifrs-standard/published-documents/project-summary-july-2014.pdf
 - South African Government, Electricity Regulation Amendment Act 38 of 2024: https://www.gov.za/documents/acts/electricity-regulation-amendment-act-38-2024-english-isizulu-20-aug-2024
+- IETF RFC 9942, COSE Receipts: https://www.rfc-editor.org/rfc/rfc9942
 - I-TRACK Foundation, Product Code for Electricity (I-REC(E)): https://www.trackingstandard.org/product-code/electricity/
+- GHG Protocol, Scope 2 market-based method update (16 October 2026): https://ghgprotocol.org/blog/scope-2-market-based-method-update-2025-2026-public-consultation-current-status
+- European Commission, Digital Product Passport Registry live (20 July 2026): https://single-market-economy.ec.europa.eu/news/digital-product-passport-registry-now-live-2026-07-20_en
+- European Commission, Battery Passport implementation timelines and data points: https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en
+- OWASP, Artificial Intelligence Security Verification Standard: https://github.com/OWASP/AISVS
+- NIST, Design Tenets for Agent Identity Management Systems (27 October 2026): https://www.nist.gov/blogs/cybersecurity-insights/design-tenets-agent-identity-management-systems
+- Energy Council of South Africa, policy tracker (Trading Rules consultation closed; inputs being consolidated): https://energycouncil.org.za/policy-tracker/
 - U.S. EPA, How to Avoid Double Counting Renewable Energy Certificates: https://www.epa.gov/green-power-markets/double-counting
 - IEC 62052-11:2020, electricity meter general requirements and type tests: https://webstore.iec.ch/en/publication/28212
 - Efficiency Valuation Organization, IPMVP Core Concepts 2022: https://evo-world.org/en/products-services-mainmenu-en/protocols/ipmvp
