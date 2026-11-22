@@ -313,6 +313,7 @@ pub enum ProposalError {
     GeometryWeightsDoNotSumToOne(f64),
     InvalidFrameDimension,
     FrameNotOrthonormal,
+    NonFiniteParameter(&'static str),
     InvalidExponentialRate(f64),
     DimensionMismatch {
         expected: usize,
@@ -368,6 +369,7 @@ impl fmt::Display for ProposalError {
                 f,
                 "normal and tangent vectors must form an orthonormal frame"
             ),
+            Self::NonFiniteParameter(field) => write!(f, "{field} must be finite"),
             Self::InvalidExponentialRate(value) => write!(
                 f,
                 "exponential rate must be finite and positive; got {value}"
