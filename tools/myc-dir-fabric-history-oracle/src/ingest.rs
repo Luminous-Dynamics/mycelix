@@ -619,11 +619,11 @@ mod tests {
         }
     }
 
-    fn manifest(
+    fn manifest_many(
         source: &str,
         stream: &str,
         owner: Option<&str>,
-        event_id: &str,
+        event_ids: &[&str],
     ) -> SourceStreamManifest {
         SourceStreamManifest {
             source_id: source.into(),
@@ -633,12 +633,21 @@ mod tests {
             schema_version: "myc-dir-history-v1".into(),
             source_build_digest: digest(2),
             first_cursor: "cursor-1".into(),
-            last_cursor: "cursor-1".into(),
-            expected_event_ids: [event_id.to_owned()].into_iter().collect(),
-            expected_event_count: 1,
+            last_cursor: format!("cursor-{}", event_ids.len()),
+            expected_event_ids: event_ids.iter().map(|id| (*id).to_owned()).collect(),
+            expected_event_count: event_ids.len(),
             event_set_digest: digest(3),
             source_receipt_digest: digest(4),
         }
+    }
+
+    fn manifest(
+        source: &str,
+        stream: &str,
+        owner: Option<&str>,
+        event_id: &str,
+    ) -> SourceStreamManifest {
+        manifest_many(source, stream, owner, &[event_id])
     }
 
     fn bundle() -> RawHistoryBundle {
@@ -675,6 +684,46 @@ mod tests {
                 manifest("owner-a", "effects", Some("owner-a"), "bootstrap-a"),
             ],
         }
+    }
+
+    fn bundle_with_global_barrier() -> RawHistoryBundle {
+        let mut raw = bundle();
+        raw.events.push(record(
+            "owner-ack-a",
+            Some("owner-a"),
+            None,
+            EventKind::OwnerAcknowledged {
+                fence_commit_event_id: "fence-a".into(),
+                readback_event_id: "readback-a".into(),
+                revocation_digest: digest(5),
+                inventory_epoch: 7,
+                inventory_manifest_digest: digest(6),
+                route_set_digest: digest(7),
+                owner_commit_digest: digest(9),
+                durable_readback_digest: digest(10),
+            },
+        ));
+        raw.events.push(record(
+            "global-ack",
+            None,
+            None,
+            EventKind::GlobalBarrierAcknowledged {
+                inventory_event_id: "inventory".into(),
+                revocation_digest: digest(5),
+                inventory_epoch: 7,
+                inventory_manifest_digest: digest(6),
+                route_set_digest: digest(7),
+                owner_ack_event_ids: ["owner-ack-a".to_owned()].into_iter().collect(),
+                owner_ack_set_digest: digest(11),
+                coordinator_epoch: 1,
+                coordinator_commit_digest: digest(12),
+            },
+        ));
+        raw.source_manifests = vec![
+            manifest_many("coordinator", "control", None, &["inventory", "global-ack"]),
+            manifest_many("owner-a", "effects", Some("owner-a"), &["bootstrap-a", "owner-ack-a"]),
+        ];
+        raw
     }
 
     fn good_authenticator() -> TestAuthenticator {
@@ -770,6 +819,87 @@ mod tests {
         assert_eq!(report.verdict, IngestVerdict::Violation);
         assert!(report.findings.iter().any(|finding| {
             finding.code == IngestFindingCode::ManifestEventOwnerMismatch
+        }));
+    }
+
+    #[test]
+    fn unavailable_global_owner_ack_verifier_is_inconclusive() {
+        let auth = TestAuthenticator {
+            owner_ack_set: VerificationStatus::Unavailable,
+            ..good_authenticator()
+        };
+        let report = ingest_history(bundle_with_global_barrier(), &auth);
+        assert_eq!(report.verdict, IngestVerdict::Inconclusive);
+        assert!(report.findings.iter().any(|finding| {
+            finding.code == IngestFindingCode::OwnerAckSetUnavailable
+        }));
+    }
+
+    #[test]
+    fn invalid_global_owner_ack_commitment_is_a_violation() {
+        let auth = TestAuthenticator {
+            owner_ack_set: VerificationStatus::Invalid,
+            ..good_authenticator()
+        };
+        let report = ingest_history(bundle_with_global_barrier(), &auth);
+        assert_eq!(report.verdict, IngestVerdict::Violation);
+        assert!(report.findings.iter().any(|finding| {
+            finding.code == IngestFindingCode::OwnerAckSetInvalid
+        }));
+    }
+
+    #[test]
+    fn an_unmanifested_event_is_inconclusive() {
+        let mut raw = bundle();
+        raw.events.push(record(
+            "uncovered-event",
+            Some("owner-a"),
+            Some(2),
+            EventKind::WorkerClaimInstalled {
+                operation_id: "op-a".into(),
+                worker_id: "worker-a".into(),
+                claim_epoch: 1,
+            },
+        ));
+        let report = ingest_history(raw, &good_authenticator());
+        assert_eq!(report.verdict, IngestVerdict::Inconclusive);
+        assert!(report.findings.iter().any(|finding| {
+            finding.code == IngestFindingCode::UncoveredEvent
+        }));
+    }
+
+    #[test]
+    fn scope_substitution_in_event_is_a_violation() {
+        let mut raw = bundle();
+        raw.events[1].scope_digest = digest(99);
+        let report = ingest_history(raw, &good_authenticator());
+        assert_eq!(report.verdict, IngestVerdict::Violation);
+        assert!(report.findings.iter().any(|finding| {
+            finding.code == IngestFindingCode::EventScopeMismatch
+        }));
+    }
+
+    #[test]
+    fn duplicate_source_manifest_identity_is_a_violation() {
+        let mut raw = bundle();
+        raw.source_manifests.push(raw.source_manifests[0].clone());
+        let report = ingest_history(raw, &good_authenticator());
+        assert_eq!(report.verdict, IngestVerdict::Violation);
+        assert!(report.findings.iter().any(|finding| {
+            finding.code == IngestFindingCode::DuplicateManifestIdentity
+        }));
+    }
+
+    #[test]
+    fn invalid_global_owner_ack_commitment_is_a_violation() {
+        let auth = TestAuthenticator {
+            owner_ack_set: VerificationStatus::Invalid,
+            ..good_authenticator()
+        };
+        let report = ingest_history(bundle_with_global_barrier(), &auth);
+        assert_eq!(report.verdict, IngestVerdict::Violation);
+        assert!(report.findings.iter().any(|finding| {
+            finding.code == IngestFindingCode::OwnerAckSetInvalid
         }));
     }
 
