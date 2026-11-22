@@ -1696,7 +1696,7 @@ mod tests {
 
     #[test]
     fn corpus_scenario_inventory_is_unique_and_linked() {
-        const CORPUS: &str = include_str!("../pcoe-scenarios.v0.1.json");
+        const CORPUS: &str = include_str!("../../pcoe-scenarios.v0.1.json");
         let mut ids = BTreeSet::new();
         for item in SCENARIO_COVERAGE {
             assert!(
@@ -1717,7 +1717,7 @@ mod tests {
 
     #[test]
     fn agent_authority_addendum_inventory_is_unique_and_linked() {
-        const CORPUS: &str = include_str!("../pcoe-agent-authority-scenarios.v0.1.json");
+        const CORPUS: &str = include_str!("../../pcoe-agent-authority-scenarios.v0.1.json");
         let mut ids = BTreeSet::new();
         for item in AGENT_SCENARIO_COVERAGE {
             assert!(
@@ -1738,7 +1738,7 @@ mod tests {
 
     #[test]
     fn transparency_metrology_market_inventory_is_unique_and_linked() {
-        const CORPUS: &str = include_str!("../pcoe-transparency-metrology-scenarios.v0.1.json");
+        const CORPUS: &str = include_str!("../../pcoe-transparency-metrology-scenarios.v0.1.json");
         let mut ids = BTreeSet::new();
         for item in TRANSPARENCY_METROLOGY_SCENARIO_COVERAGE {
             assert!(
