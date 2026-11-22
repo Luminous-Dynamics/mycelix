@@ -86,6 +86,26 @@ When a network timeout or malformed response leaves the external outcome unknown
 
 This pattern should be implemented at the authoritative boundary. A coordinator-only check or UI-level disabled button is not an adequate substitute for integrity validation, durable consumption, and concurrency control.
 
+### 2.5 Independent event replay and externally anchored history
+
+A second verifier should be able to reconstruct an obligation's current disposition from the original request and ordered event records, not from the producer's mutable aggregate status. The event stream should bind a monotonic sequence number, predecessor digest, canonical event digest, issuer identity, and a checkpoint digest witnessed outside the producing application.
+
+The reference kernel now separates two checks:
+
+- **Transition replay:** recompute the payment disposition from the request plus typed event sequence; reject impossible transitions such as reversal before payment, duplicate terminal transitions, or manual-attestation promotion to rail finality.
+- **Envelope continuity:** validate sequence continuity, nonzero/unique event digests, predecessor-digest links, upstream digest/signature-verification status, and equality to an independently supplied final checkpoint.
+
+These are distinct from cryptographic and transparency-service verification. The in-memory kernel does not calculate secure hashes, validate issuer signatures, authenticate a witness, or verify a SCITT inclusion proof. A production adapter must perform those operations over canonical bytes and anchor the final digest in an independently governed transparency service or equivalent external witness. A locally stored hash chain with no independent checkpoint is not independent tamper evidence.
+
+The current interchange package adds:
+- `schemas/payment-event-envelope.v0.1.schema.json`: typed event envelope with chain identity, monotonic sequence, predecessor/event digests, issuer/key references, typed event payload, signature container, event/record times, supersession and receipt references.
+- `schemas/payment-chain-checkpoint.v0.1.schema.json`: expected final sequence/digest and one or more declared external anchor/witness records.
+- `fixtures/payment-event-chain.v0.1.json`: synthetic intent → indeterminate → paid-final → reversal history.
+
+The example fixture's signature values are explicitly placeholders and its checkpoint is marked pending. These JSON artifacts have been parsed and checked for sequence/predecessor/checkpoint consistency; this is not yet a full Draft 2020-12 JSON Schema validation or a cryptographic/SCITT conformance result. The implementation task is tracked in [#6530](https://github.com/Luminous-Dynamics/mycelix/issues/6530).
+
+
+
 ## 3. Benchmark levels
 
 | Level | Test surface | Minimum evidence |
@@ -100,7 +120,14 @@ A passing L0 or L1 result does not qualify L2–L4. A synthetic fixture cannot e
 
 ## 4. Adversarial corpus
 
-The companion file `pcoe-scenarios.v0.1.json` defines 39 initial scenarios. Each scenario includes a threat, preconditions, the injected mutation, expected disposition, and the control that must be demonstrated.
+The benchmark now has four separate machine-readable suites comprising **71 scenarios**. Each scenario includes a threat, preconditions, the injected mutation, expected disposition, and the control that must be demonstrated:
+
+- `pcoe-scenarios.v0.1.json`: 39 core obligation scenarios.
+- `pcoe-agent-authority-scenarios.v0.1.json`: 10 agent identity/delegation/approval scenarios.
+- `pcoe-transparency-metrology-scenarios.v0.1.json`: 10 transparency, legal-metrology and regulatory-adapter scenarios.
+- `pcoe-energy-attribute-scenarios.v0.1.json`: 12 renewable energy-attribute issuance/ownership/retirement scenarios.
+
+The Rust reference kernel maps all 71 IDs into explicit coverage classes: 30 implemented in reference-kernel tests, 16 partial/adapter-dependent, and 25 not yet implemented. These labels are not full PCOE conformance. Adapter-level suites are not replaced by in-memory policy tests.
 
 The corpus is intentionally cross-layer. It includes:
 - expired, revoked, replayed, or escalated delegated authority;
@@ -108,7 +135,10 @@ The corpus is intentionally cross-layer. It includes:
 - self-verification, common-cause witnesses, conflicts, evidence-digest mismatch, and tampered records;
 - contract-version substitution, absent acceptance authority, partial delivery presented as full delivery, concurrent oversell, and duplicate collateral;
 - timeout ambiguity, malformed responses, duplicate side effects, idempotency conflicts, beneficiary/amount mismatch, manual-attestation promotion, stale receipts, and post-finality reversals;
-- pending transparency anchors, fork/split-brain histories, privacy over-disclosure, model outage, prediction/measurement confusion, and unreconciled physical/financial quantities.
+- pending transparency anchors, fork/split-brain histories, privacy over-disclosure, model outage, prediction/measurement confusion, and unreconciled physical/financial quantities;
+- unregistered or suspended generation devices, overlapping intervals, EAC over-issuance, duplicate certificate IDs, double transfer/retirement, cross-registry conflicts, storage-provenance laundering and certificate correction/claim-reconciliation failures.
+
+The EAC suite preserves a strict distinction between physical generation, contractual delivery/consumption, certificate ownership/retirement and a consumer's renewable-energy claim. PCOE should interoperate with an accredited EAC registry; it is not a shadow certificate registry.
 
 A scenario is not passed because an error was logged. The harness must assert the resulting state, the absence of unauthorized side effects, and relevant balance/quantity deltas. Every negative control must fail when its corresponding safeguard is removed.
 
@@ -148,6 +178,10 @@ Measure net delivered energy at an explicitly named metering boundary, with unit
 
 Meter accuracy must be qualified against the actual device class, installation, calibration and applicable legal metrology/grid rules. A software test can verify arithmetic and declared calibration coverage; it cannot prove the physical meter is honest or accurately installed.
 
+For environmental claims, distinguish **physical generation**, **contractual delivery/consumption**, **energy attribute certificate issuance/ownership**, and **final attribute retirement/claim**. These are linked but non-interchangeable events. A certificate is not proof that electricity was delivered to a buyer; a meter reading is not proof that a certificate was retired.
+
+The GHG Protocol published a Scope 2 market-based-method update on 16 October 2026. Its ongoing revision process includes proposals for hourly matching and geographic deliverability, but the technical working group and standards board were still discussing the major choices. PCOE must keep matching granularity, deliverability, incrementality and effective date as versioned policy profiles. Do not encode consultation proposals as final GHG Protocol requirements.
+
 ### 5.3 Monetary and custody extension
 
 A currency claim must identify its issuer, redemption right, seniority, legal perimeter, custody model, eligible reserve definition, valuation time, encumbrances, and independent evidence. Keep productive assets and loan receivables separate from liquid redemption reserves unless the explicit liability structure and applicable law permit otherwise. Benchmark redemption under normal and stressed conditions, direct-claim enforceability, custody/intermediary failure, reserve concentration, asset-liability mismatch, and recovery/resolution plans. The FSB global stablecoin recommendations call for robust legal claims and timely redemption; for single-fiat-referenced arrangements they call for par redemption and reserves at least equal to outstanding stablecoins unless equivalent prudential safeguards apply. Redemption and issuance must be idempotent and reconciled against external custody and payment facts.
@@ -164,6 +198,11 @@ Do not try to beat every specialist at its primary job. Integrate with them and 
 | IETF OAuth delegation | RFC 8693 defines token exchange and delegation/impersonation semantics; RFC 9396 carries fine-grained authorization details | Use interoperable tokens where appropriate, but enforce attenuation, one-time effects, revocation freshness, and human approval in the execution boundary |
 | IFRS 9 | Forward-looking, probability-weighted, discounted expected credit-loss measurement using reasonable and supportable information | Extend beyond the one-period scalar helper; qualify staging, discounting, scenario weights, calibration and outcomes |
 | BCBS 239 risk-data principles | Emphasize accurate, complete and timely risk data and reporting, including end-to-end lineage and traceability | Test provenance from source observation through model feature, decision, ledger entry and regulatory report; reconcile lineage under stress and during ad-hoc reporting |
+| IETF SCITT (RFC 9943) and COSE Receipts (RFC 9942) | Interoperable signed-statement transparency and verifiable-data-structure receipts, including inclusion and consistency proofs | Reuse the protocol; bind each receipt to the exact statement and checkpoint, while separately qualifying factual truth, issuer competence and authority |
+| I-REC(E) / I-TRACK | Accredited registry model for issuing, transferring and redeeming renewable energy attribute certificates | Integrate with the registry; reconcile eligible measured generation, product-code rules, ownership and final redemption without creating a shadow registry |
+| GHG Protocol Scope 2 revision | The 2025–26 revision process is considering hourly matching and deliverability; key options remained under technical deliberation in the 16 October 2026 update | Make temporal/geographic matching rules versioned policy inputs; benchmark hourly and annual matching without presenting consultation proposals as final rules |
+| EU Digital Product Passport | The Commission DPP Registry became operational on 20 July 2026; certain battery categories have an 18 February 2027 passport deadline | Integrate with authoritative product registries and preserve asset, component, maintenance, repair, remanufacture and recycling lineage; do not create a competing passport registry |
+| OWASP AISVS | Vendor-neutral, testable AI/agent security verification controls, including orchestration and MCP security | Map agent authority, approval, tool isolation and per-call policy checks to a pinned AISVS version; test implementation rather than claim alignment by documentation alone |
 | South African electricity market | Electricity Regulation Amendment Act 38 of 2024 commenced 1 January 2025 and provides for an open market platform and NTCSA-related functions | Treat market participation, licensing, wheeling, metering, and settlement as jurisdiction-specific legal/operational adapters; obtain NERSA and legal review before production claims |
 | Web4 Internet-Draft | An individual, informational Internet-Draft that proposes a verifiable, agent-native Web architecture; it is not an IETF-endorsed standard | Implement testable readiness profiles without claiming IETF conformance; use independent anchors, machine-readable interfaces, authority records, and disclosed curation |
 
@@ -184,6 +223,7 @@ The first field-oriented demonstration should finance, install, measure, accept,
 | Acceptance | authorized buyer/community institution | signed acceptance or partial/disputed disposition against exact contract |
 | Payment | sandbox rail first, regulated rail only after approval | idempotent payment intent, authoritative receipt, finality policy |
 | Reconciliation | independent participant | reproducible contract/energy/payment graph, exceptions and deltas |
+| Asset lifecycle | manufacturer/operator/registry + Mycelix | exact product passport, serial identity, commissioning, maintenance, component replacement and end-of-life lineage |
 
 Start with a sandbox payment rail and one installation. No SAP issuance against projected energy. No claim of verified production until measurement, calibration, independent inspection, and relevant legal requirements are satisfied. The first successful demo should publish the complete evidence bundle and its limitations.
 
@@ -217,6 +257,8 @@ Blocking issues to keep visible:
 ## 10. References
 
 - BIS, Project Agorá: https://www.bis.org/project/agora
+- IETF RFC 9943, *An Architecture for Trustworthy and Transparent Digital Supply Chains*: https://datatracker.ietf.org/doc/rfc9943/
+- PCOE SCITT adapter implementation task: https://github.com/Luminous-Dynamics/mycelix/issues/6530
 - FSB, High-level Recommendations for Global Stablecoin Arrangements: https://www.fsb.org/2023/07/high-level-recommendations-for-the-regulation-supervision-and-oversight-of-global-stablecoin-arrangements-final-report/
 - FSB, 2025 thematic review of crypto-asset/stablecoin implementation gaps: https://www.fsb.org/2025/10/fsb-finds-significant-gaps-and-inconsistencies-in-implementation-of-crypto-and-stablecoin-recommendations/
 - Basel Committee, BCBS 239 implementation monitoring: https://www.bis.org/publications/implementation-principles-effective-risk-data-aggregation-and-risk-reporting-bcbs-239-principles
@@ -227,6 +269,17 @@ Blocking issues to keep visible:
 - IETF RFC 9396, OAuth 2.0 Rich Authorization Requests: https://www.rfc-editor.org/rfc/rfc9396
 - IFRS Foundation, IFRS 9 project summary — impairment / measuring expected credit losses: https://www.ifrs.org/content/dam/ifrs/project/fi-impairment/ifrs-standard/published-documents/project-summary-july-2014.pdf
 - South African Government, Electricity Regulation Amendment Act 38 of 2024: https://www.gov.za/documents/acts/electricity-regulation-amendment-act-38-2024-english-isizulu-20-aug-2024
+- IETF RFC 9942, COSE Receipts: https://www.rfc-editor.org/rfc/rfc9942
+- I-TRACK Foundation, Product Code for Electricity (I-REC(E)): https://www.trackingstandard.org/product-code/electricity/
+- GHG Protocol, Scope 2 market-based method update (16 October 2026): https://ghgprotocol.org/blog/scope-2-market-based-method-update-2025-2026-public-consultation-current-status
+- European Commission, Digital Product Passport Registry live (20 July 2026): https://single-market-economy.ec.europa.eu/news/digital-product-passport-registry-now-live-2026-07-20_en
+- European Commission, Battery Passport implementation timelines and data points: https://single-market-economy.ec.europa.eu/single-market/digital-product-passport/batteries_en
+- OWASP, Artificial Intelligence Security Verification Standard: https://github.com/OWASP/AISVS
+- NIST, Design Tenets for Agent Identity Management Systems (27 October 2026): https://www.nist.gov/blogs/cybersecurity-insights/design-tenets-agent-identity-management-systems
+- Energy Council of South Africa, policy tracker (Trading Rules consultation closed; inputs being consolidated): https://energycouncil.org.za/policy-tracker/
+- U.S. EPA, How to Avoid Double Counting Renewable Energy Certificates: https://www.epa.gov/green-power-markets/double-counting
+- IEC 62052-11:2020, electricity meter general requirements and type tests: https://webstore.iec.ch/en/publication/28212
+- Efficiency Valuation Organization, IPMVP Core Concepts 2022: https://evo-world.org/en/products-services-mainmenu-en/protocols/ipmvp
 
 ---
 
