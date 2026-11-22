@@ -29,9 +29,16 @@ use myc_dir_fabric_nats_reference::{
 };
 use sha2::{Digest as ShaDigest, Sha256};
 
+pub mod postgres;
+
 const WIRE_VERSION: &str = "1";
 const HEADER_VERSION: &str = "Mycelix-Wire-Version";
 const HEADER_PUBLICATION_ID: &str = "Mycelix-Publication-Id";
+const HEADER_REALM_ID: &str = "Mycelix-Realm-Id";
+const HEADER_RESOURCE_ID: &str = "Mycelix-Resource-Id";
+const HEADER_ACTION_ID: &str = "Mycelix-Action-Id";
+const HEADER_OBJECT_ID: &str = "Mycelix-Object-Id";
+const HEADER_CURRENCY_CODE: &str = "Mycelix-Currency-Code";
 const HEADER_LOGICAL_OPERATION: &str = "Mycelix-Logical-Operation-Id";
 const HEADER_REQUEST_DIGEST: &str = "Mycelix-Request-SHA256";
 const HEADER_DECISION_DIGEST: &str = "Mycelix-Decision-SHA256";
@@ -242,8 +249,9 @@ pub struct PublishEvidence {
 /// implementations must authenticate the owner signature/proof and compare
 /// the receipt's operation, owner, idempotency, scope and terminal disposition
 /// with this exact immutable command binding.
-pub trait OwnerDispositionVerifier {
-    fn verify_durable_disposition(
+#[async_trait::async_trait]
+pub trait OwnerDispositionVerifier: Send + Sync {
+    async fn verify_durable_disposition(
         &self,
         binding: &NatsCommandBinding,
         disposition: &DurableOwnerDisposition,
@@ -258,7 +266,7 @@ pub struct VerifiedOwnerDisposition {
 }
 
 impl VerifiedOwnerDisposition {
-    pub fn verify(
+    pub async fn verify(
         binding: &NatsCommandBinding,
         disposition: DurableOwnerDisposition,
         verifier: &impl OwnerDispositionVerifier,
@@ -271,7 +279,21 @@ impl VerifiedOwnerDisposition {
         }
         verifier
             .verify_durable_disposition(binding, &disposition)
+            .await
             .map_err(AdapterError::OwnerDispositionVerification)?;
+        Self::from_verified_binding(binding, disposition)
+    }
+
+    pub(crate) fn from_verified_binding(
+        binding: &NatsCommandBinding,
+        disposition: DurableOwnerDisposition,
+    ) -> AdapterResult<Self> {
+        if matches!(
+            plan_acknowledgement(binding, &disposition, AckMode::Ack),
+            AckPlan::DoNotAcknowledge
+        ) {
+            return Err(AdapterError::AckNotPermitted);
+        }
         let binding_bytes = binding.canonical_bytes().map_err(AdapterError::Binding)?;
         Ok(Self {
             binding_digest: sha256(&binding_bytes),
@@ -539,6 +561,11 @@ impl JetStreamAdapter {
             .message_id(&input.nats_message_id)
             .header(HEADER_VERSION, WIRE_VERSION)
             .header(HEADER_PUBLICATION_ID, input.nats_message_id.as_str())
+            .header(HEADER_REALM_ID, input.realm_id.as_str())
+            .header(HEADER_RESOURCE_ID, input.resource_id.as_str())
+            .header(HEADER_ACTION_ID, input.action_id.as_str())
+            .header(HEADER_OBJECT_ID, input.object_id.as_str())
+            .header(HEADER_CURRENCY_CODE, input.currency_code.as_str())
             .header(
                 HEADER_LOGICAL_OPERATION,
                 input.logical_operation_id.as_str(),
@@ -685,6 +712,11 @@ impl JetStreamAdapter {
 
         let input = NatsCommandBindingInput {
             account_id: self.config.account_id.clone(),
+            realm_id: header_text(headers, HEADER_REALM_ID)?,
+            resource_id: header_text(headers, HEADER_RESOURCE_ID)?,
+            action_id: header_text(headers, HEADER_ACTION_ID)?,
+            object_id: header_text(headers, HEADER_OBJECT_ID)?,
+            currency_code: header_text(headers, HEADER_CURRENCY_CODE)?,
             stream_name: stream_name.clone(),
             subject: raw_message.subject.to_string(),
             consumer_name: consumer_name.clone(),
@@ -738,6 +770,11 @@ mod tests {
     fn config() -> JetStreamAdapterConfig {
         JetStreamAdapterConfig {
             account_id: "default".into(),
+            realm_id: "realm-test".into(),
+            resource_id: "resource-test".into(),
+            action_id: "balance-adjust".into(),
+            object_id: "account-test".into(),
+            currency_code: "USD".into(),
             stream_name: "MYCELIX_COMMANDS".into(),
             subject: "mycelix.commands.>".into(),
             durable_consumer: "mycelix-workers".into(),
@@ -902,8 +939,9 @@ mod tests {
     }
 
     struct AcceptOwnerDisposition;
+    #[async_trait::async_trait]
     impl OwnerDispositionVerifier for AcceptOwnerDisposition {
-        fn verify_durable_disposition(
+        async fn verify_durable_disposition(
             &self,
             _binding: &NatsCommandBinding,
             _disposition: &DurableOwnerDisposition,
@@ -913,8 +951,9 @@ mod tests {
     }
 
     struct RejectOwnerDisposition;
+    #[async_trait::async_trait]
     impl OwnerDispositionVerifier for RejectOwnerDisposition {
-        fn verify_durable_disposition(
+        async fn verify_durable_disposition(
             &self,
             _binding: &NatsCommandBinding,
             _disposition: &DurableOwnerDisposition,
@@ -926,6 +965,11 @@ mod tests {
     fn test_binding(message_id: &str) -> NatsCommandBinding {
         NatsCommandBinding::new(NatsCommandBindingInput {
             account_id: "default".into(),
+            realm_id: "realm-test".into(),
+            resource_id: "resource-test".into(),
+            action_id: "balance-adjust".into(),
+            object_id: "account-test".into(),
+            currency_code: "USD".into(),
             stream_name: "MYCELIX_COMMANDS".into(),
             subject: "mycelix.commands.test".into(),
             consumer_name: "myc-workers".into(),
@@ -951,25 +995,27 @@ mod tests {
         }
     }
 
-    #[test]
-    fn verified_owner_disposition_requires_external_verifier() {
+    #[tokio::test]
+    async fn verified_owner_disposition_requires_external_verifier() {
         let result = VerifiedOwnerDisposition::verify(
             &test_binding("message-a"),
             test_disposition(),
             &RejectOwnerDisposition,
-        );
+        )
+        .await;
         assert!(matches!(
             result,
             Err(AdapterError::OwnerDispositionVerification(_))
         ));
     }
 
-    #[test]
-    fn verified_owner_disposition_is_bound_to_exact_command() {
+    #[tokio::test]
+    async fn verified_owner_disposition_is_bound_to_exact_command() {
         let first = test_binding("message-a");
         let second = test_binding("message-b");
         let verified =
             VerifiedOwnerDisposition::verify(&first, test_disposition(), &AcceptOwnerDisposition)
+                .await
                 .unwrap();
         assert!(verified.is_for_binding(&first).unwrap());
         assert!(!verified.is_for_binding(&second).unwrap());

@@ -193,6 +193,48 @@
       "kind": "safety",
       "unit": "acks",
       "hard_limit": 0
+    },
+    {
+      "id": "NJ-M21",
+      "name": "postgres_unverified_effect_receipt_acks",
+      "kind": "safety",
+      "unit": "acks",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M22",
+      "name": "postgres_receipt_scope_or_digest_substitution_acks",
+      "kind": "safety",
+      "unit": "acks",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M23",
+      "name": "postgres_read_replica_or_readonly_receipt_acks",
+      "kind": "safety",
+      "unit": "acks",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M24",
+      "name": "postgres_receipt_verification_latency_p50",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "hard_limit": null
+    },
+    {
+      "id": "NJ-M25",
+      "name": "postgres_receipt_verification_latency_p95",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "hard_limit": null
+    },
+    {
+      "id": "NJ-M26",
+      "name": "postgres_receipt_verification_latency_p99",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "hard_limit": null
     }
   ],
   "scenarios": [
@@ -363,6 +405,54 @@
       "class": "known_reject",
       "description": "A verified disposition has the same logical operation ID but a different effect-owner ID or owner-scoped idempotency commitment from the exact command binding.",
       "expected_outcome": "DO_NOT_ACK"
+    },
+    {
+      "id": "NJ-031",
+      "class": "known_reject",
+      "description": "The exact command scope and idempotency key have no matching append-only PostgreSQL effect_commits row; the verifier must not create an ACK capability.",
+      "expected_outcome": "DO_NOT_ACK"
+    },
+    {
+      "id": "NJ-032",
+      "class": "known_reject",
+      "description": "A committed PostgreSQL effect row belongs to a different realm, resource, action, owner, object or currency than the NATS command.",
+      "expected_outcome": "DO_NOT_ACK"
+    },
+    {
+      "id": "NJ-033",
+      "class": "known_reject",
+      "description": "The PostgreSQL receipt request, decision or payload digest differs from the exact command binding even though the operation ID and idempotency key match.",
+      "expected_outcome": "DO_NOT_ACK"
+    },
+    {
+      "id": "NJ-034",
+      "class": "known_reject",
+      "description": "The PostgreSQL receipt accepted resource generation differs from the generation bound to the command.",
+      "expected_outcome": "DO_NOT_ACK"
+    },
+    {
+      "id": "NJ-035",
+      "class": "known_reject",
+      "description": "The verifier connects to a PostgreSQL recovery/read replica or a read-only session and attempts to authorize a broker ACK.",
+      "expected_outcome": "DO_NOT_ACK"
+    },
+    {
+      "id": "NJ-036",
+      "class": "known_reject",
+      "description": "CA validation, hostname verification, primary connection or receipt query is unavailable or fails; the verifier must not create a VerifiedOwnerDisposition.",
+      "expected_outcome": "DO_NOT_ACK"
+    },
+    {
+      "id": "NJ-037",
+      "class": "known_reject",
+      "description": "A terminal rejection, terminal no-effect or reconciliation-handoff disposition is presented to the committed-effect-only PostgreSQL ledger verifier.",
+      "expected_outcome": "DO_NOT_ACK"
+    },
+    {
+      "id": "NJ-038",
+      "class": "known_valid",
+      "description": "A real PostgreSQL fenced effect commits under synchronous_commit, its exact append-only receipt is read from a TLS-authenticated writable primary, and only that verified capability allows AckSync for the matching JetStream delivery.",
+      "expected_outcome": "ACK_ALLOWED"
     }
   ],
   "comparator_methods": [

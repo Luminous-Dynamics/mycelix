@@ -5,6 +5,7 @@ on:
     paths:
       - "tools/myc-dir-fabric-nats-adapter/**"
       - "tools/myc-dir-fabric-nats-reference/**"
+      - "tools/myc-dir-fabric-reference/postgres/**"
       - ".github/workflows/myc-dir-nats-adapter.yml"
       - ".github/nats-jetstream-test.conf"
   workflow_dispatch:
@@ -35,6 +36,66 @@ jobs:
           workspaces: |
             tools/myc-dir-fabric-nats-reference
             tools/myc-dir-fabric-nats-adapter
+
+      - name: Start TLS-enabled PostgreSQL 16.16 effect-owner database
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/myc-pg-tls"
+
+          openssl req -x509 -newkey rsa:2048 -nodes \
+            -keyout "${RUNNER_TEMP}/myc-pg-tls/ca.key" \
+            -out "${RUNNER_TEMP}/myc-pg-tls/ca.crt" \
+            -subj "/CN=Mycelix Test PostgreSQL CA" -days 1
+
+          openssl req -new -newkey rsa:2048 -nodes \
+            -keyout "${RUNNER_TEMP}/myc-pg-tls/server.key" \
+            -out "${RUNNER_TEMP}/myc-pg-tls/server.csr" \
+            -subj "/CN=localhost" \
+            -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+
+          printf '%s\n' "subjectAltName=DNS:localhost,IP:127.0.0.1" "extendedKeyUsage=serverAuth" \
+            > "${RUNNER_TEMP}/myc-pg-tls/server.ext"
+
+          openssl x509 -req \
+            -in "${RUNNER_TEMP}/myc-pg-tls/server.csr" \
+            -CA "${RUNNER_TEMP}/myc-pg-tls/ca.crt" \
+            -CAkey "${RUNNER_TEMP}/myc-pg-tls/ca.key" \
+            -CAcreateserial -out "${RUNNER_TEMP}/myc-pg-tls/server.crt" \
+            -days 1 -extfile "${RUNNER_TEMP}/myc-pg-tls/server.ext"
+
+          sudo chown 999:999 "${RUNNER_TEMP}/myc-pg-tls/server.key"
+          sudo chmod 600 "${RUNNER_TEMP}/myc-pg-tls/server.key"
+          sudo chown 999:999 "${RUNNER_TEMP}/myc-pg-tls/server.crt"
+          sudo chmod 644 "${RUNNER_TEMP}/myc-pg-tls/server.crt"
+
+          docker run -d --name myc-dir-postgres \
+            -e POSTGRES_PASSWORD=postgres \
+            -p 5432:5432 \
+            -v "${RUNNER_TEMP}/myc-pg-tls/server.crt:/var/lib/postgresql/server.crt:ro" \
+            -v "${RUNNER_TEMP}/myc-pg-tls/server.key:/var/lib/postgresql/server.key:ro" \
+            postgres:16.16 \
+            -c ssl=on \
+            -c ssl_cert_file=/var/lib/postgresql/server.crt \
+            -c ssl_key_file=/var/lib/postgresql/server.key
+
+          for attempt in $(seq 1 60); do
+            if docker exec myc-dir-postgres pg_isready -U postgres >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          docker exec myc-dir-postgres pg_isready -U postgres
+
+          docker cp tools/myc-dir-fabric-reference/postgres/001_effect_owner.sql \
+            myc-dir-postgres:/tmp/001_effect_owner.sql
+          docker cp tools/myc-dir-fabric-reference/postgres/002_worker_claim_fencing.sql \
+            myc-dir-postgres:/tmp/002_worker_claim_fencing.sql
+
+          docker exec myc-dir-postgres psql -U postgres -d postgres \
+            -v ON_ERROR_STOP=1 -f /tmp/001_effect_owner.sql
+          docker exec myc-dir-postgres psql -U postgres -d postgres \
+            -v ON_ERROR_STOP=1 -f /tmp/002_worker_claim_fencing.sql
 
       - name: Start pinned NATS server with JetStream domain
         shell: bash
@@ -68,9 +129,11 @@ jobs:
       - name: Run adapter unit tests
         run: cargo test --manifest-path tools/myc-dir-fabric-nats-adapter/Cargo.toml --lib
 
-      - name: Run real JetStream publish, duplicate, pull, AckSync and redelivery tests
+      - name: Run real PostgreSQL and JetStream receipt/ACK integration tests
         env:
           NATS_URL: nats://127.0.0.1:4222
+          POSTGRES_DSN: host=localhost port=5432 user=postgres password=postgres dbname=postgres sslmode=require
+          POSTGRES_CA_FILE: ${{ runner.temp }}/myc-pg-tls/ca.crt
         run: cargo test --manifest-path tools/myc-dir-fabric-nats-adapter/Cargo.toml --test jetstream_integration -- --ignored --nocapture
 
       - name: Run Clippy on both Rust crates
@@ -78,6 +141,8 @@ jobs:
           cargo clippy --manifest-path tools/myc-dir-fabric-nats-reference/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path tools/myc-dir-fabric-nats-adapter/Cargo.toml --all-targets -- -D warnings
 
-      - name: Preserve NATS server logs
+      - name: Preserve database and broker logs
         if: always()
-        run: docker logs myc-dir-nats || true
+        run: |
+          docker logs myc-dir-postgres || true
+          docker logs myc-dir-nats || true

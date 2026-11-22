@@ -79,3 +79,16 @@ The adapter crate adds 13 pure unit tests and two ignored JetStream integration 
 The adapter does not accept a raw public `DurableOwnerDisposition` as sufficient proof to ACK. Call `VerifiedOwnerDisposition::verify(binding, disposition, verifier)`. The external `OwnerDispositionVerifier` must authenticate the actual durable effect-owner receipt against the exact binding. The resulting token stores a digest of that exact canonical binding, and `ReceivedDelivery::acknowledge` rechecks the binding before sending ACK/AckSync.
 
 The integration suite uses a clearly labelled synthetic verifier only to exercise transport behaviour. A production deployment must supply a verifier backed by the real owner receipt signature / attestation and durable receipt ledger. The CI integration profile is single-node; it does not qualify cluster failover or PostgreSQL effect-owner integration.
+
+
+## PostgreSQL-backed effect receipt verification
+
+The adapter now exposes `postgres::PostgresEffectCommitVerifier`. It connects with a caller-supplied CA file using rustls certificate and hostname verification, rejects recovery/read-only nodes, and queries the existing append-only `myc_effect_owner.effect_commits` table by realm/resource/action/owner/object/currency, idempotency key and logical operation. It then compares request, decision, payload and accepted-generation fields and recomputes a versioned canonical receipt digest from the database row.
+
+The verifier only accepts `EffectCommitted`, because the current reference SQL ledger has no durable terminal-rejection, terminal-no-effect or reconciliation-handoff tables. It returns no ACK capability when the row is missing or mismatched. The test path creates an effect using the existing fenced SQL function in a transaction with `synchronous_commit=on`, commits, reads the row over CA-verified TLS, then AckSyncs the exact NATS message using that verified capability.
+
+This branch now has 23 reference-contract tests, 18 adapter unit tests (including 2 PostgreSQL canonical-receipt tests), and 3 ignored real-service integration tests (2 JetStream transport tests plus 1 PostgreSQL effect -> verifier -> JetStream AckSync test). These counts are source inventory only until this branch's workflow passes.
+
+The benchmark corpus is expanded to 36 scenarios and 26 metrics. It remains preregistered, not executed.
+
+**Important boundary:** the existing receipt table records accepted resource generation, but not owner epoch. The verifier checks the former only; owner-epoch recovery remains a separate owner-state proof. A receipt visible on the writable primary does not, by itself, prove survival after asynchronous replica promotion. The integration transaction sets synchronous_commit=on, but production synchronous replication, failover and promotion policy must be qualified separately.
