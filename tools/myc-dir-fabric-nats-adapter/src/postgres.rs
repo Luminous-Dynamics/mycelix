@@ -49,21 +49,18 @@ SELECT
     to_char(a.claim_issued_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'),
     to_char(a.claim_expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'),
     a.database_xact_id,
-    CASE
-      WHEN a.owner_epoch = 1 THEN TRUE
-      ELSE EXISTS (
-        SELECT 1
-          FROM myc_effect_owner.effect_owner_epoch_transitions t
-         WHERE t.realm_id = a.realm_id
-           AND t.resource_id = a.resource_id
-           AND t.action_id = a.action_id
-           AND t.effect_owner_id = a.effect_owner_id
-           AND t.new_owner_epoch = a.owner_epoch
-      )
-    END AS owner_epoch_transition_present
+    (t.new_owner_epoch IS NOT NULL) AS owner_epoch_transition_present,
+    t.epoch_authority_receipt_digest,
+    t.physical_fencing_receipt_digest
 FROM myc_effect_owner.effect_commits e
 JOIN myc_effect_owner.effect_execution_attestations a
   ON a.effect_id = e.effect_id
+LEFT JOIN myc_effect_owner.effect_owner_epoch_transitions t
+  ON t.realm_id = a.realm_id
+ AND t.resource_id = a.resource_id
+ AND t.action_id = a.action_id
+ AND t.effect_owner_id = a.effect_owner_id
+ AND t.new_owner_epoch = a.owner_epoch
 WHERE e.realm_id = $1
   AND e.resource_id = $2
   AND e.action_id = $3
@@ -94,6 +91,8 @@ pub struct VerifiedPostgresEffectReceipt {
     pub claim_issued_at: String,
     pub claim_expires_at: String,
     pub database_xact_id: String,
+    pub epoch_authority_receipt_digest: Option<Digest>,
+    pub physical_fencing_receipt_digest: Option<Digest>,
     pub delta_minor: i64,
     pub balance_after_minor: i64,
     pub idempotency_digest: Digest,
@@ -193,11 +192,7 @@ impl PostgresEffectCommitVerifier {
             return Err("PostgreSQL receipt verifier session is read-only".into());
         }
 
-        let owner_epoch_transition_present: bool = row.get(27);
         let receipt = decode_effect_receipt(&row)?;
-        if !owner_epoch_transition_present {
-            return Err("execution attestation owner epoch has no corresponding append-only epoch transition".into());
-        }
         validate_receipt_binding(binding, &receipt)?;
         Ok(receipt)
     }
@@ -271,6 +266,9 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
     let claim_issued_at: String = row.get(24);
     let claim_expires_at: String = row.get(25);
     let database_xact_id: String = row.get(26);
+    let owner_epoch_transition_present: bool = row.get(27);
+    let epoch_authority_receipt_digest = optional_digest_column(row, 28, "epoch_authority_receipt_digest")?;
+    let physical_fencing_receipt_digest = optional_digest_column(row, 29, "physical_fencing_receipt_digest")?;
 
     let accepted_generation = u64::try_from(effect_generation_i64)
         .map_err(|_| "PostgreSQL effect has a nonpositive accepted generation".to_owned())?;
@@ -283,6 +281,15 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
 
     if accepted_generation != attestation_generation {
         return Err("effect_commits and effect_execution_attestations disagree on accepted generation".into());
+    }
+    if (owner_epoch == 1 && (owner_epoch_transition_present
+            || epoch_authority_receipt_digest.is_some()
+            || physical_fencing_receipt_digest.is_some()))
+        || (owner_epoch > 1 && (!owner_epoch_transition_present
+            || epoch_authority_receipt_digest.is_none()
+            || physical_fencing_receipt_digest.is_none()))
+    {
+        return Err("owner epoch transition evidence is missing or inconsistent".into());
     }
     if worker_id.trim().is_empty()
         || claim_clock_profile_id.trim().is_empty()
@@ -311,6 +318,8 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
         &claim_issued_at,
         &claim_expires_at,
         &database_xact_id,
+        &epoch_authority_receipt_digest,
+        &physical_fencing_receipt_digest,
         delta_minor,
         balance_after_minor,
         &idempotency_digest,
@@ -338,6 +347,8 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
         claim_issued_at,
         claim_expires_at,
         database_xact_id,
+        epoch_authority_receipt_digest,
+        physical_fencing_receipt_digest,
         delta_minor,
         balance_after_minor,
         idempotency_digest,
@@ -350,6 +361,15 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
 
 fn digest_column(row: &Row, index: usize, name: &str) -> Result<Digest, String> {
     let bytes: Vec<u8> = row.get(index);
+    digest_from_bytes(bytes, name)
+}
+
+fn optional_digest_column(row: &Row, index: usize, name: &str) -> Result<Option<Digest>, String> {
+    let bytes: Option<Vec<u8>> = row.get(index);
+    bytes.map(|value| digest_from_bytes(value, name)).transpose()
+}
+
+fn digest_from_bytes(bytes: Vec<u8>, name: &str) -> Result<Digest, String> {
     let digest: Digest = bytes
         .try_into()
         .map_err(|_| format!("PostgreSQL {name} is not exactly 32 bytes"))?;
@@ -380,6 +400,8 @@ impl VerifiedPostgresEffectReceipt {
             &self.claim_issued_at,
             &self.claim_expires_at,
             &self.database_xact_id,
+            &self.epoch_authority_receipt_digest,
+            &self.physical_fencing_receipt_digest,
             self.delta_minor,
             self.balance_after_minor,
             &self.idempotency_digest,
@@ -455,6 +477,8 @@ fn canonical_effect_receipt_digest(
     claim_issued_at: &str,
     claim_expires_at: &str,
     database_xact_id: &str,
+    epoch_authority_receipt_digest: &Option<Digest>,
+    physical_fencing_receipt_digest: &Option<Digest>,
     delta_minor: i64,
     balance_after_minor: i64,
     idempotency_digest: &Digest,
@@ -487,6 +511,15 @@ fn canonical_effect_receipt_digest(
     bytes.extend_from_slice(&delta_minor.to_be_bytes());
     bytes.extend_from_slice(&balance_after_minor.to_be_bytes());
     bytes.extend_from_slice(claim_proof_digest);
+    for digest in [epoch_authority_receipt_digest, physical_fencing_receipt_digest] {
+        match digest {
+            Some(value) => {
+                bytes.push(1);
+                bytes.extend_from_slice(value);
+            }
+            None => bytes.push(0),
+        }
+    }
     bytes.extend_from_slice(idempotency_digest);
     bytes.extend_from_slice(request_digest);
     bytes.extend_from_slice(decision_receipt_digest);
@@ -605,6 +638,8 @@ mod tests {
             claim_issued_at,
             claim_expires_at,
             database_xact_id,
+            epoch_authority_receipt_digest,
+            physical_fencing_receipt_digest,
             delta_minor,
             balance_after_minor,
             idempotency_digest,
