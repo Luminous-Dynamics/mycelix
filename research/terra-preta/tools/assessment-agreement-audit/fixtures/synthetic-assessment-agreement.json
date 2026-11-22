@@ -177,7 +177,7 @@
       "measurements": [
         {
           "indicator_id": "soc",
-          "value": 3,
+          "value": 4.8,
           "standard_error": 0.05
         },
         {
