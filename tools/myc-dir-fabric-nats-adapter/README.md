@@ -70,3 +70,6 @@ The integration suite uses a single-node File-storage server. It is not a cluste
 - Server configuration verification is an explicit startup gate; operators must reverify after control-plane changes.
 - No PostgreSQL transaction or external effect is performed by this crate.
 - No local Cargo compilation or NATS runtime result is claimed until the exact-head workflow completes.
+
+
+The adapter crate adds 13 pure unit tests and two ignored JetStream integration tests. The reference contract currently has 21 unit tests. They remain uncompiled until the exact-head workflow completes.
