@@ -53,7 +53,7 @@ NATS_URL=nats://127.0.0.1:4222 cargo test \
   --test jetstream_integration -- --ignored --nocapture
 ```
 
-The focused CI workflow starts a pinned `nats:2.15.3` server with JetStream enabled and runs the ignored integration tests. It exercises:
+The focused CI workflow starts a pinned `nats:2.15.3` server with JetStream enabled and runs the ignored integration tests. This exact-head run passed both tests on a single-node server. It exercises:
 - publish and PubAck;
 - duplicate Nats-Msg-Id within the stream duplicate window;
 - durable pull delivery and exact binding reconstruction;
