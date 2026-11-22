@@ -62,6 +62,8 @@ pub enum AdapterError {
     StreamConfigurationMismatch(&'static str),
     ConsumerConfigurationMismatch(&'static str),
     AckNotPermitted,
+    OwnerDispositionVerification(String),
+    VerifiedDispositionBindingMismatch,
 }
 
 impl fmt::Display for AdapterError {
@@ -82,6 +84,8 @@ impl fmt::Display for AdapterError {
             Self::StreamConfigurationMismatch(field) => write!(f, "JetStream stream configuration mismatch: {field}"),
             Self::ConsumerConfigurationMismatch(field) => write!(f, "JetStream consumer configuration mismatch: {field}"),
             Self::AckNotPermitted => write!(f, "Mycelix durable owner disposition does not permit ACK"),
+            Self::OwnerDispositionVerification(error) => write!(f, "effect-owner disposition verification failed: {error}"),
+            Self::VerifiedDispositionBindingMismatch => write!(f, "verified owner disposition belongs to a different command binding"),
         }
     }
 }
@@ -242,6 +246,55 @@ pub struct PublishEvidence {
     pub domain: String,
 }
 
+/// External trust boundary for durable effect-owner receipts. Production
+/// implementations must authenticate the owner signature/proof and compare
+/// the receipt's operation, owner, idempotency, scope and terminal disposition
+/// with this exact immutable command binding.
+pub trait OwnerDispositionVerifier {
+    fn verify_durable_disposition(
+        &self,
+        binding: &NatsCommandBinding,
+        disposition: &DurableOwnerDisposition,
+    ) -> Result<(), String>;
+}
+
+/// Proof capability created only after an OwnerDispositionVerifier accepts
+/// the exact command binding and durable owner disposition.
+pub struct VerifiedOwnerDisposition {
+    binding_digest: [u8; 32],
+    disposition: DurableOwnerDisposition,
+}
+
+impl VerifiedOwnerDisposition {
+    pub fn verify(
+        binding: &NatsCommandBinding,
+        disposition: DurableOwnerDisposition,
+        verifier: &impl OwnerDispositionVerifier,
+    ) -> AdapterResult<Self> {
+        if matches!(
+            plan_acknowledgement(binding, &disposition, AckMode::Ack),
+            AckPlan::DoNotAcknowledge
+        ) {
+            return Err(AdapterError::AckNotPermitted);
+        }
+        verifier
+            .verify_durable_disposition(binding, &disposition)
+            .map_err(AdapterError::OwnerDispositionVerification)?;
+        let binding_bytes = binding
+            .canonical_bytes()
+            .map_err(AdapterError::Binding)?;
+        Ok(Self {
+            binding_digest: sha256(&binding_bytes),
+            disposition,
+        })
+    }
+
+    fn is_for_binding(&self, binding: &NatsCommandBinding) -> AdapterResult<bool> {
+        let bytes = binding.canonical_bytes().map_err(AdapterError::Binding)?;
+        Ok(self.binding_digest == sha256(&bytes))
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AckExecution {
     pub stream: String,
@@ -250,6 +303,7 @@ pub struct AckExecution {
     pub mode: AckMode,
     /// True only when double_ack received the broker confirmation response.
     pub broker_confirmed: bool,
+    pub disposition_digest: [u8; 32],
     pub assessment: BrokerAckAssessment,
 }
 
@@ -275,11 +329,14 @@ impl ReceivedDelivery {
     /// AckSync waits for the broker to confirm receipt of that ACK.
     pub async fn acknowledge(
         self,
-        disposition: &DurableOwnerDisposition,
+        verified: &VerifiedOwnerDisposition,
         mode: AckMode,
     ) -> AdapterResult<AckExecution> {
-        let plan = plan_acknowledgement(&self.binding, disposition, mode);
-        let AckPlan::Acknowledge { .. } = plan else {
+        if !verified.is_for_binding(&self.binding)? {
+            return Err(AdapterError::VerifiedDispositionBindingMismatch);
+        }
+        let plan = plan_acknowledgement(&self.binding, &verified.disposition, mode);
+        let AckPlan::Acknowledge { disposition_digest, .. } = plan else {
             return Err(AdapterError::AckNotPermitted);
         };
 
@@ -319,6 +376,7 @@ impl ReceivedDelivery {
             stream_sequence: self.observation.stream_sequence,
             mode,
             broker_confirmed,
+            disposition_digest,
             assessment,
         })
     }
@@ -843,6 +901,78 @@ mod tests {
             hex_decode_32(&"gg".repeat(32), HEADER_PAYLOAD_DIGEST),
             Err(AdapterError::InvalidHeader(HEADER_PAYLOAD_DIGEST))
         ));
+    }
+
+    struct AcceptOwnerDisposition;
+    impl OwnerDispositionVerifier for AcceptOwnerDisposition {
+        fn verify_durable_disposition(
+            &self,
+            _binding: &NatsCommandBinding,
+            _disposition: &DurableOwnerDisposition,
+        ) -> Result<(), String> {
+            Ok(())
+        }
+    }
+
+    struct RejectOwnerDisposition;
+    impl OwnerDispositionVerifier for RejectOwnerDisposition {
+        fn verify_durable_disposition(
+            &self,
+            _binding: &NatsCommandBinding,
+            _disposition: &DurableOwnerDisposition,
+        ) -> Result<(), String> {
+            Err("receipt signature invalid".into())
+        }
+    }
+
+    fn test_binding(message_id: &str) -> NatsCommandBinding {
+        NatsCommandBinding::new(NatsCommandBindingInput {
+            account_id: "default".into(),
+            stream_name: "MYCELIX_COMMANDS".into(),
+            subject: "mycelix.commands.test".into(),
+            consumer_name: "myc-workers".into(),
+            nats_message_id: message_id.into(),
+            payload_digest: [1; 32],
+            request_digest: [2; 32],
+            decision_receipt_digest: [3; 32],
+            logical_operation_id: "logical-operation-a".into(),
+            idempotency_digest: [4; 32],
+            effect_owner_id: "postgres-owner-a".into(),
+            owner_epoch: 2,
+            resource_generation: 5,
+        }).unwrap()
+    }
+
+    fn test_disposition() -> DurableOwnerDisposition {
+        DurableOwnerDisposition::EffectCommitted {
+            logical_operation_id: "logical-operation-a".into(),
+            effect_owner_id: "postgres-owner-a".into(),
+            idempotency_digest: [4; 32],
+            effect_receipt_digest: [9; 32],
+        }
+    }
+
+    #[test]
+    fn verified_owner_disposition_requires_external_verifier() {
+        let result = VerifiedOwnerDisposition::verify(
+            &test_binding("message-a"),
+            test_disposition(),
+            &RejectOwnerDisposition,
+        );
+        assert!(matches!(result, Err(AdapterError::OwnerDispositionVerification(_))));
+    }
+
+    #[test]
+    fn verified_owner_disposition_is_bound_to_exact_command() {
+        let first = test_binding("message-a");
+        let second = test_binding("message-b");
+        let verified = VerifiedOwnerDisposition::verify(
+            &first,
+            test_disposition(),
+            &AcceptOwnerDisposition,
+        ).unwrap();
+        assert!(verified.is_for_binding(&first).unwrap());
+        assert!(!verified.is_for_binding(&second).unwrap());
     }
 
     #[test]
