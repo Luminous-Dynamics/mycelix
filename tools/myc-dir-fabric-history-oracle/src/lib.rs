@@ -775,6 +775,53 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
 
 
 
+    for (attempt_id, unknown_event_id) in &unknown_attempts {
+        let Some(start) = attempt_starts.get(attempt_id) else {
+            findings.violation(
+                FindingCode::ReconciliationBindingMismatch,
+                Some(unknown_event_id),
+                format!("Unknown event exists for attempt {attempt_id}, but no attempt-start event exists"),
+            );
+            continue;
+        };
+        let Some(unknown) = events.get(unknown_event_id) else {
+            findings.inconclusive(
+                FindingCode::ReconciliationMissingUnknown,
+                Some(unknown_event_id),
+                "Unknown event is missing from the indexed history",
+            );
+            continue;
+        };
+        if !has_parent(unknown, &start.id) || unknown.owner != start.owner {
+            findings.violation(
+                FindingCode::ReconciliationBindingMismatch,
+                Some(unknown_event_id),
+                "Unknown event does not causally bind to the exact owner/attempt-start event",
+            );
+        }
+        if let (
+            EventKind::EffectAttemptStarted {
+                operation_id: start_operation,
+                attempt_number: start_number,
+                ..
+            },
+            EventKind::AttemptOutcomeUnknown {
+                operation_id: unknown_operation,
+                attempt_number: unknown_number,
+                ..
+            },
+        ) = (&start.kind, &unknown.kind)
+        {
+            if start_operation != unknown_operation || start_number != unknown_number {
+                findings.violation(
+                    FindingCode::ReconciliationBindingMismatch,
+                    Some(unknown_event_id),
+                    "Unknown event changes the operation or physical attempt number",
+                );
+            }
+        }
+    }
+
     for (owner, stream) in &owner_streams {
         let mut current_position: Option<FencePosition> = None;
         let mut claim_epochs: BTreeMap<String, u64> = BTreeMap::new();
@@ -1334,11 +1381,17 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                 ..
             } => match outcome {
                 ReconciledOutcome::ConfirmedNoEffect => {
-                    if effect_commit_event_id.is_some() {
+                    if effect_commit_event_id.is_some()
+                        || events.values().any(|candidate| matches!(
+                            &candidate.kind,
+                            EventKind::EffectCommitted { attempt_id: committed_attempt, .. }
+                                if committed_attempt == attempt_id
+                        ))
+                    {
                         findings.violation(
                             FindingCode::ReconciliationUnexpectedCommit,
                             Some(&event.id),
-                            "ConfirmedNoEffect cannot carry an effect commit event",
+                            "ConfirmedNoEffect conflicts with an effect commit for the same attempt",
                         );
                     }
                 }
