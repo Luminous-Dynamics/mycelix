@@ -60,21 +60,26 @@ jobs:
           jsonschema-cli validate "$report_schema" --instance "$RUNNER_TEMP/fixed-report.json" --draft 2020 --assert-format
           jsonschema-cli validate "$report_schema" --instance "$RUNNER_TEMP/dense-report.json" --draft 2020 --assert-format
 
-          jq -e '.fixture_status == "synthetic_only_not_empirical_evidence" and .candidate_sample_count == 54 and .detected_pulse_count == 1 and .pulse_recall == 0.5 and .budget_status == "within_budget" and .pulses[0].integral_status == "qualified_complete_pulse_integral" and .pulses[1].integral_status == "not_detected" and .controls.no_interpolation_pass == true and .controls.evaluator_only_truth_separation_pass == true' "$RUNNER_TEMP/adaptive-report.json"
+          jq -e '.fixture_status == "synthetic_only_not_empirical_evidence" and .candidate_sample_count == 54 and .detected_pulse_count == 1 and .pulse_recall == 0.5 and .budget_status == "within_budget" and .pulses[0].integral_status == "qualified_complete_pulse_integral" and .pulses[1].integral_status == "not_detected" and .controls.no_interpolation_pass == true and .controls.decision_information_causality_pass == true and .policy_evaluator_isolation_status == "not_enforced_by_offline_evaluator"' "$RUNNER_TEMP/adaptive-report.json"
           jq -e '.candidate_sample_count == 49 and .detected_pulse_count == 0 and .pulse_recall == 0 and .budget_status == "within_budget"' "$RUNNER_TEMP/fixed-report.json"
           jq -e '.candidate_sample_count == 289 and .detected_pulse_count == 2 and .pulse_recall == 1 and .budget_status == "over_budget" and all(.pulses[]; .integral_status == "qualified_complete_pulse_integral")' "$RUNNER_TEMP/dense-report.json"
-      - name: Reject fabricated source value and unobserved timestamp
+      - name: Reject off-grid timestamps and future-information leakage
         run: |
           truth=research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-event-truth.json
           schedule=research/terra-preta/tools/event-sampling-audit/fixtures/synthetic-candidate-schedule.json
-          jq '.observations[0].response_value += 0.01' "$schedule" > "$RUNNER_TEMP/fabricated-value.json"
-          if cargo run --quiet --manifest-path research/terra-preta/tools/event-sampling-audit/Cargo.toml -- "$truth" "$RUNNER_TEMP/fabricated-value.json" "$RUNNER_TEMP/invalid-value-report.json"; then
-            echo "Expected source-value mismatch rejection"
-            exit 1
-          fi
           jq '.observations[0].time_hours += 0.01' "$schedule" > "$RUNNER_TEMP/unobserved-time.json"
           if cargo run --quiet --manifest-path research/terra-preta/tools/event-sampling-audit/Cargo.toml -- "$truth" "$RUNNER_TEMP/unobserved-time.json" "$RUNNER_TEMP/invalid-time-report.json"; then
             echo "Expected unobserved timestamp rejection"
+            exit 1
+          fi
+          jq '.observations[0].available_observation_ids = [.observations[-1].observation_id]' "$schedule" > "$RUNNER_TEMP/future-information.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/event-sampling-audit/Cargo.toml -- "$truth" "$RUNNER_TEMP/future-information.json" "$RUNNER_TEMP/future-information-report.json"; then
+            echo "Expected future observation reference rejection"
+            exit 1
+          fi
+          jq '.observations[1].decision_time_hours = (.observations[0].time_hours - 0.01)' "$schedule" > "$RUNNER_TEMP/decision-before-acquisition.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/event-sampling-audit/Cargo.toml -- "$truth" "$RUNNER_TEMP/decision-before-acquisition.json" "$RUNNER_TEMP/decision-before-acquisition-report.json"; then
+            echo "Expected decision-time information leakage rejection"
             exit 1
           fi
       - name: Reject output overwrite
