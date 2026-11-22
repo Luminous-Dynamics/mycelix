@@ -1784,6 +1784,21 @@ pub const ENERGY_ATTRIBUTE_SCENARIO_COVERAGE: [ScenarioCoverage; 12] = [
     },
 ];
 
+pub const DPP_SCENARIO_COVERAGE: [ScenarioCoverage; 12] = [
+    ScenarioCoverage { id: "DPP-001", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "DPP-002", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "DPP-003", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "DPP-004", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "DPP-005", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "DPP-006", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "DPP-007", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "DPP-008", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "DPP-009", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "DPP-010", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "DPP-011", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "DPP-012", status: CoverageStatus::NotYetImplemented },
+];
+
 pub const TRANSPARENCY_METROLOGY_SCENARIO_COVERAGE: [ScenarioCoverage; 10] = [
     ScenarioCoverage {
         id: "TSP-001",
@@ -3160,6 +3175,28 @@ mod tests {
                 "scenario missing from energy-attribute corpus: {}",
                 item.id
             );
+        }
+        assert_eq!(ids.len(), 12);
+        assert_eq!(CORPUS.matches("\"id\":").count(), 12);
+    }
+
+    #[test]
+    fn product_passport_scenario_inventory_is_unique_and_linked() {
+        const CORPUS: &str = include_str!("../../pcoe-product-passport-scenarios.v0.1.json");
+        let mut ids = BTreeSet::new();
+        for item in DPP_SCENARIO_COVERAGE {
+            assert!(
+                ids.insert(item.id),
+                "duplicate product-passport scenario mapping: {}",
+                item.id
+            );
+            let needle = format!("\"id\": \"{}\"", item.id);
+            assert!(
+                CORPUS.contains(&needle),
+                "scenario missing from product-passport corpus: {}",
+                item.id
+            );
+            assert_eq!(item.status, CoverageStatus::NotYetImplemented);
         }
         assert_eq!(ids.len(), 12);
         assert_eq!(CORPUS.matches("\"id\":").count(), 12);
