@@ -47,10 +47,10 @@ A record is qualified as `qualified_potential_activity` only when:
 - calibration slope is positive, R² meets the profile floor and the sample signal is within the calibration range;
 - substrate-only, matrix and sample blanks are present and finite;
 - spike and matrix-spike recoveries fall within the declared intervals;
-- optical quench is either below the profile's uncorrected maximum or a correction with method identity and digest is supplied;
+- optical quench is below the profile's maximum. A declared correction method/digest is captured, but v0.1 does not execute correction math; any over-limit quench remains unqualified, even when a correction is declared;
 - the assay is not flagged as saturated.
 
-Failures remain explicit reasons in the report. V0.1 does not silently correct the measured activity value or pool failed replicates.
+Failures remain explicit reasons in the report. V0.1 does not silently correct the measured activity value or pool failed replicates. Declaring a correction method is not evidence that the corrected signal was correctly computed; over-limit quench remains unqualified until a later version represents and verifies the corrected signal computation.
 
 ## What the auditor does not do
 
