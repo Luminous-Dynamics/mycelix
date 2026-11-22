@@ -889,6 +889,19 @@ pub const SCENARIO_COVERAGE: [ScenarioCoverage; 39] = [
     ScenarioCoverage { id: "RECON-001", status: CoverageStatus::NotYetImplemented },
 ];
 
+pub const AGENT_SCENARIO_COVERAGE: [ScenarioCoverage; 10] = [
+    ScenarioCoverage { id: "AGENT-001", status: CoverageStatus::PartialOrRequiresAdapter },
+    ScenarioCoverage { id: "AGENT-002", status: CoverageStatus::PartialOrRequiresAdapter },
+    ScenarioCoverage { id: "AGENT-003", status: CoverageStatus::ImplementedInKernelTests },
+    ScenarioCoverage { id: "AGENT-004", status: CoverageStatus::ImplementedInKernelTests },
+    ScenarioCoverage { id: "AGENT-005", status: CoverageStatus::PartialOrRequiresAdapter },
+    ScenarioCoverage { id: "AGENT-006", status: CoverageStatus::PartialOrRequiresAdapter },
+    ScenarioCoverage { id: "AGENT-007", status: CoverageStatus::PartialOrRequiresAdapter },
+    ScenarioCoverage { id: "AGENT-008", status: CoverageStatus::ImplementedInKernelTests },
+    ScenarioCoverage { id: "AGENT-009", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage { id: "AGENT-010", status: CoverageStatus::NotYetImplemented },
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1277,6 +1290,19 @@ mod tests {
         }
         assert_eq!(ids.len(), 39);
         assert_eq!(CORPUS.matches("\"id\":").count(), 39);
+    }
+
+    #[test]
+    fn agent_authority_addendum_inventory_is_unique_and_linked() {
+        const CORPUS: &str = include_str!("../pcoe-agent-authority-scenarios.v0.1.json");
+        let mut ids = BTreeSet::new();
+        for item in AGENT_SCENARIO_COVERAGE {
+            assert!(ids.insert(item.id), "duplicate agent scenario mapping: {}", item.id);
+            let needle = format!("\"id\": \"{}\"", item.id);
+            assert!(CORPUS.contains(&needle), "agent scenario missing from corpus: {}", item.id);
+        }
+        assert_eq!(ids.len(), 10);
+        assert_eq!(CORPUS.matches("\"id\":").count(), 10);
     }
 
     #[test]
