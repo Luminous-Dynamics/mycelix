@@ -253,6 +253,11 @@ impl OwnerEpochState {
         &mut self,
         acknowledgement: &OwnerEpochFenceAck,
         acknowledgement_digest: Digest,
+        expected_scope: &EffectFenceScope,
+        expected_revocation_digest: Digest,
+        expected_inventory_epoch: u64,
+        expected_inventory_manifest_digest: Digest,
+        expected_route_set_digest: Digest,
     ) -> Result<(), OwnerEpochError> {
         require_digest(&acknowledgement_digest)?;
         if !self.recovery_ready {
@@ -260,6 +265,21 @@ impl OwnerEpochState {
         }
         if acknowledgement.owner != self.owner {
             return Err(OwnerEpochError::OwnerMismatch);
+        }
+        if acknowledgement.scope != *expected_scope {
+            return Err(OwnerEpochError::ScopeMismatch);
+        }
+        if acknowledgement.revocation_digest != expected_revocation_digest {
+            return Err(OwnerEpochError::RevocationBindingMismatch);
+        }
+        if acknowledgement.inventory_epoch != expected_inventory_epoch {
+            return Err(OwnerEpochError::InventoryEpochMismatch);
+        }
+        if acknowledgement.inventory_manifest_digest != expected_inventory_manifest_digest {
+            return Err(OwnerEpochError::InventoryManifestMismatch);
+        }
+        if acknowledgement.route_set_digest != expected_route_set_digest {
+            return Err(OwnerEpochError::RouteSetMismatch);
         }
         if acknowledgement.previous_position != self.high_water.position
             || acknowledgement.installed_position != self.current
@@ -671,6 +691,8 @@ pub struct FencedRouteAdmission {
     enforcement: EffectRouteEnforcement,
     required_position: OwnerFencePosition,
     inventory_epoch: u64,
+    inventory_manifest_digest: Digest,
+    route_set_digest: Digest,
     state: RouteAdmissionState,
 }
 
@@ -681,16 +703,22 @@ impl FencedRouteAdmission {
         enforcement: EffectRouteEnforcement,
         required_position: OwnerFencePosition,
         inventory_epoch: u64,
+        inventory_manifest_digest: Digest,
+        route_set_digest: Digest,
     ) -> Result<Self, OwnerEpochError> {
         if inventory_epoch == 0 {
             return Err(OwnerEpochError::InvalidInventoryEpoch);
         }
+        require_digest(&inventory_manifest_digest)?;
+        require_digest(&route_set_digest)?;
         Ok(Self {
             route_id,
             owner,
             enforcement,
             required_position,
             inventory_epoch,
+            inventory_manifest_digest,
+            route_set_digest,
             state: RouteAdmissionState::Staged,
         })
     }
@@ -707,6 +735,8 @@ impl FencedRouteAdmission {
         &mut self,
         owner_state: &OwnerEpochState,
         current_inventory_epoch: u64,
+        current_inventory_manifest_digest: Digest,
+        current_route_set_digest: Digest,
     ) -> Result<(), OwnerEpochError> {
         if self.state != RouteAdmissionState::Staged {
             return Err(OwnerEpochError::RouteAlreadyActive);
@@ -722,6 +752,12 @@ impl FencedRouteAdmission {
         }
         if current_inventory_epoch != self.inventory_epoch {
             return Err(OwnerEpochError::InventoryEpochMismatch);
+        }
+        if current_inventory_manifest_digest != self.inventory_manifest_digest {
+            return Err(OwnerEpochError::InventoryManifestMismatch);
+        }
+        if current_route_set_digest != self.route_set_digest {
+            return Err(OwnerEpochError::RouteSetMismatch);
         }
         if owner_state.current != self.required_position {
             return Err(OwnerEpochError::RouteFencePositionMismatch);
@@ -871,15 +907,21 @@ mod tests {
 
     #[test]
     fn old_epoch_is_rejected_even_when_generation_matches() {
-        let state = owner_state("db-a");
+        let state = OwnerEpochState::from_verified_bootstrap(
+            owner("db-a"),
+            position(2, 1),
+            [1; 32],
+            [2; 32],
+        )
+        .unwrap();
         assert_eq!(
-            state.assess_position(position(0 + 1, 1)),
+            state.assess_position(position(1, 1)),
+            OwnerPositionAssessment::StaleOwnerEpoch
+        );
+        assert_eq!(
+            state.assess_position(position(2, 1)),
             OwnerPositionAssessment::Current
         );
-        let recovered = state
-            .high_water()
-            .position();
-        assert_eq!(recovered, position(1, 1));
     }
 
     #[test]
@@ -941,10 +983,28 @@ mod tests {
         let mut state = owner_state("db-a");
         state.install_next_generation().unwrap();
         let ack = ack("db-a", position(1, 1), position(1, 2));
-        state.record_acknowledgement(&ack, [11; 32]).unwrap();
+        state
+            .record_acknowledgement(
+                &ack,
+                [11; 32],
+                &scope(),
+                [3; 32],
+                7,
+                [4; 32],
+                [5; 32],
+            )
+            .unwrap();
         assert_eq!(state.high_water().position(), position(1, 2));
         assert_eq!(
-            state.record_acknowledgement(&ack, [12; 32]),
+            state.record_acknowledgement(
+                &ack,
+                [12; 32],
+                &scope(),
+                [3; 32],
+                7,
+                [4; 32],
+                [5; 32],
+            ),
             Err(OwnerEpochError::AcknowledgementPositionMismatch)
         );
     }
@@ -1043,10 +1103,12 @@ mod tests {
             EffectRouteEnforcement::AtomicOwnerFence,
             position(1, 2),
             8,
+            [44; 32],
+            [45; 32],
         )
         .unwrap();
         assert_eq!(
-            route.activate(&owner_state, 8),
+            route.activate(&owner_state, 8, [44; 32], [45; 32]),
             Err(OwnerEpochError::RouteFencePositionMismatch)
         );
         assert_eq!(route.state(), RouteAdmissionState::Staged);
@@ -1062,13 +1124,23 @@ mod tests {
             EffectRouteEnforcement::AtomicOwnerFence,
             position(1, 2),
             8,
+            [44; 32],
+            [45; 32],
         )
         .unwrap();
         assert_eq!(
-            route.activate(&owner_state, 7),
+            route.activate(&owner_state, 7, [44; 32], [45; 32]),
             Err(OwnerEpochError::InventoryEpochMismatch)
         );
-        route.activate(&owner_state, 8).unwrap();
+        assert_eq!(
+            route.activate(&owner_state, 8, [40; 32], [45; 32]),
+            Err(OwnerEpochError::InventoryManifestMismatch)
+        );
+        assert_eq!(
+            route.activate(&owner_state, 8, [44; 32], [40; 32]),
+            Err(OwnerEpochError::RouteSetMismatch)
+        );
+        route.activate(&owner_state, 8, [44; 32], [45; 32]).unwrap();
         assert_eq!(route.state(), RouteAdmissionState::Active);
     }
 
@@ -1081,10 +1153,12 @@ mod tests {
             EffectRouteEnforcement::CaepSignalOnly,
             position(1, 1),
             8,
+            [44; 32],
+            [45; 32],
         )
         .unwrap();
         assert_eq!(
-            route.activate(&owner_state, 8),
+            route.activate(&owner_state, 8, [44; 32], [45; 32]),
             Err(OwnerEpochError::NonFenceableRoute)
         );
     }
@@ -1098,9 +1172,11 @@ mod tests {
             EffectRouteEnforcement::AtomicOwnerFence,
             position(1, 1),
             8,
+            [44; 32],
+            [45; 32],
         )
         .unwrap();
-        route.activate(&owner_state, 8).unwrap();
+        route.activate(&owner_state, 8, [44; 32], [45; 32]).unwrap();
         owner_state.install_next_generation().unwrap();
         assert_eq!(
             route.assess_current_owner_position(&owner_state),
