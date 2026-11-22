@@ -289,6 +289,24 @@
       "finding_codes": [
         "ManifestEventCountMismatch"
       ]
+    },
+    {
+      "id": "HI-019",
+      "class": "known_violation",
+      "description": "Canonical event-set encoding receives two event records with the same event ID and refuses to produce a commitment.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "DuplicateEventId"
+      ]
+    },
+    {
+      "id": "HI-020",
+      "class": "known_violation",
+      "description": "A signed source manifest event-set digest does not match the canonical bytes of the exact covered event records.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "SourceManifestInvalid"
+      ]
     }
   ],
   "comparator_methods": [
