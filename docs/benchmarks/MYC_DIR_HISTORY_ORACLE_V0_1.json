@@ -243,6 +243,24 @@
       "finding_codes": [
         "IdempotencyKeyReused"
       ]
+    },
+    {
+      "id": "HO-018",
+      "class": "known_violation",
+      "description": "An owner-local effect commit substitutes a different effect owner from the owner bound by its exact attempt and worker claim.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "EffectAttemptBindingMismatch"
+      ]
+    },
+    {
+      "id": "HO-019",
+      "class": "known_violation",
+      "description": "A post-barrier route inventory closure binds a different revocation identity from the global barrier whose owner read-back it attempts to reuse.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "RouteAdmissionBindingMismatch"
+      ]
     }
   ],
   "comparator_methods": [
