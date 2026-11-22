@@ -1,6 +1,8 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use std::path::PathBuf;
-use sha2::{Digest as ShaDigest, Sha256};
+use std::{
+    path::PathBuf,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
+
 use async_nats::jetstream::{
     self,
     stream::{Config as StreamConfig, DiscardPolicy, RetentionPolicy, StorageType},
@@ -14,8 +16,6 @@ use myc_dir_fabric_nats_reference::{
 };
 use rustls_tokio_postgres::{config_from_ca_cert, MakeRustlsConnect};
 use sha2::{Digest as ShaDigest, Sha256};
-use std::path::PathBuf;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio_postgres::Client;
 
 struct SyntheticOwnerReceiptVerifier;
