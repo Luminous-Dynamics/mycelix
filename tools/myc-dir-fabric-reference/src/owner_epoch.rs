@@ -334,8 +334,8 @@ impl OwnerEpochState {
         if !self.current_is_durable() {
             return Err(OwnerEpochError::OwnerFenceNotDurablyReadBack);
         }
-        if acknowledgement.owner_commit_digest != self.owner_commit_digest.unwrap()
-            || acknowledgement.durable_readback_digest != self.durable_readback_digest.unwrap()
+        if self.owner_commit_digest != Some(acknowledgement.owner_commit_digest)
+            || self.durable_readback_digest != Some(acknowledgement.durable_readback_digest)
         {
             return Err(OwnerEpochError::AcknowledgementEvidenceMismatch);
         }
