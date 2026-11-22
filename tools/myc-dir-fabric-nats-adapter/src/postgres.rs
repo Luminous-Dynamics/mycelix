@@ -8,7 +8,7 @@
 use std::path::Path;
 
 use myc_dir_fabric_nats_reference::{
-    DurableOwnerDisposition, NatsCommandBinding,
+    Digest, DurableOwnerDisposition, NatsCommandBinding,
 };
 use rustls_tokio_postgres::{config_from_ca_cert, MakeRustlsConnect};
 use tokio_postgres::{Client, Row};
@@ -72,7 +72,6 @@ pub struct VerifiedPostgresEffectReceipt {
     pub effect_receipt_digest: [u8; 32],
 }
 
-#[derive(Clone)]
 pub struct PostgresEffectCommitVerifier {
     client: Client,
 }
