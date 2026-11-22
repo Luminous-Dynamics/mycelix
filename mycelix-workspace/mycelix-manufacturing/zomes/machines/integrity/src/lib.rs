@@ -220,24 +220,26 @@ mod content_restriction_tests {
     #[test]
     fn machine_with_typed_process_profile_ref_is_structurally_valid() {
         use manufacturing_common::{
-            ProcessCapabilityProfileRefV1, SymthaeaManufacturingObjectRefV1,
-            SYMTHAEA_CONTRACTS_CRATE, SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1,
-            SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY,
+            ProcessCapabilityProfileRefV1, SYMTHAEA_CONTRACTS_CRATE,
+            SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1, SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY,
+            SymthaeaManufacturingObjectRefV1,
         };
         let mut machine = valid_machine();
-        machine.process_capability_refs.push(MachineProcessCapabilityRefV1 {
-            capability_profile: ProcessCapabilityProfileRefV1(
-                SymthaeaManufacturingObjectRefV1 {
-                    owner_repository: SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY.into(),
-                    owner_commit: SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1.into(),
-                    contract_crate: SYMTHAEA_CONTRACTS_CRATE.into(),
-                    contract_type: "ProcessCapabilityProfileV1".into(),
-                    object_id_blake3: "b".repeat(64),
-                    process_id_blake3: "a".repeat(64),
-                    semantic_version: "1.0.0".into(),
-                },
-            ),
-        });
+        machine
+            .process_capability_refs
+            .push(MachineProcessCapabilityRefV1 {
+                capability_profile: ProcessCapabilityProfileRefV1(
+                    SymthaeaManufacturingObjectRefV1 {
+                        owner_repository: SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY.into(),
+                        owner_commit: SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1.into(),
+                        contract_crate: SYMTHAEA_CONTRACTS_CRATE.into(),
+                        contract_type: "ProcessCapabilityProfileV1".into(),
+                        object_id_blake3: "b".repeat(64),
+                        process_id_blake3: "a".repeat(64),
+                        semantic_version: "1.0.0".into(),
+                    },
+                ),
+            });
         let result = validate_create_entry(EntryTypes::Machine(machine)).unwrap();
         assert_eq!(result, ValidateCallbackResult::Valid);
     }
@@ -248,8 +250,10 @@ mod content_restriction_tests {
         let reference = MachineProcessCapabilityRefV1 {
             capability_profile: manufacturing_common::ProcessCapabilityProfileRefV1(
                 manufacturing_common::SymthaeaManufacturingObjectRefV1 {
-                    owner_repository: manufacturing_common::SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY.into(),
-                    owner_commit: manufacturing_common::SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1.into(),
+                    owner_repository:
+                        manufacturing_common::SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY.into(),
+                    owner_commit: manufacturing_common::SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1
+                        .into(),
                     contract_crate: manufacturing_common::SYMTHAEA_CONTRACTS_CRATE.into(),
                     contract_type: "ProcessCapabilityProfileV1".into(),
                     object_id_blake3: "b".repeat(64),
