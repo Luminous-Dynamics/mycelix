@@ -1,0 +1,80 @@
+{
+  "schema_version": "soc-stock-esm-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "evidence_class": "synthetic",
+  "scenario_id": "synthetic-bulk-density-shift-esm-vs-fixed-depth",
+  "config": {
+    "fixed_accounting_depth_m": 0.3
+  },
+  "unit_semantics": {
+    "bulk_density_basis": "oven_dry_fine_earth_mass_per_fine_earth_volume",
+    "soc_concentration_unit": "g_C_per_kg_dry_fine_earth",
+    "coarse_fragment_basis": "coarse_fragment_volume_fraction_of_total_core_volume",
+    "stock_unit": "Mg_C_per_ha"
+  },
+  "baseline_profile": {
+    "profile_id": "synthetic-profile-baseline",
+    "plot_id": "synthetic-plot-01",
+    "measurement_date": "2021-06-01",
+    "measurement_method": "synthetic dry combustion SOC with fine-earth bulk-density cores",
+    "reference_method_id": "synthetic-reference-method-v1",
+    "lab_batch_id": "synthetic-lab-batch-A",
+    "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "layers": [
+      {
+        "layer_id": "0-30cm",
+        "top_depth_m": 0,
+        "bottom_depth_m": 0.3,
+        "fine_earth_bulk_density_kg_m3": 1300,
+        "coarse_fragment_volume_fraction": 0.1,
+        "soc_concentration_g_c_per_kg": 15,
+        "bulk_density_standard_error_kg_m3": 15,
+        "coarse_fragment_fraction_standard_error": 0.01,
+        "soc_standard_error_g_c_per_kg": 0.3
+      }
+    ]
+  },
+  "followup_profile": {
+    "profile_id": "synthetic-profile-followup",
+    "plot_id": "synthetic-plot-01",
+    "measurement_date": "2025-06-01",
+    "measurement_method": "synthetic dry combustion SOC with fine-earth bulk-density cores",
+    "reference_method_id": "synthetic-reference-method-v1",
+    "lab_batch_id": "synthetic-lab-batch-B",
+    "source_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "layers": [
+      {
+        "layer_id": "0-30cm",
+        "top_depth_m": 0,
+        "bottom_depth_m": 0.3,
+        "fine_earth_bulk_density_kg_m3": 1200,
+        "coarse_fragment_volume_fraction": 0.1,
+        "soc_concentration_g_c_per_kg": 16,
+        "bulk_density_standard_error_kg_m3": 15,
+        "coarse_fragment_fraction_standard_error": 0.01,
+        "soc_standard_error_g_c_per_kg": 0.3
+      },
+      {
+        "layer_id": "30-40cm",
+        "top_depth_m": 0.3,
+        "bottom_depth_m": 0.4,
+        "fine_earth_bulk_density_kg_m3": 1200,
+        "coarse_fragment_volume_fraction": 0.1,
+        "soc_concentration_g_c_per_kg": 12,
+        "bulk_density_standard_error_kg_m3": 15,
+        "coarse_fragment_fraction_standard_error": 0.01,
+        "soc_standard_error_g_c_per_kg": 0.3
+      }
+    ]
+  },
+  "amendment_inputs": [
+    {
+      "input_id": "synthetic-amendment-application-01",
+      "material_name": "manufactured carbonaceous amendment",
+      "applied_date": "2022-03-01",
+      "dry_matter_mg_per_ha": 2,
+      "carbon_concentration_g_per_kg_dry_matter": 450
+    }
+  ],
+  "source_attribution_status": "unresolved_bulk_soc_does_not_identify_native_vs_amendment_carbon"
+}
