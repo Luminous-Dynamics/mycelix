@@ -2133,6 +2133,74 @@ mod tests {
     }
 
     #[test]
+    fn owner_ack_cannot_substitute_commit_or_readback_digest() {
+        let mut history = base_history(false);
+        let ack = history.events.iter_mut().find(|event| event.id == "ack-b").unwrap();
+        if let EventKind::OwnerAcknowledged { durable_readback_digest, .. } = &mut ack.kind {
+            *durable_readback_digest = digest(99);
+        }
+        let report = audit_history(&history);
+        assert_eq!(report.verdict, Verdict::Violation);
+        assert!(report.findings.iter().any(|finding| {
+            finding.code == FindingCode::OwnerAckBindingMismatch
+        }));
+    }
+
+    #[test]
+    fn global_ack_requires_nonzero_owner_ack_set_commitment() {
+        let mut history = base_history(false);
+        let global = history.events.iter_mut().find(|event| event.id == "global-ack").unwrap();
+        if let EventKind::GlobalBarrierAcknowledged { owner_ack_set_digest, .. } = &mut global.kind {
+            *owner_ack_set_digest = [0; 32];
+        }
+        let report = audit_history(&history);
+        assert_eq!(report.verdict, Verdict::Violation);
+        assert!(report.findings.iter().any(|finding| {
+            finding.code == FindingCode::GlobalBarrierAckBindingMismatch
+        }));
+    }
+
+    #[test]
+    fn reconciliation_must_prove_terminality_at_the_effect_owner() {
+        let mut history = base_history(false);
+        history.events.retain(|event| event.id != "effect-a");
+        let fence = history.events.iter_mut().find(|event| event.id == "fence-a").unwrap();
+        fence.parents.retain(|parent| parent != "effect-a");
+        history.events.push(record(
+            "unknown-a",
+            &["attempt-a"],
+            Some("owner-a"),
+            None,
+            EventKind::AttemptOutcomeUnknown {
+                operation_id: "op-a".into(),
+                attempt_id: "attempt-a".into(),
+                attempt_number: 1,
+            },
+        ));
+        history.events.push(record(
+            "reconciled-a",
+            &["unknown-a"],
+            Some("owner-a"),
+            None,
+            EventKind::AttemptReconciled {
+                operation_id: "op-a".into(),
+                attempt_id: "attempt-a".into(),
+                attempt_number: 1,
+                unknown_event_id: "unknown-a".into(),
+                outcome: ReconciledOutcome::ConfirmedNoEffect,
+                terminal_at_effect_owner: false,
+                reconciliation_evidence_digest: digest(20),
+                effect_commit_event_id: None,
+            },
+        ));
+        let report = audit_history(&history);
+        assert_eq!(report.verdict, Verdict::Violation);
+        assert!(report.findings.iter().any(|finding| {
+            finding.code == FindingCode::ReconciliationNotTerminalAtOwner
+        }));
+    }
+
+    #[test]
     fn global_ack_rejects_mixed_owner_ack_inventory_bindings() {
         let mut history = base_history(false);
         let ack = history.events.iter_mut().find(|event| event.id == "ack-b").unwrap();
