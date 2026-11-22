@@ -1,6 +1,14 @@
 name: Terra Preta SOC stock and equivalent soil mass audit
 
 on:
+  push:
+    branches-ignore: [main]
+    paths:
+      - 'research/terra-preta/SOC_STOCK_ESM_BENCHMARK_V0.1.md'
+      - 'research/terra-preta/schemas/soc-stock-esm-input.schema.json'
+      - 'research/terra-preta/schemas/soc-stock-esm-report.schema.json'
+      - 'research/terra-preta/tools/soc-stock-esm-audit/**'
+      - '.github/workflows/terra-preta-soc-stock-esm.yml'
   pull_request:
     branches: [main]
     paths:
@@ -55,8 +63,7 @@ jobs:
         run: |
           fixture=research/terra-preta/tools/soc-stock-esm-audit/fixtures/synthetic-stock-esm.json
           report="$RUNNER_TEMP/existing-soc-report.json"
-          printf 'do-not-overwrite
-' > "$report"
+          printf '%s\n' 'do-not-overwrite' > "$report"
           if cargo run --quiet --manifest-path research/terra-preta/tools/soc-stock-esm-audit/Cargo.toml -- "$fixture" "$report"; then
             echo "Expected create-new output protection"
             exit 1
