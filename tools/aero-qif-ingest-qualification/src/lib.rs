@@ -694,23 +694,20 @@ fn validate_source_field_locator(
     }
     if let (Some(reference_id), Some(_xid)) =
         (locator.external_document_reference_id, locator.external_xid)
+        && (document.role != QifDocumentRole::Results
+            || !reference_ids.contains(&(qpid.clone(), reference_id)))
     {
-        if document.role != QifDocumentRole::Results
-            || !reference_ids.contains(&(qpid.clone(), reference_id))
-        {
-            return Err(IngestError::InvalidSourceMappingLocator(
-                locator.source_path.clone(),
-            ));
-        }
+        return Err(IngestError::InvalidSourceMappingLocator(
+            locator.source_path.clone(),
+        ));
     }
-    if let Some(parent_reference_id) = locator.parent_external_document_reference_id {
-        if document.role != QifDocumentRole::Results
-            || !reference_ids.contains(&(qpid.clone(), parent_reference_id))
-        {
-            return Err(IngestError::InvalidSourceMappingLocator(
-                locator.source_path.clone(),
-            ));
-        }
+    if let Some(parent_reference_id) = locator.parent_external_document_reference_id
+        && (document.role != QifDocumentRole::Results
+            || !reference_ids.contains(&(qpid.clone(), parent_reference_id)))
+    {
+        return Err(IngestError::InvalidSourceMappingLocator(
+            locator.source_path.clone(),
+        ));
     }
     Ok(SourceFieldLocatorV1 {
         document_qpid: qpid,
