@@ -586,6 +586,8 @@ mod tests {
         let claim_issued_at = "2026-11-22T10:00:00.000000".to_owned();
         let claim_expires_at = "2026-11-22T11:00:00.000000".to_owned();
         let database_xact_id = "73421".to_owned();
+        let epoch_authority_receipt_digest = Some(digest(6));
+        let physical_fencing_receipt_digest = Some(digest(7));
         let delta_minor = 100;
         let balance_after_minor = 1100;
         let idempotency_digest = *binding.idempotency_digest();
@@ -611,6 +613,8 @@ mod tests {
             &claim_issued_at,
             &claim_expires_at,
             &database_xact_id,
+            &epoch_authority_receipt_digest,
+            &physical_fencing_receipt_digest,
             delta_minor,
             balance_after_minor,
             &idempotency_digest,
