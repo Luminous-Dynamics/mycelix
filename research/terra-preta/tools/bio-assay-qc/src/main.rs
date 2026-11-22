@@ -331,9 +331,7 @@ fn qualify(a: &Assay, p: &AcceptanceProfile) -> AssayResult {
         failures.push("matrix_spike_recovery_outside_method_profile".into());
     }
     if a.matrix_controls.optical_quench_percent > p.maximum_uncorrected_quench_percent {
-        failures.push(
-            "optical_quench_exceeds_v0_1_support_even_with_declared_correction".into(),
-        );
+        failures.push("optical_quench_exceeds_v0_1_support_even_with_declared_correction".into());
     }
     if a.saturation_detected {
         failures.push("assay_signal_saturation_detected".into());
@@ -456,9 +454,7 @@ mod tests {
         assert!(
             r.assays[0]
                 .failure_reasons
-                .contains(
-                    &"optical_quench_exceeds_v0_1_support_even_with_declared_correction".into()
-                )
+                .contains(&"optical_quench_exceeds_v0_1_support_even_with_declared_correction".into())
         );
     }
 
@@ -478,9 +474,11 @@ mod tests {
             r.assays[0].qualification_status,
             "unqualified_potential_activity"
         );
-        assert!(r.assays[0].failure_reasons.contains(
-            &"optical_quench_exceeds_v0_1_support_even_with_declared_correction".into()
-        ));
+        assert!(
+            r.assays[0].failure_reasons.contains(
+                &"optical_quench_exceeds_v0_1_support_even_with_declared_correction".into()
+            )
+        );
     }
 
     #[test]
