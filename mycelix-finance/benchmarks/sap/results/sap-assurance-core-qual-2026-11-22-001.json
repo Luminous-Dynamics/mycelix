@@ -15,8 +15,8 @@
     "run_url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/45000547158",
     "job_id": 137140909660,
     "job_url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/45000547158/job/137140909660",
-    "pull_request_merge_commit": "d85cd4e0e7f6?verify_exact_sha_from_workflow_log",
-    "note": "The run checked out the synthetic pull/6506/merge commit. Its log identified it as a merge of branch head 23782aa6cfa876594668bced68a672bf95a7831f into base b42b5af299d575864ab3649ceaad8c8e963020ec. The shortened merge SHA shown in the log is d85cd4e0; use GitHub's workflow ref for full resolution."
+    "note": "The run checked out the synthetic pull/6506/merge ref and tested branch head 23782aa6cfa876594668bced68a672bf95a7831f against base b42b5af299d575864ab3649ceaad8c8e963020ec.",
+    "pull_request_merge_commit_abbreviated": "d85cd4e0"
   },
   "source_blobs": {
     "mycelix-finance/crates/sap-assurance-core/src/lib.rs": "ee878cf207ff288433df115c7642a76c8565b5b5",
