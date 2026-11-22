@@ -17,272 +17,432 @@
     {
       "observation_id": "sample-000",
       "time_hours": 0,
-      "response_value": 1
+      "decision_time_hours": 0,
+      "available_observation_ids": []
     },
     {
       "observation_id": "sample-006",
       "time_hours": 0.5,
-      "response_value": 1
+      "decision_time_hours": 0.5,
+      "available_observation_ids": [
+        "sample-000"
+      ]
     },
     {
       "observation_id": "sample-012",
       "time_hours": 1,
-      "response_value": 1
+      "decision_time_hours": 1,
+      "available_observation_ids": [
+        "sample-006"
+      ]
     },
     {
       "observation_id": "sample-018",
       "time_hours": 1.5,
-      "response_value": 1
+      "decision_time_hours": 1.5,
+      "available_observation_ids": [
+        "sample-012"
+      ]
     },
     {
       "observation_id": "sample-024",
       "time_hours": 2,
-      "response_value": 1
+      "decision_time_hours": 2,
+      "available_observation_ids": [
+        "sample-018"
+      ]
     },
     {
       "observation_id": "sample-030",
       "time_hours": 2.5,
-      "response_value": 1
+      "decision_time_hours": 2.5,
+      "available_observation_ids": [
+        "sample-024"
+      ]
     },
     {
       "observation_id": "sample-036",
       "time_hours": 3,
-      "response_value": 1
+      "decision_time_hours": 3,
+      "available_observation_ids": [
+        "sample-030"
+      ]
     },
     {
       "observation_id": "sample-042",
       "time_hours": 3.5,
-      "response_value": 1
+      "decision_time_hours": 3.5,
+      "available_observation_ids": [
+        "sample-036"
+      ]
     },
     {
       "observation_id": "sample-048",
       "time_hours": 4,
-      "response_value": 1
+      "decision_time_hours": 4,
+      "available_observation_ids": [
+        "sample-042"
+      ]
     },
     {
       "observation_id": "sample-054",
       "time_hours": 4.5,
-      "response_value": 1
+      "decision_time_hours": 4.5,
+      "available_observation_ids": [
+        "sample-048"
+      ]
     },
     {
       "observation_id": "sample-060",
       "time_hours": 5,
-      "response_value": 1
+      "decision_time_hours": 5,
+      "available_observation_ids": [
+        "sample-054"
+      ]
     },
     {
       "observation_id": "sample-066",
       "time_hours": 5.5,
-      "response_value": 1
+      "decision_time_hours": 5.5,
+      "available_observation_ids": [
+        "sample-060"
+      ]
     },
     {
       "observation_id": "sample-072",
       "time_hours": 6,
-      "response_value": 1
+      "decision_time_hours": 6,
+      "available_observation_ids": [
+        "sample-066"
+      ]
     },
     {
       "observation_id": "sample-073",
       "time_hours": 6.0833333333,
-      "response_value": 3.333333
+      "decision_time_hours": 6.0833333333,
+      "available_observation_ids": [
+        "sample-072"
+      ]
     },
     {
       "observation_id": "sample-074",
       "time_hours": 6.1666666667,
-      "response_value": 5.666667
+      "decision_time_hours": 6.1666666667,
+      "available_observation_ids": [
+        "sample-073"
+      ]
     },
     {
       "observation_id": "sample-075",
       "time_hours": 6.25,
-      "response_value": 8
+      "decision_time_hours": 6.25,
+      "available_observation_ids": [
+        "sample-074"
+      ]
     },
     {
       "observation_id": "sample-076",
       "time_hours": 6.3333333333,
-      "response_value": 5.666667
+      "decision_time_hours": 6.3333333333,
+      "available_observation_ids": [
+        "sample-075"
+      ]
     },
     {
       "observation_id": "sample-077",
       "time_hours": 6.4166666667,
-      "response_value": 3.333333
+      "decision_time_hours": 6.4166666667,
+      "available_observation_ids": [
+        "sample-076"
+      ]
     },
     {
       "observation_id": "sample-078",
       "time_hours": 6.5,
-      "response_value": 1
+      "decision_time_hours": 6.5,
+      "available_observation_ids": [
+        "sample-077"
+      ]
     },
     {
       "observation_id": "sample-084",
       "time_hours": 7,
-      "response_value": 1
+      "decision_time_hours": 7,
+      "available_observation_ids": [
+        "sample-078"
+      ]
     },
     {
       "observation_id": "sample-090",
       "time_hours": 7.5,
-      "response_value": 1
+      "decision_time_hours": 7.5,
+      "available_observation_ids": [
+        "sample-084"
+      ]
     },
     {
       "observation_id": "sample-096",
       "time_hours": 8,
-      "response_value": 1
+      "decision_time_hours": 8,
+      "available_observation_ids": [
+        "sample-090"
+      ]
     },
     {
       "observation_id": "sample-102",
       "time_hours": 8.5,
-      "response_value": 1
+      "decision_time_hours": 8.5,
+      "available_observation_ids": [
+        "sample-096"
+      ]
     },
     {
       "observation_id": "sample-108",
       "time_hours": 9,
-      "response_value": 1
+      "decision_time_hours": 9,
+      "available_observation_ids": [
+        "sample-102"
+      ]
     },
     {
       "observation_id": "sample-114",
       "time_hours": 9.5,
-      "response_value": 1
+      "decision_time_hours": 9.5,
+      "available_observation_ids": [
+        "sample-108"
+      ]
     },
     {
       "observation_id": "sample-120",
       "time_hours": 10,
-      "response_value": 1
+      "decision_time_hours": 10,
+      "available_observation_ids": [
+        "sample-114"
+      ]
     },
     {
       "observation_id": "sample-126",
       "time_hours": 10.5,
-      "response_value": 1
+      "decision_time_hours": 10.5,
+      "available_observation_ids": [
+        "sample-120"
+      ]
     },
     {
       "observation_id": "sample-132",
       "time_hours": 11,
-      "response_value": 1
+      "decision_time_hours": 11,
+      "available_observation_ids": [
+        "sample-126"
+      ]
     },
     {
       "observation_id": "sample-138",
       "time_hours": 11.5,
-      "response_value": 1
+      "decision_time_hours": 11.5,
+      "available_observation_ids": [
+        "sample-132"
+      ]
     },
     {
       "observation_id": "sample-144",
       "time_hours": 12,
-      "response_value": 1
+      "decision_time_hours": 12,
+      "available_observation_ids": [
+        "sample-138"
+      ]
     },
     {
       "observation_id": "sample-150",
       "time_hours": 12.5,
-      "response_value": 1
+      "decision_time_hours": 12.5,
+      "available_observation_ids": [
+        "sample-144"
+      ]
     },
     {
       "observation_id": "sample-156",
       "time_hours": 13,
-      "response_value": 1
+      "decision_time_hours": 13,
+      "available_observation_ids": [
+        "sample-150"
+      ]
     },
     {
       "observation_id": "sample-162",
       "time_hours": 13.5,
-      "response_value": 1
+      "decision_time_hours": 13.5,
+      "available_observation_ids": [
+        "sample-156"
+      ]
     },
     {
       "observation_id": "sample-168",
       "time_hours": 14,
-      "response_value": 1
+      "decision_time_hours": 14,
+      "available_observation_ids": [
+        "sample-162"
+      ]
     },
     {
       "observation_id": "sample-174",
       "time_hours": 14.5,
-      "response_value": 1
+      "decision_time_hours": 14.5,
+      "available_observation_ids": [
+        "sample-168"
+      ]
     },
     {
       "observation_id": "sample-180",
       "time_hours": 15,
-      "response_value": 1
+      "decision_time_hours": 15,
+      "available_observation_ids": [
+        "sample-174"
+      ]
     },
     {
       "observation_id": "sample-186",
       "time_hours": 15.5,
-      "response_value": 1
+      "decision_time_hours": 15.5,
+      "available_observation_ids": [
+        "sample-180"
+      ]
     },
     {
       "observation_id": "sample-192",
       "time_hours": 16,
-      "response_value": 1
+      "decision_time_hours": 16,
+      "available_observation_ids": [
+        "sample-186"
+      ]
     },
     {
       "observation_id": "sample-198",
       "time_hours": 16.5,
-      "response_value": 1
+      "decision_time_hours": 16.5,
+      "available_observation_ids": [
+        "sample-192"
+      ]
     },
     {
       "observation_id": "sample-204",
       "time_hours": 17,
-      "response_value": 1
+      "decision_time_hours": 17,
+      "available_observation_ids": [
+        "sample-198"
+      ]
     },
     {
       "observation_id": "sample-210",
       "time_hours": 17.5,
-      "response_value": 1
+      "decision_time_hours": 17.5,
+      "available_observation_ids": [
+        "sample-204"
+      ]
     },
     {
       "observation_id": "sample-216",
       "time_hours": 18,
-      "response_value": 1
+      "decision_time_hours": 18,
+      "available_observation_ids": [
+        "sample-210"
+      ]
     },
     {
       "observation_id": "sample-222",
       "time_hours": 18.5,
-      "response_value": 1
+      "decision_time_hours": 18.5,
+      "available_observation_ids": [
+        "sample-216"
+      ]
     },
     {
       "observation_id": "sample-228",
       "time_hours": 19,
-      "response_value": 1
+      "decision_time_hours": 19,
+      "available_observation_ids": [
+        "sample-222"
+      ]
     },
     {
       "observation_id": "sample-234",
       "time_hours": 19.5,
-      "response_value": 1
+      "decision_time_hours": 19.5,
+      "available_observation_ids": [
+        "sample-228"
+      ]
     },
     {
       "observation_id": "sample-240",
       "time_hours": 20,
-      "response_value": 1
+      "decision_time_hours": 20,
+      "available_observation_ids": [
+        "sample-234"
+      ]
     },
     {
       "observation_id": "sample-246",
       "time_hours": 20.5,
-      "response_value": 1
+      "decision_time_hours": 20.5,
+      "available_observation_ids": [
+        "sample-240"
+      ]
     },
     {
       "observation_id": "sample-252",
       "time_hours": 21,
-      "response_value": 1
+      "decision_time_hours": 21,
+      "available_observation_ids": [
+        "sample-246"
+      ]
     },
     {
       "observation_id": "sample-258",
       "time_hours": 21.5,
-      "response_value": 1
+      "decision_time_hours": 21.5,
+      "available_observation_ids": [
+        "sample-252"
+      ]
     },
     {
       "observation_id": "sample-264",
       "time_hours": 22,
-      "response_value": 1
+      "decision_time_hours": 22,
+      "available_observation_ids": [
+        "sample-258"
+      ]
     },
     {
       "observation_id": "sample-270",
       "time_hours": 22.5,
-      "response_value": 1
+      "decision_time_hours": 22.5,
+      "available_observation_ids": [
+        "sample-264"
+      ]
     },
     {
       "observation_id": "sample-276",
       "time_hours": 23,
-      "response_value": 1
+      "decision_time_hours": 23,
+      "available_observation_ids": [
+        "sample-270"
+      ]
     },
     {
       "observation_id": "sample-282",
       "time_hours": 23.5,
-      "response_value": 1
+      "decision_time_hours": 23.5,
+      "available_observation_ids": [
+        "sample-276"
+      ]
     },
     {
       "observation_id": "sample-288",
       "time_hours": 24,
-      "response_value": 1
+      "decision_time_hours": 24,
+      "available_observation_ids": [
+        "sample-282"
+      ]
     }
   ]
 }
