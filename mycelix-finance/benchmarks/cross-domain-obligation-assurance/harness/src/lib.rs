@@ -1785,18 +1785,54 @@ pub const ENERGY_ATTRIBUTE_SCENARIO_COVERAGE: [ScenarioCoverage; 12] = [
 ];
 
 pub const DPP_SCENARIO_COVERAGE: [ScenarioCoverage; 12] = [
-    ScenarioCoverage { id: "DPP-001", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "DPP-002", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "DPP-003", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "DPP-004", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "DPP-005", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "DPP-006", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "DPP-007", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "DPP-008", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "DPP-009", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "DPP-010", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "DPP-011", status: CoverageStatus::NotYetImplemented },
-    ScenarioCoverage { id: "DPP-012", status: CoverageStatus::NotYetImplemented },
+    ScenarioCoverage {
+        id: "DPP-001",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "DPP-002",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "DPP-003",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "DPP-004",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "DPP-005",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "DPP-006",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "DPP-007",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "DPP-008",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "DPP-009",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "DPP-010",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "DPP-011",
+        status: CoverageStatus::NotYetImplemented,
+    },
+    ScenarioCoverage {
+        id: "DPP-012",
+        status: CoverageStatus::NotYetImplemented,
+    },
 ];
 
 pub const TRANSPARENCY_METROLOGY_SCENARIO_COVERAGE: [ScenarioCoverage; 10] = [
