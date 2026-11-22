@@ -15,7 +15,9 @@ struct SplitMix64 {
 }
 
 impl SplitMix64 {
-    fn new(seed: u64) -> Self { Self { state: seed } }
+    fn new(seed: u64) -> Self {
+        Self { state: seed }
+    }
 
     fn next_u64(&mut self) -> u64 {
         self.state = self.state.wrapping_add(0x9E37_79B9_7F4A_7C15);
@@ -109,11 +111,20 @@ fn geometry_is(
         evaluation_draws_are_iid_from_full_mixture: true,
     };
     let report = estimate_geometry_event_probability(proposal, &observations, DELTA, &evidence)?;
-    Ok((report.estimate, report.upper_confidence_bound, report.event_contribution_ess))
+    Ok((
+        report.estimate,
+        report.upper_confidence_bound,
+        report.event_contribution_ess,
+    ))
 }
 
 fn rmse(values: &[f64], truth: f64) -> f64 {
-    (values.iter().map(|value| (value - truth).powi(2)).sum::<f64>() / values.len() as f64).sqrt()
+    (values
+        .iter()
+        .map(|value| (value - truth).powi(2))
+        .sum::<f64>()
+        / values.len() as f64)
+        .sqrt()
 }
 
 fn mean(values: &[f64]) -> f64 {
@@ -121,7 +132,9 @@ fn mean(values: &[f64]) -> f64 {
 }
 
 fn main() {
-    println!("threshold,exact_normal_tail,method,mean_estimate,rmse,rmse_gain_vs_crude,mean_upper_95pct,upper_coverage,mean_event_ess,samples_per_replicate,replicates");
+    println!(
+        "threshold,exact_normal_tail,method,mean_estimate,rmse,rmse_gain_vs_crude,mean_upper_95pct,upper_coverage,mean_event_ess,samples_per_replicate,replicates"
+    );
     for (case, threshold) in [2.5_f64, 3.5, 4.5].into_iter().enumerate() {
         let truth = exact_normal_tail(threshold);
         let proposal = proposal(threshold, &format!("geo-halfspace-{case}"));
@@ -154,8 +167,13 @@ fn main() {
 
         let crude_rmse = rmse(&crude, truth);
         let geo_rmse = rmse(&geometric, truth);
-        let gain = if geo_rmse > 0.0 { crude_rmse / geo_rmse } else { f64::INFINITY };
-        let coverage = uppers.iter().filter(|upper| **upper >= truth).count() as f64 / REPLICATES as f64;
+        let gain = if geo_rmse > 0.0 {
+            crude_rmse / geo_rmse
+        } else {
+            f64::INFINITY
+        };
+        let coverage =
+            uppers.iter().filter(|upper| **upper >= truth).count() as f64 / REPLICATES as f64;
 
         println!(
             "{threshold:.3},{truth:.12},crude_mc,{:.12},{crude_rmse:.12},1.0,0.0,0.0,0.0,{SAMPLES},{REPLICATES}",
