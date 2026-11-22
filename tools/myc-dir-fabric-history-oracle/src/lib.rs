@@ -1875,6 +1875,174 @@ mod tests {
         }
     }
 
+    fn add_post_barrier_route(history: &mut HistoryEvidence, enforcement: RouteEnforcement) {
+        let owners = ["owner-a"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect::<BTreeSet<_>>();
+        let routes = ["worker-route-a"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect::<BTreeSet<_>>();
+        history.events.extend([
+            record(
+                "route-inventory",
+                &["global-ack"],
+                None,
+                None,
+                EventKind::InventoryClosed {
+                    revocation_digest: digest(3),
+                    inventory_epoch: 8,
+                    inventory_manifest_digest: digest(15),
+                    route_set_digest: digest(16),
+                    required_owners: owners,
+                    required_routes: routes,
+                },
+            ),
+            record(
+                "route-stage",
+                &["global-ack", "route-inventory"],
+                Some("owner-a"),
+                None,
+                EventKind::RouteStaged {
+                    route_id: "worker-route-a".into(),
+                    owner: "owner-a".into(),
+                    enforcement,
+                    required_position: pos(1, 2),
+                    inventory_event_id: "route-inventory".into(),
+                },
+            ),
+            record(
+                "route-active",
+                &["route-stage", "route-inventory", "readback-a", "global-ack"],
+                Some("owner-a"),
+                None,
+                EventKind::RouteActivated {
+                    route_id: "worker-route-a".into(),
+                    owner: "owner-a".into(),
+                    position: pos(1, 2),
+                    staged_event_id: "route-stage".into(),
+                    inventory_event_id: "route-inventory".into(),
+                    owner_readback_event_id: "readback-a".into(),
+                    global_barrier_event_id: "global-ack".into(),
+                },
+            ),
+        ]);
+    }
+
+    #[test]
+    fn post_barrier_route_requires_current_inventory_and_owner_readback() {
+        let mut history = base_history(false);
+        add_post_barrier_route(&mut history, RouteEnforcement::AtomicOwnerFence);
+        assert_eq!(audit_history(&history).verdict, Verdict::Valid);
+    }
+
+    #[test]
+    fn non_fenceable_route_cannot_be_activated() {
+        let mut history = base_history(false);
+        add_post_barrier_route(&mut history, RouteEnforcement::BestEffortInvalidation);
+        let report = audit_history(&history);
+        assert_eq!(report.verdict, Verdict::Violation);
+        assert!(report.findings
+            .iter()
+            .any(|finding| finding.code == FindingCode::RouteNonFenceable));
+    }
+
+    #[test]
+    fn superseded_worker_cannot_commit_after_new_claim_install() {
+        let mut history = base_history(false);
+        for event in &mut history.events {
+            match event.id.as_str() {
+                "effect-a" => event.owner_sequence = Some(5),
+                "fence-a" => event.owner_sequence = Some(6),
+                "readback-a" => event.owner_sequence = Some(7),
+                _ => {}
+            }
+        }
+        history.events.push(record(
+            "claim-b",
+            &["claim-a", "attempt-a"],
+            Some("owner-a"),
+            Some(4),
+            EventKind::WorkerClaimInstalled {
+                operation_id: "op-a".into(),
+                worker_id: "worker-b".into(),
+                claim_epoch: 2,
+            },
+        ));
+        let report = audit_history(&history);
+        assert_eq!(report.verdict, Verdict::Violation);
+        assert!(report.findings
+            .iter()
+            .any(|finding| finding.code == FindingCode::EffectClaimNotCurrent));
+    }
+
+    #[test]
+    fn owner_sequence_must_not_contradict_causal_order() {
+        let mut history = base_history(false);
+        let effect = history.events.iter_mut().find(|event| event.id == "effect-a").unwrap();
+        effect.parents.push("fence-a".into());
+        let fence = history.events.iter_mut().find(|event| event.id == "fence-a").unwrap();
+        fence.parents.retain(|parent| parent != "effect-a");
+        let report = audit_history(&history);
+        assert_eq!(report.verdict, Verdict::Violation);
+        assert!(report.findings
+            .iter()
+            .any(|finding| finding.code == FindingCode::OwnerSequenceCausalOrderMismatch));
+    }
+
+    #[test]
+    fn retry_while_previous_outcome_is_unknown_is_rejected() {
+        let mut history = base_history(false);
+        history.events.retain(|event| event.id != "effect-a");
+        let fence = history.events.iter_mut().find(|event| event.id == "fence-a").unwrap();
+        fence.parents.retain(|parent| parent != "effect-a");
+        history.events.push(record(
+            "unknown-a",
+            &["attempt-a"],
+            Some("owner-a"),
+            None,
+            EventKind::AttemptOutcomeUnknown {
+                operation_id: "op-a".into(),
+                attempt_id: "attempt-a".into(),
+                attempt_number: 1,
+            },
+        ));
+        history.events.push(record(
+            "claim-b",
+            &["claim-a", "unknown-a"],
+            Some("owner-a"),
+            Some(6),
+            EventKind::WorkerClaimInstalled {
+                operation_id: "op-a".into(),
+                worker_id: "worker-b".into(),
+                claim_epoch: 2,
+            },
+        ));
+        history.events.push(record(
+            "attempt-b",
+            &["claim-b", "unknown-a", "global-ack"],
+            Some("owner-a"),
+            None,
+            EventKind::EffectAttemptStarted {
+                operation_id: "op-a".into(),
+                attempt_id: "attempt-b".into(),
+                attempt_number: 2,
+                worker_id: "worker-b".into(),
+                claim_epoch: 2,
+                claim_event_id: "claim-b".into(),
+                position: pos(1, 2),
+                idempotency_digest: digest(7),
+                retry_after_outcome_event_id: None,
+            },
+        ));
+        let report = audit_history(&history);
+        assert_eq!(report.verdict, Verdict::Violation);
+        assert!(report.findings
+            .iter()
+            .any(|finding| finding.code == FindingCode::RetryWithoutNoEffectReconciliation));
+    }
+
     #[test]
     fn accepts_effect_that_committed_before_owner_fence() {
         assert_eq!(audit_history(&base_history(false)).verdict, Verdict::Valid);
