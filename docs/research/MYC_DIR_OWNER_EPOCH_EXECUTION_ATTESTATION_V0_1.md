@@ -1,7 +1,7 @@
 # Mycelix Directory Fabric: owner-epoch execution attestation v0.1
 
 **Profile:** MYC-DIR-OWNER-EPOCH-EXECUTION-ATTESTATION-0.1  
-**Status:** migration, SQL adversarial test and PostgreSQL/NATS integration source added; not yet executed  
+**Status:** migration, SQL adversarial test, bounded TLA+ model and PostgreSQL/NATS integration source added; exact-head CI and TLC execution pending  
 **Related:** PostgreSQL receipt-verifier work, tools/myc-dir-fabric-reference/postgres/001_effect_owner.sql, 002_worker_claim_fencing.sql, and the PostgreSQL receipt verifier.
 
 ## 1. Paradigm shift: persist the authority coordinates at the effect boundary
@@ -158,4 +158,4 @@ Adds `specs/owner-epoch/OwnerEpochExecutionAttestation.tla` and a bounded TLC co
 - effect plus execution-attestation written in one transition;
 - exact replay returning the original attestation.
 
-The TLA+ module and configuration are authored source, not a model-check result. No TLC execution is claimed. The SQL and Rust tests still require exact-head CI.
+The branch inventory is 23 reference-contract unit tests, 16 adapter-core unit tests, 4 PostgreSQL receipt/attestation unit tests, 3 ignored PostgreSQL/NATS integration tests and 20 SQL-level adversarial assertions. The TLA+ module and configuration are authored source, not a model-check result. No TLC execution is claimed. The SQL and Rust tests still require exact-head CI. The benchmark corpus is 52 scenarios / 37 metrics and remains preregistered, not executed.
