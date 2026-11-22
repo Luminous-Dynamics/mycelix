@@ -75,6 +75,23 @@ Terminal / exception states should include:
 
 Never rewrite history when a certificate is cancelled or corrected. Append a registry event and reconcile every dependent claim. A partial redemption must be represented in the exact registry unit model—e.g. one certificate per 1 MWh where fractional retirement is unsupported, or a registry-authorized split if supported.
 
+## 5.1 Temporal and geographic matching profiles
+
+The GHG Protocol Scope 2 market-based-method revision is active as of its 16 October 2026 update. The prior 2015 guidance is under review. The public consultation ran from 20 October 2025 to 31 January 2026; the October 2026 update describes continued Technical Working Group and Independent Standards Board deliberation. Hourly matching and geographic deliverability are central proposals, while stakeholders also debate market accessibility and annual matching approaches.
+
+PCOE should not hard-code one proposal as if it were already final. Represent at least:
+
+- `AnnualRegionalMatching`;
+- `HourlyRegionalMatching`;
+- `HourlyDeliverableGridMatching`;
+- `IncrementalityWindow(profile_version)` where a declared policy requires it.
+
+Each profile must pin its standard/version, reporting period, geographic boundary/deliverability method, certificate vintage, generation interval, consumption interval, registry product code, and effective date. A result under one profile must never silently be relabelled as compliant under another.
+
+**Research benchmark:** run identical consumption and EAC portfolios through annual, hourly and deliverable-region policies. Report eligible MWh, shortfalls, unmatched consumption, storage adjustments, residual mix treatment and administrative cost. Keep these as policy-comparison outputs, not assertions that one option is currently mandatory.
+
+Reference: GHG Protocol, *Scope 2 Market-based Method Update: From 2025-2026 Public Consultation to Current Status* (16 October 2026): https://ghgprotocol.org/blog/scope-2-market-based-method-update-2025-2026-public-consultation-current-status
+
 ## 6. Adversarial scenarios
 
 The companion `pcoe-energy-attribute-scenarios.v0.1.json` adds 12 scenarios. They target over-issuance, duplicate interval issuance, registry disagreement, double transfer/retirement, consumption/generation confusion, boundary substitution, storage provenance laundering, certificate split/conservation, expiry/cancellation, and unregistered devices.
