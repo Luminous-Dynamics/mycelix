@@ -19,6 +19,10 @@ ALTER TABLE myc_effect_owner.effect_fence_state
     ADD COLUMN IF NOT EXISTS owner_epoch BIGINT NOT NULL DEFAULT 1
         CHECK (owner_epoch > 0);
 
+ALTER TABLE myc_effect_owner.worker_claim_state
+    ADD COLUMN IF NOT EXISTS owner_epoch BIGINT NOT NULL DEFAULT 1
+        CHECK (owner_epoch > 0);
+
 CREATE TABLE IF NOT EXISTS myc_effect_owner.effect_owner_epoch_transitions (
     realm_id TEXT NOT NULL,
     resource_id TEXT NOT NULL,
@@ -155,6 +159,117 @@ ON myc_effect_owner.effect_commits;
 CREATE TRIGGER effect_commits_no_truncate
 BEFORE TRUNCATE ON myc_effect_owner.effect_commits
 FOR EACH STATEMENT EXECUTE FUNCTION myc_effect_owner.reject_effect_commit_mutation();
+
+-- New epoch-aware claim installer. A claim from an earlier owner epoch
+-- cannot simply carry forward after promotion/recovery: installing a claim for
+-- a newer owner epoch requires a strictly higher worker claim epoch.
+CREATE OR REPLACE FUNCTION myc_effect_owner.install_worker_claim_for_owner_epoch(
+    p_realm_id TEXT,
+    p_resource_id TEXT,
+    p_action_id TEXT,
+    p_effect_owner_id TEXT,
+    p_owner_epoch BIGINT,
+    p_logical_operation_id TEXT,
+    p_worker_id TEXT,
+    p_claim_epoch BIGINT,
+    p_claim_proof_digest BYTEA,
+    p_clock_profile_id TEXT,
+    p_issued_at TIMESTAMPTZ,
+    p_expires_at TIMESTAMPTZ
+)
+RETURNS BIGINT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, myc_effect_owner
+AS $function$
+DECLARE
+    v_current_owner_epoch BIGINT;
+    v_existing_owner_epoch BIGINT;
+    v_existing_claim_epoch BIGINT;
+    v_installed_claim_epoch BIGINT;
+BEGIN
+    IF p_owner_epoch IS NULL OR p_owner_epoch <= 0 THEN
+        RAISE EXCEPTION 'worker claim owner epoch must be positive'
+            USING ERRCODE = '22023';
+    END IF;
+
+    SELECT owner_epoch
+      INTO v_current_owner_epoch
+      FROM myc_effect_owner.effect_fence_state
+     WHERE realm_id = p_realm_id
+       AND resource_id = p_resource_id
+       AND action_id = p_action_id
+       AND effect_owner_id = p_effect_owner_id
+     FOR SHARE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'owner epoch domain is not initialized for worker claim installation'
+            USING ERRCODE = 'P0001';
+    END IF;
+    IF p_owner_epoch <> v_current_owner_epoch THEN
+        RAISE EXCEPTION 'worker claim owner epoch is stale: supplied %, current %',
+            p_owner_epoch, v_current_owner_epoch
+            USING ERRCODE = 'P0001';
+    END IF;
+
+    SELECT owner_epoch, claim_epoch
+      INTO v_existing_owner_epoch, v_existing_claim_epoch
+      FROM myc_effect_owner.worker_claim_state
+     WHERE realm_id = p_realm_id
+       AND resource_id = p_resource_id
+       AND action_id = p_action_id
+       AND effect_owner_id = p_effect_owner_id
+       AND logical_operation_id = p_logical_operation_id
+     FOR UPDATE;
+
+    IF FOUND THEN
+        IF v_existing_owner_epoch > p_owner_epoch THEN
+            RAISE EXCEPTION 'existing worker claim belongs to a newer owner epoch'
+                USING ERRCODE = 'P0001';
+        END IF;
+        IF v_existing_owner_epoch < p_owner_epoch
+           AND p_claim_epoch <= v_existing_claim_epoch THEN
+            RAISE EXCEPTION 'worker claim epoch must strictly advance when owner epoch changes'
+                USING ERRCODE = 'P0001';
+        END IF;
+    END IF;
+
+    SELECT myc_effect_owner.install_worker_claim(
+        p_realm_id,
+        p_resource_id,
+        p_action_id,
+        p_effect_owner_id,
+        p_logical_operation_id,
+        p_worker_id,
+        p_claim_epoch,
+        p_claim_proof_digest,
+        p_clock_profile_id,
+        p_issued_at,
+        p_expires_at
+    ) INTO v_installed_claim_epoch;
+
+    UPDATE myc_effect_owner.worker_claim_state
+       SET owner_epoch = p_owner_epoch
+     WHERE realm_id = p_realm_id
+       AND resource_id = p_resource_id
+       AND action_id = p_action_id
+       AND effect_owner_id = p_effect_owner_id
+       AND logical_operation_id = p_logical_operation_id
+       AND worker_id = p_worker_id
+       AND claim_epoch = v_installed_claim_epoch
+       AND claim_proof_digest = p_claim_proof_digest
+       AND clock_profile_id = p_clock_profile_id
+       AND issued_at = p_issued_at
+       AND expires_at = p_expires_at;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'epoch-aware worker claim install did not persist the exact claim'
+            USING ERRCODE = 'P0001';
+    END IF;
+
+    RETURN v_installed_claim_epoch;
+END
+$function$;
 
 -- Installs a strictly newer owner epoch and advances the resource generation
 -- in the same row lock/transaction. The two receipt digests must have been
@@ -362,6 +477,11 @@ BEGIN
             USING ERRCODE = 'P0001';
     END IF;
 
+    IF v_claim.owner_epoch IS DISTINCT FROM p_owner_epoch THEN
+        RAISE EXCEPTION 'worker claim belongs to a different owner epoch; a fresh epoch-aware claim is required'
+            USING ERRCODE = 'P0001';
+    END IF;
+
     SELECT *
       INTO v_effect_result
       FROM myc_effect_owner.apply_claim_fenced_balance_delta(
@@ -469,6 +589,14 @@ COMMENT ON TABLE myc_effect_owner.effect_owner_epoch_transitions IS
 
 COMMENT ON TABLE myc_effect_owner.effect_execution_attestations IS
 'Append-only historical execution coordinates written in the same transaction as effect_commits: owner epoch/generation, exact worker claim and command commitments. Does not itself authenticate external claim/epoch signatures.';
+
+COMMENT ON COLUMN myc_effect_owner.worker_claim_state.owner_epoch IS
+'Owner epoch under which this worker claim was installed. A claim from an earlier owner epoch cannot execute after an epoch transition.';
+
+COMMENT ON FUNCTION myc_effect_owner.install_worker_claim_for_owner_epoch(
+    TEXT, TEXT, TEXT, TEXT, BIGINT, TEXT, TEXT, BIGINT, BYTEA, TEXT, TIMESTAMPTZ, TIMESTAMPTZ
+) IS
+'Installs a worker claim bound to the current owner epoch. Crossing owner epochs requires a strictly higher claim epoch. External claim authentication remains the caller responsibility.';
 
 COMMENT ON FUNCTION myc_effect_owner.advance_effect_owner_epoch(
     TEXT, TEXT, TEXT, TEXT, BIGINT, BYTEA, BYTEA
