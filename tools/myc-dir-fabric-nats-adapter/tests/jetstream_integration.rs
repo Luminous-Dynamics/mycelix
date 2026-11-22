@@ -11,8 +11,9 @@ use myc_dir_fabric_nats_reference::{AckMode, DurableOwnerDisposition, NatsComman
 
 struct SyntheticOwnerReceiptVerifier;
 
+#[async_trait::async_trait]
 impl OwnerDispositionVerifier for SyntheticOwnerReceiptVerifier {
-    fn verify_durable_disposition(
+    async fn verify_durable_disposition(
         &self,
         binding: &myc_dir_fabric_nats_reference::NatsCommandBinding,
         disposition: &DurableOwnerDisposition,
@@ -177,6 +178,7 @@ async fn publish_dedup_pull_and_double_ack_are_transport_only() {
         },
         &SyntheticOwnerReceiptVerifier,
     )
+    .await
     .expect("test owner verifier should accept the matching durable receipt");
     let ack = delivery
         .acknowledge(&verified, AckMode::AckSync)
@@ -250,6 +252,7 @@ async fn unacked_pull_is_redelivered_with_same_stream_sequence_and_higher_delive
         },
         &SyntheticOwnerReceiptVerifier,
     )
+    .await
     .expect("test owner verifier should accept the matching reconciliation handoff");
     let ack = redelivery
         .acknowledge(&verified, AckMode::AckSync)
