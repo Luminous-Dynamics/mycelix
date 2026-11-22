@@ -20,6 +20,7 @@ pub enum KernelError {
     AuthorityRevoked,
     AuthorityStateUnknown,
     ScopeExceeded,
+    CapabilityConsumed,
     HumanDispositionRequired,
     InvalidInterval,
     InvalidCalibration,
@@ -60,7 +61,10 @@ pub enum KernelError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthorityGrant {
+    pub grant_id: String,
     pub principal_id: String,
+    pub task_id: String,
+    pub audience_id: String,
     pub actor_id: String,
     pub action_class: String,
     pub resource_id: String,
@@ -69,15 +73,28 @@ pub struct AuthorityGrant {
     pub expires_at: u64,
     pub revocation_epoch: u64,
     pub requires_human_disposition: bool,
+    pub one_time: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActionRequest {
     pub principal_id: String,
+    pub task_id: String,
+    pub audience_id: String,
+    pub request_digest: Digest,
     pub actor_id: String,
     pub action_class: String,
     pub resource_id: String,
     pub amount: u128,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HumanDisposition {
+    pub decision_maker_id: String,
+    pub decision_reference: String,
+    pub request_digest: Digest,
+    /// Test seam set only after a separate human authentication channel is verified.
+    pub independent_authentication_verified: bool,
 }
 
 pub fn authorize(
@@ -85,13 +102,18 @@ pub fn authorize(
     request: &ActionRequest,
     now: u64,
     observed_revocation_epoch: u64,
-    human_disposition_reference: Option<&str>,
+    human_disposition: Option<&HumanDisposition>,
 ) -> Result<(), KernelError> {
-    if grant.principal_id.is_empty()
+    if grant.grant_id.is_empty()
+        || grant.principal_id.is_empty()
+        || grant.task_id.is_empty()
+        || grant.audience_id.is_empty()
         || grant.actor_id.is_empty()
         || grant.action_class.is_empty()
         || grant.resource_id.is_empty()
         || request.principal_id.is_empty()
+        || request.task_id.is_empty()
+        || request.audience_id.is_empty()
         || request.actor_id.is_empty()
         || request.action_class.is_empty()
         || request.resource_id.is_empty()
@@ -111,6 +133,8 @@ pub fn authorize(
         return Err(KernelError::AuthorityStateUnknown);
     }
     if grant.principal_id != request.principal_id
+        || grant.task_id != request.task_id
+        || grant.audience_id != request.audience_id
         || grant.actor_id != request.actor_id
         || grant.action_class != request.action_class
         || grant.resource_id != request.resource_id
@@ -123,12 +147,45 @@ pub fn authorize(
     if request.amount > grant.max_amount {
         return Err(KernelError::ScopeExceeded);
     }
-    if (grant.requires_human_disposition || request.action_class.starts_with("BR3"))
-        && !human_disposition_reference.is_some_and(|reference| !reference.is_empty())
-    {
-        return Err(KernelError::HumanDispositionRequired);
+    if grant.requires_human_disposition || request.action_class.starts_with("BR3") {
+        let disposition = human_disposition.ok_or(KernelError::HumanDispositionRequired)?;
+        if disposition.decision_maker_id.is_empty()
+            || disposition.decision_reference.is_empty()
+            || disposition.decision_maker_id == request.actor_id
+            || disposition.request_digest != request.request_digest
+            || !disposition.independent_authentication_verified
+        {
+            return Err(KernelError::HumanDispositionRequired);
+        }
     }
     Ok(())
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AuthorityConsumptionLedger {
+    consumed_grants: BTreeMap<String, Digest>,
+}
+
+impl AuthorityConsumptionLedger {
+    /// Enforces one-time grants. Call atomically with the authorized side effect
+    /// in a production integrity/transaction boundary.
+    pub fn consume(
+        &mut self,
+        grant: &AuthorityGrant,
+        request: &ActionRequest,
+    ) -> Result<(), KernelError> {
+        if !grant.one_time {
+            return Ok(());
+        }
+        if let Some(previous_digest) = self.consumed_grants.get(&grant.grant_id) {
+            if previous_digest == &request.request_digest {
+                return Err(KernelError::CapabilityConsumed);
+            }
+            return Err(KernelError::IdempotencyConflict);
+        }
+        self.consumed_grants.insert(grant.grant_id.clone(), request.request_digest);
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -842,7 +899,10 @@ mod tests {
 
     fn grant() -> AuthorityGrant {
         AuthorityGrant {
+            grant_id: "grant-001".into(),
             principal_id: "community-board".into(),
+            task_id: "procure-solar-001".into(),
+            audience_id: "mycelix-finance".into(),
             actor_id: "procurement-agent".into(),
             action_class: "BR2_PURCHASE".into(),
             resource_id: "solar-project-001".into(),
@@ -851,12 +911,16 @@ mod tests {
             expires_at: 500,
             revocation_epoch: 7,
             requires_human_disposition: false,
+            one_time: true,
         }
     }
 
     fn request() -> ActionRequest {
         ActionRequest {
             principal_id: "community-board".into(),
+            task_id: "procure-solar-001".into(),
+            audience_id: "mycelix-finance".into(),
+            request_digest: digest(9),
             actor_id: "procurement-agent".into(),
             action_class: "BR2_PURCHASE".into(),
             resource_id: "solar-project-001".into(),
