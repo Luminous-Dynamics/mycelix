@@ -11,12 +11,14 @@ This benchmark isolates the sampling-policy question before adding soil-model co
 ## Candidate/evaluator separation
 
 The evaluator accepts two separate files:
-1. **Known truth**: dense time series, pulse windows and exact latent response. Evaluator-only.
-2. **Candidate schedule**: timestamps, observed values, resource costs and budget. No event labels or truth windows are allowed in this file.
+1. **Known truth**: dense time series, pulse windows and exact latent response. Evaluator-only input to the scoring CLI.
+2. **Candidate action trace**: requested sample timestamps, decision timestamps, IDs of observations declared visible at each decision, resource costs and budget. It contains no response values, event labels or truth windows.
 
-Every candidate observation must match an exact timestamp in the known-truth stream, and its reported response must match the evaluator's source value at that timestamp. V0.1 does not interpolate or synthesize a measurement at an unobserved time.
+Each action declares `decision_time_hours`, `time_hours` and `available_observation_ids`. The validator rejects an action if it references a sample that has not yet been acquired, if its decision time is after the requested sample time, or if the requested sample timestamp is absent from the exact high-rate source grid. The evaluator joins timestamps to hidden truth only after receiving the frozen schedule; it does not interpolate or synthesize unsampled values.
 
-This is an offline controlled benchmark with a manufactured source stream. A real offline replay can only be called a valid schedule counterfactual when a validated high-rate source stream or physical sensor model supports the requested observations. Coarse recorded traces cannot reveal unseen pulse values.
+**Important isolation limit:** the offline CLI receives both truth and the frozen schedule in one evaluator process. It can validate that the schedule's declared information set is time-causal, but it cannot prove that a separate policy process never accessed evaluator truth before emitting the schedule. The report therefore states `not_enforced_by_offline_evaluator`. Production qualification must run the policy in a separate process / sandbox with only past sampled observations and allowed context mounted, then hand its signed schedule trace to the evaluator after completion.
+
+This is an offline controlled benchmark with a manufactured source stream. A real replay can only be called a valid schedule counterfactual when a validated high-rate source stream or physical sensor model supports the requested observations. Coarse recorded traces cannot reveal unseen pulse values.
 
 ## Metrics
 
