@@ -618,6 +618,122 @@ mod tests {
         assert_eq!(back, MachineType::Custom("Waterjet".to_string()));
     }
 
+    fn manufacturing_ref(kind: &str, crate_name: &str, object_id: char) -> SymthaeaManufacturingObjectRefV1 {
+        let digest = |ch: char, count: usize| std::iter::repeat_n(ch, count).collect::<String>();
+        SymthaeaManufacturingObjectRefV1 {
+            owner_repository: SYMTHAEA_MANUFACTURING_CONTRACT_REPOSITORY.into(),
+            owner_commit: SYMTHAEA_MANUFACTURING_CONTRACT_COMMIT_V1.into(),
+            contract_crate: crate_name.into(),
+            contract_type: kind.into(),
+            object_id_blake3: digest(object_id, 64),
+            process_id_blake3: digest('a', 64),
+            semantic_version: "1.0.0".into(),
+        }
+    }
+
+    #[test]
+    fn typed_process_definition_ref_requires_exact_pinned_owner_and_type() {
+        let mut reference = manufacturing_ref(
+            "ProcessDefinitionV1",
+            SYMTHAEA_PROCESS_CRATE,
+            'a',
+        );
+        let typed = ProcessDefinitionRefV1(reference.clone());
+        assert!(typed.validate().is_ok());
+
+        reference.owner_commit = "f".repeat(40);
+        assert!(ProcessDefinitionRefV1(reference).validate().is_err());
+    }
+
+    #[test]
+    fn typed_process_binding_rejects_mismatched_process_identity() {
+        let process = ProcessDefinitionRefV1(manufacturing_ref(
+            "ProcessDefinitionV1",
+            SYMTHAEA_PROCESS_CRATE,
+            'a',
+        ));
+        let mut requirement_ref = manufacturing_ref(
+            "ProcessCapabilityRequirementV1",
+            SYMTHAEA_CONTRACTS_CRATE,
+            'b',
+        );
+        requirement_ref.process_id_blake3 = "c".repeat(64);
+        let binding = ProcessBindingV1 {
+            process_definition: process,
+            capability_requirement: ProcessCapabilityRequirementRefV1(requirement_ref),
+            recipe: None,
+        };
+        assert!(binding.validate().is_err());
+    }
+
+    #[test]
+    fn typed_process_binding_accepts_exact_matching_reference_coordinates() {
+        let process = ProcessDefinitionRefV1(manufacturing_ref(
+            "ProcessDefinitionV1",
+            SYMTHAEA_PROCESS_CRATE,
+            'a',
+        ));
+        let binding = ProcessBindingV1 {
+            process_definition: process,
+            capability_requirement: ProcessCapabilityRequirementRefV1(manufacturing_ref(
+                "ProcessCapabilityRequirementV1",
+                SYMTHAEA_CONTRACTS_CRATE,
+                'b',
+            )),
+            recipe: Some(ProcessRecipeRefV1(manufacturing_ref(
+                "ProcessRecipeV1",
+                SYMTHAEA_CONTRACTS_CRATE,
+                'd',
+            ))),
+        };
+        assert!(binding.validate().is_ok());
+    }
+
+    #[test]
+    fn typed_machine_capability_ref_requires_profile_type_not_string_label() {
+        let reference = MachineProcessCapabilityRefV1 {
+            capability_profile: ProcessCapabilityProfileRefV1(manufacturing_ref(
+                "ProcessCapabilityProfileV1",
+                SYMTHAEA_CONTRACTS_CRATE,
+                'e',
+            )),
+        };
+        assert!(reference.validate().is_ok());
+    }
+
+    #[test]
+    fn malformed_hex_and_wrong_contract_types_are_rejected() {
+        let mut reference = manufacturing_ref(
+            "ProcessCapabilityProfileV1",
+            SYMTHAEA_CONTRACTS_CRATE,
+            'e',
+        );
+        reference.object_id_blake3 = "not-a-digest".into();
+        assert!(ProcessCapabilityProfileRefV1(reference).validate().is_err());
+
+        let wrong_type = ProcessCapabilityRequirementRefV1(manufacturing_ref(
+            "ProcessRecipeV1",
+            SYMTHAEA_CONTRACTS_CRATE,
+            'b',
+        ));
+        assert!(wrong_type.validate().is_err());
+    }
+
+    #[test]
+    fn legacy_machine_and_work_order_models_remain_unchanged() {
+        let old_machine = Machine {
+            name: "Legacy Mill".into(),
+            machine_type: MachineType::CNC3Axis,
+            capabilities: vec!["milling".into()],
+            location: "Bay 1".into(),
+            max_throughput_per_hour: 4,
+            status: MachineStatus::Available,
+            current_work_order: None,
+            registered_at: test_timestamp(),
+        };
+        assert_eq!(old_machine.capabilities, vec!["milling".to_owned()]);
+    }
+
     #[test]
     fn test_mrp_result_construction() {
         let result = MrpResult {
