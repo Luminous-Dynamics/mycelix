@@ -81,8 +81,9 @@
         "additionalProperties": false,
         "required": [
           "observation_id",
+          "decision_time_hours",
           "time_hours",
-          "response_value"
+          "available_observation_ids"
         ],
         "properties": {
           "observation_id": {
@@ -92,8 +93,16 @@
           "time_hours": {
             "type": "number"
           },
-          "response_value": {
+          "decision_time_hours": {
             "type": "number"
+          },
+          "available_observation_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         }
       }
