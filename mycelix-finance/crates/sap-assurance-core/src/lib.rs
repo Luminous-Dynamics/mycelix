@@ -487,10 +487,7 @@ mod tests {
 
     #[test]
     fn reserve_aggregation_overflow_is_rejected() {
-        let assets = [
-            cash("max-asset", u128::MAX),
-            cash("one-more", 1),
-        ];
+        let assets = [cash("max-asset", u128::MAX), cash("one-more", 1)];
         assert_eq!(
             reserve_coverage(&assets, 1, ReservePolicy::default()),
             Err(AssuranceError::ArithmeticOverflow)
