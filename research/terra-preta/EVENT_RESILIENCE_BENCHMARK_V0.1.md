@@ -40,7 +40,7 @@ Let `B` be the arithmetic mean of baseline observations.
 - Recovery mean: arithmetic mean over recovery observations.
 - Recovery fraction: `1 - abs(recovery_mean - B) / abs(stress_peak - B)`. It can be negative after an overshoot; it is not clamped. It is null when the stress peak did not differ from baseline.
 - Recovery time: first recovery observation beginning the required run of consecutive observations inside `[B - tolerance, B + tolerance]`, minus stress-end time. Consecutive samples must themselves be no farther apart than the declared maximum gap.
-- Pulse burden: trapezoidal integral of `abs(response(t) - B)` from event onset to recovery end. Its unit is `response_unit × hours`. It is null if either boundary is absent or any interval exceeds the maximum gap.
+- Pulse burden: piecewise-linear integral from event onset to recovery end, split exactly at any baseline crossing. Report positive excursion, negative excursion, signed net area and absolute anomaly area separately; each has unit `response_unit × hours`. The absolute area is the sum of positive and negative magnitudes. It is null if either boundary is absent or any interval exceeds the maximum gap.
 
 Per-observation standard errors are retained in the input, but v0.1 does **not** propagate event-metric uncertainty because serial covariance, drift, shared calibration and event-sampling dependence are not modelled. Outputs are descriptive only.
 
