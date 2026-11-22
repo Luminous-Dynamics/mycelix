@@ -560,7 +560,7 @@ impl JetStreamAdapter {
             )
             .header(HEADER_PAYLOAD_DIGEST, hex_encode(&input.payload_digest))
             .header(HEADER_BINDING_DIGEST, hex_encode(&binding_digest))
-            .outbound_message(input.subject.as_str());
+            .outbound_message(input.subject.clone());
 
         let ack = self
             .context
