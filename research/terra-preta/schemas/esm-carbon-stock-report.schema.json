@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic FD / ESM carbon stock report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "experimental_unit_id",
+    "independence_group_id",
+    "core_role",
+    "reference_fine_earth_mass_mg_ha",
+    "rounds",
+    "fixed_depth_stock_change_mg_c_ha",
+    "equivalent_soil_mass_stock_change_mg_c_ha",
+    "difference_between_method_changes_mg_c_ha",
+    "interpretation_boundary",
+    "controls",
+    "uncertainty_status"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "experimental_unit_id": {
+      "type": "string"
+    },
+    "independence_group_id": {
+      "type": "string"
+    },
+    "core_role": {
+      "const": "nested_spatial_subsample_not_independent_treatment_replicate"
+    },
+    "reference_fine_earth_mass_mg_ha": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "rounds": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "round_id",
+          "date",
+          "round_role",
+          "core_count",
+          "fixed_depth_stock_mean_mg_c_ha",
+          "equivalent_soil_mass_stock_mean_mg_c_ha",
+          "cores"
+        ],
+        "properties": {
+          "round_id": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "round_role": {
+            "enum": [
+              "baseline",
+              "follow_up"
+            ]
+          },
+          "core_count": {
+            "type": "integer",
+            "minimum": 2
+          },
+          "fixed_depth_stock_mean_mg_c_ha": {
+            "type": "number",
+            "minimum": 0
+          },
+          "equivalent_soil_mass_stock_mean_mg_c_ha": {
+            "type": "number",
+            "minimum": 0
+          },
+          "cores": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "core_id",
+                "total_fine_earth_mass_mg_ha",
+                "fixed_depth_stock_mg_c_ha",
+                "equivalent_soil_mass_stock_mg_c_ha"
+              ],
+              "properties": {
+                "core_id": {
+                  "type": "string"
+                },
+                "total_fine_earth_mass_mg_ha": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "fixed_depth_stock_mg_c_ha": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "equivalent_soil_mass_stock_mg_c_ha": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "fixed_depth_stock_change_mg_c_ha": {
+      "type": "number"
+    },
+    "equivalent_soil_mass_stock_change_mg_c_ha": {
+      "type": "number"
+    },
+    "difference_between_method_changes_mg_c_ha": {
+      "type": "number"
+    },
+    "uncertainty_status": {
+      "const": "not_propagated_core_spatial_and_method_covariance_unavailable"
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "matched_vertical_support_pass",
+        "reference_mass_available_in_all_cores_pass",
+        "method_basis_consistent_pass",
+        "no_extrapolation_pass",
+        "cores_not_counted_as_independent_treatment_replicates_pass",
+        "no_causal_claim_pass"
+      ],
+      "properties": {
+        "matched_vertical_support_pass": {
+          "const": true
+        },
+        "reference_mass_available_in_all_cores_pass": {
+          "const": true
+        },
+        "method_basis_consistent_pass": {
+          "const": true
+        },
+        "no_extrapolation_pass": {
+          "const": true
+        },
+        "cores_not_counted_as_independent_treatment_replicates_pass": {
+          "const": true
+        },
+        "no_causal_claim_pass": {
+          "const": true
+        }
+      }
+    }
+  }
+}
