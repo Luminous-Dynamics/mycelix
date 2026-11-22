@@ -187,9 +187,6 @@ impl ManufacturingResourceOfferV1 {
         }
         if let Some(reference) = &self.supersedes_offer_ref {
             reference.validate()?;
-            if reference == &self.resource_subject_ref {
-                return Err("supersedes_offer_ref cannot identify the resource subject".into());
-            }
         }
 
         self.process_definition_ref.validate()?;
