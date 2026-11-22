@@ -84,6 +84,7 @@ pub enum EventKind {
         inventory_manifest_digest: Digest,
         route_set_digest: Digest,
         required_owners: BTreeSet<String>,
+        required_routes: BTreeSet<String>,
     },
     GlobalBarrierAcknowledged {
         inventory_event_id: String,
@@ -338,6 +339,7 @@ struct InventoryInfo {
     inventory_manifest_digest: Digest,
     route_set_digest: Digest,
     required_owners: BTreeSet<String>,
+    required_routes: BTreeSet<String>,
 }
 
 fn digest_is_nonzero(digest: &Digest) -> bool {
@@ -566,6 +568,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                 inventory_manifest_digest,
                 route_set_digest,
                 required_owners,
+                required_routes,
             } => Some((
                 id.clone(),
                 InventoryInfo {
@@ -574,6 +577,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                     inventory_manifest_digest: *inventory_manifest_digest,
                     route_set_digest: *route_set_digest,
                     required_owners: required_owners.clone(),
+                    required_routes: required_routes.clone(),
                 },
             )),
             _ => None,
@@ -1535,6 +1539,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                 );
             }
             if !inventory.required_owners.contains(owner)
+                || !inventory.required_routes.contains(route_id)
                 || readback.owner != *owner
                 || readback.position != *position
                 || !has_parent(event, inventory_event_id)
@@ -1572,11 +1577,13 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
         } = &event.kind
         {
             if let Some(inventory) = inventory_events.get(inventory_event_id) {
-                if !inventory.required_owners.contains(owner) {
+                if !inventory.required_owners.contains(owner)
+                    || !inventory.required_routes.contains(route_id)
+                {
                     findings.violation(
                         FindingCode::RouteAdmissionBindingMismatch,
                         Some(&event.id),
-                        format!("staged route {route_id} owner {owner} is absent from the current inventory"),
+                        format!("staged route {route_id} or its owner {owner} is absent from the current inventory"),
                     );
                 }
                 if *enforcement != RouteEnforcement::AtomicOwnerFence {
@@ -1649,6 +1656,7 @@ mod tests {
                     inventory_manifest_digest: digest(4),
                     route_set_digest: digest(5),
                     required_owners: owners.clone(),
+                    required_routes: BTreeSet::new(),
                 },
             ),
             record(
