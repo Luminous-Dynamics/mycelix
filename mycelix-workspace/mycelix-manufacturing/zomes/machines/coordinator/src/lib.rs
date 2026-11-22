@@ -177,19 +177,16 @@ pub fn get_available_machines(_: ()) -> ExternResult<Vec<Record>> {
 
     let mut available = Vec::new();
     for link in links {
-        if let Some(hash) = link.target.into_action_hash() {
-            if let Some(record) = get(hash, GetOptions::default())? {
-                if let Some(machine) = record
-                    .entry()
-                    .to_app_option::<MachineEntry>()
-                    .ok()
-                    .flatten()
-                {
-                    if machine.status == MachineStatus::Available {
-                        available.push(record);
-                    }
-                }
-            }
+        if let Some(hash) = link.target.into_action_hash()
+            && let Some(record) = get(hash, GetOptions::default())?
+            && let Some(machine) = record
+                .entry()
+                .to_app_option::<MachineEntry>()
+                .ok()
+                .flatten()
+            && machine.status == MachineStatus::Available
+        {
+            available.push(record);
         }
     }
     Ok(available)
