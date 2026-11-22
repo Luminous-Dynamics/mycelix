@@ -16,8 +16,7 @@ use std::path::Path;
 const VERSION: &str = "0.1.0";
 const FIXTURE_STATUS: &str = "synthetic_only_not_empirical_evidence";
 const UNCERTAINTY_STATUS: &str = "not_propagated_laboratory_and_core_covariance_unavailable";
-const FINE_EARTH_BASIS: &str =
-    "total_dry_soil_mass_times_one_minus_coarse_fragment_mass_fraction";
+const FINE_EARTH_BASIS: &str = "total_dry_soil_mass_times_one_minus_coarse_fragment_mass_fraction";
 const COARSE_BASIS: &str = "mass_fraction_of_total_dry_soil";
 const BOUNDARY: &str = "Synthetic SOC stock arithmetic audit only. Fixed-depth and equivalent-soil-mass estimates are separately reported. No uncertainty propagation, treatment effect, carbon-credit quantity, MRV certification or field sequestration claim is estimated. Core dispersion is not treatment replication.";
 
@@ -191,7 +190,9 @@ fn validate(s: &Scenario) -> Result<(), String> {
         return Err("scenario and measurement-method metadata must be non-empty".into());
     }
     if s.methods.coarse_fragment_basis != COARSE_BASIS {
-        return Err("coarse fragments must be expressed as a mass fraction of total dry soil mass".into());
+        return Err(
+            "coarse fragments must be expressed as a mass fraction of total dry soil mass".into(),
+        );
     }
     if !matches!(
         s.methods.carbon_basis.as_str(),
@@ -203,7 +204,9 @@ fn validate(s: &Scenario) -> Result<(), String> {
         s.methods.inorganic_carbon_correction_status.as_str(),
         "corrected_by_method" | "not_applicable_confirmed_noncalcareous"
     ) {
-        return Err("inorganic carbon interference is unassessed; SOC stock is not qualified".into());
+        return Err(
+            "inorganic carbon interference is unassessed; SOC stock is not qualified".into(),
+        );
     }
     if s.methods.carbon_basis == "total_carbon_corrected_for_inorganic"
         && s.methods.inorganic_carbon_correction_status != "corrected_by_method"
@@ -238,7 +241,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
             || round.experimental_unit_id.trim().is_empty()
             || !round_ids.insert(round.round_id.clone())
         {
-            return Err("round IDs and experimental-unit identity must be non-empty and round IDs unique".into());
+            return Err(
+                "round IDs and experimental-unit identity must be non-empty and round IDs unique"
+                    .into(),
+            );
         }
         if !valid_date(&round.date) || !dates.insert(round.date.clone()) {
             return Err("round dates must be valid and unique".into());
@@ -251,7 +257,9 @@ fn validate(s: &Scenario) -> Result<(), String> {
         prior_date = Some(&round.date);
         if let Some(unit) = reference_unit {
             if unit != round.experimental_unit_id {
-                return Err("all v0.1 rounds must refer to the same declared experimental unit".into());
+                return Err(
+                    "all v0.1 rounds must refer to the same declared experimental unit".into(),
+                );
             }
         } else {
             reference_unit = Some(&round.experimental_unit_id);
@@ -269,7 +277,9 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 || !profile_ids.insert(core.profile_id.clone())
                 || !core_ids.insert(core.core_id.clone())
             {
-                return Err("profile and core IDs must be non-empty and unique across the scenario".into());
+                return Err(
+                    "profile and core IDs must be non-empty and unique across the scenario".into(),
+                );
             }
             if core.layers.is_empty() {
                 return Err(format!("profile {} has no layers", core.profile_id));
@@ -285,13 +295,19 @@ fn validate(s: &Scenario) -> Result<(), String> {
                     ("depth_top_cm", layer.depth_top_cm),
                     ("depth_bottom_cm", layer.depth_bottom_cm),
                     ("dry_soil_mass_mg_ha", layer.dry_soil_mass_mg_ha),
-                    ("coarse_fragment_mass_fraction", layer.coarse_fragment_mass_fraction),
+                    (
+                        "coarse_fragment_mass_fraction",
+                        layer.coarse_fragment_mass_fraction,
+                    ),
                     ("soc_g_kg_fine_earth", layer.soc_g_kg_fine_earth),
                 ] {
                     finite(name, value)?;
                 }
                 if layer.layer_id.trim().is_empty() || !layer_ids.insert(layer.layer_id.clone()) {
-                    return Err(format!("profile {} has empty or duplicate layer ID", core.profile_id));
+                    return Err(format!(
+                        "profile {} has empty or duplicate layer ID",
+                        core.profile_id
+                    ));
                 }
                 if layer.depth_top_cm < 0.0
                     || layer.depth_bottom_cm <= layer.depth_top_cm
@@ -299,15 +315,24 @@ fn validate(s: &Scenario) -> Result<(), String> {
                     || !(0.0..1.0).contains(&layer.coarse_fragment_mass_fraction)
                     || layer.soc_g_kg_fine_earth < 0.0
                 {
-                    return Err(format!("profile {} has physically inadmissible layer values", core.profile_id));
+                    return Err(format!(
+                        "profile {} has physically inadmissible layer values",
+                        core.profile_id
+                    ));
                 }
                 if layer_index == 0 && layer.depth_top_cm.abs() > EPS {
-                    return Err(format!("profile {} does not start at the soil surface", core.profile_id));
+                    return Err(format!(
+                        "profile {} does not start at the soil surface",
+                        core.profile_id
+                    ));
                 }
                 if let Some(bottom) = prior_bottom
                     && (layer.depth_top_cm - bottom).abs() > EPS
                 {
-                    return Err(format!("profile {} has a layer gap or overlap", core.profile_id));
+                    return Err(format!(
+                        "profile {} has a layer gap or overlap",
+                        core.profile_id
+                    ));
                 }
                 if (layer.depth_bottom_cm - s.config.fixed_depth_cm).abs() <= EPS {
                     fixed_depth_boundary_found = true;
@@ -330,11 +355,14 @@ fn validate(s: &Scenario) -> Result<(), String> {
             }
             if let Some(expected) = &expected_bounds {
                 if expected.len() != bounds.len()
-                    || expected.iter().zip(&bounds).any(|(a, b)| {
-                        (a.0 - b.0).abs() > EPS || (a.1 - b.1).abs() > EPS
-                    })
+                    || expected
+                        .iter()
+                        .zip(&bounds)
+                        .any(|(a, b)| (a.0 - b.0).abs() > EPS || (a.1 - b.1).abs() > EPS)
                 {
-                    return Err("layer depth boundaries must match across every core and round".into());
+                    return Err(
+                        "layer depth boundaries must match across every core and round".into(),
+                    );
                 }
             } else {
                 expected_bounds = Some(bounds);
@@ -407,7 +435,10 @@ fn sample_sd(values: &[f64]) -> Option<f64> {
         return None;
     }
     let average = mean(values);
-    let sum_squares = values.iter().map(|value| (value - average).powi(2)).sum::<f64>();
+    let sum_squares = values
+        .iter()
+        .map(|value| (value - average).powi(2))
+        .sum::<f64>();
     Some((sum_squares / (values.len() - 1) as f64).sqrt())
 }
 
@@ -463,8 +494,7 @@ fn build_report(s: &Scenario, input_sha256: String) -> Result<Report, String> {
             last_round_id: last.round_id.clone(),
             fixed_depth_stock_change_mg_ha: last.mean_fixed_depth_soc_stock_mg_ha
                 - first.mean_fixed_depth_soc_stock_mg_ha,
-            esm_stock_change_mg_ha: last.mean_esm_soc_stock_mg_ha
-                - first.mean_esm_soc_stock_mg_ha,
+            esm_stock_change_mg_ha: last.mean_esm_soc_stock_mg_ha - first.mean_esm_soc_stock_mg_ha,
             interpretation: "Descriptive difference between round means for one experimental unit; within-round core dispersion is subsampling variation, not independent treatment replication or causal effect.",
         },
         controls: Controls {
@@ -483,7 +513,9 @@ fn build_report(s: &Scenario, input_sha256: String) -> Result<Report, String> {
 
 fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if output_path.exists() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into());
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into(),
+        );
     }
     let bytes = fs::read(input_path)?;
     let scenario: Scenario = serde_json::from_slice(&bytes)?;
@@ -491,7 +523,10 @@ fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::
     let digest = format!("{:x}", Sha256::digest(&bytes));
     let report = build_report(&scenario, digest).map_err(io::Error::other)?;
     let json = serde_json::to_vec_pretty(&report)?;
-    let mut output = OpenOptions::new().write(true).create_new(true).open(output_path)?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output_path)?;
     output.write_all(&json)?;
     output.write_all(b"\n")?;
     Ok(())
@@ -519,10 +554,7 @@ mod tests {
     }
 
     fn approx(left: f64, right: f64) {
-        assert!(
-            (left - right).abs() < 1e-8,
-            "expected {right}, got {left}"
-        );
+        assert!((left - right).abs() < 1e-8, "expected {right}, got {left}");
     }
 
     #[test]
