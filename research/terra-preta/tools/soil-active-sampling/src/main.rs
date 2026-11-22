@@ -383,8 +383,8 @@ fn evaluate(s: &Scenario, digest: String) -> Report {
     let truth = generate_truth(s);
     let mut policy = candidate_policy(s);
     let candidate_contract = CandidatePublicContract {
-        horizon_minutes: s.public_contract.horizon_minutes,
-        maximum_sample_count: s.public_contract.maximum_sample_count,
+        horizon_minutes: s.candidate_contract.horizon_minutes,
+        maximum_sample_count: s.candidate_contract.maximum_sample_count,
     };
     let mut observations = Vec::new();
     let mut now = 0_u32;
@@ -395,8 +395,8 @@ fn evaluate(s: &Scenario, digest: String) -> Report {
         let truth_point = truth[now as usize];
         let observation = sensor_observation(s, truth_point);
         observations.push(observation);
-        if observations.len() >= public_contract.maximum_sample_count
-            || now == public_contract.horizon_minutes
+        if observations.len() >= candidate_contract.maximum_sample_count
+            || now == candidate_contract.horizon_minutes
         {
             break;
         }
@@ -434,7 +434,7 @@ fn evaluate(s: &Scenario, digest: String) -> Report {
         let detections: Vec<Observation> = within
             .iter()
             .copied()
-            .filter(|o| o.response - baseline >= s.public_contract.detection_delta_threshold)
+            .filter(|o| o.response - baseline >= s.s.public_contract.detection_delta_threshold)
             .collect();
         let peak = within.iter().map(|o| o.response).reduce(f64::max);
         let true_peak = s.hidden_truth.baseline_response + pulse.peak_amplitude;
@@ -482,7 +482,7 @@ fn evaluate(s: &Scenario, digest: String) -> Report {
     } else {
         let false_alarm = observations
             .iter()
-            .any(|o| o.response - baseline >= public_contract.detection_delta_threshold);
+            .any(|o| o.response - baseline >= s.public_contract.detection_delta_threshold);
         (
             false,
             false_alarm,
@@ -519,8 +519,8 @@ fn evaluate(s: &Scenario, digest: String) -> Report {
         detection_delay_minutes: delay,
         observations_within_event: event_observations,
         sample_count: count,
-        sample_budget: public_contract.maximum_sample_count,
-        budget_respected: count <= public_contract.maximum_sample_count,
+        sample_budget: candidate_contract.maximum_sample_count,
+        budget_respected: count <= candidate_contract.maximum_sample_count,
         maximum_observed_gap_minutes: maximum_gap(&observations),
         peak_estimate,
         peak_absolute_error: peak_error,
