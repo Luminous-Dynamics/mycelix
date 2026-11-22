@@ -1,0 +1,510 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic soil spectral source harmonization registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "evidence_class",
+    "registry_id",
+    "sources",
+    "target_comparisons",
+    "sample_rows"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "soil-spectral-harmonization-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_metadata_and_transforms_not_source_data"
+    },
+    "evidence_class": {
+      "const": "synthetic"
+    },
+    "registry_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_dataset_id",
+          "source_release_id",
+          "source_uri",
+          "source_artifact_sha256",
+          "manifest_sha256",
+          "rights_status",
+          "instrument_id",
+          "measurement_mode",
+          "native_spectral_definition",
+          "analysis_view",
+          "transform_chain",
+          "target_definitions"
+        ],
+        "properties": {
+          "source_dataset_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_release_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "source_artifact_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "manifest_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "rights_status": {
+            "enum": [
+              "verified_open",
+              "verified_restricted",
+              "agreement_required",
+              "pending_review",
+              "unknown"
+            ]
+          },
+          "instrument_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "measurement_mode": {
+            "enum": [
+              "reflectance",
+              "absorbance",
+              "transmittance",
+              "other"
+            ]
+          },
+          "native_spectral_definition": {
+            "$ref": "#/$defs/spectralState"
+          },
+          "analysis_view": {
+            "$ref": "#/$defs/spectralState"
+          },
+          "transform_chain": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/transform"
+            }
+          },
+          "target_definitions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/target"
+            }
+          }
+        }
+      }
+    },
+    "target_comparisons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "comparison_id",
+          "left_source_dataset_id",
+          "right_source_dataset_id",
+          "left_target_id",
+          "right_target_id",
+          "comparison_status",
+          "rationale"
+        ],
+        "properties": {
+          "comparison_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "left_source_dataset_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "right_source_dataset_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "left_target_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "right_target_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "comparison_status": {
+            "enum": [
+              "directly_comparable",
+              "bridge_required",
+              "non_comparable",
+              "unresolved"
+            ]
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bridge_evidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "validation_dataset_sha256",
+              "bridge_model_sha256",
+              "paired_sample_count",
+              "independent_validation_group_count"
+            ],
+            "properties": {
+              "validation_dataset_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "bridge_model_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "paired_sample_count": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "independent_validation_group_count": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "comparison_status": {
+                  "const": "bridge_required"
+                }
+              },
+              "required": [
+                "comparison_status"
+              ]
+            },
+            "then": {
+              "required": [
+                "bridge_evidence"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "comparison_status": {
+                  "enum": [
+                    "directly_comparable",
+                    "non_comparable",
+                    "unresolved"
+                  ]
+                }
+              },
+              "required": [
+                "comparison_status"
+              ]
+            },
+            "then": {
+              "not": {
+                "required": [
+                  "bridge_evidence"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "sample_rows": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "row_id",
+          "source_dataset_id",
+          "physical_sample_group_id",
+          "split_group_id",
+          "split",
+          "instrument_id",
+          "replicate_id"
+        ],
+        "properties": {
+          "row_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_dataset_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "physical_sample_group_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "split_group_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "split": {
+            "enum": [
+              "train",
+              "validation",
+              "test"
+            ]
+          },
+          "instrument_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "replicate_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "spectralState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "representation",
+        "axis_unit",
+        "axis_min",
+        "axis_max",
+        "point_count",
+        "axis_direction"
+      ],
+      "properties": {
+        "representation": {
+          "enum": [
+            "reflectance",
+            "absorbance",
+            "transmittance",
+            "derivative",
+            "normalized",
+            "other"
+          ]
+        },
+        "axis_unit": {
+          "enum": [
+            "nm",
+            "cm-1"
+          ]
+        },
+        "axis_min": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "axis_max": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "point_count": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "axis_direction": {
+          "enum": [
+            "ascending",
+            "descending"
+          ]
+        }
+      }
+    },
+    "transform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sequence",
+        "operation_id",
+        "operation",
+        "input_representation",
+        "output_representation",
+        "input_axis_unit",
+        "input_axis_min",
+        "input_axis_max",
+        "output_axis_unit",
+        "output_axis_min",
+        "output_axis_max",
+        "output_point_count",
+        "parameters",
+        "code_sha256",
+        "config_sha256",
+        "software_version",
+        "lossy",
+        "extrapolation_allowed"
+      ],
+      "properties": {
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "operation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation": {
+          "enum": [
+            "reflectance_to_absorbance",
+            "resample_axis",
+            "smoothing",
+            "first_derivative",
+            "second_derivative",
+            "snv",
+            "msc"
+          ]
+        },
+        "input_representation": {
+          "enum": [
+            "reflectance",
+            "absorbance",
+            "transmittance",
+            "derivative",
+            "normalized",
+            "other"
+          ]
+        },
+        "output_representation": {
+          "enum": [
+            "reflectance",
+            "absorbance",
+            "transmittance",
+            "derivative",
+            "normalized",
+            "other"
+          ]
+        },
+        "input_axis_unit": {
+          "enum": [
+            "nm",
+            "cm-1"
+          ]
+        },
+        "input_axis_min": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "input_axis_max": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "output_axis_unit": {
+          "enum": [
+            "nm",
+            "cm-1"
+          ]
+        },
+        "output_axis_min": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "output_axis_max": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "output_point_count": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "parameters": {
+          "type": "object",
+          "minProperties": 1
+        },
+        "code_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "config_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "software_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lossy": {
+          "type": "boolean"
+        },
+        "extrapolation_allowed": {
+          "const": false
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_id",
+        "property_name",
+        "definition",
+        "value_semantics",
+        "unit",
+        "method_id",
+        "extraction_basis",
+        "depth_min_m",
+        "depth_max_m"
+      ],
+      "properties": {
+        "target_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "property_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "definition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value_semantics": {
+          "enum": [
+            "direct_measurement",
+            "derived_estimate",
+            "model_prediction"
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "extraction_basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "depth_min_m": {
+          "type": "number",
+          "minimum": 0
+        },
+        "depth_max_m": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    }
+  }
+}
