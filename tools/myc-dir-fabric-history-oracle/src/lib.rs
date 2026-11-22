@@ -218,6 +218,7 @@ pub enum FindingCode {
     EffectPositionNotCurrent,
     EffectClaimNotCurrent,
     DuplicateLogicalEffect,
+    IdempotencyKeyReused,
     DuplicateClaimEpoch,
     ClaimEpochNotMonotonic,
     AttemptNumberGap,
@@ -686,6 +687,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
     let mut readbacks: BTreeMap<String, ReadBackInfo> = BTreeMap::new();
     let mut owner_ack_valid: BTreeMap<String, OwnerAckInfo> = BTreeMap::new();
     let mut effect_commits_by_operation: BTreeMap<(String, String), String> = BTreeMap::new();
+    let mut effect_commits_by_idempotency: BTreeMap<(String, Digest), String> = BTreeMap::new();
     let mut attempt_starts: BTreeMap<String, EventRecord> = BTreeMap::new();
     let mut attempts_by_operation: BTreeMap<(String, String), BTreeMap<u32, String>> = BTreeMap::new();
     let mut unknown_attempts: BTreeMap<String, String> = BTreeMap::new();
@@ -786,11 +788,11 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                     }
                     _ => false,
                 };
-                if !same_attempt {
+                if !same_attempt || event.owner != unknown.owner {
                     findings.violation(
                         FindingCode::ReconciliationBindingMismatch,
                         Some(&event.id),
-                        "Unknown event does not identify the same operation and physical attempt",
+                        "Unknown event does not identify the same owner, operation and physical attempt",
                     );
                 }
                 match outcome {
@@ -1181,6 +1183,16 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                             FindingCode::DuplicateLogicalEffect,
                             Some(event_id),
                             format!("logical operation {operation_id} committed more than once"),
+                        );
+                    }
+                    if effect_commits_by_idempotency
+                        .insert((owner.clone(), *idempotency_digest), event_id.clone())
+                        .is_some()
+                    {
+                        findings.violation(
+                            FindingCode::IdempotencyKeyReused,
+                            Some(event_id),
+                            "the same owner-scoped idempotency key committed more than one effect",
                         );
                     }
                 }
