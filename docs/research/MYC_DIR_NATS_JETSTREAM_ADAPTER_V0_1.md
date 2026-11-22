@@ -84,7 +84,7 @@ Two ignored integration tests cover:
 
 The crate also adds 13 adapter unit tests for config validation, hex digest parsing, and duplicate authority-header rejection. The separate contract crate now contributes 21 authored tests; the adapter adds 13 unit tests and two ignored real-server integration tests.
 
-**Execution evidence (2026-11-22):** GitHub Actions run [#45000430944](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45000430944) on exact head `1105375305704c019b7d2ccecda78a18dc0e7faf` passed formatting, 21/21 reference tests, 18/18 adapter unit tests, 2/2 live JetStream integration tests, and Clippy with warnings denied. The NATS server was `2.15.3`. This is single-node broker evidence only; the integration harness uses a synthetic owner-receipt verifier and does not qualify a production cryptographic verifier, PostgreSQL owner integration, clustered replica failover or performance.
+**Execution evidence for the previous NATS-only source head (2026-11-22):** GitHub Actions run [#45000430944](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45000430944) on exact head `1105375305704c019b7d2ccecda78a18dc0e7faf` passed formatting, 21/21 reference tests, 18/18 adapter unit tests, 2/2 live single-node JetStream integration tests, and Clippy with warnings denied. That run used the synthetic owner-receipt verifier. It does **not** qualify the PostgreSQL-backed branch documented in section 9; the added PostgreSQL source, migrations, TLS service, new command scope fields and third integration test still require a fresh exact-head workflow.
 
 ## 7. Benchmark updates
 
@@ -107,7 +107,7 @@ The success criterion remains zero stale-claim and stale-generation effects, zer
 - This environment has not run Cargo, rustfmt, Clippy or an actual NATS server.
 - The current CI workflow is the first real build/runtime qualification gate.
 - The integration service is single-node. No clustered failover or production account/credential policy is qualified.
-- No PostgreSQL effect owner is called here; tests use synthetic durable owner dispositions.
+- The two NATS-only integration tests above use synthetic durable owner dispositions. The PostgreSQL-backed third integration test is described in section 9 and is not yet qualified.
 - No security signature, trust-root, or decision-receipt verifier is implemented in the NATS crate.
 
 This increment advances the work from reference-only transport semantics to an actual SDK adapter and an automated broker test harness, while keeping the external effect-owner boundary intact.
@@ -123,4 +123,4 @@ The CI workflow adds a TLS-enabled PostgreSQL 16.16 service, applies the two exi
 
 The PostgreSQL verifier currently proves EffectCommitted only. It does not authorize terminal rejection, terminal no-effect or reconciliation handoff because those lack durable records in the current PostgreSQL reference schema. The table records accepted resource generation but not owner epoch; owner-epoch continuity remains a separate proof. A visible commit on the primary also does not independently prove that an asynchronous promotion candidate contains the WAL record.
 
-The NATS benchmark is now 36 scenarios / 26 metrics, still preregistered and not executed.
+The NATS benchmark is now 36 scenarios / 26 metrics, still preregistered and not executed. No PostgreSQL receipt-verification latency or throughput has been measured.
