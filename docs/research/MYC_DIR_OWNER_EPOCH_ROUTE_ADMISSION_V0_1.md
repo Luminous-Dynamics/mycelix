@@ -137,3 +137,8 @@ A test count with zero observed violations is not a mathematical proof of univer
 The Rust tests in this module are authored, not compiled or executed in this environment. TLC configurations are source-present, not model-checked. No PostgreSQL, failover, restore, broker, route-admission or performance result is claimed. The benchmark companion corpus is preregistered and explicitly not executed.
 
 The next execution gates are the pinned TLC runs, the PostgreSQL two-session/failover harness, real broker adapters, and an independent multi-owner history oracle.
+
+
+## Additional hardening: proposed versus durable owner position
+
+The 18-test reference increment now distinguishes a proposed in-memory fence from a durably committed and read-back position. `assess_position` returns `FenceNotDurablyReadBack` while the position is proposed but not yet backed by commit/read-back evidence. It returns `StaleGeneration` for an older route capability only after the newer position is durably read back. The owner-ack rollup also retains the exact canonical sorted owner-ack bytes, and the global receipt embeds those bytes alongside the externally computed digest. This preserves the evidence being summarized while leaving cryptographic hashing and verification outside the dependency-free reference crate.
