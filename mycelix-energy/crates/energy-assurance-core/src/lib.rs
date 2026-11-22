@@ -672,9 +672,9 @@ mod tests {
     #[test]
     fn capacity_bound_accepts_plausible_output_with_tolerance() {
         let mut meter = meter_observation();
-        meter.cumulative_register_wh = 900_000;
+        meter.cumulative_register_wh = 900;
         let bound = CapacityBound { rated_capacity_w: 1_000, tolerance_bps: 0 };
-        assert_eq!(bound.validate_observation(&meter).unwrap(), 900_000);
+        assert_eq!(bound.validate_observation(&meter).unwrap(), 900);
     }
 
     #[test]
