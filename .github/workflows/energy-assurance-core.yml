@@ -1,0 +1,39 @@
+name: Energy Assurance Core
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "mycelix-energy/Cargo.toml"
+      - "mycelix-energy/Cargo.lock"
+      - "mycelix-energy/crates/energy-assurance-core/**"
+      - ".github/workflows/energy-assurance-core.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: energy-assurance-core-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pure-kernel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-energy/Cargo.toml --package energy-assurance-core -- --check
+      - name: Test pure energy assurance kernel
+        run: cargo test --locked --manifest-path mycelix-energy/Cargo.toml --package energy-assurance-core
+      - name: Detect uncommitted lockfile mutation
+        if: always()
+        run: |
+          if ! git diff --quiet -- mycelix-energy/Cargo.lock; then
+            git --no-pager diff -- mycelix-energy/Cargo.lock
+            exit 1
+          fi
