@@ -557,7 +557,7 @@ mod tests {
         // at least p0, but whose probability varies with the observed history.
         let probability_one = if history.last() == Some(&1.0) {
             p0
-        } else if history.len() % 2 == 0 {
+        } else if history.len().is_multiple_of(2) {
             p0 + (1.0 - p0) * 0.5
         } else {
             p0 + (1.0 - p0) * 0.2
