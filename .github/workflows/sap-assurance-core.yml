@@ -29,4 +29,11 @@ jobs:
       - name: Check formatting
         run: cargo fmt --manifest-path mycelix-finance/Cargo.toml --package sap-assurance-core -- --check
       - name: Test pure SAP assurance kernel
-        run: cargo test --locked --manifest-path mycelix-finance/Cargo.toml --package sap-assurance-core
+        run: cargo test --manifest-path mycelix-finance/Cargo.toml --package sap-assurance-core
+      - name: Detect uncommitted lockfile mutation
+        if: always()
+        run: |
+          if ! git diff --quiet -- mycelix-finance/Cargo.lock; then
+            git --no-pager diff -- mycelix-finance/Cargo.lock
+            exit 1
+          fi
