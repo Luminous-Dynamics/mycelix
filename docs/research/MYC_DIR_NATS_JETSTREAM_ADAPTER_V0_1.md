@@ -75,7 +75,7 @@ Two ignored integration tests cover:
 1. PubAck publication, duplicate Nats-Msg-Id in the duplicate window, delivery metadata reconstruction, and AckSync after a durable owner effect receipt.
 2. Dropping a delivery without ACK, waiting beyond AckWait, observing the same stream sequence with a higher delivery count, and ACKing only after a durable reconciliation handoff.
 
-The crate also adds 13 adapter unit tests for config validation, hex digest parsing, and duplicate authority-header rejection. The separate contract crate contributes 18 authored tests.
+The crate also adds 13 adapter unit tests for config validation, hex digest parsing, and duplicate authority-header rejection. The separate contract crate now contributes 21 authored tests; the adapter adds 13 unit tests and two ignored real-server integration tests.
 
 The tests are source-present. No compile, formatting, test, broker or latency result is claimed before the exact-head workflow completes.
 
