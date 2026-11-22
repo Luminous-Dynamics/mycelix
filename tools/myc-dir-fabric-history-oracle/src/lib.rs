@@ -2036,6 +2036,39 @@ mod tests {
     }
 
     #[test]
+    fn route_cannot_be_staged_under_a_substituted_owner() {
+        let mut history = base_history(false);
+        add_post_barrier_route(&mut history, RouteEnforcement::AtomicOwnerFence);
+        let stage = history
+            .events
+            .iter_mut()
+            .find(|event| event.id == "route-stage")
+            .unwrap();
+        if let EventKind::RouteStaged { owner, .. } = &mut stage.kind {
+            *owner = "owner-b".into();
+        }
+        let report = audit_history(&history);
+        assert_eq!(report.verdict, Verdict::Violation);
+        assert!(report.findings.iter().any(|finding| {
+            finding.code == FindingCode::RouteAdmissionBindingMismatch
+        }));
+    }
+
+    #[test]
+    fn global_ack_rejects_mixed_owner_ack_inventory_bindings() {
+        let mut history = base_history(false);
+        let ack = history.events.iter_mut().find(|event| event.id == "ack-b").unwrap();
+        if let EventKind::OwnerAcknowledged { inventory_epoch, .. } = &mut ack.kind {
+            *inventory_epoch = 8;
+        }
+        let report = audit_history(&history);
+        assert_eq!(report.verdict, Verdict::Violation);
+        assert!(report.findings.iter().any(|finding| {
+            finding.code == FindingCode::GlobalBarrierAckBindingMismatch
+        }));
+    }
+
+    #[test]
     fn non_fenceable_route_cannot_be_activated() {
         let mut history = base_history(false);
         add_post_barrier_route(&mut history, RouteEnforcement::BestEffortInvalidation);
