@@ -353,6 +353,9 @@ impl OwnerEpochState {
         if !self.recovery_ready {
             return OwnerPositionAssessment::RecoveryRequired;
         }
+        if !self.current_is_durable() {
+            return OwnerPositionAssessment::FenceNotDurablyReadBack;
+        }
         if supplied.owner_epoch != self.current.owner_epoch {
             return OwnerPositionAssessment::StaleOwnerEpoch;
         }
@@ -371,6 +374,7 @@ pub enum OwnerPositionAssessment {
     StaleGeneration,
     FutureOrUnissuedGeneration,
     RecoveryRequired,
+    FenceNotDurablyReadBack,
 }
 
 /// Owner acknowledgement binding the previous and installed fencing positions
@@ -1054,6 +1058,23 @@ mod tests {
         assert_eq!(
             state.install_next_generation(),
             Err(OwnerEpochError::GenerationExhausted)
+        );
+    }
+
+    #[test]
+    fn owner_position_is_not_usable_until_fence_commit_and_readback() {
+        let mut state = owner_state("db-a");
+        state.install_next_generation().unwrap();
+        assert_eq!(
+            state.assess_position(position(1, 2)),
+            OwnerPositionAssessment::FenceNotDurablyReadBack
+        );
+        state
+            .record_durable_commit_readback(position(1, 2), [6; 32], [7; 32])
+            .unwrap();
+        assert_eq!(
+            state.assess_position(position(1, 2)),
+            OwnerPositionAssessment::Current
         );
     }
 
