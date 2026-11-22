@@ -6,7 +6,7 @@
 //! Entry types and validation for manufacturing operations and routing sequences.
 
 use hdi::prelude::*;
-use manufacturing_common::{ProcessBindingV1, ProcessDefinitionRefV1};
+pub use manufacturing_common::{ProcessBindingV1, ProcessDefinitionRefV1};
 
 #[hdk_entry_helper]
 #[derive(Clone, PartialEq)]
