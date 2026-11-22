@@ -891,15 +891,13 @@ mod tests {
     }
 
     #[test]
-    fn invalid_global_owner_ack_commitment_is_a_violation() {
-        let auth = TestAuthenticator {
-            owner_ack_set: VerificationStatus::Invalid,
-            ..good_authenticator()
-        };
-        let report = ingest_history(bundle_with_global_barrier(), &auth);
-        assert_eq!(report.verdict, IngestVerdict::Violation);
+    fn missing_referenced_owner_ack_event_is_inconclusive() {
+        let mut raw = bundle_with_global_barrier();
+        raw.events.retain(|event| event.id != "owner-ack-a");
+        let report = ingest_history(raw, &good_authenticator());
+        assert_eq!(report.verdict, IngestVerdict::Inconclusive);
         assert!(report.findings.iter().any(|finding| {
-            finding.code == IngestFindingCode::OwnerAckSetInvalid
+            finding.code == IngestFindingCode::OwnerAckEventMissing
         }));
     }
 
