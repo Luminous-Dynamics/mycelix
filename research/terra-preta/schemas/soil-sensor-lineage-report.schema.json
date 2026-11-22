@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic sensor lineage audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "instrument_count",
+    "sensor_observation_count",
+    "reference_assay_count",
+    "derived_estimate_count",
+    "estimate_results",
+    "controls",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "instrument_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sensor_observation_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "reference_assay_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "derived_estimate_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "estimate_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "estimate_id",
+          "physical_sample_id",
+          "target_property",
+          "measurement_semantics",
+          "input_observation_count",
+          "model_id",
+          "model_sha256",
+          "preprocessing_sha256",
+          "domain_status",
+          "assessment_status",
+          "reference_assay_status"
+        ],
+        "properties": {
+          "estimate_id": {
+            "type": "string"
+          },
+          "physical_sample_id": {
+            "type": "string"
+          },
+          "target_property": {
+            "type": "string"
+          },
+          "measurement_semantics": {
+            "const": "derived_prediction"
+          },
+          "input_observation_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "model_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "preprocessing_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "domain_status": {
+            "enum": [
+              "in_domain",
+              "out_of_domain",
+              "unassessed"
+            ]
+          },
+          "assessment_status": {
+            "enum": [
+              "candidate_unqualified",
+              "abstain"
+            ]
+          },
+          "reference_assay_status": {
+            "enum": [
+              "independent_validation_linked",
+              "calibration_reference_only",
+              "no_reference_assay_linked"
+            ]
+          }
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sensor_signal_not_promoted_to_soil_property",
+        "estimates_not_promoted_to_reference_assays",
+        "observation_edges_resolve",
+        "training_sample_and_group_leakage_rejected",
+        "ood_estimates_abstain",
+        "model_and_preprocessing_digests_present"
+      ],
+      "properties": {
+        "sensor_signal_not_promoted_to_soil_property": {
+          "const": true
+        },
+        "estimates_not_promoted_to_reference_assays": {
+          "const": true
+        },
+        "observation_edges_resolve": {
+          "const": true
+        },
+        "training_sample_and_group_leakage_rejected": {
+          "const": true
+        },
+        "ood_estimates_abstain": {
+          "const": true
+        },
+        "model_and_preprocessing_digests_present": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
