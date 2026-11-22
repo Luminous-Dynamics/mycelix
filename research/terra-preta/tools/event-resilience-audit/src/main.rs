@@ -513,7 +513,8 @@ fn build_report(s: &Scenario, digest: String) -> Report {
     let baseline_max_gap = phase_max_gap(&s.observations, "baseline");
     let stress_max_gap = phase_max_gap(&s.observations, "stress");
     let recovery_max_gap = phase_max_gap(&s.observations, "recovery");
-    let cadence_ok = [baseline_max_gap, stress_max_gap, recovery_max_gap]
+    let observed_max_gap = max_gap(&s.observations);
+    let cadence_ok = [baseline_max_gap, stress_max_gap, recovery_max_gap, observed_max_gap]
         .into_iter()
         .all(|gap| gap.is_some_and(|value| value <= s.config.maximum_inter_observation_gap_hours));
     let enough = enough_counts && cadence_ok;
@@ -615,7 +616,7 @@ fn build_report(s: &Scenario, digest: String) -> Report {
         baseline_max_gap_hours: baseline_max_gap,
         stress_max_gap_hours: stress_max_gap,
         recovery_max_gap_hours: recovery_max_gap,
-        max_observed_gap_hours: max_gap(&s.observations),
+        max_observed_gap_hours: observed_max_gap,
         uncertainty_status: UNCERTAINTY_STATUS,
         controls: Controls {
             same_experimental_unit_pass: true,
