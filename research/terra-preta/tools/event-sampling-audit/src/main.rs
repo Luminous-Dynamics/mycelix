@@ -294,7 +294,11 @@ fn validate_schedule(s: &Schedule, t: &Truth) -> Result<(), String> {
             }
         }
 
-        if !t.samples.iter().any(|truth| truth.time_hours == observation.time_hours) {
+        if !t
+            .samples
+            .iter()
+            .any(|truth| truth.time_hours == observation.time_hours)
+        {
             return Err(format!(
                 "candidate time {} is not present in known-truth source",
                 observation.time_hours
