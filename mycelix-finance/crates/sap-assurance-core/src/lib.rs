@@ -197,11 +197,17 @@ impl SapSupply {
         if amount_minor == 0 {
             return Err(AssuranceError::InvalidAmount);
         }
-        self.total_issued_minor = self
+        // Validate the existing state before computing or mutating the new one.
+        self.outstanding_minor()?;
+        let new_issued = self
             .total_issued_minor
             .checked_add(amount_minor)
             .ok_or(AssuranceError::ArithmeticOverflow)?;
-        self.outstanding_minor()
+        let new_outstanding = new_issued
+            .checked_sub(self.total_burned_minor)
+            .ok_or(AssuranceError::BurnExceedsIssued)?;
+        self.total_issued_minor = new_issued;
+        Ok(new_outstanding)
     }
 
     pub fn burn(&mut self, amount_minor: u128) -> Result<u128, AssuranceError> {
@@ -470,6 +476,28 @@ mod tests {
     }
 
     #[test]
+    fn invalid_haircut_is_rejected() {
+        let mut asset = cash("invalid-haircut", 1_000);
+        asset.haircut_bps = 10_001;
+        assert_eq!(
+            asset.eligible_value_minor(ReservePolicy::default()),
+            Err(AssuranceError::InvalidHaircut(10_001))
+        );
+    }
+
+    #[test]
+    fn reserve_aggregation_overflow_is_rejected() {
+        let assets = [
+            cash("max-asset", u128::MAX),
+            cash("one-more", 1),
+        ];
+        assert_eq!(
+            reserve_coverage(&assets, 1, ReservePolicy::default()),
+            Err(AssuranceError::ArithmeticOverflow)
+        );
+    }
+
+    #[test]
     fn duplicate_asset_identity_cannot_be_double_counted() {
         let assets = [
             cash("same-custody-position", 100),
@@ -500,6 +528,28 @@ mod tests {
         assert_eq!(supply.burn(250).unwrap(), 750);
         assert_eq!(supply.burn(751), Err(AssuranceError::BurnExceedsIssued));
         assert_eq!(supply.outstanding_minor().unwrap(), 750);
+    }
+
+    #[test]
+    fn invalid_preexisting_supply_does_not_mutate_on_issue() {
+        let mut supply = SapSupply {
+            total_issued_minor: 1,
+            total_burned_minor: 2,
+        };
+        let before = supply;
+        assert_eq!(supply.issue(10), Err(AssuranceError::BurnExceedsIssued));
+        assert_eq!(supply, before);
+    }
+
+    #[test]
+    fn issuance_overflow_does_not_mutate_supply() {
+        let mut supply = SapSupply {
+            total_issued_minor: u128::MAX,
+            total_burned_minor: 0,
+        };
+        let before = supply;
+        assert_eq!(supply.issue(1), Err(AssuranceError::ArithmeticOverflow));
+        assert_eq!(supply, before);
     }
 
     #[test]
