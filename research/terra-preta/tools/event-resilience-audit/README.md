@@ -20,11 +20,11 @@ cargo run --manifest-path research/terra-preta/tools/event-resilience-audit/Carg
 - Post-stress recovery mean and departure.
 - Descriptive recovery fraction, which is not clamped and may be negative after overshoot.
 - Recovery time only when a tolerance band and consecutive-observation requirement are explicitly declared.
-- Absolute anomaly integral only when the event-start and recovery-end observations exist and every inter-observation gap is within the configured maximum.
+- Piecewise-linear positive, negative, signed and absolute anomaly integrals, with exact splitting at baseline crossings; only when event-start and recovery-end observations exist and every phase gap is within the configured maximum.
 
 ## Qualification boundaries
 
-- If any phase has inadequate observation count, response metrics abstain.
+- If any phase has inadequate observation count, or any within-phase observation gap exceeds the configured maximum, response metrics abstain.
 - Missing event boundaries or excessive gaps block pulse integration; the auditor does not interpolate through them.
 - No recovery threshold means no recovery-time estimate.
 - Serial covariance, sensor drift, shared calibration and uncertainty propagation are not implemented in v0.1. The report states this explicitly.
