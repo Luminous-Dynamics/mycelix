@@ -21,7 +21,9 @@
     "pyc_source_interpretation",
     "spatial_relationship_status",
     "controls",
-    "interpretation_boundary"
+    "interpretation_boundary",
+    "overlapping_application_record_ids",
+    "matched_batch_passport_sha256s"
   ],
   "properties": {
     "audit_version": {
@@ -136,6 +138,19 @@
     "interpretation_boundary": {
       "type": "string",
       "minLength": 1
+    },
+    "overlapping_application_record_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "matched_batch_passport_sha256s": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
     }
   }
 }
