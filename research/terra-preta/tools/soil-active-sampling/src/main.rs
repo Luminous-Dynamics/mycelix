@@ -603,7 +603,14 @@ mod tests {
 
         assert!(!fixed_report.event_detected);
         assert!(adaptive_report.event_detected);
-        assert!(adaptive_report.sample_count < fixed_report.sample_count);
+        assert!(
+            adaptive_report.sample_count < fixed_report.sample_count,
+            "adaptive samples {} versus fixed samples {}; detection fixed={} adaptive={}",
+            adaptive_report.sample_count,
+            fixed_report.sample_count,
+            fixed_report.event_detected,
+            adaptive_report.event_detected
+        );
         assert!(adaptive_report.sample_count <= adaptive_report.sample_budget);
         assert_eq!(adaptive_report.candidate_truth_access, false);
     }
