@@ -1,0 +1,81 @@
+name: Terra Preta soil sensor lineage audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/SENSOR_OBSERVATION_LINEAGE_V0.1.md'
+      - 'research/terra-preta/schemas/soil-sensor-lineage-*.schema.json'
+      - 'research/terra-preta/tools/sensor-lineage-audit/**'
+      - '.github/workflows/terra-preta-sensor-lineage.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sensor-lineage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/sensor-lineage-audit/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/sensor-lineage-audit/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/sensor-lineage-audit/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate fixture and report
+        run: |
+          fixture=research/terra-preta/tools/sensor-lineage-audit/fixtures/synthetic-nir-soc-lineage.json
+          jsonschema-cli validate research/terra-preta/schemas/soil-sensor-lineage-input.schema.json --instance "$fixture" --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/sensor-lineage-audit/Cargo.toml -- "$fixture" "$RUNNER_TEMP/sensor-lineage-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/soil-sensor-lineage-report.schema.json --instance "$RUNNER_TEMP/sensor-lineage-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .sensor_observation_count == 1 and
+            .reference_assay_count == 1 and
+            .derived_estimate_count == 1 and
+            .estimate_results[0].measurement_semantics == "derived_prediction" and
+            .estimate_results[0].reference_assay_status == "independent_validation_linked" and
+            .controls.sensor_signal_not_promoted_to_soil_property == true and
+            .controls.training_sample_and_group_leakage_rejected == true
+          ' "$RUNNER_TEMP/sensor-lineage-report.json"
+      - name: Reject evidence promotion and lineage leakage
+        run: |
+          fixture=research/terra-preta/tools/sensor-lineage-audit/fixtures/synthetic-nir-soc-lineage.json
+          jq '.sensor_observations[0].measurement_semantics = "directly_measured_soil_organic_carbon"' "$fixture" > "$RUNNER_TEMP/raw-promoted.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/sensor-lineage-audit/Cargo.toml -- "$RUNNER_TEMP/raw-promoted.json" "$RUNNER_TEMP/raw-promoted-report.json"; then
+            echo "Expected raw sensor signal promotion rejection"
+            exit 1
+          fi
+          jq '.derived_estimates[0].measurement_semantics = "direct_measurement"' "$fixture" > "$RUNNER_TEMP/estimate-promoted.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/sensor-lineage-audit/Cargo.toml -- "$RUNNER_TEMP/estimate-promoted.json" "$RUNNER_TEMP/estimate-promoted-report.json"; then
+            echo "Expected prediction promotion rejection"
+            exit 1
+          fi
+          jq '.derived_estimates[0].model.training_sample_ids += ["sample-eval-001"]' "$fixture" > "$RUNNER_TEMP/sample-leak.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/sensor-lineage-audit/Cargo.toml -- "$RUNNER_TEMP/sample-leak.json" "$RUNNER_TEMP/sample-leak-report.json"; then
+            echo "Expected training sample leakage rejection"
+            exit 1
+          fi
+          jq '.derived_estimates[0].model.domain_status = "out_of_domain"' "$fixture" > "$RUNNER_TEMP/ood-not-abstained.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/sensor-lineage-audit/Cargo.toml -- "$RUNNER_TEMP/ood-not-abstained.json" "$RUNNER_TEMP/ood-not-abstained-report.json"; then
+            echo "Expected out-of-domain qualification rejection"
+            exit 1
+          fi
+      - name: Reject output overwrite
+        run: |
+          fixture=research/terra-preta/tools/sensor-lineage-audit/fixtures/synthetic-nir-soc-lineage.json
+          report="$RUNNER_TEMP/existing-sensor-lineage-report.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/sensor-lineage-audit/Cargo.toml -- "$fixture" "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"
