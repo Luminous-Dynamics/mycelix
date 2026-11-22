@@ -84,7 +84,7 @@ pub enum EventKind {
         inventory_manifest_digest: Digest,
         route_set_digest: Digest,
         required_owners: BTreeSet<String>,
-        required_routes: BTreeSet<String>,
+        route_owners: BTreeMap<String, String>,
     },
     GlobalBarrierAcknowledged {
         inventory_event_id: String,
@@ -232,6 +232,7 @@ pub enum FindingCode {
     InventoryMissing,
     InventoryOwnerStreamIncomplete,
     InventoryEmptyOwnerSet,
+    InventoryRouteOwnerSetMismatch,
     GlobalBarrierMissingInventory,
     GlobalBarrierMissingOwnerAck,
     GlobalBarrierOwnerSetMismatch,
@@ -342,7 +343,7 @@ struct InventoryInfo {
     inventory_manifest_digest: Digest,
     route_set_digest: Digest,
     required_owners: BTreeSet<String>,
-    required_routes: BTreeSet<String>,
+    route_owners: BTreeMap<String, String>,
 }
 
 #[derive(Clone)]
@@ -617,7 +618,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                 inventory_manifest_digest,
                 route_set_digest,
                 required_owners,
-                required_routes,
+                route_owners,
             } => Some((
                 id.clone(),
                 InventoryInfo {
@@ -626,7 +627,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                     inventory_manifest_digest: *inventory_manifest_digest,
                     route_set_digest: *route_set_digest,
                     required_owners: required_owners.clone(),
-                    required_routes: required_routes.clone(),
+                    route_owners: route_owners.clone(),
                 },
             )),
             _ => None,
@@ -642,11 +643,20 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
     }
 
     for (id, inventory) in &inventory_events {
-        if inventory.required_owners.is_empty() {
+        if inventory.required_owners.is_empty() || inventory.route_owners.is_empty() {
             findings.violation(
                 FindingCode::InventoryEmptyOwnerSet,
                 Some(id),
-                "strict revocation inventory has no required effect owners",
+                "strict revocation inventory has no required effect owners or routes",
+            );
+        }
+        let route_owner_projection: BTreeSet<String> =
+            inventory.route_owners.values().cloned().collect();
+        if route_owner_projection != inventory.required_owners {
+            findings.violation(
+                FindingCode::InventoryRouteOwnerSetMismatch,
+                Some(id),
+                "route-to-owner mapping does not project to the exact declared owner set",
             );
         }
         for owner in &inventory.required_owners {
@@ -1636,7 +1646,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
             };
             if event.owner.as_deref() != Some(owner.as_str())
                 || !inventory.required_owners.contains(owner)
-                || !inventory.required_routes.contains(route_id)
+                || inventory.route_owners.get(route_id) != Some(owner)
                 || !readback_fence_matches_barrier
                 || readback.owner != *owner
                 || readback.position != *position
@@ -1677,7 +1687,7 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
             if let Some(inventory) = inventory_events.get(inventory_event_id) {
                 if event.owner.as_deref() != Some(owner.as_str())
                     || !inventory.required_owners.contains(owner)
-                    || !inventory.required_routes.contains(route_id)
+                    || inventory.route_owners.get(route_id) != Some(owner)
                 {
                     findings.violation(
                         FindingCode::RouteAdmissionBindingMismatch,
@@ -1752,7 +1762,12 @@ mod tests {
                     inventory_manifest_digest: digest(4),
                     route_set_digest: digest(5),
                     required_owners: owners.clone(),
-                    required_routes: BTreeSet::new(),
+                    route_owners: [
+                        ("existing-route-a".to_owned(), "owner-a".to_owned()),
+                        ("existing-route-b".to_owned(), "owner-b".to_owned()),
+                    ]
+                    .into_iter()
+                    .collect(),
                 },
             ),
             record(
@@ -1977,7 +1992,9 @@ mod tests {
                     inventory_manifest_digest: digest(15),
                     route_set_digest: digest(16),
                     required_owners: owners,
-                    required_routes: routes,
+                    route_owners: [("worker-route-a".to_owned(), "owner-a".to_owned())]
+                        .into_iter()
+                        .collect(),
                 },
             ),
             record(
