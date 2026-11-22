@@ -546,7 +546,7 @@ mod tests {
     }
 
     #[test]
-    fn frozen_resource_offer_corpus_has_sixteen_fail_closed_cases() {
+    fn frozen_resource_offer_corpus_has_seventeen_fail_closed_cases() {
         let fixture: serde_json::Value = serde_json::from_str(include_str!(
             "../../../tests/fixtures/mfg_proc_001b_resource_offer_v0_1.json"
         ))
@@ -559,7 +559,7 @@ mod tests {
             .as_array()
             .expect("resource-offer fixture cases must be an array");
         assert_eq!(fixture["case_count"].as_u64(), Some(cases.len() as u64));
-        assert_eq!(cases.len(), 16);
+        assert_eq!(cases.len(), 17);
         for case in cases {
             assert!(
                 case["id"]
@@ -576,6 +576,18 @@ mod tests {
                 assert_eq!(case[boundary], false, "{boundary} must remain false");
             }
         }
+    }
+
+    #[test]
+    fn provider_cannot_self_assert_disputed_or_superseded_publication_state() {
+        let offer = valid_offer();
+        let mut value = serde_json::to_value(offer).unwrap();
+        value["publication_state"] = serde_json::Value::String("Disputed".into());
+        assert!(serde_json::from_value::<ManufacturingResourceOfferV1>(value).is_err());
+
+        let mut value = serde_json::to_value(valid_offer()).unwrap();
+        value["publication_state"] = serde_json::Value::String("Superseded".into());
+        assert!(serde_json::from_value::<ManufacturingResourceOfferV1>(value).is_err());
     }
 
     #[test]
