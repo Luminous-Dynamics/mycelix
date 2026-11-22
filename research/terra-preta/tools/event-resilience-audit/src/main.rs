@@ -432,10 +432,19 @@ fn compute_recovery_time(
 }
 
 fn pulse_burden(s: &Scenario, baseline: f64) -> PulseBurden {
-    let onset = s.observations.iter().any(|o| o.elapsed_hours == s.event.event_start_hours);
-    let end = s.observations.iter().any(|o| o.elapsed_hours == s.event.recovery_end_hours);
+    let onset = s
+        .observations
+        .iter()
+        .any(|o| o.elapsed_hours == s.event.event_start_hours);
+    let end = s
+        .observations
+        .iter()
+        .any(|o| o.elapsed_hours == s.event.recovery_end_hours);
     if !onset || !end {
-        return PulseBurden { status: "missing_event_boundary", ..PulseBurden::default() };
+        return PulseBurden {
+            status: "missing_event_boundary",
+            ..PulseBurden::default()
+        };
     }
     let series: Vec<&Observation> = s
         .observations
@@ -454,7 +463,10 @@ fn pulse_burden(s: &Scenario, baseline: f64) -> PulseBurden {
     for pair in series.windows(2) {
         let gap = pair[1].elapsed_hours - pair[0].elapsed_hours;
         if gap > s.config.maximum_inter_observation_gap_hours {
-            return PulseBurden { status: "gap_exceeded", ..PulseBurden::default() };
+            return PulseBurden {
+                status: "gap_exceeded",
+                ..PulseBurden::default()
+            };
         }
 
         // Integrate the piecewise-linear anomaly exactly. If the response
