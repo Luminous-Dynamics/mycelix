@@ -517,5 +517,6 @@
       "end_hours": 76,
       "minimum_detectable_absolute_departure": 2
     }
-  ]
+  ],
+  "off_event_false_trigger_absolute_departure_threshold": 2
 }
