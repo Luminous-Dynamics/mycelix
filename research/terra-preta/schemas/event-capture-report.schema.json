@@ -54,7 +54,8 @@
           "events_detected",
           "event_count",
           "missed_event_count",
-          "events"
+          "events",
+          "policy_role"
         ],
         "properties": {
           "policy_id": {
@@ -209,6 +210,12 @@
                 }
               }
             }
+          },
+          "policy_role": {
+            "enum": [
+              "candidate",
+              "evaluator_only_reference"
+            ]
           }
         }
       }
