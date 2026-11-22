@@ -225,6 +225,46 @@ async fn postgres_effect_commit_is_the_evidence_that_permits_jetstream_acksync()
         "receipt for a different resource scope must not authorize ACK"
     );
 
+    let wrong_request = NatsCommandBinding::new(NatsCommandBindingInput {
+        request_digest: [0x91; 32],
+        ..input.clone()
+    })
+    .expect("construct wrong-request negative control");
+    assert!(
+        verifier.verify_effect_commit(&wrong_request).await.is_err(),
+        "receipt with a different request digest must not authorize ACK"
+    );
+
+    let wrong_decision = NatsCommandBinding::new(NatsCommandBindingInput {
+        decision_receipt_digest: [0x92; 32],
+        ..input.clone()
+    })
+    .expect("construct wrong-decision negative control");
+    assert!(
+        verifier.verify_effect_commit(&wrong_decision).await.is_err(),
+        "receipt with a different decision digest must not authorize ACK"
+    );
+
+    let wrong_payload = NatsCommandBinding::new(NatsCommandBindingInput {
+        payload_digest: [0x93; 32],
+        ..input.clone()
+    })
+    .expect("construct wrong-payload negative control");
+    assert!(
+        verifier.verify_effect_commit(&wrong_payload).await.is_err(),
+        "receipt with a different payload digest must not authorize ACK"
+    );
+
+    let wrong_generation = NatsCommandBinding::new(NatsCommandBindingInput {
+        resource_generation: 2,
+        ..input.clone()
+    })
+    .expect("construct wrong-generation negative control");
+    assert!(
+        verifier.verify_effect_commit(&wrong_generation).await.is_err(),
+        "receipt with a different accepted generation must not authorize ACK"
+    );
+
     let verified = verifier
         .verify_effect_commit(&binding)
         .await
