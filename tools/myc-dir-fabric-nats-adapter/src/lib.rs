@@ -32,6 +32,11 @@ use sha2::{Digest as ShaDigest, Sha256};
 const WIRE_VERSION: &str = "1";
 const HEADER_VERSION: &str = "Mycelix-Wire-Version";
 const HEADER_PUBLICATION_ID: &str = "Mycelix-Publication-Id";
+const HEADER_REALM_ID: &str = "Mycelix-Realm-Id";
+const HEADER_RESOURCE_ID: &str = "Mycelix-Resource-Id";
+const HEADER_ACTION_ID: &str = "Mycelix-Action-Id";
+const HEADER_OBJECT_ID: &str = "Mycelix-Object-Id";
+const HEADER_CURRENCY_CODE: &str = "Mycelix-Currency-Code";
 const HEADER_LOGICAL_OPERATION: &str = "Mycelix-Logical-Operation-Id";
 const HEADER_REQUEST_DIGEST: &str = "Mycelix-Request-SHA256";
 const HEADER_DECISION_DIGEST: &str = "Mycelix-Decision-SHA256";
@@ -539,6 +544,11 @@ impl JetStreamAdapter {
             .message_id(&input.nats_message_id)
             .header(HEADER_VERSION, WIRE_VERSION)
             .header(HEADER_PUBLICATION_ID, input.nats_message_id.as_str())
+            .header(HEADER_REALM_ID, input.realm_id.as_str())
+            .header(HEADER_RESOURCE_ID, input.resource_id.as_str())
+            .header(HEADER_ACTION_ID, input.action_id.as_str())
+            .header(HEADER_OBJECT_ID, input.object_id.as_str())
+            .header(HEADER_CURRENCY_CODE, input.currency_code.as_str())
             .header(
                 HEADER_LOGICAL_OPERATION,
                 input.logical_operation_id.as_str(),
@@ -685,6 +695,11 @@ impl JetStreamAdapter {
 
         let input = NatsCommandBindingInput {
             account_id: self.config.account_id.clone(),
+            realm_id: header_text(headers, HEADER_REALM_ID)?,
+            resource_id: header_text(headers, HEADER_RESOURCE_ID)?,
+            action_id: header_text(headers, HEADER_ACTION_ID)?,
+            object_id: header_text(headers, HEADER_OBJECT_ID)?,
+            currency_code: header_text(headers, HEADER_CURRENCY_CODE)?,
             stream_name: stream_name.clone(),
             subject: raw_message.subject.to_string(),
             consumer_name: consumer_name.clone(),
@@ -738,6 +753,11 @@ mod tests {
     fn config() -> JetStreamAdapterConfig {
         JetStreamAdapterConfig {
             account_id: "default".into(),
+            realm_id: "realm-test".into(),
+            resource_id: "resource-test".into(),
+            action_id: "balance-adjust".into(),
+            object_id: "account-test".into(),
+            currency_code: "USD".into(),
             stream_name: "MYCELIX_COMMANDS".into(),
             subject: "mycelix.commands.>".into(),
             durable_consumer: "mycelix-workers".into(),
