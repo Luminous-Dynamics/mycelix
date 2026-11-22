@@ -75,7 +75,7 @@ Adds `tools/myc-dir-fabric-history-oracle/src/ingest.rs`:
 
 The `HistoryEvidence` completeness fields in `src/lib.rs` are no longer externally writable. Callers can inspect the exact scope, event count and verified owner IDs through read-only getters.
 
-There are 14 authored ingest tests covering:
+There are 17 authored ingest tests covering:
 - authenticated complete source manifests;
 - missing required owner stream;
 - invalid and unavailable source verifier;
@@ -91,7 +91,7 @@ Tests are authored, not compiled or executed.
 
 ## 6. Benchmark and comparison
 
-The companion corpus `MYC_DIR_HISTORY_INGEST_V0_1.json` contains known-READY, known-VIOLATION and known-INCONCLUSIVE fixtures. The hard correctness requirement is zero false READY on any invalid or incomplete input. The checker must preserve INCONCLUSIVE during source or verifier outages.
+The companion corpus `MYC_DIR_HISTORY_INGEST_V0_1.json` contains 20 known-READY, known-VIOLATION and known-INCONCLUSIVE fixtures and 12 metrics. The hard correctness requirement is zero false READY on any invalid or incomplete input. The checker must preserve INCONCLUSIVE during source or verifier outages.
 
 Benchmark event sizes: 100, 1k, 100k, 1m and 10m; owner streams: 1, 4, 16, 64 and 256; at least ten independent open-loop repetitions per configuration. Measure source signature/proof verification, exact event coverage, canonical owner-ack recomputation, peak memory, ingest throughput and end-to-end p50/p95/p99 latency. Preserve raw evidence, manifests, verifier results, build digests and failed histories.
 
