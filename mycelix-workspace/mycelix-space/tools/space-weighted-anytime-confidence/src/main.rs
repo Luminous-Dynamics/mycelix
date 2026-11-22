@@ -1,5 +1,5 @@
 use space_weighted_anytime_confidence::{
-    bounded_mean_confidence_sequence, BettingGrid, ConditionalMeanEvidence,
+    BettingGrid, ConditionalMeanEvidence, bounded_mean_confidence_sequence,
 };
 use std::{env, process};
 
@@ -51,20 +51,42 @@ fn main() {
             println!("  \"range_lower\": {:.12},", report.range_lower);
             println!("  \"range_upper\": {:.12},", report.range_upper);
             println!("  \"delta\": {:.8},", report.delta);
-            println!("  \"two_sided_confidence_level\": {:.8},", report.two_sided_confidence_level);
+            println!(
+                "  \"two_sided_confidence_level\": {:.8},",
+                report.two_sided_confidence_level
+            );
             println!("  \"bet_grid_id\": \"{}\",", report.bet_grid_id);
-            println!("  \"sampling_design_id\": \"{}\",", report.sampling_design_id);
-            println!("  \"conditional_mean_model_id\": \"{}\",", report.conditional_mean_model_id);
-            println!("  \"conditional_mean_evidence_ref\": \"{}\",", report.conditional_mean_evidence_ref);
-            println!("  \"sample_order_digest\": \"{}\",", report.sample_order_digest);
+            println!(
+                "  \"sampling_design_id\": \"{}\",",
+                report.sampling_design_id
+            );
+            println!(
+                "  \"conditional_mean_model_id\": \"{}\",",
+                report.conditional_mean_model_id
+            );
+            println!(
+                "  \"conditional_mean_evidence_ref\": \"{}\",",
+                report.conditional_mean_evidence_ref
+            );
+            println!(
+                "  \"sample_order_digest\": \"{}\",",
+                report.sample_order_digest
+            );
             println!("  \"estimand_scope\": \"{}\",", report.estimand_scope);
             println!("  \"points\": [");
             for (index, point) in report.points.iter().enumerate() {
-                let comma = if index + 1 == report.points.len() { "" } else { "," };
+                let comma = if index + 1 == report.points.len() {
+                    ""
+                } else {
+                    ","
+                };
                 println!(
                     "    {{\"time\": {}, \"observed_mean\": {:.12}, \"lower_confidence_bound\": {:.12}, \"upper_confidence_bound\": {:.12}}}{}",
-                    point.time, point.observed_mean, point.lower_confidence_bound,
-                    point.upper_confidence_bound, comma
+                    point.time,
+                    point.observed_mean,
+                    point.lower_confidence_bound,
+                    point.upper_confidence_bound,
+                    comma
                 );
             }
             println!("  ]");

@@ -95,31 +95,61 @@ pub struct BoundedMeanConfidenceSequenceReport {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum SequenceError {
-    InvalidRange { lower: f64, upper: f64 },
+    InvalidRange {
+        lower: f64,
+        upper: f64,
+    },
     InvalidDelta(f64),
     InvalidIdentifier(&'static str),
     EmptyBetGrid,
     InvalidBetFraction(f64),
     BetGridMustBeStrictlyIncreasing,
-    NonFiniteObservation { index: usize, value: f64 },
-    ObservationOutsideRange { index: usize, value: f64, lower: f64, upper: f64 },
+    NonFiniteObservation {
+        index: usize,
+        value: f64,
+    },
+    ObservationOutsideRange {
+        index: usize,
+        value: f64,
+        lower: f64,
+        upper: f64,
+    },
 }
 
 impl fmt::Display for SequenceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidRange { lower, upper } =>
-                write!(f, "range must be finite with lower < upper; got [{lower}, {upper}]"),
-            Self::InvalidDelta(value) =>
-                write!(f, "delta must be finite and strictly between zero and one; got {value}"),
-            Self::InvalidIdentifier(field) =>
-                write!(f, "{field} must be non-empty and use only ASCII letters, digits, dot, underscore, colon, slash and hyphen"),
+            Self::InvalidRange { lower, upper } => write!(
+                f,
+                "range must be finite with lower < upper; got [{lower}, {upper}]"
+            ),
+            Self::InvalidDelta(value) => write!(
+                f,
+                "delta must be finite and strictly between zero and one; got {value}"
+            ),
+            Self::InvalidIdentifier(field) => write!(
+                f,
+                "{field} must be non-empty and use only ASCII letters, digits, dot, underscore, colon, slash and hyphen"
+            ),
             Self::EmptyBetGrid => write!(f, "bet grid must contain at least one fraction"),
-            Self::InvalidBetFraction(value) => write!(f, "bet fraction must be finite and in (0,1]; got {value}"),
-            Self::BetGridMustBeStrictlyIncreasing => write!(f, "bet fractions must be strictly increasing and unique"),
-            Self::NonFiniteObservation { index, value } => write!(f, "observation {index} is non-finite: {value}"),
-            Self::ObservationOutsideRange { index, value, lower, upper } =>
-                write!(f, "observation {index}={value} lies outside declared range [{lower},{upper}]"),
+            Self::InvalidBetFraction(value) => {
+                write!(f, "bet fraction must be finite and in (0,1]; got {value}")
+            }
+            Self::BetGridMustBeStrictlyIncreasing => {
+                write!(f, "bet fractions must be strictly increasing and unique")
+            }
+            Self::NonFiniteObservation { index, value } => {
+                write!(f, "observation {index} is non-finite: {value}")
+            }
+            Self::ObservationOutsideRange {
+                index,
+                value,
+                lower,
+                upper,
+            } => write!(
+                f,
+                "observation {index}={value} lies outside declared range [{lower},{upper}]"
+            ),
         }
     }
 }
@@ -128,9 +158,9 @@ impl std::error::Error for SequenceError {}
 
 fn valid_identifier(value: &str) -> bool {
     !value.trim().is_empty()
-        && value.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric() || b"._:/-".contains(&byte)
-        })
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"._:/-".contains(&byte))
 }
 
 fn validate_delta(delta: f64) -> Result<(), SequenceError> {
@@ -160,7 +190,10 @@ pub fn log_upper_test_e_value(
         let mut log_product = 0.0;
         for (index, value) in normalized_observations.iter().enumerate() {
             if !value.is_finite() {
-                return Err(SequenceError::NonFiniteObservation { index, value: *value });
+                return Err(SequenceError::NonFiniteObservation {
+                    index,
+                    value: *value,
+                });
             }
             if !(0.0..=1.0).contains(value) {
                 return Err(SequenceError::ObservationOutsideRange {
@@ -192,7 +225,10 @@ fn log_mean_exp(values: &[f64]) -> f64 {
     if maximum == f64::INFINITY {
         return f64::INFINITY;
     }
-    let sum = values.iter().map(|value| (value - maximum).exp()).sum::<f64>();
+    let sum = values
+        .iter()
+        .map(|value| (value - maximum).exp())
+        .sum::<f64>();
     maximum + sum.ln() - (values.len() as f64).ln()
 }
 
@@ -215,7 +251,10 @@ pub fn upper_bound_at(
 
     for (index, value) in normalized_observations.iter().enumerate() {
         if !value.is_finite() {
-            return Err(SequenceError::NonFiniteObservation { index, value: *value });
+            return Err(SequenceError::NonFiniteObservation {
+                index,
+                value: *value,
+            });
         }
         if !(0.0..=1.0).contains(value) {
             return Err(SequenceError::ObservationOutsideRange {
@@ -283,10 +322,7 @@ pub fn bounded_mean_confidence_sequence(
 ) -> Result<BoundedMeanConfidenceSequenceReport, SequenceError> {
     validate_delta(delta)?;
     grid.validate()?;
-    if !range_lower.is_finite()
-        || !range_upper.is_finite()
-        || range_lower >= range_upper
-    {
+    if !range_lower.is_finite() || !range_upper.is_finite() || range_lower >= range_upper {
         return Err(SequenceError::InvalidRange {
             lower: range_lower,
             upper: range_upper,
@@ -294,7 +330,10 @@ pub fn bounded_mean_confidence_sequence(
     }
     for (field, value) in [
         ("sampling_design_id", &evidence.sampling_design_id),
-        ("conditional_mean_model_id", &evidence.conditional_mean_model_id),
+        (
+            "conditional_mean_model_id",
+            &evidence.conditional_mean_model_id,
+        ),
         ("conditional_mean_evidence_ref", &evidence.evidence_ref),
         ("sample_order_digest", &evidence.sample_order_digest),
     ] {
@@ -307,7 +346,10 @@ pub fn bounded_mean_confidence_sequence(
     let mut normalized = Vec::with_capacity(observations.len());
     for (index, value) in observations.iter().enumerate() {
         if !value.is_finite() {
-            return Err(SequenceError::NonFiniteObservation { index, value: *value });
+            return Err(SequenceError::NonFiniteObservation {
+                index,
+                value: *value,
+            });
         }
         if *value < range_lower || *value > range_upper {
             return Err(SequenceError::ObservationOutsideRange {
@@ -375,13 +417,16 @@ mod tests {
 
     #[test]
     fn empty_input_returns_full_declared_range() {
-        let report = bounded_mean_confidence_sequence(&[], -10.0, 10.0, 0.05, &grid(), evidence()).unwrap();
+        let report =
+            bounded_mean_confidence_sequence(&[], -10.0, 10.0, 0.05, &grid(), evidence()).unwrap();
         assert!(report.points.is_empty());
     }
 
     #[test]
     fn zero_weighted_events_do_not_create_zero_upper_bound() {
-        let report = bounded_mean_confidence_sequence(&vec![0.0; 100], 0.0, 20.0, 0.05, &grid(), evidence()).unwrap();
+        let report =
+            bounded_mean_confidence_sequence(&vec![0.0; 100], 0.0, 20.0, 0.05, &grid(), evidence())
+                .unwrap();
         let final_point = report.points.last().unwrap();
         assert!(final_point.upper_confidence_bound > 0.0);
         assert!(final_point.lower_confidence_bound <= 0.0 + 1e-12);
@@ -389,7 +434,15 @@ mod tests {
 
     #[test]
     fn repeated_lower_range_values_tighten_upper_sequence() {
-        let report = bounded_mean_confidence_sequence(&vec![-10.0; 40], -10.0, 10.0, 0.05, &grid(), evidence()).unwrap();
+        let report = bounded_mean_confidence_sequence(
+            &vec![-10.0; 40],
+            -10.0,
+            10.0,
+            0.05,
+            &grid(),
+            evidence(),
+        )
+        .unwrap();
         assert!(report.points.windows(2).all(|pair| {
             pair[1].upper_confidence_bound <= pair[0].upper_confidence_bound + 1e-12
         }));
@@ -398,7 +451,15 @@ mod tests {
 
     #[test]
     fn repeated_upper_range_values_tighten_lower_sequence() {
-        let report = bounded_mean_confidence_sequence(&vec![10.0; 40], -10.0, 10.0, 0.05, &grid(), evidence()).unwrap();
+        let report = bounded_mean_confidence_sequence(
+            &vec![10.0; 40],
+            -10.0,
+            10.0,
+            0.05,
+            &grid(),
+            evidence(),
+        )
+        .unwrap();
         assert!(report.points.windows(2).all(|pair| {
             pair[1].lower_confidence_bound >= pair[0].lower_confidence_bound - 1e-12
         }));
@@ -414,12 +475,32 @@ mod tests {
 
     #[test]
     fn scales_nonzero_range_without_changing_normalized_bounds() {
-        let normalized = bounded_mean_confidence_sequence(&[0.0, 0.2, 0.4, 0.6], 0.0, 1.0, 0.05, &grid(), evidence()).unwrap();
-        let scaled = bounded_mean_confidence_sequence(&[10.0, 12.0, 14.0, 16.0], 10.0, 20.0, 0.05, &grid(), evidence()).unwrap();
+        let normalized = bounded_mean_confidence_sequence(
+            &[0.0, 0.2, 0.4, 0.6],
+            0.0,
+            1.0,
+            0.05,
+            &grid(),
+            evidence(),
+        )
+        .unwrap();
+        let scaled = bounded_mean_confidence_sequence(
+            &[10.0, 12.0, 14.0, 16.0],
+            10.0,
+            20.0,
+            0.05,
+            &grid(),
+            evidence(),
+        )
+        .unwrap();
         let p = normalized.points.last().unwrap();
         let q = scaled.points.last().unwrap();
-        assert!((q.lower_confidence_bound - (10.0 + 10.0 * p.lower_confidence_bound)).abs() < 1e-10);
-        assert!((q.upper_confidence_bound - (10.0 + 10.0 * p.upper_confidence_bound)).abs() < 1e-10);
+        assert!(
+            (q.lower_confidence_bound - (10.0 + 10.0 * p.lower_confidence_bound)).abs() < 1e-10
+        );
+        assert!(
+            (q.upper_confidence_bound - (10.0 + 10.0 * p.upper_confidence_bound)).abs() < 1e-10
+        );
     }
 
     #[test]
@@ -440,7 +521,9 @@ mod tests {
         };
         assert!(matches!(
             bounded_mean_confidence_sequence(&[0.5], 0.0, 1.0, 0.05, &grid(), bad),
-            Err(SequenceError::InvalidIdentifier("conditional_mean_evidence_ref"))
+            Err(SequenceError::InvalidIdentifier(
+                "conditional_mean_evidence_ref"
+            ))
         ));
     }
 
@@ -474,10 +557,24 @@ mod tests {
             p0 + (1.0 - p0) * 0.2
         };
         history.push(0.0);
-        enumerate_predictable(history, mass * (1.0 - probability_one), p0, delta, horizon, crossing_mass);
+        enumerate_predictable(
+            history,
+            mass * (1.0 - probability_one),
+            p0,
+            delta,
+            horizon,
+            crossing_mass,
+        );
         history.pop();
         history.push(1.0);
-        enumerate_predictable(history, mass * probability_one, p0, delta, horizon, crossing_mass);
+        enumerate_predictable(
+            history,
+            mass * probability_one,
+            p0,
+            delta,
+            horizon,
+            crossing_mass,
+        );
         history.pop();
     }
 
@@ -487,7 +584,10 @@ mod tests {
         let delta = 0.05;
         let mut crossing_mass = 0.0;
         enumerate_predictable(&mut Vec::new(), 1.0, p0, delta, 12, &mut crossing_mass);
-        assert!(crossing_mass <= delta + 1.0e-12, "crossing probability={crossing_mass}");
+        assert!(
+            crossing_mass <= delta + 1.0e-12,
+            "crossing probability={crossing_mass}"
+        );
     }
 
     #[test]
@@ -507,7 +607,13 @@ mod tests {
             log_upper_test_e_value(&[0.5], 1.0, &grid()),
             Err(SequenceError::InvalidBetFraction(1.0))
         ));
-        let bad_grid = BettingGrid { id: "bad-grid".into(), fractions: vec![0.5, 0.4] };
-        assert_eq!(bad_grid.validate(), Err(SequenceError::BetGridMustBeStrictlyIncreasing));
+        let bad_grid = BettingGrid {
+            id: "bad-grid".into(),
+            fractions: vec![0.5, 0.4],
+        };
+        assert_eq!(
+            bad_grid.validate(),
+            Err(SequenceError::BetGridMustBeStrictlyIncreasing)
+        );
     }
 }
