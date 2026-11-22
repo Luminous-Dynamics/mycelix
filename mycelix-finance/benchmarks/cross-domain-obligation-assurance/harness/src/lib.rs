@@ -989,12 +989,46 @@ mod tests {
         let mut oversized = request();
         oversized.amount += 1;
         assert_eq!(authorize(&grant(), &oversized, 200, 7, None), Err(KernelError::ScopeExceeded));
+        let mut wrong_audience = request();
+        wrong_audience.audience_id = "other-service".into();
+        assert_eq!(authorize(&grant(), &wrong_audience, 200, 7, None), Err(KernelError::Unauthorized));
+        let mut wrong_task = request();
+        wrong_task.task_id = "different-task".into();
+        assert_eq!(authorize(&grant(), &wrong_task, 200, 7, None), Err(KernelError::Unauthorized));
         let mut br3 = grant();
         br3.action_class = "BR3_ASSET_TRANSFER".into();
         let mut br3_request = request();
         br3_request.action_class = "BR3_ASSET_TRANSFER".into();
         assert_eq!(authorize(&br3, &br3_request, 200, 7, None), Err(KernelError::HumanDispositionRequired));
-        assert_eq!(authorize(&br3, &br3_request, 200, 7, Some("human-decision-001")), Ok(()));
+        let approval = HumanDisposition {
+            decision_maker_id: "board-member".into(),
+            decision_reference: "human-decision-001".into(),
+            request_digest: br3_request.request_digest,
+            independent_authentication_verified: true,
+        };
+        assert_eq!(authorize(&br3, &br3_request, 200, 7, Some(&approval)), Ok(()));
+        let agent_approval = HumanDisposition {
+            decision_maker_id: br3_request.actor_id.clone(),
+            ..approval.clone()
+        };
+        assert_eq!(authorize(&br3, &br3_request, 200, 7, Some(&agent_approval)), Err(KernelError::HumanDispositionRequired));
+        let mismatched_approval = HumanDisposition {
+            request_digest: digest(99),
+            ..approval
+        };
+        assert_eq!(authorize(&br3, &br3_request, 200, 7, Some(&mismatched_approval)), Err(KernelError::HumanDispositionRequired));
+    }
+
+    #[test]
+    fn one_time_authority_grant_cannot_be_reused() {
+        let grant = grant();
+        let request = request();
+        let mut ledger = AuthorityConsumptionLedger::default();
+        assert_eq!(ledger.consume(&grant, &request), Ok(()));
+        assert_eq!(ledger.consume(&grant, &request), Err(KernelError::CapabilityConsumed));
+        let mut changed = request.clone();
+        changed.request_digest = digest(44);
+        assert_eq!(ledger.consume(&grant, &changed), Err(KernelError::IdempotencyConflict));
     }
 
     #[test]
