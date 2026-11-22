@@ -1,0 +1,331 @@
+{
+  "schema_version": "soil-assessment-agreement-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "evidence_class": "synthetic",
+  "scenario_id": "manufactured-multifunctionality-method-disagreement",
+  "indicators": [
+    {
+      "indicator_id": "soc",
+      "function_group": "carbon",
+      "unit": "percent",
+      "direction": "higher_is_better",
+      "reference_min": 1,
+      "reference_max": 5,
+      "threshold_value": 2.2,
+      "threshold_relation": "minimum"
+    },
+    {
+      "indicator_id": "infiltration",
+      "function_group": "water",
+      "unit": "mm_per_hour",
+      "direction": "higher_is_better",
+      "reference_min": 2,
+      "reference_max": 20,
+      "threshold_value": 10,
+      "threshold_relation": "minimum"
+    },
+    {
+      "indicator_id": "nitrate_loss",
+      "function_group": "nutrient",
+      "unit": "mg_N_m2_event",
+      "direction": "lower_is_better",
+      "reference_min": 5,
+      "reference_max": 50,
+      "threshold_value": 25,
+      "threshold_relation": "maximum"
+    },
+    {
+      "indicator_id": "contaminant",
+      "function_group": "contamination",
+      "unit": "mg_per_kg",
+      "direction": "lower_is_better",
+      "reference_min": 0,
+      "reference_max": 20,
+      "threshold_value": 8,
+      "threshold_relation": "maximum"
+    }
+  ],
+  "weight_profiles": [
+    {
+      "profile_id": "declared_expert",
+      "weights": [
+        {
+          "indicator_id": "soc",
+          "weight": 0.35
+        },
+        {
+          "indicator_id": "infiltration",
+          "weight": 0.25
+        },
+        {
+          "indicator_id": "nitrate_loss",
+          "weight": 0.2
+        },
+        {
+          "indicator_id": "contaminant",
+          "weight": 0.2
+        }
+      ]
+    },
+    {
+      "profile_id": "carbon_priority",
+      "weights": [
+        {
+          "indicator_id": "soc",
+          "weight": 0.7
+        },
+        {
+          "indicator_id": "infiltration",
+          "weight": 0.1
+        },
+        {
+          "indicator_id": "nitrate_loss",
+          "weight": 0.1
+        },
+        {
+          "indicator_id": "contaminant",
+          "weight": 0.1
+        }
+      ]
+    },
+    {
+      "profile_id": "water_priority",
+      "weights": [
+        {
+          "indicator_id": "soc",
+          "weight": 0.1
+        },
+        {
+          "indicator_id": "infiltration",
+          "weight": 0.7
+        },
+        {
+          "indicator_id": "nitrate_loss",
+          "weight": 0.1
+        },
+        {
+          "indicator_id": "contaminant",
+          "weight": 0.1
+        }
+      ]
+    },
+    {
+      "profile_id": "nutrient_priority",
+      "weights": [
+        {
+          "indicator_id": "soc",
+          "weight": 0.1
+        },
+        {
+          "indicator_id": "infiltration",
+          "weight": 0.1
+        },
+        {
+          "indicator_id": "nitrate_loss",
+          "weight": 0.7
+        },
+        {
+          "indicator_id": "contaminant",
+          "weight": 0.1
+        }
+      ]
+    },
+    {
+      "profile_id": "risk_priority",
+      "weights": [
+        {
+          "indicator_id": "soc",
+          "weight": 0.05
+        },
+        {
+          "indicator_id": "infiltration",
+          "weight": 0.1
+        },
+        {
+          "indicator_id": "nitrate_loss",
+          "weight": 0.35
+        },
+        {
+          "indicator_id": "contaminant",
+          "weight": 0.5
+        }
+      ]
+    }
+  ],
+  "hard_guardrails": [
+    {
+      "guardrail_id": "nitrate-event-limit",
+      "indicator_id": "nitrate_loss",
+      "status": "synthetic_fixture",
+      "minimum_value": null,
+      "maximum_value": 40,
+      "authority": "manufactured benchmark control only"
+    },
+    {
+      "guardrail_id": "contaminant-limit",
+      "indicator_id": "contaminant",
+      "status": "synthetic_fixture",
+      "minimum_value": null,
+      "maximum_value": 15,
+      "authority": "manufactured benchmark control only"
+    }
+  ],
+  "alternatives": [
+    {
+      "alternative_id": "A-carbon-heavy",
+      "independence_group_id": "synthetic-unit-A",
+      "measurements": [
+        {
+          "indicator_id": "soc",
+          "value": 3,
+          "standard_error": 0.05
+        },
+        {
+          "indicator_id": "infiltration",
+          "value": 7,
+          "standard_error": 0.5
+        },
+        {
+          "indicator_id": "nitrate_loss",
+          "value": 45,
+          "standard_error": 0.8
+        },
+        {
+          "indicator_id": "contaminant",
+          "value": 10,
+          "standard_error": 0.3
+        }
+      ]
+    },
+    {
+      "alternative_id": "B-balanced",
+      "independence_group_id": "synthetic-unit-B",
+      "measurements": [
+        {
+          "indicator_id": "soc",
+          "value": 2.4,
+          "standard_error": 0.05
+        },
+        {
+          "indicator_id": "infiltration",
+          "value": 16,
+          "standard_error": 0.5
+        },
+        {
+          "indicator_id": "nitrate_loss",
+          "value": 22,
+          "standard_error": 0.8
+        },
+        {
+          "indicator_id": "contaminant",
+          "value": 4,
+          "standard_error": 0.3
+        }
+      ]
+    },
+    {
+      "alternative_id": "C-carbon-max",
+      "independence_group_id": "synthetic-unit-C",
+      "measurements": [
+        {
+          "indicator_id": "soc",
+          "value": 3.8,
+          "standard_error": 0.05
+        },
+        {
+          "indicator_id": "infiltration",
+          "value": 6,
+          "standard_error": 0.5
+        },
+        {
+          "indicator_id": "nitrate_loss",
+          "value": 35,
+          "standard_error": 0.8
+        },
+        {
+          "indicator_id": "contaminant",
+          "value": 5,
+          "standard_error": 0.3
+        }
+      ]
+    },
+    {
+      "alternative_id": "D-water-nutrient",
+      "independence_group_id": "synthetic-unit-D",
+      "measurements": [
+        {
+          "indicator_id": "soc",
+          "value": 1.9,
+          "standard_error": 0.05
+        },
+        {
+          "indicator_id": "infiltration",
+          "value": 18,
+          "standard_error": 0.5
+        },
+        {
+          "indicator_id": "nitrate_loss",
+          "value": 14,
+          "standard_error": 0.8
+        },
+        {
+          "indicator_id": "contaminant",
+          "value": 6,
+          "standard_error": 0.3
+        }
+      ]
+    },
+    {
+      "alternative_id": "E-contaminated",
+      "independence_group_id": "synthetic-unit-E",
+      "measurements": [
+        {
+          "indicator_id": "soc",
+          "value": 2.6,
+          "standard_error": 0.05
+        },
+        {
+          "indicator_id": "infiltration",
+          "value": 13,
+          "standard_error": 0.5
+        },
+        {
+          "indicator_id": "nitrate_loss",
+          "value": 18,
+          "standard_error": 0.8
+        },
+        {
+          "indicator_id": "contaminant",
+          "value": 18,
+          "standard_error": 0.3
+        }
+      ]
+    },
+    {
+      "alternative_id": "F-dominated",
+      "independence_group_id": "synthetic-unit-F",
+      "measurements": [
+        {
+          "indicator_id": "soc",
+          "value": 1.5,
+          "standard_error": 0.05
+        },
+        {
+          "indicator_id": "infiltration",
+          "value": 4,
+          "standard_error": 0.5
+        },
+        {
+          "indicator_id": "nitrate_loss",
+          "value": 48,
+          "standard_error": 0.8
+        },
+        {
+          "indicator_id": "contaminant",
+          "value": 19,
+          "standard_error": 0.3
+        }
+      ]
+    }
+  ]
+}
