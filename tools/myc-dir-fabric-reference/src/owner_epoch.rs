@@ -515,6 +515,7 @@ pub struct OwnerEpochFenceRollup {
     acknowledged_owner_count: usize,
     expected_owner_count: usize,
     missing_owners: Vec<EffectOwnerId>,
+    owner_ack_set_bytes: Vec<u8>,
 }
 
 impl OwnerEpochFenceRollup {
@@ -532,6 +533,12 @@ impl OwnerEpochFenceRollup {
 
     pub fn missing_owners(&self) -> &[EffectOwnerId] {
         &self.missing_owners
+    }
+
+    /// Canonical owner acknowledgement bytes that were actually assessed.
+    /// The external digest/signature layer must commit to these exact bytes.
+    pub fn owner_ack_set_bytes(&self) -> &[u8] {
+        &self.owner_ack_set_bytes
     }
 }
 
@@ -612,6 +619,11 @@ pub fn assess_owner_epoch_fence_acks(
     } else {
         OwnerEpochBarrierStatus::PendingOwnerAcknowledgements
     };
+    let owner_ack_set_bytes = if acknowledgements.is_empty() {
+        Vec::new()
+    } else {
+        canonical_owner_epoch_ack_set_bytes(acknowledgements)?
+    };
 
     Ok(OwnerEpochFenceRollup {
         scope: scope.clone(),
@@ -623,6 +635,7 @@ pub fn assess_owner_epoch_fence_acks(
         acknowledged_owner_count: seen.len(),
         expected_owner_count: targets.len(),
         missing_owners,
+        owner_ack_set_bytes,
     })
 }
 
@@ -667,6 +680,7 @@ pub struct GlobalRevocationBarrierReceipt {
     inventory_manifest_digest: Digest,
     route_set_digest: Digest,
     owner_ack_set_digest: Digest,
+    owner_ack_set_bytes: Vec<u8>,
     owner_ack_count: usize,
     coordinator_epoch: u64,
     coordinator_commit_digest: Digest,
@@ -687,6 +701,9 @@ impl GlobalRevocationBarrierReceipt {
         }
         require_digest(&owner_ack_set_digest)?;
         require_digest(&coordinator_commit_digest)?;
+        if rollup.owner_ack_set_bytes.is_empty() {
+            return Err(OwnerEpochError::EmptyOwnerSet);
+        }
         Ok(Self {
             scope: rollup.scope.clone(),
             revocation_digest: rollup.revocation_digest,
@@ -694,6 +711,7 @@ impl GlobalRevocationBarrierReceipt {
             inventory_manifest_digest: rollup.inventory_manifest_digest,
             route_set_digest: rollup.route_set_digest,
             owner_ack_set_digest,
+            owner_ack_set_bytes: rollup.owner_ack_set_bytes.clone(),
             owner_ack_count: rollup.expected_owner_count,
             coordinator_epoch,
             coordinator_commit_digest,
@@ -718,6 +736,10 @@ impl GlobalRevocationBarrierReceipt {
         bytes.extend_from_slice(&self.inventory_manifest_digest);
         bytes.extend_from_slice(&self.route_set_digest);
         bytes.extend_from_slice(&self.owner_ack_set_digest);
+        let ack_bytes_len =
+            u32::try_from(self.owner_ack_set_bytes.len()).map_err(|_| OwnerEpochError::EmptyOwnerSet)?;
+        bytes.extend_from_slice(&ack_bytes_len.to_be_bytes());
+        bytes.extend_from_slice(&self.owner_ack_set_bytes);
         let count =
             u32::try_from(self.owner_ack_count).map_err(|_| OwnerEpochError::EmptyOwnerSet)?;
         bytes.extend_from_slice(&count.to_be_bytes());
@@ -1089,6 +1111,10 @@ mod tests {
         assert_eq!(complete.acknowledged_owner_count(), 2);
         assert_eq!(complete.expected_owner_count(), 2);
         assert!(complete.missing_owners().is_empty());
+        assert_eq!(
+            complete.owner_ack_set_bytes(),
+            canonical_owner_epoch_ack_set_bytes(&acks).unwrap()
+        );
     }
 
     #[test]
