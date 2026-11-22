@@ -1,0 +1,56 @@
+{
+  "schema_version": "0.1",
+  "benchmark_id": "SAP-ASSURANCE-CORE-QUAL-2026-11-22-001",
+  "status": "passed_for_pure_kernel_scope",
+  "observed_at": "2026-11-22T07:57:51Z",
+  "repository": "Luminous-Dynamics/mycelix",
+  "pull_request": 6506,
+  "branch": "research/web4-regenerative-finance-v0.1-20261122",
+  "branch_head_commit": "23782aa6cfa876594668bced68a672bf95a7831f",
+  "base_branch": "main",
+  "base_commit": "b42b5af299d575864ab3649ceaad8c8e963020ec",
+  "github_actions": {
+    "workflow": "SAP Assurance Core",
+    "workflow_run_id": 45000547158,
+    "run_url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/45000547158",
+    "job_id": 137140909660,
+    "job_url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/45000547158/job/137140909660",
+    "pull_request_merge_commit": "d85cd4e0e7f6?verify_exact_sha_from_workflow_log",
+    "note": "The run checked out the synthetic pull/6506/merge commit. Its log identified it as a merge of branch head 23782aa6cfa876594668bced68a672bf95a7831f into base b42b5af299d575864ab3649ceaad8c8e963020ec. The shortened merge SHA shown in the log is d85cd4e0; use GitHub's workflow ref for full resolution."
+  },
+  "source_blobs": {
+    "mycelix-finance/crates/sap-assurance-core/src/lib.rs": "ee878cf207ff288433df115c7642a76c8565b5b5",
+    "mycelix-finance/Cargo.lock": "3b2c170f240f430d992207bb2a9722d8d01b3c98",
+    "mycelix-finance/Cargo.toml": "12b68e5b23c65502c0eede5d3e0ca3ab4f0e46fe"
+  },
+  "environment": {
+    "os": "Ubuntu 26.04.1 LTS",
+    "rustc": "1.100.0",
+    "toolchain": "stable"
+  },
+  "commands": [
+    "cargo fmt --manifest-path mycelix-finance/Cargo.toml --package sap-assurance-core -- --check",
+    "cargo test --locked --manifest-path mycelix-finance/Cargo.toml --package sap-assurance-core",
+    "git diff --quiet -- mycelix-finance/Cargo.lock"
+  ],
+  "results": {
+    "formatting": "passed",
+    "unit_tests": {
+      "passed": 18,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    "deterministic_property_cases": {
+      "count": 1000000,
+      "result": "passed"
+    },
+    "lockfile_unchanged": "passed"
+  },
+  "known_limitations": [
+    "Qualification applies only to the pure sap-assurance-core crate and the recorded test corpus.",
+    "It does not verify off-ledger reserve custody, legal issuer status, banking settlement, signatures, Holochain zome integration, or production monetary solvency.",
+    "Legacy Mycelix CI and Finance Exact-Head Qualification workflows were skipped because the pull request remained draft.",
+    "Independent security review and independent reproduction have not yet occurred."
+  ]
+}
