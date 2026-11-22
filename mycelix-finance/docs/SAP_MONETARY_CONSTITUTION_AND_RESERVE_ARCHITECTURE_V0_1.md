@@ -345,7 +345,16 @@ SAP-ZAR must not be represented as a redeemable, fully reserved payment instrume
 
 Until then, label the product **experimental / non-redeemable / not reserve-qualified**, as applicable. Never use "fully backed", "stable", "guaranteed" or equivalent marketing language without current evidence.
 
-## 14. References
+## 14. Machine-readable receipt contracts
+
+The initial SAP-ZAR issuance and redemption envelope schemas are published here:
+- Issuance receipt: https://github.com/Luminous-Dynamics/mycelix/blob/research/web4-regenerative-finance-v0.1-20261122/mycelix-finance/docs/schemas/sap-issuance-receipt.v0.1.schema.json
+- Redemption receipt: https://github.com/Luminous-Dynamics/mycelix/blob/research/web4-regenerative-finance-v0.1-20261122/mycelix-finance/docs/schemas/sap-redemption-receipt.v0.1.schema.json
+- Adversarial scenario corpus: https://github.com/Luminous-Dynamics/mycelix/blob/research/web4-regenerative-finance-v0.1-20261122/mycelix-finance/benchmarks/sap/sap-adversarial-scenarios.v0.1.json
+
+The schemas define a receipt envelope, not the state machine or cryptographic verification. Arithmetic conservation, reserve coverage, signer authorization, idempotency, external finality and recovery behavior must be checked by executable validators and end-to-end tests. The scenario corpus is specified but not yet run.
+
+## 15. References
 
 - BIS, Annual Economic Report 2026, "Anchoring trust in money": https://www.bis.org/publications/aer-2026/anchoring-trust-money
 - BIS, stablecoin and tokenization discussion, Annual Economic Report 2026: https://www.bis.org/publ/arpdf/ar2026e.pdf
