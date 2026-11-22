@@ -110,7 +110,7 @@ fn hex_decode_32(value: &str, header: &'static str) -> AdapterResult<[u8; 32]> {
         return Err(AdapterError::InvalidHeader(header));
     }
     let mut output = [0_u8; 32];
-    for (index, pair) in value.as_bytes().chunks_exact(2).enumerate() {
+    for (index, pair) in value.as_bytes().as_chunks::<2>().0.iter().enumerate() {
         let high = (pair[0] as char)
             .to_digit(16)
             .ok_or(AdapterError::InvalidHeader(header))?;
