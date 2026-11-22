@@ -73,3 +73,9 @@ The integration suite uses a single-node File-storage server. It is not a cluste
 
 
 The adapter crate adds 13 pure unit tests and two ignored JetStream integration tests. The reference contract currently has 21 unit tests. They remain uncompiled until the exact-head workflow completes.
+
+## Authenticated owner-disposition gate
+
+The adapter does not accept a raw public `DurableOwnerDisposition` as sufficient proof to ACK. Call `VerifiedOwnerDisposition::verify(binding, disposition, verifier)`. The external `OwnerDispositionVerifier` must authenticate the actual durable effect-owner receipt against the exact binding. The resulting token stores a digest of that exact canonical binding, and `ReceivedDelivery::acknowledge` rechecks the binding before sending ACK/AckSync.
+
+The integration suite uses a clearly labelled synthetic verifier only to exercise transport behaviour. A production deployment must supply a verifier backed by the real owner receipt signature / attestation and durable receipt ledger.
