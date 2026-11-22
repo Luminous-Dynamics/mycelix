@@ -62,7 +62,7 @@ The pure Rust meter function only addresses a portion of (1). It cannot make a m
 
 The Electricity Regulation Amendment Act 38 of 2024 commenced on 1 January 2025. NERSA's 17 July 2026 Version 03 consultation paper explicitly presents proposed Rules for Electricity Trading for public consultation. NERSA's 15 September 2026 Electricity Regulation Projects Dashboard still listed Trading Rules as CONSULTATION, with public consultation extended to 28 September and a member workshop in October.
 
-The latest official status evidence located for this research does not establish the final adopted Trading Rules or prove all market-access procedures currently in force as at 22 November 2026. The October target completion date on the dashboard is a target, not evidence of adoption.
+A later Energy Council of South Africa policy-tracker entry lists the consultation as closed, with NERSA consolidating stakeholder inputs (tracker accessed 22 November 2026). The latest NERSA primary dashboard found in this research is dated 15 September 2026 and still lists Trading Rules as CONSULTATION, with a 31 October target completion. The search did not locate a final adopted Trading Rules instrument by 22 November 2026. The October date is a target, not evidence of adoption.
 
 Therefore:
 
@@ -112,6 +112,8 @@ Each edge must bind an exact parent digest and declare the scope of the relation
 - OIML Recommendation R 46, *Active electrical energy meters* (2012, current edition listed by OIML): https://www.oiml.org/en/publications/recommendations/46/
 - NERSA, Consultation Paper on Version 03 of the Rules for Electricity Trading, 17 July 2026: https://www.nersa.org.za/files/files/2026/07/ConsultationPaperonDraftNERSARulesforElectricityTrading17July2026.pdf
 - NERSA, Electricity Regulation Projects Dashboard, September 2026 (last updated 15 September 2026): https://www.nersa.org.za/files/files/2026/09/ELRStakeholderDashboard-September2026-Rev1-HighRes.pdf
+- Energy Council of South Africa, Policy Tracker (consultation closed; NERSA consolidating inputs, accessed 22 November 2026): https://energycouncil.org.za/policy-tracker/
+
 
 ---
 
