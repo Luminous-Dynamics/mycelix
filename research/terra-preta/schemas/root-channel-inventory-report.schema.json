@@ -18,7 +18,9 @@
     "endpoint_graph_component_count",
     "warnings",
     "controls",
-    "interpretation_boundary"
+    "interpretation_boundary",
+    "root_flow_expression_counts",
+    "root_flow_expression_unresolved_count"
   ],
   "properties": {
     "audit_version": {
@@ -111,6 +113,17 @@
     "interpretation_boundary": {
       "type": "string",
       "minLength": 1
+    },
+    "root_flow_expression_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "root_flow_expression_unresolved_count": {
+      "type": "integer",
+      "minimum": 0
     }
   }
 }
