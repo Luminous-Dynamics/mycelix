@@ -190,8 +190,7 @@ RecoverOwner(o) ==
     /\ ownerReadBack' = [ownerReadBack EXCEPT ![o] = TRUE]
     /\ routeState' = [routeState EXCEPT ![o] = "active"]
     /\ UNCHANGED
-        <<globalBarrierAcknowledged, ownerHighWaterEpoch,
-          ownerHighWaterGeneration, ownerFenceAcknowledged>>
+        <<globalBarrierAcknowledged, ownerFenceAcknowledged>>
 
 Next ==
     \/ \E o \in InitialOwners : InstallInitialFence(o)
