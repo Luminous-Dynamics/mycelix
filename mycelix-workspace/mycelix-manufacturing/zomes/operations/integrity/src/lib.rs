@@ -46,7 +46,6 @@ pub struct RoutingStepEntry {
     pub process_binding: Option<ProcessBindingV1>,
 }
 
-
 /// Mycelix's distributed index to a canonical Symthaea process definition.
 /// This contains references and display metadata only; it does not copy
 /// process physics, quantities, recipe parameters, or capability limits.
