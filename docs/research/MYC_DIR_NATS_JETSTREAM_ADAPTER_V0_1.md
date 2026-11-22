@@ -67,6 +67,13 @@ The adapter delegates eligibility to the dependency-free Directory Fabric contra
 - AckSync uses `double_ack()` and reports confirmation only after the broker response.
 - Progress extends the JetStream AckWait timer; it does not renew a Mycelix decision, worker claim or owner/resource generation.
 
+
+## 5.1 Authenticated owner-disposition gate
+
+A structurally valid disposition is not itself proof that an effect owner issued it. The adapter therefore requires an external `OwnerDispositionVerifier` to validate the durable owner receipt against the exact command binding. Only then can `VerifiedOwnerDisposition` be constructed. It stores a SHA-256 commitment to the canonical command binding, and `ReceivedDelivery::acknowledge` checks that commitment again before sending +ACK or requesting double-ACK confirmation.
+
+The verifier must check the actual signed/attested receipt, owner identity, logical operation, idempotency commitment and terminal status. The integration harness uses a deliberately synthetic verifier to isolate broker transport semantics; it is not a production owner verifier.
+
 ## 6. Integration harness
 
 Adds `.github/nats-jetstream-test.conf` and `.github/workflows/myc-dir-nats-adapter.yml`. The workflow starts an isolated `nats:2.15.3` server with JetStream enabled and a dedicated JetStream domain.
