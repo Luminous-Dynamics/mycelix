@@ -23,7 +23,7 @@ From the repository root:
 cargo test --manifest-path tools/myc-dir-fabric-nats-reference/Cargo.toml
 ```
 
-There are currently 18 authored unit tests. They have **not** been compiled or executed in the editing environment.
+There are currently 21 authored unit tests. They have **not** been compiled or executed in the editing environment.
 
 ## Explicit limits
 
