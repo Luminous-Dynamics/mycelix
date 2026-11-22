@@ -223,7 +223,7 @@
       "id": "MFG-PROC-001B-013",
       "description": "Third-party capacity evidence ref is preserved without promoting qualification",
       "expected_structural_state": "TypedOfferPresent",
-      "mutation": "capacity_claim_source=ThirdPartyEvidenceReferenced",
+      "mutation": "capacity_claim_source=ThirdPartyEvidenceReferenced;capacity_evidence_refs=[owner-native-inspection-evidence-ref]",
       "may_promote_to_qualified_capability": false,
       "may_claim_calendar_available": false,
       "may_claim_bookable_capacity": false,
