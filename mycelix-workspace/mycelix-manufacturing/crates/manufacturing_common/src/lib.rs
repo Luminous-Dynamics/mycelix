@@ -808,7 +808,7 @@ mod tests {
     #[test]
     fn typed_process_migration_fixture_corpus_is_frozen_and_fail_closed() {
         let fixture: serde_json::Value = serde_json::from_str(include_str!(
-            "../../tests/fixtures/mfg_proc_001a_typed_process_refs_v0_1.json"
+            "../../../tests/fixtures/mfg_proc_001a_typed_process_refs_v0_1.json"
         ))
         .expect("typed process migration fixture JSON must parse");
 
