@@ -52,6 +52,8 @@ struct Pathway {
     pathway_id: String,
     origin_class: String,
     origin_evidence_status: String,
+    root_flow_expressions: Vec<String>,
+    root_flow_expression_evidence_status: String,
     connectivity_evidence_status: String,
     start_node_id: String,
     end_node_id: String,
@@ -88,6 +90,8 @@ struct Report {
     origin_class_counts: BTreeMap<String, usize>,
     root_origin_evidence_resolved_count: usize,
     root_origin_unresolved_count: usize,
+    root_flow_expression_counts: BTreeMap<String, usize>,
+    root_flow_expression_unresolved_count: usize,
     direct_3d_connectivity_count: usize,
     endpoint_graph_component_count: usize,
     warnings: Vec<String>,
@@ -107,6 +111,16 @@ struct Controls {
 
 fn is_root_origin(origin: &str) -> bool {
     matches!(origin, "live_root_channel" | "legacy_root_channel")
+}
+
+fn is_root_flow_expression(value: &str) -> bool {
+    matches!(
+        value,
+        "shallow_root_network_dominated"
+            | "vertical_root_controlled"
+            | "interface_guided"
+            | "legacy_root_biopore_dominated"
+    )
 }
 
 fn valid_sha256(value: &str) -> bool {
@@ -268,6 +282,54 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 p.pathway_id
             ));
         }
+        let mut expressions = BTreeSet::new();
+        for expression in &p.root_flow_expressions {
+            if !is_root_flow_expression(expression) || !expressions.insert(expression) {
+                return Err(format!(
+                    "pathway {} has an unsupported or duplicate root-flow expression",
+                    p.pathway_id
+                ));
+            }
+        }
+        if is_root_origin(&p.origin_class) {
+            if !matches!(
+                p.root_flow_expression_evidence_status.as_str(),
+                "directly_observed_3d"
+                    | "directly_observed_2d"
+                    | "historical_trace"
+                    | "model_inferred"
+                    | "synthetic_truth"
+                    | "unresolved"
+            ) {
+                return Err(format!(
+                    "root pathway {} has invalid root-flow expression evidence status",
+                    p.pathway_id
+                ));
+            }
+            if p.root_flow_expression_evidence_status != "unresolved"
+                && p.root_flow_expressions.is_empty()
+            {
+                return Err(format!(
+                    "root pathway {} needs an expression or explicit unresolved status",
+                    p.pathway_id
+                ));
+            }
+            if p.root_flow_expression_evidence_status == "directly_observed_3d"
+                && s.observation_support.dimension != "volumetric_3d"
+            {
+                return Err(format!(
+                    "2D observation support cannot certify a 3D root-flow expression for {}",
+                    p.pathway_id
+                ));
+            }
+        } else if !p.root_flow_expressions.is_empty()
+            || p.root_flow_expression_evidence_status != "not_applicable"
+        {
+            return Err(format!(
+                "non-root pathway {} cannot carry root-flow expressions",
+                p.pathway_id
+            ));
+        }
         for (name, value) in [
             ("length_m", p.length_m),
             ("mean_diameter_m", p.mean_diameter_m),
@@ -382,6 +444,8 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
     let mut counts = BTreeMap::new();
     let mut root_resolved = 0usize;
     let mut root_unresolved = 0usize;
+    let mut root_flow_expression_counts = BTreeMap::new();
+    let mut root_flow_expression_unresolved = 0usize;
     let mut direct_3d = 0usize;
     let mut warnings = Vec::new();
 
@@ -396,6 +460,14 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
             } else {
                 root_unresolved += 1;
             }
+        }
+        if p.root_flow_expression_evidence_status == "unresolved" {
+            root_flow_expression_unresolved += 1;
+        }
+        for expression in &p.root_flow_expressions {
+            *root_flow_expression_counts
+                .entry(expression.clone())
+                .or_insert(0usize) += 1;
         }
         if s.observation_support.dimension == "volumetric_3d"
             && matches!(
@@ -412,6 +484,9 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
     }
     if root_unresolved > 0 {
         warnings.push("some root-origin pathways remain morphology-only or unresolved".into());
+    }
+    if root_flow_expression_unresolved > 0 {
+        warnings.push("some root-flow structural expressions remain unresolved".into());
     }
     if s.pathways
         .iter()
@@ -432,6 +507,8 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
         origin_class_counts: counts,
         root_origin_evidence_resolved_count: root_resolved,
         root_origin_unresolved_count: root_unresolved,
+        root_flow_expression_counts,
+        root_flow_expression_unresolved_count: root_flow_expression_unresolved,
         direct_3d_connectivity_count: direct_3d,
         endpoint_graph_component_count: endpoint_component_count(s),
         warnings,
