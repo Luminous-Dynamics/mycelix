@@ -204,6 +204,29 @@ async fn create_committed_postgres_effect(
         .await
         .expect("create test protected balance");
 
+    let epoch_authority_receipt = [0x66_u8; 32];
+    let physical_fencing_receipt = [0x77_u8; 32];
+    let epoch_transition = transaction
+        .query_one(
+            "SELECT accepted_owner_epoch, accepted_generation \
+             FROM myc_effect_owner.advance_effect_owner_epoch( \
+               $1, $2, $3, $4, 2, $5, $6)",
+            &[
+                &realm,
+                &resource,
+                &action,
+                &owner,
+                &&epoch_authority_receipt[..],
+                &&physical_fencing_receipt[..],
+            ],
+        )
+        .await
+        .expect("advance owner epoch with test authority and physical-fence receipt commitments");
+    let transitioned_epoch: i64 = epoch_transition.get(0);
+    let transitioned_generation: i64 = epoch_transition.get(1);
+    assert_eq!(transitioned_epoch, 2);
+    assert_eq!(transitioned_generation, 2);
+
     transaction
         .query_one(
             "SELECT myc_effect_owner.install_worker_claim( \
@@ -229,7 +252,7 @@ async fn create_committed_postgres_effect(
             "SELECT replayed, effect_id::text, accepted_owner_epoch, accepted_generation, \
                     accepted_worker_id, accepted_claim_epoch, execution_attestation_id::text \
              FROM myc_effect_owner.apply_owner_epoch_claim_fenced_balance_delta( \
-               $1, $2, $3, $4, $5, $6, 1, 1, $7, $8, $9, $10, $11, 100, \
+               $1, $2, $3, $4, $5, $6, 2, 2, $7, $8, $9, $10, $11, 100, \
                $12, 1, $13, 'postgres-db-clock-v1', \
                clock_timestamp() - interval '1 minute', \
                clock_timestamp() + interval '1 hour')",
@@ -261,8 +284,8 @@ async fn create_committed_postgres_effect(
     assert!(!replayed, "first physical effect attempt must not be a replay");
     assert!(!effect_id.is_empty());
     assert!(!execution_attestation_id.is_empty());
-    assert_eq!(accepted_owner_epoch, 1);
-    assert_eq!(accepted_generation, 1);
+    assert_eq!(accepted_owner_epoch, 2);
+    assert_eq!(accepted_generation, 2);
     assert_eq!(accepted_worker_id, worker);
     assert_eq!(accepted_claim_epoch, 1);
     transaction
@@ -287,8 +310,8 @@ async fn create_committed_postgres_effect(
         logical_operation_id: operation,
         idempotency_digest: idempotency,
         effect_owner_id: owner,
-        owner_epoch: 1,
-        resource_generation: 1,
+        owner_epoch: 2,
+        resource_generation: 2,
     }
 }
 
