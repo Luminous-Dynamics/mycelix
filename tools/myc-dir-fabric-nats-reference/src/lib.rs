@@ -22,6 +22,7 @@ pub enum NatsContractError {
     ZeroMaxAckPending,
     ZeroMaxDeliver,
     ZeroDuplicateWindow,
+    InvalidCurrencyCode,
 }
 
 fn check_identifier(value: &str) -> Result<(), NatsContractError> {
@@ -49,6 +50,12 @@ fn append_identifier(bytes: &mut Vec<u8>, value: &str) -> Result<(), NatsContrac
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NatsCommandBindingInput {
     pub account_id: String,
+    /// Exact PostgreSQL effect-owner authority scope.
+    pub realm_id: String,
+    pub resource_id: String,
+    pub action_id: String,
+    pub object_id: String,
+    pub currency_code: String,
     pub stream_name: String,
     pub subject: String,
     pub consumer_name: String,
@@ -67,6 +74,11 @@ pub struct NatsCommandBindingInput {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NatsCommandBinding {
     account_id: String,
+    realm_id: String,
+    resource_id: String,
+    action_id: String,
+    object_id: String,
+    currency_code: String,
     stream_name: String,
     subject: String,
     consumer_name: String,
@@ -85,6 +97,10 @@ impl NatsCommandBinding {
     pub fn new(input: NatsCommandBindingInput) -> Result<Self, NatsContractError> {
         for value in [
             input.account_id.as_str(),
+            input.realm_id.as_str(),
+            input.resource_id.as_str(),
+            input.action_id.as_str(),
+            input.object_id.as_str(),
             input.stream_name.as_str(),
             input.subject.as_str(),
             input.consumer_name.as_str(),
@@ -93,6 +109,11 @@ impl NatsCommandBinding {
             input.effect_owner_id.as_str(),
         ] {
             check_identifier(value)?;
+        }
+        if input.currency_code.len() != 3
+            || !input.currency_code.bytes().all(|byte| byte.is_ascii_uppercase())
+        {
+            return Err(NatsContractError::InvalidCurrencyCode);
         }
         if [
             input.payload_digest,
@@ -114,6 +135,11 @@ impl NatsCommandBinding {
 
         Ok(Self {
             account_id: input.account_id,
+            realm_id: input.realm_id,
+            resource_id: input.resource_id,
+            action_id: input.action_id,
+            object_id: input.object_id,
+            currency_code: input.currency_code,
             stream_name: input.stream_name,
             subject: input.subject,
             consumer_name: input.consumer_name,
@@ -131,6 +157,21 @@ impl NatsCommandBinding {
 
     pub fn account_id(&self) -> &str {
         &self.account_id
+    }
+    pub fn realm_id(&self) -> &str {
+        &self.realm_id
+    }
+    pub fn resource_id(&self) -> &str {
+        &self.resource_id
+    }
+    pub fn action_id(&self) -> &str {
+        &self.action_id
+    }
+    pub fn object_id(&self) -> &str {
+        &self.object_id
+    }
+    pub fn currency_code(&self) -> &str {
+        &self.currency_code
     }
     pub fn stream_name(&self) -> &str {
         &self.stream_name
@@ -166,6 +207,11 @@ impl NatsCommandBinding {
         let mut bytes = b"MYC-DIR-NATS-JETSTREAM-COMMAND\0\x01".to_vec();
         for value in [
             self.account_id.as_str(),
+            self.realm_id.as_str(),
+            self.resource_id.as_str(),
+            self.action_id.as_str(),
+            self.object_id.as_str(),
+            self.currency_code.as_str(),
             self.stream_name.as_str(),
             self.subject.as_str(),
             self.consumer_name.as_str(),
@@ -190,6 +236,11 @@ impl NatsCommandBinding {
     /// stable; authority and fence freshness are revalidated separately.
     pub fn same_logical_effect(&self, other: &Self) -> bool {
         self.logical_operation_id == other.logical_operation_id
+            && self.realm_id == other.realm_id
+            && self.resource_id == other.resource_id
+            && self.action_id == other.action_id
+            && self.object_id == other.object_id
+            && self.currency_code == other.currency_code
             && self.idempotency_digest == other.idempotency_digest
             && self.effect_owner_id == other.effect_owner_id
             && self.payload_digest == other.payload_digest
@@ -566,6 +617,11 @@ mod tests {
     fn binding(message_id: &str) -> NatsCommandBinding {
         NatsCommandBinding::new(NatsCommandBindingInput {
             account_id: "account-a".into(),
+            realm_id: "realm-a".into(),
+            resource_id: "resource-a".into(),
+            action_id: "balance-adjust".into(),
+            object_id: "account-a".into(),
+            currency_code: "USD".into(),
             stream_name: "MYCELIX_COMMANDS".into(),
             subject: "mycelix.command.resource-a".into(),
             consumer_name: "effect-workers".into(),
