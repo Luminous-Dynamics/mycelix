@@ -1,6 +1,13 @@
 name: Energy Assurance Core
 
 on:
+  push:
+    branches: [research/energy-grid-assurance-core-v0.1-20261122]
+    paths:
+      - "mycelix-energy/Cargo.toml"
+      - "mycelix-energy/Cargo.lock"
+      - "mycelix-energy/crates/energy-assurance-core/**"
+      - ".github/workflows/energy-assurance-core.yml"
   pull_request:
     branches: [main]
     paths:
