@@ -188,7 +188,23 @@
       "subject": "process_registry_entry",
       "expected_state": "OwnerObjectUnavailable",
       "may_satisfy_typed_matching": false
+    },
+    {
+      "id": "MFG-PROC-001A-015",
+      "description": "Registry entry directly superseding its own exact process object is rejected",
+      "subject": "process_registry_entry",
+      "mutation": "supersedes_process_ref.object_id_blake3=process_definition_ref.object_id_blake3",
+      "expected_state": "TypedReferenceMalformed",
+      "may_satisfy_typed_matching": false
+    },
+    {
+      "id": "MFG-PROC-001A-016",
+      "description": "A multi-record supersession cycle cannot be resolved by the pointer-only v0.1 registry; remain unverified",
+      "subject": "process_registry_graph",
+      "expected_state": "OwnerObjectUnavailable",
+      "reachable_in_v0_1": false,
+      "may_satisfy_typed_matching": false
     }
   ],
-  "claim_ceiling": "All fixtures are synthetic contract examples. The Symthaea source API is pinned to an open draft commit and has not been qualified on current main. No external object is fetched/authenticated here; no process, resource, machine or manufacturing route is qualified. Even OwnerObjectVerified is unreachable in this tranche."
+  "claim_ceiling": "All fixtures are synthetic contract examples. The Symthaea source API is pinned to an open draft commit and has not been qualified on current main. No external object is fetched/authenticated here; no process, resource, machine or manufacturing route is qualified. Even OwnerObjectVerified is unreachable in this tranche. Direct self-supersession is rejected, but multi-record supersession cycles are not checked without owner-object resolution."
 }
