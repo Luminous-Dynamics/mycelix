@@ -25,8 +25,7 @@ use futures_util::StreamExt;
 use myc_dir_fabric_nats_reference::{
     assess_ack_confirmation, assess_delivery, plan_acknowledgement, AckMode, AckPlan,
     BrokerAckAssessment, DurableOwnerDisposition, JetStreamAckConfirmation,
-    JetStreamDeliveryObservation, NatsCommandBinding, NatsCommandBindingInput,
-    NatsContractError,
+    JetStreamDeliveryObservation, NatsCommandBinding, NatsCommandBindingInput, NatsContractError,
 };
 use sha2::{Digest as ShaDigest, Sha256};
 
@@ -123,10 +122,7 @@ fn hex_decode_32(value: &str, header: &'static str) -> AdapterResult<[u8; 32]> {
     Ok(output)
 }
 
-fn header_text(
-    headers: &async_nats::HeaderMap,
-    name: &'static str,
-) -> AdapterResult<String> {
+fn header_text(headers: &async_nats::HeaderMap, name: &'static str) -> AdapterResult<String> {
     let mut values = headers.get_all(name);
     let first = values.next().ok_or(AdapterError::MissingHeader(name))?;
     if values.next().is_some() {
@@ -135,18 +131,12 @@ fn header_text(
     Ok(first.as_ref().to_owned())
 }
 
-fn header_digest(
-    headers: &async_nats::HeaderMap,
-    name: &'static str,
-) -> AdapterResult<[u8; 32]> {
+fn header_digest(headers: &async_nats::HeaderMap, name: &'static str) -> AdapterResult<[u8; 32]> {
     let value = header_text(headers, name)?;
     hex_decode_32(&value, name)
 }
 
-fn parse_u64_header(
-    headers: &async_nats::HeaderMap,
-    name: &'static str,
-) -> AdapterResult<u64> {
+fn parse_u64_header(headers: &async_nats::HeaderMap, name: &'static str) -> AdapterResult<u64> {
     header_text(headers, name)?
         .parse::<u64>()
         .map_err(|_| AdapterError::InvalidHeader(name))
@@ -201,7 +191,9 @@ impl JetStreamAdapterConfig {
             return Err(AdapterError::InvalidConfiguration("duplicate_window"));
         }
         if self.expected_stream_replicas == 0 || self.expected_stream_replicas > 5 {
-            return Err(AdapterError::InvalidConfiguration("expected_stream_replicas"));
+            return Err(AdapterError::InvalidConfiguration(
+                "expected_stream_replicas",
+            ));
         }
         if self.max_messages <= 0 {
             return Err(AdapterError::InvalidConfiguration("max_messages"));
@@ -280,9 +272,7 @@ impl VerifiedOwnerDisposition {
         verifier
             .verify_durable_disposition(binding, &disposition)
             .map_err(AdapterError::OwnerDispositionVerification)?;
-        let binding_bytes = binding
-            .canonical_bytes()
-            .map_err(AdapterError::Binding)?;
+        let binding_bytes = binding.canonical_bytes().map_err(AdapterError::Binding)?;
         Ok(Self {
             binding_digest: sha256(&binding_bytes),
             disposition,
@@ -336,7 +326,9 @@ impl ReceivedDelivery {
             return Err(AdapterError::VerifiedDispositionBindingMismatch);
         }
         let plan = plan_acknowledgement(&self.binding, &verified.disposition, mode);
-        let AckPlan::Acknowledge { disposition_digest, .. } = plan else {
+        let AckPlan::Acknowledge {
+            disposition_digest, ..
+        } = plan else {
             return Err(AdapterError::AckNotPermitted);
         };
 
@@ -390,10 +382,7 @@ pub struct JetStreamAdapter {
 }
 
 impl JetStreamAdapter {
-    pub fn new(
-        context: jetstream::Context,
-        config: JetStreamAdapterConfig,
-    ) -> AdapterResult<Self> {
+    pub fn new(context: jetstream::Context, config: JetStreamAdapterConfig) -> AdapterResult<Self> {
         config.validate()?;
         Ok(Self {
             context,
@@ -402,10 +391,7 @@ impl JetStreamAdapter {
         })
     }
 
-    pub async fn connect(
-        server_url: &str,
-        config: JetStreamAdapterConfig,
-    ) -> AdapterResult<Self> {
+    pub async fn connect(server_url: &str, config: JetStreamAdapterConfig) -> AdapterResult<Self> {
         let client = async_nats::connect(server_url)
             .await
             .map_err(|error| AdapterError::Nats(error.to_string()))?;
@@ -417,11 +403,17 @@ impl JetStreamAdapter {
     }
 
     fn verify_stream_profile(&self, actual: &stream::Config) -> AdapterResult<()> {
-        if !actual.subjects.iter().any(|subject| subject == &self.config.subject) {
+        if !actual
+            .subjects
+            .iter()
+            .any(|subject| subject == &self.config.subject)
+        {
             return Err(AdapterError::StreamConfigurationMismatch("subjects"));
         }
         if actual.duplicate_window != self.config.duplicate_window {
-            return Err(AdapterError::StreamConfigurationMismatch("duplicate_window"));
+            return Err(AdapterError::StreamConfigurationMismatch(
+                "duplicate_window",
+            ));
         }
         if actual.num_replicas != self.config.expected_stream_replicas {
             return Err(AdapterError::StreamConfigurationMismatch("num_replicas"));
@@ -456,9 +448,7 @@ impl JetStreamAdapter {
         {
             return Err(AdapterError::ConsumerConfigurationMismatch("identity"));
         }
-        if actual.config.durable_name.as_deref()
-            != Some(self.config.durable_consumer.as_str())
-        {
+        if actual.config.durable_name.as_deref() != Some(self.config.durable_consumer.as_str()) {
             return Err(AdapterError::ConsumerConfigurationMismatch("durable_name"));
         }
         if actual.config.ack_policy != AckPolicy::Explicit {
@@ -468,13 +458,17 @@ impl JetStreamAdapter {
             return Err(AdapterError::ConsumerConfigurationMismatch("ack_wait"));
         }
         if actual.config.max_ack_pending != self.config.max_ack_pending {
-            return Err(AdapterError::ConsumerConfigurationMismatch("max_ack_pending"));
+            return Err(AdapterError::ConsumerConfigurationMismatch(
+                "max_ack_pending",
+            ));
         }
         if actual.config.max_deliver != self.config.max_deliver {
             return Err(AdapterError::ConsumerConfigurationMismatch("max_deliver"));
         }
         if actual.config.filter_subject != self.config.subject {
-            return Err(AdapterError::ConsumerConfigurationMismatch("filter_subject"));
+            return Err(AdapterError::ConsumerConfigurationMismatch(
+                "filter_subject",
+            ));
         }
         Ok(())
     }
@@ -537,11 +531,7 @@ impl JetStreamAdapter {
 
         input.payload_digest = sha256(payload);
         let binding = NatsCommandBinding::new(input.clone()).map_err(AdapterError::Binding)?;
-        let binding_digest = sha256(
-            &binding
-                .canonical_bytes()
-                .map_err(AdapterError::Binding)?,
-        );
+        let binding_digest = sha256(&binding.canonical_bytes().map_err(AdapterError::Binding)?);
 
         let message = PublishMessage::build()
             .payload(Bytes::copy_from_slice(payload))
@@ -550,8 +540,14 @@ impl JetStreamAdapter {
             .header(HEADER_PUBLICATION_ID, &input.nats_message_id)
             .header(HEADER_LOGICAL_OPERATION, &input.logical_operation_id)
             .header(HEADER_REQUEST_DIGEST, hex_encode(&input.request_digest))
-            .header(HEADER_DECISION_DIGEST, hex_encode(&input.decision_receipt_digest))
-            .header(HEADER_IDEMPOTENCY_DIGEST, hex_encode(&input.idempotency_digest))
+            .header(
+                HEADER_DECISION_DIGEST,
+                hex_encode(&input.decision_receipt_digest),
+            )
+            .header(
+                HEADER_IDEMPOTENCY_DIGEST,
+                hex_encode(&input.idempotency_digest),
+            )
             .header(HEADER_EFFECT_OWNER, &input.effect_owner_id)
             .header(HEADER_OWNER_EPOCH, input.owner_epoch.to_string())
             .header(
@@ -627,9 +623,7 @@ impl JetStreamAdapter {
             .info()
             .map_err(|error| AdapterError::Nats(error.to_string()))?;
 
-        if info.stream != self.config.stream_name
-            || info.consumer != self.config.durable_consumer
-        {
+        if info.stream != self.config.stream_name || info.consumer != self.config.durable_consumer {
             return Err(AdapterError::AccountScopeMismatch);
         }
         if self
@@ -701,11 +695,8 @@ impl JetStreamAdapter {
             resource_generation,
         };
         let binding = NatsCommandBinding::new(input).map_err(AdapterError::Binding)?;
-        let computed_binding_digest = sha256(
-            &binding
-                .canonical_bytes()
-                .map_err(AdapterError::Binding)?,
-        );
+        let computed_binding_digest =
+            sha256(&binding.canonical_bytes().map_err(AdapterError::Binding)?);
         if computed_binding_digest != declared_binding_digest {
             return Err(AdapterError::BindingDigestMismatch);
         }
@@ -792,7 +783,9 @@ mod tests {
         value.expected_stream_replicas = 0;
         assert!(matches!(
             value.validate(),
-            Err(AdapterError::InvalidConfiguration("expected_stream_replicas"))
+            Err(AdapterError::InvalidConfiguration(
+                "expected_stream_replicas"
+            ))
         ));
     }
 
@@ -802,7 +795,9 @@ mod tests {
         value.expected_stream_replicas = 6;
         assert!(matches!(
             value.validate(),
-            Err(AdapterError::InvalidConfiguration("expected_stream_replicas"))
+            Err(AdapterError::InvalidConfiguration(
+                "expected_stream_replicas"
+            ))
         ));
     }
 
@@ -880,7 +875,10 @@ mod tests {
     fn hex_digest_round_trips_without_loss() {
         let expected = [0xabu8; 32];
         let encoded = hex_encode(&expected);
-        assert_eq!(hex_decode_32(&encoded, HEADER_PAYLOAD_DIGEST).unwrap(), expected);
+        assert_eq!(
+            hex_decode_32(&encoded, HEADER_PAYLOAD_DIGEST).unwrap(),
+            expected
+        );
     }
 
     #[test]
@@ -936,7 +934,8 @@ mod tests {
             effect_owner_id: "postgres-owner-a".into(),
             owner_epoch: 2,
             resource_generation: 5,
-        }).unwrap()
+        })
+        .unwrap()
     }
 
     fn test_disposition() -> DurableOwnerDisposition {
@@ -955,18 +954,19 @@ mod tests {
             test_disposition(),
             &RejectOwnerDisposition,
         );
-        assert!(matches!(result, Err(AdapterError::OwnerDispositionVerification(_))));
+        assert!(matches!(
+            result,
+            Err(AdapterError::OwnerDispositionVerification(_))
+        ));
     }
 
     #[test]
     fn verified_owner_disposition_is_bound_to_exact_command() {
         let first = test_binding("message-a");
         let second = test_binding("message-b");
-        let verified = VerifiedOwnerDisposition::verify(
-            &first,
-            test_disposition(),
-            &AcceptOwnerDisposition,
-        ).unwrap();
+        let verified =
+            VerifiedOwnerDisposition::verify(&first, test_disposition(), &AcceptOwnerDisposition)
+                .unwrap();
         assert!(verified.is_for_binding(&first).unwrap());
         assert!(!verified.is_for_binding(&second).unwrap());
     }
