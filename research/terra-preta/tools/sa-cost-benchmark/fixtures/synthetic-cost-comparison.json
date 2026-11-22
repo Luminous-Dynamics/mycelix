@@ -1,0 +1,324 @@
+{
+  "schema_version": "sa-soil-decision-cost-v0.1",
+  "fixture_status": "synthetic_strategy_costs_and_outcomes_not_market_quote",
+  "evidence_class": "synthetic",
+  "scenario_id": "manufactured-100ha-soil-decision-cost-bakeoff",
+  "comparison_area_ha": 100,
+  "eligible_decisions": 100,
+  "reference_positive_count": 35,
+  "reference_negative_count": 65,
+  "strategies": [
+    {
+      "strategy_id": "all-laboratory",
+      "strategy_family": "all_reference_lab",
+      "description": "Manufactured full-lab comparison. Costs are synthetic, not current supplier tariffs or actual paid invoices.",
+      "sample_count": 100,
+      "decision_counts": {
+        "true_positive": 34,
+        "true_negative": 62,
+        "false_positive": 3,
+        "false_negative": 1,
+        "unresolved_positive": 0,
+        "unresolved_negative": 0
+      },
+      "cost_components": [
+        {
+          "category": "site_access_travel",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 4,
+          "unit": "visit",
+          "unit_cost_zar": 450,
+          "method_scope": "Synthetic travel/access allowance per field visit."
+        },
+        {
+          "category": "sampling_labour",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 20,
+          "unit": "sample",
+          "unit_cost_zar": 55,
+          "method_scope": "Synthetic sampling labour cost per sample."
+        },
+        {
+          "category": "sample_preparation",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 20,
+          "unit": "sample",
+          "unit_cost_zar": 20,
+          "method_scope": "Synthetic prep cost per sample; not a current quote."
+        },
+        {
+          "category": "sensor_or_laboratory_assay",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 20,
+          "unit": "sample",
+          "unit_cost_zar": 180,
+          "method_scope": "Synthetic soil fertility laboratory panel price; method equivalence not asserted."
+        },
+        {
+          "category": "instrument_capital_depreciation",
+          "status": "not_applicable",
+          "evidence_class": "synthetic_assumption",
+          "not_applicable_reason": "Assumed included in the purchased laboratory service tariff for this synthetic scenario; no separate capital charge is modelled."
+        },
+        {
+          "category": "calibration_quality_control",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 1,
+          "unit": "batch",
+          "unit_cost_zar": 320,
+          "method_scope": "Synthetic reference standards and batch QC allowance."
+        },
+        {
+          "category": "transport_courier",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 2,
+          "unit": "visit",
+          "unit_cost_zar": 250,
+          "method_scope": "Synthetic courier/transport allowance per shipment."
+        },
+        {
+          "category": "analysis_reporting",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 4,
+          "unit": "hour",
+          "unit_cost_zar": 220,
+          "method_scope": "Synthetic interpretation and report labour."
+        },
+        {
+          "category": "compute_storage",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 1,
+          "unit": "campaign",
+          "unit_cost_zar": 60,
+          "method_scope": "Synthetic data and storage allocation."
+        },
+        {
+          "category": "repeats_retests",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 2,
+          "unit": "sample",
+          "unit_cost_zar": 180,
+          "method_scope": "Synthetic retest allowance at the synthetic assay price."
+        }
+      ]
+    },
+    {
+      "strategy_id": "nir-only",
+      "strategy_family": "nir_only",
+      "description": "Manufactured NIR-only comparison under an assumed calibration domain. This does not assert actual NIR accuracy.",
+      "sample_count": 100,
+      "decision_counts": {
+        "true_positive": 28,
+        "true_negative": 57,
+        "false_positive": 8,
+        "false_negative": 7,
+        "unresolved_positive": 0,
+        "unresolved_negative": 0
+      },
+      "cost_components": [
+        {
+          "category": "site_access_travel",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 4,
+          "unit": "visit",
+          "unit_cost_zar": 450,
+          "method_scope": "Synthetic travel/access allowance per field visit."
+        },
+        {
+          "category": "sampling_labour",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 20,
+          "unit": "sample",
+          "unit_cost_zar": 55,
+          "method_scope": "Synthetic sampling labour per sample."
+        },
+        {
+          "category": "sample_preparation",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 20,
+          "unit": "sample",
+          "unit_cost_zar": 20,
+          "method_scope": "Synthetic drying/grinding/preparation allowance per sample."
+        },
+        {
+          "category": "sensor_or_laboratory_assay",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 20,
+          "unit": "scan",
+          "unit_cost_zar": 35,
+          "method_scope": "Synthetic handheld NIR acquisition cost per scan."
+        },
+        {
+          "category": "instrument_capital_depreciation",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 20,
+          "unit": "scan",
+          "unit_cost_zar": 12,
+          "method_scope": "Synthetic instrument depreciation allocation per scan."
+        },
+        {
+          "category": "calibration_quality_control",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 1,
+          "unit": "batch",
+          "unit_cost_zar": 620,
+          "method_scope": "Synthetic reference/transfer standards, checks and batch QC."
+        },
+        {
+          "category": "transport_courier",
+          "status": "not_applicable",
+          "evidence_class": "synthetic_assumption",
+          "not_applicable_reason": "Assumed onsite acquisition in this synthetic scenario; no courier cost is modelled."
+        },
+        {
+          "category": "analysis_reporting",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 5,
+          "unit": "hour",
+          "unit_cost_zar": 220,
+          "method_scope": "Synthetic model analysis and reporting."
+        },
+        {
+          "category": "compute_storage",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 1,
+          "unit": "campaign",
+          "unit_cost_zar": 95,
+          "method_scope": "Synthetic model/data storage allocation."
+        },
+        {
+          "category": "repeats_retests",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 2,
+          "unit": "scan",
+          "unit_cost_zar": 35,
+          "method_scope": "Synthetic repeat scan cost."
+        }
+      ]
+    },
+    {
+      "strategy_id": "nir-plus-confirmation",
+      "strategy_family": "uncertainty_referral",
+      "description": "Manufactured NIR-first workflow with synthetic confirmation and residual errors. The single assay category line is an aggregate synthetic package estimate.",
+      "sample_count": 100,
+      "decision_counts": {
+        "true_positive": 32,
+        "true_negative": 61,
+        "false_positive": 4,
+        "false_negative": 2,
+        "unresolved_positive": 1,
+        "unresolved_negative": 0
+      },
+      "cost_components": [
+        {
+          "category": "site_access_travel",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 4,
+          "unit": "visit",
+          "unit_cost_zar": 450,
+          "method_scope": "Synthetic travel/access allowance per field visit."
+        },
+        {
+          "category": "sampling_labour",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 20,
+          "unit": "sample",
+          "unit_cost_zar": 55,
+          "method_scope": "Synthetic sampling labour per sample."
+        },
+        {
+          "category": "sample_preparation",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 20,
+          "unit": "sample",
+          "unit_cost_zar": 20,
+          "method_scope": "Synthetic preparation allowance per sample."
+        },
+        {
+          "category": "sensor_or_laboratory_assay",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 20,
+          "unit": "scan",
+          "unit_cost_zar": 35,
+          "method_scope": "Synthetic NIR screening cost per scan; 4 confirmations included separately as additional quantity lines are not represented in v0.1 single-line-per-category."
+        },
+        {
+          "category": "instrument_capital_depreciation",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 20,
+          "unit": "scan",
+          "unit_cost_zar": 12,
+          "method_scope": "Synthetic scanner capital allocation."
+        },
+        {
+          "category": "calibration_quality_control",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 1,
+          "unit": "batch",
+          "unit_cost_zar": 620,
+          "method_scope": "Synthetic local reference and QA allowance."
+        },
+        {
+          "category": "transport_courier",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 1,
+          "unit": "visit",
+          "unit_cost_zar": 250,
+          "method_scope": "Synthetic confirmatory sample courier allowance."
+        },
+        {
+          "category": "analysis_reporting",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 5,
+          "unit": "hour",
+          "unit_cost_zar": 220,
+          "method_scope": "Synthetic interpretation and report labour."
+        },
+        {
+          "category": "compute_storage",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 1,
+          "unit": "campaign",
+          "unit_cost_zar": 95,
+          "method_scope": "Synthetic data storage allocation."
+        },
+        {
+          "category": "repeats_retests",
+          "status": "priced",
+          "evidence_class": "synthetic_assumption",
+          "quantity": 2,
+          "unit": "sample",
+          "unit_cost_zar": 180,
+          "method_scope": "Synthetic confirmatory repeat test allowance."
+        }
+      ]
+    }
+  ]
+}
