@@ -346,7 +346,10 @@ impl Redemption {
         &mut self,
         reconciliation_reference: String,
     ) -> Result<(), AssuranceError> {
-        if !matches!(self.state, RedemptionState::PayoutSubmitted | RedemptionState::PayoutUnknown) {
+        if !matches!(
+            self.state,
+            RedemptionState::PayoutSubmitted | RedemptionState::PayoutUnknown
+        ) {
             return Err(AssuranceError::InvalidRedemptionState {
                 expected: RedemptionState::PayoutUnknown,
                 actual: self.state,
@@ -458,7 +461,12 @@ mod tests {
     fn unconfirmed_assets_contribute_zero_even_when_priced() {
         let mut asset = cash("unconfirmed-cash", 5_000_000);
         asset.independently_confirmed = false;
-        assert_eq!(asset.eligible_value_minor(ReservePolicy::default()).unwrap(), 0);
+        assert_eq!(
+            asset
+                .eligible_value_minor(ReservePolicy::default())
+                .unwrap(),
+            0
+        );
     }
 
     #[test]
@@ -591,6 +599,11 @@ mod tests {
     fn commercial_bank_deposits_are_not_automatically_central_bank_reserves() {
         let mut asset = cash("commercial-bank-balance", 100_000);
         asset.class = ReserveAssetClass::CommercialBankDeposit;
-        assert_eq!(asset.eligible_value_minor(ReservePolicy::default()).unwrap(), 0);
+        assert_eq!(
+            asset
+                .eligible_value_minor(ReservePolicy::default())
+                .unwrap(),
+            0
+        );
     }
 }
