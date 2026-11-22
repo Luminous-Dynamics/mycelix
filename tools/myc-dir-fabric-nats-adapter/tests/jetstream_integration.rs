@@ -210,7 +210,9 @@ async fn postgres_effect_commit_is_the_evidence_that_permits_jetstream_acksync()
 
     let verifier = PostgresEffectCommitVerifier::connect_with_ca(
         &std::env::var("POSTGRES_DSN").expect("POSTGRES_DSN is configured"),
-        std::env::var("POSTGRES_CA_FILE").expect("POSTGRES_CA_FILE is configured"),
+        PathBuf::from(
+            std::env::var("POSTGRES_CA_FILE").expect("POSTGRES_CA_FILE is configured"),
+        ),
     )
     .await
     .expect("construct CA-verified PostgreSQL effect verifier");
