@@ -455,7 +455,10 @@ fn pulse_burden(s: &Scenario, baseline: f64) -> PulseBurden {
         })
         .collect();
     if series.len() < 2 {
-        return PulseBurden { status: "missing_event_boundary", ..PulseBurden::default() };
+        return PulseBurden {
+            status: "missing_event_boundary",
+            ..PulseBurden::default()
+        };
     }
 
     let mut positive_area = 0.0;
