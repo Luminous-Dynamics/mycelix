@@ -88,7 +88,8 @@ pub fn register_machine(input: RegisterMachineInput) -> ExternResult<ActionHash>
     )?;
 
     // Link from machine type
-    let type_path = Path::from(format!("machine_type/{type_tag}")).typed(LinkTypes::TypeToMachines)?;
+    let type_path =
+        Path::from(format!("machine_type/{type_tag}")).typed(LinkTypes::TypeToMachines)?;
     type_path.ensure()?;
     create_link(
         type_path.path_entry_hash()?,
@@ -120,9 +121,9 @@ pub fn get_machine(hash: ActionHash) -> ExternResult<Option<Record>> {
 /// Update machine status (e.g., Available -> Running).
 #[hdk_extern]
 pub fn update_machine_status(input: UpdateMachineStatusInput) -> ExternResult<ActionHash> {
-    let record = get(input.machine_hash.clone(), GetOptions::default())?.ok_or(
-        wasm_error!(WasmErrorInner::Guest("Machine not found".to_string())),
-    )?;
+    let record = get(input.machine_hash.clone(), GetOptions::default())?.ok_or(wasm_error!(
+        WasmErrorInner::Guest("Machine not found".to_string())
+    ))?;
 
     let machine: MachineEntry = record
         .entry()
