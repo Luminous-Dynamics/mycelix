@@ -120,6 +120,9 @@ struct RankedAlternative {
     rank: f64,
 }
 
+type ScoredAlternative = (String, f64);
+type MethodScoreSet = (String, &'static str, &'static str, Vec<ScoredAlternative>);
+
 #[derive(Debug, Serialize)]
 struct PairwiseAgreement {
     method_a: String,
@@ -509,7 +512,7 @@ fn geometric_scores(s: &Scenario) -> Vec<(String, f64)> {
         .collect()
 }
 
-fn method_scores(s: &Scenario) -> Vec<(String, &'static str, &'static str, Vec<(String, f64)>)> {
+fn method_scores(s: &Scenario) -> Vec<MethodScoreSet> {
     let expert = s
         .weight_profiles
         .iter()
