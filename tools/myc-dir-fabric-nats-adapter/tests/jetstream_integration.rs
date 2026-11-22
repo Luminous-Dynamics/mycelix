@@ -214,6 +214,6 @@ async fn unacked_pull_is_redelivered_with_same_stream_sequence_and_higher_delive
     assert!(ack.broker_confirmed);
     assert_eq!(
         ack.assessment,
-        myc_dir_dir_not_used::placeholder()
+        myc_dir_fabric_nats_reference::BrokerAckAssessment::Confirmed
     );
 }
