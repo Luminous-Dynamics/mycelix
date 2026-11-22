@@ -1,0 +1,69 @@
+{
+  "schema_version": "0.1",
+  "benchmark_id": "ENERGY-ASSURANCE-CORE-QUAL-2026-11-22-001",
+  "status": "passed_for_pure_kernel_scope",
+  "created_on": "2026-11-22",
+  "repository": "Luminous-Dynamics/mycelix",
+  "pull_request": 6517,
+  "branch": "research/energy-grid-assurance-core-v0.1-20261122",
+  "tested_head_commit": "400f5ff0382bf6f409f2a41c287290b7c7d1902c",
+  "base_branch": "main",
+  "base_commit": "b42b5af299d575864ab3649ceaad8c8e963020ec",
+  "github_actions": {
+    "workflow": "Energy Assurance Core",
+    "workflow_run_id": 45002358868,
+    "run_url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/45002358868",
+    "job_id": 137146458042,
+    "job_url": "https://github.com/Luminous-Dynamics/mycelix/actions/runs/45002358868/job/137146458042",
+    "event": "push"
+  },
+  "source_blobs": {
+    "mycelix-energy/crates/energy-assurance-core/src/lib.rs": "1b24de9af4b601a822b1aeeed44e0664b3f709fd",
+    "mycelix-energy/Cargo.toml": "2d621bdf087615bff1c1bfc2a4ed49dee824cb73",
+    "mycelix-energy/Cargo.lock": "02ecc44f9c1c62f1bac4240a722c216ae0b307ad",
+    ".github/workflows/energy-assurance-core.yml": "b9e7d21c02c8f50b9965fb1c297585607589b945"
+  },
+  "environment": {
+    "rustc": "1.100.0",
+    "runner": "GitHub-hosted Ubuntu",
+    "toolchain": "stable"
+  },
+  "commands": [
+    "cargo fmt --manifest-path mycelix-energy/Cargo.toml --package energy-assurance-core -- --check",
+    "cargo test --locked --manifest-path mycelix-energy/Cargo.toml --package energy-assurance-core",
+    "git diff --quiet -- mycelix-energy/Cargo.lock"
+  ],
+  "results": {
+    "formatting": "passed",
+    "unit_tests": {
+      "passed": 25,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    "doc_tests": {
+      "passed": 0,
+      "failed": 0
+    },
+    "lockfile_unchanged": "passed"
+  },
+  "coverage": [
+    "meter interval ordering, calibration coverage, clock quality/drift and tamper state",
+    "cumulative meter monotonicity and sequence replay rejection",
+    "rated-capacity/time plausibility bound",
+    "simulation cannot be attested as verified production",
+    "producer cannot verify own claim",
+    "attestation bound to exact claim digest and claim evidence set",
+    "duplicate evidence digest rejection",
+    "offer fill quantity, expected revision, no oversell and exact retry",
+    "changed idempotency payload rejection",
+    "rail-final payment is distinct from unsupported, rejected, indeterminate and manual-attested outcomes"
+  ],
+  "limitations": [
+    "Qualification applies only to the pure energy-assurance-core crate and declared test corpus.",
+    "The kernel does not authenticate signatures, device keys, calibration certificates, verifier accreditation or Holochain action authorship.",
+    "The in-memory offer ledger models expected-version and idempotency semantics; it is not a distributed atomic reservation protocol.",
+    "No live bank/PSP integration, grid-code compliance, legal metrology determination, physical meter deployment or independent audit is claimed.",
+    "The existing Mycelix energy-grid coordinator/integrity paths remain subject to P0 issue #6516; this crate does not close those production-code gaps."
+  ]
+}
