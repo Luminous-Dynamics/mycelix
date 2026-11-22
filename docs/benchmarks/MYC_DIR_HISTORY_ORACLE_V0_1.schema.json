@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/MYC_DIR_HISTORY_ORACLE_V0_1.schema.json",
+  "title": "Mycelix Directory Fabric history oracle conformance corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile",
+    "version",
+    "status",
+    "claim_ceiling",
+    "verdicts",
+    "core_rule",
+    "required_repetitions",
+    "metrics",
+    "scenarios",
+    "comparator_methods",
+    "evidence_requirements"
+  ],
+  "properties": {
+    "profile": {
+      "const": "MYC-DIR-EFFECT-HISTORY-ORACLE-0.1"
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "const": "preregistered_not_executed"
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 80
+    },
+    "verdicts": {
+      "type": "array",
+      "const": [
+        "VALID",
+        "VIOLATION",
+        "INCONCLUSIVE"
+      ]
+    },
+    "core_rule": {
+      "type": "string",
+      "minLength": 50
+    },
+    "required_repetitions": {
+      "type": "integer",
+      "minimum": 10
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "unit",
+          "kind",
+          "target"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^HO-M[0-9]{2}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 3
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "performance",
+              "resource",
+              "correctness",
+              "diagnostic",
+              "capacity"
+            ]
+          },
+          "target": {
+            "type": [
+              "integer",
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 17,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "class",
+          "description",
+          "expected_verdict",
+          "finding_codes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^HO-[0-9]{3}$"
+          },
+          "class": {
+            "enum": [
+              "known_valid",
+              "known_violation",
+              "incomplete_evidence"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 30
+          },
+          "expected_verdict": {
+            "enum": [
+              "VALID",
+              "VIOLATION",
+              "INCONCLUSIVE"
+            ]
+          },
+          "finding_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "comparator_methods": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 20
+      }
+    },
+    "evidence_requirements": {
+      "type": "array",
+      "minItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 5
+      }
+    }
+  }
+}
