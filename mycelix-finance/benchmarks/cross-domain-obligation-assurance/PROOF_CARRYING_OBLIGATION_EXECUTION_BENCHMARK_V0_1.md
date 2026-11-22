@@ -150,7 +150,7 @@ Meter accuracy must be qualified against the actual device class, installation, 
 
 ### 5.3 Monetary and custody extension
 
-A currency claim must identify its issuer, redemption right, seniority, legal perimeter, custody model, eligible reserve definition, valuation time, encumbrances, and independent evidence. Keep productive assets and loan receivables separate from liquid redemption reserves unless the explicit liability structure and applicable law permit otherwise. Redemption and issuance must be idempotent and reconciled against external custody and payment facts.
+A currency claim must identify its issuer, redemption right, seniority, legal perimeter, custody model, eligible reserve definition, valuation time, encumbrances, and independent evidence. Keep productive assets and loan receivables separate from liquid redemption reserves unless the explicit liability structure and applicable law permit otherwise. Benchmark redemption under normal and stressed conditions, direct-claim enforceability, custody/intermediary failure, reserve concentration, asset-liability mismatch, and recovery/resolution plans. The FSB global stablecoin recommendations call for robust legal claims and timely redemption; for single-fiat-referenced arrangements they call for par redemption and reserves at least equal to outstanding stablecoins unless equivalent prudential safeguards apply. Redemption and issuance must be idempotent and reconciled against external custody and payment facts.
 
 ## 6. Industry comparison: compete on the missing boundary
 
@@ -159,9 +159,11 @@ Do not try to beat every specialist at its primary job. Integrate with them and 
 | Industry reference | What it demonstrates / standardizes | PCOE response |
 |---|---|---|
 | BIS Project Agorá | Controlled real-value wholesale multi-currency settlement exercise; July 2026 involved 28 institutions/central banks, around CHF 800,000 across 17 scenarios (30 transactions), with reported average initiation-to-settlement around 80 seconds | Do not claim to replace payment rails. Test compatible settlement adapters and add physical delivery, mandate, verifier independence, contract acceptance, and evidence-to-payment reconciliation |
+| FSB global stablecoin recommendations | Require accountable governance, disclosure, robust legal claims, timely redemption, and reserve/stabilisation or equivalent prudential safeguards; the FSB's 2025 review found implementation gaps and inconsistencies, especially for stablecoin arrangements | Measure reserve quality, encumbrance, legal redemption rights, stress-time redemption, recovery planning, transparent liabilities, and jurisdictional readiness—not just token supply arithmetic |
 | W3C Verifiable Credentials | A Recommendation for interoperable issuer/holder/verifier credential data and integrity mechanisms; VC Data Model 2.1 is a Working Draft as of 22 October 2026 | Reuse versioned credential profiles; separately qualify issuer authority, revocation, verifier competence, privacy and factual scope |
 | IETF OAuth delegation | RFC 8693 defines token exchange and delegation/impersonation semantics; RFC 9396 carries fine-grained authorization details | Use interoperable tokens where appropriate, but enforce attenuation, one-time effects, revocation freshness, and human approval in the execution boundary |
 | IFRS 9 | Forward-looking, probability-weighted, discounted expected credit-loss measurement using reasonable and supportable information | Extend beyond the one-period scalar helper; qualify staging, discounting, scenario weights, calibration and outcomes |
+| BCBS 239 risk-data principles | Emphasize accurate, complete and timely risk data and reporting, including end-to-end lineage and traceability | Test provenance from source observation through model feature, decision, ledger entry and regulatory report; reconcile lineage under stress and during ad-hoc reporting |
 | South African electricity market | Electricity Regulation Amendment Act 38 of 2024 commenced 1 January 2025 and provides for an open market platform and NTCSA-related functions | Treat market participation, licensing, wheeling, metering, and settlement as jurisdiction-specific legal/operational adapters; obtain NERSA and legal review before production claims |
 | Web4 Internet-Draft | An individual, informational Internet-Draft that proposes a verifiable, agent-native Web architecture; it is not an IETF-endorsed standard | Implement testable readiness profiles without claiming IETF conformance; use independent anchors, machine-readable interfaces, authority records, and disclosed curation |
 
@@ -215,6 +217,9 @@ Blocking issues to keep visible:
 ## 10. References
 
 - BIS, Project Agorá: https://www.bis.org/project/agora
+- FSB, High-level Recommendations for Global Stablecoin Arrangements: https://www.fsb.org/2023/07/high-level-recommendations-for-the-regulation-supervision-and-oversight-of-global-stablecoin-arrangements-final-report/
+- FSB, 2025 thematic review of crypto-asset/stablecoin implementation gaps: https://www.fsb.org/2025/10/fsb-finds-significant-gaps-and-inconsistencies-in-implementation-of-crypto-and-stablecoin-recommendations/
+- Basel Committee, BCBS 239 implementation monitoring: https://www.bis.org/publications/implementation-principles-effective-risk-data-aggregation-and-risk-reporting-bcbs-239-principles
 - IETF Datatracker, draft-reilly-web4-00 (individual Internet-Draft; not IETF-endorsed): https://datatracker.ietf.org/doc/draft-reilly-web4/
 - W3C, Verifiable Credentials Data Model v2.0 Recommendation: https://www.w3.org/TR/vc-data-model/
 - W3C, Verifiable Credentials Data Model v2.1 Working Draft history: https://www.w3.org/standards/history/vc-data-model-2.1/
