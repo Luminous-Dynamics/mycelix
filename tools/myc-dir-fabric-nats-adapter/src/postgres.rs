@@ -382,6 +382,117 @@ mod tests {
         .unwrap()
     }
 
+    fn binding() -> NatsCommandBinding {
+        NatsCommandBinding::new(myc_dir_fabric_nats_reference::NatsCommandBindingInput {
+            account_id: "test-account".into(),
+            realm_id: "realm-a".into(),
+            resource_id: "resource-a".into(),
+            action_id: "balance-adjust".into(),
+            object_id: "account-a".into(),
+            currency_code: "USD".into(),
+            stream_name: "MYCELIX_COMMANDS".into(),
+            subject: "mycelix.command.resource-a".into(),
+            consumer_name: "effect-workers".into(),
+            nats_message_id: "publication-a".into(),
+            payload_digest: digest(4),
+            request_digest: digest(2),
+            decision_receipt_digest: digest(3),
+            logical_operation_id: "operation-a".into(),
+            idempotency_digest: digest(1),
+            effect_owner_id: "owner-a".into(),
+            owner_epoch: 5,
+            resource_generation: 7,
+        })
+        .unwrap()
+    }
+
+    fn receipt_for(binding: &NatsCommandBinding) -> VerifiedPostgresEffectReceipt {
+        let effect_id = "7a1d28d8-5e9b-4a65-95dd-329816bfc33a".to_owned();
+        let realm_id = binding.realm_id().to_owned();
+        let resource_id = binding.resource_id().to_owned();
+        let action_id = binding.action_id().to_owned();
+        let effect_owner_id = binding.effect_owner_id().to_owned();
+        let object_id = binding.object_id().to_owned();
+        let currency_code = binding.currency_code().to_owned();
+        let logical_operation_id = binding.logical_operation_id().to_owned();
+        let accepted_generation = binding.owner_position().1;
+        let delta_minor = 100;
+        let balance_after_minor = 1100;
+        let idempotency_digest = *binding.idempotency_digest();
+        let request_digest = *binding.request_digest();
+        let decision_receipt_digest = *binding.decision_receipt_digest();
+        let payload_digest = *binding.payload_digest();
+        let effect_receipt_digest = canonical_effect_receipt_digest(
+            &effect_id,
+            &realm_id,
+            &resource_id,
+            &action_id,
+            &effect_owner_id,
+            &object_id,
+            &currency_code,
+            &logical_operation_id,
+            accepted_generation,
+            delta_minor,
+            balance_after_minor,
+            &idempotency_digest,
+            &request_digest,
+            &decision_receipt_digest,
+            &payload_digest,
+        )
+        .unwrap();
+        VerifiedPostgresEffectReceipt {
+            effect_id,
+            realm_id,
+            resource_id,
+            action_id,
+            effect_owner_id,
+            object_id,
+            currency_code,
+            logical_operation_id,
+            accepted_generation,
+            delta_minor,
+            balance_after_minor,
+            idempotency_digest,
+            request_digest,
+            decision_receipt_digest,
+            payload_digest,
+            effect_receipt_digest,
+        }
+    }
+
+    #[test]
+    fn exact_database_receipt_matches_the_full_command_binding() {
+        let binding = binding();
+        let receipt = receipt_for(&binding);
+        assert_eq!(validate_receipt_binding(&binding, &receipt), Ok(()));
+    }
+
+    #[test]
+    fn receipt_request_decision_payload_owner_and_generation_substitution_reject() {
+        let binding = binding();
+        let original = receipt_for(&binding);
+
+        let mut receipt = original.clone();
+        receipt.request_digest = digest(21);
+        assert!(validate_receipt_binding(&binding, &receipt).is_err());
+
+        let mut receipt = original.clone();
+        receipt.decision_receipt_digest = digest(22);
+        assert!(validate_receipt_binding(&binding, &receipt).is_err());
+
+        let mut receipt = original.clone();
+        receipt.payload_digest = digest(23);
+        assert!(validate_receipt_binding(&binding, &receipt).is_err());
+
+        let mut receipt = original.clone();
+        receipt.effect_owner_id = "owner-b".into();
+        assert!(validate_receipt_binding(&binding, &receipt).is_err());
+
+        let mut receipt = original;
+        receipt.accepted_generation += 1;
+        assert!(validate_receipt_binding(&binding, &receipt).is_err());
+    }
+
     #[test]
     fn canonical_receipt_digest_is_deterministic() {
         assert_eq!(receipt_digest(7, 1100), receipt_digest(7, 1100));
