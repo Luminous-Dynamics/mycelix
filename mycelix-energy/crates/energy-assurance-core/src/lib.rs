@@ -746,16 +746,25 @@ mod tests {
     #[test]
     fn simulation_cannot_be_attested_as_verified_production() {
         let claim = ProductionClaim {
-            claim_id: "claim-001".into(), claim_digest: [2; 32],
-            producer_id: "producer-001".into(), project_id: "project-001".into(), energy_wh: 1000,
-            source: ProductionSource::Simulation, evidence_digests: vec![[1; 32]],
+            claim_id: "claim-001".into(),
+            claim_digest: [2; 32],
+            producer_id: "producer-001".into(),
+            project_id: "project-001".into(),
+            energy_wh: 1000,
+            source: ProductionSource::Simulation,
+            evidence_digests: vec![[1; 32]],
         };
         let attestation = VerifierAttestation {
-            attestation_id: "attest-001".into(), claim_id: claim.claim_id.clone(),
-            claim_digest: [2; 32], verifier_id: "inspector-001".into(),
-            independently_qualified: true, conflicts_declared: false,
-            uncertainty: MeasurementUncertainty::Low, observation_digests: vec![[3; 32]],
-            scope: "interval-output".into(), result: VerificationResult::VerifiedForScope,
+            attestation_id: "attest-001".into(),
+            claim_id: claim.claim_id.clone(),
+            claim_digest: [2; 32],
+            verifier_id: "inspector-001".into(),
+            independently_qualified: true,
+            conflicts_declared: false,
+            uncertainty: MeasurementUncertainty::Low,
+            observation_digests: vec![[3; 32]],
+            scope: "interval-output".into(),
+            result: VerificationResult::VerifiedForScope,
         };
         assert_eq!(attestation.validate_against(&claim), Err(EnergyAssuranceError::ClaimNotMeterDerived));
     }
@@ -763,17 +772,25 @@ mod tests {
     #[test]
     fn attestation_must_bind_exact_claim_digest() {
         let claim = ProductionClaim {
-            claim_id: "claim-001".into(), claim_digest: [1; 32],
-            producer_id: "producer-001".into(), project_id: "project-001".into(),
-            energy_wh: 1000, source: ProductionSource::MeterDerived,
+            claim_id: "claim-001".into(),
+            claim_digest: [1; 32],
+            producer_id: "producer-001".into(),
+            project_id: "project-001".into(),
+            energy_wh: 1000,
+            source: ProductionSource::MeterDerived,
             evidence_digests: vec![[3; 32]],
         };
         let attestation = VerifierAttestation {
-            attestation_id: "attest-001".into(), claim_id: claim.claim_id.clone(),
-            claim_digest: [9; 32], verifier_id: "inspector-001".into(),
-            independently_qualified: true, conflicts_declared: false,
-            uncertainty: MeasurementUncertainty::Low, observation_digests: vec![[3; 32]],
-            scope: "interval-output".into(), result: VerificationResult::VerifiedForScope,
+            attestation_id: "attest-001".into(),
+            claim_id: claim.claim_id.clone(),
+            claim_digest: [9; 32],
+            verifier_id: "inspector-001".into(),
+            independently_qualified: true,
+            conflicts_declared: false,
+            uncertainty: MeasurementUncertainty::Low,
+            observation_digests: vec![[3; 32]],
+            scope: "interval-output".into(),
+            result: VerificationResult::VerifiedForScope,
         };
         assert_eq!(
             attestation.validate_against(&claim),
@@ -784,17 +801,25 @@ mod tests {
     #[test]
     fn attestation_cannot_reference_observations_outside_claim_evidence() {
         let claim = ProductionClaim {
-            claim_id: "claim-001".into(), claim_digest: [2; 32],
-            producer_id: "producer-001".into(), project_id: "project-001".into(),
-            energy_wh: 1000, source: ProductionSource::MeterDerived,
+            claim_id: "claim-001".into(),
+            claim_digest: [2; 32],
+            producer_id: "producer-001".into(),
+            project_id: "project-001".into(),
+            energy_wh: 1000,
+            source: ProductionSource::MeterDerived,
             evidence_digests: vec![[3; 32]],
         };
         let attestation = VerifierAttestation {
-            attestation_id: "attest-001".into(), claim_id: claim.claim_id.clone(),
-            claim_digest: [2; 32], verifier_id: "inspector-001".into(),
-            independently_qualified: true, conflicts_declared: false,
-            uncertainty: MeasurementUncertainty::Low, observation_digests: vec![[4; 32]],
-            scope: "interval-output".into(), result: VerificationResult::VerifiedForScope,
+            attestation_id: "attest-001".into(),
+            claim_id: claim.claim_id.clone(),
+            claim_digest: [2; 32],
+            verifier_id: "inspector-001".into(),
+            independently_qualified: true,
+            conflicts_declared: false,
+            uncertainty: MeasurementUncertainty::Low,
+            observation_digests: vec![[4; 32]],
+            scope: "interval-output".into(),
+            result: VerificationResult::VerifiedForScope,
         };
         assert_eq!(
             attestation.validate_against(&claim),
@@ -834,17 +859,25 @@ mod tests {
     #[test]
     fn producer_cannot_verify_own_claim() {
         let claim = ProductionClaim {
-            claim_id: "claim-001".into(), claim_digest: [2; 32],
-            producer_id: "producer-001".into(), project_id: "project-001".into(),
+            claim_id: "claim-001".into(),
+            claim_digest: [2; 32],
+            producer_id: "producer-001".into(),
+            project_id: "project-001".into(),
             energy_wh: 1000,
-            source: ProductionSource::MeterDerived, evidence_digests: vec![[1; 32]],
+            source: ProductionSource::MeterDerived,
+            evidence_digests: vec![[1; 32]],
         };
         let attestation = VerifierAttestation {
-            attestation_id: "attest-001".into(), claim_id: claim.claim_id.clone(),
-            claim_digest: [2; 32], verifier_id: claim.producer_id.clone(),
-            independently_qualified: true, conflicts_declared: false,
-            uncertainty: MeasurementUncertainty::Low, observation_digests: vec![[3; 32]],
-            scope: "interval-output".into(), result: VerificationResult::VerifiedForScope,
+            attestation_id: "attest-001".into(),
+            claim_id: claim.claim_id.clone(),
+            claim_digest: [2; 32],
+            verifier_id: claim.producer_id.clone(),
+            independently_qualified: true,
+            conflicts_declared: false,
+            uncertainty: MeasurementUncertainty::Low,
+            observation_digests: vec![[3; 32]],
+            scope: "interval-output".into(),
+            result: VerificationResult::VerifiedForScope,
         };
         assert_eq!(attestation.validate_against(&claim), Err(EnergyAssuranceError::ProducerCannotVerifyOwnClaim));
     }
@@ -852,17 +885,25 @@ mod tests {
     #[test]
     fn valid_independent_meter_attestation_passes_scope_checks() {
         let claim = ProductionClaim {
-            claim_id: "claim-001".into(), claim_digest: [2; 32],
-            producer_id: "producer-001".into(), project_id: "project-001".into(),
+            claim_id: "claim-001".into(),
+            claim_digest: [2; 32],
+            producer_id: "producer-001".into(),
+            project_id: "project-001".into(),
             energy_wh: 1000,
-            source: ProductionSource::MeterDerived, evidence_digests: vec![[1; 32]],
+            source: ProductionSource::MeterDerived,
+            evidence_digests: vec![[1; 32]],
         };
         let attestation = VerifierAttestation {
-            attestation_id: "attest-001".into(), claim_id: claim.claim_id.clone(),
-            claim_digest: [2; 32], verifier_id: "inspector-001".into(),
-            independently_qualified: true, conflicts_declared: false,
-            uncertainty: MeasurementUncertainty::Moderate, observation_digests: vec![[3; 32]],
-            scope: "interval-output".into(), result: VerificationResult::VerifiedForScope,
+            attestation_id: "attest-001".into(),
+            claim_id: claim.claim_id.clone(),
+            claim_digest: [2; 32],
+            verifier_id: "inspector-001".into(),
+            independently_qualified: true,
+            conflicts_declared: false,
+            uncertainty: MeasurementUncertainty::Moderate,
+            observation_digests: vec![[3; 32]],
+            scope: "interval-output".into(),
+            result: VerificationResult::VerifiedForScope,
         };
         assert_eq!(attestation.validate_against(&claim), Ok(()));
     }
@@ -984,8 +1025,13 @@ mod tests {
     #[test]
     fn only_external_rail_finality_can_mark_paid_final() {
         let mut settlement = TradeSettlement::new(
-            "trade-001".into(), "buyer-001".into(), "seller-001".into(), 100, "ZAR".into()
-        ).unwrap();
+            "trade-001".into(),
+            "buyer-001".into(),
+            "seller-001".into(),
+            100,
+            "ZAR".into(),
+        )
+        .unwrap();
         settlement.mark_submitted().unwrap();
         settlement
             .apply_rail_outcome(RailOutcome::PaidFinal {
@@ -995,16 +1041,25 @@ mod tests {
             .unwrap();
         assert_eq!(settlement.state(), SettlementState::PaidFinal);
         assert_eq!(settlement.rail_reference(), Some("bank-rail-123"));
-        assert_eq!(settlement.apply_rail_outcome(RailOutcome::PaidFinal {
-            rail_reference: "duplicate".into(), finality_policy_ref: "policy".into()
-        }), Err(EnergyAssuranceError::InvalidSettlementTransition));
+        assert_eq!(
+            settlement.apply_rail_outcome(RailOutcome::PaidFinal {
+                rail_reference: "duplicate".into(),
+                finality_policy_ref: "policy".into()
+            }),
+            Err(EnergyAssuranceError::InvalidSettlementTransition)
+        );
     }
 
     #[test]
     fn manual_attestation_remains_distinct_from_paid_final() {
         let mut settlement = TradeSettlement::new(
-            "trade-001".into(), "buyer-001".into(), "seller-001".into(), 100, "USD".into()
-        ).unwrap();
+            "trade-001".into(),
+            "buyer-001".into(),
+            "seller-001".into(),
+            100,
+            "USD".into(),
+        )
+        .unwrap();
         settlement
             .record_manual_attestation(ManualSettlementAttestation {
                 evidence_reference: "manual-evidence-001".into(),
@@ -1020,8 +1075,13 @@ mod tests {
     #[test]
     fn buyer_or_seller_cannot_be_manual_attestor() {
         let mut settlement = TradeSettlement::new(
-            "trade-001".into(), "buyer-001".into(), "seller-001".into(), 100, "USD".into()
-        ).unwrap();
+            "trade-001".into(),
+            "buyer-001".into(),
+            "seller-001".into(),
+            100,
+            "USD".into(),
+        )
+        .unwrap();
         let result = settlement.record_manual_attestation(ManualSettlementAttestation {
             evidence_reference: "manual-evidence-001".into(),
             attestor_ids: vec!["buyer-001".into(), "auditor-2".into()],
