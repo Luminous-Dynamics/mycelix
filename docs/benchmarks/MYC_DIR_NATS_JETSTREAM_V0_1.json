@@ -1,0 +1,283 @@
+{
+  "profile": "MYC-DIR-NATS-JETSTREAM-0.1",
+  "version": "0.1.0",
+  "status": "preregistered_not_executed",
+  "claim_ceiling": "Synthetic NATS JetStream adapter-contract corpus. The Rust reference has not connected to a NATS server or exercised a real JetStream client, consumer, PubAck, AckSync, redelivery, failover or downstream effect owner.",
+  "verdicts": [
+    "ELIGIBLE_FOR_OWNER_REVALIDATION",
+    "REJECT",
+    "ACK_ALLOWED",
+    "DO_NOT_ACK"
+  ],
+  "core_rule": "JetStream publication, stream metadata, delivery count, redelivery and consumer ACK are transport evidence only. A protected effect is authorized and deduplicated by the current worker claim, owner fence and durable effect-owner receipt.",
+  "required_repetitions": 10,
+  "workload_profiles": [
+    {
+      "id": "NJ-P01",
+      "offered_rate_messages_per_second": 100,
+      "workers": 1,
+      "backlog_messages": 1000,
+      "duplicate_window_seconds": 120,
+      "command_age_seconds": 0
+    },
+    {
+      "id": "NJ-P02",
+      "offered_rate_messages_per_second": 10000,
+      "workers": 32,
+      "backlog_messages": 100000,
+      "duplicate_window_seconds": 600,
+      "command_age_seconds": 60
+    },
+    {
+      "id": "NJ-P03",
+      "offered_rate_messages_per_second": 100000,
+      "workers": 256,
+      "backlog_messages": 1000000,
+      "duplicate_window_seconds": 3600,
+      "command_age_seconds": 3600
+    },
+    {
+      "id": "NJ-P04",
+      "offered_rate_messages_per_second": 100000,
+      "workers": 256,
+      "backlog_messages": 10000000,
+      "duplicate_window_seconds": 86400,
+      "command_age_seconds": 86400
+    },
+    {
+      "id": "NJ-P05",
+      "offered_rate_messages_per_second": 10000,
+      "workers": 32,
+      "backlog_messages": 1000000,
+      "duplicate_window_seconds": 120,
+      "command_age_seconds": 86400
+    }
+  ],
+  "metrics": [
+    {
+      "id": "NJ-M01",
+      "name": "stale_generation_effects_after_owner_ack",
+      "kind": "safety",
+      "unit": "effects",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M02",
+      "name": "stale_claim_effects",
+      "kind": "safety",
+      "unit": "effects",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M03",
+      "name": "duplicate_logical_effects",
+      "kind": "safety",
+      "unit": "effects",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M04",
+      "name": "ack_before_durable_disposition",
+      "kind": "safety",
+      "unit": "acks",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M05",
+      "name": "unknown_without_durable_handoff_acked",
+      "kind": "safety",
+      "unit": "acks",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M06",
+      "name": "puback_used_as_effect_receipt",
+      "kind": "safety",
+      "unit": "claims",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M07",
+      "name": "acksync_used_as_effect_receipt",
+      "kind": "safety",
+      "unit": "claims",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M08",
+      "name": "publish_to_puback_latency",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "hard_limit": null
+    },
+    {
+      "id": "NJ-M09",
+      "name": "delivery_to_owner_revalidation_latency",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "hard_limit": null
+    },
+    {
+      "id": "NJ-M10",
+      "name": "effect_commit_latency",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "hard_limit": null
+    },
+    {
+      "id": "NJ-M11",
+      "name": "consumer_ack_confirmation_latency",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "hard_limit": null
+    },
+    {
+      "id": "NJ-M12",
+      "name": "reconciliation_handoff_latency",
+      "kind": "recovery",
+      "unit": "milliseconds",
+      "hard_limit": null
+    },
+    {
+      "id": "NJ-M13",
+      "name": "oldest_message_age",
+      "kind": "performance",
+      "unit": "seconds",
+      "hard_limit": null
+    },
+    {
+      "id": "NJ-M14",
+      "name": "consumer_pending_ack_count",
+      "kind": "capacity",
+      "unit": "messages",
+      "hard_limit": null
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "NJ-001",
+      "class": "known_valid",
+      "description": "Exact account, stream, subject, Nats-Msg-Id and payload binding matches a delivery; it is eligible only for owner revalidation.",
+      "expected_outcome": "ELIGIBLE_FOR_OWNER_REVALIDATION"
+    },
+    {
+      "id": "NJ-002",
+      "class": "known_reject",
+      "description": "Account or NATS domain is substituted while the message ID and payload digest remain unchanged.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-003",
+      "class": "known_reject",
+      "description": "Stream name or subject is substituted to a privileged destination.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-004",
+      "class": "known_reject",
+      "description": "Application Nats-Msg-Id differs from the bound publication identity.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-005",
+      "class": "known_reject",
+      "description": "Payload digest differs from the exact command envelope.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-006",
+      "class": "known_valid",
+      "description": "The same Nats-Msg-Id is published inside the configured duplicate window and JetStream returns its broker deduplication PubAck.",
+      "expected_outcome": "BROKER_DEDUP_ONLY"
+    },
+    {
+      "id": "NJ-007",
+      "class": "known_valid",
+      "description": "The duplicate window expires and the same logical operation is republished with a new Nats-Msg-Id.",
+      "expected_outcome": "OWNER_IDEMPOTENCY_STILL_REQUIRED"
+    },
+    {
+      "id": "NJ-008",
+      "class": "known_valid",
+      "description": "An explicit-ACK consumer redelivers the same stream message after AckWait; delivery count increments but the owner claim epoch remains independent.",
+      "expected_outcome": "ELIGIBLE_FOR_OWNER_REVALIDATION"
+    },
+    {
+      "id": "NJ-009",
+      "class": "known_reject",
+      "description": "A delayed worker resumes after a newer durable worker claim epoch is installed.",
+      "expected_outcome": "OWNER_REJECTS_STALE_CLAIM"
+    },
+    {
+      "id": "NJ-010",
+      "class": "known_valid",
+      "description": "AckSync receives broker confirmation after a durable effect receipt has already been returned.",
+      "expected_outcome": "ACK_ALLOWED"
+    },
+    {
+      "id": "NJ-011",
+      "class": "known_reject",
+      "description": "AckSync confirmation is presented as proof that a downstream external effect committed.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-012",
+      "class": "known_reject",
+      "description": "A PubAck is presented as evidence that a worker executed or a protected effect committed.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-013",
+      "class": "known_reject",
+      "description": "The effect owner outcome remains Unknown and no durable reconciliation handoff exists.",
+      "expected_outcome": "DO_NOT_ACK"
+    },
+    {
+      "id": "NJ-014",
+      "class": "known_valid",
+      "description": "An Unknown attempt has a durable exact reconciliation handoff, so the broker message may be acknowledged while recovery remains pending.",
+      "expected_outcome": "ACK_ALLOWED"
+    },
+    {
+      "id": "NJ-015",
+      "class": "known_valid",
+      "description": "The owner returns a terminal durable rejection/quarantine receipt for an invalid or stale command.",
+      "expected_outcome": "ACK_ALLOWED"
+    },
+    {
+      "id": "NJ-016",
+      "class": "known_reject",
+      "description": "The consumer uses AckPolicy All or None where the reference contract requires explicit acknowledgements.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-017",
+      "class": "known_reject",
+      "description": "A worker uses InProgress to extend AckWait after its decision or claim validity expired and treats that as renewed authority.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-018",
+      "class": "known_valid",
+      "description": "The stream leader fails over and redelivery resolves to one owner-scoped effect receipt despite lost PubAck or consumer ACK responses.",
+      "expected_outcome": "OWNER_IDEMPOTENCY_STILL_REQUIRED"
+    }
+  ],
+  "comparator_methods": [
+    "NATS JetStream broker-native stream persistence, publisher de-duplication, explicit consumer acknowledgement and redelivery",
+    "RabbitMQ quorum queues with publisher confirms, manual acknowledgements and at-least-once dead-lettering under matched durability",
+    "Apache Kafka transactions for Kafka-managed offsets and output records under matched replication, with external effect owner separately instrumented",
+    "Mycelix NATS transport contract plus independently fenced PostgreSQL effect owner and history oracle"
+  ],
+  "evidence_requirements": [
+    "exact NATS server image/version and async-nats client version",
+    "stream, storage, replicas, retention, duplicate window and account configuration",
+    "consumer AckPolicy, AckWait, MaxAckPending, MaxDeliver and reconnect configuration",
+    "exact command payload, Nats-Msg-Id, stream sequence and consumer delivery traces",
+    "worker image, current claim epoch and owner fence evidence",
+    "PostgreSQL effect-owner schema, role/grant and commit receipt",
+    "raw PubAck, Ack/AckSync response and redelivery traces",
+    "exact event bundle and independent history-oracle verdict",
+    "10 independent open-loop repetitions and raw latency samples"
+  ]
+}
