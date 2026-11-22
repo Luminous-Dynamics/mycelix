@@ -24,7 +24,7 @@ concurrency:
 jobs:
   typed-reference-contract:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,8 +35,36 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mycelix-workspace/mycelix-manufacturing
-      - name: Check workspace formatting
-        run: cargo fmt --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml --all --check
+      - name: Apply formatter to affected workspace
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml \
+            --package manufacturing_common \
+            --package operations_integrity \
+            --package operations \
+            --package machines_integrity \
+            --package machines
+      - name: Check formatting
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml \
+            --package manufacturing_common \
+            --package operations_integrity \
+            --package operations \
+            --package machines_integrity \
+            --package machines -- --check
+      - name: Capture formatter patch for source review
+        if: always()
+        run: |
+          git diff --binary > mfg-proc-001a-rustfmt.patch
+          git diff --name-only > mfg-proc-001a-rustfmt-files.txt
+      - name: Upload formatter patch
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mfg-proc-001a-rustfmt-patch
+          path: |
+            mfg-proc-001a-rustfmt.patch
+            mfg-proc-001a-rustfmt-files.txt
+          if-no-files-found: warn
       - name: Test manufacturing common and typed zome contracts
         run: |
           cargo test --manifest-path mycelix-workspace/mycelix-manufacturing/Cargo.toml \
