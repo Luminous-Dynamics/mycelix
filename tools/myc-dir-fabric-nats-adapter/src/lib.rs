@@ -17,6 +17,7 @@ use async_nats::jetstream::{
     consumer::{self, AckPolicy},
     context::traits::Publisher,
     message::{Acker, PublishMessage},
+    stream::{DiscardPolicy, RetentionPolicy, StorageType},
     AckKind,
 };
 use bytes::Bytes;
@@ -158,6 +159,16 @@ pub struct JetStreamAdapterConfig {
     /// Exact stream-level duplicate tracking window.
     pub duplicate_window: Duration,
     pub expected_stream_replicas: usize,
+    /// Exact durable stream retention policy. Limits keeps acknowledged
+    /// messages available for independent audit/replay until configured limits.
+    pub expected_retention: RetentionPolicy,
+    /// Exact finite capacity. DiscardNew makes saturation visible to publishers
+    /// instead of deleting old unprocessed work.
+    pub max_messages: i64,
+    pub max_bytes: i64,
+    /// Exact maximum message age; the decision's own validity is still checked
+    /// independently at execution time.
+    pub max_age: Duration,
     /// Optional JetStream domain pin. If configured, every delivery must
     /// expose the same domain in its ADR-15 acknowledgement metadata.
     pub expected_domain: Option<String>,
@@ -187,6 +198,15 @@ impl JetStreamAdapterConfig {
         }
         if self.expected_stream_replicas == 0 || self.expected_stream_replicas > 5 {
             return Err(AdapterError::InvalidConfiguration("expected_stream_replicas"));
+        }
+        if self.max_messages <= 0 {
+            return Err(AdapterError::InvalidConfiguration("max_messages"));
+        }
+        if self.max_bytes <= 0 {
+            return Err(AdapterError::InvalidConfiguration("max_bytes"));
+        }
+        if self.max_age.is_zero() {
+            return Err(AdapterError::InvalidConfiguration("max_age"));
         }
         if self.ack_wait.is_zero() {
             return Err(AdapterError::InvalidConfiguration("ack_wait"));
@@ -364,6 +384,27 @@ impl JetStreamAdapter {
         }
         if stream_info.config.num_replicas != self.config.expected_stream_replicas {
             return Err(AdapterError::StreamConfigurationMismatch("num_replicas"));
+        }
+        if stream_info.config.storage != StorageType::File {
+            return Err(AdapterError::StreamConfigurationMismatch("storage"));
+        }
+        if stream_info.config.no_ack {
+            return Err(AdapterError::StreamConfigurationMismatch("no_ack"));
+        }
+        if stream_info.config.discard != DiscardPolicy::New {
+            return Err(AdapterError::StreamConfigurationMismatch("discard"));
+        }
+        if stream_info.config.retention != self.config.expected_retention {
+            return Err(AdapterError::StreamConfigurationMismatch("retention"));
+        }
+        if stream_info.config.max_messages != self.config.max_messages {
+            return Err(AdapterError::StreamConfigurationMismatch("max_messages"));
+        }
+        if stream_info.config.max_bytes != self.config.max_bytes {
+            return Err(AdapterError::StreamConfigurationMismatch("max_bytes"));
+        }
+        if stream_info.config.max_age != self.config.max_age {
+            return Err(AdapterError::StreamConfigurationMismatch("max_age"));
         }
 
         let mut consumer = stream
@@ -653,6 +694,10 @@ mod tests {
             durable_consumer: "mycelix-workers".into(),
             duplicate_window: Duration::from_secs(120),
             expected_stream_replicas: 1,
+            expected_retention: RetentionPolicy::Limits,
+            max_messages: 10_000,
+            max_bytes: 32 * 1024 * 1024,
+            max_age: Duration::from_secs(7 * 24 * 60 * 60),
             expected_domain: Some("MYCELIX".into()),
             expected_account_hash: None,
             ack_wait: Duration::from_secs(30),
@@ -704,6 +749,36 @@ mod tests {
         assert!(matches!(
             value.validate(),
             Err(AdapterError::InvalidConfiguration("expected_stream_replicas"))
+        ));
+    }
+
+    #[test]
+    fn zero_max_messages_is_rejected() {
+        let mut value = config();
+        value.max_messages = 0;
+        assert!(matches!(
+            value.validate(),
+            Err(AdapterError::InvalidConfiguration("max_messages"))
+        ));
+    }
+
+    #[test]
+    fn zero_max_bytes_is_rejected() {
+        let mut value = config();
+        value.max_bytes = 0;
+        assert!(matches!(
+            value.validate(),
+            Err(AdapterError::InvalidConfiguration("max_bytes"))
+        ));
+    }
+
+    #[test]
+    fn zero_max_age_is_rejected() {
+        let mut value = config();
+        value.max_age = Duration::ZERO;
+        assert!(matches!(
+            value.validate(),
+            Err(AdapterError::InvalidConfiguration("max_age"))
         ));
     }
 
