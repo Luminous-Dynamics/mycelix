@@ -12,6 +12,7 @@ members = [
     "zomes/grid/coordinator",
     "zomes/bridge/integrity",
     "zomes/bridge/coordinator",
+    "crates/energy-assurance-core",
 ]
 exclude = ["tests", "apps/tauri/src-tauri"]
 
