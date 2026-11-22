@@ -539,7 +539,10 @@ impl JetStreamAdapter {
             .message_id(&input.nats_message_id)
             .header(HEADER_VERSION, WIRE_VERSION)
             .header(HEADER_PUBLICATION_ID, input.nats_message_id.as_str())
-            .header(HEADER_LOGICAL_OPERATION, input.logical_operation_id.as_str())
+            .header(
+                HEADER_LOGICAL_OPERATION,
+                input.logical_operation_id.as_str(),
+            )
             .header(HEADER_REQUEST_DIGEST, hex_encode(&input.request_digest))
             .header(
                 HEADER_DECISION_DIGEST,
