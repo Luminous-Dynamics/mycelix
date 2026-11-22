@@ -74,7 +74,7 @@ pub fn create_operation(input: CreateOperationInput) -> ExternResult<ActionHash>
         setup_time_min: input.setup_time_min,
         cycle_time_min: input.cycle_time_min,
         tooling: input.tooling,
-        process_binding: input.process_binding,
+        process_binding: input.process_binding.map(Box::new),
     };
 
     let action_hash = create_entry(EntryTypes::Operation(entry))?;
@@ -124,7 +124,7 @@ pub fn create_routing(input: CreateRoutingInput) -> ExternResult<ActionHash> {
             setup_time_min: s.setup_time_min,
             cycle_time_min: s.cycle_time_min,
             description: s.description,
-            process_binding: s.process_binding,
+            process_binding: s.process_binding.map(Box::new),
         })
         .collect();
 
@@ -160,11 +160,11 @@ pub fn register_process_definition(
 ) -> ExternResult<ActionHash> {
     let now = sys_time()?;
     let entry = ProcessRegistryEntry {
-        process_definition_ref: input.process_definition_ref,
+        process_definition_ref: Box::new(input.process_definition_ref),
         display_label: input.display_label,
         tags: input.tags,
         status: input.status,
-        supersedes_process_ref: input.supersedes_process_ref,
+        supersedes_process_ref: input.supersedes_process_ref.map(Box::new),
         registered_at: now,
     };
     let action_hash = create_entry(EntryTypes::ProcessRegistry(entry))?;
