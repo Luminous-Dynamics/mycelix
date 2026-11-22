@@ -1,0 +1,33 @@
+{
+  "schema_version": "soil-active-sensing-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "evidence_class": "synthetic",
+  "scenario_id": "rewetting-change-without-response-pulse",
+  "public_contract": {
+    "horizon_minutes": 240,
+    "maximum_sample_count": 90,
+    "detection_delta_threshold": 1,
+    "maximum_integral_gap_minutes": 30
+  },
+  "sensor_model": {
+    "seed": 42,
+    "response_noise_sd": 0,
+    "moisture_noise_sd": 0,
+    "sensor_energy_nj_per_sample": 100,
+    "wake_energy_nj_per_sample": 25
+  },
+  "hidden_truth": {
+    "baseline_response": 10,
+    "baseline_moisture": 0.1,
+    "rewet_at_minute": 120,
+    "rewet_moisture": 0.22,
+    "pulse": null
+  },
+  "policy": {
+    "kind": "rewetting_triggered",
+    "normal_interval_minutes": 30,
+    "fast_interval_minutes": 1,
+    "rewetting_delta_threshold": 0.05,
+    "fast_window_minutes": 15
+  }
+}
