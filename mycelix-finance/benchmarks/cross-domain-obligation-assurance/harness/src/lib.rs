@@ -57,6 +57,7 @@ pub enum KernelError {
     DuplicateExternalReceipt,
     InvalidFinalityPolicy,
     InvalidReversal,
+    InvalidPaymentHistory,
     InvalidManualAttestation,
     DuplicateCollateral,
     DuplicateGeneration,
@@ -751,6 +752,123 @@ pub enum PaymentAuditEvent {
         reversal_receipt_id: String,
         reason_reference: String,
     },
+}
+
+/// Reconstructs a payment disposition from the original request and ordered
+/// append-only events. It does not trust the producer's stored aggregate status.
+pub fn replay_payment_history(
+    request: &PaymentRequest,
+    events: &[PaymentAuditEvent],
+) -> Result<PaymentStatus, KernelError> {
+    if request.obligation_id.is_empty()
+        || request.payer_id.is_empty()
+        || request.payee_id.is_empty()
+        || request.idempotency_key.is_empty()
+        || request.amount_minor == 0
+        || request.payer_id == request.payee_id
+        || events.is_empty()
+    {
+        return Err(KernelError::InvalidPaymentHistory);
+    }
+
+    let mut status: Option<PaymentStatus> = None;
+    for (index, event) in events.iter().enumerate() {
+        match event {
+            PaymentAuditEvent::IntentSubmitted { request_digest } => {
+                if index != 0 || status.is_some() || request_digest != &request.request_digest {
+                    return Err(KernelError::InvalidPaymentHistory);
+                }
+                status = Some(PaymentStatus::Submitted);
+            }
+            PaymentAuditEvent::OutcomeIndeterminate => {
+                if !matches!(
+                    status,
+                    Some(PaymentStatus::Submitted | PaymentStatus::Indeterminate)
+                ) {
+                    return Err(KernelError::InvalidPaymentHistory);
+                }
+                status = Some(PaymentStatus::Indeterminate);
+            }
+            PaymentAuditEvent::PaidFinal {
+                external_receipt_id,
+                finality_policy_reference,
+            } => {
+                if !matches!(
+                    status,
+                    Some(PaymentStatus::Submitted | PaymentStatus::Indeterminate)
+                ) || external_receipt_id.is_empty()
+                    || finality_policy_reference.is_empty()
+                {
+                    return Err(KernelError::InvalidPaymentHistory);
+                }
+                status = Some(PaymentStatus::PaidFinal {
+                    external_receipt_id: external_receipt_id.clone(),
+                    finality_policy_reference: finality_policy_reference.clone(),
+                });
+            }
+            PaymentAuditEvent::Rejected { external_receipt_id } => {
+                if !matches!(
+                    status,
+                    Some(PaymentStatus::Submitted | PaymentStatus::Indeterminate)
+                ) || external_receipt_id.is_empty()
+                {
+                    return Err(KernelError::InvalidPaymentHistory);
+                }
+                status = Some(PaymentStatus::Rejected {
+                    external_receipt_id: external_receipt_id.clone(),
+                });
+            }
+            PaymentAuditEvent::ManualAttested {
+                attestor_a,
+                attestor_b,
+                evidence_reference,
+            } => {
+                if status != Some(PaymentStatus::Indeterminate)
+                    || attestor_a.is_empty()
+                    || attestor_b.is_empty()
+                    || attestor_a == attestor_b
+                    || attestor_a == &request.payer_id
+                    || attestor_a == &request.payee_id
+                    || attestor_b == &request.payer_id
+                    || attestor_b == &request.payee_id
+                    || evidence_reference.is_empty()
+                {
+                    return Err(KernelError::InvalidPaymentHistory);
+                }
+                status = Some(PaymentStatus::ManualAttested {
+                    attestor_a: attestor_a.clone(),
+                    attestor_b: attestor_b.clone(),
+                    evidence_reference: evidence_reference.clone(),
+                });
+            }
+            PaymentAuditEvent::ReversalRecorded {
+                original_receipt_id,
+                reversal_receipt_id,
+                reason_reference,
+            } => {
+                let expected_original = match &status {
+                    Some(PaymentStatus::PaidFinal {
+                        external_receipt_id,
+                        ..
+                    }) => external_receipt_id,
+                    _ => return Err(KernelError::InvalidPaymentHistory),
+                };
+                if original_receipt_id != expected_original
+                    || reversal_receipt_id.is_empty()
+                    || reversal_receipt_id == original_receipt_id
+                    || reason_reference.is_empty()
+                {
+                    return Err(KernelError::InvalidPaymentHistory);
+                }
+                status = Some(PaymentStatus::Reversed {
+                    original_receipt_id: original_receipt_id.clone(),
+                    reversal_receipt_id: reversal_receipt_id.clone(),
+                    reason_reference: reason_reference.clone(),
+                });
+            }
+        }
+    }
+    status.ok_or(KernelError::InvalidPaymentHistory)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2316,6 +2434,93 @@ mod tests {
         assert_eq!(
             ledger.begin(request),
             Ok(BeginPayment::ExactReplay(reversed))
+        );
+    }
+
+    #[test]
+    fn independent_replay_reconstructs_paid_then_reversed_payment_history() {
+        let mut ledger = PaymentLedger::default();
+        let request = payment_request("key-1", 10_000, 1);
+        ledger.begin(request.clone()).unwrap();
+        ledger
+            .reconcile(
+                "key-1",
+                RailOutcome::PaidFinal(receipt(&request, "rail-payment-1")),
+            )
+            .unwrap();
+        ledger
+            .record_reversal(
+                "key-1",
+                ReversalReceipt {
+                    external_reversal_id: "rail-reversal-1".into(),
+                    original_payment_receipt_id: "rail-payment-1".into(),
+                    obligation_id: request.obligation_id.clone(),
+                    payer_id: request.payer_id.clone(),
+                    payee_id: request.payee_id.clone(),
+                    amount_minor: request.amount_minor,
+                    currency: request.currency.clone(),
+                    request_digest: request.request_digest,
+                    reason_reference: "chargeback-reason-1".into(),
+                    authentication_verified: true,
+                },
+            )
+            .unwrap();
+        let reconstructed =
+            replay_payment_history(&request, ledger.events_for("key-1").unwrap()).unwrap();
+        assert_eq!(Some(&reconstructed), ledger.status("key-1"));
+    }
+
+    #[test]
+    fn independent_replay_rejects_impossible_or_mutated_payment_histories() {
+        let request = payment_request("key-1", 10_000, 1);
+        let missing_start = vec![PaymentAuditEvent::PaidFinal {
+            external_receipt_id: "receipt-1".into(),
+            finality_policy_reference: "rail-finality/v1".into(),
+        }];
+        assert_eq!(
+            replay_payment_history(&request, &missing_start),
+            Err(KernelError::InvalidPaymentHistory)
+        );
+        let wrong_digest = vec![PaymentAuditEvent::IntentSubmitted {
+            request_digest: digest(99),
+        }];
+        assert_eq!(
+            replay_payment_history(&request, &wrong_digest),
+            Err(KernelError::InvalidPaymentHistory)
+        );
+        let reversal_before_payment = vec![
+            PaymentAuditEvent::IntentSubmitted {
+                request_digest: request.request_digest,
+            },
+            PaymentAuditEvent::OutcomeIndeterminate,
+            PaymentAuditEvent::ReversalRecorded {
+                original_receipt_id: "payment-1".into(),
+                reversal_receipt_id: "reversal-1".into(),
+                reason_reference: "reason-1".into(),
+            },
+        ];
+        assert_eq!(
+            replay_payment_history(&request, &reversal_before_payment),
+            Err(KernelError::InvalidPaymentHistory)
+        );
+        let manual_promoted_to_paid = vec![
+            PaymentAuditEvent::IntentSubmitted {
+                request_digest: request.request_digest,
+            },
+            PaymentAuditEvent::OutcomeIndeterminate,
+            PaymentAuditEvent::ManualAttested {
+                attestor_a: "observer-a".into(),
+                attestor_b: "observer-b".into(),
+                evidence_reference: "manual-evidence".into(),
+            },
+            PaymentAuditEvent::PaidFinal {
+                external_receipt_id: "payment-1".into(),
+                finality_policy_reference: "rail-finality/v1".into(),
+            },
+        ];
+        assert_eq!(
+            replay_payment_history(&request, &manual_promoted_to_paid),
+            Err(KernelError::InvalidPaymentHistory)
         );
     }
 
