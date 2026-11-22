@@ -1,0 +1,490 @@
+{
+  "schema_id": "mycelix.manufacturing.mfg-proc-001b.resource-offers.v0_1",
+  "evidence_class": "synthetic",
+  "fixture_protocol": "For each case, deep-clone base_offer and apply mutations in order as JSON Merge Patch-style path replacements. external_resolution_overrides are harness facts, not payload mutations. additional_records add sibling offer records for cross-record conflict cases.",
+  "source_contracts": {
+    "process_definition": "Luminous-Dynamics/symthaea#5701@0b3feb49a3c2e9c1c1748ca2a0c0ff40ed320ecd",
+    "typed_reference_consumer": "Luminous-Dynamics/mycelix#6531",
+    "provider_identity": "Luminous-Dynamics/mycelix mycelix-identity DID registry (owner-native reference only)",
+    "machine_registry": "Luminous-Dynamics/mycelix mycelix-workspace/mycelix-manufacturing machine registry (owner-native reference only)"
+  },
+  "base_offer": {
+    "schema_id": "mycelix.manufacturing.resource_offer.v0_1",
+    "schema_version": "0.1.0",
+    "offer_id": "offer:fixture:ldprint-n1-001",
+    "offer_revision": 1,
+    "provider_ref": {
+      "owner_repository": "synthetic-fixture/only",
+      "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "owner_contract": "fixture-only-resource-owner",
+      "owner_schema_id": "urn:fixture:owner-object.v0.1",
+      "owner_schema_version": "0.1.0",
+      "object_type": "provider-did",
+      "object_id": "did:mycelix:fixture-provider-001",
+      "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "signer_ref": {
+      "owner_repository": "synthetic-fixture/only",
+      "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "owner_contract": "fixture-only-resource-owner",
+      "owner_schema_id": "urn:fixture:owner-object.v0.1",
+      "owner_schema_version": "0.1.0",
+      "object_type": "provider-did",
+      "object_id": "did:mycelix:fixture-signer-001",
+      "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "resource_ref": {
+      "owner_repository": "synthetic-fixture/only",
+      "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "owner_contract": "fixture-only-resource-owner",
+      "owner_schema_id": "urn:fixture:owner-object.v0.1",
+      "owner_schema_version": "0.1.0",
+      "object_type": "machine-entry",
+      "object_id": "machine-action-fixture-001",
+      "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "site_ref": {
+      "owner_repository": "synthetic-fixture/only",
+      "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "owner_contract": "fixture-only-resource-owner",
+      "owner_schema_id": "urn:fixture:owner-object.v0.1",
+      "owner_schema_version": "0.1.0",
+      "object_type": "site",
+      "object_id": "site-fixture-n1-001",
+      "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "process_definition_ref": {
+      "owner_repository": "Luminous-Dynamics/symthaea",
+      "owner_commit": "0b3feb49a3c2e9c1c1748ca2a0c0ff40ed320ecd",
+      "contract_crate": "symthaea-manufacturing-process",
+      "contract_type": "ProcessDefinitionV1",
+      "object_id_blake3": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "process_id_blake3": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_version": "1.0.0"
+    },
+    "capability_profile_ref": {
+      "owner_repository": "Luminous-Dynamics/symthaea",
+      "owner_commit": "0b3feb49a3c2e9c1c1748ca2a0c0ff40ed320ecd",
+      "contract_crate": "symthaea-manufacturing-contracts",
+      "contract_type": "ProcessCapabilityProfileV1",
+      "object_id_blake3": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "process_id_blake3": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_version": "1.0.0"
+    },
+    "configuration_ref": {
+      "owner_repository": "synthetic-fixture/only",
+      "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "owner_contract": "fixture-only-resource-owner",
+      "owner_schema_id": "urn:fixture:owner-object.v0.1",
+      "owner_schema_version": "0.1.0",
+      "object_type": "machine-configuration",
+      "object_id": "ld-print-config-fixture-001",
+      "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "tooling_refs": [
+      {
+        "owner_repository": "synthetic-fixture/only",
+        "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+        "owner_contract": "fixture-only-resource-owner",
+        "owner_schema_id": "urn:fixture:owner-object.v0.1",
+        "owner_schema_version": "0.1.0",
+        "object_type": "tooling",
+        "object_id": "fixture-jig-001",
+        "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    ],
+    "material_applicability_refs": [
+      {
+        "owner_repository": "synthetic-fixture/only",
+        "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+        "owner_contract": "fixture-only-resource-owner",
+        "owner_schema_id": "urn:fixture:owner-object.v0.1",
+        "owner_schema_version": "0.1.0",
+        "object_type": "material-family",
+        "object_id": "polymer-material-family-001",
+        "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    ],
+    "environment_prerequisite_refs": [
+      {
+        "owner_repository": "synthetic-fixture/only",
+        "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+        "owner_contract": "fixture-only-resource-owner",
+        "owner_schema_id": "urn:fixture:owner-object.v0.1",
+        "owner_schema_version": "0.1.0",
+        "object_type": "environment",
+        "object_id": "ventilated-enclosed-zone-001",
+        "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    ],
+    "utility_prerequisite_refs": [
+      {
+        "owner_repository": "synthetic-fixture/only",
+        "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+        "owner_contract": "fixture-only-resource-owner",
+        "owner_schema_id": "urn:fixture:owner-object.v0.1",
+        "owner_schema_version": "0.1.0",
+        "object_type": "utility",
+        "object_id": "electrical-service-001",
+        "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    ],
+    "operator_competence_refs": [
+      {
+        "owner_repository": "synthetic-fixture/only",
+        "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+        "owner_contract": "fixture-only-resource-owner",
+        "owner_schema_id": "urn:fixture:owner-object.v0.1",
+        "owner_schema_version": "0.1.0",
+        "object_type": "competence",
+        "object_id": "trained-fdm-operator-001",
+        "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    ],
+    "qualification_evidence_refs": [],
+    "inspection_evidence_refs": [
+      {
+        "owner_repository": "synthetic-fixture/only",
+        "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+        "owner_contract": "fixture-only-resource-owner",
+        "owner_schema_id": "urn:fixture:owner-object.v0.1",
+        "owner_schema_version": "0.1.0",
+        "object_type": "inspection-profile",
+        "object_id": "dimensional-inspection-profile-001",
+        "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    ],
+    "calibration_evidence_refs": [
+      {
+        "owner_repository": "synthetic-fixture/only",
+        "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+        "owner_contract": "fixture-only-resource-owner",
+        "owner_schema_id": "urn:fixture:owner-object.v0.1",
+        "owner_schema_version": "0.1.0",
+        "object_type": "calibration",
+        "object_id": "calibration-profile-001",
+        "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    ],
+    "declared_capacity": {
+      "quantity": 10,
+      "unit": "parts",
+      "period_seconds": 86400,
+      "basis_ref": {
+        "owner_repository": "synthetic-fixture/only",
+        "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+        "owner_contract": "fixture-only-resource-owner",
+        "owner_schema_id": "urn:fixture:owner-object.v0.1",
+        "owner_schema_version": "0.1.0",
+        "object_type": "capacity-basis",
+        "object_id": "capacity-basis-fixture-001",
+        "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "assertion_class": "provider_declared"
+    },
+    "calendar_source_ref": {
+      "owner_repository": "synthetic-fixture/only",
+      "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "owner_contract": "fixture-only-resource-owner",
+      "owner_schema_id": "urn:fixture:owner-object.v0.1",
+      "owner_schema_version": "0.1.0",
+      "object_type": "calendar-source",
+      "object_id": "calendar-fixture-001",
+      "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "commercial_terms_ref": null,
+    "validity": {
+      "issued_at": "2026-11-22T12:00:00Z",
+      "valid_from": "2026-11-22T12:00:00Z",
+      "valid_until": "2026-12-22T12:00:00Z"
+    },
+    "supersedes_offer_ref": null,
+    "declaration": {
+      "signature_ref": {
+        "owner_repository": "synthetic-fixture/only",
+        "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+        "owner_contract": "fixture-only-resource-owner",
+        "owner_schema_id": "urn:fixture:owner-object.v0.1",
+        "owner_schema_version": "0.1.0",
+        "object_type": "signature",
+        "object_id": "signature-fixture-001",
+        "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "signed_payload_digest_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "assertion_basis": "provider_declared",
+      "verification_state": "unverified"
+    },
+    "publication_state": "Published",
+    "lifecycle_event_refs": []
+  },
+  "cases": [
+    {
+      "id": "MFG-PROC-001B-001",
+      "description": "Well-formed provider offer remains DeclaredOnly; signature, refs, qualification, calendar and capacity need independent resolution",
+      "mutations": [],
+      "expected": {
+        "offer_state": "DeclaredOnly",
+        "capability_qualified": false,
+        "calendar_available": false,
+        "bookable": false,
+        "reserved": false,
+        "executed": false
+      }
+    },
+    {
+      "id": "MFG-PROC-001B-002",
+      "description": "Published offer with declared capacity but no calendar reference is not bookable",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/calendar_source_ref",
+          "value": null
+        }
+      ],
+      "expected": {
+        "offer_state": "DeclaredOnly",
+        "capability_qualified": false,
+        "calendar_available": false,
+        "bookable": false
+      }
+    },
+    {
+      "id": "MFG-PROC-001B-003",
+      "description": "Published offer with calendar but no declared capacity has no quantity commitment",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/declared_capacity",
+          "value": null
+        }
+      ],
+      "expected": {
+        "offer_state": "CalendarClaimOnly",
+        "bookable": false
+      }
+    },
+    {
+      "id": "MFG-PROC-001B-004",
+      "description": "Provider DID and signer are structurally referenced but signature verification is unverified",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/declaration/verification_state",
+          "value": "unverified"
+        }
+      ],
+      "expected": {
+        "offer_state": "DeclarationUnverified",
+        "provider_authority_verified": false
+      }
+    },
+    {
+      "id": "MFG-PROC-001B-005",
+      "description": "Process definition and capability profile point to different process IDs",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/capability_profile_ref/process_id_blake3",
+          "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        }
+      ],
+      "expected": {
+        "offer_state": "Unresolved",
+        "capability_qualified": false
+      }
+    },
+    {
+      "id": "MFG-PROC-001B-006",
+      "description": "Process reference pins an unsupported Symthaea source commit",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/process_definition_ref/owner_commit",
+          "value": "ffffffffffffffffffffffffffffffffffffffff"
+        }
+      ],
+      "expected": {
+        "offer_state": "Unresolved",
+        "capability_qualified": false
+      }
+    },
+    {
+      "id": "MFG-PROC-001B-007",
+      "description": "Owner payloads are unavailable; typed pointers remain present and unresolved",
+      "mutations": [],
+      "external_resolution_overrides": {
+        "provider": "unavailable",
+        "resource": "unavailable",
+        "site": "unavailable",
+        "process": "unavailable",
+        "capability_profile": "unavailable"
+      },
+      "expected": {
+        "offer_state": "Unresolved",
+        "resource_resolved": false,
+        "site_resolved": false,
+        "process_resolved": false
+      }
+    },
+    {
+      "id": "MFG-PROC-001B-008",
+      "description": "Validity interval is expired; resolver derives Expired without mutating provider publication state",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/validity/valid_until",
+          "value": "2026-11-21T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "offer_state": "Expired",
+        "calendar_available": false,
+        "bookable": false
+      }
+    },
+    {
+      "id": "MFG-PROC-001B-009",
+      "description": "Provider issues a new immutable withdrawal declaration; withdrawn offers are not schedulable",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/publication_state",
+          "value": "Withdrawn"
+        }
+      ],
+      "expected": {
+        "offer_state": "Withdrawn",
+        "bookable": false
+      }
+    },
+    {
+      "id": "MFG-PROC-001B-010",
+      "description": "An external dispute event makes the offer projection Disputed; provider cannot self-label a dispute",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/lifecycle_event_refs",
+          "value": [
+            {
+              "owner_repository": "synthetic-fixture/only",
+              "owner_commit": "dddddddddddddddddddddddddddddddddddddddd",
+              "owner_contract": "fixture-only-resource-lifecycle",
+              "owner_schema_id": "urn:fixture:resource-dispute-event.v0.1",
+              "owner_schema_version": "0.1.0",
+              "object_type": "dispute-event",
+              "object_id": "dispute-event-fixture-001",
+              "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "offer_state": "Disputed",
+        "capability_qualified": false
+      },
+      "external_resolution_overrides": {
+        "dispute_event": "present_but_unverified"
+      }
+    },
+    {
+      "id": "MFG-PROC-001B-011",
+      "description": "A newer offer revision points to this immutable offer; supersession is derived cross-record",
+      "mutations": [],
+      "expected": {
+        "offer_state": "Superseded",
+        "bookable": false,
+        "superseded_by_newer_offer": true
+      },
+      "additional_records": [
+        {
+          "base_offer": true,
+          "overrides": {
+            "/offer_id": "offer:fixture:ldprint-n1-002",
+            "/offer_revision": 1,
+            "/supersedes_offer_ref": {
+              "owner_repository": "Luminous-Dynamics/mycelix",
+              "owner_commit": "8e83efbc50fedad2c75f204d371a1bb7e4088ead",
+              "owner_contract": "MFG-PROC-001B",
+              "owner_schema_id": "mycelix.manufacturing.resource_offer.v0_1",
+              "owner_schema_version": "0.1.0",
+              "object_type": "ManufacturingResourceOffer",
+              "object_id": "offer:fixture:ldprint-n1-001#1",
+              "content_digest_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "MFG-PROC-001B-012",
+      "description": "Missing commercial terms does not mean zero-cost or zero-feasibility",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/commercial_terms_ref",
+          "value": null
+        }
+      ],
+      "expected": {
+        "offer_state": "DeclaredOnly",
+        "commercial_cost": "Unknown",
+        "capability_qualified": false
+      }
+    },
+    {
+      "id": "MFG-PROC-001B-013",
+      "description": "Published capacity is a provider declaration, not reserved capacity",
+      "mutations": [],
+      "expected": {
+        "declared_capacity_only": true,
+        "reserved": false,
+        "executed": false
+      }
+    },
+    {
+      "id": "MFG-PROC-001B-014",
+      "description": "A calendar source is not proof of accepted booking or current available slot",
+      "mutations": [],
+      "expected": {
+        "calendar_reference_present": true,
+        "calendar_available": false,
+        "bookable": false,
+        "reserved": false
+      }
+    },
+    {
+      "id": "MFG-PROC-001B-015",
+      "description": "Provider assertion with third-party attestation reference is still unverified until reviewer/source authority checks pass",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/declaration/assertion_basis",
+          "value": "third_party_attestation_referenced"
+        }
+      ],
+      "expected": {
+        "offer_state": "DeclarationUnverified",
+        "third_party_attestation_verified": false
+      }
+    },
+    {
+      "id": "MFG-PROC-001B-016",
+      "description": "Duplicate physical resource across two independently published offers is a cross-record conflict and cannot be resolved by single-record JSON-schema validation",
+      "mutations": [],
+      "additional_records": [
+        {
+          "base_offer": true,
+          "overrides": {
+            "/offer_id": "offer:fixture:ldprint-n1-002",
+            "/offer_revision": 1
+          }
+        }
+      ],
+      "expected": {
+        "offer_state": "ResourceIdentityConflict",
+        "cross_record_validation_required": true
+      }
+    }
+  ],
+  "claim_ceiling": "Synthetic provider declarations only. Schema validity is structural. Owner refs, signatures, signer authority, capability qualification, expiry/dispute/supersession derivation, calendar availability, reservation, execution and accepted output require independent owner-specific resolution. A structurally valid offer can never self-assert Qualified, Available, Bookable, Reserved, Executed or Accepted."
+}
