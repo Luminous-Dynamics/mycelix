@@ -60,7 +60,12 @@
       "mean_diameter_m": 0.0025,
       "tortuosity": 1.3,
       "depth_min_m": 0.1,
-      "depth_max_m": 0.3
+      "depth_max_m": 0.3,
+      "root_flow_expressions": [
+        "shallow_root_network_dominated",
+        "interface_guided"
+      ],
+      "root_flow_expression_evidence_status": "synthetic_truth"
     },
     {
       "pathway_id": "p-root-legacy",
@@ -73,7 +78,11 @@
       "mean_diameter_m": 0.0035,
       "tortuosity": 1.2,
       "depth_min_m": 0.1,
-      "depth_max_m": 0.35
+      "depth_max_m": 0.35,
+      "root_flow_expressions": [
+        "legacy_root_biopore_dominated"
+      ],
+      "root_flow_expression_evidence_status": "synthetic_truth"
     },
     {
       "pathway_id": "p-crack",
@@ -86,7 +95,9 @@
       "mean_diameter_m": 0.004,
       "tortuosity": 1.05,
       "depth_min_m": 0,
-      "depth_max_m": 0.25
+      "depth_max_m": 0.25,
+      "root_flow_expressions": [],
+      "root_flow_expression_evidence_status": "not_applicable"
     },
     {
       "pathway_id": "p-finger",
@@ -99,7 +110,9 @@
       "mean_diameter_m": 0.001,
       "tortuosity": 1.5,
       "depth_min_m": 0.05,
-      "depth_max_m": 0.4
+      "depth_max_m": 0.4,
+      "root_flow_expressions": [],
+      "root_flow_expression_evidence_status": "not_applicable"
     }
   ],
   "snapshots": [
