@@ -198,7 +198,7 @@ fn validate(s: &Scenario) -> Result<(), String> {
     ) {
         return Err("unsupported interference status".into());
     }
-    if s.units.len() < 4 || s.units.len() % 2 != 0 {
+    if s.units.len() < 4 || !s.units.chunks_exact(2).remainder().is_empty() {
         return Err("complete-block trial requires at least four units and even unit count".into());
     }
 
