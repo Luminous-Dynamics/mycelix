@@ -11,6 +11,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+pub mod ingest;
+
 pub type Digest = [u8; 32];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -172,13 +174,27 @@ pub struct EventRecord {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HistoryEvidence {
     /// Exact canonical realm/resource/action scope for this one history.
-    pub scope_digest: Digest,
-    /// True only if the ingestion layer has verified that the event bundle is
-    /// complete for the declared interval and has checked source authenticity.
-    pub event_set_complete: bool,
-    /// Owners whose owner-local event streams are complete for this history.
-    pub complete_owner_streams: BTreeSet<String>,
-    pub events: Vec<EventRecord>,
+    /// Only the authenticated ingest module may construct a complete instance.
+    pub(crate) scope_digest: Digest,
+    /// Derived by the authenticated ingest module, never caller-supplied.
+    pub(crate) event_set_complete: bool,
+    /// Derived from exact verified owner-stream manifests.
+    pub(crate) complete_owner_streams: BTreeSet<String>,
+    pub(crate) events: Vec<EventRecord>,
+}
+
+impl HistoryEvidence {
+    pub fn scope_digest(&self) -> &Digest {
+        &self.scope_digest
+    }
+
+    pub fn event_count(&self) -> usize {
+        self.events.len()
+    }
+
+    pub fn complete_owner_ids(&self) -> impl Iterator<Item = &str> {
+        self.complete_owner_streams.iter().map(String::as_str)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

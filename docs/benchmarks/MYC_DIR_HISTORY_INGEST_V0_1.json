@@ -1,0 +1,328 @@
+{
+  "profile": "MYC-DIR-HISTORY-INGEST-0.1",
+  "version": "0.1.0",
+  "status": "preregistered_not_executed",
+  "claim_ceiling": "Synthetic authenticated-history-ingest conformance corpus. No production cryptographic verifier, source adapter, event store, broker, database, or ingest performance result has been executed or qualified.",
+  "verdicts": [
+    "READY",
+    "VIOLATION",
+    "INCONCLUSIVE"
+  ],
+  "core_rule": "Only exact, authenticated, complete source coverage may produce READY. Missing, unavailable, truncated or uncovered evidence must never be converted into a passing HistoryEvidence.",
+  "required_repetitions": 10,
+  "workload_profiles": [
+    {
+      "id": "HI-P01",
+      "events": 100,
+      "owner_streams": 1,
+      "offered_events_per_second": 100
+    },
+    {
+      "id": "HI-P02",
+      "events": 1000,
+      "owner_streams": 4,
+      "offered_events_per_second": 1000
+    },
+    {
+      "id": "HI-P03",
+      "events": 100000,
+      "owner_streams": 16,
+      "offered_events_per_second": 10000
+    },
+    {
+      "id": "HI-P04",
+      "events": 1000000,
+      "owner_streams": 64,
+      "offered_events_per_second": 100000
+    },
+    {
+      "id": "HI-P05",
+      "events": 10000000,
+      "owner_streams": 256,
+      "offered_events_per_second": 100000
+    }
+  ],
+  "metrics": [
+    {
+      "id": "HI-M01",
+      "name": "ingest_throughput",
+      "unit": "events_per_second",
+      "kind": "performance",
+      "target": null
+    },
+    {
+      "id": "HI-M02",
+      "name": "ingest_latency_p50",
+      "unit": "milliseconds",
+      "kind": "performance",
+      "target": null
+    },
+    {
+      "id": "HI-M03",
+      "name": "ingest_latency_p95",
+      "unit": "milliseconds",
+      "kind": "performance",
+      "target": null
+    },
+    {
+      "id": "HI-M04",
+      "name": "ingest_latency_p99",
+      "unit": "milliseconds",
+      "kind": "performance",
+      "target": null
+    },
+    {
+      "id": "HI-M05",
+      "name": "peak_memory",
+      "unit": "bytes",
+      "kind": "resource",
+      "target": null
+    },
+    {
+      "id": "HI-M06",
+      "name": "false_ready_on_invalid_bundle",
+      "unit": "bundles",
+      "kind": "correctness",
+      "target": 0
+    },
+    {
+      "id": "HI-M07",
+      "name": "false_ready_on_incomplete_bundle",
+      "unit": "bundles",
+      "kind": "correctness",
+      "target": 0
+    },
+    {
+      "id": "HI-M08",
+      "name": "false_violation_on_known_valid_bundle",
+      "unit": "bundles",
+      "kind": "correctness",
+      "target": 0
+    },
+    {
+      "id": "HI-M09",
+      "name": "verifier_unavailable_preserved_as_inconclusive",
+      "unit": "fraction",
+      "kind": "correctness",
+      "target": 1
+    },
+    {
+      "id": "HI-M10",
+      "name": "source_manifest_verification_latency",
+      "unit": "milliseconds",
+      "kind": "performance",
+      "target": null
+    },
+    {
+      "id": "HI-M11",
+      "name": "event_coverage_reconciliation_latency",
+      "unit": "milliseconds",
+      "kind": "performance",
+      "target": null
+    },
+    {
+      "id": "HI-M12",
+      "name": "owner_ack_set_recomputation_latency",
+      "unit": "milliseconds",
+      "kind": "performance",
+      "target": null
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "HI-001",
+      "class": "known_ready",
+      "description": "All source manifests authenticate, exact event IDs are covered once, owner streams cover the inventory, inventory closure verifies and global owner-ack-set verifier confirms the canonical receipts.",
+      "expected_verdict": "READY",
+      "finding_codes": []
+    },
+    {
+      "id": "HI-002",
+      "class": "known_inconclusive",
+      "description": "A required effect owner has no authenticated source-stream manifest in the capture interval.",
+      "expected_verdict": "INCONCLUSIVE",
+      "finding_codes": [
+        "MissingOwnerManifest"
+      ]
+    },
+    {
+      "id": "HI-003",
+      "class": "known_violation",
+      "description": "Source-manifest signature or verifier policy is invalid.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "SourceManifestInvalid"
+      ]
+    },
+    {
+      "id": "HI-004",
+      "class": "known_inconclusive",
+      "description": "The source signature verifier or required trust key is unavailable.",
+      "expected_verdict": "INCONCLUSIVE",
+      "finding_codes": [
+        "SourceManifestUnavailable"
+      ]
+    },
+    {
+      "id": "HI-005",
+      "class": "known_inconclusive",
+      "description": "An authenticated source manifest declares an event ID that is missing from the supplied bundle.",
+      "expected_verdict": "INCONCLUSIVE",
+      "finding_codes": [
+        "ManifestEventMissing"
+      ]
+    },
+    {
+      "id": "HI-006",
+      "class": "known_violation",
+      "description": "The same event ID is claimed by overlapping source stream manifests.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "DuplicateEventCoverage"
+      ]
+    },
+    {
+      "id": "HI-007",
+      "class": "known_violation",
+      "description": "An event scope digest differs from the exact bundle or signed source-manifest scope.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "EventScopeMismatch",
+        "ManifestEventOwnerMismatch"
+      ]
+    },
+    {
+      "id": "HI-008",
+      "class": "known_violation",
+      "description": "An event owner identity differs from the owner identity asserted by its source stream manifest.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "ManifestEventOwnerMismatch"
+      ]
+    },
+    {
+      "id": "HI-009",
+      "class": "known_violation",
+      "description": "The independently verified inventory-closure proof is invalid.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "InventoryClosureInvalid"
+      ]
+    },
+    {
+      "id": "HI-010",
+      "class": "known_inconclusive",
+      "description": "The inventory-closure verifier is unavailable or its trust root cannot be reached.",
+      "expected_verdict": "INCONCLUSIVE",
+      "finding_codes": [
+        "InventoryClosureUnavailable"
+      ]
+    },
+    {
+      "id": "HI-011",
+      "class": "known_violation",
+      "description": "The owner-ack-set verifier recomputes a different canonical owner-ack set or its signature commitment is invalid.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "OwnerAckSetInvalid"
+      ]
+    },
+    {
+      "id": "HI-012",
+      "class": "known_inconclusive",
+      "description": "The owner-ack-set verifier is unavailable, so the global barrier receipt cannot be authenticated.",
+      "expected_verdict": "INCONCLUSIVE",
+      "finding_codes": [
+        "OwnerAckSetUnavailable"
+      ]
+    },
+    {
+      "id": "HI-013",
+      "class": "known_inconclusive",
+      "description": "A global barrier receipt references an owner acknowledgement absent from the event bundle.",
+      "expected_verdict": "INCONCLUSIVE",
+      "finding_codes": [
+        "OwnerAckEventMissing"
+      ]
+    },
+    {
+      "id": "HI-014",
+      "class": "known_inconclusive",
+      "description": "A supplied event is not covered by any authenticated source manifest.",
+      "expected_verdict": "INCONCLUSIVE",
+      "finding_codes": [
+        "UncoveredEvent"
+      ]
+    },
+    {
+      "id": "HI-015",
+      "class": "known_violation",
+      "description": "Two source manifests reuse the same source and stream identity.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "DuplicateManifestIdentity"
+      ]
+    },
+    {
+      "id": "HI-016",
+      "class": "known_violation",
+      "description": "The route-to-owner projection in an authenticated inventory does not equal the declared exact owner set.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "InventoryClosureInvalid"
+      ]
+    },
+    {
+      "id": "HI-017",
+      "class": "known_violation",
+      "description": "An authenticated source manifest claims an owner outside the exact owner set in the verified inventory.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "UnexpectedOwnerManifest"
+      ]
+    },
+    {
+      "id": "HI-018",
+      "class": "known_violation",
+      "description": "The declared source event count differs from the exact event-ID set size.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "ManifestEventCountMismatch"
+      ]
+    },
+    {
+      "id": "HI-019",
+      "class": "known_violation",
+      "description": "Canonical event-set encoding receives two event records with the same event ID and refuses to produce a commitment.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "DuplicateEventId"
+      ]
+    },
+    {
+      "id": "HI-020",
+      "class": "known_violation",
+      "description": "A signed source manifest event-set digest does not match the canonical bytes of the exact covered event records.",
+      "expected_verdict": "VIOLATION",
+      "finding_codes": [
+        "SourceManifestInvalid"
+      ]
+    }
+  ],
+  "comparator_methods": [
+    "Mycelix authenticated manifest-to-event exact coverage and owner-stream closure",
+    "Porcupine executable sequential model and concurrent history linearizability checker after history is READY",
+    "Jepsen-style source capture, fault injection and independent consistency checking"
+  ],
+  "evidence_requirements": [
+    "exact ingest source SHA and binary digest",
+    "raw event bundle and exact source manifests",
+    "source verifier identity, policy digest and authenticated trust-root evidence",
+    "inventory closure proof and route-to-owner mapping commitment",
+    "owner-ack-set canonical bytes and digest verification transcript",
+    "per-run raw ingest timing and peak-memory samples",
+    "event IDs, owner stream cursors and completeness receipts",
+    "reproducible seeds, failure traces and exact schema version",
+    "all INCONCLUSIVE and failed bundles retained in benchmark denominator"
+  ]
+}

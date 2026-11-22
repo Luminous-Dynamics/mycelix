@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mycelix.net/schemas/MYC_DIR_HISTORY_INGEST_V0_1.schema.json",
+  "title": "Mycelix Directory Fabric authenticated history ingest conformance corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile",
+    "version",
+    "status",
+    "claim_ceiling",
+    "verdicts",
+    "core_rule",
+    "required_repetitions",
+    "workload_profiles",
+    "metrics",
+    "scenarios",
+    "comparator_methods",
+    "evidence_requirements"
+  ],
+  "properties": {
+    "profile": {
+      "const": "MYC-DIR-HISTORY-INGEST-0.1"
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "const": "preregistered_not_executed"
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 80
+    },
+    "verdicts": {
+      "type": "array",
+      "const": [
+        "READY",
+        "VIOLATION",
+        "INCONCLUSIVE"
+      ]
+    },
+    "core_rule": {
+      "type": "string",
+      "minLength": 50
+    },
+    "required_repetitions": {
+      "type": "integer",
+      "minimum": 10
+    },
+    "workload_profiles": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "events",
+          "owner_streams",
+          "offered_events_per_second"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^HI-P[0-9]{2}$"
+          },
+          "events": {
+            "type": "integer",
+            "enum": [
+              100,
+              1000,
+              100000,
+              1000000,
+              10000000
+            ]
+          },
+          "owner_streams": {
+            "type": "integer",
+            "enum": [
+              1,
+              4,
+              16,
+              64,
+              256
+            ]
+          },
+          "offered_events_per_second": {
+            "type": "integer",
+            "enum": [
+              100,
+              1000,
+              10000,
+              100000
+            ]
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "unit",
+          "kind",
+          "target"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^HI-M[0-9]{2}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 3
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "performance",
+              "resource",
+              "correctness"
+            ]
+          },
+          "target": {
+            "type": [
+              "integer",
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "class",
+          "description",
+          "expected_verdict",
+          "finding_codes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^HI-[0-9]{3}$"
+          },
+          "class": {
+            "enum": [
+              "known_ready",
+              "known_violation",
+              "known_inconclusive"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 30
+          },
+          "expected_verdict": {
+            "enum": [
+              "READY",
+              "VIOLATION",
+              "INCONCLUSIVE"
+            ]
+          },
+          "finding_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "comparator_methods": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 20
+      }
+    },
+    "evidence_requirements": {
+      "type": "array",
+      "minItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 5
+      }
+    }
+  }
+}
