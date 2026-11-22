@@ -1,0 +1,38 @@
+name: Space weighted anytime confidence sequence
+
+on:
+  push:
+    branches:
+      - "research/space-weighted-anytime-confidence-v0-1"
+    paths:
+      - "mycelix-workspace/mycelix-space/tools/space-weighted-anytime-confidence/**"
+      - ".github/workflows/space-weighted-anytime-confidence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-weighted-anytime-confidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact branch head
+        uses: actions/checkout@v4
+
+      - name: Set up stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-space/tools/space-weighted-anytime-confidence/Cargo.toml -- --check
+
+      - name: Run locked tests
+        run: cargo test --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-weighted-anytime-confidence/Cargo.toml
+
+      - name: Check weighted residual example
+        shell: bash
+        run: |
+          set -euo pipefail
+          report="$(cargo run --quiet --locked --manifest-path mycelix-workspace/mycelix-space/tools/space-weighted-anytime-confidence/Cargo.toml -- -10 10 0.05 0,-2,1,0,0,-1,2,0 iid-frozen-defensive-q-v1 bounded-residual-common-mean-v1 fixture://bounded-residual-mean/v1 0123456789abcdef)"
+          echo "$report"
+          jq -e '.points | length == 8 and .[-1].lower_confidence_bound <= .[-1].observed_mean and .[-1].observed_mean <= .[-1].upper_confidence_bound' <<< "$report" >/dev/null
