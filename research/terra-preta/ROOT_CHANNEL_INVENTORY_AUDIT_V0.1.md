@@ -62,6 +62,23 @@ Non-root origin classes must use `not_applicable`. Root-origin segments may tran
 - Unknown/morphology-only origin and connectivity evidence remain explicitly unresolved.
 - Synthetic fixture status can never be interpreted as empirical evidence.
 
+## Root-flow expression is separate from pathway origin
+
+A second 2026 review by Qian et al., *Root-induced preferential flow in the critical zone: Observations, processes, mechanisms, and modeling*, Earth-Science Reviews, DOI https://doi.org/10.1016/j.earscirev.2026.105420, synthesizes 330 studies and distinguishes four **non-exclusive structural expressions** of root-induced preferential flow:
+
+- shallow root network–dominated (SRPF);
+- vertical root-controlled (VRPF);
+- interface-guided (IRPF);
+- legacy root-biopore–dominated (BRPF).
+
+The expression frequencies reported in that literature review are study-occurrence frequencies, not ecosystem prevalence rates.
+
+The v0.1 inventory now records both:
+- pathway origin (live root, legacy root, abiotic crack, textural finger, fauna, other or unknown); and
+- zero or more root-flow expressions with a separate evidence status.
+
+Multiple expressions are allowed because they are not mutually exclusive. An expression label does not prove root provenance, 3D connectivity, hydraulic continuity or transported mass. Directly observed 3D expression requires declared volumetric 3D observation support; a 2D projection cannot make that claim. An unresolved root pathway may carry an empty expression list only when its expression-evidence status is explicitly unresolved.
+
 ## What v0.1 does not do
 
 No CT segmentation, image registration, flow solver, Richards equation, DualPerm, tracer likelihood, rhizosphere reactive transport, nutrient fate, parameter inference, root biological model, field validation or treatment effect. Those are separate qualification work packages.
