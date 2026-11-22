@@ -1003,6 +1003,80 @@ mod tests {
     }
 
     #[test]
+    fn canonical_event_set_bytes_are_order_independent() {
+        let inventory = record(
+            "inventory",
+            None,
+            None,
+            EventKind::InventoryClosed {
+                revocation_digest: digest(5),
+                inventory_epoch: 7,
+                inventory_manifest_digest: digest(6),
+                route_set_digest: digest(7),
+                required_owners: ["owner-a".to_owned()].into_iter().collect(),
+                route_owners: [("route-a".to_owned(), "owner-a".to_owned())]
+                    .into_iter()
+                    .collect(),
+            },
+        );
+        let bootstrap = record(
+            "bootstrap-a",
+            Some("owner-a"),
+            Some(1),
+            EventKind::OwnerBootstrapped {
+                position: FencePosition::new(1, 1).unwrap(),
+                bootstrap_digest: digest(8),
+            },
+        );
+        let first = canonical_event_set_bytes(&[&inventory, &bootstrap]).unwrap();
+        let reversed = canonical_event_set_bytes(&[&bootstrap, &inventory]).unwrap();
+        assert_eq!(first, reversed);
+    }
+
+    #[test]
+    fn canonical_event_set_rejects_duplicate_event_ids() {
+        let event = record(
+            "bootstrap-a",
+            Some("owner-a"),
+            Some(1),
+            EventKind::OwnerBootstrapped {
+                position: FencePosition::new(1, 1).unwrap(),
+                bootstrap_digest: digest(8),
+            },
+        );
+        assert_eq!(
+            canonical_event_set_bytes(&[&event, &event]),
+            Err(CanonicalEventError::DuplicateEventId)
+        );
+    }
+
+    #[test]
+    fn canonical_event_bytes_bind_the_exact_payload() {
+        let original = record(
+            "bootstrap-a",
+            Some("owner-a"),
+            Some(1),
+            EventKind::OwnerBootstrapped {
+                position: FencePosition::new(1, 1).unwrap(),
+                bootstrap_digest: digest(8),
+            },
+        );
+        let substituted = record(
+            "bootstrap-a",
+            Some("owner-a"),
+            Some(1),
+            EventKind::OwnerBootstrapped {
+                position: FencePosition::new(1, 2).unwrap(),
+                bootstrap_digest: digest(8),
+            },
+        );
+        assert_ne!(
+            canonical_event_bytes(&original).unwrap(),
+            canonical_event_bytes(&substituted).unwrap()
+        );
+    }
+
+    #[test]
     fn complete_authenticated_bundle_produces_history_evidence() {
         let report = ingest_history(bundle(), &good_authenticator());
         assert_eq!(report.verdict, IngestVerdict::Ready);
