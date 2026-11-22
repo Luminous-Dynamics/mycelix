@@ -960,7 +960,7 @@ mod tests {
         Vec<(ArtifactRef, Vec<u8>)>,
     ) {
         let mut receipt = aero_adapter_run_receipt::parse_receipt_json(include_bytes!(
-            "../aero-adapter-run-receipt/fixtures/adapter-run/receipt-v1.json"
+            "../../aero-adapter-run-receipt/fixtures/adapter-run/receipt-v1.json"
         ))
         .unwrap();
         receipt.benchmark_id = "AERO-INTEROP-BENCH-001".into();
@@ -1048,7 +1048,7 @@ mod tests {
                         .into(),
                     kind: "adapter_executable".into(),
                 },
-                include_bytes!("../aero-adapter-run-receipt/fixtures/adapter-run/adapter.bin")
+                include_bytes!("../../aero-adapter-run-receipt/fixtures/adapter-run/adapter.bin")
                     .to_vec(),
             ),
             (
@@ -1057,7 +1057,7 @@ mod tests {
                         .into(),
                     kind: "adapter_arguments".into(),
                 },
-                include_bytes!("../aero-adapter-run-receipt/fixtures/adapter-run/arguments.json")
+                include_bytes!("../../aero-adapter-run-receipt/fixtures/adapter-run/arguments.json")
                     .to_vec(),
             ),
             (
@@ -1067,7 +1067,7 @@ mod tests {
                     kind: "environment_profile".into(),
                 },
                 include_bytes!(
-                    "../aero-adapter-run-receipt/fixtures/adapter-run/environment-profile.json"
+                    "../../aero-adapter-run-receipt/fixtures/adapter-run/environment-profile.json"
                 )
                 .to_vec(),
             ),
@@ -1077,7 +1077,7 @@ mod tests {
                         .into(),
                     kind: "step_file".into(),
                 },
-                include_bytes!("../aero-adapter-run-receipt/fixtures/adapter-run/source.step")
+                include_bytes!("../../aero-adapter-run-receipt/fixtures/adapter-run/source.step")
                     .to_vec(),
             ),
             (
@@ -1087,7 +1087,7 @@ mod tests {
                     kind: "adapter_config".into(),
                 },
                 include_bytes!(
-                    "../aero-adapter-run-receipt/fixtures/adapter-run/adapter-config.json"
+                    "../../aero-adapter-run-receipt/fixtures/adapter-run/adapter-config.json"
                 )
                 .to_vec(),
             ),
@@ -1097,7 +1097,7 @@ mod tests {
                         .into(),
                     kind: "qif_result".into(),
                 },
-                include_bytes!("../aero-adapter-run-receipt/fixtures/adapter-run/output.qif")
+                include_bytes!("../../aero-adapter-run-receipt/fixtures/adapter-run/output.qif")
                     .to_vec(),
             ),
             (
@@ -1107,7 +1107,7 @@ mod tests {
                     kind: "semantic_assertions".into(),
                 },
                 include_bytes!(
-                    "../aero-adapter-run-receipt/fixtures/adapter-run/normalized-assertions.json"
+                    "../../aero-adapter-run-receipt/fixtures/adapter-run/normalized-assertions.json"
                 )
                 .to_vec(),
             ),
