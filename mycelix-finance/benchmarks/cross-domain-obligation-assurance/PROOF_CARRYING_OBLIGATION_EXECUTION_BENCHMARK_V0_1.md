@@ -86,6 +86,18 @@ When a network timeout or malformed response leaves the external outcome unknown
 
 This pattern should be implemented at the authoritative boundary. A coordinator-only check or UI-level disabled button is not an adequate substitute for integrity validation, durable consumption, and concurrency control.
 
+### 2.5 Independent event replay and externally anchored history
+
+A second verifier should be able to reconstruct an obligation's current disposition from the original request and ordered event records, not from the producer's mutable aggregate status. The event stream should bind a monotonic sequence number, predecessor digest, canonical event digest, issuer identity, and a checkpoint digest witnessed outside the producing application.
+
+The reference kernel now separates two checks:
+
+- **Transition replay:** recompute the payment disposition from the request plus typed event sequence; reject impossible transitions such as reversal before payment, duplicate terminal transitions, or manual-attestation promotion to rail finality.
+- **Envelope continuity:** validate sequence continuity, nonzero/unique event digests, predecessor-digest links, upstream digest/signature-verification status, and equality to an independently supplied final checkpoint.
+
+These are distinct from cryptographic and transparency-service verification. The in-memory kernel does not calculate secure hashes, validate issuer signatures, authenticate a witness, or verify a SCITT inclusion proof. A production adapter must perform those operations over canonical bytes and anchor the final digest in an independently governed transparency service or equivalent external witness. A locally stored hash chain with no independent checkpoint is not independent tamper evidence.
+
+
 ## 3. Benchmark levels
 
 | Level | Test surface | Minimum evidence |
@@ -227,6 +239,8 @@ Blocking issues to keep visible:
 ## 10. References
 
 - BIS, Project Agorá: https://www.bis.org/project/agora
+- IETF RFC 9943, *An Architecture for Trustworthy and Transparent Digital Supply Chains*: https://datatracker.ietf.org/doc/rfc9943/
+- PCOE SCITT adapter implementation task: https://github.com/Luminous-Dynamics/mycelix/issues/6530
 - FSB, High-level Recommendations for Global Stablecoin Arrangements: https://www.fsb.org/2023/07/high-level-recommendations-for-the-regulation-supervision-and-oversight-of-global-stablecoin-arrangements-final-report/
 - FSB, 2025 thematic review of crypto-asset/stablecoin implementation gaps: https://www.fsb.org/2025/10/fsb-finds-significant-gaps-and-inconsistencies-in-implementation-of-crypto-and-stablecoin-recommendations/
 - Basel Committee, BCBS 239 implementation monitoring: https://www.bis.org/publications/implementation-principles-effective-risk-data-aggregation-and-risk-reporting-bcbs-239-principles
