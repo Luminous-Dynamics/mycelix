@@ -43,9 +43,277 @@ pub enum VerificationStatus {
     Unavailable,
 }
 
+/// Canonical encoding failures. Event-set digests must never be calculated
+/// over an ambiguous or duplicate-ID event collection.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CanonicalEventError {
+    FieldTooLarge,
+    DuplicateEventId,
+}
+
+fn append_len(bytes: &mut Vec<u8>, len: usize) -> Result<(), CanonicalEventError> {
+    let len = u32::try_from(len).map_err(|_| CanonicalEventError::FieldTooLarge)?;
+    bytes.extend_from_slice(&len.to_be_bytes());
+    Ok(())
+}
+
+fn append_bytes(bytes: &mut Vec<u8>, value: &[u8]) -> Result<(), CanonicalEventError> {
+    append_len(bytes, value.len())?;
+    bytes.extend_from_slice(value);
+    Ok(())
+}
+
+fn append_text(bytes: &mut Vec<u8>, value: &str) -> Result<(), CanonicalEventError> {
+    append_bytes(bytes, value.as_bytes())
+}
+
+fn append_optional_text(
+    bytes: &mut Vec<u8>,
+    value: Option<&str>,
+) -> Result<(), CanonicalEventError> {
+    match value {
+        Some(value) => {
+            bytes.push(1);
+            append_text(bytes, value)?;
+        }
+        None => bytes.push(0),
+    }
+    Ok(())
+}
+
+fn append_digest(bytes: &mut Vec<u8>, value: &Digest) {
+    bytes.extend_from_slice(value);
+}
+
+fn append_position(bytes: &mut Vec<u8>, value: crate::FencePosition) {
+    bytes.extend_from_slice(&value.owner_epoch.to_be_bytes());
+    bytes.extend_from_slice(&value.generation.to_be_bytes());
+}
+
+fn append_text_set(
+    bytes: &mut Vec<u8>,
+    values: impl IntoIterator<Item = String>,
+) -> Result<(), CanonicalEventError> {
+    let values: Vec<String> = values.into_iter().collect();
+    append_len(bytes, values.len())?;
+    for value in values {
+        append_text(bytes, &value)?;
+    }
+    Ok(())
+}
+
+/// Versioned canonical bytes for one complete typed history event.
+/// Parent IDs are sorted because causal parent order has set semantics.
+pub fn canonical_event_bytes(event: &EventRecord) -> Result<Vec<u8>, CanonicalEventError> {
+    let mut bytes = b"MYC-DIR-HISTORY-EVENT\\0\\x01".to_vec();
+    append_text(&mut bytes, &event.id)?;
+    append_digest(&mut bytes, &event.scope_digest);
+    append_optional_text(&mut bytes, event.owner.as_deref())?;
+    match event.owner_sequence {
+        Some(sequence) => {
+            bytes.push(1);
+            bytes.extend_from_slice(&sequence.to_be_bytes());
+        }
+        None => bytes.push(0),
+    }
+
+    let mut parents = event.parents.clone();
+    parents.sort();
+    append_len(&mut bytes, parents.len())?;
+    for parent in parents {
+        append_text(&mut bytes, &parent)?;
+    }
+
+    match &event.kind {
+        EventKind::OwnerBootstrapped { position, bootstrap_digest } => {
+            bytes.push(1);
+            append_position(&mut bytes, *position);
+            append_digest(&mut bytes, bootstrap_digest);
+        }
+        EventKind::WorkerClaimInstalled { operation_id, worker_id, claim_epoch } => {
+            bytes.push(2);
+            append_text(&mut bytes, operation_id)?;
+            append_text(&mut bytes, worker_id)?;
+            bytes.extend_from_slice(&claim_epoch.to_be_bytes());
+        }
+        EventKind::FenceCommitted {
+            previous, installed, revocation_digest, inventory_epoch,
+            inventory_manifest_digest, route_set_digest, owner_commit_digest,
+        } => {
+            bytes.push(3);
+            append_position(&mut bytes, *previous);
+            append_position(&mut bytes, *installed);
+            append_digest(&mut bytes, revocation_digest);
+            bytes.extend_from_slice(&inventory_epoch.to_be_bytes());
+            append_digest(&mut bytes, inventory_manifest_digest);
+            append_digest(&mut bytes, route_set_digest);
+            append_digest(&mut bytes, owner_commit_digest);
+        }
+        EventKind::FenceReadBack {
+            fence_commit_event_id, position, durable_readback_digest,
+        } => {
+            bytes.push(4);
+            append_text(&mut bytes, fence_commit_event_id)?;
+            append_position(&mut bytes, *position);
+            append_digest(&mut bytes, durable_readback_digest);
+        }
+        EventKind::OwnerAcknowledged {
+            fence_commit_event_id, readback_event_id, revocation_digest,
+            inventory_epoch, inventory_manifest_digest, route_set_digest,
+            owner_commit_digest, durable_readback_digest,
+        } => {
+            bytes.push(5);
+            append_text(&mut bytes, fence_commit_event_id)?;
+            append_text(&mut bytes, readback_event_id)?;
+            append_digest(&mut bytes, revocation_digest);
+            bytes.extend_from_slice(&inventory_epoch.to_be_bytes());
+            append_digest(&mut bytes, inventory_manifest_digest);
+            append_digest(&mut bytes, route_set_digest);
+            append_digest(&mut bytes, owner_commit_digest);
+            append_digest(&mut bytes, durable_readback_digest);
+        }
+        EventKind::InventoryClosed {
+            revocation_digest, inventory_epoch, inventory_manifest_digest,
+            route_set_digest, required_owners, route_owners,
+        } => {
+            bytes.push(6);
+            append_digest(&mut bytes, revocation_digest);
+            bytes.extend_from_slice(&inventory_epoch.to_be_bytes());
+            append_digest(&mut bytes, inventory_manifest_digest);
+            append_digest(&mut bytes, route_set_digest);
+            append_text_set(&mut bytes, required_owners.iter().cloned())?;
+            append_len(&mut bytes, route_owners.len())?;
+            for (route_id, owner_id) in route_owners {
+                append_text(&mut bytes, route_id)?;
+                append_text(&mut bytes, owner_id)?;
+            }
+        }
+        EventKind::GlobalBarrierAcknowledged {
+            inventory_event_id, revocation_digest, inventory_epoch,
+            inventory_manifest_digest, route_set_digest, owner_ack_event_ids,
+            owner_ack_set_digest, coordinator_epoch, coordinator_commit_digest,
+        } => {
+            bytes.push(7);
+            append_text(&mut bytes, inventory_event_id)?;
+            append_digest(&mut bytes, revocation_digest);
+            bytes.extend_from_slice(&inventory_epoch.to_be_bytes());
+            append_digest(&mut bytes, inventory_manifest_digest);
+            append_digest(&mut bytes, route_set_digest);
+            append_text_set(&mut bytes, owner_ack_event_ids.iter().cloned())?;
+            append_digest(&mut bytes, owner_ack_set_digest);
+            bytes.extend_from_slice(&coordinator_epoch.to_be_bytes());
+            append_digest(&mut bytes, coordinator_commit_digest);
+        }
+        EventKind::EffectAttemptStarted {
+            operation_id, attempt_id, attempt_number, worker_id, claim_epoch,
+            claim_event_id, position, idempotency_digest, retry_after_outcome_event_id,
+        } => {
+            bytes.push(8);
+            append_text(&mut bytes, operation_id)?;
+            append_text(&mut bytes, attempt_id)?;
+            bytes.extend_from_slice(&attempt_number.to_be_bytes());
+            append_text(&mut bytes, worker_id)?;
+            bytes.extend_from_slice(&claim_epoch.to_be_bytes());
+            append_text(&mut bytes, claim_event_id)?;
+            append_position(&mut bytes, *position);
+            append_digest(&mut bytes, idempotency_digest);
+            append_optional_text(&mut bytes, retry_after_outcome_event_id.as_deref())?;
+        }
+        EventKind::EffectCommitted {
+            operation_id, attempt_id, attempt_number, worker_id, claim_epoch,
+            position, idempotency_digest, effect_digest,
+        } => {
+            bytes.push(9);
+            append_text(&mut bytes, operation_id)?;
+            append_text(&mut bytes, attempt_id)?;
+            bytes.extend_from_slice(&attempt_number.to_be_bytes());
+            append_text(&mut bytes, worker_id)?;
+            bytes.extend_from_slice(&claim_epoch.to_be_bytes());
+            append_position(&mut bytes, *position);
+            append_digest(&mut bytes, idempotency_digest);
+            append_digest(&mut bytes, effect_digest);
+        }
+        EventKind::AttemptOutcomeUnknown { operation_id, attempt_id, attempt_number } => {
+            bytes.push(10);
+            append_text(&mut bytes, operation_id)?;
+            append_text(&mut bytes, attempt_id)?;
+            bytes.extend_from_slice(&attempt_number.to_be_bytes());
+        }
+        EventKind::AttemptReconciled {
+            operation_id, attempt_id, attempt_number, unknown_event_id, outcome,
+            terminal_at_effect_owner, reconciliation_evidence_digest, effect_commit_event_id,
+        } => {
+            bytes.push(11);
+            append_text(&mut bytes, operation_id)?;
+            append_text(&mut bytes, attempt_id)?;
+            bytes.extend_from_slice(&attempt_number.to_be_bytes());
+            append_text(&mut bytes, unknown_event_id)?;
+            bytes.push(match outcome {
+                crate::ReconciledOutcome::ConfirmedNoEffect => 1,
+                crate::ReconciledOutcome::Committed => 2,
+            });
+            bytes.push(u8::from(*terminal_at_effect_owner));
+            append_digest(&mut bytes, reconciliation_evidence_digest);
+            append_optional_text(&mut bytes, effect_commit_event_id.as_deref())?;
+        }
+        EventKind::RouteStaged {
+            route_id, owner, enforcement, required_position, inventory_event_id,
+        } => {
+            bytes.push(12);
+            append_text(&mut bytes, route_id)?;
+            append_text(&mut bytes, owner)?;
+            bytes.push(match enforcement {
+                crate::RouteEnforcement::AtomicOwnerFence => 1,
+                crate::RouteEnforcement::CaepSignalOnly => 2,
+                crate::RouteEnforcement::TokenExpiryOnly => 3,
+                crate::RouteEnforcement::BestEffortInvalidation => 4,
+            });
+            append_position(&mut bytes, *required_position);
+            append_text(&mut bytes, inventory_event_id)?;
+        }
+        EventKind::RouteActivated {
+            route_id, owner, position, staged_event_id, inventory_event_id,
+            owner_readback_event_id, global_barrier_event_id,
+        } => {
+            bytes.push(13);
+            append_text(&mut bytes, route_id)?;
+            append_text(&mut bytes, owner)?;
+            append_position(&mut bytes, *position);
+            append_text(&mut bytes, staged_event_id)?;
+            append_text(&mut bytes, inventory_event_id)?;
+            append_text(&mut bytes, owner_readback_event_id)?;
+            append_text(&mut bytes, global_barrier_event_id)?;
+        }
+    }
+    Ok(bytes)
+}
+
+/// Canonical, order-independent encoding of one source stream's exact event
+/// set. Event IDs are sorted, duplicates reject, and every typed event payload
+/// is included. The source authenticator hashes these bytes and compares the
+/// result with SourceStreamManifest.event_set_digest.
+pub fn canonical_event_set_bytes(
+    events: &[&EventRecord],
+) -> Result<Vec<u8>, CanonicalEventError> {
+    let mut ordered = events.to_vec();
+    ordered.sort_by(|left, right| left.id.cmp(&right.id));
+    for pair in ordered.windows(2) {
+        if pair[0].id == pair[1].id {
+            return Err(CanonicalEventError::DuplicateEventId);
+        }
+    }
+    let mut bytes = b"MYC-DIR-HISTORY-EVENT-SET\\0\\x01".to_vec();
+    append_len(&mut bytes, ordered.len())?;
+    for event in ordered {
+        append_bytes(&mut bytes, &canonical_event_bytes(event)?)?;
+    }
+    Ok(bytes)
+}
+
 /// The verifier is a deliberate cryptographic trust boundary. Implementations
-/// must verify source signatures, verifier policy, inventory-closure proof and
-/// recompute the canonical sorted owner-ack-set commitment from the exact
+/// must verify source signatures and verifier policy, hash
+/// canonical_event_set_bytes(covered_events), verify the inventory closure,
+/// and recompute the canonical sorted owner-ack-set commitment from the exact
 /// OwnerAcknowledged event receipts. A boolean supplied by the caller is not
 /// accepted as proof.
 pub trait EvidenceAuthenticator {
