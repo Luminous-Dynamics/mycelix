@@ -74,6 +74,8 @@ pub struct AuthorityGrant {
     pub revocation_epoch: u64,
     pub requires_human_disposition: bool,
     pub one_time: bool,
+    pub human_approver_ids: BTreeSet<String>,
+    pub max_human_approval_age_secs: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,6 +97,7 @@ pub struct HumanDisposition {
     pub request_digest: Digest,
     /// Test seam set only after a separate human authentication channel is verified.
     pub independent_authentication_verified: bool,
+    pub approved_at: u64,
 }
 
 pub fn authorize(
@@ -153,6 +156,10 @@ pub fn authorize(
             || disposition.decision_reference.is_empty()
             || disposition.decision_maker_id == request.actor_id
             || disposition.request_digest != request.request_digest
+            || !grant.human_approver_ids.contains(&disposition.decision_maker_id)
+            || grant.max_human_approval_age_secs == 0
+            || disposition.approved_at > now
+            || now - disposition.approved_at > grant.max_human_approval_age_secs
             || !disposition.independent_authentication_verified
         {
             return Err(KernelError::HumanDispositionRequired);
@@ -174,6 +181,9 @@ impl AuthorityConsumptionLedger {
         grant: &AuthorityGrant,
         request: &ActionRequest,
     ) -> Result<(), KernelError> {
+        if grant.grant_id.is_empty() || request.request_digest == [0; 32] {
+            return Err(KernelError::MissingReference);
+        }
         if !grant.one_time {
             return Ok(());
         }
@@ -250,7 +260,7 @@ impl MeterObservation {
         {
             return Err(KernelError::InvalidMeterSequence);
         }
-        if self.interval_end_micros <= self.interval_start_micros {
+        if self.interval_start_micros < 0 || self.interval_end_micros <= self.interval_start_micros {
             return Err(KernelError::InvalidInterval);
         }
         if self.calibration_valid_from_micros > self.interval_start_micros
@@ -261,7 +271,7 @@ impl MeterObservation {
         if self.boundary != expected_boundary {
             return Err(KernelError::InvalidBoundary);
         }
-        if self.tolerance_bps > maximum_tolerance_bps {
+        if maximum_tolerance_bps > 10_000 || self.tolerance_bps > maximum_tolerance_bps {
             return Err(KernelError::InvalidTolerance);
         }
         if self.raw_payload_digest == [0; 32] {
@@ -338,6 +348,7 @@ pub struct VerifierAttestation {
     pub claim_id: String,
     pub claim_digest: Digest,
     pub evidence_digests: Vec<Digest>,
+    pub witnesses: Vec<VerifierWitness>,
     pub scope: String,
     pub qualified: bool,
     pub conflicts_declared: bool,
@@ -405,6 +416,10 @@ pub fn validate_attestation(
     }
     if !attestation.qualified {
         return Err(KernelError::VerifierNotQualified);
+    }
+    validate_witness_independence(&claim.producer_id, &attestation.witnesses)?;
+    if !attestation.witnesses.iter().any(|witness| witness.verifier_id == attestation.verifier_id) {
+        return Err(KernelError::InsufficientWitnesses);
     }
     if attestation.conflicts_declared {
         return Err(KernelError::VerifierConflict);
@@ -540,6 +555,8 @@ impl OfferLedger {
             if existing_digest == &request_digest
                 && receipt.offer_id == offer_id
                 && receipt.quantity_wh == quantity_wh
+                && receipt.idempotency_key == idempotency_key
+                && receipt.resulting_revision.checked_sub(1) == Some(expected_revision)
             {
                 return Ok(FillDisposition::ExactReplay(receipt.clone()));
             }
@@ -925,6 +942,8 @@ mod tests {
             revocation_epoch: 7,
             requires_human_disposition: false,
             one_time: true,
+            human_approver_ids: BTreeSet::new(),
+            max_human_approval_age_secs: 300,
         }
     }
 
@@ -1013,11 +1032,14 @@ mod tests {
         let mut br3_request = request();
         br3_request.action_class = "BR3_ASSET_TRANSFER".into();
         assert_eq!(authorize(&br3, &br3_request, 200, 7, None), Err(KernelError::HumanDispositionRequired));
+        br3.human_approver_ids.insert("board-member".into());
+        br3.max_human_approval_age_secs = 30;
         let approval = HumanDisposition {
             decision_maker_id: "board-member".into(),
             decision_reference: "human-decision-001".into(),
             request_digest: br3_request.request_digest,
             independent_authentication_verified: true,
+            approved_at: 190,
         };
         assert_eq!(authorize(&br3, &br3_request, 200, 7, Some(&approval)), Ok(()));
         let agent_approval = HumanDisposition {
@@ -1025,6 +1047,21 @@ mod tests {
             ..approval.clone()
         };
         assert_eq!(authorize(&br3, &br3_request, 200, 7, Some(&agent_approval)), Err(KernelError::HumanDispositionRequired));
+        let unknown_approver = HumanDisposition {
+            decision_maker_id: "unlisted-person".into(),
+            ..approval.clone()
+        };
+        assert_eq!(authorize(&br3, &br3_request, 200, 7, Some(&unknown_approver)), Err(KernelError::HumanDispositionRequired));
+        let stale_approval = HumanDisposition {
+            approved_at: 100,
+            ..approval.clone()
+        };
+        assert_eq!(authorize(&br3, &br3_request, 200, 7, Some(&stale_approval)), Err(KernelError::HumanDispositionRequired));
+        let future_approval = HumanDisposition {
+            approved_at: 201,
+            ..approval.clone()
+        };
+        assert_eq!(authorize(&br3, &br3_request, 200, 7, Some(&future_approval)), Err(KernelError::HumanDispositionRequired));
         let mismatched_approval = HumanDisposition {
             request_digest: digest(99),
             ..approval
@@ -1100,6 +1137,16 @@ mod tests {
             claim_id: claim.claim_id.clone(),
             claim_digest: claim.claim_digest,
             evidence_digests: claim.evidence_digests.clone(),
+            witnesses: vec![
+                VerifierWitness {
+                    verifier_id: "verifier-001".into(),
+                    failure_domains: BTreeSet::from(["legal-entity-a".to_owned(), "meter-admin-a".to_owned()]),
+                },
+                VerifierWitness {
+                    verifier_id: "verifier-002".into(),
+                    failure_domains: BTreeSet::from(["legal-entity-b".to_owned(), "meter-admin-b".to_owned()]),
+                },
+            ],
             scope: "metered inverter AC output".into(),
             qualified: true,
             conflicts_declared: false,
