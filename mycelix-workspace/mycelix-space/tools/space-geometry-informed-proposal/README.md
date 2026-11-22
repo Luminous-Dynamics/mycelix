@@ -55,3 +55,10 @@ https://www.nasa.gov/cara/publicly-available-cara-software/
 ## Claim ceiling
 
 This crate validates density and estimator mathematics for declared flat Gaussian half-space unions. It does not establish orbital Pc accuracy, covariance realism, model fidelity, high-fidelity event-oracle correctness, complete encounter search, regulatory conformity or maneuver safety.
+
+
+## Synthetic rare-tail benchmark
+
+The optional analytic half-space benchmark compares crude Monte Carlo with the defensive flat-boundary geometry proposal for standard-normal tails at thresholds 2.5, 3.5 and 4.5. A midpoint quadrature supplies the reference tail, and the benchmark reports RMSE, one-sided upper-bound coverage and event-contribution ESS over 64 deterministic seeded replicates of 8,192 samples each.
+
+This is a smoke benchmark, not a calibrated coverage study: 64 replicates are far too few to establish nominal 95% coverage, and SplitMix/Box-Muller seed streams are not certified production randomness. It is limited to a one-dimensional half-space and does not establish superiority on curved or orbital collision events.
