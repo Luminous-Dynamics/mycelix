@@ -192,7 +192,7 @@ The crate is intentionally separate from the production reference crate. It impl
 - exact global owner-set equality;
 - post-barrier route activation with exact inventory membership and owner read-back.
 
-There are currently 17 authored unit tests. These are **not compiled or executed**. Source inspection and GitHub fetch-back are not compiler evidence.
+There are currently 19 authored unit tests. These are **not compiled or executed**. Source inspection and GitHub fetch-back are not compiler evidence.
 
 The current oracle deliberately treats source completeness and authentication as upstream trust boundaries. Its caller must independently authenticate source records, verify signatures/proofs and set `event_set_complete` / `complete_owner_streams` only when that completeness is established. A false completeness assertion can invalidate the result. The checker does not prove inventory completeness, cryptographic authenticity, WAL durability or a distributed consensus protocol.
 
@@ -207,6 +207,6 @@ The production reference crate remains dependency-free. The checker may live in 
 
 ## 12. Machine-readable conformance preregistration
 
-The companion corpus is [MYC_DIR_HISTORY_ORACLE_V0_1.json](../benchmarks/MYC_DIR_HISTORY_ORACLE_V0_1.json), with its [Draft 2020-12 schema](../benchmarks/MYC_DIR_HISTORY_ORACLE_V0_1.schema.json). It contains 17 known-valid, known-violation and incomplete-evidence scenarios and 12 checker/resource/performance metrics. Its status is `preregistered_not_executed`. The conformance set requires zero false-valid results on known violations, zero false-violation results on known-valid histories, and zero missing-evidence histories marked VALID.
+The companion corpus is [MYC_DIR_HISTORY_ORACLE_V0_1.json](../benchmarks/MYC_DIR_HISTORY_ORACLE_V0_1.json), with its [Draft 2020-12 schema](../benchmarks/MYC_DIR_HISTORY_ORACLE_V0_1.schema.json). It contains 19 known-valid, known-violation and incomplete-evidence scenarios and 12 checker/resource/performance metrics. Its status is `preregistered_not_executed`. The conformance set requires zero false-valid results on known violations, zero false-violation results on known-valid histories, and zero missing-evidence histories marked VALID.
 
 All corpus JSON, schema JSON and source artifacts were fetched back from the branch and structurally checked for parseability, unique IDs, matching schema minima and presence of all three verdict classes. This is source-structure evidence only; it is not a checker execution or a performance measurement.
