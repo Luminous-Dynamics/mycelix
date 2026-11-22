@@ -56,7 +56,7 @@ The adapter cannot publish or fetch until `verify_server_configuration()` succee
 - MaxDeliver;
 - exact consumer subject filter.
 
-A mismatch is returned as an error; existing server-side configurations are not silently edited. The verification result is a startup gate. Operators must repeat it after control-plane configuration changes.
+A mismatch is returned as an error; existing server-side configurations are not silently edited. The verification result is a mandatory startup gate. The pull path rechecks the server-returned stream and consumer configuration before each delivery. Publishers must repeat the startup verification after control-plane changes; this adapter does not claim that the server cannot drift between checks.
 
 ## 5. ACK policy
 
