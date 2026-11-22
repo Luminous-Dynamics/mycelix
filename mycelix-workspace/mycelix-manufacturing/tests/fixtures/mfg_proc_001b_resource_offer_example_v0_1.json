@@ -158,7 +158,7 @@
   ],
   "declared_capacity": {
     "quantity": 10,
-    "unit": "accepted_parts",
+    "unit": "parts",
     "period_seconds": 86400,
     "basis_ref": {
       "owner_repository": "synthetic-fixture/only",
