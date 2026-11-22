@@ -198,3 +198,10 @@ The guarantee is conditional on correct target/proposal densities, independent d
 
 
 The boundary-sentinel API is implemented in `assess_boundary_sentinels`. Its evidence must freeze a `required_strata` list (for example, `inside`, `boundary-shell`, and `outside` for each mode); the verifier rejects any missing required stratum. Its counts are descriptive by design; callers must supply a separately qualified sampling design before population-level inference is allowed.
+
+
+## Current synthetic benchmark evidence (exploratory only)
+
+The current branch-push workflow includes a deterministic synthetic centered-Gaussian-disk comparison at three radii, with 8,192 samples per replicate and 32 replicates per method/radius. It compares crude Monte Carlo, defensive IS and the paired multi-fidelity residual estimator. The observed RMSE improvements are fixture-specific and must not be generalized to orbital conjunctions.
+
+The 32-replicate coverage fraction is a smoke-test diagnostic, not a statistically adequate demonstration of 95% nominal coverage. The confidence intervals are also visibly conservative in this configuration. A proper coverage study must use substantially more independent replicates (prospective target: at least 10,000 per principal stratum), report a confidence interval for the coverage fraction, and include end-to-end cost. The CSV schema reports both direct-estimator and residual-estimator variances separately; the values are not interchangeable with the variance-reduction ratio.
