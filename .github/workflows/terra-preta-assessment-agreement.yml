@@ -1,0 +1,76 @@
+name: Terra Preta soil assessment agreement audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/ASSESSMENT_AGREEMENT_BENCHMARK_V0.1.md'
+      - 'research/terra-preta/schemas/soil-assessment-agreement-input.schema.json'
+      - 'research/terra-preta/schemas/soil-assessment-agreement-report.schema.json'
+      - 'research/terra-preta/tools/assessment-agreement-audit/**'
+      - '.github/workflows/terra-preta-assessment-agreement.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  assessment-agreement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/assessment-agreement-audit/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/assessment-agreement-audit/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/assessment-agreement-audit/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate fixture and report
+        run: |
+          jsonschema-cli validate research/terra-preta/schemas/soil-assessment-agreement-input.schema.json \
+            --instance research/terra-preta/tools/assessment-agreement-audit/fixtures/synthetic-assessment-agreement.json \
+            --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/assessment-agreement-audit/Cargo.toml -- \
+            research/terra-preta/tools/assessment-agreement-audit/fixtures/synthetic-assessment-agreement.json \
+            "$RUNNER_TEMP/assessment-agreement-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/soil-assessment-agreement-report.schema.json \
+            --instance "$RUNNER_TEMP/assessment-agreement-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            (.method_rankings | length == 6) and
+            (.weight_profile_rankings | length == 5) and
+            (.pairwise_method_agreement | length == 15) and
+            (.nominal_pareto_front_ids | index("F-dominated") == null) and
+            ((.alternative_guardrails[] | select(.alternative_id == "A-carbon-heavy") | .eligible) == false) and
+            (.controls.guardrails_separate_from_scores == true) and
+            (.controls.permutation_invariant == true)
+          ' "$RUNNER_TEMP/assessment-agreement-report.json"
+      - name: Reject invalid direction and weights
+        run: |
+          fixture=research/terra-preta/tools/assessment-agreement-audit/fixtures/synthetic-assessment-agreement.json
+          jq '.indicators[0].direction = "unknown"' "$fixture" > "$RUNNER_TEMP/unknown-direction.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/assessment-agreement-audit/Cargo.toml -- "$RUNNER_TEMP/unknown-direction.json" "$RUNNER_TEMP/unknown-direction-report.json"; then
+            echo "Expected unknown indicator direction rejection"
+            exit 1
+          fi
+          jq '.weight_profiles[0].weights[0].weight = 0.99' "$fixture" > "$RUNNER_TEMP/invalid-weights.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/assessment-agreement-audit/Cargo.toml -- "$RUNNER_TEMP/invalid-weights.json" "$RUNNER_TEMP/invalid-weights-report.json"; then
+            echo "Expected invalid weight sum rejection"
+            exit 1
+          fi
+      - name: Reject output overwrite
+        run: |
+          fixture=research/terra-preta/tools/assessment-agreement-audit/fixtures/synthetic-assessment-agreement.json
+          report="$RUNNER_TEMP/existing-assessment-report.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/assessment-agreement-audit/Cargo.toml -- "$fixture" "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"
