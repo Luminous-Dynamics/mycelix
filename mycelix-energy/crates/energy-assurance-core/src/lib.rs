@@ -206,10 +206,7 @@ pub struct VerifierAttestation {
 }
 
 impl VerifierAttestation {
-    pub fn validate_against(
-        &self,
-        claim: &ProductionClaim,
-    ) -> Result<(), EnergyAssuranceError> {
+    pub fn validate_against(&self, claim: &ProductionClaim) -> Result<(), EnergyAssuranceError> {
         if self.attestation_id.is_empty()
             || self.claim_id.is_empty()
             || self.scope.is_empty()
@@ -233,7 +230,9 @@ impl VerifierAttestation {
         if self.conflicts_declared {
             return Err(EnergyAssuranceError::ConflictedVerifier);
         }
-        if claim.source == ProductionSource::Simulation && self.result == VerificationResult::VerifiedForScope {
+        if claim.source == ProductionSource::Simulation
+            && self.result == VerificationResult::VerifiedForScope
+        {
             return Err(EnergyAssuranceError::ClaimNotMeterDerived);
         }
         if self.result == VerificationResult::VerifiedForScope {
@@ -437,9 +436,17 @@ impl EnergyOfferLedger {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RailOutcome {
-    PaidFinal { rail_reference: String, finality_policy_ref: String },
-    Rejected { rail_reference: String, reason: String },
-    Indeterminate { reconciliation_reference: Option<String> },
+    PaidFinal {
+        rail_reference: String,
+        finality_policy_ref: String,
+    },
+    Rejected {
+        rail_reference: String,
+        reason: String,
+    },
+    Indeterminate {
+        reconciliation_reference: Option<String>,
+    },
     UnsupportedCurrency,
 }
 
@@ -483,7 +490,8 @@ impl TradeSettlement {
         amount_minor: u128,
         currency: String,
     ) -> Result<Self, EnergyAssuranceError> {
-        if trade_id.is_empty() || buyer_id.is_empty() || seller_id.is_empty() || currency.is_empty() {
+        if trade_id.is_empty() || buyer_id.is_empty() || seller_id.is_empty() || currency.is_empty()
+        {
             return Err(EnergyAssuranceError::MissingReference);
         }
         if buyer_id == seller_id || amount_minor == 0 {
@@ -514,10 +522,7 @@ impl TradeSettlement {
         Ok(())
     }
 
-    pub fn apply_rail_outcome(
-        &mut self,
-        outcome: RailOutcome,
-    ) -> Result<(), EnergyAssuranceError> {
+    pub fn apply_rail_outcome(&mut self, outcome: RailOutcome) -> Result<(), EnergyAssuranceError> {
         if !matches!(
             self.state,
             SettlementState::Submitted | SettlementState::Indeterminate
@@ -568,7 +573,10 @@ impl TradeSettlement {
         &mut self,
         attestation: ManualSettlementAttestation,
     ) -> Result<(), EnergyAssuranceError> {
-        if !matches!(self.state, SettlementState::Prepared | SettlementState::Rejected) {
+        if !matches!(
+            self.state,
+            SettlementState::Prepared | SettlementState::Rejected
+        ) {
             return Err(EnergyAssuranceError::InvalidSettlementTransition);
         }
         if attestation.evidence_reference.is_empty() {
@@ -655,21 +663,30 @@ mod tests {
     fn invalid_or_overlapping_meter_interval_is_rejected() {
         let mut meter = meter_observation();
         meter.interval_end_micros = meter.interval_start_micros;
-        assert_eq!(meter.interval_energy_wh(), Err(EnergyAssuranceError::InvalidInterval));
+        assert_eq!(
+            meter.interval_energy_wh(),
+            Err(EnergyAssuranceError::InvalidInterval)
+        );
     }
 
     #[test]
     fn expired_calibration_is_rejected() {
         let mut meter = meter_observation();
         meter.calibration_valid_until_micros = meter.interval_end_micros - 1;
-        assert_eq!(meter.interval_energy_wh(), Err(EnergyAssuranceError::InvalidCalibration));
+        assert_eq!(
+            meter.interval_energy_wh(),
+            Err(EnergyAssuranceError::InvalidCalibration)
+        );
     }
 
     #[test]
     fn meter_sequence_replay_is_rejected() {
         let mut meter = meter_observation();
         meter.sequence = 1;
-        assert_eq!(meter.interval_energy_wh(), Err(EnergyAssuranceError::MeterSequenceReplayed));
+        assert_eq!(
+            meter.interval_energy_wh(),
+            Err(EnergyAssuranceError::MeterSequenceReplayed)
+        );
     }
 
     #[test]
@@ -677,34 +694,52 @@ mod tests {
         let mut meter = meter_observation();
         meter.cumulative_register_wh = 10;
         meter.previous_register_wh = 20;
-        assert_eq!(meter.interval_energy_wh(), Err(EnergyAssuranceError::MeterRegisterDecreased));
+        assert_eq!(
+            meter.interval_energy_wh(),
+            Err(EnergyAssuranceError::MeterRegisterDecreased)
+        );
     }
 
     #[test]
     fn unknown_clock_quality_is_not_verified() {
         let mut meter = meter_observation();
         meter.clock_quality = ClockQuality::Unknown;
-        assert_eq!(meter.interval_energy_wh(), Err(EnergyAssuranceError::ClockQualityInsufficient));
+        assert_eq!(
+            meter.interval_energy_wh(),
+            Err(EnergyAssuranceError::ClockQualityInsufficient)
+        );
     }
 
     #[test]
     fn tamper_suspected_meter_is_not_verified() {
         let mut meter = meter_observation();
         meter.integrity = MeterIntegrity::TamperSuspected;
-        assert_eq!(meter.interval_energy_wh(), Err(EnergyAssuranceError::MeterTamperSuspected));
+        assert_eq!(
+            meter.interval_energy_wh(),
+            Err(EnergyAssuranceError::MeterTamperSuspected)
+        );
     }
 
     #[test]
     fn rated_capacity_bounds_energy_by_interval_duration() {
-        let bound = CapacityBound { rated_capacity_w: 1_000, tolerance_bps: 0 };
-        assert_eq!(bound.validate_observation(&meter_observation()), Err(EnergyAssuranceError::CapacityExceeded));
+        let bound = CapacityBound {
+            rated_capacity_w: 1_000,
+            tolerance_bps: 0,
+        };
+        assert_eq!(
+            bound.validate_observation(&meter_observation()),
+            Err(EnergyAssuranceError::CapacityExceeded)
+        );
     }
 
     #[test]
     fn capacity_bound_accepts_plausible_output_with_tolerance() {
         let mut meter = meter_observation();
         meter.cumulative_register_wh = 900;
-        let bound = CapacityBound { rated_capacity_w: 1_000, tolerance_bps: 0 };
+        let bound = CapacityBound {
+            rated_capacity_w: 1_000,
+            tolerance_bps: 0,
+        };
         assert_eq!(bound.validate_observation(&meter).unwrap(), 900);
     }
 
@@ -836,7 +871,15 @@ mod tests {
     fn energy_offer_rejects_oversell_without_mutating_offer() {
         let mut ledger = EnergyOfferLedger::default();
         ledger.insert_offer(offer()).unwrap();
-        let result = ledger.reserve_fill("offer-001", "buyer-001", 1_000_001, 1, 1, "fill-001", [1; 32]);
+        let result = ledger.reserve_fill(
+            "offer-001",
+            "buyer-001",
+            1_000_001,
+            1,
+            1,
+            "fill-001",
+            [1; 32],
+        );
         assert_eq!(result, Err(EnergyAssuranceError::OfferOverfilled));
         assert_eq!(ledger.offer("offer-001").unwrap().filled_quantity_wh, 0);
         assert_eq!(ledger.offer("offer-001").unwrap().revision, 1);
@@ -847,44 +890,73 @@ mod tests {
         let mut ledger = EnergyOfferLedger::default();
         ledger.insert_offer(offer()).unwrap();
         let result = ledger.reserve_fill("offer-001", "buyer-001", 100, 0, 1, "fill-001", [1; 32]);
-        assert_eq!(result, Err(EnergyAssuranceError::OfferVersionConflict { expected: 0, actual: 1 }));
+        assert_eq!(
+            result,
+            Err(EnergyAssuranceError::OfferVersionConflict {
+                expected: 0,
+                actual: 1
+            })
+        );
     }
 
     #[test]
     fn exact_fill_retry_returns_original_receipt_without_double_consumption() {
         let mut ledger = EnergyOfferLedger::default();
         ledger.insert_offer(offer()).unwrap();
-        let first = ledger.reserve_fill("offer-001", "buyer-001", 400_000, 1, 1, "fill-001", [1; 32]).unwrap();
+        let first = ledger
+            .reserve_fill("offer-001", "buyer-001", 400_000, 1, 1, "fill-001", [1; 32])
+            .unwrap();
         assert!(matches!(first, FillDisposition::New(_)));
-        let retry = ledger.reserve_fill("offer-001", "buyer-001", 400_000, 1, 1, "fill-001", [1; 32]).unwrap();
+        let retry = ledger
+            .reserve_fill("offer-001", "buyer-001", 400_000, 1, 1, "fill-001", [1; 32])
+            .unwrap();
         assert!(matches!(retry, FillDisposition::ExactReplay(_)));
-        assert_eq!(ledger.offer("offer-001").unwrap().filled_quantity_wh, 400_000);
+        assert_eq!(
+            ledger.offer("offer-001").unwrap().filled_quantity_wh,
+            400_000
+        );
     }
 
     #[test]
     fn reused_fill_key_with_different_payload_is_rejected() {
         let mut ledger = EnergyOfferLedger::default();
         ledger.insert_offer(offer()).unwrap();
-        ledger.reserve_fill("offer-001", "buyer-001", 100, 1, 1, "fill-001", [1; 32]).unwrap();
-        assert_eq!(ledger.reserve_fill("offer-001", "buyer-001", 101, 1, 1, "fill-001", [2; 32]), Err(EnergyAssuranceError::IdempotencyKeyConflict));
+        ledger
+            .reserve_fill("offer-001", "buyer-001", 100, 1, 1, "fill-001", [1; 32])
+            .unwrap();
+        assert_eq!(
+            ledger.reserve_fill("offer-001", "buyer-001", 101, 1, 1, "fill-001", [2; 32]),
+            Err(EnergyAssuranceError::IdempotencyKeyConflict)
+        );
     }
 
     #[test]
     fn fractional_minor_currency_amount_rounds_up_transparently() {
         let mut ledger = EnergyOfferLedger::default();
         ledger.insert_offer(offer()).unwrap();
-        let result = ledger.reserve_fill("offer-001", "buyer-001", 1, 1, 1, "fill-001", [1; 32]).unwrap();
-        let FillDisposition::New(fill) = result else { panic!("new fill expected") };
+        let result = ledger
+            .reserve_fill("offer-001", "buyer-001", 1, 1, 1, "fill-001", [1; 32])
+            .unwrap();
+        let FillDisposition::New(fill) = result else {
+            panic!("new fill expected")
+        };
         assert_eq!(fill.total_price_minor, 1);
     }
 
     #[test]
     fn unsupported_currency_does_not_become_paid_final_from_reference_string() {
         let mut settlement = TradeSettlement::new(
-            "trade-001".into(), "buyer-001".into(), "seller-001".into(), 100, "USD".into()
-        ).unwrap();
+            "trade-001".into(),
+            "buyer-001".into(),
+            "seller-001".into(),
+            100,
+            "USD".into(),
+        )
+        .unwrap();
         settlement.mark_submitted().unwrap();
-        settlement.apply_rail_outcome(RailOutcome::UnsupportedCurrency).unwrap();
+        settlement
+            .apply_rail_outcome(RailOutcome::UnsupportedCurrency)
+            .unwrap();
         assert_eq!(settlement.state(), SettlementState::Rejected);
         assert!(settlement.rail_reference().is_none());
     }
@@ -892,12 +964,19 @@ mod tests {
     #[test]
     fn unknown_external_payout_is_not_paid_final() {
         let mut settlement = TradeSettlement::new(
-            "trade-001".into(), "buyer-001".into(), "seller-001".into(), 100, "ZAR".into()
-        ).unwrap();
+            "trade-001".into(),
+            "buyer-001".into(),
+            "seller-001".into(),
+            100,
+            "ZAR".into(),
+        )
+        .unwrap();
         settlement.mark_submitted().unwrap();
-        settlement.apply_rail_outcome(RailOutcome::Indeterminate {
-            reconciliation_reference: None,
-        }).unwrap();
+        settlement
+            .apply_rail_outcome(RailOutcome::Indeterminate {
+                reconciliation_reference: None,
+            })
+            .unwrap();
         assert_eq!(settlement.state(), SettlementState::Indeterminate);
         assert!(settlement.rail_reference().is_none());
     }
@@ -908,10 +987,12 @@ mod tests {
             "trade-001".into(), "buyer-001".into(), "seller-001".into(), 100, "ZAR".into()
         ).unwrap();
         settlement.mark_submitted().unwrap();
-        settlement.apply_rail_outcome(RailOutcome::PaidFinal {
-            rail_reference: "bank-rail-123".into(),
-            finality_policy_ref: "rail-finality-policy/1".into(),
-        }).unwrap();
+        settlement
+            .apply_rail_outcome(RailOutcome::PaidFinal {
+                rail_reference: "bank-rail-123".into(),
+                finality_policy_ref: "rail-finality-policy/1".into(),
+            })
+            .unwrap();
         assert_eq!(settlement.state(), SettlementState::PaidFinal);
         assert_eq!(settlement.rail_reference(), Some("bank-rail-123"));
         assert_eq!(settlement.apply_rail_outcome(RailOutcome::PaidFinal {
@@ -924,12 +1005,14 @@ mod tests {
         let mut settlement = TradeSettlement::new(
             "trade-001".into(), "buyer-001".into(), "seller-001".into(), 100, "USD".into()
         ).unwrap();
-        settlement.record_manual_attestation(ManualSettlementAttestation {
-            evidence_reference: "manual-evidence-001".into(),
-            attestor_ids: vec!["inspector-1".into(), "auditor-2".into()],
-            buyer_id: "buyer-001".into(),
-            seller_id: "seller-001".into(),
-        }).unwrap();
+        settlement
+            .record_manual_attestation(ManualSettlementAttestation {
+                evidence_reference: "manual-evidence-001".into(),
+                attestor_ids: vec!["inspector-1".into(), "auditor-2".into()],
+                buyer_id: "buyer-001".into(),
+                seller_id: "seller-001".into(),
+            })
+            .unwrap();
         assert_eq!(settlement.state(), SettlementState::ManualAttested);
         assert_ne!(settlement.state(), SettlementState::PaidFinal);
     }
@@ -945,6 +1028,9 @@ mod tests {
             buyer_id: "buyer-001".into(),
             seller_id: "seller-001".into(),
         });
-        assert_eq!(result, Err(EnergyAssuranceError::InsufficientManualAttestors));
+        assert_eq!(
+            result,
+            Err(EnergyAssuranceError::InsufficientManualAttestors)
+        );
     }
 }
