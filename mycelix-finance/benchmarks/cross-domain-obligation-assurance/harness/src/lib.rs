@@ -782,7 +782,7 @@ pub fn replay_payment_history(
             }
             PaymentAuditEvent::OutcomeIndeterminate => {
                 if !matches!(
-                    status,
+                    status.as_ref(),
                     Some(PaymentStatus::Submitted | PaymentStatus::Indeterminate)
                 ) {
                     return Err(KernelError::InvalidPaymentHistory);
@@ -794,7 +794,7 @@ pub fn replay_payment_history(
                 finality_policy_reference,
             } => {
                 if !matches!(
-                    status,
+                    status.as_ref(),
                     Some(PaymentStatus::Submitted | PaymentStatus::Indeterminate)
                 ) || external_receipt_id.is_empty()
                     || finality_policy_reference.is_empty()
@@ -808,7 +808,7 @@ pub fn replay_payment_history(
             }
             PaymentAuditEvent::Rejected { external_receipt_id } => {
                 if !matches!(
-                    status,
+                    status.as_ref(),
                     Some(PaymentStatus::Submitted | PaymentStatus::Indeterminate)
                 ) || external_receipt_id.is_empty()
                 {
