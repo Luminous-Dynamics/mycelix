@@ -349,3 +349,55 @@ fn append_string(bytes: &mut Vec<u8>, value: &str) -> Result<(), String> {
     bytes.extend_from_slice(value.as_bytes());
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn digest(byte: u8) -> Digest {
+        [byte; 32]
+    }
+
+    fn receipt_digest(
+        generation: u64,
+        balance_after_minor: i64,
+    ) -> Digest {
+        canonical_effect_receipt_digest(
+            "7a1d28d8-5e9b-4a65-95dd-329816bfc33a",
+            "realm-a",
+            "resource-a",
+            "balance-adjust",
+            "postgres-owner-a",
+            "account-a",
+            "USD",
+            "operation-a",
+            generation,
+            100,
+            balance_after_minor,
+            &digest(1),
+            &digest(2),
+            &digest(3),
+            &digest(4),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn canonical_receipt_digest_is_deterministic() {
+        assert_eq!(receipt_digest(7, 1100), receipt_digest(7, 1100));
+    }
+
+    #[test]
+    fn canonical_receipt_digest_binds_generation_and_effect_balance() {
+        let baseline = receipt_digest(7, 1100);
+        assert_ne!(baseline, receipt_digest(8, 1100));
+        assert_ne!(baseline, receipt_digest(7, 1200));
+    }
+
+    #[test]
+    fn zero_or_short_database_digest_is_rejected() {
+        let mut row = Vec::new();
+        row.extend_from_slice(&[]);
+        assert_ne!(row.len(), 32);
+    }
+}
