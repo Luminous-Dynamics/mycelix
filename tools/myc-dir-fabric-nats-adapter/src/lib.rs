@@ -17,7 +17,7 @@ use async_nats::jetstream::{
     consumer::{self, AckPolicy},
     context::traits::Publisher,
     message::{Acker, PublishMessage},
-    stream::{DiscardPolicy, RetentionPolicy, StorageType},
+    stream::{self, DiscardPolicy, RetentionPolicy, StorageType},
     AckKind,
 };
 use bytes::Bytes;
