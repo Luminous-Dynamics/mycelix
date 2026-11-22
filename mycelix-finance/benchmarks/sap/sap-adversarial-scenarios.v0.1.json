@@ -1,0 +1,327 @@
+{
+  "schema_version": "0.1",
+  "benchmark_id": "MYC-SAP-ADVERSARIAL-0.1",
+  "status": "specification_only_not_executed",
+  "created_on": "2026-11-22",
+  "target_invariants": [
+    "no_unauthorized_issuance",
+    "no_duplicate_issuance",
+    "no_double_spend",
+    "internal_transfers_are_net_zero",
+    "unknown_external_outcome_requires_reconciliation",
+    "reserve_and_liability_snapshots_reconcile",
+    "no_duplicate_collateral_pledge",
+    "no_coordinator_bypass_of_integrity_authorization"
+  ],
+  "scenarios": [
+    {
+      "id": "SAP-001",
+      "name": "Concurrent duplicate mint intent",
+      "category": "issuance",
+      "severity": "critical",
+      "preconditions": [
+        "one valid external funding receipt",
+        "one unconsumed issuance authorization"
+      ],
+      "fault_injection": [
+        "deliver the same issuance intent concurrently to 100 agents"
+      ],
+      "actions": [
+        "submit same idempotency key and payload from concurrent actors"
+      ],
+      "expected_result": "exactly_one_issuance_or_all_rejected",
+      "negative_control": "remove the consumed-authorization check and confirm the fixture detects duplicate issuance",
+      "required_evidence": [
+        "issuance receipt",
+        "reserve snapshot",
+        "liability reconciliation"
+      ]
+    },
+    {
+      "id": "SAP-002",
+      "name": "Cross-agent issuance receipt replay",
+      "category": "replay",
+      "severity": "critical",
+      "preconditions": [
+        "one previously consumed issuance receipt"
+      ],
+      "fault_injection": [
+        "replay receipt from a second source chain and node"
+      ],
+      "actions": [
+        "invoke mint path with consumed receipt reference"
+      ],
+      "expected_result": "reject_replay_without_balance_change",
+      "negative_control": "disable receipt-consumption check",
+      "required_evidence": [
+        "author binding",
+        "consumed receipt marker",
+        "balance deltas"
+      ]
+    },
+    {
+      "id": "SAP-003",
+      "name": "Concurrent spend of same balance",
+      "category": "concurrency",
+      "severity": "critical",
+      "preconditions": [
+        "holder has balance sufficient for exactly one transfer"
+      ],
+      "fault_injection": [
+        "race two transfers each requesting the full balance"
+      ],
+      "actions": [
+        "submit both transfers before either caller observes a receipt"
+      ],
+      "expected_result": "at_most_one_transfer_commits",
+      "negative_control": "replace integrity-level conservation with coordinator-only mutable aggregate",
+      "required_evidence": [
+        "ordered ledger events",
+        "conflict/retry result",
+        "supply reconciliation"
+      ]
+    },
+    {
+      "id": "SAP-004",
+      "name": "Transfer committed but acknowledgement dropped",
+      "category": "recovery",
+      "severity": "high",
+      "preconditions": [
+        "valid transfer intent"
+      ],
+      "fault_injection": [
+        "drop caller response after commit"
+      ],
+      "actions": [
+        "retry the exact idempotency key and payload"
+      ],
+      "expected_result": "return_prior_receipt_without_second_transfer",
+      "negative_control": "remove idempotency lookup",
+      "required_evidence": [
+        "original receipt",
+        "retry receipt",
+        "single balance delta"
+      ]
+    },
+    {
+      "id": "SAP-005",
+      "name": "Bank payout succeeded but callback timed out",
+      "category": "redemption",
+      "severity": "critical",
+      "preconditions": [
+        "valid reserved redemption request"
+      ],
+      "fault_injection": [
+        "external rail pays but callback is lost"
+      ],
+      "actions": [
+        "mark local outcome unknown then attempt retry"
+      ],
+      "expected_result": "indeterminate_until_external_reconciliation_then_single_burn",
+      "negative_control": "blindly retry payout",
+      "required_evidence": [
+        "external bank reference",
+        "rail finality evidence",
+        "burn or compensation receipt"
+      ]
+    },
+    {
+      "id": "SAP-006",
+      "name": "Bank payout failed but late success callback arrives",
+      "category": "redemption",
+      "severity": "critical",
+      "preconditions": [
+        "valid redemption intent"
+      ],
+      "fault_injection": [
+        "deliver failure callback before success callback"
+      ],
+      "actions": [
+        "process both callbacks in adversarial order"
+      ],
+      "expected_result": "one_final_state_after_reconciliation_no_duplicate_payout",
+      "negative_control": "accept last callback as truth without event identity",
+      "required_evidence": [
+        "signed callback sequence",
+        "external settlement query",
+        "final liability state"
+      ]
+    },
+    {
+      "id": "SAP-007",
+      "name": "Idempotency key reused with different payload",
+      "category": "replay",
+      "severity": "critical",
+      "preconditions": [
+        "one redemption or payment request has used the key"
+      ],
+      "fault_injection": [
+        "same key, different holder/amount/recipient"
+      ],
+      "actions": [
+        "submit mutated payload using existing idempotency key"
+      ],
+      "expected_result": "reject_conflicting_reuse",
+      "negative_control": "key idempotency only on key string, not request digest",
+      "required_evidence": [
+        "request digest",
+        "rejection receipt",
+        "no side effect"
+      ]
+    },
+    {
+      "id": "SAP-008",
+      "name": "Same collateral pledged twice",
+      "category": "collateral",
+      "severity": "critical",
+      "preconditions": [
+        "one uniquely identified asset with active pledge"
+      ],
+      "fault_injection": [
+        "second lender submits a different alias for same asset/title"
+      ],
+      "actions": [
+        "register and pledge the alias concurrently"
+      ],
+      "expected_result": "second_pledge_rejected_or_explicitly_subordinated_by_enforceable_contract",
+      "negative_control": "check only token identifier, not underlying title/custody identity",
+      "required_evidence": [
+        "asset identity lineage",
+        "title/custody evidence",
+        "lien registry result"
+      ]
+    },
+    {
+      "id": "SAP-009",
+      "name": "Raw coordinator credit bypass",
+      "category": "authorization",
+      "severity": "critical",
+      "preconditions": [
+        "unprivileged agent and target holder"
+      ],
+      "fault_injection": [
+        "call direct credit path without valid issuance receipt or transfer debit"
+      ],
+      "actions": [
+        "attempt raw credit through exposed zome API"
+      ],
+      "expected_result": "integrity_layer_rejects_unbacked_credit",
+      "negative_control": "remove integrity validation and observe detection",
+      "required_evidence": [
+        "caller identity",
+        "validation failure",
+        "unchanged supply"
+      ]
+    },
+    {
+      "id": "SAP-010",
+      "name": "DHT partition with pending balance adjustment",
+      "category": "partition",
+      "severity": "critical",
+      "preconditions": [
+        "transfer entered prepare state"
+      ],
+      "fault_injection": [
+        "partition network before commit/read-back completes"
+      ],
+      "actions": [
+        "restart agents and reconnect in different orders"
+      ],
+      "expected_result": "one_reconciled_outcome_or_explicit_indeterminate_no_duplicate",
+      "negative_control": "allow independent local completion on both sides",
+      "required_evidence": [
+        "pending adjustment record",
+        "reconciliation receipt",
+        "unique final transaction identity"
+      ]
+    },
+    {
+      "id": "SAP-011",
+      "name": "Restart at every redemption state boundary",
+      "category": "recovery",
+      "severity": "high",
+      "preconditions": [
+        "redemption workflow at each defined state"
+      ],
+      "fault_injection": [
+        "restart node after request, reserve, payout, burn and reconcile"
+      ],
+      "actions": [
+        "resume from durable state"
+      ],
+      "expected_result": "state_machine_recovers_without_lost_or_duplicate_liability",
+      "negative_control": "omit durable checkpoint after external side effect",
+      "required_evidence": [
+        "checkpoint chain",
+        "external payout receipt",
+        "final liability reconciliation"
+      ]
+    },
+    {
+      "id": "SAP-012",
+      "name": "Issuer or governance key revoked",
+      "category": "key_compromise",
+      "severity": "critical",
+      "preconditions": [
+        "a previously valid authority grant and key"
+      ],
+      "fault_injection": [
+        "revoke key/authority epoch before execution"
+      ],
+      "actions": [
+        "submit a queued issuance after revocation"
+      ],
+      "expected_result": "new_action_rejected_historical_receipts_remain_verifiable",
+      "negative_control": "validate signature without current revocation state",
+      "required_evidence": [
+        "revocation event",
+        "authority epoch",
+        "rejection receipt"
+      ]
+    },
+    {
+      "id": "SAP-013",
+      "name": "Stale or out-of-order reserve checkpoint",
+      "category": "oracle_and_reserve",
+      "severity": "high",
+      "preconditions": [
+        "new reserve snapshot supersedes old snapshot"
+      ],
+      "fault_injection": [
+        "replay old snapshot after new one"
+      ],
+      "actions": [
+        "attempt issuance using stale snapshot"
+      ],
+      "expected_result": "stale_snapshot_rejected_and_issuance_paused",
+      "negative_control": "accept newest-arriving message rather than highest valid epoch",
+      "required_evidence": [
+        "snapshot epochs",
+        "custodian signature",
+        "eligibility decision"
+      ]
+    },
+    {
+      "id": "SAP-014",
+      "name": "Retirement with escrowed and disputed balances",
+      "category": "lifecycle",
+      "severity": "high",
+      "preconditions": [
+        "currency has outstanding, escrowed and disputed claims"
+      ],
+      "fault_injection": [
+        "attempt retirement while claims remain unresolved"
+      ],
+      "actions": [
+        "retire currency then attempt transfer/redemption/escrow release"
+      ],
+      "expected_result": "retirement_blocked_or_liabilities_preserved_under_explicit_migration_plan",
+      "negative_control": "exclude pending and escrowed balances from supply",
+      "required_evidence": [
+        "complete liability inventory",
+        "migration/retirement authorization",
+        "post-event reconciliation"
+      ]
+    }
+  ]
+}

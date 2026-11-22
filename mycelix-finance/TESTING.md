@@ -9,6 +9,11 @@
 
 ## Test Categories
 
+### 0. SAP assurance kernel (pure Rust, no conductor)
+
+`cargo test -p sap-assurance-core` — reserve eligibility, haircuts, encumbrance, duplicate asset identity, 100% post-issuance coverage, supply conservation, idempotency and redemption reconciliation state transitions. Includes a deterministic one-million-case arithmetic/property loop. This kernel is a policy reference; it does not authenticate off-ledger evidence or replace zome integrity validation.
+
+
 ### 1. Unit tests
 
 `cargo test --workspace` -- pure Rust, no conductor needed. Tests type validation,

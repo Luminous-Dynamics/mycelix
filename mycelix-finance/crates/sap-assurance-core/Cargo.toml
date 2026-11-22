@@ -1,0 +1,9 @@
+[package]
+name = "sap-assurance-core"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "Pure reserve, supply, idempotency and redemption assurance kernel for Mycelix SAP"
+
+[lib]
+path = "src/lib.rs"

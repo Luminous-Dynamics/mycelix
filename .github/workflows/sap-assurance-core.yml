@@ -1,0 +1,39 @@
+name: SAP Assurance Core
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "mycelix-finance/Cargo.toml"
+      - "mycelix-finance/Cargo.lock"
+      - "mycelix-finance/crates/sap-assurance-core/**"
+      - ".github/workflows/sap-assurance-core.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sap-assurance-core-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pure-kernel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-finance/Cargo.toml --package sap-assurance-core -- --check
+      - name: Test pure SAP assurance kernel
+        run: cargo test --locked --manifest-path mycelix-finance/Cargo.toml --package sap-assurance-core
+      - name: Detect uncommitted lockfile mutation
+        if: always()
+        run: |
+          if ! git diff --quiet -- mycelix-finance/Cargo.lock; then
+            git --no-pager diff -- mycelix-finance/Cargo.lock
+            exit 1
+          fi
