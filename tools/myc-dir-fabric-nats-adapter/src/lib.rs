@@ -638,3 +638,133 @@ impl JetStreamAdapter {
         }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config() -> JetStreamAdapterConfig {
+        JetStreamAdapterConfig {
+            account_id: "default".into(),
+            stream_name: "MYCELIX_COMMANDS".into(),
+            subject: "mycelix.commands.>".into(),
+            durable_consumer: "mycelix-workers".into(),
+            duplicate_window: Duration::from_secs(120),
+            expected_stream_replicas: 1,
+            expected_domain: Some("MYCELIX".into()),
+            expected_account_hash: None,
+            ack_wait: Duration::from_secs(30),
+            max_ack_pending: 256,
+            max_deliver: 10,
+            fetch_timeout: Duration::from_secs(5),
+        }
+    }
+
+    #[test]
+    fn valid_pinned_configuration_is_accepted() {
+        assert!(config().validate().is_ok());
+    }
+
+    #[test]
+    fn empty_account_identity_is_rejected() {
+        let mut value = config();
+        value.account_id.clear();
+        assert!(matches!(
+            value.validate(),
+            Err(AdapterError::InvalidConfiguration("account_id"))
+        ));
+    }
+
+    #[test]
+    fn zero_duplicate_window_is_rejected() {
+        let mut value = config();
+        value.duplicate_window = Duration::ZERO;
+        assert!(matches!(
+            value.validate(),
+            Err(AdapterError::InvalidConfiguration("duplicate_window"))
+        ));
+    }
+
+    #[test]
+    fn zero_replicas_is_rejected() {
+        let mut value = config();
+        value.expected_stream_replicas = 0;
+        assert!(matches!(
+            value.validate(),
+            Err(AdapterError::InvalidConfiguration("expected_stream_replicas"))
+        ));
+    }
+
+    #[test]
+    fn unsupported_replica_count_is_rejected() {
+        let mut value = config();
+        value.expected_stream_replicas = 6;
+        assert!(matches!(
+            value.validate(),
+            Err(AdapterError::InvalidConfiguration("expected_stream_replicas"))
+        ));
+    }
+
+    #[test]
+    fn zero_ack_wait_is_rejected() {
+        let mut value = config();
+        value.ack_wait = Duration::ZERO;
+        assert!(matches!(
+            value.validate(),
+            Err(AdapterError::InvalidConfiguration("ack_wait"))
+        ));
+    }
+
+    #[test]
+    fn zero_ack_pending_is_rejected() {
+        let mut value = config();
+        value.max_ack_pending = 0;
+        assert!(matches!(
+            value.validate(),
+            Err(AdapterError::InvalidConfiguration("max_ack_pending"))
+        ));
+    }
+
+    #[test]
+    fn zero_max_deliver_is_rejected() {
+        let mut value = config();
+        value.max_deliver = 0;
+        assert!(matches!(
+            value.validate(),
+            Err(AdapterError::InvalidConfiguration("max_deliver"))
+        ));
+    }
+
+    #[test]
+    fn zero_fetch_timeout_is_rejected() {
+        let mut value = config();
+        value.fetch_timeout = Duration::ZERO;
+        assert!(matches!(
+            value.validate(),
+            Err(AdapterError::InvalidConfiguration("fetch_timeout"))
+        ));
+    }
+
+    #[test]
+    fn hex_digest_round_trips_without_loss() {
+        let expected = [0xabu8; 32];
+        let encoded = hex_encode(&expected);
+        assert_eq!(hex_decode_32(&encoded, HEADER_PAYLOAD_DIGEST).unwrap(), expected);
+    }
+
+    #[test]
+    fn malformed_digest_length_is_rejected() {
+        assert!(matches!(
+            hex_decode_32("abc", HEADER_PAYLOAD_DIGEST),
+            Err(AdapterError::InvalidHeader(HEADER_PAYLOAD_DIGEST))
+        ));
+    }
+
+    #[test]
+    fn non_hex_digest_is_rejected() {
+        assert!(matches!(
+            hex_decode_32(&"gg".repeat(32), HEADER_PAYLOAD_DIGEST),
+            Err(AdapterError::InvalidHeader(HEADER_PAYLOAD_DIGEST))
+        ));
+    }
+}
