@@ -607,22 +607,54 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
         }
     }
 
+    for (operation_id, attempts) in &attempts_by_operation {
+        let mut expected_number = 1u32;
+        for (number, attempt_id) in attempts {
+            if *number != expected_number {
+                findings.inconclusive(
+                    FindingCode::AttemptNumberGap,
+                    attempt_starts.get(attempt_id).map(|event| event.id.as_str()),
+                    format!("operation {operation_id} has a missing physical attempt number before {number}"),
+                );
+            }
+            expected_number = number.saturating_add(1);
+        }
+    }
+
     let mut fence_commits: BTreeMap<String, FenceInfo> = BTreeMap::new();
     let mut readbacks: BTreeMap<String, ReadBackInfo> = BTreeMap::new();
     let mut owner_ack_valid: BTreeMap<String, String> = BTreeMap::new();
     let mut effect_commits_by_operation: BTreeMap<String, String> = BTreeMap::new();
     let mut attempt_starts: BTreeMap<String, EventRecord> = BTreeMap::new();
+    let mut attempts_by_operation: BTreeMap<String, BTreeMap<u32, String>> = BTreeMap::new();
     let mut unknown_attempts: BTreeMap<String, String> = BTreeMap::new();
     let mut reconciliations: BTreeMap<String, (String, ReconciledOutcome)> = BTreeMap::new();
 
     for event in events.values() {
         match &event.kind {
-            EventKind::EffectAttemptStarted { attempt_id, .. } => {
+            EventKind::EffectAttemptStarted {
+                operation_id,
+                attempt_id,
+                attempt_number,
+                ..
+            } => {
                 if attempt_starts.insert(attempt_id.clone(), event.clone()).is_some() {
                     findings.violation(
                         FindingCode::DuplicateAttemptNumber,
                         Some(&event.id),
                         format!("physical attempt id {attempt_id} is reused"),
+                    );
+                }
+                if attempts_by_operation
+                    .entry(operation_id.clone())
+                    .or_default()
+                    .insert(*attempt_number, attempt_id.clone())
+                    .is_some()
+                {
+                    findings.violation(
+                        FindingCode::DuplicateAttemptNumber,
+                        Some(&event.id),
+                        format!("operation {operation_id} reuses physical attempt number {attempt_number}"),
                     );
                 }
             }
@@ -1242,18 +1274,29 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                             "retry must directly reference its prior-attempt outcome evidence",
                         );
                     }
-                    match events.get(outcome_id).map(|e| &e.kind) {
-                        Some(EventKind::AttemptReconciled {
-                            operation_id: prior_operation,
-                            attempt_number: prior_number,
-                            outcome: ReconciledOutcome::ConfirmedNoEffect,
-                            ..
-                        }) if prior_operation == operation_id
+                    let previous_attempt_id = attempts_by_operation
+                        .get(operation_id)
+                        .and_then(|attempts| attempts.get(&attempt_number.saturating_sub(1)));
+                    match (
+                        previous_attempt_id,
+                        events.get(outcome_id).map(|e| &e.kind),
+                    ) {
+                        (
+                            Some(expected_previous_id),
+                            Some(EventKind::AttemptReconciled {
+                                operation_id: prior_operation,
+                                attempt_id: prior_attempt_id,
+                                attempt_number: prior_number,
+                                outcome: ReconciledOutcome::ConfirmedNoEffect,
+                                ..
+                            }),
+                        ) if prior_operation == operation_id
+                            && prior_attempt_id == expected_previous_id
                             && *prior_number + 1 == *attempt_number => {}
                         _ => findings.violation(
                             FindingCode::RetryWithoutNoEffectReconciliation,
                             Some(&event.id),
-                            "retry is not preceded by an exact ConfirmedNoEffect reconciliation of the immediately prior attempt",
+                            "retry is not preceded by an exact ConfirmedNoEffect reconciliation of the immediately prior physical attempt",
                         ),
                     }
                 }
@@ -1294,14 +1337,18 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                     };
                     match events.get(commit_id).map(|e| &e.kind) {
                         Some(EventKind::EffectCommitted {
+                            operation_id: committed_operation,
                             attempt_id: committed_attempt,
+                            attempt_number: committed_number,
                             ..
-                        }) if committed_attempt == attempt_id
+                        }) if committed_operation == operation_id
+                            && committed_attempt == attempt_id
+                            && committed_number == attempt_number
                             && has_parent(event, commit_id) => {}
                         _ => findings.violation(
                             FindingCode::ReconciliationBindingMismatch,
                             Some(&event.id),
-                            "Committed reconciliation does not bind the exact attempt's owner commit",
+                            "Committed reconciliation does not bind the exact operation/attempt owner commit",
                         ),
                     }
                 }
