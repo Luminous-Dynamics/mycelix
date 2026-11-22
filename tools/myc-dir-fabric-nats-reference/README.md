@@ -23,10 +23,10 @@ From the repository root:
 cargo test --manifest-path tools/myc-dir-fabric-nats-reference/Cargo.toml
 ```
 
-There are 21 unit tests. On exact PR head `1105375305704c019b7d2ccecda78a18dc0e7faf`, GitHub Actions run [#45000430944](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45000430944) passed all 21 tests, formatting and Clippy.
+There are 23 unit tests in the current scope-bound command contract. The earlier NATS-only exact-head run passed 21 tests before this PostgreSQL-scope expansion; the new 23-test version is pending its own CI run. On exact PR head `1105375305704c019b7d2ccecda78a18dc0e7faf`, GitHub Actions run [#45000430944](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45000430944) passed all 21 tests, formatting and Clippy.
 
 ## Explicit limits
 
 This is a provider-specific **transport contract**, not a real NATS client adapter. It does not depend on async-nats, connect to a broker, create streams/consumers, publish, receive PubAck, issue Ack/AckSync, or exercise redelivery/failover.
 
-The next increment must pin NATS server and async-nats client versions and add a real integration harness with forced AckWait redelivery, lost PubAck/ACK responses, late worker acknowledgements, duplicate republish after window expiry and the PostgreSQL effect owner.
+The concrete client and PostgreSQL receipt verifier now live in the adjacent `myc-dir-fabric-nats-adapter` crate. The PostgreSQL-backed branch is awaiting its own exact-head CI qualification.
