@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-workspace/mycelix-manufacturing/schemas/mfg_proc_001a/typed_process_refs_v0_1.schema.json",
+  "title": "MFG-PROC-001A Typed Process Reference Contracts v0.1",
+  "description": "Migration-safe references into the pinned Symthaea manufacturing contract API. Syntactic validity does not prove external object resolution, authenticity, process qualification or machine authority.",
+  "$defs": {
+    "objectRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner_repository",
+        "owner_commit",
+        "contract_crate",
+        "contract_type",
+        "object_id_blake3",
+        "process_id_blake3",
+        "semantic_version"
+      ],
+      "properties": {
+        "owner_repository": {
+          "const": "Luminous-Dynamics/symthaea"
+        },
+        "owner_commit": {
+          "const": "0b3feb49a3c2e9c1c1748ca2a0c0ff40ed320ecd"
+        },
+        "contract_crate": {
+          "enum": [
+            "symthaea-manufacturing-process",
+            "symthaea-manufacturing-contracts"
+          ]
+        },
+        "contract_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96
+        },
+        "object_id_blake3": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "process_id_blake3": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "semantic_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "processDefinitionRef": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/objectRef"
+        },
+        {
+          "properties": {
+            "contract_crate": {
+              "const": "symthaea-manufacturing-process"
+            },
+            "contract_type": {
+              "const": "ProcessDefinitionV1"
+            },
+            "object_id_blake3": {
+              "const": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "process_id_blake3": {
+              "const": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          }
+        }
+      ]
+    },
+    "capabilityRequirementRef": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/objectRef"
+        },
+        {
+          "properties": {
+            "contract_crate": {
+              "const": "symthaea-manufacturing-contracts"
+            },
+            "contract_type": {
+              "const": "ProcessCapabilityRequirementV1"
+            }
+          }
+        }
+      ]
+    },
+    "capabilityProfileRef": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/objectRef"
+        },
+        {
+          "properties": {
+            "contract_crate": {
+              "const": "symthaea-manufacturing-contracts"
+            },
+            "contract_type": {
+              "const": "ProcessCapabilityProfileV1"
+            }
+          }
+        }
+      ]
+    },
+    "recipeRef": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/objectRef"
+        },
+        {
+          "properties": {
+            "contract_crate": {
+              "const": "symthaea-manufacturing-contracts"
+            },
+            "contract_type": {
+              "const": "ProcessRecipeV1"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "title": "Operation or routing process binding",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "process_definition",
+        "capability_requirement"
+      ],
+      "properties": {
+        "process_definition": {
+          "$ref": "#/$defs/objectRef"
+        },
+        "capability_requirement": {
+          "$ref": "#/$defs/capabilityRequirementRef"
+        },
+        "recipe": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/recipeRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "title": "Machine process capability reference",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability_profile"
+      ],
+      "properties": {
+        "capability_profile": {
+          "$ref": "#/$defs/capabilityProfileRef"
+        }
+      }
+    }
+  ]
+}
