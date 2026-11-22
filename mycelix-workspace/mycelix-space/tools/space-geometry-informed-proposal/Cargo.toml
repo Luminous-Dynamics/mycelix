@@ -1,0 +1,20 @@
+[package]
+name = "space-geometry-informed-proposal"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Defensive geometry-informed importance proposal for analytical rare-event boundaries"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "space-geometry-informed-proposal"
+path = "src/main.rs"
+
+[workspace]
+
+[[bin]]
+name = "analytic_halfspace_benchmark"
+path = "src/bin/analytic_halfspace_benchmark.rs"
