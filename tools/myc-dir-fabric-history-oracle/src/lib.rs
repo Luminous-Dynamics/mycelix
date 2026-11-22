@@ -2060,6 +2060,68 @@ mod tests {
     }
 
     #[test]
+    fn exact_confirmed_no_effect_reconciliation_allows_a_new_attempt() {
+        let mut history = base_history(false);
+        history.events.retain(|event| event.id != "effect-a");
+        let fence = history.events.iter_mut().find(|event| event.id == "fence-a").unwrap();
+        fence.parents.retain(|parent| parent != "effect-a");
+        history.events.push(record(
+            "unknown-a",
+            &["attempt-a"],
+            Some("owner-a"),
+            None,
+            EventKind::AttemptOutcomeUnknown {
+                operation_id: "op-a".into(),
+                attempt_id: "attempt-a".into(),
+                attempt_number: 1,
+            },
+        ));
+        history.events.push(record(
+            "reconciled-a",
+            &["unknown-a"],
+            Some("owner-a"),
+            None,
+            EventKind::AttemptReconciled {
+                operation_id: "op-a".into(),
+                attempt_id: "attempt-a".into(),
+                attempt_number: 1,
+                unknown_event_id: "unknown-a".into(),
+                outcome: ReconciledOutcome::ConfirmedNoEffect,
+                effect_commit_event_id: None,
+            },
+        ));
+        history.events.push(record(
+            "claim-b",
+            &["claim-a", "readback-a"],
+            Some("owner-a"),
+            Some(6),
+            EventKind::WorkerClaimInstalled {
+                operation_id: "op-a".into(),
+                worker_id: "worker-b".into(),
+                claim_epoch: 2,
+            },
+        ));
+        history.events.push(record(
+            "attempt-b",
+            &["claim-b", "reconciled-a", "global-ack"],
+            Some("owner-a"),
+            None,
+            EventKind::EffectAttemptStarted {
+                operation_id: "op-a".into(),
+                attempt_id: "attempt-b".into(),
+                attempt_number: 2,
+                worker_id: "worker-b".into(),
+                claim_epoch: 2,
+                claim_event_id: "claim-b".into(),
+                position: pos(1, 2),
+                idempotency_digest: digest(7),
+                retry_after_outcome_event_id: Some("reconciled-a".into()),
+            },
+        ));
+        assert_eq!(audit_history(&history).verdict, Verdict::Valid);
+    }
+
+    #[test]
     fn accepts_effect_that_committed_before_owner_fence() {
         assert_eq!(audit_history(&base_history(false)).verdict, Verdict::Valid);
     }
