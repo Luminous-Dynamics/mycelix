@@ -226,9 +226,10 @@ async fn create_committed_postgres_effect(
 
     let effect_row = transaction
         .query_one(
-            "SELECT replayed, effect_id::text, accepted_generation \
-             FROM myc_effect_owner.apply_claim_fenced_balance_delta( \
-               $1, $2, $3, $4, $5, $6, 1, $7, $8, $9, $10, $11, 100, \
+            "SELECT replayed, effect_id::text, accepted_owner_epoch, accepted_generation, \
+                    accepted_worker_id, accepted_claim_epoch, execution_attestation_id::text \
+             FROM myc_effect_owner.apply_owner_epoch_claim_fenced_balance_delta( \
+               $1, $2, $3, $4, $5, $6, 1, 1, $7, $8, $9, $10, $11, 100, \
                $12, 1, $13, 'postgres-db-clock-v1', \
                clock_timestamp() - interval '1 minute', \
                clock_timestamp() + interval '1 hour')",
@@ -249,13 +250,21 @@ async fn create_committed_postgres_effect(
             ],
         )
         .await
-        .expect("execute protected effect and append the receipt");
+        .expect("execute protected effect and append the owner-epoch execution attestation");
     let replayed: bool = effect_row.get(0);
     let effect_id: String = effect_row.get(1);
-    let accepted_generation: i64 = effect_row.get(2);
+    let accepted_owner_epoch: i64 = effect_row.get(2);
+    let accepted_generation: i64 = effect_row.get(3);
+    let accepted_worker_id: String = effect_row.get(4);
+    let accepted_claim_epoch: i64 = effect_row.get(5);
+    let execution_attestation_id: String = effect_row.get(6);
     assert!(!replayed, "first physical effect attempt must not be a replay");
     assert!(!effect_id.is_empty());
+    assert!(!execution_attestation_id.is_empty());
+    assert_eq!(accepted_owner_epoch, 1);
     assert_eq!(accepted_generation, 1);
+    assert_eq!(accepted_worker_id, worker);
+    assert_eq!(accepted_claim_epoch, 1);
     transaction
         .commit()
         .await
