@@ -105,7 +105,7 @@ fn append_text_set(
 /// Versioned canonical bytes for one complete typed history event.
 /// Parent IDs are sorted because causal parent order has set semantics.
 pub fn canonical_event_bytes(event: &EventRecord) -> Result<Vec<u8>, CanonicalEventError> {
-    let mut bytes = b"MYC-DIR-HISTORY-EVENT\\0\\x01".to_vec();
+    let mut bytes = b"MYC-DIR-HISTORY-EVENT\0\x01".to_vec();
     append_text(&mut bytes, &event.id)?;
     append_digest(&mut bytes, &event.scope_digest);
     append_optional_text(&mut bytes, event.owner.as_deref())?;
@@ -302,7 +302,7 @@ pub fn canonical_event_set_bytes(
             return Err(CanonicalEventError::DuplicateEventId);
         }
     }
-    let mut bytes = b"MYC-DIR-HISTORY-EVENT-SET\\0\\x01".to_vec();
+    let mut bytes = b"MYC-DIR-HISTORY-EVENT-SET\0\x01".to_vec();
     append_len(&mut bytes, ordered.len())?;
     for event in ordered {
         append_bytes(&mut bytes, &canonical_event_bytes(event)?)?;
