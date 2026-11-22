@@ -60,7 +60,7 @@ This crate does not:
 - replace TLC, Porcupine, Jepsen or real-system fault injection;
 - establish any runtime result or SOTA claim.
 
-Porcupine and Jepsen remain generic linearizability/consistency comparators. The value of this checker is the Directory Fabric-specific sequential contract around worker claims, owner epochs, resource fences, durable acknowledgement chains and strict revocation barriers. The next stage is an independent event-ingest adapter and conformance corpus, followed by comparison against Porcupine/Jepsen-compatible models.
+Porcupine and Jepsen remain generic linearizability/consistency comparators. The value of this checker is the Directory Fabric-specific sequential contract around worker claims, owner epochs, resource fences, durable acknowledgement chains and strict revocation barriers. The next stage is a production EvidenceAuthenticator and source-specific PostgreSQL/NATS/RabbitMQ/Kafka capture adapters, followed by comparison against Porcupine/Jepsen-compatible models.
 
 
 ## Authenticated evidence ingestion
@@ -71,7 +71,7 @@ The ingest API authenticates each source manifest against the exact covered even
 
 The `EvidenceAuthenticator` is an explicit external cryptographic trust boundary. It must authenticate source signatures/build identity, verify complete cursor intervals, recompute event-set commitments over the supplied canonical event records, verify inventory closure and recompute the owner acknowledgement set. Unavailable verification remains INCONCLUSIVE. The ingest layer is source-present only; the verifier, event decoder, WAL/broker capture adapters and production trust-root policy remain separate implementations.
 
-The companion preregistered corpus is `docs/benchmarks/MYC_DIR_HISTORY_INGEST_V0_1.json` with Draft 2020-12 schema `MYC_DIR_HISTORY_INGEST_V0_1.schema.json`. It currently contains 18 scenarios, 12 metrics and five scale profiles. Neither the ingest tests nor corpus has been executed.
+The companion preregistered corpus is `docs/benchmarks/MYC_DIR_HISTORY_INGEST_V0_1.json` with Draft 2020-12 schema `MYC_DIR_HISTORY_INGEST_V0_1.schema.json`. It currently contains 18 scenarios, 12 metrics and five scale profiles. The ingest crate has 17 authored tests. Neither the tests nor corpus has been executed.
 
 
 ### Canonical event and event-set bytes
