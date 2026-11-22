@@ -1,0 +1,39 @@
+name: PCOE Assurance Kernel
+
+on:
+  push:
+    branches:
+      - research/pcoe-rust-kernel-v0.1-20261122
+    paths:
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/**"
+      - ".github/workflows/pcoe-assurance-kernel.yml"
+  pull_request:
+    paths:
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/**"
+      - ".github/workflows/pcoe-assurance-kernel.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pcoe-assurance-kernel-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pure-rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mycelix-finance/benchmarks/cross-domain-obligation-assurance/harness
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Format
+        run: cargo fmt --check
+      - name: Test
+        run: cargo test --locked
+      - name: Lockfile immutability
+        run: git diff --exit-code -- Cargo.lock
