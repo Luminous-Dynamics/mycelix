@@ -824,12 +824,13 @@ mod tests {
 
         for case in cases {
             assert!(
-                case["id"].as_str().is_some_and(|id| id.starts_with("MFG-PROC-001A-")),
+                case["id"]
+                    .as_str()
+                    .is_some_and(|id| id.starts_with("MFG-PROC-001A-")),
                 "every frozen case has a stable scenario ID"
             );
             assert_eq!(
-                case["may_satisfy_typed_matching"],
-                false,
+                case["may_satisfy_typed_matching"], false,
                 "synthetic fixture vectors must not mint verified/qualified capability"
             );
         }
