@@ -145,3 +145,27 @@ Run test_worker_claim_fencing.sql after applying both migrations. This is an aut
 
 
 The base apply_balance_delta function accepts the exact decision clock profile, issued-at and expiry timestamps. It acquires advisory locks, the owner-fence row and the protected-object row before checking the full owner-clock uncertainty interval immediately before the write. Exact read-only idempotency replay remains available to reconcile an earlier commit; a new mutation outside the decision window is rejected. The queue-facing PEP role is granted only the worker-claim wrapper, not the unwrapped base mutation function.
+
+
+## Automated two-session worker-claim reassignment race
+
+The companion harness `test_worker_claim_reassignment_race.sh` exercises the PostgreSQL worker-claim extension with two real sessions.
+
+On a **disposable database** after applying `001_effect_owner.sql` and `002_worker_claim_fencing.sql`, run:
+
+```sh
+TEST_DATABASE_URL='postgresql://...' bash tools/myc-dir-fabric-reference/postgres/test_worker_claim_reassignment_race.sh
+```
+
+The harness:
+1. Creates a unique owner/resource and installs worker A at claim epoch 1.
+2. Starts a protected effect transaction in Session A. A test-only BEFORE UPDATE trigger pauses the mutation while the claim row is held FOR SHARE.
+3. Starts Session B and attempts to install worker B at epoch 2. The update must block until Session A commits.
+4. Requires the observed lock wait to exceed the minimum expected threshold.
+5. Requires worker A's stale exact replay to be rejected after epoch 2 commits.
+6. Requires worker B's exact replay to return the prior read-only effect receipt.
+7. Verifies exactly one effect row and the expected protected balance.
+
+The script keeps raw Session A/B logs in a temporary directory and prints its path. Archive those logs, the PostgreSQL version/configuration, migration hashes and database durability profile as qualification evidence. The 5-second pause is a deterministic test fault, not a production setting.
+
+This is an executable harness source artifact, not evidence that the race has passed. Run it on the pinned PostgreSQL version and configured replication/failover profile in #6459. It covers worker-claim row serialization; the independent resource-fence-vs-effect lock-order and crash/failover schedules remain required.
