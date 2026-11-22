@@ -189,6 +189,7 @@ pub enum FindingCode {
     ZeroOwnerSequence,
     UnexpectedOwnerSequence,
     DuplicateOwnerSequence,
+    OwnerSequenceCausalOrderMismatch,
     InvalidDigest,
     InvalidPosition,
     MissingOwnerBootstrap,
@@ -533,6 +534,21 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                 .push((sequence, event.id.clone()));
         }
     }
+    for (operation_id, attempts) in &attempts_by_operation {
+        let mut expected_number = 1u32;
+        for (number, attempt_id) in attempts {
+            if *number != expected_number {
+                findings.inconclusive(
+                    FindingCode::AttemptNumberGap,
+                    attempt_starts.get(attempt_id).map(|event| event.id.as_str()),
+                    format!("operation {operation_id} has a missing physical attempt number before {number}"),
+                );
+            }
+            expected_number = number.saturating_add(1);
+        }
+    }
+
+
     for (owner, stream) in owner_streams.iter_mut() {
         stream.sort_by_key(|(sequence, _)| *sequence);
         for pair in stream.windows(2) {
@@ -541,6 +557,15 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                     FindingCode::DuplicateOwnerSequence,
                     Some(&pair[1].1),
                     format!("owner {owner} has two events at durable sequence {}", pair[1].0),
+                );
+            }
+            let prior_index = order_index.get(&pair[0].1).copied().unwrap_or(usize::MAX);
+            let next_index = order_index.get(&pair[1].1).copied().unwrap_or(usize::MAX);
+            if prior_index >= next_index {
+                findings.violation(
+                    FindingCode::OwnerSequenceCausalOrderMismatch,
+                    Some(&pair[1].1),
+                    format!("owner {owner} causal graph contradicts its durable local sequence"),
                 );
             }
         }
@@ -607,19 +632,6 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
         }
     }
 
-    for (operation_id, attempts) in &attempts_by_operation {
-        let mut expected_number = 1u32;
-        for (number, attempt_id) in attempts {
-            if *number != expected_number {
-                findings.inconclusive(
-                    FindingCode::AttemptNumberGap,
-                    attempt_starts.get(attempt_id).map(|event| event.id.as_str()),
-                    format!("operation {operation_id} has a missing physical attempt number before {number}"),
-                );
-            }
-            expected_number = number.saturating_add(1);
-        }
-    }
 
     let mut fence_commits: BTreeMap<String, FenceInfo> = BTreeMap::new();
     let mut readbacks: BTreeMap<String, ReadBackInfo> = BTreeMap::new();
@@ -1312,7 +1324,9 @@ pub fn audit_history(evidence: &HistoryEvidence) -> AuditReport {
                 }
             }
             EventKind::AttemptReconciled {
+                operation_id,
                 attempt_id,
+                attempt_number,
                 outcome,
                 effect_commit_event_id,
                 ..
