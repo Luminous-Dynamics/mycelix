@@ -83,9 +83,11 @@
     "issued_at_unix_s": 1000,
     "valid_from_unix_s": 1001,
     "valid_until_unix_s": 2000,
-    "supersedes_offer_ref": null
+    "supersedes_offer_ref": null,
+    "offer_id": "offer:machine-7:polymer-extrusion",
+    "lifecycle_event_refs": []
   },
-  "case_count": 16,
+  "case_count": 17,
   "cases": [
     {
       "id": "MFG-PROC-001B-001",
@@ -243,9 +245,9 @@
     },
     {
       "id": "MFG-PROC-001B-015",
-      "description": "Superseded publication state is metadata only until owner history is resolved",
-      "expected_structural_state": "TypedOfferPresent",
-      "mutation": "publication_state=Superseded",
+      "description": "Provider-settable Superseded state is rejected; supersession is derived when a newer immutable offer points to this exact revision",
+      "expected_structural_state": "TypedOfferMalformed",
+      "mutation": "publication_state=Superseded (not in the provider-settable enum)",
       "may_promote_to_qualified_capability": false,
       "may_claim_calendar_available": false,
       "may_claim_bookable_capacity": false,
@@ -262,7 +264,18 @@
       "may_claim_bookable_capacity": false,
       "may_claim_reserved_capacity": false,
       "may_claim_executed_output": false
+    },
+    {
+      "id": "MFG-PROC-001B-017",
+      "description": "A provider cannot make an offer supersede itself by pointing to its own immutable offer ID and revision",
+      "expected_structural_state": "TypedOfferMalformed",
+      "mutation": "supersedes_offer_ref.subject_id=offer_id;supersedes_offer_ref.source_revision=offer_revision",
+      "may_promote_to_qualified_capability": false,
+      "may_claim_calendar_available": false,
+      "may_claim_bookable_capacity": false,
+      "may_claim_reserved_capacity": false,
+      "may_claim_executed_output": false
     }
   ],
-  "claim_ceiling": "Synthetic reference corpus only. A valid offer is a provider/resource/site/process declaration. No source object is authenticated, no capacity or calendar is verified, no reservation or execution is recorded, and no machine/process/product is qualified."
+  "claim_ceiling": "All 17 cases are synthetic. Owner references are not fetched/authenticated; a typed offer does not prove provider authority, resource existence, capability qualification, calendar availability, capacity reservation, execution or accepted output. Publication state is limited to Published/Withdrawn; Disputed and Superseded require separate lifecycle/cross-record resolution."
 }
