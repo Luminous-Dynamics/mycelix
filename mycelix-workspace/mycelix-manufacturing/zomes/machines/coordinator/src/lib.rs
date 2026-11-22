@@ -275,6 +275,14 @@ mod tests {
     }
 
     #[test]
+    fn legacy_machine_entry_without_typed_refs_remains_deserializable() {
+        let legacy = r#"{"name":"Legacy mill","machine_type":"CNC3Axis","capabilities":["milling"],"location":"Bay 1","max_throughput_per_hour":4,"status":"Available","current_work_order":null,"registered_at":0}"#;
+        let decoded: MachineEntry = serde_json::from_str(legacy).unwrap();
+        assert!(decoded.process_capability_refs.is_empty());
+        assert_eq!(decoded.capabilities, vec!["milling".to_owned()]);
+    }
+
+    #[test]
     fn test_machine_status_all_variants_serde() {
         for s in [
             MachineStatus::Available,
