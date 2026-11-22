@@ -1,0 +1,57 @@
+name: Terra Preta active soil-event sampling benchmark
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/SOIL_ACTIVE_SENSING_BENCHMARK_V0.1.md'
+      - 'research/terra-preta/schemas/soil-active-sensing-input.schema.json'
+      - 'research/terra-preta/schemas/soil-active-sensing-report.schema.json'
+      - 'research/terra-preta/tools/soil-active-sampling/**'
+      - '.github/workflows/terra-preta-active-sampling.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  active-sampling:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/soil-active-sampling/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/soil-active-sampling/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/soil-active-sampling/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate scenario and report
+        run: |
+          fixture=research/terra-preta/tools/soil-active-sampling/fixtures/short-rewetting-pulse.json
+          jsonschema-cli validate research/terra-preta/schemas/soil-active-sensing-input.schema.json --instance "$fixture" --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/soil-active-sampling/Cargo.toml -- "$fixture" "$RUNNER_TEMP/soil-active-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/soil-active-sensing-report.schema.json --instance "$RUNNER_TEMP/soil-active-report.json" --draft 2020 --assert-format
+          jq -e '.fixture_status == "synthetic_only_not_empirical_evidence" and .event_present == true and .event_detected == true and .candidate_truth_access == false and .sample_count <= .sample_budget' "$RUNNER_TEMP/soil-active-report.json"
+      - name: Validate no-pulse negative control
+        run: |
+          fixture=research/terra-preta/tools/soil-active-sampling/fixtures/no-pulse-control.json
+          jsonschema-cli validate research/terra-preta/schemas/soil-active-sensing-input.schema.json --instance "$fixture" --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/soil-active-sampling/Cargo.toml -- "$fixture" "$RUNNER_TEMP/no-pulse-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/soil-active-sensing-report.schema.json --instance "$RUNNER_TEMP/no-pulse-report.json" --draft 2020 --assert-format
+          jq -e '.event_present == false and .event_detected == false and .false_positive_detection == false' "$RUNNER_TEMP/no-pulse-report.json"
+      - name: Reject output overwrite
+        run: |
+          fixture=research/terra-preta/tools/soil-active-sampling/fixtures/short-rewetting-pulse.json
+          report="$RUNNER_TEMP/existing-soil-active-report.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/soil-active-sampling/Cargo.toml -- "$fixture" "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"
