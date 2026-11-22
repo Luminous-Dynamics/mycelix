@@ -63,10 +63,12 @@
               "const": "ProcessDefinitionV1"
             },
             "object_id_blake3": {
-              "const": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
             },
             "process_id_blake3": {
-              "const": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
             }
           }
         }
@@ -135,7 +137,7 @@
       ],
       "properties": {
         "process_definition": {
-          "$ref": "#/$defs/objectRef"
+          "$ref": "#/$defs/processDefinitionRef"
         },
         "capability_requirement": {
           "$ref": "#/$defs/capabilityRequirementRef"
