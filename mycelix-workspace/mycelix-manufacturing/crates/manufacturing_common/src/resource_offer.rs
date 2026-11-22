@@ -202,6 +202,15 @@ impl ManufacturingResourceOfferV1 {
             return Err("resource offer mixes Symthaea contract source commits".into());
         }
 
+        if self.capacity_claim_source != CapacityClaimSourceV1::ProviderDeclared
+            && self.capacity_evidence_refs.is_empty()
+        {
+            return Err(
+                "non-provider capacity claim sources require at least one evidence reference"
+                    .into(),
+            );
+        }
+
         for (field, references) in [
             ("tooling_refs", &self.tooling_refs),
             ("fixture_workholding_refs", &self.fixture_workholding_refs),
@@ -219,6 +228,38 @@ impl ManufacturingResourceOfferV1 {
         Ok(())
     }
 
+    /// Publication validity only. ActiveOfferWindow is not calendar
+    /// availability, bookable capacity, reservation or execution.
+    pub fn publication_disposition_at(
+        &self,
+        evaluation_time_unix_s: u64,
+    ) -> ResourceOfferPublicationDispositionV1 {
+        match self.publication_state {
+            ResourceOfferPublicationStateV1::Withdrawn => {
+                ResourceOfferPublicationDispositionV1::Withdrawn
+            }
+            ResourceOfferPublicationStateV1::Disputed => {
+                ResourceOfferPublicationDispositionV1::Disputed
+            }
+            ResourceOfferPublicationStateV1::Superseded => {
+                ResourceOfferPublicationDispositionV1::Superseded
+            }
+            ResourceOfferPublicationStateV1::Published
+                if evaluation_time_unix_s < self.valid_from_unix_s =>
+            {
+                ResourceOfferPublicationDispositionV1::NotYetValid
+            }
+            ResourceOfferPublicationStateV1::Published
+                if evaluation_time_unix_s >= self.valid_until_unix_s =>
+            {
+                ResourceOfferPublicationDispositionV1::Expired
+            }
+            ResourceOfferPublicationStateV1::Published => {
+                ResourceOfferPublicationDispositionV1::ActiveOfferWindow
+            }
+        }
+    }
+
     /// Local syntax classification only. A valid pointer is not owner-object
     /// resolution, provider/resource authority or qualified capability.
     pub fn resolution_state(&self) -> ResourceOfferReferenceStateV1 {
@@ -228,6 +269,18 @@ impl ManufacturingResourceOfferV1 {
             ResourceOfferReferenceStateV1::TypedOfferMalformed
         }
     }
+}
+
+/// Offer publication/validity disposition only; none of these states
+/// asserts machine capability or time-slot availability.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResourceOfferPublicationDispositionV1 {
+    NotYetValid,
+    ActiveOfferWindow,
+    Expired,
+    Withdrawn,
+    Disputed,
+    Superseded,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -386,6 +439,86 @@ mod tests {
         assert!(offer.supersedes_offer_ref.is_none());
         assert_eq!(offer.publication_state, ResourceOfferPublicationStateV1::Published);
         // The offer schema has no available-now, bookable, reserved or executed boolean.
+    }
+
+    #[test]
+    fn active_publication_window_does_not_imply_capacity_availability() {
+        let offer = valid_offer();
+        assert_eq!(
+            offer.publication_disposition_at(1_500),
+            ResourceOfferPublicationDispositionV1::ActiveOfferWindow
+        );
+        assert!(offer.availability_calendar_ref.is_none());
+    }
+
+    #[test]
+    fn expiry_is_derived_from_the_validity_interval() {
+        let offer = valid_offer();
+        assert_eq!(
+            offer.publication_disposition_at(2_000),
+            ResourceOfferPublicationDispositionV1::Expired
+        );
+    }
+
+    #[test]
+    fn non_provider_capacity_claim_requires_a_supporting_reference() {
+        let mut offer = valid_offer();
+        offer.capacity_claim_source =
+            CapacityClaimSourceV1::ThirdPartyEvidenceReferenced;
+        assert!(offer.validate().is_err());
+
+        offer.capacity_evidence_refs =
+            vec![owner_ref("inspection.evidence/1", "evidence-1", '8')];
+        assert_eq!(offer.validate(), Ok(()));
+        // The referenced evidence is not authenticated or independently qualified here.
+    }
+
+    #[test]
+    fn offer_schema_does_not_serialize_available_bookable_reserved_or_executed_flags() {
+        let value = serde_json::to_value(valid_offer()).unwrap();
+        let object = value.as_object().unwrap();
+        for forbidden in [
+            "available_now",
+            "bookable_capacity",
+            "reserved_capacity",
+            "executed_output",
+            "qualified_for_production",
+        ] {
+            assert!(!object.contains_key(forbidden));
+        }
+    }
+
+    #[test]
+    fn frozen_resource_offer_corpus_has_sixteen_fail_closed_cases() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../tests/fixtures/mfg_proc_001b_resource_offer_v0_1.json"
+        ))
+        .expect("resource-offer fixture JSON must parse");
+        assert_eq!(
+            fixture["schema_id"],
+            "mycelix.manufacturing.mfg-proc-001b.resource-offer.cases.v0_1"
+        );
+        let cases = fixture["cases"]
+            .as_array()
+            .expect("resource-offer fixture cases must be an array");
+        assert_eq!(fixture["case_count"].as_u64(), Some(cases.len() as u64));
+        assert_eq!(cases.len(), 16);
+        for case in cases {
+            assert!(
+                case["id"]
+                    .as_str()
+                    .is_some_and(|id| id.starts_with("MFG-PROC-001B-"))
+            );
+            for boundary in [
+                "may_promote_to_qualified_capability",
+                "may_claim_calendar_available",
+                "may_claim_bookable_capacity",
+                "may_claim_reserved_capacity",
+                "may_claim_executed_output",
+            ] {
+                assert_eq!(case[boundary], false, "{boundary} must remain false");
+            }
+        }
     }
 
     #[test]
