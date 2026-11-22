@@ -2,7 +2,7 @@
   "profile": "MYC-DIR-NATS-JETSTREAM-0.1",
   "version": "0.1.0",
   "status": "preregistered_not_executed",
-  "claim_ceiling": "Synthetic NATS JetStream adapter-contract corpus. The Rust reference has not connected to a NATS server or exercised a real JetStream client, consumer, PubAck, AckSync, redelivery, failover or downstream effect owner.",
+  "claim_ceiling": "Synthetic NATS JetStream conformance corpus accompanying a pinned async-nats adapter. The adapter source and ignored single-node integration tests are present; no Cargo build, broker runtime, clustered failover or performance result has yet been executed.",
   "verdicts": [
     "ELIGIBLE_FOR_OWNER_REVALIDATION",
     "REJECT",
@@ -151,6 +151,20 @@
       "kind": "capacity",
       "unit": "messages",
       "hard_limit": null
+    },
+    {
+      "id": "NJ-M15",
+      "name": "adapter_startup_configuration_verification_latency",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "hard_limit": null
+    },
+    {
+      "id": "NJ-M16",
+      "name": "duplicate_required_authority_headers_accepted",
+      "kind": "safety",
+      "unit": "messages",
+      "hard_limit": 0
     }
   ],
   "scenarios": [
@@ -261,6 +275,30 @@
       "class": "known_valid",
       "description": "The stream leader fails over and redelivery resolves to one owner-scoped effect receipt despite lost PubAck or consumer ACK responses.",
       "expected_outcome": "OWNER_IDEMPOTENCY_STILL_REQUIRED"
+    },
+    {
+      "id": "NJ-021",
+      "class": "known_reject",
+      "description": "The adapter is used to publish or fetch before verifying the existing server-side stream and durable consumer configuration.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-022",
+      "class": "known_reject",
+      "description": "A delivered command contains duplicate values for a required authority/effect header and the adapter must reject the ambiguous envelope.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-023",
+      "class": "known_valid",
+      "description": "A stored message is left unacknowledged, then redelivered after AckWait with the same stream sequence and a higher delivery count.",
+      "expected_outcome": "ELIGIBLE_FOR_OWNER_REVALIDATION"
+    },
+    {
+      "id": "NJ-024",
+      "class": "known_valid",
+      "description": "The adapter calls AckSync only after an exact durable effect-owner receipt or reconciliation handoff and confirms the broker ACK for the exact stream consumer and sequence.",
+      "expected_outcome": "ACK_ALLOWED"
     }
   ],
   "comparator_methods": [
