@@ -113,7 +113,7 @@ struct MethodRanking {
     ranked_alternatives: Vec<RankedAlternative>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 struct RankedAlternative {
     alternative_id: String,
     score: f64,
