@@ -105,7 +105,8 @@
           "status",
           "methodology_id",
           "methodology_version",
-          "evidence_sha256"
+          "evidence_sha256",
+          "batch_passport_sha256"
         ],
         "properties": {
           "registry_entry_id": {
@@ -173,6 +174,10 @@
           "evidence_sha256": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
+          },
+          "batch_passport_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
           }
         },
         "allOf": [
@@ -190,7 +195,8 @@
             "then": {
               "required": [
                 "batch_id",
-                "application_date"
+                "application_date",
+                "batch_passport_sha256"
               ]
             }
           }
