@@ -144,3 +144,18 @@ The performance corpus remains preregistered until CI and a repeatable open-loop
 - No clustered NATS, PostgreSQL failover, latency, throughput or SOTA result is claimed.
 
 The next gates are the exact-head TLS/PostgreSQL + JetStream CI run, real PostgreSQL failover/replication schedules, and a production least-privilege verifier role.
+
+
+## 10. Owner epoch and worker-claim execution attestations
+
+The companion owner-epoch SQL branch `research/myc-dir-owner-epoch-sql-v0-1` adds migration 003. It adds a local monotonic owner_epoch to the effect fence domain, an append-only owner epoch transition ledger and an append-only effect_execution_attestations table.
+
+The strict queue-backed SQL function `apply_owner_epoch_claim_fenced_balance_delta` locks the current worker claim and owner fence in a consistent order, checks the exact current owner epoch/resource generation, calls the existing claim-fenced effect function and writes the actual worker identity, claim epoch, claim proof commitment, claim clock profile/validity, owner epoch, generation, and transaction ID in the same transaction as the protected effect.
+
+Exact replay returns the original effect and attestation rather than creating a second effect. The strict path rejects legacy effects that have no execution attestation. It also rejects a replay position newer than the current command position.
+
+The PostgreSQL verifier now joins all three append-only records and includes owner epoch, worker claim coordinates, database transaction ID and the epoch-authority/physical-fencing receipt commitments in the canonical receipt digest. It requires a matching transition record for non-initial owner epochs. These receipt commitments are persisted, not cryptographically authenticated by SQL or by the verifier; the external authority must verify signatures and physically fence the prior primary.
+
+The workflow applies migration 003 and executes the SQL adversarial test script before the Rust/NATS integration suite. The integration fixture advances to owner epoch 2 / generation 2 and then creates the protected effect using the strict function, so the live verifier test exercises a non-initial epoch transition.
+
+**Status:** source and test harness are present; this owner-epoch branch has not yet completed its exact-head migration/Rust/NATS CI run. The earlier NATS-only green run does not qualify these changes. Split-brain fencing, synchronous replication/promotion, production role grants, and performance remain separate qualification gates.
