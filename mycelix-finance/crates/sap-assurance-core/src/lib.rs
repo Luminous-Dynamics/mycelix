@@ -40,7 +40,9 @@ pub struct ReservePolicy {
 
 impl Default for ReservePolicy {
     fn default() -> Self {
-        Self { max_sovereign_remaining_days: 90 }
+        Self {
+            max_sovereign_remaining_days: 90,
+        }
     }
 }
 
@@ -53,7 +55,10 @@ pub enum AssuranceError {
     IssuanceWouldBreachCoverage,
     BurnExceedsIssued,
     IdempotencyKeyConflict,
-    InvalidRedemptionState { expected: RedemptionState, actual: RedemptionState },
+    InvalidRedemptionState {
+        expected: RedemptionState,
+        actual: RedemptionState,
+    },
     MissingEvidenceReference,
 }
 
@@ -192,7 +197,8 @@ impl SapSupply {
         if amount_minor == 0 {
             return Err(AssuranceError::InvalidAmount);
         }
-        self.total_issued_minor = self.total_issued_minor
+        self.total_issued_minor = self
+            .total_issued_minor
             .checked_add(amount_minor)
             .ok_or(AssuranceError::ArithmeticOverflow)?;
         self.outstanding_minor()
@@ -202,7 +208,8 @@ impl SapSupply {
         if amount_minor == 0 {
             return Err(AssuranceError::InvalidAmount);
         }
-        let new_burned = self.total_burned_minor
+        let new_burned = self
+            .total_burned_minor
             .checked_add(amount_minor)
             .ok_or(AssuranceError::ArithmeticOverflow)?;
         if new_burned > self.total_issued_minor {
@@ -243,7 +250,8 @@ impl IdempotencyLedger {
             }
             Some(_) => Err(AssuranceError::IdempotencyKeyConflict),
             None => {
-                self.consumed.insert(idempotency_key_digest, request_payload_digest);
+                self.consumed
+                    .insert(idempotency_key_digest, request_payload_digest);
                 Ok(IdempotencyDisposition::NewRequest)
             }
         }
@@ -315,7 +323,10 @@ impl Redemption {
         external_payout_reference: String,
         reconciliation_reference: String,
     ) -> Result<(), AssuranceError> {
-        if !matches!(self.state, RedemptionState::PayoutSubmitted | RedemptionState::PayoutUnknown) {
+        if !matches!(
+            self.state,
+            RedemptionState::PayoutSubmitted | RedemptionState::PayoutUnknown
+        ) {
             return Err(AssuranceError::InvalidRedemptionState {
                 expected: RedemptionState::PayoutUnknown,
                 actual: self.state,
@@ -350,7 +361,10 @@ impl Redemption {
     }
 
     /// Burns the liability only after externally reconciled payout finality.
-    pub fn burn_liability(&mut self, liability_burn_reference: String) -> Result<(), AssuranceError> {
+    pub fn burn_liability(
+        &mut self,
+        liability_burn_reference: String,
+    ) -> Result<(), AssuranceError> {
         self.require_state(RedemptionState::PaidFinal)?;
         if self.payout_reference.is_none() || liability_burn_reference.is_empty() {
             return Err(AssuranceError::MissingEvidenceReference);
@@ -420,14 +434,24 @@ mod tests {
         asset.class = ReserveAssetClass::ShortTermSovereign { remaining_days: 30 };
         asset.haircut_bps = 500;
         asset.encumbered_minor = 100_000;
-        assert_eq!(asset.eligible_value_minor(ReservePolicy::default()).unwrap(), 850_000);
+        assert_eq!(
+            asset
+                .eligible_value_minor(ReservePolicy::default())
+                .unwrap(),
+            850_000
+        );
     }
 
     #[test]
     fn long_dated_sovereign_is_not_eligible_under_default_policy() {
         let mut asset = cash("long-bond", 1_000_000);
         asset.class = ReserveAssetClass::ShortTermSovereign { remaining_days: 91 };
-        assert_eq!(asset.eligible_value_minor(ReservePolicy::default()).unwrap(), 0);
+        assert_eq!(
+            asset
+                .eligible_value_minor(ReservePolicy::default())
+                .unwrap(),
+            0
+        );
     }
 
     #[test]
@@ -439,10 +463,15 @@ mod tests {
 
     #[test]
     fn duplicate_asset_identity_cannot_be_double_counted() {
-        let assets = [cash("same-custody-position", 100), cash("same-custody-position", 100)];
+        let assets = [
+            cash("same-custody-position", 100),
+            cash("same-custody-position", 100),
+        ];
         assert_eq!(
             reserve_coverage(&assets, 100, ReservePolicy::default()),
-            Err(AssuranceError::DuplicateAssetId("same-custody-position".to_string()))
+            Err(AssuranceError::DuplicateAssetId(
+                "same-custody-position".to_string()
+            ))
         );
     }
 
@@ -492,7 +521,9 @@ mod tests {
         redemption.mark_payout_unknown().unwrap();
         assert!(redemption.submit_payout().is_err());
         assert!(redemption.burn_liability("burn-1".into()).is_err());
-        redemption.reconcile_paid("bank-payment-123".into(), "reconcile-123".into()).unwrap();
+        redemption
+            .reconcile_paid("bank-payment-123".into(), "reconcile-123".into())
+            .unwrap();
         redemption.burn_liability("burn-1".into()).unwrap();
         assert_eq!(redemption.state(), RedemptionState::Burned);
     }
@@ -503,8 +534,12 @@ mod tests {
         redemption.reserve().unwrap();
         redemption.submit_payout().unwrap();
         redemption.mark_payout_unknown().unwrap();
-        redemption.reconcile_not_paid("rail-query-123".into()).unwrap();
-        redemption.compensate("release-reservation-123".into()).unwrap();
+        redemption
+            .reconcile_not_paid("rail-query-123".into())
+            .unwrap();
+        redemption
+            .compensate("release-reservation-123".into())
+            .unwrap();
         assert_eq!(redemption.state(), RedemptionState::Compensated);
     }
 
@@ -517,7 +552,9 @@ mod tests {
             redemption.reconcile_paid("".into(), "reconcile".into()),
             Err(AssuranceError::MissingEvidenceReference)
         );
-        redemption.reconcile_paid("bank-payment".into(), "reconcile".into()).unwrap();
+        redemption
+            .reconcile_paid("bank-payment".into(), "reconcile".into())
+            .unwrap();
         assert_eq!(
             redemption.burn_liability("".into()),
             Err(AssuranceError::MissingEvidenceReference)
