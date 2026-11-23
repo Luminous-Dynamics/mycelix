@@ -14,20 +14,22 @@ This profile uses the term **one economic effect per operation identity**, not e
 
 ## 2. Current source-level execution gap
 
-The public-main Finance \`send_payment\` path inspected for this profile performs, in order:
+The public-main Finance `send_payment` path inspected for this profile performs, within one Payments zome-function invocation:
 
-1. sender SAP debit;
-2. receiver SAP credit;
-3. Treasury fee/compost call, whose failure is currently logged and does not fail the main payment path;
-4. Payment entry creation with \`TransferStatus::Completed\`;
-5. payment indexes and Receipt entry creation;
+1. an author-bound sender SAP debit;
+2. a beneficiary SAP credit;
+3. a synchronous Treasury fee/compost call through another local cell;
+4. Payment entry creation with `TransferStatus::Completed`;
+5. payment indexes and a Receipt entry;
 6. response delivery to the caller.
 
-The request type has no durable operation identity or canonical request digest. The Payment ID is timestamp-derived. The SAP balance \`justified_by\` field remains unvalidated by \`validate_sap_balance\`.
+The request type has no durable operation identity or canonical request digest. The Payment ID is timestamp-derived. The SAP balance `justified_by` field remains unvalidated by `validate_sap_balance`.
 
-This creates multiple failure windows. For example, the sender debit may commit before the receiver credit fails; both balances may change before the Payment or Receipt record exists; or the finance operation may finish while the cross-hApp response is lost. A new timestamp-derived ID on retry does not identify the original effect.
+**Important Holochain atomicity boundary:** Holochain documents that multiple records written by one zome function to one source chain are committed atomically. The sender debit, beneficiary credit, Payment entry, Receipt and local links are called from the same Finance invocation / source chain; they must not be described as independently durable steps if that invocation aborts before commit. A real-agent test should confirm the expected rollback and chain behavior. The state-model mutant that permits a debit outside the batch is a deliberately unsafe negative control, not a claim that the current same-call path necessarily leaves a partial local debit.
 
-This addendum is a design and test contract. It does not change or qualify the live implementation.
+The real cross-cell window is the synchronous Treasury call: it can commit on the Treasury cell's own source chain while Finance's source-chain transaction is still in flight. If a later Finance operation fails, that Treasury effect is not rolled back with the Finance source chain. Conversely, the current code logs Treasury delivery failure and continues to create a `Completed` Payment; the fee has been deducted from the payer but no exact Treasury receipt / durable outbox disposition is bound to the Payment. A timeout at the Energy→Finance boundary can also lose the Finance response after its local commit; without a stable operation identity, retry may create a second payment.
+
+The next architecture therefore preserves same-call Finance atomicity, moves Treasury delivery behind a fee outbox committed with the Finance operation, and adds a durable effect-owner identity / fingerprint for exact retries and reconciliation. This addendum is a design and test contract. It does not change or qualify the live implementation.
 
 ## 3. Identity and canonical request binding
 
@@ -56,7 +58,7 @@ Same identity + same fingerprint is an exact retry / lookup. Same identity + dif
 
 ## 4. Durable operation and journal semantics
 
-The authoritative Finance effect should be one author-bound, immutable **journal batch** committed in one Finance source-chain operation. It contains the complete local value movement:
+The authoritative Finance effect should be one author-bound, immutable **journal batch** committed in one Finance source-chain operation. This is not a proposal to reimplement Holochain's existing all-or-nothing commit of same-chain writes; it adds one canonical, fingerprint-bound economic event and makes the full set of local legs explicit. It contains the complete local value movement:
 
 - exact payer debit;
 - exact beneficiary credit;
@@ -78,44 +80,44 @@ A journal batch with a missing payer debit, beneficiary credit, or fee allocatio
 
 No floating-point amount is admitted. Fee policy must be deterministic and version-pinned. The fee allocation is an internal Finance liability/claim; actually delivering the fee to Treasury is a separate effect.
 
-**Holochain boundary:** official Holochain guidance states that multiple records written by one zome function to one source chain are committed atomically, but they are not validated together as one atomic transaction. Validation callbacks are deterministic and may depend only on addressable/available prior records; two different agents' source chains do not become one global serializable transaction. Therefore the batch should be authored and committed by the authenticated effect owner in one source-chain call, and the relevant integrity validators must validate the exact batch and its prior-chain relationship. DHT link-count prechecks are not a singleton proof. Real multi-agent races, forks and dependency availability still require Tryorama/Sweettests. See the [Holochain source-chain contract](https://developer.holochain.org/concepts/3_source_chain/) and [validation guidance](https://developer.holochain.org/build/validation/).
+**Holochain boundary:** official Holochain guidance states that multiple records written by one zome function to one source chain are committed atomically, but they are not validated together as one atomic transaction. The Treasury call is a different cell and therefore lies outside the Finance source-chain commit. Keep the Treasury effect behind an outbox which is written in the Finance commit and dispatched only after commit. Validation callbacks are deterministic and may depend only on addressable/available prior records; two different agents' source chains do not become one global serializable transaction. Therefore the batch should be authored and committed by the authenticated effect owner in one source-chain call, and the relevant integrity validators must validate the exact batch and its prior-chain relationship. DHT link-count prechecks are not a singleton proof. Real multi-agent races, forks and dependency availability still require Tryorama/Sweettests. See the [Holochain source-chain contract](https://developer.holochain.org/concepts/3_source_chain/) and [validation guidance](https://developer.holochain.org/build/validation/).
 
 ## 5. Operation state, value state, and delivery state are separate
 
-Do not encode every aspect as \`Payment.status = Completed\`.
+Do not encode every aspect as `Payment.status = Completed`.
 
 ### 5.1 Operation state
 
-- \`Absent\`: no operation identity has been claimed.
-- \`Prepared\`: exact identity and fingerprint are durably registered; no value legs exist.
-- \`Committed\`: the complete local journal batch and all projections / outbox records are committed.
-- \`Rejected\`: the effect owner recorded a terminal no-effect rejection.
-- \`Conflicted\`: this request reused an existing identity with a different fingerprint; the original operation is unchanged.
-- \`Indeterminate\`: the caller cannot currently establish the authoritative result; it must query the same identity, not make a new one.
+- `Absent`: no operation identity has been claimed.
+- `Prepared`: exact identity and fingerprint are durably registered; no value legs exist.
+- `Committed`: the complete local journal batch and all projections / outbox records are committed.
+- `Rejected`: the effect owner recorded a terminal no-effect rejection.
+- `Conflicted`: this request reused an existing identity with a different fingerprint; the original operation is unchanged.
+- `Indeterminate`: the caller cannot currently establish the authoritative result; it must query the same identity, not make a new one.
 
-\`Indeterminate\` is an observer's knowledge state, not a license to forget the operation. If Finance has not resolved whether the batch committed, it must not create another operation for the same intent.
+`Indeterminate` is an observer's knowledge state, not a license to forget the operation. If Finance has not resolved whether the batch committed, it must not create another operation for the same intent.
 
 ### 5.2 Local value-effect state
 
-- \`NotCommitted\`
-- \`LedgerCommitted\`
-- \`ReconciliationRequired\`
+- `NotCommitted`
+- `LedgerCommitted`
+- `ReconciliationRequired`
 
-A Finance \`LedgerCommitted\` result is an internal ledger fact only. It is not external bank finality, reserve backing, legal discharge, physical delivery, or contract acceptance.
+A Finance `LedgerCommitted` result is an internal ledger fact only. It is not external bank finality, reserve backing, legal discharge, physical delivery, or contract acceptance.
 
 ### 5.3 Outbox / Treasury delivery state
 
-- \`NotRequired\` when fee is zero;
-- \`Pending\` after the journal batch creates a fee liability/outbox item;
-- \`Indeterminate\` when the Treasury call may have committed but the response is unknown;
-- \`Delivered\` only after an exact Treasury-owned idempotent receipt is verified;
-- \`Rejected\` only after a durable no-effect rejection.
+- `NotRequired` when fee is zero;
+- `Pending` after the journal batch creates a fee liability/outbox item;
+- `Indeterminate` when the Treasury call may have committed but the response is unknown;
+- `Delivered` only after an exact Treasury-owned idempotent receipt is verified;
+- `Rejected` only after a durable no-effect rejection.
 
 The outbox item has its own stable effect identity and semantic fingerprint. Unknown delivery is reconciled against the Treasury effect owner using the original identity. A new fee request identity must not be invented to work around a timeout.
 
 ### 5.4 Response delivery
 
-A response can be lost after \`Committed\`. The durable operation remains committed. An exact retry returns the same operation reference, journal-batch reference and Payment projection reference. Failure to deliver a response does not roll back or repeat the effect.
+A response can be lost after `Committed`. The durable operation remains committed. An exact retry returns the same operation reference, journal-batch reference and Payment projection reference. Failure to deliver a response does not roll back or repeat the effect.
 
 ## 6. Replay and retention rules
 
