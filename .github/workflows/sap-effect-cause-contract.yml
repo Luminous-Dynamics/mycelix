@@ -76,7 +76,7 @@ jobs:
             (.required_cause_kinds | unique | length) == (.required_cause_kinds | length)
           ' "$MAP" >/dev/null
           jq -e --slurpfile m "$MAP" '
-            .schema_version == "SapBalanceTransitionV1" and
+            .properties.schema_version.const == "SapBalanceTransitionV1" and
             (.required | index("effect_id")) != null and
             (.required | index("operation_fingerprint")) != null and
             (.required | index("predecessor_action_hash")) != null and
