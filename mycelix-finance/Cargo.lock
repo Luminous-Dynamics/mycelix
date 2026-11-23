@@ -143,6 +143,7 @@ dependencies = [
  "getrandom 0.2.17",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -181,6 +182,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "633458d4ef8c78b72454de2d54fd6ab2e60f9e02be22f3c6104cdc8a4e0fceb9"
 dependencies = [
  "unicode-segmentation",
+]
+
+[[package]]
+name = "countersigning-feature-probe"
+version = "0.1.0"
+dependencies = [
+ "hdi",
+ "hdk",
 ]
 
 [[package]]
@@ -228,6 +237,7 @@ dependencies = [
  "getrandom 0.2.17",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -706,6 +716,7 @@ dependencies = [
  "getrandom 0.2.17",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -969,6 +980,7 @@ dependencies = [
  "getrandom 0.2.17",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1124,6 +1136,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "mycelix_finance_types",
  "serde",
  "serde_json",
@@ -1356,6 +1369,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "mycelix_finance_types",
  "serde",
 ]
@@ -1544,6 +1558,8 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 [[package]]
 name = "sovereign-profile"
 version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "049f13004bc45a09549c4df44beeaca97def2fce17099de065c0051851ba2249"
 dependencies = [
  "serde",
 ]
@@ -1570,6 +1586,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "mycelix_finance_types",
  "serde",
  "serde_json",
@@ -1660,6 +1677,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "mycelix_finance_types",
  "serde",
  "serde_json",
@@ -1738,6 +1756,7 @@ version = "0.1.0"
 dependencies = [
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "mycelix_finance_types",
  "serde",
  "serde_json",
