@@ -46,6 +46,8 @@ pub enum AuthorityWriteScope {
     CheckpointMirror,
     OutboxDelivery,
     SchemaMigration,
+    /// Protected mutations owned by Directory Fabric's PostgreSQL effect ledger.
+    DirectoryFabricEffect,
 }
 
 impl AuthorityWriteScope {
@@ -60,6 +62,7 @@ impl AuthorityWriteScope {
             Self::CheckpointMirror => 7,
             Self::OutboxDelivery => 8,
             Self::SchemaMigration => 9,
+            Self::DirectoryFabricEffect => 10,
         }
     }
 }
@@ -488,6 +491,25 @@ mod tests {
             key,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn directory_fabric_effect_scope_has_stable_wire_identity() {
+        let scope = AuthorityWriteScope::DirectoryFabricEffect;
+        assert_eq!(scope.code(), 10);
+        assert_eq!(
+            serde_json::to_string(&scope).unwrap(),
+            "\"directory_fabric_effect\""
+        );
+
+        let key = SigningKey::from_bytes(&[84; 32]);
+        let mut signed = lease(&key);
+        assert!(signed.lease.permits(scope).is_err());
+
+        signed.lease.allowed_scopes.insert(scope);
+        let signed = SignedAuthorityWriteLease::sign(signed.lease, &key).unwrap();
+        signed.lease.permits(scope).unwrap();
+        signed.verify_signature().unwrap();
     }
 
     #[test]
