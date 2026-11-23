@@ -56,6 +56,9 @@ struct EvidenceRecord {
     method_id: String,
     method_version: String,
     calibration_id: Option<String>,
+    tracer_behavior: String,
+    tracer_qualification_id: Option<String>,
+    tracer_qualification_sha256: Option<String>,
     rate_measurand: String,
     rate_unit: String,
     qc_status: String,
@@ -287,6 +290,40 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 "evidence {} measurand/unit does not match its evidence class",
                 evidence.evidence_id
             ));
+        }
+        let is_tracer_evidence = matches!(
+            evidence.evidence_class.as_str(),
+            "direct_tracer_observation" | "boundary_tracer_response"
+        );
+        if is_tracer_evidence {
+            if !matches!(
+                evidence.tracer_behavior.as_str(),
+                "conservative_qualified" | "reactive_or_sorptive" | "unknown"
+            ) {
+                return Err("tracer evidence requires a declared tracer behavior".into());
+            }
+            if evidence.tracer_behavior == "conservative_qualified"
+                && (evidence
+                    .tracer_qualification_id
+                    .as_deref()
+                    .unwrap_or("")
+                    .trim()
+                    .is_empty()
+                    || !evidence
+                        .tracer_qualification_sha256
+                        .as_deref()
+                        .is_some_and(valid_sha256))
+            {
+                return Err(format!(
+                    "conservative tracer evidence {} requires a qualification ID and SHA-256 artifact",
+                    evidence.evidence_id
+                ));
+            }
+        } else if evidence.tracer_behavior != "not_applicable"
+            || evidence.tracer_qualification_id.is_some()
+            || evidence.tracer_qualification_sha256.is_some()
+        {
+            return Err("non-tracer evidence must use not_applicable tracer behavior and no tracer qualification artifact".into());
         }
         if !matches!(
             evidence.qc_status.as_str(),
@@ -563,6 +600,9 @@ fn evidence_candidate(
     let cadence_adequate =
         evidence.sample_interval_seconds <= s.event.maximum_sample_interval_seconds;
     let coverage_adequate = evidence.coverage_fraction >= s.event.minimum_coverage_fraction;
+    let tracer_non_detection_qualified = evidence.evidence_class
+        != "direct_tracer_observation"
+        || evidence.tracer_behavior == "conservative_qualified";
     let non_detection_bound_adequate = evidence
         .upper_rate_bound_value
         .is_some_and(|value| value <= threshold)
@@ -574,6 +614,7 @@ fn evidence_candidate(
         && cadence_adequate
         && coverage_adequate
         && non_detection_bound_adequate
+        && tracer_non_detection_qualified
         && evidence.measured_rate_value.is_none()
     {
         return (Some(CandidateState::Inactive), vec![]);
@@ -590,6 +631,11 @@ fn evidence_candidate(
     }
     if !non_detection_bound_adequate {
         reasons.push("detection_upper_bound_does_not_exclude_relevant_flux".into());
+    }
+    if evidence.evidence_class == "direct_tracer_observation"
+        && !tracer_non_detection_qualified
+    {
+        reasons.push("tracer_non_detection_cannot_exclude_hydraulic_activity".into());
     }
     if evidence
         .measured_rate_value
@@ -853,6 +899,21 @@ mod tests {
             edge.reasons
                 .iter()
                 .any(|r| r.contains("not_spatially_resolved"))
+        );
+    }
+
+    #[test]
+    fn sorptive_tracer_non_detection_cannot_confirm_inactivity() {
+        let result = results();
+        let edge = result
+            .iter()
+            .find(|r| r.edge_id == "edge-sorptive-tracer-negative")
+            .unwrap();
+        assert_eq!(edge.admission_status, "unassessed");
+        assert!(
+            edge.reasons
+                .iter()
+                .any(|r| r.contains("tracer_non_detection_cannot_exclude_hydraulic_activity"))
         );
     }
 
