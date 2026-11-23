@@ -6,7 +6,7 @@
 
 ## 1. A correction to the v0.1 proposal
 
-The v0.1 draft introduced a generic mutable `SapBalanceTransitionV1` schema. Comparing it with the existing FIN-SAFE roadmap shows that this would be the wrong canonical destination: it risks creating a second mutable scalar model alongside the stronger owner-authored account and immutable value-note design.
+The first draft introduced a generic mutable scalar-transition schema. Comparing it with the existing FIN-SAFE roadmap shows that this would be the wrong canonical destination: it risks creating a second mutable scalar model alongside the stronger owner-authored account and immutable value-note design.
 
 **This v0.2 replaces that proposal.** The existing architecture is the target:
 
