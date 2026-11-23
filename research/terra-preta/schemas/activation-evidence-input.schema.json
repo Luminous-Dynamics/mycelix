@@ -4,7 +4,7 @@
   "title": "Hydraulic activation evidence input",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "fixture_status", "scenario_id", "specimen_id", "event", "registered_edge_ids", "evidence_records", "assertions"],
+  "required": ["schema_version", "fixture_status", "scenario_id", "specimen_id", "event", "registered_edges", "evidence_records", "assertions"],
   "properties": {
     "schema_version": { "const": "activation-evidence-v0.1" },
     "fixture_status": { "const": "synthetic_only_not_empirical_evidence" },
@@ -27,7 +27,19 @@
         "minimum_support_overlap_fraction": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
       }
     },
-    "registered_edge_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "registered_edges": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["edge_id", "spatial_support_id"],
+        "properties": {
+          "edge_id": { "type": "string", "minLength": 1 },
+          "spatial_support_id": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "evidence_records": {
       "type": "array",
       "items": {
