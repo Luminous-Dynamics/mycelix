@@ -568,7 +568,11 @@ mod tests {
     #[test]
     fn system_age_and_respired_transit_time_are_distinct_streams() {
         let report = build_report(&scenario(), "0".repeat(64));
-        let model = report.evaluations.iter().find(|e| e.model_id == "three-pool").unwrap();
+        let model = report
+            .evaluations
+            .iter()
+            .find(|e| e.model_id == "three-pool")
+            .unwrap();
         assert!(
             model
                 .stream_metrics
