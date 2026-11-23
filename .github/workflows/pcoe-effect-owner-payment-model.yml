@@ -7,6 +7,7 @@ on:
       - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation/**"
       - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-contract.v0.1.md"
       - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-scenarios.v0.1.json"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-scenarios.v0.1.schema.json"
   push:
     branches:
       - "research/pcoe-effect-owner-payment-model-v0.1-20261123"
@@ -65,6 +66,29 @@ jobs:
             "$RUNNER_TEMP/tla2tools.jar" | sha1sum --check -
           java -version
 
+      - name: Validate frozen two-owner scenario corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          corpus="mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-scenarios.v0.1.json"
+          jq -e '
+            .version == "0.1" and
+            .scenario_count == 22 and
+            (.scenarios | length) == 22 and
+            ([.scenarios[].id] | unique | length) == 22 and
+            ([.scenarios[].id] | all(.[]; test("^EOP-[0-9]{3}$"))) and
+            (.scenarios | all(.[];
+              (.id | length > 0) and
+              (.domain | length > 0) and
+              (.threat | length > 0) and
+              (.preconditions | length > 0) and
+              (.adversarial_mutation | length > 0) and
+              (.required_control | length > 0) and
+              (.expected_disposition as $d | (.disposition_vocabulary | index($d)) != null)
+            ))
+          ' "$corpus" >/dev/null
+          echo "22 unique scenarios, required fields and disposition vocabulary validated."
+
       - name: Check safe two-owner transfer model
         working-directory: mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation
         shell: bash
@@ -114,6 +138,7 @@ jobs:
             echo "safe_cfg_sha256=$(sha256sum "$spec_dir/PCOEEffectOwnerPayment.cfg" | cut -d' ' -f1)"
             echo "mutant_cfg_sha256=$(sha256sum "$spec_dir/PCOEEffectOwnerPayment-mutant.cfg" | cut -d' ' -f1)"
             echo "scenario_corpus_sha256=$(sha256sum "$model_dir/pcoe-effect-owner-payment-scenarios.v0.1.json" | cut -d' ' -f1)"
+            echo "scenario_schema_sha256=$(sha256sum "$model_dir/pcoe-effect-owner-payment-scenarios.v0.1.schema.json" | cut -d' ' -f1)"
           } | tee "$RUNNER_TEMP/pcoe-payment-model-manifest.txt"
           {
             echo "## PCOE effect-owner payment model"
