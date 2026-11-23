@@ -2146,6 +2146,11 @@ pub fn withdraw_from_hearth_pool(input: WithdrawFromHearthInput) -> ExternResult
             "Personal SAP balance owner does not match the authenticated caller".into()
         )));
     }
+    if personal_record.action().author() != &caller {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Personal SAP balance record was not authored by the authenticated owner".into()
+        )));
+    }
 
     // Unlike a read endpoint, a withdrawal must not initialize an absent shared
     // pool. Missing or ambiguous pool identity is an authorization/consistency
