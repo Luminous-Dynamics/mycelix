@@ -423,8 +423,10 @@ fn validate_receipt_binding(
     receipt: &VerifiedPostgresEffectReceipt,
 ) -> Result<(), String> {
     let (command_owner_epoch, command_generation) = binding.owner_position();
-    let execution_position = (receipt.owner_epoch, receipt.accepted_generation);
-    let command_position = (command_owner_epoch, command_generation);
+    // Owner epoch and resource generation are both monotonic coordinates.
+    // A receipt is never allowed to be ahead in either dimension, even when
+    // its other coordinate is from an older epoch.
+
 
     if receipt.worker_id.trim().is_empty()
         || receipt.claim_epoch == 0
@@ -455,7 +457,8 @@ fn validate_receipt_binding(
         || receipt.request_digest != *binding.request_digest()
         || receipt.decision_receipt_digest != *binding.decision_receipt_digest()
         || receipt.payload_digest != *binding.payload_digest()
-        || execution_position > command_position
+        || receipt.owner_epoch > command_owner_epoch
+        || receipt.accepted_generation > command_generation
     {
         return Err(
             "PostgreSQL effect and execution attestation do not match the exact command scope, digests or non-future owner position"
