@@ -8,15 +8,11 @@
 
 use std::path::Path;
 
-use myc_dir_fabric_nats_reference::{
-    Digest, DurableOwnerDisposition, NatsCommandBinding,
-};
+use myc_dir_fabric_nats_reference::{Digest, DurableOwnerDisposition, NatsCommandBinding};
 use rustls_tokio_postgres::{config_from_ca_cert, MakeRustlsConnect};
 use tokio_postgres::{Client, Row};
 
-use crate::{
-    sha256, AdapterResult, OwnerDispositionVerifier, VerifiedOwnerDisposition,
-};
+use crate::{sha256, AdapterResult, OwnerDispositionVerifier, VerifiedOwnerDisposition};
 
 const RECEIPT_DOMAIN: &[u8] = b"MYC-DIR-POSTGRES-EFFECT-EXECUTION-RECEIPT\0\x02";
 
@@ -267,8 +263,10 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
     let claim_expires_at: String = row.get(25);
     let database_xact_id: String = row.get(26);
     let owner_epoch_transition_present: bool = row.get(27);
-    let epoch_authority_receipt_digest = optional_digest_column(row, 28, "epoch_authority_receipt_digest")?;
-    let physical_fencing_receipt_digest = optional_digest_column(row, 29, "physical_fencing_receipt_digest")?;
+    let epoch_authority_receipt_digest =
+        optional_digest_column(row, 28, "epoch_authority_receipt_digest")?;
+    let physical_fencing_receipt_digest =
+        optional_digest_column(row, 29, "physical_fencing_receipt_digest")?;
 
     let accepted_generation = u64::try_from(effect_generation_i64)
         .map_err(|_| "PostgreSQL effect has a nonpositive accepted generation".to_owned())?;
@@ -276,18 +274,24 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
         .map_err(|_| "PostgreSQL execution attestation has a nonpositive generation".to_owned())?;
     let owner_epoch = u64::try_from(owner_epoch_i64)
         .map_err(|_| "PostgreSQL execution attestation has a nonpositive owner epoch".to_owned())?;
-    let claim_epoch = u64::try_from(claim_epoch_i64)
-        .map_err(|_| "PostgreSQL execution attestation has a nonpositive worker claim epoch".to_owned())?;
+    let claim_epoch = u64::try_from(claim_epoch_i64).map_err(|_| {
+        "PostgreSQL execution attestation has a nonpositive worker claim epoch".to_owned()
+    })?;
 
     if accepted_generation != attestation_generation {
-        return Err("effect_commits and effect_execution_attestations disagree on accepted generation".into());
+        return Err(
+            "effect_commits and effect_execution_attestations disagree on accepted generation"
+                .into(),
+        );
     }
-    if (owner_epoch == 1 && (owner_epoch_transition_present
+    if (owner_epoch == 1
+        && (owner_epoch_transition_present
             || epoch_authority_receipt_digest.is_some()
             || physical_fencing_receipt_digest.is_some()))
-        || (owner_epoch > 1 && (!owner_epoch_transition_present
-            || epoch_authority_receipt_digest.is_none()
-            || physical_fencing_receipt_digest.is_none()))
+        || (owner_epoch > 1
+            && (!owner_epoch_transition_present
+                || epoch_authority_receipt_digest.is_none()
+                || physical_fencing_receipt_digest.is_none()))
     {
         return Err("owner epoch transition evidence is missing or inconsistent".into());
     }
@@ -366,7 +370,9 @@ fn digest_column(row: &Row, index: usize, name: &str) -> Result<Digest, String> 
 
 fn optional_digest_column(row: &Row, index: usize, name: &str) -> Result<Option<Digest>, String> {
     let bytes: Option<Vec<u8>> = row.get(index);
-    bytes.map(|value| digest_from_bytes(value, name)).transpose()
+    bytes
+        .map(|value| digest_from_bytes(value, name))
+        .transpose()
 }
 
 fn digest_from_bytes(bytes: Vec<u8>, name: &str) -> Result<Digest, String> {
@@ -427,11 +433,15 @@ fn validate_receipt_binding(
         || receipt.claim_issued_at >= receipt.claim_expires_at
         || receipt.database_xact_id.trim().is_empty()
     {
-        return Err("PostgreSQL execution attestation has incomplete worker-claim coordinates".into());
+        return Err(
+            "PostgreSQL execution attestation has incomplete worker-claim coordinates".into(),
+        );
     }
 
     if receipt.recompute_digest()? != receipt.effect_receipt_digest {
-        return Err("canonical PostgreSQL effect/execution receipt digest does not match its fields".into());
+        return Err(
+            "canonical PostgreSQL effect/execution receipt digest does not match its fields".into(),
+        );
     }
 
     if receipt.realm_id != binding.realm_id()
@@ -511,7 +521,10 @@ fn canonical_effect_receipt_digest(
     bytes.extend_from_slice(&delta_minor.to_be_bytes());
     bytes.extend_from_slice(&balance_after_minor.to_be_bytes());
     bytes.extend_from_slice(claim_proof_digest);
-    for digest in [epoch_authority_receipt_digest, physical_fencing_receipt_digest] {
+    for digest in [
+        epoch_authority_receipt_digest,
+        physical_fencing_receipt_digest,
+    ] {
         match digest {
             Some(value) => {
                 bytes.push(1);
