@@ -400,7 +400,7 @@ BEGIN
         RAISE EXCEPTION 'post-promotion effect lease did not install at current resource position';
     END IF;
 
-    SELECT myc_effect_owner.install_worker_claim_for_owner_epoch(
+    PERFORM myc_effect_owner.install_worker_claim_for_owner_epoch(
         v_realm, v_resource, v_action, v_owner, 2,
         v_operation_b, v_worker_b, 1, v_claim_b,
         'postgres-db-clock-v1',
