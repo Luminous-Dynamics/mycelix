@@ -81,7 +81,15 @@ jobs:
             .version == "0.1" and
             (.scenarios | length) == 20 and
             ([.scenarios[].id] | unique | length) == 20 and
-            all(.scenarios[]; (.id | test("^HSA-[0-9]{3}$")) and (.stimulus | length > 0) and (.expected | length > 0) and (.writes | length > 0))
+            all(.scenarios[];
+              (.id | test("^HSA-[0-9]{3}$")) and
+              (.surface == "sap_membership" or .surface == "sap_withdrawal" or .surface == "tend_exchange") and
+              (.expected == "authorize_membership_check" or .expected == "reject" or .expected == "atomic_rollback") and
+              (.stimulus | length > 0) and
+              (.writes | length > 0) and
+              (.unit_covered | type == "boolean") and
+              (.host_qualification_required | type == "boolean")
+            )
           ' mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json >/dev/null
           grep -q "fn get_existing_hearth_pool_record" mycelix-finance/zomes/payments/coordinator/src/lib.rs
           grep -q "personal_record.action().author() != &caller" mycelix-finance/zomes/payments/coordinator/src/lib.rs
@@ -113,6 +121,8 @@ jobs:
             echo "subject_commit=$(git rev-parse HEAD)"
             echo "payments_blob=$(git rev-parse HEAD:mycelix-finance/zomes/payments/coordinator/src/lib.rs)"
             echo "tend_blob=$(git rev-parse HEAD:mycelix-finance/zomes/tend/coordinator/src/lib.rs)"
+            echo "scenario_corpus_sha256=$(sha256sum mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json | cut -d' ' -f1)"
+            echo "scenario_schema_sha256=$(sha256sum mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json | cut -d' ' -f1)"
             echo "payments_test_module=$(grep -c 'mod hearth_withdrawal_guard_tests' mycelix-finance/zomes/payments/coordinator/src/lib.rs)"
             echo "tend_test_module=$(grep -c 'mod hearth_membership_fail_closed_tests' mycelix-finance/zomes/tend/coordinator/src/lib.rs)"
           } | tee "$RUNNER_TEMP/hearth-qualification-manifest.txt"
