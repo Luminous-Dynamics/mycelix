@@ -94,7 +94,7 @@ ExactRetry ==
                  creditCount, feeLiabilityCount, feeOutboxCount,
                  paymentProjectionCount, receiptProjectionCount,
                  feeDeliveryCount, feeState, responseLost, responseReturned,
-                 conflictObserved, tombstonePresent>>
+                 conflictObserved, tombstonePresent, clientCachePresent>>
 
 ChangedPayloadConflict ==
   /\ opState \in {"Prepared", "Committed"}
