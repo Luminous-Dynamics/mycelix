@@ -41,6 +41,10 @@ The state space is finite: retries, durable-outbox scans, chain-head race observ
 - `../../pcoe-effect-owner-payment-scenarios.v0.1.schema.json` defines the corpus shape.
 - The CI workflow additionally checks all IDs are unique and each expected disposition appears in the declared vocabulary.
 
+## Model-to-scenario coverage
+
+`../../pcoe-effect-owner-payment-model-coverage.v0.1.json` maps each of the 22 EOP cases to TLA actions / invariants and names the remaining qualification layer. The current map is 9 bounded-modelled, 6 partially-modelled and 7 not-in-model. The CI workflow checks that its IDs match the scenario corpus. A modelled label means the abstract property exists in the bounded model; it does not mean a real Holochain or adapter test passed.
+
 ## What the model does and does not prove
 
 The model checks effect counts and state transitions across a bounded state space. It does **not** calculate actual monetary amounts, fee arithmetic, valuation or full value-conservation arithmetic; those remain obligations for the FIN-SAFE arithmetic kernels and property tests. It also does **not** prove the live Holochain implementation satisfies the model, global uniqueness across alternate agent keys / clones / forks, or bank / payment-rail finality. Those require real-agent Tryorama / Sweettests, authority and fork-resolution proofs, Treasury adapter qualification and independent external evidence.
