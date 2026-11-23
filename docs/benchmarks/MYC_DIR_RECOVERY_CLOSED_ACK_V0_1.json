@@ -1,6 +1,6 @@
 {
   "profile": "MYC-DIR-RECOVERY-CLOSED-ACK-0.1",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "status": "preregistered_not_executed",
   "claim_ceiling": "Research benchmark specification only. No multi-node PostgreSQL failover, recovery-finality certificate, WAL observer, or performance result is implemented or qualified by this corpus.",
   "invariant": "For every acknowledged protected effect E: EffectCommitted(E) AND RecoveryClosed(E). RecoveryClosed means every promotion/recovery path permitted by the externally enforced promotion policy preserves E, or the policy rejects that path.",
@@ -152,6 +152,16 @@
       "id": "RCA-C07",
       "name": "Mycelix Recovery-Closed ACK",
       "semantic_boundary": "Proposed cross-system finality certificate binds actual effect, WAL commit position, replica evidence, signed authority lease, promotion policy and old-primary physical fencing."
+    },
+    {
+      "id": "RCA-C08",
+      "name": "RabbitMQ quorum queues with publisher confirms and manual consumer acknowledgements",
+      "semantic_boundary": "Publisher confirms establish broker quorum persistence for the routed queue; manual consumer acknowledgements manage redelivery. Neither confirms a separate PostgreSQL effect. Compare destination-side integration and fault schedules separately."
+    },
+    {
+      "id": "RCA-C09",
+      "name": "Patroni synchronous_mode with synchronous_mode_strict on/off",
+      "semantic_boundary": "A mature PostgreSQL HA-controller comparator. Strict mode can block writes when no eligible synchronous replica exists; non-strict mode may relax synchronous replication availability. Compare its promotion eligibility, RPO, write availability and fencing against the same hardware/fault schedule. Do not mislabel Patroni as an effect-receipt verifier."
     }
   ],
   "metrics": [
@@ -392,6 +402,13 @@
       "kind": "performance",
       "unit": "verified_effects_per_second",
       "hard_limit": null
+    },
+    {
+      "id": "RCA-M35",
+      "name": "broker_quorum_confirm_without_destination_effect_accepted_as_effect_success",
+      "kind": "safety",
+      "unit": "acks",
+      "hard_limit": 0
     }
   ],
   "scenarios": [
@@ -646,6 +663,24 @@
       "class": "known_reject",
       "description": "A promotion candidate's logical slot is synchronized but the candidate WAL/replay position or timeline ancestry does not contain the acknowledged transaction end-LSN.",
       "expected_outcome": "PROMOTION_CANDIDATE_REJECTED"
+    },
+    {
+      "id": "RCA-043",
+      "class": "known_reject",
+      "description": "RabbitMQ quorum queue publisher confirm is received for a command, but the downstream PostgreSQL effect is absent or rolled back; the broker confirm is treated as proof of the database effect.",
+      "expected_outcome": "BROKER_QUORUM_CONFIRM_IS_NOT_EFFECT_FINALITY"
+    },
+    {
+      "id": "RCA-044",
+      "class": "known_valid",
+      "description": "Patroni synchronous_mode_strict is enabled and no eligible synchronous standby exists; the database blocks new writes rather than relaxing the durability contract.",
+      "expected_outcome": "NO_COMMIT_WHILE_DURABILITY_QUORUM_UNAVAILABLE"
+    },
+    {
+      "id": "RCA-045",
+      "class": "known_reject",
+      "description": "Patroni runs with synchronous_mode enabled but synchronous_mode_strict disabled; the benchmark loses all eligible synchronous replicas and must not assume that every newly accepted write has standby durability.",
+      "expected_outcome": "DURABILITY_CLASS_REDUCED_OR_WRITE_REJECTED_AND_EXPLICITLY_REPORTED"
     }
   ],
   "evidence_requirements": [
@@ -674,5 +709,13 @@
     "PostgreSQL 19 profile must record slot synced, temporary, invalidation_reason and slotsync_skip_reason; never treat slot existence as readiness.",
     "Measure valid-finality liveness as well as safety. A system that never ACKs can trivially achieve zero unsafe ACKs but is not a usable execution system.",
     "Safety-adjusted throughput is reportable only when all hard safety metrics equal zero; it is not ordinary broker throughput."
+  ],
+  "comparison_methodology": [
+    "Run the exact same offered-load workload against RabbitMQ quorum queues, Kafka transactional processing, Patroni-managed PostgreSQL synchronous replication, transactional outbox/CDC, and Mycelix.",
+    "Separate broker-level confirmation, database commit, replica durability, promotion safety, and cross-system effect finality; never treat them as interchangeable.",
+    "For Patroni include synchronous_mode_strict enabled and disabled as separate profiles. Report write blocking/availability as a first-class outcome, not as an unexplained failure.",
+    "For RabbitMQ record queue type, replica membership, publisher-confirm round trip, consumer manual ack, redelivery and destination database effect evidence.",
+    "For Kafka compare transactions only inside Kafka's transaction domain; test PostgreSQL sink behavior with a cooperating connector/outbox path and record the destination commit separately.",
+    "Match payload, offered load, node count, disk class, replication topology, fault schedule, retention and durability target. Report p50/p95/p99 and safety-adjusted throughput."
   ]
 }
