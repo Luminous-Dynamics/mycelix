@@ -1,0 +1,133 @@
+{
+  "schema_version": "0.1.0",
+  "study_id": "synthetic",
+  "site_id": "SYN1",
+  "profile_id": "PROF1",
+  "event_id": "EV1",
+  "event_start_utc": "2026-05-01T00:00:00Z",
+  "observation_window_end_utc": "2026-05-01T00:10:00Z",
+  "time_resolution_seconds": 600,
+  "response_threshold_m3_m3": 0.01,
+  "source_evidence_ref": "synthetic spatial array only",
+  "distance_bins": [
+    {
+      "lower_exclusive_m": 0,
+      "upper_inclusive_m": 1.1
+    },
+    {
+      "lower_exclusive_m": 9,
+      "upper_inclusive_m": 11
+    },
+    {
+      "lower_exclusive_m": 11,
+      "upper_inclusive_m": 12
+    }
+  ],
+  "sensors": [
+    {
+      "sensor_id": "A",
+      "x_m": 0,
+      "y_m": 0,
+      "depth_cm": 20,
+      "condition": "usable",
+      "observations": [
+        {
+          "timestamp_utc": "2026-04-30T23:50:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-05-01T00:00:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-05-01T00:10:00Z",
+          "volumetric_water_content_m3_m3": 0.22,
+          "status": "observed"
+        }
+      ],
+      "plot_id": "P01",
+      "depth_group_id": "D20"
+    },
+    {
+      "sensor_id": "B",
+      "x_m": 1,
+      "y_m": 0,
+      "depth_cm": 20,
+      "condition": "usable",
+      "observations": [
+        {
+          "timestamp_utc": "2026-04-30T23:50:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-05-01T00:00:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-05-01T00:10:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        }
+      ],
+      "plot_id": "P01",
+      "depth_group_id": "D20"
+    },
+    {
+      "sensor_id": "C",
+      "x_m": 10,
+      "y_m": 1,
+      "depth_cm": 20,
+      "condition": "usable",
+      "observations": [
+        {
+          "timestamp_utc": "2026-04-30T23:50:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-05-01T00:00:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-05-01T00:10:00Z",
+          "volumetric_water_content_m3_m3": 0.21,
+          "status": "observed"
+        }
+      ],
+      "plot_id": "P02",
+      "depth_group_id": "D20"
+    },
+    {
+      "sensor_id": "D",
+      "x_m": 11,
+      "y_m": 1,
+      "depth_cm": 20,
+      "condition": "usable",
+      "observations": [
+        {
+          "timestamp_utc": "2026-04-30T23:50:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-05-01T00:00:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        },
+        {
+          "timestamp_utc": "2026-05-01T00:10:00Z",
+          "volumetric_water_content_m3_m3": 0.2,
+          "status": "observed"
+        }
+      ],
+      "plot_id": "P02",
+      "depth_group_id": "D20"
+    }
+  ],
+  "spatial_group_id": "ARRAY1"
+}

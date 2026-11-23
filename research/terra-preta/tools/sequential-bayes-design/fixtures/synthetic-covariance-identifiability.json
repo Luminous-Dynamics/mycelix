@@ -1,0 +1,168 @@
+{
+  "schema_version": "0.1.0",
+  "data_class": "synthetic-known-truth",
+  "scenario_id": "physical-versus-nuisance-covariance-identifiability-v0",
+  "true_variance_components": [
+    0.7,
+    0.4,
+    0.2,
+    0.1
+  ],
+  "designs": [
+    {
+      "design_id": "single_ct_tracer_pair",
+      "observations": [
+        {
+          "observation_id": "ct-1",
+          "modality": "ct",
+          "physical_support_id": "support-A",
+          "batch_id": "batch-A",
+          "instrument_id": "instrument-A"
+        },
+        {
+          "observation_id": "tracer-1",
+          "modality": "tracer",
+          "physical_support_id": "support-A",
+          "batch_id": "batch-A",
+          "instrument_id": "instrument-A"
+        }
+      ]
+    },
+    {
+      "design_id": "batch_only_pair",
+      "observations": [
+        {
+          "observation_id": "ct-1",
+          "modality": "ct",
+          "physical_support_id": "support-A",
+          "batch_id": "batch-shared",
+          "instrument_id": "ct-device"
+        },
+        {
+          "observation_id": "tracer-1",
+          "modality": "tracer",
+          "physical_support_id": "support-B",
+          "batch_id": "batch-shared",
+          "instrument_id": "tracer-device"
+        }
+      ]
+    },
+    {
+      "design_id": "crossed_support_batch_instrument",
+      "observations": [
+        {
+          "observation_id": "support-A:batch-A:instrument-A:ct",
+          "modality": "ct",
+          "physical_support_id": "support-A",
+          "batch_id": "batch-A",
+          "instrument_id": "instrument-A"
+        },
+        {
+          "observation_id": "support-A:batch-A:instrument-A:tracer",
+          "modality": "tracer",
+          "physical_support_id": "support-A",
+          "batch_id": "batch-A",
+          "instrument_id": "instrument-A"
+        },
+        {
+          "observation_id": "support-A:batch-A:instrument-B:ct",
+          "modality": "ct",
+          "physical_support_id": "support-A",
+          "batch_id": "batch-A",
+          "instrument_id": "instrument-B"
+        },
+        {
+          "observation_id": "support-A:batch-A:instrument-B:tracer",
+          "modality": "tracer",
+          "physical_support_id": "support-A",
+          "batch_id": "batch-A",
+          "instrument_id": "instrument-B"
+        },
+        {
+          "observation_id": "support-A:batch-B:instrument-A:ct",
+          "modality": "ct",
+          "physical_support_id": "support-A",
+          "batch_id": "batch-B",
+          "instrument_id": "instrument-A"
+        },
+        {
+          "observation_id": "support-A:batch-B:instrument-A:tracer",
+          "modality": "tracer",
+          "physical_support_id": "support-A",
+          "batch_id": "batch-B",
+          "instrument_id": "instrument-A"
+        },
+        {
+          "observation_id": "support-A:batch-B:instrument-B:ct",
+          "modality": "ct",
+          "physical_support_id": "support-A",
+          "batch_id": "batch-B",
+          "instrument_id": "instrument-B"
+        },
+        {
+          "observation_id": "support-A:batch-B:instrument-B:tracer",
+          "modality": "tracer",
+          "physical_support_id": "support-A",
+          "batch_id": "batch-B",
+          "instrument_id": "instrument-B"
+        },
+        {
+          "observation_id": "support-B:batch-A:instrument-A:ct",
+          "modality": "ct",
+          "physical_support_id": "support-B",
+          "batch_id": "batch-A",
+          "instrument_id": "instrument-A"
+        },
+        {
+          "observation_id": "support-B:batch-A:instrument-A:tracer",
+          "modality": "tracer",
+          "physical_support_id": "support-B",
+          "batch_id": "batch-A",
+          "instrument_id": "instrument-A"
+        },
+        {
+          "observation_id": "support-B:batch-A:instrument-B:ct",
+          "modality": "ct",
+          "physical_support_id": "support-B",
+          "batch_id": "batch-A",
+          "instrument_id": "instrument-B"
+        },
+        {
+          "observation_id": "support-B:batch-A:instrument-B:tracer",
+          "modality": "tracer",
+          "physical_support_id": "support-B",
+          "batch_id": "batch-A",
+          "instrument_id": "instrument-B"
+        },
+        {
+          "observation_id": "support-B:batch-B:instrument-A:ct",
+          "modality": "ct",
+          "physical_support_id": "support-B",
+          "batch_id": "batch-B",
+          "instrument_id": "instrument-A"
+        },
+        {
+          "observation_id": "support-B:batch-B:instrument-A:tracer",
+          "modality": "tracer",
+          "physical_support_id": "support-B",
+          "batch_id": "batch-B",
+          "instrument_id": "instrument-A"
+        },
+        {
+          "observation_id": "support-B:batch-B:instrument-B:ct",
+          "modality": "ct",
+          "physical_support_id": "support-B",
+          "batch_id": "batch-B",
+          "instrument_id": "instrument-B"
+        },
+        {
+          "observation_id": "support-B:batch-B:instrument-B:tracer",
+          "modality": "tracer",
+          "physical_support_id": "support-B",
+          "batch_id": "batch-B",
+          "instrument_id": "instrument-B"
+        }
+      ]
+    }
+  ]
+}

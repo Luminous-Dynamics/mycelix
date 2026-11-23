@@ -1,0 +1,151 @@
+{
+  "schema_version": "0.1.0",
+  "study_id": "synthetic-2025-neon",
+  "site_id": "SYN1",
+  "ecoregion_id": "synthetic-ecoregion",
+  "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_evidence_ref": "synthetic-fixture-only",
+  "rainfall_minimum_event_mm": 2,
+  "site_events": [
+    {
+      "event_id": "E1",
+      "rainfall_total_mm": 6,
+      "soil_moisture_available": true,
+      "declared_sensor_count_10_to_100_cm": 4,
+      "declared_profile_count": 2,
+      "vt_maximum_ksat": {
+        "declared_units": 4,
+        "evaluable_units": 4,
+        "positive_units": 1
+      },
+      "vt_median_ksat": {
+        "declared_units": 4,
+        "evaluable_units": 4,
+        "positive_units": 2
+      },
+      "vt_median_plus_sd_ksat": {
+        "declared_units": 4,
+        "evaluable_units": 4,
+        "positive_units": 0
+      },
+      "nsr": {
+        "declared_units": 2,
+        "evaluable_units": 2,
+        "positive_units": 1
+      },
+      "evidence_ref": "synthetic-fixture-only-E1"
+    },
+    {
+      "event_id": "E2",
+      "rainfall_total_mm": 2,
+      "soil_moisture_available": true,
+      "declared_sensor_count_10_to_100_cm": 4,
+      "declared_profile_count": 2,
+      "vt_maximum_ksat": {
+        "declared_units": 4,
+        "evaluable_units": 4,
+        "positive_units": 0
+      },
+      "vt_median_ksat": {
+        "declared_units": 4,
+        "evaluable_units": 4,
+        "positive_units": 2
+      },
+      "vt_median_plus_sd_ksat": {
+        "declared_units": 4,
+        "evaluable_units": 4,
+        "positive_units": 0
+      },
+      "nsr": {
+        "declared_units": 2,
+        "evaluable_units": 2,
+        "positive_units": 0
+      },
+      "evidence_ref": "synthetic-fixture-only-E2"
+    },
+    {
+      "event_id": "E3",
+      "rainfall_total_mm": 4,
+      "soil_moisture_available": true,
+      "declared_sensor_count_10_to_100_cm": 4,
+      "declared_profile_count": 2,
+      "vt_maximum_ksat": {
+        "declared_units": 4,
+        "evaluable_units": 2,
+        "positive_units": 0
+      },
+      "vt_median_ksat": {
+        "declared_units": 4,
+        "evaluable_units": 2,
+        "positive_units": 1
+      },
+      "vt_median_plus_sd_ksat": {
+        "declared_units": 4,
+        "evaluable_units": 2,
+        "positive_units": 0
+      },
+      "nsr": {
+        "declared_units": 2,
+        "evaluable_units": 1,
+        "positive_units": 0
+      },
+      "evidence_ref": "synthetic-fixture-only-E3"
+    },
+    {
+      "event_id": "E4",
+      "rainfall_total_mm": 1.9,
+      "soil_moisture_available": true,
+      "declared_sensor_count_10_to_100_cm": 4,
+      "declared_profile_count": 2,
+      "vt_maximum_ksat": {
+        "declared_units": 4,
+        "evaluable_units": 4,
+        "positive_units": 4
+      },
+      "vt_median_ksat": {
+        "declared_units": 4,
+        "evaluable_units": 4,
+        "positive_units": 4
+      },
+      "vt_median_plus_sd_ksat": {
+        "declared_units": 4,
+        "evaluable_units": 4,
+        "positive_units": 4
+      },
+      "nsr": {
+        "declared_units": 2,
+        "evaluable_units": 2,
+        "positive_units": 2
+      },
+      "evidence_ref": "synthetic-fixture-only-E4"
+    },
+    {
+      "event_id": "E5",
+      "rainfall_total_mm": 8,
+      "soil_moisture_available": false,
+      "declared_sensor_count_10_to_100_cm": 0,
+      "declared_profile_count": 0,
+      "vt_maximum_ksat": {
+        "declared_units": 0,
+        "evaluable_units": 0,
+        "positive_units": 0
+      },
+      "vt_median_ksat": {
+        "declared_units": 0,
+        "evaluable_units": 0,
+        "positive_units": 0
+      },
+      "vt_median_plus_sd_ksat": {
+        "declared_units": 0,
+        "evaluable_units": 0,
+        "positive_units": 0
+      },
+      "nsr": {
+        "declared_units": 0,
+        "evaluable_units": 0,
+        "positive_units": 0
+      },
+      "evidence_ref": "synthetic-fixture-only-E5"
+    }
+  ]
+}

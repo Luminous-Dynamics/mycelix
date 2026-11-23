@@ -1,0 +1,49 @@
+{
+  "schema_version": "0.1.0",
+  "data_class": "synthetic-known-truth",
+  "scenario_id": "ct-conditioned-left-censored-tracer-v0",
+  "model_ids": [
+    "positive_cross_correlation",
+    "negative_cross_correlation"
+  ],
+  "prior_weights": [
+    0.5,
+    0.5
+  ],
+  "means": [
+    [
+      0,
+      0
+    ],
+    [
+      0,
+      0
+    ]
+  ],
+  "covariances": [
+    [
+      [
+        1,
+        0.8
+      ],
+      [
+        0.8,
+        1
+      ]
+    ],
+    [
+      [
+        1,
+        -0.8
+      ],
+      [
+        -0.8,
+        1
+      ]
+    ]
+  ],
+  "observed_ct_value": 1,
+  "detection_limit": 0.5,
+  "upper_quantification_limit": 1.2,
+  "sibson_alpha": 0.5
+}

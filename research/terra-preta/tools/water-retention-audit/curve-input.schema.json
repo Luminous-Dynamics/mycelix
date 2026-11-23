@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Luminous-Dynamics/mycelix/main/research/terra-preta/tools/water-retention-audit/curve-input.schema.json",
+  "title": "Terra Preta soil-water desorption curve input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "sample_id",
+    "curve_id",
+    "measurement_basis",
+    "bulk_density_kg_m3",
+    "water_density_kg_m3",
+    "monotonicity_tolerance_m3_m3",
+    "method",
+    "target",
+    "layer_depth_mm",
+    "points"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "sample_id": { "type": "string", "minLength": 1 },
+    "curve_id": { "type": "string", "minLength": 1 },
+    "measurement_basis": {
+      "enum": ["volumetric_fraction", "gravimetric_kg_per_kg_dry_soil"]
+    },
+    "bulk_density_kg_m3": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+    "water_density_kg_m3": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+    "monotonicity_tolerance_m3_m3": { "type": "number", "minimum": 0, "maximum": 1 },
+    "method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "standard_or_protocol"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "standard_or_protocol": { "type": ["string", "null"] }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field_capacity_matric_potential_kpa",
+        "permanent_wilting_point_matric_potential_kpa"
+      ],
+      "properties": {
+        "field_capacity_matric_potential_kpa": { "type": "number", "exclusiveMaximum": 0 },
+        "permanent_wilting_point_matric_potential_kpa": { "type": "number", "exclusiveMaximum": 0 }
+      }
+    },
+    "layer_depth_mm": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+    "points": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["matric_potential_kpa", "water_content"],
+        "properties": {
+          "matric_potential_kpa": { "type": "number", "maximum": 0 },
+          "water_content": { "type": "number", "minimum": 0 }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "measurement_basis": { "const": "gravimetric_kg_per_kg_dry_soil" } },
+        "required": ["measurement_basis"]
+      },
+      "then": {
+        "properties": {
+          "bulk_density_kg_m3": { "type": "number", "exclusiveMinimum": 0 },
+          "water_density_kg_m3": { "type": "number", "exclusiveMinimum": 0 }
+        }
+      }
+    }
+  ]
+}

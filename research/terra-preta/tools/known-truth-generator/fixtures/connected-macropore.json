@@ -1,0 +1,95 @@
+{
+  "schema_version": "0.1.0",
+  "scenario_id": "SYNTH-CONNECTED-001",
+  "dt_seconds": 600,
+  "family": "connected_macropore",
+  "parameters": {
+    "matrix_capacity_mm": 100,
+    "macropore_capacity_mm": 20,
+    "macropore_inflow_fraction": 0.3,
+    "matrix_drainage_fraction_per_step": 0.05,
+    "macropore_drainage_fraction_per_step": 0.5,
+    "interdomain_exchange_fraction_per_step": 0,
+    "macropore_path_connected": true
+  },
+  "initial_state": {
+    "matrix_water_mm": 10,
+    "macropore_water_mm": 0,
+    "matrix_tracer_mg_m2": 0,
+    "macropore_tracer_mg_m2": 0
+  },
+  "forcing": [
+    {
+      "timestamp_utc": "2026-01-01T00:00:00Z",
+      "rainfall_mm": 8,
+      "potential_evaporation_mm": 0,
+      "rainfall_tracer_concentration_mg_l": 1
+    },
+    {
+      "timestamp_utc": "2026-01-01T00:10:00Z",
+      "rainfall_mm": 4,
+      "potential_evaporation_mm": 0,
+      "rainfall_tracer_concentration_mg_l": 1
+    },
+    {
+      "timestamp_utc": "2026-01-01T00:20:00Z",
+      "rainfall_mm": 0,
+      "potential_evaporation_mm": 0,
+      "rainfall_tracer_concentration_mg_l": 1
+    },
+    {
+      "timestamp_utc": "2026-01-01T00:30:00Z",
+      "rainfall_mm": 0,
+      "potential_evaporation_mm": 0.1,
+      "rainfall_tracer_concentration_mg_l": 1
+    },
+    {
+      "timestamp_utc": "2026-01-01T00:40:00Z",
+      "rainfall_mm": 0,
+      "potential_evaporation_mm": 0.1,
+      "rainfall_tracer_concentration_mg_l": 1
+    },
+    {
+      "timestamp_utc": "2026-01-01T00:50:00Z",
+      "rainfall_mm": 0,
+      "potential_evaporation_mm": 0.1,
+      "rainfall_tracer_concentration_mg_l": 1
+    },
+    {
+      "timestamp_utc": "2026-01-01T01:00:00Z",
+      "rainfall_mm": 0,
+      "potential_evaporation_mm": 0.1,
+      "rainfall_tracer_concentration_mg_l": 1
+    },
+    {
+      "timestamp_utc": "2026-01-01T01:10:00Z",
+      "rainfall_mm": 0,
+      "potential_evaporation_mm": 0.1,
+      "rainfall_tracer_concentration_mg_l": 1
+    },
+    {
+      "timestamp_utc": "2026-01-01T01:20:00Z",
+      "rainfall_mm": 0,
+      "potential_evaporation_mm": 0.1,
+      "rainfall_tracer_concentration_mg_l": 1
+    },
+    {
+      "timestamp_utc": "2026-01-01T01:30:00Z",
+      "rainfall_mm": 0,
+      "potential_evaporation_mm": 0.1,
+      "rainfall_tracer_concentration_mg_l": 1
+    },
+    {
+      "timestamp_utc": "2026-01-01T01:40:00Z",
+      "rainfall_mm": 0,
+      "potential_evaporation_mm": 0.1,
+      "rainfall_tracer_concentration_mg_l": 1
+    },
+    {
+      "timestamp_utc": "2026-01-01T01:50:00Z",
+      "rainfall_mm": 0,
+      "potential_evaporation_mm": 0.1,
+      "rainfall_tracer_concentration_mg_l": 1
+    }
+  ]
+}

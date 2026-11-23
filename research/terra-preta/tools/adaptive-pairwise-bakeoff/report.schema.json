@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Terra Preta adaptive pairwise report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["report_version", "status", "scenario_id", "input_sha256", "candidate_count", "eligible_candidate_count", "ineligible_candidate_count", "pair_relation_count", "budget_cost_units", "oracle", "pair_diagnostics", "policy_results", "interpretation_boundary", "warnings"],
+  "properties": {
+    "report_version": { "const": "0.1.0" },
+    "status": { "const": "synthetic_pairwise_benchmark_only" },
+    "scenario_id": { "type": "string" },
+    "input_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "candidate_count": { "type": "integer", "minimum": 1 },
+    "eligible_candidate_count": { "type": "integer", "minimum": 0 },
+    "ineligible_candidate_count": { "type": "integer", "minimum": 0 },
+    "pair_relation_count": { "type": "integer", "minimum": 0 },
+    "budget_cost_units": { "type": "integer", "minimum": 1 },
+    "oracle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selected_action_ids", "total_cost_units", "synthetic_truth_utility"],
+      "properties": {
+        "selected_action_ids": { "type": "array", "items": { "type": "string" } },
+        "total_cost_units": { "type": "integer", "minimum": 0 },
+        "synthetic_truth_utility": { "type": "number" }
+      }
+    },
+    "pair_diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["action_a", "action_b", "estimated_interaction", "synthetic_truth_interaction"],
+        "properties": {
+          "action_a": { "type": "string" },
+          "action_b": { "type": "string" },
+          "estimated_interaction": { "type": "number" },
+          "synthetic_truth_interaction": { "type": "number" }
+        }
+      }
+    },
+    "policy_results": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["policy_id", "selected_action_ids", "total_cost_units", "budget_remaining_units", "minimum_coverage_met", "selector_predicted_utility", "evaluator_synthetic_truth_utility", "oracle_regret", "normalized_oracle_regret"],
+        "properties": {
+          "policy_id": { "type": "string" },
+          "selected_action_ids": { "type": "array", "items": { "type": "string" } },
+          "total_cost_units": { "type": "integer", "minimum": 0 },
+          "budget_remaining_units": { "type": "integer", "minimum": 0 },
+          "minimum_coverage_met": { "type": "boolean" },
+          "selector_predicted_utility": { "type": "number" },
+          "evaluator_synthetic_truth_utility": { "type": "number" },
+          "oracle_regret": { "type": ["number", "null"], "minimum": 0 },
+          "normalized_oracle_regret": { "type": ["number", "null"], "minimum": 0 }
+        }
+      }
+    },
+    "interpretation_boundary": { "type": "string", "minLength": 1 },
+    "warnings": { "type": "array", "items": { "type": "string" } }
+  }
+}
