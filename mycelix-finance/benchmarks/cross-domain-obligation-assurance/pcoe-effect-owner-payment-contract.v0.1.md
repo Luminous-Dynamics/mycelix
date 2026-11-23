@@ -331,16 +331,25 @@ The scenario-to-model coverage map `pcoe-effect-owner-payment-model-coverage.v0.
 
 The map is structurally validated against the exact 22 IDs by the focused workflow. These classifications do not claim that the scenario has been executed against Rust or Holochain.
 
-**Model-check result — exact PR head:** the two-owner model passed the pinned TLC v1.7.4 safe configuration on commit `9712134efadbe7da28fe04519c838f13a81cc9bb`, workflow [run #45164659271](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45164659271). TLC generated 66,120 states, found 12,105 distinct reachable states, explored graph depth 19, and completed with 0 states left on queue and no invariant violation. No model-variable frame warnings were emitted.
+**Model-check result — exact PR head:** the two-owner model passed the pinned TLC v1.7.4 safe configuration on current PR head `5392b34b4b9553d2add00513abc19b85ac55ee9d`, workflow [run #45165934675](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45165934675). TLC generated 66,120 states, found 12,105 distinct reachable states, explored graph depth 19, and completed with 0 states left on queue and no invariant violation. No model-variable frame warnings were emitted.
 
-The deliberate mutant failed on the intended `SenderIntentDebitAtomicity` invariant. The retained counterexample is `Initial → Prepare → UnsafeSenderDebitWithoutIntent`: sender debit count becomes one while sender intent count remains zero. The workflow requires this exact invariant failure; a different mutant failure does not pass.
+The deliberate mutant failed on the intended `SenderIntentDebitAtomicity` invariant. The retained counterexample is `Initial → Prepare → UnsafeSenderDebitWithoutIntent`: sender debit count becomes one while sender intent count remains zero. The workflow requires this exact invariant failure; a failure for a different reason does not pass.
 
-The evidence manifest binds the exact subject SHA and hashes:
+The latest exact-head workflow also passed:
+- the frozen 22-case scenario corpus gate;
+- the 22-ID scenario-to-model coverage gate: 9 bounded-modelled, 6 partially-modelled, 7 not-in-model;
+- pinned TLC v1.7.4 checksum verification;
+- exact PR-head checkout assertion.
+
+**Evidence hashes:**
 - TLA SHA-256: `83e1d5249b8cd8699f53729c542587a7b6b67477d904c7891c8cf5699034bb20`;
 - scenario corpus SHA-256: `42c820181160485e2bec05032221f589ec7f876fef4d8f7705c874463600758d`;
-- scenario schema SHA-256: `66cd78127585f5c9801304868836ffe551178bcb29388151ec17e1e87fc44c21`.
+- scenario schema SHA-256: `66cd78127585f5c9801304868836ffe551178bcb29388151ec17e1e87fc44c21`;
+- scenario coverage map SHA-256: `72edb8afb5d82f9243a632cf011d6d7a57071cc71caed385a2f8a43fb4aa22b4`;
+- TLC jar: v1.7.4, SHA-1 `bee4a54f3ee3d4afc347c3240ec2d9e93b075104`;
+- latest artifact: `pcoe-effect-owner-payment-model-143099148ef24fbd677631e13a5c207d2f7ec2e6`, SHA-256 `b7eef382801d0fa377ff926648d3af13737172f9d909bfacd018e1e6eae2256d`.
 
-The exact-head workflow also passed the 22-case corpus gate, checksum verification and subject-commit assertion. The model is bounded and only establishes abstract effect-count / state-transition properties. It does not prove numeric monetary arithmetic, live Holochain behavior, alternate-agent uniqueness, real fork-resolution code, Treasury adapter correctness or external rail behavior. No Rust tests, real-agent Tryorama / Sweettests or production verification are claimed.
+This qualifies the bounded abstract model's effect-count / state-transition properties only. It does not prove numeric monetary arithmetic, live Holochain behavior, alternate-agent uniqueness, real fork-resolution code, Treasury adapter correctness or external rail finality. No Rust tests, real-agent Tryorama / Sweettests or production verification are claimed.
 
 ## 11. Implementation sequence
 
