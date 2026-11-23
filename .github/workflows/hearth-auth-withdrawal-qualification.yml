@@ -125,8 +125,8 @@ jobs:
       - name: TEND guard tests
         run: cargo test --manifest-path mycelix-finance/Cargo.toml -p tend --locked
 
-      - name: Strict Payments and TEND Clippy
-        run: cargo clippy --manifest-path mycelix-finance/Cargo.toml -p payments -p tend --all-targets --locked -- -D warnings
+      - name: Strict Clippy for Payments/TEND coordinators and integrity packages
+        run: cargo clippy --manifest-path mycelix-finance/Cargo.toml -p payments -p tend -p payments_integrity -p tend_integrity --all-targets --no-deps --locked -- -D warnings
 
       - name: Emit qualification manifest
         shell: bash
