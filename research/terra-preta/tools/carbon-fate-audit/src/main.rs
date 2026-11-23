@@ -119,7 +119,7 @@ struct ModelEvaluation {
     stream_metrics: Vec<StreamMetric>,
     joint_adequacy_pass: bool,
     failed_streams: Vec<String>,
-    mechanism_claim_allowed: bool,
+    mechanism_claims_qualified: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -404,7 +404,10 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
             });
         }
 
-        let joint_adequacy_pass = failed_streams.is_empty();
+        if abstained_count > 0 {
+            failed_streams.push("unscored_prediction_coverage".into());
+        }
+        let joint_adequacy_pass = failed_streams.is_empty() && abstained_count == 0;
         evaluations.push(ModelEvaluation {
             model_id: model.model_id.clone(),
             family: model.family.clone(),
@@ -414,7 +417,7 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
             stream_metrics,
             joint_adequacy_pass,
             failed_streams,
-            mechanism_claim_allowed: joint_adequacy_pass && balance.qualified,
+            mechanism_claims_qualified: false,
         });
     }
 
@@ -485,7 +488,7 @@ mod tests {
         let report = build_report(&s, "0".repeat(64));
         let model = report.evaluations.iter().find(|e| e.model_id == "three-pool").unwrap();
         assert!(model.joint_adequacy_pass, "{:?}", model.failed_streams);
-        assert!(model.mechanism_claim_allowed);
+        assert!(!model.mechanism_claims_qualified);
     }
 
     #[test]
@@ -499,7 +502,7 @@ mod tests {
         assert!(!respiration.qualifies);
         assert!(!transit.qualifies);
         assert!(!model.joint_adequacy_pass);
-        assert!(!model.mechanism_claim_allowed);
+        assert!(!model.mechanism_claims_qualified);
     }
 
     #[test]
@@ -524,7 +527,7 @@ mod tests {
         s.carbon_balance.final_stock += 1.0;
         let report = build_report(&s, "0".repeat(64));
         assert!(!report.carbon_balance.qualified);
-        assert!(report.evaluations.iter().all(|m| !m.mechanism_claim_allowed));
+        assert!(report.evaluations.iter().all(|m| !m.mechanism_claims_qualified));
     }
 
     #[test]
