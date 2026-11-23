@@ -620,36 +620,7 @@ mod tests {
         let request_digest = *binding.request_digest();
         let decision_receipt_digest = *binding.decision_receipt_digest();
         let payload_digest = *binding.payload_digest();
-        let effect_receipt_digest = canonical_effect_receipt_digest(
-            &effect_id,
-            &attestation_id,
-            &realm_id,
-            &resource_id,
-            &action_id,
-            &effect_owner_id,
-            &object_id,
-            &currency_code,
-            &logical_operation_id,
-            owner_epoch,
-            accepted_generation,
-            &worker_id,
-            claim_epoch,
-            &claim_proof_digest,
-            &claim_clock_profile_id,
-            &claim_issued_at,
-            &claim_expires_at,
-            &database_xact_id,
-            &epoch_authority_receipt_digest,
-            &physical_fencing_receipt_digest,
-            delta_minor,
-            balance_after_minor,
-            &idempotency_digest,
-            &request_digest,
-            &decision_receipt_digest,
-            &payload_digest,
-        )
-        .unwrap();
-        VerifiedPostgresEffectReceipt {
+        let mut receipt = VerifiedPostgresEffectReceipt {
             effect_id,
             attestation_id,
             realm_id,
@@ -676,8 +647,11 @@ mod tests {
             request_digest,
             decision_receipt_digest,
             payload_digest,
-            effect_receipt_digest,
-        }
+            effect_receipt_digest: [0; 32],
+        };
+        recommit_receipt(&mut receipt);
+        receipt
+
     }
 
     #[test]
