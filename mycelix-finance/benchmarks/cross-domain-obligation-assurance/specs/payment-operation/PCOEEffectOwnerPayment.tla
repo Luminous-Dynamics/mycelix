@@ -166,6 +166,9 @@ ExpireClientCache ==
                  feeDeliveryCount, feeState, responseLost, responseReturned,
                  conflictObserved, tombstonePresent, retryCount>>
 
+\* Deliberate mutation only: split a value leg into a separate effect / commit
+\* outside the single Finance source-chain invocation. This is not a claim that
+\* the current send_payment same-call writes can commit independently.
 UnsafeDebitOutsideBatch ==
   /\ AllowUnsafeMutations = TRUE
   /\ opState = "Prepared"
