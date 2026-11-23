@@ -1,0 +1,73 @@
+name: Terra Preta active event-sampling evaluation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/ACTIVE_EVENT_SAMPLING_EVALUATION_V0.1.md'
+      - 'research/terra-preta/schemas/active-event-sampling-input.schema.json'
+      - 'research/terra-preta/schemas/active-event-sampling-report.schema.json'
+      - 'research/terra-preta/tools/active-sampling-eval/**'
+      - '.github/workflows/terra-preta-active-sampling-eval.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  active-sampling-eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/active-sampling-eval/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/active-sampling-eval/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/active-sampling-eval/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate fixture and report
+        run: |
+          jsonschema-cli validate research/terra-preta/schemas/active-event-sampling-input.schema.json \
+            --instance research/terra-preta/tools/active-sampling-eval/fixtures/synthetic-active-sampling.json \
+            --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/active-sampling-eval/Cargo.toml -- \
+            research/terra-preta/tools/active-sampling-eval/fixtures/synthetic-active-sampling.json \
+            "$RUNNER_TEMP/active-sampling-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/active-event-sampling-report.schema.json \
+            --instance "$RUNNER_TEMP/active-sampling-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .policy_count == 3 and .truth_case_count == 2 and
+            (.evaluations | length) == 6 and
+            (.controls.same_policy_trace_across_hidden_cases == true) and
+            (.controls.no_candidate_truth_fields == true) and
+            (.controls.oracle_not_deployable == true) and
+            any(.evaluations[]; .policy_id == "context_trigger_burst" and .truth_case_id == "short_rewetting_pulse" and .detected == true and .pulse_integral_absolute_error_unit_hours == 0) and
+            any(.evaluations[]; .policy_id == "context_trigger_burst" and .truth_case_id == "context_step_without_response_pulse" and .false_burst_target_samples == 3)
+          ' "$RUNNER_TEMP/active-sampling-report.json"
+      - name: Reject policy schedule budget overflow
+        run: |
+          fixture=research/terra-preta/tools/active-sampling-eval/fixtures/synthetic-active-sampling.json
+          jq '.policies[0].actions += [.policies[0].actions[-1] | .action_id = "over-budget" | .requested_at_hours = 43.5]' \
+            "$fixture" > "$RUNNER_TEMP/over-budget.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/active-sampling-eval/Cargo.toml -- \
+            "$RUNNER_TEMP/over-budget.json" "$RUNNER_TEMP/over-budget-report.json"; then
+            echo "Expected over-budget policy rejection"
+            exit 1
+          fi
+      - name: Reject output overwrite
+        run: |
+          fixture=research/terra-preta/tools/active-sampling-eval/fixtures/synthetic-active-sampling.json
+          report="$RUNNER_TEMP/existing-active-sampling-report.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/active-sampling-eval/Cargo.toml -- "$fixture" "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"

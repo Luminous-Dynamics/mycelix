@@ -1,0 +1,374 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic active event-sampling benchmark",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "evidence_class",
+    "scenario_set_id",
+    "config",
+    "sensor_contract",
+    "public_context_stream",
+    "policies",
+    "truth_cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "active-event-sampling-eval-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "evidence_class": {
+      "const": "synthetic"
+    },
+    "scenario_set_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "horizon_start_hours",
+        "horizon_end_hours",
+        "response_baseline",
+        "detection_threshold_above_baseline",
+        "maximum_target_samples",
+        "maximum_context_samples",
+        "maximum_total_actions",
+        "minimum_target_sample_interval_hours",
+        "maximum_event_integral_gap_hours",
+        "maximum_energy_mj",
+        "maximum_assay_cost_units",
+        "maximum_communication_bytes"
+      ],
+      "properties": {
+        "horizon_start_hours": {
+          "type": "number"
+        },
+        "horizon_end_hours": {
+          "type": "number"
+        },
+        "response_baseline": {
+          "type": "number"
+        },
+        "detection_threshold_above_baseline": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "maximum_target_samples": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maximum_context_samples": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maximum_total_actions": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "minimum_target_sample_interval_hours": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "maximum_event_integral_gap_hours": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "maximum_energy_mj": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "maximum_assay_cost_units": {
+          "type": "number",
+          "minimum": 0
+        },
+        "maximum_communication_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "sensor_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "context_latency_hours",
+        "target_latency_hours",
+        "context_sample_energy_mj",
+        "target_sample_energy_mj",
+        "wake_energy_mj_per_action",
+        "compute_energy_mj_per_action",
+        "context_assay_cost_units",
+        "target_assay_cost_units",
+        "context_communication_bytes",
+        "target_communication_bytes"
+      ],
+      "properties": {
+        "context_latency_hours": {
+          "type": "number",
+          "minimum": 0
+        },
+        "target_latency_hours": {
+          "type": "number",
+          "minimum": 0
+        },
+        "context_sample_energy_mj": {
+          "type": "number",
+          "minimum": 0
+        },
+        "target_sample_energy_mj": {
+          "type": "number",
+          "minimum": 0
+        },
+        "wake_energy_mj_per_action": {
+          "type": "number",
+          "minimum": 0
+        },
+        "compute_energy_mj_per_action": {
+          "type": "number",
+          "minimum": 0
+        },
+        "context_assay_cost_units": {
+          "type": "number",
+          "minimum": 0
+        },
+        "target_assay_cost_units": {
+          "type": "number",
+          "minimum": 0
+        },
+        "context_communication_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "target_communication_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "public_context_stream": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "observation_id",
+          "acquired_at_hours",
+          "value",
+          "standard_error"
+        ],
+        "properties": {
+          "observation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "acquired_at_hours": {
+            "type": "number"
+          },
+          "value": {
+            "type": "number"
+          },
+          "standard_error": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "policies": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "policy_id",
+          "policy_kind",
+          "deployable",
+          "actions"
+        ],
+        "properties": {
+          "policy_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "policy_kind": {
+            "enum": [
+              "fixed_sparse",
+              "context_triggered",
+              "hindsight_oracle"
+            ]
+          },
+          "deployable": {
+            "type": "boolean"
+          },
+          "actions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "action_id",
+                "modality",
+                "requested_at_hours"
+              ],
+              "properties": {
+                "action_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "modality": {
+                  "enum": [
+                    "context_sample",
+                    "target_sample"
+                  ]
+                },
+                "requested_at_hours": {
+                  "type": "number"
+                },
+                "context_observation_id": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "modality": {
+                        "const": "context_sample"
+                      }
+                    },
+                    "required": [
+                      "modality"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "context_observation_id"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "modality": {
+                        "const": "target_sample"
+                      }
+                    },
+                    "required": [
+                      "modality"
+                    ]
+                  },
+                  "then": {
+                    "not": {
+                      "required": [
+                        "context_observation_id"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "policy_kind": {
+                  "const": "hindsight_oracle"
+                }
+              },
+              "required": [
+                "policy_kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "deployable": {
+                  "const": false
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "policy_kind": {
+                  "enum": [
+                    "fixed_sparse",
+                    "context_triggered"
+                  ]
+                }
+              },
+              "required": [
+                "policy_kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "deployable": {
+                  "const": true
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "truth_cases": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "has_pulse",
+          "pulse_start_hours",
+          "pulse_end_hours",
+          "pulse_peak_hours",
+          "pulse_amplitude",
+          "risk_window_start_hours",
+          "risk_window_end_hours"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "has_pulse": {
+            "type": "boolean"
+          },
+          "pulse_start_hours": {
+            "type": "number"
+          },
+          "pulse_end_hours": {
+            "type": "number"
+          },
+          "pulse_peak_hours": {
+            "type": "number"
+          },
+          "pulse_amplitude": {
+            "type": "number",
+            "minimum": 0
+          },
+          "risk_window_start_hours": {
+            "type": "number"
+          },
+          "risk_window_end_hours": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  }
+}

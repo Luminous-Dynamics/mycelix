@@ -1,0 +1,245 @@
+{
+  "schema_version": "active-event-sampling-eval-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "evidence_class": "synthetic",
+  "scenario_set_id": "synthetic-rewetting-pulse-vs-context-only-control",
+  "config": {
+    "horizon_start_hours": 0,
+    "horizon_end_hours": 44,
+    "response_baseline": 10,
+    "detection_threshold_above_baseline": 1,
+    "maximum_target_samples": 8,
+    "maximum_context_samples": 4,
+    "maximum_total_actions": 12,
+    "minimum_target_sample_interval_hours": 0.5,
+    "maximum_event_integral_gap_hours": 1,
+    "maximum_energy_mj": 200,
+    "maximum_assay_cost_units": 20,
+    "maximum_communication_bytes": 1024
+  },
+  "sensor_contract": {
+    "context_latency_hours": 0.1,
+    "target_latency_hours": 0.05,
+    "context_sample_energy_mj": 1,
+    "target_sample_energy_mj": 10,
+    "wake_energy_mj_per_action": 2,
+    "compute_energy_mj_per_action": 0.5,
+    "context_assay_cost_units": 0,
+    "target_assay_cost_units": 1,
+    "context_communication_bytes": 8,
+    "target_communication_bytes": 16
+  },
+  "public_context_stream": [
+    {
+      "observation_id": "ctx-0",
+      "acquired_at_hours": 0.1,
+      "value": 0.1,
+      "standard_error": 0.005
+    },
+    {
+      "observation_id": "ctx-8",
+      "acquired_at_hours": 8.1,
+      "value": 0.1,
+      "standard_error": 0.005
+    },
+    {
+      "observation_id": "ctx-16",
+      "acquired_at_hours": 16.1,
+      "value": 0.1,
+      "standard_error": 0.005
+    },
+    {
+      "observation_id": "ctx-20",
+      "acquired_at_hours": 20.1,
+      "value": 0.3,
+      "standard_error": 0.005
+    },
+    {
+      "observation_id": "ctx-24",
+      "acquired_at_hours": 24.1,
+      "value": 0.3,
+      "standard_error": 0.005
+    },
+    {
+      "observation_id": "ctx-32",
+      "acquired_at_hours": 32.1,
+      "value": 0.3,
+      "standard_error": 0.005
+    },
+    {
+      "observation_id": "ctx-40",
+      "acquired_at_hours": 40.1,
+      "value": 0.3,
+      "standard_error": 0.005
+    }
+  ],
+  "policies": [
+    {
+      "policy_id": "fixed_sparse",
+      "policy_kind": "fixed_sparse",
+      "deployable": true,
+      "actions": [
+        {
+          "action_id": "f1",
+          "modality": "target_sample",
+          "requested_at_hours": 1
+        },
+        {
+          "action_id": "f2",
+          "modality": "target_sample",
+          "requested_at_hours": 7
+        },
+        {
+          "action_id": "f3",
+          "modality": "target_sample",
+          "requested_at_hours": 13
+        },
+        {
+          "action_id": "f4",
+          "modality": "target_sample",
+          "requested_at_hours": 19
+        },
+        {
+          "action_id": "f5",
+          "modality": "target_sample",
+          "requested_at_hours": 25
+        },
+        {
+          "action_id": "f6",
+          "modality": "target_sample",
+          "requested_at_hours": 31
+        },
+        {
+          "action_id": "f7",
+          "modality": "target_sample",
+          "requested_at_hours": 37
+        },
+        {
+          "action_id": "f8",
+          "modality": "target_sample",
+          "requested_at_hours": 43
+        }
+      ]
+    },
+    {
+      "policy_id": "context_trigger_burst",
+      "policy_kind": "context_triggered",
+      "deployable": true,
+      "actions": [
+        {
+          "action_id": "c1",
+          "modality": "context_sample",
+          "requested_at_hours": 0,
+          "context_observation_id": "ctx-0"
+        },
+        {
+          "action_id": "t1",
+          "modality": "target_sample",
+          "requested_at_hours": 1
+        },
+        {
+          "action_id": "c2",
+          "modality": "context_sample",
+          "requested_at_hours": 8,
+          "context_observation_id": "ctx-8"
+        },
+        {
+          "action_id": "t2",
+          "modality": "target_sample",
+          "requested_at_hours": 9
+        },
+        {
+          "action_id": "c3",
+          "modality": "context_sample",
+          "requested_at_hours": 16,
+          "context_observation_id": "ctx-16"
+        },
+        {
+          "action_id": "t3",
+          "modality": "target_sample",
+          "requested_at_hours": 17
+        },
+        {
+          "action_id": "c4",
+          "modality": "context_sample",
+          "requested_at_hours": 20,
+          "context_observation_id": "ctx-20"
+        },
+        {
+          "action_id": "t4",
+          "modality": "target_sample",
+          "requested_at_hours": 20.95
+        },
+        {
+          "action_id": "t5",
+          "modality": "target_sample",
+          "requested_at_hours": 21.95
+        },
+        {
+          "action_id": "t6",
+          "modality": "target_sample",
+          "requested_at_hours": 22.95
+        },
+        {
+          "action_id": "t7",
+          "modality": "target_sample",
+          "requested_at_hours": 24
+        },
+        {
+          "action_id": "t8",
+          "modality": "target_sample",
+          "requested_at_hours": 32
+        }
+      ]
+    },
+    {
+      "policy_id": "hindsight_oracle",
+      "policy_kind": "hindsight_oracle",
+      "deployable": false,
+      "actions": [
+        {
+          "action_id": "o1",
+          "modality": "target_sample",
+          "requested_at_hours": 1
+        },
+        {
+          "action_id": "o2",
+          "modality": "target_sample",
+          "requested_at_hours": 20.95
+        },
+        {
+          "action_id": "o3",
+          "modality": "target_sample",
+          "requested_at_hours": 21.95
+        },
+        {
+          "action_id": "o4",
+          "modality": "target_sample",
+          "requested_at_hours": 22.95
+        }
+      ]
+    }
+  ],
+  "truth_cases": [
+    {
+      "case_id": "short_rewetting_pulse",
+      "has_pulse": true,
+      "pulse_start_hours": 21,
+      "pulse_end_hours": 23,
+      "pulse_peak_hours": 22,
+      "pulse_amplitude": 5,
+      "risk_window_start_hours": 21,
+      "risk_window_end_hours": 23
+    },
+    {
+      "case_id": "context_step_without_response_pulse",
+      "has_pulse": false,
+      "pulse_start_hours": 21,
+      "pulse_end_hours": 23,
+      "pulse_peak_hours": 22,
+      "pulse_amplitude": 0,
+      "risk_window_start_hours": 21,
+      "risk_window_end_hours": 23
+    }
+  ]
+}
