@@ -44,12 +44,13 @@ jobs:
             --instance "$RUNNER_TEMP/activation-evidence-report.json" --draft 2020 --assert-format
           jq -e '
             .fixture_status == "synthetic_only_not_empirical_evidence" and
-            .assertion_count == 8 and
+            .assertion_count == 9 and
             .confirmed_active_count == 1 and
             .confirmed_inactive_count == 1 and
-            .unassessed_count == 6 and
+            .unassessed_count == 7 and
             ((.results[] | select(.edge_id == "edge-geometry-only") | .admission_status) == "unassessed") and
             ((.results[] | select(.edge_id == "edge-inactive-sparse") | .admission_status) == "unassessed") and
+            ((.results[] | select(.edge_id == "edge-active-point-only") | .admission_status) == "unassessed") and
             ((.results[] | select(.edge_id == "edge-conflict") | .admission_status) == "unassessed")
           ' "$RUNNER_TEMP/activation-evidence-report.json"
       - name: Reject output overwrite
