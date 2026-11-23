@@ -915,6 +915,8 @@ impl VerifiedPostgresEffectReceipt {
             claim_expires_at: &self.claim_expires_at,
             database_xact_id: &self.database_xact_id,
             epoch_transition: &self.epoch_transition,
+            effect_authority_lease: &self.effect_authority_lease,
+            promotion_authority_lease: &self.promotion_authority_lease,
             delta_minor: self.delta_minor,
             balance_after_minor: self.balance_after_minor,
             idempotency_digest: &self.idempotency_digest,
@@ -996,12 +998,34 @@ struct EffectReceiptDigestFields<'a> {
     claim_expires_at: &'a str,
     database_xact_id: &'a str,
     epoch_transition: &'a Option<VerifiedOwnerEpochTransition>,
+    effect_authority_lease: &'a VerifiedAuthorityWriteLeaseEvidence,
+    promotion_authority_lease: &'a Option<VerifiedAuthorityWriteLeaseEvidence>,
     delta_minor: i64,
     balance_after_minor: i64,
     idempotency_digest: &'a Digest,
     request_digest: &'a Digest,
     decision_receipt_digest: &'a Digest,
     payload_digest: &'a Digest,
+}
+
+fn append_authority_write_lease_evidence(
+    bytes: &mut Vec<u8>,
+    evidence: &VerifiedAuthorityWriteLeaseEvidence,
+) -> Result<(), String> {
+    append_string(bytes, &evidence.signed_lease.lease.lease_id.to_string())?;
+    bytes.extend_from_slice(&evidence.lease_hash);
+    bytes.extend_from_slice(&evidence.lease_generation.to_be_bytes());
+    bytes.push(evidence.scope.stable_code());
+    append_string(bytes, &evidence.attested_at)?;
+    bytes.extend_from_slice(&evidence.external_highwater_receipt_digest);
+    match evidence.physical_fencing_receipt_digest {
+        Some(digest) => {
+            bytes.push(1);
+            bytes.extend_from_slice(&digest);
+        }
+        None => bytes.push(0),
+    }
+    Ok(())
 }
 
 fn canonical_effect_receipt_digest(
@@ -1042,6 +1066,14 @@ fn canonical_effect_receipt_digest(
             append_string(&mut bytes, &transition.transition_xact_id)?;
             bytes.extend_from_slice(&transition.epoch_authority_receipt_digest);
             bytes.extend_from_slice(&transition.physical_fencing_receipt_digest);
+        }
+        None => bytes.push(0),
+    }
+    append_authority_write_lease_evidence(&mut bytes, fields.effect_authority_lease)?;
+    match fields.promotion_authority_lease {
+        Some(evidence) => {
+            bytes.push(1);
+            append_authority_write_lease_evidence(&mut bytes, evidence)?;
         }
         None => bytes.push(0),
     }
