@@ -48,6 +48,15 @@ jobs:
             (.groups[] | select(.model_role == "candidate") | .skill_vs_persistence_mae > 0) and
             (.groups[] | select(.model_role == "candidate") | .skill_vs_climatology_mae > 0)
           ' "$RUNNER_TEMP/prospective-forecast-report.json"
+      - name: Reject post-outcome forecast
+        run: |
+          fixture=research/terra-preta/tools/prospective-forecast-audit/fixtures/synthetic-prospective-forecasts.json
+          jq '.forecasts[0].issued_at = .targets[0].window_start' "$fixture" > "$RUNNER_TEMP/post-outcome.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/prospective-forecast-audit/Cargo.toml -- \
+            "$RUNNER_TEMP/post-outcome.json" "$RUNNER_TEMP/post-outcome-report.json"; then
+            echo "Expected post-outcome forecast rejection"
+            exit 1
+          fi
       - name: Reject output overwrite
         run: |
           fixture=research/terra-preta/tools/prospective-forecast-audit/fixtures/synthetic-prospective-forecasts.json
