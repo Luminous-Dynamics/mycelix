@@ -8,6 +8,21 @@ The one cluster with a **live, canonical, user-facing application** is **[Pulse]
 
 The integration-test story is still being built out: the Tryorama harness and a dedicated integration-test guide are tracked as open work, not finished infrastructure — see open issues in `mycelix-workspace/`.
 
+## Health cluster source and setup
+
+The canonical Health hApp source is the `mycelix-health/` Git submodule at the repository root. The `mycelix-workspace/happs/health` path is a relative build-time symlink to that source; it is not a second copy.
+
+Initialize the pinned source after cloning:
+
+```bash
+git submodule update --init --recursive
+cd mycelix-workspace
+just health-integration-check
+just build-health
+```
+
+The parent repository pins an exact Health commit. Do not advance that pin merely because the standalone Health branch moves: update it deliberately after the Health source, shared-crate dependencies, DNA packaging, unified-hApp manifest and applicable integration tests have been checked together.
+
 ## Architecture
 
 Mycelix is a unified hApp with 10 roles organized into domain clusters:
