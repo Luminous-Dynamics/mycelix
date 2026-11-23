@@ -28,6 +28,7 @@ VARIABLES
   responseReturned,
   conflictObserved,
   tombstonePresent,
+  clientCachePresent,
   retryCount
 
 vars ==
@@ -35,7 +36,7 @@ vars ==
     creditCount, feeLiabilityCount, feeOutboxCount,
     paymentProjectionCount, receiptProjectionCount,
     feeDeliveryCount, feeState, responseLost, responseReturned,
-    conflictObserved, tombstonePresent, retryCount>>
+    conflictObserved, tombstonePresent, clientCachePresent, retryCount>>
 
 Init ==
   /\ opState = "Absent"
@@ -54,6 +55,7 @@ Init ==
   /\ responseReturned = FALSE
   /\ conflictObserved = FALSE
   /\ tombstonePresent = FALSE
+  /\ clientCachePresent = TRUE
   /\ retryCount = 0
 
 Prepare ==
@@ -81,7 +83,7 @@ CommitAtomicJournalBatch ==
   /\ feeState' = "Pending"
   /\ UNCHANGED <<requestDigest, claimCount, feeDeliveryCount,
                  responseLost, responseReturned, conflictObserved,
-                 tombstonePresent, retryCount>>
+                 tombstonePresent, clientCachePresent, retryCount>>
 
 ExactRetry ==
   /\ opState \in {"Prepared", "Committed"}
@@ -96,12 +98,13 @@ ExactRetry ==
 ChangedPayloadConflict ==
   /\ opState \in {"Prepared", "Committed"}
   /\ requestDigest = GoodDigest
+  /\ OtherDigest # requestDigest
   /\ conflictObserved' = TRUE
   /\ UNCHANGED <<opState, requestDigest, claimCount, batchCount, debitCount,
                  creditCount, feeLiabilityCount, feeOutboxCount,
                  paymentProjectionCount, receiptProjectionCount,
                  feeDeliveryCount, feeState, responseLost, responseReturned,
-                 tombstonePresent, retryCount>>
+                 tombstonePresent, clientCachePresent, retryCount>>
 
 LoseResponse ==
   /\ opState = "Committed"
@@ -111,7 +114,7 @@ LoseResponse ==
                  creditCount, feeLiabilityCount, feeOutboxCount,
                  paymentProjectionCount, receiptProjectionCount,
                  feeDeliveryCount, feeState, responseReturned,
-                 conflictObserved, tombstonePresent, retryCount>>
+                 conflictObserved, tombstonePresent, clientCachePresent, retryCount>>
 
 ReturnOriginalResult ==
   /\ opState = "Committed"
@@ -121,7 +124,7 @@ ReturnOriginalResult ==
                  creditCount, feeLiabilityCount, feeOutboxCount,
                  paymentProjectionCount, receiptProjectionCount,
                  feeDeliveryCount, feeState, responseLost,
-                 conflictObserved, tombstonePresent, retryCount>>
+                 conflictObserved, tombstonePresent, clientCachePresent, retryCount>>
 
 MarkFeeOutcomeUnknown ==
   /\ feeState = "Pending"
@@ -130,7 +133,7 @@ MarkFeeOutcomeUnknown ==
                  creditCount, feeLiabilityCount, feeOutboxCount,
                  paymentProjectionCount, receiptProjectionCount,
                  feeDeliveryCount, responseLost, responseReturned,
-                 conflictObserved, tombstonePresent, retryCount>>
+                 conflictObserved, tombstonePresent, clientCachePresent, retryCount>>
 
 ReconcileFeeAsDelivered ==
   /\ feeState = "Unknown"
@@ -140,7 +143,7 @@ ReconcileFeeAsDelivered ==
                  creditCount, feeLiabilityCount, feeOutboxCount,
                  paymentProjectionCount, receiptProjectionCount,
                  responseLost, responseReturned, conflictObserved,
-                 tombstonePresent, retryCount>>
+                 tombstonePresent, clientCachePresent, retryCount>>
 
 DeliverFee ==
   /\ feeState = "Pending"
@@ -150,16 +153,17 @@ DeliverFee ==
                  creditCount, feeLiabilityCount, feeOutboxCount,
                  paymentProjectionCount, receiptProjectionCount,
                  responseLost, responseReturned, conflictObserved,
-                 tombstonePresent, retryCount>>
+                 tombstonePresent, clientCachePresent, retryCount>>
 
 ExpireClientCache ==
+  /\ clientCachePresent = TRUE
   /\ tombstonePresent = TRUE
-  /\ tombstonePresent' = TRUE
+  /\ clientCachePresent' = FALSE
   /\ UNCHANGED <<opState, requestDigest, claimCount, batchCount, debitCount,
                  creditCount, feeLiabilityCount, feeOutboxCount,
                  paymentProjectionCount, receiptProjectionCount,
                  feeDeliveryCount, feeState, responseLost, responseReturned,
-                 conflictObserved, retryCount>>
+                 conflictObserved, tombstonePresent, retryCount>>
 
 UnsafeDebitBeforeBatch ==
   /\ AllowUnsafeMutations = TRUE
@@ -169,7 +173,7 @@ UnsafeDebitBeforeBatch ==
                  feeLiabilityCount, feeOutboxCount, paymentProjectionCount,
                  receiptProjectionCount, feeDeliveryCount, feeState,
                  responseLost, responseReturned, conflictObserved,
-                 tombstonePresent, retryCount>>
+                 tombstonePresent, clientCachePresent, retryCount>>
 
 UnsafeDuplicateDebit ==
   /\ AllowUnsafeMutations = TRUE
@@ -179,7 +183,7 @@ UnsafeDuplicateDebit ==
                  feeLiabilityCount, feeOutboxCount, paymentProjectionCount,
                  receiptProjectionCount, feeDeliveryCount, feeState,
                  responseLost, responseReturned, conflictObserved,
-                 tombstonePresent, retryCount>>
+                 tombstonePresent, clientCachePresent, retryCount>>
 
 Next ==
   \/ Prepare
@@ -214,6 +218,7 @@ TypeOK ==
   /\ responseReturned \in BOOLEAN
   /\ conflictObserved \in BOOLEAN
   /\ tombstonePresent \in BOOLEAN
+  /\ clientCachePresent \in BOOLEAN
   /\ retryCount \in Nat
 
 AtMostOneClaimAndBatch ==
@@ -243,6 +248,12 @@ FeeDeliveryBounded ==
 DurableOperationIdentity ==
   (opState # "Absent") => tombstonePresent
 
+ExpiredCacheDoesNotEraseOperation ==
+  (clientCachePresent = FALSE) => tombstonePresent
+
+FeeDeliveryStateMatchesCount ==
+  (feeState = "Delivered") <=> (feeDeliveryCount = 1)
+
 Safety ==
   /\ TypeOK
   /\ AtMostOneClaimAndBatch
@@ -252,5 +263,7 @@ Safety ==
   /\ NoResponseBeforeCommit
   /\ FeeDeliveryBounded
   /\ DurableOperationIdentity
+  /\ ExpiredCacheDoesNotEraseOperation
+  /\ FeeDeliveryStateMatchesCount
 
 ====
