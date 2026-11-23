@@ -173,7 +173,9 @@ fn validate(scenario: &Scenario) -> Result<(), String> {
         || image.network_extractor.trim().is_empty()
         || image.network_extractor_version.trim().is_empty()
     {
-        return Err("image descriptor requires immutable image and method/extractor identity".into());
+        return Err(
+            "image descriptor requires immutable image and method/extractor identity".into(),
+        );
     }
     if image.dimensions_voxels.contains(&0) {
         return Err("image dimensions must be positive".into());
@@ -216,9 +218,9 @@ fn validate(scenario: &Scenario) -> Result<(), String> {
     let sinks = unique_nonempty(&scenario.sink_node_ids, "sink")?;
     if sources.is_empty()
         || sinks.is_empty()
-        || sources.iter().any(|id| !nodes.contains_key(id))
+        || sources.iter().any(|id| !nodes.contains_key(*id))
         || sinks.iter().any(|id| !nodes.contains_key(id))
-        || sources.iter().any(|id| sinks.contains(id))
+        || sources.iter().any(|id| sinks.contains(*id))
     {
         return Err("source/sink sets must be non-empty, disjoint and use catalog nodes".into());
     }
@@ -239,7 +241,9 @@ fn validate(scenario: &Scenario) -> Result<(), String> {
             || !valid_sha256(&variant.network_artifact_sha256)
             || !valid_sha256(&variant.extractor_settings_sha256)
         {
-            return Err("variants require unique IDs/percentiles and valid artifact digests".into());
+            return Err(
+                "variants require unique IDs/percentiles and valid artifact digests".into(),
+            );
         }
         if variant.alpha_percent == 50 {
             has_reference = true;
@@ -247,7 +251,7 @@ fn validate(scenario: &Scenario) -> Result<(), String> {
 
         let present_nodes = unique_nonempty(&variant.present_node_ids, "present node")?;
         let present_edges = unique_nonempty(&variant.present_edge_ids, "present edge")?;
-        if !sources.iter().all(|id| present_nodes.contains(id))
+        if !sources.iter().all(|id| present_nodes.contains(*id))
             || !sinks.iter().all(|id| present_nodes.contains(id))
             || present_nodes.iter().any(|id| !nodes.contains_key(id))
             || present_edges.iter().any(|id| !edges.contains_key(id))
@@ -463,10 +467,8 @@ fn build_report(scenario: &Scenario, input_sha256: String) -> Report {
         for sink in &scenario.sink_node_ids {
             let mut connected_count = 0;
             for variant in &variants {
-                let nodes: BTreeSet<String> =
-                    variant.present_node_ids.iter().cloned().collect();
-                let edges: BTreeSet<String> =
-                    variant.present_edge_ids.iter().cloned().collect();
+                let nodes: BTreeSet<String> = variant.present_node_ids.iter().cloned().collect();
+                let edges: BTreeSet<String> = variant.present_edge_ids.iter().cloned().collect();
                 let graph = adjacency(&nodes, &edges, &edge_catalog);
                 if connected(&graph, source, sink) {
                     connected_count += 1;
@@ -637,7 +639,11 @@ mod tests {
     #[test]
     fn reports_edge_sensitivity_frequency_not_probability() {
         let report = report();
-        let upper_b = report.edge_presence.iter().find(|e| e.feature_id == "upper-b").unwrap();
+        let upper_b = report
+            .edge_presence
+            .iter()
+            .find(|e| e.feature_id == "upper-b")
+            .unwrap();
         assert_eq!(upper_b.present_variant_count, 3);
         assert!((upper_b.sensitivity_frequency - 0.6).abs() < 1e-12);
     }
@@ -653,7 +659,9 @@ mod tests {
     #[test]
     fn rejects_missing_reference_percentile() {
         let mut scenario = scenario();
-        scenario.variants.retain(|variant| variant.alpha_percent != 50);
+        scenario
+            .variants
+            .retain(|variant| variant.alpha_percent != 50);
         assert!(validate(&scenario).is_err());
     }
 
@@ -711,7 +719,9 @@ mod tests {
     #[test]
     fn rejects_unknown_edge_reference() {
         let mut scenario = scenario();
-        scenario.variants[0].present_edge_ids.push("unknown-edge".into());
+        scenario.variants[0]
+            .present_edge_ids
+            .push("unknown-edge".into());
         assert!(validate(&scenario).is_err());
     }
 
@@ -741,20 +751,33 @@ mod tests {
     #[test]
     fn stable_connected_when_all_variants_connect() {
         let mut scenario = scenario();
+        let all_edges: Vec<String> = scenario
+            .edge_catalog
+            .iter()
+            .map(|edge| edge.edge_id.clone())
+            .collect();
         for variant in &mut scenario.variants {
-            variant.present_edge_ids = scenario.edge_catalog.iter().map(|edge| edge.edge_id.clone()).collect();
+            variant.present_edge_ids = all_edges.clone();
         }
         let report = build_report(&scenario, "0".repeat(64));
-        assert_eq!(report.terminal_pair_results[0].stability_class, "stable_connected");
+        assert_eq!(
+            report.terminal_pair_results[0].stability_class,
+            "stable_connected"
+        );
     }
 
     #[test]
     fn stable_disconnected_when_no_variant_connects() {
         let mut scenario = scenario();
         for variant in &mut scenario.variants {
-            variant.present_edge_ids.retain(|edge| edge != "upper-b" && edge != "lower-b");
+            variant
+                .present_edge_ids
+                .retain(|edge| edge != "upper-b" && edge != "lower-b");
         }
         let report = build_report(&scenario, "0".repeat(64));
-        assert_eq!(report.terminal_pair_results[0].stability_class, "stable_disconnected");
+        assert_eq!(
+            report.terminal_pair_results[0].stability_class,
+            "stable_disconnected"
+        );
     }
 }
