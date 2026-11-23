@@ -214,12 +214,22 @@ fn validate(s: &Scenario) -> Result<(), String> {
     for model in &s.models {
         if model.model_id.trim().is_empty()
             || !model_ids.insert(model.model_id.clone())
-            || !matches!(model.family.as_str(), "single_pool" | "two_pool" | "three_pool" | "distributed_or_other")
+            || !matches!(
+                model.family.as_str(),
+                "single_pool" | "two_pool" | "three_pool" | "distributed_or_other"
+            )
         {
             return Err("model IDs must be unique and model family must be recognized".into());
         }
-        if model.training_groups.iter().any(|group| evaluation_groups.contains(group)) {
-            return Err(format!("model {} has evaluation-group leakage in training_groups", model.model_id));
+        if model
+            .training_groups
+            .iter()
+            .any(|group| evaluation_groups.contains(group))
+        {
+            return Err(format!(
+                "model {} has evaluation-group leakage in training_groups",
+                model.model_id
+            ));
         }
     }
 
@@ -237,22 +247,34 @@ fn validate(s: &Scenario) -> Result<(), String> {
         }
     }
     if threshold_streams != streams {
-        return Err("every observed stream must have exactly one predeclared qualification threshold".into());
+        return Err(
+            "every observed stream must have exactly one predeclared qualification threshold"
+                .into(),
+        );
     }
 
     let mut prediction_keys = BTreeSet::new();
     for prediction in &s.predictions {
         if !model_ids.contains(&prediction.model_id)
             || !observation_ids.contains(&prediction.observation_id)
-            || !prediction_keys.insert((prediction.model_id.clone(), prediction.observation_id.clone()))
+            || !prediction_keys.insert((
+                prediction.model_id.clone(),
+                prediction.observation_id.clone(),
+            ))
         {
-            return Err("predictions must reference known model/observation IDs with unique pairs".into());
+            return Err(
+                "predictions must reference known model/observation IDs with unique pairs".into(),
+            );
         }
         match prediction.status.as_str() {
             "scored" => {
                 let mean = prediction.mean.ok_or("scored prediction is missing mean")?;
-                let lower = prediction.lower_90.ok_or("scored prediction is missing lower_90")?;
-                let upper = prediction.upper_90.ok_or("scored prediction is missing upper_90")?;
+                let lower = prediction
+                    .lower_90
+                    .ok_or("scored prediction is missing lower_90")?;
+                let upper = prediction
+                    .upper_90
+                    .ok_or("scored prediction is missing upper_90")?;
                 finite("prediction mean", mean)?;
                 finite("prediction lower_90", lower)?;
                 finite("prediction upper_90", upper)?;
@@ -261,7 +283,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 }
             }
             "abstained_out_of_domain" => {
-                if prediction.mean.is_some() || prediction.lower_90.is_some() || prediction.upper_90.is_some() {
+                if prediction.mean.is_some()
+                    || prediction.lower_90.is_some()
+                    || prediction.upper_90.is_some()
+                {
                     return Err("abstained predictions cannot contain numerical forecasts".into());
                 }
             }
@@ -297,7 +322,9 @@ fn validate(s: &Scenario) -> Result<(), String> {
     }
     let mut input_classes = BTreeSet::new();
     for source in &b.input_sources {
-        if source.source_class.trim().is_empty() || !input_classes.insert(source.source_class.clone()) {
+        if source.source_class.trim().is_empty()
+            || !input_classes.insert(source.source_class.clone())
+        {
             return Err("carbon input source classes must be non-empty and unique".into());
         }
         finite("carbon_input", source.carbon_input)?;
@@ -353,10 +380,19 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
             let mut width_sum = 0.0;
             let mut stream_abstentions = 0usize;
 
-            for observation in s.observations.iter().filter(|o| o.stream == threshold.stream) {
-                let prediction = s.predictions.iter().find(|p| {
-                    p.model_id == model.model_id && p.observation_id == observation.observation_id
-                }).expect("validation requires one prediction per model and observation");
+            for observation in s
+                .observations
+                .iter()
+                .filter(|o| o.stream == threshold.stream)
+            {
+                let prediction = s
+                    .predictions
+                    .iter()
+                    .find(|p| {
+                        p.model_id == model.model_id
+                            && p.observation_id == observation.observation_id
+                    })
+                    .expect("validation requires one prediction per model and observation");
                 if prediction.status == "abstained_out_of_domain" {
                     stream_abstentions += 1;
                     continue;
@@ -377,9 +413,8 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
             abstained_count += stream_abstentions;
             let count = errors.len();
             let mae = (count > 0).then(|| errors.iter().sum::<f64>() / count as f64);
-            let rmse = (count > 0).then(|| {
-                (errors.iter().map(|e| e * e).sum::<f64>() / count as f64).sqrt()
-            });
+            let rmse = (count > 0)
+                .then(|| (errors.iter().map(|e| e * e).sum::<f64>() / count as f64).sqrt());
             let bias = (count > 0).then(|| biases.iter().sum::<f64>() / count as f64);
             let coverage = (count > 0).then(|| covered as f64 / count as f64);
             let interval_width = (count > 0).then(|| width_sum / count as f64);
@@ -446,7 +481,9 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
 
 fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if output_path.exists() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into());
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into(),
+        );
     }
     let bytes = fs::read(input_path)?;
     let scenario: Scenario = serde_json::from_slice(&bytes)?;
@@ -454,7 +491,10 @@ fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::
     let input_sha256 = format!("{:x}", Sha256::digest(&bytes));
     let report = build_report(&scenario, input_sha256);
     let report_bytes = serde_json::to_vec_pretty(&report)?;
-    let mut output = OpenOptions::new().write(true).create_new(true).open(output_path)?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output_path)?;
     output.write_all(&report_bytes)?;
     output.write_all(b"\n")?;
     Ok(())
@@ -486,7 +526,11 @@ mod tests {
         let s = scenario();
         validate(&s).expect("fixture valid");
         let report = build_report(&s, "0".repeat(64));
-        let model = report.evaluations.iter().find(|e| e.model_id == "three-pool").unwrap();
+        let model = report
+            .evaluations
+            .iter()
+            .find(|e| e.model_id == "three-pool")
+            .unwrap();
         assert!(model.joint_adequacy_pass, "{:?}", model.failed_streams);
         assert!(!model.mechanism_claims_qualified);
     }
@@ -494,10 +538,26 @@ mod tests {
     #[test]
     fn two_pool_stock_fit_cannot_hide_flux_and_transit_time_failure() {
         let report = build_report(&scenario(), "0".repeat(64));
-        let model = report.evaluations.iter().find(|e| e.model_id == "two-pool").unwrap();
-        let stock = model.stream_metrics.iter().find(|m| m.stream == "total_soc_stock").unwrap();
-        let respiration = model.stream_metrics.iter().find(|m| m.stream == "respiration_flux").unwrap();
-        let transit = model.stream_metrics.iter().find(|m| m.stream == "respired_co2_transit_time").unwrap();
+        let model = report
+            .evaluations
+            .iter()
+            .find(|e| e.model_id == "two-pool")
+            .unwrap();
+        let stock = model
+            .stream_metrics
+            .iter()
+            .find(|m| m.stream == "total_soc_stock")
+            .unwrap();
+        let respiration = model
+            .stream_metrics
+            .iter()
+            .find(|m| m.stream == "respiration_flux")
+            .unwrap();
+        let transit = model
+            .stream_metrics
+            .iter()
+            .find(|m| m.stream == "respired_co2_transit_time")
+            .unwrap();
         assert!(stock.qualifies);
         assert!(!respiration.qualifies);
         assert!(!transit.qualifies);
@@ -509,16 +569,32 @@ mod tests {
     fn system_age_and_respired_transit_time_are_distinct_streams() {
         let report = build_report(&scenario(), "0".repeat(64));
         let model = report.evaluations.iter().find(|e| e.model_id == "three-pool").unwrap();
-        assert!(model.stream_metrics.iter().any(|m| m.stream == "system_age"));
-        assert!(model.stream_metrics.iter().any(|m| m.stream == "respired_co2_transit_time"));
+        assert!(
+            model
+                .stream_metrics
+                .iter()
+                .any(|m| m.stream == "system_age")
+        );
+        assert!(
+            model
+                .stream_metrics
+                .iter()
+                .any(|m| m.stream == "respired_co2_transit_time")
+        );
     }
 
     #[test]
     fn carbon_balance_keeps_pyrogenic_and_plant_inputs_separate() {
         let report = build_report(&scenario(), "0".repeat(64));
         assert!(report.carbon_balance.qualified);
-        assert_eq!(report.carbon_balance.input_by_source.get("plant"), Some(&3.0));
-        assert_eq!(report.carbon_balance.input_by_source.get("pyrogenic"), Some(&1.0));
+        assert_eq!(
+            report.carbon_balance.input_by_source.get("plant"),
+            Some(&3.0)
+        );
+        assert_eq!(
+            report.carbon_balance.input_by_source.get("pyrogenic"),
+            Some(&1.0)
+        );
     }
 
     #[test]
@@ -527,13 +603,20 @@ mod tests {
         s.carbon_balance.final_stock += 1.0;
         let report = build_report(&s, "0".repeat(64));
         assert!(!report.carbon_balance.qualified);
-        assert!(report.evaluations.iter().all(|m| !m.mechanism_claims_qualified));
+        assert!(
+            report
+                .evaluations
+                .iter()
+                .all(|m| !m.mechanism_claims_qualified)
+        );
     }
 
     #[test]
     fn evaluation_group_in_training_is_rejected() {
         let mut s = scenario();
-        s.models[0].training_groups.push("synthetic-heldout-site".into());
+        s.models[0]
+            .training_groups
+            .push("synthetic-heldout-site".into());
         assert!(validate(&s).is_err());
     }
 
