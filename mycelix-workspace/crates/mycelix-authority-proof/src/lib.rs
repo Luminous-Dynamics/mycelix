@@ -765,6 +765,218 @@ mod tests {
     }
 
     #[test]
+    fn highwater_proof_must_extend_exact_external_predecessor_and_lease() {
+        let key = SigningKey::from_bytes(&[86; 32]);
+        let new_lease_id = Uuid::from_bytes([9; 16]);
+        let new_lease_hash = ProofDigest([9; 32]);
+        let receipt = common(
+            AuthorityProofPurpose::LeaseHighWater,
+            AuthorityProofIssuerRole::LeaseHighWaterAuthority,
+            AuthorityProofPayload::LeaseHighWater {
+                previous_generation: 8,
+                previous_lease_hash: ProofDigest([8; 32]),
+                new_generation: 9,
+                new_lease_id,
+                new_lease_hash,
+                authority_policy_epoch: 2,
+            },
+        );
+        let signed = sign(receipt, &key);
+        let policy = AuthorityProofTrustPolicy {
+            trusted_issuer_keys: [("fixture-proof-key".to_owned(), key.verifying_key().to_bytes())]
+                .into_iter()
+                .collect(),
+            required_issuer_role: AuthorityProofIssuerRole::LeaseHighWaterAuthority,
+            last_accepted_sequence: 8,
+            clock_skew: Duration::zero(),
+        };
+        let target = AuthorityProofTarget {
+            deployment_id: "deployment:test".into(),
+            database_system_identifier: "731245".into(),
+            primary_id: "postgres-a".into(),
+            postgres_timeline: 2,
+            owner_epoch: 3,
+            successor_primary_id: None,
+            database_writer_public_key: None,
+            expected_previous_highwater: Some((8, ProofDigest([8; 32]))),
+            expected_new_lease: Some((9, new_lease_id, new_lease_hash)),
+            expected_transaction_end_lsn: None,
+            expected_highwater_proof_hash: None,
+            expected_physical_fencing_proof_hash: None,
+        };
+        signed
+            .verify_for_target(
+                &policy,
+                AuthorityProofPurpose::LeaseHighWater,
+                &target,
+                Utc.with_ymd_and_hms(2026, 11, 23, 10, 0, 2).unwrap(),
+            )
+            .unwrap();
+
+        let wrong_predecessor = AuthorityProofTarget {
+            expected_previous_highwater: Some((7, ProofDigest([7; 32]))),
+            ..target
+        };
+        assert!(signed
+            .verify_for_target(
+                &policy,
+                AuthorityProofPurpose::LeaseHighWater,
+                &wrong_predecessor,
+                Utc.with_ymd_and_hms(2026, 11, 23, 10, 0, 2).unwrap(),
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn physical_fencing_requires_independent_attestor_and_exact_successor() {
+        let key = SigningKey::from_bytes(&[87; 32]);
+        let receipt = common(
+            AuthorityProofPurpose::PhysicalFencing,
+            AuthorityProofIssuerRole::PhysicalFencingAttestor,
+            AuthorityProofPayload::PhysicalFencing {
+                old_primary_id: "postgres-a".into(),
+                old_system_identifier: "731245".into(),
+                old_timeline: 2,
+                owner_epoch: 3,
+                fence_sequence: 12,
+                mechanism: FencingMechanism::StorageLeaseRevocation,
+                actuator_id: "storage-controller-1".into(),
+                operation_id: "storage-fence-12".into(),
+                successor_primary_id: "postgres-b".into(),
+                observed_at: Utc.with_ymd_and_hms(2026, 11, 23, 10, 0, 2).unwrap(),
+                actuator_evidence_hash: ProofDigest([12; 32]),
+            },
+        );
+        let signed = sign(receipt, &key);
+        let policy = AuthorityProofTrustPolicy {
+            trusted_issuer_keys: [("fixture-proof-key".to_owned(), key.verifying_key().to_bytes())]
+                .into_iter()
+                .collect(),
+            required_issuer_role: AuthorityProofIssuerRole::PhysicalFencingAttestor,
+            last_accepted_sequence: 11,
+            clock_skew: Duration::zero(),
+        };
+        let target = AuthorityProofTarget {
+            deployment_id: "deployment:test".into(),
+            database_system_identifier: "731245".into(),
+            primary_id: "postgres-a".into(),
+            postgres_timeline: 2,
+            owner_epoch: 3,
+            successor_primary_id: Some("postgres-b".into()),
+            database_writer_public_key: Some([88; 32]),
+            expected_previous_highwater: None,
+            expected_new_lease: None,
+            expected_transaction_end_lsn: None,
+            expected_highwater_proof_hash: None,
+            expected_physical_fencing_proof_hash: None,
+        };
+        signed
+            .verify_for_target(
+                &policy,
+                AuthorityProofPurpose::PhysicalFencing,
+                &target,
+                Utc.with_ymd_and_hms(2026, 11, 23, 10, 0, 3).unwrap(),
+            )
+            .unwrap();
+
+        let same_writer_key = AuthorityProofTarget {
+            database_writer_public_key: Some(key.verifying_key().to_bytes()),
+            ..target.clone()
+        };
+        assert!(signed
+            .verify_for_target(
+                &policy,
+                AuthorityProofPurpose::PhysicalFencing,
+                &same_writer_key,
+                Utc.with_ymd_and_hms(2026, 11, 23, 10, 0, 3).unwrap(),
+            )
+            .is_err());
+
+        let wrong_successor = AuthorityProofTarget {
+            successor_primary_id: Some("postgres-c".into()),
+            ..target
+        };
+        assert!(signed
+            .verify_for_target(
+                &policy,
+                AuthorityProofPurpose::PhysicalFencing,
+                &wrong_successor,
+                Utc.with_ymd_and_hms(2026, 11, 23, 10, 0, 3).unwrap(),
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn promotion_eligibility_binds_exact_end_lsn_and_proof_chain() {
+        let key = SigningKey::from_bytes(&[89; 32]);
+        let highwater_hash = ProofDigest([41; 32]);
+        let fence_hash = ProofDigest([42; 32]);
+        let receipt = common(
+            AuthorityProofPurpose::PromotionEligibility,
+            AuthorityProofIssuerRole::PromotionController,
+            AuthorityProofPayload::PromotionEligibility {
+                candidate_primary_id: "postgres-b".into(),
+                candidate_system_identifier: "731245".into(),
+                candidate_timeline: 3,
+                target_transaction_end_lsn: 4096,
+                candidate_flush_lsn: 8192,
+                candidate_replay_lsn: 8192,
+                timeline_ancestry_hash: ProofDigest([43; 32]),
+                promotion_policy_epoch: 7,
+                lease_highwater_proof_hash: highwater_hash,
+                physical_fencing_proof_hash: fence_hash,
+            },
+        );
+        let mut receipt = receipt;
+        receipt.primary_id = "postgres-b".into();
+        receipt.postgres_timeline = 3;
+        let signed = sign(receipt, &key);
+        let policy = AuthorityProofTrustPolicy {
+            trusted_issuer_keys: [("fixture-proof-key".to_owned(), key.verifying_key().to_bytes())]
+                .into_iter()
+                .collect(),
+            required_issuer_role: AuthorityProofIssuerRole::PromotionController,
+            last_accepted_sequence: 8,
+            clock_skew: Duration::zero(),
+        };
+        let target = AuthorityProofTarget {
+            deployment_id: "deployment:test".into(),
+            database_system_identifier: "731245".into(),
+            primary_id: "postgres-b".into(),
+            postgres_timeline: 3,
+            owner_epoch: 3,
+            successor_primary_id: None,
+            database_writer_public_key: None,
+            expected_previous_highwater: None,
+            expected_new_lease: None,
+            expected_transaction_end_lsn: Some(4096),
+            expected_highwater_proof_hash: Some(highwater_hash),
+            expected_physical_fencing_proof_hash: Some(fence_hash),
+        };
+        signed
+            .verify_for_target(
+                &policy,
+                AuthorityProofPurpose::PromotionEligibility,
+                &target,
+                Utc.with_ymd_and_hms(2026, 11, 23, 10, 0, 3).unwrap(),
+            )
+            .unwrap();
+
+        let wrong_lsn = AuthorityProofTarget {
+            expected_transaction_end_lsn: Some(4097),
+            ..target
+        };
+        assert!(signed
+            .verify_for_target(
+                &policy,
+                AuthorityProofPurpose::PromotionEligibility,
+                &wrong_lsn,
+                Utc.with_ymd_and_hms(2026, 11, 23, 10, 0, 3).unwrap(),
+            )
+            .is_err());
+    }
+
+    #[test]
     fn stale_sequence_wrong_target_and_expiry_reject() {
         let key = SigningKey::from_bytes(&[84; 32]);
         let now = Utc.with_ymd_and_hms(2026, 11, 23, 10, 0, 0).unwrap();
