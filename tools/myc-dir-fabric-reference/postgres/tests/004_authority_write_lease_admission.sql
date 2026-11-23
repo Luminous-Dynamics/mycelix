@@ -391,7 +391,7 @@ BEGIN
         jsonb_build_array('directory_fabric_effect'),
         FALSE
     );
-    v_signed_b := jsonb_set(v_signed_b, '{lease,reason}', to_jsonb('synthetic post-promotion effect fixture'), FALSE);
+    v_signed_b := jsonb_set(v_signed_b, '{lease,reason}', to_jsonb('synthetic post-promotion effect fixture'::TEXT), FALSE);
     SELECT myc_effect_owner.install_effect_owner_authority_write_lease(
         v_realm, v_resource, v_action, v_owner,
         2, 2, v_lease_hash_b, v_highwater_b, NULL, v_signed_b
