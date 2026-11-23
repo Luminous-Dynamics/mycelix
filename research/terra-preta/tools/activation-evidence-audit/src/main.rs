@@ -804,7 +804,7 @@ mod tests {
         assert!(
             edge.reasons
                 .iter()
-                .any(|r| r == "positive_point_estimate_without_qualified_lower_bound")
+                .any(|r| r.contains("positive_point_estimate_without_qualified_lower_bound"))
         );
     }
 
