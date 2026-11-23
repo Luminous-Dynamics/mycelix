@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Active event-sampling evaluation report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_set_id",
+    "input_sha256",
+    "policy_count",
+    "truth_case_count",
+    "evaluations",
+    "controls",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_set_id": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "policy_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "truth_case_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "evaluations": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "policy_id",
+          "policy_kind",
+          "deployable",
+          "truth_case_id",
+          "has_pulse",
+          "target_sample_count",
+          "context_sample_count",
+          "total_action_count",
+          "wake_count",
+          "detected",
+          "detection_delay_hours",
+          "sampled_peak_anomaly",
+          "sampled_peak_time_hours",
+          "peak_magnitude_absolute_error",
+          "peak_time_absolute_error_hours",
+          "pulse_capture_ratio",
+          "pulse_integral_estimate_unit_hours",
+          "pulse_integral_true_unit_hours",
+          "pulse_integral_absolute_error_unit_hours",
+          "pulse_integral_status",
+          "false_burst_target_samples",
+          "maximum_target_gap_hours",
+          "energy_mj",
+          "assay_cost_units",
+          "communication_bytes",
+          "within_budget"
+        ],
+        "properties": {
+          "policy_id": {
+            "type": "string"
+          },
+          "policy_kind": {
+            "type": "string"
+          },
+          "deployable": {
+            "type": "boolean"
+          },
+          "truth_case_id": {
+            "type": "string"
+          },
+          "has_pulse": {
+            "type": "boolean"
+          },
+          "target_sample_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "context_sample_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total_action_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "wake_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "detected": {
+            "type": "boolean"
+          },
+          "detection_delay_hours": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "sampled_peak_anomaly": {
+            "type": "number",
+            "minimum": 0
+          },
+          "sampled_peak_time_hours": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "peak_magnitude_absolute_error": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "peak_time_absolute_error_hours": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "pulse_capture_ratio": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "pulse_integral_estimate_unit_hours": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "pulse_integral_true_unit_hours": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "pulse_integral_absolute_error_unit_hours": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "pulse_integral_status": {
+            "enum": [
+              "qualified_exact_boundary_integral",
+              "missing_event_boundary",
+              "gap_exceeded",
+              "no_true_pulse"
+            ]
+          },
+          "false_burst_target_samples": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "maximum_target_gap_hours": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "energy_mj": {
+            "type": "number",
+            "minimum": 0
+          },
+          "assay_cost_units": {
+            "type": "number",
+            "minimum": 0
+          },
+          "communication_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "within_budget": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "same_policy_trace_across_hidden_cases",
+        "no_candidate_truth_fields",
+        "exact_cost_accounting",
+        "budget_and_latency_enforcement",
+        "no_integral_without_boundaries",
+        "oracle_not_deployable"
+      ],
+      "properties": {
+        "same_policy_trace_across_hidden_cases": {
+          "const": true
+        },
+        "no_candidate_truth_fields": {
+          "const": true
+        },
+        "exact_cost_accounting": {
+          "const": true
+        },
+        "budget_and_latency_enforcement": {
+          "const": true
+        },
+        "no_integral_without_boundaries": {
+          "const": true
+        },
+        "oracle_not_deployable": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
