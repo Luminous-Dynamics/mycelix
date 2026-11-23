@@ -65,6 +65,8 @@ jobs:
           path: "$RUNNER_TEMP/soil-trial-oc-report.json"
           if-no-files-found: error
           retention-days: 90
+      - name: Assert operating-characteristic report
+        run: |
           jq -e '
             .fixture_status == "synthetic_only_not_empirical_evidence" and
             .scenario_count == 8 and
