@@ -9,6 +9,8 @@ on:
       - 'research/terra-preta/schemas/root-transport-report.schema.json'
       - 'research/terra-preta/tools/root-transport-reference/**'
       - '.github/workflows/terra-preta-root-transport-reference.yml'
+  push:
+    branches: [research/terra-root-transport-v0.1]
   workflow_dispatch:
 
 permissions:
