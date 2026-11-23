@@ -199,7 +199,313 @@
           "minLength": 1,
           "maxLength": 256
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "cause_kind": {
+                "const": "zero_genesis"
+              }
+            },
+            "required": [
+              "cause_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "cause_action_hash": {
+                "type": "null"
+              },
+              "evidence_refs": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cause_kind": {
+                "const": "external_issuance_claim"
+              }
+            },
+            "required": [
+              "cause_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "external_reference",
+              "authorization_action_hash"
+            ],
+            "properties": {
+              "cause_action_hash": {
+                "type": "string"
+              },
+              "evidence_refs": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cause_kind": {
+                "const": "governance_issuance_claim"
+              }
+            },
+            "required": [
+              "cause_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "authorization_action_hash"
+            ],
+            "properties": {
+              "cause_action_hash": {
+                "type": "string"
+              },
+              "evidence_refs": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cause_kind": {
+                "const": "bilateral_transfer_sender_debit"
+              }
+            },
+            "required": [
+              "cause_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "counterparty_did"
+            ],
+            "properties": {
+              "cause_action_hash": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cause_kind": {
+                "const": "bilateral_transfer_recipient_claim"
+              }
+            },
+            "required": [
+              "cause_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "counterparty_did",
+              "related_sender_action_hash"
+            ],
+            "properties": {
+              "cause_action_hash": {
+                "type": "string"
+              },
+              "evidence_refs": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cause_kind": {
+                "const": "finance_ledger_transfer_effect"
+              }
+            },
+            "required": [
+              "cause_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "counterparty_did",
+              "authorization_action_hash"
+            ],
+            "properties": {
+              "cause_action_hash": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cause_kind": {
+                "const": "directed_debit"
+              }
+            },
+            "required": [
+              "cause_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "authorization_action_hash"
+            ],
+            "properties": {
+              "cause_action_hash": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cause_kind": {
+                "const": "demurrage"
+              }
+            },
+            "required": [
+              "cause_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "formula_version",
+              "interval_start",
+              "interval_end"
+            ],
+            "properties": {
+              "cause_action_hash": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cause_kind": {
+                "const": "staking_lock"
+              }
+            },
+            "required": [
+              "cause_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "position_id",
+              "counterparty_did"
+            ],
+            "properties": {
+              "cause_action_hash": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cause_kind": {
+                "const": "staking_unlock"
+              }
+            },
+            "required": [
+              "cause_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "position_id",
+              "counterparty_did"
+            ],
+            "properties": {
+              "cause_action_hash": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cause_kind": {
+                "const": "hearth_contribution"
+              }
+            },
+            "required": [
+              "cause_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "pool_id",
+              "counterparty_did"
+            ],
+            "properties": {
+              "cause_action_hash": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cause_kind": {
+                "const": "hearth_withdrawal"
+              }
+            },
+            "required": [
+              "cause_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "pool_id",
+              "counterparty_did"
+            ],
+            "properties": {
+              "cause_action_hash": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cause_kind": {
+                "const": "metadata_only"
+              }
+            },
+            "required": [
+              "cause_kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "authorization_action_hash"
+            ],
+            "properties": {
+              "cause_action_hash": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
     }
   },
   "allOf": [
