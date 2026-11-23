@@ -134,8 +134,15 @@ fn validate(s: &Scenario) -> Result<(), String> {
     {
         return Err("unsupported schema, non-synthetic fixture status, empty scenario ID or non-3D truth support".into());
     }
-    if s.nodes.len() < 2 || s.edges.is_empty() || s.sources.is_empty() || s.sinks.is_empty() || s.snapshots.is_empty() {
-        return Err("scenario requires nodes, edges, source and sink terminals, and snapshots".into());
+    if s.nodes.len() < 2
+        || s.edges.is_empty()
+        || s.sources.is_empty()
+        || s.sinks.is_empty()
+        || s.snapshots.is_empty()
+    {
+        return Err(
+            "scenario requires nodes, edges, source and sink terminals, and snapshots".into(),
+        );
     }
 
     let mut nodes = BTreeMap::new();
@@ -157,24 +164,40 @@ fn validate(s: &Scenario) -> Result<(), String> {
             || !nodes.contains_key(edge.from_node_id.as_str())
             || !nodes.contains_key(edge.to_node_id.as_str())
         {
-            return Err("edge IDs must be unique and endpoints must be distinct declared nodes".into());
+            return Err(
+                "edge IDs must be unique and endpoints must be distinct declared nodes".into(),
+            );
         }
         finite("edge length", edge.length_m)?;
         if edge.length_m <= 0.0 {
             return Err("edge length must be positive".into());
         }
         let chord = distance(
-            *nodes.get(edge.from_node_id.as_str()).expect("endpoint validated"),
-            *nodes.get(edge.to_node_id.as_str()).expect("endpoint validated"),
+            *nodes
+                .get(edge.from_node_id.as_str())
+                .expect("endpoint validated"),
+            *nodes
+                .get(edge.to_node_id.as_str())
+                .expect("endpoint validated"),
         );
         if edge.length_m + EPS < chord {
-            return Err(format!("edge {} is shorter than its 3D endpoint chord", edge.edge_id));
+            return Err(format!(
+                "edge {} is shorter than its 3D endpoint chord",
+                edge.edge_id
+            ));
         }
         if !matches!(
             edge.origin_class.as_str(),
-            "live_root_channel" | "legacy_root_channel" | "abiotic_crack" | "textural_finger" | "faunal_burrow"
+            "live_root_channel"
+                | "legacy_root_channel"
+                | "abiotic_crack"
+                | "textural_finger"
+                | "faunal_burrow"
         ) {
-            return Err(format!("edge {} has unsupported origin class", edge.edge_id));
+            return Err(format!(
+                "edge {} has unsupported origin class",
+                edge.edge_id
+            ));
         }
     }
 
@@ -197,11 +220,14 @@ fn validate(s: &Scenario) -> Result<(), String> {
     let mut snapshot_ids = BTreeSet::new();
     let mut previous_time = None;
     for snapshot in &s.snapshots {
-        if snapshot.snapshot_id.trim().is_empty() || !snapshot_ids.insert(snapshot.snapshot_id.as_str()) {
+        if snapshot.snapshot_id.trim().is_empty()
+            || !snapshot_ids.insert(snapshot.snapshot_id.as_str())
+        {
             return Err("snapshot IDs must be non-empty and unique".into());
         }
         finite("snapshot time", snapshot.time_days)?;
-        if snapshot.time_days < 0.0 || previous_time.is_some_and(|time| snapshot.time_days <= time) {
+        if snapshot.time_days < 0.0 || previous_time.is_some_and(|time| snapshot.time_days <= time)
+        {
             return Err("snapshot times must be non-negative and strictly increasing".into());
         }
         previous_time = Some(snapshot.time_days);
@@ -211,19 +237,31 @@ fn validate(s: &Scenario) -> Result<(), String> {
             if !edges.contains(state.edge_id.as_str()) || !states.insert(state.edge_id.as_str()) {
                 return Err("snapshot has unknown or duplicate edge state".into());
             }
-            let edge = s.edges.iter().find(|edge| edge.edge_id == state.edge_id)
+            let edge = s
+                .edges
+                .iter()
+                .find(|edge| edge.edge_id == state.edge_id)
                 .expect("edge state identity validated");
             if is_root_origin(&edge.origin_class) {
                 if !matches!(
                     state.root_occupancy.as_str(),
                     "occupied" | "partially_occupied" | "unoccupied_legacy" | "not_observed"
                 ) {
-                    return Err(format!("root-origin edge {} requires an explicit root occupancy state", edge.edge_id));
+                    return Err(format!(
+                        "root-origin edge {} requires an explicit root occupancy state",
+                        edge.edge_id
+                    ));
                 }
             } else if state.root_occupancy != "not_applicable" {
-                return Err(format!("non-root edge {} must use not_applicable root occupancy", edge.edge_id));
+                return Err(format!(
+                    "non-root edge {} must use not_applicable root occupancy",
+                    edge.edge_id
+                ));
             }
-            if !matches!(state.hydraulic_state.as_str(), "active" | "inactive" | "unassessed") {
+            if !matches!(
+                state.hydraulic_state.as_str(),
+                "active" | "inactive" | "unassessed"
+            ) {
                 return Err("hydraulic state must be active, inactive or unassessed".into());
             }
         }
@@ -235,9 +273,13 @@ fn validate(s: &Scenario) -> Result<(), String> {
 }
 
 fn included_edges(snapshot: &Snapshot, include_unassessed: bool) -> BTreeSet<String> {
-    snapshot.edge_states.iter()
-        .filter(|state| state.hydraulic_state == "active"
-            || (include_unassessed && state.hydraulic_state == "unassessed"))
+    snapshot
+        .edge_states
+        .iter()
+        .filter(|state| {
+            state.hydraulic_state == "active"
+                || (include_unassessed && state.hydraulic_state == "unassessed")
+        })
         .map(|state| state.edge_id.clone())
         .collect()
 }
@@ -248,7 +290,9 @@ fn adjacency(
     removed_edge: Option<&str>,
     removed_node: Option<&str>,
 ) -> BTreeMap<String, Vec<String>> {
-    let mut graph: BTreeMap<String, Vec<String>> = s.nodes.iter()
+    let mut graph: BTreeMap<String, Vec<String>> = s
+        .nodes
+        .iter()
         .filter(|node| removed_node != Some(node.node_id.as_str()))
         .map(|node| (node.node_id.clone(), Vec::new()))
         .collect();
@@ -307,9 +351,15 @@ fn connected_pair_count(
     removed_node: Option<&str>,
 ) -> usize {
     let graph = adjacency(s, included, removed_edge, removed_node);
-    s.sources.iter().map(|source| {
-        s.sinks.iter().filter(|sink| reachable(&graph, source, sink)).count()
-    }).sum()
+    s.sources
+        .iter()
+        .map(|source| {
+            s.sinks
+                .iter()
+                .filter(|sink| reachable(&graph, source, sink))
+                .count()
+        })
+        .sum()
 }
 
 fn component_count(s: &Scenario, included: &BTreeSet<String>) -> usize {
@@ -343,7 +393,11 @@ fn cycle_rank(s: &Scenario, included: &BTreeSet<String>) -> usize {
     included.len() + components - s.nodes.len()
 }
 
-fn pair_results(s: &Scenario, active: &BTreeSet<String>, possible: &BTreeSet<String>) -> Vec<PairResult> {
+fn pair_results(
+    s: &Scenario,
+    active: &BTreeSet<String>,
+    possible: &BTreeSet<String>,
+) -> Vec<PairResult> {
     let active_graph = adjacency(s, active, None, None);
     let possible_graph = adjacency(s, possible, None, None);
     let mut pairs = Vec::new();
@@ -392,7 +446,12 @@ fn critical_interior_nodes(
     active: &BTreeSet<String>,
     baseline_pairs: usize,
 ) -> Vec<String> {
-    let terminals: BTreeSet<&str> = s.sources.iter().chain(s.sinks.iter()).map(String::as_str).collect();
+    let terminals: BTreeSet<&str> = s
+        .sources
+        .iter()
+        .chain(s.sinks.iter())
+        .map(String::as_str)
+        .collect();
     let mut critical = Vec::new();
     for node in &s.nodes {
         if terminals.contains(node.node_id.as_str()) {
@@ -411,10 +470,16 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
     for snapshot in &s.snapshots {
         let active = included_edges(snapshot, false);
         let possible = included_edges(snapshot, true);
-        let inactive_count = snapshot.edge_states.iter()
-            .filter(|state| state.hydraulic_state == "inactive").count();
-        let unassessed_count = snapshot.edge_states.iter()
-            .filter(|state| state.hydraulic_state == "unassessed").count();
+        let inactive_count = snapshot
+            .edge_states
+            .iter()
+            .filter(|state| state.hydraulic_state == "inactive")
+            .count();
+        let unassessed_count = snapshot
+            .edge_states
+            .iter()
+            .filter(|state| state.hydraulic_state == "unassessed")
+            .count();
         let confirmed_pairs = connected_pair_count(s, &active, None, None);
         let possible_pairs = connected_pair_count(s, &possible, None, None);
         let (critical_edge_ids, worst_case) = critical_edges(s, &active, confirmed_pairs);
@@ -464,7 +529,9 @@ fn build_report(s: &Scenario, input_sha256: String) -> Report {
 
 fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if output_path.exists() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into());
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into(),
+        );
     }
     let bytes = fs::read(input_path)?;
     let scenario: Scenario = serde_json::from_slice(&bytes)?;
@@ -472,7 +539,10 @@ fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::
     let digest = format!("{:x}", Sha256::digest(&bytes));
     let report = build_report(&scenario, digest);
     let json = serde_json::to_vec_pretty(&report)?;
-    let mut output = OpenOptions::new().write(true).create_new(true).open(output_path)?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output_path)?;
     output.write_all(&json)?;
     output.write_all(b"\n")?;
     Ok(())
@@ -507,8 +577,14 @@ mod tests {
         let first = &report.snapshot_results[0];
         assert_eq!(first.confirmed_connected_pair_count, 1);
         assert_eq!(first.confirmed_cycle_rank, 1);
-        assert_eq!(first.critical_edge_ids, vec!["inlet-trunk".to_string(), "outlet-trunk".to_string()]);
-        assert_eq!(first.critical_interior_node_ids, vec!["junction-in".to_string(), "junction-out".to_string()]);
+        assert_eq!(
+            first.critical_edge_ids,
+            vec!["inlet-trunk".to_string(), "outlet-trunk".to_string()]
+        );
+        assert_eq!(
+            first.critical_interior_node_ids,
+            vec!["junction-in".to_string(), "junction-out".to_string()]
+        );
         assert_eq!(first.worst_case_single_edge_failure_connected_pair_count, 0);
     }
 
@@ -526,7 +602,10 @@ mod tests {
         let third = &report.snapshot_results[2];
         assert_eq!(third.confirmed_connected_pair_count, 0);
         assert_eq!(third.possible_connected_pair_count, 1);
-        assert_eq!(third.pair_results[0].status, "indeterminate_unassessed_edge");
+        assert_eq!(
+            third.pair_results[0].status,
+            "indeterminate_unassessed_edge"
+        );
         assert_eq!(third.unassessed_edge_count, 1);
     }
 
@@ -543,10 +622,19 @@ mod tests {
     fn legacy_root_origin_is_not_reclassified_as_abiotic() {
         let s = scenario();
         validate(&s).expect("legacy root provenance and occupancy are valid");
-        let legacy = s.edges.iter().find(|edge| edge.edge_id == "lower-a").unwrap();
+        let legacy = s
+            .edges
+            .iter()
+            .find(|edge| edge.edge_id == "lower-a")
+            .unwrap();
         assert_eq!(legacy.origin_class, "legacy_root_channel");
         assert_eq!(
-            s.snapshots[0].edge_states.iter().find(|state| state.edge_id == "lower-a").unwrap().root_occupancy,
+            s.snapshots[0]
+                .edge_states
+                .iter()
+                .find(|state| state.edge_id == "lower-a")
+                .unwrap()
+                .root_occupancy,
             "unoccupied_legacy"
         );
     }
