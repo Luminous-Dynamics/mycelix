@@ -13,15 +13,15 @@ use myc_dir_fabric_nats_adapter::{
     postgres::PostgresEffectCommitVerifier, JetStreamAdapter, JetStreamAdapterConfig,
     OwnerDispositionVerifier, VerifiedOwnerDisposition,
 };
+use myc_dir_fabric_nats_reference::{
+    AckMode, DurableOwnerDisposition, NatsCommandBinding, NatsCommandBindingInput,
+};
 use mycelix_authority_write_lease::{
     AuthorityWriteLease, AuthorityWriteLeasePhase, AuthorityWriteScope, ContentHash,
     SignedAuthorityWriteLease,
 };
 use std::collections::BTreeSet;
 use uuid::Uuid;
-use myc_dir_fabric_nats_reference::{
-    AckMode, DurableOwnerDisposition, NatsCommandBinding, NatsCommandBindingInput,
-};
 use rustls_tokio_postgres::{config_from_ca_cert, MakeRustlsConnect};
 use sha2::{Digest as ShaDigest, Sha256};
 use tokio_postgres::Client;
@@ -217,10 +217,7 @@ fn signed_authority_lease(
     signed
 }
 
-async fn create_committed_postgres_effect(
-    suffix: &str,
-    payload: &[u8],
-) -> CreatedPostgresEffect {
+async fn create_committed_postgres_effect(suffix: &str, payload: &[u8]) -> CreatedPostgresEffect {
     let realm = format!("myc-realm-{suffix}");
     let resource = format!("myc-resource-{suffix}");
     let action = "balance-adjust".to_owned();
