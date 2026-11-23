@@ -1,0 +1,320 @@
+{
+  "benchmark": "Mycelix SAP balance cause writer inventory",
+  "version": "0.1",
+  "date": "2026-11-23",
+  "status": "source-audit-inventory-not-implementation-or-runtime-qualification",
+  "repository": "Luminous-Dynamics/mycelix",
+  "main_commit": "e949664ceb2f9ddde26704c70e23a19380f33dde",
+  "source_blobs": {
+    "payments_coordinator": "7df81b5374526e4c145a4b7506e7295aa20d079c",
+    "payments_integrity": "b551f1ea439f6899d67c0ba55519b12cbee1fe7e",
+    "finance_types": "354a377c88a57e8a5612a518d8c8b8b519fb67e2",
+    "bridge_coordinator": "78c54d124fb0b4089a2155e3265ea015891bfbe8",
+    "staking_coordinator": "4192013b800b7a1403c5193421b31565a98af86f",
+    "currency_mint_coordinator": "98ba66730b645c9f8efce3d98442bab5c25a92ef"
+  },
+  "required_cause_kinds": [
+    "zero_genesis",
+    "external_issuance_claim",
+    "governance_issuance_claim",
+    "bilateral_transfer_sender_debit",
+    "bilateral_transfer_recipient_claim",
+    "directed_debit",
+    "demurrage",
+    "staking_lock",
+    "staking_unlock",
+    "hearth_contribution",
+    "hearth_withdrawal",
+    "metadata_only"
+  ],
+  "writers": [
+    {
+      "id": "SAPW-001",
+      "entrypoint": "initialize_sap_balance",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "23-64",
+      "kind": "zero_genesis",
+      "delta": "zero",
+      "current": "creates zero balance with justified_by=None after caller-owner check",
+      "risk": "valid no-cause genesis case; ensure only exactly zero and one owner-authored root",
+      "required": "zero_genesis",
+      "tracking": [
+        "#6505",
+        "#654"
+      ]
+    },
+    {
+      "id": "SAPW-002",
+      "entrypoint": "grant_amber_exemption",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "97-159",
+      "kind": "metadata_only",
+      "delta": "none",
+      "current": "updates Amber exemption and otherwise carries the prior balance state",
+      "risk": "must not mutate monetary balance or erase historical cause",
+      "required": "metadata_only",
+      "tracking": [
+        "#6505",
+        "#654"
+      ]
+    },
+    {
+      "id": "SAPW-003",
+      "entrypoint": "revoke_amber_exemption",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "161-178",
+      "kind": "metadata_only",
+      "delta": "none",
+      "current": "updates exemption and explicitly resets justified_by=None",
+      "risk": "clears prior monetary evidence without a monetary delta",
+      "required": "metadata_only",
+      "tracking": [
+        "#6505",
+        "#654"
+      ]
+    },
+    {
+      "id": "SAPW-004",
+      "entrypoint": "apply_demurrage",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "180-260",
+      "kind": "demurrage",
+      "delta": "negative",
+      "current": "reduces balance and updates last_demurrage_at while preserving old justification pointer; compost delivery occurs afterward",
+      "risk": "monetary decrease has no distinct formula/interval cause; demurrage may be combined with credit/debit",
+      "required": "demurrage",
+      "tracking": [
+        "#6505",
+        "#654"
+      ]
+    },
+    {
+      "id": "SAPW-005",
+      "entrypoint": "credit_sap",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "432-556",
+      "kind": "raw_credit",
+      "delta": "positive",
+      "current": "public extern accepts arbitrary target DID; creates nonzero balance with justified_by=None or increments existing balance without typed cause; addition unchecked",
+      "risk": "mint-any-DID capability; no receipt binding, owner claim, or overflow rejection",
+      "required": "external_issuance_claim_or_bilateral_transfer_recipient_claim",
+      "tracking": [
+        "#6505",
+        "#654",
+        "#657"
+      ]
+    },
+    {
+      "id": "SAPW-006",
+      "entrypoint": "debit_sap",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "557-659",
+      "kind": "owner_debit",
+      "delta": "negative",
+      "current": "caller-owner guard and sufficient-balance check; free-form reason only; demurrage can be combined in same successor",
+      "risk": "no immutable debit/transfer/redemption cause or one-use operation identity",
+      "required": "directed_debit",
+      "tracking": [
+        "#6505",
+        "#654"
+      ]
+    },
+    {
+      "id": "SAPW-007",
+      "entrypoint": "transfer_sap",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "654-705",
+      "kind": "bilateral_transfer",
+      "delta": "sender negative and recipient positive",
+      "current": "calls debit_sap then public credit_sap; one local zome invocation; recipient successor is not recipient-authored or bound to exact transfer claim",
+      "risk": "cross-owner authority model is implicit; profile/finality and recipient claim identity missing",
+      "required": "bilateral_transfer_sender_debit_and_recipient_claim",
+      "tracking": [
+        "#4178",
+        "#4383",
+        "#5750",
+        "#654",
+        "#657"
+      ]
+    },
+    {
+      "id": "SAPW-008",
+      "entrypoint": "mint_sap_from_governance",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "710-815",
+      "kind": "governance_issuance",
+      "delta": "positive",
+      "current": "creates immutable SapMintRecord and obtains ActionHash, but calls credit_sap without passing the reference",
+      "risk": "issuance evidence is not bound to exact balance successor; replay uniqueness not enforced at balance integrity",
+      "required": "governance_issuance_claim",
+      "tracking": [
+        "#6505",
+        "#654"
+      ]
+    },
+    {
+      "id": "SAPW-009",
+      "entrypoint": "send_payment",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "1170-1335",
+      "kind": "payment",
+      "delta": "sender negative and receiver positive, plus fee",
+      "current": "sender debit and beneficiary credit are staged inside one same-source-chain invocation; Treasury is a separate cell call; no stable operation identity or balance cause",
+      "risk": "profile ambiguity, recipient ownership, missing cause references, Treasury dual-write and response-loss recovery",
+      "required": "bilateral_transfer_sender_debit_and_recipient_claim",
+      "tracking": [
+        "#5750",
+        "#4383",
+        "#6516",
+        "#6556"
+      ]
+    },
+    {
+      "id": "SAPW-010",
+      "entrypoint": "contribute_to_hearth_pool",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "2020-2095",
+      "kind": "hearth_contribution",
+      "delta": "negative member balance and positive pool",
+      "current": "directly subtracts personal SapBalance; no new justified_by; checks raw not demurrage-adjusted balance; pool additions unchecked",
+      "risk": "bypasses typed balance cause/debit API and exact pool counterpart evidence",
+      "required": "hearth_contribution",
+      "tracking": [
+        "#6505",
+        "#6560",
+        "#654"
+      ]
+    },
+    {
+      "id": "SAPW-011",
+      "entrypoint": "withdraw_from_hearth_pool",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "2110-2162",
+      "kind": "hearth_withdrawal",
+      "delta": "negative pool and positive member balance",
+      "current": "debits pool then credits member only when a SapBalance already exists; absence silently skips member credit; additions unchecked",
+      "risk": "success returned without recipient credit; missing owner-authored claim/cause and overflow protection",
+      "required": "hearth_withdrawal",
+      "tracking": [
+        "#6560",
+        "#6505",
+        "#654"
+      ]
+    },
+    {
+      "id": "SAPW-012",
+      "entrypoint": "verify_hearth_membership (gates SAP movement)",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "2378-2428",
+      "kind": "authorization_gate",
+      "delta": "none",
+      "current": "decoded false and decode error reject; unexpected response and zome-call error/unavailable Hearth return Ok(())",
+      "risk": "value-moving contribution / withdrawal membership gate fails open",
+      "required": "fail_closed_membership",
+      "tracking": [
+        "#6560"
+      ]
+    },
+    {
+      "id": "SAPW-013",
+      "entrypoint": "Collateral bridge deposit",
+      "path": "mycelix-finance/zomes/bridge/coordinator/src/lib.rs",
+      "lines": "590-690",
+      "kind": "external_issuance",
+      "delta": "positive",
+      "current": "creates Pending deposit then calls raw credit_sap; converts collateral amount × oracle rate through f64",
+      "risk": "credits before independent custody confirmation; no consumed custody receipt; no cause ref",
+      "required": "external_issuance_claim",
+      "tracking": [
+        "#6505"
+      ]
+    },
+    {
+      "id": "SAPW-014",
+      "entrypoint": "Fiat verify_fiat_deposit",
+      "path": "mycelix-finance/zomes/bridge/coordinator/src/lib.rs",
+      "lines": "2380-2450",
+      "kind": "external_issuance",
+      "delta": "positive",
+      "current": "updates deposit status Verified then calls raw credit_sap; current #6505 says proof is caller-controlled and not bank-authenticated",
+      "risk": "no independent bank/custodian evidence / consumed receipt bound to exact amount and value date",
+      "required": "external_issuance_claim",
+      "tracking": [
+        "#6505"
+      ]
+    },
+    {
+      "id": "SAPW-015",
+      "entrypoint": "lock_stake_sap / return_stake_sap",
+      "path": "mycelix-finance/zomes/staking/coordinator/src/lib.rs",
+      "lines": "326-397",
+      "kind": "staking_transfer",
+      "delta": "negative then positive",
+      "current": "calls debit_sap for lock and credit_sap for unlock; no typed stake/escrow effect reference threaded to balance delta",
+      "risk": "lock and unlock causes are free-form reason strings; idempotency and owner claim are external to balance validator",
+      "required": "staking_lock_or_staking_unlock",
+      "tracking": [
+        "#6505",
+        "#654"
+      ]
+    },
+    {
+      "id": "SAPW-016",
+      "entrypoint": "mint_genesis_sap",
+      "path": "mycelix-finance/zomes/currency-mint/coordinator/src/lib.rs",
+      "lines": "150-190",
+      "kind": "physical_issuance",
+      "delta": "positive",
+      "current": "calls raw credit_sap based on claimed yield_kwh, float round/cast; #6505 says STARK verification is not integrated",
+      "risk": "no verified physical proof / typed statement / exact issue receipt",
+      "required": "external_issuance_claim",
+      "tracking": [
+        "#6505"
+      ]
+    }
+  ],
+  "explicit_non_writers": [
+    {
+      "entrypoint": "get_sap_balance",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "66-91",
+      "reason": "read-only query; computes pending demurrage but does not persist"
+    },
+    {
+      "entrypoint": "HearthSapPool updates",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "2020-2378",
+      "reason": "separate pool entry writes, not SapBalance writes; counterpart evidence still required"
+    }
+  ],
+  "source_findings": {
+    "justified_by_declared_but_not_enforced": true,
+    "integrity_callback_create_and_update_call_same_shape_validator": true,
+    "raw_public_credit_sap": true,
+    "sap_balance_create_sites": 2,
+    "sap_balance_update_sites_in_payments_coordinator": 7,
+    "documented_missing_balance_cause": "producers currently write None",
+    "source_audit_only": true
+  },
+  "hard_gates": [
+    "Every positive SapBalance delta has one exact, typed, owner-bound issuance or recipient-claim cause.",
+    "Every negative SapBalance delta has one exact, typed, owner-bound debit / transfer / demurrage / staking / Hearth cause.",
+    "A single cause ActionHash cannot justify two balance successors.",
+    "One monetary balance successor expresses one economic cause; demurrage and principal movement are separate predecessor-linked transitions.",
+    "Metadata-only updates preserve the monetary balance and historical cause pointer.",
+    "A nonzero SapBalance cannot be created through raw credit_sap.",
+    "Hearth unavailable or malformed membership result is never treated as authorization for value movement.",
+    "Hearth withdrawal cannot debit pool unless a member claim / credit is durably committed or explicitly Pending.",
+    "All integer arithmetic is checked before mutation.",
+    "Same-predecessor competing owner-authored successors freeze spendability; no winner is selected by DHT link order."
+  ],
+  "qualification_status": {
+    "source_inventory": "complete_for_public_main_search_snapshot",
+    "source_inventory_validation": "structural_readback",
+    "production_changes": "none",
+    "rust_tests": "not_run",
+    "hdk_integrity_tests": "not_run",
+    "tryorama_sweettests": "not_run",
+    "independent_review": "not_run"
+  }
+}
