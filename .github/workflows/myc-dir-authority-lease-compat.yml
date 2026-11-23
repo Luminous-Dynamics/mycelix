@@ -8,6 +8,7 @@ on:
       - "mycelix-workspace/mycelix-desci/Cargo.toml"
       - "mycelix-workspace/mycelix-desci/src/core/**"
       - "mycelix-workspace/crates/mycelix-authority-write-lease/**"
+      - "mycelix-workspace/crates/mycelix-authority-proof/**"
       - ".github/workflows/myc-dir-authority-lease-compat.yml"
   workflow_dispatch:
 
@@ -36,6 +37,7 @@ jobs:
         with:
           workspaces: |
             mycelix-workspace/crates/mycelix-authority-write-lease
+            mycelix-workspace/crates/mycelix-authority-proof
 
       - name: Verify mirrored DeSci lease source is byte-identical
         shell: bash
@@ -60,11 +62,21 @@ jobs:
           ' mycelix-desci/src/core/src/authority_fencing.rs > "$fixture"
           cmp "$fixture" mycelix-workspace/crates/mycelix-authority-write-lease/tests/fixtures/desci_authority_fencing_v1.rs
 
-      - name: Check shared lease crate formatting
-        run: cargo fmt --manifest-path mycelix-workspace/crates/mycelix-authority-write-lease/Cargo.toml --check
+      - name: Check shared authority protocol formatting
+        run: |
+          cargo fmt --manifest-path mycelix-workspace/crates/mycelix-authority-write-lease/Cargo.toml --check
+          cargo fmt --manifest-path mycelix-workspace/crates/mycelix-authority-proof/Cargo.toml --check
 
       - name: Run standalone shared lease protocol tests
         run: cargo test --manifest-path mycelix-workspace/crates/mycelix-authority-write-lease/Cargo.toml
+
+      - name: Run standalone authority proof protocol tests
+        run: cargo test --manifest-path mycelix-workspace/crates/mycelix-authority-proof/Cargo.toml
+
+      - name: Clippy shared authority protocol crates
+        run: |
+          cargo clippy --manifest-path mycelix-workspace/crates/mycelix-authority-write-lease/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path mycelix-workspace/crates/mycelix-authority-proof/Cargo.toml --all-targets -- -D warnings
 
       - name: Verify v1 cross-implementation canonical bytes and signature hash
         run: cargo test --manifest-path mycelix-workspace/crates/mycelix-authority-write-lease/Cargo.toml --test desci_v1_compat -- --nocapture
