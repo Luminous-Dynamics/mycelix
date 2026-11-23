@@ -46,7 +46,9 @@
       "upper_flux_bound_mg_per_h": null,
       "lower_flux_bound_mg_per_h": 0.5,
       "lower_flux_bound_confidence_level": 0.95,
-      "upper_flux_bound_confidence_level": null
+      "upper_flux_bound_confidence_level": null,
+      "spatial_support_id": "support-edge-active-tracer",
+      "registration_transform_id": "registration-edge-active-tracer"
     },
     {
       "evidence_id": "ev-geometry-only",
@@ -70,7 +72,9 @@
       "upper_flux_bound_mg_per_h": null,
       "lower_flux_bound_mg_per_h": null,
       "lower_flux_bound_confidence_level": null,
-      "upper_flux_bound_confidence_level": null
+      "upper_flux_bound_confidence_level": null,
+      "spatial_support_id": "support-edge-geometry-only",
+      "registration_transform_id": "registration-edge-geometry-only"
     },
     {
       "evidence_id": "ev-inactive-covered",
@@ -94,7 +98,9 @@
       "upper_flux_bound_mg_per_h": 0.01,
       "lower_flux_bound_mg_per_h": null,
       "lower_flux_bound_confidence_level": null,
-      "upper_flux_bound_confidence_level": 0.95
+      "upper_flux_bound_confidence_level": 0.95,
+      "spatial_support_id": "support-edge-inactive-covered",
+      "registration_transform_id": "registration-edge-inactive-covered"
     },
     {
       "evidence_id": "ev-inactive-sparse",
@@ -118,7 +124,9 @@
       "upper_flux_bound_mg_per_h": 0.01,
       "lower_flux_bound_mg_per_h": null,
       "lower_flux_bound_confidence_level": null,
-      "upper_flux_bound_confidence_level": 0.95
+      "upper_flux_bound_confidence_level": 0.95,
+      "spatial_support_id": "support-edge-inactive-sparse",
+      "registration_transform_id": "registration-edge-inactive-sparse"
     },
     {
       "evidence_id": "ev-model-only",
@@ -142,7 +150,9 @@
       "upper_flux_bound_mg_per_h": null,
       "lower_flux_bound_mg_per_h": 0.5,
       "lower_flux_bound_confidence_level": 0.95,
-      "upper_flux_bound_confidence_level": null
+      "upper_flux_bound_confidence_level": null,
+      "spatial_support_id": "support-edge-model-only",
+      "registration_transform_id": "registration-edge-model-only"
     },
     {
       "evidence_id": "ev-conflict-active",
@@ -166,7 +176,9 @@
       "upper_flux_bound_mg_per_h": null,
       "lower_flux_bound_mg_per_h": 0.5,
       "lower_flux_bound_confidence_level": 0.95,
-      "upper_flux_bound_confidence_level": null
+      "upper_flux_bound_confidence_level": null,
+      "spatial_support_id": "support-edge-conflict",
+      "registration_transform_id": "registration-edge-conflict"
     },
     {
       "evidence_id": "ev-conflict-inactive",
@@ -190,7 +202,9 @@
       "upper_flux_bound_mg_per_h": 0.01,
       "lower_flux_bound_mg_per_h": null,
       "lower_flux_bound_confidence_level": null,
-      "upper_flux_bound_confidence_level": 0.95
+      "upper_flux_bound_confidence_level": 0.95,
+      "spatial_support_id": "support-edge-conflict",
+      "registration_transform_id": "registration-edge-conflict"
     },
     {
       "evidence_id": "ev-wrong-event",
@@ -214,7 +228,9 @@
       "upper_flux_bound_mg_per_h": null,
       "lower_flux_bound_mg_per_h": 0.5,
       "lower_flux_bound_confidence_level": 0.95,
-      "upper_flux_bound_confidence_level": null
+      "upper_flux_bound_confidence_level": null,
+      "spatial_support_id": "support-edge-wrong-event",
+      "registration_transform_id": "registration-edge-wrong-event"
     },
     {
       "evidence_id": "ev-unregistered",
@@ -238,7 +254,9 @@
       "upper_flux_bound_mg_per_h": null,
       "lower_flux_bound_mg_per_h": 0.5,
       "lower_flux_bound_confidence_level": 0.95,
-      "upper_flux_bound_confidence_level": null
+      "upper_flux_bound_confidence_level": null,
+      "spatial_support_id": "support-edge-unregistered",
+      "registration_transform_id": null
     },
     {
       "evidence_id": "ev-active-point-only",
@@ -262,7 +280,9 @@
       "lower_flux_bound_mg_per_h": null,
       "lower_flux_bound_confidence_level": null,
       "upper_flux_bound_mg_per_h": null,
-      "upper_flux_bound_confidence_level": null
+      "upper_flux_bound_confidence_level": null,
+      "spatial_support_id": "support-edge-active-point-only",
+      "registration_transform_id": "registration-edge-active-point-only"
     }
   ],
   "assertions": [
