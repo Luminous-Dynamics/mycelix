@@ -1,0 +1,286 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/terra-preta/schemas/root-transport-report.schema.json",
+  "title": "Synthetic 3D root transport reference report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "pathway_count",
+    "snapshot_count",
+    "projection_plane",
+    "projection_alias_group_count",
+    "projection_alias_groups",
+    "snapshot_results",
+    "controls",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "root-transport-reference-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "pathway_count": {
+      "type": "integer"
+    },
+    "snapshot_count": {
+      "type": "integer"
+    },
+    "projection_plane": {
+      "enum": [
+        "xy",
+        "xz",
+        "yz"
+      ]
+    },
+    "projection_alias_group_count": {
+      "type": "integer"
+    },
+    "projection_alias_groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "projected_coordinate_m",
+          "node_ids"
+        ],
+        "properties": {
+          "projected_coordinate_m": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "number"
+            }
+          },
+          "node_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "snapshot_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "snapshot_id",
+          "time_days",
+          "flow_allocation_status",
+          "total_network_conductance_m3_per_hour_per_m_head",
+          "total_flow_m3_per_hour",
+          "injected_tracer_mass_mg",
+          "potential_recovered_tracer_mass_mg",
+          "unrecovered_or_retained_tracer_mass_mg",
+          "mass_balance_residual_mg",
+          "expected_recovered_mass_weighted_transit_time_hours",
+          "pathways"
+        ],
+        "properties": {
+          "snapshot_id": {
+            "type": "string"
+          },
+          "time_days": {
+            "type": "number"
+          },
+          "flow_allocation_status": {
+            "enum": [
+              "complete",
+              "withheld_unassessed_state"
+            ]
+          },
+          "total_network_conductance_m3_per_hour_per_m_head": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "total_flow_m3_per_hour": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "injected_tracer_mass_mg": {
+            "type": "number"
+          },
+          "potential_recovered_tracer_mass_mg": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "unrecovered_or_retained_tracer_mass_mg": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "mass_balance_residual_mg": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "expected_recovered_mass_weighted_transit_time_hours": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "pathways": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "pathway_id",
+                "origin_class",
+                "expression",
+                "geometric_path_continuity",
+                "hydraulic_state",
+                "effective_conductance_m3_per_hour_per_m_head",
+                "flow_fraction",
+                "flow_m3_per_hour",
+                "expected_transit_time_hours",
+                "potential_recovered_tracer_mass_mg",
+                "tracer_observation_status",
+                "observed_arrival_time_hours",
+                "observed_tracer_mass_mg"
+              ],
+              "properties": {
+                "pathway_id": {
+                  "type": "string"
+                },
+                "origin_class": {
+                  "type": "string"
+                },
+                "expression": {
+                  "type": "string"
+                },
+                "geometric_path_continuity": {
+                  "type": "boolean"
+                },
+                "hydraulic_state": {
+                  "enum": [
+                    "active",
+                    "inactive",
+                    "unassessed"
+                  ]
+                },
+                "effective_conductance_m3_per_hour_per_m_head": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "flow_fraction": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "flow_m3_per_hour": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "expected_transit_time_hours": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "potential_recovered_tracer_mass_mg": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "tracer_observation_status": {
+                  "enum": [
+                    "observed",
+                    "below_detection_limit",
+                    "outside_collection_window",
+                    "no_hydraulic_flow",
+                    "abstained_unassessed_hydraulic_state"
+                  ]
+                },
+                "observed_arrival_time_hours": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "observed_tracer_mass_mg": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "3d_truth_support_required",
+        "projection_aliases_do_not_certify_3d_connectivity",
+        "geometric_connectivity_separate_from_hydraulic_activation",
+        "unassessed_activation_withholds_complete_flow_allocation",
+        "root_history_separate_from_static_origin",
+        "tracer_mass_balance_explicit",
+        "no_empirical_solver_or_field_claim"
+      ],
+      "properties": {
+        "3d_truth_support_required": {
+          "const": true
+        },
+        "projection_aliases_do_not_certify_3d_connectivity": {
+          "const": true
+        },
+        "geometric_connectivity_separate_from_hydraulic_activation": {
+          "const": true
+        },
+        "unassessed_activation_withholds_complete_flow_allocation": {
+          "const": true
+        },
+        "root_history_separate_from_static_origin": {
+          "const": true
+        },
+        "tracer_mass_balance_explicit": {
+          "const": true
+        },
+        "no_empirical_solver_or_field_claim": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
