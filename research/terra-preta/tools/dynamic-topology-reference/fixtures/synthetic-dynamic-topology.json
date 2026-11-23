@@ -1,0 +1,74 @@
+{
+  "schema_version": "dynamic-topology-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "scenario_id": "two-branch-root-network-with-unknown-edge",
+  "truth_support_dimension": "volumetric_3d",
+  "nodes": [
+    { "node_id": "source", "coordinates_m": [0.0, 0.0, 0.0] },
+    { "node_id": "junction-in", "coordinates_m": [0.0, 0.0, 1.0] },
+    { "node_id": "upper-branch", "coordinates_m": [1.0, 0.0, 1.0] },
+    { "node_id": "lower-branch", "coordinates_m": [-1.0, 0.0, 1.0] },
+    { "node_id": "junction-out", "coordinates_m": [0.0, 0.0, 2.0] },
+    { "node_id": "sink", "coordinates_m": [0.0, 0.0, 3.0] }
+  ],
+  "edges": [
+    { "edge_id": "inlet-trunk", "from_node_id": "source", "to_node_id": "junction-in", "length_m": 1.0, "origin_class": "live_root_channel" },
+    { "edge_id": "upper-a", "from_node_id": "junction-in", "to_node_id": "upper-branch", "length_m": 1.0, "origin_class": "live_root_channel" },
+    { "edge_id": "upper-b", "from_node_id": "upper-branch", "to_node_id": "junction-out", "length_m": 1.5, "origin_class": "live_root_channel" },
+    { "edge_id": "lower-a", "from_node_id": "junction-in", "to_node_id": "lower-branch", "length_m": 1.0, "origin_class": "legacy_root_channel" },
+    { "edge_id": "lower-b", "from_node_id": "lower-branch", "to_node_id": "junction-out", "length_m": 1.5, "origin_class": "legacy_root_channel" },
+    { "edge_id": "outlet-trunk", "from_node_id": "junction-out", "to_node_id": "sink", "length_m": 1.0, "origin_class": "abiotic_crack" }
+  ],
+  "sources": ["source"],
+  "sinks": ["sink"],
+  "snapshots": [
+    {
+      "snapshot_id": "initial-two-route-network",
+      "time_days": 0.0,
+      "edge_states": [
+        { "edge_id": "inlet-trunk", "root_occupancy": "occupied", "hydraulic_state": "active" },
+        { "edge_id": "upper-a", "root_occupancy": "occupied", "hydraulic_state": "active" },
+        { "edge_id": "upper-b", "root_occupancy": "occupied", "hydraulic_state": "active" },
+        { "edge_id": "lower-a", "root_occupancy": "unoccupied_legacy", "hydraulic_state": "active" },
+        { "edge_id": "lower-b", "root_occupancy": "unoccupied_legacy", "hydraulic_state": "active" },
+        { "edge_id": "outlet-trunk", "root_occupancy": "not_applicable", "hydraulic_state": "active" }
+      ]
+    },
+    {
+      "snapshot_id": "upper-route-inactive",
+      "time_days": 30.0,
+      "edge_states": [
+        { "edge_id": "inlet-trunk", "root_occupancy": "occupied", "hydraulic_state": "active" },
+        { "edge_id": "upper-a", "root_occupancy": "unoccupied_legacy", "hydraulic_state": "inactive" },
+        { "edge_id": "upper-b", "root_occupancy": "unoccupied_legacy", "hydraulic_state": "inactive" },
+        { "edge_id": "lower-a", "root_occupancy": "unoccupied_legacy", "hydraulic_state": "active" },
+        { "edge_id": "lower-b", "root_occupancy": "unoccupied_legacy", "hydraulic_state": "active" },
+        { "edge_id": "outlet-trunk", "root_occupancy": "not_applicable", "hydraulic_state": "active" }
+      ]
+    },
+    {
+      "snapshot_id": "only-unassessed-alternate-route",
+      "time_days": 60.0,
+      "edge_states": [
+        { "edge_id": "inlet-trunk", "root_occupancy": "occupied", "hydraulic_state": "active" },
+        { "edge_id": "upper-a", "root_occupancy": "unoccupied_legacy", "hydraulic_state": "inactive" },
+        { "edge_id": "upper-b", "root_occupancy": "unoccupied_legacy", "hydraulic_state": "inactive" },
+        { "edge_id": "lower-a", "root_occupancy": "unoccupied_legacy", "hydraulic_state": "active" },
+        { "edge_id": "lower-b", "root_occupancy": "unoccupied_legacy", "hydraulic_state": "unassessed" },
+        { "edge_id": "outlet-trunk", "root_occupancy": "not_applicable", "hydraulic_state": "active" }
+      ]
+    },
+    {
+      "snapshot_id": "all-alternate-routes-inactive",
+      "time_days": 90.0,
+      "edge_states": [
+        { "edge_id": "inlet-trunk", "root_occupancy": "occupied", "hydraulic_state": "active" },
+        { "edge_id": "upper-a", "root_occupancy": "unoccupied_legacy", "hydraulic_state": "inactive" },
+        { "edge_id": "upper-b", "root_occupancy": "unoccupied_legacy", "hydraulic_state": "inactive" },
+        { "edge_id": "lower-a", "root_occupancy": "unoccupied_legacy", "hydraulic_state": "inactive" },
+        { "edge_id": "lower-b", "root_occupancy": "unoccupied_legacy", "hydraulic_state": "inactive" },
+        { "edge_id": "outlet-trunk", "root_occupancy": "not_applicable", "hydraulic_state": "active" }
+      ]
+    }
+  ]
+}

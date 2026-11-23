@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "dynamic-topology-report.schema.json",
+  "title": "Dynamic root-network topology report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["audit_version", "fixture_status", "scenario_id", "input_sha256", "node_count", "edge_count", "source_count", "sink_count", "snapshot_count", "snapshot_results", "controls", "interpretation_boundary"],
+  "properties": {
+    "audit_version": { "const": "dynamic-topology-reference-v0.1" },
+    "fixture_status": { "const": "synthetic_only_not_empirical_evidence" },
+    "scenario_id": { "type": "string", "minLength": 1 },
+    "input_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "node_count": { "type": "integer", "minimum": 2 },
+    "edge_count": { "type": "integer", "minimum": 1 },
+    "source_count": { "type": "integer", "minimum": 1 },
+    "sink_count": { "type": "integer", "minimum": 1 },
+    "snapshot_count": { "type": "integer", "minimum": 1 },
+    "snapshot_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["snapshot_id", "time_days", "active_edge_count", "inactive_edge_count", "unassessed_edge_count", "confirmed_component_count", "possible_component_count", "confirmed_cycle_rank", "possible_cycle_rank", "confirmed_connected_pair_count", "possible_connected_pair_count", "pair_results", "critical_edge_ids", "critical_interior_node_ids", "worst_case_single_edge_failure_connected_pair_count"],
+        "properties": {
+          "snapshot_id": { "type": "string", "minLength": 1 },
+          "time_days": { "type": "number", "minimum": 0 },
+          "active_edge_count": { "type": "integer", "minimum": 0 },
+          "inactive_edge_count": { "type": "integer", "minimum": 0 },
+          "unassessed_edge_count": { "type": "integer", "minimum": 0 },
+          "confirmed_component_count": { "type": "integer", "minimum": 1 },
+          "possible_component_count": { "type": "integer", "minimum": 1 },
+          "confirmed_cycle_rank": { "type": "integer", "minimum": 0 },
+          "possible_cycle_rank": { "type": "integer", "minimum": 0 },
+          "confirmed_connected_pair_count": { "type": "integer", "minimum": 0 },
+          "possible_connected_pair_count": { "type": "integer", "minimum": 0 },
+          "pair_results": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["source_node_id", "sink_node_id", "confirmed_connected", "possibly_connected", "status"],
+              "properties": {
+                "source_node_id": { "type": "string", "minLength": 1 },
+                "sink_node_id": { "type": "string", "minLength": 1 },
+                "confirmed_connected": { "type": "boolean" },
+                "possibly_connected": { "type": "boolean" },
+                "status": { "enum": ["confirmed_connected", "indeterminate_unassessed_edge", "confirmed_disconnected"] }
+              }
+            }
+          },
+          "critical_edge_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+          "critical_interior_node_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+          "worst_case_single_edge_failure_connected_pair_count": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["volumetric_3d_truth_support_required", "shared_branching_and_rejoining_graph_supported", "origin_separate_from_root_occupancy_and_hydraulic_state", "unknown_edges_excluded_from_confirmed_graph", "unknown_edges_included_only_in_possible_graph", "single_edge_and_interior_node_failure_audited", "no_flow_or_field_claim"],
+      "properties": {
+        "volumetric_3d_truth_support_required": { "const": true },
+        "shared_branching_and_rejoining_graph_supported": { "const": true },
+        "origin_separate_from_root_occupancy_and_hydraulic_state": { "const": true },
+        "unknown_edges_excluded_from_confirmed_graph": { "const": true },
+        "unknown_edges_included_only_in_possible_graph": { "const": true },
+        "single_edge_and_interior_node_failure_audited": { "const": true },
+        "no_flow_or_field_claim": { "const": true }
+      }
+    },
+    "interpretation_boundary": { "type": "string", "minLength": 1 }
+  }
+}
