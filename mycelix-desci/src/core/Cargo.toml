@@ -28,7 +28,6 @@ sqlx = { workspace = true }
 clap = { workspace = true }
 mycelix-zkp-core = { workspace = true }
 mycelix-desci-types = { path = "../types" }
-mycelix-authority-write-lease = { path = "../../../mycelix-workspace/crates/mycelix-authority-write-lease" }
 
 # Holochain DHT client support (KnowledgeDhtStorage) moved out to the
 # sibling mycelix-desci-holochain-bridge crate/workspace 2026-08-05: its
