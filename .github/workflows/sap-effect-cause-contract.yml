@@ -11,6 +11,10 @@ on:
       - "mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json"
       - "mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
+      - "mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.json"
+      - "mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.schema.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
   push:
     branches:
@@ -24,6 +28,10 @@ on:
       - "mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json"
       - "mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
+      - "mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.json"
+      - "mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.schema.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
   workflow_dispatch:
 
@@ -56,6 +64,8 @@ jobs:
           cmp mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.schema.json mycelix-workspace/mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.schema.json
           cmp mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json mycelix-workspace/mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json
           cmp mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json
+          cmp mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.json
+          cmp mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.schema.json
 
       - name: Validate 16-writer V2 crosswalk and 22-case corpus
         shell: bash
@@ -67,6 +77,30 @@ jobs:
           jq empty "$MAP"
           jq empty "$SCHEMA"
           jq empty "$CORPUS"
+          RUNTIME="mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.json"
+          RUNTIME_SCHEMA="mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.schema.json"
+          jq empty "$RUNTIME"
+          jq empty "$RUNTIME_SCHEMA"
+          jq -e '
+            .benchmark == "Holochain Runtime Capability Matrix for Mycelix SAP V2" and
+            .version == "0.1" and
+            .status == "repository_source_and_official_docs_audit_not_runtime_qualification" and
+            .mycelix_finance_pin.conductor.version == "0.6.1" and
+            .mycelix_finance_pin.cargo_compatibility.hdk == "=0.6.1" and
+            .mycelix_finance_pin.cargo_compatibility.hdi == "=0.7.1" and
+            .mycelix_finance_pin.countersigning.status == "unknown_for_exact_mycelix_0_6_1_runtime" and
+            .official_documentation.fork_warrants.status == "not_operational_per_current_official_docs" and
+            .mycelix_finance_pin.actual_runtime_binary.status == "not_proven" and
+            (.required_runtime_tests | length) >= 8 and
+            (.assurance_status_vocabulary | index("Indeterminate")) != null and
+            (.assurance_status_vocabulary | index("Provisional")) != null
+          ' "$RUNTIME" >/dev/null
+          jq -e '
+            .properties.benchmark.const == "Holochain Runtime Capability Matrix for Mycelix SAP V2" and
+            (.required | index("mycelix_finance_pin")) != null and
+            (.required | index("official_documentation")) != null and
+            (.required | index("required_runtime_tests")) != null
+          ' "$RUNTIME_SCHEMA" >/dev/null
 
           jq -e '
             .benchmark == "Legacy SAP Writer to Owner-Authored V2 Architecture Crosswalk" and
@@ -135,6 +169,8 @@ jobs:
             echo "crosswalk_schema_sha256=$(sha256sum "$SCHEMA" | cut -d' ' -f1)"
             echo "crosswalk_map_sha256=$(sha256sum "$MAP" | cut -d' ' -f1)"
             echo "assurance_corpus_sha256=$(sha256sum "$CORPUS" | cut -d' ' -f1)"
+            echo "runtime_matrix_sha256=$(sha256sum "$RUNTIME" | cut -d' ' -f1)"
+            echo "runtime_matrix_schema_sha256=$(sha256sum "$RUNTIME_SCHEMA" | cut -d' ' -f1)"
             echo "legacy_writer_count=$(jq '.writers | length' "$MAP")"
             echo "target_theorem_count=$(jq '.target_architecture | length' "$MAP")"
             echo "assurance_case_count=$(jq '.scenarios | length' "$CORPUS")"
