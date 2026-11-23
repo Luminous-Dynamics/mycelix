@@ -415,8 +415,11 @@ BEGIN
     v_rejected := FALSE;
     BEGIN
         EXECUTE 'TRUNCATE TABLE myc_effect_owner.effect_commits';
-    EXCEPTION WHEN SQLSTATE '55000' THEN
-        v_rejected := TRUE;
+    EXCEPTION
+        WHEN SQLSTATE '55000' OR SQLSTATE '0A000' THEN
+            -- The explicit append-only trigger or PostgreSQL's FK dependency
+            -- guard may reject this operation first; either must fail closed.
+            v_rejected := TRUE;
     END;
     IF NOT v_rejected THEN
         RAISE EXCEPTION 'effect ledger TRUNCATE unexpectedly succeeded';
