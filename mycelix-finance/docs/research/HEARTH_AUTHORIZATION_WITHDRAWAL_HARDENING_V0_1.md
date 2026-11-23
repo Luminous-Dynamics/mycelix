@@ -51,7 +51,7 @@ Payments pure guard tests cover:
 
 TEND pure guard tests cover explicit true versus false, malformed/unavailable evidence.
 
-The mirrored public source copies are kept byte-identical and are checked by the focused workflow. The pure guard tests do not replace multi-agent Sweettests or HDI validation tests.
+The mirrored public source copies are kept byte-identical and are checked by the focused workflow. The 20 cases are also stored in `benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json` with a companion schema; the workflow validates JSON syntax, required case shape, unique IDs and mirror parity. These structural checks do not replace JSON-Schema validator coverage, multi-agent Sweettests or HDI validation tests.
 
 ## 4. Explicit claim ceiling / remaining work
 
@@ -60,7 +60,7 @@ This change is a **containment fix**, not full closure of SAP economic-cause int
 Still required:
 
 - A typed immutable cause for every monetary successor, cryptographically/structurally bound to exact predecessor, owner, amount, currency, economic operation and effect profile.
-- Derivation of author from the actual Holochain `Action.author`, not a caller-supplied DID.
+- Integrity-level binding of `SapBalance` create/update to the actual Holochain `Action.author` across every producer. This PR checks `Record.action().author()` for the withdrawal's personal balance only; it does not establish the global invariant.
 - Completeness-qualified DHT/fork resolution. One visible link is not proof that no unseen concurrent root or fork exists; this helper rejects multiple locally observed roots but cannot prove global absence.
 - Durable operation identity, canonical payload fingerprint, same-key/same-payload reconciliation and same-key/changed-payload rejection across cache expiry and agent restarts.
 - A consume-once durable outbox for any separate-cell/remote effect; retries must reconcile against the original operation rather than mint a new effect.
