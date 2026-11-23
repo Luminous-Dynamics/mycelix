@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic randomized soil trial operating-characteristics report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_version",
+    "fixture_status",
+    "suite_id",
+    "input_sha256",
+    "base_seed",
+    "simulation_count_per_scenario",
+    "alpha",
+    "scenario_count",
+    "scenarios",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "report_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "suite_id": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "base_seed": {
+      "type": "integer"
+    },
+    "simulation_count_per_scenario": {
+      "type": "integer"
+    },
+    "alpha": {
+      "type": "number"
+    },
+    "scenario_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario_id",
+          "operating_characteristic",
+          "block_count",
+          "randomization_assignments_enumerated",
+          "minimum_attainable_two_sided_p_value",
+          "true_itt_effect",
+          "qualified_trial_count",
+          "abstained_missing_outcome_count",
+          "abstained_interference_count",
+          "qualification_rate",
+          "mean_itt_estimate",
+          "bias",
+          "rmse",
+          "empirical_rejection_rate",
+          "rejection_rate_monte_carlo_se",
+          "treatment_nonadherence_rate",
+          "control_crossover_rate",
+          "interpretation"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string"
+          },
+          "operating_characteristic": {
+            "enum": [
+              "type_i_error",
+              "power",
+              "not_estimable_due_to_abstention"
+            ]
+          },
+          "block_count": {
+            "type": "integer"
+          },
+          "randomization_assignments_enumerated": {
+            "type": "integer"
+          },
+          "minimum_attainable_two_sided_p_value": {
+            "type": "number"
+          },
+          "true_itt_effect": {
+            "type": "number"
+          },
+          "qualified_trial_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "abstained_missing_outcome_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "abstained_interference_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "qualification_rate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "mean_itt_estimate": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "bias": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "rmse": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "empirical_rejection_rate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "rejection_rate_monte_carlo_se": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "treatment_nonadherence_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "control_crossover_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "interpretation": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
