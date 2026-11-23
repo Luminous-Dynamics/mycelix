@@ -76,6 +76,39 @@
       "shell_reports_holochain_version": true,
       "observed_holochain_version_output": null,
       "status": "locked_package_inputs_known_binary_output_not_observed"
+    },
+    "feature_audit": {
+      "status": "source_manifest_feature_flags_not_declared",
+      "workspace_hdk_dependency": {
+        "version": "=0.6.1",
+        "features": [],
+        "blob_sha": "5732f2de0040c52ec0de325dbcfde94431d390aa"
+      },
+      "workspace_hdi_dependency": {
+        "version": "=0.7.1",
+        "features": [],
+        "blob_sha": "5732f2de0040c52ec0de325dbcfde94431d390aa"
+      },
+      "payments_coordinator_hdk": {
+        "declaration": "hdk = { workspace = true }",
+        "blob_sha": "d9f74d8284baeef1220b77ad2a1d536dacacd3c1"
+      },
+      "payments_integrity_hdi": {
+        "declaration": "hdi = { workspace = true }",
+        "blob_sha": "f4be3db81785bb72f48a99fa986501d917d77683"
+      },
+      "tend_coordinator_hdk": {
+        "declaration": "hdk = { workspace = true }",
+        "blob_sha": "a2b024b958c1ee28909e6adacd3b611300f6b73e"
+      },
+      "tend_integrity_hdi": {
+        "declaration": "hdi = { workspace = true }",
+        "blob_sha": "48187fefe8a982c4a7a711c6820882b953ce213d"
+      },
+      "hdk_unstable_countersigning_declared": false,
+      "hdk_unstable_functions_declared": false,
+      "hdi_unstable_functions_declared": false,
+      "note": "The audited Finance manifests do not declare the unstable-countersigning or unstable-functions Cargo features in the selected Payments/TEND crates. This establishes current source declarations only; it does not prove an alternative feature-unified dependency graph or custom runtime is impossible."
     }
   },
   "official_documentation": {
@@ -96,7 +129,22 @@
         "Countersigning is documented as unstable and disabled by default in Holochain 0.4 and newer.",
         "All participants must be online simultaneously for the countersigning session.",
         "Countersigning coordinates a shared write but is not itself a general double-spend prevention mechanism."
-      ]
+      ],
+      "required_compile_features": {
+        "source": "https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.4/",
+        "conductor_binary": [
+          "unstable-countersigning",
+          "unstable-functions"
+        ],
+        "hdk_dependency": [
+          "unstable-functions",
+          "unstable-countersigning"
+        ],
+        "hdi_dependency": [
+          "unstable-functions"
+        ],
+        "claim": "The 0.4+ upgrade guide says unstable features are no longer compiled into Holochain by default. Countersigning requires a custom conductor build with the named features and the corresponding HDK/HDI dependency features."
+      }
     },
     "local_zome_call_atomicity": {
       "status": "documented_platform_semantics",
@@ -149,5 +197,5 @@
     "Prove source-chain head movement rolls back local multi-entry writes and that retry reconciliation retains original operation identity.",
     "Repeat the same fixture against matched 0.6.1, 0.6.3 and 0.7.1 stacks before any runtime migration decision."
   ],
-  "qualification_claim": "This artifact records repository pins and official documentation statements. General warrants are documented stable in Holochain 0.6, but chain-fork warrants are separately documented as not operational. The public source docs claim conductor 0.6.1, while Finance flake.lock resolves a nested Holochain source ref holochain-0.6.0; actual binary --version is not captured. It contains no runtime binary digest, no enabled-countersigning proof, no live fork-warrant test, and no conductor integration result. It is not runtime qualification."
+  "qualification_claim": "This artifact records repository pins, Cargo feature declarations and official documentation. General invalid-operation warrants are documented stable in Holochain 0.6, but chain-fork warrants are separately documented as not operational. Countersigning requires explicit custom conductor and zome feature compilation; the audited Finance manifests do not declare those flags. The public source docs claim conductor 0.6.1, while Finance flake.lock resolves a nested Holochain source ref holochain-0.6.0; actual binary --version is not captured. It contains no runtime binary digest, no enabled-countersigning proof, no live fork-warrant test, and no conductor integration result. It is not runtime qualification."
 }
