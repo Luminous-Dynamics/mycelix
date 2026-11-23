@@ -332,13 +332,29 @@ pub struct AuthorityProofTarget {
     pub primary_id: String,
     pub postgres_timeline: u64,
     pub owner_epoch: u64,
+    /// Required for physical fencing: the exact successor the old primary
+    /// must be fenced away from.
+    pub successor_primary_id: Option<String>,
+    /// If set, a fencing attestor must be different from the database writer.
+    pub database_writer_public_key: Option<[u8; 32]>,
+    /// Optional exact predecessor state for a high-water proof.
+    pub expected_previous_highwater: Option<(u64, ProofDigest)>,
+    /// Optional exact successor lease being admitted by a high-water proof.
+    pub expected_new_lease: Option<(u64, Uuid, ProofDigest)>,
+    /// Optional exact transaction target for promotion eligibility.
+    pub expected_transaction_end_lsn: Option<u64>,
+    pub expected_highwater_proof_hash: Option<ProofDigest>,
+    pub expected_physical_fencing_proof_hash: Option<ProofDigest>,
 }
 
 #[derive(Debug, Clone)]
 pub struct AuthorityProofTrustPolicy {
-    pub trusted_public_keys: BTreeSet<[u8; 32]>,
+    /// Trust is keyed by the signed key ID; public keys are not learned from SQL.
+    pub trusted_issuer_keys: std::collections::BTreeMap<String, [u8; 32]>,
     pub required_issuer_role: AuthorityProofIssuerRole,
-    pub minimum_sequence: u64,
+    /// Last accepted sequence for this issuer/purpose/deployment domain.
+    /// New proofs must strictly advance it.
+    pub last_accepted_sequence: u64,
     pub clock_skew: Duration,
 }
 
@@ -382,13 +398,13 @@ impl SignedAuthorityProofReceipt {
         {
             return Err("authority proof purpose or issuer role does not satisfy policy".into());
         }
-        if policy.trusted_public_keys.is_empty()
-            || !policy.trusted_public_keys.contains(&self.issuer_public_key)
+        if policy.trusted_issuer_keys.is_empty()
+            || policy.trusted_issuer_keys.get(&self.issuer_key_id) != Some(&self.issuer_public_key)
         {
-            return Err("authority proof issuer is not in the configured trust set".into());
+            return Err("authority proof key ID/public key is not in the configured trust set".into());
         }
-        if self.receipt.sequence < policy.minimum_sequence {
-            return Err("authority proof sequence is below the external anti-replay high-water".into());
+        if self.receipt.sequence <= policy.last_accepted_sequence {
+            return Err("authority proof sequence does not advance the external anti-replay high-water".into());
         }
         if self.receipt.deployment_id != target.deployment_id
             || self.receipt.database_system_identifier != target.database_system_identifier
@@ -397,6 +413,80 @@ impl SignedAuthorityProofReceipt {
             || self.receipt.owner_epoch != target.owner_epoch
         {
             return Err("authority proof does not bind the exact deployment, database, primary, timeline and owner epoch".into());
+        }
+
+        match &self.receipt.payload {
+            AuthorityProofPayload::LeaseHighWater {
+                previous_generation,
+                previous_lease_hash,
+                new_generation,
+                new_lease_id,
+                new_lease_hash,
+                ..
+            } => {
+                if let Some((expected_generation, expected_hash)) = target.expected_previous_highwater {
+                    if *previous_generation != expected_generation
+                        || *previous_lease_hash != expected_hash
+                    {
+                        return Err("lease high-water proof does not extend the verifier's exact external predecessor".into());
+                    }
+                }
+                if let Some((expected_generation, expected_id, expected_hash)) = target.expected_new_lease {
+                    if *new_generation != expected_generation
+                        || *new_lease_id != expected_id
+                        || *new_lease_hash != expected_hash
+                    {
+                        return Err("lease high-water proof does not authorize the exact successor lease".into());
+                    }
+                }
+            }
+            AuthorityProofPayload::PhysicalFencing {
+                old_primary_id,
+                old_system_identifier,
+                old_timeline,
+                owner_epoch,
+                successor_primary_id,
+                ..
+            } => {
+                if old_primary_id != &self.receipt.primary_id
+                    || old_system_identifier != &self.receipt.database_system_identifier
+                    || *old_timeline != self.receipt.postgres_timeline
+                    || *owner_epoch != self.receipt.owner_epoch
+                {
+                    return Err("physical fencing proof payload does not match its signed outer target".into());
+                }
+                if target.successor_primary_id.as_deref() != Some(successor_primary_id.as_str()) {
+                    return Err("physical fencing proof does not bind the exact expected successor primary".into());
+                }
+                if target.database_writer_public_key == Some(self.issuer_public_key) {
+                    return Err("physical fencing attestor must be independent from the database writer key".into());
+                }
+            }
+            AuthorityProofPayload::PromotionEligibility {
+                candidate_primary_id,
+                candidate_system_identifier,
+                candidate_timeline,
+                target_transaction_end_lsn,
+                lease_highwater_proof_hash,
+                physical_fencing_proof_hash,
+                ..
+            } => {
+                if candidate_primary_id != &self.receipt.primary_id
+                    || candidate_system_identifier != &self.receipt.database_system_identifier
+                    || *candidate_timeline != self.receipt.postgres_timeline
+                {
+                    return Err("promotion eligibility payload does not match its signed candidate identity".into());
+                }
+                if target.expected_transaction_end_lsn
+                    .is_some_and(|expected| expected != *target_transaction_end_lsn)
+                    || target.expected_highwater_proof_hash
+                        .is_some_and(|expected| expected != *lease_highwater_proof_hash)
+                    || target.expected_physical_fencing_proof_hash
+                        .is_some_and(|expected| expected != *physical_fencing_proof_hash)
+                {
+                    return Err("promotion eligibility proof does not bind the expected effect/high-water/fencing evidence".into());
+                }
+            }
         }
         Ok(self.receipt.digest()?)
     }
@@ -584,9 +674,11 @@ mod tests {
         signed.verify_signature().unwrap();
 
         let policy = AuthorityProofTrustPolicy {
-            trusted_public_keys: [key.verifying_key().to_bytes()].into_iter().collect(),
+            trusted_issuer_keys: [("fixture-proof-key".to_owned(), key.verifying_key().to_bytes())]
+                .into_iter()
+                .collect(),
             required_issuer_role: AuthorityProofIssuerRole::PhysicalFencingAttestor,
-            minimum_sequence: 9,
+            last_accepted_sequence: 8,
             clock_skew: Duration::zero(),
         };
         let target = AuthorityProofTarget {
@@ -595,6 +687,13 @@ mod tests {
             primary_id: "postgres-old".into(),
             postgres_timeline: 2,
             owner_epoch: 3,
+            successor_primary_id: Some("postgres-new".into()),
+            database_writer_public_key: Some([85; 32]),
+            expected_previous_highwater: None,
+            expected_new_lease: None,
+            expected_transaction_end_lsn: None,
+            expected_highwater_proof_hash: None,
+            expected_physical_fencing_proof_hash: None,
         };
         signed
             .verify_for_target(
@@ -645,9 +744,11 @@ mod tests {
         );
         let signed = sign(receipt, &key);
         let policy = AuthorityProofTrustPolicy {
-            trusted_public_keys: [key.verifying_key().to_bytes()].into_iter().collect(),
+            trusted_issuer_keys: [("fixture-proof-key".to_owned(), key.verifying_key().to_bytes())]
+                .into_iter()
+                .collect(),
             required_issuer_role: AuthorityProofIssuerRole::LeaseHighWaterAuthority,
-            minimum_sequence: 10,
+            last_accepted_sequence: 9,
             clock_skew: Duration::zero(),
         };
         let target = AuthorityProofTarget {
@@ -656,6 +757,13 @@ mod tests {
             primary_id: "postgres-a".into(),
             postgres_timeline: 2,
             owner_epoch: 3,
+            successor_primary_id: None,
+            database_writer_public_key: None,
+            expected_previous_highwater: None,
+            expected_new_lease: None,
+            expected_transaction_end_lsn: None,
+            expected_highwater_proof_hash: None,
+            expected_physical_fencing_proof_hash: None,
         };
         assert!(signed
             .verify_for_target(
