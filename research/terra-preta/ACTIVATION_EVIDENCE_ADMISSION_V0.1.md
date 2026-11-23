@@ -16,7 +16,7 @@ The data lineage and modality-specific observation-operator details remain owned
 
 ## v0.1 admission rules
 
-For a direct observation to support an edge state, the record must have an immutable artifact URI/SHA-256, method/version, calibration/reference identity, passed QC, matching specimen/event, a named spatial-support identity, a registered 3D edge mapping with transformation identity, and a time window intersecting the event.
+For a direct observation to support an edge state, the record must have an immutable artifact URI/SHA-256, method/version, calibration/reference identity, passed QC, matching specimen/event, a named spatial-support identity, a registered 3D edge mapping with transformation identity, quantified registration error below the task-profile limit, and sufficient spatial-support overlap. A bulk outlet breakthrough curve is a boundary-integrated network response: it cannot identify one edge in a parallel network, even if it is a valid direct tracer observation at the core boundary.
 
 A positive observation may support active state only when the lower confidence bound on measured flux exceeds the event's predeclared minimum relevant flux at or above the task profile's required confidence level. A point estimate above threshold is not enough.
 
@@ -42,9 +42,11 @@ Eight edges cover:
 5. model-only prediction;
 6. conflicting direct positive and negative measurements;
 7. evidence from the wrong event;
-8. a core aggregate not registered to the specific 3D edge.
+8. a core aggregate not registered to the specific 3D edge;
+9. a boundary-integrated outlet tracer response that cannot identify a single edge;
+10. a high-registration-error observation despite a nominal edge mapping.
 
-Expected output: one confirmed-active, one confirmed-inactive and six unassessed. All fixture artifacts and values are manufactured.
+Expected output: one confirmed-active, one confirmed-inactive and eight unassessed. All fixture artifacts and values are manufactured.
 
 ## Reproducibility and safety
 
