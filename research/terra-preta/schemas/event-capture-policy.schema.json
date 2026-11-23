@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic event-capture policy submission",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "evidence_class",
+    "submission_id",
+    "policy_resource_limits",
+    "policies"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "event-capture-policy-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_policy_schedule_only_not_empirical"
+    },
+    "evidence_class": {
+      "const": "synthetic"
+    },
+    "submission_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy_resource_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maximum_samples_per_policy",
+        "sample_cost_units"
+      ],
+      "properties": {
+        "maximum_samples_per_policy": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "sample_cost_units": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "policies": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "policy_id",
+          "policy_family",
+          "policy_version",
+          "policy_code_sha256",
+          "policy_config_sha256",
+          "requested_times_hours",
+          "policy_role"
+        ],
+        "properties": {
+          "policy_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "policy_family": {
+            "enum": [
+              "fixed_cadence",
+              "random",
+              "distribution_sampling",
+              "uncertainty_triggered",
+              "threshold_triggered",
+              "event_triggered",
+              "entropy_eig",
+              "decision_evsi",
+              "hindsight_oracle"
+            ]
+          },
+          "policy_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "policy_code_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "policy_config_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "random_seed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "requested_times_hours": {
+            "type": "array",
+            "minItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "number"
+            }
+          },
+          "policy_role": {
+            "enum": [
+              "candidate",
+              "evaluator_only_reference"
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "policy_family": {
+                  "const": "hindsight_oracle"
+                }
+              },
+              "required": [
+                "policy_family"
+              ]
+            },
+            "then": {
+              "properties": {
+                "policy_role": {
+                  "const": "evaluator_only_reference"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "policy_family": {
+                  "not": {
+                    "const": "hindsight_oracle"
+                  }
+                }
+              },
+              "required": [
+                "policy_family"
+              ]
+            },
+            "then": {
+              "properties": {
+                "policy_role": {
+                  "const": "candidate"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

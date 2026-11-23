@@ -1,0 +1,71 @@
+name: Terra Preta known-truth event-capture benchmark
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/EVENT_CAPTURE_BENCHMARK_V0.1.md'
+      - 'research/terra-preta/schemas/event-capture-*.schema.json'
+      - 'research/terra-preta/tools/event-capture-benchmark/**'
+      - '.github/workflows/terra-preta-event-capture-benchmark.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  event-capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/event-capture-benchmark/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/event-capture-benchmark/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/event-capture-benchmark/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate separate policy and evaluator inputs
+        run: |
+          base=research/terra-preta/tools/event-capture-benchmark/fixtures
+          jsonschema-cli validate research/terra-preta/schemas/event-capture-policy.schema.json \
+            --instance "$base/policy-submission.json" --draft 2020 --assert-format
+          jsonschema-cli validate research/terra-preta/schemas/event-capture-truth.schema.json \
+            --instance "$base/evaluator-truth.json" --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/event-capture-benchmark/Cargo.toml -- \
+            "$base/policy-submission.json" "$base/evaluator-truth.json" "$RUNNER_TEMP/event-capture-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/event-capture-report.schema.json \
+            --instance "$RUNNER_TEMP/event-capture-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_event_capture_score_not_empirical" and
+            .policy_count == 3 and
+            all(.policies[]; .sample_count == 14 and .sample_cost_units == 14) and
+            ([.policies[] | select(.policy_id == "event-focused-static")][0].events_detected == 2) and
+            ([.policies[] | select(.policy_id == "fixed-8h")][0].missed_event_count == 2) and
+            .controls.no_interpolation_or_nearest_neighbor == true and
+            .controls.no_aggregate_policy_score == true
+          ' "$RUNNER_TEMP/event-capture-report.json"
+      - name: Reject truth values in policy submission
+        run: |
+          base=research/terra-preta/tools/event-capture-benchmark/fixtures
+          jq '.policies[0].latent_truth = [1,2,3]' "$base/policy-submission.json" > "$RUNNER_TEMP/leaky-policy.json"
+          if jsonschema-cli validate research/terra-preta/schemas/event-capture-policy.schema.json --instance "$RUNNER_TEMP/leaky-policy.json" --draft 2020 --assert-format; then
+            echo "Expected policy truth-field rejection"
+            exit 1
+          fi
+      - name: Reject create-new overwrite
+        run: |
+          base=research/terra-preta/tools/event-capture-benchmark/fixtures
+          report="$RUNNER_TEMP/existing-event-capture.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/event-capture-benchmark/Cargo.toml -- \
+            "$base/policy-submission.json" "$base/evaluator-truth.json" "$report"; then
+            echo "Expected output overwrite rejection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"

@@ -1,0 +1,522 @@
+{
+  "schema_version": "event-capture-truth-v0.1",
+  "fixture_status": "synthetic_evaluator_only_truth_not_policy_input",
+  "evidence_class": "synthetic",
+  "scenario_id": "manufactured-broad-and-narrow-pulse-capture",
+  "response_variable": "soil_respiration_like_response",
+  "response_unit": "synthetic_response_unit",
+  "measurement_operator": {
+    "operator_id": "manufactured_exact_timestamp_point_sensor",
+    "temporal_support": "point_sample_at_exact_timestamp",
+    "noise_model": "zero_noise_manufactured_truth"
+  },
+  "baseline_window": {
+    "start_hours": 0,
+    "end_hours": 20
+  },
+  "maximum_event_integration_gap_hours": 3,
+  "truth_series": [
+    {
+      "elapsed_hours": 0,
+      "response_value": 10,
+      "forcing_value": 0.2
+    },
+    {
+      "elapsed_hours": 1,
+      "response_value": 10,
+      "forcing_value": 0.202
+    },
+    {
+      "elapsed_hours": 2,
+      "response_value": 10,
+      "forcing_value": 0.204
+    },
+    {
+      "elapsed_hours": 3,
+      "response_value": 10,
+      "forcing_value": 0.206
+    },
+    {
+      "elapsed_hours": 4,
+      "response_value": 10,
+      "forcing_value": 0.208
+    },
+    {
+      "elapsed_hours": 5,
+      "response_value": 10,
+      "forcing_value": 0.21
+    },
+    {
+      "elapsed_hours": 6,
+      "response_value": 10,
+      "forcing_value": 0.212
+    },
+    {
+      "elapsed_hours": 7,
+      "response_value": 10,
+      "forcing_value": 0.214
+    },
+    {
+      "elapsed_hours": 8,
+      "response_value": 10,
+      "forcing_value": 0.216
+    },
+    {
+      "elapsed_hours": 9,
+      "response_value": 10,
+      "forcing_value": 0.218
+    },
+    {
+      "elapsed_hours": 10,
+      "response_value": 10,
+      "forcing_value": 0.22
+    },
+    {
+      "elapsed_hours": 11,
+      "response_value": 10,
+      "forcing_value": 0.222
+    },
+    {
+      "elapsed_hours": 12,
+      "response_value": 10,
+      "forcing_value": 0.224
+    },
+    {
+      "elapsed_hours": 13,
+      "response_value": 10,
+      "forcing_value": 0.226
+    },
+    {
+      "elapsed_hours": 14,
+      "response_value": 10,
+      "forcing_value": 0.228
+    },
+    {
+      "elapsed_hours": 15,
+      "response_value": 10,
+      "forcing_value": 0.23
+    },
+    {
+      "elapsed_hours": 16,
+      "response_value": 10,
+      "forcing_value": 0.232
+    },
+    {
+      "elapsed_hours": 17,
+      "response_value": 10,
+      "forcing_value": 0.234
+    },
+    {
+      "elapsed_hours": 18,
+      "response_value": 10,
+      "forcing_value": 0.236
+    },
+    {
+      "elapsed_hours": 19,
+      "response_value": 10,
+      "forcing_value": 0.238
+    },
+    {
+      "elapsed_hours": 20,
+      "response_value": 10,
+      "forcing_value": 0.24
+    },
+    {
+      "elapsed_hours": 21,
+      "response_value": 10,
+      "forcing_value": 0.242
+    },
+    {
+      "elapsed_hours": 22,
+      "response_value": 10,
+      "forcing_value": 0.244
+    },
+    {
+      "elapsed_hours": 23,
+      "response_value": 10,
+      "forcing_value": 0.246
+    },
+    {
+      "elapsed_hours": 24,
+      "response_value": 10,
+      "forcing_value": 0.168
+    },
+    {
+      "elapsed_hours": 25,
+      "response_value": 11,
+      "forcing_value": 0.17
+    },
+    {
+      "elapsed_hours": 26,
+      "response_value": 13,
+      "forcing_value": 0.172
+    },
+    {
+      "elapsed_hours": 27,
+      "response_value": 16,
+      "forcing_value": 0.174
+    },
+    {
+      "elapsed_hours": 28,
+      "response_value": 18,
+      "forcing_value": 0.176
+    },
+    {
+      "elapsed_hours": 29,
+      "response_value": 16,
+      "forcing_value": 0.178
+    },
+    {
+      "elapsed_hours": 30,
+      "response_value": 13,
+      "forcing_value": 0.18
+    },
+    {
+      "elapsed_hours": 31,
+      "response_value": 11,
+      "forcing_value": 0.182
+    },
+    {
+      "elapsed_hours": 32,
+      "response_value": 10,
+      "forcing_value": 0.184
+    },
+    {
+      "elapsed_hours": 33,
+      "response_value": 10,
+      "forcing_value": 0.266
+    },
+    {
+      "elapsed_hours": 34,
+      "response_value": 10,
+      "forcing_value": 0.268
+    },
+    {
+      "elapsed_hours": 35,
+      "response_value": 10,
+      "forcing_value": 0.27
+    },
+    {
+      "elapsed_hours": 36,
+      "response_value": 10,
+      "forcing_value": 0.272
+    },
+    {
+      "elapsed_hours": 37,
+      "response_value": 10,
+      "forcing_value": 0.274
+    },
+    {
+      "elapsed_hours": 38,
+      "response_value": 10,
+      "forcing_value": 0.276
+    },
+    {
+      "elapsed_hours": 39,
+      "response_value": 10,
+      "forcing_value": 0.278
+    },
+    {
+      "elapsed_hours": 40,
+      "response_value": 10,
+      "forcing_value": 0.28
+    },
+    {
+      "elapsed_hours": 41,
+      "response_value": 10,
+      "forcing_value": 0.282
+    },
+    {
+      "elapsed_hours": 42,
+      "response_value": 10,
+      "forcing_value": 0.284
+    },
+    {
+      "elapsed_hours": 43,
+      "response_value": 10,
+      "forcing_value": 0.286
+    },
+    {
+      "elapsed_hours": 44,
+      "response_value": 10,
+      "forcing_value": 0.288
+    },
+    {
+      "elapsed_hours": 45,
+      "response_value": 10,
+      "forcing_value": 0.29
+    },
+    {
+      "elapsed_hours": 46,
+      "response_value": 10,
+      "forcing_value": 0.292
+    },
+    {
+      "elapsed_hours": 47,
+      "response_value": 10,
+      "forcing_value": 0.294
+    },
+    {
+      "elapsed_hours": 48,
+      "response_value": 10,
+      "forcing_value": 0.296
+    },
+    {
+      "elapsed_hours": 49,
+      "response_value": 10,
+      "forcing_value": 0.298
+    },
+    {
+      "elapsed_hours": 50,
+      "response_value": 10,
+      "forcing_value": 0.3
+    },
+    {
+      "elapsed_hours": 51,
+      "response_value": 10,
+      "forcing_value": 0.302
+    },
+    {
+      "elapsed_hours": 52,
+      "response_value": 10,
+      "forcing_value": 0.304
+    },
+    {
+      "elapsed_hours": 53,
+      "response_value": 10,
+      "forcing_value": 0.306
+    },
+    {
+      "elapsed_hours": 54,
+      "response_value": 10,
+      "forcing_value": 0.308
+    },
+    {
+      "elapsed_hours": 55,
+      "response_value": 10,
+      "forcing_value": 0.31
+    },
+    {
+      "elapsed_hours": 56,
+      "response_value": 10,
+      "forcing_value": 0.312
+    },
+    {
+      "elapsed_hours": 57,
+      "response_value": 10,
+      "forcing_value": 0.314
+    },
+    {
+      "elapsed_hours": 58,
+      "response_value": 10,
+      "forcing_value": 0.316
+    },
+    {
+      "elapsed_hours": 59,
+      "response_value": 10,
+      "forcing_value": 0.318
+    },
+    {
+      "elapsed_hours": 60,
+      "response_value": 10,
+      "forcing_value": 0.32
+    },
+    {
+      "elapsed_hours": 61,
+      "response_value": 10,
+      "forcing_value": 0.322
+    },
+    {
+      "elapsed_hours": 62,
+      "response_value": 10,
+      "forcing_value": 0.324
+    },
+    {
+      "elapsed_hours": 63,
+      "response_value": 10,
+      "forcing_value": 0.326
+    },
+    {
+      "elapsed_hours": 64,
+      "response_value": 10,
+      "forcing_value": 0.328
+    },
+    {
+      "elapsed_hours": 65,
+      "response_value": 10,
+      "forcing_value": 0.33
+    },
+    {
+      "elapsed_hours": 66,
+      "response_value": 10,
+      "forcing_value": 0.332
+    },
+    {
+      "elapsed_hours": 67,
+      "response_value": 10,
+      "forcing_value": 0.334
+    },
+    {
+      "elapsed_hours": 68,
+      "response_value": 10,
+      "forcing_value": 0.336
+    },
+    {
+      "elapsed_hours": 69,
+      "response_value": 10,
+      "forcing_value": 0.338
+    },
+    {
+      "elapsed_hours": 70,
+      "response_value": 10,
+      "forcing_value": 0.34
+    },
+    {
+      "elapsed_hours": 71,
+      "response_value": 10,
+      "forcing_value": 0.342
+    },
+    {
+      "elapsed_hours": 72,
+      "response_value": 10,
+      "forcing_value": 0.224
+    },
+    {
+      "elapsed_hours": 73,
+      "response_value": 11,
+      "forcing_value": 0.226
+    },
+    {
+      "elapsed_hours": 74,
+      "response_value": 16,
+      "forcing_value": 0.228
+    },
+    {
+      "elapsed_hours": 75,
+      "response_value": 11,
+      "forcing_value": 0.23
+    },
+    {
+      "elapsed_hours": 76,
+      "response_value": 10,
+      "forcing_value": 0.232
+    },
+    {
+      "elapsed_hours": 77,
+      "response_value": 10,
+      "forcing_value": 0.354
+    },
+    {
+      "elapsed_hours": 78,
+      "response_value": 10,
+      "forcing_value": 0.356
+    },
+    {
+      "elapsed_hours": 79,
+      "response_value": 10,
+      "forcing_value": 0.358
+    },
+    {
+      "elapsed_hours": 80,
+      "response_value": 10,
+      "forcing_value": 0.36
+    },
+    {
+      "elapsed_hours": 81,
+      "response_value": 10,
+      "forcing_value": 0.362
+    },
+    {
+      "elapsed_hours": 82,
+      "response_value": 10,
+      "forcing_value": 0.364
+    },
+    {
+      "elapsed_hours": 83,
+      "response_value": 10,
+      "forcing_value": 0.366
+    },
+    {
+      "elapsed_hours": 84,
+      "response_value": 10,
+      "forcing_value": 0.368
+    },
+    {
+      "elapsed_hours": 85,
+      "response_value": 10,
+      "forcing_value": 0.37
+    },
+    {
+      "elapsed_hours": 86,
+      "response_value": 10,
+      "forcing_value": 0.372
+    },
+    {
+      "elapsed_hours": 87,
+      "response_value": 10,
+      "forcing_value": 0.374
+    },
+    {
+      "elapsed_hours": 88,
+      "response_value": 10,
+      "forcing_value": 0.376
+    },
+    {
+      "elapsed_hours": 89,
+      "response_value": 10,
+      "forcing_value": 0.378
+    },
+    {
+      "elapsed_hours": 90,
+      "response_value": 10,
+      "forcing_value": 0.38
+    },
+    {
+      "elapsed_hours": 91,
+      "response_value": 10,
+      "forcing_value": 0.382
+    },
+    {
+      "elapsed_hours": 92,
+      "response_value": 10,
+      "forcing_value": 0.384
+    },
+    {
+      "elapsed_hours": 93,
+      "response_value": 10,
+      "forcing_value": 0.386
+    },
+    {
+      "elapsed_hours": 94,
+      "response_value": 10,
+      "forcing_value": 0.388
+    },
+    {
+      "elapsed_hours": 95,
+      "response_value": 10,
+      "forcing_value": 0.39
+    },
+    {
+      "elapsed_hours": 96,
+      "response_value": 10,
+      "forcing_value": 0.392
+    }
+  ],
+  "events": [
+    {
+      "event_id": "broad-rewetting-pulse",
+      "event_type": "rewetting_respiration_pulse",
+      "start_hours": 24,
+      "end_hours": 32,
+      "minimum_detectable_absolute_departure": 2
+    },
+    {
+      "event_id": "narrow-n-oxide-pulse",
+      "event_type": "n_oxide_pulse",
+      "start_hours": 72,
+      "end_hours": 76,
+      "minimum_detectable_absolute_departure": 2
+    }
+  ],
+  "off_event_false_trigger_absolute_departure_threshold": 2
+}
