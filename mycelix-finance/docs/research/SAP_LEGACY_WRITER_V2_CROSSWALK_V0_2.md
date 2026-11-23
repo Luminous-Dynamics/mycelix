@@ -120,3 +120,17 @@ The crosswalk therefore requires:
 
 This is not a claim that countersigning cannot be enabled on the current conductor. It is a requirement to prove that it is enabled and behaves as assumed before any high-assurance output is spendable.
 
+## 9. Machine-readable runtime evidence boundary
+
+The companion `holochain-runtime-capability-matrix.v0.1.json` records the Finance source pins and the exact limits of the current official runtime documentation. It is deliberately labelled `repository_source_and_official_docs_audit_not_runtime_qualification`.
+
+It records:
+- repository-documented conductor 0.6.1 and Holonix ref `d21b3543`;
+- repository-documented HDK 0.6.1 / HDI 0.7.1 and matching Holochain type pins;
+- exact conductor binary, actual runtime feature enablement, DNA/WASM pack digests and live countersigning session tests as **not proven**;
+- chain-fork warrants as **not operational per current official docs**;
+- countersigning as unstable/disabled by default in 0.4+ docs, with its exact Mycelix 0.6.1 enablement left **unknown**;
+- `GoodSoFar` as provisional observation, never finality.
+
+This is an evidence classification, not a claim that Holochain 0.6.1 cannot enable countersigning. FIN-SAFE-021 / #6576 owns the exact runtime manifest and integration tests. The 25-case adversarial corpus includes delayed fork discovery, unavailable countersigning, and incomplete witness sessions; all must remain Indeterminate until proven otherwise.
+
