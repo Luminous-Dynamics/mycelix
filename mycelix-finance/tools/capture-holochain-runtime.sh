@@ -50,7 +50,7 @@ nix develop .#ci --no-write-lock-file --command bash -c '
 
 runtime_binaries="$OUT_DIR/runtime-binaries.json"
 jq -Rn '
-  [inputs | split("\\t") | {
+  [inputs | split("\t") | {
     name:.[0],
     path:.[1],
     resolved_path:.[2],
