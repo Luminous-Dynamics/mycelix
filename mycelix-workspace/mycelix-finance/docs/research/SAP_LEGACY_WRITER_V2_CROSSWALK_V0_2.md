@@ -94,3 +94,29 @@ Candidate research target: at least 20% lower p95 total processing cost or 20% m
 ## 7. Claim ceiling
 
 This PR is a crosswalk and structural CI artifact only. It does not implement V2 account/transfer/Hearth logic, validate issuers, prove network finality, enable any DNA config, migrate legacy balances or claim SOTA performance. The referenced PRs/issues retain their own exact-head qualification and claim limits.
+
+## 8. Runtime capability blocker: fork warrants and countersigning
+
+A V2 value-note design must not imply Holochain runtime guarantees that have not been verified.
+
+The current official Holochain developer documentation states:
+- chain-fork warrants are not operational yet; ordinary invalid-operation warrants and chain-fork evidence are distinct;
+- agent activity / DHT observations are eventually consistent; the absence of a known fork or warrant is not proof that no conflict exists;
+- countersigning is labelled unstable and disabled by default in Holochain 0.4 and newer;
+- countersigning synchronizes a shared write, requires all participants online for the session, and is explicitly not by itself a double-spend prevention mechanism.
+
+The current Finance workspace records conductor 0.6.1 via Holonix commit `d21b3543`, HDK 0.6.1 and HDI 0.7.1. Holochain's current compatibility matrix lists 0.6 as maintenance mode (0.6.3 latest compatible) and recommends 0.7.1 for general use. A runtime migration is not assumed here; it needs a matched build/DNA/conductor proof.
+
+This gap is tracked by [FIN-SAFE-021 / #6576](https://github.com/Luminous-Dynamics/mycelix/issues/6576). The witness and spendability roadmap is conditional on that exact-runtime qualification.
+
+**Required status vocabulary:** `NotAvailable`, `GoodSoFar`, `BadActor`, `Conflict`, `Indeterminate`, and `Provisional`. `GoodSoFar` means no conflict has yet been observed by the queried authorities; it is not finality. Missing fork warrants, incomplete authority coverage, unavailable countersigning or a timed-out witness session must never promote an output to `SpendableWitnessed`.
+
+The crosswalk therefore requires:
+1. an exact runtime capability manifest for the shipped conductor, HDK, HDI, DNA, feature flags and Holonix/Nix inputs;
+2. reproducible capability tests on the current 0.6.1 pin, latest 0.6 maintenance (0.6.3) and recommended 0.7.1;
+3. explicit countersigning enablement evidence before relying on its session API;
+4. host-level tests for source-chain fork visibility, delayed discovery, `get_agent_activity` status, witness timeout, offline signers, equivocation and no-warrant `GoodSoFar`;
+5. a claim ceiling that stays fork-detection-only/provisional until the actual runtime and independent witness policy are qualified.
+
+This is not a claim that countersigning cannot be enabled on the current conductor. It is a requirement to prove that it is enabled and behaves as assumed before any high-assurance output is spendable.
+
