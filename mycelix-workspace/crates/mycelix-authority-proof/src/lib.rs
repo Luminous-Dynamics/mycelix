@@ -1126,6 +1126,105 @@ mod tests {
     }
 
     #[test]
+    fn wal_commit_position_proof_binds_exact_effect_marker_and_end_lsn() {
+        let key = SigningKey::from_bytes(&[93; 32]);
+        let effect_id = Uuid::from_bytes([0x31; 16]);
+        let attestation_id = Uuid::from_bytes([0x32; 16]);
+        let marker_digest = ProofDigest([0x33; 32]);
+        let receipt = common(
+            AuthorityProofPurpose::WalCommitPosition,
+            AuthorityProofIssuerRole::WalCommitObserver,
+            AuthorityProofPayload::WalCommitPosition {
+                effect_id,
+                execution_attestation_id: attestation_id,
+                marker_digest,
+                transaction_id: "734201".into(),
+                commit_lsn: 4096,
+                transaction_end_lsn: 4352,
+            },
+        );
+        let signed = sign(receipt, &key);
+        let policy = AuthorityProofTrustPolicy {
+            trusted_issuer_keys: [(
+                "fixture-proof-key".to_owned(),
+                key.verifying_key().to_bytes(),
+            )]
+            .into_iter()
+            .collect(),
+            required_issuer_role: AuthorityProofIssuerRole::WalCommitObserver,
+            last_accepted_sequence: 8,
+            clock_skew: Duration::zero(),
+        };
+        let target = AuthorityProofTarget {
+            deployment_id: "deployment:test".into(),
+            database_system_identifier: "731245".into(),
+            primary_id: "postgres-a".into(),
+            postgres_timeline: 2,
+            owner_epoch: 3,
+            successor_primary_id: None,
+            database_writer_public_key: None,
+            expected_previous_highwater: None,
+            expected_new_lease: None,
+            expected_transaction_end_lsn: Some(4352),
+            expected_timeline_ancestry_hash: None,
+            expected_highwater_proof_hash: None,
+            expected_physical_fencing_proof_hash: None,
+            expected_effect_id: Some(effect_id),
+            expected_attestation_id: Some(attestation_id),
+            expected_marker_digest: Some(marker_digest),
+            expected_transaction_id: Some("734201".into()),
+        };
+        let digest = signed
+            .verify_for_target(
+                &policy,
+                AuthorityProofPurpose::WalCommitPosition,
+                &target,
+                Utc.with_ymd_and_hms(2026, 11, 23, 10, 0, 3).unwrap(),
+            )
+            .unwrap();
+        assert_eq!(digest, signed.signed_receipt_hash().unwrap());
+
+        let wrong_end_lsn = AuthorityProofTarget {
+            expected_transaction_end_lsn: Some(4353),
+            ..target.clone()
+        };
+        assert!(signed
+            .verify_for_target(
+                &policy,
+                AuthorityProofPurpose::WalCommitPosition,
+                &wrong_end_lsn,
+                Utc.with_ymd_and_hms(2026, 11, 23, 10, 0, 3).unwrap(),
+            )
+            .is_err());
+
+        let wrong_marker = AuthorityProofTarget {
+            expected_marker_digest: Some(ProofDigest([0x34; 32])),
+            ..target
+        };
+        assert!(signed
+            .verify_for_target(
+                &policy,
+                AuthorityProofPurpose::WalCommitPosition,
+                &wrong_marker,
+                Utc.with_ymd_and_hms(2026, 11, 23, 10, 0, 3).unwrap(),
+            )
+            .is_err());
+
+        let invalid_chronology = AuthorityProofReceipt {
+            payload: AuthorityProofPayload::WalCommitPosition {
+                effect_id,
+                execution_attestation_id: attestation_id,
+                marker_digest,
+                transaction_id: "734201".into(),
+                commit_lsn: 4353,
+                transaction_end_lsn: 4352,
+            },
+            ..signed.receipt.clone()
+        };
+        assert!(invalid_chronology.validate().is_err());
+    }
+
+    #[test]
     fn network_partition_is_not_accepted_as_physical_fencing() {
         let receipt = common(
             AuthorityProofPurpose::PhysicalFencing,
