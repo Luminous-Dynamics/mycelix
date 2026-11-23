@@ -533,7 +533,9 @@ impl SignedAuthorityProofReceipt {
                 }
             }
         }
-        Ok(self.receipt.digest()?)
+        // Chain references commit to the signer identity and signature as well
+        // as the canonical proof payload, not merely to unsigned claim content.
+        self.signed_receipt_hash()
     }
 
     pub fn signed_receipt_hash(&self) -> ProofResult<ProofDigest> {
@@ -744,7 +746,7 @@ mod tests {
             expected_highwater_proof_hash: None,
             expected_physical_fencing_proof_hash: None,
         };
-        signed
+        let verified_hash = signed
             .verify_for_target(
                 &policy,
                 AuthorityProofPurpose::PhysicalFencing,
@@ -752,6 +754,8 @@ mod tests {
                 Utc.with_ymd_and_hms(2026, 11, 23, 10, 0, 3).unwrap(),
             )
             .unwrap();
+        assert_eq!(verified_hash, signed.signed_receipt_hash().unwrap());
+        assert_ne!(verified_hash, signed.receipt.digest().unwrap());
         assert!(signed
             .verify_for_target(
                 &policy,
