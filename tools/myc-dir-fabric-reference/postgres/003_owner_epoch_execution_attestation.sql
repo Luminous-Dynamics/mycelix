@@ -555,8 +555,8 @@ BEGIN
 
         SELECT *
           INTO v_attestation
-          FROM myc_effect_owner.effect_execution_attestations
-         WHERE effect_id = v_existing_effect.effect_id;
+          FROM myc_effect_owner.effect_execution_attestations AS attestation
+         WHERE attestation.effect_id = v_existing_effect.effect_id;
 
         IF NOT FOUND THEN
             RAISE EXCEPTION 'legacy effect has no execution attestation; reconciliation is required'
@@ -625,8 +625,8 @@ BEGIN
     IF v_effect_result.replayed THEN
         SELECT *
           INTO v_attestation
-          FROM myc_effect_owner.effect_execution_attestations
-         WHERE effect_id = v_effect_result.effect_id;
+          FROM myc_effect_owner.effect_execution_attestations AS attestation
+         WHERE attestation.effect_id = v_effect_result.effect_id;
 
         IF NOT FOUND THEN
             RAISE EXCEPTION 'legacy effect has no execution attestation; reconciliation is required'
