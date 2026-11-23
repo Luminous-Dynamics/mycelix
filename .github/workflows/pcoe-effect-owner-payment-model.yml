@@ -65,7 +65,7 @@ jobs:
             "$RUNNER_TEMP/tla2tools.jar" | sha1sum --check -
           java -version
 
-      - name: Check safe atomic-journal model
+      - name: Check safe two-owner transfer model
         working-directory: mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation
         shell: bash
         run: |
@@ -92,7 +92,7 @@ jobs:
             exit 1
           fi
           if ! grep -q "SenderIntentDebitAtomicity" "$RUNNER_TEMP/pcoe-payment-mutant-tlc.log"; then
-            echo "Mutant failed for a reason other than the expected partial-value-effect invariant." >&2
+            echo "Mutant failed for a reason other than the expected sender-intent/debit invariant." >&2
             cat "$RUNNER_TEMP/pcoe-payment-mutant-tlc.log"
             exit 1
           fi
