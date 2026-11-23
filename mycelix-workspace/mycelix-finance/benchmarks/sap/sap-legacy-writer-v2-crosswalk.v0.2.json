@@ -101,6 +101,13 @@
         "#6568"
       ],
       "role": "Hearth member/pool contribution and withdrawal theorem using owner-authored value-note effects."
+    },
+    {
+      "key": "FIN-SAFE-021",
+      "tracking": [
+        "#6576"
+      ],
+      "role": "Exact Holochain runtime qualification for fork evidence, countersigning enablement, 0.6.1/0.6.3/0.7.1 compatibility, and the claim ceiling of fork/witness assurance."
     }
   ],
   "writers": [
@@ -448,7 +455,8 @@
     "Do not treat countersigning alone as double-spend prevention; witness policy and allocation refusal are separate layers.",
     "Unknown/incomplete DHT, authority or receipt evidence remains Indeterminate.",
     "Cross-cell effects use durable operation identity, outbox, independent receipt and reconciliation; no false Completed state.",
-    "No raw positive credit or untyped debit remains reachable in the promoted V2 protocol."
+    "No raw positive credit or untyped debit remains reachable in the promoted V2 protocol.",
+    "The exact shipped runtime must prove which fork/witness capabilities are actually available; no-warrant/GoodSoFar observations are provisional and countersigning cannot be assumed enabled."
   ],
   "claim_ceiling": "This crosswalk inventories legacy writers and points to existing V2 theorem owners. It does not implement a new account protocol, prove that every referenced theorem has passed, activate V2, or qualify legacy migration."
 }
