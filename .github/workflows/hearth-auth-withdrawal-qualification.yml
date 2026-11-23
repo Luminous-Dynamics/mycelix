@@ -25,6 +25,10 @@ on:
       - "mycelix-workspace/mycelix-finance/zomes/tend/coordinator/src/lib.rs"
       - "mycelix-finance/docs/research/HEARTH_AUTHORIZATION_WITHDRAWAL_HARDENING_V0_1.md"
       - "mycelix-workspace/mycelix-finance/docs/research/HEARTH_AUTHORIZATION_WITHDRAWAL_HARDENING_V0_1.md"
+      - "mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json"
+      - "mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json"
   workflow_dispatch:
 
 permissions:
