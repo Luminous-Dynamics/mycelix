@@ -426,10 +426,15 @@ impl SignedAuthorityProofReceipt {
         if policy.trusted_issuer_keys.is_empty()
             || policy.trusted_issuer_keys.get(&self.issuer_key_id) != Some(&self.issuer_public_key)
         {
-            return Err("authority proof key ID/public key is not in the configured trust set".into());
+            return Err(
+                "authority proof key ID/public key is not in the configured trust set".into(),
+            );
         }
         if self.receipt.sequence <= policy.last_accepted_sequence {
-            return Err("authority proof sequence does not advance the external anti-replay high-water".into());
+            return Err(
+                "authority proof sequence does not advance the external anti-replay high-water"
+                    .into(),
+            );
         }
         if self.receipt.deployment_id != target.deployment_id
             || self.receipt.database_system_identifier != target.database_system_identifier
@@ -451,7 +456,10 @@ impl SignedAuthorityProofReceipt {
             } => {
                 let (expected_generation, expected_hash) = target
                     .expected_previous_highwater
-                    .ok_or_else(|| "lease high-water verification requires an externally supplied predecessor".to_owned())?;
+                    .ok_or_else(|| {
+                        "lease high-water verification requires an externally supplied predecessor"
+                            .to_owned()
+                    })?;
                 if *previous_generation != expected_generation
                     || *previous_lease_hash != expected_hash
                 {
@@ -459,12 +467,17 @@ impl SignedAuthorityProofReceipt {
                 }
                 let (expected_generation, expected_id, expected_hash) = target
                     .expected_new_lease
-                    .ok_or_else(|| "lease high-water verification requires the exact pending successor lease".to_owned())?;
+                    .ok_or_else(|| {
+                        "lease high-water verification requires the exact pending successor lease"
+                            .to_owned()
+                    })?;
                 if *new_generation != expected_generation
                     || *new_lease_id != expected_id
                     || *new_lease_hash != expected_hash
                 {
-                    return Err("lease high-water proof does not authorize the exact successor lease".into());
+                    return Err(
+                        "lease high-water proof does not authorize the exact successor lease".into(),
+                    );
                 }
             }
             AuthorityProofPayload::PhysicalFencing {
@@ -480,14 +493,21 @@ impl SignedAuthorityProofReceipt {
                     || *old_timeline != self.receipt.postgres_timeline
                     || *owner_epoch != self.receipt.owner_epoch
                 {
-                    return Err("physical fencing proof payload does not match its signed outer target".into());
+                    return Err(
+                        "physical fencing proof payload does not match its signed outer target"
+                            .into(),
+                    );
                 }
-                let expected_successor = target
-                    .successor_primary_id
-                    .as_deref()
-                    .ok_or_else(|| "physical fencing verification requires an exact successor primary".to_owned())?;
+                let expected_successor =
+                    target.successor_primary_id.as_deref().ok_or_else(|| {
+                        "physical fencing verification requires an exact successor primary"
+                            .to_owned()
+                    })?;
                 if expected_successor != successor_primary_id {
-                    return Err("physical fencing proof does not bind the exact expected successor primary".into());
+                    return Err(
+                        "physical fencing proof does not bind the exact expected successor primary"
+                            .into(),
+                    );
                 }
                 let database_writer_key = target
                     .database_writer_public_key
@@ -518,9 +538,10 @@ impl SignedAuthorityProofReceipt {
                 let expected_ancestry = target
                     .expected_timeline_ancestry_hash
                     .ok_or_else(|| "promotion proof verification requires the exact timeline ancestry commitment".to_owned())?;
-                let expected_highwater = target
-                    .expected_highwater_proof_hash
-                    .ok_or_else(|| "promotion proof verification requires the exact verified high-water proof".to_owned())?;
+                let expected_highwater = target.expected_highwater_proof_hash.ok_or_else(|| {
+                    "promotion proof verification requires the exact verified high-water proof"
+                        .to_owned()
+                })?;
                 let expected_fencing = target
                     .expected_physical_fencing_proof_hash
                     .ok_or_else(|| "promotion proof verification requires the exact verified physical-fencing proof".to_owned())?;
@@ -724,9 +745,12 @@ mod tests {
         signed.verify_signature().unwrap();
 
         let policy = AuthorityProofTrustPolicy {
-            trusted_issuer_keys: [("fixture-proof-key".to_owned(), key.verifying_key().to_bytes())]
-                .into_iter()
-                .collect(),
+            trusted_issuer_keys: [(
+                "fixture-proof-key".to_owned(),
+                key.verifying_key().to_bytes(),
+            )]
+            .into_iter()
+            .collect(),
             required_issuer_role: AuthorityProofIssuerRole::PhysicalFencingAttestor,
             last_accepted_sequence: 8,
             clock_skew: Duration::zero(),
@@ -798,9 +822,12 @@ mod tests {
         );
         let signed = sign(receipt, &key);
         let policy = AuthorityProofTrustPolicy {
-            trusted_issuer_keys: [("fixture-proof-key".to_owned(), key.verifying_key().to_bytes())]
-                .into_iter()
-                .collect(),
+            trusted_issuer_keys: [(
+                "fixture-proof-key".to_owned(),
+                key.verifying_key().to_bytes(),
+            )]
+            .into_iter()
+            .collect(),
             required_issuer_role: AuthorityProofIssuerRole::LeaseHighWaterAuthority,
             last_accepted_sequence: 8,
             clock_skew: Duration::zero(),
@@ -865,9 +892,12 @@ mod tests {
         );
         let signed = sign(receipt, &key);
         let policy = AuthorityProofTrustPolicy {
-            trusted_issuer_keys: [("fixture-proof-key".to_owned(), key.verifying_key().to_bytes())]
-                .into_iter()
-                .collect(),
+            trusted_issuer_keys: [(
+                "fixture-proof-key".to_owned(),
+                key.verifying_key().to_bytes(),
+            )]
+            .into_iter()
+            .collect(),
             required_issuer_role: AuthorityProofIssuerRole::PhysicalFencingAttestor,
             last_accepted_sequence: 11,
             clock_skew: Duration::zero(),
@@ -949,9 +979,12 @@ mod tests {
         receipt.postgres_timeline = 3;
         let signed = sign(receipt, &key);
         let policy = AuthorityProofTrustPolicy {
-            trusted_issuer_keys: [("fixture-proof-key".to_owned(), key.verifying_key().to_bytes())]
-                .into_iter()
-                .collect(),
+            trusted_issuer_keys: [(
+                "fixture-proof-key".to_owned(),
+                key.verifying_key().to_bytes(),
+            )]
+            .into_iter()
+            .collect(),
             required_issuer_role: AuthorityProofIssuerRole::PromotionController,
             last_accepted_sequence: 8,
             clock_skew: Duration::zero(),
@@ -1034,9 +1067,12 @@ mod tests {
         );
         let signed = sign(receipt, &key);
         let policy = AuthorityProofTrustPolicy {
-            trusted_issuer_keys: [("fixture-proof-key".to_owned(), key.verifying_key().to_bytes())]
-                .into_iter()
-                .collect(),
+            trusted_issuer_keys: [(
+                "fixture-proof-key".to_owned(),
+                key.verifying_key().to_bytes(),
+            )]
+            .into_iter()
+            .collect(),
             required_issuer_role: AuthorityProofIssuerRole::LeaseHighWaterAuthority,
             last_accepted_sequence: 9,
             clock_skew: Duration::zero(),
