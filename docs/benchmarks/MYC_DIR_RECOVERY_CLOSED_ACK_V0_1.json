@@ -329,6 +329,13 @@
       "kind": "performance",
       "unit": "milliseconds",
       "hard_limit": null
+    },
+    {
+      "id": "RCA-M28",
+      "name": "owner_epoch_or_resource_generation_coordinate_ahead_accepted",
+      "kind": "safety",
+      "unit": "receipts",
+      "hard_limit": 0
     }
   ],
   "scenarios": [
@@ -547,6 +554,12 @@
       "class": "known_reject",
       "description": "A test harness silently treats a one-node PostgreSQL synchronous_commit=on test as a multi-node failover qualification.",
       "expected_outcome": "EVIDENCE_CLAIM_REJECTED"
+    },
+    {
+      "id": "RCA-037",
+      "class": "known_reject",
+      "description": "An effect receipt belongs to an earlier owner epoch but carries a resource generation greater than the current command generation; validation must not treat the pair as lexicographically older.",
+      "expected_outcome": "COMPONENT_WISE_POSITION_CHECK_REJECTS_RECEIPT"
     }
   ],
   "evidence_requirements": [
