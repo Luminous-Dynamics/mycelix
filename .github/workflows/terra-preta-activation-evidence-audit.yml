@@ -1,0 +1,64 @@
+name: Terra Preta activation evidence admission audit
+
+on:
+  pull_request:
+    branches: [main, research/terra-dynamic-topology-v0.1]
+    paths:
+      - 'research/terra-preta/ACTIVATION_EVIDENCE_ADMISSION_V0.1.md'
+      - 'research/terra-preta/schemas/activation-evidence-*.schema.json'
+      - 'research/terra-preta/tools/activation-evidence-audit/**'
+      - '.github/workflows/terra-preta-activation-evidence-audit.yml'
+  push:
+    branches: [research/terra-activation-evidence-v0.1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  activation-evidence-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/activation-evidence-audit/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path research/terra-preta/tools/activation-evidence-audit/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/activation-evidence-audit/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate fixture and report
+        run: |
+          jsonschema-cli validate research/terra-preta/schemas/activation-evidence-input.schema.json \
+            --instance research/terra-preta/tools/activation-evidence-audit/fixtures/synthetic-activation-evidence.json \
+            --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/activation-evidence-audit/Cargo.toml -- \
+            research/terra-preta/tools/activation-evidence-audit/fixtures/synthetic-activation-evidence.json \
+            "$RUNNER_TEMP/activation-evidence-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/activation-evidence-report.schema.json \
+            --instance "$RUNNER_TEMP/activation-evidence-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .assertion_count == 8 and
+            .confirmed_active_count == 1 and
+            .confirmed_inactive_count == 1 and
+            .unassessed_count == 6 and
+            ((.results[] | select(.edge_id == "edge-geometry-only") | .admission_status) == "unassessed") and
+            ((.results[] | select(.edge_id == "edge-inactive-sparse") | .admission_status) == "unassessed") and
+            ((.results[] | select(.edge_id == "edge-conflict") | .admission_status) == "unassessed")
+          ' "$RUNNER_TEMP/activation-evidence-report.json"
+      - name: Reject output overwrite
+        run: |
+          fixture=research/terra-preta/tools/activation-evidence-audit/fixtures/synthetic-activation-evidence.json
+          report="$RUNNER_TEMP/existing-activation-evidence-report.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/activation-evidence-audit/Cargo.toml -- "$fixture" "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"
