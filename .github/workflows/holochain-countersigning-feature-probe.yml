@@ -8,6 +8,8 @@ on:
       - "mycelix-finance/Cargo.toml"
       - "mycelix-finance/Cargo.lock"
       - "mycelix-finance/tools/countersigning-feature-probe/**"
+      - "mycelix-finance/docs/research/HOLOCHAIN_COUNTERSIGNING_FEATURE_EXPERIMENT_V0_1.md"
+      - "mycelix-workspace/mycelix-finance/docs/research/HOLOCHAIN_COUNTERSIGNING_FEATURE_EXPERIMENT_V0_1.md"
       - "mycelix-workspace/mycelix-finance/flake.nix"
       - "mycelix-workspace/mycelix-finance/Cargo.toml"
       - "mycelix-workspace/mycelix-finance/Cargo.lock"
@@ -21,6 +23,8 @@ on:
       - "mycelix-finance/Cargo.toml"
       - "mycelix-finance/Cargo.lock"
       - "mycelix-finance/tools/countersigning-feature-probe/**"
+      - "mycelix-finance/docs/research/HOLOCHAIN_COUNTERSIGNING_FEATURE_EXPERIMENT_V0_1.md"
+      - "mycelix-workspace/mycelix-finance/docs/research/HOLOCHAIN_COUNTERSIGNING_FEATURE_EXPERIMENT_V0_1.md"
       - "mycelix-workspace/mycelix-finance/flake.nix"
       - "mycelix-workspace/mycelix-finance/Cargo.toml"
       - "mycelix-workspace/mycelix-finance/Cargo.lock"
@@ -59,6 +63,10 @@ jobs:
           cmp mycelix-finance/tools/countersigning-feature-probe/src/lib.rs mycelix-workspace/mycelix-finance/tools/countersigning-feature-probe/src/lib.rs
           grep -q 'unstable-countersigning' mycelix-finance/tools/countersigning-feature-probe/Cargo.toml
           grep -q 'unstable-functions' mycelix-finance/tools/countersigning-feature-probe/Cargo.toml
+          grep -q 'holochain-countersigning-experimental' mycelix-finance/flake.nix
+          grep -q 'holochain-countersigning-experimental' mycelix-workspace/mycelix-finance/flake.nix
+          grep -q 'cargoExtraArgs = "--features unstable-countersigning,unstable-functions"' mycelix-finance/flake.nix
+          grep -q 'cargoExtraArgs = "--features unstable-countersigning,unstable-functions"' mycelix-workspace/mycelix-finance/flake.nix
 
       - name: Install pinned Nix
         uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b
