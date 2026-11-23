@@ -1,6 +1,6 @@
 {
   "profile": "MYC-DIR-RECOVERY-CLOSED-ACK-0.1",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "status": "preregistered_not_executed",
   "claim_ceiling": "Research benchmark specification only. No multi-node PostgreSQL failover, recovery-finality certificate, WAL observer, or performance result is implemented or qualified by this corpus.",
   "invariant": "For every acknowledged protected effect E: EffectCommitted(E) AND RecoveryClosed(E). RecoveryClosed means every promotion/recovery path permitted by the externally enforced promotion policy preserves E, or the policy rejects that path.",
@@ -68,13 +68,27 @@
       "id": "RCA-T03",
       "nodes": 3,
       "layout": "1 primary + 2 physical standbys with failover logical-slot synchronization",
-      "postgres_version": "17+",
+      "postgres_version": "17–18",
       "replication_modes": [
         "failover-enabled logical slot",
         "sync_replication_slots=on",
         "synchronized_standby_slots configured"
       ],
-      "purpose": "Separately qualify failover-slot readiness and observer continuity; do not mix with PG16 results."
+      "purpose": "Compatibility profile for PostgreSQL 17 and 18 failover logical slots; measure synchronization readiness and observer continuity separately from the PG16 baseline."
+    },
+    {
+      "id": "RCA-T04",
+      "nodes": 3,
+      "layout": "1 primary + 2 physical standbys with PostgreSQL 19 failover logical-slot synchronization",
+      "postgres_version": "19",
+      "replication_modes": [
+        "failover-enabled logical slot",
+        "sync_replication_slots=on",
+        "synchronized_standby_slots bound to the intended physical standby slots",
+        "inspect pg_replication_slots.synced, temporary, invalidation_reason and slotsync_skip_reason",
+        "test explicit pg_sync_replication_slots() recovery after synchronization interruption"
+      ],
+      "purpose": "Current-major PostgreSQL profile; qualify failover-slot readiness, synchronized physical WAL receipt, invalidation handling and observer reattachment. Do not merge its results with PG16 or PG17/18."
     }
   ],
   "workload_profiles": [
@@ -343,6 +357,41 @@
       "kind": "safety",
       "unit": "receipts",
       "hard_limit": 0
+    },
+    {
+      "id": "RCA-M30",
+      "name": "postgresql_19_failover_slot_not_ready_but_promotion_or_ack_accepted",
+      "kind": "safety",
+      "unit": "promotions_or_acks",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M31",
+      "name": "failover_slot_synchronization_convergence_p99",
+      "kind": "recovery",
+      "unit": "seconds",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M32",
+      "name": "eligible_effects_acknowledged_within_5s_after_finality_evidence",
+      "kind": "liveness",
+      "unit": "percent",
+      "target_min": 99.9
+    },
+    {
+      "id": "RCA-M33",
+      "name": "valid_finality_misclassified_as_unknown",
+      "kind": "availability",
+      "unit": "percent",
+      "target_max": 0.1
+    },
+    {
+      "id": "RCA-M34",
+      "name": "safety_adjusted_throughput",
+      "kind": "performance",
+      "unit": "verified_effects_per_second",
+      "hard_limit": null
     }
   ],
   "scenarios": [
@@ -573,6 +622,30 @@
       "class": "known_reject",
       "description": "The effect verifier finds a transition row for the attested owner epoch but its previous/new generation coordinates are impossible, or the transition's new generation is greater than the effect's accepted generation.",
       "expected_outcome": "INDEPENDENT_HISTORY_VERIFIER_REJECTS_TRANSITION_CHRONOLOGY"
+    },
+    {
+      "id": "RCA-039",
+      "class": "known_reject",
+      "description": "PostgreSQL 19 failover logical slot exists on the intended standby but synced=false or it is temporary; promotion or observer continuity is treated as ready.",
+      "expected_outcome": "FAILOVER_SLOT_NOT_READY_NO_PROMOTION_CLOSED_ACK"
+    },
+    {
+      "id": "RCA-040",
+      "class": "known_reject",
+      "description": "PostgreSQL 19 failover slot reports invalidation_reason or slotsync_skip_reason indicating missing WAL, missing rows, unflushed WAL or slot invalidation.",
+      "expected_outcome": "OBSERVER_CONTINUITY_REJECTED"
+    },
+    {
+      "id": "RCA-041",
+      "class": "known_valid",
+      "description": "PostgreSQL 19 failover slot is synchronized and persistent; synchronized_standby_slots proves corresponding physical standby WAL receipt; timeline identity and old-primary fencing are independently verified.",
+      "expected_outcome": "OBSERVER_CONTINUITY_ELIGIBLE_SUBJECT_TO_RECOVERY_CLOSURE"
+    },
+    {
+      "id": "RCA-042",
+      "class": "known_reject",
+      "description": "A promotion candidate's logical slot is synchronized but the candidate WAL/replay position or timeline ancestry does not contain the acknowledged transaction end-LSN.",
+      "expected_outcome": "PROMOTION_CANDIDATE_REJECTED"
     }
   ],
   "evidence_requirements": [
@@ -594,5 +667,12 @@
     "ack_allowed": "Effect receipt and execution attestation verify; signed authority lease and scope verify; the exact commit position is independently observed; required synchronous replication/finality class is demonstrated; the external promotion policy rejects every candidate that does not contain the effect; old primary is physically fenced; the finality certificate is valid and above external high-water; AckSync is then issued for the exact delivery.",
     "no_ack": "Any missing, stale, contradictory, unauthenticated or unobserved evidence yields UNKNOWN and no effect-success ACK. A durable reconciliation handoff may be a separately typed transport disposition, but must not be presented as a completed effect.",
     "safety_gate": "Every safety metric must equal zero before performance results are eligible for comparison."
-  }
+  },
+  "current_postgres_major_researched": 19,
+  "additional_comparison_rules": [
+    "Include PostgreSQL 19 as the current-major optional failover-slot topology, separately from PostgreSQL 16 and 17/18.",
+    "PostgreSQL 19 profile must record slot synced, temporary, invalidation_reason and slotsync_skip_reason; never treat slot existence as readiness.",
+    "Measure valid-finality liveness as well as safety. A system that never ACKs can trivially achieve zero unsafe ACKs but is not a usable execution system.",
+    "Safety-adjusted throughput is reportable only when all hard safety metrics equal zero; it is not ordinary broker throughput."
+  ]
 }
