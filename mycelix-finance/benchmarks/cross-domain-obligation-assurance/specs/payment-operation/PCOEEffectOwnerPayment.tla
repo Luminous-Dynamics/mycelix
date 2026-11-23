@@ -71,7 +71,7 @@ Prepare ==
   /\ UNCHANGED <<batchCount, debitCount, creditCount, feeLiabilityCount,
                  feeOutboxCount, paymentProjectionCount, receiptProjectionCount,
                  feeDeliveryCount, feeState, responseLost, responseReturned,
-                 conflictObserved, clientCachePresent, retryCount>>
+                 conflictObserved, clientCachePresent, outboxWakeupPresent, outboxScanCount, retryCount>>
 
 CommitAtomicJournalBatch ==
   /\ opState = "Prepared"
@@ -120,7 +120,7 @@ LoseResponse ==
                  creditCount, feeLiabilityCount, feeOutboxCount,
                  paymentProjectionCount, receiptProjectionCount,
                  feeDeliveryCount, feeState, responseReturned,
-                 conflictObserved, tombstonePresent, clientCachePresent, retryCount>>
+                 conflictObserved, tombstonePresent, clientCachePresent, outboxWakeupPresent, outboxScanCount, retryCount>>
 
 ReturnOriginalResult ==
   /\ opState = "Committed"
@@ -130,17 +130,18 @@ ReturnOriginalResult ==
                  creditCount, feeLiabilityCount, feeOutboxCount,
                  paymentProjectionCount, receiptProjectionCount,
                  feeDeliveryCount, feeState, responseLost,
-                 conflictObserved, tombstonePresent, clientCachePresent, retryCount>>
+                 conflictObserved, tombstonePresent, clientCachePresent, outboxWakeupPresent, outboxScanCount, retryCount>>
 
 MarkFeeOutcomeUnknown ==
   /\ feeState = "Pending"
+  /\ outboxWakeupPresent = TRUE
   /\ feeState' = "Unknown"
   /\ outboxWakeupPresent' = FALSE
   /\ UNCHANGED <<opState, requestDigest, claimCount, batchCount, debitCount,
                  creditCount, feeLiabilityCount, feeOutboxCount,
                  paymentProjectionCount, receiptProjectionCount,
                  feeDeliveryCount, responseLost, responseReturned,
-                 conflictObserved, tombstonePresent, clientCachePresent, retryCount>>
+                 conflictObserved, tombstonePresent, clientCachePresent, outboxWakeupPresent, outboxScanCount, retryCount>>
 
 ReconcileFeeAsDelivered ==
   /\ feeState = "Unknown"
@@ -155,8 +156,10 @@ ReconcileFeeAsDelivered ==
 
 DeliverFee ==
   /\ feeState = "Pending"
+  /\ outboxWakeupPresent = TRUE
   /\ feeState' = "Delivered"
   /\ feeDeliveryCount' = 1
+  /\ outboxWakeupPresent' = FALSE
   /\ UNCHANGED <<opState, requestDigest, claimCount, batchCount, debitCount,
                  creditCount, feeLiabilityCount, feeOutboxCount,
                  paymentProjectionCount, receiptProjectionCount,
@@ -196,7 +199,7 @@ ScanDurableOutbox ==
                  creditCount, feeLiabilityCount, feeOutboxCount,
                  paymentProjectionCount, receiptProjectionCount,
                  feeDeliveryCount, feeState, responseLost, responseReturned,
-                 conflictObserved, tombstonePresent, clientCachePresent>>
+                 conflictObserved, tombstonePresent, clientCachePresent, outboxWakeupPresent, outboxScanCount>>
 
 \* Deliberate mutation only: split a value leg into a separate effect / commit
 \* outside the single Finance source-chain invocation. This is not a claim that
