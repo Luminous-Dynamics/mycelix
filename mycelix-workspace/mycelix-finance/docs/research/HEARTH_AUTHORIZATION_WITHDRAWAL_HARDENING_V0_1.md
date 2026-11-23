@@ -22,7 +22,7 @@ These are source-level observations against the exact snapshot above. They do no
 The updated Payments coordinator:
 
 1. Requires a positive amount and an explicit, decoded Hearth membership result.
-2. Resolves the caller's personal balance before touching the pool; missing or mismatched ownership rejects.
+2. Resolves the caller's personal balance before touching the pool; missing or mismatched DID and a record not authored by the caller's agent key reject.
 3. Resolves an already-existing pool; it does not create one as a withdrawal side effect.
 4. Rejects zero or multiple locally observed root links, malformed/missing entries, and a pool whose embedded Hearth DID differs from the requested DID.
 5. Applies pending pool demurrage in memory.
@@ -91,9 +91,9 @@ Unknown, stale or incomplete observations must produce an explicit indeterminate
 | HSA-016 | Failure after first staged write | Both pool/member writes roll back |
 | HSA-017 | TEND provider is not a member | Reject before exchange mutation |
 | HSA-018 | TEND receiver is not a member | Reject before exchange mutation |
-| HSA-019 | TEND membership evidence unavailable | Reject before exchange mutation |
+| HSA-019 | TEND membership evidence unavailable | Reject before exchange mutation |\n| HSA-020 | Personal balance DID matches caller, but its signed record was authored by another agent | Reject before pool read/write |
 
-The current pure unit tests cover arithmetic and the shared membership decision function. The remaining cases are the required next integration/host-fault qualification, not claimed as already executed.
+The current pure unit tests cover arithmetic and the shared membership decision function. The caller-authorship predicate is present in the coordinator preflight, but it still needs a real multi-agent author-spoof Sweettest. The remaining cases are required next integration/host-fault qualification, not claimed as already executed.
 
 ## 6. Industry comparison and research direction
 
