@@ -113,7 +113,9 @@ A Finance `LedgerCommitted` result is an internal ledger fact only. It is not ex
 - `Delivered` only after an exact Treasury-owned idempotent receipt is verified;
 - `Rejected` only after a durable no-effect rejection.
 
-The outbox item has its own stable effect identity and semantic fingerprint. Unknown delivery is reconciled against the Treasury effect owner using the original identity. A new fee request identity must not be invented to work around a timeout.
+The outbox item has its own stable effect identity and semantic fingerprint. The identity is reused for every retry, and the Treasury effect owner must resolve exact retries to the same disposition. Unknown delivery is reconciled against the Treasury effect owner using the original identity. A new fee request identity must not be invented to work around a timeout.
+
+This is the transactional-outbox pattern: the Finance journal batch and outbox record commit in the same source-chain transaction; only after commit does a dispatcher deliver the message. Delivery may be at least once, so Treasury must consume the stable outbox identity idempotently. Holochain's `post_commit` callback may wake the dispatcher, but it runs after the source-chain commit and is not the durable work queue. A restart-safe scanner must reconstruct Pending / Indeterminate outbox work from committed records and retry with the same identity. See [AWS Prescriptive Guidance: Transactional outbox](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/transactional-outbox.html) and [Holochain zome-function commit / post-commit lifecycle](https://developer.holochain.org/build/zome-functions/).
 
 ### 5.4 Response delivery
 
@@ -221,6 +223,9 @@ The companion TLA+ model specifies a finite effect-owner operation, atomic journ
 8. Only then connect the Finance ledger result to separate external rail, contract acceptance and physical-delivery evidence.
 
 ## References
+
+- [AWS Prescriptive Guidance — Transactional outbox pattern](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/transactional-outbox.html)
+- [Holochain — Zome Functions and post_commit lifecycle](https://developer.holochain.org/build/zome-functions/)
 
 - [IETF draft-ietf-httpapi-idempotency-key-header-09, 21 November 2026](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header-09)
 - [AWS Builders' Library: Making retries safe with idempotent APIs](https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/)
