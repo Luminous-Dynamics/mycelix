@@ -433,7 +433,11 @@ BEGIN
         IF v_fencing_payload->>'successor_primary_id' IS DISTINCT FROM v_lease.primary_id
            OR v_fencing_payload->>'old_primary_id' IS NULL
            OR v_fencing_payload->>'old_primary_id' = v_lease.primary_id
+           OR v_fencing_payload->>'old_primary_id' IS DISTINCT FROM v_fencing.primary_id
            OR (v_fencing_payload->>'old_system_identifier') IS DISTINCT FROM v_lease.database_system_identifier
+           OR (v_fencing_payload->>'old_timeline')::BIGINT IS DISTINCT FROM v_fencing.postgres_timeline
+           OR (v_fencing_payload->>'owner_epoch')::BIGINT IS DISTINCT FROM v_fencing.owner_epoch
+           OR v_fencing_payload->>'mechanism' = 'network_partition_only'
            OR v_fencing.issuer_public_key = v_lease.signer_public_key THEN
             RAISE EXCEPTION 'physical-fencing proof does not bind the exact old-primary/successor pair or uses the lease signer as fence attestor'
                 USING ERRCODE = 'P0001';
