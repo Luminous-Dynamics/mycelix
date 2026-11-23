@@ -140,7 +140,7 @@ fn validate(s: &Scenario) -> Result<(), String> {
 
     let mut nodes = BTreeMap::new();
     for node in &s.nodes {
-        if node.node_id.trim().is_empty() || nodes.contains_key(&node.node_id) {
+        if node.node_id.trim().is_empty() || nodes.contains_key(node.node_id.as_str()) {
             return Err("node IDs must be non-empty and unique".into());
         }
         for coordinate in node.coordinates_m {
