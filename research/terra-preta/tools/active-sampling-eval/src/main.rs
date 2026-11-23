@@ -437,10 +437,7 @@ fn validate(b: &Benchmark) -> Result<(), String> {
                 && case.pulse_end_hours <= b.config.horizon_end_hours)
                 || case.pulse_amplitude <= 0.0
             {
-                return Err(format!(
-                "{} has invalid pulse truth",
-                case.case_id
-            ));
+                return Err(format!("{} has invalid pulse truth", case.case_id));
             }
         } else if case.pulse_amplitude != 0.0 {
             return Err(format!(
