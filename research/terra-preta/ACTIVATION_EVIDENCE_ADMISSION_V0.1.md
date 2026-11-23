@@ -16,7 +16,7 @@ The data lineage and modality-specific observation-operator details remain owned
 
 ## v0.1 admission rules
 
-For a direct observation to support an edge state, the record must have an immutable artifact URI/SHA-256, method/version, calibration/reference identity, passed QC, matching specimen/event, registered 3D edge support and a time window intersecting the event.
+For a direct observation to support an edge state, the record must have an immutable artifact URI/SHA-256, method/version, calibration/reference identity, passed QC, matching specimen/event, a named spatial-support identity, a registered 3D edge mapping with transformation identity, and a time window intersecting the event.
 
 A positive observation may support active state only when the lower confidence bound on measured flux exceeds the event's predeclared minimum relevant flux at or above the task profile's required confidence level. A point estimate above threshold is not enough.
 
