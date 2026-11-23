@@ -91,3 +91,27 @@ The NATS adapter workflow now:
 - builds the NATS adapter against the shared verifier.
 
 This qualifies source/build behavior only after the exact-head workflow passes. It does not qualify PostgreSQL lease-state enforcement or physical fencing.
+
+## 6. PostgreSQL mutation-boundary admission (migration 004)
+
+Added `tools/myc-dir-fabric-reference/postgres/004_authority_write_lease_admission.sql` and its adversarial SQL test.
+
+The migration introduces:
+- a database-local mirror of deployment lease high-water (the external high-water receipt remains authoritative and must be outside the PG rollback domain);
+- append-only per-effect-owner signed lease receipts containing the complete signed JSON envelope, signer key ID/public key/signature, exact target system/timeline, database epoch, resource owner epoch/generation, scopes, expiry and external high-water/fencing commitments;
+- a mutable per-effect-owner current-lease pointer;
+- append-only effect-to-lease attestations;
+- append-only owner-epoch-transition-to-promotion-lease attestations.
+
+The trusted controller installs a lease only after the shared Rust verifier has authenticated the Ed25519 signature, trust root, scope, expiry, deployment, primary, database system identifier, timeline, database epoch and external high-water proof. SQL checks the v1 envelope fields, key/signature encodings, server system identifier/timeline, current or next resource owner position, deployment lease-generation monotonicity, epoch monotonicity, same-epoch primary/timeline fork rejection, and expiry. SQL cannot itself recompute the BLAKE3 signed-lease hash or verify the external high-water signature; the installer is executable only by the dedicated NOLOGIN controller role, which is the explicit trust boundary.
+
+New entry points:
+- `install_effect_owner_authority_write_lease` — controller-only lease admission;
+- `apply_owner_epoch_claim_fenced_balance_delta_with_authority_lease` — worker-only effect mutation, locking claim → owner fence → lease state, then invoking the prior strict function inside the same transaction and appending an effect/lease attestation;
+- `advance_effect_owner_epoch_with_authority_lease` — controller-only epoch promotion, requiring the DatabaseEpochPromotion scope and exact physical-fencing receipt before invoking the prior transition function and appending a transition/lease attestation.
+
+The worker role has no direct table INSERT privilege and no EXECUTE privilege on the legacy non-lease mutation or owner-epoch functions. It is granted only the lease-checked wrapper. The controller role is granted only lease installation and lease-checked promotion entry points. Deployment operators still need to grant these NOLOGIN roles to the correct authenticated service principals and keep the controller signing/trust configuration outside the database.
+
+The wrapper rechecks the live PostgreSQL system identifier and timeline at mutation time. A lease installed on a previous timeline cannot authorize a protected operation after promotion to a different timeline.
+
+**Important limitations remain:** a SECURITY DEFINER controller installation function trusts the controller's verified result; it is not a PostgreSQL-native Ed25519 verifier. The database-local high-water can roll back under PITR; the external controller must reject stale generations after restore. A lease does not physically fence the former primary. The current PostgreSQL/NATS receipt verifier still needs to join `effect_execution_authority_lease_attestations` and independently verify the stored signed envelope before creating its final ACK capability. The new migration and SQL tests require their own exact-head CI run.
