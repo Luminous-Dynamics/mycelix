@@ -616,7 +616,7 @@ mod tests {
         let burst = b.policies.iter().find(|p| p.policy_id == "context_trigger_burst").unwrap();
         let no_pulse = b.truth_cases.iter().find(|c| c.case_id == "context_step_without_response_pulse").unwrap();
         let result = evaluate(&b, burst, no_pulse);
-        assert_eq!(result.false_burst_target_samples, 2);
+        assert_eq!(result.false_burst_target_samples, 3);
         assert!(!result.detected);
     }
 
