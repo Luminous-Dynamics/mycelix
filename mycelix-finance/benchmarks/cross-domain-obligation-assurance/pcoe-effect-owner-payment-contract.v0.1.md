@@ -324,6 +324,13 @@ The companion corpus defines **22 synthetic adversarial cases** in `pcoe-effect-
 
 The companion TLA+ model represents the payer's sender-intent/debit commit, the beneficiary's separately authored claim/credit, Treasury's independent fee effect, sender and recipient response loss, operation-identity replay, source-chain-top movement, durable outbox scanning and recipient fork conflict freeze. The unsafe mutant splits sender intent from debit or duplicates the debit. Safe and mutant TLC configurations are provided. The model tracks effect counts and state transitions; it does not model actual token quantities, fee arithmetic or valuation. Those remain separate FIN-SAFE arithmetic / provenance obligations.
 
+The scenario-to-model coverage map `pcoe-effect-owner-payment-model-coverage.v0.1.json` prevents scenario count from being confused with formal coverage. It classifies the 22 EOP scenarios as:
+- **9 bounded-modelled**: the abstract transition / invariant is present in the TLA state model;
+- **6 partially-modelled**: only a simplified state abstraction is present;
+- **7 not-in-model**: these remain contract-only and require later identity, DHT, arithmetic, external-finality or runtime qualification.
+
+The map is structurally validated against the exact 22 IDs by the focused workflow. These classifications do not claim that the scenario has been executed against Rust or Holochain.
+
 **Model-check result — exact PR head:** the two-owner model passed the pinned TLC v1.7.4 safe configuration on commit `9712134efadbe7da28fe04519c838f13a81cc9bb`, workflow [run #45164659271](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45164659271). TLC generated 66,120 states, found 12,105 distinct reachable states, explored graph depth 19, and completed with 0 states left on queue and no invariant violation. No model-variable frame warnings were emitted.
 
 The deliberate mutant failed on the intended `SenderIntentDebitAtomicity` invariant. The retained counterexample is `Initial → Prepare → UnsafeSenderDebitWithoutIntent`: sender debit count becomes one while sender intent count remains zero. The workflow requires this exact invariant failure; a different mutant failure does not pass.
