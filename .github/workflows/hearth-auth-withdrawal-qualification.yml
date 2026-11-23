@@ -104,13 +104,13 @@ jobs:
       - name: Rust formatting
         run: cargo fmt --manifest-path mycelix-finance/Cargo.toml --all -- --check
 
-      - name: Regenerate stale Finance workspace lockfile
+      - name: Update stale Finance workspace lockfile conservatively
         id: lockfile
         shell: bash
         run: |
           set -euo pipefail
           cp mycelix-finance/Cargo.lock "$RUNNER_TEMP/Cargo.lock.before"
-          cargo generate-lockfile --manifest-path mycelix-finance/Cargo.toml
+          cargo update --workspace --manifest-path mycelix-finance/Cargo.toml
           sha256sum mycelix-finance/Cargo.lock | tee "$RUNNER_TEMP/Cargo.lock.sha256"
           diff -u "$RUNNER_TEMP/Cargo.lock.before" mycelix-finance/Cargo.lock > "$RUNNER_TEMP/Cargo.lock.diff" || true
           echo "generated=true" >> "$GITHUB_OUTPUT"
