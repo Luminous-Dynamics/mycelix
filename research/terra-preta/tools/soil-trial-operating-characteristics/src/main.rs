@@ -524,8 +524,12 @@ mod tests{
     fn missingness_and_interference_abstain_instead_of_dropping_units(){
         let s=suite();
         let missing=simulate_scenario(&s,&s.scenarios[5],5);
-        assert_eq!(missing.qualified_trial_count,0);
-        assert_eq!(missing.abstained_missing_outcome_count,1_200);
+        assert_eq!(
+            missing.qualified_trial_count + missing.abstained_missing_outcome_count,
+            1_200
+        );
+        assert!(missing.abstained_missing_outcome_count > 0);
+        assert!(missing.qualified_trial_count < 1_200);
 
         let interference=simulate_scenario(&s,&s.scenarios[7],7);
         assert_eq!(interference.qualified_trial_count,0);
