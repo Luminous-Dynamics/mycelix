@@ -119,6 +119,8 @@ The crosswalk therefore requires:
 4. host-level tests for source-chain fork visibility, delayed discovery, `get_agent_activity` status, witness timeout, offline signers, equivocation and no-warrant `GoodSoFar`;
 5. a claim ceiling that stays fork-detection-only/provisional until the actual runtime and independent witness policy are qualified.
 
+The countersigning guide links directly to a compile-time requirement. The Holochain 0.4 upgrade guide says a custom conductor must be built with `unstable-countersigning` and `unstable-functions`; zomes must enable `unstable-functions` in HDK and HDI and `unstable-countersigning` in HDK. The audited Finance workspace pins plain `hdk = 0.6.1` and `hdi = 0.7.1` with no such features declared, and the selected Payments/TEND manifests inherit those plain dependencies. Therefore countersigning is not simply a missing conductor config: the build graph itself must be changed and tested. The exact binary-capture PR #6578 records only the locked binary/version and does not claim to test feature availability.
+
 This is not a claim that countersigning cannot be enabled on the current conductor. It is a requirement to prove that it is enabled and behaves as assumed before any high-assurance output is spendable.
 
 The 0.5→0.6 upgrade guide separately states that general invalid-operation warrants became stable in Holochain 0.6 and that `get_agent_activity` returns them. The limitation here is narrower: the agent-status guide says chain-fork warrants are not yet operational, even though `get_agent_activity` can report observed chain-fork status. Do not conflate general warrants with chain-fork warrants, and do not treat an empty warrant list or GoodSoFar as finality.
@@ -135,5 +137,5 @@ It records:
 - countersigning as unstable/disabled by default in 0.4+ docs, with its exact Mycelix 0.6.1 enablement left **unknown**;
 - `GoodSoFar` as provisional observation, never finality.
 
-This is an evidence classification, not a claim that Holochain 0.6.1 cannot enable countersigning. FIN-SAFE-021 / #6576 owns the exact runtime manifest and integration tests. The 25-case adversarial corpus includes delayed fork discovery, unavailable countersigning, and incomplete witness sessions; all must remain Indeterminate until proven otherwise.
+This is an evidence classification, not a claim that Holochain 0.6.1 cannot enable countersigning. FIN-SAFE-021 / #6576 owns the exact runtime manifest and integration tests. The 26-case adversarial corpus includes delayed fork discovery, unavailable countersigning, and incomplete witness sessions; all must remain Indeterminate until proven otherwise.
 
