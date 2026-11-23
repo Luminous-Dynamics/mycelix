@@ -599,6 +599,30 @@ BEGIN
             USING ERRCODE = 'P0001';
     END IF;
 
+    IF p_owner_epoch > 1 AND NOT EXISTS (
+        SELECT 1
+          FROM myc_effect_owner.effect_owner_epoch_authority_lease_attestations AS transition
+          JOIN myc_effect_owner.effect_owner_authority_lease_proof_links AS link
+            ON link.realm_id = transition.realm_id
+           AND link.resource_id = transition.resource_id
+           AND link.action_id = transition.action_id
+           AND link.effect_owner_id = transition.effect_owner_id
+           AND link.lease_id = transition.lease_id
+         WHERE transition.realm_id = p_realm_id
+           AND transition.resource_id = p_resource_id
+           AND transition.action_id = p_action_id
+           AND transition.effect_owner_id = p_effect_owner_id
+           AND transition.new_owner_epoch = p_owner_epoch
+           AND link.lease_hash = transition.lease_hash
+           AND link.lease_generation = transition.lease_generation
+           AND link.lease_highwater_proof_id IS NOT NULL
+           AND link.physical_fencing_proof_id IS NOT NULL
+           AND link.promotion_eligibility_proof_id IS NOT NULL
+    ) THEN
+        RAISE EXCEPTION 'non-initial owner epoch has no proof-linked high-water, physical-fencing and promotion-eligibility transition'
+            USING ERRCODE = 'P0001';
+    END IF;
+
     RETURN QUERY
     SELECT *
       FROM myc_effect_owner.apply_claim_fenced_balance_delta_with_lease(
