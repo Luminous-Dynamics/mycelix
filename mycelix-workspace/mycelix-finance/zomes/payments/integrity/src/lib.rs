@@ -490,12 +490,12 @@ fn validate_create_payment(
             "Payment ID exceeds maximum length".into(),
         ));
     }
-    if let Some(ref memo) = payment.memo {
-        if memo.len() > MAX_MEMO_LEN {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Memo exceeds maximum length of 1024 characters".into(),
-            ));
-        }
+    if let Some(ref memo) = payment.memo
+        && memo.len() > MAX_MEMO_LEN
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Memo exceeds maximum length of 1024 characters".into(),
+        ));
     }
 
     if !payment.from_did.starts_with("did:") {
@@ -556,27 +556,27 @@ fn validate_update_payment(
     }
 
     // Enforce status transition rules and immutable field invariants
-    if let Ok(original_record) = must_get_valid_record(action.original_action_address) {
-        if let Ok(Some(original)) = original_record.entry().to_app_option::<Payment>() {
-            if original.status != payment.status
-                && !original.status.can_transition_to(&payment.status)
-            {
-                return Ok(ValidateCallbackResult::Invalid(format!(
-                    "Invalid payment status transition: {:?} → {:?}",
-                    original.status, payment.status
-                )));
-            }
-            // Core fields are immutable
-            if original.from_did != payment.from_did
-                || original.to_did != payment.to_did
-                || original.amount != payment.amount
-                || original.currency != payment.currency
-            {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Cannot change sender, receiver, amount, or currency on an existing payment"
-                        .into(),
-                ));
-            }
+    if let Ok(original_record) = must_get_valid_record(action.original_action_address)
+        && let Ok(Some(original)) = original_record.entry().to_app_option::<Payment>()
+    {
+        if original.status != payment.status
+            && !original.status.can_transition_to(&payment.status)
+        {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "Invalid payment status transition: {:?} → {:?}",
+                original.status, payment.status
+            )));
+        }
+        // Core fields are immutable
+        if original.from_did != payment.from_did
+            || original.to_did != payment.to_did
+            || original.amount != payment.amount
+            || original.currency != payment.currency
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Cannot change sender, receiver, amount, or currency on an existing payment"
+                    .into(),
+            ));
         }
     }
 
