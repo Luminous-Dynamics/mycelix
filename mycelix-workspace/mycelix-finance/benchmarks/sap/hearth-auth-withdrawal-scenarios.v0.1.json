@@ -50,7 +50,7 @@
       "expected": "reject",
       "writes": "no_writes",
       "current_implementation": "helper_tested_wire_decode_needs_host_injection",
-      "unit_covered": true,
+      "unit_covered": false,
       "host_qualification_required": true
     },
     {
@@ -180,7 +180,7 @@
       "expected": "reject",
       "writes": "no_exchange_or_balance_writes",
       "current_implementation": "helper_tested_host_test_required",
-      "unit_covered": false,
+      "unit_covered": true,
       "host_qualification_required": true
     },
     {
@@ -190,7 +190,7 @@
       "expected": "reject",
       "writes": "no_exchange_or_balance_writes",
       "current_implementation": "helper_tested_host_test_required",
-      "unit_covered": false,
+      "unit_covered": true,
       "host_qualification_required": true
     },
     {
