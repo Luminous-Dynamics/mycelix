@@ -1,0 +1,213 @@
+{
+  "benchmark": "SAP Effect-Cause Transition Migration Map",
+  "version": "0.1",
+  "status": "design-only; based on source audit; no production code modified",
+  "base_commit": "e949664ceb2f9ddde26704c70e23a19380f33dde",
+  "inventory_pr": "https://github.com/Luminous-Dynamics/mycelix/pull/6561",
+  "required_cause_kinds": [
+    "zero_genesis",
+    "external_issuance_claim",
+    "governance_issuance_claim",
+    "bilateral_transfer_sender_debit",
+    "bilateral_transfer_recipient_claim",
+    "finance_ledger_transfer_effect",
+    "directed_debit",
+    "demurrage",
+    "staking_lock",
+    "staking_unlock",
+    "hearth_contribution",
+    "hearth_withdrawal",
+    "metadata_only"
+  ],
+  "writers": [
+    {
+      "id": "SAPW-001",
+      "entrypoint": "initialize_sap_balance",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "23-64",
+      "target_cause": "zero_genesis",
+      "required_migration": "Exact-zero owner-authored genesis; unique root; no cause ActionHash."
+    },
+    {
+      "id": "SAPW-002",
+      "entrypoint": "grant_amber_exemption",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "97-159",
+      "target_cause": "metadata_only",
+      "required_migration": "No monetary delta; preserve balance and historical monetary cause; separate exemption authorization."
+    },
+    {
+      "id": "SAPW-003",
+      "entrypoint": "revoke_amber_exemption",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "161-178",
+      "target_cause": "metadata_only",
+      "required_migration": "Remove justified_by=None reset; preserve historical cause."
+    },
+    {
+      "id": "SAPW-004",
+      "entrypoint": "apply_demurrage",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "180-260",
+      "target_cause": "demurrage",
+      "required_migration": "Bind formula version, interval, exemption and exact predecessor; compost liability/outbox remains separate."
+    },
+    {
+      "id": "SAPW-005",
+      "entrypoint": "credit_sap",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "432-556",
+      "target_cause": "external_issuance_claim or bilateral_transfer_recipient_claim",
+      "required_migration": "Deprecate raw public credit; forbid nonzero auto-genesis; require exact consumed issuance or recipient claim."
+    },
+    {
+      "id": "SAPW-006",
+      "entrypoint": "debit_sap",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "557-659",
+      "target_cause": "directed_debit",
+      "required_migration": "Owner-authored typed debit; separate demurrage; stable operation identity and checked arithmetic."
+    },
+    {
+      "id": "SAPW-007",
+      "entrypoint": "transfer_sap",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "654-705",
+      "target_cause": "bilateral_transfer_sender_debit + bilateral_transfer_recipient_claim OR finance_ledger_transfer_effect",
+      "required_migration": "Explicit profile; bilateral recipient authors claim; ledger profile requires delegated Finance authority."
+    },
+    {
+      "id": "SAPW-008",
+      "entrypoint": "mint_sap_from_governance",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "710-815",
+      "target_cause": "governance_issuance_claim",
+      "required_migration": "Thread exact SapMintRecord ActionHash into one-use recipient claim and exact balance transition."
+    },
+    {
+      "id": "SAPW-009",
+      "entrypoint": "send_payment",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "1170-1335",
+      "target_cause": "bilateral_transfer_sender_debit + bilateral_transfer_recipient_claim OR finance_ledger_transfer_effect",
+      "required_migration": "Stable operation ID; separate Treasury outbox; independent Treasury receipt; no false Completed status."
+    },
+    {
+      "id": "SAPW-010",
+      "entrypoint": "contribute_to_hearth_pool",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "2020-2095",
+      "target_cause": "hearth_contribution",
+      "required_migration": "Typed pool counterpart and owner debit; effective balance; checked arithmetic."
+    },
+    {
+      "id": "SAPW-011",
+      "entrypoint": "withdraw_from_hearth_pool",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "2110-2162",
+      "target_cause": "hearth_withdrawal",
+      "required_migration": "Pool debit plus beneficiary claim; checked local atomic path or explicit Pending state."
+    },
+    {
+      "id": "SAPW-012",
+      "entrypoint": "verify_hearth_membership",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "2378-2428",
+      "target_cause": "authorization_evidence_not_balance_cause",
+      "required_migration": "Fail closed now; V0.2 signed, revisioned, freshness-qualified membership envelope."
+    },
+    {
+      "id": "SAPW-013",
+      "entrypoint": "collateral_bridge_deposit",
+      "path": "mycelix-finance/zomes/bridge/coordinator/src/lib.rs",
+      "lines": "590-690",
+      "target_cause": "external_issuance_claim",
+      "required_migration": "Independent custody proof; fixed-point oracle valuation; one-use deposit receipt."
+    },
+    {
+      "id": "SAPW-014",
+      "entrypoint": "fiat_verify_deposit",
+      "path": "mycelix-finance/zomes/bridge/coordinator/src/lib.rs",
+      "lines": "2380-2450",
+      "target_cause": "external_issuance_claim",
+      "required_migration": "Bank/custodian-authenticated statement; value date, currency and exact amount binding."
+    },
+    {
+      "id": "SAPW-015",
+      "entrypoint": "staking_lock_unlock",
+      "path": "mycelix-finance/zomes/staking/coordinator/src/lib.rs",
+      "lines": "326-397",
+      "target_cause": "staking_lock or staking_unlock",
+      "required_migration": "Link exact escrow position; owner claim; consume-once operation ID."
+    },
+    {
+      "id": "SAPW-016",
+      "entrypoint": "mint_genesis_sap",
+      "path": "mycelix-finance/zomes/currency-mint/coordinator/src/lib.rs",
+      "lines": "150-190",
+      "target_cause": "external_issuance_claim",
+      "required_migration": "Verified physical evidence; no f64 conversion; exact issuance proof/receipt."
+    }
+  ],
+  "compatibility_constraints": [
+    "Existing transfer_sap credits the recipient in the sender's invocation; a sender-authored credit is not beneficiary consent.",
+    "BilateralOwnerClaimV1 requires a beneficiary-authored claim bound to the exact sender intent/debit and operation fingerprint.",
+    "FinanceLedgerAtomicV1 is a distinct delegated-authority profile and must not be inferred as fallback.",
+    "Raw credit_sap must be removed as an untyped economic capability only after all producers migrate.",
+    "Missing or incomplete DHT observations are Indeterminate, not absence, success or permission."
+  ],
+  "phases": [
+    {
+      "id": "A",
+      "name": "Pure deterministic verifier",
+      "outputs": [
+        "Typed cause algebra",
+        "Exact predecessor arithmetic",
+        "Stable operation identity and canonical payload fingerprint",
+        "Valid / Invalid / Conflict / Indeterminate outcomes",
+        "Cross-language known-answer tests"
+      ]
+    },
+    {
+      "id": "B",
+      "name": "HDI integrity enforcement",
+      "outputs": [
+        "Derive signer from Action.author",
+        "Load exact predecessor and cause",
+        "Prove operation and cause consumption",
+        "Reject unsupported successors at integrity boundary"
+      ]
+    },
+    {
+      "id": "C",
+      "name": "Dependency-coherent writer migration",
+      "outputs": [
+        "Migrate all 16 writer classes",
+        "Recipient claim migration for legacy inbound credits",
+        "Remove raw public credit only after every producer migrates"
+      ]
+    },
+    {
+      "id": "D",
+      "name": "Replay and remote effects",
+      "outputs": [
+        "Durable operation tombstones",
+        "Consume-once transactional outbox",
+        "Independent remote-owner receipt",
+        "Unknown-outcome reconciliation"
+      ]
+    },
+    {
+      "id": "E",
+      "name": "Host-level qualification",
+      "outputs": [
+        "Multi-agent Sweettests",
+        "DHT / fork / chain-head fault injection",
+        "Independent Go verifier",
+        "Mutant controls",
+        "Matched-semantics performance benchmarks"
+      ]
+    }
+  ],
+  "claim_ceiling": "This map and schema define targets only. They are not production integrity enforcement or runtime qualification."
+}
