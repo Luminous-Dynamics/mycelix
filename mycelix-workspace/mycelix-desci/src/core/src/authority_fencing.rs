@@ -491,6 +491,54 @@ mod tests {
     }
 
     #[test]
+    fn shared_authority_lease_codec_matches_desci_v1_bytes_and_hash() {
+        let key = SigningKey::from_bytes(&[84; 32]);
+        let mut legacy = lease(&key);
+        legacy
+            .lease
+            .allowed_scopes
+            .insert(AuthorityWriteScope::DirectoryFabricEffect);
+        let legacy = SignedAuthorityWriteLease::sign(legacy.lease, &key).unwrap();
+
+        let shared: mycelix_authority_write_lease::SignedAuthorityWriteLease =
+            serde_json::from_value(serde_json::to_value(&legacy).unwrap()).unwrap();
+
+        assert_eq!(
+            legacy.lease.canonical_bytes().unwrap(),
+            shared.lease.canonical_bytes().unwrap()
+        );
+        assert_eq!(
+            legacy.signing_bytes().unwrap(),
+            shared.signing_bytes().unwrap()
+        );
+        assert_eq!(
+            legacy.signed_lease_hash().unwrap().0,
+            shared.signed_lease_hash().unwrap().0
+        );
+        shared.verify_signature().unwrap();
+
+        let trusted = [key.verifying_key().to_bytes()].into_iter().collect();
+        let target = mycelix_authority_write_lease::AuthorityWriteLeaseTarget {
+            deployment_id: "deployment:test".into(),
+            primary_id: "postgres-a".into(),
+            database_system_identifier: "731245".into(),
+            postgres_timeline: 2,
+            phase: mycelix_authority_write_lease::AuthorityWriteLeasePhase::Epoch,
+            epoch_number: Some(3),
+            epoch_hash: Some(mycelix_authority_write_lease::ContentHash([3; 32])),
+        };
+        shared
+            .verify_for_target(
+                &trusted,
+                DateTime::from_timestamp(1_700_000_100, 0).unwrap(),
+                ChronoDuration::zero(),
+                mycelix_authority_write_lease::AuthorityWriteScope::DirectoryFabricEffect,
+                &target,
+            )
+            .unwrap();
+    }
+
+    #[test]
     fn signed_lease_binds_epoch_scope_and_expiry() {
         let key = SigningKey::from_bytes(&[81; 32]);
         let mut signed = lease(&key);
