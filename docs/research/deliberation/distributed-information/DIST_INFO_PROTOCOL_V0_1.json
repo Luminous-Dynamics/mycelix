@@ -1,0 +1,89 @@
+{
+  "protocol_id": "DELIB-DIST-INFO-001",
+  "version": "0.1.0",
+  "status": "synthetic_contract_qualifier",
+  "title": "Latent information elicitation and provenance-aware collective evidence acquisition",
+  "research_question": "Can a group discover, solicit, verify and integrate decision-critical evidence distributed across different participants while preserving rights, provenance, uncertainty and justified stopping?",
+  "parent": "https://github.com/Luminous-Dynamics/mycelix/issues/5999",
+  "ownership": {
+    "communication_topology": "https://github.com/Luminous-Dynamics/symthaea/issues/11337",
+    "revision_ledger": "https://github.com/Luminous-Dynamics/symthaea/issues/11340",
+    "phantom_consensus": "https://github.com/Luminous-Dynamics/symthaea/issues/11682",
+    "cue_value": "https://github.com/Luminous-Dynamics/symthaea/issues/11704",
+    "agenda_integrity": "https://github.com/Luminous-Dynamics/mycelix/issues/6082",
+    "framing_grounding": "https://github.com/Luminous-Dynamics/mycelix/issues/6084",
+    "collective_info": "https://github.com/Luminous-Dynamics/mycelix/issues/6089"
+  },
+  "external_comparators": [
+    {
+      "name": "HiddenBench",
+      "venue": "ICML 2026 / PMLR 306",
+      "url": "https://proceedings.mlr.press/v306/li26ej.html",
+      "reported_scale": "65 tasks; 15 model families/configurations; 30.1% multi-agent hidden-profile accuracy versus 80.7% single-agent full-profile in the reported evaluation",
+      "status": "external_comparator_not_reproduced"
+    },
+    {
+      "name": "CrossProfile",
+      "venue": "arXiv preprint 2026-10-27",
+      "url": "https://arxiv.org/abs/2610.37624",
+      "reported_scale": "60 templates / 480 crossed-ownership tasks",
+      "status": "preprint_diagnostic_not_reproduced"
+    }
+  ],
+  "metric_ids": [
+    "shareable_critical_fact_coverage",
+    "decision_correctness_given_full_evidence",
+    "independent_source_deduplication",
+    "false_completeness_claim_detection",
+    "rights_safe_disclosure",
+    "stale_evidence_rejection",
+    "conflict_preservation",
+    "elicitation_recall",
+    "query_efficiency",
+    "information_acquisition_regret",
+    "premature_stopping_rate",
+    "worst_condition_accuracy"
+  ],
+  "implemented_metric_ids": [
+    "shareable_critical_fact_coverage",
+    "decision_correctness_given_full_evidence",
+    "independent_source_deduplication",
+    "false_completeness_claim_detection",
+    "rights_safe_disclosure",
+    "stale_evidence_rejection",
+    "conflict_preservation"
+  ],
+  "deferred_metric_ids": [
+    "elicitation_recall",
+    "query_efficiency",
+    "information_acquisition_regret",
+    "premature_stopping_rate",
+    "worst_condition_accuracy"
+  ],
+  "family_ids": [
+    "complementary_facts",
+    "minority_decisive_fact",
+    "high_redundancy",
+    "silent_late_holder",
+    "stale_conflicting_evidence",
+    "rights_constrained_evidence"
+  ],
+  "terminal_states": [
+    "pass",
+    "fail",
+    "indeterminate",
+    "invalid"
+  ],
+  "claim_ceiling": {
+    "synthetic": "Validates bounded synthetic information-custody, request/response, source-deduplication and decision-readiness invariants only.",
+    "model": "Requires a separately executed, pinned model tournament with exact task, prompt, model, communication and compute identities.",
+    "human": "Requires independent ethics review, consent, compensation, accessible participation, withdrawal and retention controls.",
+    "excluded": [
+      "human collective cognition claims",
+      "democratic legitimacy",
+      "public-opinion representativeness",
+      "production authorization",
+      "rights to compel disclosure"
+    ]
+  }
+}

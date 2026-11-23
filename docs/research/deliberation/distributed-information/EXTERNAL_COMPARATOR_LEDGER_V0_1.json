@@ -1,0 +1,309 @@
+{
+  "ledger_id": "DELIB-DIST-INFO-EXTERNAL-COMPARATORS-001",
+  "version": "0.1.0",
+  "status": "metadata_only_no_external_payloads_ingested",
+  "comparisons": [
+    {
+      "id": "hiddenbench-icml-2026",
+      "name": "HiddenBench",
+      "venue": "ICML 2026 / PMLR 306",
+      "paper_url": "https://proceedings.mlr.press/v306/li26ej.html",
+      "implementation_url": "https://github.com/Yassellee/HiddenBench_ICML",
+      "data_url": "https://huggingface.co/datasets/YuxuanLi1225/HiddenBench",
+      "published_scale": {
+        "tasks": 65,
+        "frontier_llm_configurations": 15
+      },
+      "reported_result": {
+        "metric": "accuracy",
+        "distributed_information_multi_agent": 0.301,
+        "full_profile_single_agent": 0.807,
+        "conditions": "authors' evaluated task/model/prompt/communication settings"
+      },
+      "benchmark_role": [
+        "distributed information pooling",
+        "latent information asymmetry",
+        "premature convergence",
+        "full-information upper bound"
+      ],
+      "repository_license": {
+        "declared": "MIT",
+        "evidence": "repository LICENSE and pyproject.toml",
+        "scope_note": "The authors' repository root LICENSE and pyproject.toml declare MIT, and the README locates the 65-task JSON corpus within that repository. This is a repository-level license declaration; provenance/source-material audit and any separate linked Hugging Face results artifact remain separate gates."
+      },
+      "intake_state": "candidate_read_only_adapter_after_exact_artifact_review",
+      "intake_controls": [
+        "pin repository commit and dataset revision",
+        "record per-file source and license metadata",
+        "distinguish authored synthetic tasks from any adapted/human-derived source material",
+        "do not expose hidden_information or correct_answer to candidate",
+        "preserve model, prompt, round, seed and profile identities"
+      ],
+      "current_use": "protocol comparator only; no payload copied or adapter run"
+    },
+    {
+      "id": "crossprofile-arxiv-2026-10",
+      "name": "CrossProfile",
+      "venue": "arXiv preprint, 2026-10-27",
+      "paper_url": "https://arxiv.org/abs/2610.37624",
+      "published_scale": {
+        "templates": 60,
+        "ownership_variants_per_template": 8,
+        "derived_tasks": 480,
+        "agents": 4,
+        "options": 3,
+        "facts_per_task": 12
+      },
+      "reported_result": {
+        "qwen_primary_budget": {
+          "metric": "decision_accuracy",
+          "rarest_first_percent": 64,
+          "random_percent": 64.5,
+          "condition": "Qwen2.5-7B at primary 0.6 memory budget, averaged over ownership variants"
+        },
+        "other_findings": [
+          "Rarest-first and relevance-first policies depend on whether support or decoy facts are private; neither is robust across ownership configurations.",
+          "In the classic hidden-profile configuration, the paper reports a 23–31 percentage-point gap between relevance filtering and rarest-first selection.",
+          "Masking or shuffling source-attribution tags raises accuracy by 13–24 percentage points in the classic configuration, with fact order held fixed.",
+          "In natural discussions, the complete transcript can perform worse than no notes, indicating information loss can occur before the memory-selection stage."
+        ],
+        "conditions": "Preprint's task templates, evaluated models, prompts, memory budgets and analysis; not independently reproduced"
+      },
+      "benchmark_role": [
+        "memory compression",
+        "evidence balance",
+        "ownership counterfactuals",
+        "attribution/social-proof sensitivity"
+      ],
+      "license_state": "no separate dataset artifact/license admitted in this intake",
+      "intake_state": "paper_design_reference_only",
+      "intake_controls": [
+        "do not copy task text or result payloads",
+        "author independent fictional templates",
+        "hold fact text and oracle fixed across ownership variants",
+        "vary source attribution separately from fact order and provenance"
+      ],
+      "current_use": "design reference for CROSSPROFILE_EXTENSION_DESIGN_V0_1.md; no source data imported"
+    },
+    {
+      "id": "infodelphi-polygym-2026-07",
+      "name": "InfoDelphi / PolyGym",
+      "venue": "arXiv 2026-07-02",
+      "paper_url": "https://arxiv.org/abs/2607.01661",
+      "published_scale": {
+        "markets_before_temporal_filter": 500,
+        "questions_after_temporal_filter": 375,
+        "source_market_database_approx_events": 40000,
+        "source_market_database_approx_markets": 100000
+      },
+      "reported_result": {
+        "metric": "forecasting performance",
+        "brier_score_relative_improvement_range": [
+          0.12,
+          0.18
+        ],
+        "accuracy_absolute_improvement_percentage_points": [
+          4,
+          8
+        ],
+        "conditions": "authors' forecasting questions, models, routing and aggregation conditions"
+      },
+      "benchmark_role": [
+        "private/public evidence partitioning",
+        "evidence routing",
+        "forecast calibration",
+        "Brier-score evaluation"
+      ],
+      "license_state": "code_mit;source_market_data_dbcl_v1;retrieved_tavily_evidence_noncommercial_research_only_not_redistributed",
+      "intake_state": "paper_result_comparator_only",
+      "intake_controls": [
+        "Do not mix prediction-market forecasts with closed-option decision accuracy.",
+        "Pin forecast resolution timestamp and outcome adjudication.",
+        "Source Polymarket data has its own Open Data Commons Database Contents License v1.0 declaration.",
+        "Retrieved Tavily evidence documents were used for non-commercial research under API terms and are not independently redistributed.",
+        "Verify exact current source terms and dataset revision before any adapter or ingestion."
+      ],
+      "current_use": "method comparator only; no questions or forecasts imported"
+    },
+    {
+      "id": "consilience-arxiv-2026-08",
+      "name": "Consilience",
+      "venue": "arXiv 2026-08-20",
+      "paper_url": "https://arxiv.org/abs/2608.20564",
+      "published_scale": {
+        "models": "12 open- and closed-weight LLMs",
+        "task_family": "HiddenBench-style hidden-profile tasks"
+      },
+      "reported_result": {
+        "method": "conformal communication controller",
+        "components": [
+          "uncertainty",
+          "disagreement",
+          "evidence gain",
+          "redundancy",
+          "premature consensus"
+        ],
+        "claim": "round-wise marginal one-step regret bound for the accepted communication action under the paper's calibration assumptions"
+      },
+      "benchmark_role": [
+        "adaptive communication policy",
+        "structured inquiry",
+        "communication-efficiency comparison",
+        "calibrated intervention"
+      ],
+      "license_state": "paper-level comparator; implementation/data permissions not reviewed",
+      "intake_state": "paper_method_reference_only",
+      "intake_controls": [
+        "do not translate a marginal one-step regret guarantee into a whole-dialogue correctness guarantee",
+        "verify calibration split and exchangeability assumptions",
+        "compare at matched model and communication/compute budgets"
+      ],
+      "current_use": "method comparator only; no code or data imported"
+    },
+    {
+      "id": "groupmembench-2026-05",
+      "name": "GroupMemBench",
+      "venue": "NeurIPS 2026 Evaluations & Datasets Track",
+      "paper_url": "https://arxiv.org/abs/2605.14498",
+      "publisher_url": "https://www.microsoft.com/en-us/research/publication/groupmembench-benchmarking-llm-agent-memory-in-multi-party-conversations/",
+      "published_scale": {
+        "domains": 4,
+        "domains_list": [
+          "Finance",
+          "Technology",
+          "Healthcare",
+          "Manufacturing"
+        ],
+        "question_types": 6,
+        "total_questions": 715,
+        "conversation_data_files": 4,
+        "conversation_data_bytes": 158659734,
+        "question_files": 24
+      },
+      "reported_result": {
+        "strongest_reported_average_accuracy": 0.46,
+        "knowledge_update_accuracy": 0.271,
+        "term_ambiguity_accuracy": 0.377,
+        "bm25": "simple BM25 matches or exceeds many evaluated memory-agent systems in paper/repository baselines",
+        "source": "official release README at pinned upstream commit 461f00c3e8a1a4a3a2ed5814b729014502c4702f"
+      },
+      "benchmark_role": [
+        "multi-party memory",
+        "speaker-grounded belief tracking",
+        "knowledge updates",
+        "temporal/implicit reasoning",
+        "abstention"
+      ],
+      "license_state": "artifact-specific data terms not admitted in this ledger",
+      "intake_state": "metadata_manifest_pinned_read_only_adapter_eligible",
+      "intake_controls": [
+        "distinguish generated conversation benchmark from real participant corpora",
+        "preserve speaker identity, audience and temporal revisions",
+        "include BM25 and full-context baselines"
+      ],
+      "current_use": "Pinned metadata intake complete; 30 upstream file identities recorded. No upstream payload copied and no adapter or model baseline run.",
+      "repository_license": {
+        "declared_code": "MIT",
+        "declared_data": "CC BY 4.0",
+        "evidence": "root LICENSE and official README at pinned upstream commit",
+        "scope_note": "Code and synthetic conversation/question data have separate declared licenses. Preserve attribution and pin the exact revision."
+      },
+      "artifact_identity": {
+        "pinned_commit": "461f00c3e8a1a4a3a2ed5814b729014502c4702f",
+        "manifest_path": "docs/research/deliberation/distributed-information/GROUPMEMBENCH_METADATA_INTAKE_V0_1.json",
+        "manifest_status": "metadata_only_no_payload_downloaded_or_committed"
+      }
+    },
+    {
+      "id": "groupassistbench-2026-11",
+      "name": "GroupAssistBench",
+      "venue": "arXiv 2026-11-03",
+      "paper_url": "https://arxiv.org/abs/2611.04867",
+      "published_scale": {
+        "messages": 80299,
+        "groups": 50,
+        "reported_collection_cost_usd": 53000
+      },
+      "reported_result": {
+        "layers": [
+          "L1 memory recall",
+          "L2 memory use on open-ended service requests"
+        ],
+        "finding": "the strongest reported memory system approaches full-context recall but lags on use, particularly with distributed and conflicting memories"
+      },
+      "benchmark_role": [
+        "real-world group-memory integration",
+        "recall-vs-use gap",
+        "distributed/conflicting memories",
+        "source-grounded assistance"
+      ],
+      "license_state": "noncommercial_only_dataset_and_academic_only_code_no_ingestion",
+      "intake_state": "published_aggregate_only_no_commercial_adapter",
+      "intake_controls": [
+        "do not scrape, download or import group conversation payloads",
+        "require explicit dataset license, participant consent, privacy and withdrawal/retention review",
+        "use only published aggregate results for comparison until then"
+      ],
+      "current_use": "published-result comparator only; no messages or participant records imported",
+      "repository_license": {
+        "declared_code": "MIT-style with academic-use-only restriction",
+        "declared_data": "CC BY-NC 4.0",
+        "scope_note": "Commercial or production use is not permitted by the surfaced repository license summary. Real group conversation corpus remains metadata-only; no payload should be imported into commercial or production products on this basis."
+      }
+    },
+    {
+      "id": "pnas-nudge-2026-06",
+      "name": "AI Agents Are Sensitive to Nudges",
+      "venue": "PNAS 2026-06-23",
+      "paper_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13291645/",
+      "code_url": "https://github.com/PapayaResearch/nudging",
+      "published_scale": {
+        "interventions": [
+          "defaults",
+          "suggestions",
+          "information highlighting",
+          "resource-rational information previews"
+        ],
+        "task": "multi-attribute sequential cell reveal and basket selection"
+      },
+      "reported_result": {
+        "qualitative_findings": [
+          "models can over-react to neutral/counterproductive cues",
+          "some agents over-acquire information at cost",
+          "some agents ignore available information",
+          "greater reasoning effort can reduce some cue sensitivity at substantial compute cost"
+        ]
+      },
+      "benchmark_role": [
+        "choice-architecture sensitivity",
+        "sequential information acquisition",
+        "value-of-information regret",
+        "compute/robustness tradeoff"
+      ],
+      "repository_license": {
+        "declared": "MIT",
+        "evidence": "reference implementation LICENSE"
+      },
+      "license_state": "code license checked; any human/reference task data requires separate provenance and permission review",
+      "intake_state": "code_method_reference_only",
+      "intake_controls": [
+        "do not call the current one-step synthetic qualifier a reproduction",
+        "rebuild the sequential reveal/cost task from permitted artifacts",
+        "report reveal policy, costs, choices, payoff and compute separately"
+      ],
+      "current_use": "method comparator for Symthaea #11704; no human records imported"
+    }
+  ],
+  "cross_benchmark_rules": [
+    "Do not compare accuracy across different task or outcome definitions.",
+    "Report the paper's original configuration and a matched local configuration separately.",
+    "Pin model/provider/revision, prompt, agent count, communication rounds, tools, seeds, tokenizer, tokens, compute and evaluator.",
+    "Include single-agent/private and full-information upper-bound controls where the task supports them.",
+    "Include unstructured, round-robin, broadcast, structured elicitation and adaptive inquiry baselines under matched budgets.",
+    "Report both process and outcome metrics; correct decisions by luck do not prove good information acquisition.",
+    "Report the worst ownership, language, evidence-quality and rights condition alongside averages.",
+    "Use held-out templates/domains and confidence intervals before superiority claims.",
+    "A public paper, model card, or code license is not blanket permission for third-party data or real participant conversations."
+  ],
+  "claim_ceiling": "metadata comparison only; no external payload downloaded, no external benchmark reproduced, and no superiority claim established"
+}

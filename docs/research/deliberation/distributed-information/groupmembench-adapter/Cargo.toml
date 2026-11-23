@@ -1,0 +1,11 @@
+[workspace]
+
+[package]
+name = "groupmembench-readonly-adapter"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde_json = "1.0"
+sha1 = "0.10"
+html-escape = "0.2"

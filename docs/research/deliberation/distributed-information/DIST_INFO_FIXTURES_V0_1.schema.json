@@ -1,0 +1,445 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/delib-dist-info-fixtures-v0.1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "protocol_id",
+    "fixture_count",
+    "family_count",
+    "scenarios"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "delib-dist-info-fixtures-v0.1"
+    },
+    "status": {
+      "const": "synthetic_controls_only_agents_not_executed"
+    },
+    "protocol_id": {
+      "const": "DELIB-DIST-INFO-001"
+    },
+    "fixture_count": {
+      "const": 18
+    },
+    "family_count": {
+      "const": 6
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 18,
+      "maxItems": 18,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario_id",
+          "family",
+          "seed",
+          "agents",
+          "facts",
+          "initial_views",
+          "requests",
+          "responses",
+          "receipts",
+          "candidate_decision",
+          "oracle",
+          "expected_assessment"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "family": {
+            "enum": [
+              "complementary_facts",
+              "minority_decisive_fact",
+              "high_redundancy",
+              "silent_late_holder",
+              "stale_conflicting_evidence",
+              "rights_constrained_evidence"
+            ]
+          },
+          "seed": {
+            "type": "integer"
+          },
+          "agents": {
+            "type": "array",
+            "minItems": 3,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "fact_id",
+                "claim_id",
+                "holder_agent_id",
+                "visibility",
+                "decision_role",
+                "polarity",
+                "rights_status",
+                "version",
+                "evidence_status",
+                "initial_verification_status",
+                "source_origin_id",
+                "duplicate_of",
+                "evidence_id"
+              ],
+              "properties": {
+                "fact_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "claim_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "holder_agent_id": {
+                  "type": "string"
+                },
+                "visibility": {
+                  "enum": [
+                    "shared",
+                    "private"
+                  ]
+                },
+                "decision_role": {
+                  "enum": [
+                    "critical",
+                    "supporting",
+                    "decoy",
+                    "irrelevant"
+                  ]
+                },
+                "polarity": {
+                  "enum": [
+                    "supports_A",
+                    "supports_B",
+                    "neutral"
+                  ]
+                },
+                "rights_status": {
+                  "enum": [
+                    "shareable",
+                    "shareable_with_scope_limit",
+                    "withheld_by_rights",
+                    "unknown"
+                  ]
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "evidence_status": {
+                  "enum": [
+                    "current",
+                    "superseded",
+                    "disputed"
+                  ]
+                },
+                "initial_verification_status": {
+                  "enum": [
+                    "verified",
+                    "unverified",
+                    "unknown"
+                  ]
+                },
+                "source_origin_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "duplicate_of": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "evidence_id": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "initial_views": {
+            "type": "array",
+            "minItems": 3,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "agent_id",
+                "visible_fact_ids"
+              ],
+              "properties": {
+                "agent_id": {
+                  "type": "string"
+                },
+                "visible_fact_ids": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "requests": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "request_id",
+                "requester_agent_id",
+                "target_agent_id",
+                "fact_id",
+                "delivery_status"
+              ],
+              "properties": {
+                "request_id": {
+                  "type": "string"
+                },
+                "requester_agent_id": {
+                  "type": "string"
+                },
+                "target_agent_id": {
+                  "type": "string"
+                },
+                "fact_id": {
+                  "type": "string"
+                },
+                "delivery_status": {
+                  "enum": [
+                    "created",
+                    "delivered",
+                    "not_delivered"
+                  ]
+                }
+              }
+            }
+          },
+          "responses": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "response_id",
+                "request_id",
+                "responder_agent_id",
+                "fact_id",
+                "status"
+              ],
+              "properties": {
+                "response_id": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                },
+                "responder_agent_id": {
+                  "type": "string"
+                },
+                "fact_id": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "disclosed",
+                    "withheld_by_rights",
+                    "no_response",
+                    "disputed"
+                  ]
+                }
+              }
+            }
+          },
+          "receipts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "receipt_id",
+                "request_id",
+                "holder_agent_id",
+                "fact_id",
+                "evidence_id",
+                "source_origin_id",
+                "version",
+                "rights_status",
+                "verification_status",
+                "duplicate_of"
+              ],
+              "properties": {
+                "receipt_id": {
+                  "type": "string"
+                },
+                "request_id": {
+                  "type": "string"
+                },
+                "holder_agent_id": {
+                  "type": "string"
+                },
+                "fact_id": {
+                  "type": "string"
+                },
+                "evidence_id": {
+                  "type": "string"
+                },
+                "source_origin_id": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "integer"
+                },
+                "rights_status": {
+                  "enum": [
+                    "shareable",
+                    "shareable_with_scope_limit",
+                    "withheld_by_rights",
+                    "unknown"
+                  ]
+                },
+                "verification_status": {
+                  "enum": [
+                    "verified",
+                    "stale",
+                    "invalid",
+                    "indeterminate"
+                  ]
+                },
+                "duplicate_of": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "candidate_decision": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "disposition",
+              "selected_option",
+              "completeness_claim",
+              "admitted_fact_ids",
+              "unresolved_claim_ids",
+              "reported_independent_source_count"
+            ],
+            "properties": {
+              "disposition": {
+                "enum": [
+                  "decided",
+                  "deferred",
+                  "abstained"
+                ]
+              },
+              "selected_option": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "A",
+                  "B",
+                  null
+                ]
+              },
+              "completeness_claim": {
+                "enum": [
+                  "complete",
+                  "incomplete",
+                  "unknown"
+                ]
+              },
+              "admitted_fact_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "unresolved_claim_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reported_independent_source_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "oracle": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "hidden_from_candidates",
+              "correct_option",
+              "critical_fact_ids",
+              "shareable_critical_fact_ids",
+              "restricted_critical_fact_ids"
+            ],
+            "properties": {
+              "hidden_from_candidates": {
+                "const": true
+              },
+              "correct_option": {
+                "enum": [
+                  "A",
+                  "B"
+                ]
+              },
+              "critical_fact_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "shareable_critical_fact_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "restricted_critical_fact_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "expected_assessment": {
+            "enum": [
+              "pass",
+              "fail",
+              "indeterminate",
+              "invalid"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

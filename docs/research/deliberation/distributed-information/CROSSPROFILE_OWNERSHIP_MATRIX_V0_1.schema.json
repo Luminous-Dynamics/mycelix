@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/delib-dist-info-crossprofile-design-v0.1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "design_id",
+    "version",
+    "status",
+    "source_comparator",
+    "proposed_programme",
+    "ownership_factors",
+    "attribution_conditions",
+    "attribution_control_invariants",
+    "memory_policies",
+    "budget_conditions",
+    "candidate_hidden_fields",
+    "primary_outcomes",
+    "preregistered_contrasts",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "design_id": {
+      "const": "DELIB-DIST-INFO-CROSSPROFILE-001"
+    },
+    "version": {
+      "const": "0.1.0"
+    },
+    "status": {
+      "const": "design_only_not_executed"
+    },
+    "source_comparator": {
+      "type": "object",
+      "required": [
+        "name",
+        "url",
+        "status",
+        "source_scale"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "status": {
+          "type": "string"
+        },
+        "source_scale": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "proposed_programme": {
+      "type": "object",
+      "required": [
+        "templates",
+        "domains",
+        "templates_per_domain",
+        "facts_per_template",
+        "agents",
+        "options",
+        "seeds",
+        "ownership_variants",
+        "task_seed_executions"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "templates": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "domains": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "templates_per_domain": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "facts_per_template": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "agents": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "options": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "seeds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ownership_variants": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "task_seed_executions": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "ownership_factors": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "levels",
+          "fact_role"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "levels": {
+            "const": [
+              "shared",
+              "private"
+            ]
+          },
+          "fact_role": {
+            "enum": [
+              "support",
+              "decoy",
+              "irrelevant"
+            ]
+          }
+        }
+      }
+    },
+    "attribution_conditions": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "attribution_control_invariants": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "memory_policies": {
+      "type": "array",
+      "minItems": 9,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "budget_conditions": {
+      "type": "object",
+      "required": [
+        "fixed_token_ratios",
+        "fixed_item_count_control",
+        "tokenizer_must_be_pinned"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "fixed_token_ratios": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "fixed_item_count_control": {
+          "const": true
+        },
+        "tokenizer_must_be_pinned": {
+          "const": true
+        }
+      }
+    },
+    "candidate_hidden_fields": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "primary_outcomes": {
+      "type": "array",
+      "minItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "preregistered_contrasts": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "claim_ceiling": {
+      "const": "design_only; no task generation, model run, human experiment or superiority claim has occurred"
+    }
+  }
+}
