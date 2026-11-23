@@ -258,6 +258,11 @@ The companion TLA+ model specifies a finite effect-owner operation, atomic journ
 8. Only then connect the Finance ledger result to separate external rail, contract acceptance and physical-delivery evidence.
 
 ## References
+- [Stripe API v1 and v2 — Idempotent requests](https://docs.stripe.com/api/idempotent_requests)
+- [Adyen — API idempotency, 7–14 day scope and regional behavior](https://docs.adyen.com/development-resources/api-idempotency)
+- [AWS Prescriptive Guidance — Transactional outbox pattern](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/transactional-outbox.html)
+- [Holochain — Source-chain atomic commits and chain-head movement](https://developer.holochain.org/concepts/3_source_chain/)
+
 
 - [AWS Prescriptive Guidance — Transactional outbox pattern](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/transactional-outbox.html)
 - [Holochain — Zome Functions and post_commit lifecycle](https://developer.holochain.org/build/zome-functions/)
