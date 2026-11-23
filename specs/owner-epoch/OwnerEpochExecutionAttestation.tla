@@ -338,6 +338,21 @@ TransitionEvidenceIsMonotonic ==
       /\ transition.newEpoch > transition.previousEpoch
       /\ transition.newGeneration > transition.previousGeneration
 
+EffectsHaveChronologicalTransitionEvidence ==
+    \A op \in Operations :
+      IF effects[op] = NoEffect
+      THEN TRUE
+      ELSE IF effects[op].ownerEpoch = 1
+           THEN TRUE
+           ELSE
+             \E transition \in epochTransitions :
+               /\ transition.newEpoch = effects[op].ownerEpoch
+               /\ transition.previousEpoch < transition.newEpoch
+               /\ transition.previousGeneration < transition.newGeneration
+               /\ transition.newGeneration <= effects[op].generation
+               /\ transition.authorityProof \in TrustedEpochProofs
+               /\ transition.physicalFenceProof \in TrustedFenceProofs
+
 OwnerEpochAdvancesOnlyAfterFencing ==
     []((ownerEpoch' > ownerEpoch) =>
         /\ oldPrimaryFenced
