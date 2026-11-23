@@ -1,12 +1,12 @@
 //! Cross-implementation compatibility test against the actual DeSci v1
-//! authority lease protocol source. The fixture is the byte-for-byte source
-//! prefix before DeSci's application-specific lease provider implementation;
-//! CI verifies that it stays synchronized with the maintained DeSci source.
+//! authority lease protocol source. The fixture contains the exact protocol
+//! definitions plus their canonical byte helper functions; CI verifies both
+//! source slices remain synchronized with the maintained DeSci source.
+
+#![allow(dead_code, unused_imports)]
 
 use chrono::{DateTime, Duration, Utc};
-use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
-use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use ed25519_dalek::SigningKey;
 use uuid::Uuid;
 
 #[derive(Debug)]
