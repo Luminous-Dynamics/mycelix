@@ -33,6 +33,7 @@ pub enum AuthorityProofPurpose {
     LeaseHighWater,
     PhysicalFencing,
     PromotionEligibility,
+    WalCommitPosition,
 }
 
 impl AuthorityProofPurpose {
@@ -41,6 +42,7 @@ impl AuthorityProofPurpose {
             Self::LeaseHighWater => 1,
             Self::PhysicalFencing => 2,
             Self::PromotionEligibility => 3,
+            Self::WalCommitPosition => 4,
         }
     }
 
@@ -49,6 +51,7 @@ impl AuthorityProofPurpose {
             Self::LeaseHighWater => b"MYCELIX-AUTHORITY-PROOF-LEASE-HIGHWATER\0V1",
             Self::PhysicalFencing => b"MYCELIX-AUTHORITY-PROOF-PHYSICAL-FENCING\0V1",
             Self::PromotionEligibility => b"MYCELIX-AUTHORITY-PROOF-PROMOTION-ELIGIBILITY\0V1",
+            Self::WalCommitPosition => b"MYCELIX-AUTHORITY-PROOF-WAL-COMMIT-POSITION\0V1",
         }
     }
 }
@@ -59,6 +62,7 @@ pub enum AuthorityProofIssuerRole {
     LeaseHighWaterAuthority,
     PhysicalFencingAttestor,
     PromotionController,
+    WalCommitObserver,
 }
 
 impl AuthorityProofIssuerRole {
@@ -67,6 +71,7 @@ impl AuthorityProofIssuerRole {
             Self::LeaseHighWaterAuthority => 1,
             Self::PhysicalFencingAttestor => 2,
             Self::PromotionController => 3,
+            Self::WalCommitObserver => 4,
         }
     }
 
@@ -75,6 +80,7 @@ impl AuthorityProofIssuerRole {
             Self::LeaseHighWaterAuthority => AuthorityProofPurpose::LeaseHighWater,
             Self::PhysicalFencingAttestor => AuthorityProofPurpose::PhysicalFencing,
             Self::PromotionController => AuthorityProofPurpose::PromotionEligibility,
+            Self::WalCommitObserver => AuthorityProofPurpose::WalCommitPosition,
         }
     }
 }
@@ -144,6 +150,14 @@ pub enum AuthorityProofPayload {
         lease_highwater_proof_hash: ProofDigest,
         physical_fencing_proof_hash: ProofDigest,
     },
+    WalCommitPosition {
+        effect_id: Uuid,
+        execution_attestation_id: Uuid,
+        marker_digest: ProofDigest,
+        transaction_id: String,
+        commit_lsn: u64,
+        transaction_end_lsn: u64,
+    },
 }
 
 impl AuthorityProofPayload {
@@ -152,6 +166,7 @@ impl AuthorityProofPayload {
             Self::LeaseHighWater { .. } => AuthorityProofPurpose::LeaseHighWater,
             Self::PhysicalFencing { .. } => AuthorityProofPurpose::PhysicalFencing,
             Self::PromotionEligibility { .. } => AuthorityProofPurpose::PromotionEligibility,
+            Self::WalCommitPosition { .. } => AuthorityProofPurpose::WalCommitPosition,
         }
     }
 }
