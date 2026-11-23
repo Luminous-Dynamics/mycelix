@@ -1,0 +1,311 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/sap-effect-cause-transition.v0.1.schema.json",
+  "title": "SAP Effect-Caused Balance Transition V1",
+  "description": "Design contract only. HDI validation must derive signer from actual Holochain Action.author and load predecessor/cause records. Input identity strings are not authoritative.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "effect_id",
+    "operation_fingerprint",
+    "settlement_profile",
+    "asset",
+    "owner_did",
+    "predecessor_action_hash",
+    "balance_before",
+    "balance_after",
+    "direction",
+    "amount",
+    "cause",
+    "policy_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "SapBalanceTransitionV1"
+    },
+    "effect_id": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 256
+    },
+    "operation_fingerprint": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "settlement_profile": {
+      "$ref": "#/$defs/settlement_profile"
+    },
+    "asset": {
+      "$ref": "#/$defs/asset"
+    },
+    "owner_did": {
+      "type": "string",
+      "pattern": "^did:.+"
+    },
+    "predecessor_action_hash": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "balance_before": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709552000
+    },
+    "balance_after": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709552000
+    },
+    "direction": {
+      "enum": [
+        "credit",
+        "debit",
+        "none"
+      ]
+    },
+    "amount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709552000
+    },
+    "cause": {
+      "$ref": "#/$defs/cause"
+    },
+    "policy_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 1024
+    }
+  },
+  "$defs": {
+    "settlement_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "version"
+      ],
+      "properties": {
+        "profile_id": {
+          "enum": [
+            "FinanceLedgerAtomicV1",
+            "BilateralOwnerClaimV1"
+          ]
+        },
+        "version": {
+          "const": 1
+        }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asset_id",
+        "unit"
+      ],
+      "properties": {
+        "asset_id": {
+          "const": "SAP"
+        },
+        "unit": {
+          "const": "micro-SAP"
+        }
+      }
+    },
+    "cause": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cause_kind",
+        "cause_action_hash",
+        "evidence_refs"
+      ],
+      "properties": {
+        "cause_kind": {
+          "enum": [
+            "zero_genesis",
+            "external_issuance_claim",
+            "governance_issuance_claim",
+            "bilateral_transfer_sender_debit",
+            "bilateral_transfer_recipient_claim",
+            "finance_ledger_transfer_effect",
+            "directed_debit",
+            "demurrage",
+            "staking_lock",
+            "staking_unlock",
+            "hearth_contribution",
+            "hearth_withdrawal",
+            "metadata_only"
+          ]
+        },
+        "cause_action_hash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "counterparty_did": {
+          "type": "string",
+          "pattern": "^did:.+"
+        },
+        "external_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "formula_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "interval_start": {
+          "type": "integer"
+        },
+        "interval_end": {
+          "type": "integer"
+        },
+        "authorization_action_hash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "related_sender_action_hash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "position_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "pool_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "cause": {
+            "properties": {
+              "cause_kind": {
+                "const": "zero_genesis"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "predecessor_action_hash": {
+            "type": "null"
+          },
+          "balance_before": {
+            "const": 0
+          },
+          "balance_after": {
+            "const": 0
+          },
+          "direction": {
+            "const": "none"
+          },
+          "amount": {
+            "const": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "cause": {
+            "properties": {
+              "cause_kind": {
+                "const": "bilateral_transfer_sender_debit"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "settlement_profile": {
+            "properties": {
+              "profile_id": {
+                "const": "BilateralOwnerClaimV1"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "cause": {
+            "properties": {
+              "cause_kind": {
+                "const": "bilateral_transfer_recipient_claim"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "settlement_profile": {
+            "properties": {
+              "profile_id": {
+                "const": "BilateralOwnerClaimV1"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "cause": {
+            "properties": {
+              "cause_kind": {
+                "const": "finance_ledger_transfer_effect"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "settlement_profile": {
+            "properties": {
+              "profile_id": {
+                "const": "FinanceLedgerAtomicV1"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
