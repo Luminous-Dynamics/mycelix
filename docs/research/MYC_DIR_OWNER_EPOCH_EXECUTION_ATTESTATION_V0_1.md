@@ -1,7 +1,7 @@
 # Mycelix Directory Fabric: owner-epoch execution attestation v0.1
 
 **Profile:** MYC-DIR-OWNER-EPOCH-EXECUTION-ATTESTATION-0.1  
-**Status:** migration, SQL adversarial test, bounded TLA+ model and PostgreSQL/NATS integration source added; exact-head CI and TLC execution pending  
+**Status:** owner-epoch migration and PostgreSQL/NATS baseline passed exact-head CI on `e9ba2fc`; complete transition-row reconstruction and v3 receipt-commitment work have since been added and require their own exact-head CI. TLC execution remains pending.  
 **Related:** PostgreSQL receipt-verifier work, tools/myc-dir-fabric-reference/postgres/001_effect_owner.sql, 002_worker_claim_fencing.sql, and the PostgreSQL receipt verifier.
 
 ## 1. Paradigm shift: persist the authority coordinates at the effect boundary
@@ -78,16 +78,22 @@ The NATS adapter's PostgresEffectCommitVerifier now joins:
 - effect_execution_attestations;
 - the matching effect_owner_epoch_transitions row for non-initial owner epochs.
 
-The canonical receipt commitment now includes:
+It now decodes a typed `VerifiedOwnerEpochTransition` instead of a boolean indicating row presence. It independently checks `previous_owner_epoch < new_owner_epoch = attested_owner_epoch`, `previous_generation < new_generation <= accepted_generation`, a nonempty transition transaction ID, and both nonzero authority/fencing commitments. Initial epoch 1 must have no transition row; every later epoch must have a complete one.
+
+The canonical receipt commitment is now domain-versioned as v3 and includes:
 - effect ID and execution-attestation ID;
 - resource scope and command digests;
 - owner epoch and accepted generation;
 - worker ID, claim epoch, claim proof commitment;
 - claim clock profile and validity interval;
 - database transaction ID;
+- previous/new owner epoch and previous/new generation;
+- transition transaction ID;
 - epoch-authority and physical-fencing receipt commitments.
 
-The verifier rejects a missing attestation, missing epoch-transition record, read-only/recovery server, future owner position, worker/claim-field mismatch, digest substitution and canonical digest mismatch.
+The v3 tag is mandatory because the canonical byte layout changed. A v2 receipt commitment must never be interpreted as a v3 commitment.
+
+The verifier rejects a missing attestation, missing or partial epoch-transition record, impossible transition chronology, a transition committed after the effect generation, read-only/recovery server, future owner position, worker/claim-field mismatch, digest substitution and canonical digest mismatch. The transition chronology is itself included in the v3 canonical digest.
 
 It verifies the presence and binding of external epoch/fencing receipt commitments. Their signatures and the external primary-fencing mechanism still require independent verification. A SQL boolean such as pg_is_in_recovery() = false cannot rule out two writable primaries.
 
@@ -158,4 +164,4 @@ Adds `specs/owner-epoch/OwnerEpochExecutionAttestation.tla` and a bounded TLC co
 - effect plus execution-attestation written in one transition;
 - exact replay returning the original attestation.
 
-The branch inventory is 23 reference-contract unit tests, 16 adapter-core unit tests, 4 PostgreSQL receipt/attestation unit tests, 3 ignored PostgreSQL/NATS integration tests and 20 SQL-level adversarial assertions. The TLA+ module and configuration are authored source, not a model-check result. No TLC execution is claimed. The SQL and Rust tests still require exact-head CI. The benchmark corpus is 52 scenarios / 37 metrics and remains preregistered, not executed.
+The baseline exact-head workflow #39 passed on `e9ba2fc`: 23 reference-contract tests, 22 adapter tests, the PostgreSQL 16.16 + JetStream receipt/ACK integration scenario, SQL migration/adversarial script, rustfmt and Clippy. Subsequent work that adds typed transition chronology and the v3 commitment is newer than that green head and must receive a separate exact-head run. The TLA+ module is authored source, not a model-check result. No TLC execution is claimed. The original NATS benchmark remains 52 scenarios / 37 metrics; the separate Recovery-Closed ACK benchmark is 38 scenarios / 29 metrics. Both are preregistered, not executed.
