@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/hearth-auth-withdrawal-scenarios.v0.1.schema.json",
+  "title": "Hearth authorization and SAP withdrawal adversarial corpus",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark",
+    "version",
+    "base_commit",
+    "source_branch",
+    "qualification_claim",
+    "invariants",
+    "scenarios"
+  ],
+  "properties": {
+    "benchmark": {
+      "const": "Hearth authorization and SAP withdrawal adversarial corpus"
+    },
+    "version": {
+      "const": "0.1"
+    },
+    "base_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "source_branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "qualification_claim": {
+      "type": "string",
+      "minLength": 1
+    },
+    "invariants": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 20,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "surface",
+          "stimulus",
+          "expected",
+          "writes",
+          "current_implementation",
+          "unit_covered",
+          "host_qualification_required"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^HSA-[0-9]{3}$"
+          },
+          "surface": {
+            "enum": [
+              "sap_membership",
+              "sap_withdrawal",
+              "tend_exchange"
+            ]
+          },
+          "stimulus": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected": {
+            "enum": [
+              "authorize_membership_check",
+              "reject",
+              "atomic_rollback"
+            ]
+          },
+          "writes": {
+            "enum": [
+              "no_mutation_at_membership_stage",
+              "no_writes",
+              "no_partial_writes",
+              "no_exchange_or_balance_writes"
+            ]
+          },
+          "current_implementation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unit_covered": {
+            "type": "boolean"
+          },
+          "host_qualification_required": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
