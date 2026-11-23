@@ -231,6 +231,10 @@ impl AuthorityProofReceipt {
                 if *old_timeline == 0
                     || *owner_epoch == 0
                     || *fence_sequence == 0
+                    || *old_primary_id != self.primary_id
+                    || *old_system_identifier != self.database_system_identifier
+                    || *old_timeline != self.postgres_timeline
+                    || *owner_epoch != self.owner_epoch
                     || old_primary_id == successor_primary_id
                     || *observed_at < self.issued_at
                     || *observed_at > self.expires_at
@@ -254,6 +258,9 @@ impl AuthorityProofReceipt {
                 validate_text(candidate_primary_id, "candidate primary ID")?;
                 validate_text(candidate_system_identifier, "candidate system identifier")?;
                 if *candidate_timeline == 0
+                    || *candidate_primary_id != self.primary_id
+                    || *candidate_system_identifier != self.database_system_identifier
+                    || *candidate_timeline != self.postgres_timeline
                     || *target_transaction_end_lsn == 0
                     || *candidate_flush_lsn < *target_transaction_end_lsn
                     || *candidate_replay_lsn < *target_transaction_end_lsn
@@ -555,7 +562,7 @@ mod tests {
     #[test]
     fn authority_proof_purposes_and_issuer_roles_are_domain_separated() {
         let key = SigningKey::from_bytes(&[84; 32]);
-        let receipt = common(
+        let mut receipt = common(
             AuthorityProofPurpose::PhysicalFencing,
             AuthorityProofIssuerRole::PhysicalFencingAttestor,
             AuthorityProofPayload::PhysicalFencing {
@@ -572,6 +579,7 @@ mod tests {
                 actuator_evidence_hash: ProofDigest([7; 32]),
             },
         );
+        receipt.primary_id = "postgres-old".into();
         let signed = sign(receipt, &key);
         signed.verify_signature().unwrap();
 
@@ -584,7 +592,7 @@ mod tests {
         let target = AuthorityProofTarget {
             deployment_id: "deployment:test".into(),
             database_system_identifier: "731245".into(),
-            primary_id: "postgres-a".into(),
+            primary_id: "postgres-old".into(),
             postgres_timeline: 2,
             owner_epoch: 3,
         };
