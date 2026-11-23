@@ -219,12 +219,7 @@ impl PostgresEffectCommitVerifier {
         dsn: &str,
         ca_certificate: impl AsRef<Path>,
     ) -> Result<Self, String> {
-        Self::connect_with_ca_and_authority_lease_trust(
-            dsn,
-            ca_certificate,
-            BTreeSet::new(),
-        )
-        .await
+        Self::connect_with_ca_and_authority_lease_trust(dsn, ca_certificate, BTreeSet::new()).await
     }
 
     /// Connect over CA-verified TLS and bind the verifier to an explicit trust
@@ -463,7 +458,10 @@ fn decode_effect_receipt(
                 || evidence.signed_lease.lease.primary_id
                     != effect_authority_lease.signed_lease.lease.primary_id
                 || evidence.signed_lease.lease.database_system_identifier
-                    != effect_authority_lease.signed_lease.lease.database_system_identifier
+                    != effect_authority_lease
+                        .signed_lease
+                        .lease
+                        .database_system_identifier
                 || evidence.signed_lease.lease.postgres_timeline
                     != effect_authority_lease.signed_lease.lease.postgres_timeline
                 || evidence.signed_lease.lease.epoch_number
@@ -723,13 +721,19 @@ fn decode_and_verify_authority_write_lease(
         .ok_or_else(|| "authority lease database system identifier is missing".to_owned())?;
     let postgres_timeline =
         positive_position(raw.postgres_timeline, "authority lease PostgreSQL timeline")?;
-    let database_epoch_number =
-        optional_positive_position(raw.database_epoch_number, "authority lease database epoch number")?;
+    let database_epoch_number = optional_positive_position(
+        raw.database_epoch_number,
+        "authority lease database epoch number",
+    )?;
     let database_epoch_hash = raw.database_epoch_hash;
-    let resource_owner_epoch =
-        positive_position(raw.resource_owner_epoch, "authority lease resource owner epoch")?;
-    let resource_generation =
-        positive_position(raw.resource_generation, "authority lease resource generation")?;
+    let resource_owner_epoch = positive_position(
+        raw.resource_owner_epoch,
+        "authority lease resource owner epoch",
+    )?;
+    let resource_generation = positive_position(
+        raw.resource_generation,
+        "authority lease resource generation",
+    )?;
     let signer_key_id = raw
         .signer_key_id
         .ok_or_else(|| "authority lease signer key ID is missing".to_owned())?;
@@ -744,17 +748,20 @@ fn decode_and_verify_authority_write_lease(
     let signed_json = raw
         .signed_lease_json
         .ok_or_else(|| "authority lease signed JSON envelope is missing".to_owned())?;
-    let external_highwater_receipt_digest = raw
-        .external_highwater_receipt_digest
-        .ok_or_else(|| "authority lease external high-water receipt digest is missing".to_owned())?;
+    let external_highwater_receipt_digest =
+        raw.external_highwater_receipt_digest.ok_or_else(|| {
+            "authority lease external high-water receipt digest is missing".to_owned()
+        })?;
     let physical_fencing_receipt_digest = raw.physical_fencing_receipt_digest;
     let attested_at_text = raw
         .attested_at
         .ok_or_else(|| "authority lease attestation timestamp is missing".to_owned())?;
 
-    if raw.admitted_scope.as_deref().is_some_and(|scope| {
-        scope != authority_scope_wire_name(required_scope)
-    }) {
+    if raw
+        .admitted_scope
+        .as_deref()
+        .is_some_and(|scope| scope != authority_scope_wire_name(required_scope))
+    {
         return Err(
             "authority lease attestation scope column differs from the required signed scope"
                 .into(),
@@ -797,7 +804,9 @@ fn decode_and_verify_authority_write_lease(
         .signed_lease_hash()
         .map_err(|error| format!("compute signed authority lease hash: {error}"))?;
     if computed_lease_hash.0 != lease_hash {
-        return Err("signed authority lease hash does not match the canonical signed envelope".into());
+        return Err(
+            "signed authority lease hash does not match the canonical signed envelope".into(),
+        );
     }
 
     let attested_at = parse_utc_timestamp(&attested_at_text, "authority lease attested_at")?;
