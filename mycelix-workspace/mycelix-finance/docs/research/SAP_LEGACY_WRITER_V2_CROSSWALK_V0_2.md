@@ -101,6 +101,7 @@ A V2 value-note design must not imply Holochain runtime guarantees that have not
 
 The current official Holochain developer documentation states:
 - chain-fork warrants are not operational yet; ordinary invalid-operation warrants and chain-fork evidence are distinct;
+- general invalid-operation warrants became stable in Holochain 0.6; this is distinct from the chain-fork-warrant limitation;
 - agent activity / DHT observations are eventually consistent; the absence of a known fork or warrant is not proof that no conflict exists;
 - countersigning is labelled unstable and disabled by default in Holochain 0.4 and newer;
 - countersigning synchronizes a shared write, requires all participants online for the session, and is explicitly not by itself a double-spend prevention mechanism.
@@ -119,6 +120,8 @@ The crosswalk therefore requires:
 5. a claim ceiling that stays fork-detection-only/provisional until the actual runtime and independent witness policy are qualified.
 
 This is not a claim that countersigning cannot be enabled on the current conductor. It is a requirement to prove that it is enabled and behaves as assumed before any high-assurance output is spendable.
+
+The 0.5→0.6 upgrade guide separately states that general invalid-operation warrants became stable in Holochain 0.6 and that `get_agent_activity` returns them. The limitation here is narrower: the agent-status guide says chain-fork warrants are not yet operational, even though `get_agent_activity` can report observed chain-fork status. Do not conflate general warrants with chain-fork warrants, and do not treat an empty warrant list or GoodSoFar as finality.
 
 ## 9. Machine-readable runtime evidence boundary
 
