@@ -44,7 +44,7 @@ struct Event {
     minimum_support_overlap_fraction: f64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct EvidenceRecord {
     evidence_id: String,
     edge_id: String,
@@ -120,7 +120,7 @@ struct Controls {
     synthetic_only_claim_ceiling: bool,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum CandidateState {
     Active,
     Inactive,
