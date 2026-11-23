@@ -74,7 +74,7 @@ jobs:
             -config PCOEEffectOwnerPayment.cfg \
             PCOEEffectOwnerPayment.tla 2>&1 | tee "$RUNNER_TEMP/pcoe-payment-safe-tlc.log"
 
-      - name: Require mutant to expose partial-debit invariant failure
+      - name: Require mutant to expose sender-intent/debit invariant failure
         working-directory: mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation
         shell: bash
         run: |
@@ -87,16 +87,16 @@ jobs:
           mutant_status=$?
           set -e
           if [ "$mutant_status" -eq 0 ]; then
-            echo "Unsafe partial-debit mutant unexpectedly satisfied its invariant." >&2
+            echo "Unsafe sender-intent/debit mutant unexpectedly satisfied its invariant." >&2
             cat "$RUNNER_TEMP/pcoe-payment-mutant-tlc.log"
             exit 1
           fi
-          if ! grep -q "NoPartialLocalValueEffect" "$RUNNER_TEMP/pcoe-payment-mutant-tlc.log"; then
+          if ! grep -q "SenderIntentDebitAtomicity" "$RUNNER_TEMP/pcoe-payment-mutant-tlc.log"; then
             echo "Mutant failed for a reason other than the expected partial-value-effect invariant." >&2
             cat "$RUNNER_TEMP/pcoe-payment-mutant-tlc.log"
             exit 1
           fi
-          echo "Expected negative control detected NoPartialLocalValueEffect violation."
+          echo "Expected negative control detected SenderIntentDebitAtomicity violation."
 
       - name: Write qualification manifest
         if: always()
