@@ -284,6 +284,44 @@
         "#6556",
         "#AWS transactional outbox pattern"
       ]
+    },
+    {
+      "id": "SCE-023",
+      "category": "fault_injection",
+      "stimulus": "get_agent_activity reports GoodSoFar/no known fork or warrant, but the authority view is incomplete and a fork is discovered later",
+      "expected": "Indeterminate",
+      "invariant": "GoodSoFarIsNotFinality",
+      "execution_state": "specified_not_executed",
+      "related_tracking": [
+        "#6576",
+        "#667",
+        "#679"
+      ]
+    },
+    {
+      "id": "SCE-024",
+      "category": "fault_injection",
+      "stimulus": "The actual Finance conductor has countersigning unavailable or disabled while the adapter attempts to derive witnessed assurance",
+      "expected": "Indeterminate",
+      "invariant": "NoAssuranceWithoutRuntimeCapability",
+      "execution_state": "specified_not_executed",
+      "related_tracking": [
+        "#6576",
+        "#685"
+      ]
+    },
+    {
+      "id": "SCE-025",
+      "category": "fault_injection",
+      "stimulus": "A witness session times out, an optional signer is missing, or the authenticated signer set is below the configured strict-majority quorum",
+      "expected": "Indeterminate",
+      "invariant": "IncompleteWitnessSessionNeverPromotesSpendability",
+      "execution_state": "specified_not_executed",
+      "related_tracking": [
+        "#6576",
+        "#685",
+        "#691"
+      ]
     }
   ],
   "crosswalk": "sap-legacy-writer-v2-crosswalk.v0.2.json"
