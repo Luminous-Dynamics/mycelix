@@ -20,10 +20,27 @@ DECLARE
     v_lease_id UUID := '30000000-0000-4000-8000-000000000001';
     v_proof_id UUID := '40000000-0000-4000-8000-000000000001';
     v_wrong_proof_id UUID := '40000000-0000-4000-8000-000000000002';
+    v_promotion_lease_id UUID := '30000000-0000-4000-8000-000000000002';
+    v_promotion_hwm_proof_id UUID := '40000000-0000-4000-8000-000000000004';
+    v_fencing_proof_id UUID := '40000000-0000-4000-8000-000000000005';
+    v_promotion_proof_id UUID := '40000000-0000-4000-8000-000000000006';
     v_lease_hash BYTEA := decode(repeat('aa', 32), 'hex');
     v_external_sequence_digest BYTEA := decode(repeat('dd', 32), 'hex');
     v_canonical_digest BYTEA := decode(repeat('bb', 32), 'hex');
     v_signed_receipt_hash BYTEA := decode(repeat('cc', 32), 'hex');
+    v_promotion_lease_hash BYTEA := decode(repeat('ab', 32), 'hex');
+    v_promotion_external_digest BYTEA := decode(repeat('e1', 32), 'hex');
+    v_promotion_hwm_signed_hash BYTEA := decode(repeat('c2', 32), 'hex');
+    v_fencing_signed_hash BYTEA := decode(repeat('c3', 32), 'hex');
+    v_promotion_signed_hash BYTEA := decode(repeat('c4', 32), 'hex');
+    v_epoch_authority_receipt BYTEA := decode(repeat('f1', 32), 'hex');
+    v_successor_primary TEXT := 'postgres-proof-successor';
+    v_promotion_timeline BIGINT;
+    v_promotion_lease_json JSONB;
+    v_promotion_hwm_json JSONB;
+    v_fencing_json JSONB;
+    v_promotion_json JSONB;
+    v_advanced RECORD;
     v_system_id TEXT;
     v_timeline BIGINT;
     v_now TIMESTAMPTZ;
@@ -288,6 +305,237 @@ BEGIN
     END;
     IF NOT v_rejected THEN
         RAISE EXCEPTION 'lease was linked to a high-water proof for another signed lease hash';
+    END IF;
+
+    -- Promotion lease is authorized on the current primary; its proof
+    -- chain separately names the fenced old primary and the successor candidate.
+    v_promotion_timeline := v_timeline + 1;
+    v_promotion_lease_json := jsonb_build_object(
+        'protocol', 'mycelix-desci-authority-write-lease',
+        'protocol_version', 1,
+        'codec', 'mycelix-canonical-binary-v1',
+        'schema_version', 1,
+        'lease', jsonb_build_object(
+            'lease_id', v_promotion_lease_id,
+            'deployment_id', v_deployment,
+            'primary_id', v_primary,
+            'database_system_identifier', v_system_id,
+            'postgres_timeline', v_timeline,
+            'generation', 8,
+            'phase', 'epoch',
+            'epoch_number', 2,
+            'epoch_hash', to_jsonb(array_fill(34, ARRAY[32])),
+            'allowed_scopes', jsonb_build_array('database_epoch_promotion'),
+            'issued_at', v_now - interval '1 minute',
+            'not_before', v_now - interval '30 seconds',
+            'expires_at', v_now + interval '5 minutes',
+            'reason', 'synthetic proof-bound promotion lease'
+        ),
+        'signer_key_id', 'lease-controller-test',
+        'signer_public_key', to_jsonb(array_fill(84, ARRAY[32])),
+        'signature', to_jsonb(array_fill(85, ARRAY[64]))
+    );
+
+    SELECT myc_effect_owner.install_effect_owner_authority_write_lease(
+        v_realm, v_resource, v_action, v_owner,
+        2, 2, v_promotion_lease_hash, v_promotion_external_digest,
+        v_fencing_signed_hash, v_promotion_lease_json
+    ) INTO v_installed;
+    IF v_installed <> v_promotion_lease_id THEN
+        RAISE EXCEPTION 'promotion lease did not install at the next resource epoch/generation';
+    END IF;
+
+    -- A promotion lease without all three proof classes is not bindable.
+    v_rejected := FALSE;
+    BEGIN
+        PERFORM myc_effect_owner.bind_authority_write_lease_proofs(
+            v_realm, v_resource, v_action, v_owner,
+            v_promotion_lease_id, v_promotion_hwm_proof_id, NULL, NULL
+        );
+    EXCEPTION WHEN SQLSTATE 'P0001' THEN
+        v_rejected := TRUE;
+    END;
+    IF NOT v_rejected THEN
+        RAISE EXCEPTION 'promotion lease unexpectedly bound without fencing/promotion proofs';
+    END IF;
+
+    v_promotion_hwm_json := jsonb_build_object(
+        'protocol', 'mycelix-authority-proof',
+        'version', 1,
+        'receipt', jsonb_build_object(
+            'proof_id', v_promotion_hwm_proof_id,
+            'purpose', 'lease_high_water',
+            'issuer_role', 'lease_high_water_authority',
+            'deployment_id', v_deployment,
+            'database_system_identifier', v_system_id,
+            'primary_id', v_primary,
+            'postgres_timeline', v_timeline,
+            'owner_epoch', 2,
+            'sequence', 2,
+            'issued_at', v_now - interval '1 minute',
+            'not_before', v_now - interval '30 seconds',
+            'expires_at', v_now + interval '5 minutes',
+            'payload', jsonb_build_object(
+                'kind', 'lease_high_water',
+                'previous_generation', 7,
+                'previous_lease_hash', to_jsonb(array_fill(170, ARRAY[32])),
+                'new_generation', 8,
+                'new_lease_id', v_promotion_lease_id,
+                'new_lease_hash', to_jsonb(array_fill(171, ARRAY[32])),
+                'authority_policy_epoch', 2
+            )
+        ),
+        'issuer_key_id', 'highwater-test-key',
+        'issuer_public_key', to_jsonb(array_fill(86, ARRAY[32])),
+        'signature', to_jsonb(array_fill(87, ARRAY[64]))
+    );
+    PERFORM myc_effect_owner.install_authority_proof_receipt(
+        v_promotion_hwm_json,
+        decode(repeat('b2', 32), 'hex'),
+        v_promotion_hwm_signed_hash,
+        v_promotion_external_digest,
+        'test-proof-controller'
+    );
+
+    v_fencing_json := jsonb_build_object(
+        'protocol', 'mycelix-authority-proof',
+        'version', 1,
+        'receipt', jsonb_build_object(
+            'proof_id', v_fencing_proof_id,
+            'purpose', 'physical_fencing',
+            'issuer_role', 'physical_fencing_attestor',
+            'deployment_id', v_deployment,
+            'database_system_identifier', v_system_id,
+            'primary_id', v_primary,
+            'postgres_timeline', v_timeline,
+            'owner_epoch', 1,
+            'sequence', 1,
+            'issued_at', v_now - interval '1 minute',
+            'not_before', v_now - interval '30 seconds',
+            'expires_at', v_now + interval '5 minutes',
+            'payload', jsonb_build_object(
+                'kind', 'physical_fencing',
+                'old_primary_id', v_primary,
+                'old_system_identifier', v_system_id,
+                'old_timeline', v_timeline,
+                'owner_epoch', 1,
+                'fence_sequence', 1,
+                'mechanism', 'storage_lease_revocation',
+                'actuator_id', 'storage-controller-1',
+                'operation_id', 'fence-operation-1',
+                'successor_primary_id', v_successor_primary,
+                'observed_at', v_now - interval '10 seconds',
+                'actuator_evidence_hash', to_jsonb(array_fill(18, ARRAY[32]))
+            )
+        ),
+        'issuer_key_id', 'fencing-controller-test',
+        'issuer_public_key', to_jsonb(array_fill(89, ARRAY[32])),
+        'signature', to_jsonb(array_fill(90, ARRAY[64]))
+    );
+    PERFORM myc_effect_owner.install_authority_proof_receipt(
+        v_fencing_json,
+        decode(repeat('b3', 32), 'hex'),
+        v_fencing_signed_hash,
+        decode(repeat('e2', 32), 'hex'),
+        'test-proof-controller'
+    );
+
+    v_promotion_json := jsonb_build_object(
+        'protocol', 'mycelix-authority-proof',
+        'version', 1,
+        'receipt', jsonb_build_object(
+            'proof_id', v_promotion_proof_id,
+            'purpose', 'promotion_eligibility',
+            'issuer_role', 'promotion_controller',
+            'deployment_id', v_deployment,
+            'database_system_identifier', v_system_id,
+            'primary_id', v_successor_primary,
+            'postgres_timeline', v_promotion_timeline,
+            'owner_epoch', 2,
+            'sequence', 1,
+            'issued_at', v_now - interval '1 minute',
+            'not_before', v_now - interval '30 seconds',
+            'expires_at', v_now + interval '5 minutes',
+            'payload', jsonb_build_object(
+                'kind', 'promotion_eligibility',
+                'candidate_primary_id', v_successor_primary,
+                'candidate_system_identifier', v_system_id,
+                'candidate_timeline', v_promotion_timeline,
+                'target_transaction_end_lsn', 4096,
+                'candidate_flush_lsn', 8192,
+                'candidate_replay_lsn', 8192,
+                'timeline_ancestry_hash', to_jsonb(array_fill(19, ARRAY[32])),
+                'promotion_policy_epoch', 2,
+                'lease_highwater_proof_hash', to_jsonb(array_fill(194, ARRAY[32])),
+                'physical_fencing_proof_hash', to_jsonb(array_fill(195, ARRAY[32]))
+            )
+        ),
+        'issuer_key_id', 'promotion-controller-test',
+        'issuer_public_key', to_jsonb(array_fill(91, ARRAY[32])),
+        'signature', to_jsonb(array_fill(92, ARRAY[64]))
+    );
+    PERFORM myc_effect_owner.install_authority_proof_receipt(
+        v_promotion_json,
+        decode(repeat('b4', 32), 'hex'),
+        v_promotion_signed_hash,
+        decode(repeat('e3', 32), 'hex'),
+        'test-proof-controller'
+    );
+
+    -- Bind exact high-water, physical-fencing and candidate promotion proofs.
+    -- The promotion proof names the successor; the lease/fencing proof names
+    -- the old primary that is being fenced.
+    SELECT myc_effect_owner.bind_authority_write_lease_proofs(
+        v_realm, v_resource, v_action, v_owner,
+        v_promotion_lease_id,
+        v_promotion_hwm_proof_id,
+        v_fencing_proof_id,
+        v_promotion_proof_id
+    ) INTO v_installed;
+    IF v_installed <> v_promotion_lease_id THEN
+        RAISE EXCEPTION 'promotion proof bundle did not bind to the exact signed lease';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM myc_effect_owner.effect_owner_authority_lease_proof_links
+         WHERE realm_id = v_realm
+           AND resource_id = v_resource
+           AND action_id = v_action
+           AND effect_owner_id = v_owner
+           AND lease_id = v_promotion_lease_id
+           AND lease_highwater_proof_id = v_promotion_hwm_proof_id
+           AND physical_fencing_proof_id = v_fencing_proof_id
+           AND promotion_eligibility_proof_id = v_promotion_proof_id
+    ) THEN
+        RAISE EXCEPTION 'complete promotion proof bundle link was not persisted';
+    END IF;
+
+    SELECT * INTO v_advanced
+      FROM myc_effect_owner.advance_owner_epoch_with_proofs(
+        v_realm, v_resource, v_action, v_owner,
+        2, v_epoch_authority_receipt, v_fencing_signed_hash,
+        v_promotion_lease_id, v_promotion_lease_hash, 8
+    );
+    IF v_advanced.accepted_owner_epoch <> 2
+       OR v_advanced.accepted_generation <> 2
+       OR v_advanced.authority_lease_id <> v_promotion_lease_id
+       OR v_advanced.authority_lease_generation <> 8 THEN
+        RAISE EXCEPTION 'proof-linked owner epoch promotion did not preserve the exact lease evidence';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM myc_effect_owner.effect_owner_epoch_authority_lease_attestations
+         WHERE realm_id = v_realm
+           AND resource_id = v_resource
+           AND action_id = v_action
+           AND effect_owner_id = v_owner
+           AND new_owner_epoch = 2
+           AND lease_id = v_promotion_lease_id
+           AND physical_fencing_receipt_digest = v_fencing_signed_hash
+    ) THEN
+        RAISE EXCEPTION 'proof-linked promotion did not append its lease transition attestation';
     END IF;
 
     -- The worker can execute only the proof-linked effect endpoint; the
