@@ -192,3 +192,51 @@ The benchmark remains preregistered until the multi-node fault campaign and inde
 Patroni must be treated as a serious PostgreSQL HA comparator, not dismissed. Its synchronous mode constrains promotion to a node believed to contain transactions that were reported committed; strict mode can trade write availability for durability when no synchronous replica is eligible. The benchmark separates strict and non-strict profiles. RabbitMQ quorum publisher confirms establish queue-level quorum acceptance; they still do not establish the destination PostgreSQL business effect.
 
 These references establish product behavior and protocol boundaries. They do not qualify the Mycelix implementation; that requires its own exact-head and multi-node fault evidence.
+
+## 9. Refined industry comparison — guarantee boundaries
+
+The comparison must distinguish the state machine being protected, not just products that expose an ACK API.
+
+### PostgreSQL 19 synchronous commit
+
+PostgreSQL 19 documents five `synchronous_commit` modes: `remote_apply`, `on`, `remote_write`, `local` and `off`. With no synchronous standby configured, the non-off modes provide local WAL flush rather than remote replication. With a synchronous standby, `on` waits for durable standby flush, `remote_write` waits for standby OS write, and `remote_apply` waits for apply/visibility. The effective value is per transaction at commit, so a later server configuration read is not proof of the durability mode used by an earlier effect.
+
+This is a strong baseline, and Mycelix should not claim to replace it. The additional research question is whether an application effect can be tied to the exact transaction end-LSN, recovery-candidate set and external fencing policy that govern future promotion.
+
+### Patroni 4.1.5
+
+Patroni synchronous mode is a serious HA baseline: it restricts automatic promotion to nodes believed to contain acknowledged transactions. Strict mode prevents Patroni from disabling synchronous replication when no synchronous standby candidate is available, blocking client writes. Its documentation also describes caveats: per-transaction `synchronous_commit=off/local` can bypass synchronous durability, manual failover can override the guard, and simultaneous failures can still matter.
+
+Therefore the fair comparison is not “Patroni is unsafe.” It is:
+- Patroni owns the PostgreSQL HA/promotion state machine and is already strong at synchronous standby selection;
+- Mycelix is researching a separately verifiable application-effect and cross-system finality certificate, including proof of the exact effect, external lease high-water, physical fencing and broker delivery;
+- both must be measured with the same replica count, write mode, failure schedule, network, storage and RPO requirement.
+
+### Kafka 4.2 transactions
+
+Kafka's exactly-once processing model atomically commits consumed offsets and produced records in Kafka's own transactional domain (including Kafka Streams state/output behavior). Kafka's design documentation states that external destination systems require cooperation from those systems to coordinate output with consumed offsets.
+
+Do not compare Kafka Streams exactly-once to a PostgreSQL side effect as if the destination were part of the Kafka transaction. Use a matched Kafka Connect/outbox or destination-coordinating sink profile and measure the actual database commit and offset recovery.
+
+### RabbitMQ quorum queues
+
+RabbitMQ publisher confirms for quorum queues are issued after quorum replicas accept the message. Consumer manual acknowledgements govern redelivery. Those are meaningful queue guarantees, but neither is a proof that a separate PostgreSQL mutation committed or that every permitted database recovery candidate can retain it.
+
+### Debezium transactional outbox
+
+The outbox pattern atomically couples application state with an outbox row in the same database transaction; Debezium's outbox router captures that row and emits it. This is a strong and directly relevant comparator, not a straw man. Mycelix must compare against it with idempotent destination writes, connector restarts, duplicate emission, WAL retention and failover-slot continuity. The remaining question is whether the destination and promotion authority can present independently verifiable finality evidence for the exact database effect and ACK.
+
+## 10. Official product references
+
+- PostgreSQL 19 write-ahead-log and synchronous-commit modes: https://www.postgresql.org/docs/19/runtime-config-wal.html
+- PostgreSQL 19 synchronous and logical failover replication settings: https://www.postgresql.org/docs/19/runtime-config-replication.html
+- PostgreSQL 19 logical replication commit/end-LSN wire format: https://www.postgresql.org/docs/19/protocol-logicalrep-message-formats.html
+- PostgreSQL 19 replication slot readiness/invalidation fields: https://www.postgresql.org/docs/19/view-pg-replication-slots.html
+- Patroni 4.1.5 synchronous, strict and quorum replication modes: https://patroni.readthedocs.io/en/latest/replication_modes.html
+- Kafka 4.2 design and transaction boundary: https://kafka.apache.org/42/design/design/
+- Kafka Streams processing guarantees: https://kafka.apache.org/42/streams/core-concepts/
+- RabbitMQ publisher confirms: https://www.rabbitmq.com/docs/confirms
+- RabbitMQ quorum queues: https://www.rabbitmq.com/docs/quorum-queues
+- Debezium transactional outbox event router: https://debezium.io/documentation/reference/stable/transformations/outbox-event-router.html
+
+These sources establish product-level behavior, not Mycelix qualification. Mycelix claims still require exact-head tests, multi-node fault injection, independent proof-root tests and reproducible performance data.
