@@ -1,0 +1,68 @@
+name: Terra Preta segmentation ensemble topology audit
+
+on:
+  pull_request:
+    branches: [main, research/terra-dynamic-topology-v0.1]
+    paths:
+      - 'research/terra-preta/SEGMENTATION_ENSEMBLE_TOPOLOGY_AUDIT_V0.1.md'
+      - 'research/terra-preta/schemas/segmentation-ensemble-*.schema.json'
+      - 'research/terra-preta/tools/segmentation-ensemble-audit/**'
+      - '.github/workflows/terra-preta-segmentation-ensemble-audit.yml'
+  push:
+    branches: [research/terra-seg-ensemble-v0.1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  segmentation-ensemble-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/segmentation-ensemble-audit/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path research/terra-preta/tools/segmentation-ensemble-audit/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/segmentation-ensemble-audit/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate fixture and report
+        run: |
+          jsonschema-cli validate research/terra-preta/schemas/segmentation-ensemble-input.schema.json \
+            --instance research/terra-preta/tools/segmentation-ensemble-audit/fixtures/synthetic-segmentation-ensemble.json
+          cargo run --quiet --manifest-path research/terra-preta/tools/segmentation-ensemble-audit/Cargo.toml -- \
+            research/terra-preta/tools/segmentation-ensemble-audit/fixtures/synthetic-segmentation-ensemble.json \
+            "$RUNNER_TEMP/segmentation-ensemble-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/segmentation-ensemble-report.schema.json \
+            --instance "$RUNNER_TEMP/segmentation-ensemble-report.json"
+          jq -e '
+            .variant_count == 5 and
+            .reference_variant_id == "alpha-50" and
+            .edge_catalog_count == 6 and
+            .pairwise_edge_jaccard.pair_count == 10 and
+            (.pairwise_edge_jaccard.minimum < 1.0) and
+            (.terminal_pair_results | length == 1) and
+            ((.terminal_pair_results[0].stability_class) == "segmentation_sensitive") and
+            ((.terminal_pair_results[0].connected_variant_count) == 4) and
+            ((.edge_presence[] | select(.feature_id == "upper-b") | .present_variant_count) == 3) and
+            ((.edge_presence[] | select(.feature_id == "lower-b") | .present_variant_count) == 4) and
+            ((.variant_results | map(.cycle_rank) | min) == 0) and
+            ((.variant_results | map(.cycle_rank) | max) == 1)
+          ' "$RUNNER_TEMP/segmentation-ensemble-report.json"
+      - name: Reject output overwrite
+        run: |
+          before=$(sha256sum "$RUNNER_TEMP/segmentation-ensemble-report.json" | cut -d ' ' -f 1)
+          if cargo run --quiet --manifest-path research/terra-preta/tools/segmentation-ensemble-audit/Cargo.toml -- \
+            research/terra-preta/tools/segmentation-ensemble-audit/fixtures/synthetic-segmentation-ensemble.json \
+            "$RUNNER_TEMP/segmentation-ensemble-report.json"; then
+            echo "unexpected overwrite success" >&2
+            exit 1
+          fi
+          after=$(sha256sum "$RUNNER_TEMP/segmentation-ensemble-report.json" | cut -d ' ' -f 1)
+          test "$before" = "$after"
