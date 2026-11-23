@@ -67,7 +67,7 @@ Prepare ==
   /\ UNCHANGED <<batchCount, debitCount, creditCount, feeLiabilityCount,
                  feeOutboxCount, paymentProjectionCount, receiptProjectionCount,
                  feeDeliveryCount, feeState, responseLost, responseReturned,
-                 conflictObserved, retryCount>>
+                 conflictObserved, clientCachePresent, retryCount>>
 
 CommitAtomicJournalBatch ==
   /\ opState = "Prepared"
@@ -88,6 +88,7 @@ CommitAtomicJournalBatch ==
 ExactRetry ==
   /\ opState \in {"Prepared", "Committed"}
   /\ requestDigest = GoodDigest
+  /\ retryCount < 2
   /\ retryCount' = retryCount + 1
   /\ UNCHANGED <<opState, requestDigest, claimCount, batchCount, debitCount,
                  creditCount, feeLiabilityCount, feeOutboxCount,
@@ -168,6 +169,7 @@ ExpireClientCache ==
 UnsafeDebitBeforeBatch ==
   /\ AllowUnsafeMutations = TRUE
   /\ opState = "Prepared"
+  /\ debitCount = 0
   /\ debitCount' = debitCount + 1
   /\ UNCHANGED <<opState, requestDigest, claimCount, batchCount, creditCount,
                  feeLiabilityCount, feeOutboxCount, paymentProjectionCount,
@@ -178,6 +180,7 @@ UnsafeDebitBeforeBatch ==
 UnsafeDuplicateDebit ==
   /\ AllowUnsafeMutations = TRUE
   /\ opState = "Committed"
+  /\ debitCount = 1
   /\ debitCount' = debitCount + 1
   /\ UNCHANGED <<opState, requestDigest, claimCount, batchCount, creditCount,
                  feeLiabilityCount, feeOutboxCount, paymentProjectionCount,
