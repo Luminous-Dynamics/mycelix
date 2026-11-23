@@ -454,9 +454,8 @@ impl SignedAuthorityProofReceipt {
                 new_lease_hash,
                 ..
             } => {
-                let (expected_generation, expected_hash) = target
-                    .expected_previous_highwater
-                    .ok_or_else(|| {
+                let (expected_generation, expected_hash) =
+                    target.expected_previous_highwater.ok_or_else(|| {
                         "lease high-water verification requires an externally supplied predecessor"
                             .to_owned()
                     })?;
@@ -465,9 +464,8 @@ impl SignedAuthorityProofReceipt {
                 {
                     return Err("lease high-water proof does not extend the verifier's exact external predecessor".into());
                 }
-                let (expected_generation, expected_id, expected_hash) = target
-                    .expected_new_lease
-                    .ok_or_else(|| {
+                let (expected_generation, expected_id, expected_hash) =
+                    target.expected_new_lease.ok_or_else(|| {
                         "lease high-water verification requires the exact pending successor lease"
                             .to_owned()
                     })?;
@@ -476,7 +474,8 @@ impl SignedAuthorityProofReceipt {
                     || *new_lease_hash != expected_hash
                 {
                     return Err(
-                        "lease high-water proof does not authorize the exact successor lease".into(),
+                        "lease high-water proof does not authorize the exact successor lease"
+                            .into(),
                     );
                 }
             }
