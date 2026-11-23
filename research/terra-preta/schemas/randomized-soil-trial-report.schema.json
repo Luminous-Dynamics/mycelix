@@ -34,7 +34,10 @@
     "randomization_seed",
     "registered_at",
     "randomized_at",
-    "input_sha256"
+    "input_sha256",
+    "minimum_attainable_two_sided_randomization_p_value",
+    "can_resolve_nominal_alpha_05",
+    "can_resolve_nominal_alpha_01"
   ],
   "properties": {
     "audit_version": {
@@ -226,6 +229,17 @@
     "input_sha256": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
+    },
+    "minimum_attainable_two_sided_randomization_p_value": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "can_resolve_nominal_alpha_05": {
+      "type": "boolean"
+    },
+    "can_resolve_nominal_alpha_01": {
+      "type": "boolean"
     }
   }
 }
