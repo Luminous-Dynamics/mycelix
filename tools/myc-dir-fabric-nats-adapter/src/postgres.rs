@@ -302,17 +302,19 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
                 .into(),
         );
     }
-    let transition_columns = (
-        transition_previous_owner_epoch,
-        transition_new_owner_epoch,
-        transition_previous_generation,
-        transition_new_generation,
-        transition_xact_id,
-        epoch_authority_receipt_digest,
-        physical_fencing_receipt_digest,
-    );
-    let epoch_transition =
-        decode_epoch_transition(owner_epoch, accepted_generation, transition_columns)?;
+    let epoch_transition = decode_epoch_transition(
+        owner_epoch,
+        accepted_generation,
+        RawOwnerEpochTransition {
+            previous_owner_epoch: transition_previous_owner_epoch,
+            new_owner_epoch: transition_new_owner_epoch,
+            previous_generation: transition_previous_generation,
+            new_generation: transition_new_generation,
+            transition_xact_id,
+            epoch_authority_receipt_digest,
+            physical_fencing_receipt_digest,
+        },
+    )?;
     if worker_id.trim().is_empty()
         || claim_clock_profile_id.trim().is_empty()
         || database_xact_id.trim().is_empty()
@@ -379,36 +381,35 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
     })
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct RawOwnerEpochTransition {
+    previous_owner_epoch: Option<i64>,
+    new_owner_epoch: Option<i64>,
+    previous_generation: Option<i64>,
+    new_generation: Option<i64>,
+    transition_xact_id: Option<String>,
+    epoch_authority_receipt_digest: Option<Digest>,
+    physical_fencing_receipt_digest: Option<Digest>,
+}
+
+impl RawOwnerEpochTransition {
+    fn is_absent(&self) -> bool {
+        self.previous_owner_epoch.is_none()
+            && self.new_owner_epoch.is_none()
+            && self.previous_generation.is_none()
+            && self.new_generation.is_none()
+            && self.transition_xact_id.is_none()
+            && self.epoch_authority_receipt_digest.is_none()
+            && self.physical_fencing_receipt_digest.is_none()
+    }
+}
+
 fn decode_epoch_transition(
     owner_epoch: u64,
     accepted_generation: u64,
-    columns: (
-        Option<i64>,
-        Option<i64>,
-        Option<i64>,
-        Option<i64>,
-        Option<String>,
-        Option<Digest>,
-        Option<Digest>,
-    ),
+    raw: RawOwnerEpochTransition,
 ) -> Result<Option<VerifiedOwnerEpochTransition>, String> {
-    let (
-        previous_owner_epoch,
-        new_owner_epoch,
-        previous_generation,
-        new_generation,
-        transition_xact_id,
-        epoch_authority_receipt_digest,
-        physical_fencing_receipt_digest,
-    ) = columns;
-
-    let all_absent = previous_owner_epoch.is_none()
-        && new_owner_epoch.is_none()
-        && previous_generation.is_none()
-        && new_generation.is_none()
-        && transition_xact_id.is_none()
-        && epoch_authority_receipt_digest.is_none()
-        && physical_fencing_receipt_digest.is_none();
+    let all_absent = raw.is_absent();
 
     if owner_epoch == 1 {
         return if all_absent {
@@ -420,26 +421,26 @@ fn decode_epoch_transition(
 
     let transition = VerifiedOwnerEpochTransition {
         previous_owner_epoch: positive_position(
-            previous_owner_epoch,
+            raw.previous_owner_epoch,
             "transition previous owner epoch",
         )?,
         new_owner_epoch: positive_position(
-            new_owner_epoch,
+            raw.new_owner_epoch,
             "transition new owner epoch",
         )?,
         previous_generation: positive_position(
-            previous_generation,
+            raw.previous_generation,
             "transition previous generation",
         )?,
         new_generation: positive_position(
-            new_generation,
+            raw.new_generation,
             "transition new generation",
         )?,
-        transition_xact_id: transition_xact_id
+        transition_xact_id: raw.transition_xact_id
             .ok_or_else(|| "owner epoch transition transaction ID is missing".to_owned())?,
-        epoch_authority_receipt_digest: epoch_authority_receipt_digest
+        epoch_authority_receipt_digest: raw.epoch_authority_receipt_digest
             .ok_or_else(|| "owner epoch authority receipt digest is missing".to_owned())?,
-        physical_fencing_receipt_digest: physical_fencing_receipt_digest
+        physical_fencing_receipt_digest: raw.physical_fencing_receipt_digest
             .ok_or_else(|| "physical fencing receipt digest is missing".to_owned())?,
     };
     validate_epoch_transition(&transition, owner_epoch, accepted_generation)?;
@@ -850,18 +851,26 @@ mod tests {
 
     #[test]
     fn initial_epoch_has_no_transition_and_later_epoch_requires_one() {
-        let no_transition = (None, None, None, None, None, None, None);
-        assert_eq!(decode_epoch_transition(1, 1, no_transition), Ok(None));
+        let no_transition = RawOwnerEpochTransition {
+            previous_owner_epoch: None,
+            new_owner_epoch: None,
+            previous_generation: None,
+            new_generation: None,
+            transition_xact_id: None,
+            epoch_authority_receipt_digest: None,
+            physical_fencing_receipt_digest: None,
+        };
+        assert_eq!(decode_epoch_transition(1, 1, no_transition.clone()), Ok(None));
 
-        let partial_transition = (
-            Some(1),
-            Some(2),
-            Some(1),
-            Some(2),
-            Some("200".into()),
-            Some(digest(6)),
-            None,
-        );
+        let partial_transition = RawOwnerEpochTransition {
+            previous_owner_epoch: Some(1),
+            new_owner_epoch: Some(2),
+            previous_generation: Some(1),
+            new_generation: Some(2),
+            transition_xact_id: Some("200".into()),
+            epoch_authority_receipt_digest: Some(digest(6)),
+            physical_fencing_receipt_digest: None,
+        };
         assert!(decode_epoch_transition(2, 2, partial_transition).is_err());
         assert!(decode_epoch_transition(2, 2, no_transition).is_err());
     }
@@ -872,5 +881,16 @@ mod tests {
         let receipt = receipt_for(&binding);
         let unchanged = receipt.recompute_digest().unwrap();
         assert_eq!(unchanged, receipt.effect_receipt_digest);
+
+        let mut altered_transition = receipt.clone();
+        altered_transition
+            .epoch_transition
+            .as_mut()
+            .expect("test fixture has a transition")
+            .previous_generation -= 1;
+        assert_ne!(
+            altered_transition.recompute_digest().unwrap(),
+            receipt.effect_receipt_digest
+        );
     }
 }
