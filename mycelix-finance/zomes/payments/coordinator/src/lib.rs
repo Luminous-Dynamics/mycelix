@@ -183,9 +183,8 @@ pub fn revoke_amber_exemption(member_did: String) -> ExternResult<Record> {
 /// Returns the amount deducted. If 0, no update is persisted.
 #[hdk_extern]
 pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResult> {
-    // Opportunistically drain pending compost queue
-    let _ = drain_pending_compost_inner();
-
+    // Demurrage is a balance mutation. Keep this transaction source-chain-only;
+    // pending compost delivery is a separate, durable queue operation.
     let (record, bal) = get_sap_balance_inner(&input.member_did)?;
     let now = sys_time()?;
     let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
@@ -210,6 +209,7 @@ pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResu
     let updated = SapBalance {
         balance: bal.balance.saturating_sub(deduction),
         last_demurrage_at: now,
+        justified_by: None,
         ..bal
     };
     update_entry(
@@ -222,12 +222,11 @@ pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResu
     let regional_amount = deduction * COMPOST_REGIONAL_PCT / 100;
     let global_amount = deduction - local_amount - regional_amount; // remainder to global
 
-    // Redistribute via treasury zome cross-zome calls with retry + queue
-    let mut fully_redistributed = true;
-
+    // Durable-first redistribution: persist each delivery obligation in the same
+    // source-chain transaction as the demurrage debit. Actual treasury delivery is
+    // performed later by the explicit queue-drain operation.
     if let Some(ref pool_id) = input.local_commons_pool_id {
-        if !try_deliver_compost(pool_id, local_amount, &input.member_did) {
-            fully_redistributed = false;
+        if local_amount > 0 {
             queue_pending_compost(
                 pool_id,
                 local_amount,
@@ -237,8 +236,7 @@ pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResu
         }
     }
     if let Some(ref pool_id) = input.regional_commons_pool_id {
-        if !try_deliver_compost(pool_id, regional_amount, &input.member_did) {
-            fully_redistributed = false;
+        if regional_amount > 0 {
             queue_pending_compost(
                 pool_id,
                 regional_amount,
@@ -248,8 +246,7 @@ pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResu
         }
     }
     if let Some(ref pool_id) = input.global_commons_pool_id {
-        if !try_deliver_compost(pool_id, global_amount, &input.member_did) {
-            fully_redistributed = false;
+        if global_amount > 0 {
             queue_pending_compost(
                 pool_id,
                 global_amount,
@@ -261,7 +258,9 @@ pub fn apply_demurrage(input: ApplyDemurrageInput) -> ExternResult<DemurrageResu
 
     Ok(DemurrageResult {
         deducted: deduction,
-        redistributed: fully_redistributed,
+        // A durable queue obligation is not the same thing as completed
+        // redistribution; do not report success before treasury confirms it.
+        redistributed: false,
     })
 }
 
@@ -270,6 +269,10 @@ struct ReceiveCompostPayload {
     pub commons_pool_id: String,
     pub amount: u64,
     pub source_member_did: String,
+    /// Stable identity of the durable queue item. Treasury uses this as its
+    /// idempotency key so a successful delivery cannot be credited twice when
+    /// queue-link deletion races with a retry.
+    pub delivery_id: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -281,7 +284,12 @@ const PENDING_COMPOST_ANCHOR: &str = "pending_compost_queue";
 
 /// Attempt to deliver compost to treasury with retries.
 /// Returns `true` if delivery succeeded, `false` if all retries exhausted.
-fn try_deliver_compost(pool_id: &str, amount: u64, source_did: &str) -> bool {
+fn try_deliver_compost(
+    pool_id: &str,
+    amount: u64,
+    source_did: &str,
+    delivery_id: &str,
+) -> bool {
     if amount == 0 {
         return true;
     }
@@ -295,6 +303,7 @@ fn try_deliver_compost(pool_id: &str, amount: u64, source_did: &str) -> bool {
                 commons_pool_id: pool_id.to_string(),
                 amount,
                 source_member_did: source_did.to_string(),
+                delivery_id: delivery_id.to_string(),
             },
         ) {
             Ok(ZomeCallResponse::Ok(_)) => return true,
@@ -360,8 +369,9 @@ fn queue_pending_compost(
 }
 
 /// Drain the pending compost queue by retrying all queued deliveries.
-/// Successfully delivered entries are removed from the queue.
-/// Called opportunistically from `credit_sap` and `debit_sap`.
+/// Successfully delivered entries are removed from the queue. Treasury receives
+/// the queue-link ActionHash as a stable idempotency key, so deletion races do
+/// not turn an already-credited delivery into a second credit.
 ///
 /// Returns the number of successfully drained entries.
 #[hdk_extern]
@@ -397,6 +407,7 @@ fn drain_pending_compost_inner() -> ExternResult<u32> {
             &pending.commons_pool_id,
             pending.amount,
             &pending.source_member_did,
+            &link.create_link_hash.to_string(),
         ) {
             // Success — remove from queue
             delete_link(link.create_link_hash.clone(), GetOptions::default())?;
@@ -444,106 +455,10 @@ const DEMURRAGE_MIN_ELAPSED_SECONDS: u64 = 60;
 /// route all issuance through authorized mints (`mint_sap_from_governance` already
 /// does verify_governance). See MYCELIX_ECONOMY_IMPROVEMENT_PLAN Phase 1 / Class-A #3.
 #[hdk_extern]
-pub fn credit_sap(input: CreditSapInput) -> ExternResult<Record> {
-    // Opportunistically drain any pending compost deliveries
-    if let Err(e) = drain_pending_compost_inner() {
-        debug!(
-            "credit_sap: pending compost drain failed (non-fatal): {:?}",
-            e
-        );
-    }
-
-    // Check if this member has no balance — if so, auto-initialize (no race concern for create)
-    if find_sap_balance_record(&input.member_did)?.is_none() {
-        let now = sys_time()?;
-        let balance = SapBalance {
-            member_did: input.member_did.clone(),
-            balance: input.amount,
-            last_demurrage_at: now,
-            exemption: None,
-            justified_by: None,
-        };
-        let action_hash = create_entry(&EntryTypes::SapBalance(balance))?;
-        create_link(
-            anchor_hash(&format!("sap:{}", input.member_did))?,
-            action_hash.clone(),
-            LinkTypes::DidToSapBalance,
-            (),
-        )?;
-        return get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-            format!(
-                "SAP balance record not found after credit_sap initialization for member {}",
-                input.member_did
-            )
-        )));
-    }
-
-    // Existing balance: optimistic-locking retry loop
-    for attempt in 0..MAX_SAP_RETRIES {
-        let (record, bal) = get_sap_balance_inner(&input.member_did)?;
-        let now = sys_time()?;
-
-        // Apply pending demurrage first, then credit.
-        // If elapsed time is very small (< 60s), a concurrent writer likely already
-        // applied demurrage and updated last_demurrage_at. Skip recomputation to
-        // avoid double-application against a stale balance.
-        let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
-        let post_demurrage = if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
-            let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
-            let deduction = compute_demurrage_with_exemption(
-                bal.balance,
-                bal.exemption.as_ref(),
-                now_secs,
-                DEMURRAGE_EXEMPT_FLOOR,
-                DEMURRAGE_RATE,
-                elapsed,
-            );
-            bal.balance.saturating_sub(deduction)
-        } else {
-            bal.balance
-        };
-
-        let expected_balance = post_demurrage + input.amount;
-        let updated = SapBalance {
-            balance: expected_balance,
-            last_demurrage_at: now,
-            ..bal
-        };
-        let action_hash = update_entry(
-            record.action_address().clone(),
-            &EntryTypes::SapBalance(updated),
-        )?;
-
-        // Verify our update won: re-read from the anchor
-        let verify = find_sap_balance_record(&input.member_did)?;
-        if let Some((_, actual)) = verify {
-            if actual.balance == expected_balance {
-                return get(action_hash, GetOptions::default())?.ok_or(wasm_error!(
-                    WasmErrorInner::Guest(format!(
-                        "SAP balance record not found after credit for member {}",
-                        input.member_did
-                    ))
-                ));
-            }
-        }
-
-        // Concurrent update detected
-        if attempt == MAX_SAP_RETRIES - 1 {
-            return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "credit_sap for {} failed after {} retries due to concurrent modifications",
-                input.member_did, MAX_SAP_RETRIES
-            ))));
-        }
-        debug!(
-            "credit_sap: concurrent update detected for {}, retry {}/{}",
-            input.member_did,
-            attempt + 1,
-            MAX_SAP_RETRIES
-        );
-    }
-
+pub fn credit_sap(_input: CreditSapInput) -> ExternResult<Record> {
     Err(wasm_error!(WasmErrorInner::Guest(
-        "credit_sap: retry loop exited unexpectedly".into()
+        "credit_sap is retired: use claim_sap_transfer or claim_sap_mint for owner-authenticated balance increases"
+            .into(),
     )))
 }
 
@@ -554,35 +469,20 @@ pub struct CreditSapInput {
     pub reason: String,
 }
 
-/// Debit SAP from a member's balance (enforces demurrage + sufficient balance).
+/// Debit SAP from the caller's own balance.
 ///
-/// Uses optimistic locking with retry: after updating, re-reads to verify
-/// our update won. If a concurrent update created a fork, retries.
-///
-/// AUTHORIZATION: only the balance owner may debit their own balance. Every
-/// legitimate caller (`send_payment`, bridge `process_payment`, `redeem_collateral`)
-/// already verifies caller == the debited member before reaching here, and each
-/// runs in that member's agent context, so this guard is transparent to them —
-/// it closes the previously-open "drain any DID's balance" hole for direct callers.
+/// This remains an owner-authenticated negative balance transition. Positive
+/// balance increases use the explicit transfer/mint claim paths.
 #[hdk_extern]
 pub fn debit_sap(input: DebitSapInput) -> ExternResult<Record> {
     verify_caller_is_did(&input.member_did)?;
 
-    // Opportunistically drain any pending compost deliveries
-    if let Err(e) = drain_pending_compost_inner() {
-        debug!(
-            "debit_sap: pending compost drain failed (non-fatal): {:?}",
-            e
-        );
-    }
-
+    // Do not perform cross-zome compost delivery inside the balance mutation.
+    // Pending delivery is handled separately from the committed debit.
     for attempt in 0..MAX_SAP_RETRIES {
         let (record, bal) = get_sap_balance_inner(&input.member_did)?;
         let now = sys_time()?;
 
-        // Apply pending demurrage first.
-        // Skip if elapsed < 60s — a concurrent writer likely already applied demurrage
-        // and updated last_demurrage_at (avoids double-application on retry).
         let elapsed = elapsed_seconds(bal.last_demurrage_at, now);
         let effective = if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
             let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
@@ -611,6 +511,7 @@ pub fn debit_sap(input: DebitSapInput) -> ExternResult<Record> {
         let updated = SapBalance {
             balance: expected_balance,
             last_demurrage_at: now,
+            justified_by: None,
             ..bal
         };
         let action_hash = update_entry(
@@ -618,7 +519,6 @@ pub fn debit_sap(input: DebitSapInput) -> ExternResult<Record> {
             &EntryTypes::SapBalance(updated),
         )?;
 
-        // Verify our update won: re-read from the anchor
         let verify = find_sap_balance_record(&input.member_did)?;
         if let Some((_, actual)) = verify {
             if actual.balance == expected_balance {
@@ -631,13 +531,13 @@ pub fn debit_sap(input: DebitSapInput) -> ExternResult<Record> {
             }
         }
 
-        // Concurrent update detected
         if attempt == MAX_SAP_RETRIES - 1 {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
                 "debit_sap for {} failed after {} retries due to concurrent modifications",
                 input.member_did, MAX_SAP_RETRIES
             ))));
         }
+
         debug!(
             "debit_sap: concurrent update detected for {}, retry {}/{}",
             input.member_did,
@@ -663,87 +563,507 @@ pub struct TransferSapInput {
     pub from_did: String,
     pub to_did: String,
     pub amount: u64,
+    /// Stable idempotency key. This field remains optional for wire compatibility,
+    /// but `transfer_sap` rejects `None` so ambiguous retries cannot create a new transfer.
+    #[serde(default)]
+    pub transfer_id: Option<String>,
 }
 
-/// Conservation-preserving SAP transfer: debit `from`, credit `to` by the same amount.
+
+fn require_stable_transfer_id(
+    transfer_id: Option<String>,
+) -> ExternResult<String> {
+    transfer_id.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "transfer_id is required: use a stable idempotency key and reuse it on retry".into(),
+    )))
+}
+
+/// Sender-side SAP settlement.
 ///
-/// This is the SANCTIONED way to move existing SAP between members. Unlike raw
-/// `credit_sap`, the credit here is *backed by an equal debit* and *authorized by the
-/// sender* (`verify_caller_is_did(from)`, also re-checked inside `debit_sap`). Callers
-/// that only move value between two members — e.g. bridge `process_payment` — should
-/// use this instead of a separate debit + credit, so no raw mint surface is exposed.
-///
-/// Debit precedes credit (same ordering/atomicity caveat as `send_payment`): if credit
-/// fails after a successful debit, the sender's SAP is already gone — a pre-existing DHT
-/// limitation (no multi-entry atomicity) that the Phase-1 conservation rebuild will close.
+/// The sender creates and debits an immutable transfer intent. The recipient
+/// must later call claim_sap_transfer to finalize the recipient balance.
 #[hdk_extern]
 pub fn transfer_sap(input: TransferSapInput) -> ExternResult<Record> {
     verify_caller_is_did(&input.from_did)?;
+
+    if input.to_did.is_empty() || !input.to_did.starts_with("did:") {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer recipient DID is invalid".into(),
+        )));
+    }
     if input.from_did == input.to_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Cannot transfer SAP to yourself".into()
+            "Cannot transfer SAP to yourself".into(),
         )));
     }
     if input.amount == 0 {
         return Err(wasm_error!(WasmErrorInner::Guest(
-            "Transfer amount must be positive".into()
+            "Transfer amount must be positive".into(),
         )));
     }
-    // Debit the sender (enforces caller==from, demurrage, sufficient balance).
-    debit_sap(DebitSapInput {
-        member_did: input.from_did.clone(),
+
+    // The transfer ID is the idempotency boundary. Auto-generating a new ID
+    // from wall-clock time would turn an ambiguous retry into a second transfer.
+    // Callers therefore must supply a stable request identifier and reuse it on retry.
+    let transfer_id = require_stable_transfer_id(input.transfer_id)?;
+
+    initiate_sap_transfer(TransferSapIntentInput {
+        transfer_id,
+        from_did: input.from_did,
+        to_did: input.to_did,
         amount: input.amount,
-        reason: format!("Transfer to {}", input.to_did),
-    })?;
-    // Credit the receiver — backed by the debit above.
-    credit_sap(CreditSapInput {
-        member_did: input.to_did.clone(),
-        amount: input.amount,
-        reason: format!("Transfer from {}", input.from_did),
+        expires_at: None,
     })
 }
+
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TransferSapIntentInput {
+    pub transfer_id: String,
+    pub from_did: String,
+    pub to_did: String,
+    pub amount: u64,
+    pub expires_at: Option<Timestamp>,
+}
+
+fn transfer_intent_anchor(transfer_id: &str) -> ExternResult<EntryHash> {
+    anchor_hash(&format!("sap:transfer:intent:{transfer_id}"))
+}
+
+fn transfer_claim_anchor(transfer_id: &str) -> ExternResult<EntryHash> {
+    anchor_hash(&format!("sap:transfer:claim:{transfer_id}"))
+}
+
+/// Create a sender-authored transfer intent and debit the sender atomically.
+#[hdk_extern]
+pub fn initiate_sap_transfer(input: TransferSapIntentInput) -> ExternResult<Record> {
+    verify_caller_is_did(&input.from_did)?;
+
+    if input.transfer_id.is_empty() || input.transfer_id.len() > 256 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer id must be 1-256 characters".into(),
+        )));
+    }
+    if input.to_did.is_empty() || !input.to_did.starts_with("did:") {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer recipient DID is invalid".into(),
+        )));
+    }
+    if input.from_did == input.to_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Cannot transfer SAP to yourself".into(),
+        )));
+    }
+    if input.amount == 0 {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer amount must be positive".into(),
+        )));
+    }
+
+    let validation_now = sys_time()?;
+    if input.expires_at.is_some_and(|expiry| expiry <= validation_now) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer intent expiry must be in the future".into(),
+        )));
+    }
+
+    let anchor = transfer_intent_anchor(&input.transfer_id)?;
+    let existing = get_links(
+        LinkQuery::try_new(anchor.clone(), LinkTypes::TransferIdToIntent)?,
+        GetStrategy::default(),
+    )?;
+
+    if existing.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Multiple transfer intents exist for {}; refusing ambiguous settlement",
+            input.transfer_id
+        ))));
+    }
+    if let Some(link) = existing.into_iter().next() {
+        let hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid transfer intent target".into())))?;
+        let record = get(hash, GetOptions::default())?.ok_or(wasm_error!(
+            WasmErrorInner::Guest("Existing transfer intent could not be loaded".into())
+        ))?;
+        let existing_intent = record
+            .entry()
+            .to_app_option::<SapTransferIntent>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "Existing transfer intent deserialization error: {:?}",
+                    e
+                )))
+            })?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Existing transfer intent is missing",
+            )))?;
+
+        if existing_intent.from_did != input.from_did
+            || existing_intent.to_did != input.to_did
+            || existing_intent.amount != input.amount
+            || existing_intent.expires_at != input.expires_at
+        {
+            return Err(wasm_error!(WasmErrorInner::Guest(
+                "Transfer id already exists with conflicting terms".into(),
+            )));
+        }
+
+        return Ok(record);
+    }
+
+    // Compute the fee before mutating the sender account. A failed transfer must
+    // not leave behind a fee debit when the principal transfer is unaffordable.
+    let fee = compute_sap_fee(&input.from_did, input.amount)?;
+    let required = input.amount.checked_add(fee).ok_or(wasm_error!(
+        WasmErrorInner::Guest("Transfer amount plus fee overflows u64".into())
+    ))?;
+
+    let (_, pre_fee_balance) = get_sap_balance_inner(&input.from_did)?;
+    let pre_fee_now = sys_time()?;
+    let pre_fee_elapsed = elapsed_seconds(pre_fee_balance.last_demurrage_at, pre_fee_now);
+    let pre_fee_now_secs = (pre_fee_now.as_micros() / 1_000_000).max(0) as u64;
+    let pre_fee_deduction = if pre_fee_elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
+        compute_demurrage_with_exemption(
+            pre_fee_balance.balance,
+            pre_fee_balance.exemption.as_ref(),
+            pre_fee_now_secs,
+            DEMURRAGE_EXEMPT_FLOOR,
+            DEMURRAGE_RATE,
+            pre_fee_elapsed,
+        )
+    } else {
+        0
+    };
+    let pre_fee_effective = pre_fee_balance.balance.saturating_sub(pre_fee_deduction);
+    if required > pre_fee_effective {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Insufficient SAP balance for transfer plus fee: effective {}, required {}",
+            pre_fee_effective, required
+        ))));
+    }
+    if fee > 0 {
+        debit_sap(DebitSapInput {
+            member_did: input.from_did.clone(),
+            amount: fee,
+            reason: format!("SAP transfer fee to global commons ({})", fee),
+        })?;
+
+        // Durable-first settlement: persist the fee-delivery obligation in the
+        // same atomic source-chain transaction as the fee debit. Delivery is
+        // retried from the explicit queue after the local commit, so a later
+        // validation/chain-head failure cannot leave an external compost credit
+        // without its corresponding committed local fee debit.
+        queue_pending_compost(
+            "global-fee-pool",
+            fee,
+            &input.from_did,
+            CompostPoolTier::Global,
+        )?;
+    }
+    // The fee debit above may advance last_demurrage_at. Re-read the balance and
+    // capture a fresh timestamp so the transfer update can never move that timestamp
+    // backward on the owner's source chain.
+    let (balance_record, balance) = get_sap_balance_inner(&input.from_did)?;
+    let now = sys_time()?;
+    let elapsed = elapsed_seconds(balance.last_demurrage_at, now);
+    let now_secs = (now.as_micros() / 1_000_000).max(0) as u64;
+    let deduction = if elapsed >= DEMURRAGE_MIN_ELAPSED_SECONDS {
+        compute_demurrage_with_exemption(
+            balance.balance,
+            balance.exemption.as_ref(),
+            now_secs,
+            DEMURRAGE_EXEMPT_FLOOR,
+            DEMURRAGE_RATE,
+            elapsed,
+        )
+    } else {
+        0
+    };
+    let effective = balance.balance.saturating_sub(deduction);
+    if input.amount > effective {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Insufficient SAP balance: effective {} (raw {} - demurrage {}), need {}",
+            effective, balance.balance, deduction, input.amount
+        ))));
+    }
+
+    let intent = SapTransferIntent {
+        id: input.transfer_id.clone(),
+        from_did: input.from_did.clone(),
+        to_did: input.to_did.clone(),
+        amount: input.amount,
+        balance_before_action_hash: balance_record.action_address().clone(),
+        created_at: now,
+        expires_at: input.expires_at,
+    };
+
+    let intent_hash = create_entry(&EntryTypes::SapTransferIntent(intent))?;
+    create_link(
+        anchor,
+        intent_hash.clone(),
+        LinkTypes::TransferIdToIntent,
+        (),
+    )?;
+
+    let updated = SapBalance {
+        balance: effective - input.amount,
+        last_demurrage_at: now,
+        justified_by: Some(intent_hash.clone()),
+        ..balance
+    };
+    update_entry(
+        balance_record.action_address().clone(),
+        &EntryTypes::SapBalance(updated),
+    )?;
+
+    get(intent_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Transfer intent not found after creation".into(),
+    )))
+}
+
+/// Look up the exact sender-authored transfer intent for a transfer ID.
+///
+/// This is observational only. Absence or ambiguity is never treated as a
+/// successful transfer.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetSapTransferIntentInput {
+    pub transfer_id: String,
+}
+
+#[hdk_extern]
+pub fn get_sap_transfer_intent(
+    input: GetSapTransferIntentInput,
+) -> ExternResult<Option<Record>> {
+    validate_id(&input.transfer_id, "transfer_id")?;
+
+    let intent_anchor = transfer_intent_anchor(&input.transfer_id)?;
+    let links = get_links(
+        LinkQuery::try_new(intent_anchor, LinkTypes::TransferIdToIntent)?,
+        GetStrategy::default(),
+    )?;
+
+    if links.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Multiple SAP transfer intents exist for {}; refusing ambiguous lookup",
+            input.transfer_id
+        ))));
+    }
+
+    let Some(link) = links.into_iter().next() else {
+        return Ok(None);
+    };
+
+    let hash = ActionHash::try_from(link.target).map_err(|_| {
+        wasm_error!(WasmErrorInner::Guest(
+            "Invalid SAP transfer intent target".into(),
+        ))
+    })?;
+
+    Ok(get(hash, GetOptions::default())?)
+}
+
+/// Look up the exact recipient claim for a transfer ID.
+///
+/// This is observational only. It never creates, updates, or consumes monetary state.
+/// Absence means the recipient claim is not currently visible; callers must not
+/// interpret absence as transfer failure or completion.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetSapTransferClaimInput {
+    pub transfer_id: String,
+}
+
+#[hdk_extern]
+pub fn get_sap_transfer_claim(
+    input: GetSapTransferClaimInput,
+) -> ExternResult<Option<Record>> {
+    validate_id(&input.transfer_id, "transfer_id")?;
+
+    let claim_anchor = transfer_claim_anchor(&input.transfer_id)?;
+    let links = get_links(
+        LinkQuery::try_new(claim_anchor, LinkTypes::TransferIdToClaim)?,
+        GetStrategy::default(),
+    )?;
+
+    if links.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Multiple SAP transfer claims exist for {}; refusing ambiguous lookup",
+            input.transfer_id
+        ))));
+    }
+
+    let Some(link) = links.into_iter().next() else {
+        return Ok(None);
+    };
+
+    let hash = ActionHash::try_from(link.target)
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest(
+            "Invalid SAP transfer claim target".into(),
+        )))?;
+
+    let record = get(hash, GetOptions::default())?;
+    Ok(record)
+}
+
+/// Recipient-side SAP settlement.
+///
+/// The recipient creates exactly one immutable claim from the exact sender
+/// intent and receives the amount into their own owner-authenticated balance.
+/// Concurrent claims race on the recipient source chain and cannot both commit.
+#[hdk_extern]
+pub fn claim_sap_transfer(transfer_id: String) -> ExternResult<Record> {
+    validate_id(&transfer_id, "transfer_id")?;
+
+    let intent_anchor = transfer_intent_anchor(&transfer_id)?;
+    let intent_links = get_links(
+        LinkQuery::try_new(intent_anchor, LinkTypes::TransferIdToIntent)?,
+        GetStrategy::default(),
+    )?;
+    if intent_links.len() != 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Transfer intent {} must resolve to exactly one intent; found {}",
+            transfer_id,
+            intent_links.len()
+        ))));
+    }
+
+    let intent_hash = ActionHash::try_from(intent_links[0].target.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid transfer intent target".into())))?;
+    let intent_record = get(intent_hash.clone(), GetOptions::default())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest("Transfer intent record not found".into()))
+    )?;
+    let intent = intent_record
+        .entry()
+        .to_app_option::<SapTransferIntent>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Transfer intent deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Transfer intent entry is missing",
+        )))?;
+
+    verify_caller_is_did(&intent.to_did)?;
+
+    let now = sys_time()?;
+    if intent.expires_at.is_some_and(|expiry| now > expiry) {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Transfer intent has expired".into(),
+        )));
+    }
+
+    let claim_anchor = transfer_claim_anchor(&transfer_id)?;
+    let existing = get_links(
+        LinkQuery::try_new(claim_anchor.clone(), LinkTypes::TransferIdToClaim)?,
+        GetStrategy::default(),
+    )?;
+    if existing.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Multiple claims exist for transfer {}; refusing ambiguous settlement",
+            transfer_id
+        ))));
+    }
+    if let Some(link) = existing.into_iter().next() {
+        let hash = ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid transfer claim target".into())))?;
+        return get(hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Existing transfer claim could not be loaded".into(),
+        )));
+    }
+
+    let (balance_record, balance) = match find_sap_balance_record(&intent.to_did)? {
+        Some(found) => found,
+        None => {
+            let record = initialize_sap_balance(intent.to_did.clone())?;
+            let balance = record
+                .entry()
+                .to_app_option::<SapBalance>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "Recipient SAP balance deserialization error: {:?}",
+                        e
+                    )))
+                })?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Recipient SAP balance entry is missing",
+                )))?;
+            (record, balance)
+        }
+    };
+
+    let claim = SapTransferClaim {
+        transfer_id: intent.id.clone(),
+        intent_action_hash: intent_hash,
+        recipient_did: intent.to_did.clone(),
+        amount: intent.amount,
+        balance_before_action_hash: balance_record.action_address().clone(),
+        claimed_at: now,
+    };
+    let claim_hash = create_entry(&EntryTypes::SapTransferClaim(claim))?;
+    create_link(
+        claim_anchor,
+        claim_hash.clone(),
+        LinkTypes::TransferIdToClaim,
+        (),
+    )?;
+
+    let updated = SapBalance {
+        balance: balance.balance.checked_add(intent.amount).ok_or(wasm_error!(
+            WasmErrorInner::Guest("SAP balance overflow during transfer claim".into())
+        ))?,
+        justified_by: Some(claim_hash.clone()),
+        last_demurrage_at: now,
+        ..balance
+    };
+    update_entry(
+        balance_record.action_address().clone(),
+        &EntryTypes::SapBalance(updated),
+    )?;
+
+    get(claim_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Transfer claim not found after creation".into(),
+    )))
+}
+
 
 // ---------------------------------------------------------------------------
 // SAP Minting (governance-authorized issuance)
 // ---------------------------------------------------------------------------
 
-/// Mint SAP from a governance proposal. Creates an immutable SapMintRecord
-/// and credits the recipient's balance.
+/// Create an immutable governance SAP mint authorization.
 ///
-/// This is the ONLY way new SAP enters circulation outside of collateral deposits.
-/// Requires governance authorization (verified via cross-zome call).
+/// This operation does not mutate the recipient balance. The recipient must call
+/// claim_sap_mint to consume the authorization and finalize the owner-authenticated
+/// balance increase.
 #[hdk_extern]
 pub fn mint_sap_from_governance(input: MintSapFromGovernanceInput) -> ExternResult<Record> {
-    // Verify caller is governance-authorized
+    // Governance issuance creates an immutable authorization. It does not directly
+    // mutate the recipient's balance; the recipient must later claim it.
     match call(
         CallTargetCell::Local,
         ZomeName::from("tend"),
-        FunctionName::from("verify_governance_agent"),
+        FunctionName::from("verify_strict_governance_agent"),
         None,
         (),
     ) {
-        Ok(ZomeCallResponse::Ok(_)) => {} // Authorized
+        Ok(ZomeCallResponse::Ok(_)) => {}
         Ok(other) => {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "SAP minting requires governance authorization: unexpected response {:?}",
+                "SAP mint authorization requires strict governance authorization: {:?}",
                 other
             ))));
         }
         Err(e) => {
             return Err(wasm_error!(WasmErrorInner::Guest(format!(
-                "SAP minting requires governance authorization: {:?}",
+                "SAP mint authorization governance verification unavailable: {:?}",
                 e
             ))));
         }
     }
 
-    // Consciousness gate: SAP minting requires Citizen+ tier (identity >= 0.25,
-    // reputation >= 0.10). Uses shared consciousness gating via identity cluster.
-    // If identity cluster is unreachable, falls back to permissive (bootstrap mode) —
-    // governance authorization (checked above) is still required.
     verify_citizen_tier()?;
 
-    // Constitutional cap: per-proposal maximum
     if input.amount > SAP_MINT_PER_PROPOSAL_MAX {
         return Err(wasm_error!(WasmErrorInner::Guest(format!(
             "Mint amount {} exceeds constitutional per-proposal maximum of {} micro-SAP (100,000 SAP)",
@@ -757,21 +1077,19 @@ pub fn mint_sap_from_governance(input: MintSapFromGovernanceInput) -> ExternResu
     }
 
     let now = sys_time()?;
-
-    // Constitutional cap: annual maximum — sum all governance mints in the last 365 days
     enforce_annual_mint_cap(input.amount, now)?;
+
     let mint_id = format!("mint:gov:{}:{}", input.proposal_id, now.as_micros());
-
-    let source = SapMintSource::GovernanceProposal {
-        proposal_id: input.proposal_id.clone(),
-    };
-
-    // Create immutable mint record
+    let authority_did = format!("did:mycelix:{}", agent_info()?.agent_initial_pubkey);
     let mint_record = SapMintRecord {
         id: mint_id.clone(),
         recipient_did: input.recipient_did.clone(),
         amount: input.amount,
-        source,
+        source: SapMintSource::GovernanceProposal {
+            proposal_id: input.proposal_id.clone(),
+        },
+        authorized_by_did: Some(authority_did),
+        basis_id: Some(format!("governance:{}", input.proposal_id)),
         minted_at: now,
     };
 
@@ -789,17 +1107,145 @@ pub fn mint_sap_from_governance(input: MintSapFromGovernanceInput) -> ExternResu
         (),
     )?;
 
-    // Credit the SAP to recipient's balance
-    credit_sap(CreditSapInput {
-        member_did: input.recipient_did.clone(),
-        amount: input.amount,
-        reason: format!("Governance mint: proposal {}", input.proposal_id),
-    })?;
-
-    // Update the running mint cap counter (O(1) for future cap checks)
     update_mint_cap_counter(input.amount, now)?;
 
-    // Broadcast mint event via bridge
+    if let Err(e) = call(
+        CallTargetCell::Local,
+        ZomeName::from("finance_bridge"),
+        FunctionName::from("broadcast_finance_event"),
+        None,
+        BroadcastMintEventPayload {
+            event_type: "SapMintAuthorized".to_string(),
+            subject_did: input.recipient_did,
+            amount: Some(input.amount),
+            payload: serde_json::json!({
+                "proposal_id": input.proposal_id,
+                "mint_id": mint_id,
+                "pending_claim": true,
+            })
+            .to_string(),
+        },
+    ) {
+        debug!("Failed to broadcast SapMintAuthorized event: {:?}", e);
+    }
+
+    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Mint authorization record not found".into()
+    )))
+}
+
+/// Recipient-side governance mint settlement.
+///
+/// The recipient owns the positive balance mutation. The exact mint authorization
+/// and exact pre-claim balance are both bound into the immutable claim.
+#[hdk_extern]
+pub fn claim_sap_mint(mint_id: String) -> ExternResult<Record> {
+    validate_id(&mint_id, "mint_id")?;
+
+    let mint_links = get_links(
+        LinkQuery::try_new(anchor_hash(&mint_id)?, LinkTypes::MintIdToMintRecord)?,
+        GetStrategy::default(),
+    )?;
+    if mint_links.len() != 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Mint authorization {} must resolve to exactly one record; found {}",
+            mint_id,
+            mint_links.len()
+        ))));
+    }
+
+    let mint_hash = ActionHash::try_from(mint_links[0].target.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid mint authorization target".into())))?;
+    let mint_record = get(mint_hash.clone(), GetOptions::default())?.ok_or(
+        wasm_error!(WasmErrorInner::Guest(
+            "Mint authorization record not found".into()
+        ))
+    )?;
+    let mint = mint_record
+        .entry()
+        .to_app_option::<SapMintRecord>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "Mint authorization deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Mint authorization entry is missing",
+        )))?;
+
+    verify_caller_is_did(&mint.recipient_did)?;
+
+    let claim_anchor = anchor_hash(&format!("sap:mint:claim:{}", mint_id))?;
+    let existing = get_links(
+        LinkQuery::try_new(claim_anchor.clone(), LinkTypes::MintIdToClaim)?,
+        GetStrategy::default(),
+    )?;
+    if existing.len() > 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Multiple mint claims exist for {}; refusing ambiguous settlement",
+            mint_id
+        ))));
+    }
+    if let Some(link) = existing.into_iter().next() {
+        let hash = ActionHash::try_from(link.target).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest("Invalid mint claim target".into()))
+        })?;
+        return get(hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Existing mint claim could not be loaded".into(),
+        )));
+    }
+
+    let (balance_record, balance) = match find_sap_balance_record(&mint.recipient_did)? {
+        Some(found) => found,
+        None => {
+            let record = initialize_sap_balance(mint.recipient_did.clone())?;
+            let balance = record
+                .entry()
+                .to_app_option::<SapBalance>()
+                .map_err(|e| {
+                    wasm_error!(WasmErrorInner::Guest(format!(
+                        "Recipient SAP balance deserialization error: {:?}",
+                        e
+                    )))
+                })?
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Recipient SAP balance entry is missing",
+                )))?;
+            (record, balance)
+        }
+    };
+
+    let now = sys_time()?;
+    let claim = SapMintClaim {
+        mint_id: mint.id.clone(),
+        mint_record_action_hash: mint_hash,
+        recipient_did: mint.recipient_did.clone(),
+        amount: mint.amount,
+        balance_before_action_hash: balance_record.action_address().clone(),
+        claimed_at: now,
+    };
+    let claim_hash = create_entry(&EntryTypes::SapMintClaim(claim))?;
+    create_link(
+        claim_anchor,
+        claim_hash.clone(),
+        LinkTypes::MintIdToClaim,
+        (),
+    )?;
+
+    let updated = SapBalance {
+        balance: balance.balance.checked_add(mint.amount).ok_or(wasm_error!(
+            WasmErrorInner::Guest("SAP balance overflow during mint claim".into())
+        ))?,
+        justified_by: Some(claim_hash.clone()),
+        last_demurrage_at: now,
+        ..balance
+    };
+    update_entry(
+        balance_record.action_address().clone(),
+        &EntryTypes::SapBalance(updated),
+    )?;
+
     if let Err(e) = call(
         CallTargetCell::Local,
         ZomeName::from("finance_bridge"),
@@ -807,11 +1253,11 @@ pub fn mint_sap_from_governance(input: MintSapFromGovernanceInput) -> ExternResu
         None,
         BroadcastMintEventPayload {
             event_type: "SapMinted".to_string(),
-            subject_did: input.recipient_did,
-            amount: Some(input.amount),
+            subject_did: mint.recipient_did.clone(),
+            amount: Some(mint.amount),
             payload: serde_json::json!({
-                "proposal_id": input.proposal_id,
                 "mint_id": mint_id,
+                "claim_finalized": true,
             })
             .to_string(),
         },
@@ -819,10 +1265,11 @@ pub fn mint_sap_from_governance(input: MintSapFromGovernanceInput) -> ExternResu
         debug!("Failed to broadcast SapMinted event: {:?}", e);
     }
 
-    get(action_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Mint record not found".into()
+    get(claim_hash, GetOptions::default())?.ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Mint claim record not found after creation".into(),
     )))
 }
+
 
 #[derive(Serialize, Debug)]
 struct BroadcastMintEventPayload {
@@ -982,11 +1429,14 @@ fn find_mint_cap_counter_record() -> ExternResult<Option<(Record, SapMintCapCoun
         )?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.last() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        let record = follow_update_chain(hash)?;
-        let entry = record
+    if links.is_empty() {
+        return Ok(None);
+    }
+    let link = exact_one_index_link(links, "MintCapCounterAnchor", MINT_CAP_COUNTER_ANCHOR)?;
+    let hash = ActionHash::try_from(link.target.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    let record = follow_update_chain(hash)?;
+    let entry = record
             .entry()
             .to_app_option::<SapMintCapCounterEntry>()
             .map_err(|e| {
@@ -995,9 +1445,8 @@ fn find_mint_cap_counter_record() -> ExternResult<Option<(Record, SapMintCapCoun
                     e
                 )))
             })?;
-        if let Some(entry) = entry {
-            return Ok(Some((record, entry)));
-        }
+    if let Some(entry) = entry {
+        return Ok(Some((record, entry)));
     }
     Ok(None)
 }
@@ -1010,21 +1459,49 @@ fn find_sap_balance_record(member_did: &str) -> ExternResult<Option<(Record, Sap
         )?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.last() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        let record = follow_update_chain(hash)?;
-        let bal = record.entry().to_app_option::<SapBalance>().map_err(|e| {
-            wasm_error!(WasmErrorInner::Guest(format!(
-                "SapBalance deserialization error: {:?}",
-                e
-            )))
+
+    let mut candidates = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    for link in links {
+        let hash = ActionHash::try_from(link.target.clone()).map_err(|_| {
+            wasm_error!(WasmErrorInner::Guest(
+                "Invalid SAP balance link target".into()
+            ))
         })?;
-        if let Some(bal) = bal {
-            return Ok(Some((record, bal)));
+        if !seen.insert(hash.clone()) {
+            continue;
+        }
+
+        let record = follow_update_chain(hash)?;
+        let balance = record
+            .entry()
+            .to_app_option::<SapBalance>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "SapBalance deserialization error: {:?}",
+                    e
+                )))
+            })?
+            .ok_or_else(|| {
+                wasm_error!(WasmErrorInner::Guest(
+                    "SAP balance index points to a record without SapBalance entry".into()
+                ))
+            })?;
+
+        if balance.member_did == member_did {
+            candidates.push((record, balance));
         }
     }
-    Ok(None)
+
+    match candidates.len() {
+        0 => Ok(None),
+        1 => Ok(candidates.pop()),
+        _ => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Conflicting SAP balance records exist for member {}; refusing to choose by link order",
+            member_did
+        )))),
+    }
 }
 
 fn get_sap_balance_inner(member_did: &str) -> ExternResult<(Record, SapBalance)> {
@@ -1172,6 +1649,14 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
     // Verify caller is the sender (prevents DID spoofing)
     verify_caller_is_did(&input.from_did)?;
 
+    if input.currency == "SAP" {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Synchronous SAP send is retired: use transfer_sap and claim_sap_transfer"
+                .into(),
+        )));
+    }
+
+
     // Validate currency before creating any entries
     if input.currency != "SAP" && input.currency != "TEND" {
         return Err(wasm_error!(WasmErrorInner::Guest(
@@ -1206,49 +1691,7 @@ pub fn send_payment(input: SendPaymentInput) -> ExternResult<Record> {
         )?;
     }
 
-    // If sending SAP, enforce on-chain balance with demurrage + progressive fee
-    let (memo, fee_amount) = if input.currency == "SAP" {
-        // input.amount is already in micro-SAP (u64)
-        // Compute progressive fee based on sender's MYCEL score
-        let fee = compute_sap_fee(&input.from_did, input.amount)?;
-        let total_debit = input.amount + fee;
-
-        // Debit sender's SAP balance (amount + fee, applies demurrage)
-        debit_sap(DebitSapInput {
-            member_did: input.from_did.clone(),
-            amount: total_debit,
-            reason: format!("Payment to {} (includes fee {})", input.to_did, fee),
-        })?;
-
-        // Credit receiver's SAP balance (amount only, fee goes to commons)
-        credit_sap(CreditSapInput {
-            member_did: input.to_did.clone(),
-            amount: input.amount,
-            reason: format!("Payment from {}", input.from_did),
-        })?;
-
-        // Route fee to commons via treasury (if fee > 0)
-        if fee > 0 {
-            if let Err(e) = call(
-                CallTargetCell::Local,
-                ZomeName::from("treasury"),
-                FunctionName::from("receive_compost"),
-                None,
-                ReceiveCompostPayload {
-                    commons_pool_id: "global-fee-pool".to_string(),
-                    amount: fee,
-                    source_member_did: input.from_did.clone(),
-                },
-            ) {
-                debug!("Fee routing to global-fee-pool failed: {:?}", e);
-            }
-        }
-
-        (input.memo.clone(), fee)
-    } else {
-        (input.memo.clone(), 0)
-    };
-
+    let (memo, fee_amount) = (input.memo.clone(), 0);
     let payment = Payment {
         id: format!("payment:{}:{}", input.from_did, now.as_micros()),
         from_did: input.from_did.clone(),
@@ -1403,6 +1846,28 @@ pub struct OpenChannelInput {
     pub initial_deposit_b: u64,
 }
 
+/// Require an exact index cardinality where the index semantically identifies one record.
+/// Multiple links are never resolved by ordering because link retrieval order is not a
+/// protocol-level identity rule.
+fn exact_one_index_link(
+    links: Vec<Link>,
+    index_type: &str,
+    identifier: &str,
+) -> ExternResult<Link> {
+    let mut links = links.into_iter();
+    let Some(link) = links.next() else {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{index_type} index has no entry for {identifier}"
+        )));
+    };
+    if links.next().is_some() {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{index_type} index is ambiguous for {identifier}"
+        )));
+    }
+    Ok(link)
+}
+
 /// Internal helper: fetch a PaymentChannel Record + deserialized entry by ID via link index.
 /// Follows the update chain to return the latest version.
 fn get_channel_record(channel_id: &str) -> ExternResult<(Record, PaymentChannel)> {
@@ -1410,9 +1875,7 @@ fn get_channel_record(channel_id: &str) -> ExternResult<(Record, PaymentChannel)
         LinkQuery::try_new(anchor_hash(channel_id)?, LinkTypes::ChannelIdToChannel)?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Channel not found".into()
-    )))?;
+    let link = exact_one_index_link(links, "ChannelIdToChannel", channel_id)?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
     let record = follow_update_chain(hash)?;
@@ -1438,9 +1901,7 @@ fn get_payment_record(payment_id: &str) -> ExternResult<(Record, Payment)> {
         LinkQuery::try_new(anchor_hash(payment_id)?, LinkTypes::PaymentIdToPayment)?,
         GetStrategy::default(),
     )?;
-    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
-        "Payment not found".into()
-    )))?;
+    let link = exact_one_index_link(links, "PaymentIdToPayment", payment_id)?;
     let hash = ActionHash::try_from(link.target.clone())
         .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
     let record = follow_update_chain(hash)?;
@@ -1556,13 +2017,13 @@ pub fn get_payment(payment_id: String) -> ExternResult<Option<Record>> {
         LinkQuery::try_new(anchor_hash(&payment_id)?, LinkTypes::PaymentIdToPayment)?,
         GetStrategy::default(),
     )?;
-    if let Some(link) = links.first() {
-        let hash = ActionHash::try_from(link.target.clone())
-            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
-        Ok(Some(follow_update_chain(hash)?))
-    } else {
-        Ok(None)
+    if links.is_empty() {
+        return Ok(None);
     }
+    let link = exact_one_index_link(links, "PaymentIdToPayment", &payment_id)?;
+    let hash = ActionHash::try_from(link.target.clone())
+        .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid link target".into())))?;
+    Ok(Some(follow_update_chain(hash)?))
 }
 
 /// Get receipt for a payment
@@ -1577,16 +2038,17 @@ pub fn get_receipt(payment_id: String) -> ExternResult<Option<Record>> {
         payment_record.action_address().clone(),
         LinkTypes::PaymentToReceipt,
     )?;
-    for link in get_links(query, GetStrategy::default())? {
-        if let Some(record) = get(
-            ActionHash::try_from(link.target)
-                .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid".into())))?,
-            GetOptions::default(),
-        )? {
-            return Ok(Some(record));
-        }
+    let links = get_links(query, GetStrategy::default())?;
+    if links.is_empty() {
+        return Ok(None);
     }
-    Ok(None)
+    let link = exact_one_index_link(links, "PaymentToReceipt", &payment_id)?;
+    let record = get(
+        ActionHash::try_from(link.target)
+            .map_err(|_| wasm_error!(WasmErrorInner::Guest("Invalid".into())))?,
+        GetOptions::default(),
+    )?;
+    Ok(record)
 }
 
 /// Close a payment channel (settle balances)
@@ -2049,8 +2511,10 @@ pub fn contribute_to_hearth_pool(input: ContributeToHearthInput) -> ExternResult
         ))));
     }
 
-    // Deduct from personal (use record's action address to avoid update forks)
+    // Deduct from personal. This is a negative balance delta, so clear
+    // any prior positive-issuance justification.
     personal_bal.balance -= input.amount;
+    personal_bal.justified_by = None;
     update_entry(record.action_address().clone(), &personal_bal)?;
 
     // Credit hearth pool with optimistic-locking retry
@@ -2270,22 +2734,28 @@ fn get_or_create_hearth_pool(hearth_did: &str) -> ExternResult<HearthSapPool> {
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(action_hash)?;
-            if let Some(pool) = record
-                .entry()
-                .to_app_option::<HearthSapPool>()
-                .map_err(|e| {
-                    wasm_error!(WasmErrorInner::Guest(format!(
-                        "HearthSapPool deserialization error: {:?}",
-                        e
-                    )))
-                })?
-            {
-                return Ok(pool);
-            }
-        }
+    if !links.is_empty() {
+        let link = exact_one_index_link(
+            links,
+            "HearthDidToSapPool",
+            hearth_did,
+        )?;
+        let action_hash = link.target.clone().into_action_hash().ok_or(wasm_error!(
+            WasmErrorInner::Guest("Invalid HearthSapPool index target".into())
+        ))?;
+        let record = follow_update_chain(action_hash)?;
+        return record
+            .entry()
+            .to_app_option::<HearthSapPool>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "HearthSapPool deserialization error: {:?}",
+                    e
+                )))
+            })?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "HearthSapPool index points to a non-pool record".into()
+            )));
     }
 
     let now = sys_time()?;
@@ -2316,25 +2786,31 @@ fn get_hearth_pool_record(hearth_did: &str) -> ExternResult<(Record, HearthSapPo
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(action_hash)?;
-            if let Some(pool) = record
-                .entry()
-                .to_app_option::<HearthSapPool>()
-                .map_err(|e| {
-                    wasm_error!(WasmErrorInner::Guest(format!(
-                        "HearthSapPool deserialization error: {:?}",
-                        e
-                    )))
-                })?
-            {
-                return Ok((record, pool));
-            }
-        }
+    if !links.is_empty() {
+        let link = exact_one_index_link(
+            links,
+            "HearthDidToSapPool",
+            hearth_did,
+        )?;
+        let action_hash = link.target.clone().into_action_hash().ok_or(wasm_error!(
+            WasmErrorInner::Guest("Invalid HearthSapPool index target".into())
+        ))?;
+        let record = follow_update_chain(action_hash)?;
+        let pool = record
+            .entry()
+            .to_app_option::<HearthSapPool>()
+            .map_err(|e| {
+                wasm_error!(WasmErrorInner::Guest(format!(
+                    "HearthSapPool deserialization error: {:?}",
+                    e
+                )))
+            })?
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "HearthSapPool index points to a non-pool record".into()
+            )))?;
+        return Ok((record, pool));
     }
 
-    // Create if not found
     let now = sys_time()?;
     let pool = HearthSapPool {
         hearth_did: hearth_did.to_string(),
@@ -2366,12 +2842,12 @@ fn update_hearth_pool(hearth_did: &str, pool: &HearthSapPool) -> ExternResult<()
         GetStrategy::default(),
     )?;
 
-    if let Some(link) = links.first() {
-        if let Some(action_hash) = link.target.clone().into_action_hash() {
-            let record = follow_update_chain(action_hash)?;
-            update_entry(record.action_address().clone(), pool)?;
-        }
-    }
+    let link = exact_one_index_link(links, "HearthDidToSapPool", hearth_did)?;
+    let action_hash = link.target.clone().into_action_hash().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Invalid HearthSapPool index target".into())
+    ))?;
+    let record = follow_update_chain(action_hash)?;
+    update_entry(record.action_address().clone(), pool)?;
     Ok(())
 }
 
@@ -2518,4 +2994,29 @@ pub fn verify_balance_proof(input: ZkBalanceProofInput) -> ExternResult<ZkBalanc
         minimum_proven: input.minimum_balance,
         domain_tag: domain_tag.as_str().to_string(),
     })
+}
+
+
+#[cfg(test)]
+mod ac099_tests {
+    use super::*;
+
+    #[test]
+    fn transfer_without_idempotency_key_is_rejected() {
+        let result = require_stable_transfer_id(None);
+        assert!(matches!(
+            result,
+            Err(e) if format!("{e:?}").contains("transfer_id is required")
+        ));
+    }
+
+    #[test]
+    fn transfer_reuses_explicit_idempotency_key() {
+        let result = require_stable_transfer_id(
+            Some("transfer:stable-request-001".into()),
+        )
+        .unwrap();
+
+        assert_eq!(result, "transfer:stable-request-001");
+    }
 }
