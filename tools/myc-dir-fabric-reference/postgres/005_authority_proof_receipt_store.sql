@@ -464,6 +464,7 @@ BEGIN
            OR v_fencing_payload->>'old_system_identifier' IS DISTINCT FROM v_lease.database_system_identifier
            OR v_fencing_payload->>'old_timeline' IS DISTINCT FROM v_lease.postgres_timeline::TEXT
            OR (v_fencing_payload->>'owner_epoch')::BIGINT IS DISTINCT FROM v_fencing.owner_epoch
+           OR v_fencing.owner_epoch >= v_lease.resource_owner_epoch
            OR v_fencing_payload->>'successor_primary_id' IS NULL
            OR v_fencing_payload->>'successor_primary_id' = v_lease.primary_id
            OR v_fencing_payload->>'mechanism' = 'network_partition_only'
@@ -481,7 +482,7 @@ BEGIN
            OR v_promotion.issuer_role <> 'promotion_controller'
            OR v_promotion.deployment_id <> v_lease.deployment_id
            OR v_promotion.database_system_identifier <> v_lease.database_system_identifier
-           OR v_promotion.primary_id IS DISTINCT FROM v_fencing_payload->>'successor_primary_id'
+           OR v_promotion.primary_id IS DISTINCT FROM (v_fencing_payload->>'successor_primary_id')
            OR v_promotion.primary_id = v_lease.primary_id
            OR v_promotion.owner_epoch <> v_lease.resource_owner_epoch THEN
             RAISE EXCEPTION 'promotion eligibility proof does not bind the exact lease successor/database/timeline/epoch'
