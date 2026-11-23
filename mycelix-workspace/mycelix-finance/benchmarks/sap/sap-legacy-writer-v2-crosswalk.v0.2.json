@@ -4,7 +4,7 @@
   "status": "source-audit crosswalk; design-only; does not define a new authoritative mutable balance protocol",
   "base_commit": "e949664ceb2f9ddde26704c70e23a19380f33dde",
   "inventory_source": "PR #6561",
-  "design_decision": "The v0.1 SapBalanceTransitionV1 proposal is superseded. The canonical destination is the existing FIN-SAFE-013 through FIN-SAFE-019 owner-authored journal/value-note/witness stack, with source-specific effect theorems for demurrage, metadata, external issuance, staking, Hearth and payment reconciliation.",
+  "design_decision": "The initial generic mutable scalar-transition proposal is superseded. The canonical destination is the existing FIN-SAFE-013 through FIN-SAFE-019 owner-authored journal/value-note/witness stack, with source-specific effect theorems for demurrage, metadata, external issuance, staking, Hearth and payment reconciliation.",
   "target_architecture": [
     {
       "key": "FIN-SAFE-012",
