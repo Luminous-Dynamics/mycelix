@@ -2072,16 +2072,18 @@ pub fn contribute_to_hearth_pool(input: ContributeToHearthInput) -> ExternResult
             pool.balance
         };
 
-        let expected_balance = post_demurrage.checked_add(input.amount).ok_or(
-            wasm_error!(WasmErrorInner::Guest(
-                "Hearth SAP pool balance overflow during contribution".into()
-            )),
-        )?;
-        let expected_contributed = pool.total_contributed.checked_add(input.amount).ok_or(
-            wasm_error!(WasmErrorInner::Guest(
-                "Hearth SAP lifetime contribution total overflow".into()
-            )),
-        )?;
+        let expected_balance =
+            post_demurrage
+                .checked_add(input.amount)
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Hearth SAP pool balance overflow during contribution".into()
+                )))?;
+        let expected_contributed =
+            pool.total_contributed
+                .checked_add(input.amount)
+                .ok_or(wasm_error!(WasmErrorInner::Guest(
+                    "Hearth SAP lifetime contribution total overflow".into()
+                )))?;
         let updated = HearthSapPool {
             balance: expected_balance,
             last_demurrage_at: now_ts,
@@ -2138,9 +2140,9 @@ pub fn withdraw_from_hearth_pool(input: WithdrawFromHearthInput) -> ExternResult
     // Preflight the recipient side before reading or changing the shared pool.
     // A missing personal balance is a hard error, never a successful no-op credit.
     let (personal_record, mut personal_balance) =
-        find_sap_balance_record(&caller_did)?.ok_or(wasm_error!(
-            WasmErrorInner::Guest("No personal SAP balance exists for Hearth withdrawal".into())
-        ))?;
+        find_sap_balance_record(&caller_did)?.ok_or(wasm_error!(WasmErrorInner::Guest(
+            "No personal SAP balance exists for Hearth withdrawal".into()
+        )))?;
     if personal_balance.member_did != caller_did {
         return Err(wasm_error!(WasmErrorInner::Guest(
             "Personal SAP balance owner does not match the authenticated caller".into()
@@ -2373,9 +2375,13 @@ fn get_existing_hearth_pool_record(hearth_did: &str) -> ExternResult<(Record, He
     let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
         "Hearth SAP pool link disappeared during resolution".into()
     )))?;
-    let action_hash = link.target.clone().into_action_hash().ok_or(wasm_error!(
-        WasmErrorInner::Guest("Hearth SAP pool link target is not an ActionHash".into())
-    ))?;
+    let action_hash =
+        link.target
+            .clone()
+            .into_action_hash()
+            .ok_or(wasm_error!(WasmErrorInner::Guest(
+                "Hearth SAP pool link target is not an ActionHash".into()
+            )))?;
     let record = follow_update_chain(action_hash)?;
     let pool = record
         .entry()
@@ -2654,13 +2660,8 @@ mod hearth_withdrawal_guard_tests {
     #[test]
     fn withdrawal_moves_exact_amount_and_preserves_local_conservation() {
         let before = (100_u64, 12_u64, 30_u64, 7_u64);
-        let after = checked_hearth_withdrawal_values(
-            before.0,
-            before.1,
-            before.2,
-            before.3,
-        )
-        .expect("valid withdrawal should calculate");
+        let after = checked_hearth_withdrawal_values(before.0, before.1, before.2, before.3)
+            .expect("valid withdrawal should calculate");
 
         assert_eq!(after, (93, 19, 37));
         assert_eq!(
@@ -2703,24 +2704,20 @@ mod hearth_withdrawal_guard_tests {
 
     #[test]
     fn membership_requires_an_explicit_true_result() {
-        assert!(require_hearth_membership(
-            "did:mycelix:member",
-            "did:mycelix:hearth",
-            Ok(true)
-        )
-        .is_ok());
-        assert!(require_hearth_membership(
-            "did:mycelix:member",
-            "did:mycelix:hearth",
-            Ok(false)
-        )
-        .is_err());
-        assert!(require_hearth_membership(
-            "did:mycelix:member",
-            "did:mycelix:hearth",
-            Err("bridge unavailable".into())
-        )
-        .is_err());
+        assert!(
+            require_hearth_membership("did:mycelix:member", "did:mycelix:hearth", Ok(true)).is_ok()
+        );
+        assert!(
+            require_hearth_membership("did:mycelix:member", "did:mycelix:hearth", Ok(false))
+                .is_err()
+        );
+        assert!(
+            require_hearth_membership(
+                "did:mycelix:member",
+                "did:mycelix:hearth",
+                Err("bridge unavailable".into())
+            )
+            .is_err()
+        );
     }
 }
-
