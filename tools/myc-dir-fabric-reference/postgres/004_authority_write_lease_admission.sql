@@ -329,6 +329,11 @@ DECLARE
     v_hwm_lease_id UUID;
     v_hwm_lease_hash BYTEA;
     v_hwm_external_digest BYTEA;
+    v_hwm_primary_id TEXT;
+    v_hwm_system_identifier TEXT;
+    v_hwm_timeline BIGINT;
+    v_hwm_epoch_number BIGINT;
+    v_hwm_epoch_hash BYTEA;
     v_state_generation BIGINT;
     v_state_lease_id UUID;
     v_state_lease_hash BYTEA;
@@ -496,8 +501,12 @@ BEGIN
             USING ERRCODE = 'P0001';
     END IF;
 
-    SELECT lease_generation, lease_id, lease_hash, external_highwater_receipt_digest
-      INTO v_hwm_generation, v_hwm_lease_id, v_hwm_lease_hash, v_hwm_external_digest
+    SELECT lease_generation, lease_id, lease_hash, external_highwater_receipt_digest,
+           owner_primary_id, database_system_identifier, postgres_timeline,
+           database_epoch_number, database_epoch_hash
+      INTO v_hwm_generation, v_hwm_lease_id, v_hwm_lease_hash, v_hwm_external_digest,
+           v_hwm_primary_id, v_hwm_system_identifier, v_hwm_timeline,
+           v_hwm_epoch_number, v_hwm_epoch_hash
       FROM myc_effect_owner.authority_write_lease_highwater
      WHERE deployment_id = v_deployment_id
      FOR UPDATE;
@@ -518,6 +527,34 @@ BEGIN
                 USING ERRCODE = 'P0001';
         END IF;
         IF v_hwm_generation < v_lease_generation THEN
+            IF v_hwm_epoch_number IS NOT NULL
+               AND (
+                   v_database_epoch_number IS NULL
+                   OR v_database_epoch_number < v_hwm_epoch_number
+               ) THEN
+                RAISE EXCEPTION 'database epoch number cannot move backwards below deployment lease high-water'
+                    USING ERRCODE = 'P0001';
+            END IF;
+            IF v_hwm_epoch_number IS NOT DISTINCT FROM v_database_epoch_number
+               AND (
+                   v_hwm_epoch_hash IS DISTINCT FROM v_database_epoch_hash
+                   OR v_hwm_primary_id IS DISTINCT FROM v_primary_id
+                   OR v_hwm_system_identifier IS DISTINCT FROM v_database_system_identifier
+                   OR v_hwm_timeline IS DISTINCT FROM v_postgres_timeline
+               ) THEN
+                RAISE EXCEPTION 'database epoch hash, primary, system identifier or timeline forked without advancing the governed epoch'
+                    USING ERRCODE = 'P0001';
+            END IF;
+            IF v_hwm_epoch_number IS DISTINCT FROM v_database_epoch_number
+               AND (
+                   NOT v_has_promotion_scope
+                   OR p_physical_fencing_receipt_digest IS NULL
+                   OR octet_length(p_physical_fencing_receipt_digest) <> 32
+                   OR p_physical_fencing_receipt_digest = decode(repeat('00', 32), 'hex')
+               ) THEN
+                RAISE EXCEPTION 'database epoch advancement requires promotion scope and physical fencing receipt'
+                    USING ERRCODE = 'P0001';
+            END IF;
             UPDATE myc_effect_owner.authority_write_lease_highwater
                SET lease_generation = v_lease_generation,
                    lease_id = v_lease_id,
