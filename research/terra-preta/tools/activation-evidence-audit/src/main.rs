@@ -30,6 +30,7 @@ struct Event {
     start_epoch_seconds: i64,
     end_epoch_seconds: i64,
     minimum_relevant_flux_mg_per_h: f64,
+    minimum_bound_confidence_level: f64,
     maximum_sample_interval_seconds: i64,
     minimum_coverage_fraction: f64,
 }
@@ -54,7 +55,10 @@ struct EvidenceRecord {
     sample_interval_seconds: i64,
     coverage_fraction: f64,
     measured_flux_mg_per_h: Option<f64>,
+    lower_flux_bound_mg_per_h: Option<f64>,
+    lower_flux_bound_confidence_level: Option<f64>,
     upper_flux_bound_mg_per_h: Option<f64>,
+    upper_flux_bound_confidence_level: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -147,9 +151,15 @@ fn validate(s: &Scenario) -> Result<(), String> {
         "minimum_coverage_fraction",
         s.event.minimum_coverage_fraction,
     )?;
+    finite(
+        "minimum_bound_confidence_level",
+        s.event.minimum_bound_confidence_level,
+    )?;
     if s.event.minimum_relevant_flux_mg_per_h <= 0.0
         || !(0.0..=1.0).contains(&s.event.minimum_coverage_fraction)
         || s.event.minimum_coverage_fraction <= 0.0
+        || !(0.0..=1.0).contains(&s.event.minimum_bound_confidence_level)
+        || s.event.minimum_bound_confidence_level <= 0.0
     {
         return Err("event flux threshold and minimum coverage must be positive and admissible".into());
     }
@@ -167,7 +177,7 @@ fn validate(s: &Scenario) -> Result<(), String> {
     let mut evidence_by_id = BTreeMap::new();
     for evidence in &s.evidence_records {
         if evidence.evidence_id.trim().is_empty()
-            || evidence_by_id.contains_key(&evidence.evidence_id)
+            || evidence_by_id.contains_key(evidence.evidence_id.as_str())
             || !edge_ids.contains(evidence.edge_id.as_str())
         {
             return Err("evidence IDs must be unique and every evidence edge must be registered".into());
@@ -227,11 +237,33 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 return Err("measured flux cannot be negative".into());
             }
         }
+        if let Some(value) = evidence.lower_flux_bound_mg_per_h {
+            finite("lower flux bound", value)?;
+            if value < 0.0 {
+                return Err("lower flux bound cannot be negative".into());
+            }
+        }
         if let Some(value) = evidence.upper_flux_bound_mg_per_h {
             finite("upper flux bound", value)?;
             if value < 0.0 {
                 return Err("upper flux bound cannot be negative".into());
             }
+        }
+        for (name, confidence) in [
+            ("lower_flux_bound_confidence_level", evidence.lower_flux_bound_confidence_level),
+            ("upper_flux_bound_confidence_level", evidence.upper_flux_bound_confidence_level),
+        ] {
+            if let Some(value) = confidence {
+                finite(name, value)?;
+                if !(0.0..=1.0).contains(&value) || value <= 0.0 {
+                    return Err(format!("{name} must be in (0,1]"));
+                }
+            }
+        }
+        if evidence.lower_flux_bound_mg_per_h.is_some()
+            && evidence.measured_flux_mg_per_h.is_none()
+        {
+            return Err("lower flux bound requires an associated measured flux".into());
         }
         if is_direct_observation(&evidence.evidence_class)
             && evidence.calibration_id.as_deref().unwrap_or("").trim().is_empty()
@@ -320,8 +352,11 @@ fn evidence_candidate(
     }
 
     let measured_active = evidence
-        .measured_flux_mg_per_h
-        .is_some_and(|value| value > s.event.minimum_relevant_flux_mg_per_h);
+        .lower_flux_bound_mg_per_h
+        .is_some_and(|value| value > s.event.minimum_relevant_flux_mg_per_h)
+        && evidence
+            .lower_flux_bound_confidence_level
+            .is_some_and(|value| value >= s.event.minimum_bound_confidence_level);
     if measured_active {
         return (Some(CandidateState::Active), vec![]);
     }
@@ -334,7 +369,10 @@ fn evidence_candidate(
         evidence.coverage_fraction >= s.event.minimum_coverage_fraction;
     let non_detection_bound_adequate = evidence
         .upper_flux_bound_mg_per_h
-        .is_some_and(|value| value <= s.event.minimum_relevant_flux_mg_per_h);
+        .is_some_and(|value| value <= s.event.minimum_relevant_flux_mg_per_h)
+        && evidence
+            .upper_flux_bound_confidence_level
+            .is_some_and(|value| value >= s.event.minimum_bound_confidence_level);
 
     if covers_entire_event
         && cadence_adequate
@@ -357,7 +395,12 @@ fn evidence_candidate(
     if !non_detection_bound_adequate {
         reasons.push("detection_upper_bound_does_not_exclude_relevant_flux".into());
     }
-    if evidence.measured_flux_mg_per_h.is_some() {
+    if evidence
+        .measured_flux_mg_per_h
+        .is_some_and(|value| value > s.event.minimum_relevant_flux_mg_per_h)
+    {
+        reasons.push("positive_point_estimate_without_qualified_lower_bound".into());
+    } else if evidence.measured_flux_mg_per_h.is_some() {
         reasons.push("measured_value_does_not_support_declared_state".into());
     }
     (None, reasons)
@@ -533,6 +576,14 @@ mod tests {
         let result = results();
         let edge = result.iter().find(|r| r.edge_id == "edge-active-tracer").unwrap();
         assert_eq!(edge.admission_status, "confirmed_active");
+    }
+
+    #[test]
+    fn point_estimate_without_lower_confidence_bound_cannot_confirm_activity() {
+        let result = results();
+        let edge = result.iter().find(|r| r.edge_id == "edge-active-point-only").unwrap();
+        assert_eq!(edge.admission_status, "unassessed");
+        assert!(edge.reasons.iter().any(|r| r == "positive_point_estimate_without_qualified_lower_bound"));
     }
 
     #[test]
