@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - ".github/workflows/hearth-auth-withdrawal-qualification.yml"
+      - "mycelix-finance/Cargo.lock"
+      - "mycelix-workspace/mycelix-finance/Cargo.lock"
       - "mycelix-finance/zomes/payments/coordinator/src/lib.rs"
       - "mycelix-finance/zomes/tend/coordinator/src/lib.rs"
       - "mycelix-workspace/mycelix-finance/zomes/payments/coordinator/src/lib.rs"
@@ -19,6 +21,8 @@ on:
       - "security/hearth-authorization-withdrawal-v0.1-20261123"
     paths:
       - ".github/workflows/hearth-auth-withdrawal-qualification.yml"
+      - "mycelix-finance/Cargo.lock"
+      - "mycelix-workspace/mycelix-finance/Cargo.lock"
       - "mycelix-finance/zomes/payments/coordinator/src/lib.rs"
       - "mycelix-finance/zomes/tend/coordinator/src/lib.rs"
       - "mycelix-workspace/mycelix-finance/zomes/payments/coordinator/src/lib.rs"
@@ -71,6 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           cmp mycelix-finance/zomes/payments/coordinator/src/lib.rs mycelix-workspace/mycelix-finance/zomes/payments/coordinator/src/lib.rs
+          cmp mycelix-finance/Cargo.lock mycelix-workspace/mycelix-finance/Cargo.lock
           cmp mycelix-finance/zomes/tend/coordinator/src/lib.rs mycelix-workspace/mycelix-finance/zomes/tend/coordinator/src/lib.rs
           cmp mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json
           cmp mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json
@@ -103,30 +108,6 @@ jobs:
 
       - name: Rust formatting
         run: cargo fmt --manifest-path mycelix-finance/Cargo.toml --all -- --check
-
-      - name: Update stale Finance workspace lockfile conservatively
-        id: lockfile
-        shell: bash
-        run: |
-          set -euo pipefail
-          cp mycelix-finance/Cargo.lock "$RUNNER_TEMP/Cargo.lock.before"
-          cargo update --workspace --manifest-path mycelix-finance/Cargo.toml
-          sha256sum mycelix-finance/Cargo.lock | tee "$RUNNER_TEMP/Cargo.lock.sha256"
-          diff -u "$RUNNER_TEMP/Cargo.lock.before" mycelix-finance/Cargo.lock > "$RUNNER_TEMP/Cargo.lock.diff" || true
-          echo "generated=true" >> "$GITHUB_OUTPUT"
-
-      - name: Upload generated Finance lockfile candidate
-        if: always() && steps.lockfile.outputs.generated == 'true'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: finance-cargo-lockfile-candidate-${{ github.event.pull_request.head.sha || github.sha }}
-          path: |
-            mycelix-finance/Cargo.lock
-            ${{ runner.temp }}/Cargo.lock.before
-            ${{ runner.temp }}/Cargo.lock.diff
-            ${{ runner.temp }}/Cargo.lock.sha256
-          if-no-files-found: error
-          retention-days: 7
 
       - name: Payments guard tests
         run: cargo test --manifest-path mycelix-finance/Cargo.toml -p payments --locked
