@@ -1,0 +1,244 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic soil sampling policy observability report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "trace_id",
+    "schedule_id",
+    "policy_name",
+    "truth_sha256",
+    "schedule_sha256",
+    "truth_observation_count",
+    "candidate_sample_count",
+    "sample_fraction",
+    "maximum_sample_budget",
+    "budget_status",
+    "maximum_schedule_gap_hours",
+    "wake_count",
+    "pulse_count",
+    "detected_pulse_count",
+    "pulse_recall",
+    "missed_pulse_truth_exposure_unit_hours",
+    "false_alarm_count",
+    "resource_vector",
+    "pulses",
+    "policy_evaluator_isolation_status",
+    "controls",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "trace_id": {
+      "type": "string"
+    },
+    "schedule_id": {
+      "type": "string"
+    },
+    "policy_name": {
+      "type": "string"
+    },
+    "truth_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "schedule_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "truth_observation_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "candidate_sample_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sample_fraction": {
+      "type": "number",
+      "minimum": 0
+    },
+    "maximum_sample_budget": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "budget_status": {
+      "enum": [
+        "within_budget",
+        "over_budget"
+      ]
+    },
+    "maximum_schedule_gap_hours": {
+      "type": "number",
+      "minimum": 0
+    },
+    "wake_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pulse_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "detected_pulse_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pulse_recall": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "missed_pulse_truth_exposure_unit_hours": {
+      "type": "number",
+      "minimum": 0
+    },
+    "false_alarm_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "resource_vector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sample_energy_joules",
+        "wake_energy_joules",
+        "compute_cycles",
+        "transmitted_bytes"
+      ],
+      "properties": {
+        "sample_energy_joules": {
+          "type": "number",
+          "minimum": 0
+        },
+        "wake_energy_joules": {
+          "type": "number",
+          "minimum": 0
+        },
+        "compute_cycles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "transmitted_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "pulses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pulse_id",
+          "truth_peak_value",
+          "truth_peak_time_hours",
+          "truth_positive_anomaly_integral_unit_hours",
+          "candidate_samples_in_window",
+          "detected",
+          "candidate_peak_value",
+          "candidate_peak_absolute_error",
+          "candidate_integral_unit_hours",
+          "integral_status"
+        ],
+        "properties": {
+          "pulse_id": {
+            "type": "string"
+          },
+          "truth_peak_value": {
+            "type": "number"
+          },
+          "truth_peak_time_hours": {
+            "type": "number"
+          },
+          "truth_positive_anomaly_integral_unit_hours": {
+            "type": "number",
+            "minimum": 0
+          },
+          "candidate_samples_in_window": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "detected": {
+            "type": "boolean"
+          },
+          "candidate_peak_value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "candidate_peak_absolute_error": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "candidate_integral_unit_hours": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "integral_status": {
+            "enum": [
+              "qualified_complete_pulse_integral",
+              "missing_event_boundary",
+              "gap_exceeded",
+              "not_detected"
+            ]
+          }
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strict_schedule_order_pass",
+        "no_duplicate_sample_time_pass",
+        "no_interpolation_pass",
+        "no_scalar_cost_aggregation_pass",
+        "decision_information_causality_pass",
+        "candidate_timestamps_bind_to_truth_source"
+      ],
+      "properties": {
+        "strict_schedule_order_pass": {
+          "const": true
+        },
+        "no_duplicate_sample_time_pass": {
+          "const": true
+        },
+        "no_interpolation_pass": {
+          "const": true
+        },
+        "no_scalar_cost_aggregation_pass": {
+          "const": true
+        },
+        "decision_information_causality_pass": {
+          "const": true
+        },
+        "candidate_timestamps_bind_to_truth_source": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy_evaluator_isolation_status": {
+      "const": "not_enforced_by_offline_evaluator"
+    }
+  }
+}

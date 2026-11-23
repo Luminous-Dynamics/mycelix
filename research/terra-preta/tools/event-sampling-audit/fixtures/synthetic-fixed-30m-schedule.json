@@ -1,0 +1,408 @@
+{
+  "schema_version": "soil-event-schedule-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "evidence_class": "synthetic_candidate_policy",
+  "schedule_id": "fixed-30-minute-cadence",
+  "policy_name": "fixed-rate 30-minute",
+  "maximum_sample_budget": 60,
+  "maximum_gap_for_pulse_integral_hours": 0.5,
+  "wakeup_gap_threshold_hours": 0.5,
+  "resource_cost_model": {
+    "sample_energy_joules": 0.8,
+    "wake_energy_joules": 2,
+    "compute_cycles_per_sample": 500,
+    "transmitted_bytes_per_sample": 12
+  },
+  "observations": [
+    {
+      "observation_id": "fixed-000",
+      "time_hours": 0,
+      "decision_time_hours": 0,
+      "available_observation_ids": []
+    },
+    {
+      "observation_id": "fixed-006",
+      "time_hours": 0.5,
+      "decision_time_hours": 0.5,
+      "available_observation_ids": [
+        "fixed-000"
+      ]
+    },
+    {
+      "observation_id": "fixed-012",
+      "time_hours": 1,
+      "decision_time_hours": 1,
+      "available_observation_ids": [
+        "fixed-006"
+      ]
+    },
+    {
+      "observation_id": "fixed-018",
+      "time_hours": 1.5,
+      "decision_time_hours": 1.5,
+      "available_observation_ids": [
+        "fixed-012"
+      ]
+    },
+    {
+      "observation_id": "fixed-024",
+      "time_hours": 2,
+      "decision_time_hours": 2,
+      "available_observation_ids": [
+        "fixed-018"
+      ]
+    },
+    {
+      "observation_id": "fixed-030",
+      "time_hours": 2.5,
+      "decision_time_hours": 2.5,
+      "available_observation_ids": [
+        "fixed-024"
+      ]
+    },
+    {
+      "observation_id": "fixed-036",
+      "time_hours": 3,
+      "decision_time_hours": 3,
+      "available_observation_ids": [
+        "fixed-030"
+      ]
+    },
+    {
+      "observation_id": "fixed-042",
+      "time_hours": 3.5,
+      "decision_time_hours": 3.5,
+      "available_observation_ids": [
+        "fixed-036"
+      ]
+    },
+    {
+      "observation_id": "fixed-048",
+      "time_hours": 4,
+      "decision_time_hours": 4,
+      "available_observation_ids": [
+        "fixed-042"
+      ]
+    },
+    {
+      "observation_id": "fixed-054",
+      "time_hours": 4.5,
+      "decision_time_hours": 4.5,
+      "available_observation_ids": [
+        "fixed-048"
+      ]
+    },
+    {
+      "observation_id": "fixed-060",
+      "time_hours": 5,
+      "decision_time_hours": 5,
+      "available_observation_ids": [
+        "fixed-054"
+      ]
+    },
+    {
+      "observation_id": "fixed-066",
+      "time_hours": 5.5,
+      "decision_time_hours": 5.5,
+      "available_observation_ids": [
+        "fixed-060"
+      ]
+    },
+    {
+      "observation_id": "fixed-072",
+      "time_hours": 6,
+      "decision_time_hours": 6,
+      "available_observation_ids": [
+        "fixed-066"
+      ]
+    },
+    {
+      "observation_id": "fixed-078",
+      "time_hours": 6.5,
+      "decision_time_hours": 6.5,
+      "available_observation_ids": [
+        "fixed-072"
+      ]
+    },
+    {
+      "observation_id": "fixed-084",
+      "time_hours": 7,
+      "decision_time_hours": 7,
+      "available_observation_ids": [
+        "fixed-078"
+      ]
+    },
+    {
+      "observation_id": "fixed-090",
+      "time_hours": 7.5,
+      "decision_time_hours": 7.5,
+      "available_observation_ids": [
+        "fixed-084"
+      ]
+    },
+    {
+      "observation_id": "fixed-096",
+      "time_hours": 8,
+      "decision_time_hours": 8,
+      "available_observation_ids": [
+        "fixed-090"
+      ]
+    },
+    {
+      "observation_id": "fixed-102",
+      "time_hours": 8.5,
+      "decision_time_hours": 8.5,
+      "available_observation_ids": [
+        "fixed-096"
+      ]
+    },
+    {
+      "observation_id": "fixed-108",
+      "time_hours": 9,
+      "decision_time_hours": 9,
+      "available_observation_ids": [
+        "fixed-102"
+      ]
+    },
+    {
+      "observation_id": "fixed-114",
+      "time_hours": 9.5,
+      "decision_time_hours": 9.5,
+      "available_observation_ids": [
+        "fixed-108"
+      ]
+    },
+    {
+      "observation_id": "fixed-120",
+      "time_hours": 10,
+      "decision_time_hours": 10,
+      "available_observation_ids": [
+        "fixed-114"
+      ]
+    },
+    {
+      "observation_id": "fixed-126",
+      "time_hours": 10.5,
+      "decision_time_hours": 10.5,
+      "available_observation_ids": [
+        "fixed-120"
+      ]
+    },
+    {
+      "observation_id": "fixed-132",
+      "time_hours": 11,
+      "decision_time_hours": 11,
+      "available_observation_ids": [
+        "fixed-126"
+      ]
+    },
+    {
+      "observation_id": "fixed-138",
+      "time_hours": 11.5,
+      "decision_time_hours": 11.5,
+      "available_observation_ids": [
+        "fixed-132"
+      ]
+    },
+    {
+      "observation_id": "fixed-144",
+      "time_hours": 12,
+      "decision_time_hours": 12,
+      "available_observation_ids": [
+        "fixed-138"
+      ]
+    },
+    {
+      "observation_id": "fixed-150",
+      "time_hours": 12.5,
+      "decision_time_hours": 12.5,
+      "available_observation_ids": [
+        "fixed-144"
+      ]
+    },
+    {
+      "observation_id": "fixed-156",
+      "time_hours": 13,
+      "decision_time_hours": 13,
+      "available_observation_ids": [
+        "fixed-150"
+      ]
+    },
+    {
+      "observation_id": "fixed-162",
+      "time_hours": 13.5,
+      "decision_time_hours": 13.5,
+      "available_observation_ids": [
+        "fixed-156"
+      ]
+    },
+    {
+      "observation_id": "fixed-168",
+      "time_hours": 14,
+      "decision_time_hours": 14,
+      "available_observation_ids": [
+        "fixed-162"
+      ]
+    },
+    {
+      "observation_id": "fixed-174",
+      "time_hours": 14.5,
+      "decision_time_hours": 14.5,
+      "available_observation_ids": [
+        "fixed-168"
+      ]
+    },
+    {
+      "observation_id": "fixed-180",
+      "time_hours": 15,
+      "decision_time_hours": 15,
+      "available_observation_ids": [
+        "fixed-174"
+      ]
+    },
+    {
+      "observation_id": "fixed-186",
+      "time_hours": 15.5,
+      "decision_time_hours": 15.5,
+      "available_observation_ids": [
+        "fixed-180"
+      ]
+    },
+    {
+      "observation_id": "fixed-192",
+      "time_hours": 16,
+      "decision_time_hours": 16,
+      "available_observation_ids": [
+        "fixed-186"
+      ]
+    },
+    {
+      "observation_id": "fixed-198",
+      "time_hours": 16.5,
+      "decision_time_hours": 16.5,
+      "available_observation_ids": [
+        "fixed-192"
+      ]
+    },
+    {
+      "observation_id": "fixed-204",
+      "time_hours": 17,
+      "decision_time_hours": 17,
+      "available_observation_ids": [
+        "fixed-198"
+      ]
+    },
+    {
+      "observation_id": "fixed-210",
+      "time_hours": 17.5,
+      "decision_time_hours": 17.5,
+      "available_observation_ids": [
+        "fixed-204"
+      ]
+    },
+    {
+      "observation_id": "fixed-216",
+      "time_hours": 18,
+      "decision_time_hours": 18,
+      "available_observation_ids": [
+        "fixed-210"
+      ]
+    },
+    {
+      "observation_id": "fixed-222",
+      "time_hours": 18.5,
+      "decision_time_hours": 18.5,
+      "available_observation_ids": [
+        "fixed-216"
+      ]
+    },
+    {
+      "observation_id": "fixed-228",
+      "time_hours": 19,
+      "decision_time_hours": 19,
+      "available_observation_ids": [
+        "fixed-222"
+      ]
+    },
+    {
+      "observation_id": "fixed-234",
+      "time_hours": 19.5,
+      "decision_time_hours": 19.5,
+      "available_observation_ids": [
+        "fixed-228"
+      ]
+    },
+    {
+      "observation_id": "fixed-240",
+      "time_hours": 20,
+      "decision_time_hours": 20,
+      "available_observation_ids": [
+        "fixed-234"
+      ]
+    },
+    {
+      "observation_id": "fixed-246",
+      "time_hours": 20.5,
+      "decision_time_hours": 20.5,
+      "available_observation_ids": [
+        "fixed-240"
+      ]
+    },
+    {
+      "observation_id": "fixed-252",
+      "time_hours": 21,
+      "decision_time_hours": 21,
+      "available_observation_ids": [
+        "fixed-246"
+      ]
+    },
+    {
+      "observation_id": "fixed-258",
+      "time_hours": 21.5,
+      "decision_time_hours": 21.5,
+      "available_observation_ids": [
+        "fixed-252"
+      ]
+    },
+    {
+      "observation_id": "fixed-264",
+      "time_hours": 22,
+      "decision_time_hours": 22,
+      "available_observation_ids": [
+        "fixed-258"
+      ]
+    },
+    {
+      "observation_id": "fixed-270",
+      "time_hours": 22.5,
+      "decision_time_hours": 22.5,
+      "available_observation_ids": [
+        "fixed-264"
+      ]
+    },
+    {
+      "observation_id": "fixed-276",
+      "time_hours": 23,
+      "decision_time_hours": 23,
+      "available_observation_ids": [
+        "fixed-270"
+      ]
+    },
+    {
+      "observation_id": "fixed-282",
+      "time_hours": 23.5,
+      "decision_time_hours": 23.5,
+      "available_observation_ids": [
+        "fixed-276"
+      ]
+    },
+    {
+      "observation_id": "fixed-288",
+      "time_hours": 24,
+      "decision_time_hours": 24,
+      "available_observation_ids": [
+        "fixed-282"
+      ]
+    }
+  ]
+}

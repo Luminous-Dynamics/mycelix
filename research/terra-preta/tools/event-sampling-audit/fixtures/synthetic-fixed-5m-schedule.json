@@ -1,0 +1,2328 @@
+{
+  "schema_version": "soil-event-schedule-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "evidence_class": "synthetic_candidate_policy",
+  "schedule_id": "fixed-5-minute-cadence",
+  "policy_name": "fixed-rate 5-minute",
+  "maximum_sample_budget": 60,
+  "maximum_gap_for_pulse_integral_hours": 0.084,
+  "wakeup_gap_threshold_hours": 0.5,
+  "resource_cost_model": {
+    "sample_energy_joules": 0.8,
+    "wake_energy_joules": 2,
+    "compute_cycles_per_sample": 500,
+    "transmitted_bytes_per_sample": 12
+  },
+  "observations": [
+    {
+      "observation_id": "dense-000",
+      "time_hours": 0,
+      "decision_time_hours": 0,
+      "available_observation_ids": []
+    },
+    {
+      "observation_id": "dense-001",
+      "time_hours": 0.0833333333,
+      "decision_time_hours": 0.0833333333,
+      "available_observation_ids": [
+        "dense-000"
+      ]
+    },
+    {
+      "observation_id": "dense-002",
+      "time_hours": 0.1666666667,
+      "decision_time_hours": 0.1666666667,
+      "available_observation_ids": [
+        "dense-001"
+      ]
+    },
+    {
+      "observation_id": "dense-003",
+      "time_hours": 0.25,
+      "decision_time_hours": 0.25,
+      "available_observation_ids": [
+        "dense-002"
+      ]
+    },
+    {
+      "observation_id": "dense-004",
+      "time_hours": 0.3333333333,
+      "decision_time_hours": 0.3333333333,
+      "available_observation_ids": [
+        "dense-003"
+      ]
+    },
+    {
+      "observation_id": "dense-005",
+      "time_hours": 0.4166666667,
+      "decision_time_hours": 0.4166666667,
+      "available_observation_ids": [
+        "dense-004"
+      ]
+    },
+    {
+      "observation_id": "dense-006",
+      "time_hours": 0.5,
+      "decision_time_hours": 0.5,
+      "available_observation_ids": [
+        "dense-005"
+      ]
+    },
+    {
+      "observation_id": "dense-007",
+      "time_hours": 0.5833333333,
+      "decision_time_hours": 0.5833333333,
+      "available_observation_ids": [
+        "dense-006"
+      ]
+    },
+    {
+      "observation_id": "dense-008",
+      "time_hours": 0.6666666667,
+      "decision_time_hours": 0.6666666667,
+      "available_observation_ids": [
+        "dense-007"
+      ]
+    },
+    {
+      "observation_id": "dense-009",
+      "time_hours": 0.75,
+      "decision_time_hours": 0.75,
+      "available_observation_ids": [
+        "dense-008"
+      ]
+    },
+    {
+      "observation_id": "dense-010",
+      "time_hours": 0.8333333333,
+      "decision_time_hours": 0.8333333333,
+      "available_observation_ids": [
+        "dense-009"
+      ]
+    },
+    {
+      "observation_id": "dense-011",
+      "time_hours": 0.9166666667,
+      "decision_time_hours": 0.9166666667,
+      "available_observation_ids": [
+        "dense-010"
+      ]
+    },
+    {
+      "observation_id": "dense-012",
+      "time_hours": 1,
+      "decision_time_hours": 1,
+      "available_observation_ids": [
+        "dense-011"
+      ]
+    },
+    {
+      "observation_id": "dense-013",
+      "time_hours": 1.0833333333,
+      "decision_time_hours": 1.0833333333,
+      "available_observation_ids": [
+        "dense-012"
+      ]
+    },
+    {
+      "observation_id": "dense-014",
+      "time_hours": 1.1666666667,
+      "decision_time_hours": 1.1666666667,
+      "available_observation_ids": [
+        "dense-013"
+      ]
+    },
+    {
+      "observation_id": "dense-015",
+      "time_hours": 1.25,
+      "decision_time_hours": 1.25,
+      "available_observation_ids": [
+        "dense-014"
+      ]
+    },
+    {
+      "observation_id": "dense-016",
+      "time_hours": 1.3333333333,
+      "decision_time_hours": 1.3333333333,
+      "available_observation_ids": [
+        "dense-015"
+      ]
+    },
+    {
+      "observation_id": "dense-017",
+      "time_hours": 1.4166666667,
+      "decision_time_hours": 1.4166666667,
+      "available_observation_ids": [
+        "dense-016"
+      ]
+    },
+    {
+      "observation_id": "dense-018",
+      "time_hours": 1.5,
+      "decision_time_hours": 1.5,
+      "available_observation_ids": [
+        "dense-017"
+      ]
+    },
+    {
+      "observation_id": "dense-019",
+      "time_hours": 1.5833333333,
+      "decision_time_hours": 1.5833333333,
+      "available_observation_ids": [
+        "dense-018"
+      ]
+    },
+    {
+      "observation_id": "dense-020",
+      "time_hours": 1.6666666667,
+      "decision_time_hours": 1.6666666667,
+      "available_observation_ids": [
+        "dense-019"
+      ]
+    },
+    {
+      "observation_id": "dense-021",
+      "time_hours": 1.75,
+      "decision_time_hours": 1.75,
+      "available_observation_ids": [
+        "dense-020"
+      ]
+    },
+    {
+      "observation_id": "dense-022",
+      "time_hours": 1.8333333333,
+      "decision_time_hours": 1.8333333333,
+      "available_observation_ids": [
+        "dense-021"
+      ]
+    },
+    {
+      "observation_id": "dense-023",
+      "time_hours": 1.9166666667,
+      "decision_time_hours": 1.9166666667,
+      "available_observation_ids": [
+        "dense-022"
+      ]
+    },
+    {
+      "observation_id": "dense-024",
+      "time_hours": 2,
+      "decision_time_hours": 2,
+      "available_observation_ids": [
+        "dense-023"
+      ]
+    },
+    {
+      "observation_id": "dense-025",
+      "time_hours": 2.0833333333,
+      "decision_time_hours": 2.0833333333,
+      "available_observation_ids": [
+        "dense-024"
+      ]
+    },
+    {
+      "observation_id": "dense-026",
+      "time_hours": 2.1666666667,
+      "decision_time_hours": 2.1666666667,
+      "available_observation_ids": [
+        "dense-025"
+      ]
+    },
+    {
+      "observation_id": "dense-027",
+      "time_hours": 2.25,
+      "decision_time_hours": 2.25,
+      "available_observation_ids": [
+        "dense-026"
+      ]
+    },
+    {
+      "observation_id": "dense-028",
+      "time_hours": 2.3333333333,
+      "decision_time_hours": 2.3333333333,
+      "available_observation_ids": [
+        "dense-027"
+      ]
+    },
+    {
+      "observation_id": "dense-029",
+      "time_hours": 2.4166666667,
+      "decision_time_hours": 2.4166666667,
+      "available_observation_ids": [
+        "dense-028"
+      ]
+    },
+    {
+      "observation_id": "dense-030",
+      "time_hours": 2.5,
+      "decision_time_hours": 2.5,
+      "available_observation_ids": [
+        "dense-029"
+      ]
+    },
+    {
+      "observation_id": "dense-031",
+      "time_hours": 2.5833333333,
+      "decision_time_hours": 2.5833333333,
+      "available_observation_ids": [
+        "dense-030"
+      ]
+    },
+    {
+      "observation_id": "dense-032",
+      "time_hours": 2.6666666667,
+      "decision_time_hours": 2.6666666667,
+      "available_observation_ids": [
+        "dense-031"
+      ]
+    },
+    {
+      "observation_id": "dense-033",
+      "time_hours": 2.75,
+      "decision_time_hours": 2.75,
+      "available_observation_ids": [
+        "dense-032"
+      ]
+    },
+    {
+      "observation_id": "dense-034",
+      "time_hours": 2.8333333333,
+      "decision_time_hours": 2.8333333333,
+      "available_observation_ids": [
+        "dense-033"
+      ]
+    },
+    {
+      "observation_id": "dense-035",
+      "time_hours": 2.9166666667,
+      "decision_time_hours": 2.9166666667,
+      "available_observation_ids": [
+        "dense-034"
+      ]
+    },
+    {
+      "observation_id": "dense-036",
+      "time_hours": 3,
+      "decision_time_hours": 3,
+      "available_observation_ids": [
+        "dense-035"
+      ]
+    },
+    {
+      "observation_id": "dense-037",
+      "time_hours": 3.0833333333,
+      "decision_time_hours": 3.0833333333,
+      "available_observation_ids": [
+        "dense-036"
+      ]
+    },
+    {
+      "observation_id": "dense-038",
+      "time_hours": 3.1666666667,
+      "decision_time_hours": 3.1666666667,
+      "available_observation_ids": [
+        "dense-037"
+      ]
+    },
+    {
+      "observation_id": "dense-039",
+      "time_hours": 3.25,
+      "decision_time_hours": 3.25,
+      "available_observation_ids": [
+        "dense-038"
+      ]
+    },
+    {
+      "observation_id": "dense-040",
+      "time_hours": 3.3333333333,
+      "decision_time_hours": 3.3333333333,
+      "available_observation_ids": [
+        "dense-039"
+      ]
+    },
+    {
+      "observation_id": "dense-041",
+      "time_hours": 3.4166666667,
+      "decision_time_hours": 3.4166666667,
+      "available_observation_ids": [
+        "dense-040"
+      ]
+    },
+    {
+      "observation_id": "dense-042",
+      "time_hours": 3.5,
+      "decision_time_hours": 3.5,
+      "available_observation_ids": [
+        "dense-041"
+      ]
+    },
+    {
+      "observation_id": "dense-043",
+      "time_hours": 3.5833333333,
+      "decision_time_hours": 3.5833333333,
+      "available_observation_ids": [
+        "dense-042"
+      ]
+    },
+    {
+      "observation_id": "dense-044",
+      "time_hours": 3.6666666667,
+      "decision_time_hours": 3.6666666667,
+      "available_observation_ids": [
+        "dense-043"
+      ]
+    },
+    {
+      "observation_id": "dense-045",
+      "time_hours": 3.75,
+      "decision_time_hours": 3.75,
+      "available_observation_ids": [
+        "dense-044"
+      ]
+    },
+    {
+      "observation_id": "dense-046",
+      "time_hours": 3.8333333333,
+      "decision_time_hours": 3.8333333333,
+      "available_observation_ids": [
+        "dense-045"
+      ]
+    },
+    {
+      "observation_id": "dense-047",
+      "time_hours": 3.9166666667,
+      "decision_time_hours": 3.9166666667,
+      "available_observation_ids": [
+        "dense-046"
+      ]
+    },
+    {
+      "observation_id": "dense-048",
+      "time_hours": 4,
+      "decision_time_hours": 4,
+      "available_observation_ids": [
+        "dense-047"
+      ]
+    },
+    {
+      "observation_id": "dense-049",
+      "time_hours": 4.0833333333,
+      "decision_time_hours": 4.0833333333,
+      "available_observation_ids": [
+        "dense-048"
+      ]
+    },
+    {
+      "observation_id": "dense-050",
+      "time_hours": 4.1666666667,
+      "decision_time_hours": 4.1666666667,
+      "available_observation_ids": [
+        "dense-049"
+      ]
+    },
+    {
+      "observation_id": "dense-051",
+      "time_hours": 4.25,
+      "decision_time_hours": 4.25,
+      "available_observation_ids": [
+        "dense-050"
+      ]
+    },
+    {
+      "observation_id": "dense-052",
+      "time_hours": 4.3333333333,
+      "decision_time_hours": 4.3333333333,
+      "available_observation_ids": [
+        "dense-051"
+      ]
+    },
+    {
+      "observation_id": "dense-053",
+      "time_hours": 4.4166666667,
+      "decision_time_hours": 4.4166666667,
+      "available_observation_ids": [
+        "dense-052"
+      ]
+    },
+    {
+      "observation_id": "dense-054",
+      "time_hours": 4.5,
+      "decision_time_hours": 4.5,
+      "available_observation_ids": [
+        "dense-053"
+      ]
+    },
+    {
+      "observation_id": "dense-055",
+      "time_hours": 4.5833333333,
+      "decision_time_hours": 4.5833333333,
+      "available_observation_ids": [
+        "dense-054"
+      ]
+    },
+    {
+      "observation_id": "dense-056",
+      "time_hours": 4.6666666667,
+      "decision_time_hours": 4.6666666667,
+      "available_observation_ids": [
+        "dense-055"
+      ]
+    },
+    {
+      "observation_id": "dense-057",
+      "time_hours": 4.75,
+      "decision_time_hours": 4.75,
+      "available_observation_ids": [
+        "dense-056"
+      ]
+    },
+    {
+      "observation_id": "dense-058",
+      "time_hours": 4.8333333333,
+      "decision_time_hours": 4.8333333333,
+      "available_observation_ids": [
+        "dense-057"
+      ]
+    },
+    {
+      "observation_id": "dense-059",
+      "time_hours": 4.9166666667,
+      "decision_time_hours": 4.9166666667,
+      "available_observation_ids": [
+        "dense-058"
+      ]
+    },
+    {
+      "observation_id": "dense-060",
+      "time_hours": 5,
+      "decision_time_hours": 5,
+      "available_observation_ids": [
+        "dense-059"
+      ]
+    },
+    {
+      "observation_id": "dense-061",
+      "time_hours": 5.0833333333,
+      "decision_time_hours": 5.0833333333,
+      "available_observation_ids": [
+        "dense-060"
+      ]
+    },
+    {
+      "observation_id": "dense-062",
+      "time_hours": 5.1666666667,
+      "decision_time_hours": 5.1666666667,
+      "available_observation_ids": [
+        "dense-061"
+      ]
+    },
+    {
+      "observation_id": "dense-063",
+      "time_hours": 5.25,
+      "decision_time_hours": 5.25,
+      "available_observation_ids": [
+        "dense-062"
+      ]
+    },
+    {
+      "observation_id": "dense-064",
+      "time_hours": 5.3333333333,
+      "decision_time_hours": 5.3333333333,
+      "available_observation_ids": [
+        "dense-063"
+      ]
+    },
+    {
+      "observation_id": "dense-065",
+      "time_hours": 5.4166666667,
+      "decision_time_hours": 5.4166666667,
+      "available_observation_ids": [
+        "dense-064"
+      ]
+    },
+    {
+      "observation_id": "dense-066",
+      "time_hours": 5.5,
+      "decision_time_hours": 5.5,
+      "available_observation_ids": [
+        "dense-065"
+      ]
+    },
+    {
+      "observation_id": "dense-067",
+      "time_hours": 5.5833333333,
+      "decision_time_hours": 5.5833333333,
+      "available_observation_ids": [
+        "dense-066"
+      ]
+    },
+    {
+      "observation_id": "dense-068",
+      "time_hours": 5.6666666667,
+      "decision_time_hours": 5.6666666667,
+      "available_observation_ids": [
+        "dense-067"
+      ]
+    },
+    {
+      "observation_id": "dense-069",
+      "time_hours": 5.75,
+      "decision_time_hours": 5.75,
+      "available_observation_ids": [
+        "dense-068"
+      ]
+    },
+    {
+      "observation_id": "dense-070",
+      "time_hours": 5.8333333333,
+      "decision_time_hours": 5.8333333333,
+      "available_observation_ids": [
+        "dense-069"
+      ]
+    },
+    {
+      "observation_id": "dense-071",
+      "time_hours": 5.9166666667,
+      "decision_time_hours": 5.9166666667,
+      "available_observation_ids": [
+        "dense-070"
+      ]
+    },
+    {
+      "observation_id": "dense-072",
+      "time_hours": 6,
+      "decision_time_hours": 6,
+      "available_observation_ids": [
+        "dense-071"
+      ]
+    },
+    {
+      "observation_id": "dense-073",
+      "time_hours": 6.0833333333,
+      "decision_time_hours": 6.0833333333,
+      "available_observation_ids": [
+        "dense-072"
+      ]
+    },
+    {
+      "observation_id": "dense-074",
+      "time_hours": 6.1666666667,
+      "decision_time_hours": 6.1666666667,
+      "available_observation_ids": [
+        "dense-073"
+      ]
+    },
+    {
+      "observation_id": "dense-075",
+      "time_hours": 6.25,
+      "decision_time_hours": 6.25,
+      "available_observation_ids": [
+        "dense-074"
+      ]
+    },
+    {
+      "observation_id": "dense-076",
+      "time_hours": 6.3333333333,
+      "decision_time_hours": 6.3333333333,
+      "available_observation_ids": [
+        "dense-075"
+      ]
+    },
+    {
+      "observation_id": "dense-077",
+      "time_hours": 6.4166666667,
+      "decision_time_hours": 6.4166666667,
+      "available_observation_ids": [
+        "dense-076"
+      ]
+    },
+    {
+      "observation_id": "dense-078",
+      "time_hours": 6.5,
+      "decision_time_hours": 6.5,
+      "available_observation_ids": [
+        "dense-077"
+      ]
+    },
+    {
+      "observation_id": "dense-079",
+      "time_hours": 6.5833333333,
+      "decision_time_hours": 6.5833333333,
+      "available_observation_ids": [
+        "dense-078"
+      ]
+    },
+    {
+      "observation_id": "dense-080",
+      "time_hours": 6.6666666667,
+      "decision_time_hours": 6.6666666667,
+      "available_observation_ids": [
+        "dense-079"
+      ]
+    },
+    {
+      "observation_id": "dense-081",
+      "time_hours": 6.75,
+      "decision_time_hours": 6.75,
+      "available_observation_ids": [
+        "dense-080"
+      ]
+    },
+    {
+      "observation_id": "dense-082",
+      "time_hours": 6.8333333333,
+      "decision_time_hours": 6.8333333333,
+      "available_observation_ids": [
+        "dense-081"
+      ]
+    },
+    {
+      "observation_id": "dense-083",
+      "time_hours": 6.9166666667,
+      "decision_time_hours": 6.9166666667,
+      "available_observation_ids": [
+        "dense-082"
+      ]
+    },
+    {
+      "observation_id": "dense-084",
+      "time_hours": 7,
+      "decision_time_hours": 7,
+      "available_observation_ids": [
+        "dense-083"
+      ]
+    },
+    {
+      "observation_id": "dense-085",
+      "time_hours": 7.0833333333,
+      "decision_time_hours": 7.0833333333,
+      "available_observation_ids": [
+        "dense-084"
+      ]
+    },
+    {
+      "observation_id": "dense-086",
+      "time_hours": 7.1666666667,
+      "decision_time_hours": 7.1666666667,
+      "available_observation_ids": [
+        "dense-085"
+      ]
+    },
+    {
+      "observation_id": "dense-087",
+      "time_hours": 7.25,
+      "decision_time_hours": 7.25,
+      "available_observation_ids": [
+        "dense-086"
+      ]
+    },
+    {
+      "observation_id": "dense-088",
+      "time_hours": 7.3333333333,
+      "decision_time_hours": 7.3333333333,
+      "available_observation_ids": [
+        "dense-087"
+      ]
+    },
+    {
+      "observation_id": "dense-089",
+      "time_hours": 7.4166666667,
+      "decision_time_hours": 7.4166666667,
+      "available_observation_ids": [
+        "dense-088"
+      ]
+    },
+    {
+      "observation_id": "dense-090",
+      "time_hours": 7.5,
+      "decision_time_hours": 7.5,
+      "available_observation_ids": [
+        "dense-089"
+      ]
+    },
+    {
+      "observation_id": "dense-091",
+      "time_hours": 7.5833333333,
+      "decision_time_hours": 7.5833333333,
+      "available_observation_ids": [
+        "dense-090"
+      ]
+    },
+    {
+      "observation_id": "dense-092",
+      "time_hours": 7.6666666667,
+      "decision_time_hours": 7.6666666667,
+      "available_observation_ids": [
+        "dense-091"
+      ]
+    },
+    {
+      "observation_id": "dense-093",
+      "time_hours": 7.75,
+      "decision_time_hours": 7.75,
+      "available_observation_ids": [
+        "dense-092"
+      ]
+    },
+    {
+      "observation_id": "dense-094",
+      "time_hours": 7.8333333333,
+      "decision_time_hours": 7.8333333333,
+      "available_observation_ids": [
+        "dense-093"
+      ]
+    },
+    {
+      "observation_id": "dense-095",
+      "time_hours": 7.9166666667,
+      "decision_time_hours": 7.9166666667,
+      "available_observation_ids": [
+        "dense-094"
+      ]
+    },
+    {
+      "observation_id": "dense-096",
+      "time_hours": 8,
+      "decision_time_hours": 8,
+      "available_observation_ids": [
+        "dense-095"
+      ]
+    },
+    {
+      "observation_id": "dense-097",
+      "time_hours": 8.0833333333,
+      "decision_time_hours": 8.0833333333,
+      "available_observation_ids": [
+        "dense-096"
+      ]
+    },
+    {
+      "observation_id": "dense-098",
+      "time_hours": 8.1666666667,
+      "decision_time_hours": 8.1666666667,
+      "available_observation_ids": [
+        "dense-097"
+      ]
+    },
+    {
+      "observation_id": "dense-099",
+      "time_hours": 8.25,
+      "decision_time_hours": 8.25,
+      "available_observation_ids": [
+        "dense-098"
+      ]
+    },
+    {
+      "observation_id": "dense-100",
+      "time_hours": 8.3333333333,
+      "decision_time_hours": 8.3333333333,
+      "available_observation_ids": [
+        "dense-099"
+      ]
+    },
+    {
+      "observation_id": "dense-101",
+      "time_hours": 8.4166666667,
+      "decision_time_hours": 8.4166666667,
+      "available_observation_ids": [
+        "dense-100"
+      ]
+    },
+    {
+      "observation_id": "dense-102",
+      "time_hours": 8.5,
+      "decision_time_hours": 8.5,
+      "available_observation_ids": [
+        "dense-101"
+      ]
+    },
+    {
+      "observation_id": "dense-103",
+      "time_hours": 8.5833333333,
+      "decision_time_hours": 8.5833333333,
+      "available_observation_ids": [
+        "dense-102"
+      ]
+    },
+    {
+      "observation_id": "dense-104",
+      "time_hours": 8.6666666667,
+      "decision_time_hours": 8.6666666667,
+      "available_observation_ids": [
+        "dense-103"
+      ]
+    },
+    {
+      "observation_id": "dense-105",
+      "time_hours": 8.75,
+      "decision_time_hours": 8.75,
+      "available_observation_ids": [
+        "dense-104"
+      ]
+    },
+    {
+      "observation_id": "dense-106",
+      "time_hours": 8.8333333333,
+      "decision_time_hours": 8.8333333333,
+      "available_observation_ids": [
+        "dense-105"
+      ]
+    },
+    {
+      "observation_id": "dense-107",
+      "time_hours": 8.9166666667,
+      "decision_time_hours": 8.9166666667,
+      "available_observation_ids": [
+        "dense-106"
+      ]
+    },
+    {
+      "observation_id": "dense-108",
+      "time_hours": 9,
+      "decision_time_hours": 9,
+      "available_observation_ids": [
+        "dense-107"
+      ]
+    },
+    {
+      "observation_id": "dense-109",
+      "time_hours": 9.0833333333,
+      "decision_time_hours": 9.0833333333,
+      "available_observation_ids": [
+        "dense-108"
+      ]
+    },
+    {
+      "observation_id": "dense-110",
+      "time_hours": 9.1666666667,
+      "decision_time_hours": 9.1666666667,
+      "available_observation_ids": [
+        "dense-109"
+      ]
+    },
+    {
+      "observation_id": "dense-111",
+      "time_hours": 9.25,
+      "decision_time_hours": 9.25,
+      "available_observation_ids": [
+        "dense-110"
+      ]
+    },
+    {
+      "observation_id": "dense-112",
+      "time_hours": 9.3333333333,
+      "decision_time_hours": 9.3333333333,
+      "available_observation_ids": [
+        "dense-111"
+      ]
+    },
+    {
+      "observation_id": "dense-113",
+      "time_hours": 9.4166666667,
+      "decision_time_hours": 9.4166666667,
+      "available_observation_ids": [
+        "dense-112"
+      ]
+    },
+    {
+      "observation_id": "dense-114",
+      "time_hours": 9.5,
+      "decision_time_hours": 9.5,
+      "available_observation_ids": [
+        "dense-113"
+      ]
+    },
+    {
+      "observation_id": "dense-115",
+      "time_hours": 9.5833333333,
+      "decision_time_hours": 9.5833333333,
+      "available_observation_ids": [
+        "dense-114"
+      ]
+    },
+    {
+      "observation_id": "dense-116",
+      "time_hours": 9.6666666667,
+      "decision_time_hours": 9.6666666667,
+      "available_observation_ids": [
+        "dense-115"
+      ]
+    },
+    {
+      "observation_id": "dense-117",
+      "time_hours": 9.75,
+      "decision_time_hours": 9.75,
+      "available_observation_ids": [
+        "dense-116"
+      ]
+    },
+    {
+      "observation_id": "dense-118",
+      "time_hours": 9.8333333333,
+      "decision_time_hours": 9.8333333333,
+      "available_observation_ids": [
+        "dense-117"
+      ]
+    },
+    {
+      "observation_id": "dense-119",
+      "time_hours": 9.9166666667,
+      "decision_time_hours": 9.9166666667,
+      "available_observation_ids": [
+        "dense-118"
+      ]
+    },
+    {
+      "observation_id": "dense-120",
+      "time_hours": 10,
+      "decision_time_hours": 10,
+      "available_observation_ids": [
+        "dense-119"
+      ]
+    },
+    {
+      "observation_id": "dense-121",
+      "time_hours": 10.0833333333,
+      "decision_time_hours": 10.0833333333,
+      "available_observation_ids": [
+        "dense-120"
+      ]
+    },
+    {
+      "observation_id": "dense-122",
+      "time_hours": 10.1666666667,
+      "decision_time_hours": 10.1666666667,
+      "available_observation_ids": [
+        "dense-121"
+      ]
+    },
+    {
+      "observation_id": "dense-123",
+      "time_hours": 10.25,
+      "decision_time_hours": 10.25,
+      "available_observation_ids": [
+        "dense-122"
+      ]
+    },
+    {
+      "observation_id": "dense-124",
+      "time_hours": 10.3333333333,
+      "decision_time_hours": 10.3333333333,
+      "available_observation_ids": [
+        "dense-123"
+      ]
+    },
+    {
+      "observation_id": "dense-125",
+      "time_hours": 10.4166666667,
+      "decision_time_hours": 10.4166666667,
+      "available_observation_ids": [
+        "dense-124"
+      ]
+    },
+    {
+      "observation_id": "dense-126",
+      "time_hours": 10.5,
+      "decision_time_hours": 10.5,
+      "available_observation_ids": [
+        "dense-125"
+      ]
+    },
+    {
+      "observation_id": "dense-127",
+      "time_hours": 10.5833333333,
+      "decision_time_hours": 10.5833333333,
+      "available_observation_ids": [
+        "dense-126"
+      ]
+    },
+    {
+      "observation_id": "dense-128",
+      "time_hours": 10.6666666667,
+      "decision_time_hours": 10.6666666667,
+      "available_observation_ids": [
+        "dense-127"
+      ]
+    },
+    {
+      "observation_id": "dense-129",
+      "time_hours": 10.75,
+      "decision_time_hours": 10.75,
+      "available_observation_ids": [
+        "dense-128"
+      ]
+    },
+    {
+      "observation_id": "dense-130",
+      "time_hours": 10.8333333333,
+      "decision_time_hours": 10.8333333333,
+      "available_observation_ids": [
+        "dense-129"
+      ]
+    },
+    {
+      "observation_id": "dense-131",
+      "time_hours": 10.9166666667,
+      "decision_time_hours": 10.9166666667,
+      "available_observation_ids": [
+        "dense-130"
+      ]
+    },
+    {
+      "observation_id": "dense-132",
+      "time_hours": 11,
+      "decision_time_hours": 11,
+      "available_observation_ids": [
+        "dense-131"
+      ]
+    },
+    {
+      "observation_id": "dense-133",
+      "time_hours": 11.0833333333,
+      "decision_time_hours": 11.0833333333,
+      "available_observation_ids": [
+        "dense-132"
+      ]
+    },
+    {
+      "observation_id": "dense-134",
+      "time_hours": 11.1666666667,
+      "decision_time_hours": 11.1666666667,
+      "available_observation_ids": [
+        "dense-133"
+      ]
+    },
+    {
+      "observation_id": "dense-135",
+      "time_hours": 11.25,
+      "decision_time_hours": 11.25,
+      "available_observation_ids": [
+        "dense-134"
+      ]
+    },
+    {
+      "observation_id": "dense-136",
+      "time_hours": 11.3333333333,
+      "decision_time_hours": 11.3333333333,
+      "available_observation_ids": [
+        "dense-135"
+      ]
+    },
+    {
+      "observation_id": "dense-137",
+      "time_hours": 11.4166666667,
+      "decision_time_hours": 11.4166666667,
+      "available_observation_ids": [
+        "dense-136"
+      ]
+    },
+    {
+      "observation_id": "dense-138",
+      "time_hours": 11.5,
+      "decision_time_hours": 11.5,
+      "available_observation_ids": [
+        "dense-137"
+      ]
+    },
+    {
+      "observation_id": "dense-139",
+      "time_hours": 11.5833333333,
+      "decision_time_hours": 11.5833333333,
+      "available_observation_ids": [
+        "dense-138"
+      ]
+    },
+    {
+      "observation_id": "dense-140",
+      "time_hours": 11.6666666667,
+      "decision_time_hours": 11.6666666667,
+      "available_observation_ids": [
+        "dense-139"
+      ]
+    },
+    {
+      "observation_id": "dense-141",
+      "time_hours": 11.75,
+      "decision_time_hours": 11.75,
+      "available_observation_ids": [
+        "dense-140"
+      ]
+    },
+    {
+      "observation_id": "dense-142",
+      "time_hours": 11.8333333333,
+      "decision_time_hours": 11.8333333333,
+      "available_observation_ids": [
+        "dense-141"
+      ]
+    },
+    {
+      "observation_id": "dense-143",
+      "time_hours": 11.9166666667,
+      "decision_time_hours": 11.9166666667,
+      "available_observation_ids": [
+        "dense-142"
+      ]
+    },
+    {
+      "observation_id": "dense-144",
+      "time_hours": 12,
+      "decision_time_hours": 12,
+      "available_observation_ids": [
+        "dense-143"
+      ]
+    },
+    {
+      "observation_id": "dense-145",
+      "time_hours": 12.0833333333,
+      "decision_time_hours": 12.0833333333,
+      "available_observation_ids": [
+        "dense-144"
+      ]
+    },
+    {
+      "observation_id": "dense-146",
+      "time_hours": 12.1666666667,
+      "decision_time_hours": 12.1666666667,
+      "available_observation_ids": [
+        "dense-145"
+      ]
+    },
+    {
+      "observation_id": "dense-147",
+      "time_hours": 12.25,
+      "decision_time_hours": 12.25,
+      "available_observation_ids": [
+        "dense-146"
+      ]
+    },
+    {
+      "observation_id": "dense-148",
+      "time_hours": 12.3333333333,
+      "decision_time_hours": 12.3333333333,
+      "available_observation_ids": [
+        "dense-147"
+      ]
+    },
+    {
+      "observation_id": "dense-149",
+      "time_hours": 12.4166666667,
+      "decision_time_hours": 12.4166666667,
+      "available_observation_ids": [
+        "dense-148"
+      ]
+    },
+    {
+      "observation_id": "dense-150",
+      "time_hours": 12.5,
+      "decision_time_hours": 12.5,
+      "available_observation_ids": [
+        "dense-149"
+      ]
+    },
+    {
+      "observation_id": "dense-151",
+      "time_hours": 12.5833333333,
+      "decision_time_hours": 12.5833333333,
+      "available_observation_ids": [
+        "dense-150"
+      ]
+    },
+    {
+      "observation_id": "dense-152",
+      "time_hours": 12.6666666667,
+      "decision_time_hours": 12.6666666667,
+      "available_observation_ids": [
+        "dense-151"
+      ]
+    },
+    {
+      "observation_id": "dense-153",
+      "time_hours": 12.75,
+      "decision_time_hours": 12.75,
+      "available_observation_ids": [
+        "dense-152"
+      ]
+    },
+    {
+      "observation_id": "dense-154",
+      "time_hours": 12.8333333333,
+      "decision_time_hours": 12.8333333333,
+      "available_observation_ids": [
+        "dense-153"
+      ]
+    },
+    {
+      "observation_id": "dense-155",
+      "time_hours": 12.9166666667,
+      "decision_time_hours": 12.9166666667,
+      "available_observation_ids": [
+        "dense-154"
+      ]
+    },
+    {
+      "observation_id": "dense-156",
+      "time_hours": 13,
+      "decision_time_hours": 13,
+      "available_observation_ids": [
+        "dense-155"
+      ]
+    },
+    {
+      "observation_id": "dense-157",
+      "time_hours": 13.0833333333,
+      "decision_time_hours": 13.0833333333,
+      "available_observation_ids": [
+        "dense-156"
+      ]
+    },
+    {
+      "observation_id": "dense-158",
+      "time_hours": 13.1666666667,
+      "decision_time_hours": 13.1666666667,
+      "available_observation_ids": [
+        "dense-157"
+      ]
+    },
+    {
+      "observation_id": "dense-159",
+      "time_hours": 13.25,
+      "decision_time_hours": 13.25,
+      "available_observation_ids": [
+        "dense-158"
+      ]
+    },
+    {
+      "observation_id": "dense-160",
+      "time_hours": 13.3333333333,
+      "decision_time_hours": 13.3333333333,
+      "available_observation_ids": [
+        "dense-159"
+      ]
+    },
+    {
+      "observation_id": "dense-161",
+      "time_hours": 13.4166666667,
+      "decision_time_hours": 13.4166666667,
+      "available_observation_ids": [
+        "dense-160"
+      ]
+    },
+    {
+      "observation_id": "dense-162",
+      "time_hours": 13.5,
+      "decision_time_hours": 13.5,
+      "available_observation_ids": [
+        "dense-161"
+      ]
+    },
+    {
+      "observation_id": "dense-163",
+      "time_hours": 13.5833333333,
+      "decision_time_hours": 13.5833333333,
+      "available_observation_ids": [
+        "dense-162"
+      ]
+    },
+    {
+      "observation_id": "dense-164",
+      "time_hours": 13.6666666667,
+      "decision_time_hours": 13.6666666667,
+      "available_observation_ids": [
+        "dense-163"
+      ]
+    },
+    {
+      "observation_id": "dense-165",
+      "time_hours": 13.75,
+      "decision_time_hours": 13.75,
+      "available_observation_ids": [
+        "dense-164"
+      ]
+    },
+    {
+      "observation_id": "dense-166",
+      "time_hours": 13.8333333333,
+      "decision_time_hours": 13.8333333333,
+      "available_observation_ids": [
+        "dense-165"
+      ]
+    },
+    {
+      "observation_id": "dense-167",
+      "time_hours": 13.9166666667,
+      "decision_time_hours": 13.9166666667,
+      "available_observation_ids": [
+        "dense-166"
+      ]
+    },
+    {
+      "observation_id": "dense-168",
+      "time_hours": 14,
+      "decision_time_hours": 14,
+      "available_observation_ids": [
+        "dense-167"
+      ]
+    },
+    {
+      "observation_id": "dense-169",
+      "time_hours": 14.0833333333,
+      "decision_time_hours": 14.0833333333,
+      "available_observation_ids": [
+        "dense-168"
+      ]
+    },
+    {
+      "observation_id": "dense-170",
+      "time_hours": 14.1666666667,
+      "decision_time_hours": 14.1666666667,
+      "available_observation_ids": [
+        "dense-169"
+      ]
+    },
+    {
+      "observation_id": "dense-171",
+      "time_hours": 14.25,
+      "decision_time_hours": 14.25,
+      "available_observation_ids": [
+        "dense-170"
+      ]
+    },
+    {
+      "observation_id": "dense-172",
+      "time_hours": 14.3333333333,
+      "decision_time_hours": 14.3333333333,
+      "available_observation_ids": [
+        "dense-171"
+      ]
+    },
+    {
+      "observation_id": "dense-173",
+      "time_hours": 14.4166666667,
+      "decision_time_hours": 14.4166666667,
+      "available_observation_ids": [
+        "dense-172"
+      ]
+    },
+    {
+      "observation_id": "dense-174",
+      "time_hours": 14.5,
+      "decision_time_hours": 14.5,
+      "available_observation_ids": [
+        "dense-173"
+      ]
+    },
+    {
+      "observation_id": "dense-175",
+      "time_hours": 14.5833333333,
+      "decision_time_hours": 14.5833333333,
+      "available_observation_ids": [
+        "dense-174"
+      ]
+    },
+    {
+      "observation_id": "dense-176",
+      "time_hours": 14.6666666667,
+      "decision_time_hours": 14.6666666667,
+      "available_observation_ids": [
+        "dense-175"
+      ]
+    },
+    {
+      "observation_id": "dense-177",
+      "time_hours": 14.75,
+      "decision_time_hours": 14.75,
+      "available_observation_ids": [
+        "dense-176"
+      ]
+    },
+    {
+      "observation_id": "dense-178",
+      "time_hours": 14.8333333333,
+      "decision_time_hours": 14.8333333333,
+      "available_observation_ids": [
+        "dense-177"
+      ]
+    },
+    {
+      "observation_id": "dense-179",
+      "time_hours": 14.9166666667,
+      "decision_time_hours": 14.9166666667,
+      "available_observation_ids": [
+        "dense-178"
+      ]
+    },
+    {
+      "observation_id": "dense-180",
+      "time_hours": 15,
+      "decision_time_hours": 15,
+      "available_observation_ids": [
+        "dense-179"
+      ]
+    },
+    {
+      "observation_id": "dense-181",
+      "time_hours": 15.0833333333,
+      "decision_time_hours": 15.0833333333,
+      "available_observation_ids": [
+        "dense-180"
+      ]
+    },
+    {
+      "observation_id": "dense-182",
+      "time_hours": 15.1666666667,
+      "decision_time_hours": 15.1666666667,
+      "available_observation_ids": [
+        "dense-181"
+      ]
+    },
+    {
+      "observation_id": "dense-183",
+      "time_hours": 15.25,
+      "decision_time_hours": 15.25,
+      "available_observation_ids": [
+        "dense-182"
+      ]
+    },
+    {
+      "observation_id": "dense-184",
+      "time_hours": 15.3333333333,
+      "decision_time_hours": 15.3333333333,
+      "available_observation_ids": [
+        "dense-183"
+      ]
+    },
+    {
+      "observation_id": "dense-185",
+      "time_hours": 15.4166666667,
+      "decision_time_hours": 15.4166666667,
+      "available_observation_ids": [
+        "dense-184"
+      ]
+    },
+    {
+      "observation_id": "dense-186",
+      "time_hours": 15.5,
+      "decision_time_hours": 15.5,
+      "available_observation_ids": [
+        "dense-185"
+      ]
+    },
+    {
+      "observation_id": "dense-187",
+      "time_hours": 15.5833333333,
+      "decision_time_hours": 15.5833333333,
+      "available_observation_ids": [
+        "dense-186"
+      ]
+    },
+    {
+      "observation_id": "dense-188",
+      "time_hours": 15.6666666667,
+      "decision_time_hours": 15.6666666667,
+      "available_observation_ids": [
+        "dense-187"
+      ]
+    },
+    {
+      "observation_id": "dense-189",
+      "time_hours": 15.75,
+      "decision_time_hours": 15.75,
+      "available_observation_ids": [
+        "dense-188"
+      ]
+    },
+    {
+      "observation_id": "dense-190",
+      "time_hours": 15.8333333333,
+      "decision_time_hours": 15.8333333333,
+      "available_observation_ids": [
+        "dense-189"
+      ]
+    },
+    {
+      "observation_id": "dense-191",
+      "time_hours": 15.9166666667,
+      "decision_time_hours": 15.9166666667,
+      "available_observation_ids": [
+        "dense-190"
+      ]
+    },
+    {
+      "observation_id": "dense-192",
+      "time_hours": 16,
+      "decision_time_hours": 16,
+      "available_observation_ids": [
+        "dense-191"
+      ]
+    },
+    {
+      "observation_id": "dense-193",
+      "time_hours": 16.0833333333,
+      "decision_time_hours": 16.0833333333,
+      "available_observation_ids": [
+        "dense-192"
+      ]
+    },
+    {
+      "observation_id": "dense-194",
+      "time_hours": 16.1666666667,
+      "decision_time_hours": 16.1666666667,
+      "available_observation_ids": [
+        "dense-193"
+      ]
+    },
+    {
+      "observation_id": "dense-195",
+      "time_hours": 16.25,
+      "decision_time_hours": 16.25,
+      "available_observation_ids": [
+        "dense-194"
+      ]
+    },
+    {
+      "observation_id": "dense-196",
+      "time_hours": 16.3333333333,
+      "decision_time_hours": 16.3333333333,
+      "available_observation_ids": [
+        "dense-195"
+      ]
+    },
+    {
+      "observation_id": "dense-197",
+      "time_hours": 16.4166666667,
+      "decision_time_hours": 16.4166666667,
+      "available_observation_ids": [
+        "dense-196"
+      ]
+    },
+    {
+      "observation_id": "dense-198",
+      "time_hours": 16.5,
+      "decision_time_hours": 16.5,
+      "available_observation_ids": [
+        "dense-197"
+      ]
+    },
+    {
+      "observation_id": "dense-199",
+      "time_hours": 16.5833333333,
+      "decision_time_hours": 16.5833333333,
+      "available_observation_ids": [
+        "dense-198"
+      ]
+    },
+    {
+      "observation_id": "dense-200",
+      "time_hours": 16.6666666667,
+      "decision_time_hours": 16.6666666667,
+      "available_observation_ids": [
+        "dense-199"
+      ]
+    },
+    {
+      "observation_id": "dense-201",
+      "time_hours": 16.75,
+      "decision_time_hours": 16.75,
+      "available_observation_ids": [
+        "dense-200"
+      ]
+    },
+    {
+      "observation_id": "dense-202",
+      "time_hours": 16.8333333333,
+      "decision_time_hours": 16.8333333333,
+      "available_observation_ids": [
+        "dense-201"
+      ]
+    },
+    {
+      "observation_id": "dense-203",
+      "time_hours": 16.9166666667,
+      "decision_time_hours": 16.9166666667,
+      "available_observation_ids": [
+        "dense-202"
+      ]
+    },
+    {
+      "observation_id": "dense-204",
+      "time_hours": 17,
+      "decision_time_hours": 17,
+      "available_observation_ids": [
+        "dense-203"
+      ]
+    },
+    {
+      "observation_id": "dense-205",
+      "time_hours": 17.0833333333,
+      "decision_time_hours": 17.0833333333,
+      "available_observation_ids": [
+        "dense-204"
+      ]
+    },
+    {
+      "observation_id": "dense-206",
+      "time_hours": 17.1666666667,
+      "decision_time_hours": 17.1666666667,
+      "available_observation_ids": [
+        "dense-205"
+      ]
+    },
+    {
+      "observation_id": "dense-207",
+      "time_hours": 17.25,
+      "decision_time_hours": 17.25,
+      "available_observation_ids": [
+        "dense-206"
+      ]
+    },
+    {
+      "observation_id": "dense-208",
+      "time_hours": 17.3333333333,
+      "decision_time_hours": 17.3333333333,
+      "available_observation_ids": [
+        "dense-207"
+      ]
+    },
+    {
+      "observation_id": "dense-209",
+      "time_hours": 17.4166666667,
+      "decision_time_hours": 17.4166666667,
+      "available_observation_ids": [
+        "dense-208"
+      ]
+    },
+    {
+      "observation_id": "dense-210",
+      "time_hours": 17.5,
+      "decision_time_hours": 17.5,
+      "available_observation_ids": [
+        "dense-209"
+      ]
+    },
+    {
+      "observation_id": "dense-211",
+      "time_hours": 17.5833333333,
+      "decision_time_hours": 17.5833333333,
+      "available_observation_ids": [
+        "dense-210"
+      ]
+    },
+    {
+      "observation_id": "dense-212",
+      "time_hours": 17.6666666667,
+      "decision_time_hours": 17.6666666667,
+      "available_observation_ids": [
+        "dense-211"
+      ]
+    },
+    {
+      "observation_id": "dense-213",
+      "time_hours": 17.75,
+      "decision_time_hours": 17.75,
+      "available_observation_ids": [
+        "dense-212"
+      ]
+    },
+    {
+      "observation_id": "dense-214",
+      "time_hours": 17.8333333333,
+      "decision_time_hours": 17.8333333333,
+      "available_observation_ids": [
+        "dense-213"
+      ]
+    },
+    {
+      "observation_id": "dense-215",
+      "time_hours": 17.9166666667,
+      "decision_time_hours": 17.9166666667,
+      "available_observation_ids": [
+        "dense-214"
+      ]
+    },
+    {
+      "observation_id": "dense-216",
+      "time_hours": 18,
+      "decision_time_hours": 18,
+      "available_observation_ids": [
+        "dense-215"
+      ]
+    },
+    {
+      "observation_id": "dense-217",
+      "time_hours": 18.0833333333,
+      "decision_time_hours": 18.0833333333,
+      "available_observation_ids": [
+        "dense-216"
+      ]
+    },
+    {
+      "observation_id": "dense-218",
+      "time_hours": 18.1666666667,
+      "decision_time_hours": 18.1666666667,
+      "available_observation_ids": [
+        "dense-217"
+      ]
+    },
+    {
+      "observation_id": "dense-219",
+      "time_hours": 18.25,
+      "decision_time_hours": 18.25,
+      "available_observation_ids": [
+        "dense-218"
+      ]
+    },
+    {
+      "observation_id": "dense-220",
+      "time_hours": 18.3333333333,
+      "decision_time_hours": 18.3333333333,
+      "available_observation_ids": [
+        "dense-219"
+      ]
+    },
+    {
+      "observation_id": "dense-221",
+      "time_hours": 18.4166666667,
+      "decision_time_hours": 18.4166666667,
+      "available_observation_ids": [
+        "dense-220"
+      ]
+    },
+    {
+      "observation_id": "dense-222",
+      "time_hours": 18.5,
+      "decision_time_hours": 18.5,
+      "available_observation_ids": [
+        "dense-221"
+      ]
+    },
+    {
+      "observation_id": "dense-223",
+      "time_hours": 18.5833333333,
+      "decision_time_hours": 18.5833333333,
+      "available_observation_ids": [
+        "dense-222"
+      ]
+    },
+    {
+      "observation_id": "dense-224",
+      "time_hours": 18.6666666667,
+      "decision_time_hours": 18.6666666667,
+      "available_observation_ids": [
+        "dense-223"
+      ]
+    },
+    {
+      "observation_id": "dense-225",
+      "time_hours": 18.75,
+      "decision_time_hours": 18.75,
+      "available_observation_ids": [
+        "dense-224"
+      ]
+    },
+    {
+      "observation_id": "dense-226",
+      "time_hours": 18.8333333333,
+      "decision_time_hours": 18.8333333333,
+      "available_observation_ids": [
+        "dense-225"
+      ]
+    },
+    {
+      "observation_id": "dense-227",
+      "time_hours": 18.9166666667,
+      "decision_time_hours": 18.9166666667,
+      "available_observation_ids": [
+        "dense-226"
+      ]
+    },
+    {
+      "observation_id": "dense-228",
+      "time_hours": 19,
+      "decision_time_hours": 19,
+      "available_observation_ids": [
+        "dense-227"
+      ]
+    },
+    {
+      "observation_id": "dense-229",
+      "time_hours": 19.0833333333,
+      "decision_time_hours": 19.0833333333,
+      "available_observation_ids": [
+        "dense-228"
+      ]
+    },
+    {
+      "observation_id": "dense-230",
+      "time_hours": 19.1666666667,
+      "decision_time_hours": 19.1666666667,
+      "available_observation_ids": [
+        "dense-229"
+      ]
+    },
+    {
+      "observation_id": "dense-231",
+      "time_hours": 19.25,
+      "decision_time_hours": 19.25,
+      "available_observation_ids": [
+        "dense-230"
+      ]
+    },
+    {
+      "observation_id": "dense-232",
+      "time_hours": 19.3333333333,
+      "decision_time_hours": 19.3333333333,
+      "available_observation_ids": [
+        "dense-231"
+      ]
+    },
+    {
+      "observation_id": "dense-233",
+      "time_hours": 19.4166666667,
+      "decision_time_hours": 19.4166666667,
+      "available_observation_ids": [
+        "dense-232"
+      ]
+    },
+    {
+      "observation_id": "dense-234",
+      "time_hours": 19.5,
+      "decision_time_hours": 19.5,
+      "available_observation_ids": [
+        "dense-233"
+      ]
+    },
+    {
+      "observation_id": "dense-235",
+      "time_hours": 19.5833333333,
+      "decision_time_hours": 19.5833333333,
+      "available_observation_ids": [
+        "dense-234"
+      ]
+    },
+    {
+      "observation_id": "dense-236",
+      "time_hours": 19.6666666667,
+      "decision_time_hours": 19.6666666667,
+      "available_observation_ids": [
+        "dense-235"
+      ]
+    },
+    {
+      "observation_id": "dense-237",
+      "time_hours": 19.75,
+      "decision_time_hours": 19.75,
+      "available_observation_ids": [
+        "dense-236"
+      ]
+    },
+    {
+      "observation_id": "dense-238",
+      "time_hours": 19.8333333333,
+      "decision_time_hours": 19.8333333333,
+      "available_observation_ids": [
+        "dense-237"
+      ]
+    },
+    {
+      "observation_id": "dense-239",
+      "time_hours": 19.9166666667,
+      "decision_time_hours": 19.9166666667,
+      "available_observation_ids": [
+        "dense-238"
+      ]
+    },
+    {
+      "observation_id": "dense-240",
+      "time_hours": 20,
+      "decision_time_hours": 20,
+      "available_observation_ids": [
+        "dense-239"
+      ]
+    },
+    {
+      "observation_id": "dense-241",
+      "time_hours": 20.0833333333,
+      "decision_time_hours": 20.0833333333,
+      "available_observation_ids": [
+        "dense-240"
+      ]
+    },
+    {
+      "observation_id": "dense-242",
+      "time_hours": 20.1666666667,
+      "decision_time_hours": 20.1666666667,
+      "available_observation_ids": [
+        "dense-241"
+      ]
+    },
+    {
+      "observation_id": "dense-243",
+      "time_hours": 20.25,
+      "decision_time_hours": 20.25,
+      "available_observation_ids": [
+        "dense-242"
+      ]
+    },
+    {
+      "observation_id": "dense-244",
+      "time_hours": 20.3333333333,
+      "decision_time_hours": 20.3333333333,
+      "available_observation_ids": [
+        "dense-243"
+      ]
+    },
+    {
+      "observation_id": "dense-245",
+      "time_hours": 20.4166666667,
+      "decision_time_hours": 20.4166666667,
+      "available_observation_ids": [
+        "dense-244"
+      ]
+    },
+    {
+      "observation_id": "dense-246",
+      "time_hours": 20.5,
+      "decision_time_hours": 20.5,
+      "available_observation_ids": [
+        "dense-245"
+      ]
+    },
+    {
+      "observation_id": "dense-247",
+      "time_hours": 20.5833333333,
+      "decision_time_hours": 20.5833333333,
+      "available_observation_ids": [
+        "dense-246"
+      ]
+    },
+    {
+      "observation_id": "dense-248",
+      "time_hours": 20.6666666667,
+      "decision_time_hours": 20.6666666667,
+      "available_observation_ids": [
+        "dense-247"
+      ]
+    },
+    {
+      "observation_id": "dense-249",
+      "time_hours": 20.75,
+      "decision_time_hours": 20.75,
+      "available_observation_ids": [
+        "dense-248"
+      ]
+    },
+    {
+      "observation_id": "dense-250",
+      "time_hours": 20.8333333333,
+      "decision_time_hours": 20.8333333333,
+      "available_observation_ids": [
+        "dense-249"
+      ]
+    },
+    {
+      "observation_id": "dense-251",
+      "time_hours": 20.9166666667,
+      "decision_time_hours": 20.9166666667,
+      "available_observation_ids": [
+        "dense-250"
+      ]
+    },
+    {
+      "observation_id": "dense-252",
+      "time_hours": 21,
+      "decision_time_hours": 21,
+      "available_observation_ids": [
+        "dense-251"
+      ]
+    },
+    {
+      "observation_id": "dense-253",
+      "time_hours": 21.0833333333,
+      "decision_time_hours": 21.0833333333,
+      "available_observation_ids": [
+        "dense-252"
+      ]
+    },
+    {
+      "observation_id": "dense-254",
+      "time_hours": 21.1666666667,
+      "decision_time_hours": 21.1666666667,
+      "available_observation_ids": [
+        "dense-253"
+      ]
+    },
+    {
+      "observation_id": "dense-255",
+      "time_hours": 21.25,
+      "decision_time_hours": 21.25,
+      "available_observation_ids": [
+        "dense-254"
+      ]
+    },
+    {
+      "observation_id": "dense-256",
+      "time_hours": 21.3333333333,
+      "decision_time_hours": 21.3333333333,
+      "available_observation_ids": [
+        "dense-255"
+      ]
+    },
+    {
+      "observation_id": "dense-257",
+      "time_hours": 21.4166666667,
+      "decision_time_hours": 21.4166666667,
+      "available_observation_ids": [
+        "dense-256"
+      ]
+    },
+    {
+      "observation_id": "dense-258",
+      "time_hours": 21.5,
+      "decision_time_hours": 21.5,
+      "available_observation_ids": [
+        "dense-257"
+      ]
+    },
+    {
+      "observation_id": "dense-259",
+      "time_hours": 21.5833333333,
+      "decision_time_hours": 21.5833333333,
+      "available_observation_ids": [
+        "dense-258"
+      ]
+    },
+    {
+      "observation_id": "dense-260",
+      "time_hours": 21.6666666667,
+      "decision_time_hours": 21.6666666667,
+      "available_observation_ids": [
+        "dense-259"
+      ]
+    },
+    {
+      "observation_id": "dense-261",
+      "time_hours": 21.75,
+      "decision_time_hours": 21.75,
+      "available_observation_ids": [
+        "dense-260"
+      ]
+    },
+    {
+      "observation_id": "dense-262",
+      "time_hours": 21.8333333333,
+      "decision_time_hours": 21.8333333333,
+      "available_observation_ids": [
+        "dense-261"
+      ]
+    },
+    {
+      "observation_id": "dense-263",
+      "time_hours": 21.9166666667,
+      "decision_time_hours": 21.9166666667,
+      "available_observation_ids": [
+        "dense-262"
+      ]
+    },
+    {
+      "observation_id": "dense-264",
+      "time_hours": 22,
+      "decision_time_hours": 22,
+      "available_observation_ids": [
+        "dense-263"
+      ]
+    },
+    {
+      "observation_id": "dense-265",
+      "time_hours": 22.0833333333,
+      "decision_time_hours": 22.0833333333,
+      "available_observation_ids": [
+        "dense-264"
+      ]
+    },
+    {
+      "observation_id": "dense-266",
+      "time_hours": 22.1666666667,
+      "decision_time_hours": 22.1666666667,
+      "available_observation_ids": [
+        "dense-265"
+      ]
+    },
+    {
+      "observation_id": "dense-267",
+      "time_hours": 22.25,
+      "decision_time_hours": 22.25,
+      "available_observation_ids": [
+        "dense-266"
+      ]
+    },
+    {
+      "observation_id": "dense-268",
+      "time_hours": 22.3333333333,
+      "decision_time_hours": 22.3333333333,
+      "available_observation_ids": [
+        "dense-267"
+      ]
+    },
+    {
+      "observation_id": "dense-269",
+      "time_hours": 22.4166666667,
+      "decision_time_hours": 22.4166666667,
+      "available_observation_ids": [
+        "dense-268"
+      ]
+    },
+    {
+      "observation_id": "dense-270",
+      "time_hours": 22.5,
+      "decision_time_hours": 22.5,
+      "available_observation_ids": [
+        "dense-269"
+      ]
+    },
+    {
+      "observation_id": "dense-271",
+      "time_hours": 22.5833333333,
+      "decision_time_hours": 22.5833333333,
+      "available_observation_ids": [
+        "dense-270"
+      ]
+    },
+    {
+      "observation_id": "dense-272",
+      "time_hours": 22.6666666667,
+      "decision_time_hours": 22.6666666667,
+      "available_observation_ids": [
+        "dense-271"
+      ]
+    },
+    {
+      "observation_id": "dense-273",
+      "time_hours": 22.75,
+      "decision_time_hours": 22.75,
+      "available_observation_ids": [
+        "dense-272"
+      ]
+    },
+    {
+      "observation_id": "dense-274",
+      "time_hours": 22.8333333333,
+      "decision_time_hours": 22.8333333333,
+      "available_observation_ids": [
+        "dense-273"
+      ]
+    },
+    {
+      "observation_id": "dense-275",
+      "time_hours": 22.9166666667,
+      "decision_time_hours": 22.9166666667,
+      "available_observation_ids": [
+        "dense-274"
+      ]
+    },
+    {
+      "observation_id": "dense-276",
+      "time_hours": 23,
+      "decision_time_hours": 23,
+      "available_observation_ids": [
+        "dense-275"
+      ]
+    },
+    {
+      "observation_id": "dense-277",
+      "time_hours": 23.0833333333,
+      "decision_time_hours": 23.0833333333,
+      "available_observation_ids": [
+        "dense-276"
+      ]
+    },
+    {
+      "observation_id": "dense-278",
+      "time_hours": 23.1666666667,
+      "decision_time_hours": 23.1666666667,
+      "available_observation_ids": [
+        "dense-277"
+      ]
+    },
+    {
+      "observation_id": "dense-279",
+      "time_hours": 23.25,
+      "decision_time_hours": 23.25,
+      "available_observation_ids": [
+        "dense-278"
+      ]
+    },
+    {
+      "observation_id": "dense-280",
+      "time_hours": 23.3333333333,
+      "decision_time_hours": 23.3333333333,
+      "available_observation_ids": [
+        "dense-279"
+      ]
+    },
+    {
+      "observation_id": "dense-281",
+      "time_hours": 23.4166666667,
+      "decision_time_hours": 23.4166666667,
+      "available_observation_ids": [
+        "dense-280"
+      ]
+    },
+    {
+      "observation_id": "dense-282",
+      "time_hours": 23.5,
+      "decision_time_hours": 23.5,
+      "available_observation_ids": [
+        "dense-281"
+      ]
+    },
+    {
+      "observation_id": "dense-283",
+      "time_hours": 23.5833333333,
+      "decision_time_hours": 23.5833333333,
+      "available_observation_ids": [
+        "dense-282"
+      ]
+    },
+    {
+      "observation_id": "dense-284",
+      "time_hours": 23.6666666667,
+      "decision_time_hours": 23.6666666667,
+      "available_observation_ids": [
+        "dense-283"
+      ]
+    },
+    {
+      "observation_id": "dense-285",
+      "time_hours": 23.75,
+      "decision_time_hours": 23.75,
+      "available_observation_ids": [
+        "dense-284"
+      ]
+    },
+    {
+      "observation_id": "dense-286",
+      "time_hours": 23.8333333333,
+      "decision_time_hours": 23.8333333333,
+      "available_observation_ids": [
+        "dense-285"
+      ]
+    },
+    {
+      "observation_id": "dense-287",
+      "time_hours": 23.9166666667,
+      "decision_time_hours": 23.9166666667,
+      "available_observation_ids": [
+        "dense-286"
+      ]
+    },
+    {
+      "observation_id": "dense-288",
+      "time_hours": 24,
+      "decision_time_hours": 24,
+      "available_observation_ids": [
+        "dense-287"
+      ]
+    }
+  ]
+}
