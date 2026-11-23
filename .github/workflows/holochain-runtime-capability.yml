@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/holochain-runtime-capability.yml"
       - "mycelix-finance/tools/capture-holochain-runtime.sh"
+      - "mycelix-finance/benchmarks/sap/holochain-runtime-evidence.v1.schema.json"
       - "mycelix-finance/flake.nix"
       - "mycelix-finance/flake.lock"
       - "mycelix-finance/Cargo.toml"
@@ -113,5 +114,6 @@ jobs:
             ${{ runner.temp }}/holochain-runtime/holochain-runtime-evidence.json
             ${{ runner.temp }}/holochain-runtime/flake-metadata.json
             ${{ runner.temp }}/holochain-runtime/runtime-binaries.tsv
+            mycelix-finance/benchmarks/sap/holochain-runtime-evidence.v1.schema.json
           if-no-files-found: error
           retention-days: 30
