@@ -19,7 +19,7 @@
       6553
     ]
   },
-  "scenario_count": 19,
+  "scenario_count": 20,
   "disposition_vocabulary": [
     "return_original",
     "reject_conflict",
@@ -37,7 +37,8 @@
     "reject",
     "reject_promotion",
     "local_atomic_rollback",
-    "reconcile_cross_cell_effect"
+    "reconcile_cross_cell_effect",
+    "chain_head_retry_same_identity"
   ],
   "scenarios": [
     {
@@ -210,6 +211,15 @@
       "adversarial_mutation": "Rely only on an in-memory callback or notification and never scan the durable outbox after restart.",
       "expected_disposition": "recover_from_durable_record",
       "required_control": "A restart-safe scanner reconstructs pending outbox work from committed source-chain records and dispatches with the same Treasury operation identity; the callback is only a wake-up hint."
+    },
+    {
+      "id": "EOP-020",
+      "domain": "source_chain_concurrency",
+      "threat": "same-agent concurrent calls lose a source-chain-top race",
+      "preconditions": "Two Finance zome invocations for the same payer and identical operation identity start from the same source-chain snapshot; one commits the journal batch first.",
+      "adversarial_mutation": "The competing invocation returns a chain-head-moved error and the caller retries by generating a new operation identity or skips lookup of the winning claim.",
+      "expected_disposition": "chain_head_retry_same_identity",
+      "required_control": "Treat chain-head movement as a non-committing concurrency loss. Refresh the authoritative source-chain state, query the original operation identity and fingerprint, return the winning batch if present, or retry the exact same identity if absent. Never generate a replacement identity."
     }
   ]
 }
