@@ -86,6 +86,7 @@ struct Report {
     issued_forecast_count: usize,
     scored_forecast_count: usize,
     abstained_out_of_domain_count: usize,
+    abstained_unassessed_domain_count: usize,
     scored_group_count: usize,
     groups: Vec<GroupScore>,
     interpretation_boundary: &'static str,
@@ -136,10 +137,11 @@ fn valid_sha256(s: &str) -> bool {
 
 fn valid_timestamp(s: &str) -> bool {
     s.len() >= 20
+        && s.ends_with('Z')
         && s.as_bytes().get(4) == Some(&b'-')
         && s.as_bytes().get(7) == Some(&b'-')
         && s.as_bytes().get(10) == Some(&b'T')
-        && (s.ends_with('Z') || s.contains('+'))
+        && s.contains('T')
 }
 
 fn erf_approx(x: f64) -> f64 {
@@ -280,9 +282,11 @@ fn validate(s: &Suite) -> Result<(), String> {
             return Err(format!("forecast {} does not match target method/unit/depth/spatial support", f.forecast_id));
         }
     }
-    for (target_id, _) in &target_role_pairs {
-        if !targets.contains_key(target_id) {
-            return Err("unknown target after validation".into());
+    for target_id in targets.keys() {
+        for role in ["candidate", "persistence_baseline", "climatology_baseline"] {
+            if !target_role_pairs.contains(&(target_id, role)) {
+                return Err(format!("target {target_id} lacks required {role} forecast"));
+            }
         }
     }
     Ok(())
@@ -294,6 +298,7 @@ fn verify(s: &Suite, input_sha256: String) -> Report {
     let mut issued = 0usize;
     let mut scored = 0usize;
     let mut abstained_ood = 0usize;
+    let mut abstained_unassessed = 0usize;
     for f in &s.forecasts {
         issued += 1;
         let entry = groups.entry((f.model_id.as_str(), f.model_role.as_str())).or_insert_with(|| Accumulator {
@@ -314,7 +319,11 @@ fn verify(s: &Suite, input_sha256: String) -> Report {
         entry.forecast_count += 1;
         if f.applicability_domain_status != "in_domain" {
             entry.abstained_count += 1;
-            abstained_ood += 1;
+            if f.applicability_domain_status == "out_of_domain" {
+                abstained_ood += 1;
+            } else {
+                abstained_unassessed += 1;
+            }
             continue;
         }
         let t = targets[f.target_id.as_str()];
@@ -361,7 +370,7 @@ fn verify(s: &Suite, input_sha256: String) -> Report {
             let common: Vec<(&String, &f64)> = acc.errors_by_target.iter()
                 .filter(|(target_id, _)| baseline.contains_key(*target_id))
                 .collect();
-            if common.is_empty() || common.len() != matched || common.len() != baseline.len() {
+            if common.is_empty() || common.len() != matched {
                 return None;
             }
             let candidate_mae = common.iter().map(|(_, e)| **e).sum::<f64>() / common.len() as f64;
@@ -397,6 +406,7 @@ fn verify(s: &Suite, input_sha256: String) -> Report {
         issued_forecast_count: issued,
         scored_forecast_count: scored,
         abstained_out_of_domain_count: abstained_ood,
+        abstained_unassessed_domain_count: abstained_unassessed,
         scored_group_count: scored_groups.len(),
         groups: scored_groups,
         interpretation_boundary: BOUNDARY,
@@ -454,6 +464,30 @@ mod tests {
         assert_eq!(candidate.scored_count, 3);
         assert!(candidate.skill_vs_persistence_mae.unwrap() > 0.0);
         assert!(candidate.skill_vs_climatology_mae.unwrap() > 0.0);
+    }
+
+    #[test]
+    fn candidate_skill_uses_exact_candidate_target_set_when_baseline_has_more_targets() {
+        let s = suite();
+        let r = verify(&s, "0".repeat(64));
+        let candidate = r.groups.iter().find(|x| x.model_role == "candidate").unwrap();
+        assert_eq!(candidate.matched_target_count, 3);
+        assert!(candidate.skill_vs_persistence_mae.is_some());
+        assert!(candidate.skill_vs_climatology_mae.is_some());
+    }
+
+    #[test]
+    fn rejects_non_utc_timestamp_to_keep_chronology_unambiguous() {
+        let mut s = suite();
+        s.forecasts[0].issued_at = "2026-03-01T01:00:00+01:00".into();
+        assert!(validate(&s).is_err());
+    }
+
+    #[test]
+    fn every_target_requires_both_matched_baselines() {
+        let mut s = suite();
+        s.forecasts.retain(|f| !(f.target_id == "t-001" && f.model_role == "climatology_baseline"));
+        assert!(validate(&s).is_err());
     }
 
     #[test]
