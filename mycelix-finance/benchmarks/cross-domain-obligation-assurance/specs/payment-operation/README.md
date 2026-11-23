@@ -21,7 +21,7 @@ java -jar ./tla2tools.jar -config PCOEEffectOwnerPayment.cfg PCOEEffectOwnerPaym
 java -jar ./tla2tools.jar -config PCOEEffectOwnerPayment-mutant.cfg PCOEEffectOwnerPayment.tla
 ```
 
-The first run must complete without an invariant violation. The second is an intentional negative control and must fail specifically on `NoPartialLocalValueEffect`, because it enables either a debit before the complete journal batch or a duplicate debit after commit.
+The first run must complete without an invariant violation. The second is an intentional negative control and must fail specifically on `NoPartialLocalValueEffect`, because it enables either a debit that commits outside the same-source-chain atomic batch or a duplicate debit after commit.
 
 The state space is finite: retries and unsafe debit mutations are bounded, operation / fee / response states are finite, and the safe model disables the mutant actions.
 
