@@ -35,6 +35,7 @@ The model checks the abstract safety contract:
 - response delivery cannot precede commit;
 - an unknown fee outcome is reconciled through its original outbox identity;
 - a lost post-commit wake-up does not erase a Pending outbox item; a bounded durable scanner can rediscover it and restore the dispatch signal;
+- a Holochain `chain head moved` concurrency loser queries / retries the same operation identity and cannot create a second effect;
 - a Holochain `chain head moved` concurrency loser refreshes state and resolves / retries the same operation identity without creating another effect;
 - expiration of a client cache does not erase the durable operation tombstone.
 
