@@ -303,34 +303,34 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
         return Err("PostgreSQL execution attestation has invalid worker, clock, transaction or claim validity fields".into());
     }
 
-    let effect_receipt_digest = canonical_effect_receipt_digest(
-        &effect_id,
-        &attestation_id,
-        &realm_id,
-        &resource_id,
-        &action_id,
-        &effect_owner_id,
-        &object_id,
-        &currency_code,
-        &logical_operation_id,
+    let effect_receipt_digest = canonical_effect_receipt_digest(&EffectReceiptDigestFields {
+        effect_id: &effect_id,
+        attestation_id: &attestation_id,
+        realm_id: &realm_id,
+        resource_id: &resource_id,
+        action_id: &action_id,
+        effect_owner_id: &effect_owner_id,
+        object_id: &object_id,
+        currency_code: &currency_code,
+        logical_operation_id: &logical_operation_id,
         owner_epoch,
         accepted_generation,
-        &worker_id,
+        worker_id: &worker_id,
         claim_epoch,
-        &claim_proof_digest,
-        &claim_clock_profile_id,
-        &claim_issued_at,
-        &claim_expires_at,
-        &database_xact_id,
-        &epoch_authority_receipt_digest,
-        &physical_fencing_receipt_digest,
+        claim_proof_digest: &claim_proof_digest,
+        claim_clock_profile_id: &claim_clock_profile_id,
+        claim_issued_at: &claim_issued_at,
+        claim_expires_at: &claim_expires_at,
+        database_xact_id: &database_xact_id,
+        epoch_authority_receipt_digest: &epoch_authority_receipt_digest,
+        physical_fencing_receipt_digest: &physical_fencing_receipt_digest,
         delta_minor,
         balance_after_minor,
-        &idempotency_digest,
-        &request_digest,
-        &decision_receipt_digest,
-        &payload_digest,
-    )?;
+        idempotency_digest: &idempotency_digest,
+        request_digest: &request_digest,
+        decision_receipt_digest: &decision_receipt_digest,
+        payload_digest: &payload_digest,
+    })?;
 
     Ok(VerifiedPostgresEffectReceipt {
         effect_id,
@@ -387,34 +387,34 @@ fn digest_from_bytes(bytes: Vec<u8>, name: &str) -> Result<Digest, String> {
 
 impl VerifiedPostgresEffectReceipt {
     fn recompute_digest(&self) -> Result<Digest, String> {
-        canonical_effect_receipt_digest(
-            &self.effect_id,
-            &self.attestation_id,
-            &self.realm_id,
-            &self.resource_id,
-            &self.action_id,
-            &self.effect_owner_id,
-            &self.object_id,
-            &self.currency_code,
-            &self.logical_operation_id,
-            self.owner_epoch,
-            self.accepted_generation,
-            &self.worker_id,
-            self.claim_epoch,
-            &self.claim_proof_digest,
-            &self.claim_clock_profile_id,
-            &self.claim_issued_at,
-            &self.claim_expires_at,
-            &self.database_xact_id,
-            &self.epoch_authority_receipt_digest,
-            &self.physical_fencing_receipt_digest,
-            self.delta_minor,
-            self.balance_after_minor,
-            &self.idempotency_digest,
-            &self.request_digest,
-            &self.decision_receipt_digest,
-            &self.payload_digest,
-        )
+        canonical_effect_receipt_digest(&EffectReceiptDigestFields {
+            effect_id: &self.effect_id,
+            attestation_id: &self.attestation_id,
+            realm_id: &self.realm_id,
+            resource_id: &self.resource_id,
+            action_id: &self.action_id,
+            effect_owner_id: &self.effect_owner_id,
+            object_id: &self.object_id,
+            currency_code: &self.currency_code,
+            logical_operation_id: &self.logical_operation_id,
+            owner_epoch: self.owner_epoch,
+            accepted_generation: self.accepted_generation,
+            worker_id: &self.worker_id,
+            claim_epoch: self.claim_epoch,
+            claim_proof_digest: &self.claim_proof_digest,
+            claim_clock_profile_id: &self.claim_clock_profile_id,
+            claim_issued_at: &self.claim_issued_at,
+            claim_expires_at: &self.claim_expires_at,
+            database_xact_id: &self.database_xact_id,
+            epoch_authority_receipt_digest: &self.epoch_authority_receipt_digest,
+            physical_fencing_receipt_digest: &self.physical_fencing_receipt_digest,
+            delta_minor: self.delta_minor,
+            balance_after_minor: self.balance_after_minor,
+            idempotency_digest: &self.idempotency_digest,
+            request_digest: &self.request_digest,
+            decision_receipt_digest: &self.decision_receipt_digest,
+            payload_digest: &self.payload_digest,
+        })
     }
 }
 
@@ -469,62 +469,66 @@ fn validate_receipt_binding(
 /// Versioned canonical receipt bytes. All strings are length-prefixed UTF-8;
 /// fixed-size digests and signed integer fields use network byte order. The
 /// commitment includes the actual worker-claim and owner-epoch evidence.
-fn canonical_effect_receipt_digest(
-    effect_id: &str,
-    attestation_id: &str,
-    realm_id: &str,
-    resource_id: &str,
-    action_id: &str,
-    effect_owner_id: &str,
-    object_id: &str,
-    currency_code: &str,
-    logical_operation_id: &str,
+struct EffectReceiptDigestFields<'a> {
+    effect_id: &'a str,
+    attestation_id: &'a str,
+    realm_id: &'a str,
+    resource_id: &'a str,
+    action_id: &'a str,
+    effect_owner_id: &'a str,
+    object_id: &'a str,
+    currency_code: &'a str,
+    logical_operation_id: &'a str,
     owner_epoch: u64,
     accepted_generation: u64,
-    worker_id: &str,
+    worker_id: &'a str,
     claim_epoch: u64,
-    claim_proof_digest: &Digest,
-    claim_clock_profile_id: &str,
-    claim_issued_at: &str,
-    claim_expires_at: &str,
-    database_xact_id: &str,
-    epoch_authority_receipt_digest: &Option<Digest>,
-    physical_fencing_receipt_digest: &Option<Digest>,
+    claim_proof_digest: &'a Digest,
+    claim_clock_profile_id: &'a str,
+    claim_issued_at: &'a str,
+    claim_expires_at: &'a str,
+    database_xact_id: &'a str,
+    epoch_authority_receipt_digest: &'a Option<Digest>,
+    physical_fencing_receipt_digest: &'a Option<Digest>,
     delta_minor: i64,
     balance_after_minor: i64,
-    idempotency_digest: &Digest,
-    request_digest: &Digest,
-    decision_receipt_digest: &Digest,
-    payload_digest: &Digest,
+    idempotency_digest: &'a Digest,
+    request_digest: &'a Digest,
+    decision_receipt_digest: &'a Digest,
+    payload_digest: &'a Digest,
+}
+
+fn canonical_effect_receipt_digest(
+    fields: &EffectReceiptDigestFields<'_>,
 ) -> Result<Digest, String> {
     let mut bytes = RECEIPT_DOMAIN.to_vec();
     for value in [
-        effect_id,
-        attestation_id,
-        realm_id,
-        resource_id,
-        action_id,
-        effect_owner_id,
-        object_id,
-        currency_code,
-        logical_operation_id,
-        worker_id,
-        claim_clock_profile_id,
-        claim_issued_at,
-        claim_expires_at,
-        database_xact_id,
+        fields.effect_id,
+        fields.attestation_id,
+        fields.realm_id,
+        fields.resource_id,
+        fields.action_id,
+        fields.effect_owner_id,
+        fields.object_id,
+        fields.currency_code,
+        fields.logical_operation_id,
+        fields.worker_id,
+        fields.claim_clock_profile_id,
+        fields.claim_issued_at,
+        fields.claim_expires_at,
+        fields.database_xact_id,
     ] {
         append_string(&mut bytes, value)?;
     }
-    bytes.extend_from_slice(&owner_epoch.to_be_bytes());
-    bytes.extend_from_slice(&accepted_generation.to_be_bytes());
-    bytes.extend_from_slice(&claim_epoch.to_be_bytes());
-    bytes.extend_from_slice(&delta_minor.to_be_bytes());
-    bytes.extend_from_slice(&balance_after_minor.to_be_bytes());
-    bytes.extend_from_slice(claim_proof_digest);
+    bytes.extend_from_slice(&fields.owner_epoch.to_be_bytes());
+    bytes.extend_from_slice(&fields.accepted_generation.to_be_bytes());
+    bytes.extend_from_slice(&fields.claim_epoch.to_be_bytes());
+    bytes.extend_from_slice(&fields.delta_minor.to_be_bytes());
+    bytes.extend_from_slice(&fields.balance_after_minor.to_be_bytes());
+    bytes.extend_from_slice(fields.claim_proof_digest);
     for digest in [
-        epoch_authority_receipt_digest,
-        physical_fencing_receipt_digest,
+        fields.epoch_authority_receipt_digest,
+        fields.physical_fencing_receipt_digest,
     ] {
         match digest {
             Some(value) => {
@@ -534,10 +538,10 @@ fn canonical_effect_receipt_digest(
             None => bytes.push(0),
         }
     }
-    bytes.extend_from_slice(idempotency_digest);
-    bytes.extend_from_slice(request_digest);
-    bytes.extend_from_slice(decision_receipt_digest);
-    bytes.extend_from_slice(payload_digest);
+    bytes.extend_from_slice(fields.idempotency_digest);
+    bytes.extend_from_slice(fields.request_digest);
+    bytes.extend_from_slice(fields.decision_receipt_digest);
+    bytes.extend_from_slice(fields.payload_digest);
     Ok(sha256(&bytes))
 }
 
@@ -735,35 +739,7 @@ mod tests {
     fn canonical_execution_receipt_digest_is_deterministic_and_binds_claim() {
         let binding = binding();
         let receipt = receipt_for(&binding);
-        let unchanged = canonical_effect_receipt_digest(
-            &receipt.effect_id,
-            &receipt.attestation_id,
-            &receipt.realm_id,
-            &receipt.resource_id,
-            &receipt.action_id,
-            &receipt.effect_owner_id,
-            &receipt.object_id,
-            &receipt.currency_code,
-            &receipt.logical_operation_id,
-            receipt.owner_epoch,
-            receipt.accepted_generation,
-            &receipt.worker_id,
-            receipt.claim_epoch,
-            &receipt.claim_proof_digest,
-            &receipt.claim_clock_profile_id,
-            &receipt.claim_issued_at,
-            &receipt.claim_expires_at,
-            &receipt.database_xact_id,
-            &receipt.epoch_authority_receipt_digest,
-            &receipt.physical_fencing_receipt_digest,
-            receipt.delta_minor,
-            receipt.balance_after_minor,
-            &receipt.idempotency_digest,
-            &receipt.request_digest,
-            &receipt.decision_receipt_digest,
-            &receipt.payload_digest,
-        )
-        .unwrap();
+        let unchanged = receipt.recompute_digest().unwrap();
         assert_eq!(unchanged, receipt.effect_receipt_digest);
     }
 }
