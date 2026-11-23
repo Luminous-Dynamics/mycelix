@@ -1,0 +1,131 @@
+{
+  "benchmark": "Holochain Runtime Capability Matrix for Mycelix SAP V2",
+  "version": "0.1",
+  "audited_at": "2026-11-23",
+  "repository": "Luminous-Dynamics/mycelix",
+  "source_snapshot": "e949664ceb2f9ddde26704c70e23a19380f33dde",
+  "status": "repository_source_and_official_docs_audit_not_runtime_qualification",
+  "mycelix_finance_pin": {
+    "conductor": {
+      "version": "0.6.1",
+      "holonix_input_ref": "d21b3543",
+      "evidence_status": "repository_documented_pin",
+      "evidence": [
+        {
+          "path": "mycelix-workspace/CLAUDE.md",
+          "blob_sha": "049cd24eca7a740ee2ae92470d9a8478465ef0de",
+          "claim": "The project version table records conductor 0.6.1 via Holonix fixed commit d21b3543."
+        },
+        {
+          "path": "mycelix-finance/flake.nix",
+          "blob_sha": "08f0e5c8fea934ed51cf8b7a8434475b61e1799f",
+          "claim": "The standalone Finance flake pins the Holonix input to github:holochain/holonix/d21b3543."
+        }
+      ]
+    },
+    "cargo_compatibility": {
+      "hdk": "=0.6.1",
+      "hdi": "=0.7.1",
+      "holochain_zome_types": "=0.6.1",
+      "holochain_integrity_types": "=0.6.1",
+      "holo_hash": "=0.6.1",
+      "hdk_derive": "=0.6.1",
+      "evidence_status": "repository_documented_manifest_pin",
+      "evidence": [
+        {
+          "path": "mycelix-finance/Cargo.toml",
+          "blob_sha": "5732f2de0040c52ec0de325dbcfde94431d390aa",
+          "claim": "Finance workspace dependency pins for HDK, HDI and Holochain type crates."
+        }
+      ]
+    },
+    "actual_runtime_binary": {
+      "version_verified_at_execution": false,
+      "binary_digest": null,
+      "conductor_configuration_digest": null,
+      "feature_flags_dump": null,
+      "status": "not_proven"
+    },
+    "dna_wasm_pack": {
+      "dna_manifest_digest": null,
+      "wasm_artifact_digest": null,
+      "exact_conductor_compatibility_test": false,
+      "status": "not_proven"
+    },
+    "countersigning": {
+      "api_compatibility_with_pinned_hdk": false,
+      "conductor_feature_enablement_proven": false,
+      "shipped_default_enablement_proven": false,
+      "multi_agent_session_test": false,
+      "status": "unknown_for_exact_mycelix_0_6_1_runtime",
+      "note": "Official current docs describe countersigning as unstable and disabled by default on Holochain 0.4 and newer. The documentation does not prove whether this specific 0.6.1 conductor can be configured/enabled in the Mycelix deployment."
+    }
+  },
+  "official_documentation": {
+    "fork_warrants": {
+      "status": "not_operational_per_current_official_docs",
+      "source": "https://developer.holochain.org/build/getting-an-agents-status/",
+      "claim": "The current Holochain developer guide states that chain-fork warrants are not operational yet. Ordinary invalid-operation warrants and chain-fork evidence are distinct."
+    },
+    "agent_activity": {
+      "status": "eventually_consistent_observation_not_finality",
+      "source": "https://developer.holochain.org/build/getting-an-agents-status/",
+      "claim": "Agent activity and authority observations may be incomplete or delayed. No current warrant/GoodSoFar does not prove the absence of a future-discovered fork."
+    },
+    "countersigning": {
+      "status": "unstable_disabled_by_default_in_0_4_plus",
+      "source": "https://developer.holochain.org/concepts/10_countersigning",
+      "claims": [
+        "Countersigning is documented as unstable and disabled by default in Holochain 0.4 and newer.",
+        "All participants must be online simultaneously for the countersigning session.",
+        "Countersigning coordinates a shared write but is not itself a general double-spend prevention mechanism."
+      ]
+    },
+    "local_zome_call_atomicity": {
+      "status": "documented_platform_semantics",
+      "source": "https://developer.holochain.org/build/zome-functions/",
+      "claim": "Writes in one zome function call are transactional and commit or fail together; competing source-chain activity may cause a chain-head-moved rollback.",
+      "qualification_required": "The Mycelix Payments pool/member write path still requires exact-head Sweettest and failure-injection proof."
+    },
+    "compatibility": {
+      "holochain_0_6": {
+        "status": "maintenance_mode",
+        "latest_compatible_release": "0.6.3",
+        "source": "https://developer.holochain.org/resources/compatibility/holochain-0.6/"
+      },
+      "holochain_0_7": {
+        "status": "recommended_for_general_use",
+        "recommended_release": "0.7.1",
+        "source": "https://developer.holochain.org/resources/compatibility/holochain-0.7/"
+      },
+      "migration_policy": "Do not upgrade solely to obtain a desired feature; compare matching HDK/HDI, conductor, DNA/WASM, client API, migration and operational behavior first."
+    }
+  },
+  "assurance_status_vocabulary": [
+    "NotAvailable",
+    "GoodSoFar",
+    "BadActor",
+    "Conflict",
+    "Indeterminate",
+    "Provisional"
+  ],
+  "normative_interpretation": {
+    "GoodSoFar": "No conflict has yet been observed by the queried authority set. It is not finality and may be superseded by later evidence.",
+    "NotAvailable": "The required primitive or authority query cannot be used in the exact runtime.",
+    "Indeterminate": "The evidence set, DHT view, signer set or authority status is incomplete or timed out.",
+    "Conflict": "Contradictory owner/witness/economic observations exist; affected outputs are frozen.",
+    "Provisional": "An exact action/claim exists but the assurance threshold for spendability has not been established.",
+    "SpendableWitnessed": "Forbidden until the exact runtime capability, trusted policy, authenticated session facts, quorum and local witness-allocation rules are proven and qualified."
+  },
+  "required_runtime_tests": [
+    "Capture actual conductor --version and binary digest from the build artifact.",
+    "Capture exact Holonix/Nix lock and conductor configuration digests.",
+    "Record DNA integrity/coordinator WASM and DNA pack digests.",
+    "Prove whether countersigning APIs compile against exact HDK 0.6.1 and whether conductor config enables them.",
+    "Run multi-agent countersigning preflight, mandatory signer, optional signer strict-majority, timeout, offline participant, abort and duplicate-session tests if available.",
+    "Run delayed fork/authority-observation tests; verify GoodSoFar can later become Conflict/BadActor and never becomes final by absence.",
+    "Prove source-chain head movement rolls back local multi-entry writes and that retry reconciliation retains original operation identity.",
+    "Repeat the same fixture against matched 0.6.1, 0.6.3 and 0.7.1 stacks before any runtime migration decision."
+  ],
+  "qualification_claim": "This artifact records repository pins and official documentation statements. It contains no runtime binary digest, no enabled-countersigning proof, no live fork-warrant test, and no conductor integration result. It is not runtime qualification."
+}
