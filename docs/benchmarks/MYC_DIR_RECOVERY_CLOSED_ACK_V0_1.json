@@ -1,6 +1,6 @@
 {
   "profile": "MYC-DIR-RECOVERY-CLOSED-ACK-0.1",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "status": "preregistered_not_executed",
   "claim_ceiling": "Research benchmark specification only. No multi-node PostgreSQL failover, recovery-finality certificate, WAL observer, or performance result is implemented or qualified by this corpus.",
   "invariant": "For every acknowledged protected effect E: EffectCommitted(E) AND RecoveryClosed(E). RecoveryClosed means every promotion/recovery path permitted by the externally enforced promotion policy preserves E, or the policy rejects that path.",
@@ -409,6 +409,69 @@
       "kind": "safety",
       "unit": "acks",
       "hard_limit": 0
+    },
+    {
+      "id": "RCA-M36",
+      "name": "invalid_authority_proof_signature_or_domain_accepted",
+      "kind": "safety",
+      "unit": "proofs",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M37",
+      "name": "physical_fencing_proof_signed_by_database_writer_key_accepted",
+      "kind": "safety",
+      "unit": "proofs",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M38",
+      "name": "stale_or_replayed_external_highwater_sequence_accepted",
+      "kind": "safety",
+      "unit": "proofs",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M39",
+      "name": "promotion_proof_with_wrong_timeline_ancestry_or_transaction_end_lsn_accepted",
+      "kind": "safety",
+      "unit": "promotions",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M40",
+      "name": "signed_authority_proof_verification_latency_p95",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "target_max": 3
+    },
+    {
+      "id": "RCA-M41",
+      "name": "authority_proof_bundle_encoded_size_p95",
+      "kind": "overhead",
+      "unit": "bytes_per_effect",
+      "target_max": 8192
+    },
+    {
+      "id": "RCA-M42",
+      "name": "time_from_confirmed_physical_fence_to_promotion_eligibility_p99",
+      "kind": "recovery",
+      "unit": "seconds",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M43",
+      "name": "valid_proof_chain_misclassified_unknown",
+      "kind": "availability",
+      "unit": "percent",
+      "target_max": 0.1
+    },
+    {
+      "id": "RCA-M44",
+      "name": "proof_store_unavailable_or_rolled_back_but_effect_acknowledged",
+      "kind": "safety",
+      "unit": "acks",
+      "hard_limit": 0
     }
   ],
   "scenarios": [
@@ -681,6 +744,66 @@
       "class": "known_reject",
       "description": "Patroni runs with synchronous_mode enabled but synchronous_mode_strict disabled; the benchmark loses all eligible synchronous replicas and must not assume that every newly accepted write has standby durability.",
       "expected_outcome": "DURABILITY_CLASS_REDUCED_OR_WRITE_REJECTED_AND_EXPLICITLY_REPORTED"
+    },
+    {
+      "id": "RCA-046",
+      "class": "known_reject",
+      "description": "A cryptographically valid lease-high-water proof refers to a predecessor generation/hash different from the independently retained external high-water state.",
+      "expected_outcome": "HIGHWATER_PREDECESSOR_MISMATCH_NO_ACK"
+    },
+    {
+      "id": "RCA-047",
+      "class": "known_reject",
+      "description": "A physical-fencing proof is signed with the database writer's own key or signer key ID is not mapped to the trusted physical-fencing attestor key.",
+      "expected_outcome": "FENCING_ATTESTOR_NOT_INDEPENDENT_NO_PROMOTION"
+    },
+    {
+      "id": "RCA-048",
+      "class": "known_reject",
+      "description": "A signed physical-fencing proof claims network partition detection only, with no authorized actuator action or mechanism.",
+      "expected_outcome": "NETWORK_PARTITION_IS_NOT_PHYSICAL_FENCING"
+    },
+    {
+      "id": "RCA-049",
+      "class": "known_reject",
+      "description": "A valid physical-fencing proof binds the old primary but names a different successor than the promotion request.",
+      "expected_outcome": "SUCCESSOR_TARGET_MISMATCH_NO_PROMOTION"
+    },
+    {
+      "id": "RCA-050",
+      "class": "known_reject",
+      "description": "A promotion candidate has a numerically sufficient flush/replay LSN but its timeline ancestry commitment does not match the verified source history.",
+      "expected_outcome": "TIMELINE_ANCESTRY_MISMATCH_NO_PROMOTION"
+    },
+    {
+      "id": "RCA-051",
+      "class": "known_reject",
+      "description": "A signed promotion eligibility proof covers an end-LSN earlier than the actual effect transaction end-LSN.",
+      "expected_outcome": "PROMOTION_COVERAGE_BELOW_EFFECT_END_LSN_NO_ACK"
+    },
+    {
+      "id": "RCA-052",
+      "class": "known_reject",
+      "description": "After PITR restores an older database copy, the independent external proof store reports a later consumed high-water/fence sequence than the database-local mirror.",
+      "expected_outcome": "DATABASE_ROLLBACK_DETECTED_FINALITY_UNKNOWN_NO_ACK"
+    },
+    {
+      "id": "RCA-053",
+      "class": "known_reject",
+      "description": "The signed proof envelope, issuer key ID, canonical proof digest and immutable SQL columns disagree.",
+      "expected_outcome": "PROOF_ENVELOPE_COLUMN_OR_DIGEST_MISMATCH_NO_ACK"
+    },
+    {
+      "id": "RCA-054",
+      "class": "known_reject",
+      "description": "Proof trust roots or the independent monotonic proof store are unavailable at acknowledgement time.",
+      "expected_outcome": "FINALITY_UNKNOWN_NO_ACK_RECONCILIATION"
+    },
+    {
+      "id": "RCA-055",
+      "class": "known_valid",
+      "description": "High-water proof extends the exact previous lease generation/hash; independent actuator attestor fences the old primary; promotion proof binds the intended successor, exact transaction end-LSN and verified timeline ancestry.",
+      "expected_outcome": "PROOF_CHAIN_ELIGIBLE_SUBJECT_TO_DATABASE_AND_BROKER_RECEIPTS"
     }
   ],
   "evidence_requirements": [
@@ -716,6 +839,33 @@
     "For Patroni include synchronous_mode_strict enabled and disabled as separate profiles. Report write blocking/availability as a first-class outcome, not as an unexplained failure.",
     "For RabbitMQ record queue type, replica membership, publisher-confirm round trip, consumer manual ack, redelivery and destination database effect evidence.",
     "For Kafka compare transactions only inside Kafka's transaction domain; test PostgreSQL sink behavior with a cooperating connector/outbox path and record the destination commit separately.",
-    "Match payload, offered load, node count, disk class, replication topology, fault schedule, retention and durability target. Report p50/p95/p99 and safety-adjusted throughput."
-  ]
+    "Match payload, offered load, node count, disk class, replication topology, fault schedule, retention and durability target. Report p50/p95/p99 and safety-adjusted throughput.",
+    "Add a proof-aware Recovery-Closed ACK profile. The independent high-water verifier, physical-fencing attestor and promotion controller must use distinct trust roles; record key IDs and sequence state per purpose/deployment.",
+    "Run proof-bundle ablations: lease only; lease+high-water; lease+high-water+physical fencing; complete candidate promotion proof. Measure marginal safety coverage, verification latency and serialized bytes.",
+    "Inject proof-store rollback and loss independently of PostgreSQL rollback. A restored local database must not be able to lower the independently retained proof sequence or mint a new finality result.",
+    "Measure valid-proof liveness separately from fail-closed safety; a design that refuses every proof cannot win the benchmark."
+  ],
+  "proof_qualification": {
+    "status": "protocol_source_authored_tests_pending_exact_head_ci",
+    "trust_domains": [
+      "lease_highwater_authority",
+      "physical_fencing_attestor",
+      "promotion_controller"
+    ],
+    "canonicalization": "domain-separated purpose tags, canonical bytes, Ed25519 signature and BLAKE3 digest",
+    "external_anti_rollback": "last accepted proof sequence and lease high-water must be independently retained outside the PostgreSQL rollback domain",
+    "hard_safety_limits": {
+      "invalid_proof_acceptance": 0,
+      "database_writer_as_fencing_attestor": 0,
+      "stale_or_replayed_highwater_acceptance": 0,
+      "wrong_timeline_or_end_lsn_promotion_acceptance": 0,
+      "ack_when_proof_store_unavailable": 0
+    },
+    "aspirational_performance_targets": {
+      "proof_verification_p95_ms": 3,
+      "proof_bundle_encoded_size_p95_bytes_per_effect": 8192,
+      "valid_proof_chain_false_unknown_percent_max": 0.1
+    },
+    "note": "Performance targets are proposed qualification goals, not measured results or current SOTA claims."
+  }
 }
