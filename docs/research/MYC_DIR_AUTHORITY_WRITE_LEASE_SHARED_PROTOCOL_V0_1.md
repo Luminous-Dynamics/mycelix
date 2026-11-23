@@ -1,7 +1,7 @@
 # Mycelix shared authority-write lease protocol v0.1
 
 **Profile:** MYCELIX-AUTHORITY-WRITE-LEASE-SHARED-PROTOCOL-0.1  
-**Status:** standalone verifier crate added; adapter dependency and target-check helper added; cross-implementation golden-vector test and mutation-transaction integration remain pending  
+**Status:** standalone verifier crate added; adapter dependency and exact-target helper added; a canonical-byte golden vector is authored. Exact-head tests and a cross-implementation comparison against the existing DeSci type remain pending.  
 **Related:** [#6525 — reuse external PostgreSQL write fencing](https://github.com/Luminous-Dynamics/mycelix/issues/6525), [#6552 — Recovery-Closed ACK](https://github.com/Luminous-Dynamics/mycelix/issues/6552)
 
 ## 1. Why a small shared protocol crate
@@ -20,7 +20,7 @@ The crate has a separate Cargo workspace and a deliberately narrow dependency se
 - blake3;
 - serde_json for tests.
 
-It contains no database client, Tokio runtime, HTTP client, application CLI or DeSci storage dependency. The outer Mycelix workspace excludes the crate from its broad resolver, while the NATS adapter consumes it through a path dependency.
+It contains no database client, Tokio runtime, HTTP client, application CLI or DeSci storage dependency. Its manifest is an isolated Cargo workspace and the outer monorepo workspace excludes it from the broad resolver. The outer Mycelix workspace excludes the crate from its broad resolver, while the NATS adapter consumes it through a path dependency.
 
 ## 2. Wire protocol preserved
 
@@ -51,7 +51,7 @@ The scope code assignments remain stable:
 | SchemaMigration | 9 |
 | DirectoryFabricEffect | 10 |
 
-The adapter exposes `verify_directory_fabric_write_lease`, which requires the Directory Fabric scope and checks the exact target identity and epoch. Its return value is the signed lease hash that a transaction-bound admission layer can subsequently record.
+The adapter exposes `verify_directory_fabric_write_lease`, which requires the Directory Fabric scope and checks the exact target identity and epoch. Its return value is the signed lease hash that a transaction-bound admission layer can subsequently record. The NATS adapter workflow now format-checks, tests and Clippy-checks this crate independently.
 
 ## 3. Critical trust boundary
 
@@ -80,7 +80,7 @@ The v1 canonical encoder and envelope were reproduced from the existing DeSci im
 - signed lease hash;
 - serde JSON field representation.
 
-Do not claim wire compatibility has been independently qualified until that cross-implementation vector is checked on an exact head.
+The shared crate now includes a fixed canonical-byte vector for a Directory Fabric lease (fixed UUID, deployment, database identity, timeline, epoch, generation, scope, timestamps and reason). This pins the protocol bytes independently of an implementation-generated expected value. It is not yet a comparison against the existing DeSci type. Do not claim wire compatibility has been independently qualified until that cross-implementation vector is checked on an exact head.
 
 ## 5. Qualification
 
