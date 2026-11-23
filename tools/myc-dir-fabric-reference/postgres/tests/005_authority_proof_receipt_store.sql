@@ -568,6 +568,57 @@ BEGIN
     ) THEN
         RAISE EXCEPTION 'lease controller lacks proof-linked promotion entry point';
     END IF;
+
+    -- An existing proof row cannot silently reconstruct a local sequence
+    -- mirror that has rolled back below the proof sequence after PITR.
+    UPDATE myc_effect_owner.authority_proof_sequence_highwater
+       SET last_accepted_sequence = 2,
+           last_proof_id = v_wrong_proof_id,
+           last_signed_receipt_hash = decode(repeat('c1', 32), 'hex'),
+           external_sequence_receipt_digest = v_external_sequence_digest
+     WHERE deployment_id = v_deployment
+       AND purpose = 'lease_high_water'
+       AND issuer_key_id = 'highwater-test-key';
+    v_rejected := FALSE;
+    BEGIN
+        PERFORM myc_effect_owner.install_authority_proof_receipt(
+            v_promotion_hwm_json,
+            decode(repeat('b2', 32), 'hex'),
+            v_promotion_hwm_signed_hash,
+            v_promotion_external_digest,
+            'test-proof-controller'
+        );
+    EXCEPTION WHEN SQLSTATE 'P0001' THEN
+        v_rejected := TRUE;
+    END;
+    IF NOT v_rejected THEN
+        RAISE EXCEPTION 'existing proof row silently repaired a rolled-back sequence mirror';
+    END IF;
+
+    -- Equal sequence with a different proof commitment is also a fork.
+    UPDATE myc_effect_owner.authority_proof_sequence_highwater
+       SET last_accepted_sequence = 3,
+           last_proof_id = v_promotion_hwm_proof_id,
+           last_signed_receipt_hash = decode(repeat('ef', 32), 'hex'),
+           external_sequence_receipt_digest = decode(repeat('ef', 32), 'hex')
+     WHERE deployment_id = v_deployment
+       AND purpose = 'lease_high_water'
+       AND issuer_key_id = 'highwater-test-key';
+    v_rejected := FALSE;
+    BEGIN
+        PERFORM myc_effect_owner.install_authority_proof_receipt(
+            v_promotion_hwm_json,
+            decode(repeat('b2', 32), 'hex'),
+            v_promotion_hwm_signed_hash,
+            v_promotion_external_digest,
+            'test-proof-controller'
+        );
+    EXCEPTION WHEN SQLSTATE 'P0001' THEN
+        v_rejected := TRUE;
+    END;
+    IF NOT v_rejected THEN
+        RAISE EXCEPTION 'same-sequence proof mirror fork was accepted';
+    END IF;
 END
 $test$;
 
