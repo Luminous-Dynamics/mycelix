@@ -36,21 +36,32 @@ jq -n \
   --arg holochain_integrity_types "$(awk '/^name = "holochain_integrity_types"$/{f=1} f && /^version = /{gsub(/"/,"",$3); print $3; exit}' "$cargo_lock")" \
   '{hdk:$hdk,hdi:$hdi,holochain_zome_types:$holochain_zome_types,holochain_integrity_types:$holochain_integrity_types}' > "$cargo_package_json"
 
-runtime_binaries="$OUT_DIR/runtime-binaries.json"
+runtime_tsv="$OUT_DIR/runtime-binaries.tsv"
 nix develop .#ci --no-write-lock-file --command bash -c '
   set -euo pipefail
-  binary_json() {
-    name="$1"
+  for name in holochain hc; do
     path="$(command -v "$name")"
     resolved="$(readlink -f "$path")"
-    version="$("$name" --version 2>&1)"
+    version="$("$name" --version 2>&1 | tr "\\n" " ")"
     digest="$(sha256sum "$resolved" | cut -d" " -f1)"
-    jq -n --arg name "$name" --arg path "$path" --arg resolved_path "$resolved" --arg version "$version" --arg sha256 "$digest" \
-      "{name:$name,path:$path,resolved_path:$resolved_path,version_output:$version,sha256:$sha256}"
+    printf "%s\\t%s\\t%s\\t%s\\t%s\\n" "$name" "$path" "$resolved" "$version" "$digest"
+  done
+' > "$runtime_tsv"
+
+runtime_binaries="$OUT_DIR/runtime-binaries.json"
+jq -Rn '
+  [inputs | split("\\t") | {
+    name:.[0],
+    path:.[1],
+    resolved_path:.[2],
+    version_output:.[3],
+    sha256:.[4]
+  }] |
+  {
+    holochain:(map(select(.name == "holochain")) | first),
+    hc:(map(select(.name == "hc")) | first)
   }
-  jq -n --slurpfile holochain <(binary_json holochain) --slurpfile hc <(binary_json hc) \
-    "{holochain:$holochain[0],hc:$hc[0]}"
-' > "$runtime_binaries"
+' "$runtime_tsv" > "$runtime_binaries"
 
 dna_path="$FINANCE_ROOT/dna/dna.yaml"
 flake_lock_path="$FINANCE_ROOT/flake.lock"
