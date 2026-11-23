@@ -207,6 +207,7 @@ BEGIN
        OR (p_marker_json->>'lease_generation')::BIGINT IS DISTINCT FROM v_lease.lease_generation
        OR p_marker_json->>'logical_operation_id' IS DISTINCT FROM v_effect.logical_operation_id
        OR p_marker_json->>'idempotency_digest' IS DISTINCT FROM encode(v_effect.idempotency_key_digest, 'hex')
+       OR p_marker_json->>'transaction_id' IS DISTINCT FROM v_attestation.database_xact_id
        OR p_marker_json->>'request_digest' IS DISTINCT FROM encode(v_effect.request_digest, 'hex')
        OR p_marker_json->>'decision_receipt_digest' IS DISTINCT FROM encode(v_effect.decision_receipt_digest, 'hex')
        OR p_marker_json->>'payload_digest' IS DISTINCT FROM encode(v_effect.payload_digest, 'hex') THEN
