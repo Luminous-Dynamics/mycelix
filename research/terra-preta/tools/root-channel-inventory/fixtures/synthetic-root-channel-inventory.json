@@ -1,0 +1,183 @@
+{
+  "schema_version": "root-channel-inventory-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "evidence_class": "synthetic",
+  "scenario_id": "manufactured-root-abiotic-mixed-network-v0",
+  "observation_support": {
+    "dimension": "planar_2d",
+    "method": "manufactured 2D cross-section; not CT acquisition",
+    "source_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "geometry_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "resolution_m": 0.0001,
+    "crs": "synthetic local cross-section coordinates"
+  },
+  "nodes": [
+    {
+      "node_id": "n-01",
+      "coordinates_m": [
+        0,
+        0.1
+      ]
+    },
+    {
+      "node_id": "n-02",
+      "coordinates_m": [
+        0.1,
+        0.2
+      ]
+    },
+    {
+      "node_id": "n-03",
+      "coordinates_m": [
+        0.2,
+        0.3
+      ]
+    },
+    {
+      "node_id": "n-04",
+      "coordinates_m": [
+        0.3,
+        0.25
+      ]
+    },
+    {
+      "node_id": "n-05",
+      "coordinates_m": [
+        0.4,
+        0.15
+      ]
+    }
+  ],
+  "pathways": [
+    {
+      "pathway_id": "p-root-live",
+      "origin_class": "live_root_channel",
+      "origin_evidence_status": "synthetic_truth",
+      "connectivity_evidence_status": "projected_2d_only",
+      "start_node_id": "n-01",
+      "end_node_id": "n-02",
+      "length_m": 0.16,
+      "mean_diameter_m": 0.0025,
+      "tortuosity": 1.3,
+      "depth_min_m": 0.1,
+      "depth_max_m": 0.3,
+      "root_flow_expressions": [
+        "shallow_root_network_dominated",
+        "interface_guided"
+      ],
+      "root_flow_expression_evidence_status": "synthetic_truth"
+    },
+    {
+      "pathway_id": "p-root-legacy",
+      "origin_class": "legacy_root_channel",
+      "origin_evidence_status": "synthetic_truth",
+      "connectivity_evidence_status": "projected_2d_only",
+      "start_node_id": "n-02",
+      "end_node_id": "n-03",
+      "length_m": 0.15,
+      "mean_diameter_m": 0.0035,
+      "tortuosity": 1.2,
+      "depth_min_m": 0.1,
+      "depth_max_m": 0.35,
+      "root_flow_expressions": [
+        "legacy_root_biopore_dominated"
+      ],
+      "root_flow_expression_evidence_status": "synthetic_truth"
+    },
+    {
+      "pathway_id": "p-crack",
+      "origin_class": "abiotic_crack",
+      "origin_evidence_status": "not_applicable",
+      "connectivity_evidence_status": "projected_2d_only",
+      "start_node_id": "n-03",
+      "end_node_id": "n-04",
+      "length_m": 0.18,
+      "mean_diameter_m": 0.004,
+      "tortuosity": 1.05,
+      "depth_min_m": 0,
+      "depth_max_m": 0.25,
+      "root_flow_expressions": [],
+      "root_flow_expression_evidence_status": "not_applicable"
+    },
+    {
+      "pathway_id": "p-finger",
+      "origin_class": "textural_finger",
+      "origin_evidence_status": "not_applicable",
+      "connectivity_evidence_status": "not_assessed",
+      "start_node_id": "n-04",
+      "end_node_id": "n-05",
+      "length_m": 0.2,
+      "mean_diameter_m": 0.001,
+      "tortuosity": 1.5,
+      "depth_min_m": 0.05,
+      "depth_max_m": 0.4,
+      "root_flow_expressions": [],
+      "root_flow_expression_evidence_status": "not_applicable"
+    }
+  ],
+  "snapshots": [
+    {
+      "elapsed_days": 0,
+      "pathway_states": [
+        {
+          "pathway_id": "p-root-live",
+          "root_occupancy_state": "occupied"
+        },
+        {
+          "pathway_id": "p-root-legacy",
+          "root_occupancy_state": "occupied"
+        },
+        {
+          "pathway_id": "p-crack",
+          "root_occupancy_state": "not_applicable"
+        },
+        {
+          "pathway_id": "p-finger",
+          "root_occupancy_state": "not_applicable"
+        }
+      ]
+    },
+    {
+      "elapsed_days": 30,
+      "pathway_states": [
+        {
+          "pathway_id": "p-root-live",
+          "root_occupancy_state": "partially_occupied"
+        },
+        {
+          "pathway_id": "p-root-legacy",
+          "root_occupancy_state": "unoccupied_legacy"
+        },
+        {
+          "pathway_id": "p-crack",
+          "root_occupancy_state": "not_applicable"
+        },
+        {
+          "pathway_id": "p-finger",
+          "root_occupancy_state": "not_applicable"
+        }
+      ]
+    },
+    {
+      "elapsed_days": 90,
+      "pathway_states": [
+        {
+          "pathway_id": "p-root-live",
+          "root_occupancy_state": "occupied"
+        },
+        {
+          "pathway_id": "p-root-legacy",
+          "root_occupancy_state": "unoccupied_legacy"
+        },
+        {
+          "pathway_id": "p-crack",
+          "root_occupancy_state": "not_applicable"
+        },
+        {
+          "pathway_id": "p-finger",
+          "root_occupancy_state": "not_applicable"
+        }
+      ]
+    }
+  ]
+}

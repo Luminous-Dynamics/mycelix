@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Root-channel pathway inventory audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "node_count",
+    "pathway_count",
+    "snapshot_count",
+    "origin_class_counts",
+    "root_origin_evidence_resolved_count",
+    "root_origin_unresolved_count",
+    "direct_3d_connectivity_count",
+    "endpoint_graph_component_count",
+    "warnings",
+    "controls",
+    "interpretation_boundary",
+    "root_flow_expression_counts",
+    "root_flow_expression_unresolved_count"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "node_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "pathway_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "snapshot_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "origin_class_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "root_origin_evidence_resolved_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "root_origin_unresolved_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "direct_3d_connectivity_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "endpoint_graph_component_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id_integrity_pass",
+        "endpoint_references_pass",
+        "coordinate_support_pass",
+        "temporal_state_coverage_pass",
+        "root_origin_semantics_pass",
+        "no_2d_to_3d_promotion_pass"
+      ],
+      "properties": {
+        "id_integrity_pass": {
+          "const": true
+        },
+        "endpoint_references_pass": {
+          "const": true
+        },
+        "coordinate_support_pass": {
+          "const": true
+        },
+        "temporal_state_coverage_pass": {
+          "const": true
+        },
+        "root_origin_semantics_pass": {
+          "const": true
+        },
+        "no_2d_to_3d_promotion_pass": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "root_flow_expression_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "root_flow_expression_unresolved_count": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
