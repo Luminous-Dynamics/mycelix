@@ -144,9 +144,8 @@ async fn connect_postgres_for_test() -> Client {
         std::env::var("POSTGRES_CA_FILE")
             .expect("POSTGRES_CA_FILE must point at the test CA certificate"),
     );
-    let tls = MakeRustlsConnect::new(
-        config_from_ca_cert(ca_file).expect("load test PostgreSQL CA"),
-    );
+    let tls =
+        MakeRustlsConnect::new(config_from_ca_cert(ca_file).expect("load test PostgreSQL CA"));
     let (client, connection) = tokio_postgres::connect(&dsn, tls)
         .await
         .expect("connect to PostgreSQL primary with CA-verified TLS");
@@ -158,10 +157,7 @@ async fn connect_postgres_for_test() -> Client {
     client
 }
 
-async fn create_committed_postgres_effect(
-    suffix: &str,
-    payload: &[u8],
-) -> NatsCommandBindingInput {
+async fn create_committed_postgres_effect(suffix: &str, payload: &[u8]) -> NatsCommandBindingInput {
     let realm = format!("myc-realm-{suffix}");
     let resource = format!("myc-resource-{suffix}");
     let action = "balance-adjust".to_owned();
@@ -281,7 +277,10 @@ async fn create_committed_postgres_effect(
     let accepted_worker_id: String = effect_row.get(4);
     let accepted_claim_epoch: i64 = effect_row.get(5);
     let execution_attestation_id: String = effect_row.get(6);
-    assert!(!replayed, "first physical effect attempt must not be a replay");
+    assert!(
+        !replayed,
+        "first physical effect attempt must not be a replay"
+    );
     assert!(!effect_id.is_empty());
     assert!(!execution_attestation_id.is_empty());
     assert_eq!(accepted_owner_epoch, 2);
@@ -362,7 +361,10 @@ async fn postgres_effect_commit_is_the_evidence_that_permits_jetstream_acksync()
     })
     .expect("construct wrong-decision negative control");
     assert!(
-        verifier.verify_effect_commit(&wrong_decision).await.is_err(),
+        verifier
+            .verify_effect_commit(&wrong_decision)
+            .await
+            .is_err(),
         "receipt with a different decision digest must not authorize ACK"
     );
 
@@ -382,7 +384,10 @@ async fn postgres_effect_commit_is_the_evidence_that_permits_jetstream_acksync()
     })
     .expect("construct wrong-generation negative control");
     assert!(
-        verifier.verify_effect_commit(&wrong_generation).await.is_err(),
+        verifier
+            .verify_effect_commit(&wrong_generation)
+            .await
+            .is_err(),
         "receipt from a future resource generation must not authorize ACK"
     );
 
@@ -392,7 +397,10 @@ async fn postgres_effect_commit_is_the_evidence_that_permits_jetstream_acksync()
     })
     .expect("construct stale owner-epoch negative control");
     assert!(
-        verifier.verify_effect_commit(&wrong_owner_epoch).await.is_err(),
+        verifier
+            .verify_effect_commit(&wrong_owner_epoch)
+            .await
+            .is_err(),
         "receipt from a future owner epoch must not authorize an older command"
     );
 
