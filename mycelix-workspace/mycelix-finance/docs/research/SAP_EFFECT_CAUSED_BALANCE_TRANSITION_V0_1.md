@@ -25,7 +25,7 @@ stable operation identity
 
 The balance successor is not a place to store a mutable number and an optional pointer. It is a compact claim about one economic event. Its validity depends on loading and verifying the actual predecessor and referenced cause records at the integrity boundary.
 
-The JSON Schema in `benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json` describes the serializable contract. The 16-writer mapping in `sap-effect-cause-migration-map.v0.1.json` links existing entrypoints to target cause kinds and migration requirements. Both are design artifacts; neither is production enforcement.
+The JSON Schema in `benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json` describes the serializable contract. The 16-writer mapping in `sap-effect-cause-migration-map.v0.1.json` links existing entrypoints to target cause kinds and migration requirements. The 22-case `sap-effect-cause-known-answer-corpus.v0.1.json` defines positive controls, negative controls, conflicts and indeterminate outcomes for the future pure verifier and HDI integration. Both are normative vectors only; none is claimed executed. These artifacts are not production enforcement.
 
 ## 2. Settlement profile is explicit and immutable
 
