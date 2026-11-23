@@ -270,7 +270,7 @@ BEGIN
         v_wrong_proof_json,
         decode(repeat('b1', 32), 'hex'),
         decode(repeat('c1', 32), 'hex'),
-        decode(repeat('d1', 32), 'hex'),
+        v_external_sequence_digest,
         'test-proof-controller'
     );
 
