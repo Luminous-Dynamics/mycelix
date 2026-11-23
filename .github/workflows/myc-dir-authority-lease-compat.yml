@@ -44,12 +44,18 @@ jobs:
           cmp mycelix-desci/src/core/src/authority_fencing.rs mycelix-workspace/mycelix-desci/src/core/src/authority_fencing.rs
           fixture="${RUNNER_TEMP}/desci-authority-lease-v1.rs"
           awk '
-            /^#\[async_trait\]$/ { exit }
-            { lines[NR] = $0 }
+            BEGIN { part = 1; prefix_count = 0; helper_count = 0 }
+            /^#\[async_trait\]$/ { part = 2; next }
+            part == 1 { prefix[++prefix_count] = $0; next }
+            /^fn validate_text\(/ { part = 3 }
+            part == 3 && /^#\[cfg\(test\)\]$/ { exit }
+            part == 3 { helpers[++helper_count] = $0 }
             END {
-              last = NR
-              while (last > 0 && lines[last] == "") last--
-              for (i = 1; i <= last; i++) print lines[i]
+              while (prefix_count > 0 && prefix[prefix_count] == "") prefix_count--
+              while (helper_count > 0 && helpers[helper_count] == "") helper_count--
+              for (i = 1; i <= prefix_count; i++) print prefix[i]
+              print ""
+              for (i = 1; i <= helper_count; i++) print helpers[i]
             }
           ' mycelix-desci/src/core/src/authority_fencing.rs > "$fixture"
           cmp "$fixture" mycelix-workspace/crates/mycelix-authority-write-lease/tests/fixtures/desci_authority_fencing_v1.rs
