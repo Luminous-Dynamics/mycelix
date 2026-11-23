@@ -29,7 +29,8 @@ struct Event {
     event_id: String,
     start_epoch_seconds: i64,
     end_epoch_seconds: i64,
-    minimum_relevant_flux_mg_per_h: f64,
+    minimum_relevant_tracer_mass_flux_mg_per_h: f64,
+    minimum_relevant_water_volume_flux_ml_per_h: f64,
     minimum_bound_confidence_level: f64,
     maximum_sample_interval_seconds: i64,
     minimum_coverage_fraction: f64,
@@ -49,6 +50,8 @@ struct EvidenceRecord {
     method_id: String,
     method_version: String,
     calibration_id: Option<String>,
+    rate_measurand: String,
+    rate_unit: String,
     qc_status: String,
     support_kind: String,
     registration_status: String,
@@ -61,11 +64,11 @@ struct EvidenceRecord {
     observed_end_epoch_seconds: i64,
     sample_interval_seconds: i64,
     coverage_fraction: f64,
-    measured_flux_mg_per_h: Option<f64>,
-    lower_flux_bound_mg_per_h: Option<f64>,
-    lower_flux_bound_confidence_level: Option<f64>,
-    upper_flux_bound_mg_per_h: Option<f64>,
-    upper_flux_bound_confidence_level: Option<f64>,
+    measured_rate_value: Option<f64>,
+    lower_rate_bound_value: Option<f64>,
+    lower_rate_bound_confidence_level: Option<f64>,
+    upper_rate_bound_value: Option<f64>,
+    upper_rate_bound_confidence_level: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -154,8 +157,12 @@ fn validate(s: &Scenario) -> Result<(), String> {
         return Err("event time bounds or maximum sample interval are invalid".into());
     }
     finite(
-        "minimum_relevant_flux_mg_per_h",
-        s.event.minimum_relevant_flux_mg_per_h,
+        "minimum_relevant_tracer_mass_flux_mg_per_h",
+        s.event.minimum_relevant_tracer_mass_flux_mg_per_h,
+    )?;
+    finite(
+        "minimum_relevant_water_volume_flux_ml_per_h",
+        s.event.minimum_relevant_water_volume_flux_ml_per_h,
     )?;
     finite(
         "minimum_coverage_fraction",
@@ -165,7 +172,8 @@ fn validate(s: &Scenario) -> Result<(), String> {
         "minimum_bound_confidence_level",
         s.event.minimum_bound_confidence_level,
     )?;
-    if s.event.minimum_relevant_flux_mg_per_h <= 0.0
+    if s.event.minimum_relevant_tracer_mass_flux_mg_per_h <= 0.0
+        || s.event.minimum_relevant_water_volume_flux_ml_per_h <= 0.0
         || !(0.0..=1.0).contains(&s.event.minimum_coverage_fraction)
         || s.event.minimum_coverage_fraction <= 0.0
         || !(0.0..=1.0).contains(&s.event.minimum_bound_confidence_level)
@@ -216,6 +224,8 @@ fn validate(s: &Scenario) -> Result<(), String> {
             || evidence.method_id.trim().is_empty()
             || evidence.method_version.trim().is_empty()
             || evidence.spatial_support_id.trim().is_empty()
+            || evidence.rate_measurand.trim().is_empty()
+            || evidence.rate_unit.trim().is_empty()
             || !valid_sha256(&evidence.source_artifact_sha256)
         {
             return Err(format!(
@@ -234,6 +244,24 @@ fn validate(s: &Scenario) -> Result<(), String> {
         ) {
             return Err(format!(
                 "evidence {} has unsupported evidence class",
+                evidence.evidence_id
+            ));
+        }
+        let rate_matches_class = match evidence.evidence_class.as_str() {
+            "direct_tracer_observation" | "boundary_tracer_response" => {
+                evidence.rate_measurand == "tracer_mass_flux" && evidence.rate_unit == "mg/h"
+            }
+            "direct_hydraulic_observation" => {
+                evidence.rate_measurand == "water_volume_flux" && evidence.rate_unit == "mL/h"
+            }
+            _ => matches!(
+                (evidence.rate_measurand.as_str(), evidence.rate_unit.as_str()),
+                ("tracer_mass_flux", "mg/h") | ("water_volume_flux", "mL/h")
+            ),
+        };
+        if !rate_matches_class {
+            return Err(format!(
+                "evidence {} measurand/unit does not match its evidence class",
                 evidence.evidence_id
             ));
         }
@@ -311,19 +339,19 @@ fn validate(s: &Scenario) -> Result<(), String> {
         if !(0.0..=1.0).contains(&evidence.coverage_fraction) {
             return Err("evidence coverage fraction must be in [0,1]".into());
         }
-        if let Some(value) = evidence.measured_flux_mg_per_h {
+        if let Some(value) = evidence.measured_rate_value {
             finite("measured flux", value)?;
             if value < 0.0 {
                 return Err("measured flux cannot be negative".into());
             }
         }
-        if let Some(value) = evidence.lower_flux_bound_mg_per_h {
+        if let Some(value) = evidence.lower_rate_bound_value {
             finite("lower flux bound", value)?;
             if value < 0.0 {
                 return Err("lower flux bound cannot be negative".into());
             }
         }
-        if let Some(value) = evidence.upper_flux_bound_mg_per_h {
+        if let Some(value) = evidence.upper_rate_bound_value {
             finite("upper flux bound", value)?;
             if value < 0.0 {
                 return Err("upper flux bound cannot be negative".into());
@@ -331,12 +359,12 @@ fn validate(s: &Scenario) -> Result<(), String> {
         }
         for (name, confidence) in [
             (
-                "lower_flux_bound_confidence_level",
-                evidence.lower_flux_bound_confidence_level,
+                "lower_rate_bound_confidence_level",
+                evidence.lower_rate_bound_confidence_level,
             ),
             (
-                "upper_flux_bound_confidence_level",
-                evidence.upper_flux_bound_confidence_level,
+                "upper_rate_bound_confidence_level",
+                evidence.upper_rate_bound_confidence_level,
             ),
         ] {
             if let Some(value) = confidence {
@@ -346,9 +374,23 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 }
             }
         }
-        if evidence.lower_flux_bound_mg_per_h.is_some() && evidence.measured_flux_mg_per_h.is_none()
+        if evidence.lower_rate_bound_value.is_some() && evidence.measured_rate_value.is_none()
         {
-            return Err("lower flux bound requires an associated measured flux".into());
+            return Err("lower rate bound requires an associated measured rate".into());
+        }
+        if let (Some(lower), Some(upper)) =
+            (evidence.lower_rate_bound_value, evidence.upper_rate_bound_value)
+        {
+            if lower > upper {
+                return Err("lower rate bound cannot exceed upper rate bound".into());
+            }
+        }
+        if let Some(measured) = evidence.measured_rate_value {
+            if evidence.lower_rate_bound_value.is_some_and(|lower| lower > measured)
+                || evidence.upper_rate_bound_value.is_some_and(|upper| upper < measured)
+            {
+                return Err("measured rate must lie within supplied bounds".into());
+            }
         }
         if is_direct_observation(&evidence.evidence_class)
             && evidence
@@ -471,11 +513,18 @@ fn evidence_candidate(
         return (None, reasons);
     }
 
+    let threshold = match (evidence.rate_measurand.as_str(), evidence.rate_unit.as_str()) {
+        ("tracer_mass_flux", "mg/h") => s.event.minimum_relevant_tracer_mass_flux_mg_per_h,
+        ("water_volume_flux", "mL/h") => s.event.minimum_relevant_water_volume_flux_ml_per_h,
+        _ => {
+            return (None, vec!["unsupported_rate_measurand_or_unit".into()]);
+        }
+    };
     let measured_active = evidence
-        .lower_flux_bound_mg_per_h
-        .is_some_and(|value| value > s.event.minimum_relevant_flux_mg_per_h)
+        .lower_rate_bound_value
+        .is_some_and(|value| value > threshold)
         && evidence
-            .lower_flux_bound_confidence_level
+            .lower_rate_bound_confidence_level
             .is_some_and(|value| value >= s.event.minimum_bound_confidence_level);
     if measured_active {
         return (Some(CandidateState::Active), vec![]);
@@ -487,17 +536,17 @@ fn evidence_candidate(
         evidence.sample_interval_seconds <= s.event.maximum_sample_interval_seconds;
     let coverage_adequate = evidence.coverage_fraction >= s.event.minimum_coverage_fraction;
     let non_detection_bound_adequate = evidence
-        .upper_flux_bound_mg_per_h
-        .is_some_and(|value| value <= s.event.minimum_relevant_flux_mg_per_h)
+        .upper_rate_bound_value
+        .is_some_and(|value| value <= threshold)
         && evidence
-            .upper_flux_bound_confidence_level
+            .upper_rate_bound_confidence_level
             .is_some_and(|value| value >= s.event.minimum_bound_confidence_level);
 
     if covers_entire_event
         && cadence_adequate
         && coverage_adequate
         && non_detection_bound_adequate
-        && evidence.measured_flux_mg_per_h.is_none()
+        && evidence.measured_rate_value.is_none()
     {
         return (Some(CandidateState::Inactive), vec![]);
     }
@@ -515,11 +564,11 @@ fn evidence_candidate(
         reasons.push("detection_upper_bound_does_not_exclude_relevant_flux".into());
     }
     if evidence
-        .measured_flux_mg_per_h
-        .is_some_and(|value| value > s.event.minimum_relevant_flux_mg_per_h)
+        .measured_rate_value
+        .is_some_and(|value| value > threshold)
     {
         reasons.push("positive_point_estimate_without_qualified_lower_bound".into());
-    } else if evidence.measured_flux_mg_per_h.is_some() {
+    } else if evidence.measured_rate_value.is_some() {
         reasons.push("measured_value_does_not_support_declared_state".into());
     }
     (None, reasons)
@@ -700,6 +749,18 @@ mod tests {
             .find(|r| r.edge_id == "edge-active-tracer")
             .unwrap();
         assert_eq!(edge.admission_status, "confirmed_active");
+    }
+
+    #[test]
+    fn hydraulic_observation_uses_water_volume_rate_and_its_own_threshold() {
+        let mut s = scenario();
+        let mut evidence = s.evidence_records[0].clone();
+        evidence.evidence_class = "direct_hydraulic_observation".into();
+        evidence.rate_measurand = "water_volume_flux".into();
+        evidence.rate_unit = "mL/h".into();
+        let (state, reasons) = evidence_candidate(&s, &evidence);
+        assert_eq!(state, Some(CandidateState::Active));
+        assert!(reasons.is_empty());
     }
 
     #[test]
