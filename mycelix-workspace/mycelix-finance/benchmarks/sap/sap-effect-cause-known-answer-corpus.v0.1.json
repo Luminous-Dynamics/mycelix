@@ -1,0 +1,203 @@
+{
+  "benchmark": "SAP Effect-Cause Transition Known-Answer and Adversarial Corpus",
+  "version": "0.1",
+  "base_commit": "e949664ceb2f9ddde26704c70e23a19380f33dde",
+  "transition_schema": "sap-effect-cause-transition.v0.1.schema.json",
+  "status": "specified_not_executed",
+  "qualification_note": "These are normative test vectors for the future verifier, HDI integration and independent implementation. No case is claimed executed by this design-only change.",
+  "outcomes": [
+    "Valid",
+    "Invalid",
+    "Conflict",
+    "Indeterminate",
+    "ReconcileOriginal",
+    "AtMostOneRemoteEffect"
+  ],
+  "invariants": [
+    "A balance successor advances one exact predecessor and has one typed cause.",
+    "The real Holochain Action.author determines the signer; declared DIDs are checked against it.",
+    "A cause and effect ID cannot authorize a second distinct monetary effect.",
+    "Unknown or incomplete evidence returns Indeterminate.",
+    "Recipient consent is beneficiary-authored under BilateralOwnerClaimV1.",
+    "A forked predecessor has no DHT-order winner and remains non-spendable.",
+    "Duplicate remote delivery is at-least-once transport with at-most-once economic effect."
+  ],
+  "scenarios": [
+    {
+      "id": "SCE-001",
+      "category": "positive_control",
+      "stimulus": "Owner-authored zero genesis with zero balance and no predecessor",
+      "expected": "Valid",
+      "invariant": "GenesisExactZero",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-002",
+      "category": "negative_control",
+      "stimulus": "Zero-genesis cause attempts a nonzero first balance",
+      "expected": "Invalid",
+      "invariant": "NoUncausedGenesisValue",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-003",
+      "category": "negative_control",
+      "stimulus": "Non-genesis transition omits predecessor ActionHash",
+      "expected": "Invalid",
+      "invariant": "ExactPredecessorRequired",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-004",
+      "category": "negative_control",
+      "stimulus": "Actual Action.author does not map to declared owner DID",
+      "expected": "Invalid",
+      "invariant": "ActionAuthorOwnsBalance",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-005",
+      "category": "negative_control",
+      "stimulus": "Non-genesis transition omits cause ActionHash",
+      "expected": "Invalid",
+      "invariant": "CauseRecordRequired",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-006",
+      "category": "negative_control",
+      "stimulus": "Cause record amount or asset differs from balance delta",
+      "expected": "Invalid",
+      "invariant": "CauseSemanticEquality",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-007",
+      "category": "negative_control",
+      "stimulus": "Credit amount overflows u64 predecessor balance",
+      "expected": "Invalid",
+      "invariant": "CheckedCreditArithmetic",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-008",
+      "category": "negative_control",
+      "stimulus": "Debit amount exceeds exact predecessor balance",
+      "expected": "Invalid",
+      "invariant": "CheckedDebitArithmetic",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-009",
+      "category": "negative_control",
+      "stimulus": "One cause ActionHash is consumed by a second balance successor",
+      "expected": "Conflict",
+      "invariant": "CauseConsumeOnce",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-010",
+      "category": "positive_control",
+      "stimulus": "Same effect ID and identical canonical fingerprint are retried after response loss",
+      "expected": "ReconcileOriginal",
+      "invariant": "DurableOperationIdentity",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-011",
+      "category": "negative_control",
+      "stimulus": "Same effect ID is reused with a different payload fingerprint",
+      "expected": "Conflict",
+      "invariant": "PayloadFingerprintConflict",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-012",
+      "category": "negative_control",
+      "stimulus": "Retry attempts to change FinanceLedgerAtomicV1 to BilateralOwnerClaimV1",
+      "expected": "Conflict",
+      "invariant": "SettlementProfileImmutable",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-013",
+      "category": "negative_control",
+      "stimulus": "Sender-authored balance update is submitted as a bilateral recipient claim",
+      "expected": "Invalid",
+      "invariant": "RecipientOwnsRecipientClaim",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-014",
+      "category": "negative_control",
+      "stimulus": "Recipient claim points to a different sender intent/debit or operation fingerprint",
+      "expected": "Invalid",
+      "invariant": "BilateralLegCorrespondence",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-015",
+      "category": "negative_control",
+      "stimulus": "One successor combines demurrage deduction and principal credit/debit",
+      "expected": "Invalid",
+      "invariant": "OneCausePerMonetarySuccessor",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-016",
+      "category": "negative_control",
+      "stimulus": "Metadata-only update changes the monetary balance",
+      "expected": "Invalid",
+      "invariant": "MetadataPreservesBalance",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-017",
+      "category": "negative_control",
+      "stimulus": "Metadata-only update clears the prior monetary cause lineage",
+      "expected": "Invalid",
+      "invariant": "MetadataPreservesCauseHistory",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-018",
+      "category": "fault_injection",
+      "stimulus": "Predecessor ancestry or DHT observation set is incomplete",
+      "expected": "Indeterminate",
+      "invariant": "IncompleteEvidenceNeverMeansAbsence",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-019",
+      "category": "concurrency",
+      "stimulus": "Two distinct owner-authored successors extend the same predecessor",
+      "expected": "Conflict",
+      "invariant": "ForkFreezesSpendability",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-020",
+      "category": "fault_injection",
+      "stimulus": "External issuance has no independently authenticated custodian evidence",
+      "expected": "Indeterminate",
+      "invariant": "ExternalEvidenceRequired",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-021",
+      "category": "fault_injection",
+      "stimulus": "Hearth membership or revocation freshness is unavailable",
+      "expected": "Indeterminate",
+      "invariant": "UnknownAuthorizationNeverMeansPermission",
+      "execution_state": "specified_not_executed"
+    },
+    {
+      "id": "SCE-022",
+      "category": "retry",
+      "stimulus": "10,000 duplicate outbox deliveries reuse one stable remote operation identity",
+      "expected": "AtMostOneRemoteEffect",
+      "invariant": "RemoteConsumeOnce",
+      "execution_state": "specified_not_executed"
+    }
+  ]
+}
