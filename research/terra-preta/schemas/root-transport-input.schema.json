@@ -1,0 +1,267 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/terra-preta/schemas/root-transport-input.schema.json",
+  "title": "Synthetic known-truth 3D root pathway and tracer scenario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "scenario_id",
+    "truth_support_dimension",
+    "projection_plane",
+    "head_drop_m",
+    "nodes",
+    "pathways",
+    "snapshots",
+    "tracer"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "root-transport-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "truth_support_dimension": {
+      "const": "volumetric_3d"
+    },
+    "projection_plane": {
+      "enum": [
+        "xy",
+        "xz",
+        "yz"
+      ]
+    },
+    "head_drop_m": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "node_id",
+          "coordinates_m"
+        ],
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "coordinates_m": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "pathways": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pathway_id",
+          "origin_class",
+          "expression",
+          "source_node_id",
+          "outlet_node_id",
+          "recovery_fraction",
+          "segments"
+        ],
+        "properties": {
+          "pathway_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "origin_class": {
+            "enum": [
+              "live_root_channel",
+              "legacy_root_channel",
+              "abiotic_crack",
+              "textural_finger",
+              "faunal_burrow"
+            ]
+          },
+          "expression": {
+            "enum": [
+              "shallow_root_network_dominated",
+              "vertical_root_controlled",
+              "interface_guided",
+              "legacy_root_biopore_dominated",
+              "not_applicable"
+            ]
+          },
+          "source_node_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "outlet_node_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recovery_fraction": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "segments": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "edge_id",
+                "from_node_id",
+                "to_node_id",
+                "length_m",
+                "baseline_conductance_m3_per_hour_per_m_head",
+                "travel_time_hours"
+              ],
+              "properties": {
+                "edge_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "from_node_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "to_node_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "length_m": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "baseline_conductance_m3_per_hour_per_m_head": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "travel_time_hours": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "snapshots": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "snapshot_id",
+          "time_days",
+          "edge_states"
+        ],
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "time_days": {
+            "type": "number",
+            "minimum": 0
+          },
+          "edge_states": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "edge_id",
+                "root_occupancy",
+                "hydraulic_state",
+                "conductance_scale"
+              ],
+              "properties": {
+                "edge_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "root_occupancy": {
+                  "enum": [
+                    "occupied",
+                    "partially_occupied",
+                    "unoccupied_legacy",
+                    "not_observed",
+                    "not_applicable"
+                  ]
+                },
+                "hydraulic_state": {
+                  "enum": [
+                    "active",
+                    "inactive",
+                    "unassessed"
+                  ]
+                },
+                "conductance_scale": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "tracer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "injected_mass_mg",
+        "sample_interval_hours",
+        "collection_duration_hours",
+        "detection_limit_mg",
+        "mass_balance_tolerance_mg"
+      ],
+      "properties": {
+        "injected_mass_mg": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "sample_interval_hours": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "collection_duration_hours": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "detection_limit_mg": {
+          "type": "number",
+          "minimum": 0
+        },
+        "mass_balance_tolerance_mg": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    }
+  }
+}

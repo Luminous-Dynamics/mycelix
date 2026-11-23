@@ -1,0 +1,297 @@
+{
+  "schema_version": "root-transport-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "scenario_id": "root-turnover-projection-alias-tracer-closure",
+  "truth_support_dimension": "volumetric_3d",
+  "projection_plane": "xz",
+  "head_drop_m": 0.1,
+  "nodes": [
+    {
+      "node_id": "root-top",
+      "coordinates_m": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "node_id": "root-mid",
+      "coordinates_m": [
+        0,
+        0,
+        0.05
+      ]
+    },
+    {
+      "node_id": "root-bottom",
+      "coordinates_m": [
+        0,
+        0,
+        0.1
+      ]
+    },
+    {
+      "node_id": "crack-top",
+      "coordinates_m": [
+        0,
+        0.02,
+        0
+      ]
+    },
+    {
+      "node_id": "crack-mid",
+      "coordinates_m": [
+        0,
+        0.02,
+        0.05
+      ]
+    },
+    {
+      "node_id": "crack-bottom",
+      "coordinates_m": [
+        0,
+        0.02,
+        0.1
+      ]
+    },
+    {
+      "node_id": "finger-top",
+      "coordinates_m": [
+        0.1,
+        0.05,
+        0
+      ]
+    },
+    {
+      "node_id": "finger-mid",
+      "coordinates_m": [
+        0.1,
+        0.05,
+        0.05
+      ]
+    },
+    {
+      "node_id": "finger-bottom",
+      "coordinates_m": [
+        0.1,
+        0.05,
+        0.1
+      ]
+    }
+  ],
+  "pathways": [
+    {
+      "pathway_id": "root-path",
+      "origin_class": "live_root_channel",
+      "expression": "vertical_root_controlled",
+      "source_node_id": "root-top",
+      "outlet_node_id": "root-bottom",
+      "recovery_fraction": 0.9,
+      "segments": [
+        {
+          "edge_id": "root-1",
+          "from_node_id": "root-top",
+          "to_node_id": "root-mid",
+          "length_m": 0.05,
+          "baseline_conductance_m3_per_hour_per_m_head": 0.02,
+          "travel_time_hours": 0.12
+        },
+        {
+          "edge_id": "root-2",
+          "from_node_id": "root-mid",
+          "to_node_id": "root-bottom",
+          "length_m": 0.05,
+          "baseline_conductance_m3_per_hour_per_m_head": 0.02,
+          "travel_time_hours": 0.13
+        }
+      ]
+    },
+    {
+      "pathway_id": "abiotic-crack",
+      "origin_class": "abiotic_crack",
+      "expression": "not_applicable",
+      "source_node_id": "crack-top",
+      "outlet_node_id": "crack-bottom",
+      "recovery_fraction": 0.7,
+      "segments": [
+        {
+          "edge_id": "crack-1",
+          "from_node_id": "crack-top",
+          "to_node_id": "crack-mid",
+          "length_m": 0.05,
+          "baseline_conductance_m3_per_hour_per_m_head": 0.012,
+          "travel_time_hours": 0.18
+        },
+        {
+          "edge_id": "crack-2",
+          "from_node_id": "crack-mid",
+          "to_node_id": "crack-bottom",
+          "length_m": 0.05,
+          "baseline_conductance_m3_per_hour_per_m_head": 0.012,
+          "travel_time_hours": 0.22
+        }
+      ]
+    },
+    {
+      "pathway_id": "inactive-finger",
+      "origin_class": "textural_finger",
+      "expression": "not_applicable",
+      "source_node_id": "finger-top",
+      "outlet_node_id": "finger-bottom",
+      "recovery_fraction": 0.8,
+      "segments": [
+        {
+          "edge_id": "finger-1",
+          "from_node_id": "finger-top",
+          "to_node_id": "finger-mid",
+          "length_m": 0.05,
+          "baseline_conductance_m3_per_hour_per_m_head": 0.03,
+          "travel_time_hours": 0.15
+        },
+        {
+          "edge_id": "finger-2",
+          "from_node_id": "finger-mid",
+          "to_node_id": "finger-bottom",
+          "length_m": 0.05,
+          "baseline_conductance_m3_per_hour_per_m_head": 0.03,
+          "travel_time_hours": 0.15
+        }
+      ]
+    }
+  ],
+  "snapshots": [
+    {
+      "snapshot_id": "day-0-live-root",
+      "time_days": 0,
+      "edge_states": [
+        {
+          "edge_id": "root-1",
+          "root_occupancy": "occupied",
+          "hydraulic_state": "active",
+          "conductance_scale": 1
+        },
+        {
+          "edge_id": "root-2",
+          "root_occupancy": "occupied",
+          "hydraulic_state": "active",
+          "conductance_scale": 1
+        },
+        {
+          "edge_id": "crack-1",
+          "root_occupancy": "not_applicable",
+          "hydraulic_state": "active",
+          "conductance_scale": 1
+        },
+        {
+          "edge_id": "crack-2",
+          "root_occupancy": "not_applicable",
+          "hydraulic_state": "active",
+          "conductance_scale": 1
+        },
+        {
+          "edge_id": "finger-1",
+          "root_occupancy": "not_applicable",
+          "hydraulic_state": "inactive",
+          "conductance_scale": 0
+        },
+        {
+          "edge_id": "finger-2",
+          "root_occupancy": "not_applicable",
+          "hydraulic_state": "inactive",
+          "conductance_scale": 0
+        }
+      ]
+    },
+    {
+      "snapshot_id": "day-30-partial-root",
+      "time_days": 30,
+      "edge_states": [
+        {
+          "edge_id": "root-1",
+          "root_occupancy": "partially_occupied",
+          "hydraulic_state": "active",
+          "conductance_scale": 0.6
+        },
+        {
+          "edge_id": "root-2",
+          "root_occupancy": "partially_occupied",
+          "hydraulic_state": "active",
+          "conductance_scale": 0.6
+        },
+        {
+          "edge_id": "crack-1",
+          "root_occupancy": "not_applicable",
+          "hydraulic_state": "active",
+          "conductance_scale": 1
+        },
+        {
+          "edge_id": "crack-2",
+          "root_occupancy": "not_applicable",
+          "hydraulic_state": "active",
+          "conductance_scale": 1
+        },
+        {
+          "edge_id": "finger-1",
+          "root_occupancy": "not_applicable",
+          "hydraulic_state": "inactive",
+          "conductance_scale": 0
+        },
+        {
+          "edge_id": "finger-2",
+          "root_occupancy": "not_applicable",
+          "hydraulic_state": "inactive",
+          "conductance_scale": 0
+        }
+      ]
+    },
+    {
+      "snapshot_id": "day-60-legacy-root",
+      "time_days": 60,
+      "edge_states": [
+        {
+          "edge_id": "root-1",
+          "root_occupancy": "unoccupied_legacy",
+          "hydraulic_state": "active",
+          "conductance_scale": 0.3
+        },
+        {
+          "edge_id": "root-2",
+          "root_occupancy": "unoccupied_legacy",
+          "hydraulic_state": "active",
+          "conductance_scale": 0.3
+        },
+        {
+          "edge_id": "crack-1",
+          "root_occupancy": "not_applicable",
+          "hydraulic_state": "active",
+          "conductance_scale": 1
+        },
+        {
+          "edge_id": "crack-2",
+          "root_occupancy": "not_applicable",
+          "hydraulic_state": "active",
+          "conductance_scale": 1
+        },
+        {
+          "edge_id": "finger-1",
+          "root_occupancy": "not_applicable",
+          "hydraulic_state": "inactive",
+          "conductance_scale": 0
+        },
+        {
+          "edge_id": "finger-2",
+          "root_occupancy": "not_applicable",
+          "hydraulic_state": "inactive",
+          "conductance_scale": 0
+        }
+      ]
+    }
+  ],
+  "tracer": {
+    "injected_mass_mg": 10,
+    "sample_interval_hours": 0.1,
+    "collection_duration_hours": 1,
+    "detection_limit_mg": 0.05,
+    "mass_balance_tolerance_mg": 1e-9
+  }
+}
