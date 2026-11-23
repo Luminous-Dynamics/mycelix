@@ -8,6 +8,7 @@ on:
       - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-contract.v0.1.md"
       - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-scenarios.v0.1.json"
       - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-scenarios.v0.1.schema.json"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-model-coverage.v0.1.json"
   push:
     branches:
       - "research/pcoe-effect-owner-payment-model-v0.1-20261123"
@@ -94,6 +95,29 @@ jobs:
           ' "$corpus" >/dev/null
           echo "22 unique scenarios, required fields and disposition vocabulary validated."
 
+      - name: Validate TLA-to-scenario coverage map
+        shell: bash
+        run: |
+          set -euo pipefail
+          corpus="mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-scenarios.v0.1.json"
+          coverage="mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-model-coverage.v0.1.json"
+          jq -e --slurpfile corpus "$corpus" '
+            .scenario_count == 22 and
+            (.scenarios | length) == 22 and
+            .coverage_counts.bounded_modelled == 9 and
+            .coverage_counts.partially_modelled == 6 and
+            .coverage_counts.not_in_model == 7 and
+            ([.scenarios[].scenario_id] | unique | length) == 22 and
+            (([.scenarios[].scenario_id] | sort) == ($corpus[0].scenarios | map(.id) | sort)) and
+            (.scenarios | all(.[];
+              (.model_relation as $r | ["bounded_modelled","partially_modelled","not_in_model"] | index($r)) != null and
+              (.scenario_id | type == "string" and length > 0) and
+              (.model_scope_limit | type == "string" and length > 0) and
+              (.next_qualification | type == "string" and length > 0)
+            ))
+          ' "$coverage" >/dev/null
+          echo "22 scenarios mapped: 9 bounded-modelled, 6 partially-modelled, 7 not-in-model."
+
       - name: Check safe two-owner transfer model
         working-directory: mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation
         shell: bash
@@ -144,6 +168,7 @@ jobs:
             echo "mutant_cfg_sha256=$(sha256sum "$spec_dir/PCOEEffectOwnerPayment-mutant.cfg" | cut -d' ' -f1)"
             echo "scenario_corpus_sha256=$(sha256sum "$model_dir/pcoe-effect-owner-payment-scenarios.v0.1.json" | cut -d' ' -f1)"
             echo "scenario_schema_sha256=$(sha256sum "$model_dir/pcoe-effect-owner-payment-scenarios.v0.1.schema.json" | cut -d' ' -f1)"
+            echo "model_coverage_sha256=$(sha256sum "$model_dir/pcoe-effect-owner-payment-model-coverage.v0.1.json" | cut -d' ' -f1)"
           } | tee "$RUNNER_TEMP/pcoe-payment-model-manifest.txt"
           {
             echo "## PCOE effect-owner payment model"
