@@ -13,7 +13,7 @@
     "event": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["event_id", "start_epoch_seconds", "end_epoch_seconds", "minimum_relevant_tracer_mass_flux_mg_per_h", "minimum_bound_confidence_level", "maximum_sample_interval_seconds", "minimum_coverage_fraction", "maximum_registration_error_mm", "minimum_support_overlap_fraction"],
+      "required": ["event_id", "start_epoch_seconds", "end_epoch_seconds", "minimum_relevant_tracer_mass_flux_mg_per_h", "minimum_relevant_water_volume_flux_ml_per_h", "minimum_bound_confidence_level", "maximum_sample_interval_seconds", "minimum_coverage_fraction", "maximum_registration_error_mm", "minimum_support_overlap_fraction"],
       "properties": {
         "event_id": { "type": "string", "minLength": 1 },
         "start_epoch_seconds": { "type": "integer" },
