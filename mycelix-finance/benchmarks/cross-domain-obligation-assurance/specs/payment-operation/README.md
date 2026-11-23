@@ -35,8 +35,14 @@ The state space is finite: retries, durable-outbox scans, chain-head race observ
 - a Treasury-owned idempotent effect and receipt;
 - durable operation tombstone after client cache expiry.
 
+## Scenario corpus
+
+- `../pcoe-effect-owner-payment-scenarios.v0.1.json` contains 22 synthetic adversarial cases.
+- `../pcoe-effect-owner-payment-scenarios.v0.1.schema.json` defines the corpus shape.
+- The CI workflow additionally checks all IDs are unique and each expected disposition appears in the declared vocabulary.
+
 ## What the model does and does not prove
 
-The model checks the abstract safety contract across bounded state space. It does **not** prove the live Holochain implementation satisfies the model, global uniqueness across alternate agent keys / clones / forks, or bank / payment-rail finality. Those require real-agent Tryorama / Sweettests, authority and fork-resolution proofs, Treasury adapter qualification and independent external evidence.
+The model checks effect counts and state transitions across a bounded state space. It does **not** calculate actual monetary amounts, fee arithmetic, valuation or full value-conservation arithmetic; those remain obligations for the FIN-SAFE arithmetic kernels and property tests. It also does **not** prove the live Holochain implementation satisfies the model, global uniqueness across alternate agent keys / clones / forks, or bank / payment-rail finality. Those require real-agent Tryorama / Sweettests, authority and fork-resolution proofs, Treasury adapter qualification and independent external evidence.
 
 **Status as of 23 November 2026:** authored and statically audited; this two-owner revision has not yet been TLC-checked. Prior TLC results on the earlier single-batch model are superseded. The pinned GitHub Actions workflow must pass on the exact PR head, with the safe model complete and the unsafe mutant detected, before this revision can claim a model-check pass.
