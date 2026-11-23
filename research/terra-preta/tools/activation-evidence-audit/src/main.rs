@@ -829,9 +829,70 @@ mod tests {
         evidence.evidence_class = "direct_hydraulic_observation".into();
         evidence.rate_measurand = "water_volume_flux".into();
         evidence.rate_unit = "mL/h".into();
+        evidence.tracer_behavior = "not_applicable".into();
+        evidence.tracer_qualification_id = None;
+        evidence.tracer_qualification_sha256 = None;
         let (state, reasons) = evidence_candidate(&s, &evidence);
         assert_eq!(state, Some(CandidateState::Active));
         assert!(reasons.is_empty());
+    }
+
+    #[test]
+    fn positive_edge_resolved_sorptive_tracer_detection_can_confirm_activity() {
+        let mut s = scenario();
+        let evidence = s
+            .evidence_records
+            .iter_mut()
+            .find(|record| record.evidence_id == "ev-active-tracer")
+            .unwrap();
+        evidence.tracer_behavior = "reactive_or_sorptive".into();
+        evidence.tracer_qualification_id = None;
+        evidence.tracer_qualification_sha256 = None;
+        validate(&s).expect("positive sorptive tracer evidence remains admissible");
+        let report = build_report(&s, "0".repeat(64));
+        let edge = report
+            .results
+            .iter()
+            .find(|result| result.edge_id == "edge-active-tracer")
+            .unwrap();
+        assert_eq!(edge.admission_status, "confirmed_active");
+    }
+
+    #[test]
+    fn unqualified_conservative_tracer_claim_rejects_input() {
+        let mut s = scenario();
+        let evidence = s
+            .evidence_records
+            .iter_mut()
+            .find(|record| record.evidence_id == "ev-active-tracer")
+            .unwrap();
+        evidence.tracer_qualification_sha256 = None;
+        assert!(validate(&s).is_err());
+    }
+
+    #[test]
+    fn direct_hydraulic_non_detection_can_confirm_inactivity_without_tracer() {
+        let mut s = scenario();
+        s.event.minimum_relevant_water_volume_flux_ml_per_h = 0.2;
+        let evidence = s
+            .evidence_records
+            .iter_mut()
+            .find(|record| record.evidence_id == "ev-inactive-covered")
+            .unwrap();
+        evidence.evidence_class = "direct_hydraulic_observation".into();
+        evidence.rate_measurand = "water_volume_flux".into();
+        evidence.rate_unit = "mL/h".into();
+        evidence.tracer_behavior = "not_applicable".into();
+        evidence.tracer_qualification_id = None;
+        evidence.tracer_qualification_sha256 = None;
+        validate(&s).expect("direct hydraulic negative evidence validates");
+        let report = build_report(&s, "0".repeat(64));
+        let edge = report
+            .results
+            .iter()
+            .find(|result| result.edge_id == "edge-inactive-covered")
+            .unwrap();
+        assert_eq!(edge.admission_status, "confirmed_inactive");
     }
 
     #[test]
