@@ -332,6 +332,13 @@ DECLARE
     v_state_generation BIGINT;
     v_state_lease_id UUID;
     v_state_lease_hash BYTEA;
+    v_state_owner_epoch BIGINT;
+    v_state_resource_generation BIGINT;
+    v_state_primary_id TEXT;
+    v_state_system_identifier TEXT;
+    v_state_timeline BIGINT;
+    v_receipt RECORD;
+    v_rows INTEGER;
     v_has_effect_scope BOOLEAN;
     v_has_promotion_scope BOOLEAN;
 BEGIN
@@ -537,8 +544,12 @@ BEGIN
         );
     END IF;
 
-    SELECT lease_generation, lease_id, lease_hash
-      INTO v_state_generation, v_state_lease_id, v_state_lease_hash
+    SELECT lease_generation, lease_id, lease_hash,
+           resource_owner_epoch, resource_generation,
+           primary_id, database_system_identifier, postgres_timeline
+      INTO v_state_generation, v_state_lease_id, v_state_lease_hash,
+           v_state_owner_epoch, v_state_resource_generation,
+           v_state_primary_id, v_state_system_identifier, v_state_timeline
       FROM myc_effect_owner.effect_owner_authority_write_lease_state
      WHERE realm_id = p_realm_id
        AND resource_id = p_resource_id
@@ -549,6 +560,28 @@ BEGIN
     IF FOUND THEN
         IF v_state_generation > v_lease_generation THEN
             RAISE EXCEPTION 'per-resource authority lease state is ahead of supplied lease generation'
+                USING ERRCODE = 'P0001';
+        END IF;
+        IF v_state_owner_epoch > p_resource_owner_epoch THEN
+            RAISE EXCEPTION 'authority lease attempts to roll back the resource owner epoch'
+                USING ERRCODE = 'P0001';
+        END IF;
+        IF v_state_owner_epoch = p_resource_owner_epoch
+           AND (
+               v_state_primary_id IS DISTINCT FROM v_primary_id
+               OR v_state_system_identifier IS DISTINCT FROM v_database_system_identifier
+               OR v_state_timeline IS DISTINCT FROM v_postgres_timeline
+           ) THEN
+            RAISE EXCEPTION 'primary, database identity or timeline cannot change without a higher resource owner epoch'
+                USING ERRCODE = 'P0001';
+        END IF;
+        IF v_state_owner_epoch < p_resource_owner_epoch
+           AND (
+               p_resource_generation <> v_state_resource_generation + 1
+               OR NOT v_has_promotion_scope
+               OR p_physical_fencing_receipt_digest IS NULL
+           ) THEN
+            RAISE EXCEPTION 'resource owner epoch advance requires next generation, promotion scope and physical fencing'
                 USING ERRCODE = 'P0001';
         END IF;
         IF v_state_generation = v_lease_generation
@@ -581,6 +614,46 @@ BEGIN
     )
     ON CONFLICT (realm_id, resource_id, action_id, effect_owner_id, lease_id)
     DO NOTHING;
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+    IF v_rows = 0 THEN
+        SELECT lease_hash, lease_generation, deployment_id, primary_id,
+               database_system_identifier, postgres_timeline,
+               database_epoch_number, database_epoch_hash,
+               resource_owner_epoch, resource_generation,
+               lease_not_before, lease_expires_at, allowed_scopes,
+               signer_key_id, signer_public_key, signature, signed_lease_json,
+               external_highwater_receipt_digest, physical_fencing_receipt_digest
+          INTO v_receipt
+          FROM myc_effect_owner.effect_owner_authority_write_lease_receipts
+         WHERE realm_id = p_realm_id
+           AND resource_id = p_resource_id
+           AND action_id = p_action_id
+           AND effect_owner_id = p_effect_owner_id
+           AND lease_id = v_lease_id;
+        IF NOT FOUND
+           OR v_receipt.lease_hash IS DISTINCT FROM v_lease_hash
+           OR v_receipt.lease_generation IS DISTINCT FROM v_lease_generation
+           OR v_receipt.deployment_id IS DISTINCT FROM v_deployment_id
+           OR v_receipt.primary_id IS DISTINCT FROM v_primary_id
+           OR v_receipt.database_system_identifier IS DISTINCT FROM v_database_system_identifier
+           OR v_receipt.postgres_timeline IS DISTINCT FROM v_postgres_timeline
+           OR v_receipt.database_epoch_number IS DISTINCT FROM v_database_epoch_number
+           OR v_receipt.database_epoch_hash IS DISTINCT FROM v_database_epoch_hash
+           OR v_receipt.resource_owner_epoch IS DISTINCT FROM p_resource_owner_epoch
+           OR v_receipt.resource_generation IS DISTINCT FROM p_resource_generation
+           OR v_receipt.lease_not_before IS DISTINCT FROM v_not_before
+           OR v_receipt.lease_expires_at IS DISTINCT FROM v_expires_at
+           OR v_receipt.allowed_scopes IS DISTINCT FROM v_scopes
+           OR v_receipt.signer_key_id IS DISTINCT FROM v_signer_key_id
+           OR v_receipt.signer_public_key IS DISTINCT FROM v_signer_public_key
+           OR v_receipt.signature IS DISTINCT FROM v_signature
+           OR v_receipt.signed_lease_json IS DISTINCT FROM p_signed_lease_json
+           OR v_receipt.external_highwater_receipt_digest IS DISTINCT FROM p_external_highwater_receipt_digest
+           OR v_receipt.physical_fencing_receipt_digest IS DISTINCT FROM p_physical_fencing_receipt_digest THEN
+            RAISE EXCEPTION 'same lease ID is being reused with different authority, target or signed-envelope fields'
+                USING ERRCODE = 'P0001';
+        END IF;
+    END IF;
 
     INSERT INTO myc_effect_owner.effect_owner_authority_write_lease_state (
         realm_id, resource_id, action_id, effect_owner_id,
