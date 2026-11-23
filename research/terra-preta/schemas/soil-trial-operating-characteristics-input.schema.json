@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic randomized soil trial operating-characteristics suite",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "evidence_class",
+    "suite_id",
+    "base_seed",
+    "simulation_count_per_scenario",
+    "alpha",
+    "scenarios"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "soil-trial-operating-characteristics-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "evidence_class": {
+      "const": "synthetic"
+    },
+    "suite_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "base_seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "simulation_count_per_scenario": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 20000
+    },
+    "alpha": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 0.2
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario_id",
+          "block_count",
+          "true_mean_treatment_effect",
+          "effect_heterogeneity_sd",
+          "baseline_mean",
+          "baseline_sd",
+          "block_change_sd",
+          "plot_change_sd",
+          "measurement_sd",
+          "treatment_compliance_probability",
+          "control_crossover_probability",
+          "missing_outcome_probability",
+          "missingness_mode",
+          "missingness_outcome_sensitivity",
+          "interference_status"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "block_count": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 12
+          },
+          "true_mean_treatment_effect": {
+            "type": "number"
+          },
+          "effect_heterogeneity_sd": {
+            "type": "number",
+            "minimum": 0
+          },
+          "baseline_mean": {
+            "type": "number"
+          },
+          "baseline_sd": {
+            "type": "number",
+            "minimum": 0
+          },
+          "block_change_sd": {
+            "type": "number",
+            "minimum": 0
+          },
+          "plot_change_sd": {
+            "type": "number",
+            "minimum": 0
+          },
+          "measurement_sd": {
+            "type": "number",
+            "minimum": 0
+          },
+          "treatment_compliance_probability": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "control_crossover_probability": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "missing_outcome_probability": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 0.95
+          },
+          "missingness_mode": {
+            "enum": [
+              "none",
+              "mcar",
+              "response_dependent"
+            ]
+          },
+          "missingness_outcome_sensitivity": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "interference_status": {
+            "enum": [
+              "none_reported",
+              "possible_spillover",
+              "unassessed"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
