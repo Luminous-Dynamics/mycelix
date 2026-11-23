@@ -84,7 +84,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          nix build mycelix-finance#holochain-countersigning-experimental --no-link --print-out-paths | tee "$RUNNER_TEMP/countersigning-conductor-store-path.txt"
+          nix build ./mycelix-finance#holochain-countersigning-experimental --no-link --print-out-paths | tee "$RUNNER_TEMP/countersigning-conductor-store-path.txt"
           conductor_out="$(tail -n1 "$RUNNER_TEMP/countersigning-conductor-store-path.txt")"
           test -x "$conductor_out/bin/holochain"
           "$conductor_out/bin/holochain" --version | tee "$RUNNER_TEMP/countersigning-conductor-version.txt"
@@ -97,7 +97,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          nix develop mycelix-finance#ci --no-write-lock-file --command             cargo build --manifest-path mycelix-finance/Cargo.toml               -p countersigning-feature-probe --locked --target wasm32-unknown-unknown
+          nix develop ./mycelix-finance#ci --no-write-lock-file --command             cargo build --manifest-path mycelix-finance/Cargo.toml               -p countersigning-feature-probe --locked --target wasm32-unknown-unknown
           probe="mycelix-finance/target/wasm32-unknown-unknown/debug/countersigning_feature_probe.wasm"
           test -s "$probe"
           sha256sum "$probe" | tee "$RUNNER_TEMP/countersigning-zome-probe.sha256"
