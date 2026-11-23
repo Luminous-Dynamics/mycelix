@@ -1,0 +1,245 @@
+{
+  "benchmark": "PCOE Effect-Owner Payment Execution and Recovery",
+  "version": "0.1",
+  "date": "2026-11-23",
+  "status": "proposed-synthetic-adversarial-corpus-not-executed",
+  "source_snapshot": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "main_commit": "e949664ceb2f9ddde26704c70e23a19380f33dde",
+    "finance_payments_coordinator_blob": "7df81b5374526e4c145a4b7506e7295aa20d079c",
+    "finance_payments_integrity_blob": "b551f1ea439f6899d67c0ba55519b12cbee1fe7e",
+    "related_issues": [
+      4383,
+      5750,
+      6516
+    ],
+    "related_prs": [
+      5759,
+      6526,
+      6553
+    ]
+  },
+  "scenario_count": 22,
+  "disposition_vocabulary": [
+    "return_original",
+    "reject_conflict",
+    "one_batch",
+    "reject_or_hold",
+    "resolve_same_operation",
+    "outbox_pending",
+    "reconcile_original",
+    "resolve_or_reject_stale",
+    "recover_from_durable_record",
+    "hold_indeterminate",
+    "reconcile_chain",
+    "reject_before_commit",
+    "idempotent_projection",
+    "reject",
+    "reject_promotion",
+    "local_atomic_rollback",
+    "reconcile_cross_cell_effect",
+    "chain_head_retry_same_identity",
+    "recipient_claim_reconcile",
+    "freeze_fork_conflict"
+  ],
+  "scenarios": [
+    {
+      "id": "EOP-001",
+      "domain": "identity",
+      "threat": "Same identity and same fingerprint, exact retry across both owner legs",
+      "preconditions": "The payer intent/debit and recipient claim/credit are committed and visible for one operation identity.",
+      "adversarial_mutation": "Retry with the exact same identity and fingerprint; attempt to create another sender intent, debit, recipient claim or credit.",
+      "expected_disposition": "return_original",
+      "required_control": "Return the original sender-intent, debit, recipient-claim and credit references; every owner-leg effect remains at most one."
+    },
+    {
+      "id": "EOP-002",
+      "domain": "identity",
+      "threat": "Same identity with altered semantic fingerprint",
+      "preconditions": "An operation identity is already bound to payer, beneficiary, amount, currency, purpose, source obligation and fee policy.",
+      "adversarial_mutation": "Change any bound semantic field while keeping the identity.",
+      "expected_disposition": "reject_conflict",
+      "required_control": "Reject the altered request and preserve the original operation and all effects unchanged."
+    },
+    {
+      "id": "EOP-003",
+      "domain": "concurrency",
+      "threat": "Concurrent same-identity requests on one payer source chain",
+      "preconditions": "Two payer-authorized calls begin from the same source-chain head and carry the same identity and fingerprint.",
+      "adversarial_mutation": "Race both calls through sender-intent and debit creation.",
+      "expected_disposition": "one_batch",
+      "required_control": "At most one sender intent and debit commit atomically on the payer chain. The losing call refreshes, resolves the winning identity and never creates a second debit; the recipient leg remains separately claimed."
+    },
+    {
+      "id": "EOP-004",
+      "domain": "authority",
+      "threat": "Same identity races from a second agent key",
+      "preconditions": "Two agent keys attempt to submit the same payer operation identity.",
+      "adversarial_mutation": "Use stale or conflicting DID-to-agent authority state to create a second sender intent or debit.",
+      "expected_disposition": "reject_or_hold",
+      "required_control": "One authoritative payer key / source chain must be established. Alternate-key ambiguity blocks rather than authorizing a second value effect; a local source-chain proof is not a global uniqueness theorem."
+    },
+    {
+      "id": "EOP-005",
+      "domain": "same_chain_atomicity",
+      "threat": "Sender intent and debit split across source-chain commits",
+      "preconditions": "The payer's transfer intent, payer balance successor, fee liability and outbox record are intended to be written by one Finance zome invocation on the payer's source chain.",
+      "adversarial_mutation": "Inject a host / validation / chain-head error before the transaction commits and attempt to leave only the debit or only the intent.",
+      "expected_disposition": "local_atomic_rollback",
+      "required_control": "Holochain same-source-chain atomicity must commit the sender intent, debit and local fee/outbox records together or roll them all back. A real-agent test asserts no orphan intent or debit after failure."
+    },
+    {
+      "id": "EOP-006",
+      "domain": "cross_cell_atomicity",
+      "threat": "Treasury accepts a fee before the payer-chain transaction commits",
+      "preconditions": "A Treasury fee call is attempted before the sender's intent/debit/outbox source-chain transaction has committed.",
+      "adversarial_mutation": "Let Treasury accept the fee and then force the payer-chain transaction to abort.",
+      "expected_disposition": "reconcile_cross_cell_effect",
+      "required_control": "Do not dispatch Treasury delivery before the sender transaction commits. Commit a durable fee liability/outbox item first, then dispatch with the Treasury-owned idempotency identity and reconcile its exact receipt."
+    },
+    {
+      "id": "EOP-007",
+      "domain": "response_loss",
+      "threat": "Sender intent/debit commits then Finance response is lost",
+      "preconditions": "The payer's source-chain transaction commits its intent and debit, but Energy times out before receiving the response; the recipient claim may still be pending.",
+      "adversarial_mutation": "Retry the original identity and fingerprint.",
+      "expected_disposition": "return_original",
+      "required_control": "Return the exact original sender intent and debit references. Do not create another debit; report the recipient leg as Pending until its owner-authored claim is observed."
+    },
+    {
+      "id": "EOP-008",
+      "domain": "response_loss",
+      "threat": "Response lost before the sender-chain transaction commits",
+      "preconditions": "The caller cannot tell whether Finance reached the source-chain commit boundary.",
+      "adversarial_mutation": "Retry using the same identity and fingerprint after the timeout.",
+      "expected_disposition": "resolve_same_operation",
+      "required_control": "Resolve the original identity; at most one sender commit. If commit status is not yet authoritative, return Indeterminate and do not mint a replacement identity."
+    },
+    {
+      "id": "EOP-009",
+      "domain": "fee_outbox",
+      "threat": "Treasury unavailable after sender commit",
+      "preconditions": "The sender transaction contains one fee liability and one durable outbox item; Treasury is unavailable.",
+      "adversarial_mutation": "Retry fee delivery with a new identity or erase the Pending liability.",
+      "expected_disposition": "outbox_pending",
+      "required_control": "Preserve the fee liability and pending outbox. Do not create a fresh fee operation identity or treat the fee as delivered."
+    },
+    {
+      "id": "EOP-010",
+      "domain": "fee_outbox",
+      "threat": "Treasury accepts fee but its response is lost",
+      "preconditions": "Treasury may have committed the fee delivery even though Finance received no response.",
+      "adversarial_mutation": "Query or retry the same Treasury-owned outbox identity.",
+      "expected_disposition": "reconcile_original",
+      "required_control": "Treasury resolves the same identity to the original receipt; fee delivery remains at most one."
+    },
+    {
+      "id": "EOP-011",
+      "domain": "retention",
+      "threat": "Client idempotency cache expires after sender debit",
+      "preconditions": "The short-lived transport cache entry has expired, but the durable sender intent, debit and operation tombstone remain.",
+      "adversarial_mutation": "Re-use the old identity with the same or changed fingerprint.",
+      "expected_disposition": "resolve_or_reject_stale",
+      "required_control": "Never treat cache expiry as permission to debit again; resolve the original intent / debit or reject stale reuse."
+    },
+    {
+      "id": "EOP-012",
+      "domain": "recovery",
+      "threat": "Finance conductor restarts after sender commit before response",
+      "preconditions": "The payer source chain contains the immutable intent and debit, but volatile process cache state is lost.",
+      "adversarial_mutation": "Restart and retry the original identity.",
+      "expected_disposition": "recover_from_durable_record",
+      "required_control": "Reconstruct the sender-leg disposition and exact ActionHashes from durable source-chain evidence; recipient claim is reconciled independently."
+    },
+    {
+      "id": "EOP-013",
+      "domain": "dht",
+      "threat": "DHT partition or delayed gossip hides an existing owner-leg record",
+      "preconditions": "A remote read does not yet expose the sender intent or recipient claim ActionHash.",
+      "adversarial_mutation": "Attempt a second same-key sender debit or recipient credit based only on a missing DHT link.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Missing DHT evidence is not proof of absence. Query the authoritative owner chain or remain Indeterminate; never create a second owner-leg effect."
+    },
+    {
+      "id": "EOP-014",
+      "domain": "fork",
+      "threat": "Source-chain-top race or fork recovery",
+      "preconditions": "Two calls race a source-chain head or a restored/forked agent attempts to append.",
+      "adversarial_mutation": "Retry using a fresh identity or accept both sibling histories.",
+      "expected_disposition": "reconcile_chain",
+      "required_control": "Do not create a new economic identity to bypass the old one; only one authoritative chain/effect owner outcome may be accepted."
+    },
+    {
+      "id": "EOP-015",
+      "domain": "conservation",
+      "threat": "Fee formula or integer arithmetic overflow across two owner legs",
+      "preconditions": "Payer debit, recipient principal claim, fee liability and Treasury fee receipt use exact integer units and a versioned fee policy.",
+      "adversarial_mutation": "Overflow, use floating-point amounts, or change the fee policy version under the same identity.",
+      "expected_disposition": "reject_before_commit",
+      "required_control": "Reject invalid amount/policy before sender commit. Reconcile exact integer principal and fee: payer debit equals recipient credit plus outstanding recipient liability plus fee delivered plus outstanding fee liability."
+    },
+    {
+      "id": "EOP-016",
+      "domain": "projection",
+      "threat": "Payment / Receipt projections replay across owner chains",
+      "preconditions": "Projection workers repeatedly process the sender intent/debit and recipient claim/credit ActionHashes.",
+      "adversarial_mutation": "Create duplicate Payment / Receipt records or links, or replay a projection as a value mutation.",
+      "expected_disposition": "idempotent_projection",
+      "required_control": "Projection identity binds to the exact sender and recipient ActionHashes; replay converges to one deterministic view and never mutates balances."
+    },
+    {
+      "id": "EOP-017",
+      "domain": "authority",
+      "threat": "Caller or beneficiary substitution",
+      "preconditions": "The request has a valid operation identity but the authenticated payer, beneficiary agent or exact recipient owner differs from the fingerprint.",
+      "adversarial_mutation": "Submit as a different payer or substitute beneficiary on retry / claim.",
+      "expected_disposition": "reject",
+      "required_control": "Validate the authenticated payer at the sender commit and the exact beneficiary author at the recipient claim boundary; no substituted owner effect is committed."
+    },
+    {
+      "id": "EOP-018",
+      "domain": "completion_semantics",
+      "threat": "Sender debit or internal recipient claim is presented as external payment finality",
+      "preconditions": "The sender intent/debit or beneficiary claim/credit is committed, but no bank / payment-rail finality evidence exists.",
+      "adversarial_mutation": "Promote local Payment Completed or a recipient claim into external PaidFinal.",
+      "expected_disposition": "reject_promotion",
+      "required_control": "Represent Debited, recipient Settled, Treasury Delivered and external rail finality as distinct states. No local ledger event proves custody, legal discharge or external settlement."
+    },
+    {
+      "id": "EOP-019",
+      "domain": "outbox_recovery",
+      "threat": "post_commit wake-up is lost after the sender transaction commits",
+      "preconditions": "The sender intent/debit and Pending Treasury outbox record are committed on the payer source chain, but the process crashes before post_commit dispatch wake-up.",
+      "adversarial_mutation": "Rely only on an in-memory callback or notification and never scan the durable outbox after restart.",
+      "expected_disposition": "recover_from_durable_record",
+      "required_control": "A restart-safe scanner reconstructs pending outbox work from committed payer-chain records and dispatches with the same Treasury identity; callback is only a wake-up hint."
+    },
+    {
+      "id": "EOP-020",
+      "domain": "source_chain_concurrency",
+      "threat": "Same-agent concurrent calls lose a source-chain-top race",
+      "preconditions": "Two Finance zome invocations for one payer and identical operation identity start from the same source-chain snapshot; one commits first.",
+      "adversarial_mutation": "The competing invocation returns chain-head-moved and the caller retries with a fresh identity or skips lookup of the winning intent.",
+      "expected_disposition": "chain_head_retry_same_identity",
+      "required_control": "Treat chain-head movement as a non-committing concurrency loss. Refresh the payer chain, query the original identity/fingerprint, return the winning intent if present, or retry the exact same identity if absent."
+    },
+    {
+      "id": "EOP-021",
+      "domain": "recipient_claim_recovery",
+      "threat": "Recipient balance claim commits but its response is lost",
+      "preconditions": "The payer intent/debit exists; the beneficiary authored its own claim and balance successor, but the caller did not receive the recipient ActionHash.",
+      "adversarial_mutation": "Repeat the recipient claim as a new credit operation or mark the payment Settled without independently observing the original claim.",
+      "expected_disposition": "recipient_claim_reconcile",
+      "required_control": "Query the same sender-intent identity and beneficiary chain; return the original recipient claim / successor ActionHashes, or remain Indeterminate. Never issue a second credit."
+    },
+    {
+      "id": "EOP-022",
+      "domain": "recipient_fork_conflict",
+      "threat": "Two valid beneficiary-authored successors compete from the same predecessor",
+      "preconditions": "A recipient balance predecessor has two distinct owner-authored successor ActionHashes on sibling / restored source-chain histories, each apparently claiming the same transfer intent.",
+      "adversarial_mutation": "Select the last DHT link, sum both successors, or treat either branch as spendable.",
+      "expected_disposition": "freeze_fork_conflict",
+      "required_control": "Classify the predecessor as BalanceConflict, freeze spendability and issuance on that lineage, expose both successor references, and require an explicit independently qualified resolution theorem. Never choose by link ordering or sum."
+    }
+  ]
+}
