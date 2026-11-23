@@ -313,7 +313,7 @@ impl PostgresEffectCommitVerifier {
             return Err("PostgreSQL receipt verifier session is read-only".into());
         }
 
-        let receipt = decode_effect_receipt(&row)?;
+        let receipt = decode_effect_receipt(&row, &self.trusted_authority_lease_keys)?;
         validate_receipt_binding(binding, &receipt)?;
         Ok(receipt)
     }
@@ -361,7 +361,10 @@ impl OwnerDispositionVerifier for PostgresEffectCommitVerifier {
     }
 }
 
-fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, String> {
+fn decode_effect_receipt(
+    row: &Row,
+    trusted_authority_lease_keys: &BTreeSet<[u8; 32]>,
+) -> Result<VerifiedPostgresEffectReceipt, String> {
     let effect_id: String = row.get(2);
     let realm_id: String = row.get(3);
     let resource_id: String = row.get(4);
@@ -426,6 +429,57 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
             physical_fencing_receipt_digest,
         },
     )?;
+
+    let effect_authority_lease = decode_and_verify_authority_write_lease(
+        raw_authority_lease_from_row(row, 34, true)?,
+        AuthorityWriteScope::DirectoryFabricEffect,
+        owner_epoch,
+        accepted_generation,
+        trusted_authority_lease_keys,
+    )?;
+
+    let promotion_authority_lease = match &epoch_transition {
+        Some(transition) => {
+            let evidence = decode_and_verify_authority_write_lease(
+                raw_authority_lease_from_row(row, 53, false)?,
+                AuthorityWriteScope::DatabaseEpochPromotion,
+                transition.new_owner_epoch,
+                transition.new_generation,
+                trusted_authority_lease_keys,
+            )?;
+            if evidence.lease_generation >= effect_authority_lease.lease_generation
+                || evidence.external_highwater_receipt_digest
+                    != transition.epoch_authority_receipt_digest
+                || evidence.physical_fencing_receipt_digest
+                    != Some(transition.physical_fencing_receipt_digest)
+            {
+                return Err(
+                    "owner-epoch promotion lease does not match the transition's external high-water, physical fence or lease-generation order"
+                        .into(),
+                );
+            }
+            if evidence.signed_lease.lease.deployment_id
+                != effect_authority_lease.signed_lease.lease.deployment_id
+                || evidence.signed_lease.lease.primary_id
+                    != effect_authority_lease.signed_lease.lease.primary_id
+                || evidence.signed_lease.lease.database_system_identifier
+                    != effect_authority_lease.signed_lease.lease.database_system_identifier
+                || evidence.signed_lease.lease.postgres_timeline
+                    != effect_authority_lease.signed_lease.lease.postgres_timeline
+                || evidence.signed_lease.lease.epoch_number
+                    != effect_authority_lease.signed_lease.lease.epoch_number
+                || evidence.signed_lease.lease.epoch_hash
+                    != effect_authority_lease.signed_lease.lease.epoch_hash
+            {
+                return Err(
+                    "effect lease and promotion lease do not bind the same deployment/database epoch"
+                        .into(),
+                );
+            }
+            Some(evidence)
+        }
+        None => None,
+    };
     if worker_id.trim().is_empty()
         || claim_clock_profile_id.trim().is_empty()
         || database_xact_id.trim().is_empty()
@@ -454,6 +508,8 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
         claim_expires_at: &claim_expires_at,
         database_xact_id: &database_xact_id,
         epoch_transition: &epoch_transition,
+        effect_authority_lease: &effect_authority_lease,
+        promotion_authority_lease: &promotion_authority_lease,
         delta_minor,
         balance_after_minor,
         idempotency_digest: &idempotency_digest,
@@ -482,6 +538,8 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
         claim_expires_at,
         database_xact_id,
         epoch_transition,
+        effect_authority_lease,
+        promotion_authority_lease,
         delta_minor,
         balance_after_minor,
         idempotency_digest,
