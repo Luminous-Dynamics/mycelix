@@ -23,7 +23,7 @@ java -jar ./tla2tools.jar -config PCOEEffectOwnerPayment-mutant.cfg PCOEEffectOw
 
 The first run must complete without an invariant violation. The second is an intentional negative control and must fail specifically on `NoPartialLocalValueEffect`, because it enables either a debit that commits outside the same-source-chain atomic batch or a duplicate debit after commit.
 
-The state space is finite: retries and unsafe debit mutations are bounded, operation / fee / response states are finite, and the safe model disables the mutant actions.
+The state space is finite: retries, durable-outbox scans and unsafe debit mutations are bounded, operation / fee / response / wake-up states are finite, and the safe model disables the mutant actions.
 
 ## What the model does and does not prove
 
@@ -34,6 +34,7 @@ The model checks the abstract safety contract:
 - a committed operation corresponds to a complete batch;
 - response delivery cannot precede commit;
 - an unknown fee outcome is reconciled through its original outbox identity;
+- a lost post-commit wake-up does not erase a Pending outbox item; a bounded durable scanner can rediscover it and restore the dispatch signal;
 - expiration of a client cache does not erase the durable operation tombstone.
 
 It does **not** prove that the live Holochain implementation satisfies the model, that a source-chain identity is globally unique across agents or forks, or that Treasury / external rails have the required idempotency. Those require real-agent tests and effect-owner adapter evidence.
