@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic regenerative soil candidate frontier report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "candidate_assessments",
+    "pareto_frontier_candidate_ids",
+    "no_weighted_score_emitted",
+    "threshold_status",
+    "controls",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_agronomic_evidence"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidate_assessments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_id",
+          "eligibility_status",
+          "reasons",
+          "dominated_by",
+          "on_frontier"
+        ],
+        "properties": {
+          "candidate_id": {
+            "type": "string"
+          },
+          "eligibility_status": {
+            "enum": [
+              "eligible",
+              "blocked",
+              "unresolved"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dominated_by": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "on_frontier": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "pareto_frontier_candidate_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "no_weighted_score_emitted": {
+      "const": true
+    },
+    "threshold_status": {
+      "const": "synthetic_fixture_only_not_local_thresholds"
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hard_gate_before_pareto_pass",
+        "unknown_never_pass_pass",
+        "interval_overlap_guardrail_abstention_pass",
+        "full_outcome_coverage_pass",
+        "no_weighted_aggregate_pass",
+        "no_action_baseline_supported"
+      ],
+      "properties": {
+        "hard_gate_before_pareto_pass": {
+          "const": true
+        },
+        "unknown_never_pass_pass": {
+          "const": true
+        },
+        "interval_overlap_guardrail_abstention_pass": {
+          "const": true
+        },
+        "full_outcome_coverage_pass": {
+          "const": true
+        },
+        "no_weighted_aggregate_pass": {
+          "const": true
+        },
+        "no_action_baseline_supported": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

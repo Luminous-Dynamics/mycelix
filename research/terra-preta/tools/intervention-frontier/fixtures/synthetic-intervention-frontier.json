@@ -1,0 +1,336 @@
+{
+  "schema_version": "intervention-frontier-v0.1",
+  "fixture_status": "synthetic_only_not_agronomic_evidence",
+  "evidence_class": "synthetic",
+  "scenario_id": "manufactured-saline-soil-treatment-alternatives",
+  "frontier_contract": {
+    "threshold_authority": "Synthetic fixture oracle only",
+    "threshold_status": "synthetic_fixture_only"
+  },
+  "outcome_definitions": [
+    {
+      "outcome_id": "crop_yield",
+      "unit": "synthetic_yield_index",
+      "direction": "maximize",
+      "hard_minimum": 5,
+      "hard_guardrail_status": "synthetic_fixture_only"
+    },
+    {
+      "outcome_id": "soc_stock",
+      "unit": "synthetic_carbon_stock_index",
+      "direction": "maximize",
+      "hard_guardrail_status": "not_set"
+    },
+    {
+      "outcome_id": "nitrate_export",
+      "unit": "synthetic_n_export_index",
+      "direction": "minimize",
+      "hard_maximum": 5,
+      "hard_guardrail_status": "synthetic_fixture_only"
+    },
+    {
+      "outcome_id": "ec_index",
+      "unit": "synthetic_ec_index",
+      "direction": "minimize",
+      "hard_maximum": 4,
+      "hard_guardrail_status": "synthetic_fixture_only"
+    },
+    {
+      "outcome_id": "chloride_index",
+      "unit": "synthetic_chloride_index",
+      "direction": "minimize",
+      "hard_maximum": 6,
+      "hard_guardrail_status": "synthetic_fixture_only"
+    },
+    {
+      "outcome_id": "ph_deviation",
+      "unit": "synthetic_ph_deviation_index",
+      "direction": "target_range",
+      "target_min": 0,
+      "target_max": 0.4,
+      "hard_guardrail_status": "not_set"
+    }
+  ],
+  "candidates": [
+    {
+      "candidate_id": "no-action",
+      "candidate_class": "no_action",
+      "domain_status": "in_domain",
+      "critical_evidence_status": "complete",
+      "product_quality_status": "not_applicable",
+      "sourcing_status": "not_applicable",
+      "outcomes": [
+        {
+          "outcome_id": "crop_yield",
+          "lower_bound": 8,
+          "upper_bound": 8.5
+        },
+        {
+          "outcome_id": "soc_stock",
+          "lower_bound": 1,
+          "upper_bound": 1.1
+        },
+        {
+          "outcome_id": "nitrate_export",
+          "lower_bound": 4,
+          "upper_bound": 4.4
+        },
+        {
+          "outcome_id": "ec_index",
+          "lower_bound": 2.5,
+          "upper_bound": 2.8
+        },
+        {
+          "outcome_id": "chloride_index",
+          "lower_bound": 2.5,
+          "upper_bound": 3
+        },
+        {
+          "outcome_id": "ph_deviation",
+          "lower_bound": 0.25,
+          "upper_bound": 0.3
+        }
+      ]
+    },
+    {
+      "candidate_id": "residue-cover-management",
+      "candidate_class": "management",
+      "domain_status": "in_domain",
+      "critical_evidence_status": "complete",
+      "product_quality_status": "not_applicable",
+      "sourcing_status": "not_applicable",
+      "outcomes": [
+        {
+          "outcome_id": "crop_yield",
+          "lower_bound": 9,
+          "upper_bound": 9.5
+        },
+        {
+          "outcome_id": "soc_stock",
+          "lower_bound": 1.2,
+          "upper_bound": 1.3
+        },
+        {
+          "outcome_id": "nitrate_export",
+          "lower_bound": 3.5,
+          "upper_bound": 3.8
+        },
+        {
+          "outcome_id": "ec_index",
+          "lower_bound": 2.3,
+          "upper_bound": 2.4
+        },
+        {
+          "outcome_id": "chloride_index",
+          "lower_bound": 2.4,
+          "upper_bound": 2.5
+        },
+        {
+          "outcome_id": "ph_deviation",
+          "lower_bound": 0.2,
+          "upper_bound": 0.25
+        }
+      ]
+    },
+    {
+      "candidate_id": "gypsum-candidate",
+      "candidate_class": "mineral_amendment",
+      "domain_status": "in_domain",
+      "critical_evidence_status": "complete",
+      "product_quality_status": "profile_pass",
+      "sourcing_status": "approved",
+      "outcomes": [
+        {
+          "outcome_id": "crop_yield",
+          "lower_bound": 8.8,
+          "upper_bound": 9
+        },
+        {
+          "outcome_id": "soc_stock",
+          "lower_bound": 1,
+          "upper_bound": 1.1
+        },
+        {
+          "outcome_id": "nitrate_export",
+          "lower_bound": 3,
+          "upper_bound": 3.2
+        },
+        {
+          "outcome_id": "ec_index",
+          "lower_bound": 1.7,
+          "upper_bound": 1.9
+        },
+        {
+          "outcome_id": "chloride_index",
+          "lower_bound": 2,
+          "upper_bound": 2.2
+        },
+        {
+          "outcome_id": "ph_deviation",
+          "lower_bound": 0.1,
+          "upper_bound": 0.2
+        }
+      ]
+    },
+    {
+      "candidate_id": "biochar-low-chloride",
+      "candidate_class": "biochar",
+      "domain_status": "in_domain",
+      "critical_evidence_status": "complete",
+      "product_quality_status": "profile_pass",
+      "sourcing_status": "approved",
+      "outcomes": [
+        {
+          "outcome_id": "crop_yield",
+          "lower_bound": 10,
+          "upper_bound": 11
+        },
+        {
+          "outcome_id": "soc_stock",
+          "lower_bound": 1.5,
+          "upper_bound": 1.8
+        },
+        {
+          "outcome_id": "nitrate_export",
+          "lower_bound": 4.7,
+          "upper_bound": 4.9
+        },
+        {
+          "outcome_id": "ec_index",
+          "lower_bound": 2.7,
+          "upper_bound": 2.9
+        },
+        {
+          "outcome_id": "chloride_index",
+          "lower_bound": 5.6,
+          "upper_bound": 5.9
+        },
+        {
+          "outcome_id": "ph_deviation",
+          "lower_bound": 0.2,
+          "upper_bound": 0.3
+        }
+      ]
+    },
+    {
+      "candidate_id": "biochar-uncertain-chloride",
+      "candidate_class": "biochar",
+      "domain_status": "in_domain",
+      "critical_evidence_status": "complete",
+      "product_quality_status": "profile_pass",
+      "sourcing_status": "approved",
+      "outcomes": [
+        {
+          "outcome_id": "crop_yield",
+          "lower_bound": 10,
+          "upper_bound": 11
+        },
+        {
+          "outcome_id": "soc_stock",
+          "lower_bound": 1.5,
+          "upper_bound": 1.8
+        },
+        {
+          "outcome_id": "nitrate_export",
+          "lower_bound": 4.7,
+          "upper_bound": 4.9
+        },
+        {
+          "outcome_id": "ec_index",
+          "lower_bound": 2.7,
+          "upper_bound": 2.9
+        },
+        {
+          "outcome_id": "chloride_index",
+          "lower_bound": 5.8,
+          "upper_bound": 6.3
+        },
+        {
+          "outcome_id": "ph_deviation",
+          "lower_bound": 0.2,
+          "upper_bound": 0.3
+        }
+      ]
+    },
+    {
+      "candidate_id": "compost-quality-unknown",
+      "candidate_class": "compost",
+      "domain_status": "in_domain",
+      "critical_evidence_status": "incomplete",
+      "product_quality_status": "unknown",
+      "sourcing_status": "unknown",
+      "outcomes": [
+        {
+          "outcome_id": "crop_yield",
+          "lower_bound": 10,
+          "upper_bound": 11
+        },
+        {
+          "outcome_id": "soc_stock",
+          "lower_bound": 1.4,
+          "upper_bound": 1.6
+        },
+        {
+          "outcome_id": "nitrate_export",
+          "lower_bound": 3.2,
+          "upper_bound": 4
+        },
+        {
+          "outcome_id": "ec_index",
+          "lower_bound": 2,
+          "upper_bound": 2.5
+        },
+        {
+          "outcome_id": "chloride_index",
+          "lower_bound": 2.5,
+          "upper_bound": 3
+        },
+        {
+          "outcome_id": "ph_deviation",
+          "lower_bound": 0.15,
+          "upper_bound": 0.3
+        }
+      ]
+    },
+    {
+      "candidate_id": "biochar-failed-quality",
+      "candidate_class": "biochar",
+      "domain_status": "in_domain",
+      "critical_evidence_status": "adverse",
+      "product_quality_status": "profile_fail",
+      "sourcing_status": "approved",
+      "outcomes": [
+        {
+          "outcome_id": "crop_yield",
+          "lower_bound": 11,
+          "upper_bound": 12
+        },
+        {
+          "outcome_id": "soc_stock",
+          "lower_bound": 1.8,
+          "upper_bound": 2
+        },
+        {
+          "outcome_id": "nitrate_export",
+          "lower_bound": 2,
+          "upper_bound": 3
+        },
+        {
+          "outcome_id": "ec_index",
+          "lower_bound": 1,
+          "upper_bound": 2
+        },
+        {
+          "outcome_id": "chloride_index",
+          "lower_bound": 1,
+          "upper_bound": 2
+        },
+        {
+          "outcome_id": "ph_deviation",
+          "lower_bound": 0.1,
+          "upper_bound": 0.2
+        }
+      ]
+    }
+  ]
+}

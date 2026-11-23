@@ -1,0 +1,72 @@
+name: Terra Preta intervention-agnostic candidate frontier
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/INTERVENTION_AGNOSTIC_CANDIDATE_FRONTIER_V0.1.md'
+      - 'research/terra-preta/schemas/intervention-frontier-*.schema.json'
+      - 'research/terra-preta/tools/intervention-frontier/**'
+      - '.github/workflows/terra-preta-intervention-frontier.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  intervention-frontier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/intervention-frontier/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/intervention-frontier/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/intervention-frontier/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate synthetic fixture and report
+        run: |
+          input=research/terra-preta/schemas/intervention-frontier-input.schema.json
+          output=research/terra-preta/schemas/intervention-frontier-report.schema.json
+          fixture=research/terra-preta/tools/intervention-frontier/fixtures/synthetic-intervention-frontier.json
+          jsonschema-cli validate "$input" --instance "$fixture" --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/intervention-frontier/Cargo.toml -- \
+            "$fixture" "$RUNNER_TEMP/intervention-frontier-report.json"
+          jsonschema-cli validate "$output" --instance "$RUNNER_TEMP/intervention-frontier-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_only_not_agronomic_evidence" and
+            .threshold_status == "synthetic_fixture_only_not_local_thresholds" and
+            .no_weighted_score_emitted == true and
+            (.pareto_frontier_candidate_ids | index("residue-cover-management") != null) and
+            (.pareto_frontier_candidate_ids | index("gypsum-candidate") != null) and
+            (.pareto_frontier_candidate_ids | index("biochar-low-chloride") != null) and
+            (.pareto_frontier_candidate_ids | index("biochar-uncertain-chloride") == null) and
+            (.candidate_assessments[] | select(.candidate_id == "biochar-uncertain-chloride") | .eligibility_status == "unresolved") and
+            (.candidate_assessments[] | select(.candidate_id == "compost-quality-unknown") | .eligibility_status == "unresolved") and
+            (.candidate_assessments[] | select(.candidate_id == "biochar-failed-quality") | .eligibility_status == "blocked") and
+            .controls.no_action_baseline_supported == true
+          ' "$RUNNER_TEMP/intervention-frontier-report.json"
+      - name: Reject missing outcome coverage
+        run: |
+          fixture=research/terra-preta/tools/intervention-frontier/fixtures/synthetic-intervention-frontier.json
+          jq '.candidates[1].outcomes = [.candidates[1].outcomes[] | select(.outcome_id != "chloride_index")]' "$fixture" > "$RUNNER_TEMP/missing-outcome.json"
+          cargo run --quiet --manifest-path research/terra-preta/tools/intervention-frontier/Cargo.toml -- \
+            "$RUNNER_TEMP/missing-outcome.json" "$RUNNER_TEMP/missing-outcome-report.json"
+          test "$(jq -r '.candidate_assessments[] | select(.candidate_id == "residue-cover-management") | .eligibility_status' "$RUNNER_TEMP/missing-outcome-report.json")" = "unresolved"
+          test "$(jq -r '.candidate_assessments[] | select(.candidate_id == "residue-cover-management") | .on_frontier' "$RUNNER_TEMP/missing-outcome-report.json")" = "false"
+      - name: Reject output overwrite
+        run: |
+          fixture=research/terra-preta/tools/intervention-frontier/fixtures/synthetic-intervention-frontier.json
+          report="$RUNNER_TEMP/existing-intervention-report.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/intervention-frontier/Cargo.toml -- "$fixture" "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"
