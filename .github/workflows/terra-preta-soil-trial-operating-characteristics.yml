@@ -41,6 +41,30 @@ jobs:
             "$RUNNER_TEMP/soil-trial-oc-report.json"
           jsonschema-cli validate research/terra-preta/schemas/soil-trial-operating-characteristics-report.schema.json \
             --instance "$RUNNER_TEMP/soil-trial-oc-report.json" --draft 2020 --assert-format
+      - name: Print synthetic operating-characteristic summary
+        run: |
+          jq -r '
+            .scenarios[] |
+            [
+              .scenario_id,
+              .operating_characteristic,
+              (.true_itt_effect | tostring),
+              (.qualified_trial_count | tostring),
+              (.abstained_missing_outcome_count | tostring),
+              (.abstained_interference_count | tostring),
+              (.empirical_rejection_rate // "NA" | tostring),
+              (.rejection_rate_monte_carlo_se // "NA" | tostring),
+              (.bias // "NA" | tostring),
+              (.rmse // "NA" | tostring)
+            ] | @tsv
+          ' "$RUNNER_TEMP/soil-trial-oc-report.json"
+      - name: Upload synthetic operating-characteristics report
+        uses: actions/upload-artifact@v4
+        with:
+          name: soil-trial-operating-characteristics-${{ github.sha }}
+          path: "$RUNNER_TEMP/soil-trial-oc-report.json"
+          if-no-files-found: error
+          retention-days: 90
           jq -e '
             .fixture_status == "synthetic_only_not_empirical_evidence" and
             .scenario_count == 8 and
