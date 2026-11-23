@@ -325,3 +325,64 @@ impl SignedAuthorityWriteLease {
         Ok(ContentHash::digest(&bytes))
     }
 }
+
+fn validate_text(value: &str, max_bytes: usize, label: &str) -> Result<()> {
+    let value = value.trim();
+    if value.is_empty() || value.len() > max_bytes || value.chars().any(char::is_control) {
+        return Err(Error::Validation(format!(
+            "{label} must contain 1-{max_bytes} printable bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn push_text(bytes: &mut Vec<u8>, value: &str) -> Result<()> {
+    push_bytes(bytes, value.as_bytes())
+}
+
+fn push_bytes(bytes: &mut Vec<u8>, value: &[u8]) -> Result<()> {
+    push_len(bytes, value.len())?;
+    bytes.extend_from_slice(value);
+    Ok(())
+}
+
+fn push_len(bytes: &mut Vec<u8>, value: usize) -> Result<()> {
+    let value = u32::try_from(value).map_err(|_| {
+        Error::Validation("canonical authority-write lease field exceeds u32 length".to_string())
+    })?;
+    bytes.extend_from_slice(&value.to_be_bytes());
+    Ok(())
+}
+
+fn push_u16(bytes: &mut Vec<u8>, value: u16) {
+    bytes.extend_from_slice(&value.to_be_bytes());
+}
+
+fn push_u64(bytes: &mut Vec<u8>, value: u64) {
+    bytes.extend_from_slice(&value.to_be_bytes());
+}
+
+fn push_option_u64(bytes: &mut Vec<u8>, value: Option<u64>) {
+    match value {
+        Some(value) => {
+            bytes.push(1);
+            push_u64(bytes, value);
+        }
+        None => bytes.push(0),
+    }
+}
+
+fn push_option_hash(bytes: &mut Vec<u8>, value: Option<ContentHash>) {
+    match value {
+        Some(value) => {
+            bytes.push(1);
+            bytes.extend_from_slice(&value.0);
+        }
+        None => bytes.push(0),
+    }
+}
+
+fn push_datetime(bytes: &mut Vec<u8>, value: &DateTime<Utc>) {
+    bytes.extend_from_slice(&value.timestamp().to_be_bytes());
+    bytes.extend_from_slice(&value.timestamp_subsec_nanos().to_be_bytes());
+}
