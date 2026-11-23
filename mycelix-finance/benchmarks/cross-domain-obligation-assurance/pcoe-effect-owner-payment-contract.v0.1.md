@@ -122,7 +122,7 @@ The Finance `post_commit` callback is only a wake-up hint. A restart-safe scanne
 
 There is no atomic transaction spanning sender, beneficiary and Treasury source chains. The protocol is a sequence of separately authored, identity-bound effects with explicit pending / indeterminate / conflict states. Cross-owner uniqueness, cloned-agent identity and fork resolution require separate authority proofs and adversarial multi-agent tests. Never infer global serializability from a local source-chain commit or DHT link count.
 
-This direction composes with the existing [AC-099 owner-authenticated transfer design / PR #4178](https://github.com/Luminous-Dynamics/mycelix/pull/4178), the [predecessor-bound balance-effect work / PR #657](https://github.com/Luminous-Dynamics/mycelix/pull/657), and [FIN-SAFE-012 / #654](https://github.com/Luminous-Dynamics/mycelix/issues/654). These are open, stale-branch design / implementation workstreams, not current-main guarantees. PCOE adds a cross-domain fault / history qualification profile; it must not replace their owner-authored balance semantics.
+This direction composes with the existing [AC-099 owner-authenticated transfer design / PR #4178](https://github.com/Luminous-Dynamics/mycelix/pull/4178), the [predecessor-bound balance-effect work / PR #657](https://github.com/Luminous-Dynamics/mycelix/pull/657), and [FIN-SAFE-012 / #654](https://github.com/Luminous-Dynamics/mycelix/issues/654). As rechecked on 23 November 2026, PR #4178 is 69 commits ahead / 117 behind current main; PR #657 is 36 ahead / 194 behind. These open branches are design / implementation candidates, not current-main guarantees. They must be rebased and re-audited before integration. PCOE adds a cross-domain fault / history qualification profile; it must not replace their owner-authored balance semantics.
 
 ## 5. Operation, owner-leg and delivery states are separate
 
@@ -297,9 +297,9 @@ All numerical targets above are preregistered research goals, not measured resul
 
 ## 10. Scenario corpus and model status
 
-The companion corpus defines **22 synthetic adversarial cases**. These are executable-test contracts, not 22 passed tests.
+The companion corpus defines **22 synthetic adversarial cases** in `pcoe-effect-owner-payment-scenarios.v0.1.json`, with a companion Draft 2020-12 schema. These are executable-test contracts, not 22 passed tests.
 
-The companion TLA+ model represents the payer's sender-intent/debit commit, the beneficiary's separately authored claim/credit, Treasury's independent fee effect, sender and recipient response loss, operation-identity replay, source-chain-top movement, durable outbox scanning and recipient fork conflict freeze. The unsafe mutant splits sender intent from debit or duplicates the debit. Safe and mutant TLC configurations are provided.
+The companion TLA+ model represents the payer's sender-intent/debit commit, the beneficiary's separately authored claim/credit, Treasury's independent fee effect, sender and recipient response loss, operation-identity replay, source-chain-top movement, durable outbox scanning and recipient fork conflict freeze. The unsafe mutant splits sender intent from debit or duplicates the debit. Safe and mutant TLC configurations are provided. The model tracks effect counts and state transitions; it does not model actual token quantities, fee arithmetic or valuation. Those remain separate FIN-SAFE arithmetic / provenance obligations.
 
 **Model-checking status:** the earlier single-batch model's TLC results are superseded by this two-owner rewrite. This revision is authored and statically frame-audited but has not yet passed TLC. The exact-head workflow must complete with no model warning, no safe invariant violation, and the expected mutant counterexample before this revision can claim a model-check result. The model is bounded and does not prove the live Holochain runtime, alternate-agent uniqueness, real fork-resolution protocol, Treasury adapter or external rail behavior.
 
