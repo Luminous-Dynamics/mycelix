@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "segmentation-ensemble-input.schema.json",
+  "title": "Segmentation uncertainty graph ensemble input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "scenario_id",
+    "image",
+    "node_catalog",
+    "edge_catalog",
+    "source_node_ids",
+    "sink_node_ids",
+    "variants"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "segmentation-ensemble-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_uri",
+        "sha256",
+        "dimensions_voxels",
+        "voxel_spacing_um",
+        "phase_name",
+        "segmentation_method",
+        "segmentation_version",
+        "preprocessing_id",
+        "network_extractor",
+        "network_extractor_version"
+      ],
+      "properties": {
+        "artifact_uri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "dimensions_voxels": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "voxel_spacing_um": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "phase_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "segmentation_method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "segmentation_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "preprocessing_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "network_extractor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "network_extractor_version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "node_catalog": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "node_id",
+          "coordinates_um"
+        ],
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "coordinates_um": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "edge_catalog": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "edge_id",
+          "from_node_id",
+          "to_node_id"
+        ],
+        "properties": {
+          "edge_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "from_node_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "to_node_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "source_node_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "sink_node_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "variants": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 25,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "variant_id",
+          "alpha_percent",
+          "perturbation_label",
+          "segmentation_mask_sha256",
+          "network_artifact_sha256",
+          "extractor_settings_sha256",
+          "present_node_ids",
+          "present_edge_ids"
+        ],
+        "properties": {
+          "variant_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "alpha_percent": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99
+          },
+          "perturbation_label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "segmentation_mask_sha256": {
+            "type": "string",
+            "pattern": "^[A-Fa-f0-9]{64}$"
+          },
+          "network_artifact_sha256": {
+            "type": "string",
+            "pattern": "^[A-Fa-f0-9]{64}$"
+          },
+          "extractor_settings_sha256": {
+            "type": "string",
+            "pattern": "^[A-Fa-f0-9]{64}$"
+          },
+          "present_node_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "present_edge_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}
