@@ -41,6 +41,19 @@ jobs:
             "$RUNNER_TEMP/soil-trial-oc-report.json"
           jsonschema-cli validate research/terra-preta/schemas/soil-trial-operating-characteristics-report.schema.json \
             --instance "$RUNNER_TEMP/soil-trial-oc-report.json" --draft 2020 --assert-format
+      - name: Assert operating-characteristic report
+        run: |
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .scenario_count == 8 and
+            .scenarios[0].minimum_attainable_two_sided_p_value == 0.125 and
+            .scenarios[0].empirical_rejection_rate == 0 and
+            (.scenarios[5].qualified_trial_count + .scenarios[5].abstained_missing_outcome_count) == 1200 and
+            .scenarios[5].abstained_missing_outcome_count > 0 and
+            .scenarios[5].qualified_trial_count < 1200 and
+            .scenarios[7].qualified_trial_count == 0 and
+            .scenarios[7].abstained_interference_count == 1200
+          ' "$RUNNER_TEMP/soil-trial-oc-report.json"
       - name: Print synthetic operating-characteristic summary
         run: |
           jq -r '
@@ -62,22 +75,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: soil-trial-operating-characteristics-${{ github.sha }}
-          path: "$RUNNER_TEMP/soil-trial-oc-report.json"
+          path: ${{ runner.temp }}/soil-trial-oc-report.json
           if-no-files-found: error
           retention-days: 90
-      - name: Assert operating-characteristic report
-        run: |
-          jq -e '
-            .fixture_status == "synthetic_only_not_empirical_evidence" and
-            .scenario_count == 8 and
-            .scenarios[0].minimum_attainable_two_sided_p_value == 0.125 and
-            .scenarios[0].empirical_rejection_rate == 0 and
-            (.scenarios[5].qualified_trial_count + .scenarios[5].abstained_missing_outcome_count) == 1200 and
-            .scenarios[5].abstained_missing_outcome_count > 0 and
-            .scenarios[5].qualified_trial_count < 1200 and
-            .scenarios[7].qualified_trial_count == 0 and
-            .scenarios[7].abstained_interference_count == 1200
-          ' "$RUNNER_TEMP/soil-trial-oc-report.json"
       - name: Reject output overwrite
         run: |
           fixture=research/terra-preta/tools/soil-trial-operating-characteristics/fixtures/synthetic-soil-trial-oc.json
