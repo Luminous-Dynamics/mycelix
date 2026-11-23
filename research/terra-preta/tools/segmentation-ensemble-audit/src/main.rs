@@ -373,6 +373,8 @@ fn build_report(scenario: &Scenario, input_sha256: String) -> Report {
         .expect("validated reference percentile");
     let reference_node_count = reference.present_node_ids.len();
     let reference_edge_count = reference.present_edge_ids.len();
+    let (reference_component_count, reference_cycle_rank) =
+        topology_metrics(reference, &edge_catalog);
 
     let mut variant_graphs = BTreeMap::new();
     let mut variant_results = Vec::new();
@@ -425,11 +427,11 @@ fn build_report(scenario: &Scenario, input_sha256: String) -> Report {
             ),
             component_count_relative_change_from_reference: relative_change(
                 components,
-                component_count_for_variant(reference),
+                reference_component_count,
             ),
             cycle_rank_relative_change_from_reference: relative_change(
                 cycle_rank,
-                cycle_rank_for_variant(reference, &edge_catalog),
+                reference_cycle_rank,
             ),
         });
     }
@@ -543,24 +545,16 @@ fn build_report(scenario: &Scenario, input_sha256: String) -> Report {
     }
 }
 
-fn component_count_for_variant(variant: &Variant) -> usize {
-    let nodes: BTreeSet<String> = variant.present_node_ids.iter().cloned().collect();
-    let adjacency: BTreeMap<String, Vec<String>> =
-        nodes.iter().map(|node| (node.clone(), Vec::new())).collect();
-    // The reference component count is computed in build_report from the same
-    // canonical catalog; this helper is replaced by a cached reference value.
-    let _ = adjacency;
-    0
-}
-
-fn cycle_rank_for_variant(
+fn topology_metrics(
     variant: &Variant,
-    _edge_catalog: &BTreeMap<&str, &EdgeDefinition>,
-) -> usize {
-    // The reference cycle rank is computed by the caller using the canonical graph.
-    // Kept separate to make the baseline denominator explicit.
-    let _ = variant;
-    0
+    edge_catalog: &BTreeMap<&str, &EdgeDefinition>,
+) -> (usize, usize) {
+    let present_nodes: BTreeSet<String> = variant.present_node_ids.iter().cloned().collect();
+    let present_edges: BTreeSet<String> = variant.present_edge_ids.iter().cloned().collect();
+    let graph = adjacency(&present_nodes, &present_edges, edge_catalog);
+    let components = component_count(&graph);
+    let cycle_rank = present_edges.len() + components - present_nodes.len();
+    (components, cycle_rank)
 }
 
 fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
@@ -701,9 +695,16 @@ mod tests {
     }
 
     #[test]
-    fn rejects_changed_endpoint_correspondence() {
+    fn rejects_self_loop_in_canonical_edge_catalog() {
         let mut scenario = scenario();
-        scenario.edge_catalog[0].from_node_id = "upper".into();
+        scenario.edge_catalog[0].to_node_id = scenario.edge_catalog[0].from_node_id.clone();
+        assert!(validate(&scenario).is_err());
+    }
+
+    #[test]
+    fn rejects_unknown_canonical_edge_endpoint() {
+        let mut scenario = scenario();
+        scenario.edge_catalog[0].from_node_id = "unknown-node".into();
         assert!(validate(&scenario).is_err());
     }
 
