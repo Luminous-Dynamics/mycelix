@@ -127,12 +127,6 @@ struct JaccardSummary {
     mean: f64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum PairConnectivity {
-    Connected,
-    Disconnected,
-}
-
 fn valid_sha256(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
@@ -370,7 +364,7 @@ fn build_report(scenario: &Scenario, input_sha256: String) -> Report {
         .collect();
 
     let mut variants: Vec<&Variant> = scenario.variants.iter().collect();
-    variants.sort_by(|left, right| left.alpha_percent.cmp(&right.alpha_percent));
+    variants.sort_by_key(|variant| variant.alpha_percent);
     let reference = variants
         .iter()
         .find(|variant| variant.alpha_percent == 50)
@@ -460,7 +454,7 @@ fn build_report(scenario: &Scenario, input_sha256: String) -> Report {
         })
         .collect();
     edge_presence.sort_by(|left, right| left.feature_id.cmp(&right.feature_id));
-    variant_results.sort_by(|left, right| left.alpha_percent.cmp(&right.alpha_percent));
+    variant_results.sort_by_key(|variant| variant.alpha_percent);
 
     let mut terminal_pair_results = Vec::new();
     for source in &scenario.source_node_ids {
