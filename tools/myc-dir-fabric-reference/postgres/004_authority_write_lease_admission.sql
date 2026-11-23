@@ -867,10 +867,10 @@ BEGIN
       );
 
     IF v_result.replayed THEN
-        SELECT *
+        SELECT attestation.*
           INTO v_historical
-          FROM myc_effect_owner.effect_execution_authority_lease_attestations
-         WHERE effect_id = v_result.effect_id;
+          FROM myc_effect_owner.effect_execution_authority_lease_attestations AS attestation
+         WHERE attestation.effect_id = v_result.effect_id;
         IF NOT FOUND THEN
             RAISE EXCEPTION 'replayed effect has no historical signed authority-lease attestation; reconciliation required'
                 USING ERRCODE = 'P0001';
