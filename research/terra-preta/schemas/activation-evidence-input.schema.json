@@ -4,27 +4,88 @@
   "title": "Hydraulic activation evidence input",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "fixture_status", "scenario_id", "specimen_id", "event", "registered_edges", "evidence_records", "assertions"],
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "scenario_id",
+    "specimen_id",
+    "event",
+    "registered_edges",
+    "evidence_records",
+    "assertions"
+  ],
   "properties": {
-    "schema_version": { "const": "activation-evidence-v0.1" },
-    "fixture_status": { "const": "synthetic_only_not_empirical_evidence" },
-    "scenario_id": { "type": "string", "minLength": 1 },
-    "specimen_id": { "type": "string", "minLength": 1 },
+    "schema_version": {
+      "const": "activation-evidence-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "specimen_id": {
+      "type": "string",
+      "minLength": 1
+    },
     "event": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["event_id", "start_epoch_seconds", "end_epoch_seconds", "minimum_relevant_tracer_mass_flux_mg_per_h", "minimum_relevant_water_volume_flux_ml_per_h", "minimum_bound_confidence_level", "maximum_sample_interval_seconds", "minimum_coverage_fraction", "maximum_registration_error_mm", "minimum_support_overlap_fraction"],
+      "required": [
+        "event_id",
+        "start_epoch_seconds",
+        "end_epoch_seconds",
+        "minimum_relevant_tracer_mass_flux_mg_per_h",
+        "minimum_relevant_water_volume_flux_ml_per_h",
+        "minimum_bound_confidence_level",
+        "maximum_sample_interval_seconds",
+        "minimum_coverage_fraction",
+        "maximum_registration_error_mm",
+        "minimum_support_overlap_fraction"
+      ],
       "properties": {
-        "event_id": { "type": "string", "minLength": 1 },
-        "start_epoch_seconds": { "type": "integer" },
-        "end_epoch_seconds": { "type": "integer" },
-        "minimum_relevant_tracer_mass_flux_mg_per_h": { "type": "number", "exclusiveMinimum": 0 },
-        "minimum_relevant_water_volume_flux_ml_per_h": { "type": "number", "exclusiveMinimum": 0 },
-        "minimum_bound_confidence_level": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
-        "maximum_sample_interval_seconds": { "type": "integer", "minimum": 1 },
-        "minimum_coverage_fraction": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
-        "maximum_registration_error_mm": { "type": "number", "exclusiveMinimum": 0 },
-        "minimum_support_overlap_fraction": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start_epoch_seconds": {
+          "type": "integer"
+        },
+        "end_epoch_seconds": {
+          "type": "integer"
+        },
+        "minimum_relevant_tracer_mass_flux_mg_per_h": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "minimum_relevant_water_volume_flux_ml_per_h": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "minimum_bound_confidence_level": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "maximum_sample_interval_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "minimum_coverage_fraction": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "maximum_registration_error_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "minimum_support_overlap_fraction": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        }
       }
     },
     "registered_edges": {
@@ -33,10 +94,19 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["edge_id", "spatial_support_id"],
+        "required": [
+          "edge_id",
+          "spatial_support_id"
+        ],
         "properties": {
-          "edge_id": { "type": "string", "minLength": 1 },
-          "spatial_support_id": { "type": "string", "minLength": 1 }
+          "edge_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "spatial_support_id": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -45,37 +115,221 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["evidence_id", "edge_id", "specimen_id", "event_id", "evidence_class", "source_artifact_uri", "source_artifact_sha256", "method_id", "method_version", "rate_measurand", "rate_unit", "qc_status", "support_kind", "registration_status", "spatial_support_id", "registration_transform_id", "spatial_localization", "registration_error_mm", "support_overlap_fraction", "observed_start_epoch_seconds", "observed_end_epoch_seconds", "sample_interval_seconds", "coverage_fraction", "lower_rate_bound_value", "lower_rate_bound_confidence_level", "upper_rate_bound_confidence_level"],
+        "required": [
+          "evidence_id",
+          "edge_id",
+          "specimen_id",
+          "event_id",
+          "evidence_class",
+          "source_artifact_uri",
+          "source_artifact_sha256",
+          "method_id",
+          "method_version",
+          "rate_measurand",
+          "rate_unit",
+          "qc_status",
+          "support_kind",
+          "registration_status",
+          "spatial_support_id",
+          "registration_transform_id",
+          "spatial_localization",
+          "registration_error_mm",
+          "support_overlap_fraction",
+          "observed_start_epoch_seconds",
+          "observed_end_epoch_seconds",
+          "sample_interval_seconds",
+          "coverage_fraction",
+          "lower_rate_bound_value",
+          "lower_rate_bound_confidence_level",
+          "upper_rate_bound_confidence_level",
+          "tracer_behavior"
+        ],
         "properties": {
-          "evidence_id": { "type": "string", "minLength": 1 },
-          "edge_id": { "type": "string", "minLength": 1 },
-          "specimen_id": { "type": "string", "minLength": 1 },
-          "event_id": { "type": "string", "minLength": 1 },
-          "evidence_class": { "enum": ["direct_tracer_observation", "direct_hydraulic_observation", "boundary_tracer_response", "structural_image_only", "derived_sensor_estimate", "model_prediction"] },
-          "source_artifact_uri": { "type": "string", "minLength": 1 },
-          "source_artifact_sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
-          "method_id": { "type": "string", "minLength": 1 },
-          "method_version": { "type": "string", "minLength": 1 },
-          "calibration_id": { "type": ["string", "null"] },
-          "qc_status": { "enum": ["passed", "failed", "not_assessed"] },
-          "support_kind": { "enum": ["registered_3d_edge", "core_aggregate", "profile_aggregate", "section_2d"] },
-          "registration_status": { "enum": ["registered", "unregistered", "not_applicable"] },
-          "spatial_support_id": { "type": "string", "minLength": 1 },
-          "registration_transform_id": { "type": ["string", "null"] },
-          "spatial_localization": { "enum": ["edge_resolved", "boundary_integrated", "core_aggregate", "profile_aggregate"] },
-          "registration_error_mm": { "type": ["number", "null"], "minimum": 0 },
-          "support_overlap_fraction": { "type": "number", "minimum": 0, "maximum": 1 },
-          "observed_start_epoch_seconds": { "type": "integer" },
-          "observed_end_epoch_seconds": { "type": "integer" },
-          "sample_interval_seconds": { "type": "integer", "minimum": 1 },
-          "coverage_fraction": { "type": "number", "minimum": 0, "maximum": 1 },
-          "rate_measurand": { "enum": ["tracer_mass_flux", "water_volume_flux"] },
-          "rate_unit": { "enum": ["mg/h", "mL/h"] },
-          "measured_rate_value": { "type": ["number", "null"], "minimum": 0 },
-          "lower_rate_bound_value": { "type": ["number", "null"], "minimum": 0 },
-          "lower_rate_bound_confidence_level": { "type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 1 },
-          "upper_rate_bound_value": { "type": ["number", "null"], "minimum": 0 },
-          "upper_rate_bound_confidence_level": { "type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 1 }
+          "evidence_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "edge_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "specimen_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "event_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_class": {
+            "enum": [
+              "direct_tracer_observation",
+              "direct_hydraulic_observation",
+              "boundary_tracer_response",
+              "structural_image_only",
+              "derived_sensor_estimate",
+              "model_prediction"
+            ]
+          },
+          "source_artifact_uri": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_artifact_sha256": {
+            "type": "string",
+            "pattern": "^[A-Fa-f0-9]{64}$"
+          },
+          "method_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "method_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "calibration_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tracer_behavior": {
+            "enum": [
+              "conservative_qualified",
+              "reactive_or_sorptive",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "tracer_qualification_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tracer_qualification_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Fa-f0-9]{64}$"
+          },
+          "qc_status": {
+            "enum": [
+              "passed",
+              "failed",
+              "not_assessed"
+            ]
+          },
+          "support_kind": {
+            "enum": [
+              "registered_3d_edge",
+              "core_aggregate",
+              "profile_aggregate",
+              "section_2d"
+            ]
+          },
+          "registration_status": {
+            "enum": [
+              "registered",
+              "unregistered",
+              "not_applicable"
+            ]
+          },
+          "spatial_support_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "registration_transform_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "spatial_localization": {
+            "enum": [
+              "edge_resolved",
+              "boundary_integrated",
+              "core_aggregate",
+              "profile_aggregate"
+            ]
+          },
+          "registration_error_mm": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "support_overlap_fraction": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "observed_start_epoch_seconds": {
+            "type": "integer"
+          },
+          "observed_end_epoch_seconds": {
+            "type": "integer"
+          },
+          "sample_interval_seconds": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "coverage_fraction": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "rate_measurand": {
+            "enum": [
+              "tracer_mass_flux",
+              "water_volume_flux"
+            ]
+          },
+          "rate_unit": {
+            "enum": [
+              "mg/h",
+              "mL/h"
+            ]
+          },
+          "measured_rate_value": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "lower_rate_bound_value": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "lower_rate_bound_confidence_level": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          },
+          "upper_rate_bound_value": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "upper_rate_bound_confidence_level": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          }
         }
       }
     },
@@ -85,11 +339,31 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["edge_id", "asserted_state", "evidence_ids"],
+        "required": [
+          "edge_id",
+          "asserted_state",
+          "evidence_ids"
+        ],
         "properties": {
-          "edge_id": { "type": "string", "minLength": 1 },
-          "asserted_state": { "enum": ["active", "inactive", "unassessed"] },
-          "evidence_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+          "edge_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "asserted_state": {
+            "enum": [
+              "active",
+              "inactive",
+              "unassessed"
+            ]
+          },
+          "evidence_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
         }
       }
     }
