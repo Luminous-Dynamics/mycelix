@@ -82,12 +82,12 @@
     "fork_warrants": {
       "status": "not_operational_per_current_official_docs",
       "source": "https://developer.holochain.org/build/getting-an-agents-status/",
-      "claim": "The current Holochain developer guide states that chain-fork warrants are not operational yet. Ordinary invalid-operation warrants and chain-fork evidence are distinct."
+      "claim": "The current agent-status guide distinguishes general invalid-operation warrants from chain-fork warrants: general validation warrants are produced, while chain-fork warrants are not yet operational. get_agent_activity can report observed chain-fork state, but lack of discovered evidence is not proof of no fork."
     },
     "agent_activity": {
       "status": "eventually_consistent_observation_not_finality",
       "source": "https://developer.holochain.org/build/getting-an-agents-status/",
-      "claim": "Agent activity and authority observations may be incomplete or delayed. No current warrant/GoodSoFar does not prove the absence of a future-discovered fork."
+      "claim": "get_agent_activity Status/Full can report the queried authority's current view of chain status, discovered forks and warrants. The view is eventually consistent; absence of a fork/warrant means only that the queried authority has not discovered evidence yet."
     },
     "countersigning": {
       "status": "unstable_disabled_by_default_in_0_4_plus",
@@ -116,6 +116,11 @@
         "source": "https://developer.holochain.org/resources/compatibility/holochain-0.7/"
       },
       "migration_policy": "Do not upgrade solely to obtain a desired feature; compare matching HDK/HDI, conductor, DNA/WASM, client API, migration and operational behavior first."
+    },
+    "general_invalid_operation_warrants": {
+      "status": "stable_in_holochain_0_6",
+      "source": "https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.6",
+      "claim": "The 0.5-to-0.6 upgrade guide says warrants became stable in Holochain 0.6 and get_agent_activity returns a list of warrants."
     }
   },
   "assurance_status_vocabulary": [
@@ -144,5 +149,5 @@
     "Prove source-chain head movement rolls back local multi-entry writes and that retry reconciliation retains original operation identity.",
     "Repeat the same fixture against matched 0.6.1, 0.6.3 and 0.7.1 stacks before any runtime migration decision."
   ],
-  "qualification_claim": "This artifact records repository pins and official documentation statements. The public source docs claim conductor 0.6.1, while Finance flake.lock resolves a nested Holochain source ref holochain-0.6.0; actual binary --version is not captured. It contains no runtime binary digest, no enabled-countersigning proof, no live fork-warrant test, and no conductor integration result. It is not runtime qualification."
+  "qualification_claim": "This artifact records repository pins and official documentation statements. General warrants are documented stable in Holochain 0.6, but chain-fork warrants are separately documented as not operational. The public source docs claim conductor 0.6.1, while Finance flake.lock resolves a nested Holochain source ref holochain-0.6.0; actual binary --version is not captured. It contains no runtime binary digest, no enabled-countersigning proof, no live fork-warrant test, and no conductor integration result. It is not runtime qualification."
 }
