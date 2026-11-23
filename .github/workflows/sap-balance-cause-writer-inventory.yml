@@ -1,0 +1,84 @@
+name: SAP balance writer inventory
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/sap-balance-cause-writer-inventory.yml"
+      - "mycelix-finance/docs/research/SAP_BALANCE_CAUSE_WRITER_INVENTORY_V0_1.md"
+      - "mycelix-finance/benchmarks/sap/sap-balance-cause-writer-inventory.v0.1.json"
+      - "mycelix-finance/benchmarks/sap/sap-balance-cause-writer-inventory.v0.1.schema.json"
+  push:
+    branches:
+      - "research/sap-balance-cause-writer-inventory-v0.1-20261123"
+    paths:
+      - ".github/workflows/sap-balance-cause-writer-inventory.yml"
+      - "mycelix-finance/docs/research/SAP_BALANCE_CAUSE_WRITER_INVENTORY_V0_1.md"
+      - "mycelix-finance/benchmarks/sap/sap-balance-cause-writer-inventory.v0.1.json"
+      - "mycelix-finance/benchmarks/sap/sap-balance-cause-writer-inventory.v0.1.schema.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory-structure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact subject
+        env:
+          EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SUBJECT_SHA"
+          echo "Exact subject: $actual"
+
+      - name: Validate inventory and schema structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          inventory="mycelix-finance/benchmarks/sap/sap-balance-cause-writer-inventory.v0.1.json"
+          schema="mycelix-finance/benchmarks/sap/sap-balance-cause-writer-inventory.v0.1.schema.json"
+          jq empty "$inventory"
+          jq empty "$schema"
+          jq -e '
+            .benchmark == "Mycelix SAP balance cause writer inventory" and
+            .version == "0.1" and
+            .main_commit == "e949664ceb2f9ddde26704c70e23a19380f33dde" and
+            (.writers | length) == 16 and
+            ([.writers[].id] | unique | length) == 16 and
+            all(.writers[];
+              (.id | test("^SAPW-[0-9]{3}$")) and
+              (.entrypoint | length > 0) and
+              (.path | length > 0) and
+              (.current | length > 0) and
+              (.risk | length > 0) and
+              (.required | length > 0)
+            )
+          ' "$inventory" >/dev/null
+          while IFS= read -r path; do
+            test -f "$path"
+          done < <(jq -r '.writers[].path' "$inventory" | sort -u)
+          jq -e '.properties.writers.minItems == 16 and .properties.writers.maxItems == 16' "$schema" >/dev/null
+          echo "16 writer entries, unique IDs, required fields, source files and schema structure validated."
+
+      - name: Emit evidence manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          inventory="mycelix-finance/benchmarks/sap/sap-balance-cause-writer-inventory.v0.1.json"
+          schema="mycelix-finance/benchmarks/sap/sap-balance-cause-writer-inventory.v0.1.schema.json"
+          {
+            echo "subject_commit=$(git rev-parse HEAD)"
+            echo "inventory_sha256=$(sha256sum "$inventory" | cut -d' ' -f1)"
+            echo "schema_sha256=$(sha256sum "$schema" | cut -d' ' -f1)"
+            echo "main_source_snapshot=e949664ceb2f9ddde26704c70e23a19380f33dde"
+          } | tee "$RUNNER_TEMP/sap-balance-writer-manifest.txt"
+          cat "$RUNNER_TEMP/sap-balance-writer-manifest.txt" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SAP Balance-Cause Writer Inventory v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark",
+    "version",
+    "date",
+    "status",
+    "repository",
+    "main_commit",
+    "source_blobs",
+    "required_cause_kinds",
+    "writers",
+    "explicit_non_writers",
+    "source_findings",
+    "hard_gates",
+    "qualification_status"
+  ],
+  "properties": {
+    "benchmark": {
+      "const": "Mycelix SAP balance cause writer inventory"
+    },
+    "version": {
+      "const": "0.1"
+    },
+    "date": {
+      "const": "2026-11-23"
+    },
+    "status": {
+      "const": "source-audit-inventory-not-implementation-or-runtime-qualification"
+    },
+    "repository": {
+      "const": "Luminous-Dynamics/mycelix"
+    },
+    "main_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "source_blobs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{40}$"
+      }
+    },
+    "required_cause_kinds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "writers": {
+      "type": "array",
+      "minItems": 16,
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "entrypoint",
+          "path",
+          "lines",
+          "kind",
+          "delta",
+          "current",
+          "risk",
+          "required",
+          "tracking"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^SAPW-[0-9]{3}$"
+          },
+          "entrypoint": {
+            "type": "string",
+            "minLength": 1
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lines": {
+            "type": "string",
+            "pattern": "^[0-9]+-[0-9]+$"
+          },
+          "kind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "delta": {
+            "type": "string",
+            "minLength": 1
+          },
+          "current": {
+            "type": "string",
+            "minLength": 1
+          },
+          "risk": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tracking": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^#[0-9]+$"
+            }
+          }
+        }
+      }
+    },
+    "explicit_non_writers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entrypoint",
+          "path",
+          "lines",
+          "reason"
+        ],
+        "properties": {
+          "entrypoint": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "source_findings": {
+      "type": "object"
+    },
+    "hard_gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "qualification_status": {
+      "type": "object"
+    }
+  }
+}
