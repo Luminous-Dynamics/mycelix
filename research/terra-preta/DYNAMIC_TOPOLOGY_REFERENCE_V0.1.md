@@ -35,6 +35,8 @@ For every source/sink pair:
 
 This prevents an unknown edge from being silently converted into an inactive edge or a confirmed conduit. The pair statuses are bounds on topological reachability, not probabilities.
 
+**Terminology guard:** confirmed/possible are conditional on the supplied edge-state labels. In a manufactured fixture those labels are known truth. In an empirical adapter, an edge must not be marked active merely because a segmentation contains a pore or because a model assigns high attention. The state needs a measurement/evidence reference, spatial and temporal support, method/version, uncertainty and QC; insufficient or conflicting support remains unassessed. A confirmed_connected result therefore means "connected under the registered active-edge set", not independently proven hydraulic transport.
+
 ## Topology and single-element fragility
 
 For both the confirmed and possible graphs, the report records:
