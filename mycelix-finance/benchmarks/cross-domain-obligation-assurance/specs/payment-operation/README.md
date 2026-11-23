@@ -37,8 +37,8 @@ The state space is finite: retries, durable-outbox scans, chain-head race observ
 
 ## Scenario corpus
 
-- `../pcoe-effect-owner-payment-scenarios.v0.1.json` contains 22 synthetic adversarial cases.
-- `../pcoe-effect-owner-payment-scenarios.v0.1.schema.json` defines the corpus shape.
+- `../../pcoe-effect-owner-payment-scenarios.v0.1.json` contains 22 synthetic adversarial cases.
+- `../../pcoe-effect-owner-payment-scenarios.v0.1.schema.json` defines the corpus shape.
 - The CI workflow additionally checks all IDs are unique and each expected disposition appears in the declared vocabulary.
 
 ## What the model does and does not prove
