@@ -85,6 +85,9 @@ struct Report {
     input_sha256: String,
     randomized_unit_count: usize,
     block_count: usize,
+    minimum_attainable_two_sided_randomization_p_value: f64,
+    can_resolve_nominal_alpha_05: bool,
+    can_resolve_nominal_alpha_01: bool,
     subsample_count_not_in_n: usize,
     treatment_assigned_count: usize,
     control_assigned_count: usize,
@@ -154,6 +157,10 @@ fn finite(name: &str, value: f64) -> Result<(), String> {
     } else {
         Err(format!("{name} must be finite"))
     }
+}
+
+fn minimum_attainable_two_sided_p_value(block_count: usize) -> f64 {
+    2.0 / (1usize << block_count) as f64
 }
 
 fn validate(s: &Scenario) -> Result<(), String> {
@@ -413,6 +420,12 @@ fn calculate(s: &Scenario, input_digest: String) -> Report {
         input_sha256: input_digest,
         randomized_unit_count: s.units.len(),
         block_count: block_contrasts.len(),
+        minimum_attainable_two_sided_randomization_p_value:
+            minimum_attainable_two_sided_p_value(block_contrasts.len()),
+        can_resolve_nominal_alpha_05:
+            minimum_attainable_two_sided_p_value(block_contrasts.len()) <= 0.05,
+        can_resolve_nominal_alpha_01:
+            minimum_attainable_two_sided_p_value(block_contrasts.len()) <= 0.01,
         subsample_count_not_in_n: subsamples,
         treatment_assigned_count: s
             .units
@@ -495,6 +508,25 @@ mod tests {
         assert!((report.causal_itt_estimate.unwrap() - 2.5).abs() < 1e-12);
         assert!((report.exact_two_sided_randomization_p_value.unwrap() - 0.125).abs() < 1e-12);
         assert_eq!(report.randomization_assignments_enumerated, 16);
+    }
+
+    #[test]
+    fn exact_two_sided_p_value_resolution_is_reported_for_block_count() {
+        assert!((minimum_attainable_two_sided_p_value(4) - 0.125).abs() < 1e-12);
+        assert!((minimum_attainable_two_sided_p_value(5) - 0.0625).abs() < 1e-12);
+        assert!((minimum_attainable_two_sided_p_value(6) - 0.03125).abs() < 1e-12);
+        assert!((minimum_attainable_two_sided_p_value(8) - 0.0078125).abs() < 1e-12);
+    }
+
+    #[test]
+    fn four_block_fixture_cannot_resolve_five_percent_alpha() {
+        let report = calculate(&scenario(), "0".repeat(64));
+        assert_eq!(
+            report.minimum_attainable_two_sided_randomization_p_value,
+            0.125
+        );
+        assert!(!report.can_resolve_nominal_alpha_05);
+        assert!(!report.can_resolve_nominal_alpha_01);
     }
 
     #[test]
