@@ -252,9 +252,9 @@ fn validate(scenario: &Scenario) -> Result<(), String> {
         let present_nodes = unique_nonempty(&variant.present_node_ids, "present node")?;
         let present_edges = unique_nonempty(&variant.present_edge_ids, "present edge")?;
         if !sources.iter().all(|id| present_nodes.contains(*id))
-            || !sinks.iter().all(|id| present_nodes.contains(id))
-            || present_nodes.iter().any(|id| !nodes.contains_key(id))
-            || present_edges.iter().any(|id| !edges.contains_key(id))
+            || !sinks.iter().all(|id| present_nodes.contains(*id))
+            || present_nodes.iter().any(|id| !nodes.contains_key(*id))
+            || present_edges.iter().any(|id| !edges.contains_key(*id))
         {
             return Err(format!(
                 "variant {} has a missing terminal or unknown catalog feature",
