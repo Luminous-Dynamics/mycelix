@@ -28,6 +28,8 @@ jobs:
   bounded-model-check:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    env:
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Checkout exact subject
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
