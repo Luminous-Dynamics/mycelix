@@ -29,6 +29,7 @@ members = [
     "zomes/hearth/coordinator",
     "zomes/lending/integrity",
     "zomes/lending/coordinator",
+    "tools/countersigning-feature-probe",
 ]
 exclude = ["tests"]
 
