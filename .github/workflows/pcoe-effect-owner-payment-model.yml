@@ -1,0 +1,128 @@
+name: PCOE effect-owner payment model
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/pcoe-effect-owner-payment-model.yml"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation/**"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-contract.v0.1.md"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-scenarios.v0.1.json"
+  push:
+    branches:
+      - "research/pcoe-effect-owner-payment-model-v0.1-20261123"
+    paths:
+      - ".github/workflows/pcoe-effect-owner-payment-model.yml"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation/**"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-contract.v0.1.md"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-scenarios.v0.1.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pcoe-effect-owner-payment-model-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bounded-model-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Download and verify pinned TLC
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar \
+            --output "$RUNNER_TEMP/tla2tools.jar"
+          printf '%s  %s\n' \
+            "bee4a54f3ee3d4afc347c3240ec2d9e93b075104" \
+            "$RUNNER_TEMP/tla2tools.jar" | sha1sum --check -
+          java -version
+
+      - name: Check safe atomic-journal model
+        working-directory: mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -jar "$RUNNER_TEMP/tla2tools.jar" \
+            -config PCOEEffectOwnerPayment.cfg \
+            PCOEEffectOwnerPayment.tla 2>&1 | tee "$RUNNER_TEMP/pcoe-payment-safe-tlc.log"
+
+      - name: Require mutant to expose partial-debit invariant failure
+        working-directory: mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          java -jar "$RUNNER_TEMP/tla2tools.jar" \
+            -config PCOEEffectOwnerPayment-mutant.cfg \
+            PCOEEffectOwnerPayment.tla \
+            > "$RUNNER_TEMP/pcoe-payment-mutant-tlc.log" 2>&1
+          mutant_status=$?
+          set -e
+          if [ "$mutant_status" -eq 0 ]; then
+            echo "Unsafe partial-debit mutant unexpectedly satisfied its invariant." >&2
+            cat "$RUNNER_TEMP/pcoe-payment-mutant-tlc.log"
+            exit 1
+          fi
+          if ! grep -q "NoPartialLocalValueEffect" "$RUNNER_TEMP/pcoe-payment-mutant-tlc.log"; then
+            echo "Mutant failed for a reason other than the expected partial-value-effect invariant." >&2
+            cat "$RUNNER_TEMP/pcoe-payment-mutant-tlc.log"
+            exit 1
+          fi
+          echo "Expected negative control detected NoPartialLocalValueEffect violation."
+
+      - name: Write qualification manifest
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          model_dir="mycelix-finance/benchmarks/cross-domain-obligation-assurance"
+          spec_dir="$model_dir/specs/payment-operation"
+          {
+            echo "subject_commit=$(git rev-parse HEAD)"
+            echo "tlc_release=v1.7.4"
+            echo "tlc_jar_sha1=bee4a54f3ee3d4afc347c3240ec2d9e93b075104"
+            echo "tla_sha256=$(sha256sum "$spec_dir/PCOEEffectOwnerPayment.tla" | cut -d' ' -f1)"
+            echo "safe_cfg_sha256=$(sha256sum "$spec_dir/PCOEEffectOwnerPayment.cfg" | cut -d' ' -f1)"
+            echo "mutant_cfg_sha256=$(sha256sum "$spec_dir/PCOEEffectOwnerPayment-mutant.cfg" | cut -d' ' -f1)"
+            echo "scenario_corpus_sha256=$(sha256sum "$model_dir/pcoe-effect-owner-payment-scenarios.v0.1.json" | cut -d' ' -f1)"
+          } | tee "$RUNNER_TEMP/pcoe-payment-model-manifest.txt"
+          {
+            echo "## PCOE effect-owner payment model"
+            echo "TLC release: v1.7.4"
+            cat "$RUNNER_TEMP/pcoe-payment-model-manifest.txt"
+            if [ -f "$RUNNER_TEMP/pcoe-payment-safe-tlc.log" ]; then
+              echo "### Safe model output"
+              tail -n 40 "$RUNNER_TEMP/pcoe-payment-safe-tlc.log"
+            fi
+            if [ -f "$RUNNER_TEMP/pcoe-payment-mutant-tlc.log" ]; then
+              echo "### Mutant negative-control output"
+              tail -n 40 "$RUNNER_TEMP/pcoe-payment-mutant-tlc.log"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload model-check receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pcoe-effect-owner-payment-model-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/pcoe-payment-safe-tlc.log
+            ${{ runner.temp }}/pcoe-payment-mutant-tlc.log
+            ${{ runner.temp }}/pcoe-payment-model-manifest.txt
+          if-no-files-found: warn
+          retention-days: 90
