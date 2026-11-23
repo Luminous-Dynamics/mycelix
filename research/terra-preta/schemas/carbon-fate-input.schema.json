@@ -1,0 +1,276 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/terra-preta/schemas/carbon-fate-input.schema.json",
+  "title": "Synthetic multi-timescale soil carbon fate evaluation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "scenario_id",
+    "observations",
+    "models",
+    "predictions",
+    "thresholds",
+    "carbon_balance"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "carbon-fate-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "observations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "observation_id",
+          "stream",
+          "time_days",
+          "value",
+          "unit",
+          "measurement_method",
+          "evaluation_group",
+          "standard_uncertainty"
+        ],
+        "properties": {
+          "observation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stream": {
+            "enum": [
+              "total_soc_stock",
+              "poc_stock",
+              "maoc_stock",
+              "respiration_flux",
+              "system_age",
+              "respired_co2_transit_time"
+            ]
+          },
+          "time_days": {
+            "type": "number",
+            "minimum": 0
+          },
+          "value": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "measurement_method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evaluation_group": {
+            "type": "string",
+            "minLength": 1
+          },
+          "standard_uncertainty": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "models": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_id",
+          "family",
+          "training_groups"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "family": {
+            "enum": [
+              "single_pool",
+              "two_pool",
+              "three_pool",
+              "distributed_or_other"
+            ]
+          },
+          "training_groups": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "predictions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_id",
+          "observation_id",
+          "status",
+          "mean",
+          "lower_90",
+          "upper_90"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "observation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "enum": [
+              "scored",
+              "abstained_out_of_domain"
+            ]
+          },
+          "mean": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "lower_90": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "upper_90": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "thresholds": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "stream",
+          "max_mae",
+          "min_coverage_90"
+        ],
+        "properties": {
+          "stream": {
+            "enum": [
+              "total_soc_stock",
+              "poc_stock",
+              "maoc_stock",
+              "respiration_flux",
+              "system_age",
+              "respired_co2_transit_time"
+            ]
+          },
+          "max_mae": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "min_coverage_90": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "carbon_balance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "initial_stock",
+        "final_stock",
+        "input_sources",
+        "respiration_export",
+        "dissolved_export",
+        "erosion_export",
+        "harvest_export",
+        "max_absolute_residual"
+      ],
+      "properties": {
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "initial_stock": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "final_stock": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "input_sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_class",
+              "carbon_input"
+            ],
+            "properties": {
+              "source_class": {
+                "type": "string",
+                "minLength": 1
+              },
+              "carbon_input": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "respiration_export": {
+          "type": "number",
+          "minimum": 0
+        },
+        "dissolved_export": {
+          "type": "number",
+          "minimum": 0
+        },
+        "erosion_export": {
+          "type": "number",
+          "minimum": 0
+        },
+        "harvest_export": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_absolute_residual": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    }
+  }
+}
