@@ -321,7 +321,6 @@ fn simulate_unit_pair(rng: &mut SplitMix64, x: &Scenario, block_change: f64) -> 
         let treatment_effect =
             x.true_mean_treatment_effect + x.effect_heterogeneity_sd * rng.standard_normal();
         let untreated_change = block_change + x.plot_change_sd * rng.standard_normal();
-        let treated_change = untreated_change + treatment_effect;
         let followup_if_control =
             baseline_true + untreated_change + x.measurement_sd * rng.standard_normal();
         // Shared plot-level endpoint measurement error is held fixed across
