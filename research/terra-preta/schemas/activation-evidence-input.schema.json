@@ -13,12 +13,13 @@
     "event": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["event_id", "start_epoch_seconds", "end_epoch_seconds", "minimum_relevant_flux_mg_per_h", "minimum_bound_confidence_level", "maximum_sample_interval_seconds", "minimum_coverage_fraction", "maximum_registration_error_mm", "minimum_support_overlap_fraction"],
+      "required": ["event_id", "start_epoch_seconds", "end_epoch_seconds", "minimum_relevant_tracer_mass_flux_mg_per_h", "minimum_bound_confidence_level", "maximum_sample_interval_seconds", "minimum_coverage_fraction", "maximum_registration_error_mm", "minimum_support_overlap_fraction"],
       "properties": {
         "event_id": { "type": "string", "minLength": 1 },
         "start_epoch_seconds": { "type": "integer" },
         "end_epoch_seconds": { "type": "integer" },
-        "minimum_relevant_flux_mg_per_h": { "type": "number", "exclusiveMinimum": 0 },
+        "minimum_relevant_tracer_mass_flux_mg_per_h": { "type": "number", "exclusiveMinimum": 0 },
+        "minimum_relevant_water_volume_flux_ml_per_h": { "type": "number", "exclusiveMinimum": 0 },
         "minimum_bound_confidence_level": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
         "maximum_sample_interval_seconds": { "type": "integer", "minimum": 1 },
         "minimum_coverage_fraction": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
@@ -32,7 +33,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["evidence_id", "edge_id", "specimen_id", "event_id", "evidence_class", "source_artifact_uri", "source_artifact_sha256", "method_id", "method_version", "qc_status", "support_kind", "registration_status", "spatial_support_id", "registration_transform_id", "spatial_localization", "registration_error_mm", "support_overlap_fraction", "observed_start_epoch_seconds", "observed_end_epoch_seconds", "sample_interval_seconds", "coverage_fraction", "lower_flux_bound_mg_per_h", "lower_flux_bound_confidence_level", "upper_flux_bound_confidence_level"],
+        "required": ["evidence_id", "edge_id", "specimen_id", "event_id", "evidence_class", "source_artifact_uri", "source_artifact_sha256", "method_id", "method_version", "rate_measurand", "rate_unit", "qc_status", "support_kind", "registration_status", "spatial_support_id", "registration_transform_id", "spatial_localization", "registration_error_mm", "support_overlap_fraction", "observed_start_epoch_seconds", "observed_end_epoch_seconds", "sample_interval_seconds", "coverage_fraction", "lower_rate_bound_value", "lower_rate_bound_confidence_level", "upper_rate_bound_confidence_level"],
         "properties": {
           "evidence_id": { "type": "string", "minLength": 1 },
           "edge_id": { "type": "string", "minLength": 1 },
@@ -56,11 +57,13 @@
           "observed_end_epoch_seconds": { "type": "integer" },
           "sample_interval_seconds": { "type": "integer", "minimum": 1 },
           "coverage_fraction": { "type": "number", "minimum": 0, "maximum": 1 },
-          "measured_flux_mg_per_h": { "type": ["number", "null"], "minimum": 0 },
-          "lower_flux_bound_mg_per_h": { "type": ["number", "null"], "minimum": 0 },
-          "lower_flux_bound_confidence_level": { "type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 1 },
-          "upper_flux_bound_mg_per_h": { "type": ["number", "null"], "minimum": 0 },
-          "upper_flux_bound_confidence_level": { "type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 1 }
+          "rate_measurand": { "enum": ["tracer_mass_flux", "water_volume_flux"] },
+          "rate_unit": { "enum": ["mg/h", "mL/h"] },
+          "measured_rate_value": { "type": ["number", "null"], "minimum": 0 },
+          "lower_rate_bound_value": { "type": ["number", "null"], "minimum": 0 },
+          "lower_rate_bound_confidence_level": { "type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 1 },
+          "upper_rate_bound_value": { "type": ["number", "null"], "minimum": 0 },
+          "upper_rate_bound_confidence_level": { "type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 1 }
         }
       }
     },
