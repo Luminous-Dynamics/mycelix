@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "dynamic-topology-input.schema.json",
+  "title": "Dynamic root-network topology input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "fixture_status", "scenario_id", "truth_support_dimension", "nodes", "edges", "sources", "sinks", "snapshots"],
+  "properties": {
+    "schema_version": { "const": "dynamic-topology-v0.1" },
+    "fixture_status": { "const": "synthetic_only_not_empirical_evidence" },
+    "scenario_id": { "type": "string", "minLength": 1 },
+    "truth_support_dimension": { "const": "volumetric_3d" },
+    "nodes": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["node_id", "coordinates_m"],
+        "properties": {
+          "node_id": { "type": "string", "minLength": 1 },
+          "coordinates_m": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["edge_id", "from_node_id", "to_node_id", "length_m", "origin_class"],
+        "properties": {
+          "edge_id": { "type": "string", "minLength": 1 },
+          "from_node_id": { "type": "string", "minLength": 1 },
+          "to_node_id": { "type": "string", "minLength": 1 },
+          "length_m": { "type": "number", "exclusiveMinimum": 0 },
+          "origin_class": { "enum": ["live_root_channel", "legacy_root_channel", "abiotic_crack", "textural_finger", "faunal_burrow"] }
+        }
+      }
+    },
+    "sources": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "sinks": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "snapshots": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["snapshot_id", "time_days", "edge_states"],
+        "properties": {
+          "snapshot_id": { "type": "string", "minLength": 1 },
+          "time_days": { "type": "number", "minimum": 0 },
+          "edge_states": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["edge_id", "root_occupancy", "hydraulic_state"],
+              "properties": {
+                "edge_id": { "type": "string", "minLength": 1 },
+                "root_occupancy": { "enum": ["occupied", "partially_occupied", "unoccupied_legacy", "not_observed", "not_applicable"] },
+                "hydraulic_state": { "enum": ["active", "inactive", "unassessed"] }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
