@@ -92,15 +92,18 @@
           },
           "window_start": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "pattern": "Z$"
           },
           "window_end": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "pattern": "Z$"
           },
           "observed_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "pattern": "Z$"
           },
           "observed_value": {
             "type": "number"
@@ -185,11 +188,13 @@
           },
           "training_cutoff": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "pattern": "Z$"
           },
           "issued_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "pattern": "Z$"
           },
           "evaluation_independence_group_id": {
             "type": "string",
