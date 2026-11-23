@@ -16,7 +16,7 @@ The data lineage and modality-specific observation-operator details remain owned
 
 ## v0.1 admission rules
 
-For a direct observation to support an edge state, the record must have an immutable artifact URI/SHA-256, method/version, calibration/reference identity, passed QC, matching specimen/event, a named spatial-support identity, a registered 3D edge mapping with transformation identity, quantified registration error below the task-profile limit, and sufficient spatial-support overlap. A bulk outlet breakthrough curve is a boundary-integrated network response: it cannot identify one edge in a parallel network, even if it is a valid direct tracer observation at the core boundary.
+For a direct observation to support an edge state, the record must have an immutable artifact URI/SHA-256, method/version, calibration/reference identity, passed QC, matching specimen/event, a named spatial-support identity, a registered 3D edge mapping whose support ID matches the graph manifest, with transformation identity, quantified registration error below the task-profile limit, and sufficient spatial-support overlap. A bulk outlet breakthrough curve is a boundary-integrated network response: it cannot identify one edge in a parallel network, even if it is a valid direct tracer observation at the core boundary.
 
 A positive observation may support active state only when the lower confidence bound on measured flux exceeds the event's predeclared minimum relevant flux at or above the task profile's required confidence level. A point estimate above threshold is not enough.
 
