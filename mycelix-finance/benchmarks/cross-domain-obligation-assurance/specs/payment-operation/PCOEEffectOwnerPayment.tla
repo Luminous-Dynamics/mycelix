@@ -164,7 +164,7 @@ DeliverFee ==
                  creditCount, feeLiabilityCount, feeOutboxCount,
                  paymentProjectionCount, receiptProjectionCount,
                  responseLost, responseReturned, conflictObserved,
-                 tombstonePresent, clientCachePresent, retryCount>>
+                 tombstonePresent, clientCachePresent, outboxScanCount, retryCount>>
 
 ExpireClientCache ==
   /\ clientCachePresent = TRUE
@@ -199,7 +199,7 @@ ScanDurableOutbox ==
                  creditCount, feeLiabilityCount, feeOutboxCount,
                  paymentProjectionCount, receiptProjectionCount,
                  feeDeliveryCount, feeState, responseLost, responseReturned,
-                 conflictObserved, tombstonePresent, clientCachePresent, outboxWakeupPresent, outboxScanCount>>
+                 conflictObserved, tombstonePresent, clientCachePresent, retryCount>>
 
 \* Deliberate mutation only: split a value leg into a separate effect / commit
 \* outside the single Finance source-chain invocation. This is not a claim that
@@ -213,7 +213,7 @@ UnsafeDebitOutsideBatch ==
                  feeLiabilityCount, feeOutboxCount, paymentProjectionCount,
                  receiptProjectionCount, feeDeliveryCount, feeState,
                  responseLost, responseReturned, conflictObserved,
-                 tombstonePresent, clientCachePresent, retryCount>>
+                 tombstonePresent, clientCachePresent, outboxWakeupPresent, outboxScanCount, retryCount>>
 
 UnsafeDuplicateDebit ==
   /\ AllowUnsafeMutations = TRUE
