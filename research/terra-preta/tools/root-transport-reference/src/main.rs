@@ -471,7 +471,7 @@ fn build_report(s: &Scenario, input_sha256: String) -> Result<Report, String> {
                     (false, _, _, _) => ("abstained_unassessed_hydraulic_state", None, None),
                     (true, PathState::Inactive, _, _) => ("no_hydraulic_flow", None, Some(0.0)),
                     (true, PathState::Unassessed, _, _) => ("abstained_unassessed_hydraulic_state", None, None),
-                    (true, PathState::Active, Some(time), Some(mass)) if time > s.tracer.collection_duration_hours => {
+                    (true, PathState::Active, Some(time), Some(_mass)) if time > s.tracer.collection_duration_hours => {
                         ("outside_collection_window", None, Some(0.0))
                     }
                     (true, PathState::Active, Some(time), Some(mass)) if mass < s.tracer.detection_limit_mg => {
@@ -681,7 +681,7 @@ mod tests {
     }
 
     #[test]
-    fn 2d_only_truth_support_is_rejected() {
+    fn two_dimensional_only_truth_support_is_rejected() {
         let mut s = scenario();
         s.truth_support_dimension = "planar_2d".into();
         assert!(validate(&s).is_err());
