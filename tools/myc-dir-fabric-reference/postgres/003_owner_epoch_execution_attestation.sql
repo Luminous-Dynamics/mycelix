@@ -428,8 +428,13 @@ DECLARE
     v_current_owner_epoch BIGINT;
     v_current_generation BIGINT;
     v_effect_result RECORD;
+    v_existing_effect myc_effect_owner.effect_commits%ROWTYPE;
     v_attestation myc_effect_owner.effect_execution_attestations%ROWTYPE;
     v_attestation_id UUID;
+    v_idempotency_lock BIGINT;
+    v_operation_lock BIGINT;
+    v_first_lock BIGINT;
+    v_second_lock BIGINT;
 BEGIN
     IF p_owner_epoch IS NULL OR p_owner_epoch <= 0 THEN
         RAISE EXCEPTION 'owner epoch must be positive'
@@ -482,6 +487,128 @@ BEGIN
     IF v_claim.owner_epoch IS DISTINCT FROM p_owner_epoch THEN
         RAISE EXCEPTION 'worker claim belongs to a different owner epoch; a fresh epoch-aware claim is required'
             USING ERRCODE = 'P0001';
+    END IF;
+
+    -- Preserve the lock order used by 002_worker_claim_fencing.sql:
+    -- worker claim -> idempotency/operation advisory locks -> owner fence.
+    -- The locks serialize a concurrent exact replay against the first commit.
+    v_idempotency_lock := pg_catalog.hashtextextended(
+        'myc-effect-idempotency-v1:' ||
+        pg_catalog.encode(p_idempotency_key_digest, 'hex'),
+        761112
+    );
+    v_operation_lock := pg_catalog.hashtextextended(
+        'myc-effect-operation-v1:' ||
+        octet_length(p_realm_id)::TEXT || ':' || p_realm_id ||
+        octet_length(p_resource_id)::TEXT || ':' || p_resource_id ||
+        octet_length(p_action_id)::TEXT || ':' || p_action_id ||
+        octet_length(p_effect_owner_id)::TEXT || ':' || p_effect_owner_id ||
+        octet_length(p_logical_operation_id)::TEXT || ':' || p_logical_operation_id,
+        761112
+    );
+
+    IF v_idempotency_lock <= v_operation_lock THEN
+        v_first_lock := v_idempotency_lock;
+        v_second_lock := v_operation_lock;
+    ELSE
+        v_first_lock := v_operation_lock;
+        v_second_lock := v_idempotency_lock;
+    END IF;
+    PERFORM pg_catalog.pg_advisory_xact_lock(v_first_lock);
+    IF v_second_lock <> v_first_lock THEN
+        PERFORM pg_catalog.pg_advisory_xact_lock(v_second_lock);
+    END IF;
+
+    IF p_fence_generation IS NULL
+       OR p_fence_generation <> v_current_generation THEN
+        RAISE EXCEPTION 'strict effect admission requires the exact current resource generation'
+            USING ERRCODE = 'P0001';
+    END IF;
+
+    -- A replay is a new delivery of an already committed logical operation,
+    -- not a second mutation under its original generation. Verify the current
+    -- owner/claim admission above, then return the immutable original effect
+    -- and attestation without passing the current generation to the legacy
+    -- mutation function (which correctly requires exact generation equality
+    -- for an effect's original commit).
+    SELECT *
+      INTO v_existing_effect
+      FROM myc_effect_owner.effect_commits
+     WHERE realm_id = p_realm_id
+       AND resource_id = p_resource_id
+       AND action_id = p_action_id
+       AND effect_owner_id = p_effect_owner_id
+       AND idempotency_key_digest = p_idempotency_key_digest;
+
+    IF FOUND THEN
+        IF v_existing_effect.logical_operation_id IS DISTINCT FROM p_logical_operation_id
+           OR v_existing_effect.object_id IS DISTINCT FROM p_object_id
+           OR v_existing_effect.currency_code IS DISTINCT FROM p_currency_code
+           OR v_existing_effect.request_digest IS DISTINCT FROM p_request_digest
+           OR v_existing_effect.decision_receipt_digest IS DISTINCT FROM p_decision_receipt_digest
+           OR v_existing_effect.payload_digest IS DISTINCT FROM p_payload_digest
+           OR v_existing_effect.delta_minor IS DISTINCT FROM p_delta_minor
+           OR v_existing_effect.accepted_generation > v_current_generation THEN
+            RAISE EXCEPTION 'idempotency key reused with different command bindings or future effect position'
+                USING ERRCODE = 'P0001';
+        END IF;
+
+        SELECT *
+          INTO v_attestation
+          FROM myc_effect_owner.effect_execution_attestations
+         WHERE effect_id = v_existing_effect.effect_id;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'legacy effect has no execution attestation; reconciliation is required'
+                USING ERRCODE = 'P0001';
+        END IF;
+
+        IF v_attestation.effect_id IS DISTINCT FROM v_existing_effect.effect_id
+           OR v_attestation.realm_id IS DISTINCT FROM p_realm_id
+           OR v_attestation.resource_id IS DISTINCT FROM p_resource_id
+           OR v_attestation.action_id IS DISTINCT FROM p_action_id
+           OR v_attestation.effect_owner_id IS DISTINCT FROM p_effect_owner_id
+           OR v_attestation.object_id IS DISTINCT FROM p_object_id
+           OR v_attestation.currency_code IS DISTINCT FROM p_currency_code
+           OR v_attestation.logical_operation_id IS DISTINCT FROM p_logical_operation_id
+           OR v_attestation.idempotency_key_digest IS DISTINCT FROM p_idempotency_key_digest
+           OR v_attestation.request_digest IS DISTINCT FROM p_request_digest
+           OR v_attestation.decision_receipt_digest IS DISTINCT FROM p_decision_receipt_digest
+           OR v_attestation.payload_digest IS DISTINCT FROM p_payload_digest
+           OR v_attestation.accepted_generation IS DISTINCT FROM v_existing_effect.accepted_generation
+           OR v_attestation.owner_epoch > p_owner_epoch
+           OR (
+               v_attestation.owner_epoch = p_owner_epoch
+               AND v_attestation.accepted_generation > p_fence_generation
+           ) THEN
+            RAISE EXCEPTION 'existing execution attestation differs from exact replay command or effect receipt'
+                USING ERRCODE = 'P0001';
+        END IF;
+
+        IF v_attestation.owner_epoch > 1
+           AND NOT EXISTS (
+               SELECT 1
+                 FROM myc_effect_owner.effect_owner_epoch_transitions t
+                WHERE t.realm_id = p_realm_id
+                  AND t.resource_id = p_resource_id
+                  AND t.action_id = p_action_id
+                  AND t.effect_owner_id = p_effect_owner_id
+                  AND t.new_owner_epoch = v_attestation.owner_epoch
+                  AND t.new_generation <= v_attestation.accepted_generation
+           ) THEN
+            RAISE EXCEPTION 'execution attestation has no matching historical owner-epoch transition'
+                USING ERRCODE = 'P0001';
+        END IF;
+
+        RETURN QUERY SELECT
+            TRUE,
+            v_attestation.effect_id,
+            v_attestation.owner_epoch,
+            v_attestation.accepted_generation,
+            v_attestation.worker_id,
+            v_attestation.claim_epoch,
+            v_attestation.attestation_id;
+        RETURN;
     END IF;
 
     SELECT *
