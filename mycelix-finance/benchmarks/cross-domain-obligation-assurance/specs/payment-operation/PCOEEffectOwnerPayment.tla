@@ -141,7 +141,7 @@ MarkFeeOutcomeUnknown ==
                  creditCount, feeLiabilityCount, feeOutboxCount,
                  paymentProjectionCount, receiptProjectionCount,
                  feeDeliveryCount, responseLost, responseReturned,
-                 conflictObserved, tombstonePresent, clientCachePresent, outboxWakeupPresent, outboxScanCount, retryCount>>
+                 conflictObserved, tombstonePresent, clientCachePresent, outboxScanCount, retryCount>>
 
 ReconcileFeeAsDelivered ==
   /\ feeState = "Unknown"
@@ -152,7 +152,7 @@ ReconcileFeeAsDelivered ==
                  creditCount, feeLiabilityCount, feeOutboxCount,
                  paymentProjectionCount, receiptProjectionCount,
                  responseLost, responseReturned, conflictObserved,
-                 tombstonePresent, clientCachePresent, outboxWakeupPresent, outboxScanCount, retryCount>>
+                 tombstonePresent, clientCachePresent, outboxScanCount, retryCount>>
 
 DeliverFee ==
   /\ feeState = "Pending"
