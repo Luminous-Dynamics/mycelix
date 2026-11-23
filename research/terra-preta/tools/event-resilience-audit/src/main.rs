@@ -677,6 +677,14 @@ mod tests {
             .expect("synthetic fixture parses")
     }
 
+    fn assert_close(actual: Option<f64>, expected: f64) {
+        let actual = actual.expect("expected a qualified numeric event integral");
+        assert!(
+            (actual - expected).abs() <= 1e-10,
+            "actual {actual:?} differs from expected {expected:?}"
+        );
+    }
+
     #[test]
     fn synthetic_event_computes_peak_recovery_and_burden() {
         let s = scenario();
@@ -690,10 +698,10 @@ mod tests {
         assert!(r.recovery_fraction.unwrap() > 0.8);
         assert_eq!(r.recovery_time_from_stress_end_hours, Some(24.0));
         assert_eq!(r.recovery_time_status, "qualified_sustained_recovery");
-        assert_eq!(r.pulse_burden_positive_anomaly_unit_hours, Some(82.8));
-        assert_eq!(r.pulse_burden_negative_anomaly_unit_hours, Some(0.0));
-        assert_eq!(r.pulse_burden_absolute_anomaly_unit_hours, Some(80.4));
-        assert_eq!(r.pulse_burden_signed_anomaly_unit_hours, Some(80.4));
+        assert_close(r.pulse_burden_positive_anomaly_unit_hours, 82.8);
+        assert_close(r.pulse_burden_negative_anomaly_unit_hours, 0.0);
+        assert_close(r.pulse_burden_absolute_anomaly_unit_hours, 82.8);
+        assert_close(r.pulse_burden_signed_anomaly_unit_hours, 82.8);
     }
 
     #[test]
