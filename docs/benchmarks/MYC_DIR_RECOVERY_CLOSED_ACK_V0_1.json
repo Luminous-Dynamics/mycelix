@@ -336,6 +336,13 @@
       "kind": "safety",
       "unit": "receipts",
       "hard_limit": 0
+    },
+    {
+      "id": "RCA-M29",
+      "name": "invalid_owner_epoch_transition_chronology_accepted",
+      "kind": "safety",
+      "unit": "receipts",
+      "hard_limit": 0
     }
   ],
   "scenarios": [
@@ -560,6 +567,12 @@
       "class": "known_reject",
       "description": "An effect receipt belongs to an earlier owner epoch but carries a resource generation greater than the current command generation; validation must not treat the pair as lexicographically older.",
       "expected_outcome": "COMPONENT_WISE_POSITION_CHECK_REJECTS_RECEIPT"
+    },
+    {
+      "id": "RCA-038",
+      "class": "known_reject",
+      "description": "The effect verifier finds a transition row for the attested owner epoch but its previous/new generation coordinates are impossible, or the transition's new generation is greater than the effect's accepted generation.",
+      "expected_outcome": "INDEPENDENT_HISTORY_VERIFIER_REJECTS_TRANSITION_CHRONOLOGY"
     }
   ],
   "evidence_requirements": [
