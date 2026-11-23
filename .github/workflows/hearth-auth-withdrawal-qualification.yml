@@ -8,6 +8,10 @@ on:
       - "mycelix-workspace/mycelix-finance/Cargo.lock"
       - "mycelix-finance/zomes/payments/coordinator/src/lib.rs"
       - "mycelix-finance/zomes/tend/coordinator/src/lib.rs"
+      - "mycelix-finance/zomes/payments/integrity/src/lib.rs"
+      - "mycelix-finance/zomes/tend/integrity/src/lib.rs"
+      - "mycelix-workspace/mycelix-finance/zomes/payments/integrity/src/lib.rs"
+      - "mycelix-workspace/mycelix-finance/zomes/tend/integrity/src/lib.rs"
       - "mycelix-workspace/mycelix-finance/zomes/payments/coordinator/src/lib.rs"
       - "mycelix-workspace/mycelix-finance/zomes/tend/coordinator/src/lib.rs"
       - "mycelix-finance/docs/research/HEARTH_AUTHORIZATION_WITHDRAWAL_HARDENING_V0_1.md"
@@ -25,6 +29,10 @@ on:
       - "mycelix-workspace/mycelix-finance/Cargo.lock"
       - "mycelix-finance/zomes/payments/coordinator/src/lib.rs"
       - "mycelix-finance/zomes/tend/coordinator/src/lib.rs"
+      - "mycelix-finance/zomes/payments/integrity/src/lib.rs"
+      - "mycelix-finance/zomes/tend/integrity/src/lib.rs"
+      - "mycelix-workspace/mycelix-finance/zomes/payments/integrity/src/lib.rs"
+      - "mycelix-workspace/mycelix-finance/zomes/tend/integrity/src/lib.rs"
       - "mycelix-workspace/mycelix-finance/zomes/payments/coordinator/src/lib.rs"
       - "mycelix-workspace/mycelix-finance/zomes/tend/coordinator/src/lib.rs"
       - "mycelix-finance/docs/research/HEARTH_AUTHORIZATION_WITHDRAWAL_HARDENING_V0_1.md"
@@ -77,6 +85,8 @@ jobs:
           cmp mycelix-finance/zomes/payments/coordinator/src/lib.rs mycelix-workspace/mycelix-finance/zomes/payments/coordinator/src/lib.rs
           cmp mycelix-finance/Cargo.lock mycelix-workspace/mycelix-finance/Cargo.lock
           cmp mycelix-finance/zomes/tend/coordinator/src/lib.rs mycelix-workspace/mycelix-finance/zomes/tend/coordinator/src/lib.rs
+          cmp mycelix-finance/zomes/payments/integrity/src/lib.rs mycelix-workspace/mycelix-finance/zomes/payments/integrity/src/lib.rs
+          cmp mycelix-finance/zomes/tend/integrity/src/lib.rs mycelix-workspace/mycelix-finance/zomes/tend/integrity/src/lib.rs
           cmp mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json
           cmp mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json
           jq empty mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json
