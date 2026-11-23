@@ -82,7 +82,7 @@ jobs:
             (.required | index("predecessor_action_hash")) != null and
             (.required | index("cause")) != null and
             (.properties.settlement_profile["$ref"] == "#/$defs/settlement_profile") and
-            (.properties.cause == null) and
+            (.properties.cause["$ref"] == "#/$defs/cause") and
             ([.["$defs"].cause.properties.cause_kind.enum[]] | sort) == ($m[0].required_cause_kinds | sort)
           ' "$SCHEMA" >/dev/null
           {
