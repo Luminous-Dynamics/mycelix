@@ -279,6 +279,24 @@ impl AuthorityProofReceipt {
                     );
                 }
             }
+            AuthorityProofPayload::WalCommitPosition {
+                effect_id,
+                execution_attestation_id,
+                marker_digest,
+                transaction_id,
+                commit_lsn,
+                transaction_end_lsn,
+            } => {
+                validate_text(transaction_id, "WAL transaction ID")?;
+                if *effect_id == Uuid::nil()
+                    || *execution_attestation_id == Uuid::nil()
+                    || is_zero(&marker_digest.0)
+                    || *commit_lsn == 0
+                    || *transaction_end_lsn < *commit_lsn
+                {
+                    return Err("WAL commit-position proof has invalid effect identity, marker or LSN chronology".into());
+                }
+            }
             AuthorityProofPayload::PromotionEligibility {
                 candidate_primary_id,
                 candidate_system_identifier,
@@ -385,6 +403,10 @@ pub struct AuthorityProofTarget {
     pub expected_timeline_ancestry_hash: Option<ProofDigest>,
     pub expected_highwater_proof_hash: Option<ProofDigest>,
     pub expected_physical_fencing_proof_hash: Option<ProofDigest>,
+    pub expected_effect_id: Option<Uuid>,
+    pub expected_attestation_id: Option<Uuid>,
+    pub expected_marker_digest: Option<ProofDigest>,
+    pub expected_transaction_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -531,6 +553,39 @@ impl SignedAuthorityProofReceipt {
                     return Err("physical fencing attestor must be independent from the database writer key".into());
                 }
             }
+            AuthorityProofPayload::WalCommitPosition {
+                effect_id,
+                execution_attestation_id,
+                marker_digest,
+                transaction_id,
+                transaction_end_lsn,
+                ..
+            } => {
+                let expected_effect_id = target
+                    .expected_effect_id
+                    .ok_or_else(|| "WAL proof verification requires exact effect ID".to_owned())?;
+                let expected_attestation_id = target
+                    .expected_attestation_id
+                    .ok_or_else(|| "WAL proof verification requires exact execution attestation ID".to_owned())?;
+                let expected_marker_digest = target
+                    .expected_marker_digest
+                    .ok_or_else(|| "WAL proof verification requires exact transactional marker digest".to_owned())?;
+                let expected_transaction_id = target
+                    .expected_transaction_id
+                    .as_deref()
+                    .ok_or_else(|| "WAL proof verification requires exact PostgreSQL transaction ID".to_owned())?;
+                let expected_end_lsn = target
+                    .expected_transaction_end_lsn
+                    .ok_or_else(|| "WAL proof verification requires exact transaction end-LSN".to_owned())?;
+                if *effect_id != expected_effect_id
+                    || *execution_attestation_id != expected_attestation_id
+                    || *marker_digest != expected_marker_digest
+                    || transaction_id != expected_transaction_id
+                    || *transaction_end_lsn != expected_end_lsn
+                {
+                    return Err("WAL commit-position proof does not bind the exact effect, attestation, marker, transaction and end-LSN".into());
+                }
+            }
             AuthorityProofPayload::PromotionEligibility {
                 candidate_primary_id,
                 candidate_system_identifier,
@@ -625,6 +680,22 @@ fn encode_payload(bytes: &mut Vec<u8>, payload: &AuthorityProofPayload) -> Proof
             push_text(bytes, successor_primary_id)?;
             push_time(bytes, observed_at);
             bytes.extend_from_slice(&actuator_evidence_hash.0);
+        }
+        AuthorityProofPayload::WalCommitPosition {
+            effect_id,
+            execution_attestation_id,
+            marker_digest,
+            transaction_id,
+            commit_lsn,
+            transaction_end_lsn,
+        } => {
+            bytes.push(4);
+            bytes.extend_from_slice(effect_id.as_bytes());
+            bytes.extend_from_slice(execution_attestation_id.as_bytes());
+            bytes.extend_from_slice(&marker_digest.0);
+            push_text(bytes, transaction_id)?;
+            push_u64(bytes, *commit_lsn);
+            push_u64(bytes, *transaction_end_lsn);
         }
         AuthorityProofPayload::PromotionEligibility {
             candidate_primary_id,
@@ -784,6 +855,10 @@ mod tests {
             expected_timeline_ancestry_hash: None,
             expected_highwater_proof_hash: None,
             expected_physical_fencing_proof_hash: None,
+            expected_effect_id: None,
+            expected_attestation_id: None,
+            expected_marker_digest: None,
+            expected_transaction_id: None,
         };
         let verified_hash = signed
             .verify_for_target(
@@ -861,6 +936,10 @@ mod tests {
             expected_timeline_ancestry_hash: None,
             expected_highwater_proof_hash: None,
             expected_physical_fencing_proof_hash: None,
+            expected_effect_id: None,
+            expected_attestation_id: None,
+            expected_marker_digest: None,
+            expected_transaction_id: None,
         };
         signed
             .verify_for_target(
@@ -931,6 +1010,10 @@ mod tests {
             expected_timeline_ancestry_hash: None,
             expected_highwater_proof_hash: None,
             expected_physical_fencing_proof_hash: None,
+            expected_effect_id: None,
+            expected_attestation_id: None,
+            expected_marker_digest: None,
+            expected_transaction_id: None,
         };
         signed
             .verify_for_target(
@@ -1106,6 +1189,10 @@ mod tests {
             expected_timeline_ancestry_hash: None,
             expected_highwater_proof_hash: None,
             expected_physical_fencing_proof_hash: None,
+            expected_effect_id: None,
+            expected_attestation_id: None,
+            expected_marker_digest: None,
+            expected_transaction_id: None,
         };
         assert!(signed
             .verify_for_target(
