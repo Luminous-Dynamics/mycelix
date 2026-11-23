@@ -6,6 +6,7 @@ on:
       - "tools/myc-dir-fabric-nats-adapter/**"
       - "tools/myc-dir-fabric-nats-reference/**"
       - "mycelix-workspace/crates/mycelix-authority-write-lease/**"
+      - "mycelix-workspace/crates/mycelix-authority-proof/**"
       - "tools/myc-dir-fabric-reference/postgres/**"
       - ".github/workflows/myc-dir-nats-adapter.yml"
       - ".github/nats-jetstream-test.conf"
@@ -37,6 +38,7 @@ jobs:
           workspaces: |
             tools/myc-dir-fabric-nats-reference
             mycelix-workspace/crates/mycelix-authority-write-lease
+            mycelix-workspace/crates/mycelix-authority-proof
             tools/myc-dir-fabric-nats-adapter
 
       - name: Start TLS-enabled PostgreSQL 16.16 effect-owner database
@@ -148,10 +150,14 @@ jobs:
         run: |
           cargo fmt --manifest-path tools/myc-dir-fabric-nats-reference/Cargo.toml --check
           cargo fmt --manifest-path mycelix-workspace/crates/mycelix-authority-write-lease/Cargo.toml --check
+          cargo fmt --manifest-path mycelix-workspace/crates/mycelix-authority-proof/Cargo.toml --check
           cargo fmt --manifest-path tools/myc-dir-fabric-nats-adapter/Cargo.toml --check
 
       - name: Run shared authority-write lease protocol tests
         run: cargo test --manifest-path mycelix-workspace/crates/mycelix-authority-write-lease/Cargo.toml
+
+      - name: Run signed authority proof protocol tests
+        run: cargo test --manifest-path mycelix-workspace/crates/mycelix-authority-proof/Cargo.toml
 
       - name: Run dependency-free NATS contract tests
         run: cargo test --manifest-path tools/myc-dir-fabric-nats-reference/Cargo.toml
@@ -170,6 +176,7 @@ jobs:
         run: |
           cargo clippy --manifest-path tools/myc-dir-fabric-nats-reference/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path mycelix-workspace/crates/mycelix-authority-write-lease/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path mycelix-workspace/crates/mycelix-authority-proof/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path tools/myc-dir-fabric-nats-adapter/Cargo.toml --all-targets -- -D warnings
 
       - name: Preserve database and broker logs
