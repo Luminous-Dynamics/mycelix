@@ -174,11 +174,16 @@ pub struct AuthorityProofReceipt {
 impl AuthorityProofReceipt {
     pub fn validate(&self) -> ProofResult<()> {
         validate_text(&self.deployment_id, "deployment ID")?;
-        validate_text(&self.database_system_identifier, "database system identifier")?;
+        validate_text(
+            &self.database_system_identifier,
+            "database system identifier",
+        )?;
         validate_text(&self.primary_id, "primary ID")?;
 
         if self.postgres_timeline == 0 || self.owner_epoch == 0 || self.sequence == 0 {
-            return Err("authority proof timeline, owner epoch and sequence must be positive".into());
+            return Err(
+                "authority proof timeline, owner epoch and sequence must be positive".into(),
+            );
         }
         if self.purpose != self.payload.purpose()
             || self.issuer_role.permitted_purpose() != self.purpose
@@ -189,7 +194,9 @@ impl AuthorityProofReceipt {
             || self.expires_at <= self.not_before
             || self.expires_at - self.not_before > Duration::seconds(MAX_PROOF_LIFETIME_SECONDS)
         {
-            return Err("authority proof validity interval is invalid or exceeds ten minutes".into());
+            return Err(
+                "authority proof validity interval is invalid or exceeds ten minutes".into(),
+            );
         }
 
         match &self.payload {
@@ -201,13 +208,20 @@ impl AuthorityProofReceipt {
                 authority_policy_epoch,
                 ..
             } => {
+                let predecessor_invalid = if *previous_generation == 0 {
+                    !is_zero(&previous_lease_hash.0)
+                } else {
+                    is_zero(&previous_lease_hash.0)
+                };
                 if new_generation <= previous_generation
                     || *new_generation == 0
                     || *authority_policy_epoch == 0
-                    || is_zero(&previous_lease_hash.0)
+                    || predecessor_invalid
                     || is_zero(&new_lease_hash.0)
                 {
-                    return Err("lease high-water proof does not advance a valid generation/hash".into());
+                    return Err(
+                        "lease high-water proof does not advance a valid generation/hash".into(),
+                    );
                 }
             }
             AuthorityProofPayload::PhysicalFencing {
@@ -240,7 +254,10 @@ impl AuthorityProofReceipt {
                     || *observed_at > self.expires_at
                     || is_zero(&actuator_evidence_hash.0)
                 {
-                    return Err("physical fencing proof has invalid target, sequence or actuator evidence".into());
+                    return Err(
+                        "physical fencing proof has invalid target, sequence or actuator evidence"
+                            .into(),
+                    );
                 }
             }
             AuthorityProofPayload::PromotionEligibility {
@@ -269,7 +286,10 @@ impl AuthorityProofReceipt {
                     || is_zero(&lease_highwater_proof_hash.0)
                     || is_zero(&physical_fencing_proof_hash.0)
                 {
-                    return Err("promotion eligibility proof lacks WAL, timeline or authority coverage".into());
+                    return Err(
+                        "promotion eligibility proof lacks WAL, timeline or authority coverage"
+                            .into(),
+                    );
                 }
             }
         }
@@ -424,20 +444,22 @@ impl SignedAuthorityProofReceipt {
                 new_lease_hash,
                 ..
             } => {
-                if let Some((expected_generation, expected_hash)) = target.expected_previous_highwater {
-                    if *previous_generation != expected_generation
-                        || *previous_lease_hash != expected_hash
-                    {
-                        return Err("lease high-water proof does not extend the verifier's exact external predecessor".into());
-                    }
+                let (expected_generation, expected_hash) = target
+                    .expected_previous_highwater
+                    .ok_or_else(|| "lease high-water verification requires an externally supplied predecessor".to_owned())?;
+                if *previous_generation != expected_generation
+                    || *previous_lease_hash != expected_hash
+                {
+                    return Err("lease high-water proof does not extend the verifier's exact external predecessor".into());
                 }
-                if let Some((expected_generation, expected_id, expected_hash)) = target.expected_new_lease {
-                    if *new_generation != expected_generation
-                        || *new_lease_id != expected_id
-                        || *new_lease_hash != expected_hash
-                    {
-                        return Err("lease high-water proof does not authorize the exact successor lease".into());
-                    }
+                let (expected_generation, expected_id, expected_hash) = target
+                    .expected_new_lease
+                    .ok_or_else(|| "lease high-water verification requires the exact pending successor lease".to_owned())?;
+                if *new_generation != expected_generation
+                    || *new_lease_id != expected_id
+                    || *new_lease_hash != expected_hash
+                {
+                    return Err("lease high-water proof does not authorize the exact successor lease".into());
                 }
             }
             AuthorityProofPayload::PhysicalFencing {
@@ -455,10 +477,17 @@ impl SignedAuthorityProofReceipt {
                 {
                     return Err("physical fencing proof payload does not match its signed outer target".into());
                 }
-                if target.successor_primary_id.as_deref() != Some(successor_primary_id.as_str()) {
+                let expected_successor = target
+                    .successor_primary_id
+                    .as_deref()
+                    .ok_or_else(|| "physical fencing verification requires an exact successor primary".to_owned())?;
+                if expected_successor != successor_primary_id {
                     return Err("physical fencing proof does not bind the exact expected successor primary".into());
                 }
-                if target.database_writer_public_key == Some(self.issuer_public_key) {
+                let database_writer_key = target
+                    .database_writer_public_key
+                    .ok_or_else(|| "physical fencing verification requires the database writer key for independence checks".to_owned())?;
+                if database_writer_key == self.issuer_public_key {
                     return Err("physical fencing attestor must be independent from the database writer key".into());
                 }
             }
@@ -477,12 +506,18 @@ impl SignedAuthorityProofReceipt {
                 {
                     return Err("promotion eligibility payload does not match its signed candidate identity".into());
                 }
-                if target.expected_transaction_end_lsn
-                    .is_some_and(|expected| expected != *target_transaction_end_lsn)
-                    || target.expected_highwater_proof_hash
-                        .is_some_and(|expected| expected != *lease_highwater_proof_hash)
-                    || target.expected_physical_fencing_proof_hash
-                        .is_some_and(|expected| expected != *physical_fencing_proof_hash)
+                let expected_lsn = target
+                    .expected_transaction_end_lsn
+                    .ok_or_else(|| "promotion proof verification requires the exact acknowledged transaction end-LSN".to_owned())?;
+                let expected_highwater = target
+                    .expected_highwater_proof_hash
+                    .ok_or_else(|| "promotion proof verification requires the exact verified high-water proof".to_owned())?;
+                let expected_fencing = target
+                    .expected_physical_fencing_proof_hash
+                    .ok_or_else(|| "promotion proof verification requires the exact verified physical-fencing proof".to_owned())?;
+                if expected_lsn != *target_transaction_end_lsn
+                    || expected_highwater != *lease_highwater_proof_hash
+                    || expected_fencing != *physical_fencing_proof_hash
                 {
                     return Err("promotion eligibility proof does not bind the expected effect/high-water/fencing evidence".into());
                 }
@@ -645,7 +680,10 @@ mod tests {
             issuer_public_key: key.verifying_key().to_bytes(),
             signature: Vec::new(),
         };
-        signed.signature = key.sign(&signed.signing_bytes().unwrap()).to_bytes().to_vec();
+        signed.signature = key
+            .sign(&signed.signing_bytes().unwrap())
+            .to_bytes()
+            .to_vec();
         signed
     }
 
