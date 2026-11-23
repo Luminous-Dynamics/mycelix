@@ -430,13 +430,14 @@ BEGIN
                 USING ERRCODE = 'P0001';
         END IF;
         v_fencing_payload := v_fencing.signed_receipt_json #> '{receipt,payload}';
-        IF v_fencing_payload->>'successor_primary_id' IS DISTINCT FROM v_lease.primary_id
-           OR v_fencing_payload->>'old_primary_id' IS NULL
-           OR v_fencing_payload->>'old_primary_id' = v_lease.primary_id
-           OR v_fencing_payload->>'old_primary_id' IS DISTINCT FROM v_fencing.primary_id
-           OR (v_fencing_payload->>'old_system_identifier') IS DISTINCT FROM v_lease.database_system_identifier
-           OR (v_fencing_payload->>'old_timeline')::BIGINT IS DISTINCT FROM v_fencing.postgres_timeline
+        IF v_fencing_payload->>'old_primary_id' IS DISTINCT FROM v_lease.primary_id
+           OR v_fencing.primary_id IS DISTINCT FROM v_lease.primary_id
+           OR v_fencing.postgres_timeline IS DISTINCT FROM v_lease.postgres_timeline
+           OR v_fencing_payload->>'old_system_identifier' IS DISTINCT FROM v_lease.database_system_identifier
+           OR v_fencing_payload->>'old_timeline' IS DISTINCT FROM v_lease.postgres_timeline::TEXT
            OR (v_fencing_payload->>'owner_epoch')::BIGINT IS DISTINCT FROM v_fencing.owner_epoch
+           OR v_fencing_payload->>'successor_primary_id' IS NULL
+           OR v_fencing_payload->>'successor_primary_id' = v_lease.primary_id
            OR v_fencing_payload->>'mechanism' = 'network_partition_only'
            OR v_fencing.issuer_public_key = v_lease.signer_public_key THEN
             RAISE EXCEPTION 'physical-fencing proof does not bind the exact old-primary/successor pair or uses the lease signer as fence attestor'
@@ -452,15 +453,15 @@ BEGIN
            OR v_promotion.issuer_role <> 'promotion_controller'
            OR v_promotion.deployment_id <> v_lease.deployment_id
            OR v_promotion.database_system_identifier <> v_lease.database_system_identifier
-           OR v_promotion.primary_id <> v_lease.primary_id
-           OR v_promotion.postgres_timeline <> v_lease.postgres_timeline
+           OR v_promotion.primary_id IS DISTINCT FROM v_fencing_payload->>'successor_primary_id'
+           OR v_promotion.primary_id = v_lease.primary_id
            OR v_promotion.owner_epoch <> v_lease.resource_owner_epoch THEN
             RAISE EXCEPTION 'promotion eligibility proof does not bind the exact lease successor/database/timeline/epoch'
                 USING ERRCODE = 'P0001';
         END IF;
         v_promotion_payload := v_promotion.signed_receipt_json #> '{receipt,payload}';
-        IF v_promotion_payload->>'candidate_primary_id' IS DISTINCT FROM v_lease.primary_id
-           OR (v_promotion_payload->>'candidate_timeline')::BIGINT <> v_lease.postgres_timeline
+        IF v_promotion_payload->>'candidate_primary_id' IS DISTINCT FROM v_promotion.primary_id
+           OR (v_promotion_payload->>'candidate_timeline')::BIGINT <> v_promotion.postgres_timeline
            OR (v_promotion_payload->>'candidate_system_identifier') IS DISTINCT FROM v_lease.database_system_identifier
            OR myc_effect_owner.authority_proof_json_u8_array(v_promotion_payload->'lease_highwater_proof_hash')
                 <> v_highwater.signed_receipt_hash
