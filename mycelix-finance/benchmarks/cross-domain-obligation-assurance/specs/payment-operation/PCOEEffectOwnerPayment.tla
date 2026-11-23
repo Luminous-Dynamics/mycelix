@@ -224,7 +224,7 @@ UnsafeDuplicateDebit ==
                  feeLiabilityCount, feeOutboxCount, paymentProjectionCount,
                  receiptProjectionCount, feeDeliveryCount, feeState,
                  responseLost, responseReturned, conflictObserved,
-                 tombstonePresent, clientCachePresent, retryCount>>
+                 tombstonePresent, clientCachePresent, outboxWakeupPresent, outboxScanCount, retryCount>>
 
 Next ==
   \/ Prepare
