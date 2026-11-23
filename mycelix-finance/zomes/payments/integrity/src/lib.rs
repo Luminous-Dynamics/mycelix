@@ -559,8 +559,7 @@ fn validate_update_payment(
     if let Ok(original_record) = must_get_valid_record(action.original_action_address)
         && let Ok(Some(original)) = original_record.entry().to_app_option::<Payment>()
     {
-        if original.status != payment.status
-            && !original.status.can_transition_to(&payment.status)
+        if original.status != payment.status && !original.status.can_transition_to(&payment.status)
         {
             return Ok(ValidateCallbackResult::Invalid(format!(
                 "Invalid payment status transition: {:?} → {:?}",
@@ -574,8 +573,7 @@ fn validate_update_payment(
             || original.currency != payment.currency
         {
             return Ok(ValidateCallbackResult::Invalid(
-                "Cannot change sender, receiver, amount, or currency on an existing payment"
-                    .into(),
+                "Cannot change sender, receiver, amount, or currency on an existing payment".into(),
             ));
         }
     }
