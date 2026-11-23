@@ -694,7 +694,10 @@ mod tests {
         let mut future_generation_receipt = receipt_for(&older_generation_binding);
         future_generation_receipt.accepted_generation = 7;
         recommit_receipt(&mut future_generation_receipt);
-        assert!(validate_receipt_binding(&older_generation_binding, &future_generation_receipt).is_err());
+        assert!(
+            validate_receipt_binding(&older_generation_binding, &future_generation_receipt)
+                .is_err()
+        );
     }
 
     #[test]
