@@ -322,17 +322,18 @@ fn simulate_unit_pair(rng: &mut SplitMix64, x: &Scenario, block_change: f64) -> 
             x.true_mean_treatment_effect + x.effect_heterogeneity_sd * rng.standard_normal();
         let untreated_change = block_change + x.plot_change_sd * rng.standard_normal();
         let treated_change = untreated_change + treatment_effect;
-        let followup_if_treated =
-            baseline_true + treated_change + x.measurement_sd * rng.standard_normal();
         let followup_if_control =
             baseline_true + untreated_change + x.measurement_sd * rng.standard_normal();
+        // Shared plot-level endpoint measurement error is held fixed across
+        // the two potential outcomes; treatment adds the causal response.
+        let potential_treated_followup = followup_if_control + treatment_effect;
         let received_treatment_if_assigned = rng.bernoulli(x.treatment_compliance_probability);
         let received_treatment_if_control = rng.bernoulli(x.control_crossover_probability);
         let missing = match x.missingness_mode.as_str() {
             "none" => false,
             "mcar" => rng.bernoulli(x.missing_outcome_probability),
             "response_dependent" => {
-                let standardized = ((followup_if_treated - x.baseline_mean)
+                let standardized = ((potential_treated_followup - x.baseline_mean)
                     / (x.block_change_sd + x.plot_change_sd + x.measurement_sd + 1e-9))
                     .max(0.0);
                 let p = (x.missing_outcome_probability
