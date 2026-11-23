@@ -53,7 +53,7 @@ Expected output: one confirmed-active, one confirmed-inactive and ten unassessed
 
 ## Reproducibility and safety
 
-The Rust CLI hashes exact input bytes, validates IDs/references and artifact digests, sorts stable results by input order, writes only to a new path and records a synthetic-only claim ceiling. The focused workflow checks formatting, tests, strict Clippy, Draft 2020-12 schemas, expected admission outcomes and no-overwrite.
+The Rust CLI hashes exact input bytes, validates IDs/references and artifact digests, sorts stable results by input order, writes only to a new path and records a synthetic-only claim ceiling. The focused workflow checks formatting, 18 Rust tests, strict Clippy, Draft 2020-12 schemas, expected admission outcomes and no-overwrite. Unit tests explicitly check both sides of the tracer asymmetry: a positive, edge-resolved sorptive-tracer detection may confirm activity, while a sorptive-tracer non-detection cannot confirm inactivity; a direct water-flux non-detection can qualify independently of tracer chemistry.
 
 ## Integration
 
