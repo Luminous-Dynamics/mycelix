@@ -84,3 +84,8 @@ Cycoń (2026), *Decision-grade digital twins for in situ bioremediation of conta
 ## Boundaries
 
 All fixture values are manufactured. A green test proves only that the declared synthetic trial record is internally coherent and that the estimator reproduces its blocked randomization design. It does not verify real randomization, consent, access, agronomic appropriateness, ecological safety, intervention efficacy or MRV eligibility. Real claims require preregistration, qualified local review, appropriate permissions, field records and independent replication.
+
+
+## Exact p-value resolution warning
+
+The report exposes the minimum possible two-sided p-value for B paired blocks: 2 / 2^B. The known-truth four-block fixture has a lower bound of 0.125 and therefore cannot resolve nominal alpha = 0.05. Six blocks are the first count whose theoretical minimum is at most 0.05; eight blocks are the first whose theoretical minimum is at most 0.01. These are resolution facts, not power guarantees or a sample-size recommendation. A separate operating-characteristics benchmark is required for power, Type-I error and precision.
