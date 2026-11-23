@@ -68,6 +68,10 @@ exclude = [
     "crates/mycelix-leptos-i18n",
     "crates/mycelix-mock-data",
     "crates/mycelix-zkp-core/benches",
+    # The signed lease protocol is an intentionally small standalone workspace;
+    # effect-owner adapters consume it without resolving the full monorepo graph.
+    "crates/mycelix-authority-write-lease",
+    "crates/mycelix-authority-proof",
     "crates/mycelix-zkp-core",
     "crates/mycelix-zkp-core/src/circuits",
     "crates/mycelix-zkp-core/target",

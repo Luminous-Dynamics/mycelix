@@ -1,57 +1,177 @@
-//! PostgreSQL-backed verifier for Directory Fabric effect receipts.
+//! PostgreSQL-backed verifier for Directory Fabric effect and execution receipts.
 //!
-//! This verifier reads the existing append-only myc_effect_owner.effect_commits
-//! ledger. A successful lookup is proof of visibility on the connected
-//! writable primary; durability across promotion still depends on the database
-//! synchronous-commit/replication and promotion policy.
+//! Reads the append-only effect_commits and effect_execution_attestations rows.
+//! Verification proves that the exact historical effect/worker/owner coordinates
+//! are visible on the connected writable primary. It does not prove that a
+//! split-brain former primary is physically fenced or that asynchronous replicas
+//! contain the commit.
 
-use std::path::Path;
+use std::{collections::BTreeSet, path::Path};
 
-use myc_dir_fabric_nats_reference::{
-    Digest, DurableOwnerDisposition, NatsCommandBinding,
+use chrono::{DateTime, Duration as ChronoDuration, NaiveDateTime, Utc};
+use myc_dir_fabric_nats_reference::{Digest, DurableOwnerDisposition, NatsCommandBinding};
+use mycelix_authority_write_lease::{
+    AuthorityWriteLeaseTarget, AuthorityWriteScope, ContentHash as LeaseContentHash,
+    SignedAuthorityWriteLease,
 };
 use rustls_tokio_postgres::{config_from_ca_cert, MakeRustlsConnect};
 use tokio_postgres::{Client, Row};
 
-use crate::{
-    sha256, AdapterResult, OwnerDispositionVerifier, VerifiedOwnerDisposition,
-};
+use crate::{sha256, AdapterResult, OwnerDispositionVerifier, VerifiedOwnerDisposition};
 
-const RECEIPT_DOMAIN: &[u8] = b"MYC-DIR-POSTGRES-EFFECT-RECEIPT\0\x01";
+// v4 commits to transition chronology and both the effect and promotion lease evidence.
+const RECEIPT_DOMAIN: &[u8] = b"MYC-DIR-POSTGRES-EFFECT-EXECUTION-RECEIPT\0\x04";
 
 const SELECT_EFFECT_COMMIT: &str = r#"
 SELECT
     pg_catalog.pg_is_in_recovery(),
     current_setting('transaction_read_only')::boolean,
-    effect_id::text,
-    realm_id,
-    resource_id,
-    action_id,
-    effect_owner_id,
-    object_id,
-    currency_code,
-    idempotency_key_digest,
-    logical_operation_id,
-    request_digest,
-    decision_receipt_digest,
-    payload_digest,
-    accepted_generation,
-    delta_minor,
-    balance_after_minor
-FROM myc_effect_owner.effect_commits
-WHERE realm_id = $1
-  AND resource_id = $2
-  AND action_id = $3
-  AND effect_owner_id = $4
-  AND object_id = $5
-  AND currency_code = $6
-  AND idempotency_key_digest = $7
-  AND logical_operation_id = $8
+    e.effect_id::text,
+    e.realm_id,
+    e.resource_id,
+    e.action_id,
+    e.effect_owner_id,
+    e.object_id,
+    e.currency_code,
+    e.idempotency_key_digest,
+    e.logical_operation_id,
+    e.request_digest,
+    e.decision_receipt_digest,
+    e.payload_digest,
+    e.accepted_generation,
+    e.delta_minor,
+    e.balance_after_minor,
+    a.attestation_id::text,
+    a.owner_epoch,
+    a.accepted_generation,
+    a.worker_id,
+    a.claim_epoch,
+    a.claim_proof_digest,
+    a.claim_clock_profile_id,
+    to_char(a.claim_issued_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'),
+    to_char(a.claim_expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'),
+    a.database_xact_id,
+    t.previous_owner_epoch,
+    t.new_owner_epoch,
+    t.previous_generation,
+    t.new_generation,
+    t.transition_xact_id,
+    t.epoch_authority_receipt_digest,
+    t.physical_fencing_receipt_digest,
+    effect_lease.lease_id::text,
+    effect_lease.lease_hash,
+    effect_lease.lease_generation,
+    effect_lease.deployment_id,
+    effect_lease.primary_id,
+    effect_lease.database_system_identifier,
+    effect_lease.postgres_timeline,
+    effect_lease.database_epoch_number,
+    effect_lease.database_epoch_hash,
+    effect_lease.resource_owner_epoch,
+    effect_lease.resource_generation,
+    effect_lease.signer_key_id,
+    effect_lease.signer_public_key,
+    effect_lease.signature,
+    effect_lease.signed_lease_json::TEXT,
+    effect_lease.external_highwater_receipt_digest,
+    effect_lease.physical_fencing_receipt_digest,
+    effect_lease.admitted_scope,
+    to_char(effect_lease.attested_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'),
+    promotion_lease.lease_id::text,
+    promotion_lease.lease_hash,
+    promotion_lease.lease_generation,
+    promotion_lease.deployment_id,
+    promotion_lease.primary_id,
+    promotion_lease.database_system_identifier,
+    promotion_lease.postgres_timeline,
+    promotion_lease.database_epoch_number,
+    promotion_lease.database_epoch_hash,
+    promotion_lease.new_owner_epoch,
+    promotion_lease.new_generation,
+    promotion_lease.signer_key_id,
+    promotion_lease.signer_public_key,
+    promotion_lease.signature,
+    promotion_lease.signed_lease_json::TEXT,
+    promotion_lease.external_highwater_receipt_digest,
+    promotion_lease.physical_fencing_receipt_digest,
+    to_char(promotion_lease.attested_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US')
+FROM myc_effect_owner.effect_commits e
+JOIN myc_effect_owner.effect_execution_attestations a
+  ON a.effect_id = e.effect_id
+LEFT JOIN myc_effect_owner.effect_owner_epoch_transitions t
+  ON t.realm_id = a.realm_id
+ AND t.resource_id = a.resource_id
+ AND t.action_id = a.action_id
+ AND t.effect_owner_id = a.effect_owner_id
+ AND t.new_owner_epoch = a.owner_epoch
+LEFT JOIN myc_effect_owner.effect_execution_authority_lease_attestations effect_lease
+  ON effect_lease.effect_id = e.effect_id
+ AND effect_lease.attestation_id = a.attestation_id
+LEFT JOIN myc_effect_owner.effect_owner_epoch_authority_lease_attestations promotion_lease
+  ON promotion_lease.realm_id = a.realm_id
+ AND promotion_lease.resource_id = a.resource_id
+ AND promotion_lease.action_id = a.action_id
+ AND promotion_lease.effect_owner_id = a.effect_owner_id
+ AND promotion_lease.new_owner_epoch = a.owner_epoch
+WHERE e.realm_id = $1
+  AND e.resource_id = $2
+  AND e.action_id = $3
+  AND e.effect_owner_id = $4
+  AND e.object_id = $5
+  AND e.currency_code = $6
+  AND e.idempotency_key_digest = $7
+  AND e.logical_operation_id = $8
 "#;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VerifiedOwnerEpochTransition {
+    pub previous_owner_epoch: u64,
+    pub new_owner_epoch: u64,
+    pub previous_generation: u64,
+    pub new_generation: u64,
+    pub transition_xact_id: String,
+    pub epoch_authority_receipt_digest: Digest,
+    pub physical_fencing_receipt_digest: Digest,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VerifiedAuthorityWriteLeaseEvidence {
+    pub signed_lease: SignedAuthorityWriteLease,
+    pub lease_hash: Digest,
+    pub lease_generation: u64,
+    pub scope: AuthorityWriteScope,
+    pub attested_at: String,
+    pub external_highwater_receipt_digest: Digest,
+    pub physical_fencing_receipt_digest: Option<Digest>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct RawAuthorityWriteLeaseEvidence {
+    lease_id: Option<String>,
+    lease_hash: Option<Digest>,
+    lease_generation: Option<i64>,
+    deployment_id: Option<String>,
+    primary_id: Option<String>,
+    database_system_identifier: Option<String>,
+    postgres_timeline: Option<i64>,
+    database_epoch_number: Option<i64>,
+    database_epoch_hash: Option<Digest>,
+    resource_owner_epoch: Option<i64>,
+    resource_generation: Option<i64>,
+    signer_key_id: Option<String>,
+    signer_public_key: Option<Vec<u8>>,
+    signature: Option<Vec<u8>>,
+    signed_lease_json: Option<String>,
+    external_highwater_receipt_digest: Option<Digest>,
+    physical_fencing_receipt_digest: Option<Digest>,
+    admitted_scope: Option<String>,
+    attested_at: Option<String>,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VerifiedPostgresEffectReceipt {
     pub effect_id: String,
+    pub attestation_id: String,
     pub realm_id: String,
     pub resource_id: String,
     pub action_id: String,
@@ -59,18 +179,30 @@ pub struct VerifiedPostgresEffectReceipt {
     pub object_id: String,
     pub currency_code: String,
     pub logical_operation_id: String,
+    pub owner_epoch: u64,
     pub accepted_generation: u64,
+    pub worker_id: String,
+    pub claim_epoch: u64,
+    pub claim_proof_digest: Digest,
+    pub claim_clock_profile_id: String,
+    pub claim_issued_at: String,
+    pub claim_expires_at: String,
+    pub database_xact_id: String,
+    pub epoch_transition: Option<VerifiedOwnerEpochTransition>,
+    pub effect_authority_lease: VerifiedAuthorityWriteLeaseEvidence,
+    pub promotion_authority_lease: Option<VerifiedAuthorityWriteLeaseEvidence>,
     pub delta_minor: i64,
     pub balance_after_minor: i64,
-    pub idempotency_digest: [u8; 32],
-    pub request_digest: [u8; 32],
-    pub decision_receipt_digest: [u8; 32],
-    pub payload_digest: [u8; 32],
-    pub effect_receipt_digest: [u8; 32],
+    pub idempotency_digest: Digest,
+    pub request_digest: Digest,
+    pub decision_receipt_digest: Digest,
+    pub payload_digest: Digest,
+    pub effect_receipt_digest: Digest,
 }
 
 pub struct PostgresEffectCommitVerifier {
     client: Client,
+    trusted_authority_lease_keys: BTreeSet<[u8; 32]>,
 }
 
 impl PostgresEffectCommitVerifier {
@@ -80,9 +212,23 @@ impl PostgresEffectCommitVerifier {
     /// The DSN must use the DNS name present in the PostgreSQL server
     /// certificate and a writable primary endpoint. Do not use sslmode=disable
     /// or an unverified TLS connector in production.
+    /// Legacy constructor retained for source compatibility. It supplies no
+    /// trusted lease keys and therefore cannot create an effect ACK capability.
+    /// Production callers must use connect_with_ca_and_authority_lease_trust.
     pub async fn connect_with_ca(
         dsn: &str,
         ca_certificate: impl AsRef<Path>,
+    ) -> Result<Self, String> {
+        Self::connect_with_ca_and_authority_lease_trust(dsn, ca_certificate, BTreeSet::new()).await
+    }
+
+    /// Connect over CA-verified TLS and bind the verifier to an explicit trust
+    /// set for signed authority-write leases. The key set is supplied by the
+    /// external authority controller, never learned from the database row.
+    pub async fn connect_with_ca_and_authority_lease_trust(
+        dsn: &str,
+        ca_certificate: impl AsRef<Path>,
+        trusted_authority_lease_keys: BTreeSet<[u8; 32]>,
     ) -> Result<Self, String> {
         let tls_config = config_from_ca_cert(ca_certificate)
             .map_err(|error| format!("load PostgreSQL CA certificate: {error}"))?;
@@ -97,12 +243,15 @@ impl PostgresEffectCommitVerifier {
             }
         });
 
-        Ok(Self { client })
+        Ok(Self {
+            client,
+            trusted_authority_lease_keys,
+        })
     }
 
-    /// Query the append-only effect ledger and return a verified receipt
-    /// capability ready for the NATS ACK gate. The caller does not provide the
-    /// receipt digest; it is recomputed from the selected database row.
+    /// Query the append-only effect and execution-attestation ledgers and
+    /// return a verified receipt capability. The digest is recomputed from
+    /// actual database fields, including owner epoch and historical worker claim.
     pub async fn verify_effect_commit(
         &self,
         binding: &NatsCommandBinding,
@@ -122,7 +271,8 @@ impl PostgresEffectCommitVerifier {
         VerifiedOwnerDisposition::from_verified_binding(binding, disposition)
     }
 
-    /// A writable-primary check followed by an exact-scope ledger lookup.
+    /// Checks primary/read-only state and fetches the exact effect and
+    /// execution-attestation rows in one SQL statement snapshot.
     pub async fn load_effect_receipt(
         &self,
         binding: &NatsCommandBinding,
@@ -144,9 +294,9 @@ impl PostgresEffectCommitVerifier {
                 ],
             )
             .await
-            .map_err(|error| format!("query append-only PostgreSQL effect ledger: {error}"))?
+            .map_err(|error| format!("query append-only PostgreSQL effect and attestation ledgers: {error}"))?
             .ok_or_else(|| {
-                "no committed PostgreSQL effect receipt matches the exact command scope".to_owned()
+                "no committed PostgreSQL effect plus execution attestation matches the exact command scope".to_owned()
             })?;
 
         let in_recovery: bool = row.get(0);
@@ -158,7 +308,7 @@ impl PostgresEffectCommitVerifier {
             return Err("PostgreSQL receipt verifier session is read-only".into());
         }
 
-        let receipt = decode_effect_receipt(&row)?;
+        let receipt = decode_effect_receipt(&row, &self.trusted_authority_lease_keys)?;
         validate_receipt_binding(binding, &receipt)?;
         Ok(receipt)
     }
@@ -198,7 +348,7 @@ impl OwnerDispositionVerifier for PostgresEffectCommitVerifier {
         let receipt = self.load_effect_receipt(binding).await?;
         if effect_receipt_digest != &receipt.effect_receipt_digest {
             return Err(
-                "effect receipt digest differs from the canonical append-only PostgreSQL row"
+                "effect receipt digest differs from the canonical PostgreSQL effect and execution-attestation rows"
                     .into(),
             );
         }
@@ -206,7 +356,10 @@ impl OwnerDispositionVerifier for PostgresEffectCommitVerifier {
     }
 }
 
-fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, String> {
+fn decode_effect_receipt(
+    row: &Row,
+    trusted_authority_lease_keys: &BTreeSet<[u8; 32]>,
+) -> Result<VerifiedPostgresEffectReceipt, String> {
     let effect_id: String = row.get(2);
     let realm_id: String = row.get(3);
     let resource_id: String = row.get(4);
@@ -219,33 +372,153 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
     let request_digest = digest_column(row, 11, "request_digest")?;
     let decision_receipt_digest = digest_column(row, 12, "decision_receipt_digest")?;
     let payload_digest = digest_column(row, 13, "payload_digest")?;
-    let accepted_generation_i64: i64 = row.get(14);
+    let effect_generation_i64: i64 = row.get(14);
     let delta_minor: i64 = row.get(15);
     let balance_after_minor: i64 = row.get(16);
+    let attestation_id: String = row.get(17);
+    let owner_epoch_i64: i64 = row.get(18);
+    let attestation_generation_i64: i64 = row.get(19);
+    let worker_id: String = row.get(20);
+    let claim_epoch_i64: i64 = row.get(21);
+    let claim_proof_digest = digest_column(row, 22, "claim_proof_digest")?;
+    let claim_clock_profile_id: String = row.get(23);
+    let claim_issued_at: String = row.get(24);
+    let claim_expires_at: String = row.get(25);
+    let database_xact_id: String = row.get(26);
+    let transition_previous_owner_epoch: Option<i64> = row.get(27);
+    let transition_new_owner_epoch: Option<i64> = row.get(28);
+    let transition_previous_generation: Option<i64> = row.get(29);
+    let transition_new_generation: Option<i64> = row.get(30);
+    let transition_xact_id: Option<String> = row.get(31);
+    let epoch_authority_receipt_digest =
+        optional_digest_column(row, 32, "epoch_authority_receipt_digest")?;
+    let physical_fencing_receipt_digest =
+        optional_digest_column(row, 33, "physical_fencing_receipt_digest")?;
 
-    let accepted_generation = u64::try_from(accepted_generation_i64)
-        .map_err(|_| "PostgreSQL receipt has a nonpositive accepted generation".to_owned())?;
+    let accepted_generation = u64::try_from(effect_generation_i64)
+        .map_err(|_| "PostgreSQL effect has a nonpositive accepted generation".to_owned())?;
+    let attestation_generation = u64::try_from(attestation_generation_i64)
+        .map_err(|_| "PostgreSQL execution attestation has a nonpositive generation".to_owned())?;
+    let owner_epoch = u64::try_from(owner_epoch_i64)
+        .map_err(|_| "PostgreSQL execution attestation has a nonpositive owner epoch".to_owned())?;
+    let claim_epoch = u64::try_from(claim_epoch_i64).map_err(|_| {
+        "PostgreSQL execution attestation has a nonpositive worker claim epoch".to_owned()
+    })?;
 
-    let effect_receipt_digest = canonical_effect_receipt_digest(
-        &effect_id,
-        &realm_id,
-        &resource_id,
-        &action_id,
-        &effect_owner_id,
-        &object_id,
-        &currency_code,
-        &logical_operation_id,
+    if accepted_generation != attestation_generation {
+        return Err(
+            "effect_commits and effect_execution_attestations disagree on accepted generation"
+                .into(),
+        );
+    }
+    let epoch_transition = decode_epoch_transition(
+        owner_epoch,
         accepted_generation,
+        RawOwnerEpochTransition {
+            previous_owner_epoch: transition_previous_owner_epoch,
+            new_owner_epoch: transition_new_owner_epoch,
+            previous_generation: transition_previous_generation,
+            new_generation: transition_new_generation,
+            transition_xact_id,
+            epoch_authority_receipt_digest,
+            physical_fencing_receipt_digest,
+        },
+    )?;
+
+    let effect_authority_lease = decode_and_verify_authority_write_lease(
+        raw_authority_lease_from_row(row, 34, true)?,
+        AuthorityWriteScope::DirectoryFabricEffect,
+        owner_epoch,
+        accepted_generation,
+        trusted_authority_lease_keys,
+    )?;
+
+    let promotion_authority_lease = match &epoch_transition {
+        Some(transition) => {
+            let evidence = decode_and_verify_authority_write_lease(
+                raw_authority_lease_from_row(row, 53, false)?,
+                AuthorityWriteScope::DatabaseEpochPromotion,
+                transition.new_owner_epoch,
+                transition.new_generation,
+                trusted_authority_lease_keys,
+            )?;
+            if evidence.lease_generation >= effect_authority_lease.lease_generation
+                || evidence.external_highwater_receipt_digest
+                    != transition.epoch_authority_receipt_digest
+                || evidence.physical_fencing_receipt_digest
+                    != Some(transition.physical_fencing_receipt_digest)
+            {
+                return Err(
+                    "owner-epoch promotion lease does not match the transition's external high-water, physical fence or lease-generation order"
+                        .into(),
+                );
+            }
+            if evidence.signed_lease.lease.deployment_id
+                != effect_authority_lease.signed_lease.lease.deployment_id
+                || evidence.signed_lease.lease.primary_id
+                    != effect_authority_lease.signed_lease.lease.primary_id
+                || evidence.signed_lease.lease.database_system_identifier
+                    != effect_authority_lease
+                        .signed_lease
+                        .lease
+                        .database_system_identifier
+                || evidence.signed_lease.lease.postgres_timeline
+                    != effect_authority_lease.signed_lease.lease.postgres_timeline
+                || evidence.signed_lease.lease.epoch_number
+                    != effect_authority_lease.signed_lease.lease.epoch_number
+                || evidence.signed_lease.lease.epoch_hash
+                    != effect_authority_lease.signed_lease.lease.epoch_hash
+            {
+                return Err(
+                    "effect lease and promotion lease do not bind the same deployment/database epoch"
+                        .into(),
+                );
+            }
+            Some(evidence)
+        }
+        None => None,
+    };
+    if worker_id.trim().is_empty()
+        || claim_clock_profile_id.trim().is_empty()
+        || database_xact_id.trim().is_empty()
+        || claim_issued_at >= claim_expires_at
+    {
+        return Err("PostgreSQL execution attestation has invalid worker, clock, transaction or claim validity fields".into());
+    }
+
+    let effect_receipt_digest = canonical_effect_receipt_digest(&EffectReceiptDigestFields {
+        effect_id: &effect_id,
+        attestation_id: &attestation_id,
+        realm_id: &realm_id,
+        resource_id: &resource_id,
+        action_id: &action_id,
+        effect_owner_id: &effect_owner_id,
+        object_id: &object_id,
+        currency_code: &currency_code,
+        logical_operation_id: &logical_operation_id,
+        owner_epoch,
+        accepted_generation,
+        worker_id: &worker_id,
+        claim_epoch,
+        claim_proof_digest: &claim_proof_digest,
+        claim_clock_profile_id: &claim_clock_profile_id,
+        claim_issued_at: &claim_issued_at,
+        claim_expires_at: &claim_expires_at,
+        database_xact_id: &database_xact_id,
+        epoch_transition: &epoch_transition,
+        effect_authority_lease: &effect_authority_lease,
+        promotion_authority_lease: &promotion_authority_lease,
         delta_minor,
         balance_after_minor,
-        &idempotency_digest,
-        &request_digest,
-        &decision_receipt_digest,
-        &payload_digest,
-    )?;
+        idempotency_digest: &idempotency_digest,
+        request_digest: &request_digest,
+        decision_receipt_digest: &decision_receipt_digest,
+        payload_digest: &payload_digest,
+    })?;
 
     Ok(VerifiedPostgresEffectReceipt {
         effect_id,
+        attestation_id,
         realm_id,
         resource_id,
         action_id,
@@ -253,7 +526,18 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
         object_id,
         currency_code,
         logical_operation_id,
+        owner_epoch,
         accepted_generation,
+        worker_id,
+        claim_epoch,
+        claim_proof_digest,
+        claim_clock_profile_id,
+        claim_issued_at,
+        claim_expires_at,
+        database_xact_id,
+        epoch_transition,
+        effect_authority_lease,
+        promotion_authority_lease,
         delta_minor,
         balance_after_minor,
         idempotency_digest,
@@ -264,9 +548,339 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
     })
 }
 
-fn digest_column(row: &Row, index: usize, name: &str) -> Result<[u8; 32], String> {
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct RawOwnerEpochTransition {
+    previous_owner_epoch: Option<i64>,
+    new_owner_epoch: Option<i64>,
+    previous_generation: Option<i64>,
+    new_generation: Option<i64>,
+    transition_xact_id: Option<String>,
+    epoch_authority_receipt_digest: Option<Digest>,
+    physical_fencing_receipt_digest: Option<Digest>,
+}
+
+impl RawOwnerEpochTransition {
+    fn is_absent(&self) -> bool {
+        self.previous_owner_epoch.is_none()
+            && self.new_owner_epoch.is_none()
+            && self.previous_generation.is_none()
+            && self.new_generation.is_none()
+            && self.transition_xact_id.is_none()
+            && self.epoch_authority_receipt_digest.is_none()
+            && self.physical_fencing_receipt_digest.is_none()
+    }
+}
+
+fn decode_epoch_transition(
+    owner_epoch: u64,
+    accepted_generation: u64,
+    raw: RawOwnerEpochTransition,
+) -> Result<Option<VerifiedOwnerEpochTransition>, String> {
+    let all_absent = raw.is_absent();
+
+    if owner_epoch == 1 {
+        return if all_absent {
+            Ok(None)
+        } else {
+            Err("initial owner epoch must not have a transition row".into())
+        };
+    }
+
+    let transition = VerifiedOwnerEpochTransition {
+        previous_owner_epoch: positive_position(
+            raw.previous_owner_epoch,
+            "transition previous owner epoch",
+        )?,
+        new_owner_epoch: positive_position(raw.new_owner_epoch, "transition new owner epoch")?,
+        previous_generation: positive_position(
+            raw.previous_generation,
+            "transition previous generation",
+        )?,
+        new_generation: positive_position(raw.new_generation, "transition new generation")?,
+        transition_xact_id: raw
+            .transition_xact_id
+            .ok_or_else(|| "owner epoch transition transaction ID is missing".to_owned())?,
+        epoch_authority_receipt_digest: raw
+            .epoch_authority_receipt_digest
+            .ok_or_else(|| "owner epoch authority receipt digest is missing".to_owned())?,
+        physical_fencing_receipt_digest: raw
+            .physical_fencing_receipt_digest
+            .ok_or_else(|| "physical fencing receipt digest is missing".to_owned())?,
+    };
+    validate_epoch_transition(&transition, owner_epoch, accepted_generation)?;
+    Ok(Some(transition))
+}
+
+fn positive_position(value: Option<i64>, name: &str) -> Result<u64, String> {
+    let value = value.ok_or_else(|| format!("PostgreSQL {name} is missing"))?;
+    u64::try_from(value).map_err(|_| format!("PostgreSQL {name} is nonpositive"))
+}
+
+fn validate_epoch_transition(
+    transition: &VerifiedOwnerEpochTransition,
+    attested_owner_epoch: u64,
+    accepted_generation: u64,
+) -> Result<(), String> {
+    if transition.previous_owner_epoch >= transition.new_owner_epoch
+        || transition.new_owner_epoch != attested_owner_epoch
+        || transition.previous_generation >= transition.new_generation
+        || transition.new_generation > accepted_generation
+        || transition.transition_xact_id.trim().is_empty()
+        || transition
+            .epoch_authority_receipt_digest
+            .iter()
+            .all(|byte| *byte == 0)
+        || transition
+            .physical_fencing_receipt_digest
+            .iter()
+            .all(|byte| *byte == 0)
+    {
+        return Err(
+            "owner epoch transition chronology or authority/fencing evidence is invalid".into(),
+        );
+    }
+    Ok(())
+}
+
+fn raw_authority_lease_from_row(
+    row: &Row,
+    start: usize,
+    has_effect_scope_column: bool,
+) -> Result<RawAuthorityWriteLeaseEvidence, String> {
+    Ok(RawAuthorityWriteLeaseEvidence {
+        lease_id: row.get(start),
+        lease_hash: optional_digest_column(row, start + 1, "authority lease hash")?,
+        lease_generation: row.get(start + 2),
+        deployment_id: row.get(start + 3),
+        primary_id: row.get(start + 4),
+        database_system_identifier: row.get(start + 5),
+        postgres_timeline: row.get(start + 6),
+        database_epoch_number: row.get(start + 7),
+        database_epoch_hash: optional_digest_column(
+            row,
+            start + 8,
+            "authority lease database epoch hash",
+        )?,
+        resource_owner_epoch: row.get(start + 9),
+        resource_generation: row.get(start + 10),
+        signer_key_id: row.get(start + 11),
+        signer_public_key: row.get(start + 12),
+        signature: row.get(start + 13),
+        signed_lease_json: row.get(start + 14),
+        external_highwater_receipt_digest: optional_digest_column(
+            row,
+            start + 15,
+            "authority lease external high-water receipt digest",
+        )?,
+        physical_fencing_receipt_digest: optional_digest_column(
+            row,
+            start + 16,
+            "authority lease physical fencing receipt digest",
+        )?,
+        admitted_scope: if has_effect_scope_column {
+            row.get(start + 17)
+        } else {
+            None
+        },
+        attested_at: row.get(if has_effect_scope_column {
+            start + 18
+        } else {
+            start + 17
+        }),
+    })
+}
+
+fn decode_and_verify_authority_write_lease(
+    raw: RawAuthorityWriteLeaseEvidence,
+    required_scope: AuthorityWriteScope,
+    expected_owner_epoch: u64,
+    expected_generation: u64,
+    trusted_keys: &BTreeSet<[u8; 32]>,
+) -> Result<VerifiedAuthorityWriteLeaseEvidence, String> {
+    if trusted_keys.is_empty() {
+        return Err(
+            "no trusted authority-write lease keys are configured; effect ACK is forbidden".into(),
+        );
+    }
+
+    let lease_id = raw
+        .lease_id
+        .ok_or_else(|| "authority lease attestation is missing its lease ID".to_owned())?;
+    let lease_hash = raw
+        .lease_hash
+        .ok_or_else(|| "authority lease attestation is missing its signed lease hash".to_owned())?;
+    let lease_generation = positive_position(raw.lease_generation, "authority lease generation")?;
+    let deployment_id = raw
+        .deployment_id
+        .ok_or_else(|| "authority lease deployment ID is missing".to_owned())?;
+    let primary_id = raw
+        .primary_id
+        .ok_or_else(|| "authority lease primary ID is missing".to_owned())?;
+    let database_system_identifier = raw
+        .database_system_identifier
+        .ok_or_else(|| "authority lease database system identifier is missing".to_owned())?;
+    let postgres_timeline =
+        positive_position(raw.postgres_timeline, "authority lease PostgreSQL timeline")?;
+    let database_epoch_number = optional_positive_position(
+        raw.database_epoch_number,
+        "authority lease database epoch number",
+    )?;
+    let database_epoch_hash = raw.database_epoch_hash;
+    let resource_owner_epoch = positive_position(
+        raw.resource_owner_epoch,
+        "authority lease resource owner epoch",
+    )?;
+    let resource_generation = positive_position(
+        raw.resource_generation,
+        "authority lease resource generation",
+    )?;
+    let signer_key_id = raw
+        .signer_key_id
+        .ok_or_else(|| "authority lease signer key ID is missing".to_owned())?;
+    let signer_public_key: [u8; 32] = raw
+        .signer_public_key
+        .ok_or_else(|| "authority lease signer public key is missing".to_owned())?
+        .try_into()
+        .map_err(|_| "authority lease signer public key is not 32 bytes".to_owned())?;
+    let signature = raw
+        .signature
+        .ok_or_else(|| "authority lease signature is missing".to_owned())?;
+    let signed_json = raw
+        .signed_lease_json
+        .ok_or_else(|| "authority lease signed JSON envelope is missing".to_owned())?;
+    let external_highwater_receipt_digest =
+        raw.external_highwater_receipt_digest.ok_or_else(|| {
+            "authority lease external high-water receipt digest is missing".to_owned()
+        })?;
+    let physical_fencing_receipt_digest = raw.physical_fencing_receipt_digest;
+    let attested_at_text = raw
+        .attested_at
+        .ok_or_else(|| "authority lease attestation timestamp is missing".to_owned())?;
+
+    if raw
+        .admitted_scope
+        .as_deref()
+        .is_some_and(|scope| scope != authority_scope_wire_name(required_scope))
+    {
+        return Err(
+            "authority lease attestation scope column differs from the required signed scope"
+                .into(),
+        );
+    }
+    if resource_owner_epoch != expected_owner_epoch || resource_generation != expected_generation {
+        return Err(
+            "authority lease attestation owner epoch/generation differs from the effect history"
+                .into(),
+        );
+    }
+    if required_scope == AuthorityWriteScope::DatabaseEpochPromotion
+        && physical_fencing_receipt_digest.is_none()
+    {
+        return Err("database epoch promotion lease lacks physical fencing evidence".into());
+    }
+
+    let signed_lease: SignedAuthorityWriteLease = serde_json::from_str(&signed_json)
+        .map_err(|error| format!("decode signed authority-write lease JSON: {error}"))?;
+    if signed_lease.lease.lease_id.to_string() != lease_id
+        || signed_lease.lease.generation != lease_generation
+        || signed_lease.signer_key_id != signer_key_id
+        || signed_lease.signer_public_key != signer_public_key
+        || signed_lease.signature != signature
+        || signed_lease.lease.deployment_id != deployment_id
+        || signed_lease.lease.primary_id != primary_id
+        || signed_lease.lease.database_system_identifier != database_system_identifier
+        || signed_lease.lease.postgres_timeline != postgres_timeline
+        || signed_lease.lease.epoch_number != database_epoch_number
+        || signed_lease.lease.epoch_hash.map(|hash| hash.0) != database_epoch_hash
+        || !signed_lease.lease.allowed_scopes.contains(&required_scope)
+    {
+        return Err(
+            "signed authority lease envelope differs from its append-only database attestation columns"
+                .into(),
+        );
+    }
+
+    let computed_lease_hash = signed_lease
+        .signed_lease_hash()
+        .map_err(|error| format!("compute signed authority lease hash: {error}"))?;
+    if computed_lease_hash.0 != lease_hash {
+        return Err(
+            "signed authority lease hash does not match the canonical signed envelope".into(),
+        );
+    }
+
+    let attested_at = parse_utc_timestamp(&attested_at_text, "authority lease attested_at")?;
+    let target = AuthorityWriteLeaseTarget {
+        deployment_id,
+        primary_id,
+        database_system_identifier,
+        postgres_timeline,
+        phase: signed_lease.lease.phase,
+        epoch_number: database_epoch_number,
+        epoch_hash: database_epoch_hash.map(LeaseContentHash),
+    };
+    signed_lease
+        .verify_for_target(
+            trusted_keys,
+            attested_at,
+            ChronoDuration::zero(),
+            required_scope,
+            &target,
+        )
+        .map_err(|error| format!("signed authority lease verification failed: {error}"))?;
+
+    Ok(VerifiedAuthorityWriteLeaseEvidence {
+        signed_lease,
+        lease_hash,
+        lease_generation,
+        scope: required_scope,
+        attested_at: attested_at_text,
+        external_highwater_receipt_digest,
+        physical_fencing_receipt_digest,
+    })
+}
+
+fn parse_utc_timestamp(value: &str, name: &str) -> Result<DateTime<Utc>, String> {
+    let naive = NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S%.f")
+        .map_err(|error| format!("PostgreSQL {name} is not a canonical UTC timestamp: {error}"))?;
+    Ok(DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc))
+}
+
+fn optional_positive_position(value: Option<i64>, name: &str) -> Result<Option<u64>, String> {
+    value
+        .map(|value| u64::try_from(value).map_err(|_| format!("PostgreSQL {name} is nonpositive")))
+        .transpose()
+}
+
+fn authority_scope_wire_name(scope: AuthorityWriteScope) -> &'static str {
+    match scope {
+        AuthorityWriteScope::ScientificEvent => "scientific_event",
+        AuthorityWriteScope::CredentialRegistry => "credential_registry",
+        AuthorityWriteScope::CredentialGovernance => "credential_governance",
+        AuthorityWriteScope::DatabaseEpochPromotion => "database_epoch_promotion",
+        AuthorityWriteScope::RecoveryReconciliation => "recovery_reconciliation",
+        AuthorityWriteScope::DeliveryAcknowledgement => "delivery_acknowledgement",
+        AuthorityWriteScope::CheckpointMirror => "checkpoint_mirror",
+        AuthorityWriteScope::OutboxDelivery => "outbox_delivery",
+        AuthorityWriteScope::SchemaMigration => "schema_migration",
+        AuthorityWriteScope::DirectoryFabricEffect => "directory_fabric_effect",
+    }
+}
+
+fn digest_column(row: &Row, index: usize, name: &str) -> Result<Digest, String> {
     let bytes: Vec<u8> = row.get(index);
-    let digest: [u8; 32] = bytes
+    digest_from_bytes(bytes, name)
+}
+
+fn optional_digest_column(row: &Row, index: usize, name: &str) -> Result<Option<Digest>, String> {
+    let bytes: Option<Vec<u8>> = row.get(index);
+    bytes
+        .map(|value| digest_from_bytes(value, name))
+        .transpose()
+}
+
+fn digest_from_bytes(bytes: Vec<u8>, name: &str) -> Result<Digest, String> {
+    let digest: Digest = bytes
         .try_into()
         .map_err(|_| format!("PostgreSQL {name} is not exactly 32 bytes"))?;
     if digest.iter().all(|byte| *byte == 0) {
@@ -275,10 +889,66 @@ fn digest_column(row: &Row, index: usize, name: &str) -> Result<[u8; 32], String
     Ok(digest)
 }
 
+impl VerifiedPostgresEffectReceipt {
+    fn recompute_digest(&self) -> Result<Digest, String> {
+        canonical_effect_receipt_digest(&EffectReceiptDigestFields {
+            effect_id: &self.effect_id,
+            attestation_id: &self.attestation_id,
+            realm_id: &self.realm_id,
+            resource_id: &self.resource_id,
+            action_id: &self.action_id,
+            effect_owner_id: &self.effect_owner_id,
+            object_id: &self.object_id,
+            currency_code: &self.currency_code,
+            logical_operation_id: &self.logical_operation_id,
+            owner_epoch: self.owner_epoch,
+            accepted_generation: self.accepted_generation,
+            worker_id: &self.worker_id,
+            claim_epoch: self.claim_epoch,
+            claim_proof_digest: &self.claim_proof_digest,
+            claim_clock_profile_id: &self.claim_clock_profile_id,
+            claim_issued_at: &self.claim_issued_at,
+            claim_expires_at: &self.claim_expires_at,
+            database_xact_id: &self.database_xact_id,
+            epoch_transition: &self.epoch_transition,
+            effect_authority_lease: &self.effect_authority_lease,
+            promotion_authority_lease: &self.promotion_authority_lease,
+            delta_minor: self.delta_minor,
+            balance_after_minor: self.balance_after_minor,
+            idempotency_digest: &self.idempotency_digest,
+            request_digest: &self.request_digest,
+            decision_receipt_digest: &self.decision_receipt_digest,
+            payload_digest: &self.payload_digest,
+        })
+    }
+}
+
 fn validate_receipt_binding(
     binding: &NatsCommandBinding,
     receipt: &VerifiedPostgresEffectReceipt,
 ) -> Result<(), String> {
+    let (command_owner_epoch, command_generation) = binding.owner_position();
+    // Owner epoch and resource generation are both monotonic coordinates.
+    // A receipt is never allowed to be ahead in either dimension, even when
+    // its other coordinate is from an older epoch.
+    if receipt.worker_id.trim().is_empty()
+        || receipt.claim_epoch == 0
+        || receipt.claim_proof_digest.iter().all(|byte| *byte == 0)
+        || receipt.claim_clock_profile_id.trim().is_empty()
+        || receipt.claim_issued_at >= receipt.claim_expires_at
+        || receipt.database_xact_id.trim().is_empty()
+    {
+        return Err(
+            "PostgreSQL execution attestation has incomplete worker-claim coordinates".into(),
+        );
+    }
+
+    if receipt.recompute_digest()? != receipt.effect_receipt_digest {
+        return Err(
+            "canonical PostgreSQL effect/execution receipt digest does not match its fields".into(),
+        );
+    }
+
     if receipt.realm_id != binding.realm_id()
         || receipt.resource_id != binding.resource_id()
         || receipt.action_id != binding.action_id()
@@ -290,10 +960,11 @@ fn validate_receipt_binding(
         || receipt.request_digest != *binding.request_digest()
         || receipt.decision_receipt_digest != *binding.decision_receipt_digest()
         || receipt.payload_digest != *binding.payload_digest()
-        || receipt.accepted_generation != binding.owner_position().1
+        || receipt.owner_epoch > command_owner_epoch
+        || receipt.accepted_generation > command_generation
     {
         return Err(
-            "append-only PostgreSQL effect row does not match every command scope and digest field"
+            "PostgreSQL effect and execution attestation do not match the exact command scope, digests or non-future owner position"
                 .into(),
         );
     }
@@ -301,44 +972,111 @@ fn validate_receipt_binding(
 }
 
 /// Versioned canonical receipt bytes. All strings are length-prefixed UTF-8;
-/// fixed-size digests and signed integer fields use network byte order.
-fn canonical_effect_receipt_digest(
-    effect_id: &str,
-    realm_id: &str,
-    resource_id: &str,
-    action_id: &str,
-    effect_owner_id: &str,
-    object_id: &str,
-    currency_code: &str,
-    logical_operation_id: &str,
+/// fixed-size digests and signed integer fields use network byte order. The
+/// commitment includes the actual worker-claim and owner-epoch evidence.
+struct EffectReceiptDigestFields<'a> {
+    effect_id: &'a str,
+    attestation_id: &'a str,
+    realm_id: &'a str,
+    resource_id: &'a str,
+    action_id: &'a str,
+    effect_owner_id: &'a str,
+    object_id: &'a str,
+    currency_code: &'a str,
+    logical_operation_id: &'a str,
+    owner_epoch: u64,
     accepted_generation: u64,
+    worker_id: &'a str,
+    claim_epoch: u64,
+    claim_proof_digest: &'a Digest,
+    claim_clock_profile_id: &'a str,
+    claim_issued_at: &'a str,
+    claim_expires_at: &'a str,
+    database_xact_id: &'a str,
+    epoch_transition: &'a Option<VerifiedOwnerEpochTransition>,
+    effect_authority_lease: &'a VerifiedAuthorityWriteLeaseEvidence,
+    promotion_authority_lease: &'a Option<VerifiedAuthorityWriteLeaseEvidence>,
     delta_minor: i64,
     balance_after_minor: i64,
-    idempotency_digest: &Digest,
-    request_digest: &Digest,
-    decision_receipt_digest: &Digest,
-    payload_digest: &Digest,
+    idempotency_digest: &'a Digest,
+    request_digest: &'a Digest,
+    decision_receipt_digest: &'a Digest,
+    payload_digest: &'a Digest,
+}
+
+fn append_authority_write_lease_evidence(
+    bytes: &mut Vec<u8>,
+    evidence: &VerifiedAuthorityWriteLeaseEvidence,
+) -> Result<(), String> {
+    append_string(bytes, &evidence.signed_lease.lease.lease_id.to_string())?;
+    bytes.extend_from_slice(&evidence.lease_hash);
+    bytes.extend_from_slice(&evidence.lease_generation.to_be_bytes());
+    bytes.push(evidence.scope.stable_code());
+    append_string(bytes, &evidence.attested_at)?;
+    bytes.extend_from_slice(&evidence.external_highwater_receipt_digest);
+    match evidence.physical_fencing_receipt_digest {
+        Some(digest) => {
+            bytes.push(1);
+            bytes.extend_from_slice(&digest);
+        }
+        None => bytes.push(0),
+    }
+    Ok(())
+}
+
+fn canonical_effect_receipt_digest(
+    fields: &EffectReceiptDigestFields<'_>,
 ) -> Result<Digest, String> {
     let mut bytes = RECEIPT_DOMAIN.to_vec();
     for value in [
-        effect_id,
-        realm_id,
-        resource_id,
-        action_id,
-        effect_owner_id,
-        object_id,
-        currency_code,
-        logical_operation_id,
+        fields.effect_id,
+        fields.attestation_id,
+        fields.realm_id,
+        fields.resource_id,
+        fields.action_id,
+        fields.effect_owner_id,
+        fields.object_id,
+        fields.currency_code,
+        fields.logical_operation_id,
+        fields.worker_id,
+        fields.claim_clock_profile_id,
+        fields.claim_issued_at,
+        fields.claim_expires_at,
+        fields.database_xact_id,
     ] {
         append_string(&mut bytes, value)?;
     }
-    bytes.extend_from_slice(&accepted_generation.to_be_bytes());
-    bytes.extend_from_slice(&delta_minor.to_be_bytes());
-    bytes.extend_from_slice(&balance_after_minor.to_be_bytes());
-    bytes.extend_from_slice(idempotency_digest);
-    bytes.extend_from_slice(request_digest);
-    bytes.extend_from_slice(decision_receipt_digest);
-    bytes.extend_from_slice(payload_digest);
+    bytes.extend_from_slice(&fields.owner_epoch.to_be_bytes());
+    bytes.extend_from_slice(&fields.accepted_generation.to_be_bytes());
+    bytes.extend_from_slice(&fields.claim_epoch.to_be_bytes());
+    bytes.extend_from_slice(&fields.delta_minor.to_be_bytes());
+    bytes.extend_from_slice(&fields.balance_after_minor.to_be_bytes());
+    bytes.extend_from_slice(fields.claim_proof_digest);
+    match fields.epoch_transition {
+        Some(transition) => {
+            bytes.push(1);
+            bytes.extend_from_slice(&transition.previous_owner_epoch.to_be_bytes());
+            bytes.extend_from_slice(&transition.new_owner_epoch.to_be_bytes());
+            bytes.extend_from_slice(&transition.previous_generation.to_be_bytes());
+            bytes.extend_from_slice(&transition.new_generation.to_be_bytes());
+            append_string(&mut bytes, &transition.transition_xact_id)?;
+            bytes.extend_from_slice(&transition.epoch_authority_receipt_digest);
+            bytes.extend_from_slice(&transition.physical_fencing_receipt_digest);
+        }
+        None => bytes.push(0),
+    }
+    append_authority_write_lease_evidence(&mut bytes, fields.effect_authority_lease)?;
+    match fields.promotion_authority_lease {
+        Some(evidence) => {
+            bytes.push(1);
+            append_authority_write_lease_evidence(&mut bytes, evidence)?;
+        }
+        None => bytes.push(0),
+    }
+    bytes.extend_from_slice(fields.idempotency_digest);
+    bytes.extend_from_slice(fields.request_digest);
+    bytes.extend_from_slice(fields.decision_receipt_digest);
+    bytes.extend_from_slice(fields.payload_digest);
     Ok(sha256(&bytes))
 }
 
@@ -353,36 +1091,22 @@ fn append_string(bytes: &mut Vec<u8>, value: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
+    use ed25519_dalek::{Signer, SigningKey};
+    use mycelix_authority_write_lease::{
+        AuthorityWriteLease, AuthorityWriteLeasePhase, SignedAuthorityWriteLease,
+    };
+    use std::collections::BTreeSet;
 
     fn digest(byte: u8) -> Digest {
         [byte; 32]
     }
 
-    fn receipt_digest(
-        generation: u64,
-        balance_after_minor: i64,
-    ) -> Digest {
-        canonical_effect_receipt_digest(
-            "7a1d28d8-5e9b-4a65-95dd-329816bfc33a",
-            "realm-a",
-            "resource-a",
-            "balance-adjust",
-            "postgres-owner-a",
-            "account-a",
-            "USD",
-            "operation-a",
-            generation,
-            100,
-            balance_after_minor,
-            &digest(1),
-            &digest(2),
-            &digest(3),
-            &digest(4),
-        )
-        .unwrap()
+    fn binding() -> NatsCommandBinding {
+        binding_with_position(5, 7)
     }
 
-    fn binding() -> NatsCommandBinding {
+    fn binding_with_position(owner_epoch: u64, resource_generation: u64) -> NatsCommandBinding {
         NatsCommandBinding::new(myc_dir_fabric_nats_reference::NatsCommandBindingInput {
             account_id: "test-account".into(),
             realm_id: "realm-a".into(),
@@ -400,14 +1124,73 @@ mod tests {
             logical_operation_id: "operation-a".into(),
             idempotency_digest: digest(1),
             effect_owner_id: "owner-a".into(),
-            owner_epoch: 5,
-            resource_generation: 7,
+            owner_epoch,
+            resource_generation,
         })
         .unwrap()
     }
 
+    fn signed_lease_evidence(
+        scope: AuthorityWriteScope,
+        lease_generation: u64,
+        lease_id_byte: u8,
+        external_highwater: Digest,
+        physical_fence: Option<Digest>,
+    ) -> VerifiedAuthorityWriteLeaseEvidence {
+        let key = SigningKey::from_bytes(&[84; 32]);
+        let issued_at = Utc.with_ymd_and_hms(2026, 11, 22, 10, 0, 0).unwrap();
+        let not_before = Utc.with_ymd_and_hms(2026, 11, 22, 10, 0, 1).unwrap();
+        let expires_at = Utc.with_ymd_and_hms(2026, 11, 22, 10, 10, 0).unwrap();
+        let lease = AuthorityWriteLease {
+            lease_id: uuid::Uuid::from_bytes([lease_id_byte; 16]),
+            deployment_id: "deployment:test".into(),
+            primary_id: "postgres-a".into(),
+            database_system_identifier: "731245".into(),
+            postgres_timeline: 2,
+            generation: lease_generation,
+            phase: AuthorityWriteLeasePhase::Epoch,
+            epoch_number: Some(2),
+            epoch_hash: Some(LeaseContentHash([3; 32])),
+            allowed_scopes: [scope].into_iter().collect::<BTreeSet<_>>(),
+            issued_at,
+            not_before,
+            expires_at,
+            reason: "postgres receipt verifier test fixture".into(),
+        };
+        let mut signed_lease = SignedAuthorityWriteLease {
+            protocol: mycelix_authority_write_lease::AUTHORITY_WRITE_LEASE_PROTOCOL.into(),
+            protocol_version: mycelix_authority_write_lease::AUTHORITY_WRITE_LEASE_PROTOCOL_VERSION,
+            codec: mycelix_authority_write_lease::AUTHORITY_WRITE_LEASE_CODEC.into(),
+            schema_version: mycelix_authority_write_lease::AUTHORITY_WRITE_LEASE_SCHEMA_VERSION,
+            lease,
+            signer_key_id: "test-ed25519".into(),
+            signer_public_key: key.verifying_key().to_bytes(),
+            signature: Vec::new(),
+        };
+        signed_lease.signature = key
+            .sign(&signed_lease.signing_bytes().unwrap())
+            .to_bytes()
+            .to_vec();
+        signed_lease.verify_signature().unwrap();
+
+        VerifiedAuthorityWriteLeaseEvidence {
+            lease_hash: signed_lease.signed_lease_hash().unwrap().0,
+            signed_lease,
+            lease_generation,
+            scope,
+            attested_at: "2026-11-22T10:00:30.000000".into(),
+            external_highwater_receipt_digest: external_highwater,
+            physical_fencing_receipt_digest: physical_fence,
+        }
+    }
+
+    fn recommit_receipt(receipt: &mut VerifiedPostgresEffectReceipt) {
+        receipt.effect_receipt_digest = receipt.recompute_digest().unwrap();
+    }
+
     fn receipt_for(binding: &NatsCommandBinding) -> VerifiedPostgresEffectReceipt {
         let effect_id = "7a1d28d8-5e9b-4a65-95dd-329816bfc33a".to_owned();
+        let attestation_id = "af5ec518-655c-4539-aae3-890e35034329".to_owned();
         let realm_id = binding.realm_id().to_owned();
         let resource_id = binding.resource_id().to_owned();
         let action_id = binding.action_id().to_owned();
@@ -415,33 +1198,47 @@ mod tests {
         let object_id = binding.object_id().to_owned();
         let currency_code = binding.currency_code().to_owned();
         let logical_operation_id = binding.logical_operation_id().to_owned();
-        let accepted_generation = binding.owner_position().1;
+        let owner_epoch = 4;
+        let accepted_generation = 7;
+        let worker_id = "worker-a".to_owned();
+        let claim_epoch = 3;
+        let claim_proof_digest = digest(5);
+        let claim_clock_profile_id = "postgres-db-clock-v1".to_owned();
+        let claim_issued_at = "2026-11-22T10:00:00.000000".to_owned();
+        let claim_expires_at = "2026-11-22T11:00:00.000000".to_owned();
+        let database_xact_id = "73421".to_owned();
+        let epoch_transition = Some(VerifiedOwnerEpochTransition {
+            previous_owner_epoch: 2,
+            new_owner_epoch: owner_epoch,
+            previous_generation: accepted_generation - 1,
+            new_generation: accepted_generation,
+            transition_xact_id: "73420".to_owned(),
+            epoch_authority_receipt_digest: digest(6),
+            physical_fencing_receipt_digest: digest(7),
+        });
+        let effect_authority_lease = signed_lease_evidence(
+            AuthorityWriteScope::DirectoryFabricEffect,
+            8,
+            0x88,
+            digest(9),
+            None,
+        );
+        let promotion_authority_lease = Some(signed_lease_evidence(
+            AuthorityWriteScope::DatabaseEpochPromotion,
+            7,
+            0x77,
+            digest(6),
+            Some(digest(7)),
+        ));
         let delta_minor = 100;
         let balance_after_minor = 1100;
         let idempotency_digest = *binding.idempotency_digest();
         let request_digest = *binding.request_digest();
         let decision_receipt_digest = *binding.decision_receipt_digest();
         let payload_digest = *binding.payload_digest();
-        let effect_receipt_digest = canonical_effect_receipt_digest(
-            &effect_id,
-            &realm_id,
-            &resource_id,
-            &action_id,
-            &effect_owner_id,
-            &object_id,
-            &currency_code,
-            &logical_operation_id,
-            accepted_generation,
-            delta_minor,
-            balance_after_minor,
-            &idempotency_digest,
-            &request_digest,
-            &decision_receipt_digest,
-            &payload_digest,
-        )
-        .unwrap();
-        VerifiedPostgresEffectReceipt {
+        let mut receipt = VerifiedPostgresEffectReceipt {
             effect_id,
+            attestation_id,
             realm_id,
             resource_id,
             action_id,
@@ -449,26 +1246,57 @@ mod tests {
             object_id,
             currency_code,
             logical_operation_id,
+            owner_epoch,
             accepted_generation,
+            worker_id,
+            claim_epoch,
+            claim_proof_digest,
+            claim_clock_profile_id,
+            claim_issued_at,
+            claim_expires_at,
+            database_xact_id,
+            epoch_transition,
+            effect_authority_lease,
+            promotion_authority_lease,
             delta_minor,
             balance_after_minor,
             idempotency_digest,
             request_digest,
             decision_receipt_digest,
             payload_digest,
-            effect_receipt_digest,
-        }
+            effect_receipt_digest: [0; 32],
+        };
+        recommit_receipt(&mut receipt);
+        receipt
     }
 
     #[test]
-    fn exact_database_receipt_matches_the_full_command_binding() {
+    fn exact_database_effect_and_execution_attestation_match_command() {
         let binding = binding();
         let receipt = receipt_for(&binding);
         assert_eq!(validate_receipt_binding(&binding, &receipt), Ok(()));
     }
 
     #[test]
-    fn receipt_request_decision_payload_owner_and_generation_substitution_reject() {
+    fn receipt_must_not_be_from_a_future_owner_position() {
+        let binding = binding();
+        let mut receipt = receipt_for(&binding);
+        receipt.owner_epoch = 6;
+        recommit_receipt(&mut receipt);
+        assert!(validate_receipt_binding(&binding, &receipt).is_err());
+
+        let older_generation_binding = binding_with_position(5, 6);
+        let mut future_generation_receipt = receipt_for(&older_generation_binding);
+        future_generation_receipt.accepted_generation = 7;
+        recommit_receipt(&mut future_generation_receipt);
+        assert!(
+            validate_receipt_binding(&older_generation_binding, &future_generation_receipt)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn receipt_request_decision_payload_owner_generation_and_claim_substitution_reject() {
         let binding = binding();
         let original = receipt_for(&binding);
 
@@ -488,20 +1316,87 @@ mod tests {
         receipt.effect_owner_id = "owner-b".into();
         assert!(validate_receipt_binding(&binding, &receipt).is_err());
 
-        let mut receipt = original;
+        let mut receipt = original.clone();
         receipt.accepted_generation += 1;
+        assert!(validate_receipt_binding(&binding, &receipt).is_err());
+
+        let mut receipt = original;
+        receipt.claim_proof_digest = digest(24);
         assert!(validate_receipt_binding(&binding, &receipt).is_err());
     }
 
     #[test]
-    fn canonical_receipt_digest_is_deterministic() {
-        assert_eq!(receipt_digest(7, 1100), receipt_digest(7, 1100));
+    fn epoch_transition_requires_complete_monotonic_chronology() {
+        let valid = VerifiedOwnerEpochTransition {
+            previous_owner_epoch: 1,
+            new_owner_epoch: 2,
+            previous_generation: 1,
+            new_generation: 2,
+            transition_xact_id: "100".into(),
+            epoch_authority_receipt_digest: digest(6),
+            physical_fencing_receipt_digest: digest(7),
+        };
+        assert_eq!(validate_epoch_transition(&valid, 2, 2), Ok(()));
+        assert!(validate_epoch_transition(&valid, 3, 2).is_err());
+
+        let mut wrong_owner = valid.clone();
+        wrong_owner.previous_owner_epoch = 2;
+        assert!(validate_epoch_transition(&wrong_owner, 2, 2).is_err());
+
+        let mut generation_after_effect = valid.clone();
+        generation_after_effect.new_generation = 3;
+        assert!(validate_epoch_transition(&generation_after_effect, 2, 2).is_err());
+
+        let mut blank_xact = valid.clone();
+        blank_xact.transition_xact_id = "  ".into();
+        assert!(validate_epoch_transition(&blank_xact, 2, 2).is_err());
     }
 
     #[test]
-    fn canonical_receipt_digest_binds_generation_and_effect_balance() {
-        let baseline = receipt_digest(7, 1100);
-        assert_ne!(baseline, receipt_digest(8, 1100));
-        assert_ne!(baseline, receipt_digest(7, 1200));
+    fn initial_epoch_has_no_transition_and_later_epoch_requires_one() {
+        let no_transition = RawOwnerEpochTransition {
+            previous_owner_epoch: None,
+            new_owner_epoch: None,
+            previous_generation: None,
+            new_generation: None,
+            transition_xact_id: None,
+            epoch_authority_receipt_digest: None,
+            physical_fencing_receipt_digest: None,
+        };
+        assert_eq!(
+            decode_epoch_transition(1, 1, no_transition.clone()),
+            Ok(None)
+        );
+
+        let partial_transition = RawOwnerEpochTransition {
+            previous_owner_epoch: Some(1),
+            new_owner_epoch: Some(2),
+            previous_generation: Some(1),
+            new_generation: Some(2),
+            transition_xact_id: Some("200".into()),
+            epoch_authority_receipt_digest: Some(digest(6)),
+            physical_fencing_receipt_digest: None,
+        };
+        assert!(decode_epoch_transition(2, 2, partial_transition).is_err());
+        assert!(decode_epoch_transition(2, 2, no_transition).is_err());
+    }
+
+    #[test]
+    fn canonical_execution_receipt_digest_is_deterministic_and_binds_claim() {
+        let binding = binding();
+        let receipt = receipt_for(&binding);
+        let unchanged = receipt.recompute_digest().unwrap();
+        assert_eq!(unchanged, receipt.effect_receipt_digest);
+
+        let mut altered_transition = receipt.clone();
+        altered_transition
+            .epoch_transition
+            .as_mut()
+            .expect("test fixture has a transition")
+            .previous_generation -= 1;
+        assert_ne!(
+            altered_transition.recompute_digest().unwrap(),
+            receipt.effect_receipt_digest
+        );
     }
 }

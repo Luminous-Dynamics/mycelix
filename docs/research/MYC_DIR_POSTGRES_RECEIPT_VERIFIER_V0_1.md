@@ -118,7 +118,7 @@ The real PostgreSQL/NATS integration test:
 8. publishes the command to JetStream and receives it through the durable pull consumer;
 9. uses the verified PostgreSQL receipt capability to request AckSync for the exact delivery.
 
-The workflow provisions PostgreSQL 16.16 with TLS, applies both existing reference SQL migrations, starts NATS 2.15.3 with JetStream, and then runs the contract, adapter and real-service tests.
+The base PostgreSQL receipt-verifier workflow provisioned PostgreSQL 16.16 with TLS, applied migrations 001/002 and started NATS 2.15.3. The owner-epoch follow-on adds migration 003, executes its SQL adversarial script, and changes the PostgreSQL/NATS integration to require the resulting execution-attestation row. That follow-on still requires its own exact-head run.
 
 ## 8. Benchmarks
 
@@ -136,11 +136,31 @@ The performance corpus remains preregistered until CI and a repeatable open-loop
 ## 9. Explicit limitations
 
 - No PostgreSQL-backed verifier result has been executed yet.
-- No production PostgreSQL credentials, client certificate, CA rotation or service discovery policy is qualified.
+- No production PostgreSQL credentials, client certificate, CA rotation, service discovery or externally signed write-lease policy is qualified.
 - The test uses a generated CA and a superuser on a disposable database; production should use a dedicated read-only receipt-verifier role and tightly scoped database grants, while still routing to the authoritative primary.
-- The current ledger does not persist owner epoch. This verifier compares accepted resource generation only; epoch monotonicity remains independently enforced/verified.
-- Synchronous commit in the test does not qualify synchronous replication, failover or promotion.
+- The pre-migration effect_commits row did not persist owner epoch or worker-claim history. Migration 003 adds effect_execution_attestations and the verifier follow-on joins it with effect_commits and the owner-epoch transition ledger. This owner-epoch implementation remains unqualified until its own exact-head workflow passes.
+- Synchronous commit in the single-node test does not qualify synchronous replication, failover or promotion.
 - Terminal rejection, terminal no-effect and reconciliation handoff are unsupported until they have their own durable receipt tables.
-- No clustered NATS, PostgreSQL failover, latency, throughput or SOTA result is claimed.
+- No clustered NATS, PostgreSQL failover, latency, throughput or SOTA result is claimed. The owner-epoch branch additionally awaits exact-head CI and TLC model checking.
 
 The next gates are the exact-head TLS/PostgreSQL + JetStream CI run, real PostgreSQL failover/replication schedules, and a production least-privilege verifier role.
+
+
+## 10. Owner epoch and worker-claim execution attestations
+
+The companion owner-epoch SQL branch `research/myc-dir-owner-epoch-sql-v0-1` adds migration 003. It adds a local monotonic owner_epoch to the effect fence domain, an append-only owner epoch transition ledger and an append-only effect_execution_attestations table.
+
+The strict queue-backed SQL function `apply_owner_epoch_claim_fenced_balance_delta` locks the current worker claim and owner fence in a consistent order, checks the exact current owner epoch/resource generation, calls the existing claim-fenced effect function and writes the actual worker identity, claim epoch, claim proof commitment, claim clock profile/validity, owner epoch, generation, and transaction ID in the same transaction as the protected effect.
+
+Exact replay returns the original effect and attestation rather than creating a second effect. The strict path rejects legacy effects that have no execution attestation. It also rejects a replay position newer than the current command position.
+
+The PostgreSQL verifier now joins all three append-only records and includes owner epoch, worker claim coordinates, database transaction ID and the epoch-authority/physical-fencing receipt commitments in the canonical receipt digest. It requires a matching transition record for non-initial owner epochs. These receipt commitments are persisted, not cryptographically authenticated by SQL or by the verifier; the external authority must verify signatures and physically fence the prior primary.
+
+The workflow applies migration 003 and executes the SQL adversarial test script before the Rust/NATS integration suite. The integration fixture advances to owner epoch 2 / generation 2 and then creates the protected effect using the strict function, so the live verifier test exercises a non-initial epoch transition.
+
+**Status:** source and test harness are present; this owner-epoch branch has not yet completed its exact-head migration/Rust/NATS CI run. The earlier NATS-only green run does not qualify these changes. Split-brain fencing, synchronous replication/promotion, production role grants, and performance remain separate qualification gates.
+
+
+## 11. Worker-claim epoch binding
+
+The owner-epoch SQL extension also adds `worker_claim_state.owner_epoch` and `install_worker_claim_for_owner_epoch`. An existing worker claim cannot cross an owner-epoch transition with the same claim epoch: it must be reinstalled under the current owner epoch with a strictly higher claim epoch. The strict mutation function verifies the claim's recorded owner epoch equals the current fence owner epoch. The installer uses the same claim-row-first, owner-fence-row-second lock order as the effect path to avoid a lock-order inversion.

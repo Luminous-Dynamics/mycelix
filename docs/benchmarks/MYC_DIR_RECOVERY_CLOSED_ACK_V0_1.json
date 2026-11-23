@@ -1,0 +1,871 @@
+{
+  "profile": "MYC-DIR-RECOVERY-CLOSED-ACK-0.1",
+  "version": "0.1.3",
+  "status": "preregistered_not_executed",
+  "claim_ceiling": "Research benchmark specification only. No multi-node PostgreSQL failover, recovery-finality certificate, WAL observer, or performance result is implemented or qualified by this corpus.",
+  "invariant": "For every acknowledged protected effect E: EffectCommitted(E) AND RecoveryClosed(E). RecoveryClosed means every promotion/recovery path permitted by the externally enforced promotion policy preserves E, or the policy rejects that path.",
+  "protocol_boundary": [
+    "JetStream AckSync confirms the broker recorded the ACK; it does not attest PostgreSQL commit or failover survival.",
+    "A writable-primary receipt lookup proves visibility on that server, not that any asynchronous promotion candidate contains the effect.",
+    "synchronous_commit=on with synchronous_standby_names empty proves local WAL flush only.",
+    "A logical-decoding marker binds an effect to a transaction's WAL history; it does not prove synchronous replication quorum or old-primary fencing.",
+    "An owner epoch or receipt digest stored only in PostgreSQL is not independent protection against PITR rollback or split-brain."
+  ],
+  "version_compatibility": {
+    "baseline": "PostgreSQL 16.16 (current Directory Fabric CI image)",
+    "pg16_observer_rule": "Do not assume logical decoding slots survive primary failover. The observer must continuously persist acknowledged commit evidence outside the PostgreSQL rollback domain, or use an independently retained WAL/archive strategy with explicit timeline ancestry and gap detection.",
+    "pg17_plus_optional_profile": "PostgreSQL 17+ supports failover logical replication slots with failover-enabled slot creation and sync_replication_slots on the standby. The slot must be verified synchronized, persistent, not invalidated, and caught up before promotion; synchronization is asynchronous.",
+    "upgrade_rule": "PG17+ slot support is an optional topology profile, not a silent substitution for the PG16.16 baseline. Version, parameters and failover-readiness evidence must be recorded in every result."
+  },
+  "durability_classes": [
+    {
+      "id": "LOCAL_COMMIT_ONLY",
+      "description": "Local primary WAL flush. Not sufficient for a policy requiring standby survival."
+    },
+    {
+      "id": "SYNC_REMOTE_FLUSH",
+      "description": "The configured synchronous standby quorum has flushed the commit WAL."
+    },
+    {
+      "id": "SYNC_REMOTE_APPLY",
+      "description": "The configured synchronous standby quorum has applied the commit and made it visible."
+    },
+    {
+      "id": "PROMOTION_CLOSED",
+      "description": "The external promotion authority restricts promotion to candidates proven to contain the effect and physically fences the old writer."
+    },
+    {
+      "id": "UNKNOWN",
+      "description": "Commit, observer, replication or recovery evidence is incomplete or contradictory. Must never authorize ACK."
+    }
+  ],
+  "topologies": [
+    {
+      "id": "RCA-T01",
+      "nodes": 3,
+      "layout": "1 primary + 2 physical standbys",
+      "postgres_version": "16.16",
+      "replication_modes": [
+        "asynchronous",
+        "synchronous_standby_names=FIRST 1",
+        "synchronous_standby_names=ANY 1"
+      ],
+      "purpose": "Establish local-only, priority and quorum-one behavior under candidate failure and promotion."
+    },
+    {
+      "id": "RCA-T02",
+      "nodes": 5,
+      "layout": "1 primary + 4 physical standbys",
+      "postgres_version": "16.16",
+      "replication_modes": [
+        "synchronous_standby_names=ANY 2",
+        "synchronous_standby_names=ANY 3",
+        "synchronous_standby_names=FIRST 2"
+      ],
+      "purpose": "Measure quorum durability and promotion eligibility as replicas are delayed, removed or rejoined."
+    },
+    {
+      "id": "RCA-T03",
+      "nodes": 3,
+      "layout": "1 primary + 2 physical standbys with failover logical-slot synchronization",
+      "postgres_version": "17–18",
+      "replication_modes": [
+        "failover-enabled logical slot",
+        "sync_replication_slots=on",
+        "synchronized_standby_slots configured"
+      ],
+      "purpose": "Compatibility profile for PostgreSQL 17 and 18 failover logical slots; measure synchronization readiness and observer continuity separately from the PG16 baseline."
+    },
+    {
+      "id": "RCA-T04",
+      "nodes": 3,
+      "layout": "1 primary + 2 physical standbys with PostgreSQL 19 failover logical-slot synchronization",
+      "postgres_version": "19",
+      "replication_modes": [
+        "failover-enabled logical slot",
+        "sync_replication_slots=on",
+        "synchronized_standby_slots bound to the intended physical standby slots",
+        "inspect pg_replication_slots.synced, temporary, invalidation_reason and slotsync_skip_reason",
+        "test explicit pg_sync_replication_slots() recovery after synchronization interruption"
+      ],
+      "purpose": "Current-major PostgreSQL profile; qualify failover-slot readiness, synchronized physical WAL receipt, invalidation handling and observer reattachment. Do not merge its results with PG16 or PG17/18."
+    }
+  ],
+  "workload_profiles": [
+    {
+      "id": "RCA-W01",
+      "offered_rate_effects_per_second": 100,
+      "workers": 8,
+      "resources": 1000,
+      "duration_seconds": 300,
+      "repetitions": 10
+    },
+    {
+      "id": "RCA-W02",
+      "offered_rate_effects_per_second": 1000,
+      "workers": 32,
+      "resources": 10000,
+      "duration_seconds": 300,
+      "repetitions": 10
+    },
+    {
+      "id": "RCA-W03",
+      "offered_rate_effects_per_second": 10000,
+      "workers": 128,
+      "resources": 100000,
+      "duration_seconds": 300,
+      "repetitions": 10
+    }
+  ],
+  "comparators": [
+    {
+      "id": "RCA-C01",
+      "name": "JetStream AckSync only",
+      "semantic_boundary": "Broker acknowledgement confirmation only; baseline transport cost, not an effect or durability guarantee."
+    },
+    {
+      "id": "RCA-C02",
+      "name": "JetStream AckSync + PostgreSQL primary receipt lookup",
+      "semantic_boundary": "Verifies an actual committed row on the current writable primary; does not prove replica survival."
+    },
+    {
+      "id": "RCA-C03",
+      "name": "JetStream AckSync + PostgreSQL effect and owner-epoch execution attestation",
+      "semantic_boundary": "Adds historical worker and owner coordinates; still depends on external lease and failover controls."
+    },
+    {
+      "id": "RCA-C04",
+      "name": "PostgreSQL synchronous replication without recovery-closed certificate",
+      "semantic_boundary": "Database-native commit durability under its configured synchronous policy; promotion policy and external ACK evidence still need explicit qualification."
+    },
+    {
+      "id": "RCA-C05",
+      "name": "Transactional outbox with idempotent consumer",
+      "semantic_boundary": "Atomic business-row/outbox commit and eventual delivery; compare only on equivalent destination durability and consumer semantics."
+    },
+    {
+      "id": "RCA-C06",
+      "name": "Kafka transactions / exactly-once topic processing",
+      "semantic_boundary": "Atomic Kafka input-offset/output-topic processing within Kafka's transaction domain; a PostgreSQL destination requires destination-system cooperation and must be benchmarked as a sink integration."
+    },
+    {
+      "id": "RCA-C07",
+      "name": "Mycelix Recovery-Closed ACK",
+      "semantic_boundary": "Proposed cross-system finality certificate binds actual effect, WAL commit position, replica evidence, signed authority lease, promotion policy and old-primary physical fencing."
+    },
+    {
+      "id": "RCA-C08",
+      "name": "RabbitMQ quorum queues with publisher confirms and manual consumer acknowledgements",
+      "semantic_boundary": "Publisher confirms establish broker quorum persistence for the routed queue; manual consumer acknowledgements manage redelivery. Neither confirms a separate PostgreSQL effect. Compare destination-side integration and fault schedules separately."
+    },
+    {
+      "id": "RCA-C09",
+      "name": "Patroni synchronous_mode with synchronous_mode_strict on/off",
+      "semantic_boundary": "A mature PostgreSQL HA-controller comparator. Strict mode can block writes when no eligible synchronous replica exists; non-strict mode may relax synchronous replication availability. Compare its promotion eligibility, RPO, write availability and fencing against the same hardware/fault schedule. Do not mislabel Patroni as an effect-receipt verifier."
+    }
+  ],
+  "metrics": [
+    {
+      "id": "RCA-M01",
+      "name": "ack_without_verified_effect_receipt",
+      "kind": "safety",
+      "unit": "acks",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M02",
+      "name": "ack_without_required_durability_class",
+      "kind": "safety",
+      "unit": "acks",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M03",
+      "name": "acknowledged_effect_missing_from_permitted_promotion_candidate",
+      "kind": "safety",
+      "unit": "effects",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M04",
+      "name": "unknown_finality_acknowledged",
+      "kind": "safety",
+      "unit": "acks",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M05",
+      "name": "stale_primary_writes_after_successor_promotion",
+      "kind": "safety",
+      "unit": "writes",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M06",
+      "name": "timeline_or_system_identity_mismatch_accepted",
+      "kind": "safety",
+      "unit": "certificates",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M07",
+      "name": "pitr_restore_below_acknowledged_external_high_water_accepted",
+      "kind": "safety",
+      "unit": "restores",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M08",
+      "name": "false_commit_position_or_effect_binding_accepted",
+      "kind": "safety",
+      "unit": "certificates",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M09",
+      "name": "replica_quorum_mismatch_accepted",
+      "kind": "safety",
+      "unit": "certificates",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M10",
+      "name": "logical_slot_gap_or_invalidation_acknowledged",
+      "kind": "safety",
+      "unit": "acks",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M11",
+      "name": "duplicate_business_effects_after_ack_loss_and_redelivery",
+      "kind": "safety",
+      "unit": "effects",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M12",
+      "name": "wal_marker_without_matching_committed_effect_accepted",
+      "kind": "safety",
+      "unit": "markers",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M13",
+      "name": "invalid_or_expired_authority_lease_accepted",
+      "kind": "safety",
+      "unit": "leases",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M14",
+      "name": "local_only_commit_misclassified_as_remote_durable",
+      "kind": "safety",
+      "unit": "commits",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M15",
+      "name": "commit_to_independent_wal_observation_latency_p50",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M16",
+      "name": "commit_to_independent_wal_observation_latency_p95",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M17",
+      "name": "commit_to_independent_wal_observation_latency_p99",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M18",
+      "name": "finality_certificate_verification_latency_p99",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M19",
+      "name": "commit_to_acksync_confirmation_latency_p99",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M20",
+      "name": "throughput_at_zero_unsafe_ack",
+      "kind": "performance",
+      "unit": "effects_per_second",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M21",
+      "name": "wal_bytes_per_protected_effect",
+      "kind": "capacity",
+      "unit": "bytes",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M22",
+      "name": "synchronous_replica_flush_lag_p99",
+      "kind": "recovery",
+      "unit": "milliseconds",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M23",
+      "name": "synchronous_replica_apply_lag_p99",
+      "kind": "recovery",
+      "unit": "milliseconds",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M24",
+      "name": "promotion_time_p99",
+      "kind": "recovery",
+      "unit": "seconds",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M25",
+      "name": "reconciliation_time_after_unknown_outcome_p99",
+      "kind": "recovery",
+      "unit": "seconds",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M26",
+      "name": "observer_backlog_age_p99",
+      "kind": "capacity",
+      "unit": "seconds",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M27",
+      "name": "ack_hold_time_due_to_finality_evidence_p99",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M28",
+      "name": "owner_epoch_or_resource_generation_coordinate_ahead_accepted",
+      "kind": "safety",
+      "unit": "receipts",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M29",
+      "name": "invalid_owner_epoch_transition_chronology_accepted",
+      "kind": "safety",
+      "unit": "receipts",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M30",
+      "name": "postgresql_19_failover_slot_not_ready_but_promotion_or_ack_accepted",
+      "kind": "safety",
+      "unit": "promotions_or_acks",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M31",
+      "name": "failover_slot_synchronization_convergence_p99",
+      "kind": "recovery",
+      "unit": "seconds",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M32",
+      "name": "eligible_effects_acknowledged_within_5s_after_finality_evidence",
+      "kind": "liveness",
+      "unit": "percent",
+      "target_min": 99.9
+    },
+    {
+      "id": "RCA-M33",
+      "name": "valid_finality_misclassified_as_unknown",
+      "kind": "availability",
+      "unit": "percent",
+      "target_max": 0.1
+    },
+    {
+      "id": "RCA-M34",
+      "name": "safety_adjusted_throughput",
+      "kind": "performance",
+      "unit": "verified_effects_per_second",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M35",
+      "name": "broker_quorum_confirm_without_destination_effect_accepted_as_effect_success",
+      "kind": "safety",
+      "unit": "acks",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M36",
+      "name": "invalid_authority_proof_signature_or_domain_accepted",
+      "kind": "safety",
+      "unit": "proofs",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M37",
+      "name": "physical_fencing_proof_signed_by_database_writer_key_accepted",
+      "kind": "safety",
+      "unit": "proofs",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M38",
+      "name": "stale_or_replayed_external_highwater_sequence_accepted",
+      "kind": "safety",
+      "unit": "proofs",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M39",
+      "name": "promotion_proof_with_wrong_timeline_ancestry_or_transaction_end_lsn_accepted",
+      "kind": "safety",
+      "unit": "promotions",
+      "hard_limit": 0
+    },
+    {
+      "id": "RCA-M40",
+      "name": "signed_authority_proof_verification_latency_p95",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "target_max": 3
+    },
+    {
+      "id": "RCA-M41",
+      "name": "authority_proof_bundle_encoded_size_p95",
+      "kind": "overhead",
+      "unit": "bytes_per_effect",
+      "target_max": 8192
+    },
+    {
+      "id": "RCA-M42",
+      "name": "time_from_confirmed_physical_fence_to_promotion_eligibility_p99",
+      "kind": "recovery",
+      "unit": "seconds",
+      "hard_limit": null
+    },
+    {
+      "id": "RCA-M43",
+      "name": "valid_proof_chain_misclassified_unknown",
+      "kind": "availability",
+      "unit": "percent",
+      "target_max": 0.1
+    },
+    {
+      "id": "RCA-M44",
+      "name": "proof_store_unavailable_or_rolled_back_but_effect_acknowledged",
+      "kind": "safety",
+      "unit": "acks",
+      "hard_limit": 0
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "RCA-001",
+      "class": "known_reject",
+      "description": "synchronous_standby_names is empty and the application attempts to classify synchronous_commit=on as remote durable.",
+      "expected_outcome": "LOCAL_COMMIT_ONLY_OR_UNKNOWN_NO_REMOTE_DURABILITY_ACK"
+    },
+    {
+      "id": "RCA-002",
+      "class": "known_valid",
+      "description": "FIRST 1 synchronous standby flushes the transaction commit and is the only candidate allowed by the signed promotion policy.",
+      "expected_outcome": "SYNC_REMOTE_FLUSH_ELIGIBLE_AFTER_INDEPENDENT_VERIFICATION"
+    },
+    {
+      "id": "RCA-003",
+      "class": "known_valid",
+      "description": "ANY 1 of two synchronous standbys flushes the commit; the exact acknowledging standby is captured and promotion is restricted to a candidate containing the commit.",
+      "expected_outcome": "SYNC_REMOTE_FLUSH_ELIGIBLE_AFTER_CANDIDATE_POLICY_CHECK"
+    },
+    {
+      "id": "RCA-004",
+      "class": "known_valid",
+      "description": "ANY 2 of four standbys flush and the finality certificate binds both actual acknowledgements and the promotion-policy epoch.",
+      "expected_outcome": "SYNC_REMOTE_FLUSH_ELIGIBLE_AFTER_QUORUM_CHECK"
+    },
+    {
+      "id": "RCA-005",
+      "class": "known_valid",
+      "description": "remote_apply waits for the configured quorum to apply the commit; observer verifies exact end-LSN on an eligible promotion candidate.",
+      "expected_outcome": "SYNC_REMOTE_APPLY"
+    },
+    {
+      "id": "RCA-006",
+      "class": "known_reject",
+      "description": "remote_write is used where the effect risk policy requires durable remote flush or remote apply.",
+      "expected_outcome": "REJECT_INSUFFICIENT_DURABILITY_CLASS"
+    },
+    {
+      "id": "RCA-007",
+      "class": "known_reject",
+      "description": "Primary has synchronous_commit=on but synchronous_standby_names is changed to empty before this transaction commits.",
+      "expected_outcome": "LOCAL_COMMIT_ONLY"
+    },
+    {
+      "id": "RCA-008",
+      "class": "known_reject",
+      "description": "Synchronous standby membership changes during the transaction and the verifier cannot reconstruct which standby quorum released this commit.",
+      "expected_outcome": "UNKNOWN_NO_ACK"
+    },
+    {
+      "id": "RCA-009",
+      "class": "known_reject",
+      "description": "Primary crashes after local WAL flush but before the required standby quorum confirms the commit.",
+      "expected_outcome": "UNKNOWN_NO_ACK"
+    },
+    {
+      "id": "RCA-010",
+      "class": "known_valid",
+      "description": "Primary crashes after the required synchronous standby quorum has flushed the commit and the observer already persisted the matching effect certificate.",
+      "expected_outcome": "RECOVERY_CLOSED_IF_PROMOTION_POLICY_RESTRICTS_CANDIDATES"
+    },
+    {
+      "id": "RCA-011",
+      "class": "known_reject",
+      "description": "A lagging asynchronous standby is selected for promotion although it lacks the acknowledged effect's end-LSN.",
+      "expected_outcome": "PROMOTION_REJECTED_OR_ACK_INVARIANT_BREACH_DETECTED"
+    },
+    {
+      "id": "RCA-012",
+      "class": "known_valid",
+      "description": "A synchronous standby that is proven to contain the effect is promoted after the primary is physically fenced.",
+      "expected_outcome": "RECOVERY_CLOSED"
+    },
+    {
+      "id": "RCA-013",
+      "class": "known_reject",
+      "description": "The old primary is network-partitioned but not physically fenced; successor promotion is requested.",
+      "expected_outcome": "PROMOTION_BLOCKED"
+    },
+    {
+      "id": "RCA-014",
+      "class": "known_reject",
+      "description": "The old primary resumes after successor promotion with a stale or expired lease and attempts a protected write.",
+      "expected_outcome": "OLD_PRIMARY_WRITE_REJECTED"
+    },
+    {
+      "id": "RCA-015",
+      "class": "known_reject",
+      "description": "A signed lease is valid cryptographically but is bound to a different PostgreSQL system identifier.",
+      "expected_outcome": "LEASE_REJECTED"
+    },
+    {
+      "id": "RCA-016",
+      "class": "known_reject",
+      "description": "A signed lease is valid cryptographically but targets the wrong timeline or promotion-policy epoch.",
+      "expected_outcome": "LEASE_REJECTED"
+    },
+    {
+      "id": "RCA-017",
+      "class": "known_reject",
+      "description": "A restored backup has an owner epoch below the independent external high-water.",
+      "expected_outcome": "RESTORE_QUARANTINED_NO_NEW_MUTATIONS"
+    },
+    {
+      "id": "RCA-018",
+      "class": "known_reject",
+      "description": "Two timeline branches expose numerically similar LSNs but do not share a verified ancestry chain.",
+      "expected_outcome": "LSN_COMPARISON_REJECTED"
+    },
+    {
+      "id": "RCA-019",
+      "class": "known_reject",
+      "description": "WAL archive has a gap spanning the target commit position.",
+      "expected_outcome": "UNKNOWN_NO_ACK"
+    },
+    {
+      "id": "RCA-020",
+      "class": "known_reject",
+      "description": "The independent logical decoding observer loses its slot or required WAL before persisting the target effect marker.",
+      "expected_outcome": "UNKNOWN_NO_ACK"
+    },
+    {
+      "id": "RCA-021",
+      "class": "known_reject",
+      "description": "PostgreSQL 16 primary fails and the design assumes its logical decoding slot automatically exists on the promoted standby.",
+      "expected_outcome": "OBSERVER_CONTINUITY_NOT_QUALIFIED_NO_ACK"
+    },
+    {
+      "id": "RCA-022",
+      "class": "known_reject",
+      "description": "PostgreSQL 17+ failover slot exists but is not synchronized and persistent on the intended standby at promotion time.",
+      "expected_outcome": "PROMOTION_OR_OBSERVER_RESUME_REJECTED"
+    },
+    {
+      "id": "RCA-023",
+      "class": "known_valid",
+      "description": "PostgreSQL 17+ failover slot is synchronized, persistent and not invalidated; standby has met the required WAL/slot synchronization barrier; old primary is separately fenced.",
+      "expected_outcome": "OBSERVER_FAILOVER_ELIGIBLE"
+    },
+    {
+      "id": "RCA-024",
+      "class": "known_reject",
+      "description": "PostgreSQL 17+ logical slot is synchronized but invalidated because required WAL or catalog rows were removed.",
+      "expected_outcome": "OBSERVER_RESUME_REJECTED"
+    },
+    {
+      "id": "RCA-025",
+      "class": "known_valid",
+      "description": "Observer restarts from its independent durable high-water and idempotently replays already persisted transaction markers.",
+      "expected_outcome": "NO_DUPLICATE_CERTIFICATE_OR_EFFECT"
+    },
+    {
+      "id": "RCA-026",
+      "class": "known_reject",
+      "description": "Transactional WAL marker commits but its canonical effect ID, command digest or attestation digest differs from the queried database row.",
+      "expected_outcome": "MARKER_BINDING_REJECTED"
+    },
+    {
+      "id": "RCA-027",
+      "class": "known_reject",
+      "description": "Transactional WAL marker is written inside a transaction that later aborts.",
+      "expected_outcome": "NO_COMMIT_CERTIFICATE"
+    },
+    {
+      "id": "RCA-028",
+      "class": "known_reject",
+      "description": "Effect row commits but marker emission fails or is omitted from the same transaction.",
+      "expected_outcome": "UNKNOWN_NO_ACK"
+    },
+    {
+      "id": "RCA-029",
+      "class": "known_reject",
+      "description": "The database connection is CA-authenticated but the certificate maps to an unauthorized deployment or writer identity.",
+      "expected_outcome": "DATABASE_IDENTITY_REJECTED"
+    },
+    {
+      "id": "RCA-030",
+      "class": "known_reject",
+      "description": "Finality certificate signature verifies but the lease is expired or its generation is below the external high-water.",
+      "expected_outcome": "CERTIFICATE_REJECTED"
+    },
+    {
+      "id": "RCA-031",
+      "class": "known_reject",
+      "description": "A delayed ACK from a previous JetStream delivery attempts to acknowledge a later delivery or different stream sequence.",
+      "expected_outcome": "DELIVERY_BINDING_REJECTED"
+    },
+    {
+      "id": "RCA-032",
+      "class": "known_valid",
+      "description": "AckSync response is lost after the database effect and finality certificate are durable; redelivery is resolved through the same idempotent effect and certificate.",
+      "expected_outcome": "NO_DUPLICATE_EFFECT"
+    },
+    {
+      "id": "RCA-033",
+      "class": "known_reject",
+      "description": "A primary crash occurs after the finality certificate was created but before AckSync confirmation; the promoted candidate does not satisfy the certificate's candidate policy.",
+      "expected_outcome": "RECONCILE_NO_NEW_ACK"
+    },
+    {
+      "id": "RCA-034",
+      "class": "known_reject",
+      "description": "The recovery observer is behind the acknowledged LSN or its high-water store is unavailable.",
+      "expected_outcome": "UNKNOWN_NO_ACK"
+    },
+    {
+      "id": "RCA-035",
+      "class": "known_valid",
+      "description": "PITR restore reaches or exceeds the externally committed certificate high-water and the epoch authority revalidates the exact promoted timeline before writes resume.",
+      "expected_outcome": "RECOVERY_RECONCILIATION_REQUIRED_THEN_ELIGIBLE"
+    },
+    {
+      "id": "RCA-036",
+      "class": "known_reject",
+      "description": "A test harness silently treats a one-node PostgreSQL synchronous_commit=on test as a multi-node failover qualification.",
+      "expected_outcome": "EVIDENCE_CLAIM_REJECTED"
+    },
+    {
+      "id": "RCA-037",
+      "class": "known_reject",
+      "description": "An effect receipt belongs to an earlier owner epoch but carries a resource generation greater than the current command generation; validation must not treat the pair as lexicographically older.",
+      "expected_outcome": "COMPONENT_WISE_POSITION_CHECK_REJECTS_RECEIPT"
+    },
+    {
+      "id": "RCA-038",
+      "class": "known_reject",
+      "description": "The effect verifier finds a transition row for the attested owner epoch but its previous/new generation coordinates are impossible, or the transition's new generation is greater than the effect's accepted generation.",
+      "expected_outcome": "INDEPENDENT_HISTORY_VERIFIER_REJECTS_TRANSITION_CHRONOLOGY"
+    },
+    {
+      "id": "RCA-039",
+      "class": "known_reject",
+      "description": "PostgreSQL 19 failover logical slot exists on the intended standby but synced=false or it is temporary; promotion or observer continuity is treated as ready.",
+      "expected_outcome": "FAILOVER_SLOT_NOT_READY_NO_PROMOTION_CLOSED_ACK"
+    },
+    {
+      "id": "RCA-040",
+      "class": "known_reject",
+      "description": "PostgreSQL 19 failover slot reports invalidation_reason or slotsync_skip_reason indicating missing WAL, missing rows, unflushed WAL or slot invalidation.",
+      "expected_outcome": "OBSERVER_CONTINUITY_REJECTED"
+    },
+    {
+      "id": "RCA-041",
+      "class": "known_valid",
+      "description": "PostgreSQL 19 failover slot is synchronized and persistent; synchronized_standby_slots proves corresponding physical standby WAL receipt; timeline identity and old-primary fencing are independently verified.",
+      "expected_outcome": "OBSERVER_CONTINUITY_ELIGIBLE_SUBJECT_TO_RECOVERY_CLOSURE"
+    },
+    {
+      "id": "RCA-042",
+      "class": "known_reject",
+      "description": "A promotion candidate's logical slot is synchronized but the candidate WAL/replay position or timeline ancestry does not contain the acknowledged transaction end-LSN.",
+      "expected_outcome": "PROMOTION_CANDIDATE_REJECTED"
+    },
+    {
+      "id": "RCA-043",
+      "class": "known_reject",
+      "description": "RabbitMQ quorum queue publisher confirm is received for a command, but the downstream PostgreSQL effect is absent or rolled back; the broker confirm is treated as proof of the database effect.",
+      "expected_outcome": "BROKER_QUORUM_CONFIRM_IS_NOT_EFFECT_FINALITY"
+    },
+    {
+      "id": "RCA-044",
+      "class": "known_valid",
+      "description": "Patroni synchronous_mode_strict is enabled and no eligible synchronous standby exists; the database blocks new writes rather than relaxing the durability contract.",
+      "expected_outcome": "NO_COMMIT_WHILE_DURABILITY_QUORUM_UNAVAILABLE"
+    },
+    {
+      "id": "RCA-045",
+      "class": "known_reject",
+      "description": "Patroni runs with synchronous_mode enabled but synchronous_mode_strict disabled; the benchmark loses all eligible synchronous replicas and must not assume that every newly accepted write has standby durability.",
+      "expected_outcome": "DURABILITY_CLASS_REDUCED_OR_WRITE_REJECTED_AND_EXPLICITLY_REPORTED"
+    },
+    {
+      "id": "RCA-046",
+      "class": "known_reject",
+      "description": "A cryptographically valid lease-high-water proof refers to a predecessor generation/hash different from the independently retained external high-water state.",
+      "expected_outcome": "HIGHWATER_PREDECESSOR_MISMATCH_NO_ACK"
+    },
+    {
+      "id": "RCA-047",
+      "class": "known_reject",
+      "description": "A physical-fencing proof is signed with the database writer's own key or signer key ID is not mapped to the trusted physical-fencing attestor key.",
+      "expected_outcome": "FENCING_ATTESTOR_NOT_INDEPENDENT_NO_PROMOTION"
+    },
+    {
+      "id": "RCA-048",
+      "class": "known_reject",
+      "description": "A signed physical-fencing proof claims network partition detection only, with no authorized actuator action or mechanism.",
+      "expected_outcome": "NETWORK_PARTITION_IS_NOT_PHYSICAL_FENCING"
+    },
+    {
+      "id": "RCA-049",
+      "class": "known_reject",
+      "description": "A valid physical-fencing proof binds the old primary but names a different successor than the promotion request.",
+      "expected_outcome": "SUCCESSOR_TARGET_MISMATCH_NO_PROMOTION"
+    },
+    {
+      "id": "RCA-050",
+      "class": "known_reject",
+      "description": "A promotion candidate has a numerically sufficient flush/replay LSN but its timeline ancestry commitment does not match the verified source history.",
+      "expected_outcome": "TIMELINE_ANCESTRY_MISMATCH_NO_PROMOTION"
+    },
+    {
+      "id": "RCA-051",
+      "class": "known_reject",
+      "description": "A signed promotion eligibility proof covers an end-LSN earlier than the actual effect transaction end-LSN.",
+      "expected_outcome": "PROMOTION_COVERAGE_BELOW_EFFECT_END_LSN_NO_ACK"
+    },
+    {
+      "id": "RCA-052",
+      "class": "known_reject",
+      "description": "After PITR restores an older database copy, the independent external proof store reports a later consumed high-water/fence sequence than the database-local mirror.",
+      "expected_outcome": "DATABASE_ROLLBACK_DETECTED_FINALITY_UNKNOWN_NO_ACK"
+    },
+    {
+      "id": "RCA-053",
+      "class": "known_reject",
+      "description": "The signed proof envelope, issuer key ID, canonical proof digest and immutable SQL columns disagree.",
+      "expected_outcome": "PROOF_ENVELOPE_COLUMN_OR_DIGEST_MISMATCH_NO_ACK"
+    },
+    {
+      "id": "RCA-054",
+      "class": "known_reject",
+      "description": "Proof trust roots or the independent monotonic proof store are unavailable at acknowledgement time.",
+      "expected_outcome": "FINALITY_UNKNOWN_NO_ACK_RECONCILIATION"
+    },
+    {
+      "id": "RCA-055",
+      "class": "known_valid",
+      "description": "High-water proof extends the exact previous lease generation/hash; independent actuator attestor fences the old primary; promotion proof binds the intended successor, exact transaction end-LSN and verified timeline ancestry.",
+      "expected_outcome": "PROOF_CHAIN_ELIGIBLE_SUBJECT_TO_DATABASE_AND_BROKER_RECEIPTS"
+    }
+  ],
+  "evidence_requirements": [
+    "exact Mycelix branch head SHA and database migration hashes",
+    "exact PostgreSQL major/minor version, system identifier, timeline and control-plane deployment ID",
+    "exact NATS server/client versions, JetStream stream/consumer configuration and delivery identity",
+    "primary and standby topology, names, endpoint identities, replication slots and promotion eligibility rules",
+    "effective synchronous_commit and synchronous_standby_names values for each protected transaction",
+    "standby flush/apply acknowledgement identities and corresponding WAL positions",
+    "transactional marker payload, decoded commit LSN and transaction end LSN",
+    "observer's independent durable high-water, slot state, archive continuity and timeline ancestry proof",
+    "signed authority lease, trust-key set, generation, expiry, scope and external high-water",
+    "physical fencing evidence for the old primary and promotion event receipt",
+    "effect, execution-attestation, certificate and AckSync confirmation identities",
+    "fault injection schedule, timestamps, raw logs, repeat count and loss/reconciliation outcomes",
+    "hardware, network, storage and filesystem configuration for all compared deployments"
+  ],
+  "decision_rule": {
+    "ack_allowed": "Effect receipt and execution attestation verify; signed authority lease and scope verify; the exact commit position is independently observed; required synchronous replication/finality class is demonstrated; the external promotion policy rejects every candidate that does not contain the effect; old primary is physically fenced; the finality certificate is valid and above external high-water; AckSync is then issued for the exact delivery.",
+    "no_ack": "Any missing, stale, contradictory, unauthenticated or unobserved evidence yields UNKNOWN and no effect-success ACK. A durable reconciliation handoff may be a separately typed transport disposition, but must not be presented as a completed effect.",
+    "safety_gate": "Every safety metric must equal zero before performance results are eligible for comparison."
+  },
+  "current_postgres_major_researched": 19,
+  "additional_comparison_rules": [
+    "Include PostgreSQL 19 as the current-major optional failover-slot topology, separately from PostgreSQL 16 and 17/18.",
+    "PostgreSQL 19 profile must record slot synced, temporary, invalidation_reason and slotsync_skip_reason; never treat slot existence as readiness.",
+    "Measure valid-finality liveness as well as safety. A system that never ACKs can trivially achieve zero unsafe ACKs but is not a usable execution system.",
+    "Safety-adjusted throughput is reportable only when all hard safety metrics equal zero; it is not ordinary broker throughput."
+  ],
+  "comparison_methodology": [
+    "Run the exact same offered-load workload against RabbitMQ quorum queues, Kafka transactional processing, Patroni-managed PostgreSQL synchronous replication, transactional outbox/CDC, and Mycelix.",
+    "Separate broker-level confirmation, database commit, replica durability, promotion safety, and cross-system effect finality; never treat them as interchangeable.",
+    "For Patroni include synchronous_mode_strict enabled and disabled as separate profiles. Report write blocking/availability as a first-class outcome, not as an unexplained failure.",
+    "For RabbitMQ record queue type, replica membership, publisher-confirm round trip, consumer manual ack, redelivery and destination database effect evidence.",
+    "For Kafka compare transactions only inside Kafka's transaction domain; test PostgreSQL sink behavior with a cooperating connector/outbox path and record the destination commit separately.",
+    "Match payload, offered load, node count, disk class, replication topology, fault schedule, retention and durability target. Report p50/p95/p99 and safety-adjusted throughput.",
+    "Add a proof-aware Recovery-Closed ACK profile. The independent high-water verifier, physical-fencing attestor and promotion controller must use distinct trust roles; record key IDs and sequence state per purpose/deployment.",
+    "Run proof-bundle ablations: lease only; lease+high-water; lease+high-water+physical fencing; complete candidate promotion proof. Measure marginal safety coverage, verification latency and serialized bytes.",
+    "Inject proof-store rollback and loss independently of PostgreSQL rollback. A restored local database must not be able to lower the independently retained proof sequence or mint a new finality result.",
+    "Measure valid-proof liveness separately from fail-closed safety; a design that refuses every proof cannot win the benchmark."
+  ],
+  "proof_qualification": {
+    "status": "protocol_source_authored_tests_pending_exact_head_ci",
+    "trust_domains": [
+      "lease_highwater_authority",
+      "physical_fencing_attestor",
+      "promotion_controller"
+    ],
+    "canonicalization": "domain-separated purpose tags, canonical bytes, Ed25519 signature and BLAKE3 digest",
+    "external_anti_rollback": "last accepted proof sequence and lease high-water must be independently retained outside the PostgreSQL rollback domain",
+    "hard_safety_limits": {
+      "invalid_proof_acceptance": 0,
+      "database_writer_as_fencing_attestor": 0,
+      "stale_or_replayed_highwater_acceptance": 0,
+      "wrong_timeline_or_end_lsn_promotion_acceptance": 0,
+      "ack_when_proof_store_unavailable": 0
+    },
+    "aspirational_performance_targets": {
+      "proof_verification_p95_ms": 3,
+      "proof_bundle_encoded_size_p95_bytes_per_effect": 8192,
+      "valid_proof_chain_false_unknown_percent_max": 0.1
+    },
+    "note": "Performance targets are proposed qualification goals, not measured results or current SOTA claims."
+  }
+}

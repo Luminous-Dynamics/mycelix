@@ -235,6 +235,83 @@
       "kind": "performance",
       "unit": "milliseconds",
       "hard_limit": null
+    },
+    {
+      "id": "NJ-M27",
+      "name": "effect_commits_without_execution_attestation_acked",
+      "kind": "safety",
+      "unit": "acks",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M28",
+      "name": "stale_owner_epoch_effects_committed",
+      "kind": "safety",
+      "unit": "effects",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M29",
+      "name": "stale_worker_claim_effects_committed",
+      "kind": "safety",
+      "unit": "effects",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M30",
+      "name": "non_monotonic_owner_epoch_transitions_accepted",
+      "kind": "safety",
+      "unit": "transitions",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M31",
+      "name": "execution_attestation_mutations_accepted",
+      "kind": "safety",
+      "unit": "mutations",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M32",
+      "name": "execution_attestation_write_overhead_p99",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "hard_limit": null
+    },
+    {
+      "id": "NJ-M33",
+      "name": "execution_attestation_wal_bytes_per_effect",
+      "kind": "performance",
+      "unit": "bytes",
+      "hard_limit": null
+    },
+    {
+      "id": "NJ-M34",
+      "name": "owner_epoch_recovery_and_reconciliation_time_p99",
+      "kind": "performance",
+      "unit": "seconds",
+      "hard_limit": null
+    },
+    {
+      "id": "NJ-M35",
+      "name": "worker_claim_owner_epoch_mismatch_effects_committed",
+      "kind": "safety",
+      "unit": "effects",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M36",
+      "name": "claim_install_effect_race_deadlocks",
+      "kind": "safety",
+      "unit": "deadlocks",
+      "hard_limit": 0
+    },
+    {
+      "id": "NJ-M37",
+      "name": "epoch_aware_claim_install_lock_wait_p99",
+      "kind": "performance",
+      "unit": "milliseconds",
+      "hard_limit": null
     }
   ],
   "scenarios": [
@@ -453,6 +530,102 @@
       "class": "known_valid",
       "description": "A real PostgreSQL fenced effect commits under synchronous_commit, its exact append-only receipt is read from a TLS-authenticated writable primary, and only that verified capability allows AckSync for the matching JetStream delivery.",
       "expected_outcome": "ACK_ALLOWED"
+    },
+    {
+      "id": "NJ-039",
+      "class": "known_reject",
+      "description": "An idempotent effect row exists from before migration 003 but has no immutable execution attestation; the strict owner-epoch entry point must not claim it is historically attested.",
+      "expected_outcome": "DO_NOT_ACK"
+    },
+    {
+      "id": "NJ-040",
+      "class": "known_reject",
+      "description": "A new effect is submitted with an owner epoch below the current PostgreSQL owner-fence epoch.",
+      "expected_outcome": "DO_NOT_ACK"
+    },
+    {
+      "id": "NJ-041",
+      "class": "known_reject",
+      "description": "A new effect is submitted with a resource generation below the current owner-fence generation.",
+      "expected_outcome": "DO_NOT_ACK"
+    },
+    {
+      "id": "NJ-042",
+      "class": "known_reject",
+      "description": "A worker resumes with an old worker ID, claim epoch or claim proof commitment after a strictly newer claim is installed.",
+      "expected_outcome": "OWNER_REJECTS_STALE_CLAIM"
+    },
+    {
+      "id": "NJ-043",
+      "class": "known_reject",
+      "description": "The owner epoch transition attempts to repeat or move backwards from the currently committed owner epoch.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-044",
+      "class": "known_valid",
+      "description": "An exact idempotent replay after owner-epoch advancement returns the original effect ID and immutable execution attestation without creating a second effect.",
+      "expected_outcome": "ACK_ALLOWED"
+    },
+    {
+      "id": "NJ-045",
+      "class": "known_valid",
+      "description": "A new effect under the current owner epoch and resource generation writes the worker claim and owner execution attestation in the same database transaction as the protected effect.",
+      "expected_outcome": "ACK_ALLOWED"
+    },
+    {
+      "id": "NJ-046",
+      "class": "known_reject",
+      "description": "The owner epoch transition receives a zero, missing or malformed epoch-authority or physical-fencing receipt commitment.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-047",
+      "class": "known_reject",
+      "description": "A database role attempts to UPDATE or DELETE an immutable execution attestation or owner-epoch transition record.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-048",
+      "class": "known_reject",
+      "description": "A PostgreSQL execution attestation uses a non-initial owner epoch but the corresponding append-only owner-epoch transition record is missing.",
+      "expected_outcome": "DO_NOT_ACK"
+    },
+    {
+      "id": "NJ-049",
+      "class": "known_reject",
+      "description": "The former PostgreSQL primary has not been physically fenced; the external single-writer authority must block promotion/admission regardless of a local pg_is_in_recovery result.",
+      "expected_outcome": "DO_NOT_ACK"
+    },
+    {
+      "id": "NJ-050",
+      "class": "known_reject",
+      "description": "A restored backup reports an owner epoch below the independent external high-water; the recovered owner remains quarantined until a strictly newer epoch is installed and the former primary is fenced.",
+      "expected_outcome": "DO_NOT_ACK"
+    },
+    {
+      "id": "NJ-051",
+      "class": "known_reject",
+      "description": "A worker claim installed under owner epoch 1 is used after the owner advances to epoch 2, even when the submitted command presents current owner epoch and resource generation; strict mutation must reject the stale claim.",
+      "expected_outcome": "OWNER_REJECTS_STALE_CLAIM"
+    },
+    {
+      "id": "NJ-052",
+      "class": "known_reject",
+      "description": "A worker claim is reinstalled under a new owner epoch without increasing the claim epoch; the epoch-aware installer must reject it.",
+      "expected_outcome": "REJECT"
+    },
+    {
+      "id": "NJ-053",
+      "class": "known_valid",
+      "description": "A worker claim is renewed for the current owner epoch with a strictly higher claim epoch; a new protected effect records that owner/claim pair in its immutable execution attestation.",
+      "expected_outcome": "ACK_ALLOWED"
+    },
+    {
+      "id": "NJ-054",
+      "class": "adversarial_race",
+      "description": "Effect execution races with owner-epoch transition and worker-claim renewal under the prescribed claim-row-then-owner-fence-row lock order; exactly one serial order is accepted, with no stale-claim effect or deadlock.",
+      "expected_outcome": "ONE_SERIALIZED_ORDER_NO_STALE_EFFECT"
     }
   ],
   "comparator_methods": [

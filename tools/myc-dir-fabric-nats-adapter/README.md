@@ -72,7 +72,7 @@ The integration suite uses a single-node File-storage server. It is not a cluste
 - No local Cargo compilation or NATS runtime result is claimed until the exact-head workflow completes.
 
 
-The adapter crate adds 13 pure unit tests and two ignored JetStream integration tests. The reference contract has 21 unit tests. GitHub Actions run [#45000430944](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45000430944) on source head `1105375305704c019b7d2ccecda78a18dc0e7faf` passed formatting, 21/21 contract tests, 18/18 adapter tests, 2/2 JetStream integration tests and Clippy.
+The **earlier NATS-only** source head `1105375305704c019b7d2ccecda78a18dc0e7faf` passed GitHub Actions run [#45000430944](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45000430944): formatting, 21/21 contract tests, 18/18 adapter tests, 2/2 JetStream integration tests and Clippy. This later owner-epoch branch has expanded the contract and adapter tests and is not covered by that earlier run.
 
 ## Authenticated owner-disposition gate
 
@@ -85,10 +85,30 @@ The integration suite uses a clearly labelled synthetic verifier only to exercis
 
 The adapter now exposes `postgres::PostgresEffectCommitVerifier`. It connects with a caller-supplied CA file using rustls certificate and hostname verification, rejects recovery/read-only nodes, and queries the existing append-only `myc_effect_owner.effect_commits` table by realm/resource/action/owner/object/currency, idempotency key and logical operation. It then compares request, decision, payload and accepted-generation fields and recomputes a versioned canonical receipt digest from the database row.
 
-The verifier only accepts `EffectCommitted`, because the current reference SQL ledger has no durable terminal-rejection, terminal-no-effect or reconciliation-handoff tables. It returns no ACK capability when the row is missing or mismatched. The test path creates an effect using the existing fenced SQL function in a transaction with `synchronous_commit=on`, commits, reads the row over CA-verified TLS, then AckSyncs the exact NATS message using that verified capability.
+The verifier only accepts `EffectCommitted`, because the reference SQL ledger has no durable terminal-rejection, terminal-no-effect or reconciliation-handoff tables. It returns no ACK capability when the effect or required execution attestation is missing or mismatched. Migration 003 extends the owner schema with the execution-attestation and epoch-transition ledgers; the owner-epoch branch changes the test path to call the strict epoch-aware mutation function and read all three records over CA-verified TLS before AckSyncing the exact NATS message.
 
-This branch now has 23 reference-contract tests, 18 adapter unit tests (including 2 PostgreSQL canonical-receipt tests), and 3 ignored real-service integration tests (2 JetStream transport tests plus 1 PostgreSQL effect -> verifier -> JetStream AckSync test). These counts are source inventory only until this branch's workflow passes.
+This owner-epoch branch currently contains 23 reference-contract tests, 16 adapter-core unit tests, 4 PostgreSQL receipt/attestation unit tests, 3 ignored real-service integration tests, and a 20-assertion PostgreSQL SQL adversarial script. These are source counts only until this branch's own exact-head workflow passes.
 
-The benchmark corpus is expanded to 36 scenarios and 26 metrics. It remains preregistered, not executed.
+The benchmark corpus is expanded to 52 scenarios and 37 metrics. It remains preregistered, not executed.
 
 **Important boundary:** the existing receipt table records accepted resource generation, but not owner epoch. The verifier checks the former only; owner-epoch recovery remains a separate owner-state proof. A receipt visible on the writable primary does not, by itself, prove survival after asynchronous replica promotion. The integration transaction sets synchronous_commit=on, but production synchronous replication, failover and promotion policy must be qualified separately.
+
+
+## Owner epoch and historical worker-claim execution attestation
+
+The follow-on PostgreSQL owner-epoch branch adds migration 003 and the strict SQL entry point `apply_owner_epoch_claim_fenced_balance_delta`. It writes the accepted owner epoch, resource generation, worker identity, claim epoch, claim proof commitment, claim validity interval and PostgreSQL transaction ID into the append-only `effect_execution_attestations` table in the same transaction as the new effect.
+
+The verifier now joins `effect_commits`, `effect_execution_attestations` and the corresponding `effect_owner_epoch_transitions` row. It includes the actual owner epoch, worker claim and external epoch/physical-fencing receipt commitments in the canonical receipt digest. It rejects missing attestations and non-initial owner epochs without a corresponding transition.
+
+Migration and SQL tests are under `tools/myc-dir-fabric-reference/postgres/003_owner_epoch_execution_attestation.sql` and `tools/myc-dir-fabric-reference/postgres/tests/003_owner_epoch_execution_attestation.sql`. The workflow applies them and runs the SQL test before the Rust/NATS integration tests.
+
+This is local durable evidence, not a complete distributed-fencing solution. The SQL function stores receipt commitments but cannot authenticate their signatures or prevent a former writable primary from accepting writes. Production must authenticate the epoch authority and physical-fencing receipts, physically fence the old primary, enforce a single-writer lease, and qualify synchronous replication/promotion. This branch's owner-epoch and PostgreSQL tests remain unqualified until its exact-head CI passes.
+
+
+## Owner-epoch-bound worker claims
+
+Migration 003 also adds `owner_epoch` to `worker_claim_state` and the explicit `install_worker_claim_for_owner_epoch` entry point. Claim installation and effect execution use the same lock order: worker-claim row first, then owner-fence row. A claim from an earlier owner epoch cannot execute after promotion. Crossing owner epochs requires a strictly higher worker claim epoch; the strict effect function rejects a claim whose recorded owner epoch differs from the current fence epoch.
+
+The SQL adversarial test covers: stale claim reuse after owner-epoch transition, failure to increment claim epoch, successful epoch-2 claim installation, and later worker reassignment to a higher claim epoch. It also checks UPDATE/DELETE/TRUNCATE rejection on the append-only owner/attestation evidence tables.
+
+The bounded state-machine companion is `specs/owner-epoch/OwnerEpochExecutionAttestation.tla` with configuration `OwnerEpochExecutionAttestation.cfg`. It is authored but not yet model-checked with TLC.

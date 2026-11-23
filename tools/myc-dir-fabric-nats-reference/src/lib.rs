@@ -111,7 +111,10 @@ impl NatsCommandBinding {
             check_identifier(value)?;
         }
         if input.currency_code.len() != 3
-            || !input.currency_code.bytes().all(|byte| byte.is_ascii_uppercase())
+            || !input
+                .currency_code
+                .bytes()
+                .all(|byte| byte.is_ascii_uppercase())
         {
             return Err(NatsContractError::InvalidCurrencyCode);
         }
@@ -931,7 +934,10 @@ mod tests {
         };
         altered.realm_id = "realm-b".into();
         let altered = NatsCommandBinding::new(altered).unwrap();
-        assert_ne!(original.canonical_bytes().unwrap(), altered.canonical_bytes().unwrap());
+        assert_ne!(
+            original.canonical_bytes().unwrap(),
+            altered.canonical_bytes().unwrap()
+        );
         assert!(!original.same_logical_effect(&altered));
     }
 
