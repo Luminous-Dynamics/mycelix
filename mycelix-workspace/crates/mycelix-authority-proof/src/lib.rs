@@ -812,6 +812,7 @@ mod tests {
             expected_previous_highwater: Some((8, ProofDigest([8; 32]))),
             expected_new_lease: Some((9, new_lease_id, new_lease_hash)),
             expected_transaction_end_lsn: None,
+            expected_timeline_ancestry_hash: None,
             expected_highwater_proof_hash: None,
             expected_physical_fencing_proof_hash: None,
         };
@@ -878,6 +879,7 @@ mod tests {
             expected_previous_highwater: None,
             expected_new_lease: None,
             expected_transaction_end_lsn: None,
+            expected_timeline_ancestry_hash: None,
             expected_highwater_proof_hash: None,
             expected_physical_fencing_proof_hash: None,
         };
@@ -1046,6 +1048,7 @@ mod tests {
             expected_previous_highwater: None,
             expected_new_lease: None,
             expected_transaction_end_lsn: None,
+            expected_timeline_ancestry_hash: None,
             expected_highwater_proof_hash: None,
             expected_physical_fencing_proof_hash: None,
         };
