@@ -134,7 +134,7 @@ struct PathwayResult {
 
 #[derive(Debug, Serialize)]
 struct Controls {
-    3d_truth_support_required: bool,
+    three_d_truth_support_required: bool,
     projection_aliases_do_not_certify_3d_connectivity: bool,
     geometric_connectivity_separate_from_hydraulic_activation: bool,
     unassessed_activation_withholds_complete_flow_allocation: bool,
@@ -548,7 +548,7 @@ fn build_report(s: &Scenario, input_sha256: String) -> Result<Report, String> {
         projection_alias_groups: aliases,
         snapshot_results,
         controls: Controls {
-            3d_truth_support_required: true,
+            three_d_truth_support_required: true,
             projection_aliases_do_not_certify_3d_connectivity: true,
             geometric_connectivity_separate_from_hydraulic_activation: true,
             unassessed_activation_withholds_complete_flow_allocation: true,
