@@ -3324,30 +3324,29 @@ mod hearth_membership_fail_closed_tests {
 
     #[test]
     fn only_explicit_membership_true_is_authorized() {
-        assert!(require_hearth_membership(
-            "did:mycelix:provider",
-            "did:mycelix:hearth",
-            Ok(true)
-        )
-        .is_ok());
-        assert!(require_hearth_membership(
-            "did:mycelix:provider",
-            "did:mycelix:hearth",
-            Ok(false)
-        )
-        .is_err());
-        assert!(require_hearth_membership(
-            "did:mycelix:provider",
-            "did:mycelix:hearth",
-            Err("membership response could not be decoded".into())
-        )
-        .is_err());
-        assert!(require_hearth_membership(
-            "did:mycelix:provider",
-            "did:mycelix:hearth",
-            Err("Hearth bridge is unavailable".into())
-        )
-        .is_err());
+        assert!(
+            require_hearth_membership("did:mycelix:provider", "did:mycelix:hearth", Ok(true))
+                .is_ok()
+        );
+        assert!(
+            require_hearth_membership("did:mycelix:provider", "did:mycelix:hearth", Ok(false))
+                .is_err()
+        );
+        assert!(
+            require_hearth_membership(
+                "did:mycelix:provider",
+                "did:mycelix:hearth",
+                Err("membership response could not be decoded".into())
+            )
+            .is_err()
+        );
+        assert!(
+            require_hearth_membership(
+                "did:mycelix:provider",
+                "did:mycelix:hearth",
+                Err("Hearth bridge is unavailable".into())
+            )
+            .is_err()
+        );
     }
 }
-
