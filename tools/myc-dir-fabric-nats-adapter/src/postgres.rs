@@ -6,16 +6,21 @@
 //! split-brain former primary is physically fenced or that asynchronous replicas
 //! contain the commit.
 
-use std::path::Path;
+use std::{collections::BTreeSet, path::Path};
 
+use chrono::{DateTime, Duration as ChronoDuration, NaiveDateTime, Utc};
 use myc_dir_fabric_nats_reference::{Digest, DurableOwnerDisposition, NatsCommandBinding};
+use mycelix_authority_write_lease::{
+    AuthorityWriteLeaseTarget, AuthorityWriteScope, ContentHash as LeaseContentHash,
+    SignedAuthorityWriteLease,
+};
 use rustls_tokio_postgres::{config_from_ca_cert, MakeRustlsConnect};
 use tokio_postgres::{Client, Row};
 
 use crate::{sha256, AdapterResult, OwnerDispositionVerifier, VerifiedOwnerDisposition};
 
-// v3 commits to the complete owner-epoch transition coordinates and transaction ID.
-const RECEIPT_DOMAIN: &[u8] = b"MYC-DIR-POSTGRES-EFFECT-EXECUTION-RECEIPT\0\x03";
+// v4 commits to transition chronology and both the effect and promotion lease evidence.
+const RECEIPT_DOMAIN: &[u8] = b"MYC-DIR-POSTGRES-EFFECT-EXECUTION-RECEIPT\0\x04";
 
 const SELECT_EFFECT_COMMIT: &str = r#"
 SELECT
@@ -52,7 +57,44 @@ SELECT
     t.new_generation,
     t.transition_xact_id,
     t.epoch_authority_receipt_digest,
-    t.physical_fencing_receipt_digest
+    t.physical_fencing_receipt_digest,
+    effect_lease.lease_id::text,
+    effect_lease.lease_hash,
+    effect_lease.lease_generation,
+    effect_lease.deployment_id,
+    effect_lease.primary_id,
+    effect_lease.database_system_identifier,
+    effect_lease.postgres_timeline,
+    effect_lease.database_epoch_number,
+    effect_lease.database_epoch_hash,
+    effect_lease.resource_owner_epoch,
+    effect_lease.resource_generation,
+    effect_lease.signer_key_id,
+    effect_lease.signer_public_key,
+    effect_lease.signature,
+    effect_lease.signed_lease_json::TEXT,
+    effect_lease.external_highwater_receipt_digest,
+    effect_lease.physical_fencing_receipt_digest,
+    effect_lease.admitted_scope,
+    to_char(effect_lease.attested_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'),
+    promotion_lease.lease_id::text,
+    promotion_lease.lease_hash,
+    promotion_lease.lease_generation,
+    promotion_lease.deployment_id,
+    promotion_lease.primary_id,
+    promotion_lease.database_system_identifier,
+    promotion_lease.postgres_timeline,
+    promotion_lease.database_epoch_number,
+    promotion_lease.database_epoch_hash,
+    promotion_lease.new_owner_epoch,
+    promotion_lease.new_generation,
+    promotion_lease.signer_key_id,
+    promotion_lease.signer_public_key,
+    promotion_lease.signature,
+    promotion_lease.signed_lease_json::TEXT,
+    promotion_lease.external_highwater_receipt_digest,
+    promotion_lease.physical_fencing_receipt_digest,
+    to_char(promotion_lease.attested_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US')
 FROM myc_effect_owner.effect_commits e
 JOIN myc_effect_owner.effect_execution_attestations a
   ON a.effect_id = e.effect_id
@@ -62,6 +104,15 @@ LEFT JOIN myc_effect_owner.effect_owner_epoch_transitions t
  AND t.action_id = a.action_id
  AND t.effect_owner_id = a.effect_owner_id
  AND t.new_owner_epoch = a.owner_epoch
+LEFT JOIN myc_effect_owner.effect_execution_authority_lease_attestations effect_lease
+  ON effect_lease.effect_id = e.effect_id
+ AND effect_lease.attestation_id = a.attestation_id
+LEFT JOIN myc_effect_owner.effect_owner_epoch_authority_lease_attestations promotion_lease
+  ON promotion_lease.realm_id = a.realm_id
+ AND promotion_lease.resource_id = a.resource_id
+ AND promotion_lease.action_id = a.action_id
+ AND promotion_lease.effect_owner_id = a.effect_owner_id
+ AND promotion_lease.new_owner_epoch = a.owner_epoch
 WHERE e.realm_id = $1
   AND e.resource_id = $2
   AND e.action_id = $3
@@ -81,6 +132,40 @@ pub struct VerifiedOwnerEpochTransition {
     pub transition_xact_id: String,
     pub epoch_authority_receipt_digest: Digest,
     pub physical_fencing_receipt_digest: Digest,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VerifiedAuthorityWriteLeaseEvidence {
+    pub signed_lease: SignedAuthorityWriteLease,
+    pub lease_hash: Digest,
+    pub lease_generation: u64,
+    pub scope: AuthorityWriteScope,
+    pub attested_at: String,
+    pub external_highwater_receipt_digest: Digest,
+    pub physical_fencing_receipt_digest: Option<Digest>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct RawAuthorityWriteLeaseEvidence {
+    lease_id: Option<String>,
+    lease_hash: Option<Digest>,
+    lease_generation: Option<i64>,
+    deployment_id: Option<String>,
+    primary_id: Option<String>,
+    database_system_identifier: Option<String>,
+    postgres_timeline: Option<i64>,
+    database_epoch_number: Option<i64>,
+    database_epoch_hash: Option<Digest>,
+    resource_owner_epoch: Option<i64>,
+    resource_generation: Option<i64>,
+    signer_key_id: Option<String>,
+    signer_public_key: Option<Vec<u8>>,
+    signature: Option<Vec<u8>>,
+    signed_lease_json: Option<String>,
+    external_highwater_receipt_digest: Option<Digest>,
+    physical_fencing_receipt_digest: Option<Digest>,
+    admitted_scope: Option<String>,
+    attested_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -104,6 +189,8 @@ pub struct VerifiedPostgresEffectReceipt {
     pub claim_expires_at: String,
     pub database_xact_id: String,
     pub epoch_transition: Option<VerifiedOwnerEpochTransition>,
+    pub effect_authority_lease: VerifiedAuthorityWriteLeaseEvidence,
+    pub promotion_authority_lease: Option<VerifiedAuthorityWriteLeaseEvidence>,
     pub delta_minor: i64,
     pub balance_after_minor: i64,
     pub idempotency_digest: Digest,
@@ -115,6 +202,7 @@ pub struct VerifiedPostgresEffectReceipt {
 
 pub struct PostgresEffectCommitVerifier {
     client: Client,
+    trusted_authority_lease_keys: BTreeSet<[u8; 32]>,
 }
 
 impl PostgresEffectCommitVerifier {
@@ -124,9 +212,28 @@ impl PostgresEffectCommitVerifier {
     /// The DSN must use the DNS name present in the PostgreSQL server
     /// certificate and a writable primary endpoint. Do not use sslmode=disable
     /// or an unverified TLS connector in production.
+    /// Legacy constructor retained for source compatibility. It supplies no
+    /// trusted lease keys and therefore cannot create an effect ACK capability.
+    /// Production callers must use connect_with_ca_and_authority_lease_trust.
     pub async fn connect_with_ca(
         dsn: &str,
         ca_certificate: impl AsRef<Path>,
+    ) -> Result<Self, String> {
+        Self::connect_with_ca_and_authority_lease_trust(
+            dsn,
+            ca_certificate,
+            BTreeSet::new(),
+        )
+        .await
+    }
+
+    /// Connect over CA-verified TLS and bind the verifier to an explicit trust
+    /// set for signed authority-write leases. The key set is supplied by the
+    /// external authority controller, never learned from the database row.
+    pub async fn connect_with_ca_and_authority_lease_trust(
+        dsn: &str,
+        ca_certificate: impl AsRef<Path>,
+        trusted_authority_lease_keys: BTreeSet<[u8; 32]>,
     ) -> Result<Self, String> {
         let tls_config = config_from_ca_cert(ca_certificate)
             .map_err(|error| format!("load PostgreSQL CA certificate: {error}"))?;
@@ -141,7 +248,10 @@ impl PostgresEffectCommitVerifier {
             }
         });
 
-        Ok(Self { client })
+        Ok(Self {
+            client,
+            trusted_authority_lease_keys,
+        })
     }
 
     /// Query the append-only effect and execution-attestation ledgers and
