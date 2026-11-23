@@ -56,70 +56,121 @@ The key and fingerprint are separate:
 
 Same identity + same fingerprint is an exact retry / lookup. Same identity + different fingerprint is a conflict and MUST NOT return the original result as though the altered request had succeeded. Different identities are different economic intents, even if their fingerprints happen to match.
 
-## 4. Durable operation and journal semantics
+## 4. Two-sided transfer protocol and owner-authored effects
 
-The authoritative Finance effect should be one author-bound, immutable **journal batch** committed in one Finance source-chain operation. This is not a proposal to reimplement Holochain's existing all-or-nothing commit of same-chain writes; it adds one canonical, fingerprint-bound economic event and makes the full set of local legs explicit. It contains the complete local value movement:
+Do not model a payment as one atomic update to two independently owned balances. Holochain atomicity is per source-chain transaction; it does not create a transaction spanning the payer's and beneficiary's chains.
 
-- exact payer debit;
-- exact beneficiary credit;
-- exact fee allocation (or explicit zero fee);
-- stable operation identity and semantic fingerprint;
-- source obligation reference and effect-owner author;
-- instrument and integer unit;
-- deterministic journal sequence / predecessor reference;
-- fee outbox instruction, when value must be delivered to a distinct Treasury owner;
-- protocol version and event digest / signature envelope.
+The reference protocol is a **two-sided, identity-bound transfer claim**:
 
-The batch is the economic event. Balance entries, Payment, Receipt, history indexes and UI projections are deterministic read models derived from it. They MUST NOT be separately authorized sources of monetary truth.
+### 4.1 Sender-owned commit
 
-A journal batch with a missing payer debit, beneficiary credit, or fee allocation is invalid. The three local legs must conserve value exactly:
+The payer's authenticated source chain commits one immutable transfer intent and its local balance successor in the same zome-function transaction. The transaction binds:
 
-\[
-\text{payer debit} = \text{beneficiary credit} + \text{fee allocation}
-\]
+- stable operation identity and canonical semantic fingerprint;
+- exact payer identity / author and source obligation reference;
+- exact beneficiary identity;
+- instrument and integer principal amount;
+- version-pinned fee policy and exact fee allocation;
+- exact payer predecessor ActionHash and successor ActionHash;
+- protocol version and operation digest;
+- fee liability and durable Treasury outbox item, if the fee is nonzero.
 
-No floating-point amount is admitted. Fee policy must be deterministic and version-pinned. The fee allocation is an internal Finance liability/claim; actually delivering the fee to Treasury is a separate effect.
+The sender intent is not a DHT lookup hint. It is the immutable economic command and evidence that the payer authorized the exact transfer. The payer debit and intent must commit together or roll back together. A retry with the same identity and fingerprint returns the original intent; a changed fingerprint is a conflict.
 
-**Holochain boundary:** official Holochain guidance states that multiple records written by one zome function to one source chain are committed atomically, but they are not validated together as one atomic transaction. The Treasury call is a different cell and therefore lies outside the Finance source-chain commit. Keep the Treasury effect behind an outbox which is written in the Finance commit and dispatched only after commit. Validation callbacks are deterministic and may depend only on addressable/available prior records; two different agents' source chains do not become one global serializable transaction. Therefore the batch should be authored and committed by the authenticated effect owner in one source-chain call, and the relevant integrity validators must validate the exact batch and its prior-chain relationship. DHT link-count prechecks are not a singleton proof. Real multi-agent races, forks and dependency availability still require Tryorama/Sweettests. See the [Holochain source-chain contract](https://developer.holochain.org/concepts/3_source_chain/) and [validation guidance](https://developer.holochain.org/build/validation/).
+### 4.2 Recipient-owned claim
 
-## 5. Operation state, value state, and delivery state are separate
+The beneficiary does not have its balance mutated by a third-party payer or arbitrary observer. The beneficiary claims the exact transfer intent by authoring its own balance successor on its own source chain. The recipient claim must bind:
+
+- exact transfer-intent ActionHash and semantic fingerprint;
+- authenticated beneficiary / source-chain author;
+- exact recipient predecessor ActionHash;
+- exact positive principal amount and instrument;
+- exact recipient successor ActionHash and resulting balance;
+- replay ancestry and any observed competing successor set.
+
+The recipient claim and recipient balance credit commit atomically on the beneficiary's chain. Exact replay returns the same claim reference and cannot create another credit. A missing recipient claim means the transfer remains `Debited / ClaimPending`, not `Settled`.
+
+### 4.3 Reconciliation and conservation
+
+The operation is fully settled at the internal principal-transfer boundary only when the exact sender intent / debit and the beneficiary-authored claim / credit have both been observed and independently bound to the same operation identity.
+
+For exact integer amounts, the economic conservation equation across the two owners and the fee owner is:
+
+[
+	ext{payer debit}
+=
+	ext{beneficiary credit}
++
+	ext{outstanding recipient claim}
++
+	ext{Treasury fee delivered}
++
+	ext{outstanding fee liability}
+]
+
+The sender's local commit creates the recipient claim liability and, where applicable, fee liability. The recipient claim consumes the recipient liability and credits the beneficiary. Treasury delivery consumes the fee liability. Do not create or destroy value by treating a pending claim as a completed credit or an undelivered fee as though Treasury received it.
+
+No floating-point amount is admitted. The exact fee calculation is integer-only and version-pinned. Refunds, reversals, corrections and chargebacks append new linked events; they never delete the original intent or claim.
+
+### 4.4 Treasury outbox is a third effect owner
+
+The Finance sender transaction commits the fee liability and durable outbox item. Dispatch occurs only after commit. Treasury consumes the stable outbox identity idempotently and returns an exact receipt. Treasury's source chain is independent; Finance cannot roll back a Treasury commit.
+
+The Finance `post_commit` callback is only a wake-up hint. A restart-safe scanner reconstructs pending outbox work from committed records. Delivery may be at least once; the Treasury consumer must be idempotent.
+
+### 4.5 What this does not claim
+
+There is no atomic transaction spanning sender, beneficiary and Treasury source chains. The protocol is a sequence of separately authored, identity-bound effects with explicit pending / indeterminate / conflict states. Cross-owner uniqueness, cloned-agent identity and fork resolution require separate authority proofs and adversarial multi-agent tests. Never infer global serializability from a local source-chain commit or DHT link count.
+
+This direction composes with the existing [AC-099 owner-authenticated transfer design / PR #4178](https://github.com/Luminous-Dynamics/mycelix/pull/4178), the [predecessor-bound balance-effect work / PR #657](https://github.com/Luminous-Dynamics/mycelix/pull/657), and [FIN-SAFE-012 / #654](https://github.com/Luminous-Dynamics/mycelix/issues/654). These are open, stale-branch design / implementation workstreams, not current-main guarantees. PCOE adds a cross-domain fault / history qualification profile; it must not replace their owner-authored balance semantics.
+
+## 5. Operation, owner-leg and delivery states are separate
 
 Do not encode every aspect as `Payment.status = Completed`.
 
 ### 5.1 Operation state
 
-- `Absent`: no operation identity has been claimed.
-- `Prepared`: exact identity and fingerprint are durably registered; no value legs exist.
-- `Committed`: the complete local journal batch and all projections / outbox records are committed.
-- `Rejected`: the effect owner recorded a terminal no-effect rejection.
-- `Conflicted`: this request reused an existing identity with a different fingerprint; the original operation is unchanged.
-- `Indeterminate`: the caller cannot currently establish the authoritative result; it must query the same identity, not make a new one.
+- `Absent`: no Finance operation record exists for the supplied identity.
+- `Prepared`: the exact identity and fingerprint have been accepted for evaluation; no sender value effect exists.
+- `Debited`: the payer's intent and debit committed together; the beneficiary claim may still be outstanding.
+- `Settled`: the beneficiary-authored claim and exact credit are observed and no competing-successor conflict exists.
+- `Rejected`: a terminal no-effect rejection was durably recorded.
+- `Conflicted`: changed-payload reuse or competing valid recipient successors prevent authoritative progression.
+- `Indeterminate`: the caller cannot currently establish the authoritative result; it must query / retry the original identity, never mint a replacement.
 
-`Indeterminate` is an observer's knowledge state, not a license to forget the operation. If Finance has not resolved whether the batch committed, it must not create another operation for the same intent.
+`Debited` is a valid durable intermediate state, not a successful recipient settlement. `Settled` means the internal principal-transfer legs reconcile. It does not prove external bank finality, reserve backing, legal discharge, physical delivery, or contract acceptance.
 
-### 5.2 Local value-effect state
+### 5.2 Owner-leg state
 
+**Sender leg**
 - `NotCommitted`
-- `LedgerCommitted`
-- `ReconciliationRequired`
+- `Debited`: immutable transfer intent and exact payer balance successor committed on the payer's chain.
 
-A Finance `LedgerCommitted` result is an internal ledger fact only. It is not external bank finality, reserve backing, legal discharge, physical delivery, or contract acceptance.
+**Recipient leg**
+- `Unclaimed`
+- `Claimed`: recipient-authored claim and exact balance successor committed.
+- `Indeterminate`: recipient claim may have committed but the caller has not established its ActionHash / disposition.
+- `ConflictFrozen`: competing owner-authored successors exist for one predecessor; the balance is non-spendable until an explicit resolution theorem.
+
+A response loss does not undo a claim. Query the same operation identity and exact predecessor / successor evidence. Never add competing successors together or pick whichever DHT link is returned last.
 
 ### 5.3 Outbox / Treasury delivery state
 
 - `NotRequired` when fee is zero;
-- `Pending` after the journal batch creates a fee liability/outbox item;
-- `Indeterminate` when the Treasury call may have committed but the response is unknown;
+- `Pending` after the sender commit creates a fee liability / outbox item;
+- `Indeterminate` when Treasury may have committed but its response is unknown;
 - `Delivered` only after an exact Treasury-owned idempotent receipt is verified;
 - `Rejected` only after a durable no-effect rejection.
 
-The outbox item has its own stable effect identity and semantic fingerprint. The identity is reused for every retry, and the Treasury effect owner must resolve exact retries to the same disposition. Unknown delivery is reconciled against the Treasury effect owner using the original identity. A new fee request identity must not be invented to work around a timeout.
+The outbox item has its own stable effect identity and semantic fingerprint. The identity is reused for every retry. Unknown delivery is reconciled against Treasury using the original identity; a new fee request identity must not be invented to work around a timeout.
 
-This is the transactional-outbox pattern: the Finance journal batch and outbox record commit in the same source-chain transaction; only after commit does a dispatcher deliver the message. Delivery may be at least once, so Treasury must consume the stable outbox identity idempotently. Holochain's `post_commit` callback may wake the dispatcher, but it runs after the source-chain commit and is not the durable work queue. A restart-safe scanner must reconstruct Pending / Indeterminate outbox work from committed records and retry with the same identity. See [AWS Prescriptive Guidance: Transactional outbox](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/transactional-outbox.html) and [Holochain zome-function commit / post-commit lifecycle](https://developer.holochain.org/build/zome-functions/).
+### 5.4 Response delivery and recovery
 
-### 5.4 Response delivery
+A sender response can be lost after its intent / debit commit. An exact retry returns the original sender-intent and debit references. The recipient claim may still be Unclaimed; do not fabricate a beneficiary credit or report `Settled`.
 
-A response can be lost after `Committed`. The durable operation remains committed. An exact retry returns the same operation reference, journal-batch reference and Payment projection reference. Failure to deliver a response does not roll back or repeat the effect.
+A recipient claim response can also be lost after the beneficiary chain commits. Re-query the same intent and recipient operation; return the original claim or remain Indeterminate. Do not repeat the credit.
+
+This is the transactional-outbox pattern for Treasury: the sender transaction and outbox record commit together; only after commit does a dispatcher deliver the message. Delivery may be at least once, so Treasury must consume the stable outbox identity idempotently. Holochain's `post_commit` callback is a wake-up hint, not the durable queue. A restart-safe scanner reconstructs Pending / Indeterminate work from committed records. See [AWS Prescriptive Guidance: Transactional outbox](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/transactional-outbox.html) and [Holochain zome-function commit / post-commit lifecycle](https://developer.holochain.org/build/zome-functions/).
 
 ## 6. Replay and retention rules
 
@@ -135,20 +186,21 @@ The 21 November 2026 HTTPAPI Idempotency-Key draft -09 is useful guidance for un
 
 ## 7. Holochain implementation obligations
 
-The Finance implementation must prove, rather than assume, the following:
+The integration must prove, rather than assume, the following:
 
-- the authenticated payer / author is authorized for the source obligation;
-- the stable operation identity is unique within its declared payer and effect-owner scope;
-- the operation claim and the journal batch cannot be committed twice by concurrent calls on the same author chain;
-- a concurrent call that loses a source-chain-top race re-reads the same operation identity and returns / reconciles the winning result;
-- alternate agent keys, cloned agents, forked chains, stale DHT state, delayed operations and identity remapping cannot authorize an independent second value effect;
-- integrity validation verifies exact prior operation / batch dependencies using deterministic, addressable records rather than mutable collection cardinality;
-- the journal batch is complete and conserves value;
-- derived balances and Payment/Receipt projections are reproducible and cannot be used to authorize a second effect;
-- Treasury fee routing uses a separate idempotent outbox operation with an exact receipt;
-- corrections, refunds, reversals and chargebacks append new linked events and never erase the original batch.
+- the authenticated payer / author is authorized for the immutable source obligation;
+- sender transfer intent, payer debit, fee liability and Treasury outbox commit or roll back together on the payer's source chain;
+- the sender-side stable operation identity and fingerprint cannot create a second debit under exact retry or source-chain-top races;
+- the beneficiary, not the payer or a third-party observer, authors the recipient balance successor;
+- the recipient claim is bound to the exact sender intent, exact recipient predecessor and exact principal amount;
+- a recipient's same-predecessor competing valid successors produce `BalanceConflict` / `ConflictFrozen`, not last-write-wins or summed balances;
+- a losing `chain head moved` call refreshes authoritative state and looks up / retries the **same** operation identity;
+- exact record dependencies are loaded by ActionHash and typed entry identity; mutable `get_links()` cardinality is never a uniqueness theorem;
+- payment and receipt projections reference both owner-authored legs and are reproducible without mutating balances;
+- Treasury fee dispatch is outside the sender's source-chain transaction, uses the durable outbox, and has its own idempotent receipt;
+- corrections, refunds, reversals and chargebacks append new linked events and never erase the original intent / claim.
 
-A single source chain serializes writes for one author, and Holochain supports atomic commit of multiple records from one zome function to that chain. Those properties are useful local building blocks, not proof of global uniqueness across different agents, DHT visibility, cells, hApps or external rails. The exact system boundary must be explicit.
+A single source chain serializes writes for one author and commits multiple writes from one zome function atomically. Those properties do not create a transaction spanning payer, beneficiary and Treasury. Alternate agent keys, cloned agents, DHT partitions and sibling chains require explicit authority / fork handling. The PCOE model is a bounded reference; real-agent Tryorama / Sweettests are still required.
 
 ## 8. Fault-injection and history-checking plan
 
@@ -176,32 +228,35 @@ The run must preserve the full invocation/return/fault history, source-chain act
 
 ## 9. Acceptance properties and proposed targets
 
-All are proposed research targets, not achieved results, regulatory thresholds or a claim that the current implementation meets them.
+All are proposed research targets, not achieved results, regulatory thresholds or claims that current main meets them.
 
 | Property | Target |
 |---|---:|
-| Journal batches per operation identity | At most 1 |
+| Sender intents per operation identity | At most 1 |
 | Payer debits per operation identity | At most 1 |
-| Beneficiary credits per operation identity | At most 1 |
-| Fee liabilities per operation identity | Exactly 1 when fee > 0; otherwise 0 |
+| Recipient claims / credits per operation identity | At most 1 |
+| Settled operations lacking an observed recipient claim | 0 |
+| Conflicted recipient successors treated as spendable | 0 |
+| Fee liabilities per nonzero-fee operation | Exactly 1 |
+| Treasury deliveries per outbox identity | At most 1 |
 | Changed-payload reuse of an existing key | 100% rejected |
-| Exact retry agreement with original disposition/reference | 100% |
-| Partial local journal batches | 0 |
-| Unknown outcome silently promoted to Completed | 0 |
+| Exact retry agreement with original disposition / references | 100% |
+| Partial sender intent/debit commits | 0 |
+| Unknown outcome silently promoted to Settled / Delivered | 0 |
 | Value-conservation violations | 0 |
 | Unreconciled unknowns silently discarded | 0 |
 | Independent history-replay agreement | 100% over frozen histories |
 
 Performance is measured only after every safety gate passes:
-- p50 / p95 / p99 operation-claim and commit latency;
-- p50 / p95 / p99 retry lookup latency after response loss;
-- p50 / p95 / p99 time to reconcile an Indeterminate outcome;
+- p50 / p95 / p99 sender-intent and debit commit latency;
+- p50 / p95 / p99 recipient-claim latency and reconciliation latency;
+- p50 / p95 / p99 Treasury outbox delivery / reconciliation latency;
 - fee-outbox age and backlog by status;
 - manual recovery minutes per 1,000 unknown outcomes;
-- storage / DHT growth per committed journal batch;
+- storage / DHT growth per transfer intent and recipient claim;
 - cost per 1,000 correctly completed obligations.
 
-Do not compare raw TPS against banks or payment networks until the same workload semantics, finality definitions, fault model and correctness gates are matched.
+Do not compare raw TPS against banks or payment networks until the same owner-leg semantics, finality boundary, fault model and correctness gates are matched.
 
 ## 9.1 Industry baseline and how to exceed it
 
@@ -219,16 +274,16 @@ These are documented vendor / platform behaviors, not a uniform benchmark run. S
 ### Proposed qualification tiers
 
 **Tier A — semantic safety (hard release gates, no compensating score):**
-- 100 concurrent exact-key submissions by one authenticated payer: at most one local journal batch, payer debit, beneficiary credit and fee liability; all exact retries resolve to the same batch.
+- 100 concurrent exact-key submissions by one authenticated payer: at most one sender intent/debit; exact retries resolve to the same sender ActionHashes; beneficiary credit remains absent until the beneficiary authors a claim.
 - 1,000 altered-payload attempts against existing operation identities: 100% conflict; zero new value effects.
 - 10,000 outbox redeliveries / duplicate wake-ups: at most one Treasury effect per outbox identity.
-- Every fault cut in the frozen corpus: zero unexplained local partial batches, zero silently discarded Indeterminate outcomes, zero false external-finality promotions.
+- Every fault cut in the frozen corpus: zero split sender intent/debit commits, zero unauthorized recipient credits, zero silently discarded Indeterminate outcomes, zero false Settled / external-finality promotions.
 - Every source-chain-top race: losing call creates no second effect and the subsequent same-identity lookup resolves the winner or remains Indeterminate.
 
 **Tier B — recovery quality:**
-- 100% of committed-but-response-lost operations resolve to the original batch reference after process restart.
+- 100% of committed-but-response-lost sender operations resolve to the original intent/debit reference after process restart.
 - 100% of lost post_commit wake-ups are recovered by scanning the durable outbox.
-- 100% of Treasury delivery-success / response-loss cases resolve to the same Treasury receipt.
+- 100% of recipient-claim and Treasury delivery-success / response-loss cases resolve to their original owner-authored references.
 - Report p50 / p95 / p99 recovery latency, the number of DHT / source-chain reads, and operator intervention minutes per 1,000 ambiguous outcomes.
 
 **Tier C — efficiency and competitiveness (only after Tier A passes):**
