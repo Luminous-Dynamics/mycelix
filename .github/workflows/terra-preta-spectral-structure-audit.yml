@@ -1,0 +1,85 @@
+name: Terra Preta spectral structure audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/tools/spectral-structure-audit/**'
+      - 'research/terra-preta/schemas/sample-identity-overlap-report.schema.json'
+      - 'research/terra-preta/schemas/spectral-dataset-profile.schema.json'
+      - 'research/terra-preta/schemas/spectral-structure-audit-report.schema.json'
+      - '.github/workflows/terra-preta-spectral-structure-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  spectral-structure-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/spectral-structure-audit/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/spectral-structure-audit/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/spectral-structure-audit/Cargo.toml --all-targets -- -D warnings
+      - name: Audit synthetic spectral fixture
+        run: |
+          cargo run --quiet --manifest-path research/terra-preta/tools/spectral-structure-audit/Cargo.toml -- \
+            research/terra-preta/tools/spectral-structure-audit/fixtures/synthetic-spectral-data.csv \
+            research/terra-preta/tools/spectral-structure-audit/profiles/western-highveld-v2.json \
+            "$RUNNER_TEMP/spectral-structure-report.json"
+          jq -e '
+            .audit_version == "0.1.0" and
+            .status == "structural_audit_complete_with_warnings_not_model_qualified" and
+            .actual_sample_rows == 2 and
+            .spectral_column_count == 6 and
+            .spectral_regions[0].column_count == 3 and
+            .spectral_regions[1].column_count == 3 and
+            .nir_to_mir_boundary_gap_cm1 == 6 and
+            .property_summaries[1].missing_count == 1 and
+            (.input_sha256 | test("^[a-f0-9]{64}$")) and
+            (.profile_sha256 | test("^[a-f0-9]{64}$"))
+          ' "$RUNNER_TEMP/spectral-structure-report.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/spectral-structure-audit/Cargo.toml -- \
+            research/terra-preta/tools/spectral-structure-audit/fixtures/synthetic-spectral-data.csv \
+            research/terra-preta/tools/spectral-structure-audit/profiles/western-highveld-v2.json \
+            "$RUNNER_TEMP/spectral-structure-report.json"; then
+            echo "auditor unexpectedly overwrote existing output" >&2
+            exit 1
+          fi
+
+      - name: Parse sample overlap report schema
+        run: jq empty research/terra-preta/schemas/sample-identity-overlap-report.schema.json
+      - name: Audit exact sample identity overlap
+        run: |
+          cargo run --quiet --manifest-path research/terra-preta/tools/spectral-structure-audit/Cargo.toml --bin sample-identity-overlap-audit -- \
+            research/terra-preta/tools/spectral-structure-audit/fixtures/synthetic-spectral-data.csv \
+            "Sample Name" "synthetic-2026-nir-mir" \
+            research/terra-preta/tools/spectral-structure-audit/fixtures/synthetic-prior-mir-cohort.csv \
+            "Sample ID" "synthetic-2024-mir" \
+            "$RUNNER_TEMP/sample-overlap-report.json"
+          jq -e '
+            .audit_version == "0.1.0" and
+            .status == "exact_identifier_overlap_detected" and
+            .match_method == "exact_string_match_no_normalization" and
+            .source_a.unique_identifier_count == 2 and
+            .source_b.unique_identifier_count == 2 and
+            .overlap_sample_count == 1 and
+            (.overlap_identity_sha256 | test("^[a-f0-9]{64}$"))
+          ' "$RUNNER_TEMP/sample-overlap-report.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/spectral-structure-audit/Cargo.toml --bin sample-identity-overlap-audit -- \
+            research/terra-preta/tools/spectral-structure-audit/fixtures/synthetic-spectral-data.csv \
+            "Sample Name" "synthetic-2026-nir-mir" \
+            research/terra-preta/tools/spectral-structure-audit/fixtures/synthetic-prior-mir-cohort.csv \
+            "Sample ID" "synthetic-2024-mir" \
+            "$RUNNER_TEMP/sample-overlap-report.json"; then
+            echo "overlap auditor unexpectedly overwrote existing output" >&2
+            exit 1
+          fi
