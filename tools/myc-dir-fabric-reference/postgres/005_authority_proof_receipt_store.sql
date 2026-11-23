@@ -277,6 +277,20 @@ BEGIN
 
     -- Compare-and-advance the local mirror. The external sequence receipt is
     -- authoritative; this local row is a transactional duplicate-detection aid.
+    INSERT INTO myc_effect_owner.authority_proof_receipts (
+        proof_id, purpose, issuer_role, deployment_id, database_system_identifier,
+        primary_id, postgres_timeline, owner_epoch, proof_sequence,
+        issued_at, not_before, expires_at, issuer_key_id, issuer_public_key,
+        signature, canonical_proof_digest, signed_receipt_hash, signed_receipt_json,
+        external_sequence_receipt_digest, accepted_by_controller
+    )
+    VALUES (
+        v_proof_id, v_purpose, v_issuer_role, v_deployment_id, v_system_identifier,
+        v_primary_id, v_timeline, v_owner_epoch, v_sequence,
+        v_issued_at, v_not_before, v_expires_at, v_issuer_key_id, v_issuer_public_key,
+        v_signature, p_canonical_proof_digest, p_signed_receipt_hash, p_signed_receipt_json,
+        p_external_sequence_receipt_digest, p_accepted_by_controller
+    );
     INSERT INTO myc_effect_owner.authority_proof_sequence_highwater (
         deployment_id, purpose, issuer_key_id, last_accepted_sequence,
         last_proof_id, last_signed_receipt_hash, external_sequence_receipt_digest
@@ -300,20 +314,6 @@ BEGIN
             USING ERRCODE = 'P0001';
     END IF;
 
-    INSERT INTO myc_effect_owner.authority_proof_receipts (
-        proof_id, purpose, issuer_role, deployment_id, database_system_identifier,
-        primary_id, postgres_timeline, owner_epoch, proof_sequence,
-        issued_at, not_before, expires_at, issuer_key_id, issuer_public_key,
-        signature, canonical_proof_digest, signed_receipt_hash, signed_receipt_json,
-        external_sequence_receipt_digest, accepted_by_controller
-    )
-    VALUES (
-        v_proof_id, v_purpose, v_issuer_role, v_deployment_id, v_system_identifier,
-        v_primary_id, v_timeline, v_owner_epoch, v_sequence,
-        v_issued_at, v_not_before, v_expires_at, v_issuer_key_id, v_issuer_public_key,
-        v_signature, p_canonical_proof_digest, p_signed_receipt_hash, p_signed_receipt_json,
-        p_external_sequence_receipt_digest, p_accepted_by_controller
-    );
     RETURN v_proof_id;
 END
 $function$;
