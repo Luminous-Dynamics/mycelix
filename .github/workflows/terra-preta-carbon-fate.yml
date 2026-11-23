@@ -1,0 +1,86 @@
+name: Terra Preta multi-timescale carbon fate audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/CARBON_FATE_BENCHMARK_V0.1.md'
+      - 'research/terra-preta/schemas/carbon-fate-input.schema.json'
+      - 'research/terra-preta/schemas/carbon-fate-report.schema.json'
+      - 'research/terra-preta/tools/carbon-fate-audit/**'
+      - '.github/workflows/terra-preta-carbon-fate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  carbon-fate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/carbon-fate-audit/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path research/terra-preta/tools/carbon-fate-audit/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/carbon-fate-audit/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate fixture and report
+        run: |
+          jsonschema-cli validate research/terra-preta/schemas/carbon-fate-input.schema.json \
+            --instance research/terra-preta/tools/carbon-fate-audit/fixtures/synthetic-three-timescale.json \
+            --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/carbon-fate-audit/Cargo.toml -- \
+            research/terra-preta/tools/carbon-fate-audit/fixtures/synthetic-three-timescale.json \
+            "$RUNNER_TEMP/carbon-fate-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/carbon-fate-report.schema.json \
+            --instance "$RUNNER_TEMP/carbon-fate-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .observation_count == 12 and .model_count == 3 and
+            .carbon_balance.qualified == true and
+            any(.evaluations[]; .model_id == "three-pool" and .joint_adequacy_pass == true) and
+            any(.evaluations[]; .model_id == "two-pool" and
+              (.failed_streams | index("respiration_flux") != null) and
+              (.failed_streams | index("respired_co2_transit_time") != null)) and
+            all(.evaluations[]; .mechanism_claims_qualified == false) and
+            .controls.no_single_compensatory_score_emitted == true
+          ' "$RUNNER_TEMP/carbon-fate-report.json"
+      - name: Reject training/evaluation leakage
+        run: |
+          fixture=research/terra-preta/tools/carbon-fate-audit/fixtures/synthetic-three-timescale.json
+          jq '.models[0].training_groups += ["synthetic-heldout-site"]' "$fixture" > "$RUNNER_TEMP/leakage.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/carbon-fate-audit/Cargo.toml -- "$RUNNER_TEMP/leakage.json" "$RUNNER_TEMP/leakage-report.json"; then
+            echo "Expected training/evaluation leakage rejection"
+            exit 1
+          fi
+      - name: Reject incomplete prediction matrix
+        run: |
+          fixture=research/terra-preta/tools/carbon-fate-audit/fixtures/synthetic-three-timescale.json
+          jq '.predictions |= .[0:-1]' "$fixture" > "$RUNNER_TEMP/missing-prediction.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/carbon-fate-audit/Cargo.toml -- "$RUNNER_TEMP/missing-prediction.json" "$RUNNER_TEMP/missing-report.json"; then
+            echo "Expected missing model/target prediction rejection"
+            exit 1
+          fi
+      - name: Keep unclosed carbon ledger visible
+        run: |
+          fixture=research/terra-preta/tools/carbon-fate-audit/fixtures/synthetic-three-timescale.json
+          jq '.carbon_balance.final_stock += 1.0' "$fixture" > "$RUNNER_TEMP/unclosed-ledger.json"
+          cargo run --quiet --manifest-path research/terra-preta/tools/carbon-fate-audit/Cargo.toml -- "$RUNNER_TEMP/unclosed-ledger.json" "$RUNNER_TEMP/unclosed-report.json"
+          jq -e '.carbon_balance.qualified == false and all(.evaluations[]; .mechanism_claims_qualified == false)' "$RUNNER_TEMP/unclosed-report.json"
+      - name: Reject output overwrite
+        run: |
+          fixture=research/terra-preta/tools/carbon-fate-audit/fixtures/synthetic-three-timescale.json
+          report="$RUNNER_TEMP/existing-carbon-fate-report.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/carbon-fate-audit/Cargo.toml -- "$fixture" "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"
