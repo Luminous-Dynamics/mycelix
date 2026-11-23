@@ -13,7 +13,8 @@
     "minimum_bound_confidence_level": 0.95,
     "maximum_registration_error_mm": 0.25,
     "minimum_support_overlap_fraction": 0.95,
-    "minimum_relevant_water_volume_flux_ml_per_h": 0.2
+    "minimum_relevant_water_volume_flux_ml_per_h": 0.2,
+    "minimum_relevant_tracer_mass_flux_mg_per_h": 0.2
   },
   "evidence_records": [
     {
