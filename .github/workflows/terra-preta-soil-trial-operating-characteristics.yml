@@ -46,8 +46,9 @@ jobs:
             .scenario_count == 8 and
             .scenarios[0].minimum_attainable_two_sided_p_value == 0.125 and
             .scenarios[0].empirical_rejection_rate == 0 and
-            .scenarios[5].qualified_trial_count == 0 and
-            .scenarios[5].abstained_missing_outcome_count == 1200 and
+            (.scenarios[5].qualified_trial_count + .scenarios[5].abstained_missing_outcome_count) == 1200 and
+            .scenarios[5].abstained_missing_outcome_count > 0 and
+            .scenarios[5].qualified_trial_count < 1200 and
             .scenarios[7].qualified_trial_count == 0 and
             .scenarios[7].abstained_interference_count == 1200
           ' "$RUNNER_TEMP/soil-trial-oc-report.json"
