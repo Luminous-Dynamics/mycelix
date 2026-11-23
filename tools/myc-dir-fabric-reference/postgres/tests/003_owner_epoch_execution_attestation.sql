@@ -302,8 +302,24 @@ BEGIN
        OR v_result.accepted_owner_epoch <> 2
        OR v_result.accepted_generation <> 2
        OR v_result.accepted_worker_id <> v_worker_b
-       OR v_result.accepted_claim_epoch <> 1 THEN
-        RAISE EXCEPTION 'new effect after epoch advance did not record the current coordinates';
+       OR v_result.accepted_claim_epoch <> 2
+       OR v_result.execution_attestation_id IS NULL THEN
+        RAISE EXCEPTION 'new effect after epoch advance did not return the current execution coordinates';
+    END IF;
+
+    SELECT *
+      INTO v_attestation
+      FROM myc_effect_owner.effect_execution_attestations AS attestation
+     WHERE attestation.attestation_id = v_result.execution_attestation_id;
+
+    IF NOT FOUND
+       OR v_attestation.effect_id <> v_result.effect_id
+       OR v_attestation.owner_epoch <> 2
+       OR v_attestation.accepted_generation <> 2
+       OR v_attestation.worker_id <> v_worker_b
+       OR v_attestation.claim_epoch <> 2
+       OR v_attestation.claim_proof_digest <> v_claim_b THEN
+        RAISE EXCEPTION 'new effect attestation row does not preserve the current epoch/worker claim';
     END IF;
 
     -- A later claim epoch makes the prior worker claim stale.
