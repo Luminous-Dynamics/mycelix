@@ -35,7 +35,7 @@ The event profile declares separate thresholds for tracer mass flux (mg/h) and w
 
 ## Known-truth fixture
 
-Eight edges cover:
+Twelve edges cover:
 1. event-matched positive tracer evidence;
 2. CT geometry without hydraulic evidence;
 3. full-window non-detection with sufficient cadence/coverage/bound;
@@ -46,7 +46,8 @@ Eight edges cover:
 8. a core aggregate not registered to the specific 3D edge;
 9. a boundary-integrated outlet tracer response that cannot identify a single edge;
 10. a high-registration-error observation despite a nominal edge mapping;
-11. a fully sampled negative result from a reactive/sorptive tracer without conservative-behavior qualification.
+11. a positive tracer point estimate without a lower confidence bound;
+12. a fully sampled negative result from a reactive/sorptive tracer without conservative-behavior qualification.
 
 Expected output: one confirmed-active, one confirmed-inactive and ten unassessed. The conflict control uses a direct water-volume observation and a direct tracer-mass observation; their numerical values are not compared, only whether each independently crosses its own predeclared threshold. All fixture artifacts and values are manufactured.
 
