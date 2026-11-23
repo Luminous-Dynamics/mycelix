@@ -8,7 +8,7 @@ ASSUME NoDigest # GoodDigest
 ASSUME GoodDigest # OtherDigest
 ASSUME NoDigest # OtherDigest
 
-OperationStates == {"Absent", "Prepared", "Debited", "Settled"}
+OperationStates == {"Absent", "Prepared", "Debited", "Settled", "Conflicted"}
 FeeStates == {"NotRequired", "Pending", "Unknown", "Delivered", "Rejected"}
 
 VARIABLES
@@ -28,6 +28,8 @@ VARIABLES
   senderResponseReturned,
   recipientResponseLost,
   recipientClaimObserved,
+  recipientForkSiblingCount,
+  recipientCreditSpendable,
   conflictObserved,
   tombstonePresent,
   clientCachePresent,
@@ -41,7 +43,7 @@ vars ==
     recipientClaimCount, recipientCreditCount, feeLiabilityCount,
     feeOutboxCount, paymentProjectionCount, receiptProjectionCount,
     feeDeliveryCount, feeState, senderResponseLost, senderResponseReturned,
-    recipientResponseLost, recipientClaimObserved, conflictObserved,
+    recipientResponseLost, recipientClaimObserved, recipientForkSiblingCount, recipientCreditSpendable, conflictObserved,
     tombstonePresent, clientCachePresent, outboxWakeupPresent,
     outboxScanCount, chainHeadMoveCount, retryCount>>
 
@@ -62,6 +64,8 @@ Init ==
   /\ senderResponseReturned = FALSE
   /\ recipientResponseLost = FALSE
   /\ recipientClaimObserved = FALSE
+  /\ recipientForkSiblingCount = 0
+  /\ recipientCreditSpendable = FALSE
   /\ conflictObserved = FALSE
   /\ tombstonePresent = FALSE
   /\ clientCachePresent = TRUE
@@ -81,7 +85,7 @@ Prepare ==
                  senderResponseReturned, recipientResponseLost,
                  recipientClaimObserved, conflictObserved, tombstonePresent,
                  clientCachePresent, outboxWakeupPresent, outboxScanCount,
-                 chainHeadMoveCount, retryCount>>
+                 chainHeadMoveCount, retryCount, recipientForkSiblingCount, recipientCreditSpendable>>
 
 CommitSenderIntentAndDebit ==
   /\ opState = "Prepared"
@@ -100,10 +104,10 @@ CommitSenderIntentAndDebit ==
                  senderResponseLost, senderResponseReturned,
                  recipientResponseLost, recipientClaimObserved,
                  conflictObserved, clientCachePresent, outboxScanCount,
-                 chainHeadMoveCount, retryCount>>
+                 chainHeadMoveCount, retryCount, recipientForkSiblingCount, recipientCreditSpendable>>
 
 ExactRetry ==
-  /\ opState \in {"Prepared", "Debited", "Settled"}
+  /\ opState \in {"Prepared", "Debited", "Settled", "Conflicted"}
   /\ requestDigest = GoodDigest
   /\ retryCount < 3
   /\ retryCount' = retryCount + 1
@@ -114,7 +118,7 @@ ExactRetry ==
                  senderResponseReturned, recipientResponseLost,
                  recipientClaimObserved, conflictObserved, tombstonePresent,
                  clientCachePresent, outboxWakeupPresent, outboxScanCount,
-                 chainHeadMoveCount>>
+                 chainHeadMoveCount, recipientForkSiblingCount, recipientCreditSpendable>>
 
 ObserveChainHeadMoved ==
   /\ opState \in {"Debited", "Settled"}
@@ -127,7 +131,7 @@ ObserveChainHeadMoved ==
                  senderResponseReturned, recipientResponseLost,
                  recipientClaimObserved, conflictObserved, tombstonePresent,
                  clientCachePresent, outboxWakeupPresent, outboxScanCount,
-                 retryCount>>
+                 retryCount, recipientForkSiblingCount, recipientCreditSpendable>>
 
 ChangedPayloadConflict ==
   /\ opState \in {"Prepared", "Debited", "Settled"}
@@ -141,7 +145,7 @@ ChangedPayloadConflict ==
                  senderResponseReturned, recipientResponseLost,
                  recipientClaimObserved, tombstonePresent, clientCachePresent,
                  outboxWakeupPresent, outboxScanCount, chainHeadMoveCount,
-                 retryCount>>
+                 retryCount, recipientForkSiblingCount, recipientCreditSpendable>>
 
 LoseSenderResponse ==
   /\ opState \in {"Debited", "Settled"}
@@ -154,7 +158,7 @@ LoseSenderResponse ==
                  recipientResponseLost, recipientClaimObserved,
                  conflictObserved, tombstonePresent, clientCachePresent,
                  outboxWakeupPresent, outboxScanCount, chainHeadMoveCount,
-                 retryCount>>
+                 retryCount, recipientForkSiblingCount, recipientCreditSpendable>>
 
 ReturnOriginalSenderResult ==
   /\ opState \in {"Debited", "Settled"}
@@ -167,7 +171,7 @@ ReturnOriginalSenderResult ==
                  recipientResponseLost, recipientClaimObserved,
                  conflictObserved, tombstonePresent, clientCachePresent,
                  outboxWakeupPresent, outboxScanCount, chainHeadMoveCount,
-                 retryCount>>
+                 retryCount, recipientForkSiblingCount, recipientCreditSpendable>>
 
 CommitRecipientClaim ==
   /\ opState = "Debited"
@@ -177,13 +181,14 @@ CommitRecipientClaim ==
   /\ receiptProjectionCount' = 1
   /\ recipientResponseLost' = FALSE
   /\ recipientClaimObserved' = TRUE
+  /\ recipientCreditSpendable' = TRUE
   /\ opState' = "Settled"
   /\ UNCHANGED <<requestDigest, senderIntentCount, senderDebitCount,
                  feeLiabilityCount, feeOutboxCount, paymentProjectionCount,
                  feeDeliveryCount, feeState, senderResponseLost,
                  senderResponseReturned, conflictObserved, tombstonePresent,
                  clientCachePresent, outboxWakeupPresent, outboxScanCount,
-                 chainHeadMoveCount, retryCount>>
+                 chainHeadMoveCount, retryCount, recipientForkSiblingCount>>
 
 CommitRecipientClaimLoseResponse ==
   /\ opState = "Debited"
@@ -193,12 +198,30 @@ CommitRecipientClaimLoseResponse ==
   /\ receiptProjectionCount' = 1
   /\ recipientResponseLost' = TRUE
   /\ recipientClaimObserved' = FALSE
+  /\ recipientCreditSpendable' = TRUE
   /\ UNCHANGED <<opState, requestDigest, senderIntentCount, senderDebitCount,
                  feeLiabilityCount, feeOutboxCount, paymentProjectionCount,
                  feeDeliveryCount, feeState, senderResponseLost,
                  senderResponseReturned, conflictObserved, tombstonePresent,
                  clientCachePresent, outboxWakeupPresent, outboxScanCount,
-                 chainHeadMoveCount, retryCount>>
+                 chainHeadMoveCount, retryCount, recipientForkSiblingCount>>
+
+ObserveRecipientFork ==
+  /\ opState \in {"Debited", "Settled"}
+  /\ recipientClaimCount = 1
+  /\ recipientCreditSpendable = TRUE
+  /\ recipientForkSiblingCount = 0
+  /\ recipientForkSiblingCount' = 1
+  /\ recipientCreditSpendable' = FALSE
+  /\ recipientClaimObserved' = TRUE
+  /\ opState' = "Conflicted"
+  /\ UNCHANGED <<requestDigest, senderIntentCount, senderDebitCount,
+                 recipientClaimCount, recipientCreditCount, feeLiabilityCount,
+                 feeOutboxCount, paymentProjectionCount, receiptProjectionCount,
+                 feeDeliveryCount, feeState, senderResponseLost,
+                 senderResponseReturned, recipientResponseLost, conflictObserved,
+                 tombstonePresent, clientCachePresent, outboxWakeupPresent,
+                 outboxScanCount, chainHeadMoveCount, retryCount>>
 
 ReconcileRecipientClaim ==
   /\ opState = "Debited"
@@ -214,7 +237,7 @@ ReconcileRecipientClaim ==
                  senderResponseReturned, recipientResponseLost,
                  conflictObserved, tombstonePresent, clientCachePresent,
                  outboxWakeupPresent, outboxScanCount, chainHeadMoveCount,
-                 retryCount>>
+                 retryCount, recipientForkSiblingCount, recipientCreditSpendable>>
 
 MarkFeeOutcomeUnknown ==
   /\ feeState = "Pending"
@@ -227,7 +250,7 @@ MarkFeeOutcomeUnknown ==
                  feeDeliveryCount, senderResponseLost, senderResponseReturned,
                  recipientResponseLost, recipientClaimObserved,
                  conflictObserved, tombstonePresent, clientCachePresent,
-                 outboxScanCount, chainHeadMoveCount, retryCount>>
+                 outboxScanCount, chainHeadMoveCount, retryCount, recipientForkSiblingCount, recipientCreditSpendable>>
 
 ReconcileFeeAsDelivered ==
   /\ feeState = "Unknown"
@@ -240,7 +263,7 @@ ReconcileFeeAsDelivered ==
                  senderResponseLost, senderResponseReturned, conflictObserved,
                  tombstonePresent, clientCachePresent, outboxScanCount,
                  chainHeadMoveCount, recipientResponseLost,
-                 recipientClaimObserved, retryCount>>
+                 recipientClaimObserved, retryCount, recipientForkSiblingCount, recipientCreditSpendable>>
 
 DeliverFee ==
   /\ feeState = "Pending"
@@ -254,7 +277,7 @@ DeliverFee ==
                  senderResponseLost, senderResponseReturned, conflictObserved,
                  tombstonePresent, clientCachePresent, outboxScanCount,
                  chainHeadMoveCount, recipientResponseLost,
-                 recipientClaimObserved, retryCount>>
+                 recipientClaimObserved, retryCount, recipientForkSiblingCount, recipientCreditSpendable>>
 
 ExpireClientCache ==
   /\ clientCachePresent = TRUE
@@ -267,7 +290,7 @@ ExpireClientCache ==
                  senderResponseReturned, recipientResponseLost,
                  recipientClaimObserved, conflictObserved, tombstonePresent,
                  outboxWakeupPresent, outboxScanCount, chainHeadMoveCount,
-                 retryCount>>
+                 retryCount, recipientForkSiblingCount, recipientCreditSpendable>>
 
 LosePostCommitWakeup ==
   /\ opState \in {"Debited", "Settled"}
@@ -281,7 +304,7 @@ LosePostCommitWakeup ==
                  senderResponseReturned, recipientResponseLost,
                  recipientClaimObserved, conflictObserved, tombstonePresent,
                  clientCachePresent, outboxScanCount, chainHeadMoveCount,
-                 retryCount>>
+                 retryCount, recipientForkSiblingCount, recipientCreditSpendable>>
 
 ScanDurableOutbox ==
   /\ feeState \in {"Pending", "Unknown"}
@@ -296,7 +319,7 @@ ScanDurableOutbox ==
                  feeDeliveryCount, feeState, senderResponseLost,
                  senderResponseReturned, recipientResponseLost,
                  recipientClaimObserved, conflictObserved, tombstonePresent,
-                 clientCachePresent, chainHeadMoveCount, retryCount>>
+                 clientCachePresent, chainHeadMoveCount, retryCount, recipientForkSiblingCount, recipientCreditSpendable>>
 
 \* Deliberate mutation: separate a sender debit from its immutable intent.
 \* This is an unsafe split-write implementation, not a claim about the current
@@ -313,7 +336,7 @@ UnsafeSenderDebitWithoutIntent ==
                  senderResponseReturned, recipientResponseLost,
                  recipientClaimObserved, conflictObserved, tombstonePresent,
                  clientCachePresent, outboxWakeupPresent, outboxScanCount,
-                 chainHeadMoveCount, retryCount>>
+                 chainHeadMoveCount, retryCount, recipientForkSiblingCount, recipientCreditSpendable>>
 
 UnsafeDuplicateSenderDebit ==
   /\ AllowUnsafeMutations = TRUE
@@ -327,7 +350,7 @@ UnsafeDuplicateSenderDebit ==
                  senderResponseReturned, recipientResponseLost,
                  recipientClaimObserved, conflictObserved, tombstonePresent,
                  clientCachePresent, outboxWakeupPresent, outboxScanCount,
-                 chainHeadMoveCount, retryCount>>
+                 chainHeadMoveCount, retryCount, recipientForkSiblingCount, recipientCreditSpendable>>
 
 Next ==
   \/ Prepare
@@ -340,6 +363,7 @@ Next ==
   \/ CommitRecipientClaim
   \/ CommitRecipientClaimLoseResponse
   \/ ReconcileRecipientClaim
+  \/ ObserveRecipientFork
   \/ MarkFeeOutcomeUnknown
   \/ ReconcileFeeAsDelivered
   \/ DeliverFee
@@ -368,6 +392,8 @@ TypeOK ==
   /\ senderResponseReturned \in BOOLEAN
   /\ recipientResponseLost \in BOOLEAN
   /\ recipientClaimObserved \in BOOLEAN
+  /\ recipientForkSiblingCount \in 0..1
+  /\ recipientCreditSpendable \in BOOLEAN
   /\ conflictObserved \in BOOLEAN
   /\ tombstonePresent \in BOOLEAN
   /\ clientCachePresent \in BOOLEAN
@@ -399,12 +425,19 @@ RecipientClaimMatchesProjection ==
 SettledRequiresBothOwnerLegs ==
   (opState = "Settled") =>
     (senderDebitCount = 1 /\ recipientCreditCount = 1 /\
-     recipientClaimCount = 1 /\ recipientClaimObserved = TRUE)
+     recipientClaimCount = 1 /\ recipientClaimObserved = TRUE /\ recipientCreditSpendable = TRUE /\ recipientForkSiblingCount = 0)
 
 NoObservedClaimWithoutBothLegs ==
   recipientClaimObserved =>
     (senderIntentCount = 1 /\ senderDebitCount = 1 /\
      recipientClaimCount = 1 /\ recipientCreditCount = 1)
+
+RecipientForkFreezesSpendability ==
+  (recipientForkSiblingCount = 1) =>
+    (opState = "Conflicted" /\ recipientCreditSpendable = FALSE)
+
+NoSpendableCreditOnFork ==
+  recipientCreditSpendable => recipientForkSiblingCount = 0
 
 NoResponseBeforeSenderCommit ==
   senderResponseReturned => (senderIntentCount = 1 /\ senderDebitCount = 1)
@@ -433,7 +466,8 @@ ChainHeadRaceDoesNotDuplicateEffect ==
 NoPrematureSettlement ==
   (opState = "Settled") <=>
     (senderDebitCount = 1 /\ recipientCreditCount = 1 /\
-     recipientClaimObserved = TRUE)
+     recipientClaimObserved = TRUE /\ recipientForkSiblingCount = 0 /\
+     recipientCreditSpendable = TRUE)
 
 Safety ==
   /\ TypeOK
@@ -444,6 +478,8 @@ Safety ==
   /\ RecipientClaimMatchesProjection
   /\ SettledRequiresBothOwnerLegs
   /\ NoObservedClaimWithoutBothLegs
+  /\ RecipientForkFreezesSpendability
+  /\ NoSpendableCreditOnFork
   /\ NoResponseBeforeSenderCommit
   /\ FeeDeliveryBounded
   /\ FeeDeliveryStateMatchesCount
