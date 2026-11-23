@@ -45,7 +45,11 @@ SELECT
     to_char(a.claim_issued_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'),
     to_char(a.claim_expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'),
     a.database_xact_id,
-    (t.new_owner_epoch IS NOT NULL) AS owner_epoch_transition_present,
+    t.previous_owner_epoch,
+    t.new_owner_epoch,
+    t.previous_generation,
+    t.new_generation,
+    t.transition_xact_id,
     t.epoch_authority_receipt_digest,
     t.physical_fencing_receipt_digest
 FROM myc_effect_owner.effect_commits e
@@ -68,6 +72,17 @@ WHERE e.realm_id = $1
 "#;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VerifiedOwnerEpochTransition {
+    pub previous_owner_epoch: u64,
+    pub new_owner_epoch: u64,
+    pub previous_generation: u64,
+    pub new_generation: u64,
+    pub transition_xact_id: String,
+    pub epoch_authority_receipt_digest: Digest,
+    pub physical_fencing_receipt_digest: Digest,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VerifiedPostgresEffectReceipt {
     pub effect_id: String,
     pub attestation_id: String,
@@ -87,8 +102,7 @@ pub struct VerifiedPostgresEffectReceipt {
     pub claim_issued_at: String,
     pub claim_expires_at: String,
     pub database_xact_id: String,
-    pub epoch_authority_receipt_digest: Option<Digest>,
-    pub physical_fencing_receipt_digest: Option<Digest>,
+    pub epoch_transition: Option<VerifiedOwnerEpochTransition>,
     pub delta_minor: i64,
     pub balance_after_minor: i64,
     pub idempotency_digest: Digest,
@@ -262,11 +276,15 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
     let claim_issued_at: String = row.get(24);
     let claim_expires_at: String = row.get(25);
     let database_xact_id: String = row.get(26);
-    let owner_epoch_transition_present: bool = row.get(27);
+    let transition_previous_owner_epoch: Option<i64> = row.get(27);
+    let transition_new_owner_epoch: Option<i64> = row.get(28);
+    let transition_previous_generation: Option<i64> = row.get(29);
+    let transition_new_generation: Option<i64> = row.get(30);
+    let transition_xact_id: Option<String> = row.get(31);
     let epoch_authority_receipt_digest =
-        optional_digest_column(row, 28, "epoch_authority_receipt_digest")?;
+        optional_digest_column(row, 32, "epoch_authority_receipt_digest")?;
     let physical_fencing_receipt_digest =
-        optional_digest_column(row, 29, "physical_fencing_receipt_digest")?;
+        optional_digest_column(row, 33, "physical_fencing_receipt_digest")?;
 
     let accepted_generation = u64::try_from(effect_generation_i64)
         .map_err(|_| "PostgreSQL effect has a nonpositive accepted generation".to_owned())?;
@@ -284,17 +302,17 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
                 .into(),
         );
     }
-    if (owner_epoch == 1
-        && (owner_epoch_transition_present
-            || epoch_authority_receipt_digest.is_some()
-            || physical_fencing_receipt_digest.is_some()))
-        || (owner_epoch > 1
-            && (!owner_epoch_transition_present
-                || epoch_authority_receipt_digest.is_none()
-                || physical_fencing_receipt_digest.is_none()))
-    {
-        return Err("owner epoch transition evidence is missing or inconsistent".into());
-    }
+    let transition_columns = (
+        transition_previous_owner_epoch,
+        transition_new_owner_epoch,
+        transition_previous_generation,
+        transition_new_generation,
+        transition_xact_id,
+        epoch_authority_receipt_digest,
+        physical_fencing_receipt_digest,
+    );
+    let epoch_transition =
+        decode_epoch_transition(owner_epoch, accepted_generation, transition_columns)?;
     if worker_id.trim().is_empty()
         || claim_clock_profile_id.trim().is_empty()
         || database_xact_id.trim().is_empty()
@@ -322,8 +340,7 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
         claim_issued_at: &claim_issued_at,
         claim_expires_at: &claim_expires_at,
         database_xact_id: &database_xact_id,
-        epoch_authority_receipt_digest: &epoch_authority_receipt_digest,
-        physical_fencing_receipt_digest: &physical_fencing_receipt_digest,
+        epoch_transition: &epoch_transition,
         delta_minor,
         balance_after_minor,
         idempotency_digest: &idempotency_digest,
@@ -351,8 +368,7 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
         claim_issued_at,
         claim_expires_at,
         database_xact_id,
-        epoch_authority_receipt_digest,
-        physical_fencing_receipt_digest,
+        epoch_transition,
         delta_minor,
         balance_after_minor,
         idempotency_digest,
@@ -361,6 +377,98 @@ fn decode_effect_receipt(row: &Row) -> Result<VerifiedPostgresEffectReceipt, Str
         payload_digest,
         effect_receipt_digest,
     })
+}
+
+fn decode_epoch_transition(
+    owner_epoch: u64,
+    accepted_generation: u64,
+    columns: (
+        Option<i64>,
+        Option<i64>,
+        Option<i64>,
+        Option<i64>,
+        Option<String>,
+        Option<Digest>,
+        Option<Digest>,
+    ),
+) -> Result<Option<VerifiedOwnerEpochTransition>, String> {
+    let (
+        previous_owner_epoch,
+        new_owner_epoch,
+        previous_generation,
+        new_generation,
+        transition_xact_id,
+        epoch_authority_receipt_digest,
+        physical_fencing_receipt_digest,
+    ) = columns;
+
+    let all_absent = previous_owner_epoch.is_none()
+        && new_owner_epoch.is_none()
+        && previous_generation.is_none()
+        && new_generation.is_none()
+        && transition_xact_id.is_none()
+        && epoch_authority_receipt_digest.is_none()
+        && physical_fencing_receipt_digest.is_none();
+
+    if owner_epoch == 1 {
+        return if all_absent {
+            Ok(None)
+        } else {
+            Err("initial owner epoch must not have a transition row".into())
+        };
+    }
+
+    let transition = VerifiedOwnerEpochTransition {
+        previous_owner_epoch: positive_position(
+            previous_owner_epoch,
+            "transition previous owner epoch",
+        )?,
+        new_owner_epoch: positive_position(
+            new_owner_epoch,
+            "transition new owner epoch",
+        )?,
+        previous_generation: positive_position(
+            previous_generation,
+            "transition previous generation",
+        )?,
+        new_generation: positive_position(
+            new_generation,
+            "transition new generation",
+        )?,
+        transition_xact_id: transition_xact_id
+            .ok_or_else(|| "owner epoch transition transaction ID is missing".to_owned())?,
+        epoch_authority_receipt_digest: epoch_authority_receipt_digest
+            .ok_or_else(|| "owner epoch authority receipt digest is missing".to_owned())?,
+        physical_fencing_receipt_digest: physical_fencing_receipt_digest
+            .ok_or_else(|| "physical fencing receipt digest is missing".to_owned())?,
+    };
+    validate_epoch_transition(&transition, owner_epoch, accepted_generation)?;
+    Ok(Some(transition))
+}
+
+fn positive_position(value: Option<i64>, name: &str) -> Result<u64, String> {
+    let value = value.ok_or_else(|| format!("PostgreSQL {name} is missing"))?;
+    u64::try_from(value).map_err(|_| format!("PostgreSQL {name} is nonpositive"))
+}
+
+fn validate_epoch_transition(
+    transition: &VerifiedOwnerEpochTransition,
+    attested_owner_epoch: u64,
+    accepted_generation: u64,
+) -> Result<(), String> {
+    if transition.previous_owner_epoch >= transition.new_owner_epoch
+        || transition.new_owner_epoch != attested_owner_epoch
+        || transition.previous_generation >= transition.new_generation
+        || transition.new_generation > accepted_generation
+        || transition.transition_xact_id.trim().is_empty()
+        || transition.epoch_authority_receipt_digest.iter().all(|byte| *byte == 0)
+        || transition.physical_fencing_receipt_digest.iter().all(|byte| *byte == 0)
+    {
+        return Err(
+            "owner epoch transition chronology or authority/fencing evidence is invalid".into(),
+        );
+    }
+    Ok(())
 }
 
 fn digest_column(row: &Row, index: usize, name: &str) -> Result<Digest, String> {
@@ -406,8 +514,7 @@ impl VerifiedPostgresEffectReceipt {
             claim_issued_at: &self.claim_issued_at,
             claim_expires_at: &self.claim_expires_at,
             database_xact_id: &self.database_xact_id,
-            epoch_authority_receipt_digest: &self.epoch_authority_receipt_digest,
-            physical_fencing_receipt_digest: &self.physical_fencing_receipt_digest,
+            epoch_transition: &self.epoch_transition,
             delta_minor: self.delta_minor,
             balance_after_minor: self.balance_after_minor,
             idempotency_digest: &self.idempotency_digest,
@@ -488,8 +595,7 @@ struct EffectReceiptDigestFields<'a> {
     claim_issued_at: &'a str,
     claim_expires_at: &'a str,
     database_xact_id: &'a str,
-    epoch_authority_receipt_digest: &'a Option<Digest>,
-    physical_fencing_receipt_digest: &'a Option<Digest>,
+    epoch_transition: &'a Option<VerifiedOwnerEpochTransition>,
     delta_minor: i64,
     balance_after_minor: i64,
     idempotency_digest: &'a Digest,
@@ -526,17 +632,18 @@ fn canonical_effect_receipt_digest(
     bytes.extend_from_slice(&fields.delta_minor.to_be_bytes());
     bytes.extend_from_slice(&fields.balance_after_minor.to_be_bytes());
     bytes.extend_from_slice(fields.claim_proof_digest);
-    for digest in [
-        fields.epoch_authority_receipt_digest,
-        fields.physical_fencing_receipt_digest,
-    ] {
-        match digest {
-            Some(value) => {
-                bytes.push(1);
-                bytes.extend_from_slice(value);
-            }
-            None => bytes.push(0),
+    match fields.epoch_transition {
+        Some(transition) => {
+            bytes.push(1);
+            bytes.extend_from_slice(&transition.previous_owner_epoch.to_be_bytes());
+            bytes.extend_from_slice(&transition.new_owner_epoch.to_be_bytes());
+            bytes.extend_from_slice(&transition.previous_generation.to_be_bytes());
+            bytes.extend_from_slice(&transition.new_generation.to_be_bytes());
+            append_string(&mut bytes, &transition.transition_xact_id)?;
+            bytes.extend_from_slice(&transition.epoch_authority_receipt_digest);
+            bytes.extend_from_slice(&transition.physical_fencing_receipt_digest);
         }
+        None => bytes.push(0),
     }
     bytes.extend_from_slice(fields.idempotency_digest);
     bytes.extend_from_slice(fields.request_digest);
@@ -612,8 +719,15 @@ mod tests {
         let claim_issued_at = "2026-11-22T10:00:00.000000".to_owned();
         let claim_expires_at = "2026-11-22T11:00:00.000000".to_owned();
         let database_xact_id = "73421".to_owned();
-        let epoch_authority_receipt_digest = Some(digest(6));
-        let physical_fencing_receipt_digest = Some(digest(7));
+        let epoch_transition = Some(VerifiedOwnerEpochTransition {
+            previous_owner_epoch: 2,
+            new_owner_epoch: owner_epoch,
+            previous_generation: accepted_generation - 1,
+            new_generation: accepted_generation,
+            transition_xact_id: "73420".to_owned(),
+            epoch_authority_receipt_digest: digest(6),
+            physical_fencing_receipt_digest: digest(7),
+        });
         let delta_minor = 100;
         let balance_after_minor = 1100;
         let idempotency_digest = *binding.idempotency_digest();
@@ -639,8 +753,7 @@ mod tests {
             claim_issued_at,
             claim_expires_at,
             database_xact_id,
-            epoch_authority_receipt_digest,
-            physical_fencing_receipt_digest,
+            epoch_transition,
             delta_minor,
             balance_after_minor,
             idempotency_digest,
@@ -706,6 +819,51 @@ mod tests {
         let mut receipt = original;
         receipt.claim_proof_digest = digest(24);
         assert!(validate_receipt_binding(&binding, &receipt).is_err());
+    }
+
+    #[test]
+    fn epoch_transition_requires_complete_monotonic_chronology() {
+        let valid = VerifiedOwnerEpochTransition {
+            previous_owner_epoch: 1,
+            new_owner_epoch: 2,
+            previous_generation: 1,
+            new_generation: 2,
+            transition_xact_id: "100".into(),
+            epoch_authority_receipt_digest: digest(6),
+            physical_fencing_receipt_digest: digest(7),
+        };
+        assert_eq!(validate_epoch_transition(&valid, 2, 2), Ok(()));
+        assert!(validate_epoch_transition(&valid, 3, 2).is_err());
+
+        let mut wrong_owner = valid.clone();
+        wrong_owner.previous_owner_epoch = 2;
+        assert!(validate_epoch_transition(&wrong_owner, 2, 2).is_err());
+
+        let mut generation_after_effect = valid.clone();
+        generation_after_effect.new_generation = 3;
+        assert!(validate_epoch_transition(&generation_after_effect, 2, 2).is_err());
+
+        let mut blank_xact = valid.clone();
+        blank_xact.transition_xact_id = "  ".into();
+        assert!(validate_epoch_transition(&blank_xact, 2, 2).is_err());
+    }
+
+    #[test]
+    fn initial_epoch_has_no_transition_and_later_epoch_requires_one() {
+        let no_transition = (None, None, None, None, None, None, None);
+        assert_eq!(decode_epoch_transition(1, 1, no_transition), Ok(None));
+
+        let partial_transition = (
+            Some(1),
+            Some(2),
+            Some(1),
+            Some(2),
+            Some("200".into()),
+            Some(digest(6)),
+            None,
+        );
+        assert!(decode_epoch_transition(2, 2, partial_transition).is_err());
+        assert!(decode_epoch_transition(2, 2, no_transition).is_err());
     }
 
     #[test]
