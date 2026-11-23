@@ -42,7 +42,14 @@ jobs:
           fetch-depth: 0
 
       - name: Check whitespace and patch integrity
-        run: git diff --check
+        shell: bash
+        run: |
+          base_ref="$(jq -r '.pull_request.base.ref // empty' "$GITHUB_EVENT_PATH")"
+          if [[ -n "$base_ref" ]]; then
+            git diff --check "origin/$base_ref...HEAD"
+          else
+            git diff --check HEAD^ HEAD
+          fi
 
       - name: Verify Health source, relative link, exact gitlink pin and hApp role
         run: bash mycelix-workspace/scripts/check-health-submodule-integration.sh
