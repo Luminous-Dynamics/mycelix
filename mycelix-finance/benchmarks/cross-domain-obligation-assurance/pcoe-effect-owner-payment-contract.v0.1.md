@@ -124,6 +124,29 @@ There is no atomic transaction spanning sender, beneficiary and Treasury source 
 
 This direction composes with the existing [AC-099 owner-authenticated transfer design / PR #4178](https://github.com/Luminous-Dynamics/mycelix/pull/4178), the [predecessor-bound balance-effect work / PR #657](https://github.com/Luminous-Dynamics/mycelix/pull/657), and [FIN-SAFE-012 / #654](https://github.com/Luminous-Dynamics/mycelix/issues/654). As rechecked on 23 November 2026, PR #4178 is 69 commits ahead / 117 behind current main; PR #657 is 36 ahead / 194 behind. These open branches are design / implementation candidates, not current-main guarantees. They must be rebased and re-audited before integration. PCOE adds a cross-domain fault / history qualification profile; it must not replace their owner-authored balance semantics.
 
+
+### 4.6 Explicit settlement profile: local ledger authority versus bilateral ownership
+
+The same economic intention can be implemented under two materially different authority models. They must not be mixed under one implicit `Completed` bit.
+
+| Profile | Who authors the principal-transfer effect? | Commit boundary | Completion meaning |
+|---|---|---|---|
+| `FinanceLedgerAtomicV1` | Finance is the explicitly delegated ledger authority and writes both payer and beneficiary balance projections in one Finance source-chain transaction. | One local source-chain commit for intent, debit, credit, Payment/Receipt and fee outbox. Treasury remains separate. | `LedgerCommitted`: the Finance-authoritative local ledger transaction committed. It does not prove beneficiary authorship, external custody, rail finality or legal discharge. |
+| `BilateralOwnerClaimV1` | Payer authors intent/debit; beneficiary independently authors claim/credit on its own source chain. | Two separately committed owner legs, then independent reconciliation. Treasury remains separate. | `Settled` only after both exact owner-authored legs are observed and fork-free. Before that, `Debited / ClaimPending` or `Indeterminate`. |
+
+The current PCOE TLA model and 22-case EOP corpus qualify **`BilateralOwnerClaimV1`**. They do not qualify the local-ledger profile. The public `SAP_PAYMENT_SAGA_MODEL_V1.md` describes the Finance-ledger/local-atomic profile, but the source audit on the same main snapshot found only that Markdown file in `tools/finance/sap-payment-saga-model/`; its documented Cargo manifest, Rust source and replay module are absent. The corresponding Go directory contains a README and `checkpoint_test.go`, but not the documented `go.mod`, reducer, implementation files or fixtures. The source/evidence mismatch is tracked by [FIN-SAGA-REF-ARTIFACTS-001 / #6559](https://github.com/Luminous-Dynamics/mycelix/issues/6559). Until those artifacts are restored and exact-head tested, treat the v1 Saga as a **design specification**, not an executable Rust/Go reference model or independent-verifier result.
+
+### 4.7 Profile identity is part of the operation fingerprint
+
+The canonical fingerprint MUST include an immutable `settlement_profile_id` and profile version. A transfer identity cannot silently fall back from a recipient-claim protocol to a Finance-authoritative local transaction (or the reverse) because a peer, DHT record, Treasury cell or recipient is unavailable.
+
+- Profile mismatch under an existing operation identity is a conflict.
+- A profile migration requires an explicit, separately authorized migration/reversal event with old and new profile references; it is not a retry.
+- The profile's owner set, source-chain set, finality semantics and required evidence are fixed before dispatch.
+- Benchmark results are stratified by profile. A local one-transaction transfer must not be compared to a bilateral transfer without matching owner-leg and finality requirements.
+
+This makes the trust / custody model a first-class protocol input rather than an undocumented implementation detail.
+
 ## 5. Operation, owner-leg and delivery states are separate
 
 Do not encode every aspect as `Payment.status = Completed`.
