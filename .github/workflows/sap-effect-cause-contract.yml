@@ -107,8 +107,15 @@ jobs:
             .version == "0.2" and
             .status == "specified_not_executed" and
             .crosswalk == "sap-legacy-writer-v2-crosswalk.v0.2.json" and
-            (.scenarios | length) == 22 and
-            ([.scenarios[].id] | unique | length) == 22 and
+            (.scenarios | length) == 25 and
+            ([.scenarios[].id] | unique | length) == 25 and
+            ([.scenarios[].id] | sort) == [
+              "SCE-001","SCE-002","SCE-003","SCE-004","SCE-005",
+              "SCE-006","SCE-007","SCE-008","SCE-009","SCE-010",
+              "SCE-011","SCE-012","SCE-013","SCE-014","SCE-015",
+              "SCE-016","SCE-017","SCE-018","SCE-019","SCE-020",
+              "SCE-021","SCE-022","SCE-023","SCE-024","SCE-025"
+            ] and
             all(.scenarios[];
               (.id | test("^SCE-[0-9]{3}$")) and
               (.stimulus | length > 0) and
