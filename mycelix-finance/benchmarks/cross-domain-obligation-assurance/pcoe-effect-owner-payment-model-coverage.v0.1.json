@@ -1,0 +1,302 @@
+{
+  "benchmark": "PCOE Effect-Owner Payment TLA-to-Scenario Coverage Map",
+  "version": "0.1",
+  "date": "2026-11-23",
+  "status": "structural-coverage-map-not-scenario-execution",
+  "source_model": "specs/payment-operation/PCOEEffectOwnerPayment.tla",
+  "source_model_sha256": "83e1d5249b8cd8699f53729c542587a7b6b67477d904c7891c8cf5699034bb20",
+  "source_corpus": "pcoe-effect-owner-payment-scenarios.v0.1.json",
+  "source_corpus_sha256": "42c820181160485e2bec05032221f589ec7f876fef4d8f7705c874463600758d",
+  "scenario_count": 22,
+  "coverage_counts": {
+    "bounded_modelled": 9,
+    "partially_modelled": 6,
+    "not_in_model": 7
+  },
+  "relation_vocabulary": [
+    "bounded_modelled",
+    "partially_modelled",
+    "not_in_model"
+  ],
+  "semantics": "bounded_modelled means the TLA state model includes the named safety property; partially_modelled means only a simplified abstract component is present; not_in_model means the scenario remains contract-only. None of these labels means the scenario ran against Rust, Holochain, Treasury or an external rail.",
+  "scenarios": [
+    {
+      "scenario_id": "EOP-001",
+      "scenario_domain": "identity",
+      "model_relation": "bounded_modelled",
+      "model_actions": [
+        "ExactRetry",
+        "CommitRecipientClaim"
+      ],
+      "model_invariants": [
+        "AtMostOneSenderEffect",
+        "AtMostOneRecipientEffect"
+      ],
+      "model_scope_limit": "Models at-most-one sender and recipient effect under exact retry; does not model the actual ActionHash returned to the caller.",
+      "next_qualification": "Rust history-reducer replay using the original owner ActionHashes."
+    },
+    {
+      "scenario_id": "EOP-002",
+      "scenario_domain": "identity",
+      "model_relation": "bounded_modelled",
+      "model_actions": [
+        "ChangedPayloadConflict"
+      ],
+      "model_invariants": [
+        "SenderIntentDebitAtomicity",
+        "AtMostOneSenderEffect"
+      ],
+      "model_scope_limit": "Models that a changed fingerprint marks conflict without mutating effects; canonical field hashing is not executed by TLA.",
+      "next_qualification": "Rust canonical-intent digest known-answer and mutation tests."
+    },
+    {
+      "scenario_id": "EOP-003",
+      "scenario_domain": "concurrency",
+      "model_relation": "partially_modelled",
+      "model_actions": [
+        "ObserveChainHeadMoved",
+        "ExactRetry"
+      ],
+      "model_invariants": [
+        "ChainHeadRaceDoesNotDuplicateEffect"
+      ],
+      "model_scope_limit": "Models a chain-head-moved observation and bounded retry count, but not two concurrent invocations, a real host source-chain race, or a scheduler/history interleaving.",
+      "next_qualification": "Two-agent / one-agent concurrent Holochain Sweettest plus history checker."
+    },
+    {
+      "scenario_id": "EOP-004",
+      "scenario_domain": "authority",
+      "model_relation": "not_in_model",
+      "model_actions": [],
+      "model_invariants": [],
+      "model_scope_limit": "Alternate agent keys, DID-to-key authority, clone/recovery identity and capability possession are not state variables in this model.",
+      "next_qualification": "Identity / authority integrity tests and adversarial multi-agent Holochain test."
+    },
+    {
+      "scenario_id": "EOP-005",
+      "scenario_domain": "same_chain_atomicity",
+      "model_relation": "bounded_modelled",
+      "model_actions": [
+        "CommitSenderIntentAndDebit",
+        "UnsafeSenderDebitWithoutIntent"
+      ],
+      "model_invariants": [
+        "SenderIntentDebitAtomicity"
+      ],
+      "model_scope_limit": "Models the payer intent/debit as one abstract transition and proves a split-write mutant violates the invariant; does not execute Holochain rollback.",
+      "next_qualification": "Real Finance zome-call failure injection and committed source-chain read-back."
+    },
+    {
+      "scenario_id": "EOP-006",
+      "scenario_domain": "cross_cell_atomicity",
+      "model_relation": "not_in_model",
+      "model_actions": [],
+      "model_invariants": [],
+      "model_scope_limit": "The model does not create a Treasury effect before a sender commit or model Finance abort afterward; the unsafe cross-cell ordering is described only by the scenario contract.",
+      "next_qualification": "Conductor-level Finance/Treasury call-order test with injected Finance abort after Treasury success."
+    },
+    {
+      "scenario_id": "EOP-007",
+      "scenario_domain": "response_loss",
+      "model_relation": "bounded_modelled",
+      "model_actions": [
+        "LoseSenderResponse",
+        "ReturnOriginalSenderResult"
+      ],
+      "model_invariants": [
+        "NoResponseBeforeSenderCommit",
+        "AtMostOneSenderEffect"
+      ],
+      "model_scope_limit": "Models sender commit followed by lost response and recovery; it abstracts returned action references.",
+      "next_qualification": "Replay the exact sender operation against durable source-chain records after response loss/restart."
+    },
+    {
+      "scenario_id": "EOP-008",
+      "scenario_domain": "response_loss",
+      "model_relation": "not_in_model",
+      "model_actions": [],
+      "model_invariants": [],
+      "model_scope_limit": "There is no request-delivery / pre-commit response-loss variable; the model begins with a locally prepared intent.",
+      "next_qualification": "Fault-injected caller/host harness proving same-key resolution before or after commit."
+    },
+    {
+      "scenario_id": "EOP-009",
+      "scenario_domain": "fee_outbox",
+      "model_relation": "bounded_modelled",
+      "model_actions": [
+        "CommitSenderIntentAndDebit",
+        "MarkFeeOutcomeUnknown"
+      ],
+      "model_invariants": [
+        "OutboxRemainsDurableAcrossLostWakeup",
+        "FeeDeliveryBounded"
+      ],
+      "model_scope_limit": "Models durable fee liability/outbox and Pending/Unknown state; it does not simulate real Treasury unavailability or transport errors.",
+      "next_qualification": "Treasury adapter idempotency test under unavailable/restarted cell."
+    },
+    {
+      "scenario_id": "EOP-010",
+      "scenario_domain": "fee_outbox",
+      "model_relation": "partially_modelled",
+      "model_actions": [
+        "MarkFeeOutcomeUnknown",
+        "ReconcileFeeAsDelivered"
+      ],
+      "model_invariants": [
+        "FeeDeliveryBounded",
+        "FeeDeliveryStateMatchesCount"
+      ],
+      "model_scope_limit": "Models one delivery count after Unknown reconciliation, but not duplicated Treasury deliveries, exact receipt signatures or provider response correlation.",
+      "next_qualification": "Treasury same-idempotency receipt and replay tests, including success-before-response-loss."
+    },
+    {
+      "scenario_id": "EOP-011",
+      "scenario_domain": "retention",
+      "model_relation": "bounded_modelled",
+      "model_actions": [
+        "ExpireClientCache",
+        "ExactRetry"
+      ],
+      "model_invariants": [
+        "DurableOperationIdentity",
+        "ExpiredCacheDoesNotEraseOperation"
+      ],
+      "model_scope_limit": "Models client cache expiry while the operation tombstone persists; no actual long-retention storage or garbage-collection implementation.",
+      "next_qualification": "Persistence/recovery test across database retention and migration."
+    },
+    {
+      "scenario_id": "EOP-012",
+      "scenario_domain": "recovery",
+      "model_relation": "partially_modelled",
+      "model_actions": [
+        "ExpireClientCache",
+        "ExactRetry"
+      ],
+      "model_invariants": [
+        "DurableOperationIdentity"
+      ],
+      "model_scope_limit": "Models loss of volatile cache state and durable identity, but not a process/conductor restart, disk recovery or crash consistency.",
+      "next_qualification": "Restart a real Finance conductor after commit and reconcile the original ActionHashes."
+    },
+    {
+      "scenario_id": "EOP-013",
+      "scenario_domain": "dht",
+      "model_relation": "not_in_model",
+      "model_actions": [],
+      "model_invariants": [],
+      "model_scope_limit": "DHT partitions, gossip delay, stale remote views and authoritative owner-chain query availability are not represented.",
+      "next_qualification": "Multi-agent partition/gossip test; missing DHT links must yield Indeterminate."
+    },
+    {
+      "scenario_id": "EOP-014",
+      "scenario_domain": "fork",
+      "model_relation": "partially_modelled",
+      "model_actions": [
+        "ObserveChainHeadMoved",
+        "ObserveRecipientFork"
+      ],
+      "model_invariants": [
+        "ChainHeadRaceDoesNotDuplicateEffect",
+        "RecipientForkFreezesSpendability"
+      ],
+      "model_scope_limit": "Models chain-head movement and a recipient fork freeze separately; does not model source-chain fork recovery, restored clones or competing authoritative payer histories.",
+      "next_qualification": "Real fork/restore/recovery test with owner-authority resolution and branch evidence."
+    },
+    {
+      "scenario_id": "EOP-015",
+      "scenario_domain": "conservation",
+      "model_relation": "not_in_model",
+      "model_actions": [],
+      "model_invariants": [],
+      "model_scope_limit": "Actual integer values, fee arithmetic, overflow, asset denomination and conservation sums are outside the state-count model.",
+      "next_qualification": "FIN-SAFE property tests and checked-integer arithmetic proof over principal, fee, liability and credit."
+    },
+    {
+      "scenario_id": "EOP-016",
+      "scenario_domain": "projection",
+      "model_relation": "partially_modelled",
+      "model_actions": [],
+      "model_invariants": [
+        "RecipientClaimMatchesProjection"
+      ],
+      "model_scope_limit": "Models projection cardinalities in the state, but no replay/rebuild worker or duplicate projection event is represented.",
+      "next_qualification": "Independent projection reducer replay and idempotent projector tests over repeated event histories."
+    },
+    {
+      "scenario_id": "EOP-017",
+      "scenario_domain": "authority",
+      "model_relation": "not_in_model",
+      "model_actions": [],
+      "model_invariants": [],
+      "model_scope_limit": "Authenticated agent key, author-to-DID mapping and recipient-author verification are not modeled as state variables.",
+      "next_qualification": "Integrity-layer author-binding and owner-capability tests with alternate-key negative controls."
+    },
+    {
+      "scenario_id": "EOP-018",
+      "scenario_domain": "completion_semantics",
+      "model_relation": "not_in_model",
+      "model_actions": [],
+      "model_invariants": [],
+      "model_scope_limit": "No external rail, reserve/custody, legal acceptance or physical delivery state is represented.",
+      "next_qualification": "External evidence adapter and finality-boundary tests; internal SAP events must never imply external finality."
+    },
+    {
+      "scenario_id": "EOP-019",
+      "scenario_domain": "outbox_recovery",
+      "model_relation": "bounded_modelled",
+      "model_actions": [
+        "LosePostCommitWakeup",
+        "ScanDurableOutbox"
+      ],
+      "model_invariants": [
+        "OutboxRemainsDurableAcrossLostWakeup"
+      ],
+      "model_scope_limit": "Models loss of a post_commit wake-up and rediscovery of a durable outbox item; no real scanner, scheduling or persistence implementation is executed.",
+      "next_qualification": "Restart-safe outbox dispatcher integration test with duplicate dispatch and exact Treasury receipt."
+    },
+    {
+      "scenario_id": "EOP-020",
+      "scenario_domain": "source_chain_concurrency",
+      "model_relation": "partially_modelled",
+      "model_actions": [
+        "ObserveChainHeadMoved",
+        "ExactRetry"
+      ],
+      "model_invariants": [
+        "ChainHeadRaceDoesNotDuplicateEffect"
+      ],
+      "model_scope_limit": "Models chain-head movement count and retry preserving effect counts, but not a real concurrent invocation schedule or actual record re-read.",
+      "next_qualification": "Concurrent Holochain source-chain test and history-based linearizability checker."
+    },
+    {
+      "scenario_id": "EOP-021",
+      "scenario_domain": "recipient_claim_recovery",
+      "model_relation": "bounded_modelled",
+      "model_actions": [
+        "CommitRecipientClaimLoseResponse",
+        "ReconcileRecipientClaim"
+      ],
+      "model_invariants": [
+        "SettledRequiresBothOwnerLegs",
+        "NoObservedClaimWithoutBothLegs"
+      ],
+      "model_scope_limit": "Models recipient claim/credit commit followed by response loss and later observation; ActionHash authentication and durable DHT resolution are abstracted.",
+      "next_qualification": "Beneficiary-authored claim Sweettest with lost response and exact ActionHash reconciliation."
+    },
+    {
+      "scenario_id": "EOP-022",
+      "scenario_domain": "recipient_fork_conflict",
+      "model_relation": "bounded_modelled",
+      "model_actions": [
+        "ObserveRecipientFork"
+      ],
+      "model_invariants": [
+        "RecipientForkFreezesSpendability",
+        "NoSpendableCreditOnFork",
+        "NoPrematureSettlement"
+      ],
+      "model_scope_limit": "Models a competing recipient successor causing Conflicted and non-spendability; it abstracts actual sibling source chains and conflict-resolution evidence.",
+      "next_qualification": "Tryorama/Sweettest with two signed recipient successors from one predecessor and recovery/freeze assertions."
+    }
+  ]
+}
