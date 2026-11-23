@@ -9,7 +9,8 @@
     "end_epoch_seconds": 4600,
     "minimum_relevant_flux_mg_per_h": 0.2,
     "maximum_sample_interval_seconds": 300,
-    "minimum_coverage_fraction": 0.95
+    "minimum_coverage_fraction": 0.95,
+    "minimum_bound_confidence_level": 0.95
   },
   "registered_edge_ids": [
     "edge-active-tracer",
@@ -19,7 +20,8 @@
     "edge-model-only",
     "edge-conflict",
     "edge-wrong-event",
-    "edge-unregistered"
+    "edge-unregistered",
+    "edge-active-point-only"
   ],
   "evidence_records": [
     {
@@ -39,9 +41,12 @@
       "observed_start_epoch_seconds": 900,
       "observed_end_epoch_seconds": 4700,
       "sample_interval_seconds": 60,
-      "coverage_fraction": 1.0,
+      "coverage_fraction": 1,
       "measured_flux_mg_per_h": 0.8,
-      "upper_flux_bound_mg_per_h": null
+      "upper_flux_bound_mg_per_h": null,
+      "lower_flux_bound_mg_per_h": 0.5,
+      "lower_flux_bound_confidence_level": 0.95,
+      "upper_flux_bound_confidence_level": null
     },
     {
       "evidence_id": "ev-geometry-only",
@@ -60,9 +65,12 @@
       "observed_start_epoch_seconds": 900,
       "observed_end_epoch_seconds": 4700,
       "sample_interval_seconds": 60,
-      "coverage_fraction": 1.0,
+      "coverage_fraction": 1,
       "measured_flux_mg_per_h": null,
-      "upper_flux_bound_mg_per_h": null
+      "upper_flux_bound_mg_per_h": null,
+      "lower_flux_bound_mg_per_h": null,
+      "lower_flux_bound_confidence_level": null,
+      "upper_flux_bound_confidence_level": null
     },
     {
       "evidence_id": "ev-inactive-covered",
@@ -81,9 +89,12 @@
       "observed_start_epoch_seconds": 900,
       "observed_end_epoch_seconds": 4700,
       "sample_interval_seconds": 60,
-      "coverage_fraction": 1.0,
+      "coverage_fraction": 1,
       "measured_flux_mg_per_h": null,
-      "upper_flux_bound_mg_per_h": 0.01
+      "upper_flux_bound_mg_per_h": 0.01,
+      "lower_flux_bound_mg_per_h": null,
+      "lower_flux_bound_confidence_level": null,
+      "upper_flux_bound_confidence_level": 0.95
     },
     {
       "evidence_id": "ev-inactive-sparse",
@@ -104,7 +115,10 @@
       "sample_interval_seconds": 900,
       "coverage_fraction": 0.5,
       "measured_flux_mg_per_h": null,
-      "upper_flux_bound_mg_per_h": 0.01
+      "upper_flux_bound_mg_per_h": 0.01,
+      "lower_flux_bound_mg_per_h": null,
+      "lower_flux_bound_confidence_level": null,
+      "upper_flux_bound_confidence_level": 0.95
     },
     {
       "evidence_id": "ev-model-only",
@@ -123,9 +137,12 @@
       "observed_start_epoch_seconds": 900,
       "observed_end_epoch_seconds": 4700,
       "sample_interval_seconds": 60,
-      "coverage_fraction": 1.0,
+      "coverage_fraction": 1,
       "measured_flux_mg_per_h": 0.9,
-      "upper_flux_bound_mg_per_h": null
+      "upper_flux_bound_mg_per_h": null,
+      "lower_flux_bound_mg_per_h": 0.5,
+      "lower_flux_bound_confidence_level": 0.95,
+      "upper_flux_bound_confidence_level": null
     },
     {
       "evidence_id": "ev-conflict-active",
@@ -144,9 +161,12 @@
       "observed_start_epoch_seconds": 900,
       "observed_end_epoch_seconds": 4700,
       "sample_interval_seconds": 60,
-      "coverage_fraction": 1.0,
+      "coverage_fraction": 1,
       "measured_flux_mg_per_h": 0.7,
-      "upper_flux_bound_mg_per_h": null
+      "upper_flux_bound_mg_per_h": null,
+      "lower_flux_bound_mg_per_h": 0.5,
+      "lower_flux_bound_confidence_level": 0.95,
+      "upper_flux_bound_confidence_level": null
     },
     {
       "evidence_id": "ev-conflict-inactive",
@@ -165,9 +185,12 @@
       "observed_start_epoch_seconds": 900,
       "observed_end_epoch_seconds": 4700,
       "sample_interval_seconds": 60,
-      "coverage_fraction": 1.0,
+      "coverage_fraction": 1,
       "measured_flux_mg_per_h": null,
-      "upper_flux_bound_mg_per_h": 0.01
+      "upper_flux_bound_mg_per_h": 0.01,
+      "lower_flux_bound_mg_per_h": null,
+      "lower_flux_bound_confidence_level": null,
+      "upper_flux_bound_confidence_level": 0.95
     },
     {
       "evidence_id": "ev-wrong-event",
@@ -186,9 +209,12 @@
       "observed_start_epoch_seconds": 900,
       "observed_end_epoch_seconds": 4700,
       "sample_interval_seconds": 60,
-      "coverage_fraction": 1.0,
+      "coverage_fraction": 1,
       "measured_flux_mg_per_h": 0.8,
-      "upper_flux_bound_mg_per_h": null
+      "upper_flux_bound_mg_per_h": null,
+      "lower_flux_bound_mg_per_h": 0.5,
+      "lower_flux_bound_confidence_level": 0.95,
+      "upper_flux_bound_confidence_level": null
     },
     {
       "evidence_id": "ev-unregistered",
@@ -207,19 +233,102 @@
       "observed_start_epoch_seconds": 900,
       "observed_end_epoch_seconds": 4700,
       "sample_interval_seconds": 60,
-      "coverage_fraction": 1.0,
+      "coverage_fraction": 1,
       "measured_flux_mg_per_h": 0.8,
-      "upper_flux_bound_mg_per_h": null
+      "upper_flux_bound_mg_per_h": null,
+      "lower_flux_bound_mg_per_h": 0.5,
+      "lower_flux_bound_confidence_level": 0.95,
+      "upper_flux_bound_confidence_level": null
+    },
+    {
+      "evidence_id": "ev-active-point-only",
+      "edge_id": "edge-active-point-only",
+      "specimen_id": "synthetic-core-001",
+      "event_id": "synthetic-wetting-event-01",
+      "evidence_class": "direct_tracer_observation",
+      "source_artifact_uri": "urn:synthetic:activation-evidence/active-point-only",
+      "source_artifact_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "method_id": "synthetic-tracer-flux",
+      "method_version": "1",
+      "calibration_id": "synthetic-tracer-calibration-1",
+      "qc_status": "passed",
+      "support_kind": "registered_3d_edge",
+      "registration_status": "registered",
+      "observed_start_epoch_seconds": 900,
+      "observed_end_epoch_seconds": 4700,
+      "sample_interval_seconds": 60,
+      "coverage_fraction": 1,
+      "measured_flux_mg_per_h": 0.9,
+      "lower_flux_bound_mg_per_h": null,
+      "lower_flux_bound_confidence_level": null,
+      "upper_flux_bound_mg_per_h": null,
+      "upper_flux_bound_confidence_level": null
     }
   ],
   "assertions": [
-    { "edge_id": "edge-active-tracer", "asserted_state": "active", "evidence_ids": ["ev-active-tracer"] },
-    { "edge_id": "edge-geometry-only", "asserted_state": "active", "evidence_ids": ["ev-geometry-only"] },
-    { "edge_id": "edge-inactive-covered", "asserted_state": "inactive", "evidence_ids": ["ev-inactive-covered"] },
-    { "edge_id": "edge-inactive-sparse", "asserted_state": "inactive", "evidence_ids": ["ev-inactive-sparse"] },
-    { "edge_id": "edge-model-only", "asserted_state": "active", "evidence_ids": ["ev-model-only"] },
-    { "edge_id": "edge-conflict", "asserted_state": "active", "evidence_ids": ["ev-conflict-active", "ev-conflict-inactive"] },
-    { "edge_id": "edge-wrong-event", "asserted_state": "active", "evidence_ids": ["ev-wrong-event"] },
-    { "edge_id": "edge-unregistered", "asserted_state": "active", "evidence_ids": ["ev-unregistered"] }
+    {
+      "edge_id": "edge-active-tracer",
+      "asserted_state": "active",
+      "evidence_ids": [
+        "ev-active-tracer"
+      ]
+    },
+    {
+      "edge_id": "edge-geometry-only",
+      "asserted_state": "active",
+      "evidence_ids": [
+        "ev-geometry-only"
+      ]
+    },
+    {
+      "edge_id": "edge-inactive-covered",
+      "asserted_state": "inactive",
+      "evidence_ids": [
+        "ev-inactive-covered"
+      ]
+    },
+    {
+      "edge_id": "edge-inactive-sparse",
+      "asserted_state": "inactive",
+      "evidence_ids": [
+        "ev-inactive-sparse"
+      ]
+    },
+    {
+      "edge_id": "edge-model-only",
+      "asserted_state": "active",
+      "evidence_ids": [
+        "ev-model-only"
+      ]
+    },
+    {
+      "edge_id": "edge-conflict",
+      "asserted_state": "active",
+      "evidence_ids": [
+        "ev-conflict-active",
+        "ev-conflict-inactive"
+      ]
+    },
+    {
+      "edge_id": "edge-wrong-event",
+      "asserted_state": "active",
+      "evidence_ids": [
+        "ev-wrong-event"
+      ]
+    },
+    {
+      "edge_id": "edge-unregistered",
+      "asserted_state": "active",
+      "evidence_ids": [
+        "ev-unregistered"
+      ]
+    },
+    {
+      "edge_id": "edge-active-point-only",
+      "asserted_state": "active",
+      "evidence_ids": [
+        "ev-active-point-only"
+      ]
+    }
   ]
 }
