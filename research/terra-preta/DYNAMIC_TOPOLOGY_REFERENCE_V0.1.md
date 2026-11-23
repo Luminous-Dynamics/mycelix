@@ -79,3 +79,32 @@ All v0.1 values are synthetic. The reference tests graph algorithms and evidence
 - Zero false disconnections where an unassessed edge still permits a topological route.
 - Deterministic replay and stable input digest.
 - On real CT/tracer data, no physical claim until segmentation, event activation and independent transport observations are jointly qualified.
+
+## 2026 comparator landscape and benchmark discipline
+
+The new graph layer should be evaluated alongside—not conflated with—emerging process-connectivity methods:
+
+- **Temporal soil-moisture connectivity:** a 2026 headwater-catchment framework combines temporal similarity (including Dynamic Time Warping) with spatial distance to estimate hydrological process connectivity and compare it with structural connectivity (DOI [10.1029/2025WR042599](https://doi.org/10.1029/2025WR042599)). This is a relevant event/process-level comparator for sensor networks, not ground truth for pore-level graph topology.
+- **Spatial-attention time-series prediction:** a 2026 LSTM+attention study across 19 USCRN stations reports median Nash–Sutcliffe efficiencies of 0.91 at 50 cm and 0.93 at 100 cm, with dynamic attention changes during preferential-flow periods (DOI [10.1029/2025WR043099](https://doi.org/10.1029/2025WR043099)). Reproduce its observation task and grouped split where feasible. Predictive attention is a model diagnostic, not direct proof that a particular imaged pore carries water.
+- **Root-origin / 3D pore topology:** the 2026 root-channel review (DOI [10.1002/vzj2.70148](https://doi.org/10.1002/vzj2.70148)) identifies the evolving pathway network as central and emphasizes the limitations of dye/image evidence. The 330-study review (DOI [10.1016/j.earscirev.2026.105734](https://doi.org/10.1016/j.earscirev.2026.105734)) distinguishes multiple non-exclusive root-flow expressions. These justify an origin-aware, volumetric, time-dependent evaluation, not an assumption that our graph implementation already exceeds field SOTA.
+
+### Keep the leaderboard task-specific
+
+| Task | Strongest matched baselines | Primary score |
+|---|---|---|
+| 3D graph reconstruction | Known graph; PoreSpy/SNOW2 extraction; segmentation-threshold sweep | Edge precision/recall, component/cycle-rank error, percolating-component recovery |
+| Event activation | Static geometry; moisture-response SFSI/HCI; spatial-attention sequence model | Activation timing, connectivity calibration, unknown-state interval coverage |
+| Flow / tracer response | Richards single-domain; HYDRUS DualPerm; MACRO; qualified pore-network models | Arrival/peak/tail timing, breakthrough distribution, water/solute residual |
+| Decision support | Fixed cadence; expert schedule; random/stratified sampling; generic active sensing | Regret / missed-event loss at matched budget and decision-risk constraint |
+
+Only compare models on the same physical question, with matched boundary/initial conditions, constitutive inputs, observation support and evaluation groups. A model without support for a mechanism is **not applicable**, not a poor score and not silently approximated.
+
+### High-value target gates (targets, not results)
+
+- **Synthetic topology:** exact reconstruction of all manufactured components, cycles, terminal reachability and critical single elements; reject every 2D-only or unassessed-to-confirmed promotion.
+- **Empirical connectivity:** report a calibrated lower/upper connectivity envelope; target 90% nominal interval coverage in the 85–95% band on independent profile/site/event groups, with interval width and proper score included.
+- **Physical transport:** target at least 10% lower primary transport error and 20% lower P90/P95 breakthrough-tail error than the best valid matched baseline, with group-aware uncertainty excluding zero improvement and no material worst-domain degradation. Also require conservative mass closure within combined measurement/model uncertainty.
+- **Decision value:** compare expected loss and missed-event risk at the same total cost. Include sampling, travel, preparation, analysis, calibration/QC, repeats, instrument amortization, interpretation and turnaround. Report cost per correctly resolved decision—not cost per scan or R² alone.
+
+Do not pool pixel, edge, timepoint or subsample rows across train/test when they share a specimen, core, profile, site, plant, event or acquisition batch. Freeze a prequential forecast before the target observation is acquired. Reserve a truly independent site/event group for the final test. These controls are necessary for any SOTA claim.
+
