@@ -15,7 +15,8 @@
     "abstained_out_of_domain_count",
     "scored_group_count",
     "groups",
-    "interpretation_boundary"
+    "interpretation_boundary",
+    "abstained_unassessed_domain_count"
   ],
   "properties": {
     "report_version": {
@@ -172,6 +173,10 @@
     "interpretation_boundary": {
       "type": "string",
       "minLength": 1
+    },
+    "abstained_unassessed_domain_count": {
+      "type": "integer",
+      "minimum": 0
     }
   }
 }
