@@ -80,7 +80,7 @@ Membership alone does not establish contribution acceptance, pool ownership, wit
 
 ## 6. Benchmarks to beat — safety first
 
-The crosswalk retains 22 normative known-answer/adversarial scenarios. The next executable harness should report:
+The crosswalk retains 25 normative known-answer/adversarial scenarios. The next executable harness should report:
 
 - **Accounting:** zero unauthorized value, uncaused issuance, conservation mismatch, duplicate claim, reused input note or wrong-owner mutation.
 - **Idempotency:** 100 concurrent same-ID/same-payload attempts → at most one effect; 1,000 same-ID/changed-payload attempts → 100% conflicts; 10,000 duplicate outbox deliveries → at most one remote effect.
