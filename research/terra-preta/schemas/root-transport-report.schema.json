@@ -246,7 +246,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "3d_truth_support_required",
+        "three_d_truth_support_required",
         "projection_aliases_do_not_certify_3d_connectivity",
         "geometric_connectivity_separate_from_hydraulic_activation",
         "unassessed_activation_withholds_complete_flow_allocation",
@@ -255,9 +255,6 @@
         "no_empirical_solver_or_field_claim"
       ],
       "properties": {
-        "3d_truth_support_required": {
-          "const": true
-        },
         "projection_aliases_do_not_certify_3d_connectivity": {
           "const": true
         },
@@ -274,6 +271,9 @@
           "const": true
         },
         "no_empirical_solver_or_field_claim": {
+          "const": true
+        },
+        "three_d_truth_support_required": {
           "const": true
         }
       }
