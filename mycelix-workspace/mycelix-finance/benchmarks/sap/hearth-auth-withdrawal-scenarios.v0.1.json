@@ -206,10 +206,10 @@
     {
       "id": "HSA-020",
       "surface": "sap_withdrawal",
-      "stimulus": "Personal balance DID matches caller but signed record author is another agent",
+      "stimulus": "Latest personal SapBalance successor has caller DID but is signed by another agent; this may be a legitimate inbound transfer_sap credit or an unproven spoof",
       "expected": "reject",
       "writes": "no_writes",
-      "current_implementation": "code_path_added_multi_agent_spoof_test_required",
+      "current_implementation": "fail_closed_owner_author_check; may block valid incoming credit until typed cause/claim migration",
       "unit_covered": false,
       "host_qualification_required": true
     }
