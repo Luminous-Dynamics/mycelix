@@ -7,21 +7,19 @@
   "status": "repository_source_and_official_docs_audit_not_runtime_qualification",
   "mycelix_finance_pin": {
     "conductor": {
-      "version": "0.6.1",
-      "holonix_input_ref": "d21b3543",
-      "evidence_status": "repository_documented_pin",
-      "evidence": [
-        {
-          "path": "mycelix-workspace/CLAUDE.md",
-          "blob_sha": "049cd24eca7a740ee2ae92470d9a8478465ef0de",
-          "claim": "The project version table records conductor 0.6.1 via Holonix fixed commit d21b3543."
-        },
-        {
-          "path": "mycelix-finance/flake.nix",
-          "blob_sha": "08f0e5c8fea934ed51cf8b7a8434475b61e1799f",
-          "claim": "The standalone Finance flake pins the Holonix input to github:holochain/holonix/d21b3543."
-        }
-      ]
+      "documented_version_claim": "0.6.1",
+      "documentation_evidence": {
+        "path": "mycelix-workspace/CLAUDE.md",
+        "blob_sha": "049cd24eca7a740ee2ae92470d9a8478465ef0de",
+        "claim": "The workspace version table documents conductor 0.6.1."
+      },
+      "flake_declared_holonix_ref": "d21b3543",
+      "resolved_holonix_commit": "d21b35431e425e615bc05da790987380a84b8280",
+      "resolved_holochain_input_original_ref": "holochain-0.6.0",
+      "resolved_holochain_input_commit": "a6d4e805a0971ccbc0dcb3f3ed6a9e2fac980a3b",
+      "flake_lock_blob_sha": "d6c2d481ddb1d63f644b5ff4ac5fc8ca1e889220",
+      "evidence_status": "declared_vs_resolved_source_version_discrepancy_runtime_version_unverified",
+      "interpretation": "The documentation states 0.6.1, but the committed Finance flake.lock resolves the nested Holonix Holochain source input from ref holochain-0.6.0. The actual packaged conductor --version output has not been captured. Do not label the built runtime 0.6.1 or 0.6.0 until it is executed from the locked flake."
     },
     "cargo_compatibility": {
       "hdk": "=0.6.1",
@@ -58,7 +56,26 @@
       "shipped_default_enablement_proven": false,
       "multi_agent_session_test": false,
       "status": "unknown_for_exact_mycelix_0_6_1_runtime",
-      "note": "Official current docs describe countersigning as unstable and disabled by default on Holochain 0.4 and newer. The documentation does not prove whether this specific 0.6.1 conductor can be configured/enabled in the Mycelix deployment."
+      "note": "The exact conductor source is not yet established from the runtime output; the DNA manifest contains no explicit countersigning/witness enablement modifier. The official documentation describes countersigning as unstable and disabled by default in Holochain 0.4+. Treat exact Mycelix enablement as unknown."
+    },
+    "dna_manifest": {
+      "path": "mycelix-finance/dna/dna.yaml",
+      "blob_sha": "ff8e68c734ce4910b77bbf5e88b65d2d46d3f2e5",
+      "countersigning_or_witness_enablement_field_found": false,
+      "statement": "No countersigning or witness enablement field was found in the audited DNA integrity properties. This does not prove conductor-level countersigning cannot be enabled."
+    },
+    "dev_shell": {
+      "flake_path": "mycelix-finance/flake.nix",
+      "flake_blob_sha": "08f0e5c8fea934ed51cf8b7a8434475b61e1799f",
+      "base_module_path": "nix/modules/holochain-base.nix",
+      "base_module_blob_sha": "e9015df8f82520d8c3607026de126216412727b6",
+      "conductor_package_sources": [
+        "holochainPackages.holochain",
+        "holochainPackages.hc"
+      ],
+      "shell_reports_holochain_version": true,
+      "observed_holochain_version_output": null,
+      "status": "locked_package_inputs_known_binary_output_not_observed"
     }
   },
   "official_documentation": {
@@ -127,5 +144,5 @@
     "Prove source-chain head movement rolls back local multi-entry writes and that retry reconciliation retains original operation identity.",
     "Repeat the same fixture against matched 0.6.1, 0.6.3 and 0.7.1 stacks before any runtime migration decision."
   ],
-  "qualification_claim": "This artifact records repository pins and official documentation statements. It contains no runtime binary digest, no enabled-countersigning proof, no live fork-warrant test, and no conductor integration result. It is not runtime qualification."
+  "qualification_claim": "This artifact records repository pins and official documentation statements. The public source docs claim conductor 0.6.1, while Finance flake.lock resolves a nested Holochain source ref holochain-0.6.0; actual binary --version is not captured. It contains no runtime binary digest, no enabled-countersigning proof, no live fork-warrant test, and no conductor integration result. It is not runtime qualification."
 }
