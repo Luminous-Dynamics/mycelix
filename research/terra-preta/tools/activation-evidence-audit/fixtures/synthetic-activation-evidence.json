@@ -45,7 +45,10 @@
       "lower_rate_bound_value": 0.5,
       "upper_rate_bound_value": null,
       "lower_rate_bound_confidence_level": 0.95,
-      "upper_rate_bound_confidence_level": null
+      "upper_rate_bound_confidence_level": null,
+      "tracer_behavior": "conservative_qualified",
+      "tracer_qualification_id": "synthetic-tracer-conservativeness-protocol-v1",
+      "tracer_qualification_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
     },
     {
       "evidence_id": "ev-geometry-only",
@@ -76,7 +79,10 @@
       "lower_rate_bound_value": null,
       "upper_rate_bound_value": null,
       "lower_rate_bound_confidence_level": null,
-      "upper_rate_bound_confidence_level": null
+      "upper_rate_bound_confidence_level": null,
+      "tracer_behavior": "not_applicable",
+      "tracer_qualification_id": null,
+      "tracer_qualification_sha256": null
     },
     {
       "evidence_id": "ev-inactive-covered",
@@ -107,7 +113,10 @@
       "lower_rate_bound_value": null,
       "upper_rate_bound_value": 0.01,
       "lower_rate_bound_confidence_level": null,
-      "upper_rate_bound_confidence_level": 0.95
+      "upper_rate_bound_confidence_level": 0.95,
+      "tracer_behavior": "conservative_qualified",
+      "tracer_qualification_id": "synthetic-tracer-conservativeness-protocol-v1",
+      "tracer_qualification_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
     },
     {
       "evidence_id": "ev-inactive-sparse",
@@ -138,7 +147,10 @@
       "lower_rate_bound_value": null,
       "upper_rate_bound_value": 0.01,
       "lower_rate_bound_confidence_level": null,
-      "upper_rate_bound_confidence_level": 0.95
+      "upper_rate_bound_confidence_level": 0.95,
+      "tracer_behavior": "conservative_qualified",
+      "tracer_qualification_id": "synthetic-tracer-conservativeness-protocol-v1",
+      "tracer_qualification_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
     },
     {
       "evidence_id": "ev-model-only",
@@ -169,7 +181,10 @@
       "lower_rate_bound_value": 0.5,
       "upper_rate_bound_value": null,
       "lower_rate_bound_confidence_level": 0.95,
-      "upper_rate_bound_confidence_level": null
+      "upper_rate_bound_confidence_level": null,
+      "tracer_behavior": "not_applicable",
+      "tracer_qualification_id": null,
+      "tracer_qualification_sha256": null
     },
     {
       "evidence_id": "ev-conflict-active",
@@ -200,7 +215,10 @@
       "lower_rate_bound_value": 0.5,
       "upper_rate_bound_value": null,
       "lower_rate_bound_confidence_level": 0.95,
-      "upper_rate_bound_confidence_level": null
+      "upper_rate_bound_confidence_level": null,
+      "tracer_behavior": "not_applicable",
+      "tracer_qualification_id": null,
+      "tracer_qualification_sha256": null
     },
     {
       "evidence_id": "ev-conflict-inactive",
@@ -231,7 +249,10 @@
       "lower_rate_bound_value": null,
       "upper_rate_bound_value": 0.01,
       "lower_rate_bound_confidence_level": null,
-      "upper_rate_bound_confidence_level": 0.95
+      "upper_rate_bound_confidence_level": 0.95,
+      "tracer_behavior": "conservative_qualified",
+      "tracer_qualification_id": "synthetic-tracer-conservativeness-protocol-v1",
+      "tracer_qualification_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
     },
     {
       "evidence_id": "ev-wrong-event",
@@ -262,7 +283,10 @@
       "lower_rate_bound_value": 0.5,
       "upper_rate_bound_value": null,
       "lower_rate_bound_confidence_level": 0.95,
-      "upper_rate_bound_confidence_level": null
+      "upper_rate_bound_confidence_level": null,
+      "tracer_behavior": "not_applicable",
+      "tracer_qualification_id": null,
+      "tracer_qualification_sha256": null
     },
     {
       "evidence_id": "ev-unregistered",
@@ -293,7 +317,10 @@
       "lower_rate_bound_value": 0.5,
       "upper_rate_bound_value": null,
       "lower_rate_bound_confidence_level": 0.95,
-      "upper_rate_bound_confidence_level": null
+      "upper_rate_bound_confidence_level": null,
+      "tracer_behavior": "not_applicable",
+      "tracer_qualification_id": null,
+      "tracer_qualification_sha256": null
     },
     {
       "evidence_id": "ev-active-point-only",
@@ -324,7 +351,10 @@
       "lower_rate_bound_value": null,
       "upper_rate_bound_value": null,
       "lower_rate_bound_confidence_level": null,
-      "upper_rate_bound_confidence_level": null
+      "upper_rate_bound_confidence_level": null,
+      "tracer_behavior": "conservative_qualified",
+      "tracer_qualification_id": "synthetic-tracer-conservativeness-protocol-v1",
+      "tracer_qualification_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
     },
     {
       "evidence_id": "ev-boundary-tracer",
@@ -355,7 +385,10 @@
       "lower_rate_bound_value": 0.5,
       "upper_rate_bound_value": null,
       "lower_rate_bound_confidence_level": 0.95,
-      "upper_rate_bound_confidence_level": null
+      "upper_rate_bound_confidence_level": null,
+      "tracer_behavior": "unknown",
+      "tracer_qualification_id": null,
+      "tracer_qualification_sha256": null
     },
     {
       "evidence_id": "ev-high-registration-error",
@@ -386,7 +419,44 @@
       "lower_rate_bound_value": 0.5,
       "upper_rate_bound_value": null,
       "lower_rate_bound_confidence_level": 0.95,
-      "upper_rate_bound_confidence_level": null
+      "upper_rate_bound_confidence_level": null,
+      "tracer_behavior": "not_applicable",
+      "tracer_qualification_id": null,
+      "tracer_qualification_sha256": null
+    },
+    {
+      "evidence_id": "ev-sorptive-tracer-negative",
+      "edge_id": "edge-sorptive-tracer-negative",
+      "specimen_id": "synthetic-core-001",
+      "event_id": "synthetic-wetting-event-01",
+      "evidence_class": "direct_tracer_observation",
+      "source_artifact_uri": "urn:synthetic:activation-evidence/sorptive-tracer-negative",
+      "source_artifact_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+      "method_id": "synthetic-sorptive-dye-method",
+      "method_version": "1",
+      "calibration_id": "synthetic-tracer-calibration-1",
+      "qc_status": "passed",
+      "support_kind": "registered_3d_edge",
+      "registration_status": "registered",
+      "observed_start_epoch_seconds": 900,
+      "observed_end_epoch_seconds": 4700,
+      "sample_interval_seconds": 60,
+      "coverage_fraction": 1,
+      "spatial_support_id": "support-edge-sorptive-tracer-negative",
+      "registration_transform_id": "registration-edge-sorptive-tracer-negative",
+      "spatial_localization": "edge_resolved",
+      "registration_error_mm": 0.05,
+      "support_overlap_fraction": 0.99,
+      "rate_measurand": "tracer_mass_flux",
+      "rate_unit": "mg/h",
+      "measured_rate_value": null,
+      "lower_rate_bound_value": null,
+      "upper_rate_bound_value": 0.01,
+      "lower_rate_bound_confidence_level": null,
+      "upper_rate_bound_confidence_level": 0.95,
+      "tracer_behavior": "reactive_or_sorptive",
+      "tracer_qualification_id": null,
+      "tracer_qualification_sha256": null
     }
   ],
   "assertions": [
@@ -467,6 +537,13 @@
       "evidence_ids": [
         "ev-high-registration-error"
       ]
+    },
+    {
+      "edge_id": "edge-sorptive-tracer-negative",
+      "asserted_state": "inactive",
+      "evidence_ids": [
+        "ev-sorptive-tracer-negative"
+      ]
     }
   ],
   "registered_edges": [
@@ -513,6 +590,10 @@
     {
       "edge_id": "edge-high-registration-error",
       "spatial_support_id": "support-edge-high-registration-error"
+    },
+    {
+      "edge_id": "edge-sorptive-tracer-negative",
+      "spatial_support_id": "support-edge-sorptive-tracer-negative"
     }
   ]
 }
