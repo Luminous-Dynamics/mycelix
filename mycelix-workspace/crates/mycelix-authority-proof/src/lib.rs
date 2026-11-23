@@ -564,19 +564,19 @@ impl SignedAuthorityProofReceipt {
                 let expected_effect_id = target
                     .expected_effect_id
                     .ok_or_else(|| "WAL proof verification requires exact effect ID".to_owned())?;
-                let expected_attestation_id = target
-                    .expected_attestation_id
-                    .ok_or_else(|| "WAL proof verification requires exact execution attestation ID".to_owned())?;
-                let expected_marker_digest = target
-                    .expected_marker_digest
-                    .ok_or_else(|| "WAL proof verification requires exact transactional marker digest".to_owned())?;
-                let expected_transaction_id = target
-                    .expected_transaction_id
-                    .as_deref()
-                    .ok_or_else(|| "WAL proof verification requires exact PostgreSQL transaction ID".to_owned())?;
-                let expected_end_lsn = target
-                    .expected_transaction_end_lsn
-                    .ok_or_else(|| "WAL proof verification requires exact transaction end-LSN".to_owned())?;
+                let expected_attestation_id = target.expected_attestation_id.ok_or_else(|| {
+                    "WAL proof verification requires exact execution attestation ID".to_owned()
+                })?;
+                let expected_marker_digest = target.expected_marker_digest.ok_or_else(|| {
+                    "WAL proof verification requires exact transactional marker digest".to_owned()
+                })?;
+                let expected_transaction_id =
+                    target.expected_transaction_id.as_deref().ok_or_else(|| {
+                        "WAL proof verification requires exact PostgreSQL transaction ID".to_owned()
+                    })?;
+                let expected_end_lsn = target.expected_transaction_end_lsn.ok_or_else(|| {
+                    "WAL proof verification requires exact transaction end-LSN".to_owned()
+                })?;
                 if *effect_id != expected_effect_id
                     || *execution_attestation_id != expected_attestation_id
                     || *marker_digest != expected_marker_digest
