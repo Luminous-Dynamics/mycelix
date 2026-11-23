@@ -105,7 +105,7 @@ The current official Holochain developer documentation states:
 - countersigning is labelled unstable and disabled by default in Holochain 0.4 and newer;
 - countersigning synchronizes a shared write, requires all participants online for the session, and is explicitly not by itself a double-spend prevention mechanism.
 
-The current Finance workspace records conductor 0.6.1 via Holonix commit `d21b3543`, HDK 0.6.1 and HDI 0.7.1. Holochain's current compatibility matrix lists 0.6 as maintenance mode (0.6.3 latest compatible) and recommends 0.7.1 for general use. A runtime migration is not assumed here; it needs a matched build/DNA/conductor proof.
+The public version table documents a 0.6.1 conductor and the Finance flake declares Holonix ref `d21b3543`. However, the committed Finance `flake.lock` resolves Holonix commit `d21b35431e425e615bc05da790987380a84b8280` and its nested Holochain input from ref `holochain-0.6.0` at commit `a6d4e805a0971ccbc0dcb3f3ed6a9e2fac980a3b`. The actual binary `holochain --version` output has not been captured. The runtime matrix preserves this as a declared-vs-resolved-source discrepancy; it does not guess that the binary is 0.6.0 or 0.6.1. The DNA manifest also contains no explicit countersigning/witness enablement field. This absence does not prove conductor-level activation is impossible; exact runtime output and session tests remain required. HDK is pinned to 0.6.1 and HDI to 0.7.1. Holochain's compatibility matrix lists 0.6 as maintenance mode (0.6.3 latest compatible) and recommends 0.7.1 for general use. A runtime migration is not assumed here; it needs a matched build/DNA/conductor proof.
 
 This gap is tracked by [FIN-SAFE-021 / #6576](https://github.com/Luminous-Dynamics/mycelix/issues/6576). The witness and spendability roadmap is conditional on that exact-runtime qualification.
 
@@ -125,7 +125,7 @@ This is not a claim that countersigning cannot be enabled on the current conduct
 The companion `holochain-runtime-capability-matrix.v0.1.json` records the Finance source pins and the exact limits of the current official runtime documentation. It is deliberately labelled `repository_source_and_official_docs_audit_not_runtime_qualification`.
 
 It records:
-- repository-documented conductor 0.6.1 and Holonix ref `d21b3543`;
+- documented conductor claim 0.6.1, declared Holonix ref `d21b3543`, and resolved nested Holochain source ref `holochain-0.6.0`;
 - repository-documented HDK 0.6.1 / HDI 0.7.1 and matching Holochain type pins;
 - exact conductor binary, actual runtime feature enablement, DNA/WASM pack digests and live countersigning session tests as **not proven**;
 - chain-fork warrants as **not operational per current official docs**;
