@@ -790,12 +790,12 @@ fn validate_create_exchange(
             "Exchange ID exceeds maximum length".into(),
         ));
     }
-    if let Some(ref alias) = exchange.cultural_alias {
-        if alias.len() > MAX_CULTURAL_ALIAS_LEN {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Cultural alias exceeds maximum length".into(),
-            ));
-        }
+    if let Some(ref alias) = exchange.cultural_alias
+        && alias.len() > MAX_CULTURAL_ALIAS_LEN
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Cultural alias exceeds maximum length".into(),
+        ));
     }
 
     // Validate DIDs
@@ -871,26 +871,26 @@ fn validate_update_exchange(
     }
 
     // Enforce status transition rules and immutable field invariants
-    if let Ok(original_record) = must_get_valid_record(action.original_action_address) {
-        if let Ok(Some(original)) = original_record.entry().to_app_option::<TendExchange>() {
-            // Status transitions must follow the state machine
-            if original.status != exchange.status
-                && !original.status.can_transition_to(&exchange.status)
-            {
-                return Ok(ValidateCallbackResult::Invalid(format!(
-                    "Invalid exchange status transition: {:?} → {:?}",
-                    original.status, exchange.status
-                )));
-            }
-            // Core fields are immutable after creation
-            if original.provider_did != exchange.provider_did
-                || original.receiver_did != exchange.receiver_did
-                || original.hours != exchange.hours
-            {
-                return Ok(ValidateCallbackResult::Invalid(
-                    "Cannot change provider, receiver, or hours on an existing exchange".into(),
-                ));
-            }
+    if let Ok(original_record) = must_get_valid_record(action.original_action_address)
+        && let Ok(Some(original)) = original_record.entry().to_app_option::<TendExchange>()
+    {
+        // Status transitions must follow the state machine
+        if original.status != exchange.status
+            && !original.status.can_transition_to(&exchange.status)
+        {
+            return Ok(ValidateCallbackResult::Invalid(format!(
+                "Invalid exchange status transition: {:?} → {:?}",
+                original.status, exchange.status
+            )));
+        }
+        // Core fields are immutable after creation
+        if original.provider_did != exchange.provider_did
+            || original.receiver_did != exchange.receiver_did
+            || original.hours != exchange.hours
+        {
+            return Ok(ValidateCallbackResult::Invalid(
+                "Cannot change provider, receiver, or hours on an existing exchange".into(),
+            ));
         }
     }
 
@@ -996,12 +996,12 @@ fn validate_create_listing(
             "Description exceeds maximum length of 2000".into(),
         ));
     }
-    if let Some(ref avail) = listing.availability {
-        if avail.len() > MAX_AVAILABILITY_LEN {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Availability exceeds maximum length".into(),
-            ));
-        }
+    if let Some(ref avail) = listing.availability
+        && avail.len() > MAX_AVAILABILITY_LEN
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Availability exceeds maximum length".into(),
+        ));
     }
 
     if !listing.provider_did.starts_with("did:") {
@@ -1156,12 +1156,12 @@ fn validate_create_quality_rating(
     }
 
     // Comment length check (if provided)
-    if let Some(ref comment) = rating.comment {
-        if comment.len() > 2000 {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Comment too long (max 2000 chars)".into(),
-            ));
-        }
+    if let Some(ref comment) = rating.comment
+        && comment.len() > 2000
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Comment too long (max 2000 chars)".into(),
+        ));
     }
 
     Ok(ValidateCallbackResult::Valid)
@@ -1200,12 +1200,12 @@ fn validate_create_dispute_case(
             "ID exceeds maximum length".into(),
         ));
     }
-    if let Some(ref resolution) = dispute.resolution {
-        if resolution.len() > MAX_RESOLUTION_LEN {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Resolution exceeds maximum length".into(),
-            ));
-        }
+    if let Some(ref resolution) = dispute.resolution
+        && resolution.len() > MAX_RESOLUTION_LEN
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Resolution exceeds maximum length".into(),
+        ));
     }
     for mediator_did in &dispute.mediator_dids {
         if mediator_did.len() > MAX_DID_LEN {
@@ -1430,19 +1430,19 @@ fn validate_create_currency_alias(
             MAX_CULTURAL_ALIAS_LEN
         )));
     }
-    if let Some(ref sym) = alias.display_symbol {
-        if sym.len() > 6 {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Display symbol must be 1-6 characters".into(),
-            ));
-        }
+    if let Some(ref sym) = alias.display_symbol
+        && sym.len() > 6
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Display symbol must be 1-6 characters".into(),
+        ));
     }
-    if let Some(ref desc) = alias.description {
-        if desc.len() > MAX_DESCRIPTION_LEN {
-            return Ok(ValidateCallbackResult::Invalid(
-                "Description exceeds maximum length".into(),
-            ));
-        }
+    if let Some(ref desc) = alias.description
+        && desc.len() > MAX_DESCRIPTION_LEN
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Description exceeds maximum length".into(),
+        ));
     }
     Ok(ValidateCallbackResult::Valid)
 }
