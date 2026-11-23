@@ -166,7 +166,7 @@ ExpireClientCache ==
                  feeDeliveryCount, feeState, responseLost, responseReturned,
                  conflictObserved, tombstonePresent, retryCount>>
 
-UnsafeDebitBeforeBatch ==
+UnsafeDebitOutsideBatch ==
   /\ AllowUnsafeMutations = TRUE
   /\ opState = "Prepared"
   /\ debitCount = 0
@@ -199,7 +199,7 @@ Next ==
   \/ ReconcileFeeAsDelivered
   \/ DeliverFee
   \/ ExpireClientCache
-  \/ UnsafeDebitBeforeBatch
+  \/ UnsafeDebitOutsideBatch
   \/ UnsafeDuplicateDebit
 
 Spec == Init /\ [][Next]_vars
