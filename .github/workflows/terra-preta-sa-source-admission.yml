@@ -1,0 +1,64 @@
+name: Terra Preta South African soil-source admission schema
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/SA_SOIL_SOURCE_ADMISSION_V0.1.md'
+      - 'research/terra-preta/schemas/sa-soil-source-admission.schema.json'
+      - 'research/terra-preta/examples/sa-soil-source-admission/**'
+      - '.github/workflows/terra-preta-sa-source-admission.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-admission:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate synthetic source examples
+        run: |
+          for fixture in agis_map_inventory soils4africa_point_survey soils4africa_mir_estimates soter_pedotransfer; do
+            jsonschema-cli validate research/terra-preta/schemas/sa-soil-source-admission.schema.json \
+              --instance "research/terra-preta/examples/sa-soil-source-admission/$fixture.json" \
+              --draft 2020 --assert-format
+          done
+      - name: Reject semantic promotion and rights overreach
+        run: |
+          schema=research/terra-preta/schemas/sa-soil-source-admission.schema.json
+          base=research/terra-preta/examples/sa-soil-source-admission
+          jq '.variables[0].value_semantics = "directly_measured" | .variables[0].reference_method = "invented"' \
+            "$base/agis_map_inventory.json" > "$RUNNER_TEMP/map-as-measurement.json"
+          if jsonschema-cli validate "$schema" --instance "$RUNNER_TEMP/map-as-measurement.json" --draft 2020 --assert-format; then
+            echo "Map inventory was promoted to a direct measurement"
+            exit 1
+          fi
+          jq '.variables[0].value_semantics = "directly_measured" | .variables[0].reference_method = "invented"' \
+            "$base/soter_pedotransfer.json" > "$RUNNER_TEMP/ptf-as-measurement.json"
+          if jsonschema-cli validate "$schema" --instance "$RUNNER_TEMP/ptf-as-measurement.json" --draft 2020 --assert-format; then
+            echo "Pedotransfer value was promoted to a direct measurement"
+            exit 1
+          fi
+          jq '.intended_uses += ["public_redistribution"]' "$base/agis_map_inventory.json" > "$RUNNER_TEMP/pending-licence-redistribution.json"
+          if jsonschema-cli validate "$schema" --instance "$RUNNER_TEMP/pending-licence-redistribution.json" --draft 2020 --assert-format; then
+            echo "Public redistribution passed with pending rights"
+            exit 1
+          fi
+          jq '.artifact.acquisition_status = "sha256_verified" | .artifact.file_name = "file.bin" | .artifact.byte_size = 100' \
+            "$base/agis_map_inventory.json" > "$RUNNER_TEMP/missing-sha.json"
+          if jsonschema-cli validate "$schema" --instance "$RUNNER_TEMP/missing-sha.json" --draft 2020 --assert-format; then
+            echo "Verified artifact passed without SHA-256"
+            exit 1
+          fi
+          jq '.variables[0].model_training_lineage = []' \
+            "$base/soils4africa_mir_estimates.json" > "$RUNNER_TEMP/mir-no-lineage.json"
+          if jsonschema-cli validate "$schema" --instance "$RUNNER_TEMP/mir-no-lineage.json" --draft 2020 --assert-format; then
+            echo "Spectral prediction passed without model/training lineage"
+            exit 1
+          fi
