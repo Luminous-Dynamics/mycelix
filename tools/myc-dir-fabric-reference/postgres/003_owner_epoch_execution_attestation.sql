@@ -577,10 +577,7 @@ BEGIN
            OR v_attestation.payload_digest IS DISTINCT FROM p_payload_digest
            OR v_attestation.accepted_generation IS DISTINCT FROM v_existing_effect.accepted_generation
            OR v_attestation.owner_epoch > p_owner_epoch
-           OR (
-               v_attestation.owner_epoch = p_owner_epoch
-               AND v_attestation.accepted_generation > p_fence_generation
-           ) THEN
+           OR v_attestation.accepted_generation > p_fence_generation THEN
             RAISE EXCEPTION 'existing execution attestation differs from exact replay command or effect receipt'
                 USING ERRCODE = 'P0001';
         END IF;
@@ -649,10 +646,7 @@ BEGIN
         END IF;
 
         IF v_attestation.owner_epoch > p_owner_epoch
-           OR (
-               v_attestation.owner_epoch = p_owner_epoch
-               AND v_attestation.accepted_generation > p_fence_generation
-           ) THEN
+           OR v_attestation.accepted_generation > p_fence_generation THEN
             RAISE EXCEPTION 'existing effect position is newer than replay command position'
                 USING ERRCODE = 'P0001';
         END IF;
