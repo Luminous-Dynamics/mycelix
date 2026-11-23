@@ -104,6 +104,28 @@ jobs:
       - name: Rust formatting
         run: cargo fmt --manifest-path mycelix-finance/Cargo.toml --all -- --check
 
+      - name: Regenerate stale Finance workspace lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp mycelix-finance/Cargo.lock "$RUNNER_TEMP/Cargo.lock.before"
+          cargo generate-lockfile --manifest-path mycelix-finance/Cargo.toml
+          sha256sum mycelix-finance/Cargo.lock | tee "$RUNNER_TEMP/Cargo.lock.sha256"
+          diff -u "$RUNNER_TEMP/Cargo.lock.before" mycelix-finance/Cargo.lock > "$RUNNER_TEMP/Cargo.lock.diff" || true
+
+      - name: Upload generated Finance lockfile candidate
+        if: always() && hashFiles('mycelix-finance/Cargo.lock') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: finance-cargo-lockfile-candidate-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            mycelix-finance/Cargo.lock
+            ${{ runner.temp }}/Cargo.lock.before
+            ${{ runner.temp }}/Cargo.lock.diff
+            ${{ runner.temp }}/Cargo.lock.sha256
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Payments guard tests
         run: cargo test --manifest-path mycelix-finance/Cargo.toml -p payments --locked
 
@@ -123,6 +145,7 @@ jobs:
             echo "tend_blob=$(git rev-parse HEAD:mycelix-finance/zomes/tend/coordinator/src/lib.rs)"
             echo "scenario_corpus_sha256=$(sha256sum mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json | cut -d' ' -f1)"
             echo "scenario_schema_sha256=$(sha256sum mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json | cut -d' ' -f1)"
+            echo "finance_cargo_lock_sha256=$(sha256sum mycelix-finance/Cargo.lock | cut -d' ' -f1)"
             echo "payments_test_module=$(grep -c 'mod hearth_withdrawal_guard_tests' mycelix-finance/zomes/payments/coordinator/src/lib.rs)"
             echo "tend_test_module=$(grep -c 'mod hearth_membership_fail_closed_tests' mycelix-finance/zomes/tend/coordinator/src/lib.rs)"
           } | tee "$RUNNER_TEMP/hearth-qualification-manifest.txt"
