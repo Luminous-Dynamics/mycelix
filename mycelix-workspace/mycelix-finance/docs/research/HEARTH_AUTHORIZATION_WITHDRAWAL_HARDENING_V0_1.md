@@ -66,6 +66,7 @@ Still required:
 - A consume-once durable outbox for any separate-cell/remote effect; retries must reconcile against the original operation rather than mint a new effect.
 - Real Holochain Sweettests for absent member balance, membership bridge unavailable, malformed response, ambiguous pool roots, fork/head races, response loss and rollback after each write.
 - Review whether `contribute_to_hearth_pool` should be rebuilt with the same typed transfer/effect model. Its same-call writes are atomic, but it still lacks a typed monetary cause and full fork/operation identity.
+- **Compatibility restriction:** the current `transfer_sap` path calls `credit_sap` for the recipient from the sender's signed source-chain invocation. Consequently, a legitimate inbound transfer may leave the latest recipient balance update authored by the sender, not the recipient. This PR's owner-author check will reject that record on Hearth withdrawal until the recipient has a qualifying owner-authored balance successor or a typed incoming-transfer cause is implemented. This is deliberately fail-closed, but it can reduce withdrawal availability; do not release it without a migration/claim path and a multi-agent test proving valid incoming transfers remain redeemable.
 
 Unknown, stale or incomplete observations must produce an explicit indeterminate/reconciliation state, never be interpreted as absence, permission or settlement.
 
