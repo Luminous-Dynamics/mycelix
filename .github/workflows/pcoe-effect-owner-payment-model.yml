@@ -16,6 +16,7 @@ on:
       - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation/**"
       - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-contract.v0.1.md"
       - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-scenarios.v0.1.json"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-scenarios.v0.1.schema.json"
   workflow_dispatch:
 
 permissions:
@@ -72,20 +73,24 @@ jobs:
           set -euo pipefail
           corpus="mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-scenarios.v0.1.json"
           jq -e '
-            .version == "0.1" and
-            .scenario_count == 22 and
-            (.scenarios | length) == 22 and
-            ([.scenarios[].id] | unique | length) == 22 and
-            ([.scenarios[].id] | all(.[]; test("^EOP-[0-9]{3}$"))) and
-            (.scenarios | all(.[];
-              (.id | length > 0) and
-              (.domain | length > 0) and
-              (.threat | length > 0) and
-              (.preconditions | length > 0) and
-              (.adversarial_mutation | length > 0) and
-              (.required_control | length > 0) and
-              (.expected_disposition as $d | (.disposition_vocabulary | index($d)) != null)
-            ))
+            .disposition_vocabulary as $vocabulary
+            | .scenarios as $scenarios
+            | (
+                .benchmark == "PCOE Effect-Owner Payment Execution and Recovery" and
+                .version == "0.1" and
+                .scenario_count == 22 and
+                ($scenarios | length) == 22 and
+                ([$scenarios[].id] | unique | length) == 22 and
+                all($scenarios[];
+                  (.id | type == "string" and length > 0 and test("^EOP-[0-9]{3}$")) and
+                  (.domain | type == "string" and length > 0) and
+                  (.threat | type == "string" and length > 0) and
+                  (.preconditions | type == "string" and length > 0) and
+                  (.adversarial_mutation | type == "string" and length > 0) and
+                  (.required_control | type == "string" and length > 0) and
+                  (.expected_disposition as $d | ($vocabulary | index($d)) != null)
+                )
+              )
           ' "$corpus" >/dev/null
           echo "22 unique scenarios, required fields and disposition vocabulary validated."
 
