@@ -1,6 +1,6 @@
-# PCOE effect-owner payment model
+# PCOE two-owner payment model
 
-This directory contains a bounded TLA+ state model for the effect-owner payment contract.
+This directory contains a bounded TLA+ model for an owner-authenticated, two-sided SAP transfer protocol. The payer's intent/debit, the beneficiary's claim/credit, and Treasury fee delivery are independent effects with distinct source-chain owners.
 
 ## Pinned model checker
 
@@ -10,7 +10,7 @@ The reproducible workflow pins the stable TLA+ tools release **v1.7.4** and veri
 bee4a54f3ee3d4afc347c3240ec2d9e93b075104  tla2tools.jar
 ```
 
-TLA+ v1.8.0 was visible as a pre-release on the 23 November 2026 snapshot, so the workflow uses the stable v1.7.4 release rather than a moving pre-release. The tools require Java 11 or newer; CI uses Temurin 17.
+TLA+ v1.8.0 was visible as a pre-release on the 23 November 2026 snapshot, so the workflow uses stable v1.7.4 rather than a moving pre-release. CI uses Temurin 17.
 
 ## Run both models
 
@@ -21,24 +21,22 @@ java -jar ./tla2tools.jar -config PCOEEffectOwnerPayment.cfg PCOEEffectOwnerPaym
 java -jar ./tla2tools.jar -config PCOEEffectOwnerPayment-mutant.cfg PCOEEffectOwnerPayment.tla
 ```
 
-The first run must complete without an invariant violation. The second is an intentional negative control and must fail specifically on `NoPartialLocalValueEffect`, because it enables either a debit that commits outside the same-source-chain atomic batch or a duplicate debit after commit.
+The safe model must complete without an invariant violation. The mutant is a deliberate negative control and must fail specifically on `SenderIntentDebitAtomicity`: it permits a debit to commit without the payer's immutable transfer intent, or permits a second debit after the same operation was committed. This is a hypothetical unsafe split-write implementation, not a claim that same-source-chain Holochain writes can commit independently.
 
-The state space is finite: retries, durable-outbox scans, chain-head race observations and unsafe debit mutations are bounded, operation / fee / response / wake-up states are finite, and the safe model disables the mutant actions.
+The state space is finite: retries, durable-outbox scans, chain-head race observations, recipient-fork observations and unsafe debit mutations are bounded. The model includes:
+
+- sender-owned transfer intent + debit + fee liability / outbox committed on the payer's source chain;
+- a separately authored beneficiary claim + credit on the recipient's source chain;
+- sender and recipient response-loss / reconciliation states;
+- `Settled` only after an exact recipient claim is observed;
+- competing recipient successors causing `Conflicted` / frozen spendability rather than last-write-wins;
+- same-key retry after a Holochain `chain head moved` response;
+- durable Treasury outbox recovery after a lost `post_commit` wake-up;
+- a Treasury-owned idempotent effect and receipt;
+- durable operation tombstone after client cache expiry.
 
 ## What the model does and does not prove
 
-The model checks the abstract safety contract:
-- at most one claim and journal batch;
-- payer debit, beneficiary credit and fee liability appear together;
-- Payment / Receipt / outbox projections match the journal batch;
-- a committed operation corresponds to a complete batch;
-- response delivery cannot precede commit;
-- an unknown fee outcome is reconciled through its original outbox identity;
-- a lost post-commit wake-up does not erase a Pending outbox item; a bounded durable scanner can rediscover it and restore the dispatch signal;
-- a Holochain `chain head moved` concurrency loser queries / retries the same operation identity and cannot create a second effect;
-- a Holochain `chain head moved` concurrency loser refreshes state and resolves / retries the same operation identity without creating another effect;
-- expiration of a client cache does not erase the durable operation tombstone.
+The model checks the abstract safety contract across bounded state space. It does **not** prove the live Holochain implementation satisfies the model, global uniqueness across alternate agent keys / clones / forks, or bank / payment-rail finality. Those require real-agent Tryorama / Sweettests, authority and fork-resolution proofs, Treasury adapter qualification and independent external evidence.
 
-It does **not** prove that the live Holochain implementation satisfies the model, that a source-chain identity is globally unique across agents or forks, or that Treasury / external rails have the required idempotency. Those require real-agent tests and effect-owner adapter evidence.
-
-**Status as of 23 November 2026:** source-authored and statically reviewed; TLC has not yet been run in this authoring environment. The focused GitHub Actions workflow is the first reproducible TLC qualification attempt. Do not report a model-check pass until the safe configuration completes and the mutant produces the expected counterexample.
+**Status as of 23 November 2026:** authored and statically audited; this two-owner revision has not yet been TLC-checked. Prior TLC results on the earlier single-batch model are superseded. The pinned GitHub Actions workflow must pass on the exact PR head, with the safe model complete and the unsafe mutant detected, before this revision can claim a model-check pass.
