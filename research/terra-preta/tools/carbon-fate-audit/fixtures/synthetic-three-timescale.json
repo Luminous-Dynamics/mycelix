@@ -1,0 +1,492 @@
+{
+  "schema_version": "carbon-fate-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "scenario_id": "three-timescale-rewetting-known-truth",
+  "observations": [
+    {
+      "observation_id": "total_soc_stock-t0",
+      "stream": "total_soc_stock",
+      "time_days": 0,
+      "value": 40,
+      "unit": "Mg C ha-1",
+      "measurement_method": "synthetic_reference_operator_v1",
+      "evaluation_group": "synthetic-heldout-site",
+      "standard_uncertainty": 0.1
+    },
+    {
+      "observation_id": "total_soc_stock-t30",
+      "stream": "total_soc_stock",
+      "time_days": 30,
+      "value": 42.5,
+      "unit": "Mg C ha-1",
+      "measurement_method": "synthetic_reference_operator_v1",
+      "evaluation_group": "synthetic-heldout-site",
+      "standard_uncertainty": 0.1
+    },
+    {
+      "observation_id": "poc_stock-t0",
+      "stream": "poc_stock",
+      "time_days": 0,
+      "value": 5.2,
+      "unit": "Mg C ha-1",
+      "measurement_method": "synthetic_reference_operator_v1",
+      "evaluation_group": "synthetic-heldout-site",
+      "standard_uncertainty": 0.1
+    },
+    {
+      "observation_id": "poc_stock-t30",
+      "stream": "poc_stock",
+      "time_days": 30,
+      "value": 7.1,
+      "unit": "Mg C ha-1",
+      "measurement_method": "synthetic_reference_operator_v1",
+      "evaluation_group": "synthetic-heldout-site",
+      "standard_uncertainty": 0.1
+    },
+    {
+      "observation_id": "maoc_stock-t0",
+      "stream": "maoc_stock",
+      "time_days": 0,
+      "value": 28,
+      "unit": "Mg C ha-1",
+      "measurement_method": "synthetic_reference_operator_v1",
+      "evaluation_group": "synthetic-heldout-site",
+      "standard_uncertainty": 0.1
+    },
+    {
+      "observation_id": "maoc_stock-t30",
+      "stream": "maoc_stock",
+      "time_days": 30,
+      "value": 28.4,
+      "unit": "Mg C ha-1",
+      "measurement_method": "synthetic_reference_operator_v1",
+      "evaluation_group": "synthetic-heldout-site",
+      "standard_uncertainty": 0.1
+    },
+    {
+      "observation_id": "respiration_flux-t0",
+      "stream": "respiration_flux",
+      "time_days": 0,
+      "value": 2.1,
+      "unit": "mg C m-2 h-1",
+      "measurement_method": "synthetic_reference_operator_v1",
+      "evaluation_group": "synthetic-heldout-site",
+      "standard_uncertainty": 0.1
+    },
+    {
+      "observation_id": "respiration_flux-t30",
+      "stream": "respiration_flux",
+      "time_days": 30,
+      "value": 6.8,
+      "unit": "mg C m-2 h-1",
+      "measurement_method": "synthetic_reference_operator_v1",
+      "evaluation_group": "synthetic-heldout-site",
+      "standard_uncertainty": 0.1
+    },
+    {
+      "observation_id": "system_age-t0",
+      "stream": "system_age",
+      "time_days": 0,
+      "value": 850,
+      "unit": "years",
+      "measurement_method": "synthetic_reference_operator_v1",
+      "evaluation_group": "synthetic-heldout-site",
+      "standard_uncertainty": 0.1
+    },
+    {
+      "observation_id": "system_age-t30",
+      "stream": "system_age",
+      "time_days": 30,
+      "value": 820,
+      "unit": "years",
+      "measurement_method": "synthetic_reference_operator_v1",
+      "evaluation_group": "synthetic-heldout-site",
+      "standard_uncertainty": 0.1
+    },
+    {
+      "observation_id": "respired_co2_transit_time-t0",
+      "stream": "respired_co2_transit_time",
+      "time_days": 0,
+      "value": 45,
+      "unit": "years",
+      "measurement_method": "synthetic_reference_operator_v1",
+      "evaluation_group": "synthetic-heldout-site",
+      "standard_uncertainty": 0.1
+    },
+    {
+      "observation_id": "respired_co2_transit_time-t30",
+      "stream": "respired_co2_transit_time",
+      "time_days": 30,
+      "value": 28,
+      "unit": "years",
+      "measurement_method": "synthetic_reference_operator_v1",
+      "evaluation_group": "synthetic-heldout-site",
+      "standard_uncertainty": 0.1
+    }
+  ],
+  "models": [
+    {
+      "model_id": "single-pool",
+      "family": "single_pool",
+      "training_groups": [
+        "synthetic-training-sites"
+      ]
+    },
+    {
+      "model_id": "two-pool",
+      "family": "two_pool",
+      "training_groups": [
+        "synthetic-training-sites"
+      ]
+    },
+    {
+      "model_id": "three-pool",
+      "family": "three_pool",
+      "training_groups": [
+        "synthetic-training-sites"
+      ]
+    }
+  ],
+  "predictions": [
+    {
+      "model_id": "single-pool",
+      "observation_id": "total_soc_stock-t0",
+      "status": "scored",
+      "mean": 42,
+      "lower_90": 41,
+      "upper_90": 43
+    },
+    {
+      "model_id": "single-pool",
+      "observation_id": "total_soc_stock-t30",
+      "status": "scored",
+      "mean": 40,
+      "lower_90": 39,
+      "upper_90": 41
+    },
+    {
+      "model_id": "single-pool",
+      "observation_id": "poc_stock-t0",
+      "status": "scored",
+      "mean": 5,
+      "lower_90": 4.5,
+      "upper_90": 5.5
+    },
+    {
+      "model_id": "single-pool",
+      "observation_id": "poc_stock-t30",
+      "status": "scored",
+      "mean": 5,
+      "lower_90": 4.5,
+      "upper_90": 5.5
+    },
+    {
+      "model_id": "single-pool",
+      "observation_id": "maoc_stock-t0",
+      "status": "scored",
+      "mean": 25,
+      "lower_90": 24.5,
+      "upper_90": 25.5
+    },
+    {
+      "model_id": "single-pool",
+      "observation_id": "maoc_stock-t30",
+      "status": "scored",
+      "mean": 25,
+      "lower_90": 24.5,
+      "upper_90": 25.5
+    },
+    {
+      "model_id": "single-pool",
+      "observation_id": "respiration_flux-t0",
+      "status": "scored",
+      "mean": 2,
+      "lower_90": 1.2,
+      "upper_90": 2.8
+    },
+    {
+      "model_id": "single-pool",
+      "observation_id": "respiration_flux-t30",
+      "status": "scored",
+      "mean": 2,
+      "lower_90": 1.2,
+      "upper_90": 2.8
+    },
+    {
+      "model_id": "single-pool",
+      "observation_id": "system_age-t0",
+      "status": "scored",
+      "mean": 500,
+      "lower_90": 450,
+      "upper_90": 550
+    },
+    {
+      "model_id": "single-pool",
+      "observation_id": "system_age-t30",
+      "status": "scored",
+      "mean": 500,
+      "lower_90": 450,
+      "upper_90": 550
+    },
+    {
+      "model_id": "single-pool",
+      "observation_id": "respired_co2_transit_time-t0",
+      "status": "scored",
+      "mean": 10,
+      "lower_90": 2,
+      "upper_90": 18
+    },
+    {
+      "model_id": "single-pool",
+      "observation_id": "respired_co2_transit_time-t30",
+      "status": "scored",
+      "mean": 10,
+      "lower_90": 2,
+      "upper_90": 18
+    },
+    {
+      "model_id": "two-pool",
+      "observation_id": "total_soc_stock-t0",
+      "status": "scored",
+      "mean": 40.2,
+      "lower_90": 39.2,
+      "upper_90": 41.2
+    },
+    {
+      "model_id": "two-pool",
+      "observation_id": "total_soc_stock-t30",
+      "status": "scored",
+      "mean": 42.6,
+      "lower_90": 41.6,
+      "upper_90": 43.6
+    },
+    {
+      "model_id": "two-pool",
+      "observation_id": "poc_stock-t0",
+      "status": "scored",
+      "mean": 5.6,
+      "lower_90": 5.1,
+      "upper_90": 6.1
+    },
+    {
+      "model_id": "two-pool",
+      "observation_id": "poc_stock-t30",
+      "status": "scored",
+      "mean": 6.8,
+      "lower_90": 6.3,
+      "upper_90": 7.3
+    },
+    {
+      "model_id": "two-pool",
+      "observation_id": "maoc_stock-t0",
+      "status": "scored",
+      "mean": 27.8,
+      "lower_90": 27.3,
+      "upper_90": 28.3
+    },
+    {
+      "model_id": "two-pool",
+      "observation_id": "maoc_stock-t30",
+      "status": "scored",
+      "mean": 28.6,
+      "lower_90": 28.1,
+      "upper_90": 29.1
+    },
+    {
+      "model_id": "two-pool",
+      "observation_id": "respiration_flux-t0",
+      "status": "scored",
+      "mean": 2.3,
+      "lower_90": 1.4999999999999998,
+      "upper_90": 3.0999999999999996
+    },
+    {
+      "model_id": "two-pool",
+      "observation_id": "respiration_flux-t30",
+      "status": "scored",
+      "mean": 3.5,
+      "lower_90": 2.7,
+      "upper_90": 4.3
+    },
+    {
+      "model_id": "two-pool",
+      "observation_id": "system_age-t0",
+      "status": "scored",
+      "mean": 860,
+      "lower_90": 810,
+      "upper_90": 910
+    },
+    {
+      "model_id": "two-pool",
+      "observation_id": "system_age-t30",
+      "status": "scored",
+      "mean": 960,
+      "lower_90": 910,
+      "upper_90": 1010
+    },
+    {
+      "model_id": "two-pool",
+      "observation_id": "respired_co2_transit_time-t0",
+      "status": "scored",
+      "mean": 47,
+      "lower_90": 39,
+      "upper_90": 55
+    },
+    {
+      "model_id": "two-pool",
+      "observation_id": "respired_co2_transit_time-t30",
+      "status": "scored",
+      "mean": 62,
+      "lower_90": 54,
+      "upper_90": 70
+    },
+    {
+      "model_id": "three-pool",
+      "observation_id": "total_soc_stock-t0",
+      "status": "scored",
+      "mean": 40.1,
+      "lower_90": 39.1,
+      "upper_90": 41.1
+    },
+    {
+      "model_id": "three-pool",
+      "observation_id": "total_soc_stock-t30",
+      "status": "scored",
+      "mean": 42.4,
+      "lower_90": 41.4,
+      "upper_90": 43.4
+    },
+    {
+      "model_id": "three-pool",
+      "observation_id": "poc_stock-t0",
+      "status": "scored",
+      "mean": 5.3,
+      "lower_90": 4.8,
+      "upper_90": 5.8
+    },
+    {
+      "model_id": "three-pool",
+      "observation_id": "poc_stock-t30",
+      "status": "scored",
+      "mean": 7,
+      "lower_90": 6.5,
+      "upper_90": 7.5
+    },
+    {
+      "model_id": "three-pool",
+      "observation_id": "maoc_stock-t0",
+      "status": "scored",
+      "mean": 28.1,
+      "lower_90": 27.6,
+      "upper_90": 28.6
+    },
+    {
+      "model_id": "three-pool",
+      "observation_id": "maoc_stock-t30",
+      "status": "scored",
+      "mean": 28.3,
+      "lower_90": 27.8,
+      "upper_90": 28.8
+    },
+    {
+      "model_id": "three-pool",
+      "observation_id": "respiration_flux-t0",
+      "status": "scored",
+      "mean": 2.2,
+      "lower_90": 1.4000000000000001,
+      "upper_90": 3
+    },
+    {
+      "model_id": "three-pool",
+      "observation_id": "respiration_flux-t30",
+      "status": "scored",
+      "mean": 6.6,
+      "lower_90": 5.8,
+      "upper_90": 7.3999999999999995
+    },
+    {
+      "model_id": "three-pool",
+      "observation_id": "system_age-t0",
+      "status": "scored",
+      "mean": 870,
+      "lower_90": 820,
+      "upper_90": 920
+    },
+    {
+      "model_id": "three-pool",
+      "observation_id": "system_age-t30",
+      "status": "scored",
+      "mean": 810,
+      "lower_90": 760,
+      "upper_90": 860
+    },
+    {
+      "model_id": "three-pool",
+      "observation_id": "respired_co2_transit_time-t0",
+      "status": "scored",
+      "mean": 47,
+      "lower_90": 39,
+      "upper_90": 55
+    },
+    {
+      "model_id": "three-pool",
+      "observation_id": "respired_co2_transit_time-t30",
+      "status": "scored",
+      "mean": 29,
+      "lower_90": 21,
+      "upper_90": 37
+    }
+  ],
+  "thresholds": [
+    {
+      "stream": "total_soc_stock",
+      "max_mae": 1,
+      "min_coverage_90": 0.5
+    },
+    {
+      "stream": "poc_stock",
+      "max_mae": 0.75,
+      "min_coverage_90": 0.5
+    },
+    {
+      "stream": "maoc_stock",
+      "max_mae": 0.75,
+      "min_coverage_90": 0.5
+    },
+    {
+      "stream": "respiration_flux",
+      "max_mae": 1,
+      "min_coverage_90": 0.5
+    },
+    {
+      "stream": "system_age",
+      "max_mae": 150,
+      "min_coverage_90": 0.5
+    },
+    {
+      "stream": "respired_co2_transit_time",
+      "max_mae": 12,
+      "min_coverage_90": 0.5
+    }
+  ],
+  "carbon_balance": {
+    "unit": "Mg C ha-1",
+    "initial_stock": 40,
+    "final_stock": 42.5,
+    "input_sources": [
+      {
+        "source_class": "plant",
+        "carbon_input": 3
+      },
+      {
+        "source_class": "pyrogenic",
+        "carbon_input": 1
+      }
+    ],
+    "respiration_export": 1,
+    "dissolved_export": 0.2,
+    "erosion_export": 0.1,
+    "harvest_export": 0.2,
+    "max_absolute_residual": 0.25
+  }
+}
