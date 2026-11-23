@@ -1,0 +1,287 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic soil event resilience audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "event_id",
+    "event_type",
+    "experimental_unit_id",
+    "response_variable",
+    "response_unit",
+    "response_measurement_method",
+    "response_support_description",
+    "forcing_variable",
+    "forcing_unit",
+    "analysis_status",
+    "phase_counts",
+    "baseline_mean",
+    "stress_peak_value",
+    "stress_peak_time_hours",
+    "stress_peak_departure",
+    "stress_peak_absolute_departure",
+    "recovery_mean",
+    "recovery_departure",
+    "recovery_fraction",
+    "recovery_time_from_stress_end_hours",
+    "recovery_time_status",
+    "pulse_burden_absolute_anomaly_unit_hours",
+    "pulse_burden_status",
+    "maximum_inter_observation_gap_hours",
+    "max_observed_gap_hours",
+    "uncertainty_status",
+    "controls",
+    "interpretation_boundary",
+    "pulse_burden_positive_anomaly_unit_hours",
+    "pulse_burden_negative_anomaly_unit_hours",
+    "pulse_burden_signed_anomaly_unit_hours",
+    "baseline_max_gap_hours",
+    "stress_max_gap_hours",
+    "recovery_max_gap_hours"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "event_id": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string"
+    },
+    "experimental_unit_id": {
+      "type": "string"
+    },
+    "response_variable": {
+      "type": "string"
+    },
+    "response_unit": {
+      "type": "string"
+    },
+    "response_measurement_method": {
+      "type": "string"
+    },
+    "response_support_description": {
+      "type": "string"
+    },
+    "forcing_variable": {
+      "type": "string"
+    },
+    "forcing_unit": {
+      "type": "string"
+    },
+    "analysis_status": {
+      "enum": [
+        "qualified_descriptive_event",
+        "insufficient_phase_coverage",
+        "sampling_gap_exceeded"
+      ]
+    },
+    "phase_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline",
+        "stress",
+        "recovery"
+      ],
+      "properties": {
+        "baseline": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stress": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recovery": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "baseline_mean": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "stress_peak_value": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "stress_peak_time_hours": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "stress_peak_departure": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "stress_peak_absolute_departure": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "recovery_mean": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "recovery_departure": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "recovery_fraction": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "recovery_time_from_stress_end_hours": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "recovery_time_status": {
+      "enum": [
+        "qualified_sustained_recovery",
+        "threshold_not_set",
+        "no_sustained_recovery_observed",
+        "zero_stress_departure",
+        "insufficient_phase_coverage",
+        "sampling_gap_exceeded"
+      ]
+    },
+    "pulse_burden_absolute_anomaly_unit_hours": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "pulse_burden_status": {
+      "enum": [
+        "qualified_complete_event_integral",
+        "missing_event_boundary",
+        "gap_exceeded",
+        "insufficient_phase_coverage",
+        "sampling_gap_exceeded"
+      ]
+    },
+    "maximum_inter_observation_gap_hours": {
+      "type": "number",
+      "minimum": 0
+    },
+    "max_observed_gap_hours": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "uncertainty_status": {
+      "const": "not_propagated_serial_covariance_unavailable"
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "same_experimental_unit_pass",
+        "strict_time_order_pass",
+        "phase_window_consistency_pass",
+        "no_gap_bridging_pass",
+        "no_causal_claim_pass",
+        "no_aggregate_resilience_score_pass"
+      ],
+      "properties": {
+        "same_experimental_unit_pass": {
+          "const": true
+        },
+        "strict_time_order_pass": {
+          "const": true
+        },
+        "phase_window_consistency_pass": {
+          "const": true
+        },
+        "no_gap_bridging_pass": {
+          "const": true
+        },
+        "no_causal_claim_pass": {
+          "const": true
+        },
+        "no_aggregate_resilience_score_pass": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pulse_burden_positive_anomaly_unit_hours": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "pulse_burden_negative_anomaly_unit_hours": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "pulse_burden_signed_anomaly_unit_hours": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "baseline_max_gap_hours": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "stress_max_gap_hours": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "recovery_max_gap_hours": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    }
+  }
+}

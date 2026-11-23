@@ -1,0 +1,150 @@
+{
+  "schema_version": "event-resilience-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "evidence_class": "synthetic",
+  "scenario_id": "synthetic-drought-rewetting-response-with-recovery",
+  "config": {
+    "maximum_inter_observation_gap_hours": 24,
+    "minimum_baseline_observations": 3,
+    "minimum_stress_observations": 3,
+    "minimum_recovery_observations": 3
+  },
+  "event": {
+    "event_id": "synthetic-event-001",
+    "event_type": "drought_rewetting",
+    "experimental_unit_id": "synthetic-plot-01",
+    "independence_group_id": "synthetic-field-block-A",
+    "baseline_start_hours": -24,
+    "event_start_hours": 0,
+    "stress_end_hours": 24,
+    "recovery_end_hours": 96
+  },
+  "response": {
+    "variable": "soil_respiration_rate",
+    "unit": "umol_CO2_m-2_s-1",
+    "measurement_method": "manufactured continuous chamber observation",
+    "support_description": "single synthetic plot support; not an independent field replicate"
+  },
+  "forcing": {
+    "variable": "volumetric_soil_water_content",
+    "unit": "m3_m-3",
+    "measurement_method": "manufactured soil-moisture sensor"
+  },
+  "recovery_tolerance": {
+    "status": "synthetic_fixture",
+    "absolute_deviation_tolerance": 0.8,
+    "required_consecutive_observations": 2
+  },
+  "observations": [
+    {
+      "observation_id": "obs-01",
+      "elapsed_hours": -24,
+      "phase": "baseline",
+      "experimental_unit_id": "synthetic-plot-01",
+      "response_value": 10,
+      "response_standard_error": 0.2,
+      "forcing_value": 0.22,
+      "forcing_standard_error": 0.01
+    },
+    {
+      "observation_id": "obs-02",
+      "elapsed_hours": -12,
+      "phase": "baseline",
+      "experimental_unit_id": "synthetic-plot-01",
+      "response_value": 10,
+      "response_standard_error": 0.2,
+      "forcing_value": 0.21,
+      "forcing_standard_error": 0.01
+    },
+    {
+      "observation_id": "obs-03",
+      "elapsed_hours": 0,
+      "phase": "baseline",
+      "experimental_unit_id": "synthetic-plot-01",
+      "response_value": 10,
+      "response_standard_error": 0.2,
+      "forcing_value": 0.12,
+      "forcing_standard_error": 0.01
+    },
+    {
+      "observation_id": "obs-04",
+      "elapsed_hours": 6,
+      "phase": "stress",
+      "experimental_unit_id": "synthetic-plot-01",
+      "response_value": 12,
+      "response_standard_error": 0.2,
+      "forcing_value": 0.08,
+      "forcing_standard_error": 0.01
+    },
+    {
+      "observation_id": "obs-05",
+      "elapsed_hours": 12,
+      "phase": "stress",
+      "experimental_unit_id": "synthetic-plot-01",
+      "response_value": 14,
+      "response_standard_error": 0.2,
+      "forcing_value": 0.06,
+      "forcing_standard_error": 0.01
+    },
+    {
+      "observation_id": "obs-06",
+      "elapsed_hours": 18,
+      "phase": "stress",
+      "experimental_unit_id": "synthetic-plot-01",
+      "response_value": 12,
+      "response_standard_error": 0.2,
+      "forcing_value": 0.09,
+      "forcing_standard_error": 0.01
+    },
+    {
+      "observation_id": "obs-07",
+      "elapsed_hours": 24,
+      "phase": "stress",
+      "experimental_unit_id": "synthetic-plot-01",
+      "response_value": 11,
+      "response_standard_error": 0.2,
+      "forcing_value": 0.14,
+      "forcing_standard_error": 0.01
+    },
+    {
+      "observation_id": "obs-08",
+      "elapsed_hours": 36,
+      "phase": "recovery",
+      "experimental_unit_id": "synthetic-plot-01",
+      "response_value": 11,
+      "response_standard_error": 0.2,
+      "forcing_value": 0.18,
+      "forcing_standard_error": 0.01
+    },
+    {
+      "observation_id": "obs-09",
+      "elapsed_hours": 48,
+      "phase": "recovery",
+      "experimental_unit_id": "synthetic-plot-01",
+      "response_value": 10.5,
+      "response_standard_error": 0.2,
+      "forcing_value": 0.2,
+      "forcing_standard_error": 0.01
+    },
+    {
+      "observation_id": "obs-10",
+      "elapsed_hours": 72,
+      "phase": "recovery",
+      "experimental_unit_id": "synthetic-plot-01",
+      "response_value": 10.2,
+      "response_standard_error": 0.2,
+      "forcing_value": 0.21,
+      "forcing_standard_error": 0.01
+    },
+    {
+      "observation_id": "obs-11",
+      "elapsed_hours": 96,
+      "phase": "recovery",
+      "experimental_unit_id": "synthetic-plot-01",
+      "response_value": 10,
+      "response_standard_error": 0.2,
+      "forcing_value": 0.22,
+      "forcing_standard_error": 0.01
+    }
+  ]
+}
