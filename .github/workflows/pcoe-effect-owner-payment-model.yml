@@ -32,7 +32,18 @@ jobs:
       - name: Checkout exact subject
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+
+      - name: Assert exact source commit
+        env:
+          EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SUBJECT_SHA"
+          echo "Exact source commit verified: $actual"
 
       - name: Set up Java
         uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00
@@ -94,6 +105,7 @@ jobs:
           spec_dir="$model_dir/specs/payment-operation"
           {
             echo "subject_commit=$(git rev-parse HEAD)"
+            echo "expected_subject_commit=$EXPECTED_SUBJECT_SHA"
             echo "tlc_release=v1.7.4"
             echo "tlc_jar_sha1=bee4a54f3ee3d4afc347c3240ec2d9e93b075104"
             echo "tla_sha256=$(sha256sum "$spec_dir/PCOEEffectOwnerPayment.tla" | cut -d' ' -f1)"
