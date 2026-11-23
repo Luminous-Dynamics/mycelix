@@ -9,6 +9,7 @@ A pore graph can be topologically correct while its active/inactive edge labels 
 - CT and segmentation can establish observed morphology under a stated resolution, field of view and support. They cannot alone establish hydraulic activation.
 - Tracer or hydraulic observations can support event-specific activation only when their spatial and temporal support maps to the registered graph edge and their calibration/QC is acceptable.
 - Sensor-derived estimates and model predictions remain derived evidence, not direct observations.
+- Tracer non-detection can support inactivity only when conservative tracer behavior is independently qualified with a hashed protocol/evidence artifact. Reactive/sorptive dyes or unknown tracer behavior cannot convert non-detection into proof of hydraulic inactivity.
 - A non-detection does not establish inactivity when sampling is too sparse, does not cover the event, or cannot exclude flow above a predeclared relevant threshold.
 - Conflicting qualified direct evidence yields abstention rather than a forced vote or silent averaging.
 
@@ -44,9 +45,10 @@ Eight edges cover:
 7. evidence from the wrong event;
 8. a core aggregate not registered to the specific 3D edge;
 9. a boundary-integrated outlet tracer response that cannot identify a single edge;
-10. a high-registration-error observation despite a nominal edge mapping.
+10. a high-registration-error observation despite a nominal edge mapping;
+11. a fully sampled negative result from a reactive/sorptive tracer without conservative-behavior qualification.
 
-Expected output: one confirmed-active, one confirmed-inactive and eight unassessed. The conflict control uses a direct water-volume observation and a direct tracer-mass observation; their numerical values are not compared, only whether each independently crosses its own predeclared threshold. All fixture artifacts and values are manufactured.
+Expected output: one confirmed-active, one confirmed-inactive and ten unassessed. The conflict control uses a direct water-volume observation and a direct tracer-mass observation; their numerical values are not compared, only whether each independently crosses its own predeclared threshold. All fixture artifacts and values are manufactured.
 
 ## Reproducibility and safety
 
