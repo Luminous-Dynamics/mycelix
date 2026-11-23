@@ -1,0 +1,69 @@
+name: Terra Preta prospective soil twin forecast verification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/PROSPECTIVE_SOIL_FORECAST_VERIFICATION_V0.1.md'
+      - 'research/terra-preta/schemas/prospective-soil-forecast-input.schema.json'
+      - 'research/terra-preta/schemas/prospective-soil-forecast-report.schema.json'
+      - 'research/terra-preta/tools/prospective-forecast-audit/**'
+      - '.github/workflows/terra-preta-prospective-forecast.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prospective-forecast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/prospective-forecast-audit/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path research/terra-preta/tools/prospective-forecast-audit/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/prospective-forecast-audit/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate forecast suite and report
+        run: |
+          jsonschema-cli validate research/terra-preta/schemas/prospective-soil-forecast-input.schema.json \
+            --instance research/terra-preta/tools/prospective-forecast-audit/fixtures/synthetic-prospective-forecasts.json \
+            --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/prospective-forecast-audit/Cargo.toml -- \
+            research/terra-preta/tools/prospective-forecast-audit/fixtures/synthetic-prospective-forecasts.json \
+            "$RUNNER_TEMP/prospective-forecast-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/prospective-soil-forecast-report.schema.json \
+            --instance "$RUNNER_TEMP/prospective-forecast-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .target_count == 4 and .forecast_count == 12 and
+            .scored_forecast_count == 11 and .abstained_out_of_domain_count == 1 and
+            (.groups[] | select(.model_role == "candidate") | .skill_vs_persistence_mae > 0) and
+            (.groups[] | select(.model_role == "candidate") | .skill_vs_climatology_mae > 0)
+          ' "$RUNNER_TEMP/prospective-forecast-report.json"
+      - name: Reject post-outcome forecast
+        run: |
+          fixture=research/terra-preta/tools/prospective-forecast-audit/fixtures/synthetic-prospective-forecasts.json
+          jq '.forecasts[0].issued_at = .targets[0].window_start' "$fixture" > "$RUNNER_TEMP/post-outcome.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/prospective-forecast-audit/Cargo.toml -- \
+            "$RUNNER_TEMP/post-outcome.json" "$RUNNER_TEMP/post-outcome-report.json"; then
+            echo "Expected post-outcome forecast rejection"
+            exit 1
+          fi
+      - name: Reject output overwrite
+        run: |
+          fixture=research/terra-preta/tools/prospective-forecast-audit/fixtures/synthetic-prospective-forecasts.json
+          report="$RUNNER_TEMP/existing-prospective-report.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/prospective-forecast-audit/Cargo.toml -- "$fixture" "$report"; then
+            echo "Expected output overwrite rejection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"

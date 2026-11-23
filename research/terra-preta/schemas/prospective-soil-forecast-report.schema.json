@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic prospective soil forecast verification report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_version",
+    "fixture_status",
+    "suite_id",
+    "input_sha256",
+    "target_count",
+    "forecast_count",
+    "issued_forecast_count",
+    "scored_forecast_count",
+    "abstained_out_of_domain_count",
+    "scored_group_count",
+    "groups",
+    "interpretation_boundary",
+    "abstained_unassessed_domain_count"
+  ],
+  "properties": {
+    "report_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "suite_id": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "target_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "forecast_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "issued_forecast_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "scored_forecast_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "abstained_out_of_domain_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "scored_group_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "groups": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_id",
+          "model_role",
+          "forecast_count",
+          "scored_count",
+          "abstained_count",
+          "mae",
+          "rmse",
+          "bias",
+          "crps_normal",
+          "interval_coverage",
+          "mean_interval_width",
+          "winkler_interval_score",
+          "matched_target_count",
+          "skill_vs_persistence_mae",
+          "skill_vs_climatology_mae"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string"
+          },
+          "model_role": {
+            "enum": [
+              "candidate",
+              "persistence_baseline",
+              "climatology_baseline"
+            ]
+          },
+          "forecast_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "scored_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "abstained_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mae": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "rmse": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "bias": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "crps_normal": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "interval_coverage": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "mean_interval_width": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "winkler_interval_score": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "matched_target_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "skill_vs_persistence_mae": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "skill_vs_climatology_mae": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "abstained_unassessed_domain_count": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
