@@ -24,10 +24,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - name: Render formatter output for source recovery
-        run: |
-          cargo fmt --manifest-path research/terra-preta/tools/dynamic-topology-reference/Cargo.toml
-          echo "FORMATTED_MAIN_BASE64=$(base64 -w0 research/terra-preta/tools/dynamic-topology-reference/src/main.rs)"
       - name: Check formatting
         run: cargo fmt --manifest-path research/terra-preta/tools/dynamic-topology-reference/Cargo.toml -- --check
       - name: Tests
