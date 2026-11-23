@@ -599,8 +599,9 @@ BEGIN
             RAISE EXCEPTION 'per-resource authority lease state is ahead of supplied lease generation'
                 USING ERRCODE = 'P0001';
         END IF;
-        IF v_state_owner_epoch > p_resource_owner_epoch THEN
-            RAISE EXCEPTION 'authority lease attempts to roll back the resource owner epoch'
+        IF v_state_owner_epoch > p_resource_owner_epoch
+           OR v_state_resource_generation > p_resource_generation THEN
+            RAISE EXCEPTION 'authority lease attempts to roll back a resource owner epoch or generation coordinate'
                 USING ERRCODE = 'P0001';
         END IF;
         IF v_state_owner_epoch = p_resource_owner_epoch
