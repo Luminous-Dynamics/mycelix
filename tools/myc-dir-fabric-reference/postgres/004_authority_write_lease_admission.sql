@@ -789,6 +789,8 @@ DECLARE
     v_generation BIGINT;
     v_lease myc_effect_owner.effect_owner_authority_write_lease_state%ROWTYPE;
     v_historical myc_effect_owner.effect_execution_authority_lease_attestations%ROWTYPE;
+    v_current_system_identifier TEXT;
+    v_current_timeline BIGINT;
 BEGIN
     -- Preserve worker-claim -> owner-fence -> lease-state lock order.
     SELECT *
@@ -830,10 +832,22 @@ BEGIN
        AND action_id = p_action_id
        AND effect_owner_id = p_effect_owner_id
      FOR SHARE;
+    SELECT system.system_identifier::TEXT, checkpoint.timeline_id::BIGINT
+      INTO v_current_system_identifier, v_current_timeline
+      FROM pg_catalog.pg_control_system() AS system
+      CROSS JOIN pg_catalog.pg_control_checkpoint() AS checkpoint;
+
+    SELECT system.system_identifier::TEXT, checkpoint.timeline_id::BIGINT
+      INTO v_current_system_identifier, v_current_timeline
+      FROM pg_catalog.pg_control_system() AS system
+      CROSS JOIN pg_catalog.pg_control_checkpoint() AS checkpoint;
+
     IF NOT FOUND
        OR v_lease.lease_id IS DISTINCT FROM p_lease_id
        OR v_lease.lease_hash IS DISTINCT FROM p_lease_hash
        OR v_lease.lease_generation IS DISTINCT FROM p_lease_generation
+       OR v_lease.database_system_identifier IS DISTINCT FROM v_current_system_identifier
+       OR v_lease.postgres_timeline IS DISTINCT FROM v_current_timeline
        OR v_lease.resource_owner_epoch IS DISTINCT FROM p_owner_epoch
        OR v_lease.resource_generation IS DISTINCT FROM p_fence_generation
        OR NOT (v_lease.allowed_scopes ? 'directory_fabric_effect')
@@ -932,6 +946,8 @@ DECLARE
     v_lease myc_effect_owner.effect_owner_authority_write_lease_state%ROWTYPE;
     v_advanced RECORD;
     v_historical myc_effect_owner.effect_owner_epoch_authority_lease_attestations%ROWTYPE;
+    v_current_system_identifier TEXT;
+    v_current_timeline BIGINT;
 BEGIN
     SELECT owner_epoch, generation
       INTO v_current_owner_epoch, v_current_generation
@@ -982,6 +998,8 @@ BEGIN
        OR v_lease.lease_id IS DISTINCT FROM p_lease_id
        OR v_lease.lease_hash IS DISTINCT FROM p_lease_hash
        OR v_lease.lease_generation IS DISTINCT FROM p_lease_generation
+       OR v_lease.database_system_identifier IS DISTINCT FROM v_current_system_identifier
+       OR v_lease.postgres_timeline IS DISTINCT FROM v_current_timeline
        OR v_lease.resource_owner_epoch IS DISTINCT FROM p_new_owner_epoch
        OR v_lease.resource_generation IS DISTINCT FROM v_current_generation + 1
        OR NOT (v_lease.allowed_scopes ? 'database_epoch_promotion')
