@@ -10,6 +10,10 @@ on:
       - "mycelix-workspace/mycelix-finance/zomes/tend/coordinator/src/lib.rs"
       - "mycelix-finance/docs/research/HEARTH_AUTHORIZATION_WITHDRAWAL_HARDENING_V0_1.md"
       - "mycelix-workspace/mycelix-finance/docs/research/HEARTH_AUTHORIZATION_WITHDRAWAL_HARDENING_V0_1.md"
+      - "mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json"
+      - "mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json"
   push:
     branches:
       - "security/hearth-authorization-withdrawal-v0.1-20261123"
@@ -64,6 +68,17 @@ jobs:
           set -euo pipefail
           cmp mycelix-finance/zomes/payments/coordinator/src/lib.rs mycelix-workspace/mycelix-finance/zomes/payments/coordinator/src/lib.rs
           cmp mycelix-finance/zomes/tend/coordinator/src/lib.rs mycelix-workspace/mycelix-finance/zomes/tend/coordinator/src/lib.rs
+          cmp mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json
+          cmp mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json
+          jq empty mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json
+          jq empty mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json
+          jq -e '
+            .benchmark == "Hearth authorization and SAP withdrawal adversarial corpus" and
+            .version == "0.1" and
+            (.scenarios | length) == 20 and
+            ([.scenarios[].id] | unique | length) == 20 and
+            all(.scenarios[]; (.id | test("^HSA-[0-9]{3}$")) and (.stimulus | length > 0) and (.expected | length > 0) and (.writes | length > 0))
+          ' mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json >/dev/null
           grep -q "fn get_existing_hearth_pool_record" mycelix-finance/zomes/payments/coordinator/src/lib.rs
           grep -q "personal_record.action().author() != &caller" mycelix-finance/zomes/payments/coordinator/src/lib.rs
           grep -q "mod hearth_withdrawal_guard_tests" mycelix-finance/zomes/payments/coordinator/src/lib.rs
