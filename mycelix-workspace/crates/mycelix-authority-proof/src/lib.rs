@@ -484,6 +484,7 @@ impl SignedAuthorityProofReceipt {
                 old_system_identifier,
                 old_timeline,
                 owner_epoch,
+                mechanism,
                 successor_primary_id,
                 ..
             } => {
