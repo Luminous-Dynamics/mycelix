@@ -91,7 +91,8 @@ Unknown, stale or incomplete observations must produce an explicit indeterminate
 | HSA-016 | Failure after first staged write | Both pool/member writes roll back |
 | HSA-017 | TEND provider is not a member | Reject before exchange mutation |
 | HSA-018 | TEND receiver is not a member | Reject before exchange mutation |
-| HSA-019 | TEND membership evidence unavailable | Reject before exchange mutation |\n| HSA-020 | Personal balance DID matches caller, but its signed record was authored by another agent | Reject before pool read/write |
+| HSA-019 | TEND membership evidence unavailable | Reject before exchange mutation |
+| HSA-020 | Personal balance DID matches caller, but its signed record was authored by another agent | Reject before pool read/write |
 
 The current pure unit tests cover arithmetic and the shared membership decision function. The caller-authorship predicate is present in the coordinator preflight, but it still needs a real multi-agent author-spoof Sweettest. The remaining cases are required next integration/host-fault qualification, not claimed as already executed.
 
