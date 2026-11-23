@@ -419,7 +419,6 @@ fn run_trial(rng: &mut SplitMix64, scenario: &Scenario) -> TrialResult {
             crossover,
             treatment_assigned,
             control_assigned,
-            true_itt,
         };
     }
     let estimate = contrasts.iter().sum::<f64>() / contrasts.len() as f64;
