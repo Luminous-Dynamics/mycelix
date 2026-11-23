@@ -48,6 +48,9 @@ jobs:
             .causal_itt_estimate == 2.5 and
             .exact_two_sided_randomization_p_value == 0.125 and
             .randomization_assignments_enumerated == 16 and
+            .minimum_attainable_two_sided_randomization_p_value == 0.125 and
+            .can_resolve_nominal_alpha_05 == false and
+            .can_resolve_nominal_alpha_01 == false and
             .causal_claim_status == "causal_itt_qualified_synthetic"
           ' "$RUNNER_TEMP/randomized-trial-report.json"
       - name: Reject incomplete blocks and support mismatch
