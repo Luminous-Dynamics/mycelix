@@ -425,23 +425,20 @@ fn decode_epoch_transition(
             raw.previous_owner_epoch,
             "transition previous owner epoch",
         )?,
-        new_owner_epoch: positive_position(
-            raw.new_owner_epoch,
-            "transition new owner epoch",
-        )?,
+        new_owner_epoch: positive_position(raw.new_owner_epoch, "transition new owner epoch")?,
         previous_generation: positive_position(
             raw.previous_generation,
             "transition previous generation",
         )?,
-        new_generation: positive_position(
-            raw.new_generation,
-            "transition new generation",
-        )?,
-        transition_xact_id: raw.transition_xact_id
+        new_generation: positive_position(raw.new_generation, "transition new generation")?,
+        transition_xact_id: raw
+            .transition_xact_id
             .ok_or_else(|| "owner epoch transition transaction ID is missing".to_owned())?,
-        epoch_authority_receipt_digest: raw.epoch_authority_receipt_digest
+        epoch_authority_receipt_digest: raw
+            .epoch_authority_receipt_digest
             .ok_or_else(|| "owner epoch authority receipt digest is missing".to_owned())?,
-        physical_fencing_receipt_digest: raw.physical_fencing_receipt_digest
+        physical_fencing_receipt_digest: raw
+            .physical_fencing_receipt_digest
             .ok_or_else(|| "physical fencing receipt digest is missing".to_owned())?,
     };
     validate_epoch_transition(&transition, owner_epoch, accepted_generation)?;
@@ -463,8 +460,14 @@ fn validate_epoch_transition(
         || transition.previous_generation >= transition.new_generation
         || transition.new_generation > accepted_generation
         || transition.transition_xact_id.trim().is_empty()
-        || transition.epoch_authority_receipt_digest.iter().all(|byte| *byte == 0)
-        || transition.physical_fencing_receipt_digest.iter().all(|byte| *byte == 0)
+        || transition
+            .epoch_authority_receipt_digest
+            .iter()
+            .all(|byte| *byte == 0)
+        || transition
+            .physical_fencing_receipt_digest
+            .iter()
+            .all(|byte| *byte == 0)
     {
         return Err(
             "owner epoch transition chronology or authority/fencing evidence is invalid".into(),
@@ -861,7 +864,10 @@ mod tests {
             epoch_authority_receipt_digest: None,
             physical_fencing_receipt_digest: None,
         };
-        assert_eq!(decode_epoch_transition(1, 1, no_transition.clone()), Ok(None));
+        assert_eq!(
+            decode_epoch_transition(1, 1, no_transition.clone()),
+            Ok(None)
+        );
 
         let partial_transition = RawOwnerEpochTransition {
             previous_owner_epoch: Some(1),
