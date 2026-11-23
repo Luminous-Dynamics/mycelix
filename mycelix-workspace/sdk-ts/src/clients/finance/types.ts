@@ -317,6 +317,7 @@ export interface Payment {
 }
 
 /** Input for sending payment */
+/** Direct SAP payment input. TEND obligations use the dedicated TEND exchange client, not payments.send_payment. */
 export interface SendPaymentInput {
   from_did: Did;
   to_did: Did;
