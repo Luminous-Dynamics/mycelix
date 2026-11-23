@@ -301,7 +301,16 @@ The companion corpus defines **22 synthetic adversarial cases** in `pcoe-effect-
 
 The companion TLA+ model represents the payer's sender-intent/debit commit, the beneficiary's separately authored claim/credit, Treasury's independent fee effect, sender and recipient response loss, operation-identity replay, source-chain-top movement, durable outbox scanning and recipient fork conflict freeze. The unsafe mutant splits sender intent from debit or duplicates the debit. Safe and mutant TLC configurations are provided. The model tracks effect counts and state transitions; it does not model actual token quantities, fee arithmetic or valuation. Those remain separate FIN-SAFE arithmetic / provenance obligations.
 
-**Model-checking status:** the earlier single-batch model's TLC results are superseded by this two-owner rewrite. This revision is authored and statically frame-audited but has not yet passed TLC. The exact-head workflow must complete with no model warning, no safe invariant violation, and the expected mutant counterexample before this revision can claim a model-check result. The model is bounded and does not prove the live Holochain runtime, alternate-agent uniqueness, real fork-resolution protocol, Treasury adapter or external rail behavior.
+**Model-check result — exact PR head:** the two-owner model passed the pinned TLC v1.7.4 safe configuration on commit `9712134efadbe7da28fe04519c838f13a81cc9bb`, workflow [run #45164659271](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45164659271). TLC generated 66,120 states, found 12,105 distinct reachable states, explored graph depth 19, and completed with 0 states left on queue and no invariant violation. No model-variable frame warnings were emitted.
+
+The deliberate mutant failed on the intended `SenderIntentDebitAtomicity` invariant. The retained counterexample is `Initial → Prepare → UnsafeSenderDebitWithoutIntent`: sender debit count becomes one while sender intent count remains zero. The workflow requires this exact invariant failure; a different mutant failure does not pass.
+
+The evidence manifest binds the exact subject SHA and hashes:
+- TLA SHA-256: `83e1d5249b8cd8699f53729c542587a7b6b67477d904c7891c8cf5699034bb20`;
+- scenario corpus SHA-256: `42c820181160485e2bec05032221f589ec7f876fef4d8f7705c874463600758d`;
+- scenario schema SHA-256: `66cd78127585f5c9801304868836ffe551178bcb29388151ec17e1e87fc44c21`.
+
+The exact-head workflow also passed the 22-case corpus gate, checksum verification and subject-commit assertion. The model is bounded and only establishes abstract effect-count / state-transition properties. It does not prove numeric monetary arithmetic, live Holochain behavior, alternate-agent uniqueness, real fork-resolution code, Treasury adapter correctness or external rail behavior. No Rust tests, real-agent Tryorama / Sweettests or production verification are claimed.
 
 ## 11. Implementation sequence
 
