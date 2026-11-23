@@ -19,9 +19,15 @@ struct Scenario {
     scenario_id: String,
     specimen_id: String,
     event: Event,
-    registered_edge_ids: Vec<String>,
+    registered_edges: Vec<RegisteredEdge>,
     evidence_records: Vec<EvidenceRecord>,
     assertions: Vec<EdgeAssertion>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RegisteredEdge {
+    edge_id: String,
+    spatial_support_id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -197,16 +203,22 @@ fn validate(s: &Scenario) -> Result<(), String> {
     {
         return Err("registration error and overlap thresholds are invalid".into());
     }
-    if s.registered_edge_ids.is_empty() || s.assertions.is_empty() {
+    if s.registered_edges.is_empty() || s.assertions.is_empty() {
         return Err("scenario requires registered graph edges and edge assertions".into());
     }
 
-    let mut edge_ids = BTreeSet::new();
-    for edge_id in &s.registered_edge_ids {
-        if edge_id.trim().is_empty() || !edge_ids.insert(edge_id.as_str()) {
-            return Err("registered edge IDs must be non-empty and unique".into());
+    let mut edge_support_by_id = BTreeMap::new();
+    for edge in &s.registered_edges {
+        if edge.edge_id.trim().is_empty()
+            || edge.spatial_support_id.trim().is_empty()
+            || edge_support_by_id
+                .insert(edge.edge_id.as_str(), edge.spatial_support_id.as_str())
+                .is_some()
+        {
+            return Err("registered edges require unique non-empty edge and support IDs".into());
         }
     }
+    let edge_ids: BTreeSet<&str> = edge_support_by_id.keys().copied().collect();
 
     let mut evidence_by_id = BTreeMap::new();
     for evidence in &s.evidence_records {
@@ -217,6 +229,14 @@ fn validate(s: &Scenario) -> Result<(), String> {
             return Err(
                 "evidence IDs must be unique and every evidence edge must be registered".into(),
             );
+        }
+        if edge_support_by_id.get(evidence.edge_id.as_str()).copied()
+            != Some(evidence.spatial_support_id.as_str())
+        {
+            return Err(format!(
+                "evidence {} support identity does not match the registered graph edge support",
+                evidence.evidence_id
+            ));
         }
         if evidence.specimen_id.trim().is_empty()
             || evidence.event_id.trim().is_empty()
@@ -891,6 +911,13 @@ mod tests {
             .unwrap();
         assert_eq!(wrong_event.admission_status, "unassessed");
         assert_eq!(unregistered.admission_status, "unassessed");
+    }
+
+    #[test]
+    fn evidence_support_identity_must_match_registered_edge_manifest() {
+        let mut s = scenario();
+        s.evidence_records[0].spatial_support_id = "wrong-support".into();
+        assert!(validate(&s).is_err());
     }
 
     #[test]
