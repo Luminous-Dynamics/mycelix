@@ -146,9 +146,7 @@ impl AuthorityWriteLease {
                 }
             }
             AuthorityWriteLeasePhase::Epoch => {
-                if self.epoch_number.is_none_or(|number| number == 0)
-                    || self.epoch_hash.is_none()
-                {
+                if self.epoch_number.is_none_or(|number| number == 0) || self.epoch_hash.is_none() {
                     return Err(
                         "epoch write lease must name a positive epoch number and hash".into(),
                     );
@@ -158,14 +156,12 @@ impl AuthorityWriteLease {
         Ok(())
     }
 
-    pub fn validate_at(
-        &self,
-        now: DateTime<Utc>,
-        clock_skew: Duration,
-    ) -> LeaseResult<()> {
+    pub fn validate_at(&self, now: DateTime<Utc>, clock_skew: Duration) -> LeaseResult<()> {
         self.validate()?;
         if clock_skew < Duration::zero() || clock_skew > Duration::minutes(5) {
-            return Err("authority write lease clock skew must be between zero and five minutes".into());
+            return Err(
+                "authority write lease clock skew must be between zero and five minutes".into(),
+            );
         }
         if now + clock_skew < self.not_before {
             return Err("authority write lease is not active yet".into());
@@ -182,7 +178,9 @@ impl AuthorityWriteLease {
         if self.allowed_scopes.contains(&scope) {
             Ok(())
         } else {
-            Err(format!("authority write lease does not permit {scope:?} mutations"))
+            Err(format!(
+                "authority write lease does not permit {scope:?} mutations"
+            ))
         }
     }
 
@@ -329,7 +327,9 @@ impl SignedAuthorityWriteLease {
 fn validate_text(value: &str, max_bytes: usize, label: &str) -> LeaseResult<()> {
     let trimmed = value.trim();
     if trimmed.is_empty() || trimmed.len() > max_bytes || trimmed.chars().any(char::is_control) {
-        return Err(format!("{label} must contain 1-{max_bytes} printable bytes"));
+        return Err(format!(
+            "{label} must contain 1-{max_bytes} printable bytes"
+        ));
     }
     Ok(())
 }
@@ -429,7 +429,10 @@ mod tests {
             signer_public_key: key.verifying_key().to_bytes(),
             signature: Vec::new(),
         };
-        signed.signature = key.sign(&signed.signing_bytes().unwrap()).to_bytes().to_vec();
+        signed.signature = key
+            .sign(&signed.signing_bytes().unwrap())
+            .to_bytes()
+            .to_vec();
         signed
     }
 
@@ -461,7 +464,10 @@ mod tests {
         let decoded: SignedAuthorityWriteLease = serde_json::from_slice(&json).unwrap();
         assert_eq!(decoded, signed);
         assert_eq!(decoded.signing_bytes().unwrap(), bytes);
-        assert_eq!(decoded.signed_lease_hash().unwrap(), signed.signed_lease_hash().unwrap());
+        assert_eq!(
+            decoded.signed_lease_hash().unwrap(),
+            signed.signed_lease_hash().unwrap()
+        );
     }
 
     #[test]
