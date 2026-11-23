@@ -93,6 +93,9 @@ jobs:
             .mycelix_finance_pin.cargo_compatibility.hdk == "=0.6.1" and
             .mycelix_finance_pin.cargo_compatibility.hdi == "=0.7.1" and
             .mycelix_finance_pin.countersigning.status == "unknown_for_exact_mycelix_0_6_1_runtime" and
+            .mycelix_finance_pin.feature_audit.hdk_unstable_countersigning_declared == false and
+            .mycelix_finance_pin.feature_audit.hdk_unstable_functions_declared == false and
+            .mycelix_finance_pin.feature_audit.hdi_unstable_functions_declared == false and
             .official_documentation.fork_warrants.status == "not_operational_per_current_official_docs" and
             .official_documentation.general_invalid_operation_warrants.status == "stable_in_holochain_0_6" and
             .mycelix_finance_pin.actual_runtime_binary.status == "not_proven" and
