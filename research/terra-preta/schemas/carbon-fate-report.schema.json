@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/terra-preta/schemas/carbon-fate-report.schema.json",
+  "title": "Synthetic multi-timescale soil carbon fate audit report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "observation_count",
+    "model_count",
+    "carbon_balance",
+    "evaluations",
+    "controls",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "carbon-fate-audit-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "observation_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "model_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "carbon_balance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "initial_stock",
+        "total_input",
+        "input_by_source",
+        "final_stock",
+        "respiration_export",
+        "dissolved_export",
+        "erosion_export",
+        "harvest_export",
+        "residual",
+        "max_absolute_residual",
+        "qualified"
+      ],
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "initial_stock": {
+          "type": "number"
+        },
+        "total_input": {
+          "type": "number"
+        },
+        "input_by_source": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "final_stock": {
+          "type": "number"
+        },
+        "respiration_export": {
+          "type": "number"
+        },
+        "dissolved_export": {
+          "type": "number"
+        },
+        "erosion_export": {
+          "type": "number"
+        },
+        "harvest_export": {
+          "type": "number"
+        },
+        "residual": {
+          "type": "number"
+        },
+        "max_absolute_residual": {
+          "type": "number"
+        },
+        "qualified": {
+          "type": "boolean"
+        }
+      }
+    },
+    "evaluations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_id",
+          "family",
+          "prediction_count",
+          "scored_count",
+          "abstained_count",
+          "stream_metrics",
+          "joint_adequacy_pass",
+          "failed_streams",
+          "mechanism_claims_qualified"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string"
+          },
+          "prediction_count": {
+            "type": "integer"
+          },
+          "scored_count": {
+            "type": "integer"
+          },
+          "abstained_count": {
+            "type": "integer"
+          },
+          "stream_metrics": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "stream",
+                "scored_count",
+                "abstained_count",
+                "mae",
+                "rmse",
+                "bias",
+                "empirical_coverage_90",
+                "mean_interval_width",
+                "max_mae",
+                "min_coverage_90",
+                "qualifies"
+              ],
+              "properties": {
+                "stream": {
+                  "type": "string"
+                },
+                "scored_count": {
+                  "type": "integer"
+                },
+                "abstained_count": {
+                  "type": "integer"
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rmse": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "bias": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "empirical_coverage_90": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_interval_width": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "max_mae": {
+                  "type": "number"
+                },
+                "min_coverage_90": {
+                  "type": "number"
+                },
+                "qualifies": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "joint_adequacy_pass": {
+            "type": "boolean"
+          },
+          "failed_streams": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mechanism_claims_qualified": {
+            "const": false
+          }
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observations_have_native_method_and_unit",
+        "training_evaluation_groups_disjoint",
+        "exactly_one_prediction_per_model_target",
+        "stock_and_flux_scored_separately",
+        "system_age_and_respired_transit_time_scored_separately",
+        "carbon_balance_residual_explicit",
+        "no_single_compensatory_score_emitted",
+        "no_empirical_or_mrv_claim"
+      ],
+      "properties": {
+        "observations_have_native_method_and_unit": {
+          "const": true
+        },
+        "training_evaluation_groups_disjoint": {
+          "const": true
+        },
+        "exactly_one_prediction_per_model_target": {
+          "const": true
+        },
+        "stock_and_flux_scored_separately": {
+          "const": true
+        },
+        "system_age_and_respired_transit_time_scored_separately": {
+          "const": true
+        },
+        "carbon_balance_residual_explicit": {
+          "const": true
+        },
+        "no_single_compensatory_score_emitted": {
+          "const": true
+        },
+        "no_empirical_or_mrv_claim": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
