@@ -203,6 +203,41 @@ Performance is measured only after every safety gate passes:
 
 Do not compare raw TPS against banks or payment networks until the same workload semantics, finality definitions, fault model and correctness gates are matched.
 
+## 9.1 Industry baseline and how to exceed it
+
+The comparison is about semantics, not raw transaction-per-second marketing:
+
+| System / pattern | Publicly documented behavior | What this contract should match | Where Mycelix should go further |
+|---|---|---|---|
+| Stripe API v1 | Saves the first endpoint status/body after execution begins; returns the saved response for a same-key retry, including 500 responses; compares retry parameters; keys may be pruned after at least 24 hours. API v2 documents different retry behavior for failed/partially failed work. | Stable key, original-result replay, parameter/fingerprint mismatch rejection, explicit in-progress/concurrent behavior. | Durable obligation identity and audit evidence outlive the request cache; reconcile effects after local cell, process and cross-hApp recovery. Never use cache expiry as permission to execute again. |
+| Adyen API | Up to 64-character key; company-account scope; 7–14 day validity; regional endpoints do not share duplicate checks; concurrent requests may return transient / already-in-progress responses. | Same-key retry, explicit concurrency response, backoff and status query / webhook recovery. | Bind operation identity to the payer chain / effect owner and obligation fingerprint; do not assume multi-region or alternate-agent uniqueness without an authority proof. |
+| AWS transactional outbox | Commit business state and outbox message together; dispatcher may deliver at least once; consumer must be idempotent; ordering and transaction rollback need explicit handling. | Durable outbox and idempotent Treasury consumer. | Source-chain-native evidence, operation-scoped receipt verification and an independently reproducible replay of the outbox-to-effect history. |
+| Holochain source chain | Writes in one zome-function call are atomic on that source chain; concurrent source-chain writes can lose with a chain-head-moved error. | Roll back failed same-chain calls; refresh after chain-head movement. | Turn the concurrency loss into an explicit same-identity lookup / retry protocol, not a fresh payment request. Cross-cell effects remain separate transactions. |
+
+These are documented vendor / platform behaviors, not a uniform benchmark run. Stripe API v1 and v2 are not interchangeable. Adyen's stated regional limitation is particularly important: a key checked within one regional store is not a global cross-region uniqueness theorem. Mycelix must likewise scope its claim to the exact DNA, payer / author chain, effect owner and failure model it has actually proven.
+
+### Proposed qualification tiers
+
+**Tier A — semantic safety (hard release gates, no compensating score):**
+- 100 concurrent exact-key submissions by one authenticated payer: at most one local journal batch, payer debit, beneficiary credit and fee liability; all exact retries resolve to the same batch.
+- 1,000 altered-payload attempts against existing operation identities: 100% conflict; zero new value effects.
+- 10,000 outbox redeliveries / duplicate wake-ups: at most one Treasury effect per outbox identity.
+- Every fault cut in the frozen corpus: zero unexplained local partial batches, zero silently discarded Indeterminate outcomes, zero false external-finality promotions.
+- Every source-chain-top race: losing call creates no second effect and the subsequent same-identity lookup resolves the winner or remains Indeterminate.
+
+**Tier B — recovery quality:**
+- 100% of committed-but-response-lost operations resolve to the original batch reference after process restart.
+- 100% of lost post_commit wake-ups are recovered by scanning the durable outbox.
+- 100% of Treasury delivery-success / response-loss cases resolve to the same Treasury receipt.
+- Report p50 / p95 / p99 recovery latency, the number of DHT / source-chain reads, and operator intervention minutes per 1,000 ambiguous outcomes.
+
+**Tier C — efficiency and competitiveness (only after Tier A passes):**
+- On three frozen, representative workloads, target at least 20% lower p95 compute-and-storage cost per correctly completed obligation than the matched baseline, or 20% greater sustainable throughput at the same p99 latency and resource budget.
+- Report p50 / p95 / p99 latency, sustainable throughput, CPU, memory, storage / DHT growth, retries, outbox age, and the percentage of operations requiring human reconciliation.
+- Compare providers only under matched semantics: exact same-key retry, changed-payload conflict, concurrent duplicate, response loss, retention / expiry, process restart and region / cell failover. Do not compare Mycelix raw TPS with a provider's API benchmark if the finality boundary, retry contract or failure model differs.
+
+All numerical targets above are preregistered research goals, not measured results or current SOTA claims. Any safety failure invalidates the performance comparison.
+
 ## 10. Scenario corpus and model status
 
 The companion corpus defines 18 synthetic adversarial cases. It is an executable-test contract, not 18 passed tests.
