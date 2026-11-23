@@ -30,7 +30,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["evidence_id", "edge_id", "specimen_id", "event_id", "evidence_class", "source_artifact_uri", "source_artifact_sha256", "method_id", "method_version", "qc_status", "support_kind", "registration_status", "observed_start_epoch_seconds", "observed_end_epoch_seconds", "sample_interval_seconds", "coverage_fraction", "lower_flux_bound_mg_per_h", "lower_flux_bound_confidence_level", "upper_flux_bound_confidence_level"],
+        "required": ["evidence_id", "edge_id", "specimen_id", "event_id", "evidence_class", "source_artifact_uri", "source_artifact_sha256", "method_id", "method_version", "qc_status", "support_kind", "registration_status", "spatial_support_id", "registration_transform_id", "observed_start_epoch_seconds", "observed_end_epoch_seconds", "sample_interval_seconds", "coverage_fraction", "lower_flux_bound_mg_per_h", "lower_flux_bound_confidence_level", "upper_flux_bound_confidence_level"],
         "properties": {
           "evidence_id": { "type": "string", "minLength": 1 },
           "edge_id": { "type": "string", "minLength": 1 },
@@ -45,6 +45,8 @@
           "qc_status": { "enum": ["passed", "failed", "not_assessed"] },
           "support_kind": { "enum": ["registered_3d_edge", "core_aggregate", "profile_aggregate", "section_2d"] },
           "registration_status": { "enum": ["registered", "unregistered", "not_applicable"] },
+          "spatial_support_id": { "type": "string", "minLength": 1 },
+          "registration_transform_id": { "type": ["string", "null"] },
           "observed_start_epoch_seconds": { "type": "integer" },
           "observed_end_epoch_seconds": { "type": "integer" },
           "sample_interval_seconds": { "type": "integer", "minimum": 1 },
