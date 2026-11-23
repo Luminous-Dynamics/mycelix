@@ -15,19 +15,6 @@
     "minimum_support_overlap_fraction": 0.95,
     "minimum_relevant_water_volume_flux_ml_per_h": 0.2
   },
-  "registered_edge_ids": [
-    "edge-active-tracer",
-    "edge-geometry-only",
-    "edge-inactive-covered",
-    "edge-inactive-sparse",
-    "edge-model-only",
-    "edge-conflict",
-    "edge-wrong-event",
-    "edge-unregistered",
-    "edge-active-point-only",
-    "edge-boundary-tracer",
-    "edge-high-registration-error"
-  ],
   "evidence_records": [
     {
       "evidence_id": "ev-active-tracer",
@@ -480,6 +467,52 @@
       "evidence_ids": [
         "ev-high-registration-error"
       ]
+    }
+  ],
+  "registered_edges": [
+    {
+      "edge_id": "edge-active-tracer",
+      "spatial_support_id": "support-edge-active-tracer"
+    },
+    {
+      "edge_id": "edge-geometry-only",
+      "spatial_support_id": "support-edge-geometry-only"
+    },
+    {
+      "edge_id": "edge-inactive-covered",
+      "spatial_support_id": "support-edge-inactive-covered"
+    },
+    {
+      "edge_id": "edge-inactive-sparse",
+      "spatial_support_id": "support-edge-inactive-sparse"
+    },
+    {
+      "edge_id": "edge-model-only",
+      "spatial_support_id": "support-edge-model-only"
+    },
+    {
+      "edge_id": "edge-conflict",
+      "spatial_support_id": "support-edge-conflict"
+    },
+    {
+      "edge_id": "edge-wrong-event",
+      "spatial_support_id": "support-edge-wrong-event"
+    },
+    {
+      "edge_id": "edge-unregistered",
+      "spatial_support_id": "support-edge-unregistered"
+    },
+    {
+      "edge_id": "edge-active-point-only",
+      "spatial_support_id": "support-edge-active-point-only"
+    },
+    {
+      "edge_id": "edge-boundary-tracer",
+      "spatial_support_id": "support-core-001"
+    },
+    {
+      "edge_id": "edge-high-registration-error",
+      "spatial_support_id": "support-edge-high-registration-error"
     }
   ]
 }
