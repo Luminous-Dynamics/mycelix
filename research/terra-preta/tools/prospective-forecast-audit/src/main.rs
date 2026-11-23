@@ -282,7 +282,7 @@ fn validate(s: &Suite) -> Result<(), String> {
             return Err(format!("forecast {} does not match target method/unit/depth/spatial support", f.forecast_id));
         }
     }
-    for target_id in targets.keys() {
+    for target_id in targets.keys().copied() {
         for role in ["candidate", "persistence_baseline", "climatology_baseline"] {
             if !target_role_pairs.contains(&(target_id, role)) {
                 return Err(format!("target {target_id} lacks required {role} forecast"));
@@ -488,6 +488,22 @@ mod tests {
         let mut s = suite();
         s.forecasts.retain(|f| !(f.target_id == "t-001" && f.model_role == "climatology_baseline"));
         assert!(validate(&s).is_err());
+    }
+
+    #[test]
+    fn normal_crps_at_the_mean_has_expected_closed_form_value() {
+        let value = crps_normal(0.0, 1.0, 0.0);
+        assert!((value - 0.233_694_977_255_109_13).abs() < 1e-6);
+    }
+
+    #[test]
+    fn unassessed_domain_is_reported_separately_from_ood() {
+        let mut s = suite();
+        s.forecasts[10].applicability_domain_status = "unassessed".into();
+        let r = verify(&s, "0".repeat(64));
+        assert_eq!(r.abstained_out_of_domain_count, 1);
+        assert_eq!(r.abstained_unassessed_domain_count, 1);
+        assert_eq!(r.scored_forecast_count, 10);
     }
 
     #[test]
