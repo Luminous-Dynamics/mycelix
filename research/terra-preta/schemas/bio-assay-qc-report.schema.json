@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic potential enzyme activity assay QC report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "input_sha256",
+    "method_profile_id",
+    "method_profile_sha256",
+    "assay_count",
+    "assays",
+    "controls",
+    "interpretation_boundary"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "method_profile_id": {
+      "type": "string"
+    },
+    "method_profile_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "assay_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "assays": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "assay_id",
+          "sample_id",
+          "experimental_unit_id",
+          "analyte",
+          "evidence_class",
+          "reported_rate",
+          "unit",
+          "normalization_basis",
+          "qualification_status",
+          "failure_reasons",
+          "process_rate_claim"
+        ],
+        "properties": {
+          "assay_id": {
+            "type": "string"
+          },
+          "sample_id": {
+            "type": "string"
+          },
+          "experimental_unit_id": {
+            "type": "string"
+          },
+          "analyte": {
+            "type": "string"
+          },
+          "evidence_class": {
+            "const": "potential_activity"
+          },
+          "reported_rate": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "normalization_basis": {
+            "type": "string"
+          },
+          "qualification_status": {
+            "enum": [
+              "qualified_potential_activity",
+              "unqualified_potential_activity"
+            ]
+          },
+          "failure_reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "process_rate_claim": {
+            "const": "not_estimated"
+          }
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "no_composition_to_function_promotion",
+        "no_potential_to_process_rate_promotion",
+        "no_aggregate_biological_score",
+        "method_profile_digest_binding",
+        "no_output_overwrite"
+      ],
+      "properties": {
+        "no_composition_to_function_promotion": {
+          "const": true
+        },
+        "no_potential_to_process_rate_promotion": {
+          "const": true
+        },
+        "no_aggregate_biological_score": {
+          "const": true
+        },
+        "method_profile_digest_binding": {
+          "const": true
+        },
+        "no_output_overwrite": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

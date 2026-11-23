@@ -1,0 +1,111 @@
+{
+  "schema_version": "bio-assay-qc-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "evidence_class": "synthetic",
+  "scenario_id": "manufactured-biochar-enzyme-matrix-qc",
+  "acceptance_profile": {
+    "profile_id": "synthetic-fluorometric-enzyme-sop",
+    "method_id": "synthetic-beta-glucosidase-fluorometric",
+    "method_version": "0.1",
+    "method_profile_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "status": "synthetic_fixture",
+    "minimum_calibration_r_squared": 0.99,
+    "spike_recovery_min_percent": 80,
+    "spike_recovery_max_percent": 120,
+    "matrix_recovery_min_percent": 80,
+    "matrix_recovery_max_percent": 120,
+    "maximum_uncorrected_quench_percent": 10
+  },
+  "assays": [
+    {
+      "assay_id": "assay-001",
+      "sample_id": "sample-001",
+      "experimental_unit_id": "plot-01",
+      "independence_group_id": "site-01",
+      "evidence_class": "potential_activity",
+      "analyte": "beta_glucosidase",
+      "measurement_method": "manufactured fluorometric potential activity",
+      "method_id": "synthetic-beta-glucosidase-fluorometric",
+      "method_version": "0.1",
+      "method_profile_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unit": "nmol_product_g_dry_soil-1_h-1",
+      "normalization_basis": "dry_soil_mass",
+      "reported_rate": 42,
+      "reported_rate_standard_error": 3,
+      "substrate": "manufactured fluorogenic substrate",
+      "substrate_concentration": 100,
+      "assay_ph": 6.5,
+      "assay_temperature_c": 25,
+      "incubation_minutes": 60,
+      "calibration": {
+        "curve_id": "calibration-001",
+        "slope": 2.5,
+        "intercept": 0.4,
+        "r_squared": 0.997,
+        "signal_min": 0,
+        "signal_max": 500,
+        "sample_signal": 120
+      },
+      "blanks": {
+        "substrate_only_blank_signal": 2,
+        "matrix_blank_signal": 4,
+        "sample_blank_signal": 3
+      },
+      "matrix_controls": {
+        "spike_recovery_percent": 98,
+        "matrix_spike_recovery_percent": 94,
+        "optical_quench_percent": 4,
+        "quench_correction_applied": false,
+        "correction_method_id": null,
+        "correction_method_sha256": null
+      },
+      "saturation_detected": false,
+      "sample_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "assay_id": "assay-002",
+      "sample_id": "sample-002",
+      "experimental_unit_id": "plot-02",
+      "independence_group_id": "site-01",
+      "evidence_class": "potential_activity",
+      "analyte": "beta_glucosidase",
+      "measurement_method": "manufactured fluorometric potential activity",
+      "method_id": "synthetic-beta-glucosidase-fluorometric",
+      "method_version": "0.1",
+      "method_profile_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unit": "nmol_product_g_dry_soil-1_h-1",
+      "normalization_basis": "dry_soil_mass",
+      "reported_rate": 60,
+      "reported_rate_standard_error": 4,
+      "substrate": "manufactured fluorogenic substrate",
+      "substrate_concentration": 100,
+      "assay_ph": 6.2,
+      "assay_temperature_c": 25,
+      "incubation_minutes": 60,
+      "calibration": {
+        "curve_id": "calibration-001",
+        "slope": 2.5,
+        "intercept": 0.4,
+        "r_squared": 0.997,
+        "signal_min": 0,
+        "signal_max": 500,
+        "sample_signal": 140
+      },
+      "blanks": {
+        "substrate_only_blank_signal": 2,
+        "matrix_blank_signal": 4,
+        "sample_blank_signal": 3
+      },
+      "matrix_controls": {
+        "spike_recovery_percent": 140,
+        "matrix_spike_recovery_percent": 94,
+        "optical_quench_percent": 4,
+        "quench_correction_applied": false,
+        "correction_method_id": null,
+        "correction_method_sha256": null
+      },
+      "saturation_detected": false,
+      "sample_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ]
+}
