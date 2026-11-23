@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/research/terra-preta/schemas/randomized-soil-trial-input.schema.json",
+  "title": "Synthetic randomized soil intervention trial",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "evidence_class",
+    "scenario_id",
+    "design",
+    "units"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "randomized-soil-trial-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "evidence_class": {
+      "const": "synthetic"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "design": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trial_id",
+        "design_type",
+        "randomization_unit_level",
+        "estimand",
+        "treatment_label",
+        "control_label",
+        "primary_outcome",
+        "registered_at",
+        "randomized_at",
+        "preregistration_sha256",
+        "allocation_sha256",
+        "allocation_algorithm",
+        "randomization_seed",
+        "interference_status"
+      ],
+      "properties": {
+        "trial_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "design_type": {
+          "const": "randomized_complete_block"
+        },
+        "randomization_unit_level": {
+          "const": "plot"
+        },
+        "estimand": {
+          "const": "intention_to_treat_difference_in_change"
+        },
+        "treatment_label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "control_label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "primary_outcome": {
+          "type": "string",
+          "minLength": 1
+        },
+        "registered_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "randomized_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "preregistration_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "allocation_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "allocation_algorithm": {
+          "type": "string",
+          "minLength": 1
+        },
+        "randomization_seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "interference_status": {
+          "enum": [
+            "none_reported",
+            "possible_spillover",
+            "unassessed"
+          ]
+        }
+      }
+    },
+    "units": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "unit_id",
+          "site_id",
+          "block_id",
+          "assignment",
+          "assignment_probability",
+          "baseline_date",
+          "followup_date",
+          "baseline_value",
+          "followup_value",
+          "outcome_unit",
+          "measurement_method",
+          "depth_min_m",
+          "depth_max_m",
+          "subsample_count",
+          "received_treatment",
+          "contamination_status"
+        ],
+        "properties": {
+          "unit_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "site_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "block_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "assignment": {
+            "enum": [
+              "treatment",
+              "control"
+            ]
+          },
+          "assignment_probability": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "baseline_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "followup_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "baseline_value": {
+            "type": "number"
+          },
+          "followup_value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "outcome_unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "measurement_method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "depth_min_m": {
+            "type": "number",
+            "minimum": 0
+          },
+          "depth_max_m": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "subsample_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "received_treatment": {
+            "type": "boolean"
+          },
+          "contamination_status": {
+            "enum": [
+              "none_reported",
+              "possible_spillover"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

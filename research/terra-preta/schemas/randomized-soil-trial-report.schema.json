@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic randomized soil trial causal qualification report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "trial_id",
+    "design_type",
+    "estimand",
+    "primary_outcome",
+    "randomized_unit_count",
+    "block_count",
+    "subsample_count_not_in_n",
+    "treatment_assigned_count",
+    "control_assigned_count",
+    "treatment_nonadherence_count",
+    "control_crossover_count",
+    "block_contrasts",
+    "descriptive_assignment_contrast_mean",
+    "causal_itt_estimate",
+    "causal_itt_standard_error",
+    "exact_two_sided_randomization_p_value",
+    "randomization_assignments_enumerated",
+    "causal_claim_status",
+    "interference_status",
+    "controls",
+    "interpretation_boundary",
+    "preregistration_sha256",
+    "allocation_sha256",
+    "allocation_algorithm",
+    "randomization_seed",
+    "registered_at",
+    "randomized_at",
+    "input_sha256",
+    "minimum_attainable_two_sided_randomization_p_value",
+    "can_resolve_nominal_alpha_05",
+    "can_resolve_nominal_alpha_01"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "trial_id": {
+      "type": "string"
+    },
+    "design_type": {
+      "const": "randomized_complete_block"
+    },
+    "estimand": {
+      "const": "intention_to_treat_difference_in_change"
+    },
+    "primary_outcome": {
+      "type": "string"
+    },
+    "randomized_unit_count": {
+      "type": "integer",
+      "minimum": 4
+    },
+    "block_count": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 20
+    },
+    "subsample_count_not_in_n": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "treatment_assigned_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "control_assigned_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "treatment_nonadherence_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "control_crossover_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "block_contrasts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "block_id",
+          "treatment_change",
+          "control_change",
+          "assignment_contrast"
+        ],
+        "properties": {
+          "block_id": {
+            "type": "string"
+          },
+          "treatment_change": {
+            "type": "number"
+          },
+          "control_change": {
+            "type": "number"
+          },
+          "assignment_contrast": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "descriptive_assignment_contrast_mean": {
+      "type": "number"
+    },
+    "causal_itt_estimate": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "causal_itt_standard_error": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "exact_two_sided_randomization_p_value": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "randomization_assignments_enumerated": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "causal_claim_status": {
+      "enum": [
+        "causal_itt_qualified_synthetic",
+        "causal_claim_abstain_interference",
+        "causal_claim_abstain_unassessed_interference"
+      ]
+    },
+    "interference_status": {
+      "enum": [
+        "none_reported",
+        "possible_spillover",
+        "unassessed"
+      ]
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "complete_block_randomization_pass",
+        "registration_precedes_randomization_pass",
+        "support_basis_match_pass",
+        "all_randomized_units_retained_pass",
+        "subsamples_not_counted_as_units_pass",
+        "itt_uses_assignment_not_receipt_pass",
+        "no_per_protocol_claim_pass",
+        "interference_gate_pass"
+      ],
+      "properties": {
+        "complete_block_randomization_pass": {
+          "const": true
+        },
+        "registration_precedes_randomization_pass": {
+          "const": true
+        },
+        "support_basis_match_pass": {
+          "const": true
+        },
+        "all_randomized_units_retained_pass": {
+          "const": true
+        },
+        "subsamples_not_counted_as_units_pass": {
+          "const": true
+        },
+        "itt_uses_assignment_not_receipt_pass": {
+          "const": true
+        },
+        "no_per_protocol_claim_pass": {
+          "const": true
+        },
+        "interference_gate_pass": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "preregistration_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "allocation_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "allocation_algorithm": {
+      "type": "string",
+      "minLength": 1
+    },
+    "randomization_seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "registered_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "randomized_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "minimum_attainable_two_sided_randomization_p_value": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "can_resolve_nominal_alpha_05": {
+      "type": "boolean"
+    },
+    "can_resolve_nominal_alpha_01": {
+      "type": "boolean"
+    }
+  }
+}
