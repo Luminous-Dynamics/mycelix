@@ -50,6 +50,8 @@ struct EvidenceRecord {
     qc_status: String,
     support_kind: String,
     registration_status: String,
+    spatial_support_id: String,
+    registration_transform_id: Option<String>,
     observed_start_epoch_seconds: i64,
     observed_end_epoch_seconds: i64,
     sample_interval_seconds: i64,
@@ -187,6 +189,7 @@ fn validate(s: &Scenario) -> Result<(), String> {
             || evidence.source_artifact_uri.trim().is_empty()
             || evidence.method_id.trim().is_empty()
             || evidence.method_version.trim().is_empty()
+            || evidence.spatial_support_id.trim().is_empty()
             || !valid_sha256(&evidence.source_artifact_sha256)
         {
             return Err(format!(
@@ -221,6 +224,11 @@ fn validate(s: &Scenario) -> Result<(), String> {
             "registered" | "unregistered" | "not_applicable"
         ) {
             return Err("registration status must be registered, unregistered or not_applicable".into());
+        }
+        if evidence.registration_status == "registered"
+            && evidence.registration_transform_id.as_deref().unwrap_or("").trim().is_empty()
+        {
+            return Err("registered evidence requires a registration transform identity".into());
         }
         if evidence.observed_start_epoch_seconds >= evidence.observed_end_epoch_seconds
             || evidence.sample_interval_seconds <= 0
@@ -341,6 +349,7 @@ fn evidence_candidate(
     }
     if evidence.support_kind != "registered_3d_edge"
         || evidence.registration_status != "registered"
+        || evidence.registration_transform_id.as_deref().unwrap_or("").trim().is_empty()
     {
         reasons.push("spatial_support_not_registered_to_3d_edge".into());
     }
