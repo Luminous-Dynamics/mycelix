@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/sap-legacy-writer-v2-crosswalk.v0.2.schema.json",
+  "title": "Legacy SAP Writer to Owner-Authored V2 Architecture Crosswalk",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark",
+    "version",
+    "status",
+    "base_commit",
+    "design_decision",
+    "target_architecture",
+    "writers",
+    "cutover_gates",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "benchmark": {
+      "const": "Legacy SAP Writer to Owner-Authored V2 Architecture Crosswalk"
+    },
+    "version": {
+      "const": "0.2"
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "base_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "inventory_source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "design_decision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_architecture": {
+      "type": "array",
+      "minItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "tracking",
+          "role"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tracking": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "role": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "writers": {
+      "type": "array",
+      "minItems": 16,
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/writer"
+      }
+    },
+    "cutover_gates": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "writer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "entrypoint",
+        "path",
+        "lines",
+        "legacy_effect_class",
+        "v2_disposition",
+        "target_theorems",
+        "current_legacy_status",
+        "migration_blockers",
+        "cutover_condition"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^SAPW-[0-9]{3}$"
+        },
+        "entrypoint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lines": {
+          "type": "string",
+          "minLength": 1
+        },
+        "legacy_effect_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v2_disposition": {
+          "enum": [
+            "owner_authored_account_open",
+            "dedicated_owner_authored_effect",
+            "retire_raw_credit_use_typed_claim",
+            "value_note_spend_or_typed_burn",
+            "immutable_value_note_spend_plus_recipient_claim",
+            "owner_authored_issuance_claim",
+            "value_note_spend_plus_saga_outbox_reconciliation",
+            "hearth_owner_note_spend_and_pool_receipt",
+            "pool_authorized_disbursement_and_beneficiary_claim",
+            "freshness_qualified_membership_evidence",
+            "authenticated_source_receipt_then_owner_claim",
+            "authenticated_bank_receipt_then_owner_claim",
+            "typed_staking_escrow_effects",
+            "independent_physical_proof_then_owner_claim"
+          ]
+        },
+        "target_theorems": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "current_legacy_status": {
+          "enum": [
+            "legacy_present",
+            "legacy_present_unqualified",
+            "containment_candidate_not_promoted",
+            "legacy_containment_only"
+          ]
+        },
+        "migration_blockers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "cutover_condition": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

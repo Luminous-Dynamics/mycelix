@@ -1,0 +1,462 @@
+{
+  "benchmark": "Legacy SAP Writer to Owner-Authored V2 Architecture Crosswalk",
+  "version": "0.2",
+  "status": "source-audit crosswalk; design-only; does not define a new authoritative mutable balance protocol",
+  "base_commit": "e949664ceb2f9ddde26704c70e23a19380f33dde",
+  "inventory_source": "PR #6561",
+  "design_decision": "The initial generic mutable scalar-transition proposal is superseded. The canonical destination is the existing FIN-SAFE-013 through FIN-SAFE-019 owner-authored journal/value-note/witness stack, with source-specific effect theorems for demurrage, metadata, external issuance, staking, Hearth and payment reconciliation.",
+  "target_architecture": [
+    {
+      "key": "FIN-SAFE-012",
+      "tracking": [
+        "#654",
+        "PR #657"
+      ],
+      "role": "Predecessor/cause/author/fork theorem for legacy SapBalance transitions; useful evidence but not selected canonical V2 model."
+    },
+    {
+      "key": "FIN-SAFE-013",
+      "tracking": [
+        "#660"
+      ],
+      "role": "Account-level migration principle: cross-agent writes removed; owner authors V2 account effects."
+    },
+    {
+      "key": "FIN-SAFE-014",
+      "tracking": [
+        "#663",
+        "PR #665"
+      ],
+      "role": "Owner-authored collateral claim journal; canonical identity is mint_id, not physical ActionHash."
+    },
+    {
+      "key": "FIN-SAFE-015",
+      "tracking": [
+        "#667",
+        "PR #671"
+      ],
+      "role": "Pure immutable value-note spend theorem; deterministic transfer ID, checked conservation and duplicate-vs-conflict classification."
+    },
+    {
+      "key": "FIN-SAFE-016",
+      "tracking": [
+        "#674",
+        "PR #677"
+      ],
+      "role": "Disabled Holochain transfer adapter that exact-loads owner-claimed note origins."
+    },
+    {
+      "key": "FIN-SAFE-017",
+      "tracking": [
+        "#679",
+        "PR #680"
+      ],
+      "role": "Separates output existence, recipient claim and actual spendability; requires authenticated assurance for re-spend."
+    },
+    {
+      "key": "FIN-SAFE-018",
+      "tracking": [
+        "#685",
+        "PR #687"
+      ],
+      "role": "Independent trusted witness policy and exact authenticated quorum/session validation."
+    },
+    {
+      "key": "FIN-SAFE-019",
+      "tracking": [
+        "#691",
+        "PR #693"
+      ],
+      "role": "Witness-side allocation journal that refuses distinct conflicting spends as local policy enforcement, not global consensus."
+    },
+    {
+      "key": "AC-153B/E/G",
+      "tracking": [
+        "#4623",
+        "#4664",
+        "#4710"
+      ],
+      "role": "Exact conservation, no compound mutation, and inventory/classification of all monetary state surfaces."
+    },
+    {
+      "key": "AC-154",
+      "tracking": [
+        "#4589",
+        "#6505"
+      ],
+      "role": "Typed source-specific proofs for external issuance and returns."
+    },
+    {
+      "key": "AC-116 / FIN-SAGA",
+      "tracking": [
+        "#4181",
+        "#5744",
+        "#6556"
+      ],
+      "role": "Asynchronous recipient claims, payment saga and durable effect-owner recovery."
+    },
+    {
+      "key": "FIN-SAFE-020",
+      "tracking": [
+        "#6568"
+      ],
+      "role": "Hearth member/pool contribution and withdrawal theorem using owner-authored value-note effects."
+    },
+    {
+      "key": "FIN-SAFE-021",
+      "tracking": [
+        "#6576"
+      ],
+      "role": "Exact Holochain runtime qualification for fork evidence, countersigning enablement, 0.6.1/0.6.3/0.7.1 compatibility, and the claim ceiling of fork/witness assurance."
+    }
+  ],
+  "writers": [
+    {
+      "id": "SAPW-001",
+      "entrypoint": "initialize_sap_balance",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "23-64",
+      "legacy_effect_class": "zero_genesis",
+      "v2_disposition": "owner_authored_account_open",
+      "target_theorems": [
+        "#660",
+        "#663"
+      ],
+      "current_legacy_status": "legacy_present",
+      "migration_blockers": [
+        "V2 opening marker must be owner-authored and disabled by default until DNA promotion.",
+        "Define account opening semantics independently of any mutable scalar balance."
+      ],
+      "cutover_condition": "Only exact zero-economics, owner-authored V2 opening marker accepted; legacy genesis is not reinterpreted as a V2 claim."
+    },
+    {
+      "id": "SAPW-002",
+      "entrypoint": "grant_amber_exemption",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "97-159",
+      "legacy_effect_class": "metadata_mutation",
+      "v2_disposition": "dedicated_owner_authored_effect",
+      "target_theorems": [
+        "#660",
+        "#4664"
+      ],
+      "current_legacy_status": "legacy_present",
+      "migration_blockers": [
+        "Define source-authorized exemption grant evidence and owner-authored application.",
+        "Prevent exemption metadata from being combined with monetary effects."
+      ],
+      "cutover_condition": "A typed exemption effect with independently authenticated authority and no hidden monetary delta is implemented and qualified."
+    },
+    {
+      "id": "SAPW-003",
+      "entrypoint": "revoke_amber_exemption",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "161-178",
+      "legacy_effect_class": "metadata_mutation",
+      "v2_disposition": "dedicated_owner_authored_effect",
+      "target_theorems": [
+        "#660",
+        "#4664"
+      ],
+      "current_legacy_status": "legacy_present",
+      "migration_blockers": [
+        "Define revocation authority, monotonic revision and historical lineage.",
+        "Do not clear prior monetary cause/effect evidence."
+      ],
+      "cutover_condition": "A typed revocation event preserves monetary history and is qualified under explicit policy version."
+    },
+    {
+      "id": "SAPW-004",
+      "entrypoint": "apply_demurrage",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "180-260",
+      "legacy_effect_class": "demurrage",
+      "v2_disposition": "dedicated_owner_authored_effect",
+      "target_theorems": [
+        "#660",
+        "#4664",
+        "#4623"
+      ],
+      "current_legacy_status": "legacy_present",
+      "migration_blockers": [
+        "Specify canonical formula/version, interval, exemption inputs and rounded integer result.",
+        "Model compost liability/remote distribution separately.",
+        "Prevent demurrage from being hidden inside transfer or credit effects."
+      ],
+      "cutover_condition": "A deterministic owner-authored demurrage effect and separately reconciled compost obligation pass KATs and host tests."
+    },
+    {
+      "id": "SAPW-005",
+      "entrypoint": "credit_sap",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "432-556",
+      "legacy_effect_class": "raw_positive_credit",
+      "v2_disposition": "retire_raw_credit_use_typed_claim",
+      "target_theorems": [
+        "#660",
+        "#663",
+        "#667",
+        "#679",
+        "#4589",
+        "#6505"
+      ],
+      "current_legacy_status": "legacy_present_unqualified",
+      "migration_blockers": [
+        "No caller-selected member/amount credit capability in V2.",
+        "Collateral issuance claims consume exact authenticated FIN-SAFE-010 mint identity.",
+        "Governance claims require source-specific authorization.",
+        "Transfer claims require exact owner-owned output and beneficiary-authored claim."
+      ],
+      "cutover_condition": "All producers have typed owner-claim adapters and negative controls prove raw cross-agent credit is unreachable before the raw entrypoint is retired."
+    },
+    {
+      "id": "SAPW-006",
+      "entrypoint": "debit_sap",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "557-659",
+      "legacy_effect_class": "raw_owner_debit",
+      "v2_disposition": "value_note_spend_or_typed_burn",
+      "target_theorems": [
+        "#660",
+        "#667",
+        "#671",
+        "#4623"
+      ],
+      "current_legacy_status": "legacy_present_unqualified",
+      "migration_blockers": [
+        "Use exact owner-owned input value notes for transfer spends.",
+        "Define burn/redemption/fees as distinct source-specific mutation classes.",
+        "Separate demurrage from principal debit."
+      ],
+      "cutover_condition": "Every debit purpose is routed to a proved effect type or canonical value-note spend; no free-form reason is authoritative."
+    },
+    {
+      "id": "SAPW-007",
+      "entrypoint": "transfer_sap",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "654-705",
+      "legacy_effect_class": "cross_owner_transfer",
+      "v2_disposition": "immutable_value_note_spend_plus_recipient_claim",
+      "target_theorems": [
+        "#660",
+        "#667",
+        "#671",
+        "#674",
+        "#679",
+        "#685",
+        "#691"
+      ],
+      "current_legacy_status": "legacy_present_unqualified",
+      "migration_blockers": [
+        "Sender consumes canonical input note IDs with checked conservation.",
+        "Recipient output is derived deterministically and not credited by sender.",
+        "Recipient-authored claim is separate from spendability.",
+        "High-assurance re-spend needs authenticated witness policy/allocation."
+      ],
+      "cutover_condition": "Disabled V2 adapter exact-loads origins, validates sender, conflicts and output claims; legacy transfer cannot be promoted as V2 settlement."
+    },
+    {
+      "id": "SAPW-008",
+      "entrypoint": "mint_sap_from_governance",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "710-815",
+      "legacy_effect_class": "governance_issuance",
+      "v2_disposition": "owner_authored_issuance_claim",
+      "target_theorems": [
+        "#660",
+        "#4589"
+      ],
+      "current_legacy_status": "legacy_present_unqualified",
+      "migration_blockers": [
+        "Bind immutable governance authorization, exact recipient/amount/asset and policy revision.",
+        "Recipient authors the claim; governance actor does not mutate recipient account.",
+        "Consume canonical economic mint identity once."
+      ],
+      "cutover_condition": "Source-specific typed authorization proof and recipient-owned claim KATs/host tests pass."
+    },
+    {
+      "id": "SAPW-009",
+      "entrypoint": "send_payment",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "1170-1335",
+      "legacy_effect_class": "payment_with_remote_fee_effect",
+      "v2_disposition": "value_note_spend_plus_saga_outbox_reconciliation",
+      "target_theorems": [
+        "#6556",
+        "#4181",
+        "#5744",
+        "#667",
+        "#679"
+      ],
+      "current_legacy_status": "legacy_present_unqualified",
+      "migration_blockers": [
+        "Use stable canonical payment/effect identity and same-key payload conflict.",
+        "Persist local outbox with local effect; cross-cell Treasury effect requires its own receipt.",
+        "Payment Completed only after recipient claim and required fee/treasury reconciliation."
+      ],
+      "cutover_condition": "Saga reaches terminal Completed only with exact recipient-claim/treasury evidence; response-loss and duplicate-delivery schedules pass."
+    },
+    {
+      "id": "SAPW-010",
+      "entrypoint": "contribute_to_hearth_pool",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "2020-2095",
+      "legacy_effect_class": "member_to_communal_pool_contribution",
+      "v2_disposition": "hearth_owner_note_spend_and_pool_receipt",
+      "target_theorems": [
+        "#6568",
+        "#667",
+        "#685",
+        "#691",
+        "#4710"
+      ],
+      "current_legacy_status": "legacy_present_unqualified",
+      "migration_blockers": [
+        "Member authorizes/consumes exact member-owned notes.",
+        "Pool authority authors matching contribution receipt/allocation.",
+        "Membership is not allocation authority; pool policy and operation identity required.",
+        "Conflicting duplicate pool receipts freeze projection."
+      ],
+      "cutover_condition": "FIN-SAFE-020 contribution theorem binds member spend, Hearth pool receipt, allocation policy and canonical contribution identity."
+    },
+    {
+      "id": "SAPW-011",
+      "entrypoint": "withdraw_from_hearth_pool",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "2110-2162",
+      "legacy_effect_class": "communal_pool_to_member_withdrawal",
+      "v2_disposition": "pool_authorized_disbursement_and_beneficiary_claim",
+      "target_theorems": [
+        "#6560",
+        "#6568",
+        "#667",
+        "#679",
+        "#685",
+        "#691"
+      ],
+      "current_legacy_status": "containment_candidate_not_promoted",
+      "migration_blockers": [
+        "Prove member allocation entitlement and available pool liquidity.",
+        "Pool disbursement consumes one exact reservation once.",
+        "Recipient output remains provisional until its assurance requirements pass and beneficiary authors claim.",
+        "Legacy sender-authored incoming SapBalance credit requires migration/claim recovery."
+      ],
+      "cutover_condition": "FIN-SAFE-020 withdrawal theorem proves entitlement, reservation, single disbursement and recipient-owned claim under replay/fork tests."
+    },
+    {
+      "id": "SAPW-012",
+      "entrypoint": "verify_hearth_membership",
+      "path": "mycelix-finance/zomes/payments/coordinator/src/lib.rs",
+      "lines": "2378-2428",
+      "legacy_effect_class": "authorization_gate",
+      "v2_disposition": "freshness_qualified_membership_evidence",
+      "target_theorems": [
+        "#6565",
+        "#6566",
+        "#6568"
+      ],
+      "current_legacy_status": "legacy_containment_only",
+      "migration_blockers": [
+        "V0.1 boolean gate must pass exact-head tests; current PR remains failing strict Clippy.",
+        "V0.2 proof needs subject, Hearth, policy digest, revision/revocation epoch, validity and one-time operation challenge.",
+        "Unknown membership/revocation evidence is Indeterminate."
+      ],
+      "cutover_condition": "Fail-closed implementation passes exact-head tests and V2 signed membership envelope is rooted, versioned and tested under revocation/freshness faults."
+    },
+    {
+      "id": "SAPW-013",
+      "entrypoint": "collateral_bridge_deposit",
+      "path": "mycelix-finance/zomes/bridge/coordinator/src/lib.rs",
+      "lines": "590-690",
+      "legacy_effect_class": "collateral_external_issuance",
+      "v2_disposition": "authenticated_source_receipt_then_owner_claim",
+      "target_theorems": [
+        "#6505",
+        "#4589",
+        "#663"
+      ],
+      "current_legacy_status": "legacy_present_unqualified",
+      "migration_blockers": [
+        "Independent custody receipt must prove asset, amount, value date and beneficiary.",
+        "No mint while deposit is only Pending.",
+        "Recipient claims exact source receipt by canonical mint_id."
+      ],
+      "cutover_condition": "Custody verifier and exact owner claim pass independent-source, replay, duplicate-receipt and conflict vectors."
+    },
+    {
+      "id": "SAPW-014",
+      "entrypoint": "verify_fiat_deposit",
+      "path": "mycelix-finance/zomes/bridge/coordinator/src/lib.rs",
+      "lines": "2380-2450",
+      "legacy_effect_class": "fiat_external_issuance",
+      "v2_disposition": "authenticated_bank_receipt_then_owner_claim",
+      "target_theorems": [
+        "#6505",
+        "#4589",
+        "#663"
+      ],
+      "current_legacy_status": "legacy_present_unqualified",
+      "migration_blockers": [
+        "Caller-controlled verification is not bank/custodian authority.",
+        "Bind authenticated statement, exact amount, currency, value date, beneficiary and consumed bank reference.",
+        "Recipient claims the issuance; no cross-agent raw credit."
+      ],
+      "cutover_condition": "Independent bank evidence adapter and one-use source identity pass adversarial replay/forgery tests."
+    },
+    {
+      "id": "SAPW-015",
+      "entrypoint": "lock_stake_sap / return_stake_sap",
+      "path": "mycelix-finance/zomes/staking/coordinator/src/lib.rs",
+      "lines": "326-397",
+      "legacy_effect_class": "staking_lock_and_unlock",
+      "v2_disposition": "typed_staking_escrow_effects",
+      "target_theorems": [
+        "#4589",
+        "#4623",
+        "#660",
+        "#667"
+      ],
+      "current_legacy_status": "legacy_present_unqualified",
+      "migration_blockers": [
+        "Lock consumes member-owned value or exact note set into a named escrow position.",
+        "Unlock/slash/refund is a separate typed cause with exact position lineage.",
+        "Do not use free-form debit/credit reasons as authority."
+      ],
+      "cutover_condition": "Lock, unlock, slash and release each have exact source-specific KATs and multi-agent replay tests."
+    },
+    {
+      "id": "SAPW-016",
+      "entrypoint": "mint_genesis_sap",
+      "path": "mycelix-finance/zomes/currency-mint/coordinator/src/lib.rs",
+      "lines": "150-190",
+      "legacy_effect_class": "physical_yield_issuance",
+      "v2_disposition": "independent_physical_proof_then_owner_claim",
+      "target_theorems": [
+        "#6505",
+        "#4589",
+        "#663"
+      ],
+      "current_legacy_status": "legacy_present_unqualified",
+      "migration_blockers": [
+        "Claimed kWh and f64 conversion are not independent proof.",
+        "STARK/attested physical evidence must bind device, interval, measurement, policy and exact integer amount.",
+        "Recipient authors the canonical issuance claim only after the source receipt verifies."
+      ],
+      "cutover_condition": "Physical verifier and deterministic fixed-point valuation pass forged-measurement, replay and boundary tests."
+    }
+  ],
+  "cutover_gates": [
+    "Do not activate a V2 lane merely by merging its code; shipped DNA config remains disabled until policy/network promotion.",
+    "Legacy SapBalance remains legacy/non-authoritative for V2 until all producer paths are mapped, recovered and cut over.",
+    "Every V2 account effect is authored by the account owner; external actors provide immutable evidence, not cross-agent writes.",
+    "Use canonical economic identity separate from physical ActionHash provenance.",
+    "Use immutable value notes for scarce-value spends and explicit conflict/finality states.",
+    "Do not treat recipient claim as spendability without FIN-SAFE-017 assurance.",
+    "Do not treat countersigning alone as double-spend prevention; witness policy and allocation refusal are separate layers.",
+    "Unknown/incomplete DHT, authority or receipt evidence remains Indeterminate.",
+    "Cross-cell effects use durable operation identity, outbox, independent receipt and reconciliation; no false Completed state.",
+    "No raw positive credit or untyped debit remains reachable in the promoted V2 protocol.",
+    "The exact shipped runtime must prove which fork/witness capabilities are actually available; no-warrant/GoodSoFar observations are provisional and countersigning cannot be assumed enabled."
+  ],
+  "claim_ceiling": "This crosswalk inventories legacy writers and points to existing V2 theorem owners. It does not implement a new account protocol, prove that every referenced theorem has passed, activate V2, or qualify legacy migration."
+}

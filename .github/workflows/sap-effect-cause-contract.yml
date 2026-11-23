@@ -1,0 +1,192 @@
+name: SAP legacy-writer V2 crosswalk qualification
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/sap-effect-cause-contract.yml"
+      - "mycelix-finance/docs/research/SAP_LEGACY_WRITER_V2_CROSSWALK_V0_2.md"
+      - "mycelix-workspace/mycelix-finance/docs/research/SAP_LEGACY_WRITER_V2_CROSSWALK_V0_2.md"
+      - "mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.schema.json"
+      - "mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json"
+      - "mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
+      - "mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.json"
+      - "mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
+  push:
+    branches:
+      - "research/sap-effect-cause-transition-v0.1-20261123"
+    paths:
+      - ".github/workflows/sap-effect-cause-contract.yml"
+      - "mycelix-finance/docs/research/SAP_LEGACY_WRITER_V2_CROSSWALK_V0_2.md"
+      - "mycelix-workspace/mycelix-finance/docs/research/SAP_LEGACY_WRITER_V2_CROSSWALK_V0_2.md"
+      - "mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.schema.json"
+      - "mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json"
+      - "mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
+      - "mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.json"
+      - "mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sap-legacy-writer-v2-crosswalk-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify subject and mirrored artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+          cmp mycelix-finance/docs/research/SAP_LEGACY_WRITER_V2_CROSSWALK_V0_2.md mycelix-workspace/mycelix-finance/docs/research/SAP_LEGACY_WRITER_V2_CROSSWALK_V0_2.md
+          cmp mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.schema.json mycelix-workspace/mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.schema.json
+          cmp mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json mycelix-workspace/mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json
+          cmp mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json
+          cmp mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.json
+          cmp mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.schema.json
+
+      - name: Validate 16-writer V2 crosswalk, 25-case corpus and runtime matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAP="mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json"
+          SCHEMA="mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.schema.json"
+          CORPUS="mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
+          jq empty "$MAP"
+          jq empty "$SCHEMA"
+          jq empty "$CORPUS"
+          RUNTIME="mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.json"
+          RUNTIME_SCHEMA="mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.schema.json"
+          jq empty "$RUNTIME"
+          jq empty "$RUNTIME_SCHEMA"
+          jq -e '
+            .benchmark == "Holochain Runtime Capability Matrix for Mycelix SAP V2" and
+            .version == "0.1" and
+            .status == "repository_source_and_official_docs_audit_not_runtime_qualification" and
+            .mycelix_finance_pin.conductor.documented_version_claim == "0.6.1" and
+            .mycelix_finance_pin.conductor.resolved_holochain_input_original_ref == "holochain-0.6.0" and
+            .mycelix_finance_pin.conductor.evidence_status == "declared_vs_resolved_source_version_discrepancy_runtime_version_unverified" and
+            .mycelix_finance_pin.dev_shell.observed_holochain_version_output == null and
+            .mycelix_finance_pin.dna_manifest.countersigning_or_witness_enablement_field_found == false and
+            .mycelix_finance_pin.cargo_compatibility.hdk == "=0.6.1" and
+            .mycelix_finance_pin.cargo_compatibility.hdi == "=0.7.1" and
+            .mycelix_finance_pin.countersigning.status == "not_available_in_locked_default_holonix_build" and
+            .mycelix_finance_pin.countersigning.default_package_feature_presence == false and
+            .mycelix_finance_pin.countersigning.custom_build_possible == true and
+            .mycelix_finance_pin.countersigning.custom_build_tested == false and
+            (.mycelix_finance_pin.countersigning.default_package_evidence.default_features | index("unstable-countersigning")) == null and
+            (.mycelix_finance_pin.countersigning.default_package_evidence.required_features_not_in_default | index("unstable-countersigning")) != null and
+            .mycelix_finance_pin.feature_audit.hdk_unstable_countersigning_declared == false and
+            .mycelix_finance_pin.feature_audit.hdk_unstable_functions_declared == false and
+            .mycelix_finance_pin.feature_audit.hdi_unstable_functions_declared == false and
+            .official_documentation.fork_warrants.status == "not_operational_per_current_official_docs" and
+            .official_documentation.general_invalid_operation_warrants.status == "stable_in_holochain_0_6" and
+            .mycelix_finance_pin.actual_runtime_binary.status == "not_proven" and
+            (.required_runtime_tests | length) >= 8 and
+            (.assurance_status_vocabulary | index("Indeterminate")) != null and
+            (.assurance_status_vocabulary | index("Provisional")) != null
+          ' "$RUNTIME" >/dev/null
+          jq -e '
+            .properties.benchmark.const == "Holochain Runtime Capability Matrix for Mycelix SAP V2" and
+            (.required | index("mycelix_finance_pin")) != null and
+            (.required | index("official_documentation")) != null and
+            (.required | index("required_runtime_tests")) != null
+          ' "$RUNTIME_SCHEMA" >/dev/null
+
+          jq -e '
+            .benchmark == "Legacy SAP Writer to Owner-Authored V2 Architecture Crosswalk" and
+            .version == "0.2" and
+            .base_commit == "e949664ceb2f9ddde26704c70e23a19380f33dde" and
+            (.target_architecture | length) >= 12 and
+            (.writers | length) == 16 and
+            ([.writers[].id] | unique | length) == 16 and
+            ([.writers[].id] | sort) == [
+              "SAPW-001","SAPW-002","SAPW-003","SAPW-004",
+              "SAPW-005","SAPW-006","SAPW-007","SAPW-008",
+              "SAPW-009","SAPW-010","SAPW-011","SAPW-012",
+              "SAPW-013","SAPW-014","SAPW-015","SAPW-016"
+            ] and
+            all(.writers[];
+              (.entrypoint | length > 0) and
+              (.path | length > 0) and
+              (.legacy_effect_class | length > 0) and
+              (.v2_disposition | length > 0) and
+              (.target_theorems | length > 0) and
+              (.migration_blockers | length > 0) and
+              (.cutover_condition | length > 0)
+            ) and
+            (.cutover_gates | length) >= 8 and
+            (.design_decision | contains("superseded"))
+          ' "$MAP" >/dev/null
+
+          jq -e --slurpfile m "$MAP" '
+            .properties.benchmark.const == "Legacy SAP Writer to Owner-Authored V2 Architecture Crosswalk" and
+            .properties.writers.items["$ref"] == "#/$defs/writer" and
+            (.required | index("writers")) != null and
+            ([.["$defs"].writer.properties.v2_disposition.enum[]] | sort) ==
+              ([$m[0].writers[].v2_disposition] | unique | sort)
+          ' "$SCHEMA" >/dev/null
+
+          jq -e '
+            .benchmark == "SAP V2 Cross-Layer Assurance Known-Answer and Adversarial Corpus" and
+            .version == "0.2" and
+            .status == "specified_not_executed" and
+            .crosswalk == "sap-legacy-writer-v2-crosswalk.v0.2.json" and
+            (.scenarios | length) == 26 and
+            ([.scenarios[].id] | unique | length) == 26 and
+            ([.scenarios[].id] | sort) == [
+              "SCE-001","SCE-002","SCE-003","SCE-004","SCE-005",
+              "SCE-006","SCE-007","SCE-008","SCE-009","SCE-010",
+              "SCE-011","SCE-012","SCE-013","SCE-014","SCE-015",
+              "SCE-016","SCE-017","SCE-018","SCE-019","SCE-020",
+              "SCE-021","SCE-022","SCE-023","SCE-024","SCE-025",
+              "SCE-026"
+            ] and
+            all(.scenarios[];
+              (.id | test("^SCE-[0-9]{3}$")) and
+              (.stimulus | length > 0) and
+              (.invariant | length > 0) and
+              (.related_tracking | length > 0) and
+              (.execution_state == "specified_not_executed") and
+              (.expected == "NotAvailable" or .expected == "Valid" or .expected == "Invalid" or .expected == "Conflict" or .expected == "Indeterminate" or .expected == "ReconcileOriginal" or .expected == "AtMostOneRemoteEffect")
+            )
+          ' "$CORPUS" >/dev/null
+
+          if grep -R -n "SapBalanceTransitionV1"             mycelix-finance/docs/research/SAP_LEGACY_WRITER_V2_CROSSWALK_V0_2.md             "$MAP" "$SCHEMA"; then
+            echo "Superseded mutable-balance schema must not be presented as the V2 destination."
+            exit 1
+          fi
+
+          {
+            echo "subject_commit=$(git rev-parse HEAD)"
+            echo "crosswalk_schema_sha256=$(sha256sum "$SCHEMA" | cut -d' ' -f1)"
+            echo "crosswalk_map_sha256=$(sha256sum "$MAP" | cut -d' ' -f1)"
+            echo "assurance_corpus_sha256=$(sha256sum "$CORPUS" | cut -d' ' -f1)"
+            echo "runtime_matrix_sha256=$(sha256sum "$RUNTIME" | cut -d' ' -f1)"
+            echo "runtime_matrix_schema_sha256=$(sha256sum "$RUNTIME_SCHEMA" | cut -d' ' -f1)"
+            echo "legacy_writer_count=$(jq '.writers | length' "$MAP")"
+            echo "target_theorem_count=$(jq '.target_architecture | length' "$MAP")"
+            echo "assurance_case_count=$(jq '.scenarios | length' "$CORPUS")"
+          } | tee "$RUNNER_TEMP/sap-v2-crosswalk-manifest.txt" >> "$GITHUB_STEP_SUMMARY"

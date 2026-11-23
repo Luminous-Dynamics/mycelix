@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/holochain-runtime-capability-matrix.v0.1.schema.json",
+  "title": "Holochain Runtime Capability Matrix for Mycelix SAP V2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark",
+    "version",
+    "audited_at",
+    "source_snapshot",
+    "status",
+    "mycelix_finance_pin",
+    "official_documentation",
+    "assurance_status_vocabulary",
+    "normative_interpretation",
+    "required_runtime_tests",
+    "qualification_claim"
+  ],
+  "properties": {
+    "benchmark": {
+      "const": "Holochain Runtime Capability Matrix for Mycelix SAP V2"
+    },
+    "version": {
+      "const": "0.1"
+    },
+    "audited_at": {
+      "type": "string",
+      "format": "date"
+    },
+    "source_snapshot": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "status": {
+      "const": "repository_source_and_official_docs_audit_not_runtime_qualification"
+    },
+    "mycelix_finance_pin": {
+      "type": "object"
+    },
+    "official_documentation": {
+      "type": "object"
+    },
+    "assurance_status_vocabulary": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "normative_interpretation": {
+      "type": "object"
+    },
+    "required_runtime_tests": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "qualification_claim": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

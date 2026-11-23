@@ -1,0 +1,235 @@
+{
+  "benchmark": "Holochain Runtime Capability Matrix for Mycelix SAP V2",
+  "version": "0.1",
+  "audited_at": "2026-11-23",
+  "repository": "Luminous-Dynamics/mycelix",
+  "source_snapshot": "e949664ceb2f9ddde26704c70e23a19380f33dde",
+  "status": "repository_source_and_official_docs_audit_not_runtime_qualification",
+  "mycelix_finance_pin": {
+    "conductor": {
+      "documented_version_claim": "0.6.1",
+      "documentation_evidence": {
+        "path": "mycelix-workspace/CLAUDE.md",
+        "blob_sha": "049cd24eca7a740ee2ae92470d9a8478465ef0de",
+        "claim": "The workspace version table documents conductor 0.6.1."
+      },
+      "flake_declared_holonix_ref": "d21b3543",
+      "resolved_holonix_commit": "d21b35431e425e615bc05da790987380a84b8280",
+      "resolved_holochain_input_original_ref": "holochain-0.6.0",
+      "resolved_holochain_input_commit": "a6d4e805a0971ccbc0dcb3f3ed6a9e2fac980a3b",
+      "flake_lock_blob_sha": "d6c2d481ddb1d63f644b5ff4ac5fc8ca1e889220",
+      "evidence_status": "declared_vs_resolved_source_version_discrepancy_runtime_version_unverified",
+      "interpretation": "The documentation states 0.6.1, but the committed Finance flake.lock resolves the nested Holonix Holochain source input from ref holochain-0.6.0. The actual packaged conductor --version output has not been captured. Do not label the built runtime 0.6.1 or 0.6.0 until it is executed from the locked flake."
+    },
+    "cargo_compatibility": {
+      "hdk": "=0.6.1",
+      "hdi": "=0.7.1",
+      "holochain_zome_types": "=0.6.1",
+      "holochain_integrity_types": "=0.6.1",
+      "holo_hash": "=0.6.1",
+      "hdk_derive": "=0.6.1",
+      "evidence_status": "repository_documented_manifest_pin",
+      "evidence": [
+        {
+          "path": "mycelix-finance/Cargo.toml",
+          "blob_sha": "5732f2de0040c52ec0de325dbcfde94431d390aa",
+          "claim": "Finance workspace dependency pins for HDK, HDI and Holochain type crates."
+        }
+      ]
+    },
+    "actual_runtime_binary": {
+      "version_verified_at_execution": false,
+      "binary_digest": null,
+      "conductor_configuration_digest": null,
+      "feature_flags_dump": null,
+      "status": "not_proven"
+    },
+    "dna_wasm_pack": {
+      "dna_manifest_digest": null,
+      "wasm_artifact_digest": null,
+      "exact_conductor_compatibility_test": false,
+      "status": "not_proven"
+    },
+    "countersigning": {
+      "status": "not_available_in_locked_default_holonix_build",
+      "custom_build_possible": true,
+      "custom_build_tested": false,
+      "default_package_evidence": {
+        "holonix_flake_commit": "d21b35431e425e615bc05da790987380a84b8280",
+        "holonix_flake_blob_sha": "891731783f8e787bceecac53ec6b94b95483b45a",
+        "builder_default_cargo_extra_args": "",
+        "package_definition": "holochain = pkgs.lib.makeOverridable holochainBuilder { };",
+        "finance_consumption": "holochainBase.mkHolochainShell receives holonix.packages.${system}; #ci shell includes holochainBase packages without overriding the Holochain package",
+        "conductor_source_ref": "holochain-0.6.0",
+        "conductor_cargo_manifest_blob_sha": "6d9eb093604a64cf32c240d9ee692fc837ddab34",
+        "default_features": [
+          "sqlite-encrypted",
+          "metrics_influxive",
+          "schema",
+          "wasmer_sys",
+          "datachannel-vendored"
+        ],
+        "required_features_not_in_default": [
+          "unstable-countersigning",
+          "unstable-functions"
+        ]
+      },
+      "zome_feature_evidence": {
+        "hdk_0_6_1_docs_source": "https://docs.rs/crate/hdk/0.6.1/source/Cargo.toml",
+        "hdi_0_7_1_workspace_version": "=0.7.1",
+        "required_hdk_features": [
+          "unstable-functions",
+          "unstable-countersigning"
+        ],
+        "required_hdi_features": [
+          "unstable-functions"
+        ],
+        "currently_declared_in_payments_tend": false
+      },
+      "api_compatibility_with_pinned_hdk": true,
+      "conductor_feature_enablement_proven": false,
+      "default_package_feature_presence": false,
+      "multi_agent_session_test": false,
+      "note": "The exact Holonix source defines a default Holochain package with empty cargoExtraArgs; the Finance flake consumes this package without an override. The locked Holochain crate's default feature list does not include countersigning or unstable host functions. A custom binary could be built with the required flags, but the Payments/TEND zome dependency features and live session are not present/qualified. Treat the countersigned path as NotAvailable in the currently locked default build."
+    },
+    "dna_manifest": {
+      "path": "mycelix-finance/dna/dna.yaml",
+      "blob_sha": "ff8e68c734ce4910b77bbf5e88b65d2d46d3f2e5",
+      "countersigning_or_witness_enablement_field_found": false,
+      "statement": "No countersigning or witness enablement field was found in the audited DNA integrity properties. This does not prove conductor-level countersigning cannot be enabled."
+    },
+    "dev_shell": {
+      "flake_path": "mycelix-finance/flake.nix",
+      "flake_blob_sha": "08f0e5c8fea934ed51cf8b7a8434475b61e1799f",
+      "base_module_path": "nix/modules/holochain-base.nix",
+      "base_module_blob_sha": "e9015df8f82520d8c3607026de126216412727b6",
+      "conductor_package_sources": [
+        "holochainPackages.holochain",
+        "holochainPackages.hc"
+      ],
+      "shell_reports_holochain_version": true,
+      "observed_holochain_version_output": null,
+      "status": "locked_package_inputs_known_binary_output_not_observed"
+    },
+    "feature_audit": {
+      "status": "source_manifest_feature_flags_not_declared",
+      "workspace_hdk_dependency": {
+        "version": "=0.6.1",
+        "features": [],
+        "blob_sha": "5732f2de0040c52ec0de325dbcfde94431d390aa"
+      },
+      "workspace_hdi_dependency": {
+        "version": "=0.7.1",
+        "features": [],
+        "blob_sha": "5732f2de0040c52ec0de325dbcfde94431d390aa"
+      },
+      "payments_coordinator_hdk": {
+        "declaration": "hdk = { workspace = true }",
+        "blob_sha": "d9f74d8284baeef1220b77ad2a1d536dacacd3c1"
+      },
+      "payments_integrity_hdi": {
+        "declaration": "hdi = { workspace = true }",
+        "blob_sha": "f4be3db81785bb72f48a99fa986501d917d77683"
+      },
+      "tend_coordinator_hdk": {
+        "declaration": "hdk = { workspace = true }",
+        "blob_sha": "a2b024b958c1ee28909e6adacd3b611300f6b73e"
+      },
+      "tend_integrity_hdi": {
+        "declaration": "hdi = { workspace = true }",
+        "blob_sha": "48187fefe8a982c4a7a711c6820882b953ce213d"
+      },
+      "hdk_unstable_countersigning_declared": false,
+      "hdk_unstable_functions_declared": false,
+      "hdi_unstable_functions_declared": false,
+      "note": "Audited Finance manifests do not declare the unstable-countersigning or unstable-functions Cargo features in Payments/TEND. This establishes current source declarations only; a custom build may add them, but it is a distinct, opt-in build."
+    }
+  },
+  "official_documentation": {
+    "fork_warrants": {
+      "status": "not_operational_per_current_official_docs",
+      "source": "https://developer.holochain.org/build/getting-an-agents-status/",
+      "claim": "The current agent-status guide distinguishes general invalid-operation warrants from chain-fork warrants: general validation warrants are produced, while chain-fork warrants are not yet operational. get_agent_activity can report observed chain-fork state, but lack of discovered evidence is not proof of no fork."
+    },
+    "agent_activity": {
+      "status": "eventually_consistent_observation_not_finality",
+      "source": "https://developer.holochain.org/build/getting-an-agents-status/",
+      "claim": "get_agent_activity Status/Full can report the queried authority's current view of chain status, discovered forks and warrants. The view is eventually consistent; absence of a fork/warrant means only that the queried authority has not discovered evidence yet."
+    },
+    "countersigning": {
+      "status": "unstable_disabled_by_default_in_0_4_plus",
+      "source": "https://developer.holochain.org/concepts/10_countersigning",
+      "claims": [
+        "Countersigning is documented as unstable and disabled by default in Holochain 0.4 and newer.",
+        "All participants must be online simultaneously for the countersigning session.",
+        "Countersigning coordinates a shared write but is not itself a general double-spend prevention mechanism."
+      ],
+      "required_compile_features": {
+        "source": "https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.4/",
+        "conductor_binary": [
+          "unstable-countersigning",
+          "unstable-functions"
+        ],
+        "hdk_dependency": [
+          "unstable-functions",
+          "unstable-countersigning"
+        ],
+        "hdi_dependency": [
+          "unstable-functions"
+        ],
+        "claim": "The 0.4+ upgrade guide says unstable features are no longer compiled into Holochain by default. Countersigning requires a custom conductor build with the named features and the corresponding HDK/HDI dependency features."
+      }
+    },
+    "local_zome_call_atomicity": {
+      "status": "documented_platform_semantics",
+      "source": "https://developer.holochain.org/build/zome-functions/",
+      "claim": "Writes in one zome function call are transactional and commit or fail together; competing source-chain activity may cause a chain-head-moved rollback.",
+      "qualification_required": "The Mycelix Payments pool/member write path still requires exact-head Sweettest and failure-injection proof."
+    },
+    "compatibility": {
+      "holochain_0_6": {
+        "status": "maintenance_mode",
+        "latest_compatible_release": "0.6.3",
+        "source": "https://developer.holochain.org/resources/compatibility/holochain-0.6/"
+      },
+      "holochain_0_7": {
+        "status": "recommended_for_general_use",
+        "recommended_release": "0.7.1",
+        "source": "https://developer.holochain.org/resources/compatibility/holochain-0.7/"
+      },
+      "migration_policy": "Do not upgrade solely to obtain a desired feature; compare matching HDK/HDI, conductor, DNA/WASM, client API, migration and operational behavior first."
+    },
+    "general_invalid_operation_warrants": {
+      "status": "stable_in_holochain_0_6",
+      "source": "https://developer.holochain.org/resources/upgrade/upgrade-holochain-0.6",
+      "claim": "The 0.5-to-0.6 upgrade guide says warrants became stable in Holochain 0.6 and get_agent_activity returns a list of warrants."
+    }
+  },
+  "assurance_status_vocabulary": [
+    "NotAvailable",
+    "GoodSoFar",
+    "BadActor",
+    "Conflict",
+    "Indeterminate",
+    "Provisional"
+  ],
+  "normative_interpretation": {
+    "GoodSoFar": "No conflict has yet been observed by the queried authority set. It is not finality and may be superseded by later evidence.",
+    "NotAvailable": "The required primitive or authority query cannot be used in the exact runtime.",
+    "Indeterminate": "The evidence set, DHT view, signer set or authority status is incomplete or timed out.",
+    "Conflict": "Contradictory owner/witness/economic observations exist; affected outputs are frozen.",
+    "Provisional": "An exact action/claim exists but the assurance threshold for spendability has not been established.",
+    "SpendableWitnessed": "Forbidden until the exact runtime capability, trusted policy, authenticated session facts, quorum and local witness-allocation rules are proven and qualified."
+  },
+  "required_runtime_tests": [
+    "Capture actual conductor --version and binary digest from the build artifact.",
+    "Capture exact Holonix/Nix lock and conductor configuration digests.",
+    "Record DNA integrity/coordinator WASM and DNA pack digests.",
+    "Prove whether countersigning APIs compile against exact HDK 0.6.1 and whether conductor config enables them.",
+    "Run multi-agent countersigning preflight, mandatory signer, optional signer strict-majority, timeout, offline participant, abort and duplicate-session tests if available.",
+    "Run delayed fork/authority-observation tests; verify GoodSoFar can later become Conflict/BadActor and never becomes final by absence.",
+    "Prove source-chain head movement rolls back local multi-entry writes and that retry reconciliation retains original operation identity.",
+    "Repeat the same fixture against matched 0.6.1, 0.6.3 and 0.7.1 stacks before any runtime migration decision."
+  ],
+  "qualification_claim": "This artifact records repository pins, exact Holonix/Holochain source, and official docs. The locked default Holonix conductor package is built with empty cargoExtraArgs and does not include unstable-countersigning or unstable-functions; Payments/TEND zome dependencies do not request those features. Thus countersigning is NotAvailable in the currently declared default Finance build. A custom build may be technically possible, but is not implemented or tested. General invalid-operation warrants are stable in Holochain 0.6; chain-fork warrants remain separately documented as not operational. The documented conductor 0.6.1 claim and nested holochain-0.6.0 lock input remain a source mismatch; actual binary --version is not captured. No runtime binary digest, multi-agent countersigning test, live fork-warrant test or conductor integration result is claimed. This is not runtime qualification."
+}
