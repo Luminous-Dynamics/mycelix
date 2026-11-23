@@ -403,21 +403,19 @@ fn validate(s: &Scenario) -> Result<(), String> {
         if let (Some(lower), Some(upper)) = (
             evidence.lower_rate_bound_value,
             evidence.upper_rate_bound_value,
-        ) {
-            if lower > upper {
-                return Err("lower rate bound cannot exceed upper rate bound".into());
-            }
+        ) && lower > upper
+        {
+            return Err("lower rate bound cannot exceed upper rate bound".into());
         }
-        if let Some(measured) = evidence.measured_rate_value {
-            if evidence
+        if let Some(measured) = evidence.measured_rate_value
+            && (evidence
                 .lower_rate_bound_value
                 .is_some_and(|lower| lower > measured)
                 || evidence
                     .upper_rate_bound_value
-                    .is_some_and(|upper| upper < measured)
-            {
-                return Err("measured rate must lie within supplied bounds".into());
-            }
+                    .is_some_and(|upper| upper < measured))
+        {
+            return Err("measured rate must lie within supplied bounds".into());
         }
         if is_direct_observation(&evidence.evidence_class)
             && evidence
@@ -783,7 +781,7 @@ mod tests {
 
     #[test]
     fn hydraulic_observation_uses_water_volume_rate_and_its_own_threshold() {
-        let mut s = scenario();
+        let s = scenario();
         let mut evidence = s.evidence_records[0].clone();
         evidence.evidence_class = "direct_hydraulic_observation".into();
         evidence.rate_measurand = "water_volume_flux".into();
