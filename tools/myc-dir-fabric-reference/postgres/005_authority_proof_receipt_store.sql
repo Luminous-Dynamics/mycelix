@@ -280,6 +280,34 @@ BEGIN
             RAISE EXCEPTION 'authority proof ID is already bound to different signed bytes or external sequence evidence'
                 USING ERRCODE = 'P0001';
         END IF;
+
+        -- An exact proof row is not sufficient after a local restore: the
+        -- sequence mirror must still be at least this proof's sequence and
+        -- must not claim this sequence for different proof bytes. Never
+        -- reconstruct a missing/lowered mirror from a database-local row;
+        -- the external authority must reconcile it after PITR.
+        SELECT last_accepted_sequence, last_proof_id,
+               last_signed_receipt_hash, external_sequence_receipt_digest
+          INTO v_existing_sequence, v_existing_proof_id,
+               v_existing_hash, v_existing_external_digest
+          FROM myc_effect_owner.authority_proof_sequence_highwater
+         WHERE deployment_id = v_deployment_id
+           AND purpose = v_purpose
+           AND issuer_key_id = v_issuer_key_id
+         FOR UPDATE;
+        IF NOT FOUND OR v_existing_sequence < v_sequence THEN
+            RAISE EXCEPTION 'authority proof sequence mirror is missing or behind; external anti-rollback reconciliation required'
+                USING ERRCODE = 'P0001';
+        END IF;
+        IF v_existing_sequence = v_sequence
+           AND (
+               v_existing_proof_id IS DISTINCT FROM v_proof_id
+               OR v_existing_hash IS DISTINCT FROM p_signed_receipt_hash
+               OR v_existing_external_digest IS DISTINCT FROM p_external_sequence_receipt_digest
+           ) THEN
+            RAISE EXCEPTION 'authority proof sequence mirror binds this sequence to different proof bytes'
+                USING ERRCODE = 'P0001';
+        END IF;
         RETURN v_proof_id;
     END IF;
 
