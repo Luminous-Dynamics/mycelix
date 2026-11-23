@@ -18,14 +18,14 @@ The data lineage and modality-specific observation-operator details remain owned
 
 For a direct observation to support an edge state, the record must have an immutable artifact URI/SHA-256, method/version, calibration/reference identity, passed QC, matching specimen/event, registered 3D edge support and a time window intersecting the event.
 
-A positive observation may support active state when its measured flux exceeds the event's predeclared minimum relevant flux.
+A positive observation may support active state only when the lower confidence bound on measured flux exceeds the event's predeclared minimum relevant flux at or above the task profile's required confidence level. A point estimate above threshold is not enough.
 
 An inactive state requires all of:
 - direct tracer or hydraulic observation;
 - observation interval covers the complete event;
 - sampling cadence is no coarser than the declared event maximum;
 - event coverage meets the declared minimum;
-- the upper bound on undetected flux is no greater than the minimum relevant flux;
+- the upper confidence bound on undetected flux is no greater than the minimum relevant flux and meets the required confidence level;
 - no conflicting qualified positive observation exists.
 
 An image-only, derived-prediction or model-prediction record cannot confirm hydraulic activity or inactivity. A support mismatch, event mismatch, QC failure, incomplete evidence or conflict produces unassessed.
