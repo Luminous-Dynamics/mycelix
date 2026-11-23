@@ -735,9 +735,10 @@ mod tests {
     #[test]
     fn rejects_ambiguous_duplicate_node_and_edge_ids() {
         let mut scenario = scenario();
+        let duplicate_edge_id = scenario.variants[0].present_edge_ids[0].clone();
         scenario.variants[0]
             .present_edge_ids
-            .push(scenario.variants[0].present_edge_ids[0].clone());
+            .push(duplicate_edge_id);
         assert!(validate(&scenario).is_err());
     }
 
