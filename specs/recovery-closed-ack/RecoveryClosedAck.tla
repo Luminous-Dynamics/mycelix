@@ -34,6 +34,7 @@ VARIABLES
     unknownFinality,
     acked,
     ackPolicyEpoch,
+    ackEvidence,
     promotedCandidate
 
 vars ==
@@ -58,6 +59,7 @@ vars ==
        unknownFinality,
        acked,
        ackPolicyEpoch,
+       ackEvidence,
        promotedCandidate >>
 
 Init ==
@@ -82,6 +84,14 @@ Init ==
     /\ unknownFinality = TRUE
     /\ acked = FALSE
     /\ ackPolicyEpoch = 0
+    /\ ackEvidence = [
+         recoveryClosed |-> FALSE,
+         finalityObserved |-> FALSE,
+         highWaterCommitted |-> FALSE,
+         deliveryBound |-> FALSE,
+         leaseValid |-> FALSE,
+         endLsn |-> 0,
+         policyEpoch |-> 0]
     /\ promotedCandidate = NoCandidate
 
 EligibleCandidates ==
@@ -124,6 +134,7 @@ CommitProtectedEffect(lsn) ==
             deliveryIdentityBound,
             acked,
             ackPolicyEpoch,
+            ackEvidence,
             promotedCandidate >>
 
 ReplicateAndObserveCandidate(c, replayLsn, timelineCompatible) ==
@@ -155,6 +166,7 @@ ReplicateAndObserveCandidate(c, replayLsn, timelineCompatible) ==
             unknownFinality,
             acked,
             ackPolicyEpoch,
+            ackEvidence,
             promotedCandidate >>
 
 AdvancePromotionPolicy(newAllowedCandidates) ==
@@ -186,6 +198,7 @@ AdvancePromotionPolicy(newAllowedCandidates) ==
             deliveryIdentityBound,
             acked,
             ackPolicyEpoch,
+            ackEvidence,
             promotedCandidate >>
 
 ObserveRecoveryFinality ==
@@ -217,6 +230,7 @@ ObserveRecoveryFinality ==
             deliveryIdentityBound,
             acked,
             ackPolicyEpoch,
+            ackEvidence,
             promotedCandidate >>
 
 BindExactDelivery ==
@@ -243,6 +257,7 @@ BindExactDelivery ==
             unknownFinality,
             acked,
             ackPolicyEpoch,
+            ackEvidence,
             promotedCandidate >>
 
 AckSync ==
@@ -260,6 +275,14 @@ AckSync ==
     /\ ~quarantined
     /\ acked' = TRUE
     /\ ackPolicyEpoch' = policyEpoch
+    /\ ackEvidence' = [
+         recoveryClosed |-> RecoveryClosed,
+         finalityObserved |-> finalityObserved,
+         highWaterCommitted |-> externalHighWaterCommitted,
+         deliveryBound |-> deliveryIdentityBound,
+         leaseValid |-> leaseValid,
+         endLsn |-> effectEndLsn,
+         policyEpoch |-> certificatePolicyEpoch]
     /\ UNCHANGED
          << effectCommitted,
             effectEndLsn,
@@ -306,6 +329,7 @@ IsolateCurrentPrimary ==
             unknownFinality,
             acked,
             ackPolicyEpoch,
+            ackEvidence,
             promotedCandidate >>
 
 FenceFormerPrimary ==
@@ -332,6 +356,7 @@ FenceFormerPrimary ==
             unknownFinality,
             acked,
             ackPolicyEpoch,
+            ackEvidence,
             promotedCandidate >>
 
 PromoteCandidate(c) ==
@@ -390,6 +415,7 @@ RestoreStaleBackup ==
             deliveryIdentityBound,
             acked,
             ackPolicyEpoch,
+            ackEvidence,
             promotedCandidate >>
 
 MarkLeaseUnknown ==
@@ -416,6 +442,7 @@ MarkLeaseUnknown ==
             deliveryIdentityBound,
             acked,
             ackPolicyEpoch,
+            ackEvidence,
             promotedCandidate >>
 
 Next ==
@@ -456,6 +483,14 @@ TypeOK ==
     /\ unknownFinality \in BOOLEAN
     /\ acked \in BOOLEAN
     /\ ackPolicyEpoch \in 0..MaxPolicyEpoch
+    /\ ackEvidence \in
+         [recoveryClosed : BOOLEAN,
+          finalityObserved : BOOLEAN,
+          highWaterCommitted : BOOLEAN,
+          deliveryBound : BOOLEAN,
+          leaseValid : BOOLEAN,
+          endLsn : 0..MaxLsn,
+          policyEpoch : 0..MaxPolicyEpoch]
     /\ promotedCandidate \in (Candidates \cup {NoCandidate})
 
 NoSplitBrain ==
@@ -464,15 +499,14 @@ NoSplitBrain ==
 AckImpliesVerifiedFinality ==
     acked =>
       /\ effectCommitted
-      /\ finalityObserved
-      /\ externalHighWaterCommitted
-      /\ certificateEffectEndLsn = effectEndLsn
-      /\ certificatePolicyEpoch = ackPolicyEpoch
-      /\ ackPolicyEpoch \in 1..policyEpoch
-      /\ RecoveryClosed
-      /\ deliveryIdentityBound
-      /\ leaseValid
-      /\ ~unknownFinality
+      /\ ackEvidence.recoveryClosed
+      /\ ackEvidence.finalityObserved
+      /\ ackEvidence.highWaterCommitted
+      /\ ackEvidence.endLsn = effectEndLsn
+      /\ ackEvidence.policyEpoch = ackPolicyEpoch
+      /\ ackEvidence.policyEpoch \in 1..policyEpoch
+      /\ ackEvidence.deliveryBound
+      /\ ackEvidence.leaseValid
 
 WritablePrimaryIsAdmitted ==
     currentPrimaryWritable =>
@@ -491,12 +525,16 @@ AcknowledgedEffectSurvivesEveryAllowedPromotion ==
 QuarantinedRestoreCannotWrite ==
     quarantined => ~currentPrimaryWritable
 
+AckedStaleRestoreMustStayQuarantined ==
+    acked /\ ~databaseContainsEffect =>
+      quarantined /\ ~currentPrimaryWritable
+
 PromotionRequiresPhysicalFencing ==
     currentPrimaryWritable /\ promotedCandidate # NoCandidate =>
       /\ oldPrimaryFenced
       /\ ~formerPrimaryWritable
 
 ExternalEvidenceIsMonotonic ==
-    externalHighWaterCommitted => TRUE
+    [](externalHighWaterCommitted => externalHighWaterCommitted')
 
 =============================================================================
