@@ -29,6 +29,7 @@ use myc_dir_fabric_nats_reference::{
 };
 use sha2::{Digest as ShaDigest, Sha256};
 
+pub mod authority_lease;
 pub mod postgres;
 
 const WIRE_VERSION: &str = "1";
