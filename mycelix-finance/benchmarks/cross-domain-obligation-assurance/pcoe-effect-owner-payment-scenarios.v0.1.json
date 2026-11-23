@@ -19,7 +19,7 @@
       6553
     ]
   },
-  "scenario_count": 18,
+  "scenario_count": 19,
   "disposition_vocabulary": [
     "return_original",
     "reject_conflict",
@@ -201,6 +201,15 @@
       "adversarial_mutation": "Promote internal Payment Completed or a local receipt to external PaidFinal.",
       "expected_disposition": "reject_promotion",
       "required_control": "Represent internal LedgerCommitted separately from external rail finality, physical delivery and contract acceptance."
+    },
+    {
+      "id": "EOP-019",
+      "domain": "outbox_recovery",
+      "threat": "post_commit wake-up is lost after a Finance batch commits",
+      "preconditions": "A Finance journal batch and Pending Treasury outbox record are committed on the source chain, but the process crashes before a post_commit callback dispatches the outbox.",
+      "adversarial_mutation": "Rely only on an in-memory callback or notification and never scan the durable outbox after restart.",
+      "expected_disposition": "recover_from_durable_record",
+      "required_control": "A restart-safe scanner reconstructs pending outbox work from committed source-chain records and dispatches with the same Treasury operation identity; the callback is only a wake-up hint."
     }
   ]
 }
