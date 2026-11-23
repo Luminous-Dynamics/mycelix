@@ -23,12 +23,9 @@
   "disposition_vocabulary": [
     "return_original",
     "reject_conflict",
-    "reject_partial_batch",
-    "projection_rebuild",
     "one_batch",
     "reject_or_hold",
     "resolve_same_operation",
-    "return_original",
     "outbox_pending",
     "reconcile_original",
     "resolve_or_reject_stale",
@@ -38,7 +35,9 @@
     "reject_before_commit",
     "idempotent_projection",
     "reject",
-    "reject_promotion"
+    "reject_promotion",
+    "local_atomic_rollback",
+    "reconcile_cross_cell_effect"
   ],
   "scenarios": [
     {
@@ -79,21 +78,21 @@
     },
     {
       "id": "EOP-005",
-      "domain": "partial_effect",
-      "threat": "Crash after sender debit but before beneficiary credit",
-      "preconditions": "The current sequential write path can expose intermediate balance mutations.",
-      "adversarial_mutation": "Crash or inject validation failure between debit and credit.",
-      "expected_disposition": "reject_partial_batch",
-      "required_control": "The journal-batch implementation commits all local value legs together or commits none; partial balances are not an authoritative state."
+      "domain": "atomicity",
+      "threat": "A staged local debit is followed by a local credit failure inside the same Finance zome call",
+      "preconditions": "The sender debit, beneficiary credit, Payment and Receipt writes occur during one Finance Payments zome-function invocation on the same source chain.",
+      "adversarial_mutation": "Inject a host or validation error after the debit helper is called but before the credit helper completes; incorrectly assume only the debit can persist.",
+      "expected_disposition": "local_atomic_rollback",
+      "required_control": "Holochain's same-source-chain zome-call atomicity must roll back every staged Finance record together. A real-agent test must assert unchanged payer / beneficiary balances and no Payment / Receipt record after the failed call."
     },
     {
       "id": "EOP-006",
-      "domain": "partial_effect",
-      "threat": "Crash after beneficiary credit but before Payment record",
-      "preconditions": "Balance writes may precede Payment entry creation.",
-      "adversarial_mutation": "Crash before Payment / Receipt projections are created.",
-      "expected_disposition": "projection_rebuild",
-      "required_control": "A committed journal batch remains authoritative; Payment and Receipt projections can be deterministically rebuilt without another value effect."
+      "domain": "cross_cell_atomicity",
+      "threat": "Treasury fee delivery commits before the Finance source-chain transaction",
+      "preconditions": "Finance synchronously calls the separate Treasury cell before creating its Payment and Receipt records.",
+      "adversarial_mutation": "Let Treasury accept the fee, then force a later Finance-side error or source-chain commit failure.",
+      "expected_disposition": "reconcile_cross_cell_effect",
+      "required_control": "Do not dispatch Treasury delivery before the Finance journal / outbox commits. Commit a durable fee outbox item with the local Finance batch, then dispatch using a Treasury-owned idempotency identity and reconcile its exact receipt."
     },
     {
       "id": "EOP-007",
