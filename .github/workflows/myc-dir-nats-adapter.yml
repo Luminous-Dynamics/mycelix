@@ -97,6 +97,10 @@ jobs:
             myc-dir-postgres:/tmp/003_owner_epoch_execution_attestation.sql
           docker cp tools/myc-dir-fabric-reference/postgres/tests/003_owner_epoch_execution_attestation.sql \
             myc-dir-postgres:/tmp/test_003_owner_epoch_execution_attestation.sql
+          docker cp tools/myc-dir-fabric-reference/postgres/004_authority_write_lease_admission.sql \
+            myc-dir-postgres:/tmp/004_authority_write_lease_admission.sql
+          docker cp tools/myc-dir-fabric-reference/postgres/tests/004_authority_write_lease_admission.sql \
+            myc-dir-postgres:/tmp/test_004_authority_write_lease_admission.sql
 
           docker exec myc-dir-postgres psql -U postgres -d postgres \
             -v ON_ERROR_STOP=1 -f /tmp/001_effect_owner.sql
@@ -106,6 +110,10 @@ jobs:
             -v ON_ERROR_STOP=1 -f /tmp/003_owner_epoch_execution_attestation.sql
           docker exec myc-dir-postgres psql -U postgres -d postgres \
             -v ON_ERROR_STOP=1 -f /tmp/test_003_owner_epoch_execution_attestation.sql
+          docker exec myc-dir-postgres psql -U postgres -d postgres \
+            -v ON_ERROR_STOP=1 -f /tmp/004_authority_write_lease_admission.sql
+          docker exec myc-dir-postgres psql -U postgres -d postgres \
+            -v ON_ERROR_STOP=1 -f /tmp/test_004_authority_write_lease_admission.sql
 
       - name: Start pinned NATS server with JetStream domain
         shell: bash
