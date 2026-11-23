@@ -1,0 +1,15 @@
+[package]
+name = "countersigning-feature-probe"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+publish = false
+description = "Opt-in compile probe for Holochain 0.6 countersigning features; never included in the production Finance DNA."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "countersigning_feature_probe"
+
+[dependencies]
+hdk = { workspace = true, features = ["unstable-functions", "unstable-countersigning"] }
+hdi = { workspace = true, features = ["unstable-functions"] }
