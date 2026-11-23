@@ -2072,8 +2072,16 @@ pub fn contribute_to_hearth_pool(input: ContributeToHearthInput) -> ExternResult
             pool.balance
         };
 
-        let expected_balance = post_demurrage + input.amount;
-        let expected_contributed = pool.total_contributed + input.amount;
+        let expected_balance = post_demurrage.checked_add(input.amount).ok_or(
+            wasm_error!(WasmErrorInner::Guest(
+                "Hearth SAP pool balance overflow during contribution".into()
+            )),
+        )?;
+        let expected_contributed = pool.total_contributed.checked_add(input.amount).ok_or(
+            wasm_error!(WasmErrorInner::Guest(
+                "Hearth SAP lifetime contribution total overflow".into()
+            )),
+        )?;
         let updated = HearthSapPool {
             balance: expected_balance,
             last_demurrage_at: now_ts,
@@ -2123,11 +2131,28 @@ pub fn withdraw_from_hearth_pool(input: WithdrawFromHearthInput) -> ExternResult
     let caller = agent_info()?.agent_initial_pubkey;
     let caller_did = format!("did:mycelix:{}", caller);
 
+    // Authorization must be positively established. Network or decode failures
+    // are not evidence of membership.
     verify_hearth_membership(&caller_did, &input.hearth_did)?;
 
-    let mut pool = get_or_create_hearth_pool(&input.hearth_did)?;
+    // Preflight the recipient side before reading or changing the shared pool.
+    // A missing personal balance is a hard error, never a successful no-op credit.
+    let (personal_record, mut personal_balance) =
+        find_sap_balance_record(&caller_did)?.ok_or(wasm_error!(
+            WasmErrorInner::Guest("No personal SAP balance exists for Hearth withdrawal".into())
+        ))?;
+    if personal_balance.member_did != caller_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Personal SAP balance owner does not match the authenticated caller".into()
+        )));
+    }
 
-    // Apply demurrage before checking available balance
+    // Unlike a read endpoint, a withdrawal must not initialize an absent shared
+    // pool. Missing or ambiguous pool identity is an authorization/consistency
+    // failure and therefore blocks the effect.
+    let (pool_record, mut pool) = get_existing_hearth_pool_record(&input.hearth_did)?;
+
+    // Apply the pool's pending demurrage before calculating the transfer.
     let now_ts = sys_time()?;
     let elapsed = elapsed_seconds(pool.last_demurrage_at, now_ts);
     let deduction = compute_demurrage_deduction(
@@ -2136,26 +2161,33 @@ pub fn withdraw_from_hearth_pool(input: WithdrawFromHearthInput) -> ExternResult
         DEMURRAGE_RATE,
         elapsed,
     );
-    pool.balance = pool.balance.saturating_sub(deduction);
+    let post_demurrage_pool_balance = pool.balance.saturating_sub(deduction);
+
+    let (next_pool_balance, next_total_withdrawn, next_personal_balance) =
+        checked_hearth_withdrawal_values(
+            post_demurrage_pool_balance,
+            pool.total_withdrawn,
+            personal_balance.balance,
+            input.amount,
+        )
+        .map_err(|reason| wasm_error!(WasmErrorInner::Guest(reason.into())))?;
+
+    pool.balance = next_pool_balance;
+    pool.total_withdrawn = next_total_withdrawn;
     pool.last_demurrage_at = now_ts;
+    personal_balance.balance = next_personal_balance;
 
-    if pool.balance < input.amount {
-        return Err(wasm_error!(WasmErrorInner::Guest(format!(
-            "Insufficient hearth pool balance: have {}, need {}",
-            pool.balance, input.amount
-        ))));
-    }
-
-    // Deduct from pool
-    pool.balance -= input.amount;
-    pool.total_withdrawn += input.amount;
-    update_hearth_pool(&input.hearth_did, &pool)?;
-
-    // Credit personal SAP balance
-    if let Some((record, mut personal_bal)) = find_sap_balance_record(&caller_did)? {
-        personal_bal.balance += input.amount;
-        update_entry(record.action_address().clone(), &personal_bal)?;
-    }
+    // These two entries belong to the same Payments cell/source chain and this
+    // single zome invocation. Holochain commits the local writes atomically.
+    // A failure in either update returns Err and rolls back the invocation.
+    update_entry(
+        pool_record.action_address().clone(),
+        &EntryTypes::HearthSapPool(pool.clone()),
+    )?;
+    update_entry(
+        personal_record.action_address().clone(),
+        &EntryTypes::SapBalance(personal_balance),
+    )?;
 
     Ok(pool)
 }
@@ -2375,6 +2407,24 @@ fn update_hearth_pool(hearth_did: &str, pool: &HearthSapPool) -> ExternResult<()
     Ok(())
 }
 
+fn require_hearth_membership(
+    caller_did: &str,
+    hearth_did: &str,
+    evidence: Result<bool, String>,
+) -> ExternResult<()> {
+    match evidence {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{} is not a member of hearth {}",
+            caller_did, hearth_did
+        )))),
+        Err(reason) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Hearth membership is unverified for {}@{}: {}; refusing SAP pool operation",
+            caller_did, hearth_did, reason
+        )))),
+    }
+}
+
 fn verify_hearth_membership(caller_did: &str, hearth_did: &str) -> ExternResult<()> {
     #[derive(Serialize, Deserialize, Debug)]
     struct MembershipQuery {
@@ -2392,38 +2442,22 @@ fn verify_hearth_membership(caller_did: &str, hearth_did: &str) -> ExternResult<
             hearth_did: hearth_did.to_string(),
         },
     ) {
-        Ok(ZomeCallResponse::Ok(result)) => match result.decode::<bool>() {
-            Ok(true) => Ok(()),
-            Ok(false) => Err(wasm_error!(WasmErrorInner::Guest(
-                "Not a member of this hearth".into()
-            ))),
-            Err(e) => {
-                debug!(
-                    "verify_hearth_membership: decode error for {}@{}: {:?}, rejecting",
-                    caller_did, hearth_did, e
-                );
-                Err(wasm_error!(WasmErrorInner::Guest(
-                    "Not a member of this hearth".into()
-                )))
-            }
-        },
-        Ok(other) => {
-            // SECURITY NOTE: Hearth cluster unreachable/unauthorized — allow in standalone mode.
-            // In production with a running hearth cluster, this path should not be reached.
-            debug!(
-                "verify_hearth_membership: hearth_bridge returned {:?} for {}@{}, allowing (standalone mode)",
-                other, caller_did, hearth_did
-            );
-            Ok(())
+        Ok(ZomeCallResponse::Ok(result)) => {
+            let evidence = result
+                .decode::<bool>()
+                .map_err(|e| format!("membership response decode failed: {:?}", e));
+            require_hearth_membership(caller_did, hearth_did, evidence)
         }
-        Err(e) => {
-            // SECURITY NOTE: Hearth cluster unreachable — allow in standalone mode.
-            debug!(
-                "verify_hearth_membership: hearth_bridge unreachable for {}@{}: {:?}, allowing (standalone mode)",
-                caller_did, hearth_did, e
-            );
-            Ok(())
-        }
+        Ok(other) => require_hearth_membership(
+            caller_did,
+            hearth_did,
+            Err(format!("unexpected Hearth bridge response: {:?}", other)),
+        ),
+        Err(e) => require_hearth_membership(
+            caller_did,
+            hearth_did,
+            Err(format!("Hearth bridge call failed: {:?}", e)),
+        ),
     }
 }
 
@@ -2519,3 +2553,115 @@ pub fn verify_balance_proof(input: ZkBalanceProofInput) -> ExternResult<ZkBalanc
         domain_tag: domain_tag.as_str().to_string(),
     })
 }
+
+// ---------------------------------------------------------------------------
+// Fail-closed Hearth withdrawal arithmetic
+// ---------------------------------------------------------------------------
+
+/// Calculate all three sides of a pool withdrawal before mutating either entry.
+/// Returning the complete next-state tuple prevents a partially-applied in-memory
+/// transition when a later checked operation fails.
+fn checked_hearth_withdrawal_values(
+    pool_balance: u64,
+    total_withdrawn: u64,
+    personal_balance: u64,
+    amount: u64,
+) -> Result<(u64, u64, u64), &'static str> {
+    if amount == 0 {
+        return Err("Hearth withdrawal amount must be positive");
+    }
+
+    let next_pool_balance = pool_balance
+        .checked_sub(amount)
+        .ok_or("Insufficient Hearth SAP pool balance")?;
+    let next_total_withdrawn = total_withdrawn
+        .checked_add(amount)
+        .ok_or("Hearth SAP lifetime withdrawn total overflow")?;
+    let next_personal_balance = personal_balance
+        .checked_add(amount)
+        .ok_or("Personal SAP balance overflow")?;
+
+    Ok((
+        next_pool_balance,
+        next_total_withdrawn,
+        next_personal_balance,
+    ))
+}
+
+#[cfg(test)]
+mod hearth_withdrawal_guard_tests {
+    use super::{checked_hearth_withdrawal_values, require_hearth_membership};
+
+    #[test]
+    fn withdrawal_moves_exact_amount_and_preserves_local_conservation() {
+        let before = (100_u64, 12_u64, 30_u64, 7_u64);
+        let after = checked_hearth_withdrawal_values(
+            before.0,
+            before.1,
+            before.2,
+            before.3,
+        )
+        .expect("valid withdrawal should calculate");
+
+        assert_eq!(after, (93, 19, 37));
+        assert_eq!(
+            u128::from(before.0) + u128::from(before.2),
+            u128::from(after.0) + u128::from(after.2)
+        );
+    }
+
+    #[test]
+    fn withdrawal_rejects_zero_amount() {
+        assert_eq!(
+            checked_hearth_withdrawal_values(10, 0, 0, 0),
+            Err("Hearth withdrawal amount must be positive")
+        );
+    }
+
+    #[test]
+    fn withdrawal_rejects_insufficient_pool_balance() {
+        assert_eq!(
+            checked_hearth_withdrawal_values(4, 0, 10, 5),
+            Err("Insufficient Hearth SAP pool balance")
+        );
+    }
+
+    #[test]
+    fn withdrawal_rejects_lifetime_total_overflow() {
+        assert_eq!(
+            checked_hearth_withdrawal_values(10, u64::MAX, 10, 1),
+            Err("Hearth SAP lifetime withdrawn total overflow")
+        );
+    }
+
+    #[test]
+    fn withdrawal_rejects_personal_balance_overflow() {
+        assert_eq!(
+            checked_hearth_withdrawal_values(10, 0, u64::MAX, 1),
+            Err("Personal SAP balance overflow")
+        );
+    }
+
+    #[test]
+    fn membership_requires_an_explicit_true_result() {
+        assert!(require_hearth_membership(
+            "did:mycelix:member",
+            "did:mycelix:hearth",
+            Ok(true)
+        )
+        .is_ok());
+        assert!(require_hearth_membership(
+            "did:mycelix:member",
+            "did:mycelix:hearth",
+            Ok(false)
+        )
+        .is_err());
+        assert!(require_hearth_membership(
+            "did:mycelix:member",
+            "did:mycelix:hearth",
+            Err("bridge unavailable".into())
+        )
+        .is_err());
+    }
+}
+
