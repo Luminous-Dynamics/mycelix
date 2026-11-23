@@ -39,7 +39,7 @@ advance_effect_owner_epoch:
 5. writes an append-only effect_owner_epoch_transitions row;
 6. returns the accepted (owner_epoch, generation).
 
-The tuple is ordered lexicographically. The transition function can skip epochs after recovery, but the external authority must prove the chosen epoch is above its independent high-water.
+The owner epoch and resource generation are independently monotonic coordinates, so replay validation is component-wise: neither coordinate in an historical effect may exceed the corresponding coordinate in the current command. The transition function can skip owner epoch numbers after recovery, but it still advances resource generation and the external authority must prove the chosen epoch is above its independent high-water.
 
 **Important:** SQL checks that receipt commitments are nonzero and stores them. It does not authenticate their signatures or physically fence a former primary. The control plane must validate the epoch authority and physical fencing receipts and prevent the old primary from accepting writes before invoking the transition.
 
