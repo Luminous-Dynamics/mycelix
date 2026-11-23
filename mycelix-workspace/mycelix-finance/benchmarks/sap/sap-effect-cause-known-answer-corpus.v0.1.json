@@ -10,7 +10,8 @@
     "Conflict",
     "Indeterminate",
     "ReconcileOriginal",
-    "AtMostOneRemoteEffect"
+    "AtMostOneRemoteEffect",
+    "NotAvailable"
   ],
   "invariants": [
     "A balance successor advances one exact predecessor and has one typed cause.",
@@ -316,6 +317,19 @@
       "stimulus": "A witness session times out, an optional signer is missing, or the authenticated signer set is below the configured strict-majority quorum",
       "expected": "Indeterminate",
       "invariant": "IncompleteWitnessSessionNeverPromotesSpendability",
+      "execution_state": "specified_not_executed",
+      "related_tracking": [
+        "#6576",
+        "#685",
+        "#691"
+      ]
+    },
+    {
+      "id": "SCE-026",
+      "category": "feature_configuration",
+      "stimulus": "The conductor binary or zome dependencies omit unstable-countersigning / unstable-functions required by the planned countersigned witness path",
+      "expected": "NotAvailable",
+      "invariant": "CountersigningRequiresConductorAndZomeFeatureGates",
       "execution_state": "specified_not_executed",
       "related_tracking": [
         "#6576",
