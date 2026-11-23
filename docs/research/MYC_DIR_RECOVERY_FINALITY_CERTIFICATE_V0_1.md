@@ -186,4 +186,9 @@ The benchmark remains preregistered until the multi-node fault campaign and inde
 - Apache Kafka transaction scope: https://kafka.apache.org/44/design/design/
 - Debezium transactional outbox: https://debezium.io/documentation/reference/stable/transformations/outbox-event-router.html
 
+- Patroni 4.1.5 dynamic configuration and replication modes: https://patroni.readthedocs.io/en/latest/dynamic_configuration.html and https://patroni.readthedocs.io/en/latest/replication_modes.html
+- RabbitMQ quorum queues and publisher confirms: https://www.rabbitmq.com/docs/quorum-queues
+
+Patroni must be treated as a serious PostgreSQL HA comparator, not dismissed. Its synchronous mode constrains promotion to a node believed to contain transactions that were reported committed; strict mode can trade write availability for durability when no synchronous replica is eligible. The benchmark separates strict and non-strict profiles. RabbitMQ quorum publisher confirms establish queue-level quorum acceptance; they still do not establish the destination PostgreSQL business effect.
+
 These references establish product behavior and protocol boundaries. They do not qualify the Mycelix implementation; that requires its own exact-head and multi-node fault evidence.
