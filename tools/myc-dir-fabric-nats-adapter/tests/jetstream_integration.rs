@@ -20,11 +20,11 @@ use mycelix_authority_write_lease::{
     AuthorityWriteLease, AuthorityWriteLeasePhase, AuthorityWriteScope, ContentHash,
     SignedAuthorityWriteLease,
 };
-use std::collections::BTreeSet;
-use uuid::Uuid;
 use rustls_tokio_postgres::{config_from_ca_cert, MakeRustlsConnect};
 use sha2::{Digest as ShaDigest, Sha256};
+use std::collections::BTreeSet;
 use tokio_postgres::Client;
+use uuid::Uuid;
 
 struct SyntheticOwnerReceiptVerifier;
 
