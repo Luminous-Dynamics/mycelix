@@ -85,7 +85,11 @@ jobs:
             .benchmark == "Holochain Runtime Capability Matrix for Mycelix SAP V2" and
             .version == "0.1" and
             .status == "repository_source_and_official_docs_audit_not_runtime_qualification" and
-            .mycelix_finance_pin.conductor.version == "0.6.1" and
+            .mycelix_finance_pin.conductor.documented_version_claim == "0.6.1" and
+            .mycelix_finance_pin.conductor.resolved_holochain_input_original_ref == "holochain-0.6.0" and
+            .mycelix_finance_pin.conductor.evidence_status == "declared_vs_resolved_source_version_discrepancy_runtime_version_unverified" and
+            .mycelix_finance_pin.dev_shell.observed_holochain_version_output == null and
+            .mycelix_finance_pin.dna_manifest.countersigning_or_witness_enablement_field_found == false and
             .mycelix_finance_pin.cargo_compatibility.hdk == "=0.6.1" and
             .mycelix_finance_pin.cargo_compatibility.hdi == "=0.7.1" and
             .mycelix_finance_pin.countersigning.status == "unknown_for_exact_mycelix_0_6_1_runtime" and
