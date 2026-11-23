@@ -573,7 +573,7 @@ BEGIN
     -- mirror that has rolled back below the proof sequence after PITR.
     UPDATE myc_effect_owner.authority_proof_sequence_highwater
        SET last_accepted_sequence = 2,
-           last_proof_id = v_wrong_proof_id,
+           last_proof_id = '40000000-0000-4000-8000-000000000003'::UUID,
            last_signed_receipt_hash = decode(repeat('c1', 32), 'hex'),
            external_sequence_receipt_digest = v_external_sequence_digest
      WHERE deployment_id = v_deployment
