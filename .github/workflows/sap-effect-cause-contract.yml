@@ -9,6 +9,8 @@ on:
       - "mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json"
       - "mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json"
+      - "mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json"
   push:
     branches:
@@ -20,6 +22,8 @@ on:
       - "mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json"
       - "mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json"
+      - "mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json"
   workflow_dispatch:
 
@@ -51,6 +55,7 @@ jobs:
           cmp mycelix-finance/docs/research/SAP_EFFECT_CAUSED_BALANCE_TRANSITION_V0_1.md mycelix-workspace/mycelix-finance/docs/research/SAP_EFFECT_CAUSED_BALANCE_TRANSITION_V0_1.md
           cmp mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json
           cmp mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json
+          cmp mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json
 
       - name: Parse and qualify migration map
         shell: bash
@@ -60,6 +65,21 @@ jobs:
           SCHEMA="mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json"
           jq empty "$MAP"
           jq empty "$SCHEMA"
+          CORPUS="mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
+          jq -e '
+            .benchmark == "SAP Effect-Cause Transition Known-Answer and Adversarial Corpus" and
+            .version == "0.1" and
+            .status == "specified_not_executed" and
+            (.scenarios | length) == 22 and
+            ([.scenarios[].id] | unique | length) == 22 and
+            all(.scenarios[];
+              (.id | test("^SCE-[0-9]{3}$")) and
+              (.stimulus | length > 0) and
+              (.invariant | length > 0) and
+              (.execution_state == "specified_not_executed") and
+              (.expected == "Valid" or .expected == "Invalid" or .expected == "Conflict" or .expected == "Indeterminate" or .expected == "ReconcileOriginal" or .expected == "AtMostOneRemoteEffect")
+            )
+          ' "$CORPUS" >/dev/null
           jq -e '
             .benchmark == "SAP Effect-Cause Transition Migration Map" and
             .version == "0.1" and
