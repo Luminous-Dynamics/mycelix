@@ -31,6 +31,7 @@ VARIABLES
   clientCachePresent,
   outboxWakeupPresent,
   outboxScanCount,
+  chainHeadMoveCount,
   retryCount
 
 vars ==
@@ -38,7 +39,7 @@ vars ==
     creditCount, feeLiabilityCount, feeOutboxCount,
     paymentProjectionCount, receiptProjectionCount,
     feeDeliveryCount, feeState, responseLost, responseReturned,
-    conflictObserved, tombstonePresent, clientCachePresent, outboxWakeupPresent, outboxScanCount, retryCount>>
+    conflictObserved, tombstonePresent, clientCachePresent, outboxWakeupPresent, outboxScanCount, chainHeadMoveCount, retryCount>>
 
 Init ==
   /\ opState = "Absent"
@@ -60,6 +61,7 @@ Init ==
   /\ clientCachePresent = TRUE
   /\ outboxWakeupPresent = FALSE
   /\ outboxScanCount = 0
+  /\ chainHeadMoveCount = 0
   /\ retryCount = 0
 
 Prepare ==
@@ -100,6 +102,17 @@ ExactRetry ==
                  paymentProjectionCount, receiptProjectionCount,
                  feeDeliveryCount, feeState, responseLost, responseReturned,
                  conflictObserved, tombstonePresent, clientCachePresent, outboxWakeupPresent, outboxScanCount>>
+
+ObserveChainHeadMoved ==
+  /\ opState = "Committed"
+  /\ chainHeadMoveCount < 2
+  /\ chainHeadMoveCount' = chainHeadMoveCount + 1
+  /\ UNCHANGED <<opState, requestDigest, claimCount, batchCount, debitCount,
+                 creditCount, feeLiabilityCount, feeOutboxCount,
+                 paymentProjectionCount, receiptProjectionCount,
+                 feeDeliveryCount, feeState, responseLost, responseReturned,
+                 conflictObserved, tombstonePresent, clientCachePresent,
+                 outboxWakeupPresent, outboxScanCount, retryCount>>
 
 ChangedPayloadConflict ==
   /\ opState \in {"Prepared", "Committed"}
@@ -230,6 +243,7 @@ Next ==
   \/ Prepare
   \/ CommitAtomicJournalBatch
   \/ ExactRetry
+  \/ ObserveChainHeadMoved
   \/ ChangedPayloadConflict
   \/ LoseResponse
   \/ ReturnOriginalResult
@@ -264,6 +278,7 @@ TypeOK ==
   /\ clientCachePresent \in BOOLEAN
   /\ outboxWakeupPresent \in BOOLEAN
   /\ outboxScanCount \in 0..2
+  /\ chainHeadMoveCount \in 0..2
   /\ retryCount \in 0..2
 
 AtMostOneClaimAndBatch ==
@@ -303,6 +318,10 @@ OutboxRemainsDurableAcrossLostWakeup ==
   (feeState \in {"Pending", "Unknown"}) =>
     (feeOutboxCount = 1 /\ batchCount = 1)
 
+ChainHeadRaceDoesNotDuplicateEffect ==
+  (chainHeadMoveCount > 0) =>
+    (batchCount = 1 /\ debitCount = 1 /\ creditCount = 1)
+
 Safety ==
   /\ TypeOK
   /\ AtMostOneClaimAndBatch
@@ -315,5 +334,6 @@ Safety ==
   /\ ExpiredCacheDoesNotEraseOperation
   /\ FeeDeliveryStateMatchesCount
   /\ OutboxRemainsDurableAcrossLostWakeup
+  /\ ChainHeadRaceDoesNotDuplicateEffect
 
 ====
