@@ -192,19 +192,55 @@ fn validate(b: &Benchmark) -> Result<(), String> {
         ("horizon_start_hours", b.config.horizon_start_hours),
         ("horizon_end_hours", b.config.horizon_end_hours),
         ("response_baseline", b.config.response_baseline),
-        ("detection_threshold_above_baseline", b.config.detection_threshold_above_baseline),
-        ("minimum_target_sample_interval_hours", b.config.minimum_target_sample_interval_hours),
-        ("maximum_event_integral_gap_hours", b.config.maximum_event_integral_gap_hours),
+        (
+            "detection_threshold_above_baseline",
+            b.config.detection_threshold_above_baseline,
+        ),
+        (
+            "minimum_target_sample_interval_hours",
+            b.config.minimum_target_sample_interval_hours,
+        ),
+        (
+            "maximum_event_integral_gap_hours",
+            b.config.maximum_event_integral_gap_hours,
+        ),
         ("maximum_energy_mj", b.config.maximum_energy_mj),
-        ("maximum_assay_cost_units", b.config.maximum_assay_cost_units),
-        ("context_latency_hours", b.sensor_contract.context_latency_hours),
-        ("target_latency_hours", b.sensor_contract.target_latency_hours),
-        ("context_sample_energy_mj", b.sensor_contract.context_sample_energy_mj),
-        ("target_sample_energy_mj", b.sensor_contract.target_sample_energy_mj),
-        ("wake_energy_mj_per_action", b.sensor_contract.wake_energy_mj_per_action),
-        ("compute_energy_mj_per_action", b.sensor_contract.compute_energy_mj_per_action),
-        ("context_assay_cost_units", b.sensor_contract.context_assay_cost_units),
-        ("target_assay_cost_units", b.sensor_contract.target_assay_cost_units),
+        (
+            "maximum_assay_cost_units",
+            b.config.maximum_assay_cost_units,
+        ),
+        (
+            "context_latency_hours",
+            b.sensor_contract.context_latency_hours,
+        ),
+        (
+            "target_latency_hours",
+            b.sensor_contract.target_latency_hours,
+        ),
+        (
+            "context_sample_energy_mj",
+            b.sensor_contract.context_sample_energy_mj,
+        ),
+        (
+            "target_sample_energy_mj",
+            b.sensor_contract.target_sample_energy_mj,
+        ),
+        (
+            "wake_energy_mj_per_action",
+            b.sensor_contract.wake_energy_mj_per_action,
+        ),
+        (
+            "compute_energy_mj_per_action",
+            b.sensor_contract.compute_energy_mj_per_action,
+        ),
+        (
+            "context_assay_cost_units",
+            b.sensor_contract.context_assay_cost_units,
+        ),
+        (
+            "target_assay_cost_units",
+            b.sensor_contract.target_assay_cost_units,
+        ),
     ] {
         finite(name, value)?;
     }
@@ -254,7 +290,11 @@ fn validate(b: &Benchmark) -> Result<(), String> {
         match policy.policy_kind.as_str() {
             "fixed_sparse" | "context_triggered" if policy.deployable => {}
             "hindsight_oracle" if !policy.deployable => {}
-            _ => return Err("policy kind/deployability mismatch; oracle must be non-deployable".into()),
+            _ => {
+                return Err(
+                    "policy kind/deployability mismatch; oracle must be non-deployable".into(),
+                );
+            }
         }
         let mut action_ids = BTreeSet::new();
         let mut previous_request = None;
@@ -265,54 +305,96 @@ fn validate(b: &Benchmark) -> Result<(), String> {
 
         for action in &policy.actions {
             if action.action_id.trim().is_empty() || !action_ids.insert(action.action_id.clone()) {
-                return Err(format!("{} action IDs must be non-empty and unique", policy.policy_id));
+                return Err(format!(
+                    "{} action IDs must be non-empty and unique",
+                    policy.policy_id
+                ));
             }
             finite("action requested_at_hours", action.requested_at_hours)?;
             if action.requested_at_hours < b.config.horizon_start_hours
                 || action.requested_at_hours > b.config.horizon_end_hours
             {
-                return Err(format!("{} action request outside horizon", policy.policy_id));
+                return Err(format!(
+                    "{} action request outside horizon",
+                    policy.policy_id
+                ));
             }
             if previous_request.is_some_and(|x| action.requested_at_hours <= x) {
-                return Err(format!("{} action request times must increase strictly", policy.policy_id));
+                return Err(format!(
+                    "{} action request times must increase strictly",
+                    policy.policy_id
+                ));
             }
             if action.requested_at_hours + 1e-8 < previous_completion {
-                return Err(format!("{} requests next action before previous action completes", policy.policy_id));
+                return Err(format!(
+                    "{} requests next action before previous action completes",
+                    policy.policy_id
+                ));
             }
             previous_request = Some(action.requested_at_hours);
 
             match action.modality.as_str() {
                 "context_sample" => {
                     context_count += 1;
-                    let obs_id = action.context_observation_id.as_deref()
-                        .ok_or_else(|| format!("{} context action missing public observation ID", policy.policy_id))?;
-                    let obs = b.public_context_stream.iter()
+                    let obs_id = action.context_observation_id.as_deref().ok_or_else(|| {
+                        format!(
+                            "{} context action missing public observation ID",
+                            policy.policy_id
+                        )
+                    })?;
+                    let obs = b
+                        .public_context_stream
+                        .iter()
                         .find(|o| o.observation_id == obs_id)
-                        .ok_or_else(|| format!("{} references an unknown context observation", policy.policy_id))?;
-                    let acquired = action.requested_at_hours + b.sensor_contract.context_latency_hours;
+                        .ok_or_else(|| {
+                            format!(
+                                "{} references an unknown context observation",
+                                policy.policy_id
+                            )
+                        })?;
+                    let acquired =
+                        action.requested_at_hours + b.sensor_contract.context_latency_hours;
                     if !nearly_equal(acquired, obs.acquired_at_hours) {
-                        return Err(format!("{} context reference time does not match sensor latency", policy.policy_id));
+                        return Err(format!(
+                            "{} context reference time does not match sensor latency",
+                            policy.policy_id
+                        ));
                     }
                     previous_completion = acquired;
                 }
                 "target_sample" => {
                     target_count += 1;
                     if action.context_observation_id.is_some() {
-                        return Err(format!("{} target action cannot carry context observation ID", policy.policy_id));
+                        return Err(format!(
+                            "{} target action cannot carry context observation ID",
+                            policy.policy_id
+                        ));
                     }
-                    let acquired = action.requested_at_hours + b.sensor_contract.target_latency_hours;
+                    let acquired =
+                        action.requested_at_hours + b.sensor_contract.target_latency_hours;
                     if acquired > b.config.horizon_end_hours {
-                        return Err(format!("{} target result arrives after horizon", policy.policy_id));
+                        return Err(format!(
+                            "{} target result arrives after horizon",
+                            policy.policy_id
+                        ));
                     }
                     if let Some(last) = last_target_acquisition
                         && acquired - last < b.config.minimum_target_sample_interval_hours
                     {
-                        return Err(format!("{} exceeds target sensor maximum rate", policy.policy_id));
+                        return Err(format!(
+                            "{} exceeds target sensor maximum rate",
+                            policy.policy_id
+                        ));
                     }
                     last_target_acquisition = Some(acquired);
                     previous_completion = acquired;
                 }
-                _ => return Err(format!("{} has unsupported action modality", policy.policy_id)),
+                _ => {
+                    return Err(format!(
+                        "{} has unsupported action modality",
+                        policy.policy_id
+                    ));
+                }
             }
         }
 
@@ -320,7 +402,10 @@ fn validate(b: &Benchmark) -> Result<(), String> {
             || context_count > b.config.maximum_context_samples
             || policy.actions.len() > b.config.maximum_total_actions
         {
-            return Err(format!("{} exceeds sample/action-count budget", policy.policy_id));
+            return Err(format!(
+                "{} exceeds sample/action-count budget",
+                policy.policy_id
+            ));
         }
     }
 
@@ -352,10 +437,16 @@ fn validate(b: &Benchmark) -> Result<(), String> {
                 && case.pulse_end_hours <= b.config.horizon_end_hours)
                 || case.pulse_amplitude <= 0.0
             {
-                return Err(format!("{} has invalid pulse truth", case.case_id));
+                return Err(format!(
+                "{} has invalid pulse truth",
+                case.case_id
+            ));
             }
         } else if case.pulse_amplitude != 0.0 {
-            return Err(format!("{} no-pulse case must have zero amplitude", case.case_id));
+            return Err(format!(
+                "{} no-pulse case must have zero amplitude",
+                case.case_id
+            ));
         }
     }
     Ok(())
@@ -376,7 +467,8 @@ fn latent_response(b: &Benchmark, case: &TruthCase, t: f64) -> f64 {
 }
 
 fn maximum_gap(readings: &[TargetReading]) -> Option<f64> {
-    readings.windows(2)
+    readings
+        .windows(2)
         .map(|w| w[1].acquired_at_hours - w[0].acquired_at_hours)
         .max_by(f64::total_cmp)
 }
@@ -389,12 +481,19 @@ fn pulse_integral(
     if !case.has_pulse {
         return (None, None, None, "no_true_pulse");
     }
-    let inside: Vec<&TargetReading> = readings.iter()
-        .filter(|r| r.acquired_at_hours >= case.pulse_start_hours
-            && r.acquired_at_hours <= case.pulse_end_hours)
+    let inside: Vec<&TargetReading> = readings
+        .iter()
+        .filter(|r| {
+            r.acquired_at_hours >= case.pulse_start_hours
+                && r.acquired_at_hours <= case.pulse_end_hours
+        })
         .collect();
-    let start = inside.first().is_some_and(|r| nearly_equal(r.acquired_at_hours, case.pulse_start_hours));
-    let end = inside.last().is_some_and(|r| nearly_equal(r.acquired_at_hours, case.pulse_end_hours));
+    let start = inside
+        .first()
+        .is_some_and(|r| nearly_equal(r.acquired_at_hours, case.pulse_start_hours));
+    let end = inside
+        .last()
+        .is_some_and(|r| nearly_equal(r.acquired_at_hours, case.pulse_end_hours));
     if !start || !end {
         return (None, None, None, "missing_event_boundary");
     }
@@ -411,7 +510,12 @@ fn pulse_integral(
     let duration = case.pulse_end_hours - case.pulse_start_hours;
     let true_area = 0.5 * case.pulse_amplitude * duration;
     let error = (area - true_area).abs();
-    (Some(area), Some(true_area), Some(error), "qualified_exact_boundary_integral")
+    (
+        Some(area),
+        Some(true_area),
+        Some(error),
+        "qualified_exact_boundary_integral",
+    )
 }
 
 fn evaluate(b: &Benchmark, policy: &Policy, case: &TruthCase) -> Evaluation {
@@ -447,17 +551,22 @@ fn evaluate(b: &Benchmark, policy: &Policy, case: &TruthCase) -> Evaluation {
         }
     }
 
-    let peak = target.iter().max_by(|a, z| {
-        a.response_value.total_cmp(&z.response_value)
-    });
-    let sampled_peak = peak.map(|r| (r.response_value - b.config.response_baseline).max(0.0))
+    let peak = target
+        .iter()
+        .max_by(|a, z| a.response_value.total_cmp(&z.response_value));
+    let sampled_peak = peak
+        .map(|r| (r.response_value - b.config.response_baseline).max(0.0))
         .unwrap_or(0.0);
     let detected = case.has_pulse && sampled_peak >= b.config.detection_threshold_above_baseline;
     let detection_time = if detected {
-        target.iter()
-            .filter(|r| r.acquired_at_hours >= case.pulse_start_hours
-                && r.acquired_at_hours <= case.pulse_end_hours
-                && r.response_value - b.config.response_baseline >= b.config.detection_threshold_above_baseline)
+        target
+            .iter()
+            .filter(|r| {
+                r.acquired_at_hours >= case.pulse_start_hours
+                    && r.acquired_at_hours <= case.pulse_end_hours
+                    && r.response_value - b.config.response_baseline
+                        >= b.config.detection_threshold_above_baseline
+            })
             .map(|r| r.acquired_at_hours)
             .min_by(f64::total_cmp)
     } else {
@@ -482,9 +591,12 @@ fn evaluate(b: &Benchmark, policy: &Policy, case: &TruthCase) -> Evaluation {
     let false_burst = if case.has_pulse {
         0
     } else {
-        target.iter()
-            .filter(|r| r.acquired_at_hours >= case.risk_window_start_hours
-                && r.acquired_at_hours <= case.risk_window_end_hours)
+        target
+            .iter()
+            .filter(|r| {
+                r.acquired_at_hours >= case.risk_window_start_hours
+                    && r.acquired_at_hours <= case.risk_window_end_hours
+            })
             .count()
     };
     let (integral_estimate, integral_true, integral_error, integral_status) =
@@ -496,7 +608,9 @@ fn evaluate(b: &Benchmark, policy: &Policy, case: &TruthCase) -> Evaluation {
     let within_budget = target_count <= b.config.maximum_target_samples
         && context_count <= b.config.maximum_context_samples
         && policy.actions.len() <= b.config.maximum_total_actions
-        && energy_budget && assay_budget && byte_budget;
+        && energy_budget
+        && assay_budget
+        && byte_budget;
 
     Evaluation {
         policy_id: policy.policy_id.clone(),
@@ -549,7 +663,9 @@ fn build_report(b: &Benchmark, digest: String) -> Report {
             exact_cost_accounting: true,
             budget_and_latency_enforcement: true,
             no_integral_without_boundaries: true,
-            oracle_not_deployable: b.policies.iter()
+            oracle_not_deployable: b
+                .policies
+                .iter()
                 .filter(|p| p.policy_kind == "hindsight_oracle")
                 .all(|p| !p.deployable),
         },
@@ -559,7 +675,9 @@ fn build_report(b: &Benchmark, digest: String) -> Report {
 
 fn run(input: &Path, output: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if output.exists() {
-        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into());
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into(),
+        );
     }
     let bytes = fs::read(input)?;
     let benchmark: Benchmark = serde_json::from_slice(&bytes)?;
@@ -567,7 +685,10 @@ fn run(input: &Path, output: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let digest = format!("{:x}", Sha256::digest(&bytes));
     let report = build_report(&benchmark, digest);
     let json = serde_json::to_vec_pretty(&report)?;
-    let mut file = OpenOptions::new().write(true).create_new(true).open(output)?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output)?;
     file.write_all(&json)?;
     file.write_all(b"\n")?;
     Ok(())
@@ -598,23 +719,49 @@ mod tests {
     fn fixed_schedule_misses_pulse_while_context_burst_captures_it() {
         let b = benchmark();
         validate(&b).expect("valid fixture");
-        let fixed = b.policies.iter().find(|p| p.policy_id == "fixed_sparse").unwrap();
-        let burst = b.policies.iter().find(|p| p.policy_id == "context_trigger_burst").unwrap();
-        let truth = b.truth_cases.iter().find(|c| c.case_id == "short_rewetting_pulse").unwrap();
+        let fixed = b
+            .policies
+            .iter()
+            .find(|p| p.policy_id == "fixed_sparse")
+            .unwrap();
+        let burst = b
+            .policies
+            .iter()
+            .find(|p| p.policy_id == "context_trigger_burst")
+            .unwrap();
+        let truth = b
+            .truth_cases
+            .iter()
+            .find(|c| c.case_id == "short_rewetting_pulse")
+            .unwrap();
         let fixed_result = evaluate(&b, fixed, truth);
         let burst_result = evaluate(&b, burst, truth);
         assert!(!fixed_result.detected);
         assert!(burst_result.detected);
-        assert_eq!(burst_result.pulse_integral_status, "qualified_exact_boundary_integral");
+        assert_eq!(
+            burst_result.pulse_integral_status,
+            "qualified_exact_boundary_integral"
+        );
         assert_eq!(burst_result.pulse_integral_estimate_unit_hours, Some(5.0));
-        assert_eq!(burst_result.pulse_integral_absolute_error_unit_hours, Some(0.0));
+        assert_eq!(
+            burst_result.pulse_integral_absolute_error_unit_hours,
+            Some(0.0)
+        );
     }
 
     #[test]
     fn same_context_burst_becomes_false_sampling_when_response_pulse_is_absent() {
         let b = benchmark();
-        let burst = b.policies.iter().find(|p| p.policy_id == "context_trigger_burst").unwrap();
-        let no_pulse = b.truth_cases.iter().find(|c| c.case_id == "context_step_without_response_pulse").unwrap();
+        let burst = b
+            .policies
+            .iter()
+            .find(|p| p.policy_id == "context_trigger_burst")
+            .unwrap();
+        let no_pulse = b
+            .truth_cases
+            .iter()
+            .find(|c| c.case_id == "context_step_without_response_pulse")
+            .unwrap();
         let result = evaluate(&b, burst, no_pulse);
         assert_eq!(result.false_burst_target_samples, 3);
         assert!(!result.detected);
@@ -624,7 +771,12 @@ mod tests {
     fn policy_trace_is_reused_across_truth_cases_and_oracle_is_not_deployable() {
         let b = benchmark();
         assert_eq!(b.policies.len(), 3);
-        assert!(b.policies.iter().find(|p| p.policy_id == "hindsight_oracle").is_some_and(|p| !p.deployable));
+        assert!(
+            b.policies
+                .iter()
+                .find(|p| p.policy_id == "hindsight_oracle")
+                .is_some_and(|p| !p.deployable)
+        );
         assert_eq!(b.truth_cases.len(), 2);
     }
 
@@ -645,7 +797,11 @@ mod tests {
     #[test]
     fn target_samples_must_respect_sensor_rate() {
         let mut b = benchmark();
-        let policy = b.policies.iter_mut().find(|p| p.policy_id == "context_trigger_burst").unwrap();
+        let policy = b
+            .policies
+            .iter_mut()
+            .find(|p| p.policy_id == "context_trigger_burst")
+            .unwrap();
         policy.actions[8].requested_at_hours = policy.actions[7].requested_at_hours + 0.1;
         assert!(validate(&b).is_err());
     }
@@ -661,7 +817,11 @@ mod tests {
     fn excessive_resources_are_reported_out_of_budget() {
         let mut b = benchmark();
         b.config.maximum_energy_mj = 1.0;
-        let policy = b.policies.iter().find(|p| p.policy_id == "context_trigger_burst").unwrap();
+        let policy = b
+            .policies
+            .iter()
+            .find(|p| p.policy_id == "context_trigger_burst")
+            .unwrap();
         let case = &b.truth_cases[0];
         let result = evaluate(&b, policy, case);
         assert!(!result.within_budget);
