@@ -101,6 +101,10 @@ jobs:
             myc-dir-postgres:/tmp/004_authority_write_lease_admission.sql
           docker cp tools/myc-dir-fabric-reference/postgres/tests/004_authority_write_lease_admission.sql \
             myc-dir-postgres:/tmp/test_004_authority_write_lease_admission.sql
+          docker cp tools/myc-dir-fabric-reference/postgres/005_authority_proof_receipt_store.sql \
+            myc-dir-postgres:/tmp/005_authority_proof_receipt_store.sql
+          docker cp tools/myc-dir-fabric-reference/postgres/tests/005_authority_proof_receipt_store.sql \
+            myc-dir-postgres:/tmp/test_005_authority_proof_receipt_store.sql
 
           docker exec myc-dir-postgres psql -U postgres -d postgres \
             -v ON_ERROR_STOP=1 -f /tmp/001_effect_owner.sql
@@ -114,6 +118,10 @@ jobs:
             -v ON_ERROR_STOP=1 -f /tmp/004_authority_write_lease_admission.sql
           docker exec myc-dir-postgres psql -U postgres -d postgres \
             -v ON_ERROR_STOP=1 -f /tmp/test_004_authority_write_lease_admission.sql
+          docker exec myc-dir-postgres psql -U postgres -d postgres \
+            -v ON_ERROR_STOP=1 -f /tmp/005_authority_proof_receipt_store.sql
+          docker exec myc-dir-postgres psql -U postgres -d postgres \
+            -v ON_ERROR_STOP=1 -f /tmp/test_005_authority_proof_receipt_store.sql
 
       - name: Start pinned NATS server with JetStream domain
         shell: bash
