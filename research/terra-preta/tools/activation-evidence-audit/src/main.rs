@@ -1,0 +1,597 @@
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    env, fs,
+    fs::OpenOptions,
+    io::{self, Write},
+    path::Path,
+};
+
+const VERSION: &str = "activation-evidence-audit-v0.1";
+const FIXTURE_STATUS: &str = "synthetic_only_not_empirical_evidence";
+const CLAIM_CEILING: &str = "This evaluator tests evidence admissibility on manufactured fixtures. It does not infer real hydraulic activation, convert CT geometry or model predictions into observations, or validate a field flow model.";
+
+#[derive(Debug, Deserialize)]
+struct Scenario {
+    schema_version: String,
+    fixture_status: String,
+    scenario_id: String,
+    specimen_id: String,
+    event: Event,
+    registered_edge_ids: Vec<String>,
+    evidence_records: Vec<EvidenceRecord>,
+    assertions: Vec<EdgeAssertion>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Event {
+    event_id: String,
+    start_epoch_seconds: i64,
+    end_epoch_seconds: i64,
+    minimum_relevant_flux_mg_per_h: f64,
+    maximum_sample_interval_seconds: i64,
+    minimum_coverage_fraction: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct EvidenceRecord {
+    evidence_id: String,
+    edge_id: String,
+    specimen_id: String,
+    event_id: String,
+    evidence_class: String,
+    source_artifact_uri: String,
+    source_artifact_sha256: String,
+    method_id: String,
+    method_version: String,
+    calibration_id: Option<String>,
+    qc_status: String,
+    support_kind: String,
+    registration_status: String,
+    observed_start_epoch_seconds: i64,
+    observed_end_epoch_seconds: i64,
+    sample_interval_seconds: i64,
+    coverage_fraction: f64,
+    measured_flux_mg_per_h: Option<f64>,
+    upper_flux_bound_mg_per_h: Option<f64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct EdgeAssertion {
+    edge_id: String,
+    asserted_state: String,
+    evidence_ids: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct Report {
+    audit_version: &'static str,
+    fixture_status: &'static str,
+    scenario_id: String,
+    input_sha256: String,
+    assertion_count: usize,
+    confirmed_active_count: usize,
+    confirmed_inactive_count: usize,
+    unassessed_count: usize,
+    results: Vec<EdgeResult>,
+    controls: Controls,
+    interpretation_boundary: &'static str,
+}
+
+#[derive(Debug, Serialize)]
+struct EdgeResult {
+    edge_id: String,
+    asserted_state: String,
+    admission_status: String,
+    qualifying_active_evidence_ids: Vec<String>,
+    qualifying_inactive_evidence_ids: Vec<String>,
+    reasons: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct Controls {
+    direct_observation_required_for_confirmed_hydraulic_state: bool,
+    structural_image_cannot_confirm_hydraulic_activation: bool,
+    model_prediction_cannot_confirm_hydraulic_activation: bool,
+    inactivity_requires_event_coverage_and_detection_bound: bool,
+    conflicting_direct_evidence_abstains: bool,
+    specimen_event_and_registered_3d_edge_support_required: bool,
+    synthetic_only_claim_ceiling: bool,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CandidateState {
+    Active,
+    Inactive,
+}
+
+fn finite(name: &str, value: f64) -> Result<(), String> {
+    if value.is_finite() {
+        Ok(())
+    } else {
+        Err(format!("{name} must be finite"))
+    }
+}
+
+fn valid_sha256(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn is_direct_observation(class: &str) -> bool {
+    matches!(
+        class,
+        "direct_tracer_observation" | "direct_hydraulic_observation"
+    )
+}
+
+fn validate(s: &Scenario) -> Result<(), String> {
+    if s.schema_version != "activation-evidence-v0.1"
+        || s.fixture_status != FIXTURE_STATUS
+        || s.scenario_id.trim().is_empty()
+        || s.specimen_id.trim().is_empty()
+        || s.event.event_id.trim().is_empty()
+    {
+        return Err("unsupported schema/fixture status or empty scenario, specimen or event identity".into());
+    }
+    if s.event.start_epoch_seconds >= s.event.end_epoch_seconds
+        || s.event.maximum_sample_interval_seconds <= 0
+    {
+        return Err("event time bounds or maximum sample interval are invalid".into());
+    }
+    finite(
+        "minimum_relevant_flux_mg_per_h",
+        s.event.minimum_relevant_flux_mg_per_h,
+    )?;
+    finite(
+        "minimum_coverage_fraction",
+        s.event.minimum_coverage_fraction,
+    )?;
+    if s.event.minimum_relevant_flux_mg_per_h <= 0.0
+        || !(0.0..=1.0).contains(&s.event.minimum_coverage_fraction)
+        || s.event.minimum_coverage_fraction <= 0.0
+    {
+        return Err("event flux threshold and minimum coverage must be positive and admissible".into());
+    }
+    if s.registered_edge_ids.is_empty() || s.assertions.is_empty() {
+        return Err("scenario requires registered graph edges and edge assertions".into());
+    }
+
+    let mut edge_ids = BTreeSet::new();
+    for edge_id in &s.registered_edge_ids {
+        if edge_id.trim().is_empty() || !edge_ids.insert(edge_id.as_str()) {
+            return Err("registered edge IDs must be non-empty and unique".into());
+        }
+    }
+
+    let mut evidence_by_id = BTreeMap::new();
+    for evidence in &s.evidence_records {
+        if evidence.evidence_id.trim().is_empty()
+            || evidence_by_id.contains_key(&evidence.evidence_id)
+            || !edge_ids.contains(evidence.edge_id.as_str())
+        {
+            return Err("evidence IDs must be unique and every evidence edge must be registered".into());
+        }
+        if evidence.specimen_id.trim().is_empty()
+            || evidence.event_id.trim().is_empty()
+            || evidence.source_artifact_uri.trim().is_empty()
+            || evidence.method_id.trim().is_empty()
+            || evidence.method_version.trim().is_empty()
+            || !valid_sha256(&evidence.source_artifact_sha256)
+        {
+            return Err(format!(
+                "evidence {} requires specimen/event, immutable artifact URI/SHA-256 and method identity",
+                evidence.evidence_id
+            ));
+        }
+        if !matches!(
+            evidence.evidence_class.as_str(),
+            "direct_tracer_observation"
+                | "direct_hydraulic_observation"
+                | "structural_image_only"
+                | "derived_sensor_estimate"
+                | "model_prediction"
+        ) {
+            return Err(format!("evidence {} has unsupported evidence class", evidence.evidence_id));
+        }
+        if !matches!(
+            evidence.qc_status.as_str(),
+            "passed" | "failed" | "not_assessed"
+        ) {
+            return Err("QC status must be passed, failed or not_assessed".into());
+        }
+        if !matches!(
+            evidence.support_kind.as_str(),
+            "registered_3d_edge" | "core_aggregate" | "profile_aggregate" | "section_2d"
+        ) {
+            return Err("unsupported evidence spatial support kind".into());
+        }
+        if !matches!(
+            evidence.registration_status.as_str(),
+            "registered" | "unregistered" | "not_applicable"
+        ) {
+            return Err("registration status must be registered, unregistered or not_applicable".into());
+        }
+        if evidence.observed_start_epoch_seconds >= evidence.observed_end_epoch_seconds
+            || evidence.sample_interval_seconds <= 0
+        {
+            return Err(format!("evidence {} has invalid observation time or sample interval", evidence.evidence_id));
+        }
+        finite("evidence coverage fraction", evidence.coverage_fraction)?;
+        if !(0.0..=1.0).contains(&evidence.coverage_fraction) {
+            return Err("evidence coverage fraction must be in [0,1]".into());
+        }
+        if let Some(value) = evidence.measured_flux_mg_per_h {
+            finite("measured flux", value)?;
+            if value < 0.0 {
+                return Err("measured flux cannot be negative".into());
+            }
+        }
+        if let Some(value) = evidence.upper_flux_bound_mg_per_h {
+            finite("upper flux bound", value)?;
+            if value < 0.0 {
+                return Err("upper flux bound cannot be negative".into());
+            }
+        }
+        if is_direct_observation(&evidence.evidence_class)
+            && evidence.calibration_id.as_deref().unwrap_or("").trim().is_empty()
+        {
+            return Err(format!(
+                "direct observation {} requires a calibration/reference identity",
+                evidence.evidence_id
+            ));
+        }
+        evidence_by_id.insert(evidence.evidence_id.as_str(), evidence);
+    }
+
+    let mut assertion_edges = BTreeSet::new();
+    let mut referenced_evidence = BTreeSet::new();
+    for assertion in &s.assertions {
+        if !edge_ids.contains(assertion.edge_id.as_str())
+            || !assertion_edges.insert(assertion.edge_id.as_str())
+        {
+            return Err("assertion edges must be registered and appear exactly once".into());
+        }
+        if !matches!(
+            assertion.asserted_state.as_str(),
+            "active" | "inactive" | "unassessed"
+        ) {
+            return Err("asserted state must be active, inactive or unassessed".into());
+        }
+        if assertion.asserted_state != "unassessed" && assertion.evidence_ids.is_empty() {
+            return Err(format!("assertion {} requires evidence references", assertion.edge_id));
+        }
+        let mut local_refs = BTreeSet::new();
+        for evidence_id in &assertion.evidence_ids {
+            if !local_refs.insert(evidence_id.as_str())
+                || !referenced_evidence.insert(evidence_id.as_str())
+            {
+                return Err("evidence references must be unique and consume-once".into());
+            }
+            let evidence = evidence_by_id
+                .get(evidence_id.as_str())
+                .ok_or_else(|| format!("assertion references unknown evidence {evidence_id}"))?;
+            if evidence.edge_id != assertion.edge_id {
+                return Err(format!(
+                    "evidence {} does not belong to asserted edge {}",
+                    evidence.evidence_id, assertion.edge_id
+                ));
+            }
+        }
+    }
+    if assertion_edges != edge_ids {
+        return Err("every registered graph edge requires exactly one state assertion".into());
+    }
+    if referenced_evidence.len() != evidence_by_id.len() {
+        return Err("unreferenced evidence records are not permitted".into());
+    }
+    Ok(())
+}
+
+fn evidence_candidate(
+    s: &Scenario,
+    evidence: &EvidenceRecord,
+) -> (Option<CandidateState>, Vec<String>) {
+    let mut reasons = Vec::new();
+    if evidence.specimen_id != s.specimen_id {
+        reasons.push("specimen_support_mismatch".into());
+    }
+    if evidence.event_id != s.event.event_id {
+        reasons.push("event_identity_mismatch".into());
+    }
+    if evidence.observed_end_epoch_seconds < s.event.start_epoch_seconds
+        || evidence.observed_start_epoch_seconds > s.event.end_epoch_seconds
+    {
+        reasons.push("outside_event_window".into());
+    }
+    if evidence.qc_status != "passed" {
+        reasons.push("quality_control_not_passed".into());
+    }
+    if evidence.support_kind != "registered_3d_edge"
+        || evidence.registration_status != "registered"
+    {
+        reasons.push("spatial_support_not_registered_to_3d_edge".into());
+    }
+    if !is_direct_observation(&evidence.evidence_class) {
+        reasons.push("non_direct_evidence_cannot_confirm_hydraulic_state".into());
+    }
+    if !reasons.is_empty() {
+        return (None, reasons);
+    }
+
+    let measured_active = evidence
+        .measured_flux_mg_per_h
+        .is_some_and(|value| value > s.event.minimum_relevant_flux_mg_per_h);
+    if measured_active {
+        return (Some(CandidateState::Active), vec![]);
+    }
+
+    let covers_entire_event = evidence.observed_start_epoch_seconds <= s.event.start_epoch_seconds
+        && evidence.observed_end_epoch_seconds >= s.event.end_epoch_seconds;
+    let cadence_adequate =
+        evidence.sample_interval_seconds <= s.event.maximum_sample_interval_seconds;
+    let coverage_adequate =
+        evidence.coverage_fraction >= s.event.minimum_coverage_fraction;
+    let non_detection_bound_adequate = evidence
+        .upper_flux_bound_mg_per_h
+        .is_some_and(|value| value <= s.event.minimum_relevant_flux_mg_per_h);
+
+    if covers_entire_event
+        && cadence_adequate
+        && coverage_adequate
+        && non_detection_bound_adequate
+        && evidence.measured_flux_mg_per_h.is_none()
+    {
+        return (Some(CandidateState::Inactive), vec![]);
+    }
+
+    if !covers_entire_event {
+        reasons.push("negative_evidence_does_not_cover_entire_event".into());
+    }
+    if !cadence_adequate {
+        reasons.push("sampling_cadence_too_sparse".into());
+    }
+    if !coverage_adequate {
+        reasons.push("event_sampling_coverage_insufficient".into());
+    }
+    if !non_detection_bound_adequate {
+        reasons.push("detection_upper_bound_does_not_exclude_relevant_flux".into());
+    }
+    if evidence.measured_flux_mg_per_h.is_some() {
+        reasons.push("measured_value_does_not_support_declared_state".into());
+    }
+    (None, reasons)
+}
+
+fn evaluate_assertion(
+    s: &Scenario,
+    assertion: &EdgeAssertion,
+    evidence: &BTreeMap<&str, &EvidenceRecord>,
+) -> EdgeResult {
+    if assertion.asserted_state == "unassessed" {
+        return EdgeResult {
+            edge_id: assertion.edge_id.clone(),
+            asserted_state: assertion.asserted_state.clone(),
+            admission_status: "unassessed".into(),
+            qualifying_active_evidence_ids: vec![],
+            qualifying_inactive_evidence_ids: vec![],
+            reasons: vec!["assertion_explicitly_unassessed".into()],
+        };
+    }
+
+    let mut active_ids = Vec::new();
+    let mut inactive_ids = Vec::new();
+    let mut reasons = Vec::new();
+    for evidence_id in &assertion.evidence_ids {
+        let record = evidence
+            .get(evidence_id.as_str())
+            .expect("evidence references validated");
+        let (candidate, evidence_reasons) = evidence_candidate(s, record);
+        if evidence_reasons.is_empty() {
+            match candidate {
+                Some(CandidateState::Active) => active_ids.push(evidence_id.clone()),
+                Some(CandidateState::Inactive) => inactive_ids.push(evidence_id.clone()),
+                None => reasons.push("evidence_no_qualified_state".into()),
+            }
+        } else {
+            reasons.extend(
+                evidence_reasons
+                    .into_iter()
+                    .map(|reason| format!("{evidence_id}:{reason}")),
+            );
+        }
+    }
+
+    let has_active = !active_ids.is_empty();
+    let has_inactive = !inactive_ids.is_empty();
+    let admission_status = if has_active && has_inactive {
+        reasons.push("conflicting_direct_evidence".into());
+        "unassessed"
+    } else if assertion.asserted_state == "active" && has_active {
+        "confirmed_active"
+    } else if assertion.asserted_state == "inactive" && has_inactive {
+        "confirmed_inactive"
+    } else if has_active || has_inactive {
+        reasons.push("assertion_conflicts_with_qualified_direct_evidence".into());
+        "unassessed"
+    } else {
+        reasons.push(if assertion.asserted_state == "active" {
+            "no_qualifying_positive_hydraulic_evidence".into()
+        } else {
+            "no_qualifying_negative_evidence".into()
+        });
+        "unassessed"
+    };
+
+    EdgeResult {
+        edge_id: assertion.edge_id.clone(),
+        asserted_state: assertion.asserted_state.clone(),
+        admission_status: admission_status.into(),
+        qualifying_active_evidence_ids: active_ids,
+        qualifying_inactive_evidence_ids: inactive_ids,
+        reasons,
+    }
+}
+
+fn build_report(s: &Scenario, input_sha256: String) -> Report {
+    let evidence: BTreeMap<&str, &EvidenceRecord> = s
+        .evidence_records
+        .iter()
+        .map(|record| (record.evidence_id.as_str(), record))
+        .collect();
+    let results: Vec<EdgeResult> = s
+        .assertions
+        .iter()
+        .map(|assertion| evaluate_assertion(s, assertion, &evidence))
+        .collect();
+    let confirmed_active_count = results
+        .iter()
+        .filter(|result| result.admission_status == "confirmed_active")
+        .count();
+    let confirmed_inactive_count = results
+        .iter()
+        .filter(|result| result.admission_status == "confirmed_inactive")
+        .count();
+    let unassessed_count = results
+        .iter()
+        .filter(|result| result.admission_status == "unassessed")
+        .count();
+
+    Report {
+        audit_version: VERSION,
+        fixture_status: FIXTURE_STATUS,
+        scenario_id: s.scenario_id.clone(),
+        input_sha256,
+        assertion_count: results.len(),
+        confirmed_active_count,
+        confirmed_inactive_count,
+        unassessed_count,
+        results,
+        controls: Controls {
+            direct_observation_required_for_confirmed_hydraulic_state: true,
+            structural_image_cannot_confirm_hydraulic_activation: true,
+            model_prediction_cannot_confirm_hydraulic_activation: true,
+            inactivity_requires_event_coverage_and_detection_bound: true,
+            conflicting_direct_evidence_abstains: true,
+            specimen_event_and_registered_3d_edge_support_required: true,
+            synthetic_only_claim_ceiling: true,
+        },
+        interpretation_boundary: CLAIM_CEILING,
+    }
+}
+
+fn run(input_path: &Path, output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    if output_path.exists() {
+        return Err(
+            io::Error::new(io::ErrorKind::AlreadyExists, "output report already exists").into(),
+        );
+    }
+    let bytes = fs::read(input_path)?;
+    let scenario: Scenario = serde_json::from_slice(&bytes)?;
+    validate(&scenario).map_err(io::Error::other)?;
+    let digest = format!("{:x}", Sha256::digest(&bytes));
+    let report = build_report(&scenario, digest);
+    let json = serde_json::to_vec_pretty(&report)?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output_path)?;
+    output.write_all(&json)?;
+    output.write_all(b"\n")?;
+    Ok(())
+}
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    if args.len() != 3 {
+        eprintln!("usage: activation-evidence-audit <scenario.json> <new-report.json>");
+        std::process::exit(2);
+    }
+    if let Err(error) = run(Path::new(&args[1]), Path::new(&args[2])) {
+        eprintln!("activation evidence audit failed: {error}");
+        std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scenario() -> Scenario {
+        serde_json::from_str(include_str!("../fixtures/synthetic-activation-evidence.json"))
+            .expect("synthetic fixture parses")
+    }
+
+    fn results() -> Vec<EdgeResult> {
+        let s = scenario();
+        validate(&s).expect("fixture validates");
+        build_report(&s, "0".repeat(64)).results
+    }
+
+    #[test]
+    fn direct_event_matched_tracer_can_confirm_activity() {
+        let result = results();
+        let edge = result.iter().find(|r| r.edge_id == "edge-active-tracer").unwrap();
+        assert_eq!(edge.admission_status, "confirmed_active");
+    }
+
+    #[test]
+    fn qualified_full_window_non_detection_can_confirm_inactivity() {
+        let result = results();
+        let edge = result.iter().find(|r| r.edge_id == "edge-inactive-covered").unwrap();
+        assert_eq!(edge.admission_status, "confirmed_inactive");
+    }
+
+    #[test]
+    fn structural_image_cannot_confirm_hydraulic_activity() {
+        let result = results();
+        let edge = result.iter().find(|r| r.edge_id == "edge-geometry-only").unwrap();
+        assert_eq!(edge.admission_status, "unassessed");
+    }
+
+    #[test]
+    fn sparse_non_detection_cannot_confirm_inactivity() {
+        let result = results();
+        let edge = result.iter().find(|r| r.edge_id == "edge-inactive-sparse").unwrap();
+        assert_eq!(edge.admission_status, "unassessed");
+        assert!(edge.reasons.iter().any(|r| r.contains("sampling_cadence_too_sparse")));
+    }
+
+    #[test]
+    fn model_prediction_cannot_confirm_activity() {
+        let result = results();
+        let edge = result.iter().find(|r| r.edge_id == "edge-model-only").unwrap();
+        assert_eq!(edge.admission_status, "unassessed");
+    }
+
+    #[test]
+    fn conflicting_direct_evidence_abstains() {
+        let result = results();
+        let edge = result.iter().find(|r| r.edge_id == "edge-conflict").unwrap();
+        assert_eq!(edge.admission_status, "unassessed");
+        assert!(edge.reasons.iter().any(|r| r == "conflicting_direct_evidence"));
+    }
+
+    #[test]
+    fn wrong_event_or_unregistered_spatial_support_abstains() {
+        let result = results();
+        let wrong_event = result.iter().find(|r| r.edge_id == "edge-wrong-event").unwrap();
+        let unregistered = result.iter().find(|r| r.edge_id == "edge-unregistered").unwrap();
+        assert_eq!(wrong_event.admission_status, "unassessed");
+        assert_eq!(unregistered.admission_status, "unassessed");
+    }
+
+    #[test]
+    fn malformed_artifact_digest_rejects_input() {
+        let mut s = scenario();
+        s.evidence_records[0].source_artifact_sha256 = "bad".into();
+        assert!(validate(&s).is_err());
+    }
+
+    #[test]
+    fn missing_edge_assertion_rejects_input() {
+        let mut s = scenario();
+        s.assertions.pop();
+        assert!(validate(&s).is_err());
+    }
+}
