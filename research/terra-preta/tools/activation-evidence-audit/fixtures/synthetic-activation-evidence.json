@@ -10,7 +10,9 @@
     "minimum_relevant_flux_mg_per_h": 0.2,
     "maximum_sample_interval_seconds": 300,
     "minimum_coverage_fraction": 0.95,
-    "minimum_bound_confidence_level": 0.95
+    "minimum_bound_confidence_level": 0.95,
+    "maximum_registration_error_mm": 0.25,
+    "minimum_support_overlap_fraction": 0.95
   },
   "registered_edge_ids": [
     "edge-active-tracer",
@@ -21,7 +23,9 @@
     "edge-conflict",
     "edge-wrong-event",
     "edge-unregistered",
-    "edge-active-point-only"
+    "edge-active-point-only",
+    "edge-boundary-tracer",
+    "edge-high-registration-error"
   ],
   "evidence_records": [
     {
@@ -48,7 +52,10 @@
       "lower_flux_bound_confidence_level": 0.95,
       "upper_flux_bound_confidence_level": null,
       "spatial_support_id": "support-edge-active-tracer",
-      "registration_transform_id": "registration-edge-active-tracer"
+      "registration_transform_id": "registration-edge-active-tracer",
+      "spatial_localization": "edge_resolved",
+      "registration_error_mm": 0.05,
+      "support_overlap_fraction": 0.99
     },
     {
       "evidence_id": "ev-geometry-only",
@@ -74,7 +81,10 @@
       "lower_flux_bound_confidence_level": null,
       "upper_flux_bound_confidence_level": null,
       "spatial_support_id": "support-edge-geometry-only",
-      "registration_transform_id": "registration-edge-geometry-only"
+      "registration_transform_id": "registration-edge-geometry-only",
+      "spatial_localization": "edge_resolved",
+      "registration_error_mm": 0.05,
+      "support_overlap_fraction": 0.99
     },
     {
       "evidence_id": "ev-inactive-covered",
@@ -100,7 +110,10 @@
       "lower_flux_bound_confidence_level": null,
       "upper_flux_bound_confidence_level": 0.95,
       "spatial_support_id": "support-edge-inactive-covered",
-      "registration_transform_id": "registration-edge-inactive-covered"
+      "registration_transform_id": "registration-edge-inactive-covered",
+      "spatial_localization": "edge_resolved",
+      "registration_error_mm": 0.05,
+      "support_overlap_fraction": 0.99
     },
     {
       "evidence_id": "ev-inactive-sparse",
@@ -126,7 +139,10 @@
       "lower_flux_bound_confidence_level": null,
       "upper_flux_bound_confidence_level": 0.95,
       "spatial_support_id": "support-edge-inactive-sparse",
-      "registration_transform_id": "registration-edge-inactive-sparse"
+      "registration_transform_id": "registration-edge-inactive-sparse",
+      "spatial_localization": "edge_resolved",
+      "registration_error_mm": 0.05,
+      "support_overlap_fraction": 0.99
     },
     {
       "evidence_id": "ev-model-only",
@@ -152,7 +168,10 @@
       "lower_flux_bound_confidence_level": 0.95,
       "upper_flux_bound_confidence_level": null,
       "spatial_support_id": "support-edge-model-only",
-      "registration_transform_id": "registration-edge-model-only"
+      "registration_transform_id": "registration-edge-model-only",
+      "spatial_localization": "edge_resolved",
+      "registration_error_mm": 0.05,
+      "support_overlap_fraction": 0.99
     },
     {
       "evidence_id": "ev-conflict-active",
@@ -178,7 +197,10 @@
       "lower_flux_bound_confidence_level": 0.95,
       "upper_flux_bound_confidence_level": null,
       "spatial_support_id": "support-edge-conflict",
-      "registration_transform_id": "registration-edge-conflict"
+      "registration_transform_id": "registration-edge-conflict",
+      "spatial_localization": "edge_resolved",
+      "registration_error_mm": 0.05,
+      "support_overlap_fraction": 0.99
     },
     {
       "evidence_id": "ev-conflict-inactive",
@@ -204,7 +226,10 @@
       "lower_flux_bound_confidence_level": null,
       "upper_flux_bound_confidence_level": 0.95,
       "spatial_support_id": "support-edge-conflict",
-      "registration_transform_id": "registration-edge-conflict"
+      "registration_transform_id": "registration-edge-conflict",
+      "spatial_localization": "edge_resolved",
+      "registration_error_mm": 0.05,
+      "support_overlap_fraction": 0.99
     },
     {
       "evidence_id": "ev-wrong-event",
@@ -230,7 +255,10 @@
       "lower_flux_bound_confidence_level": 0.95,
       "upper_flux_bound_confidence_level": null,
       "spatial_support_id": "support-edge-wrong-event",
-      "registration_transform_id": "registration-edge-wrong-event"
+      "registration_transform_id": "registration-edge-wrong-event",
+      "spatial_localization": "edge_resolved",
+      "registration_error_mm": 0.05,
+      "support_overlap_fraction": 0.99
     },
     {
       "evidence_id": "ev-unregistered",
@@ -256,7 +284,10 @@
       "lower_flux_bound_confidence_level": 0.95,
       "upper_flux_bound_confidence_level": null,
       "spatial_support_id": "support-edge-unregistered",
-      "registration_transform_id": null
+      "registration_transform_id": null,
+      "spatial_localization": "core_aggregate",
+      "registration_error_mm": null,
+      "support_overlap_fraction": 0
     },
     {
       "evidence_id": "ev-active-point-only",
@@ -282,7 +313,68 @@
       "upper_flux_bound_mg_per_h": null,
       "upper_flux_bound_confidence_level": null,
       "spatial_support_id": "support-edge-active-point-only",
-      "registration_transform_id": "registration-edge-active-point-only"
+      "registration_transform_id": "registration-edge-active-point-only",
+      "spatial_localization": "edge_resolved",
+      "registration_error_mm": 0.05,
+      "support_overlap_fraction": 0.99
+    },
+    {
+      "evidence_id": "ev-boundary-tracer",
+      "edge_id": "edge-boundary-tracer",
+      "specimen_id": "synthetic-core-001",
+      "event_id": "synthetic-wetting-event-01",
+      "evidence_class": "boundary_tracer_response",
+      "source_artifact_uri": "urn:synthetic:activation-evidence/boundary-tracer",
+      "source_artifact_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "method_id": "synthetic-outlet-tracer",
+      "method_version": "1",
+      "calibration_id": "synthetic-tracer-calibration-1",
+      "qc_status": "passed",
+      "support_kind": "core_aggregate",
+      "registration_status": "not_applicable",
+      "spatial_support_id": "support-core-001",
+      "registration_transform_id": null,
+      "spatial_localization": "boundary_integrated",
+      "registration_error_mm": null,
+      "support_overlap_fraction": 0,
+      "observed_start_epoch_seconds": 900,
+      "observed_end_epoch_seconds": 4700,
+      "sample_interval_seconds": 60,
+      "coverage_fraction": 1,
+      "measured_flux_mg_per_h": 0.9,
+      "lower_flux_bound_mg_per_h": 0.5,
+      "lower_flux_bound_confidence_level": 0.95,
+      "upper_flux_bound_mg_per_h": null,
+      "upper_flux_bound_confidence_level": null
+    },
+    {
+      "evidence_id": "ev-high-registration-error",
+      "edge_id": "edge-high-registration-error",
+      "specimen_id": "synthetic-core-001",
+      "event_id": "synthetic-wetting-event-01",
+      "evidence_class": "direct_hydraulic_observation",
+      "source_artifact_uri": "urn:synthetic:activation-evidence/high-registration-error",
+      "source_artifact_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+      "method_id": "synthetic-flow-sensor",
+      "method_version": "1",
+      "calibration_id": "synthetic-flow-calibration-1",
+      "qc_status": "passed",
+      "support_kind": "registered_3d_edge",
+      "registration_status": "registered",
+      "spatial_support_id": "support-edge-high-registration-error",
+      "registration_transform_id": "registration-edge-high-registration-error",
+      "spatial_localization": "edge_resolved",
+      "registration_error_mm": 0.5,
+      "support_overlap_fraction": 0.99,
+      "observed_start_epoch_seconds": 900,
+      "observed_end_epoch_seconds": 4700,
+      "sample_interval_seconds": 60,
+      "coverage_fraction": 1,
+      "measured_flux_mg_per_h": 0.9,
+      "lower_flux_bound_mg_per_h": 0.5,
+      "lower_flux_bound_confidence_level": 0.95,
+      "upper_flux_bound_mg_per_h": null,
+      "upper_flux_bound_confidence_level": null
     }
   ],
   "assertions": [
@@ -348,6 +440,20 @@
       "asserted_state": "active",
       "evidence_ids": [
         "ev-active-point-only"
+      ]
+    },
+    {
+      "edge_id": "edge-boundary-tracer",
+      "asserted_state": "active",
+      "evidence_ids": [
+        "ev-boundary-tracer"
+      ]
+    },
+    {
+      "edge_id": "edge-high-registration-error",
+      "asserted_state": "active",
+      "evidence_ids": [
+        "ev-high-registration-error"
       ]
     }
   ]
