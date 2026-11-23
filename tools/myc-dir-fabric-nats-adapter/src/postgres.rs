@@ -651,7 +651,6 @@ mod tests {
         };
         recommit_receipt(&mut receipt);
         receipt
-
     }
 
     #[test]
