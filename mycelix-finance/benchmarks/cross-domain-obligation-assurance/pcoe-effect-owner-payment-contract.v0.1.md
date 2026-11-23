@@ -206,25 +206,27 @@ A single source chain serializes writes for one author and commits multiple writ
 
 Use two complementary qualification methods:
 
-**State-space model:** enumerate bounded transitions and check safety invariants. Include a deliberate mutant that permits a debit before the complete batch and prove the invariant detects it.
+**State-space model:** enumerate bounded operation, sender-leg, recipient-leg, Treasury-outbox, response-loss, chain-head-race and fork-conflict transitions. Include a deliberate mutant that separates sender debit from its immutable transfer intent and prove the sender intent/debit invariant detects it.
 
-**Jepsen-style adapter testing:** run concurrent real-agent operations against a pinned Holochain conductor / DNA, record invocation and completion histories, and inject process, network, DHT-availability and response faults. A history checker should compare observed results with the reference operation model. Jepsen's method explicitly records operation histories while a nemesis induces failures and then checks whether the histories are valid; see [Jepsen core documentation](https://jepsen-io.github.io/jepsen/jepsen.core.html).
+**Jepsen-style adapter testing:** run concurrent real-agent operations against a pinned Holochain conductor / DNA, record invocation and completion histories, and inject process, network, DHT-availability and response faults. A history checker should compare observed results with the reference operation model. Jepsen's method records operation histories while a nemesis induces failures and then checks whether the histories are valid; see [Jepsen core documentation](https://jepsen-io.github.io/jepsen/jepsen.core.html).
 
 Required fault cuts include:
-- before operation claim;
-- after claim but before journal commit;
-- while competing requests race the same claim;
-- after journal commit but before caller response;
-- after response is lost and before retry;
-- during balance / Payment / Receipt projection rebuild;
+- before sender operation claim;
+- during sender intent + payer debit atomic commit;
+- after sender commit but before sender response;
+- after sender commit while recipient claim remains absent;
+- during recipient claim / recipient-owned balance successor commit;
+- after recipient claim commits but before its response / ActionHash is observed;
+- competing recipient successor / source-chain fork and conflict freeze;
 - after fee outbox commit but before Treasury dispatch;
 - after Treasury delivery but before its receipt response;
-- during Finance or Treasury restart;
-- during DHT partition, delayed gossip, stale reads and source-chain-top races;
-- after client-side idempotency cache expiry but while durable financial evidence remains;
-- during key rotation, identity change or recovery from a fork.
+- loss of post_commit wake-up and restart-safe outbox scan;
+- Finance, beneficiary or Treasury restart;
+- DHT partition, delayed gossip, stale reads and source-chain-top races;
+- client idempotency cache expiry while durable sender / recipient evidence remains;
+- alternate agent keys, key rotation, identity remapping and fork recovery.
 
-The run must preserve the full invocation/return/fault history, source-chain action references, exact operation fingerprint, journal batches, per-leg counts, balances, fee liability/outbox and retry responses.
+The run must preserve the full invocation / return / fault history, sender and recipient ActionHashes, exact operation fingerprint, sender debit, recipient claim / credit, unresolved claim and fee liabilities, Treasury outbox / receipt, balance predecessor / successor references and every retry response. A missing remote record in a partition is not evidence that the record does not exist.
 
 ## 9. Acceptance properties and proposed targets
 
@@ -295,22 +297,22 @@ All numerical targets above are preregistered research goals, not measured resul
 
 ## 10. Scenario corpus and model status
 
-The companion corpus defines 18 synthetic adversarial cases. It is an executable-test contract, not 18 passed tests.
+The companion corpus defines **22 synthetic adversarial cases**. These are executable-test contracts, not 22 passed tests.
 
-The companion TLA+ model specifies a finite effect-owner operation, atomic journal batch, exact retry, conflict, response loss, fee-outbox recovery, durable tombstone and an unsafe partial-debit mutant. The safe and mutant TLC configurations are provided.
+The companion TLA+ model represents the payer's sender-intent/debit commit, the beneficiary's separately authored claim/credit, Treasury's independent fee effect, sender and recipient response loss, operation-identity replay, source-chain-top movement, durable outbox scanning and recipient fork conflict freeze. The unsafe mutant splits sender intent from debit or duplicates the debit. Safe and mutant TLC configurations are provided.
 
-**Model-checking status:** authored, not TLC-checked in this authoring environment. The TLA+ files must be run with a pinned TLC release and their exact output / state counts retained before claiming a model-check result. The model is bounded and does not prove the live Holochain runtime or external rail behavior.
+**Model-checking status:** the earlier single-batch model's TLC results are superseded by this two-owner rewrite. This revision is authored and statically frame-audited but has not yet passed TLC. The exact-head workflow must complete with no model warning, no safe invariant violation, and the expected mutant counterexample before this revision can claim a model-check result. The model is bounded and does not prove the live Holochain runtime, alternate-agent uniqueness, real fork-resolution protocol, Treasury adapter or external rail behavior.
 
 ## 11. Implementation sequence
 
-1. Preserve the current public-main source finding and keep #5750 open.
-2. Implement a Finance-owned operation identity, request fingerprint and claim record.
-3. Implement the immutable journal batch in the same Finance author-chain call, with balance / Payment / Receipt as deterministic projections.
-4. Give Treasury fee delivery its own outbox identity, receipt and reconciliation lifecycle.
-5. Prove source-chain race behavior, author identity constraints, stale DHT and fork / alternate-key cases with real multi-agent tests.
-6. Add a Jepsen-style history driver / checker for response-loss, restart, partition and concurrency schedules.
-7. Integrate Energy as the operation initiator / query client; it must not own Finance idempotency or finality.
-8. Only then connect the Finance ledger result to separate external rail, contract acceptance and physical-delivery evidence.
+1. Reconcile the existing [AC-099 owner-authenticated transfer protocol / PR #4178](https://github.com/Luminous-Dynamics/mycelix/pull/4178) with current main and the open #6505/#5750/#4383 obligations; do not merge a stale branch without a fresh source audit.
+2. Qualify and integrate the predecessor-bound balance transition / fork semantics from [FIN-SAFE-012 / PR #657](https://github.com/Luminous-Dynamics/mycelix/pull/657) and [#654](https://github.com/Luminous-Dynamics/mycelix/issues/654). A competing same-predecessor beneficiary successor must be frozen, not last-write-wins.
+3. Bind the sender transfer intent to a stable operation identity and canonical fingerprint. Commit intent + payer debit + fee liability / durable outbox on the payer's own chain in one atomic zome-function call.
+4. Implement beneficiary-authored claim + credit on the beneficiary's own chain, bound to the exact intent and recipient predecessor. Do not promote Debited to Settled until the exact claim is observed and fork-free.
+5. Give Treasury fee delivery its own outbox identity, exact receipt and reconciliation lifecycle. Dispatch only after the sender source-chain commit; treat post_commit as a wake-up hint.
+6. Add real-agent Tryorama / Sweettests for same-key races, chain-head movement, sender rollback, recipient claim response loss, duplicate claim, alternate-key attempts, recipient sibling successors, Treasury delivery-success / response-loss and restart / DHT partition.
+7. Add a Jepsen-style history driver / checker for sender / recipient / Treasury operations, preserving exact ActionHashes and independent owner-state observations.
+8. Connect internal recipient settlement to separately qualified external rail, reserve/custody, legal acceptance and physical-delivery evidence. None is implied by the internal SAP transfer.
 
 ## References
 - [Stripe API v1 and v2 — Idempotent requests](https://docs.stripe.com/api/idempotent_requests)
