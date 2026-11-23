@@ -237,7 +237,7 @@ ReconcileFeeAsDelivered ==
   /\ UNCHANGED <<opState, requestDigest, senderIntentCount, senderDebitCount,
                  recipientClaimCount, recipientCreditCount, feeLiabilityCount,
                  feeOutboxCount, paymentProjectionCount, receiptProjectionCount,
-                 responseLost, responseReturned, conflictObserved,
+                 senderResponseLost, senderResponseReturned, conflictObserved,
                  tombstonePresent, clientCachePresent, outboxScanCount,
                  chainHeadMoveCount, recipientResponseLost,
                  recipientClaimObserved, retryCount>>
@@ -251,7 +251,7 @@ DeliverFee ==
   /\ UNCHANGED <<opState, requestDigest, senderIntentCount, senderDebitCount,
                  recipientClaimCount, recipientCreditCount, feeLiabilityCount,
                  feeOutboxCount, paymentProjectionCount, receiptProjectionCount,
-                 responseLost, responseReturned, conflictObserved,
+                 senderResponseLost, senderResponseReturned, conflictObserved,
                  tombstonePresent, clientCachePresent, outboxScanCount,
                  chainHeadMoveCount, recipientResponseLost,
                  recipientClaimObserved, retryCount>>
