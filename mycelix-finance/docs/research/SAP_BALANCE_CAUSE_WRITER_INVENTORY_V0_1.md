@@ -151,6 +151,32 @@ For bilateral transfers, the sender debit and recipient credit are separate owne
 
 Metadata-only updates preserve balance, predecessor and the historical monetary cause. They use their own metadata authorization, not \`justified_by: None\` to erase the prior economic reference.
 
+## Existing FIN-SAFE-012 kernel: what it does and does not yet cover
+
+I also read the current public source on [PR #657](https://github.com/Luminous-Dynamics/mycelix/pull/657), specifically:
+- `finance-sap-balance-effect/src/author_bound.rs`, blob `2f28f5970e45f80b049dd184ab7d0b8932cb3c56`;
+- `finance-sap-balance-effect/src/lib.rs`, blob `7a5362fa6075a4db70285a69f34452de30661503`.
+
+The pure V2 kernel currently does provide:
+- exact-zero, owner-authored genesis;
+- exact collateral-issuance positive delta with checked addition;
+- exact recipient / deposit / amount / `justified_by` binding;
+- no hidden demurrage timestamp or Amber exemption change inside an issuance update;
+- sequential receipt-replay rejection against the supplied predecessor / ancestor justification references;
+- conflict classification when distinct successor ActionHashes are supplied for one exact predecessor;
+- an author-bound wrapper that rejects third-party action-author DIDs before observations participate in conflict classification.
+
+It does **not yet** constitute the production `SapBalance` integrity theorem:
+
+1. The pure wrapper receives `action_author_did: String`; HDI must derive this from the actual Holochain `Action.author`. A caller-supplied DID is not authoritative.
+2. The replay check receives an `ancestor_justification_references` slice. HDI must load the exact predecessor and prove the ancestry / list completeness. An incomplete slice means incomplete replay protection.
+3. The conflict classifier receives an observations slice. HDI must define the authoritative enumeration / completeness boundary; unavailable or delayed DHT observations remain Indeterminate. Link count or first/last link is not a completeness proof.
+4. The current API is collateral-issuance-specific plus genesis / fork classification. It does not yet cover owner debit, demurrage, governance issuance, bilateral transfer claim, staking, Hearth movement or metadata-only balance transitions.
+5. The live `SapBalance` StoreEntry / StoreRecord callbacks still call shape-only `validate_sap_balance`; the pure kernel is not yet wired into HDI validation.
+6. The PR branch is 36 commits ahead / 194 behind current main, and the PR notes the tracked Finance Cargo.lock is stale. Rebase and exact-head locked fmt / test / clippy / HDI / Tryorama qualification are still required.
+
+This is why the writer inventory is not a proposal to simply set `justified_by` on existing credit calls. The integration must preserve the strong collateral theorem while adding typed causes for every other economic path, and it must enforce owner authorship / predecessor binding at the real HDI boundary.
+
 ## Migration order (fail-closed, dependency-coherent)
 
 1. Freeze / gate unqualified issuance and raw credit entrypoints; do not leave a mint-any-DID capability available while migration is underway.
