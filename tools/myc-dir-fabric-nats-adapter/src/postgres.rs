@@ -1095,6 +1095,12 @@ fn append_string(bytes: &mut Vec<u8>, value: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
+    use ed25519_dalek::{Signer, SigningKey};
+    use mycelix_authority_write_lease::{
+        AuthorityWriteLease, AuthorityWriteLeasePhase, SignedAuthorityWriteLease,
+    };
+    use std::collections::BTreeSet;
 
     fn digest(byte: u8) -> Digest {
         [byte; 32]
@@ -1126,6 +1132,60 @@ mod tests {
             resource_generation,
         })
         .unwrap()
+    }
+
+    fn signed_lease_evidence(
+        scope: AuthorityWriteScope,
+        lease_generation: u64,
+        lease_id_byte: u8,
+        external_highwater: Digest,
+        physical_fence: Option<Digest>,
+    ) -> VerifiedAuthorityWriteLeaseEvidence {
+        let key = SigningKey::from_bytes(&[84; 32]);
+        let issued_at = Utc.with_ymd_and_hms(2026, 11, 22, 10, 0, 0).unwrap();
+        let not_before = Utc.with_ymd_and_hms(2026, 11, 22, 10, 0, 1).unwrap();
+        let expires_at = Utc.with_ymd_and_hms(2026, 11, 22, 11, 0, 0).unwrap();
+        let lease = AuthorityWriteLease {
+            lease_id: uuid::Uuid::from_bytes([lease_id_byte; 16]),
+            deployment_id: "deployment:test".into(),
+            primary_id: "postgres-a".into(),
+            database_system_identifier: "731245".into(),
+            postgres_timeline: 2,
+            generation: lease_generation,
+            phase: AuthorityWriteLeasePhase::Epoch,
+            epoch_number: Some(2),
+            epoch_hash: Some(LeaseContentHash([3; 32])),
+            allowed_scopes: [scope].into_iter().collect::<BTreeSet<_>>(),
+            issued_at,
+            not_before,
+            expires_at,
+            reason: "postgres receipt verifier test fixture".into(),
+        };
+        let mut signed_lease = SignedAuthorityWriteLease {
+            protocol: mycelix_authority_write_lease::AUTHORITY_WRITE_LEASE_PROTOCOL.into(),
+            protocol_version: mycelix_authority_write_lease::AUTHORITY_WRITE_LEASE_PROTOCOL_VERSION,
+            codec: mycelix_authority_write_lease::AUTHORITY_WRITE_LEASE_CODEC.into(),
+            schema_version: mycelix_authority_write_lease::AUTHORITY_WRITE_LEASE_SCHEMA_VERSION,
+            lease,
+            signer_key_id: "test-ed25519".into(),
+            signer_public_key: key.verifying_key().to_bytes(),
+            signature: Vec::new(),
+        };
+        signed_lease.signature = key
+            .sign(&signed_lease.signing_bytes().unwrap())
+            .to_bytes()
+            .to_vec();
+        signed_lease.verify_signature().unwrap();
+
+        VerifiedAuthorityWriteLeaseEvidence {
+            lease_hash: signed_lease.signed_lease_hash().unwrap().0,
+            signed_lease,
+            lease_generation,
+            scope,
+            attested_at: "2026-11-22T10:00:30.000000".into(),
+            external_highwater_receipt_digest: external_highwater,
+            physical_fencing_receipt_digest: physical_fence,
+        }
     }
 
     fn recommit_receipt(receipt: &mut VerifiedPostgresEffectReceipt) {
@@ -1160,6 +1220,20 @@ mod tests {
             epoch_authority_receipt_digest: digest(6),
             physical_fencing_receipt_digest: digest(7),
         });
+        let effect_authority_lease = signed_lease_evidence(
+            AuthorityWriteScope::DirectoryFabricEffect,
+            8,
+            0x88,
+            digest(9),
+            None,
+        );
+        let promotion_authority_lease = Some(signed_lease_evidence(
+            AuthorityWriteScope::DatabaseEpochPromotion,
+            7,
+            0x77,
+            digest(6),
+            Some(digest(7)),
+        ));
         let delta_minor = 100;
         let balance_after_minor = 1100;
         let idempotency_digest = *binding.idempotency_digest();
@@ -1186,6 +1260,8 @@ mod tests {
             claim_expires_at,
             database_xact_id,
             epoch_transition,
+            effect_authority_lease,
+            promotion_authority_lease,
             delta_minor,
             balance_after_minor,
             idempotency_digest,
