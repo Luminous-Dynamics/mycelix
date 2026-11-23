@@ -300,7 +300,7 @@ BEGIN
     v_signed_b := jsonb_set(
         v_signed_b,
         '{lease,primary_id}',
-        to_jsonb('postgres-other-primary'),
+        to_jsonb('postgres-other-primary'::TEXT),
         FALSE
     );
     v_rejected := FALSE;
