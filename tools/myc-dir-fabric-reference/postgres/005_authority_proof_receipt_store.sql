@@ -18,12 +18,14 @@ CREATE TABLE IF NOT EXISTS myc_effect_owner.authority_proof_receipts (
     purpose TEXT NOT NULL CHECK (purpose IN (
         'lease_high_water',
         'physical_fencing',
-        'promotion_eligibility'
+        'promotion_eligibility',
+        'wal_commit_position'
     )),
     issuer_role TEXT NOT NULL CHECK (issuer_role IN (
         'lease_high_water_authority',
         'physical_fencing_attestor',
-        'promotion_controller'
+        'promotion_controller',
+        'wal_commit_observer'
     )),
     deployment_id TEXT NOT NULL CHECK (btrim(deployment_id) <> ''),
     database_system_identifier TEXT NOT NULL CHECK (btrim(database_system_identifier) <> ''),
@@ -59,6 +61,7 @@ CREATE TABLE IF NOT EXISTS myc_effect_owner.authority_proof_receipts (
         (purpose = 'lease_high_water' AND issuer_role = 'lease_high_water_authority')
         OR (purpose = 'physical_fencing' AND issuer_role = 'physical_fencing_attestor')
         OR (purpose = 'promotion_eligibility' AND issuer_role = 'promotion_controller')
+        OR (purpose = 'wal_commit_position' AND issuer_role = 'wal_commit_observer')
     ),
     UNIQUE (deployment_id, purpose, issuer_key_id, proof_sequence)
 );
@@ -233,7 +236,7 @@ BEGIN
     );
 
     IF v_proof_id IS NULL
-       OR v_purpose NOT IN ('lease_high_water', 'physical_fencing', 'promotion_eligibility')
+       OR v_purpose NOT IN ('lease_high_water', 'physical_fencing', 'promotion_eligibility', 'wal_commit_position')
        OR v_issuer_role IS NULL
        OR v_deployment_id IS NULL OR btrim(v_deployment_id) = ''
        OR v_system_identifier IS NULL OR btrim(v_system_identifier) = ''
@@ -255,7 +258,8 @@ BEGIN
 
     IF (v_purpose = 'lease_high_water' AND v_issuer_role <> 'lease_high_water_authority')
        OR (v_purpose = 'physical_fencing' AND v_issuer_role <> 'physical_fencing_attestor')
-       OR (v_purpose = 'promotion_eligibility' AND v_issuer_role <> 'promotion_controller') THEN
+       OR (v_purpose = 'promotion_eligibility' AND v_issuer_role <> 'promotion_controller')
+       OR (v_purpose = 'wal_commit_position' AND v_issuer_role <> 'wal_commit_observer') THEN
         RAISE EXCEPTION 'authority proof purpose and issuer role are inconsistent'
             USING ERRCODE = 'P0001';
     END IF;
