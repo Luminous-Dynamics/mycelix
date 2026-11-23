@@ -67,7 +67,7 @@ jobs:
           cmp mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.json
           cmp mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/sap/holochain-runtime-capability-matrix.v0.1.schema.json
 
-      - name: Validate 16-writer V2 crosswalk and 22-case corpus
+      - name: Validate 16-writer V2 crosswalk, 25-case corpus and runtime matrix
         shell: bash
         run: |
           set -euo pipefail
