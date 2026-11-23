@@ -1,0 +1,260 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic prospective soil forecast suite",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "evidence_class",
+    "suite_id",
+    "targets",
+    "forecasts"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "soil-prospective-forecast-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "evidence_class": {
+      "const": "synthetic"
+    },
+    "suite_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_id",
+          "site_id",
+          "experimental_unit_id",
+          "independence_group_id",
+          "variable",
+          "unit",
+          "measurement_method",
+          "depth_min_m",
+          "depth_max_m",
+          "spatial_support",
+          "window_start",
+          "window_end",
+          "observed_at",
+          "observed_value",
+          "observation_sha256",
+          "observation_status"
+        ],
+        "properties": {
+          "target_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "site_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "experimental_unit_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "independence_group_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "variable": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "measurement_method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "depth_min_m": {
+            "type": "number",
+            "minimum": 0
+          },
+          "depth_max_m": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "spatial_support": {
+            "type": "string",
+            "minLength": 1
+          },
+          "window_start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "window_end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "observed_value": {
+            "type": "number"
+          },
+          "observation_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "observation_status": {
+            "const": "independent_reference_observation"
+          }
+        }
+      }
+    },
+    "forecasts": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "forecast_id",
+          "target_id",
+          "model_role",
+          "model_id",
+          "model_version",
+          "model_sha256",
+          "input_sha256",
+          "forecast_receipt_sha256",
+          "training_cutoff",
+          "issued_at",
+          "evaluation_independence_group_id",
+          "training_independence_group_ids",
+          "variable",
+          "unit",
+          "measurement_method",
+          "depth_min_m",
+          "depth_max_m",
+          "spatial_support",
+          "applicability_domain_status",
+          "predictive_mean",
+          "predictive_sd",
+          "interval_level",
+          "interval_lower",
+          "interval_upper"
+        ],
+        "properties": {
+          "forecast_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model_role": {
+            "enum": [
+              "candidate",
+              "persistence_baseline",
+              "climatology_baseline"
+            ]
+          },
+          "model_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "input_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "forecast_receipt_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "training_cutoff": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "evaluation_independence_group_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "training_independence_group_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "variable": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "measurement_method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "depth_min_m": {
+            "type": "number",
+            "minimum": 0
+          },
+          "depth_max_m": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "spatial_support": {
+            "type": "string",
+            "minLength": 1
+          },
+          "applicability_domain_status": {
+            "enum": [
+              "in_domain",
+              "out_of_domain",
+              "unassessed"
+            ]
+          },
+          "predictive_mean": {
+            "type": "number"
+          },
+          "predictive_sd": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "interval_level": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          },
+          "interval_lower": {
+            "type": "number"
+          },
+          "interval_upper": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  }
+}
