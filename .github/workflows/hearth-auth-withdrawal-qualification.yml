@@ -1,0 +1,159 @@
+name: Hearth authorization and SAP withdrawal qualification
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/hearth-auth-withdrawal-qualification.yml"
+      - "mycelix-finance/Cargo.lock"
+      - "mycelix-workspace/mycelix-finance/Cargo.lock"
+      - "mycelix-finance/zomes/payments/coordinator/src/lib.rs"
+      - "mycelix-finance/zomes/tend/coordinator/src/lib.rs"
+      - "mycelix-finance/zomes/payments/integrity/src/lib.rs"
+      - "mycelix-finance/zomes/tend/integrity/src/lib.rs"
+      - "mycelix-workspace/mycelix-finance/zomes/payments/integrity/src/lib.rs"
+      - "mycelix-workspace/mycelix-finance/zomes/tend/integrity/src/lib.rs"
+      - "mycelix-workspace/mycelix-finance/zomes/payments/coordinator/src/lib.rs"
+      - "mycelix-workspace/mycelix-finance/zomes/tend/coordinator/src/lib.rs"
+      - "mycelix-finance/docs/research/HEARTH_AUTHORIZATION_WITHDRAWAL_HARDENING_V0_1.md"
+      - "mycelix-workspace/mycelix-finance/docs/research/HEARTH_AUTHORIZATION_WITHDRAWAL_HARDENING_V0_1.md"
+      - "mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json"
+      - "mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json"
+  push:
+    branches:
+      - "security/hearth-authorization-withdrawal-v0.1-20261123"
+    paths:
+      - ".github/workflows/hearth-auth-withdrawal-qualification.yml"
+      - "mycelix-finance/Cargo.lock"
+      - "mycelix-workspace/mycelix-finance/Cargo.lock"
+      - "mycelix-finance/zomes/payments/coordinator/src/lib.rs"
+      - "mycelix-finance/zomes/tend/coordinator/src/lib.rs"
+      - "mycelix-finance/zomes/payments/integrity/src/lib.rs"
+      - "mycelix-finance/zomes/tend/integrity/src/lib.rs"
+      - "mycelix-workspace/mycelix-finance/zomes/payments/integrity/src/lib.rs"
+      - "mycelix-workspace/mycelix-finance/zomes/tend/integrity/src/lib.rs"
+      - "mycelix-workspace/mycelix-finance/zomes/payments/coordinator/src/lib.rs"
+      - "mycelix-workspace/mycelix-finance/zomes/tend/coordinator/src/lib.rs"
+      - "mycelix-finance/docs/research/HEARTH_AUTHORIZATION_WITHDRAWAL_HARDENING_V0_1.md"
+      - "mycelix-workspace/mycelix-finance/docs/research/HEARTH_AUTHORIZATION_WITHDRAWAL_HARDENING_V0_1.md"
+      - "mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json"
+      - "mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hearth-auth-withdrawal-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  rust-guards:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_TERM_COLOR: always
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SUBJECT_SHA"
+          echo "Exact subject: $actual"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.1
+          components: rustfmt, clippy
+
+      - name: Check mirrored public sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp mycelix-finance/zomes/payments/coordinator/src/lib.rs mycelix-workspace/mycelix-finance/zomes/payments/coordinator/src/lib.rs
+          cmp mycelix-finance/Cargo.lock mycelix-workspace/mycelix-finance/Cargo.lock
+          cmp mycelix-finance/zomes/tend/coordinator/src/lib.rs mycelix-workspace/mycelix-finance/zomes/tend/coordinator/src/lib.rs
+          cmp mycelix-finance/zomes/payments/integrity/src/lib.rs mycelix-workspace/mycelix-finance/zomes/payments/integrity/src/lib.rs
+          cmp mycelix-finance/zomes/tend/integrity/src/lib.rs mycelix-workspace/mycelix-finance/zomes/tend/integrity/src/lib.rs
+          cmp mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json
+          cmp mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json
+          jq empty mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json
+          jq empty mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json
+          jq -e '
+            .benchmark == "Hearth authorization and SAP withdrawal adversarial corpus" and
+            .version == "0.1" and
+            (.scenarios | length) == 20 and
+            ([.scenarios[].id] | unique | length) == 20 and
+            all(.scenarios[];
+              (.id | test("^HSA-[0-9]{3}$")) and
+              (.surface == "sap_membership" or .surface == "sap_withdrawal" or .surface == "tend_exchange") and
+              (.expected == "authorize_membership_check" or .expected == "reject" or .expected == "atomic_rollback") and
+              (.stimulus | length > 0) and
+              (.writes | length > 0) and
+              (.unit_covered | type == "boolean") and
+              (.host_qualification_required | type == "boolean")
+            )
+          ' mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json >/dev/null
+          grep -q "fn get_existing_hearth_pool_record" mycelix-finance/zomes/payments/coordinator/src/lib.rs
+          grep -q "personal_record.action().author() != &caller" mycelix-finance/zomes/payments/coordinator/src/lib.rs
+          grep -q "mod hearth_withdrawal_guard_tests" mycelix-finance/zomes/payments/coordinator/src/lib.rs
+          grep -q "mod hearth_membership_fail_closed_tests" mycelix-finance/zomes/tend/coordinator/src/lib.rs
+          if grep -nE 'allowing \((standalone|bootstrap)' mycelix-finance/zomes/payments/coordinator/src/lib.rs mycelix-finance/zomes/tend/coordinator/src/lib.rs; then
+            echo "Permissive Hearth membership fallback remains in a protected coordinator."
+            exit 1
+          fi
+          echo "Mirrored source and fail-closed guard sentinels passed."
+
+      - name: Rust formatting
+        run: cargo fmt --manifest-path mycelix-finance/Cargo.toml --all -- --check
+
+      - name: Payments guard tests
+        run: cargo test --manifest-path mycelix-finance/Cargo.toml -p payments --locked
+
+      - name: TEND guard tests
+        run: cargo test --manifest-path mycelix-finance/Cargo.toml -p tend --locked
+
+      - name: Diagnostic Clippy (non-gating; package baseline remains)
+        id: clippy
+        continue-on-error: true
+        run: cargo clippy --manifest-path mycelix-finance/Cargo.toml -p payments -p tend -p payments_integrity -p tend_integrity --all-targets --no-deps --locked -- -D warnings
+
+      - name: Record Clippy diagnostic status without promoting it to a pass
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ steps.clippy.outcome }}" == "success" ]]; then
+            echo "Strict Clippy passed for selected Finance packages." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::Diagnostic Clippy reported existing package-wide baseline lints; this is not a PASS."
+            echo "Strict Clippy remains a non-gating diagnostic. Current known baseline includes existing coordinator lints; no blanket allow was introduced." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Emit qualification manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "subject_commit=$(git rev-parse HEAD)"
+            echo "payments_blob=$(git rev-parse HEAD:mycelix-finance/zomes/payments/coordinator/src/lib.rs)"
+            echo "tend_blob=$(git rev-parse HEAD:mycelix-finance/zomes/tend/coordinator/src/lib.rs)"
+            echo "scenario_corpus_sha256=$(sha256sum mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.json | cut -d' ' -f1)"
+            echo "scenario_schema_sha256=$(sha256sum mycelix-finance/benchmarks/sap/hearth-auth-withdrawal-scenarios.v0.1.schema.json | cut -d' ' -f1)"
+            echo "finance_cargo_lock_sha256=$(sha256sum mycelix-finance/Cargo.lock | cut -d' ' -f1)"
+            echo "payments_test_module=$(grep -c 'mod hearth_withdrawal_guard_tests' mycelix-finance/zomes/payments/coordinator/src/lib.rs)"
+            echo "tend_test_module=$(grep -c 'mod hearth_membership_fail_closed_tests' mycelix-finance/zomes/tend/coordinator/src/lib.rs)"
+          } | tee "$RUNNER_TEMP/hearth-qualification-manifest.txt"
+          cat "$RUNNER_TEMP/hearth-qualification-manifest.txt" >> "$GITHUB_STEP_SUMMARY"

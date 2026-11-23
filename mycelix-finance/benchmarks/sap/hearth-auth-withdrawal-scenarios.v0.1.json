@@ -1,0 +1,217 @@
+{
+  "benchmark": "Hearth authorization and SAP withdrawal adversarial corpus",
+  "version": "0.1",
+  "base_commit": "e949664ceb2f9ddde26704c70e23a19380f33dde",
+  "source_branch": "security/hearth-authorization-withdrawal-v0.1-20261123",
+  "qualification_claim": "case inventory; expected outcomes are requirements, not evidence that every case has passed",
+  "invariants": [
+    "Only an explicit decoded membership true authorizes a membership check",
+    "A rejected withdrawal performs no pool or member balance write",
+    "A completed local withdrawal debits the pool and credits the authenticated owner by exactly the same amount",
+    "The personal SAP balance record must be authored by the authenticated owner",
+    "A failure in a single-cell zome invocation leaves no partial source-chain writes",
+    "Incomplete DHT observations never prove global absence of a competing pool root"
+  ],
+  "scenarios": [
+    {
+      "id": "HSA-001",
+      "surface": "sap_membership",
+      "stimulus": "Hearth bridge returns explicit decoded true",
+      "expected": "authorize_membership_check",
+      "writes": "no_mutation_at_membership_stage",
+      "current_implementation": "unit_tested",
+      "unit_covered": true,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-002",
+      "surface": "sap_membership",
+      "stimulus": "Hearth bridge returns explicit decoded false",
+      "expected": "reject",
+      "writes": "no_writes",
+      "current_implementation": "unit_tested",
+      "unit_covered": true,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-003",
+      "surface": "sap_membership",
+      "stimulus": "Hearth bridge call is unavailable or fails",
+      "expected": "reject",
+      "writes": "no_writes",
+      "current_implementation": "unit_tested_error_mapping",
+      "unit_covered": true,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-004",
+      "surface": "sap_membership",
+      "stimulus": "Hearth bridge returns malformed membership bytes",
+      "expected": "reject",
+      "writes": "no_writes",
+      "current_implementation": "helper_tested_wire_decode_needs_host_injection",
+      "unit_covered": false,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-005",
+      "surface": "sap_membership",
+      "stimulus": "Hearth bridge returns an unexpected response variant",
+      "expected": "reject",
+      "writes": "no_writes",
+      "current_implementation": "code_path_added_host_test_required",
+      "unit_covered": false,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-006",
+      "surface": "sap_withdrawal",
+      "stimulus": "Caller has no personal SAP balance record",
+      "expected": "reject",
+      "writes": "no_writes",
+      "current_implementation": "code_path_added_sweettest_required",
+      "unit_covered": false,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-007",
+      "surface": "sap_withdrawal",
+      "stimulus": "Personal SAP balance member_did does not match caller DID",
+      "expected": "reject",
+      "writes": "no_writes",
+      "current_implementation": "code_path_added_sweettest_required",
+      "unit_covered": false,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-008",
+      "surface": "sap_withdrawal",
+      "stimulus": "No existing Hearth pool root is visible",
+      "expected": "reject",
+      "writes": "no_writes",
+      "current_implementation": "code_path_added_sweettest_required",
+      "unit_covered": false,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-009",
+      "surface": "sap_withdrawal",
+      "stimulus": "More than one Hearth pool root is locally observed",
+      "expected": "reject",
+      "writes": "no_writes",
+      "current_implementation": "code_path_added_sweettest_required",
+      "unit_covered": false,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-010",
+      "surface": "sap_withdrawal",
+      "stimulus": "Pool entry Hearth DID does not match requested Hearth",
+      "expected": "reject",
+      "writes": "no_writes",
+      "current_implementation": "code_path_added_sweettest_required",
+      "unit_covered": false,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-011",
+      "surface": "sap_withdrawal",
+      "stimulus": "Pool balance is below requested withdrawal",
+      "expected": "reject",
+      "writes": "no_writes",
+      "current_implementation": "unit_tested",
+      "unit_covered": true,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-012",
+      "surface": "sap_withdrawal",
+      "stimulus": "Personal balance addition overflows u64",
+      "expected": "reject",
+      "writes": "no_writes",
+      "current_implementation": "unit_tested",
+      "unit_covered": true,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-013",
+      "surface": "sap_withdrawal",
+      "stimulus": "Lifetime total_withdrawn addition overflows u64",
+      "expected": "reject",
+      "writes": "no_writes",
+      "current_implementation": "unit_tested",
+      "unit_covered": true,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-014",
+      "surface": "sap_withdrawal",
+      "stimulus": "Withdrawal amount is zero",
+      "expected": "reject",
+      "writes": "no_writes",
+      "current_implementation": "unit_tested",
+      "unit_covered": true,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-015",
+      "surface": "sap_withdrawal",
+      "stimulus": "A competing zome call advances the source-chain head before commit",
+      "expected": "atomic_rollback",
+      "writes": "no_partial_writes",
+      "current_implementation": "holochain_semantics_documented_sweettest_required",
+      "unit_covered": false,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-016",
+      "surface": "sap_withdrawal",
+      "stimulus": "Second staged local balance update fails after first update was staged",
+      "expected": "atomic_rollback",
+      "writes": "no_partial_writes",
+      "current_implementation": "holochain_semantics_documented_fault_injection_required",
+      "unit_covered": false,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-017",
+      "surface": "tend_exchange",
+      "stimulus": "TEND provider is not a member of the Hearth",
+      "expected": "reject",
+      "writes": "no_exchange_or_balance_writes",
+      "current_implementation": "helper_tested_host_test_required",
+      "unit_covered": true,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-018",
+      "surface": "tend_exchange",
+      "stimulus": "TEND receiver is not a member of the Hearth",
+      "expected": "reject",
+      "writes": "no_exchange_or_balance_writes",
+      "current_implementation": "helper_tested_host_test_required",
+      "unit_covered": true,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-019",
+      "surface": "tend_exchange",
+      "stimulus": "TEND Hearth membership evidence is unavailable",
+      "expected": "reject",
+      "writes": "no_exchange_or_balance_writes",
+      "current_implementation": "unit_tested_error_mapping_host_test_required",
+      "unit_covered": true,
+      "host_qualification_required": true
+    },
+    {
+      "id": "HSA-020",
+      "surface": "sap_withdrawal",
+      "stimulus": "Latest personal SapBalance successor has caller DID but is signed by another agent; this may be a legitimate inbound transfer_sap credit or an unproven spoof",
+      "expected": "reject",
+      "writes": "no_writes",
+      "current_implementation": "fail_closed_owner_author_check; may block valid incoming credit until typed cause/claim migration",
+      "unit_covered": false,
+      "host_qualification_required": true
+    }
+  ]
+}
