@@ -1,7 +1,7 @@
 # Health cluster integration and qualification contract
 
-**Status:** integration contract; not a clinical deployment qualification  
-**Canonical source:** `Luminous-Dynamics/mycelix-health`  
+**Status:** integration contract; not a clinical deployment qualification
+**Canonical source:** `Luminous-Dynamics/mycelix-health`
 **Umbrella location:** root Git submodule `mycelix-health/`
 
 ## 1. Source-of-truth model
