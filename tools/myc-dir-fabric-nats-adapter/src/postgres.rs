@@ -426,8 +426,6 @@ fn validate_receipt_binding(
     // Owner epoch and resource generation are both monotonic coordinates.
     // A receipt is never allowed to be ahead in either dimension, even when
     // its other coordinate is from an older epoch.
-
-
     if receipt.worker_id.trim().is_empty()
         || receipt.claim_epoch == 0
         || receipt.claim_proof_digest.iter().all(|byte| *byte == 0)
