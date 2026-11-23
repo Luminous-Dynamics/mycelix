@@ -320,6 +320,36 @@ BEGIN
             USING ERRCODE = '22023';
     END IF;
 
+    -- Preserve the lock order used by 002_worker_claim_fencing.sql:
+    -- worker claim -> idempotency/operation advisory locks -> owner fence.
+    -- The locks serialize a concurrent exact replay against the first commit.
+    v_idempotency_lock := pg_catalog.hashtextextended(
+        'myc-effect-idempotency-v1:' ||
+        pg_catalog.encode(p_idempotency_key_digest, 'hex'),
+        761112
+    );
+    v_operation_lock := pg_catalog.hashtextextended(
+        'myc-effect-operation-v1:' ||
+        octet_length(p_realm_id)::TEXT || ':' || p_realm_id ||
+        octet_length(p_resource_id)::TEXT || ':' || p_resource_id ||
+        octet_length(p_action_id)::TEXT || ':' || p_action_id ||
+        octet_length(p_effect_owner_id)::TEXT || ':' || p_effect_owner_id ||
+        octet_length(p_logical_operation_id)::TEXT || ':' || p_logical_operation_id,
+        761112
+    );
+
+    IF v_idempotency_lock <= v_operation_lock THEN
+        v_first_lock := v_idempotency_lock;
+        v_second_lock := v_operation_lock;
+    ELSE
+        v_first_lock := v_operation_lock;
+        v_second_lock := v_idempotency_lock;
+    END IF;
+    PERFORM pg_catalog.pg_advisory_xact_lock(v_first_lock);
+    IF v_second_lock <> v_first_lock THEN
+        PERFORM pg_catalog.pg_advisory_xact_lock(v_second_lock);
+    END IF;
+
     SELECT owner_epoch, generation
       INTO v_current_owner_epoch, v_current_generation
       FROM myc_effect_owner.effect_fence_state
@@ -487,36 +517,6 @@ BEGIN
     IF v_claim.owner_epoch IS DISTINCT FROM p_owner_epoch THEN
         RAISE EXCEPTION 'worker claim belongs to a different owner epoch; a fresh epoch-aware claim is required'
             USING ERRCODE = 'P0001';
-    END IF;
-
-    -- Preserve the lock order used by 002_worker_claim_fencing.sql:
-    -- worker claim -> idempotency/operation advisory locks -> owner fence.
-    -- The locks serialize a concurrent exact replay against the first commit.
-    v_idempotency_lock := pg_catalog.hashtextextended(
-        'myc-effect-idempotency-v1:' ||
-        pg_catalog.encode(p_idempotency_key_digest, 'hex'),
-        761112
-    );
-    v_operation_lock := pg_catalog.hashtextextended(
-        'myc-effect-operation-v1:' ||
-        octet_length(p_realm_id)::TEXT || ':' || p_realm_id ||
-        octet_length(p_resource_id)::TEXT || ':' || p_resource_id ||
-        octet_length(p_action_id)::TEXT || ':' || p_action_id ||
-        octet_length(p_effect_owner_id)::TEXT || ':' || p_effect_owner_id ||
-        octet_length(p_logical_operation_id)::TEXT || ':' || p_logical_operation_id,
-        761112
-    );
-
-    IF v_idempotency_lock <= v_operation_lock THEN
-        v_first_lock := v_idempotency_lock;
-        v_second_lock := v_operation_lock;
-    ELSE
-        v_first_lock := v_operation_lock;
-        v_second_lock := v_idempotency_lock;
-    END IF;
-    PERFORM pg_catalog.pg_advisory_xact_lock(v_first_lock);
-    IF v_second_lock <> v_first_lock THEN
-        PERFORM pg_catalog.pg_advisory_xact_lock(v_second_lock);
     END IF;
 
     IF p_fence_generation IS NULL
