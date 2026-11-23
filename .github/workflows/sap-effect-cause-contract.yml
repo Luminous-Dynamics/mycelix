@@ -1,0 +1,94 @@
+name: SAP effect-cause contract structural qualification
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/sap-effect-cause-contract.yml"
+      - "mycelix-finance/docs/research/SAP_EFFECT_CAUSED_BALANCE_TRANSITION_V0_1.md"
+      - "mycelix-workspace/mycelix-finance/docs/research/SAP_EFFECT_CAUSED_BALANCE_TRANSITION_V0_1.md"
+      - "mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json"
+      - "mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json"
+  push:
+    branches:
+      - "research/sap-effect-cause-transition-v0.1-20261123"
+    paths:
+      - ".github/workflows/sap-effect-cause-contract.yml"
+      - "mycelix-finance/docs/research/SAP_EFFECT_CAUSED_BALANCE_TRANSITION_V0_1.md"
+      - "mycelix-workspace/mycelix-finance/docs/research/SAP_EFFECT_CAUSED_BALANCE_TRANSITION_V0_1.md"
+      - "mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json"
+      - "mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sap-effect-cause-contract-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify subject and mirrored artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+          cmp mycelix-finance/docs/research/SAP_EFFECT_CAUSED_BALANCE_TRANSITION_V0_1.md mycelix-workspace/mycelix-finance/docs/research/SAP_EFFECT_CAUSED_BALANCE_TRANSITION_V0_1.md
+          cmp mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json
+          cmp mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json
+
+      - name: Parse and qualify migration map
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAP="mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json"
+          SCHEMA="mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json"
+          jq empty "$MAP"
+          jq empty "$SCHEMA"
+          jq -e '
+            .benchmark == "SAP Effect-Cause Transition Migration Map" and
+            .version == "0.1" and
+            .base_commit == "e949664ceb2f9ddde26704c70e23a19380f33dde" and
+            (.writers | length) == 16 and
+            ([.writers[].id] | unique | length) == 16 and
+            ([.writers[].id] | sort) == [
+              "SAPW-001","SAPW-002","SAPW-003","SAPW-004",
+              "SAPW-005","SAPW-006","SAPW-007","SAPW-008",
+              "SAPW-009","SAPW-010","SAPW-011","SAPW-012",
+              "SAPW-013","SAPW-014","SAPW-015","SAPW-016"
+            ] and
+            all(.writers[]; (.entrypoint | length > 0) and (.path | length > 0) and (.target_cause | length > 0) and (.required_migration | length > 0)) and
+            (.required_cause_kinds | unique | length) == (.required_cause_kinds | length)
+          ' "$MAP" >/dev/null
+          jq -e --slurpfile m "$MAP" '
+            .schema_version == "SapBalanceTransitionV1" and
+            (.required | index("effect_id")) != null and
+            (.required | index("operation_fingerprint")) != null and
+            (.required | index("predecessor_action_hash")) != null and
+            (.required | index("cause")) != null and
+            (.properties.settlement_profile["$ref"] == "#/$defs/settlement_profile") and
+            (.properties.cause == null) and
+            ([.["$defs"].cause.properties.cause_kind.enum[]] | sort) == ($m[0].required_cause_kinds | sort)
+          ' "$SCHEMA" >/dev/null
+          {
+            echo "subject_commit=$(git rev-parse HEAD)"
+            echo "schema_sha256=$(sha256sum "$SCHEMA" | cut -d' ' -f1)"
+            echo "migration_map_sha256=$(sha256sum "$MAP" | cut -d' ' -f1)"
+            echo "writer_count=$(jq '.writers | length' "$MAP")"
+            echo "cause_kind_count=$(jq '.required_cause_kinds | length' "$MAP")"
+          } | tee "$RUNNER_TEMP/sap-effect-cause-manifest.txt" >> "$GITHUB_STEP_SUMMARY"
