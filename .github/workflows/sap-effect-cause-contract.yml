@@ -1,37 +1,37 @@
-name: SAP effect-cause contract structural qualification
+name: SAP legacy-writer V2 crosswalk qualification
 
 on:
   pull_request:
     paths:
       - ".github/workflows/sap-effect-cause-contract.yml"
-      - "mycelix-finance/docs/research/SAP_EFFECT_CAUSED_BALANCE_TRANSITION_V0_1.md"
-      - "mycelix-workspace/mycelix-finance/docs/research/SAP_EFFECT_CAUSED_BALANCE_TRANSITION_V0_1.md"
-      - "mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json"
-      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json"
-      - "mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json"
+      - "mycelix-finance/docs/research/SAP_LEGACY_WRITER_V2_CROSSWALK_V0_2.md"
+      - "mycelix-workspace/mycelix-finance/docs/research/SAP_LEGACY_WRITER_V2_CROSSWALK_V0_2.md"
+      - "mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.schema.json"
+      - "mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json"
       - "mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
-      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json"
   push:
     branches:
       - "research/sap-effect-cause-transition-v0.1-20261123"
     paths:
       - ".github/workflows/sap-effect-cause-contract.yml"
-      - "mycelix-finance/docs/research/SAP_EFFECT_CAUSED_BALANCE_TRANSITION_V0_1.md"
-      - "mycelix-workspace/mycelix-finance/docs/research/SAP_EFFECT_CAUSED_BALANCE_TRANSITION_V0_1.md"
-      - "mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json"
-      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json"
-      - "mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json"
+      - "mycelix-finance/docs/research/SAP_LEGACY_WRITER_V2_CROSSWALK_V0_2.md"
+      - "mycelix-workspace/mycelix-finance/docs/research/SAP_LEGACY_WRITER_V2_CROSSWALK_V0_2.md"
+      - "mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.schema.json"
+      - "mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json"
       - "mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
-      - "mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: sap-effect-cause-contract-${{ github.event.pull_request.head.sha || github.sha }}
+  group: sap-legacy-writer-v2-crosswalk-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -52,38 +52,27 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
-          cmp mycelix-finance/docs/research/SAP_EFFECT_CAUSED_BALANCE_TRANSITION_V0_1.md mycelix-workspace/mycelix-finance/docs/research/SAP_EFFECT_CAUSED_BALANCE_TRANSITION_V0_1.md
-          cmp mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json
-          cmp mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json
+          cmp mycelix-finance/docs/research/SAP_LEGACY_WRITER_V2_CROSSWALK_V0_2.md mycelix-workspace/mycelix-finance/docs/research/SAP_LEGACY_WRITER_V2_CROSSWALK_V0_2.md
+          cmp mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.schema.json mycelix-workspace/mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.schema.json
+          cmp mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json mycelix-workspace/mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json
           cmp mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json
 
-      - name: Parse and qualify migration map
+      - name: Validate 16-writer V2 crosswalk and 22-case corpus
         shell: bash
         run: |
           set -euo pipefail
-          MAP="mycelix-finance/benchmarks/sap/sap-effect-cause-migration-map.v0.1.json"
-          SCHEMA="mycelix-finance/benchmarks/sap/sap-effect-cause-transition.v0.1.schema.json"
+          MAP="mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.json"
+          SCHEMA="mycelix-finance/benchmarks/sap/sap-legacy-writer-v2-crosswalk.v0.2.schema.json"
+          CORPUS="mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
           jq empty "$MAP"
           jq empty "$SCHEMA"
-          CORPUS="mycelix-finance/benchmarks/sap/sap-effect-cause-known-answer-corpus.v0.1.json"
+          jq empty "$CORPUS"
+
           jq -e '
-            .benchmark == "SAP Effect-Cause Transition Known-Answer and Adversarial Corpus" and
-            .version == "0.1" and
-            .status == "specified_not_executed" and
-            (.scenarios | length) == 22 and
-            ([.scenarios[].id] | unique | length) == 22 and
-            all(.scenarios[];
-              (.id | test("^SCE-[0-9]{3}$")) and
-              (.stimulus | length > 0) and
-              (.invariant | length > 0) and
-              (.execution_state == "specified_not_executed") and
-              (.expected == "Valid" or .expected == "Invalid" or .expected == "Conflict" or .expected == "Indeterminate" or .expected == "ReconcileOriginal" or .expected == "AtMostOneRemoteEffect")
-            )
-          ' "$CORPUS" >/dev/null
-          jq -e '
-            .benchmark == "SAP Effect-Cause Transition Migration Map" and
-            .version == "0.1" and
+            .benchmark == "Legacy SAP Writer to Owner-Authored V2 Architecture Crosswalk" and
+            .version == "0.2" and
             .base_commit == "e949664ceb2f9ddde26704c70e23a19380f33dde" and
+            (.target_architecture | length) >= 12 and
             (.writers | length) == 16 and
             ([.writers[].id] | unique | length) == 16 and
             ([.writers[].id] | sort) == [
@@ -92,23 +81,54 @@ jobs:
               "SAPW-009","SAPW-010","SAPW-011","SAPW-012",
               "SAPW-013","SAPW-014","SAPW-015","SAPW-016"
             ] and
-            all(.writers[]; (.entrypoint | length > 0) and (.path | length > 0) and (.target_cause | length > 0) and (.required_migration | length > 0)) and
-            (.required_cause_kinds | unique | length) == (.required_cause_kinds | length)
+            all(.writers[];
+              (.entrypoint | length > 0) and
+              (.path | length > 0) and
+              (.legacy_effect_class | length > 0) and
+              (.v2_disposition | length > 0) and
+              (.target_theorems | length > 0) and
+              (.migration_blockers | length > 0) and
+              (.cutover_condition | length > 0)
+            ) and
+            (.cutover_gates | length) >= 8 and
+            (.design_decision | contains("superseded"))
           ' "$MAP" >/dev/null
+
           jq -e --slurpfile m "$MAP" '
-            .properties.schema_version.const == "SapBalanceTransitionV1" and
-            (.required | index("effect_id")) != null and
-            (.required | index("operation_fingerprint")) != null and
-            (.required | index("predecessor_action_hash")) != null and
-            (.required | index("cause")) != null and
-            (.properties.settlement_profile["$ref"] == "#/$defs/settlement_profile") and
-            (.properties.cause["$ref"] == "#/$defs/cause") and
-            ([.["$defs"].cause.properties.cause_kind.enum[]] | sort) == ($m[0].required_cause_kinds | sort)
+            .properties.benchmark.const == "Legacy SAP Writer to Owner-Authored V2 Architecture Crosswalk" and
+            .properties.writers.items["$ref"] == "#/$defs/writer" and
+            (.required | index("writers")) != null and
+            ([.["$defs"].writer.properties.v2_disposition.enum[]] | sort) ==
+              ([$m[0].writers[].v2_disposition] | unique | sort)
           ' "$SCHEMA" >/dev/null
+
+          jq -e '
+            .benchmark == "SAP V2 Cross-Layer Assurance Known-Answer and Adversarial Corpus" and
+            .version == "0.2" and
+            .status == "specified_not_executed" and
+            .crosswalk == "sap-legacy-writer-v2-crosswalk.v0.2.json" and
+            (.scenarios | length) == 22 and
+            ([.scenarios[].id] | unique | length) == 22 and
+            all(.scenarios[];
+              (.id | test("^SCE-[0-9]{3}$")) and
+              (.stimulus | length > 0) and
+              (.invariant | length > 0) and
+              (.related_tracking | length > 0) and
+              (.execution_state == "specified_not_executed")
+            )
+          ' "$CORPUS" >/dev/null
+
+          if grep -R -n "SapBalanceTransitionV1"             mycelix-finance/docs/research/SAP_LEGACY_WRITER_V2_CROSSWALK_V0_2.md             "$MAP" "$SCHEMA"; then
+            echo "Superseded mutable-balance schema must not be presented as the V2 destination."
+            exit 1
+          fi
+
           {
             echo "subject_commit=$(git rev-parse HEAD)"
-            echo "schema_sha256=$(sha256sum "$SCHEMA" | cut -d' ' -f1)"
-            echo "migration_map_sha256=$(sha256sum "$MAP" | cut -d' ' -f1)"
-            echo "writer_count=$(jq '.writers | length' "$MAP")"
-            echo "cause_kind_count=$(jq '.required_cause_kinds | length' "$MAP")"
-          } | tee "$RUNNER_TEMP/sap-effect-cause-manifest.txt" >> "$GITHUB_STEP_SUMMARY"
+            echo "crosswalk_schema_sha256=$(sha256sum "$SCHEMA" | cut -d' ' -f1)"
+            echo "crosswalk_map_sha256=$(sha256sum "$MAP" | cut -d' ' -f1)"
+            echo "assurance_corpus_sha256=$(sha256sum "$CORPUS" | cut -d' ' -f1)"
+            echo "legacy_writer_count=$(jq '.writers | length' "$MAP")"
+            echo "target_theorem_count=$(jq '.target_architecture | length' "$MAP")"
+            echo "assurance_case_count=$(jq '.scenarios | length' "$CORPUS")"
+          } | tee "$RUNNER_TEMP/sap-v2-crosswalk-manifest.txt" >> "$GITHUB_STEP_SUMMARY"
