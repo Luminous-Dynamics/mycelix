@@ -121,7 +121,7 @@ BEGIN
         RAISE EXCEPTION 'exact signed lease install replay changed lease identity';
     END IF;
 
-    SELECT myc_effect_owner.install_worker_claim_for_owner_epoch(
+    PERFORM myc_effect_owner.install_worker_claim_for_owner_epoch(
         v_realm, v_resource, v_action, v_owner, 1,
         v_operation_a, v_worker_a, 1, v_claim_a,
         'postgres-db-clock-v1',
@@ -130,7 +130,7 @@ BEGIN
     );
 
     SELECT * INTO v_result
-      FROM myc_effect_owner.apply_owner_epoch_claim_fenced_balance_delta_with_authority_lease(
+      FROM myc_effect_owner.apply_claim_fenced_balance_delta_with_lease(
         v_realm, v_resource, v_action, v_owner, v_object, v_currency,
         1, 1, v_idem_a, v_operation_a,
         v_request_a, v_decision, v_payload_a, 100,
@@ -165,7 +165,7 @@ BEGIN
 
     -- Acknowledgement/replay resolution returns the original lease evidence.
     SELECT * INTO v_replay
-      FROM myc_effect_owner.apply_owner_epoch_claim_fenced_balance_delta_with_authority_lease(
+      FROM myc_effect_owner.apply_claim_fenced_balance_delta_with_lease(
         v_realm, v_resource, v_action, v_owner, v_object, v_currency,
         1, 1, v_idem_a, v_operation_a,
         v_request_a, v_decision, v_payload_a, 100,
@@ -203,7 +203,7 @@ BEGIN
     v_rejected := FALSE;
     BEGIN
         PERFORM *
-          FROM myc_effect_owner.apply_owner_epoch_claim_fenced_balance_delta_with_authority_lease(
+          FROM myc_effect_owner.apply_claim_fenced_balance_delta_with_lease(
             v_realm, v_resource, v_action, v_owner, v_object, v_currency,
             1, 1, v_idem_a, v_operation_a,
             v_request_a, v_decision, v_payload_a, 100,
@@ -409,7 +409,7 @@ BEGIN
     );
 
     SELECT * INTO v_result
-      FROM myc_effect_owner.apply_owner_epoch_claim_fenced_balance_delta_with_authority_lease(
+      FROM myc_effect_owner.apply_claim_fenced_balance_delta_with_lease(
         v_realm, v_resource, v_action, v_owner, v_object, v_currency,
         2, 2, v_idem_b, v_operation_b,
         v_request_b, v_decision, v_payload_b, 25,
@@ -431,7 +431,7 @@ BEGIN
     v_rejected := FALSE;
     BEGIN
         PERFORM *
-          FROM myc_effect_owner.apply_owner_epoch_claim_fenced_balance_delta_with_authority_lease(
+          FROM myc_effect_owner.apply_claim_fenced_balance_delta_with_lease(
             v_realm, v_resource, v_action, v_owner, v_object, v_currency,
             2, 2, v_idem_b, v_operation_b,
             v_request_b, v_decision, v_payload_b, 25,
@@ -458,7 +458,7 @@ BEGIN
     END IF;
     IF NOT has_function_privilege(
         'myc_dir_effect_worker',
-        'myc_effect_owner.apply_owner_epoch_claim_fenced_balance_delta_with_authority_lease(text,text,text,text,text,text,bigint,bigint,bytea,text,bytea,bytea,bytea,bigint,text,bigint,bytea,text,timestamp with time zone,timestamp with time zone,uuid,bytea,bigint)'::REGPROCEDURE,
+        'myc_effect_owner.apply_claim_fenced_balance_delta_with_lease(text,text,text,text,text,text,bigint,bigint,bytea,text,bytea,bytea,bytea,bigint,text,bigint,bytea,text,timestamp with time zone,timestamp with time zone,uuid,bytea,bigint)'::REGPROCEDURE,
         'EXECUTE'
     ) THEN
         RAISE EXCEPTION 'effect worker role lacks the lease-checked mutation entry point';
