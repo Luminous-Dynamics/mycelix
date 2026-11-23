@@ -2,7 +2,7 @@ name: Terra Preta 3D root transport reference
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, research/terra-root-pathways-v0.1]
     paths:
       - 'research/terra-preta/ROOT_TRANSPORT_REFERENCE_V0.1.md'
       - 'research/terra-preta/schemas/root-transport-input.schema.json'
