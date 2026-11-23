@@ -1,0 +1,88 @@
+name: Terra Preta 3D root transport reference
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/ROOT_TRANSPORT_REFERENCE_V0.1.md'
+      - 'research/terra-preta/schemas/root-transport-input.schema.json'
+      - 'research/terra-preta/schemas/root-transport-report.schema.json'
+      - 'research/terra-preta/tools/root-transport-reference/**'
+      - '.github/workflows/terra-preta-root-transport-reference.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  root-transport-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/root-transport-reference/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path research/terra-preta/tools/root-transport-reference/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/root-transport-reference/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate fixture and report
+        run: |
+          jsonschema-cli validate research/terra-preta/schemas/root-transport-input.schema.json \
+            --instance research/terra-preta/tools/root-transport-reference/fixtures/synthetic-root-transport.json \
+            --draft 2020 --assert-format
+          cargo run --quiet --manifest-path research/terra-preta/tools/root-transport-reference/Cargo.toml -- \
+            research/terra-preta/tools/root-transport-reference/fixtures/synthetic-root-transport.json \
+            "$RUNNER_TEMP/root-transport-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/root-transport-report.schema.json \
+            --instance "$RUNNER_TEMP/root-transport-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .pathway_count == 3 and .snapshot_count == 3 and
+            .projection_alias_group_count == 3 and
+            .snapshot_results[0].flow_allocation_status == "complete" and
+            ((.snapshot_results[0].pathways[] | select(.pathway_id == "inactive-finger") | .flow_m3_per_hour) == 0) and
+            ((.snapshot_results[0].pathways[] | select(.pathway_id == "root-path") | .flow_fraction) == 0.625) and
+            ((.snapshot_results[2].pathways[] | select(.pathway_id == "root-path") | .flow_fraction) < 0.34) and
+            all(.snapshot_results[]; (.mass_balance_residual_mg | fabs) < 1e-9) and
+            all(.snapshot_results[]; .potential_recovered_tracer_mass_mg + .unrecovered_or_retained_tracer_mass_mg <= .injected_tracer_mass_mg + 1e-9)
+          ' "$RUNNER_TEMP/root-transport-report.json"
+      - name: Unassessed activation must withhold allocation
+        run: |
+          fixture=research/terra-preta/tools/root-transport-reference/fixtures/synthetic-root-transport.json
+          jq '.snapshots[0].edge_states |= map(if .edge_id == "root-2" then .hydraulic_state = "unassessed" | .conductance_scale = null else . end)' \
+            "$fixture" > "$RUNNER_TEMP/unassessed.json"
+          cargo run --quiet --manifest-path research/terra-preta/tools/root-transport-reference/Cargo.toml -- \
+            "$RUNNER_TEMP/unassessed.json" "$RUNNER_TEMP/unassessed-report.json"
+          jq -e '.snapshot_results[0].flow_allocation_status == "withheld_unassessed_state" and .snapshot_results[0].total_flow_m3_per_hour == null and .snapshot_results[0].potential_recovered_tracer_mass_mg == null' "$RUNNER_TEMP/unassessed-report.json"
+      - name: Reject 2D-only truth support
+        run: |
+          fixture=research/terra-preta/tools/root-transport-reference/fixtures/synthetic-root-transport.json
+          jq '.truth_support_dimension = "planar_2d"' "$fixture" > "$RUNNER_TEMP/planar.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/root-transport-reference/Cargo.toml -- "$RUNNER_TEMP/planar.json" "$RUNNER_TEMP/planar-report.json"; then
+            echo "Expected 2D-only truth-support rejection"
+            exit 1
+          fi
+      - name: Reject discontinuous pathway geometry
+        run: |
+          fixture=research/terra-preta/tools/root-transport-reference/fixtures/synthetic-root-transport.json
+          jq '.pathways[0].segments[1].from_node_id = "crack-mid"' "$fixture" > "$RUNNER_TEMP/discontinuous.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/root-transport-reference/Cargo.toml -- "$RUNNER_TEMP/discontinuous.json" "$RUNNER_TEMP/discontinuous-report.json"; then
+            echo "Expected ordered edge-chain rejection"
+            exit 1
+          fi
+      - name: Reject output overwrite
+        run: |
+          fixture=research/terra-preta/tools/root-transport-reference/fixtures/synthetic-root-transport.json
+          report="$RUNNER_TEMP/existing-root-transport-report.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/root-transport-reference/Cargo.toml -- "$fixture" "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"
