@@ -557,6 +557,10 @@ mod tests {
     }
 
     fn binding() -> NatsCommandBinding {
+        binding_with_position(5, 7)
+    }
+
+    fn binding_with_position(owner_epoch: u64, resource_generation: u64) -> NatsCommandBinding {
         NatsCommandBinding::new(myc_dir_fabric_nats_reference::NatsCommandBindingInput {
             account_id: "test-account".into(),
             realm_id: "realm-a".into(),
@@ -574,10 +578,14 @@ mod tests {
             logical_operation_id: "operation-a".into(),
             idempotency_digest: digest(1),
             effect_owner_id: "owner-a".into(),
-            owner_epoch: 5,
-            resource_generation: 7,
+            owner_epoch,
+            resource_generation,
         })
         .unwrap()
+    }
+
+    fn recommit_receipt(receipt: &mut VerifiedPostgresEffectReceipt) {
+        receipt.effect_receipt_digest = receipt.recompute_digest().unwrap();
     }
 
     fn receipt_for(binding: &NatsCommandBinding) -> VerifiedPostgresEffectReceipt {
@@ -676,15 +684,17 @@ mod tests {
 
     #[test]
     fn receipt_must_not_be_from_a_future_owner_position() {
-        let mut binding = binding();
+        let binding = binding();
         let mut receipt = receipt_for(&binding);
         receipt.owner_epoch = 6;
+        recommit_receipt(&mut receipt);
         assert!(validate_receipt_binding(&binding, &receipt).is_err());
 
-        binding.resource_generation = 6;
-        receipt.owner_epoch = 5;
-        receipt.accepted_generation = 7;
-        assert!(validate_receipt_binding(&binding, &receipt).is_err());
+        let older_generation_binding = binding_with_position(5, 6);
+        let mut future_generation_receipt = receipt_for(&older_generation_binding);
+        future_generation_receipt.accepted_generation = 7;
+        recommit_receipt(&mut future_generation_receipt);
+        assert!(validate_receipt_binding(&older_generation_binding, &future_generation_receipt).is_err());
     }
 
     #[test]
@@ -740,6 +750,8 @@ mod tests {
             &receipt.claim_issued_at,
             &receipt.claim_expires_at,
             &receipt.database_xact_id,
+            &receipt.epoch_authority_receipt_digest,
+            &receipt.physical_fencing_receipt_digest,
             receipt.delta_minor,
             receipt.balance_after_minor,
             &receipt.idempotency_digest,
