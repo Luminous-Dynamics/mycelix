@@ -255,7 +255,10 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 evidence.rate_measurand == "water_volume_flux" && evidence.rate_unit == "mL/h"
             }
             _ => matches!(
-                (evidence.rate_measurand.as_str(), evidence.rate_unit.as_str()),
+                (
+                    evidence.rate_measurand.as_str(),
+                    evidence.rate_unit.as_str()
+                ),
                 ("tracer_mass_flux", "mg/h") | ("water_volume_flux", "mL/h")
             ),
         };
@@ -374,20 +377,24 @@ fn validate(s: &Scenario) -> Result<(), String> {
                 }
             }
         }
-        if evidence.lower_rate_bound_value.is_some() && evidence.measured_rate_value.is_none()
-        {
+        if evidence.lower_rate_bound_value.is_some() && evidence.measured_rate_value.is_none() {
             return Err("lower rate bound requires an associated measured rate".into());
         }
-        if let (Some(lower), Some(upper)) =
-            (evidence.lower_rate_bound_value, evidence.upper_rate_bound_value)
-        {
+        if let (Some(lower), Some(upper)) = (
+            evidence.lower_rate_bound_value,
+            evidence.upper_rate_bound_value,
+        ) {
             if lower > upper {
                 return Err("lower rate bound cannot exceed upper rate bound".into());
             }
         }
         if let Some(measured) = evidence.measured_rate_value {
-            if evidence.lower_rate_bound_value.is_some_and(|lower| lower > measured)
-                || evidence.upper_rate_bound_value.is_some_and(|upper| upper < measured)
+            if evidence
+                .lower_rate_bound_value
+                .is_some_and(|lower| lower > measured)
+                || evidence
+                    .upper_rate_bound_value
+                    .is_some_and(|upper| upper < measured)
             {
                 return Err("measured rate must lie within supplied bounds".into());
             }
@@ -513,7 +520,10 @@ fn evidence_candidate(
         return (None, reasons);
     }
 
-    let threshold = match (evidence.rate_measurand.as_str(), evidence.rate_unit.as_str()) {
+    let threshold = match (
+        evidence.rate_measurand.as_str(),
+        evidence.rate_unit.as_str(),
+    ) {
         ("tracer_mass_flux", "mg/h") => s.event.minimum_relevant_tracer_mass_flux_mg_per_h,
         ("water_volume_flux", "mL/h") => s.event.minimum_relevant_water_volume_flux_ml_per_h,
         _ => {
