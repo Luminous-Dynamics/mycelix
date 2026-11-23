@@ -92,7 +92,12 @@ jobs:
             .mycelix_finance_pin.dna_manifest.countersigning_or_witness_enablement_field_found == false and
             .mycelix_finance_pin.cargo_compatibility.hdk == "=0.6.1" and
             .mycelix_finance_pin.cargo_compatibility.hdi == "=0.7.1" and
-            .mycelix_finance_pin.countersigning.status == "unknown_for_exact_mycelix_0_6_1_runtime" and
+            .mycelix_finance_pin.countersigning.status == "not_available_in_locked_default_holonix_build" and
+            .mycelix_finance_pin.countersigning.default_package_feature_presence == false and
+            .mycelix_finance_pin.countersigning.custom_build_possible == true and
+            .mycelix_finance_pin.countersigning.custom_build_tested == false and
+            (.mycelix_finance_pin.countersigning.default_package_evidence.default_features | index("unstable-countersigning")) == null and
+            (.mycelix_finance_pin.countersigning.default_package_evidence.required_features_not_in_default | index("unstable-countersigning")) != null and
             .mycelix_finance_pin.feature_audit.hdk_unstable_countersigning_declared == false and
             .mycelix_finance_pin.feature_audit.hdk_unstable_functions_declared == false and
             .mycelix_finance_pin.feature_audit.hdi_unstable_functions_declared == false and
