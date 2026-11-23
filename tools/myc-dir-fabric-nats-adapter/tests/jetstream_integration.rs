@@ -7,10 +7,18 @@ use async_nats::jetstream::{
     self,
     stream::{Config as StreamConfig, DiscardPolicy, RetentionPolicy, StorageType},
 };
+use chrono::{Duration as ChronoDuration, Utc};
+use ed25519_dalek::{Signer, SigningKey};
 use myc_dir_fabric_nats_adapter::{
     postgres::PostgresEffectCommitVerifier, JetStreamAdapter, JetStreamAdapterConfig,
     OwnerDispositionVerifier, VerifiedOwnerDisposition,
 };
+use mycelix_authority_write_lease::{
+    AuthorityWriteLease, AuthorityWriteLeasePhase, AuthorityWriteScope, ContentHash,
+    SignedAuthorityWriteLease,
+};
+use std::collections::BTreeSet;
+use uuid::Uuid;
 use myc_dir_fabric_nats_reference::{
     AckMode, DurableOwnerDisposition, NatsCommandBinding, NatsCommandBindingInput,
 };
@@ -157,7 +165,62 @@ async fn connect_postgres_for_test() -> Client {
     client
 }
 
-async fn create_committed_postgres_effect(suffix: &str, payload: &[u8]) -> NatsCommandBindingInput {
+struct CreatedPostgresEffect {
+    binding: NatsCommandBindingInput,
+    trusted_authority_lease_keys: BTreeSet<[u8; 32]>,
+}
+
+fn signed_authority_lease(
+    lease_id: Uuid,
+    generation: u64,
+    scope: AuthorityWriteScope,
+    deployment_id: &str,
+    primary_id: &str,
+    system_identifier: &str,
+    timeline: u64,
+    database_epoch_number: u64,
+    database_epoch_hash: ContentHash,
+    issued_at: chrono::DateTime<Utc>,
+    signing_key: &SigningKey,
+    reason: &str,
+) -> SignedAuthorityWriteLease {
+    let lease = AuthorityWriteLease {
+        lease_id,
+        deployment_id: deployment_id.to_owned(),
+        primary_id: primary_id.to_owned(),
+        database_system_identifier: system_identifier.to_owned(),
+        postgres_timeline: timeline,
+        generation,
+        phase: AuthorityWriteLeasePhase::Epoch,
+        epoch_number: Some(database_epoch_number),
+        epoch_hash: Some(database_epoch_hash),
+        allowed_scopes: [scope].into_iter().collect(),
+        issued_at,
+        not_before: issued_at + ChronoDuration::seconds(1),
+        expires_at: issued_at + ChronoDuration::minutes(10),
+        reason: reason.to_owned(),
+    };
+    let mut signed = SignedAuthorityWriteLease {
+        protocol: mycelix_authority_write_lease::AUTHORITY_WRITE_LEASE_PROTOCOL.to_owned(),
+        protocol_version: mycelix_authority_write_lease::AUTHORITY_WRITE_LEASE_PROTOCOL_VERSION,
+        codec: mycelix_authority_write_lease::AUTHORITY_WRITE_LEASE_CODEC.to_owned(),
+        schema_version: mycelix_authority_write_lease::AUTHORITY_WRITE_LEASE_SCHEMA_VERSION,
+        lease,
+        signer_key_id: "dir-fabric-test-authority".into(),
+        signer_public_key: signing_key.verifying_key().to_bytes(),
+        signature: Vec::new(),
+    };
+    signed.signature = signing_key
+        .sign(&signed.signing_bytes().expect("encode signed lease bytes"))
+        .to_bytes()
+        .to_vec();
+    signed
+}
+
+async fn create_committed_postgres_effect(
+    suffix: &str,
+    payload: &[u8],
+) -> CreatedPostgresEffect {
     let realm = format!("myc-realm-{suffix}");
     let resource = format!("myc-resource-{suffix}");
     let action = "balance-adjust".to_owned();
@@ -200,13 +263,72 @@ async fn create_committed_postgres_effect(suffix: &str, payload: &[u8]) -> NatsC
         .await
         .expect("create test protected balance");
 
+    let current = client
+        .query_one(
+            "SELECT system.system_identifier::text, checkpoint.timeline_id::bigint \
+             FROM pg_catalog.pg_control_system() AS system \
+             CROSS JOIN pg_catalog.pg_control_checkpoint() AS checkpoint",
+            &[],
+        )
+        .await
+        .expect("read live PostgreSQL system identifier and timeline");
+    let system_identifier: String = current.get(0);
+    let timeline: i64 = current.get(1);
+    let database_epoch_hash = ContentHash([0x33; 32]);
+    let deployment_id = "mycelix-dir-fabric-test-deployment";
+    let primary_id = "postgres-effect-owner-primary";
+    let signing_key = SigningKey::from_bytes(&[0x54; 32]);
+    let trusted_authority_lease_keys = [signing_key.verifying_key().to_bytes()]
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    let issued_at = Utc::now() - ChronoDuration::seconds(5);
     let epoch_authority_receipt = [0x66_u8; 32];
     let physical_fencing_receipt = [0x77_u8; 32];
-    let epoch_transition = transaction
+
+    let promotion_lease = signed_authority_lease(
+        Uuid::from_bytes([0x71; 16]),
+        7,
+        AuthorityWriteScope::DatabaseEpochPromotion,
+        deployment_id,
+        primary_id,
+        &system_identifier,
+        timeline as u64,
+        2,
+        database_epoch_hash,
+        issued_at,
+        &signing_key,
+        "test owner epoch promotion",
+    );
+    let promotion_lease_hash = promotion_lease
+        .signed_lease_hash()
+        .expect("hash signed promotion lease")
+        .0;
+    let promotion_lease_json =
+        serde_json::to_string(&promotion_lease).expect("serialize promotion lease");
+    let promotion_lease_id = promotion_lease.lease.lease_id.to_string();
+    transaction
+        .query_one(
+            "SELECT myc_effect_owner.install_effect_owner_authority_write_lease( \
+               $1, $2, $3, $4, 2, 2, $5, $6, $7, $8::jsonb)",
+            &[
+                &realm,
+                &resource,
+                &action,
+                &owner,
+                &&promotion_lease_hash[..],
+                &&epoch_authority_receipt[..],
+                &&physical_fencing_receipt[..],
+                &promotion_lease_json,
+            ],
+        )
+        .await
+        .expect("install signed DatabaseEpochPromotion lease");
+
+    let promotion_row = transaction
         .query_one(
             "SELECT accepted_owner_epoch, accepted_generation \
-             FROM myc_effect_owner.advance_effect_owner_epoch( \
-               $1, $2, $3, $4, 2, $5, $6)",
+             FROM myc_effect_owner.advance_effect_owner_epoch_with_authority_lease( \
+               $1, $2, $3, $4, 2, $5, $6, $7::uuid, $8, 7)",
             &[
                 &realm,
                 &resource,
@@ -214,14 +336,54 @@ async fn create_committed_postgres_effect(suffix: &str, payload: &[u8]) -> NatsC
                 &owner,
                 &&epoch_authority_receipt[..],
                 &&physical_fencing_receipt[..],
+                &promotion_lease_id,
+                &&promotion_lease_hash[..],
             ],
         )
         .await
-        .expect("advance owner epoch with test authority and physical-fence receipt commitments");
-    let transitioned_epoch: i64 = epoch_transition.get(0);
-    let transitioned_generation: i64 = epoch_transition.get(1);
+        .expect("advance owner epoch under signed promotion lease");
+    let transitioned_epoch: i64 = promotion_row.get(0);
+    let transitioned_generation: i64 = promotion_row.get(1);
     assert_eq!(transitioned_epoch, 2);
     assert_eq!(transitioned_generation, 2);
+
+    let effect_lease = signed_authority_lease(
+        Uuid::from_bytes([0x72; 16]),
+        8,
+        AuthorityWriteScope::DirectoryFabricEffect,
+        deployment_id,
+        primary_id,
+        &system_identifier,
+        timeline as u64,
+        2,
+        database_epoch_hash,
+        issued_at,
+        &signing_key,
+        "test protected Directory Fabric effect",
+    );
+    let effect_lease_hash = effect_lease
+        .signed_lease_hash()
+        .expect("hash signed effect lease")
+        .0;
+    let effect_lease_json = serde_json::to_string(&effect_lease).expect("serialize effect lease");
+    let effect_lease_id = effect_lease.lease.lease_id.to_string();
+    let external_highwater = [0x88_u8; 32];
+    transaction
+        .query_one(
+            "SELECT myc_effect_owner.install_effect_owner_authority_write_lease( \
+               $1, $2, $3, $4, 2, 2, $5, $6, NULL, $7::jsonb)",
+            &[
+                &realm,
+                &resource,
+                &action,
+                &owner,
+                &&effect_lease_hash[..],
+                &&external_highwater[..],
+                &effect_lease_json,
+            ],
+        )
+        .await
+        .expect("install signed DirectoryFabricEffect lease");
 
     transaction
         .query_one(
@@ -246,12 +408,13 @@ async fn create_committed_postgres_effect(suffix: &str, payload: &[u8]) -> NatsC
     let effect_row = transaction
         .query_one(
             "SELECT replayed, effect_id::text, accepted_owner_epoch, accepted_generation, \
-                    accepted_worker_id, accepted_claim_epoch, execution_attestation_id::text \
-             FROM myc_effect_owner.apply_owner_epoch_claim_fenced_balance_delta( \
+                    accepted_worker_id, accepted_claim_epoch, execution_attestation_id::text, \
+                    authority_lease_id::text, authority_lease_hash, authority_lease_generation \
+             FROM myc_effect_owner.apply_claim_fenced_balance_delta_with_lease( \
                $1, $2, $3, $4, $5, $6, 2, 2, $7, $8, $9, $10, $11, 100, \
                $12, 2, $13, 'postgres-db-clock-v1', \
                clock_timestamp() - interval '1 minute', \
-               clock_timestamp() + interval '1 hour')",
+               clock_timestamp() + interval '1 hour', $14::uuid, $15, $16)",
             &[
                 &realm,
                 &resource,
@@ -266,10 +429,13 @@ async fn create_committed_postgres_effect(suffix: &str, payload: &[u8]) -> NatsC
                 &&payload_digest[..],
                 &worker,
                 &&claim_proof[..],
+                &effect_lease_id,
+                &&effect_lease_hash[..],
+                &8_i64,
             ],
         )
         .await
-        .expect("execute protected effect and append the owner-epoch execution attestation");
+        .expect("execute protected effect under signed DirectoryFabricEffect lease");
     let replayed: bool = effect_row.get(0);
     let effect_id: String = effect_row.get(1);
     let accepted_owner_epoch: i64 = effect_row.get(2);
@@ -292,25 +458,28 @@ async fn create_committed_postgres_effect(suffix: &str, payload: &[u8]) -> NatsC
         .await
         .expect("durably commit effect and append-only receipt");
 
-    NatsCommandBindingInput {
-        account_id: "default".into(),
-        realm_id: realm,
-        resource_id: resource,
-        action_id: action,
-        object_id: object,
-        currency_code: currency,
-        stream_name: String::new(),
-        subject: String::new(),
-        consumer_name: String::new(),
-        nats_message_id: String::new(),
-        payload_digest,
-        request_digest: request,
-        decision_receipt_digest: decision,
-        logical_operation_id: operation,
-        idempotency_digest: idempotency,
-        effect_owner_id: owner,
-        owner_epoch: 2,
-        resource_generation: 2,
+    CreatedPostgresEffect {
+        binding: NatsCommandBindingInput {
+            account_id: "default".into(),
+            realm_id: realm,
+            resource_id: resource,
+            action_id: action,
+            object_id: object,
+            currency_code: currency,
+            stream_name: String::new(),
+            subject: String::new(),
+            consumer_name: String::new(),
+            nats_message_id: String::new(),
+            payload_digest,
+            request_digest: request,
+            decision_receipt_digest: decision,
+            logical_operation_id: operation,
+            idempotency_digest: idempotency,
+            effect_owner_id: owner,
+            owner_epoch: 2,
+            resource_generation: 2,
+        },
+        trusted_authority_lease_keys,
     }
 }
 
@@ -322,15 +491,18 @@ async fn postgres_effect_commit_is_the_evidence_that_permits_jetstream_acksync()
     let consumer_name = adapter.config().durable_consumer.clone();
     let payload = format!("postgres-effect-command-{suffix}").into_bytes();
 
-    let mut input = create_committed_postgres_effect(&suffix, &payload).await;
+    let created = create_committed_postgres_effect(&suffix, &payload).await;
+    let mut input = created.binding;
+    let trusted_authority_lease_keys = created.trusted_authority_lease_keys;
     input.stream_name = stream_name.clone();
     input.subject = subject.clone();
     input.consumer_name = consumer_name;
     input.nats_message_id = format!("postgres-effect-publication-{suffix}");
 
-    let verifier = PostgresEffectCommitVerifier::connect_with_ca(
+    let verifier = PostgresEffectCommitVerifier::connect_with_ca_and_authority_lease_trust(
         &std::env::var("POSTGRES_DSN").expect("POSTGRES_DSN is configured"),
         std::env::var("POSTGRES_CA_FILE").expect("POSTGRES_CA_FILE is configured"),
+        trusted_authority_lease_keys,
     )
     .await
     .expect("construct CA-verified PostgreSQL effect verifier");
