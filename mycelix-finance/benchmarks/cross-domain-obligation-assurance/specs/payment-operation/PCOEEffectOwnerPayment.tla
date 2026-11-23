@@ -1,8 +1,9 @@
 ---------------- MODULE PCOEEffectOwnerPayment ----------------
 EXTENDS Naturals, FiniteSets, TLC
 
-CONSTANTS NoDigest, GoodDigest, OtherDigest
+CONSTANTS NoDigest, GoodDigest, OtherDigest, AllowUnsafeMutations
 
+ASSUME AllowUnsafeMutations \in BOOLEAN
 ASSUME NoDigest # GoodDigest
 ASSUME GoodDigest # OtherDigest
 ASSUME NoDigest # OtherDigest
@@ -161,6 +162,7 @@ ExpireClientCache ==
                  conflictObserved, retryCount>>
 
 UnsafeDebitBeforeBatch ==
+  /\ AllowUnsafeMutations = TRUE
   /\ opState = "Prepared"
   /\ debitCount' = debitCount + 1
   /\ UNCHANGED <<opState, requestDigest, claimCount, batchCount, creditCount,
@@ -170,6 +172,7 @@ UnsafeDebitBeforeBatch ==
                  tombstonePresent, retryCount>>
 
 UnsafeDuplicateDebit ==
+  /\ AllowUnsafeMutations = TRUE
   /\ opState = "Committed"
   /\ debitCount' = debitCount + 1
   /\ UNCHANGED <<opState, requestDigest, claimCount, batchCount, creditCount,
