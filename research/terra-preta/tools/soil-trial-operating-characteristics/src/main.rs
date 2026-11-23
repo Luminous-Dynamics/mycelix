@@ -411,7 +411,6 @@ fn run_trial(rng: &mut SplitMix64, scenario: &Scenario) -> TrialResult {
             crossover,
             treatment_assigned,
             control_assigned,
-            true_itt,
         };
     }
     if missing {
@@ -451,14 +450,12 @@ enum TrialResult {
         crossover: usize,
         treatment_assigned: usize,
         control_assigned: usize,
-        true_itt: f64,
     },
     AbstainedInterference {
         nonadherent: usize,
         crossover: usize,
         treatment_assigned: usize,
         control_assigned: usize,
-        true_itt: f64,
     },
 }
 
