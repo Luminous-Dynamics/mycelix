@@ -1,0 +1,71 @@
+name: Terra Preta South African soil decision economics
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/SA_SOIL_DECISION_ECONOMICS_V0.1.md'
+      - 'research/terra-preta/schemas/sa-soil-tariff-references.schema.json'
+      - 'research/terra-preta/schemas/sa-soil-decision-cost.schema.json'
+      - 'research/terra-preta/schemas/sa-soil-decision-cost-report.schema.json'
+      - 'research/terra-preta/tools/sa-cost-benchmark/**'
+      - 'research/terra-preta/examples/sa-soil-tariff-references.json'
+      - '.github/workflows/terra-preta-sa-cost-benchmark.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sa-cost-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/sa-cost-benchmark/Cargo.toml -- --check
+      - name: Run tests
+        run: cargo test --manifest-path research/terra-preta/tools/sa-cost-benchmark/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/sa-cost-benchmark/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate tariff catalogue and scenario / report
+        run: |
+          base=research/terra-preta
+          jsonschema-cli validate "$base/schemas/sa-soil-tariff-references.schema.json" \
+            --instance "$base/examples/sa-soil-tariff-references.json" --draft 2020 --assert-format
+          jsonschema-cli validate "$base/schemas/sa-soil-decision-cost.schema.json" \
+            --instance "$base/tools/sa-cost-benchmark/fixtures/synthetic-cost-comparison.json" --draft 2020 --assert-format
+          cargo run --quiet --manifest-path "$base/tools/sa-cost-benchmark/Cargo.toml" -- \
+            "$base/tools/sa-cost-benchmark/fixtures/synthetic-cost-comparison.json" \
+            "$RUNNER_TEMP/sa-cost-report.json"
+          jsonschema-cli validate "$base/schemas/sa-soil-decision-cost-report.schema.json" \
+            --instance "$RUNNER_TEMP/sa-cost-report.json" --draft 2020 --assert-format
+          jq -e '
+            .fixture_status == "synthetic_cost_decision_report_not_market_evidence" and
+            (.input_sha256 | test("^[a-f0-9]{64}$")) and
+            (.strategies | length == 3)
+          ' "$RUNNER_TEMP/sa-cost-report.json"
+      - name: Reject missing component category
+        run: |
+          fixture=research/terra-preta/tools/sa-cost-benchmark/fixtures/synthetic-cost-comparison.json
+          jq '.strategies[0].cost_components |= .[:-1]' "$fixture" > "$RUNNER_TEMP/missing-cost.json"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/sa-cost-benchmark/Cargo.toml -- \
+            "$RUNNER_TEMP/missing-cost.json" "$RUNNER_TEMP/missing-cost-report.json"; then
+            echo "Expected missing cost category rejection"
+            exit 1
+          fi
+      - name: Reject output overwrite
+        run: |
+          fixture=research/terra-preta/tools/sa-cost-benchmark/fixtures/synthetic-cost-comparison.json
+          report="$RUNNER_TEMP/existing-cost-report.json"
+          printf 'do-not-overwrite\n' > "$report"
+          if cargo run --quiet --manifest-path research/terra-preta/tools/sa-cost-benchmark/Cargo.toml -- "$fixture" "$report"; then
+            echo "Expected create-new output protection"
+            exit 1
+          fi
+          test "$(cat "$report")" = "do-not-overwrite"

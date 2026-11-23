@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "South African soil measurement decision economics report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_version",
+    "fixture_status",
+    "scenario_id",
+    "comparison_area_ha",
+    "eligible_decisions",
+    "reference_positive_count",
+    "reference_negative_count",
+    "strategies",
+    "controls",
+    "interpretation_boundary",
+    "input_sha256"
+  ],
+  "properties": {
+    "audit_version": {
+      "const": "0.1.0"
+    },
+    "fixture_status": {
+      "const": "synthetic_cost_decision_report_not_market_evidence"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "comparison_area_ha": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "eligible_decisions": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "reference_positive_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reference_negative_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "strategies": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "strategy_id",
+          "strategy_family",
+          "sample_count",
+          "total_cost_zar",
+          "cost_per_hectare_zar",
+          "cost_per_sample_zar",
+          "correctly_resolved_decisions",
+          "cost_per_correct_decision_zar",
+          "resolved_coverage_fraction",
+          "accuracy_among_resolved",
+          "false_negative_rate_among_resolved_positive",
+          "unresolved_positive_fraction",
+          "false_positive_count",
+          "false_negative_count",
+          "category_costs_zar",
+          "not_applicable_categories"
+        ],
+        "properties": {
+          "strategy_id": {
+            "type": "string"
+          },
+          "strategy_family": {
+            "type": "string"
+          },
+          "sample_count": {
+            "type": "integer"
+          },
+          "total_cost_zar": {
+            "type": "number",
+            "minimum": 0
+          },
+          "cost_per_hectare_zar": {
+            "type": "number",
+            "minimum": 0
+          },
+          "cost_per_sample_zar": {
+            "type": "number",
+            "minimum": 0
+          },
+          "correctly_resolved_decisions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cost_per_correct_decision_zar": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "resolved_coverage_fraction": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "accuracy_among_resolved": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "false_negative_rate_among_resolved_positive": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "unresolved_positive_fraction": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "false_positive_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "false_negative_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "category_costs_zar": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "not_applicable_categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_cost_categories_accounted_for",
+        "decision_counts_reconcile",
+        "no_unpriced_zero_assumptions",
+        "no_aggregate_strategy_score"
+      ],
+      "properties": {
+        "all_cost_categories_accounted_for": {
+          "const": true
+        },
+        "decision_counts_reconcile": {
+          "const": true
+        },
+        "no_unpriced_zero_assumptions": {
+          "const": true
+        },
+        "no_aggregate_strategy_score": {
+          "const": true
+        }
+      }
+    },
+    "interpretation_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

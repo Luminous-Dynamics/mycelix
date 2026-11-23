@@ -1,0 +1,152 @@
+{
+  "catalogue_version": "sa-soil-tariff-references-v0.1",
+  "evidence_class": "published_external_references_not_quotes",
+  "tariffs": [
+    {
+      "tariff_id": "wc-sample-preparation-2026",
+      "provider": "Western Cape Department of Agriculture / Elsenburg",
+      "service": "Sample preparation",
+      "method_scope": "Preparation line item; the tariff list states R20 per sample, scope does not include field sampling or courier in this catalogue.",
+      "price_zar": 20,
+      "price_basis": "per_sample",
+      "valid_from": "2026-04-01",
+      "valid_to": "2027-03-31",
+      "source_url": "https://www.elsenburg.com/wp-content/uploads/2026/05/Price-list-2026-2027.pdf",
+      "limitations": [
+        "Published department tariff, not a written commercial quote or actual paid invoice.",
+        "Field sampling, courier, travel and interpretation costs are not established by this line item."
+      ]
+    },
+    {
+      "tariff_id": "wc-ph-kcl-2026",
+      "provider": "Western Cape Department of Agriculture / Elsenburg",
+      "service": "pH (KCl)",
+      "method_scope": "pH measured in KCl; R20 per sample.",
+      "price_zar": 20,
+      "price_basis": "per_sample",
+      "valid_from": "2026-04-01",
+      "valid_to": "2027-03-31",
+      "source_url": "https://www.elsenburg.com/wp-content/uploads/2026/05/Price-list-2026-2027.pdf",
+      "limitations": [
+        "Do not treat as equivalent to pH(H2O) or another extraction ratio without method validation.",
+        "Published tariff, not a farm-specific quote."
+      ]
+    },
+    {
+      "tariff_id": "wc-cations-citric-2026",
+      "provider": "Western Cape Department of Agriculture / Elsenburg",
+      "service": "P, K, Ca, Mg, Na (combined)",
+      "method_scope": "Citric-acid extraction; table lists R6 each / R30 combined per sample.",
+      "price_zar": 30,
+      "price_basis": "per_sample",
+      "valid_from": "2026-04-01",
+      "valid_to": "2027-03-31",
+      "source_url": "https://www.elsenburg.com/wp-content/uploads/2026/05/Price-list-2026-2027.pdf",
+      "limitations": [
+        "Available-P extraction differs from Bray-1 and other methods; do not claim assay equivalence.",
+        "Published tariff may not include separate field sampling and transport."
+      ]
+    },
+    {
+      "tariff_id": "wc-acidity-2026",
+      "provider": "Western Cape Department of Agriculture / Elsenburg",
+      "service": "Exchangeable acidity",
+      "method_scope": "Exchangeable acidity test; R20 per sample.",
+      "price_zar": 20,
+      "price_basis": "per_sample",
+      "valid_from": "2026-04-01",
+      "valid_to": "2027-03-31",
+      "source_url": "https://www.elsenburg.com/wp-content/uploads/2026/05/Price-list-2026-2027.pdf",
+      "limitations": [
+        "Published tariff, not a written quote or full-service package."
+      ]
+    },
+    {
+      "tariff_id": "wc-carbon-wb-2026",
+      "provider": "Western Cape Department of Agriculture / Elsenburg",
+      "service": "Carbon (Walkley–Black)",
+      "method_scope": "Carbon by Walkley–Black; R32 per sample.",
+      "price_zar": 32,
+      "price_basis": "per_sample",
+      "valid_from": "2026-04-01",
+      "valid_to": "2027-03-31",
+      "source_url": "https://www.elsenburg.com/wp-content/uploads/2026/05/Price-list-2026-2027.pdf",
+      "limitations": [
+        "Walkley–Black is not Dumas total carbon; do not pool as same target without method equivalence and bias calibration."
+      ]
+    },
+    {
+      "tariff_id": "wc-texture-3-2026",
+      "provider": "Western Cape Department of Agriculture / Elsenburg",
+      "service": "Particle size 3 fractions",
+      "method_scope": "Three-fraction particle-size analysis; R32 per sample.",
+      "price_zar": 32,
+      "price_basis": "per_sample",
+      "valid_from": "2026-04-01",
+      "valid_to": "2027-03-31",
+      "source_url": "https://www.elsenburg.com/wp-content/uploads/2026/05/Price-list-2026-2027.pdf",
+      "limitations": [
+        "Three-fraction method is not equivalent to seven-fraction method."
+      ]
+    },
+    {
+      "tariff_id": "kzn-fertility-2026",
+      "provider": "KwaZulu-Natal Department of Agriculture and Rural Development",
+      "service": "Soil fertility",
+      "method_scope": "Soil fertility analysis tariff; R180 per sample. Exact bundle analytes/methods require the source schedule and lab confirmation.",
+      "price_zar": 180,
+      "price_basis": "per_sample",
+      "valid_from": "2026-04-01",
+      "valid_to": "2027-03-31",
+      "source_url": "https://www.kzndard.gov.za/images/Documents/researchandtechnologydevelopment/LABORATORY_FORMS/Analytical-Services-Pricelist-2026-2027.pdf",
+      "limitations": [
+        "Bundle analytes and reference methods must be checked before comparing with another panel.",
+        "Published tariff, not farm-specific total service cost."
+      ]
+    },
+    {
+      "tariff_id": "kzn-dumas-carbon-2026",
+      "provider": "KwaZulu-Natal Department of Agriculture and Rural Development",
+      "service": "Soil total carbon by Dumas combustion",
+      "method_scope": "Total carbon by Dumas combustion using CNS analyser; R230 per sample.",
+      "price_zar": 230,
+      "price_basis": "per_sample",
+      "valid_from": "2026-04-01",
+      "valid_to": "2027-03-31",
+      "source_url": "https://www.kzndard.gov.za/images/Documents/researchandtechnologydevelopment/LABORATORY_FORMS/Analytical-Services-Pricelist-2026-2027.pdf",
+      "limitations": [
+        "Total carbon by Dumas is not automatically organic carbon; inorganic carbonate handling must be checked.",
+        "Not directly interchangeable with Walkley–Black carbon."
+      ]
+    },
+    {
+      "tariff_id": "kzn-inorganic-n-2026",
+      "provider": "KwaZulu-Natal Department of Agriculture and Rural Development",
+      "service": "Soil inorganic nitrogen",
+      "method_scope": "Soil inorganic nitrogen tariff; R210 per sample. Exact species, extraction and method must be confirmed.",
+      "price_zar": 210,
+      "price_basis": "per_sample",
+      "valid_from": "2026-04-01",
+      "valid_to": "2027-03-31",
+      "source_url": "https://www.kzndard.gov.za/images/Documents/researchandtechnologydevelopment/LABORATORY_FORMS/Analytical-Services-Pricelist-2026-2027.pdf",
+      "limitations": [
+        "Species (NO3/NH4), extraction and storage protocol need confirmation before comparison."
+      ]
+    },
+    {
+      "tariff_id": "shsc-vas-microbial-combo-2026",
+      "provider": "Soil Health Support Centre",
+      "service": "VAS plus microbial respiration combined",
+      "method_scope": "Volumetric aggregate stability plus microbial respiration package; combined R500 in 2026 price list.",
+      "price_zar": 500,
+      "price_basis": "per_package",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "source_url": "https://www.soilhealthlab.co.za/wp-content/uploads/2026/02/SHSC-TESTS-OFFERED-2026.pdf",
+      "limitations": [
+        "Different physical/biological functional indicators from conventional fertility chemistry.",
+        "Confirm packaging, sample requirements, transport and reporting scope."
+      ]
+    }
+  ]
+}

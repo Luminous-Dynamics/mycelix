@@ -1,0 +1,342 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Synthetic South African soil decision cost comparison",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "evidence_class",
+    "scenario_id",
+    "comparison_area_ha",
+    "eligible_decisions",
+    "reference_positive_count",
+    "reference_negative_count",
+    "strategies"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sa-soil-decision-cost-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_strategy_costs_and_outcomes_not_market_quote"
+    },
+    "evidence_class": {
+      "const": "synthetic"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "comparison_area_ha": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "eligible_decisions": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "reference_positive_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reference_negative_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "strategies": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "strategy_id",
+          "strategy_family",
+          "description",
+          "sample_count",
+          "decision_counts",
+          "cost_components"
+        ],
+        "properties": {
+          "strategy_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "strategy_family": {
+            "enum": [
+              "all_reference_lab",
+              "soil_health_panel",
+              "nir_only",
+              "fixed_referral",
+              "uncertainty_referral",
+              "decision_evsi_referral",
+              "proximal_sensing_service"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sample_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "decision_counts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "true_positive",
+              "true_negative",
+              "false_positive",
+              "false_negative",
+              "unresolved_positive",
+              "unresolved_negative"
+            ],
+            "properties": {
+              "true_positive": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "true_negative": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "false_positive": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "false_negative": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unresolved_positive": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unresolved_negative": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "cost_components": {
+            "type": "array",
+            "minItems": 10,
+            "maxItems": 10,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "category",
+                "status",
+                "evidence_class"
+              ],
+              "properties": {
+                "category": {
+                  "enum": [
+                    "site_access_travel",
+                    "sampling_labour",
+                    "sample_preparation",
+                    "sensor_or_laboratory_assay",
+                    "instrument_capital_depreciation",
+                    "calibration_quality_control",
+                    "transport_courier",
+                    "analysis_reporting",
+                    "compute_storage",
+                    "repeats_retests"
+                  ]
+                },
+                "status": {
+                  "enum": [
+                    "priced",
+                    "not_applicable"
+                  ]
+                },
+                "evidence_class": {
+                  "enum": [
+                    "published_tariff",
+                    "written_quote",
+                    "measured_actual_cost",
+                    "synthetic_assumption"
+                  ]
+                },
+                "quantity": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "unit": {
+                  "enum": [
+                    "sample",
+                    "scan",
+                    "hectare",
+                    "hour",
+                    "visit",
+                    "km",
+                    "batch",
+                    "campaign",
+                    "instrument_year",
+                    "month",
+                    "package"
+                  ]
+                },
+                "unit_cost_zar": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "source_name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "source_url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "valid_from": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "valid_to": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "method_scope": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "cost_record_reference": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "measurement_period": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "not_applicable_reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "const": "priced"
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "quantity",
+                      "unit",
+                      "unit_cost_zar",
+                      "method_scope"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "const": "not_applicable"
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "not_applicable_reason"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "quantity"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "unit"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "unit_cost_zar"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "evidence_class": {
+                        "const": "published_tariff"
+                      }
+                    },
+                    "required": [
+                      "evidence_class"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "source_name",
+                      "source_url",
+                      "valid_from",
+                      "valid_to"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "evidence_class": {
+                        "const": "written_quote"
+                      }
+                    },
+                    "required": [
+                      "evidence_class"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "source_name",
+                      "source_url",
+                      "valid_from",
+                      "valid_to"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "evidence_class": {
+                        "const": "measured_actual_cost"
+                      }
+                    },
+                    "required": [
+                      "evidence_class"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "cost_record_reference",
+                      "measurement_period"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
