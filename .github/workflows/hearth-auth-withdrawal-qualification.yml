@@ -65,6 +65,7 @@ jobs:
           cmp mycelix-finance/zomes/payments/coordinator/src/lib.rs mycelix-workspace/mycelix-finance/zomes/payments/coordinator/src/lib.rs
           cmp mycelix-finance/zomes/tend/coordinator/src/lib.rs mycelix-workspace/mycelix-finance/zomes/tend/coordinator/src/lib.rs
           grep -q "fn get_existing_hearth_pool_record" mycelix-finance/zomes/payments/coordinator/src/lib.rs
+          grep -q "personal_record.action().author() != &caller" mycelix-finance/zomes/payments/coordinator/src/lib.rs
           grep -q "mod hearth_withdrawal_guard_tests" mycelix-finance/zomes/payments/coordinator/src/lib.rs
           grep -q "mod hearth_membership_fail_closed_tests" mycelix-finance/zomes/tend/coordinator/src/lib.rs
           if grep -nE 'allowing \((standalone|bootstrap)' mycelix-finance/zomes/payments/coordinator/src/lib.rs mycelix-finance/zomes/tend/coordinator/src/lib.rs; then
