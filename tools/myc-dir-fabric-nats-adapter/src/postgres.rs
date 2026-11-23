@@ -14,7 +14,8 @@ use tokio_postgres::{Client, Row};
 
 use crate::{sha256, AdapterResult, OwnerDispositionVerifier, VerifiedOwnerDisposition};
 
-const RECEIPT_DOMAIN: &[u8] = b"MYC-DIR-POSTGRES-EFFECT-EXECUTION-RECEIPT\0\x02";
+// v3 commits to the complete owner-epoch transition coordinates and transaction ID.
+const RECEIPT_DOMAIN: &[u8] = b"MYC-DIR-POSTGRES-EFFECT-EXECUTION-RECEIPT\0\x03";
 
 const SELECT_EFFECT_COMMIT: &str = r#"
 SELECT
