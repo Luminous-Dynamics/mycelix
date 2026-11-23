@@ -30,7 +30,7 @@ An inactive state requires all of:
 
 An image-only, derived-prediction or model-prediction record cannot confirm hydraulic activity or inactivity. A support mismatch, event mismatch, QC failure, incomplete evidence or conflict produces unassessed.
 
-The event threshold and coverage rules are task-profile values in the synthetic fixture, not universal soil-physics thresholds. A real profile must pre-register thresholds based on its scientific question, measurement sensitivity and uncertainty.
+The event profile declares separate thresholds for tracer mass flux (mg/h) and water-volume flux (mL/h). These quantities are never compared numerically across units; each observation must match its modality's measurand/unit and be judged against the corresponding threshold. The event threshold and coverage rules are task-profile values in the synthetic fixture, not universal soil-physics thresholds. A real profile must pre-register thresholds based on its scientific question, measurement sensitivity and uncertainty.
 
 ## Known-truth fixture
 
@@ -46,7 +46,7 @@ Eight edges cover:
 9. a boundary-integrated outlet tracer response that cannot identify a single edge;
 10. a high-registration-error observation despite a nominal edge mapping.
 
-Expected output: one confirmed-active, one confirmed-inactive and eight unassessed. All fixture artifacts and values are manufactured.
+Expected output: one confirmed-active, one confirmed-inactive and eight unassessed. The conflict control uses a direct water-volume observation and a direct tracer-mass observation; their numerical values are not compared, only whether each independently crosses its own predeclared threshold. All fixture artifacts and values are manufactured.
 
 ## Reproducibility and safety
 
