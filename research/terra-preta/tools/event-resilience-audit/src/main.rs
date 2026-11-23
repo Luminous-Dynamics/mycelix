@@ -690,7 +690,10 @@ mod tests {
         assert!(r.recovery_fraction.unwrap() > 0.8);
         assert_eq!(r.recovery_time_from_stress_end_hours, Some(24.0));
         assert_eq!(r.recovery_time_status, "qualified_sustained_recovery");
-        assert!(r.pulse_burden_absolute_anomaly_unit_hours.unwrap() > 0.0);
+        assert_eq!(r.pulse_burden_positive_anomaly_unit_hours, Some(80.4));
+        assert_eq!(r.pulse_burden_negative_anomaly_unit_hours, Some(0.0));
+        assert_eq!(r.pulse_burden_absolute_anomaly_unit_hours, Some(80.4));
+        assert_eq!(r.pulse_burden_signed_anomaly_unit_hours, Some(80.4));
     }
 
     #[test]
