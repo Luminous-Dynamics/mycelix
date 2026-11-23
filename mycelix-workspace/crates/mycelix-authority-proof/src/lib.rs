@@ -82,6 +82,8 @@ impl AuthorityProofIssuerRole {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FencingMechanism {
+    /// Network isolation alone is explicitly not a physical fence.
+    NetworkPartitionOnly,
     PowerOff,
     HypervisorFence,
     CloudInstanceDeallocation,
@@ -94,6 +96,7 @@ pub enum FencingMechanism {
 impl FencingMechanism {
     const fn code(self) -> u8 {
         match self {
+            Self::NetworkPartitionOnly => 0,
             Self::PowerOff => 1,
             Self::HypervisorFence => 2,
             Self::CloudInstanceDeallocation => 3,
@@ -252,6 +255,7 @@ impl AuthorityProofReceipt {
                     || old_primary_id == successor_primary_id
                     || *observed_at < self.issued_at
                     || *observed_at > self.expires_at
+                    || *mechanism == FencingMechanism::NetworkPartitionOnly
                     || is_zero(&actuator_evidence_hash.0)
                 {
                     return Err(
@@ -363,6 +367,7 @@ pub struct AuthorityProofTarget {
     pub expected_new_lease: Option<(u64, Uuid, ProofDigest)>,
     /// Optional exact transaction target for promotion eligibility.
     pub expected_transaction_end_lsn: Option<u64>,
+    pub expected_timeline_ancestry_hash: Option<ProofDigest>,
     pub expected_highwater_proof_hash: Option<ProofDigest>,
     pub expected_physical_fencing_proof_hash: Option<ProofDigest>,
 }
@@ -496,6 +501,7 @@ impl SignedAuthorityProofReceipt {
                 candidate_system_identifier,
                 candidate_timeline,
                 target_transaction_end_lsn,
+                timeline_ancestry_hash,
                 lease_highwater_proof_hash,
                 physical_fencing_proof_hash,
                 ..
@@ -509,6 +515,9 @@ impl SignedAuthorityProofReceipt {
                 let expected_lsn = target
                     .expected_transaction_end_lsn
                     .ok_or_else(|| "promotion proof verification requires the exact acknowledged transaction end-LSN".to_owned())?;
+                let expected_ancestry = target
+                    .expected_timeline_ancestry_hash
+                    .ok_or_else(|| "promotion proof verification requires the exact timeline ancestry commitment".to_owned())?;
                 let expected_highwater = target
                     .expected_highwater_proof_hash
                     .ok_or_else(|| "promotion proof verification requires the exact verified high-water proof".to_owned())?;
@@ -516,6 +525,7 @@ impl SignedAuthorityProofReceipt {
                     .expected_physical_fencing_proof_hash
                     .ok_or_else(|| "promotion proof verification requires the exact verified physical-fencing proof".to_owned())?;
                 if expected_lsn != *target_transaction_end_lsn
+                    || expected_ancestry != *timeline_ancestry_hash
                     || expected_highwater != *lease_highwater_proof_hash
                     || expected_fencing != *physical_fencing_proof_hash
                 {
@@ -730,6 +740,7 @@ mod tests {
             expected_previous_highwater: None,
             expected_new_lease: None,
             expected_transaction_end_lsn: None,
+            expected_timeline_ancestry_hash: None,
             expected_highwater_proof_hash: None,
             expected_physical_fencing_proof_hash: None,
         };
@@ -950,6 +961,7 @@ mod tests {
             expected_previous_highwater: None,
             expected_new_lease: None,
             expected_transaction_end_lsn: Some(4096),
+            expected_timeline_ancestry_hash: Some(ProofDigest([43; 32])),
             expected_highwater_proof_hash: Some(highwater_hash),
             expected_physical_fencing_proof_hash: Some(fence_hash),
         };
@@ -974,6 +986,28 @@ mod tests {
                 Utc.with_ymd_and_hms(2026, 11, 23, 10, 0, 3).unwrap(),
             )
             .is_err());
+    }
+
+    #[test]
+    fn network_partition_is_not_accepted_as_physical_fencing() {
+        let receipt = common(
+            AuthorityProofPurpose::PhysicalFencing,
+            AuthorityProofIssuerRole::PhysicalFencingAttestor,
+            AuthorityProofPayload::PhysicalFencing {
+                old_primary_id: "postgres-old".into(),
+                old_system_identifier: "731245".into(),
+                old_timeline: 2,
+                owner_epoch: 3,
+                fence_sequence: 10,
+                mechanism: FencingMechanism::NetworkPartitionOnly,
+                actuator_id: "network-monitor".into(),
+                operation_id: "partition-detected-10".into(),
+                successor_primary_id: "postgres-new".into(),
+                observed_at: Utc.with_ymd_and_hms(2026, 11, 23, 10, 0, 2).unwrap(),
+                actuator_evidence_hash: ProofDigest([10; 32]),
+            },
+        );
+        assert!(receipt.validate().is_err());
     }
 
     #[test]
