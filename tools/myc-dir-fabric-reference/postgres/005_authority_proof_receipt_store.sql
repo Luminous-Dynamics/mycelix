@@ -171,6 +171,9 @@ DECLARE
     v_issuer_public_key BYTEA;
     v_signature BYTEA;
     v_existing_hash BYTEA;
+    v_existing_canonical_digest BYTEA;
+    v_existing_external_digest BYTEA;
+    v_existing_json JSONB;
     v_existing_sequence BIGINT;
     v_existing_proof_id UUID;
     v_rows INTEGER;
@@ -263,13 +266,18 @@ BEGIN
 
     -- Idempotent exact replay only. A proof ID cannot be rebound to different
     -- signed bytes or a different external sequence receipt.
-    SELECT signed_receipt_hash
-      INTO v_existing_hash
+    SELECT signed_receipt_hash, canonical_proof_digest,
+           external_sequence_receipt_digest, signed_receipt_json
+      INTO v_existing_hash, v_existing_canonical_digest,
+           v_existing_external_digest, v_existing_json
       FROM myc_effect_owner.authority_proof_receipts
      WHERE proof_id = v_proof_id;
     IF FOUND THEN
-        IF v_existing_hash IS DISTINCT FROM p_signed_receipt_hash THEN
-            RAISE EXCEPTION 'authority proof ID is already bound to different signed bytes'
+        IF v_existing_hash IS DISTINCT FROM p_signed_receipt_hash
+           OR v_existing_canonical_digest IS DISTINCT FROM p_canonical_proof_digest
+           OR v_existing_external_digest IS DISTINCT FROM p_external_sequence_receipt_digest
+           OR v_existing_json IS DISTINCT FROM p_signed_receipt_json THEN
+            RAISE EXCEPTION 'authority proof ID is already bound to different signed bytes or external sequence evidence'
                 USING ERRCODE = 'P0001';
         END IF;
         RETURN v_proof_id;
