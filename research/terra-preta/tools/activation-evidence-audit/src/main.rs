@@ -33,6 +33,8 @@ struct Event {
     minimum_bound_confidence_level: f64,
     maximum_sample_interval_seconds: i64,
     minimum_coverage_fraction: f64,
+    maximum_registration_error_mm: f64,
+    minimum_support_overlap_fraction: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -52,6 +54,9 @@ struct EvidenceRecord {
     registration_status: String,
     spatial_support_id: String,
     registration_transform_id: Option<String>,
+    spatial_localization: String,
+    registration_error_mm: Option<f64>,
+    support_overlap_fraction: f64,
     observed_start_epoch_seconds: i64,
     observed_end_epoch_seconds: i64,
     sample_interval_seconds: i64,
@@ -165,6 +170,14 @@ fn validate(s: &Scenario) -> Result<(), String> {
     {
         return Err("event flux threshold and minimum coverage must be positive and admissible".into());
     }
+    finite("maximum_registration_error_mm", s.event.maximum_registration_error_mm)?;
+    finite("minimum_support_overlap_fraction", s.event.minimum_support_overlap_fraction)?;
+    if s.event.maximum_registration_error_mm <= 0.0
+        || !(0.0..=1.0).contains(&s.event.minimum_support_overlap_fraction)
+        || s.event.minimum_support_overlap_fraction <= 0.0
+    {
+        return Err("registration error and overlap thresholds are invalid".into());
+    }
     if s.registered_edge_ids.is_empty() || s.assertions.is_empty() {
         return Err("scenario requires registered graph edges and edge assertions".into());
     }
@@ -201,6 +214,7 @@ fn validate(s: &Scenario) -> Result<(), String> {
             evidence.evidence_class.as_str(),
             "direct_tracer_observation"
                 | "direct_hydraulic_observation"
+                | "boundary_tracer_response"
                 | "structural_image_only"
                 | "derived_sensor_estimate"
                 | "model_prediction"
@@ -220,6 +234,12 @@ fn validate(s: &Scenario) -> Result<(), String> {
             return Err("unsupported evidence spatial support kind".into());
         }
         if !matches!(
+            evidence.spatial_localization.as_str(),
+            "edge_resolved" | "boundary_integrated" | "core_aggregate" | "profile_aggregate"
+        ) {
+            return Err("unsupported spatial localization class".into());
+        }
+        if !matches!(
             evidence.registration_status.as_str(),
             "registered" | "unregistered" | "not_applicable"
         ) {
@@ -229,6 +249,24 @@ fn validate(s: &Scenario) -> Result<(), String> {
             && evidence.registration_transform_id.as_deref().unwrap_or("").trim().is_empty()
         {
             return Err("registered evidence requires a registration transform identity".into());
+        }
+        finite("support_overlap_fraction", evidence.support_overlap_fraction)?;
+        if !(0.0..=1.0).contains(&evidence.support_overlap_fraction) {
+            return Err("support overlap fraction must be in [0,1]".into());
+        }
+        if let Some(error) = evidence.registration_error_mm {
+            finite("registration_error_mm", error)?;
+            if error < 0.0 {
+                return Err("registration error cannot be negative".into());
+            }
+        }
+        if evidence.spatial_localization == "edge_resolved"
+            && (evidence.support_kind != "registered_3d_edge"
+                || evidence.registration_status != "registered"
+                || evidence.registration_transform_id.as_deref().unwrap_or("").trim().is_empty()
+                || evidence.registration_error_mm.is_none())
+        {
+            return Err("edge-resolved evidence requires registered 3D support, transform identity and registration error".into());
         }
         if evidence.observed_start_epoch_seconds >= evidence.observed_end_epoch_seconds
             || evidence.sample_interval_seconds <= 0
@@ -346,6 +384,21 @@ fn evidence_candidate(
     }
     if evidence.qc_status != "passed" {
         reasons.push("quality_control_not_passed".into());
+    }
+    if evidence.spatial_localization != "edge_resolved"
+        || evidence.support_kind != "registered_3d_edge"
+        || evidence.registration_status != "registered"
+        || evidence.registration_transform_id.as_deref().unwrap_or("").trim().is_empty()
+    {
+        reasons.push("evidence_is_not_spatially_resolved_to_one_3d_edge".into());
+    }
+    if evidence.support_overlap_fraction < s.event.minimum_support_overlap_fraction {
+        reasons.push("edge_support_overlap_below_threshold".into());
+    }
+    if evidence.registration_error_mm.is_none_or(|error| {
+        error > s.event.maximum_registration_error_mm
+    }) {
+        reasons.push("registration_error_exceeds_admission_limit".into());
     }
     if evidence.support_kind != "registered_3d_edge"
         || evidence.registration_status != "registered"
@@ -615,6 +668,22 @@ mod tests {
         let edge = result.iter().find(|r| r.edge_id == "edge-inactive-sparse").unwrap();
         assert_eq!(edge.admission_status, "unassessed");
         assert!(edge.reasons.iter().any(|r| r.contains("sampling_cadence_too_sparse")));
+    }
+
+    #[test]
+    fn boundary_integrated_tracer_cannot_identify_one_active_edge() {
+        let result = results();
+        let edge = result.iter().find(|r| r.edge_id == "edge-boundary-tracer").unwrap();
+        assert_eq!(edge.admission_status, "unassessed");
+        assert!(edge.reasons.iter().any(|r| r.contains("not_spatially_resolved")));
+    }
+
+    #[test]
+    fn registration_error_above_limit_abstains() {
+        let result = results();
+        let edge = result.iter().find(|r| r.edge_id == "edge-high-registration-error").unwrap();
+        assert_eq!(edge.admission_status, "unassessed");
+        assert!(edge.reasons.iter().any(|r| r.contains("registration_error_exceeds")));
     }
 
     #[test]
