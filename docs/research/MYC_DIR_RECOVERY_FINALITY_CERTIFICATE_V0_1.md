@@ -170,3 +170,20 @@ Compare at least:
 Use matched hardware, payload sizes, replication factor, fault schedule, retention and offered load. Report p50/p95/p99 and raw samples. Do not compare Kafka's internal input-offset/output-topic transaction with a PostgreSQL external side effect as though they were the same transaction domain. Kafka's own design documentation explicitly distinguishes atomic processing inside Kafka from writes to an external system, which require cooperation with that destination.
 
 The benchmark remains preregistered until the multi-node fault campaign and independent review have been executed.
+
+## 8. Primary references
+
+- PostgreSQL 16 WAL durability modes: https://www.postgresql.org/docs/16/runtime-config-wal.html
+- PostgreSQL 16 synchronous standby selection and quorum: https://www.postgresql.org/docs/16/runtime-config-replication.html
+- PostgreSQL 16 synchronous replication behavior: https://www.postgresql.org/docs/16/warm-standby.html
+- PostgreSQL 16 transactional logical-decoding marker: https://www.postgresql.org/docs/16/functions-admin.html
+- PostgreSQL 16 logical replication commit and end-LSN message formats: https://www.postgresql.org/docs/16/protocol-logicalrep-message-formats.html
+- PostgreSQL 17 logical replication failover and readiness: https://www.postgresql.org/docs/17/logical-replication-failover.html
+- PostgreSQL 19 replication and synchronized standby slots: https://www.postgresql.org/docs/19/runtime-config-replication.html
+- PostgreSQL 19 replication-slot synchronization/invalidation fields: https://www.postgresql.org/docs/19/view-pg-replication-slots.html
+- PostgreSQL 19 timeline-aware PITR: https://www.postgresql.org/docs/19/continuous-archiving.html
+- NATS JetStream double acknowledgement and redelivery: https://docs.nats.io/nats-concepts/jetstream/consumers
+- Apache Kafka transaction scope: https://kafka.apache.org/44/design/design/
+- Debezium transactional outbox: https://debezium.io/documentation/reference/stable/transformations/outbox-event-router.html
+
+These references establish product behavior and protocol boundaries. They do not qualify the Mycelix implementation; that requires its own exact-head and multi-node fault evidence.
