@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/research/pcoe-effect-owner-payment-model-v0.1-20261123/mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-effect-owner-payment-scenarios.v0.1.schema.json",
+  "title": "PCOE Effect-Owner Two-Owner Payment Scenario Corpus v0.1",
+  "description": "Frozen synthetic adversarial cases for sender intent/debit, beneficiary claim/credit, Treasury outbox, response recovery, chain-head races and recipient fork conflicts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark",
+    "version",
+    "date",
+    "status",
+    "scenario_count",
+    "disposition_vocabulary",
+    "scenarios"
+  ],
+  "properties": {
+    "benchmark": {
+      "const": "PCOE Effect-Owner Payment Execution and Recovery"
+    },
+    "version": {
+      "const": "0.1"
+    },
+    "date": {
+      "const": "2026-11-23"
+    },
+    "status": {
+      "const": "proposed-synthetic-adversarial-corpus-not-executed"
+    },
+    "scenario_count": {
+      "const": 22
+    },
+    "disposition_vocabulary": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 22,
+      "maxItems": 22,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "domain",
+          "threat",
+          "preconditions",
+          "adversarial_mutation",
+          "expected_disposition",
+          "required_control"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^EOP-[0-9]{3}$"
+          },
+          "domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "threat": {
+            "type": "string",
+            "minLength": 1
+          },
+          "preconditions": {
+            "type": "string",
+            "minLength": 1
+          },
+          "adversarial_mutation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_disposition": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required_control": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
