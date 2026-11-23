@@ -2340,6 +2340,60 @@ fn get_or_create_hearth_pool(hearth_did: &str) -> ExternResult<HearthSapPool> {
     Ok(pool)
 }
 
+/// Resolve an already-existing Hearth pool without creating one as a side effect.
+///
+/// A withdrawal may not turn a missing pool into a successful zero-value pool
+/// creation. More than one observed root is ambiguous and blocks the operation.
+/// This checks the locally observed link set; it does not prove global DHT
+/// completeness or absence of an unseen concurrent fork.
+fn get_existing_hearth_pool_record(hearth_did: &str) -> ExternResult<(Record, HearthSapPool)> {
+    let anchor_key = format!("hearth-sap:{}", hearth_did);
+    let links = get_links(
+        LinkQuery::try_new(anchor_hash(&anchor_key)?, LinkTypes::HearthDidToSapPool)?,
+        GetStrategy::default(),
+    )?;
+
+    if links.is_empty() {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "No existing Hearth SAP pool was visible; refusing withdrawal".into()
+        )));
+    }
+    if links.len() != 1 {
+        return Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Observed {} Hearth SAP pool roots; refusing ambiguous withdrawal",
+            links.len()
+        ))));
+    }
+
+    let link = links.first().ok_or(wasm_error!(WasmErrorInner::Guest(
+        "Hearth SAP pool link disappeared during resolution".into()
+    )))?;
+    let action_hash = link.target.clone().into_action_hash().ok_or(wasm_error!(
+        WasmErrorInner::Guest("Hearth SAP pool link target is not an ActionHash".into())
+    ))?;
+    let record = follow_update_chain(action_hash)?;
+    let pool = record
+        .entry()
+        .to_app_option::<HearthSapPool>()
+        .map_err(|e| {
+            wasm_error!(WasmErrorInner::Guest(format!(
+                "HearthSapPool deserialization error: {:?}",
+                e
+            )))
+        })?
+        .ok_or(wasm_error!(WasmErrorInner::Guest(
+            "Hearth SAP pool entry is missing or not an app entry".into()
+        )))?;
+
+    if pool.hearth_did != hearth_did {
+        return Err(wasm_error!(WasmErrorInner::Guest(
+            "Hearth SAP pool owner does not match the requested Hearth".into()
+        )));
+    }
+
+    Ok((record, pool))
+}
+
 /// Like `get_or_create_hearth_pool` but also returns the Record for optimistic locking.
 fn get_hearth_pool_record(hearth_did: &str) -> ExternResult<(Record, HearthSapPool)> {
     let anchor_key = format!("hearth-sap:{}", hearth_did);
