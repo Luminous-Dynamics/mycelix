@@ -741,7 +741,7 @@ BEGIN
 END
 $function$;
 
-CREATE OR REPLACE FUNCTION myc_effect_owner.apply_owner_epoch_claim_fenced_balance_delta_with_authority_lease(
+CREATE OR REPLACE FUNCTION myc_effect_owner.apply_claim_fenced_balance_delta_with_lease(
     p_realm_id TEXT,
     p_resource_id TEXT,
     p_action_id TEXT,
@@ -789,6 +789,7 @@ DECLARE
     v_generation BIGINT;
     v_lease myc_effect_owner.effect_owner_authority_write_lease_state%ROWTYPE;
     v_historical myc_effect_owner.effect_execution_authority_lease_attestations%ROWTYPE;
+    v_lease_found BOOLEAN;
     v_current_system_identifier TEXT;
     v_current_timeline BIGINT;
 BEGIN
@@ -832,17 +833,14 @@ BEGIN
        AND action_id = p_action_id
        AND effect_owner_id = p_effect_owner_id
      FOR SHARE;
-    SELECT system.system_identifier::TEXT, checkpoint.timeline_id::BIGINT
-      INTO v_current_system_identifier, v_current_timeline
-      FROM pg_catalog.pg_control_system() AS system
-      CROSS JOIN pg_catalog.pg_control_checkpoint() AS checkpoint;
+    v_lease_found := FOUND;
 
     SELECT system.system_identifier::TEXT, checkpoint.timeline_id::BIGINT
       INTO v_current_system_identifier, v_current_timeline
       FROM pg_catalog.pg_control_system() AS system
       CROSS JOIN pg_catalog.pg_control_checkpoint() AS checkpoint;
 
-    IF NOT FOUND
+    IF NOT v_lease_found
        OR v_lease.lease_id IS DISTINCT FROM p_lease_id
        OR v_lease.lease_hash IS DISTINCT FROM p_lease_hash
        OR v_lease.lease_generation IS DISTINCT FROM p_lease_generation
@@ -946,6 +944,7 @@ DECLARE
     v_lease myc_effect_owner.effect_owner_authority_write_lease_state%ROWTYPE;
     v_advanced RECORD;
     v_historical myc_effect_owner.effect_owner_epoch_authority_lease_attestations%ROWTYPE;
+    v_lease_found BOOLEAN;
     v_current_system_identifier TEXT;
     v_current_timeline BIGINT;
 BEGIN
@@ -993,8 +992,14 @@ BEGIN
        AND action_id = p_action_id
        AND effect_owner_id = p_effect_owner_id
      FOR SHARE;
+    v_lease_found := FOUND;
 
-    IF NOT FOUND
+    SELECT system.system_identifier::TEXT, checkpoint.timeline_id::BIGINT
+      INTO v_current_system_identifier, v_current_timeline
+      FROM pg_catalog.pg_control_system() AS system
+      CROSS JOIN pg_catalog.pg_control_checkpoint() AS checkpoint;
+
+    IF NOT v_lease_found
        OR v_lease.lease_id IS DISTINCT FROM p_lease_id
        OR v_lease.lease_hash IS DISTINCT FROM p_lease_hash
        OR v_lease.lease_generation IS DISTINCT FROM p_lease_generation
@@ -1060,7 +1065,7 @@ GRANT EXECUTE ON FUNCTION myc_effect_owner.advance_effect_owner_epoch_with_autho
     TEXT, TEXT, TEXT, TEXT, BIGINT, BYTEA, BYTEA, UUID, BYTEA, BIGINT
 ) TO myc_dir_authority_lease_controller;
 
-GRANT EXECUTE ON FUNCTION myc_effect_owner.apply_owner_epoch_claim_fenced_balance_delta_with_authority_lease(
+GRANT EXECUTE ON FUNCTION myc_effect_owner.apply_claim_fenced_balance_delta_with_lease(
     TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BIGINT, BIGINT, BYTEA, TEXT,
     BYTEA, BYTEA, BYTEA, BIGINT, TEXT, BIGINT, BYTEA, TEXT, TIMESTAMPTZ,
     TIMESTAMPTZ, UUID, BYTEA, BIGINT
