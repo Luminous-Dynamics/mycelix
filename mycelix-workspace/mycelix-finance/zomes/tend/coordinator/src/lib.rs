@@ -577,6 +577,26 @@ fn get_or_create_hearth_balance(
 
 /// Verify that a member belongs to a hearth via cross-zome call to hearth zome.
 /// Falls through (allows) if hearth zome is unreachable (bootstrap/standalone mode).
+fn require_hearth_membership(
+    member_did: &str,
+    hearth_did: &str,
+    evidence: Result<bool, String>,
+) -> ExternResult<()> {
+    match evidence {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "{} is not a member of hearth {}",
+            member_did, hearth_did
+        )))),
+        Err(reason) => Err(wasm_error!(WasmErrorInner::Guest(format!(
+            "Hearth membership is unverified for {}@{}: {}; refusing TEND exchange",
+            member_did, hearth_did, reason
+        )))),
+    }
+}
+
+/// Only explicit, successfully decoded membership evidence authorizes an exchange.
+/// Missing, malformed or unreachable authority evidence is never a standalone-mode grant.
 fn verify_hearth_membership(member_did: &str, hearth_did: &str) -> ExternResult<()> {
     #[derive(Serialize, Debug)]
     struct MembershipQuery {
@@ -595,39 +615,21 @@ fn verify_hearth_membership(member_did: &str, hearth_did: &str) -> ExternResult<
         },
     ) {
         Ok(ZomeCallResponse::Ok(result)) => {
-            match result.decode::<bool>() {
-                Ok(true) => Ok(()),
-                Ok(false) => Err(wasm_error!(WasmErrorInner::Guest(format!(
-                    "{} is not a member of hearth {}",
-                    member_did, hearth_did
-                )))),
-                Err(e) => {
-                    // SECURITY NOTE: Decode error falls through permissively to support
-                    // bootstrap/standalone mode where hearth zome schema may differ.
-                    debug!(
-                        "verify_hearth_membership: decode error for {}@{}: {:?}, allowing (bootstrap/standalone)",
-                        member_did, hearth_did, e
-                    );
-                    Ok(())
-                }
-            }
+            let evidence = result
+                .decode::<bool>()
+                .map_err(|e| format!("membership response decode failed: {:?}", e));
+            require_hearth_membership(member_did, hearth_did, evidence)
         }
-        Ok(other) => {
-            // SECURITY NOTE: Hearth zome unreachable/unauthorized — allow in bootstrap/standalone mode.
-            debug!(
-                "verify_hearth_membership: hearth_bridge returned {:?} for {}@{}, allowing (bootstrap/standalone)",
-                other, member_did, hearth_did
-            );
-            Ok(())
-        }
-        Err(e) => {
-            // SECURITY NOTE: Hearth zome unreachable — allow in bootstrap/standalone mode.
-            debug!(
-                "verify_hearth_membership: hearth_bridge unreachable for {}@{}: {:?}, allowing (bootstrap/standalone)",
-                member_did, hearth_did, e
-            );
-            Ok(())
-        }
+        Ok(other) => require_hearth_membership(
+            member_did,
+            hearth_did,
+            Err(format!("unexpected Hearth bridge response: {:?}", other)),
+        ),
+        Err(e) => require_hearth_membership(
+            member_did,
+            hearth_did,
+            Err(format!("Hearth bridge call failed: {:?}", e)),
+        ),
     }
 }
 
@@ -3315,3 +3317,37 @@ mod tests {
         assert_eq!(activity_dao_did(&request), "did:mycelix:dao-request");
     }
 }
+
+#[cfg(test)]
+mod hearth_membership_fail_closed_tests {
+    use super::require_hearth_membership;
+
+    #[test]
+    fn only_explicit_membership_true_is_authorized() {
+        assert!(require_hearth_membership(
+            "did:mycelix:provider",
+            "did:mycelix:hearth",
+            Ok(true)
+        )
+        .is_ok());
+        assert!(require_hearth_membership(
+            "did:mycelix:provider",
+            "did:mycelix:hearth",
+            Ok(false)
+        )
+        .is_err());
+        assert!(require_hearth_membership(
+            "did:mycelix:provider",
+            "did:mycelix:hearth",
+            Err("membership response could not be decoded".into())
+        )
+        .is_err());
+        assert!(require_hearth_membership(
+            "did:mycelix:provider",
+            "did:mycelix:hearth",
+            Err("Hearth bridge is unavailable".into())
+        )
+        .is_err());
+    }
+}
+
