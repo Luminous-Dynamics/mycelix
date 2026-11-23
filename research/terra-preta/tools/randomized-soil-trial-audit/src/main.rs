@@ -420,12 +420,13 @@ fn calculate(s: &Scenario, input_digest: String) -> Report {
         input_sha256: input_digest,
         randomized_unit_count: s.units.len(),
         block_count: block_contrasts.len(),
-        minimum_attainable_two_sided_randomization_p_value:
-            minimum_attainable_two_sided_p_value(block_contrasts.len()),
-        can_resolve_nominal_alpha_05:
-            minimum_attainable_two_sided_p_value(block_contrasts.len()) <= 0.05,
-        can_resolve_nominal_alpha_01:
-            minimum_attainable_two_sided_p_value(block_contrasts.len()) <= 0.01,
+        minimum_attainable_two_sided_randomization_p_value: minimum_attainable_two_sided_p_value(
+            block_contrasts.len(),
+        ),
+        can_resolve_nominal_alpha_05: minimum_attainable_two_sided_p_value(block_contrasts.len())
+            <= 0.05,
+        can_resolve_nominal_alpha_01: minimum_attainable_two_sided_p_value(block_contrasts.len())
+            <= 0.01,
         subsample_count_not_in_n: subsamples,
         treatment_assigned_count: s
             .units
