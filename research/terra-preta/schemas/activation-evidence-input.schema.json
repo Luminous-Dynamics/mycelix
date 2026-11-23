@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "activation-evidence-input.schema.json",
+  "title": "Hydraulic activation evidence input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "fixture_status", "scenario_id", "specimen_id", "event", "registered_edge_ids", "evidence_records", "assertions"],
+  "properties": {
+    "schema_version": { "const": "activation-evidence-v0.1" },
+    "fixture_status": { "const": "synthetic_only_not_empirical_evidence" },
+    "scenario_id": { "type": "string", "minLength": 1 },
+    "specimen_id": { "type": "string", "minLength": 1 },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "start_epoch_seconds", "end_epoch_seconds", "minimum_relevant_flux_mg_per_h", "maximum_sample_interval_seconds", "minimum_coverage_fraction"],
+      "properties": {
+        "event_id": { "type": "string", "minLength": 1 },
+        "start_epoch_seconds": { "type": "integer" },
+        "end_epoch_seconds": { "type": "integer" },
+        "minimum_relevant_flux_mg_per_h": { "type": "number", "exclusiveMinimum": 0 },
+        "maximum_sample_interval_seconds": { "type": "integer", "minimum": 1 },
+        "minimum_coverage_fraction": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      }
+    },
+    "registered_edge_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "evidence_records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["evidence_id", "edge_id", "specimen_id", "event_id", "evidence_class", "source_artifact_uri", "source_artifact_sha256", "method_id", "method_version", "qc_status", "support_kind", "registration_status", "observed_start_epoch_seconds", "observed_end_epoch_seconds", "sample_interval_seconds", "coverage_fraction"],
+        "properties": {
+          "evidence_id": { "type": "string", "minLength": 1 },
+          "edge_id": { "type": "string", "minLength": 1 },
+          "specimen_id": { "type": "string", "minLength": 1 },
+          "event_id": { "type": "string", "minLength": 1 },
+          "evidence_class": { "enum": ["direct_tracer_observation", "direct_hydraulic_observation", "structural_image_only", "derived_sensor_estimate", "model_prediction"] },
+          "source_artifact_uri": { "type": "string", "minLength": 1 },
+          "source_artifact_sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+          "method_id": { "type": "string", "minLength": 1 },
+          "method_version": { "type": "string", "minLength": 1 },
+          "calibration_id": { "type": ["string", "null"] },
+          "qc_status": { "enum": ["passed", "failed", "not_assessed"] },
+          "support_kind": { "enum": ["registered_3d_edge", "core_aggregate", "profile_aggregate", "section_2d"] },
+          "registration_status": { "enum": ["registered", "unregistered", "not_applicable"] },
+          "observed_start_epoch_seconds": { "type": "integer" },
+          "observed_end_epoch_seconds": { "type": "integer" },
+          "sample_interval_seconds": { "type": "integer", "minimum": 1 },
+          "coverage_fraction": { "type": "number", "minimum": 0, "maximum": 1 },
+          "measured_flux_mg_per_h": { "type": ["number", "null"], "minimum": 0 },
+          "upper_flux_bound_mg_per_h": { "type": ["number", "null"], "minimum": 0 }
+        }
+      }
+    },
+    "assertions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["edge_id", "asserted_state", "evidence_ids"],
+        "properties": {
+          "edge_id": { "type": "string", "minLength": 1 },
+          "asserted_state": { "enum": ["active", "inactive", "unassessed"] },
+          "evidence_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    }
+  }
+}
