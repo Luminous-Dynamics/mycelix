@@ -1,0 +1,163 @@
+{
+  "benchmark": "PCOE SCITT Receipt Continuity and MMR Adversarial Addendum",
+  "version": "0.1",
+  "date": "2026-11-23",
+  "status": "proposed-research-corpus-not-executed",
+  "source_status": {
+    "rfc_9943": "published-standards-track-proposed-standard",
+    "rfc_9942": "published-standards-track-proposed-standard",
+    "scrapi_11": "internet-draft-rfc-editor-queue-snapshot",
+    "mmr_profile_00": "new-internet-draft-2026-11-21"
+  },
+  "scenario_count": 16,
+  "disposition_vocabulary": [
+    "reject",
+    "hold_indeterminate"
+  ],
+  "scenarios": [
+    {
+      "id": "SCMMR-001",
+      "domain": "registration",
+      "threat": "Asynchronous registration accepted but no receipt yet",
+      "preconditions": "The service returns HTTP 202 or later HTTP 204 while processing the exact signed statement.",
+      "adversarial_mutation": "Promote acceptance or pending lookup to RegisteredAndVerified.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Only a cryptographically verified receipt for the exact statement and supported service/profile may satisfy the inclusion gate."
+    },
+    {
+      "id": "SCMMR-002",
+      "domain": "registration",
+      "threat": "Registration terminally failed",
+      "preconditions": "Receipt lookup returns the SCRAPI draft's 404 path and problem details indicate no receipt / failed asynchronous registration.",
+      "adversarial_mutation": "Treat no receipt as a successful empty inclusion or silently proceed.",
+      "expected_disposition": "reject",
+      "required_control": "A required receipt is absent; preserve the failure response and block every dependent acceptance or settlement gate."
+    },
+    {
+      "id": "SCMMR-003",
+      "domain": "receipt",
+      "threat": "Detached payload does not reproduce the signed proof root",
+      "preconditions": "A COSE receipt signature verifies, but recomputing the VDS root from the supplied detached value and inclusion path does not equal the receipt payload.",
+      "adversarial_mutation": "Accept the COSE signature without verifying the proof-derived payload.",
+      "expected_disposition": "reject",
+      "required_control": "Verify signature and VDS proof independently; the detached payload must be recomputed from the proof."
+    },
+    {
+      "id": "SCMMR-004",
+      "domain": "receipt",
+      "threat": "Malformed protected-header encoding",
+      "preconditions": "Protected headers contain non-deterministic CBOR encoding, duplicate labels, malformed fields, or missing profile-required values.",
+      "adversarial_mutation": "Normalize malformed bytes and verify a reconstructed header instead of the bytes actually signed.",
+      "expected_disposition": "reject",
+      "required_control": "Reject invalid protected-header encoding and duplicate labels under the pinned receipt profile."
+    },
+    {
+      "id": "SCMMR-005",
+      "domain": "profile",
+      "threat": "Unsupported or provisional VDS identifier",
+      "preconditions": "The receipt identifies an unknown VDS profile or relies on a numeric value that remains provisional in the current MMR Internet-Draft.",
+      "adversarial_mutation": "Fall back to an assumed hash algorithm or hard-code an unassigned identifier.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Dispatch only to explicitly supported, version-pinned VDS profiles; unknown profile means no verified inclusion result."
+    },
+    {
+      "id": "SCMMR-006",
+      "domain": "continuity",
+      "threat": "Inclusion receipt has no checkpoint continuity proof",
+      "preconditions": "The inclusion receipt is valid but cannot be tied to the verifier's previously trusted checkpoint under the selected profile.",
+      "adversarial_mutation": "Treat inclusion as proof that the service history is consistent with the verifier's prior state.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Retain the prior trusted VDS, tree size and accumulator; verify consistency before updating checkpoint state."
+    },
+    {
+      "id": "SCMMR-007",
+      "domain": "continuity",
+      "threat": "Empty inclusion path does not bind leaf index",
+      "preconditions": "The MMR inclusion path is empty and the application leaf commitment does not include the expected sequence / position.",
+      "adversarial_mutation": "Accept an unbound index supplied outside the authenticated commitment.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Bind sequence / position in the application leaf commitment whenever order or completeness relies on it."
+    },
+    {
+      "id": "SCMMR-008",
+      "domain": "continuity",
+      "threat": "Consistency proof ends at a different tree size or accumulator",
+      "preconditions": "The verifier's prior checkpoint is valid, but the proof does not terminate at the declared newer checkpoint or accumulator.",
+      "adversarial_mutation": "Persist the service's newly supplied checkpoint without proving the transition.",
+      "expected_disposition": "reject",
+      "required_control": "Verify the complete proof from the stored checkpoint to the exact declared newer state before persisting it."
+    },
+    {
+      "id": "SCMMR-009",
+      "domain": "continuity",
+      "threat": "Checkpoint rollback",
+      "preconditions": "A newly retrieved checkpoint has a smaller tree size or conflicts with the previously trusted checkpoint history.",
+      "adversarial_mutation": "Replace the local trusted checkpoint with the service's older state.",
+      "expected_disposition": "reject",
+      "required_control": "Never regress trusted checkpoint state; retain conflicting evidence and trigger security reconciliation."
+    },
+    {
+      "id": "SCMMR-010",
+      "domain": "continuity",
+      "threat": "Checkpoint fork or monitor disagreement",
+      "preconditions": "Two monitor paths for the same transparency service produce incompatible checkpoint histories or cannot establish consistency.",
+      "adversarial_mutation": "Select whichever checkpoint is newest or returned by the issuer's preferred endpoint.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "A checkpoint fork or unresolved monitor disagreement blocks dependent obligations pending independent reconciliation."
+    },
+    {
+      "id": "SCMMR-011",
+      "domain": "binding",
+      "threat": "Receipt replayed for a different subject or statement",
+      "preconditions": "A valid receipt is presented alongside a different obligation ID, subject, issuer, or payload digest.",
+      "adversarial_mutation": "Reuse a receipt because its signature and inclusion proof are otherwise valid.",
+      "expected_disposition": "reject",
+      "required_control": "Bind the verified receipt to the exact signed-statement digest, subject, service, and obligation context."
+    },
+    {
+      "id": "SCMMR-012",
+      "domain": "completeness",
+      "threat": "Selective omission of an expected statement",
+      "preconditions": "The issuer registers only favorable events while an independently sourced sequence or expected-event manifest includes omitted intervals.",
+      "adversarial_mutation": "Interpret absence of a receipt as proof that the event did not happen.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Reconcile against a source-independent expected set and retain missing, unexpected, and unavailable events as distinct outcomes."
+    },
+    {
+      "id": "SCMMR-013",
+      "domain": "independence",
+      "threat": "Multiple endpoints share one failure domain",
+      "preconditions": "Two transparency endpoints have different URLs or keys but the same legal operator, hosting administrator, or signing-key custodian.",
+      "adversarial_mutation": "Count endpoint or key count as independent transparency witnesses.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Qualify legal, operational, hosting, key-custody, software, and monitoring failure domains before treating services as independent."
+    },
+    {
+      "id": "SCMMR-014",
+      "domain": "issuer-key",
+      "threat": "Issuer key rotation or revocation is ambiguous at statement time",
+      "preconditions": "The issuer key was rotated, revoked, or reported compromised and the applicable validity interval cannot be established.",
+      "adversarial_mutation": "Trust current key metadata without evaluating the key state at statement / registration time.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Use pinned key history and time-scoped revocation evidence; unresolved key validity blocks admission."
+    },
+    {
+      "id": "SCMMR-015",
+      "domain": "truth-boundary",
+      "threat": "A false physical assertion is correctly signed and registered",
+      "preconditions": "A producer's statement is correctly signed and included in a verified transparency service, but independent metrology evidence contradicts it or is absent.",
+      "adversarial_mutation": "Promote transparency inclusion to VerifiedProduction or milestone acceptance.",
+      "expected_disposition": "reject",
+      "required_control": "Transparency proves registration under service rules, not physical truth; require separate meter and verifier evidence."
+    },
+    {
+      "id": "SCMMR-016",
+      "domain": "completeness",
+      "threat": "Source sequence has a gap despite valid receipts",
+      "preconditions": "Every presented receipt is valid, but source event sequence numbers or meter interval manifests contain an unexplained gap.",
+      "adversarial_mutation": "Treat individually valid receipts as proof that the obligation's evidence set is complete.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Reconcile receipt set against the independent source manifest and surface every missing interval / event."
+    }
+  ]
+}
