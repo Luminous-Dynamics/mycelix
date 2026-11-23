@@ -600,8 +600,7 @@ fn evidence_candidate(
     let cadence_adequate =
         evidence.sample_interval_seconds <= s.event.maximum_sample_interval_seconds;
     let coverage_adequate = evidence.coverage_fraction >= s.event.minimum_coverage_fraction;
-    let tracer_non_detection_qualified = evidence.evidence_class
-        != "direct_tracer_observation"
+    let tracer_non_detection_qualified = evidence.evidence_class != "direct_tracer_observation"
         || evidence.tracer_behavior == "conservative_qualified";
     let non_detection_bound_adequate = evidence
         .upper_rate_bound_value
@@ -632,9 +631,7 @@ fn evidence_candidate(
     if !non_detection_bound_adequate {
         reasons.push("detection_upper_bound_does_not_exclude_relevant_flux".into());
     }
-    if evidence.evidence_class == "direct_tracer_observation"
-        && !tracer_non_detection_qualified
-    {
+    if evidence.evidence_class == "direct_tracer_observation" && !tracer_non_detection_qualified {
         reasons.push("tracer_non_detection_cannot_exclude_hydraulic_activity".into());
     }
     if evidence
