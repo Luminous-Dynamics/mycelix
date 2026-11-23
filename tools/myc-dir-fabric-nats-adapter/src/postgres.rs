@@ -1140,7 +1140,7 @@ mod tests {
         let key = SigningKey::from_bytes(&[84; 32]);
         let issued_at = Utc.with_ymd_and_hms(2026, 11, 22, 10, 0, 0).unwrap();
         let not_before = Utc.with_ymd_and_hms(2026, 11, 22, 10, 0, 1).unwrap();
-        let expires_at = Utc.with_ymd_and_hms(2026, 11, 22, 11, 0, 0).unwrap();
+        let expires_at = Utc.with_ymd_and_hms(2026, 11, 22, 10, 10, 0).unwrap();
         let lease = AuthorityWriteLease {
             lease_id: uuid::Uuid::from_bytes([lease_id_byte; 16]),
             deployment_id: "deployment:test".into(),
