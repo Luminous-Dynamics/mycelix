@@ -371,7 +371,7 @@ BEGIN
             'primary_id', v_primary,
             'postgres_timeline', v_timeline,
             'owner_epoch', 2,
-            'sequence', 2,
+            'sequence', 3,
             'issued_at', v_now - interval '1 minute',
             'not_before', v_now - interval '30 seconds',
             'expires_at', v_now + interval '5 minutes',
