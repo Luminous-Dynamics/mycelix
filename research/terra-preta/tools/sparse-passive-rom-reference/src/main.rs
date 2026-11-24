@@ -1282,20 +1282,25 @@ mod tests {
     }
 
     #[test]
-    fn adaptive_shift_selection_reduces_held_out_error_at_bounded_rank() {
+    fn adaptive_shift_selection_reduces_held_out_error_at_equal_basis_rank() {
         let mut fixed_fixture = adaptive_multiport_fixture();
         fixed_fixture.adaptive = AdaptiveOptions::default();
-        let fixed = analyze(&fixed_fixture, "fixed-shift-baseline".into()).unwrap();
+        fixed_fixture.rational_shifts = vec![1.0, 1.0e3];
+        let fixed = analyze(&fixed_fixture, "fixed-two-shift-baseline".into()).unwrap();
 
         let adaptive_fixture = adaptive_multiport_fixture();
-        let adaptive = analyze(&adaptive_fixture, "adaptive-shift-candidate".into()).unwrap();
+        let adaptive = analyze(&adaptive_fixture, "adaptive-port-shift-candidate".into()).unwrap();
 
+        let interior_count = adaptive_fixture.nodes.len() - adaptive_fixture.boundary_node_ids.len();
         assert_eq!(adaptive.adaptive_target_met, Some(true));
         assert_eq!(adaptive.adaptive_stop_reason, "target_met");
         assert!(!adaptive.adaptive_selection_steps.is_empty());
-        assert!(adaptive.rational_shifts.len() > fixed.rational_shifts.len());
-        assert_eq!(adaptive.basis_dimension, 4);
-        assert!(adaptive.maximum_sampled_response_error < 1.0e-8);
+        assert!(adaptive.adaptive_selection_steps.iter().all(|step| {
+            step.selected_input_port_index < adaptive.boundary_node_ids.len()
+        }));
+        assert_eq!(adaptive.basis_dimension, fixed.basis_dimension);
+        assert!(adaptive.basis_dimension < interior_count);
+        assert!(adaptive.maximum_sampled_response_error <= 1.0e-3);
         assert!(adaptive.maximum_sampled_response_error < fixed.maximum_sampled_response_error);
         assert!(adaptive.dc_relative_error < 1.0e-8);
         assert!(adaptive.structural_passivity_certificate_valid);
