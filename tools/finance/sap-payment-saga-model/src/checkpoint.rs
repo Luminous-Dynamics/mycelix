@@ -6,7 +6,7 @@
 
 use sha2::{Digest, Sha256};
 
-use super::{PaymentIntent, PaymentJournal};
+use super::PaymentIntent;
 
 const CHECKPOINT_DOMAIN: &[u8] = b"MXSAP-JOURNAL-CHECKPOINT-V1\0";
 const INTENT_DOMAIN: &[u8] = b"MXSAP-PAYMENT-INTENT-V1\0";
@@ -93,7 +93,7 @@ impl JournalCheckpointSubject {
         for value in [&self.operation_id, &self.owner_did, &self.event_log_id] {
             if value.trim().is_empty()
                 || value.contains('\0')
-                || value.as_bytes().len() > MAX_CHECKPOINT_TEXT_BYTES
+                || value.len() > MAX_CHECKPOINT_TEXT_BYTES
             {
                 return Err(CheckpointError::InvalidSubject);
             }
@@ -188,6 +188,7 @@ fn format_digest(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::PaymentJournal;
     use std::collections::HashMap;
 
     fn test_intent() -> PaymentIntent {
@@ -265,7 +266,7 @@ mod tests {
 
     fn benchmark_action_hash(index: u32) -> Vec<u8> {
         let mut hash = ACTION_HASH_PREFIX.to_vec();
-        hash.extend(std::iter::repeat((index & 0xff) as u8).take(32));
+        hash.extend(std::iter::repeat_n((index & 0xff) as u8, 32));
         hash.extend(index.to_be_bytes());
         hash
     }
