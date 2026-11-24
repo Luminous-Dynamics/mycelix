@@ -133,6 +133,12 @@ struct CgStats {
     relative_residual: f64,
 }
 
+struct SparseResponseSolution {
+    response: Dense,
+    state_solutions: Vec<Vec<f64>>,
+    stats: Vec<CgStats>,
+}
+
 struct Projection {
     a_r: Dense,
     b_r: Dense,
@@ -674,7 +680,7 @@ fn response_and_state_solutions_from_sparse(
     shift: f64,
     tolerance: f64,
     max_iterations: usize,
-) -> Result<(Dense, Vec<Vec<f64>>, Vec<CgStats>), String> {
+) -> Result<SparseResponseSolution, String> {
     let nb = model.boundary_ids.len();
     let mut solution_columns = Vec::with_capacity(nb);
     let mut stats = Vec::with_capacity(nb);
@@ -698,7 +704,11 @@ fn response_and_state_solutions_from_sparse(
             *response_value -= correction;
         }
     }
-    Ok((response, solution_columns, stats))
+    Ok(SparseResponseSolution {
+        response,
+        state_solutions: solution_columns,
+        stats,
+    })
 }
 
 fn response_from_sparse(
@@ -707,13 +717,13 @@ fn response_from_sparse(
     tolerance: f64,
     max_iterations: usize,
 ) -> Result<(Dense, Vec<CgStats>), String> {
-    let (response, _state_solutions, stats) = response_and_state_solutions_from_sparse(
+    let solved = response_and_state_solutions_from_sparse(
         model,
         shift,
         tolerance,
         max_iterations,
     )?;
-    Ok((response, stats))
+    Ok((solved.response, solved.stats))
 }
 
 fn assemble_projection_from_basis(
@@ -973,15 +983,14 @@ fn build_adaptive_projection(
     let mut candidate_responses = Vec::with_capacity(candidates.len());
     let mut stats = Vec::new();
     for shift in candidates {
-        let (response, state_solutions, solve_stats) =
-            response_and_state_solutions_from_sparse(
-                model,
-                shift,
-                fixture.cg_relative_tolerance,
-                fixture.cg_max_iterations,
-            )?;
-        stats.extend(solve_stats);
-        candidate_responses.push((shift, response, state_solutions));
+        let solved = response_and_state_solutions_from_sparse(
+            model,
+            shift,
+            fixture.cg_relative_tolerance,
+            fixture.cg_max_iterations,
+        )?;
+        stats.extend(solved.stats);
+        candidate_responses.push((shift, solved.response, solved.state_solutions));
     }
 
     // The exact DC Schur operator is independent of the growing Krylov
