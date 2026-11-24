@@ -1,0 +1,31 @@
+name: PQCrypto Dilithium Portable Feature Guard
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-zkp-core/Cargo.toml'
+      - 'mycelix-identity/crates/mycelix-crypto/Cargo.toml'
+      - 'mycelix-core/libs/rb-bft-consensus/Cargo.toml'
+      - 'scripts/verify-pqcrypto-portable.sh'
+      - '.github/workflows/pqc-portable-feature-guard.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mycelix-zkp-core/Cargo.toml'
+      - 'mycelix-identity/crates/mycelix-crypto/Cargo.toml'
+      - 'mycelix-core/libs/rb-bft-consensus/Cargo.toml'
+      - 'scripts/verify-pqcrypto-portable.sh'
+      - '.github/workflows/pqc-portable-feature-guard.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  feature-guard:
+    name: No vulnerable Dilithium AVX2 feature
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Inspect all PQ consumer feature graphs
+        run: sh scripts/verify-pqcrypto-portable.sh
