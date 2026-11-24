@@ -1417,7 +1417,7 @@ mod effect_vector_tests {
             DigestV1([1; 32]),
             "receipt:payer:1",
         );
-        let first = classify_effect_vector(&payer_only, &[payer.clone()]).unwrap();
+        let first = classify_effect_vector(&payer_only, std::slice::from_ref(&payer)).unwrap();
         let beneficiary_not_observed = empty_batch(
             &both_legs,
             EffectRoleV1::BeneficiaryClaim,
