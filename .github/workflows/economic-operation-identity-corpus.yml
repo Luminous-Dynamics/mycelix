@@ -14,6 +14,10 @@ on:
       - "mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.schema.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.schema.json"
+      - "mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.json"
+      - "mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
       - "mycelix-finance/Cargo.toml"
@@ -38,6 +42,10 @@ on:
       - "mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.schema.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.schema.json"
+      - "mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.json"
+      - "mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
       - "mycelix-finance/Cargo.toml"
@@ -148,6 +156,8 @@ jobs:
           cmp mycelix-finance/Cargo.lock mycelix-workspace/mycelix-finance/Cargo.lock
           cmp mycelix-finance/crates/finance-economic-operation/Cargo.toml mycelix-workspace/mycelix-finance/crates/finance-economic-operation/Cargo.toml
           cmp mycelix-finance/crates/finance-economic-operation/src/lib.rs mycelix-workspace/mycelix-finance/crates/finance-economic-operation/src/lib.rs
+          cmp mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.json
+          cmp mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json
           cmp docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md mycelix-workspace/docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md
           cmp docs/finance/FIN_EFFECT_004_PROFILE_BOUND_EFFECT_VECTOR_V0_1.md mycelix-workspace/docs/finance/FIN_EFFECT_004_PROFILE_BOUND_EFFECT_VECTOR_V0_1.md
           cmp mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json
@@ -204,6 +214,33 @@ jobs:
           cmp "$corpus" "mycelix-workspace/$corpus"
           cmp "$schema" "mycelix-workspace/$schema"
           echo "16 effect-vector adversarial cases validated; targets are not execution evidence."
+
+      - name: Validate Economic OS role registry and claim templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          catalogue="mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.json"
+          schema="mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json"
+          jq empty "$catalogue"
+          jq empty "$schema"
+          jq -e '
+            .issue == 6612 and
+            .status == "research_templates_not_policy_or_authority" and
+            .composition.no_replacement_identity_algorithm == true and
+            .composition.legacy_role_strings_preserved == true and
+            (.role_registry | unique | length == length) and
+            (.templates | length == 9) and
+            (.templates | map(.id) | unique | length == length) and
+            (.role_registry) as $roles |
+            all(.templates[];
+              .required_role_count == (.required_roles | length) and
+              ((.required_roles | sort) == ([.owner_slots[][0]] | sort)) and
+              ((.required_roles - $roles) | length == 0)
+            )
+          ' "$catalogue" >/dev/null
+          cmp "$catalogue" "mycelix-workspace/$catalogue"
+          cmp "$schema" "mycelix-workspace/$schema"
+          echo "Validated nine Economic OS claim templates and role bindings; templates are not policy authority."
 
       - name: Install pinned Rust toolchain
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
