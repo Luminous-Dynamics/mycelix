@@ -539,11 +539,16 @@ impl CompositeClaimProfileV1 {
             if !seen.insert(effect_id) {
                 return Err(KernelErrorV1::DuplicateRequiredEffect);
             }
-            required.push((effect_id, requirement.role, requirement.effect_owner.as_str()));
+            required.push((
+                effect_id,
+                requirement.role,
+                requirement.effect_owner.as_str(),
+            ));
         }
         required.sort_by_key(|(effect_id, _, _)| *effect_id);
 
-        let count = u32::try_from(required.len()).map_err(|_| KernelErrorV1::TooManyRequiredEffects)?;
+        let count =
+            u32::try_from(required.len()).map_err(|_| KernelErrorV1::TooManyRequiredEffects)?;
         let mut hasher = blake3::Hasher::new();
         hasher.update(CLAIM_PROFILE_DIGEST_DOMAIN);
         hasher.update(&CLAIM_PROFILE_DIGEST_SCHEMA_V1.to_be_bytes());
