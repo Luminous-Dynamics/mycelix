@@ -102,7 +102,11 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
     {
         return Err("fixture identity, schema version or synthetic-only status is invalid".into());
     }
-    if fixture.conductances.iter().any(|value| !value.is_finite() || *value <= 0.0) {
+    if fixture
+        .conductances
+        .iter()
+        .any(|value| !value.is_finite() || *value <= 0.0)
+    {
         return Err("all four throat conductances must be finite and positive".into());
     }
     if !fixture.baseline_bulk_noise_std.is_finite() || fixture.baseline_bulk_noise_std <= 0.0 {
@@ -120,7 +124,10 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
             || candidate.noise_std <= 0.0
             || candidate.cost == 0
         {
-            return Err("candidate IDs must be unique and each candidate needs positive cost and noise".into());
+            return Err(
+                "candidate IDs must be unique and each candidate needs positive cost and noise"
+                    .into(),
+            );
         }
     }
     Ok(())
@@ -142,7 +149,6 @@ fn predict(kind: ObservationKind, g: &[f64; 4]) -> f64 {
 }
 
 fn log_conductance_sensitivity(kind: ObservationKind, conductances: &[f64; 4]) -> [f64; 4] {
-    let baseline = predict(kind, conductances);
     let mut derivative = [0.0; 4];
     for parameter in 0..4 {
         let mut plus = *conductances;
@@ -152,7 +158,6 @@ fn log_conductance_sensitivity(kind: ObservationKind, conductances: &[f64; 4]) -
         derivative[parameter] =
             (predict(kind, &plus) - predict(kind, &minus)) / (2.0 * LOG_PARAMETER_STEP);
     }
-    let _ = baseline;
     derivative
 }
 
@@ -221,9 +226,7 @@ fn regularized_log_determinant(mut matrix: [[f64; 4]; 4]) -> Result<f64, String>
     let mut lower = [[0.0; 4]; 4];
     for row in 0..4 {
         for column in 0..=row {
-            let correction: f64 = (0..column)
-                .map(|k| lower[row][k] * lower[column][k])
-                .sum();
+            let correction: f64 = (0..column).map(|k| lower[row][k] * lower[column][k]).sum();
             if row == column {
                 let diagonal = matrix[row][row] - correction;
                 if !diagonal.is_finite() || diagonal <= 0.0 {
@@ -261,10 +264,8 @@ fn make_summary(
 
 fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     validate(fixture)?;
-    let bulk_row = log_conductance_sensitivity(
-        ObservationKind::BulkConductance,
-        &fixture.conductances,
-    );
+    let bulk_row =
+        log_conductance_sensitivity(ObservationKind::BulkConductance, &fixture.conductances);
     let baseline_rows = vec![bulk_row];
     let baseline_noise = vec![fixture.baseline_bulk_noise_std];
     let baseline = make_summary(
@@ -317,13 +318,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         if cost > fixture.acquisition_budget {
             continue;
         }
-        let summary = make_summary(
-            ids,
-            cost,
-            fixture.acquisition_budget,
-            &rows,
-            &noise,
-        )?;
+        let summary = make_summary(ids, cost, fixture.acquisition_budget, &rows, &noise)?;
         let replace = match &best {
             None => true,
             Some(current) => {
@@ -383,7 +378,8 @@ fn run() -> Result<(), String> {
     }
     let input_path = &arguments[1];
     let output_path = &arguments[2];
-    let input_bytes = fs::read(input_path).map_err(|error| format!("cannot read input: {error}"))?;
+    let input_bytes =
+        fs::read(input_path).map_err(|error| format!("cannot read input: {error}"))?;
     let input_sha256 = format!("{:x}", Sha256::digest(&input_bytes));
     let fixture: Fixture = serde_json::from_slice(&input_bytes)
         .map_err(|error| format!("invalid fixture JSON: {error}"))?;
@@ -488,10 +484,7 @@ mod tests {
     #[test]
     fn repeated_bulk_observation_does_not_increase_structural_rank() {
         let f = fixture();
-        let row = log_conductance_sensitivity(
-            ObservationKind::BulkConductance,
-            &f.conductances,
-        );
+        let row = log_conductance_sensitivity(ObservationKind::BulkConductance, &f.conductances);
         assert_eq!(rank_rows(&[row]), 1);
         assert_eq!(rank_rows(&[row, row]), 1);
     }
