@@ -192,7 +192,8 @@ jobs:
           cmp mycelix-finance/crates/finance-economic-operation/src/lib.rs mycelix-workspace/mycelix-finance/crates/finance-economic-operation/src/lib.rs
           cmp docs/economic/economic-os-effect-role-vocabulary-v0.1.md mycelix-workspace/docs/economic/economic-os-effect-role-vocabulary-v0.1.md
           cmp mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.json
-          cmp mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json          cmp mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.2.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.2.json
+          cmp mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json
+          cmp mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.2.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.2.json
           cmp mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.2.schema.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.2.schema.json
           cmp mycelix-finance/benchmarks/finance/sap-execution-profile-adversarial-corpus.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/finance/sap-execution-profile-adversarial-corpus.v0.1.json
           cmp mycelix-finance/benchmarks/finance/sap-execution-profile-adversarial-corpus.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/finance/sap-execution-profile-adversarial-corpus.v0.1.schema.json
