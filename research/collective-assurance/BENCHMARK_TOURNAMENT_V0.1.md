@@ -37,6 +37,7 @@ The full lifecycle is the proposed differentiator. It composes existing benchmar
 For evidence lineage, align the conceptual model with the [W3C PROV Data Model](https://www.w3.org/TR/prov-dm/) and [PROV-O](https://www.w3.org/TR/prov-o/): represent information and evidence as entities, inquiry/disclosure/verification/revision as activities, and people or software as responsible agents. The current Rust ledger is a domain-specific event validator inspired by those distinctions; it is not a complete PROV serialization or conformance implementation.
 
 The ledger adds study-specific invariants that generic provenance graphs do not enforce by themselves: permission-scoped disclosure, actual delivery versus request creation, recipient exposure, independent verification, viewed-evidence constraints on claim authors, and current-revision requirements for decisions.
+The independent response auditor then checks that material claims in the rendered answer are anchored to those evidence origins, preserve conflict and uncertainty, and do not silently omit or misapply source constraints. It requires a separate coverage attestation and does not treat the generative model as its own independent judge.
 
 ### Interpretation discipline
 
@@ -216,6 +217,7 @@ These are **proposed research targets**, not achieved results or guaranteed SOTA
 | Common ground / joint action | Common Ground puzzle benchmark | Match benchmark task and compare joint success, repair latency, coordination errors and situation-awareness calibration; no claims about post-AI capability from this track |
 | Evidence lineage / source independence | COLLABMEM provenance/conflict checks, GroupAssistBench source anchors, W3C PROV concepts | 100% material claim-to-origin traceability in qualified fixtures; zero repeated-origin inflation; zero stale claim revisions accepted; zero unauthorized visibility; independently authenticate source-origin references before making production claims |
 | Response constraint binding | GroupAssistBench L2 and Assistance Constraint Binding; COLLABMEM provenance/conflict checks | Zero silent omission of required visible evidence; zero use of superseded/expired or unverified facts as current; zero scope/status metadata substitution; 100% explicit handling of condition, dispute, exclusion or unresolved status in synthetic conformance |
+| Independent response audit | GroupAssistBench L2; independent human/held-out evaluator | 100% exact span-to-text digest binding; zero unsupported material claims accepted; zero contradictory claims collapsed; 100% coverage attestation on deterministic fixtures; inter-rater agreement and false-positive/false-negative rates reported before human-study use |
 | Human agency / support choice | HumanAgencyBench six behavioral dimensions; new support-choice validator | Zero unconfirmed changes to explicit user-requested modes; 100% request/decision binding; zero required-accommodation withdrawal in contract tests; report the six HumanAgencyBench dimensions separately rather than collapsing them into capability |
 | Human capability dividend | No Luminous human result yet | Confirmatory target is a positive delayed AI-off transfer effect versus matched controls while agency meets a preregistered non-inferiority margin and burden does not materially worsen; set numeric effect and sample size only after pilot variance and ICC estimates |
 
@@ -289,6 +291,7 @@ The research protocol now has three reference implementations in the Mycelix PR:
 - `allocation.rs`: OS-entropy seed/salt, domain-separated commitment, canonical roster/design digests, pinned ChaCha20 schedule and post-study reveal verification.
 - `support_policy.rs`: respects explicit requested assistance mode, requires confirmation for mode changes, restricts unsolicited challenge-style support to learning/practice intent, and preserves required accommodations.
 - `constraint_binding.rs`: requires visible evidence constraints to be applied, excluded, conditionally applied, conflict-preserved or left unresolved according to verified status, scope and applicability; silent omission and metadata substitution fail.
+- `response_audit.rs`: an independent auditor binds rendered response spans to claim dispositions and verified source origins, including complete-coverage attestations; this is a contract, not an automated semantic judge.
 
 The implementations are synthetic/reference validators. Their claims are bounded by the trustworthiness of the event recorder, source-origin registry, user's captured preferences, and production allocation operator. A different source-origin string is not proof that two sources are truly independent until those origin references are independently authenticated.
 
