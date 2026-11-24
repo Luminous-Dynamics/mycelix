@@ -34,11 +34,6 @@ jobs:
           path: research/terra-preta/tools/passive-modal-reduction-reference/src/main.rs
           if-no-files-found: error
           retention-days: 1
-      - name: Emit normalized source for exact-head repair
-        run: |
-          echo "BEGIN_FORMATTED_SOURCE"
-          cat research/terra-preta/tools/passive-modal-reduction-reference/src/main.rs
-          echo "END_FORMATTED_SOURCE"
       - name: Verify normalized formatting
         run: cargo fmt --manifest-path research/terra-preta/tools/passive-modal-reduction-reference/Cargo.toml -- --check
       - name: Tests
