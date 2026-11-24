@@ -1164,19 +1164,17 @@ mod tests {
         assert!(journal.local_payment_committed());
         assert!(matches!(
             journal.effect_state(PaymentLeg::LocalPaymentTransaction),
-            EffectState::Committed {
-                evidence: EffectEvidence {
-                    kind: EffectEvidenceKind::LocalPaymentTransaction { .. },
-                    ..
-                },
-                ..
-            }
+            EffectState::Committed { evidence, .. }
+                if matches!(
+                    &evidence.kind,
+                    EffectEvidenceKind::LocalPaymentTransaction { .. }
+                )
         ));
         assert_eq!(
             journal.effect_state(PaymentLeg::TreasuryFee),
             &EffectState::Committed {
                 effect_id: journal.effect_id(PaymentLeg::TreasuryFee),
-                evidence: treasury_fee_evidence(&journal, "treasury", 2)
+                evidence: Box::new(treasury_fee_evidence(&journal, "treasury", 2))
             }
         );
         assert!(journal.is_completed());
