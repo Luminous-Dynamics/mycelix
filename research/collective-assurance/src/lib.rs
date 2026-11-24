@@ -792,7 +792,11 @@ mod tests {
         let mut c = claims();
         c.probes.pop();
         let report = qualify_ai_off(
-            &c, b"test-only", &expected(), &TestVerifier, &mut TestReplay::default()
+            &c,
+            b"test-only",
+            &expected(),
+            &TestVerifier,
+            &mut TestReplay::default(),
         );
         assert_eq!(report.status, QualificationStatus::Indeterminate);
     }
@@ -802,7 +806,11 @@ mod tests {
         let mut c = claims();
         c.observed_external_connections = Some(1);
         let report = qualify_ai_off(
-            &c, b"test-only", &expected(), &TestVerifier, &mut TestReplay::default()
+            &c,
+            b"test-only",
+            &expected(),
+            &TestVerifier,
+            &mut TestReplay::default(),
         );
         assert_eq!(report.status, QualificationStatus::Fail);
     }
@@ -812,7 +820,11 @@ mod tests {
         let mut c = claims();
         c.processes.push(ProcessClass::CandidateAgent);
         let report = qualify_ai_off(
-            &c, b"test-only", &expected(), &TestVerifier, &mut TestReplay::default()
+            &c,
+            b"test-only",
+            &expected(),
+            &TestVerifier,
+            &mut TestReplay::default(),
         );
         assert_eq!(report.status, QualificationStatus::Fail);
     }
@@ -822,7 +834,11 @@ mod tests {
         let mut c = claims();
         c.processes.clear();
         let report = qualify_ai_off(
-            &c, b"test-only", &expected(), &TestVerifier, &mut TestReplay::default()
+            &c,
+            b"test-only",
+            &expected(),
+            &TestVerifier,
+            &mut TestReplay::default(),
         );
         assert_eq!(report.status, QualificationStatus::Indeterminate);
     }
@@ -841,7 +857,9 @@ mod tests {
                     candidate_reachable: true,
                 }),
                 2 => c.probes[0].outcome = ProbeOutcome::Allowed,
-                3 => { c.probes.pop(); },
+                3 => {
+                    c.probes.pop();
+                }
                 4 => c.observed_external_connections = Some(1),
                 5 => c.process_inventory = InventoryStatus::Unknown,
                 6 => c.artifact_inventory = InventoryStatus::Incomplete,
@@ -851,12 +869,16 @@ mod tests {
                 10 => {
                     let probe = c.probes[0].clone();
                     c.probes.push(probe);
-                },
+                }
                 11 => e.phase_id.clear(),
                 _ => unreachable!(),
             }
             let report = qualify_ai_off(
-                &c, &signature, &e, &TestVerifier, &mut TestReplay::default()
+                &c,
+                &signature,
+                &e,
+                &TestVerifier,
+                &mut TestReplay::default(),
             );
             assert_ne!(
                 report.status,
@@ -871,10 +893,12 @@ mod tests {
     fn multi_stratum_allocation_is_balanced_independently() {
         let roster: Vec<_> = ["north", "south"]
             .into_iter()
-            .flat_map(|stratum| (0..8).map(move |n| RandomizationUnit {
-                unit_id: format!("{stratum}-{n}"),
-                stratum: stratum.into(),
-            }))
+            .flat_map(|stratum| {
+                (0..8).map(move |n| RandomizationUnit {
+                    unit_id: format!("{stratum}-{n}"),
+                    stratum: stratum.into(),
+                })
+            })
             .collect();
         let arms = vec![
             "ai-first".into(),
@@ -886,5 +910,4 @@ mod tests {
             allocate_complete_blocks(&roster, &arms, &mut TestRng::default()).unwrap();
         validate_assignments(&roster, &arms, &assignments).unwrap();
     }
-
 }
