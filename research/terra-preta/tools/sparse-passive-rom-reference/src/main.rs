@@ -1189,6 +1189,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         None
     };
     let mut block_arnoldi_baseline_error = 0.0_f64;
+    let mut exact_dc_from_audit: Option<Dense> = None;
     let mut frequency_samples = Vec::with_capacity(fixture.laplace_samples.len());
     for shift in &fixture.laplace_samples {
         let (full, full_stats) = response_from_sparse(
@@ -1198,6 +1199,9 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             fixture.cg_max_iterations,
         )?;
         stats.extend(full_stats.iter().copied());
+        if *shift == 0.0 {
+            exact_dc_from_audit = Some(full.clone());
+        }
         let reduced = response_from_reduced(&projection, *shift)?;
         if let Some((block_projection, _)) = block_arnoldi_baseline.as_ref() {
             let block_reduced = response_from_reduced(block_projection, *shift)?;
@@ -1212,13 +1216,18 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
                 .map(|item| item.relative_residual).fold(0.0_f64, f64::max),
         });
     }
-    let (exact_dc, exact_dc_stats) = response_from_sparse(
-        &model,
-        0.0,
-        fixture.cg_relative_tolerance,
-        fixture.cg_max_iterations,
-    )?;
-    stats.extend(exact_dc_stats);
+    let exact_dc = if let Some(response) = exact_dc_from_audit {
+        response
+    } else {
+        let (response, exact_dc_stats) = response_from_sparse(
+            &model,
+            0.0,
+            fixture.cg_relative_tolerance,
+            fixture.cg_max_iterations,
+        )?;
+        stats.extend(exact_dc_stats);
+        response
+    };
     let reduced_dc = response_from_reduced(&projection, 0.0)?;
     let feedthrough_limit_relative_error = relative_error(&projection.d_r, &model.d);
     let maximum_sampled_response_error = frequency_samples
@@ -1523,10 +1532,10 @@ mod tests {
         assert!(adaptive.dc_relative_error < 1.0e-8);
         assert!(adaptive.structural_passivity_certificate_valid);
         // Candidate full-order columns (27), seed snapshots (3), one DC
-        // operator (3), audit-grid columns (27), and final DC audit (3).
-        // Selected adaptive snapshots are reused from the cached candidate solves.
-        assert_eq!(adaptive.cg_solve_count, 63);
-        assert!(adaptive.total_cg_iterations < 661);
+        // operator (3), and audit-grid columns (27). The audit's zero-shift
+        // response is also the exact DC reference, so no duplicate solve occurs.
+        assert_eq!(adaptive.cg_solve_count, 60);
+        assert!(adaptive.total_cg_iterations < 469);
     }
 
     #[test]
