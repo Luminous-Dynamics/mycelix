@@ -5,7 +5,7 @@ A Rust qualification core for two important gaps in human–AI collaboration res
 1. **AI-off independence:** qualify a challenge phase using signed, nonce-bound isolation claims, complete process/artifact inventories, negative-control probes and explicit unknown states.
 2. **Team-level randomization:** assign whole teams to preregistered treatment arms in balanced complete blocks, then independently validate the assignment schedule.
 
-This is an assurance contract and deterministic reference implementation. It is not a sandbox, hypervisor, host-measurement agent, cryptographic library, OS-backed CSPRNG, durable replay database, study platform, or human-subject result.
+This is an assurance contract and deterministic reference implementation. It is not a sandbox, hypervisor, host-measurement agent, secure recorder, durable replay database, study platform, or human-subject result. The allocation layer uses pinned SHA-256, OS entropy and ChaCha20 crates; this does not by itself solve allocation concealment or authenticate the published commitment.
 
 ## Why this matters
 
@@ -23,11 +23,38 @@ The signature covers a crate-local length-prefixed encoding, not a public canoni
 
 AI-off means the candidate execution path cannot use AI services, agent processes, or retained AI answer artifacts during the challenge. It cannot erase what human participants remember from earlier collaboration; that retained human knowledge is part of the intervention, not a machine cache leak.
 
+## Evidence lineage ledger
+
+The `ledger` module records the sequence from information assignment to a decision:
+
+1. **Assignment:** identify the pseudonymous holder, disclosure permission and scoped recipient list.
+2. **Inquiry:** record request creation and actual delivery as separate events.
+3. **Disclosure:** distinguish granted information from rights-based withholding and non-response.
+4. **Verification:** bind an independent verifier to the disclosed payload digest.
+5. **Exposure:** record which authorized recipient actually viewed the evidence.
+6. **Claim revision:** reference only verified evidence viewed by the claim author; represent supported, disputed and unknown claims separately.
+7. **Decision:** reference explicit claim revisions; a decisive outcome cannot cite disputed or unknown premises, and stale claim revisions are rejected.
+
+The ledger uses a domain-separated SHA-256 hash chain. This detects mutation relative to a retained root digest, but it is not a signature and does not establish that an event was true. Production must independently authenticate the recorder and root publication, protect the event store, and reconcile missing or contradictory transport evidence. Its event vocabulary is designed to map to W3C PROV-DM / PROV-O Entity, Activity and Agent concepts without claiming complete PROV conformance.
+
+Rights-based withholding is an explicit valid outcome—not a missing-data failure, disclosure success, or reason to infer that the fact does not exist. The ledger stores pseudonymous references and payload digests, not sensitive payloads.
+
+## Reproducible allocation commitment and reveal
+
+The allocation module adds:
+- OS-generated 256-bit seed and independent 256-bit salt through `getrandom`; entropy failure is returned, never replaced by a weak fallback.
+- A domain-separated SHA-256 commitment binding the run ID, algorithm version, canonical team roster digest, ordered treatment arms and secret seed/salt.
+- ChaCha20-based deterministic complete-block randomization after seed reveal.
+- Canonical team sorting before shuffling, so equivalent frozen rosters supplied in different input orders produce the same schedule.
+- Fail-closed verification of the revealed seed/salt against the original commitment and current frozen roster/design.
+
+Publish the commitment through an independently timestamped channel before enrollment; keep seed and salt secret until the preregistered enrollment and analysis freeze; then reveal both and independently regenerate the schedule. A hash string stored only by the same operator who controls enrollment is not allocation concealment. CONSORT guidance distinguishes concealment of forthcoming assignments from blinding; the study must also separate recruitment/enrollment from access to the upcoming sequence.
+
 ## Team allocation
 
 The allocator randomizes teams, not messages or turns. It uses predeclared strata, rejects incomplete blocks, assigns every arm once per block, uses Fisher–Yates with rejection sampling, and validates supplied schedules against the frozen roster.
 
-Production callers must supply an OS-backed cryptographically secure random source. Before assignment concealment ends, the study operator should publish a commitment to the random seed and frozen design/roster digests. Keep the seed secret until enrollment and analysis are frozen, then reveal it for audit. A manifest alone does not provide allocation concealment.
+The commitment/reveal module supplies OS entropy, domain-separated SHA-256 binding and a pinned ChaCha20 stream. Publish the commitment before enrollment; reveal seed and salt only after the preregistered freeze. This provides reproducibility and tamper-evident schedule checking, not independent timestamping, blinding or allocation concealment by itself. A separate operator/allocator boundary is still required.
 
 ## Research comparators
 
@@ -59,7 +86,7 @@ See [BENCHMARK_TOURNAMENT_V0.1.md](BENCHMARK_TOURNAMENT_V0.1.md) for the matched
 
 From this directory: cargo fmt -- --check; cargo clippy --all-targets -- -D warnings; cargo test.
 
-The standalone workflow at .github/workflows/collective-assurance.yml runs these checks with pinned Rust 1.96.
+The standalone workflow at .github/workflows/collective-assurance.yml runs these checks with pinned Rust 1.96. External dependencies are pinned in Cargo.toml; commit Cargo.lock for exact transitive dependency reproduction.
 
 ## Ownership and study gates
 
