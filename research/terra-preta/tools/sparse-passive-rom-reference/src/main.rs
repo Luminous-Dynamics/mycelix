@@ -263,6 +263,40 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
     {
         return Err("all shifts and Laplace samples must be finite and nonnegative".into());
     }
+    let adaptive_requested = !fixture.adaptive.candidate_shifts.is_empty()
+        || fixture.adaptive.target_max_relative_error.is_some()
+        || fixture.adaptive.maximum_basis_dimension.is_some();
+    if adaptive_requested {
+        let target = fixture
+            .adaptive
+            .target_max_relative_error
+            .ok_or_else(|| "adaptive mode requires a target maximum relative error".to_string())?;
+        let maximum_dimension = fixture
+            .adaptive
+            .maximum_basis_dimension
+            .ok_or_else(|| "adaptive mode requires a maximum basis dimension".to_string())?;
+        let interior_count = fixture.nodes.len() - boundary_ids.len();
+        if fixture.adaptive.candidate_shifts.is_empty() {
+            return Err("adaptive mode requires a non-empty candidate shift grid".into());
+        }
+        if !target.is_finite() || target <= 0.0 || target >= 1.0 {
+            return Err("adaptive target error must lie strictly between zero and one".into());
+        }
+        if maximum_dimension == 0 || maximum_dimension > interior_count {
+            return Err("adaptive maximum basis dimension must be within the interior state dimension".into());
+        }
+        for (index, shift) in fixture.adaptive.candidate_shifts.iter().enumerate() {
+            if !shift.is_finite() || *shift < 0.0 {
+                return Err("adaptive candidate shifts must be finite and nonnegative".into());
+            }
+            if fixture.rational_shifts.contains(shift)
+                || fixture.laplace_samples.contains(shift)
+                || fixture.adaptive.candidate_shifts[..index].contains(shift)
+            {
+                return Err("adaptive candidate shifts must be unique and disjoint from seed and audit shifts".into());
+            }
+        }
+    }
     Ok(())
 }
 
@@ -770,6 +804,7 @@ fn chain_fixture(interior_count: usize) -> Fixture {
         boundary_node_ids: vec!["left".into(), "right".into()],
         rational_shifts: vec![0.0, 0.1, 1.0, 10.0],
         laplace_samples: vec![0.0, 0.1, 1.0, 10.0, 100.0],
+        adaptive: AdaptiveOptions::default(),
         cg_relative_tolerance: 1.0e-10,
         cg_max_iterations: interior_count.saturating_mul(8).max(128),
     }
@@ -916,6 +951,7 @@ mod tests {
             boundary_node_ids: vec!["left".into(), "right".into(), "top".into()],
             rational_shifts: vec![0.0, 1.0e-4, 1.0e-2, 1.0, 1.0e2, 1.0e4],
             laplace_samples: vec![0.0, 1.0e-4, 1.0e-2, 1.0, 1.0e2, 1.0e4],
+            adaptive: AdaptiveOptions::default(),
             cg_relative_tolerance: 1.0e-11,
             cg_max_iterations: 1024,
         }
@@ -940,6 +976,7 @@ mod tests {
             boundary_node_ids: vec!["left".into(), "right".into()],
             rational_shifts: vec![0.0, 0.1, 1.0, 10.0],
             laplace_samples: vec![0.0, 0.1, 1.0, 10.0, 100.0],
+            adaptive: AdaptiveOptions::default(),
             cg_relative_tolerance: 1.0e-11,
             cg_max_iterations: 512,
         }
@@ -971,6 +1008,7 @@ mod tests {
             boundary_node_ids: vec!["left".into(), "right".into()],
             rational_shifts: vec![0.0, 0.01, 0.1, 1.0, 10.0, 100.0],
             laplace_samples: vec![0.0, 0.01, 0.1, 1.0, 10.0, 100.0],
+            adaptive: AdaptiveOptions::default(),
             cg_relative_tolerance: 1.0e-11,
             cg_max_iterations: 512,
         }
