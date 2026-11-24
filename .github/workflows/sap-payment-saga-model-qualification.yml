@@ -54,13 +54,13 @@ jobs:
           jq empty "$contract"
           jq empty "$schema"
           jq -e '
+            .known_answer_vectors as $vectors |
             .issue == 6045 and
             .root_seed_hex == "4d594843414d5031" and
             .generator.name == "CounterMix64V1" and
             .presubmit_trace_count == 10000 and
             .full_campaign_trace_count == 1000000 and
-            (.known_answer_vectors | length >= 8) and
-            (.known_answer_vectors) as $vectors |
+            ($vectors | length >= 8) and
             (($vectors | map(.sequence) | unique | length) == ($vectors | length)) and
             (.explicit_coverage | length >= 8)
           ' "$contract" >/dev/null
