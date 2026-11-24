@@ -23,6 +23,16 @@ The signature covers a crate-local length-prefixed encoding, not a public canoni
 
 AI-off means the candidate execution path cannot use AI services, agent processes, or retained AI answer artifacts during the challenge. It cannot erase what human participants remember from earlier collaboration; that retained human knowledge is part of the intervention, not a machine cache leak.
 
+## Response constraint binding
+
+The `constraint_binding` module is a structured reference for GroupAssistBench-style memory use:
+- Each available item binds evidence ID, source digest, subject, scope, authorized responder, verification state, temporal/status state and applicability.
+- Every required visible item must be explicitly applied, excluded with a rationale, applied with a condition, preserved as a conflict, or marked unresolved.
+- Superseded/expired facts cannot be applied as current; disputed facts cannot be silently collapsed; unverified or unknown facts remain unresolved.
+- A response cannot silently omit a required item, change its scope/status/digest, or use evidence outside the responder's authorized view.
+
+This is not a natural-language output judge. The validator qualifies the structured evidence-use record only; production evaluation needs a separate independent audit of the actual response against source spans and user-request rubrics.
+
 ## User-directed assistance policy
 
 The `support_policy` module validates an assistant's declared support choice against the user's explicit request and intent:
