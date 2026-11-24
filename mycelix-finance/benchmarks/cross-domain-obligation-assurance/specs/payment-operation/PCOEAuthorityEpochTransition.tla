@@ -35,9 +35,6 @@ ASSUME AllowUnsafeOldPostBarrier \in BOOLEAN
 ASSUME AllowUnsafeNewPreActivation \in BOOLEAN
 
 HonestWitnesses == Witnesses \ Faulty
-AllSignersA == oldSignersA \cup newSignersA
-AllSignersB == oldSignersB \cup newSignersB
-
 VARIABLES
   phase,
   proposalDigest,
