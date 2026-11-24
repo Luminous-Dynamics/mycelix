@@ -1,0 +1,32 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://luminousdynamics.io/schemas/user-directed-support-choice-v0.1.json",
+  "title":"User-directed assistance choice v0.1",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["request","decision"],
+  "properties":{
+    "request":{
+      "type":"object",
+      "additionalProperties":false,
+      "required":["request_id","user_intent","requested_mode","essential_accommodation_required"],
+      "properties":{
+        "request_id":{"type":"string","minLength":1},
+        "user_intent":{"enum":["complete_task","learn","practice","collaborate","verify","accessibility","explore","unspecified"]},
+        "requested_mode":{"type":["string","null"],"enum":["direct_completion","explanation","co_solve","critique_verify","hint_challenge","defer_pause_handoff",null]},
+        "essential_accommodation_required":{"type":"boolean"}
+      }
+    },
+    "decision":{
+      "type":"object",
+      "additionalProperties":false,
+      "required":["request_id","selected_mode","user_override_confirmed","essential_accommodation_preserved"],
+      "properties":{
+        "request_id":{"type":"string","minLength":1},
+        "selected_mode":{"enum":["direct_completion","explanation","co_solve","critique_verify","hint_challenge","defer_pause_handoff"]},
+        "user_override_confirmed":{"type":"boolean"},
+        "essential_accommodation_preserved":{"type":"boolean"}
+      }
+    }
+  }
+}
