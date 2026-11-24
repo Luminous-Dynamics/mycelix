@@ -413,7 +413,6 @@ func TestJournalReplayRejectsInvalidCommittedEvidenceDigest(t *testing.T) {
 	}
 }
 
-
 func TestJournalReplayRejectsNonCanonicalIgnoredVariantFields(t *testing.T) {
 	cases := []struct {
 		name   string
