@@ -1468,6 +1468,16 @@ mod tests {
             report.block_arnoldi_baseline_passivity_certificate_valid,
             Some(true)
         );
+        assert!(
+            report
+                .block_arnoldi_baseline_dc_relative_error
+                .is_some_and(|error| error < 1.0e-8)
+        );
+        assert!(
+            report
+                .block_arnoldi_baseline_feedthrough_limit_relative_error
+                .is_some_and(|error| error < 1.0e-8)
+        );
         assert!(report
             .block_arnoldi_baseline_maximum_sampled_response_error
             .is_some_and(f64::is_finite));
