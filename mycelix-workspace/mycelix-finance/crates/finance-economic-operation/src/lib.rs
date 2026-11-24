@@ -517,7 +517,7 @@ mod tests {
         let second = OperationKeyV1::new(
             "finance",
             "did:mycelix:origin",
-            "trade:42:settlement:1",
+            "trade:42:attempt:1",
         )
         .derive_identity()
         .unwrap();
