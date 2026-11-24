@@ -1,0 +1,12 @@
+[package]
+name = "mycelix-collective-assurance"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "AGPL-3.0-or-later"
+description = "Fail-closed qualification primitives for AI-withdrawal studies and reproducible team randomization"
+
+[lib]
+path = "src/lib.rs"
+
+[workspace]
