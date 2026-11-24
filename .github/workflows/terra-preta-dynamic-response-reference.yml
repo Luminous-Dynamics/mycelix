@@ -37,9 +37,10 @@ jobs:
             .fixture_status == "synthetic_only_not_empirical_evidence" and
             .node_count == 3 and .edge_count == 2 and
             ((.dc_boundary_response[0][1] + 1.2 | fabs) < 1e-10) and
-            .real_laplace_axis_passivity_check == true and
+            .real_laplace_axis_sampled_passivity_check == true and
             (.maximum_symmetry_residual < 1e-10) and
             (.minimum_sampled_quadratic_form > -1e-10) and
+            (.minimum_sampled_response_eigenvalue > -1e-10) and
             (.samples | length == 6)
           ' "$RUNNER_TEMP/dynamic-response-report.json"
       - name: Reject output overwrite
