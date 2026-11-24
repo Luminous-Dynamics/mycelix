@@ -51,7 +51,7 @@ Run the adaptive manufactured fixture:
 
     cargo run --manifest-path research/terra-preta/tools/sparse-passive-rom-reference/Cargo.toml -- research/terra-preta/tools/sparse-passive-rom-reference/fixtures/adaptive-high-contrast-three-port.json /tmp/adaptive-rom-report.json
 
-The adaptive fixture is synthetic. Meeting its candidate-grid target does not certify error outside the candidate and audit grids or establish soil hydraulic accuracy.
+The adaptive fixture has eight interior states and three boundary ports. The current declared target is at most 5% worst relative port-column error on the candidate grid, with at most 1% maximum response error on the separate audit grid and rank capped at six. The dedicated workflow compares this with a fixed two-shift model at the same rank and prints both models' PCG solve counts and iterations. This is a synthetic equal-rank comparison, not an equal-offline-cost comparison; candidate full-order solves and repeated projection rebuilds make adaptive selection more expensive. Meeting the finite candidate-grid target does not certify error outside the candidate and audit grids or establish soil hydraulic accuracy.
 
 ## Run
 
