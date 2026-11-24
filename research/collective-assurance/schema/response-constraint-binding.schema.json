@@ -11,8 +11,9 @@
     "responder_id":{"type":"string","minLength":1},
     "available_evidence":{
       "type":"array","items":{"type":"object","additionalProperties":false,
-        "required":["evidence_id","source_digest","subject_id","scope_id","authorized_responder_id","status","applicability","verified","required"],
+        "required":["request_id","evidence_id","source_digest","subject_id","scope_id","authorized_responder_id","status","applicability","verified","required"],
         "properties":{
+          "request_id":{"type":"string","minLength":1},
           "evidence_id":{"type":"string","minLength":1},
           "source_digest":{"type":"string","pattern":"^[a-f0-9]{64}$"},
           "subject_id":{"type":"string","minLength":1},
