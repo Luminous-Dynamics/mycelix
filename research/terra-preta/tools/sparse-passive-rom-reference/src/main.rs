@@ -818,6 +818,37 @@ mod tests {
         }
     }
 
+    fn branched_fixture() -> Fixture {
+        Fixture {
+            schema_version: VERSION.into(),
+            fixture_status: FIXTURE_STATUS.into(),
+            scenario_id: "four-interior-node-cross-linked-parallel-pathways".into(),
+            nodes: vec![
+                Node { node_id: "left".into(), storage: None },
+                Node { node_id: "p1".into(), storage: Some(1.0) },
+                Node { node_id: "p2".into(), storage: Some(1.7) },
+                Node { node_id: "p3".into(), storage: Some(0.8) },
+                Node { node_id: "p4".into(), storage: Some(2.2) },
+                Node { node_id: "right".into(), storage: None },
+            ],
+            edges: vec![
+                Edge { edge_id: "left-p1".into(), from_node_id: "left".into(), to_node_id: "p1".into(), conductance: 2.0 },
+                Edge { edge_id: "p1-right".into(), from_node_id: "p1".into(), to_node_id: "right".into(), conductance: 1.3 },
+                Edge { edge_id: "left-p2".into(), from_node_id: "left".into(), to_node_id: "p2".into(), conductance: 0.8 },
+                Edge { edge_id: "p2-p3".into(), from_node_id: "p2".into(), to_node_id: "p3".into(), conductance: 2.1 },
+                Edge { edge_id: "p3-right".into(), from_node_id: "p3".into(), to_node_id: "right".into(), conductance: 1.7 },
+                Edge { edge_id: "p1-p4".into(), from_node_id: "p1".into(), to_node_id: "p4".into(), conductance: 0.7 },
+                Edge { edge_id: "p4-p3".into(), from_node_id: "p4".into(), to_node_id: "p3".into(), conductance: 1.1 },
+                Edge { edge_id: "p2-p4".into(), from_node_id: "p2".into(), to_node_id: "p4".into(), conductance: 0.4 },
+            ],
+            boundary_node_ids: vec!["left".into(), "right".into()],
+            rational_shifts: vec![0.0, 0.01, 0.1, 1.0, 10.0, 100.0],
+            laplace_samples: vec![0.0, 0.01, 0.1, 1.0, 10.0, 100.0],
+            cg_relative_tolerance: 1.0e-11,
+            cg_max_iterations: 512,
+        }
+    }
+
     #[test]
     fn sparse_modal_projection_preserves_exact_dc_boundary_operator() {
         let report = analyze(&fixture(), "synthetic-input-digest".into()).unwrap();
@@ -841,6 +872,33 @@ mod tests {
         let report = analyze(&fixture, "synthetic-input-digest".into()).unwrap();
         assert_eq!(report.basis_dimension, 2);
         assert!(report.frequency_samples.iter().all(|sample| sample.relative_response_error < 1.0e-9));
+    }
+
+    #[test]
+    fn branched_cross_linked_network_recovers_full_port_response() {
+        let report = analyze(&branched_fixture(), "synthetic-branched-digest".into()).unwrap();
+        assert_eq!(report.interior_node_count, 4);
+        assert_eq!(report.basis_dimension, 4);
+        assert!(report.dc_relative_error < 1.0e-9);
+        assert!(report.structural_passivity_certificate_valid);
+        assert!(report.frequency_samples.iter().all(|sample| sample.relative_response_error < 1.0e-8));
+    }
+
+    #[test]
+    fn branched_response_is_invariant_to_node_and_edge_order() {
+        let original = branched_fixture();
+        let baseline = analyze(&original, "synthetic-branched-digest".into()).unwrap();
+        let mut permuted = original;
+        permuted.nodes.reverse();
+        permuted.edges.reverse();
+        let reordered = analyze(&permuted, "synthetic-branched-digest".into()).unwrap();
+
+        assert!(relative_error(&baseline.exact_dc_response, &reordered.exact_dc_response) < 1.0e-10);
+        assert!(relative_error(&baseline.reduced_dc_response, &reordered.reduced_dc_response) < 1.0e-9);
+        assert_eq!(baseline.frequency_samples.len(), reordered.frequency_samples.len());
+        for (left, right) in baseline.frequency_samples.iter().zip(reordered.frequency_samples.iter()) {
+            assert!((left.relative_response_error - right.relative_response_error).abs() < 1.0e-8);
+        }
     }
 
     #[test]
