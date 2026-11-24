@@ -1159,6 +1159,49 @@ mod tests {
         }
     }
 
+    fn adaptive_multiport_fixture() -> Fixture {
+        let mut fixture = high_contrast_multiport_fixture();
+        fixture.rational_shifts = vec![1.0];
+        fixture.laplace_samples = vec![0.0, 0.003, 0.3, 3.0, 30.0, 300.0, 3.0e3];
+        fixture.adaptive = AdaptiveOptions {
+            candidate_shifts: vec![1.0e-5, 2.0e-3, 3.0e-2, 0.5, 5.0, 50.0, 500.0, 5.0e3],
+            target_max_relative_error: Some(1.0e-8),
+            maximum_basis_dimension: Some(4),
+        };
+        fixture
+    }
+
+    #[test]
+    fn adaptive_shift_selection_reduces_held_out_error_at_bounded_rank() {
+        let mut fixed_fixture = adaptive_multiport_fixture();
+        fixed_fixture.adaptive = AdaptiveOptions::default();
+        let fixed = analyze(&fixed_fixture, "fixed-shift-baseline".into()).unwrap();
+
+        let adaptive_fixture = adaptive_multiport_fixture();
+        let adaptive = analyze(&adaptive_fixture, "adaptive-shift-candidate".into()).unwrap();
+
+        assert_eq!(adaptive.adaptive_target_met, Some(true));
+        assert_eq!(adaptive.adaptive_stop_reason, "target_met");
+        assert!(!adaptive.adaptive_selection_steps.is_empty());
+        assert!(adaptive.rational_shifts.len() > fixed.rational_shifts.len());
+        assert_eq!(adaptive.basis_dimension, 4);
+        assert!(adaptive.maximum_sampled_response_error < 1.0e-8);
+        assert!(adaptive.maximum_sampled_response_error < fixed.maximum_sampled_response_error);
+        assert!(adaptive.dc_relative_error < 1.0e-8);
+        assert!(adaptive.structural_passivity_certificate_valid);
+    }
+
+    #[test]
+    fn adaptive_validation_grid_must_be_disjoint_from_seed_and_audit_grids() {
+        let mut invalid = adaptive_multiport_fixture();
+        invalid.adaptive.candidate_shifts[0] = invalid.laplace_samples[1];
+        assert!(validate(&invalid).is_err());
+
+        let mut invalid = adaptive_multiport_fixture();
+        invalid.adaptive.maximum_basis_dimension = Some(0);
+        assert!(validate(&invalid).is_err());
+    }
+
     #[test]
     fn sparse_modal_projection_preserves_exact_dc_boundary_operator() {
         let report = analyze(&fixture(), "synthetic-input-digest".into()).unwrap();
