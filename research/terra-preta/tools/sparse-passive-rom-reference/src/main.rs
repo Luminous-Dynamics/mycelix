@@ -28,6 +28,14 @@ struct Edge {
     conductance: f64,
 }
 
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct AdaptiveOptions {
+    candidate_shifts: Vec<f64>,
+    target_max_relative_error: Option<f64>,
+    maximum_basis_dimension: Option<usize>,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Fixture {
@@ -39,6 +47,8 @@ struct Fixture {
     boundary_node_ids: Vec<String>,
     rational_shifts: Vec<f64>,
     laplace_samples: Vec<f64>,
+    #[serde(default)]
+    adaptive: AdaptiveOptions,
     cg_relative_tolerance: f64,
     cg_max_iterations: usize,
 }
@@ -134,6 +144,31 @@ struct Projection {
     a_r_min_eigenvalue: f64,
 }
 
+#[derive(Clone, Copy, Debug, Serialize)]
+struct SnapshotRequest {
+    shift: f64,
+    input_port_index: usize,
+}
+
+#[derive(Serialize)]
+struct AdaptiveStep {
+    selected_shift: f64,
+    selected_input_port_index: usize,
+    pre_addition_worst_relative_error: f64,
+    basis_dimension_after_addition: usize,
+}
+
+struct AdaptiveProjectionResult {
+    projection: Projection,
+    stats: Vec<CgStats>,
+    selected_shifts: Vec<f64>,
+    selected_snapshots: Vec<SnapshotRequest>,
+    selection_steps: Vec<AdaptiveStep>,
+    target_met: bool,
+    maximum_candidate_relative_error: f64,
+    stop_reason: String,
+}
+
 #[derive(Serialize)]
 struct SampleResult {
     laplace_s: f64,
@@ -153,6 +188,11 @@ struct Report {
     csr_nonzero_count: usize,
     csr_density: f64,
     rational_shifts: Vec<f64>,
+    selected_port_snapshots: Vec<SnapshotRequest>,
+    adaptive_selection_steps: Vec<AdaptiveStep>,
+    adaptive_target_met: Option<bool>,
+    adaptive_maximum_candidate_relative_error: Option<f64>,
+    adaptive_stop_reason: String,
     basis_dimension: usize,
     basis_snapshots_attempted: usize,
     exact_dc_response: Dense,
@@ -165,6 +205,9 @@ struct Report {
     lambda_0_scale: f64,
     lambda_0_passivity_tolerance: f64,
     structural_passivity_certificate_valid: bool,
+    cg_solve_count: usize,
+    total_cg_iterations: usize,
+    adaptive_candidate_shift_count: usize,
     maximum_cg_iterations: usize,
     maximum_cg_relative_residual: f64,
     frequency_samples: Vec<SampleResult>,
@@ -240,6 +283,40 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
         || fixture.laplace_samples.iter().any(|value| !value.is_finite() || *value < 0.0)
     {
         return Err("all shifts and Laplace samples must be finite and nonnegative".into());
+    }
+    let adaptive_requested = !fixture.adaptive.candidate_shifts.is_empty()
+        || fixture.adaptive.target_max_relative_error.is_some()
+        || fixture.adaptive.maximum_basis_dimension.is_some();
+    if adaptive_requested {
+        let target = fixture
+            .adaptive
+            .target_max_relative_error
+            .ok_or_else(|| "adaptive mode requires a target maximum relative error".to_string())?;
+        let maximum_dimension = fixture
+            .adaptive
+            .maximum_basis_dimension
+            .ok_or_else(|| "adaptive mode requires a maximum basis dimension".to_string())?;
+        let interior_count = fixture.nodes.len() - boundary_ids.len();
+        if fixture.adaptive.candidate_shifts.is_empty() {
+            return Err("adaptive mode requires a non-empty candidate shift grid".into());
+        }
+        if !target.is_finite() || target <= 0.0 || target >= 1.0 {
+            return Err("adaptive target error must lie strictly between zero and one".into());
+        }
+        if maximum_dimension == 0 || maximum_dimension > interior_count {
+            return Err("adaptive maximum basis dimension must be within the interior state dimension".into());
+        }
+        for (index, shift) in fixture.adaptive.candidate_shifts.iter().enumerate() {
+            if !shift.is_finite() || *shift < 0.0 {
+                return Err("adaptive candidate shifts must be finite and nonnegative".into());
+            }
+            if fixture.rational_shifts.contains(shift)
+                || fixture.laplace_samples.contains(shift)
+                || fixture.adaptive.candidate_shifts[..index].contains(shift)
+            {
+                return Err("adaptive candidate shifts must be unique and disjoint from seed and audit shifts".into());
+            }
+        }
     }
     Ok(())
 }
@@ -617,27 +694,27 @@ fn response_from_sparse(
     Ok((response, stats))
 }
 
-fn build_projection(
+fn build_projection_for_requests(
     model: &Model,
     fixture: &Fixture,
+    requests: &[SnapshotRequest],
 ) -> Result<(Projection, Vec<CgStats>), String> {
     let nb = model.boundary_ids.len();
     let mut basis: Vec<Vec<f64>> = Vec::new();
     let mut stats = Vec::new();
-    let mut snapshots_attempted = 0;
-    for shift in &fixture.rational_shifts {
-        for port in 0..nb {
-            snapshots_attempted += 1;
-            let (snapshot, snapshot_stats) = pcg(
-                &model.a,
-                *shift,
-                &column(&model.b, port),
-                fixture.cg_relative_tolerance,
-                fixture.cg_max_iterations,
-            )?;
-            stats.push(snapshot_stats);
-            push_orthonormal_basis(&mut basis, snapshot);
+    for request in requests {
+        if request.input_port_index >= nb {
+            return Err("snapshot request references an unknown boundary input port".into());
         }
+        let (snapshot, solve_stats) = pcg(
+            &model.a,
+            request.shift,
+            &column(&model.b, request.input_port_index),
+            fixture.cg_relative_tolerance,
+            fixture.cg_max_iterations,
+        )?;
+        stats.push(solve_stats);
+        push_orthonormal_basis(&mut basis, snapshot);
     }
     if basis.is_empty() {
         return Err("rational Krylov snapshot basis is numerically empty".into());
@@ -681,13 +758,41 @@ fn build_projection(
             b_r,
             d_r,
             basis_dimension: basis.len(),
-            basis_snapshots: snapshots_attempted,
+            basis_snapshots: requests.len(),
             lambda_0_min_eigenvalue: lambda_0_min,
             lambda_0_scale,
             a_r_min_eigenvalue: a_r_min,
         },
         stats,
     ))
+}
+
+fn requests_for_shifts(shifts: &[f64], port_count: usize) -> Vec<SnapshotRequest> {
+    shifts
+        .iter()
+        .flat_map(|shift| {
+            (0..port_count).map(|input_port_index| SnapshotRequest {
+                shift: *shift,
+                input_port_index,
+            })
+        })
+        .collect()
+}
+
+fn build_projection_for_shifts(
+    model: &Model,
+    fixture: &Fixture,
+    rational_shifts: &[f64],
+) -> Result<(Projection, Vec<CgStats>), String> {
+    let requests = requests_for_shifts(rational_shifts, model.boundary_ids.len());
+    build_projection_for_requests(model, fixture, &requests)
+}
+
+fn build_projection(
+    model: &Model,
+    fixture: &Fixture,
+) -> Result<(Projection, Vec<CgStats>), String> {
+    build_projection_for_shifts(model, fixture, &fixture.rational_shifts)
 }
 
 fn response_from_reduced(projection: &Projection, shift: f64) -> Result<Dense, String> {
@@ -748,14 +853,186 @@ fn chain_fixture(interior_count: usize) -> Fixture {
         boundary_node_ids: vec!["left".into(), "right".into()],
         rational_shifts: vec![0.0, 0.1, 1.0, 10.0],
         laplace_samples: vec![0.0, 0.1, 1.0, 10.0, 100.0],
+        adaptive: AdaptiveOptions::default(),
         cg_relative_tolerance: 1.0e-10,
         cg_max_iterations: interior_count.saturating_mul(8).max(128),
     }
 }
 
+fn build_adaptive_projection(
+    model: &Model,
+    fixture: &Fixture,
+) -> Result<AdaptiveProjectionResult, String> {
+    let target = fixture
+        .adaptive
+        .target_max_relative_error
+        .ok_or_else(|| "adaptive target error is missing".to_string())?;
+    let maximum_basis_dimension = fixture
+        .adaptive
+        .maximum_basis_dimension
+        .ok_or_else(|| "adaptive maximum basis dimension is missing".to_string())?;
+    let mut candidates = fixture.adaptive.candidate_shifts.clone();
+    candidates.sort_by(f64::total_cmp);
+
+    // Cache the full multi-port response at each candidate frequency. During
+    // selection, score each input-port column independently and add one
+    // (frequency, input-port) snapshot at a time.
+    let mut candidate_responses = Vec::with_capacity(candidates.len());
+    let mut stats = Vec::new();
+    for shift in candidates {
+        let (response, solve_stats) = response_from_sparse(
+            model,
+            shift,
+            fixture.cg_relative_tolerance,
+            fixture.cg_max_iterations,
+        )?;
+        stats.extend(solve_stats);
+        candidate_responses.push((shift, response));
+    }
+
+    let mut selected_shifts = fixture.rational_shifts.clone();
+    let mut selected_snapshots = requests_for_shifts(&selected_shifts, model.boundary_ids.len());
+    let (mut projection, initial_stats) =
+        build_projection_for_requests(model, fixture, &selected_snapshots)?;
+    stats.extend(initial_stats);
+    if projection.basis_dimension > maximum_basis_dimension {
+        return Err(format!(
+            "seed basis dimension {} exceeds adaptive cap {}",
+            projection.basis_dimension, maximum_basis_dimension
+        ));
+    }
+
+    let mut selection_steps = Vec::new();
+    let mut target_met = false;
+    let stop_reason;
+
+    loop {
+        let mut maximum_candidate_error = 0.0_f64;
+        let mut worst_unselected: Option<(f64, f64, usize)> = None;
+        for (shift, full_response) in &candidate_responses {
+            let reduced_response = response_from_reduced(&projection, *shift)?;
+            for port in 0..model.boundary_ids.len() {
+                let full_column = column(full_response, port);
+                let reduced_column = column(&reduced_response, port);
+                let error = relative_error(
+                    std::slice::from_ref(&reduced_column),
+                    std::slice::from_ref(&full_column),
+                );
+                maximum_candidate_error = maximum_candidate_error.max(error);
+                let already_selected = selected_snapshots.iter().any(|request| {
+                    request.shift == *shift && request.input_port_index == port
+                });
+                if !already_selected
+                    && worst_unselected.is_none_or(|(best_error, _, _)| error > best_error)
+                {
+                    worst_unselected = Some((error, *shift, port));
+                }
+            }
+        }
+
+        if maximum_candidate_error <= target {
+            target_met = true;
+            stop_reason = "target_met".to_string();
+            break;
+        }
+        if projection.basis_dimension >= maximum_basis_dimension {
+            stop_reason = "basis_dimension_cap".to_string();
+            break;
+        }
+        let Some((worst_error, selected_shift, selected_port)) = worst_unselected else {
+            stop_reason = "candidate_grid_exhausted".to_string();
+            break;
+        };
+
+        let mut next_snapshots = selected_snapshots.clone();
+        next_snapshots.push(SnapshotRequest {
+            shift: selected_shift,
+            input_port_index: selected_port,
+        });
+        let (next_projection, next_stats) =
+            build_projection_for_requests(model, fixture, &next_snapshots)?;
+        stats.extend(next_stats);
+        if next_projection.basis_dimension > maximum_basis_dimension {
+            stop_reason = "basis_dimension_cap".to_string();
+            break;
+        }
+
+        selection_steps.push(AdaptiveStep {
+            selected_shift,
+            selected_input_port_index: selected_port,
+            pre_addition_worst_relative_error: maximum_candidate_error.max(worst_error),
+            basis_dimension_after_addition: next_projection.basis_dimension,
+        });
+        if !selected_shifts.contains(&selected_shift) {
+            selected_shifts.push(selected_shift);
+            selected_shifts.sort_by(f64::total_cmp);
+        }
+        selected_snapshots = next_snapshots;
+        projection = next_projection;
+    }
+
+    let mut maximum_candidate_relative_error = 0.0_f64;
+    for (shift, full_response) in &candidate_responses {
+        let reduced_response = response_from_reduced(&projection, *shift)?;
+        for port in 0..model.boundary_ids.len() {
+            let full_column = column(full_response, port);
+            let reduced_column = column(&reduced_response, port);
+            maximum_candidate_relative_error = maximum_candidate_relative_error.max(relative_error(
+                std::slice::from_ref(&reduced_column),
+                std::slice::from_ref(&full_column),
+            ));
+        }
+    }
+
+    Ok(AdaptiveProjectionResult {
+        projection,
+        stats,
+        selected_shifts,
+        selected_snapshots,
+        selection_steps,
+        target_met,
+        maximum_candidate_relative_error,
+        stop_reason,
+    })
+}
+
 fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     let model = assemble(fixture)?;
-    let (projection, mut stats) = build_projection(&model, fixture)?;
+    let adaptive_requested = !fixture.adaptive.candidate_shifts.is_empty();
+    let (
+        projection,
+        mut stats,
+        effective_shifts,
+        selected_port_snapshots,
+        adaptive_selection_steps,
+        adaptive_target_met,
+        adaptive_maximum_candidate_relative_error,
+        adaptive_stop_reason,
+    ) = if adaptive_requested {
+        let adaptive = build_adaptive_projection(&model, fixture)?;
+        (
+            adaptive.projection,
+            adaptive.stats,
+            adaptive.selected_shifts,
+            adaptive.selected_snapshots,
+            adaptive.selection_steps,
+            Some(adaptive.target_met),
+            Some(adaptive.maximum_candidate_relative_error),
+            adaptive.stop_reason,
+        )
+    } else {
+        let (projection, stats) = build_projection(&model, fixture)?;
+        (
+            projection,
+            stats,
+            fixture.rational_shifts.clone(),
+            requests_for_shifts(&fixture.rational_shifts, model.boundary_ids.len()),
+            Vec::new(),
+            None,
+            None,
+            "fixed_shift_mode".to_string(),
+        )
+    };
     let lambda_0_passivity_tolerance =
         projection.lambda_0_scale.max(f64::MIN_POSITIVE) * 1.0e-10;
     if projection.a_r_min_eigenvalue <= 0.0
@@ -781,18 +1058,22 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
                 .map(|item| item.relative_residual).fold(0.0_f64, f64::max),
         });
     }
-    let (exact_dc, _) = response_from_sparse(
+    let (exact_dc, exact_dc_stats) = response_from_sparse(
         &model,
         0.0,
         fixture.cg_relative_tolerance,
         fixture.cg_max_iterations,
     )?;
+    stats.extend(exact_dc_stats);
     let reduced_dc = response_from_reduced(&projection, 0.0)?;
     let feedthrough_limit_relative_error = relative_error(&projection.d_r, &model.d);
     let maximum_sampled_response_error = frequency_samples
         .iter()
         .map(|sample| sample.relative_response_error)
         .fold(0.0_f64, f64::max);
+    let cg_solve_count = stats.len();
+    let total_cg_iterations = stats.iter().map(|item| item.iterations).sum();
+    let adaptive_candidate_shift_count = fixture.adaptive.candidate_shifts.len();
     let maximum_cg_iterations = stats.iter().map(|item| item.iterations).max().unwrap_or(0);
     let maximum_cg_relative_residual = stats.iter()
         .map(|item| item.relative_residual).fold(0.0_f64, f64::max);
@@ -808,7 +1089,12 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         interior_node_count: model.interior_ids.len(),
         csr_nonzero_count: model.a.nnz(),
         csr_density,
-        rational_shifts: fixture.rational_shifts.clone(),
+        rational_shifts: effective_shifts,
+        selected_port_snapshots,
+        adaptive_selection_steps,
+        adaptive_target_met,
+        adaptive_maximum_candidate_relative_error,
+        adaptive_stop_reason,
         basis_dimension: projection.basis_dimension,
         basis_snapshots_attempted: projection.basis_snapshots,
         exact_dc_response: exact_dc,
@@ -822,6 +1108,9 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         lambda_0_passivity_tolerance,
         structural_passivity_certificate_valid: projection.a_r_min_eigenvalue > 0.0
             && projection.lambda_0_min_eigenvalue >= -lambda_0_passivity_tolerance,
+        cg_solve_count,
+        total_cg_iterations,
+        adaptive_candidate_shift_count,
         maximum_cg_iterations,
         maximum_cg_relative_residual,
         frequency_samples,
@@ -894,6 +1183,7 @@ mod tests {
             boundary_node_ids: vec!["left".into(), "right".into(), "top".into()],
             rational_shifts: vec![0.0, 1.0e-4, 1.0e-2, 1.0, 1.0e2, 1.0e4],
             laplace_samples: vec![0.0, 1.0e-4, 1.0e-2, 1.0, 1.0e2, 1.0e4],
+            adaptive: AdaptiveOptions::default(),
             cg_relative_tolerance: 1.0e-11,
             cg_max_iterations: 1024,
         }
@@ -918,6 +1208,7 @@ mod tests {
             boundary_node_ids: vec!["left".into(), "right".into()],
             rational_shifts: vec![0.0, 0.1, 1.0, 10.0],
             laplace_samples: vec![0.0, 0.1, 1.0, 10.0, 100.0],
+            adaptive: AdaptiveOptions::default(),
             cg_relative_tolerance: 1.0e-11,
             cg_max_iterations: 512,
         }
@@ -949,9 +1240,109 @@ mod tests {
             boundary_node_ids: vec!["left".into(), "right".into()],
             rational_shifts: vec![0.0, 0.01, 0.1, 1.0, 10.0, 100.0],
             laplace_samples: vec![0.0, 0.01, 0.1, 1.0, 10.0, 100.0],
+            adaptive: AdaptiveOptions::default(),
             cg_relative_tolerance: 1.0e-11,
             cg_max_iterations: 512,
         }
+    }
+
+    fn adaptive_multiport_fixture() -> Fixture {
+        Fixture {
+            schema_version: VERSION.into(),
+            fixture_status: FIXTURE_STATUS.into(),
+            scenario_id: "eight-interior-three-port-adaptive-rom".into(),
+            nodes: vec![
+                Node { node_id: "left".into(), storage: None },
+                Node { node_id: "right".into(), storage: None },
+                Node { node_id: "top".into(), storage: None },
+                Node { node_id: "n0".into(), storage: Some(1.0e-3) },
+                Node { node_id: "n1".into(), storage: Some(1.0e-2) },
+                Node { node_id: "n2".into(), storage: Some(1.0e-1) },
+                Node { node_id: "n3".into(), storage: Some(1.0) },
+                Node { node_id: "n4".into(), storage: Some(1.0e1) },
+                Node { node_id: "n5".into(), storage: Some(1.0e2) },
+                Node { node_id: "n6".into(), storage: Some(1.0e3) },
+                Node { node_id: "n7".into(), storage: Some(1.0e4) },
+            ],
+            edges: vec![
+                Edge { edge_id: "left-n0".into(), from_node_id: "left".into(), to_node_id: "n0".into(), conductance: 1.0e-2 },
+                Edge { edge_id: "left-n1".into(), from_node_id: "left".into(), to_node_id: "n1".into(), conductance: 1.0e-1 },
+                Edge { edge_id: "left-n2".into(), from_node_id: "left".into(), to_node_id: "n2".into(), conductance: 2.0 },
+                Edge { edge_id: "n0-n1".into(), from_node_id: "n0".into(), to_node_id: "n1".into(), conductance: 1.0e1 },
+                Edge { edge_id: "n1-n2".into(), from_node_id: "n1".into(), to_node_id: "n2".into(), conductance: 5.0e-1 },
+                Edge { edge_id: "n0-n3".into(), from_node_id: "n0".into(), to_node_id: "n3".into(), conductance: 1.0e-2 },
+                Edge { edge_id: "n1-n3".into(), from_node_id: "n1".into(), to_node_id: "n3".into(), conductance: 1.0e1 },
+                Edge { edge_id: "n2-n3".into(), from_node_id: "n2".into(), to_node_id: "n3".into(), conductance: 5.0 },
+                Edge { edge_id: "n2-n4".into(), from_node_id: "n2".into(), to_node_id: "n4".into(), conductance: 2.0e-2 },
+                Edge { edge_id: "n3-n4".into(), from_node_id: "n3".into(), to_node_id: "n4".into(), conductance: 1.0e1 },
+                Edge { edge_id: "n3-n5".into(), from_node_id: "n3".into(), to_node_id: "n5".into(), conductance: 1.0e-1 },
+                Edge { edge_id: "n4-n5".into(), from_node_id: "n4".into(), to_node_id: "n5".into(), conductance: 5.0e1 },
+                Edge { edge_id: "n4-n6".into(), from_node_id: "n4".into(), to_node_id: "n6".into(), conductance: 1.0e-2 },
+                Edge { edge_id: "n5-n6".into(), from_node_id: "n5".into(), to_node_id: "n6".into(), conductance: 2.0e1 },
+                Edge { edge_id: "n5-n7".into(), from_node_id: "n5".into(), to_node_id: "n7".into(), conductance: 5.0e-1 },
+                Edge { edge_id: "n6-n7".into(), from_node_id: "n6".into(), to_node_id: "n7".into(), conductance: 1.0e1 },
+                Edge { edge_id: "n4-right".into(), from_node_id: "n4".into(), to_node_id: "right".into(), conductance: 1.0e-2 },
+                Edge { edge_id: "n6-right".into(), from_node_id: "n6".into(), to_node_id: "right".into(), conductance: 2.0 },
+                Edge { edge_id: "n7-right".into(), from_node_id: "n7".into(), to_node_id: "right".into(), conductance: 5.0 },
+                Edge { edge_id: "top-n1".into(), from_node_id: "top".into(), to_node_id: "n1".into(), conductance: 2.0e-2 },
+                Edge { edge_id: "top-n4".into(), from_node_id: "top".into(), to_node_id: "n4".into(), conductance: 1.0e-1 },
+                Edge { edge_id: "top-n7".into(), from_node_id: "top".into(), to_node_id: "n7".into(), conductance: 1.0 },
+            ],
+            boundary_node_ids: vec!["left".into(), "right".into(), "top".into()],
+            rational_shifts: vec![1.0],
+            laplace_samples: vec![0.0, 5.0e-3, 5.0e-2, 5.0e-1, 5.0, 5.0e1, 5.0e2, 5.0e3, 5.0e4],
+            adaptive: AdaptiveOptions {
+                candidate_shifts: vec![1.0e-5, 1.0e-3, 1.0e-2, 1.0e-1, 3.0, 1.0e1, 1.0e2, 1.0e3, 1.0e4],
+                target_max_relative_error: Some(5.0e-2),
+                maximum_basis_dimension: Some(6),
+            },
+            cg_relative_tolerance: 1.0e-11,
+            cg_max_iterations: 4096,
+        }
+    }
+
+    #[test]
+    fn adaptive_shift_selection_reduces_held_out_error_at_equal_basis_rank() {
+        let mut fixed_fixture = adaptive_multiport_fixture();
+        fixed_fixture.adaptive = AdaptiveOptions::default();
+        fixed_fixture.rational_shifts = vec![1.0, 1.0e3];
+        let fixed = analyze(&fixed_fixture, "fixed-two-shift-baseline".into()).unwrap();
+
+        let adaptive_fixture = adaptive_multiport_fixture();
+        let adaptive = analyze(&adaptive_fixture, "adaptive-port-shift-candidate".into()).unwrap();
+
+        let interior_count = adaptive_fixture.nodes.len() - adaptive_fixture.boundary_node_ids.len();
+        assert_eq!(
+            adaptive.adaptive_target_met,
+            Some(true),
+            "candidate error {:?}, stop {}, audit error {}, rank {}",
+            adaptive.adaptive_maximum_candidate_relative_error,
+            adaptive.adaptive_stop_reason,
+            adaptive.maximum_sampled_response_error,
+            adaptive.basis_dimension
+        );
+        assert_eq!(adaptive.adaptive_stop_reason, "target_met");
+        assert!(!adaptive.adaptive_selection_steps.is_empty());
+        assert!(adaptive.adaptive_selection_steps.iter().all(|step| {
+            step.selected_input_port_index < adaptive.boundary_node_ids.len()
+        }));
+        assert_eq!(adaptive.basis_dimension, fixed.basis_dimension);
+        assert!(adaptive.basis_dimension < interior_count);
+        assert!(adaptive.maximum_sampled_response_error <= 1.0e-2);
+        assert!(adaptive.maximum_sampled_response_error < fixed.maximum_sampled_response_error);
+        assert!(adaptive.dc_relative_error < 1.0e-8);
+        assert!(adaptive.structural_passivity_certificate_valid);
+    }
+
+    #[test]
+    fn adaptive_validation_grid_must_be_disjoint_from_seed_and_audit_grids() {
+        let mut invalid = adaptive_multiport_fixture();
+        invalid.adaptive.candidate_shifts[0] = invalid.laplace_samples[1];
+        assert!(validate(&invalid).is_err());
+
+        let mut invalid = adaptive_multiport_fixture();
+        invalid.adaptive.maximum_basis_dimension = Some(0);
+        assert!(validate(&invalid).is_err());
     }
 
     #[test]
