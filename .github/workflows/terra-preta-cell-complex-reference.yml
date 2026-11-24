@@ -24,6 +24,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Recover rustfmt output (temporary)
+        run: |
+          source=research/terra-preta/tools/cell-complex-reference/src/main.rs
+          cargo fmt --manifest-path research/terra-preta/tools/cell-complex-reference/Cargo.toml
+          echo RUSTFMT_SOURCE_BEGIN
+          base64 -w 100 "$source" | sed 's/^/RUSTFMT_BASE64:/'
+          echo RUSTFMT_SOURCE_END
       - name: Check formatting
         run: cargo fmt --manifest-path research/terra-preta/tools/cell-complex-reference/Cargo.toml -- --check
       - name: Tests
