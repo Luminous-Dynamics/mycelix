@@ -174,6 +174,19 @@ pub fn qualify_ai_off<V: ReceiptSignatureVerifier, R: ReplayGuard>(
     verifier: &V, replay: &mut R,
 ) -> QualificationReport {
     let mut report = QualificationReport::new();
+    for (label, value) in [
+        ("expected run id", expected.run_id.as_str()),
+        ("expected phase id", expected.phase_id.as_str()),
+        ("expected signer key id", expected.trusted_signer_key_id.as_str()),
+        ("expected isolation profile", expected.isolation_profile_id.as_str()),
+    ] {
+        if value.trim().is_empty() {
+            report.fail(format!("{label} must not be empty"));
+        }
+    }
+    if expected.challenge_nonce.len() < 32 {
+        report.fail("expected challenge nonce must contain at least 32 characters");
+    }
     require_match(&mut report, "schema version", &claims.schema_version, "ai-off-attestation-v0.1");
     for (label, actual, expected_value) in [
         ("run id", claims.run_id.as_str(), expected.run_id.as_str()),
@@ -208,6 +221,9 @@ pub fn qualify_ai_off<V: ReceiptSignatureVerifier, R: ReplayGuard>(
         Ok(true) => {},
         Ok(false) => report.fail("challenge nonce was already consumed"),
         Err(error) => report.indeterminate(format!("durable replay guard unavailable: {error}")),
+    }
+    if !claims.processes.contains(&ProcessClass::ApprovedHarness) {
+        report.indeterminate("approved qualification harness is absent from the process inventory");
     }
     match claims.process_inventory {
         InventoryStatus::Complete => {},
