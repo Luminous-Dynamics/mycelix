@@ -817,12 +817,9 @@ mod tests {
     fn emit_v1_known_answer_candidates_for_freezing() {
         let operation = operation();
         let fingerprint = terms().fingerprint().unwrap();
-        let payer_effect = EffectIdentityV1::derive(
-            operation,
-            EffectRoleV1::PayerDebit,
-            "did:mycelix:alice",
-        )
-        .unwrap();
+        let payer_effect =
+            EffectIdentityV1::derive(operation, EffectRoleV1::PayerDebit, "did:mycelix:alice")
+                .unwrap();
         let beneficiary_effect = EffectIdentityV1::derive(
             operation,
             EffectRoleV1::BeneficiaryClaim,
@@ -831,8 +828,14 @@ mod tests {
         .unwrap();
         println!("operation_id_v1={}", operation.digest().to_hex());
         println!("intent_fingerprint_v1={}", fingerprint.to_hex());
-        println!("payer_debit_effect_id_v1={}", payer_effect.digest().to_hex());
-        println!("beneficiary_claim_effect_id_v1={}", beneficiary_effect.digest().to_hex());
+        println!(
+            "payer_debit_effect_id_v1={}",
+            payer_effect.digest().to_hex()
+        );
+        println!(
+            "beneficiary_claim_effect_id_v1={}",
+            beneficiary_effect.digest().to_hex()
+        );
     }
 
     #[test]
