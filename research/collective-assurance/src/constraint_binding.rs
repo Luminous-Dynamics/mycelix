@@ -302,6 +302,45 @@ mod tests {
     }
 
     #[test]
+    fn one_thousand_constraint_fault_injections_never_false_pass() {
+        let valid_available = available(
+            EvidenceStatus::Current,
+            Applicability::Applicable,
+            true,
+        );
+        let valid_use = use_item(
+            EvidenceStatus::Current,
+            Applicability::Applicable,
+            ConstraintHandling::Applied,
+            None,
+        );
+        for index in 0..1_000 {
+            let mut item = valid_available.clone();
+            let mut response_record = response(vec![valid_use.clone()]);
+            match index % 10 {
+                0 => item.request_id = "other-request".into(),
+                1 => response_record.request_id = "other-request".into(),
+                2 => item.source_digest = "b".repeat(64),
+                3 => item.subject_id = "other-subject".into(),
+                4 => item.scope_id = "other-scope".into(),
+                5 => item.status = EvidenceStatus::Superseded,
+                6 => item.applicability = Applicability::Conditional,
+                7 => item.authorized_responder_id = "other-responder".into(),
+                8 => item.verified = false,
+                9 => response_record.constraints.clear(),
+                _ => unreachable!(),
+            }
+            let report = qualify_response_grounding(&[item], &response_record);
+            assert_eq!(
+                report.status,
+                ConstraintQualificationStatus::Fail,
+                "fault injection {index} unexpectedly passed: {:?}",
+                report.errors
+            );
+        }
+    }
+
+    #[test]
     fn current_applicable_verified_evidence_must_be_applied() {
         let report = qualify_response_grounding(
             &[available(EvidenceStatus::Current, Applicability::Applicable, true)],
