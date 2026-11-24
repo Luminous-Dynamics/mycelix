@@ -1407,10 +1407,11 @@ mod effect_vector_tests {
 
     #[test]
     fn duplicate_required_owner_role_is_rejected() {
-        let p = profile(vec![
-            required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
-            required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
-        ]);
+        let mut p = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+        )]);
+        p.required_effects.push(p.required_effects[0].clone());
         assert_eq!(
             classify_effect_vector(&p, &[]),
             Err(KernelErrorV1::DuplicateRequiredEffect)
@@ -1519,10 +1520,52 @@ mod effect_vector_tests {
 
     #[test]
     fn empty_profile_is_rejected() {
-        let p = profile(vec![]);
+        let mut p = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+        )]);
+        p.required_effects.clear();
         assert_eq!(
             classify_effect_vector(&p, &[]),
             Err(KernelErrorV1::EmptyRequiredEffects)
+        );
+    }
+
+    #[test]
+    fn profile_digest_is_invariant_to_required_effect_order() {
+        let payer = required(EffectRoleV1::PayerDebit, "did:mycelix:alice");
+        let beneficiary = required(EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob");
+        let first = profile(vec![payer.clone(), beneficiary.clone()]);
+        let second = profile(vec![beneficiary, payer]);
+        assert_eq!(first.profile_digest, second.profile_digest);
+    }
+
+    #[test]
+    fn changed_profile_scope_is_rejected_when_digest_is_not_recomputed() {
+        let mut p = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+        )]);
+        p.claim_name = "external_bank_settlement_final".into();
+        assert_eq!(
+            classify_effect_vector(&p, &[]),
+            Err(KernelErrorV1::ProfileDigestMismatch)
+        );
+    }
+
+    #[test]
+    fn profile_digest_changes_when_required_effect_set_changes() {
+        let payer_only = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+        )]);
+        let payer_and_beneficiary = profile(vec![
+            required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
+            required(EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob"),
+        ]);
+        assert_ne!(
+            payer_only.profile_digest,
+            payer_and_beneficiary.profile_digest
         );
     }
 
