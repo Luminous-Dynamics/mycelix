@@ -27,7 +27,7 @@ The full lifecycle is the proposed differentiator. It composes existing benchmar
 | [HiddenBench (ICML 2026)](https://proceedings.mlr.press/v306/li26ej.html) | Collective reasoning when critical facts are distributed among LLM agents | 65 tasks, 15 frontier LLMs; 30.1% under distributed information vs 80.7% for a single model with full profile | Not a matched team-vs-single head-to-head: information conditions differ. Not human-team capability or AI-off transfer |
 | [GroupMemBench (May 2026)](https://arxiv.org/abs/2605.14498) | Multi-party memory, speaker attribution, audience, multi-hop, updates, time, ambiguity and abstention | 715 questions; strongest tested memory system 46.0% average, 27.1% knowledge update, 37.7% term ambiguity; simple BM25 competitive | Primarily synthetic dialogue/memory QA, not open-ended group assistance or post-AI human capability |
 | [COLLABMEM (EMNLP 2026)](https://aclanthology.org/2026.emnlp-main.1194/) | Role routing, access control, source/provenance, conflict resolution and retention in collaborative memory | 58 scenarios / 1,118 core probes; scaled split 174 / 3,359; TMS-GRAPH++ reports 69.6% non-oracle average | Memory operation benchmark, not a human intervention or team withdrawal study |
-| [GroupAssistBench (Nov 3 2026)](https://arxiv.org/abs/2611.04867) | Real-world open-ended group assistance, memory use and recall | 80,299 messages across 50 groups and 2,395 evaluation instances: 1,374 recall and 1,021 open-ended assistance cases across single, distributed and conflicting memories | Data are real group histories but scores do not establish human capability change or causal effects of AI |
+| [GroupAssistBench (Nov 3 2026)](https://arxiv.org/abs/2611.04867) | Real-world open-ended group assistance, memory use and recall | 80,299 messages across 50 groups and 2,395 instances. L2 open-ended use: full-context GPT-5.6-terra 0.431, DeepSeek-v4-flash 0.469; BM25 0.370; dense retrieval 0.362; best external-memory baseline 0.269. EverMemOS L1 recall 0.621 exceeds full-context GPT-5.6 L1 0.570, yet EverMemOS L2 is only 0.247 | Real group histories, but no causal claim about human capability change; scores depend on pinned models and paper-specific rubrics |
 | [Common Ground (Feb 2026)](https://arxiv.org/abs/2602.21337) | Human–AI shared understanding, joint action, referential coordination and repair | Confirmatory user-study-backed collaborative puzzle benchmark | No delayed AI-off retention endpoint |
 | [HumanAgencyBench (Findings EMNLP 2026)](https://aclanthology.org/2026.findings-emnlp.730/) | Assistant behavior that supports human agency | Six dimensions: clarify, avoid value manipulation, correct misinformation, defer important decisions, encourage learning and maintain social boundaries; reports low-to-moderate agency support and cross-developer variation | Primarily a diagnostic of model responses, not a causal study of users' long-term agency or retained capability |
 | [Empirical Information Design (Nov 5 2026)](https://arxiv.org/abs/2611.07667) | Effects of information disclosure granularity across multi-agent economic mechanisms and models | Ten frontier LLMs; finer disclosure can help or harm depending on model and mechanism | Economic-agent results must not be generalized directly to human deliberation |
@@ -128,6 +128,19 @@ Primary metrics:
 
 ### Track B — collaborative memory and assistance
 
+GroupAssistBench exposes a particularly important gap:
+- On L1 recall, EverMemOS reports 0.621 vs full-context GPT-5.6-terra 0.570.
+- On L2 open-ended assistance, EverMemOS reports 0.247 vs full-context GPT-5.6-terra 0.431; the strongest full-context model in the table, DeepSeek-v4-flash, reports 0.469.
+- BM25 reports 0.370 L2 and dense retrieval 0.362; the strongest external-memory baseline in the table is 0.269.
+- Full-context GPT-5.6 L2 falls from 0.505 on single-memory M1 to 0.435 on distributed M2 and 0.303 on conflicting M3.
+
+The benchmark also reports two useful intervention concepts:
+- **Relational Evidence Refinement (RER):** make relationships among retrieved memories explicit and retrieve connecting evidence. Average L2 scores rise from 0.247 to 0.265 for EverMemOS, 0.203 to 0.225 for xMemory, and 0.139 to 0.202 for LightMem.
+- **Assistance Constraint Binding (ACB):** identify each fact's subject, scope, status and applicability, then bind those constraints to response generation. Average L2 scores rise from 0.247 to 0.279 for EverMemOS, 0.203 to 0.242 for xMemory, and 0.139 to 0.163 for LightMem.
+
+These findings motivate a new design principle: **retrieval is not use**. A system must know not only what evidence was retrieved, but which constraints that evidence imposes on the requested response and whether those constraints were actually respected.
+
+
 Use benchmark-provided baselines and scoring before adding Luminous-specific metrics.
 
 Required comparison families:
@@ -199,7 +212,7 @@ These are **proposed research targets**, not achieved results or guaranteed SOTA
 | Hidden-profile collective reasoning | HiddenBench reported 30.1% distributed-information mean | Target ≥45% on a compatible held-out task subset and ≥10 percentage-point uplift over the strongest *matched* baseline; do not compare to the 80.7% full-profile condition as though matched |
 | Group memory | GroupMemBench 46.0% overall; knowledge update 27.1%; term ambiguity 37.7% | Target ≥60% overall and ≥50% in update/ambiguity categories on the same official split, with BM25 and official QA/judge pipeline retained |
 | Collaborative memory operations | COLLABMEM TMS-GRAPH++ 69.6% non-oracle average | Target ≥75% on matched non-oracle splits, with ≥95% source attribution/provenance coverage and zero unauthorized information disclosure |
-| Open-ended group assistance | GroupAssistBench separates recall from service assistance | Approach full-context performance on open-ended L2 tasks while maintaining source grounding; publish separate single/distributed/conflicting memory results and zero rights violations |
+| Open-ended group assistance | GroupAssistBench L2: full-context GPT-5.6-terra 0.431; DeepSeek-v4-flash 0.469; BM25 0.370; dense 0.362; best external memory 0.269 | First reproduce official numbers under pinned backbones; target ≥0.45 L2 on the matched GPT-5.6-terra condition and ≥0.32 on conflicting-memory M3, with every material fact source-anchored and every applicability constraint respected; report all L1/L2 and M1/M2/M3 slices |
 | Common ground / joint action | Common Ground puzzle benchmark | Match benchmark task and compare joint success, repair latency, coordination errors and situation-awareness calibration; no claims about post-AI capability from this track |
 | Evidence lineage / source independence | COLLABMEM provenance/conflict checks, GroupAssistBench source anchors, W3C PROV concepts | 100% material claim-to-origin traceability in qualified fixtures; zero repeated-origin inflation; zero stale claim revisions accepted; zero unauthorized visibility; independently authenticate source-origin references before making production claims |
 | Human agency / support choice | HumanAgencyBench six behavioral dimensions; new support-choice validator | Zero unconfirmed changes to explicit user-requested modes; 100% request/decision binding; zero required-accommodation withdrawal in contract tests; report the six HumanAgencyBench dimensions separately rather than collapsing them into capability |
