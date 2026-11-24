@@ -24,6 +24,7 @@ pub const MAX_COMPONENT_BYTES: usize = 1_024;
 const OPERATION_ID_DOMAIN: &[u8] = b"mycelix:economic-operation:v1\0";
 const INTENT_FINGERPRINT_DOMAIN: &[u8] = b"mycelix:economic-intent:v1\0";
 const EFFECT_ID_DOMAIN: &[u8] = b"mycelix:economic-effect:v1\0";
+const CLAIM_PROFILE_DIGEST_DOMAIN: &[u8] = b"mycelix:economic-claim-profile:v1\0";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DigestV1(pub [u8; 32]);
@@ -483,6 +484,8 @@ pub enum KernelErrorV1 {
     DuplicateRequiredEffect,
     DuplicateEffectEvidenceBatch,
     UnexpectedEffectEvidenceBatch,
+    ProfileDigestMismatch,
+    TooManyRequiredEffects,
 }
 
 /// One owner-specific effect required by an explicit composite claim profile.
@@ -1156,9 +1159,9 @@ mod effect_vector_tests {
     }
 
     fn profile(required_effects: Vec<RequiredEffectV1>) -> CompositeClaimProfileV1 {
-        CompositeClaimProfileV1 {
+        let mut profile = CompositeClaimProfileV1 {
             profile_id: "claim:bilateral-payment:v1".into(),
-            profile_digest: DigestV1([0x44; 32]),
+            profile_digest: DigestV1([0; 32]),
             claim_name: "bilateral_payment_reconciled".into(),
             operation_id: OperationKeyV1::new(
                 "finance",
@@ -1182,7 +1185,9 @@ mod effect_vector_tests {
             .fingerprint()
             .unwrap(),
             required_effects,
-        }
+        };
+        profile.profile_digest = profile.derive_profile_digest().unwrap();
+        profile
     }
 
     fn batch(
