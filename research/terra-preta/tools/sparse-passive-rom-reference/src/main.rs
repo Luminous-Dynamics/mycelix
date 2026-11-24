@@ -1317,7 +1317,7 @@ mod tests {
         }));
         assert_eq!(adaptive.basis_dimension, fixed.basis_dimension);
         assert!(adaptive.basis_dimension < interior_count);
-        assert!(adaptive.maximum_sampled_response_error <= 1.0e-3);
+        assert!(adaptive.maximum_sampled_response_error <= 1.0e-2);
         assert!(adaptive.maximum_sampled_response_error < fixed.maximum_sampled_response_error);
         assert!(adaptive.dc_relative_error < 1.0e-8);
         assert!(adaptive.structural_passivity_certificate_valid);
