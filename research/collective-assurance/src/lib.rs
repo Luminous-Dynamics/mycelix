@@ -5,6 +5,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 mod allocation;
+mod constraint_binding;
 mod ledger;
 mod support_policy;
 
@@ -21,6 +22,11 @@ pub use ledger::{
 pub use support_policy::{
     qualify_support_choice, SupportDecision, SupportMode, SupportQualificationReport,
     SupportQualificationStatus, SupportRequest, UserIntent,
+};
+pub use constraint_binding::{
+    qualify_response_grounding, Applicability, AvailableEvidenceConstraint,
+    ConstraintHandling, ConstraintQualificationReport, ConstraintQualificationStatus,
+    EvidenceStatus, ResponseConstraintUse, ResponseGrounding,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
