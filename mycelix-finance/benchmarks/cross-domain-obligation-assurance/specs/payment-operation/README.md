@@ -54,3 +54,23 @@ The model checks effect counts and state transitions across a bounded state spac
 The same exact-head workflow also passed the 22-case corpus gate, the scenario-to-model coverage gate (9 bounded-modelled, 6 partially-modelled, 7 not-in-model), pinned TLC checksum verification and exact-source-commit assertion. Coverage-map SHA-256: `72edb8afb5d82f9243a632cf011d6d7a57071cc71caed385a2f8a43fb4aa22b4`. Latest retained artifact SHA-256: `b7eef382801d0fa377ff926648d3af13737172f9d909bfacd018e1e6eae2256d`.
 
 This pass qualifies the bounded abstract model only; it is not live Holochain, Rust, Tryorama / Sweettest, cross-agent fork, Treasury-adapter or external-rail evidence. Numeric SAP amount / fee arithmetic is outside this model and remains a separate FIN-SAFE obligation.
+
+## Claim-admission authority submodel (FIN-EFFECT-002)
+
+`PCOEClaimAdmissionAuthority.tla` is a finite quorum-admission submodel intended to be composed with the payment lifecycle above. It does not replace the payment model or assert that a witness service exists in production.
+
+The frozen configuration uses four witnesses, at most one Byzantine, and a three-signature threshold (the (n=3f+1, q=2f+1) baseline). Honest witnesses durably record at most one fingerprint per singleton effect role. An owner effect can commit only after a certificate passes the declared threshold. The model separates certificate state from the owner effect and spendable state.
+
+Run the safe profile and two negative controls:
+
+```sh
+java -jar ./tla2tools.jar -config PCOEClaimAdmissionAuthority.cfg PCOEClaimAdmissionAuthority.tla
+java -jar ./tla2tools.jar -config PCOEClaimAdmissionAuthority-minority-mutant.cfg PCOEClaimAdmissionAuthority.tla
+java -jar ./tla2tools.jar -config PCOEClaimAdmissionAuthority-journal-mutant.cfg PCOEClaimAdmissionAuthority.tla
+```
+
+- Safe model: no conflicting certificates or spendable effects; no honest witness equivocation.
+- Minority mutant: accepts a certificate with (q-1) signers and must violate `CertificateQuorum`.
+- Journal-loss mutant: loses an honest witness's durable vote while leaving its prior signature evidence in circulation; the witness then signs the competing fingerprint and must violate `HonestNonEquivocation`.
+
+The bound (n=4, f=1, q=3) is a finite illustrative instance, not a general proof for every set size or fault model. The quorum-intersection expression is included as a state invariant. This model still assumes authenticated distinct witness enrollment, a correct fault bound, durable journal semantics in the safe profile, correct cryptography, and a safe authority-set transition protocol. It does not model reconfiguration yet, and it is not a Holochain integration, live witness network, or external settlement proof.
