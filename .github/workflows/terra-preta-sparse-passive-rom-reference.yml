@@ -2,7 +2,7 @@ name: Terra Preta sparse passive ROM reference
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, 'research/terra-adaptive-passive-krylov-v0.1']
     paths:
       - 'research/terra-preta/tools/sparse-passive-rom-reference/**'
       - '.github/workflows/terra-preta-sparse-passive-rom-reference.yml'
