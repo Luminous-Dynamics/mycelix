@@ -1,0 +1,33 @@
+name: Collective Assurance Core
+
+on:
+  push:
+    paths:
+      - "research/collective-assurance/**"
+      - ".github/workflows/collective-assurance.yml"
+  pull_request:
+    paths:
+      - "research/collective-assurance/**"
+      - ".github/workflows/collective-assurance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualification-core:
+    name: Rust format, Clippy and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: clippy, rustfmt
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/collective-assurance/Cargo.toml -- --check
+      - name: Run strict Clippy
+        run: cargo clippy --manifest-path research/collective-assurance/Cargo.toml --all-targets -- -D warnings
+      - name: Run unit tests
+        run: cargo test --manifest-path research/collective-assurance/Cargo.toml
