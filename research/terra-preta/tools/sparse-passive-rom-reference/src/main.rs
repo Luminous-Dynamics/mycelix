@@ -1861,6 +1861,83 @@ mod tests {
     }
 
     #[test]
+    fn residual_error_certificate_bounds_actual_response_error_on_manufactured_graphs() {
+        for fixture in [fixture(), branched_fixture(), high_contrast_multiport_fixture()] {
+            let report = analyze(&fixture, "certificate-manufactured".into()).unwrap();
+            assert!(report.error_certificate_valid);
+            assert!(report.m_matrix_lambda_min_lower_bound > 0.0);
+            assert!(report.m_matrix_supersolution_max_component > 0.0);
+            assert!(report
+                .frequency_results
+                .iter()
+                .all(|sample| sample.error_bound_valid));
+            assert!(report
+                .frequency_results
+                .iter()
+                .all(|sample| sample.absolute_response_error
+                    <= sample.absolute_response_error_upper_bound));
+            assert_eq!(report.error_certificate_pcg_solve_count, 1);
+            assert!(report.error_certificate_pcg_iterations > 0);
+        }
+    }
+
+    #[test]
+    fn m_matrix_eigenvalue_lower_bound_is_invariant_to_joint_unit_rescaling() {
+        let mut base = fixture();
+        let base_model = assemble(&base).unwrap();
+        let base_bound = m_matrix_lambda_min_lower_bound(
+            &base_model.a,
+            base.cg_relative_tolerance,
+            base.cg_max_iterations,
+        )
+        .unwrap();
+
+        for factor in [1.0e-24, 1.0e24] {
+            let mut scaled = fixture();
+            for node in &mut scaled.nodes {
+                if let Some(storage) = node.storage.as_mut() {
+                    *storage *= factor;
+                }
+            }
+            for edge in &mut scaled.edges {
+                edge.conductance *= factor;
+            }
+            let model = assemble(&scaled).unwrap();
+            let bound = m_matrix_lambda_min_lower_bound(
+                &model.a,
+                scaled.cg_relative_tolerance,
+                scaled.cg_max_iterations,
+            )
+            .unwrap();
+            assert!(
+                (bound.lambda_min_lower_bound - base_bound.lambda_min_lower_bound).abs()
+                    <= base_bound.lambda_min_lower_bound * 1.0e-8
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_non_stieltjes_sparse_operator_before_certifying_error() {
+        let invalid = CsrMatrix {
+            size: 2,
+            row_ptr: vec![0, 2, 4],
+            col_idx: vec![0, 1, 0, 1],
+            values: vec![2.0, 0.1, 0.1, 2.0],
+            diagonal: vec![2.0, 2.0],
+        };
+        assert!(invalid.validate_stieltjes().is_err());
+
+        let asymmetric = CsrMatrix {
+            size: 2,
+            row_ptr: vec![0, 2, 4],
+            col_idx: vec![0, 1, 0, 1],
+            values: vec![2.0, -0.5, -0.4, 2.0],
+            diagonal: vec![2.0, 2.0],
+        };
+        assert!(asymmetric.validate_stieltjes().is_err());
+    }
+
+    #[test]
     fn sparse_modal_projection_preserves_exact_dc_boundary_operator() {
         let report = analyze(&fixture(), "synthetic-input-digest".into()).unwrap();
         assert!(report.dc_relative_error < TOL);
