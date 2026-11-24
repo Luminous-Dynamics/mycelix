@@ -6,8 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"strings"
 	"strconv"
+	"strings"
 	"testing"
 )
 
