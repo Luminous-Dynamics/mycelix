@@ -87,7 +87,7 @@ impl OperationKeyV1 {
         &self,
         terms: &ImmutableIntentTermsV1,
     ) -> Result<BoundOperationIntentV1, KernelErrorV1> {
-        if self.stable_obligation_reference != terms.source_obligation_reference {
+        if self.stable_obligation_reference.as_str() != terms.source_obligation_reference.as_str() {
             return Err(KernelErrorV1::ObligationReferenceMismatch);
         }
         Ok(BoundOperationIntentV1 {
@@ -503,7 +503,7 @@ mod tests {
         OperationKeyV1::new(
             "finance",
             "did:mycelix:origin",
-            "trade:42:settlement:1",
+            "trade:42:attempt:1",
         )
         .derive_identity()
         .unwrap()
