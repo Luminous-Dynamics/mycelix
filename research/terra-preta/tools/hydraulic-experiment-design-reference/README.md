@@ -26,7 +26,7 @@ Candidate measurements:
 - localized upper-path flow observation (cost 2);
 - repeat of the same bulk conductance measurement (cost 1).
 
-The declared cost budget is 4.
+The declared cost budget is 4. The reference constructs a cost-matched conventional baseline that spends all four cost units on repeated bulk measurements. It compares the optimal design's regularized log-determinant and structural rank with this repeat-only protocol.
 
 ## Identifiability result
 
@@ -41,7 +41,8 @@ Therefore:
 - bulk only has rank 1 and local nullity 3;
 - bulk plus both interior pressure probes has rank 3;
 - adding a genuinely localized upper-path flow measurement yields rank 4 at this nominal point;
-- repeating the same bulk observation does not increase structural sensitivity rank.
+- repeating the same bulk observation does not increase structural sensitivity rank;
+- the cost-4 repeat-only bulk protocol retains rank 1 / 4, while the selected cost-4 spatially informative design reaches rank 4 / 4 and has a higher regularized Fisher log-determinant.
 
 This last measurement must have genuine path-resolved support. An integrated whole-core flux or breakthrough curve is not automatically a localized upper-path flow measurement.
 
