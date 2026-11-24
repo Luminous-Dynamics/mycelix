@@ -35,6 +35,24 @@ has Schur complement Lambda_0 with respect to A_r. Therefore, when A_r is positi
 
 The basis is generated from snapshots (A + sigma I)^-1 B for declared nonnegative rational shifts sigma and all boundary-port columns. This is a small, deterministic starting method, not claimed to be an optimal adaptive rational Krylov implementation.
 
+## Adaptive shift selection
+
+Adaptive mode is opt-in through the `adaptive` fixture object:
+
+- `candidate_shifts`: a finite nonnegative candidate grid, disjoint from seed shifts and the untouched audit grid;
+- `target_max_relative_error`: maximum reduced-vs-full port-response error sought over the candidate grid;
+- `maximum_basis_dimension`: hard cap on reduced basis rank.
+
+The implementation computes the full sparse multi-port response at every candidate shift once, then evaluates each input-port response column independently. It greedily adds the single unselected `(shift, input-port)` snapshot with the largest relative column error, rebuilding the projection after each addition. This grows basis rank one direction at a time instead of adding all boundary ports for every selected shift. The process stops when the worst candidate-pair error meets the target, the rank cap is reached, or the candidate-pair grid is exhausted. The report preserves each selected shift/port pair and its pre-addition error. The separate `laplace_samples` grid is used only for final audit and never for shift selection.
+
+This first greedy selector is deterministic and port-response weighted, but it is not claimed to be globally optimal. Its costs include all full-order candidate solves and repeated projection rebuilds. The report records `cg_solve_count`, `total_cg_iterations`, maximum PCG iterations, maximum true relative residual, basis rank and candidate count. These costs must be included in any comparison with fixed shifts, PRIMA-style block Arnoldi or SPRIM-like symmetric reduction; basis rank alone is not a fair cost metric.
+
+Run the adaptive manufactured fixture:
+
+    cargo run --manifest-path research/terra-preta/tools/sparse-passive-rom-reference/Cargo.toml -- research/terra-preta/tools/sparse-passive-rom-reference/fixtures/adaptive-high-contrast-three-port.json /tmp/adaptive-rom-report.json
+
+The adaptive fixture has eight interior states and three boundary ports. The current declared target is at most 5% worst relative port-column error on the candidate grid, with at most 1% maximum response error on the separate audit grid and rank capped at six. The dedicated workflow compares this with a fixed two-shift model at the same rank and prints both models' PCG solve counts and iterations. This is a synthetic equal-rank comparison, not an equal-offline-cost comparison; candidate full-order solves and repeated projection rebuilds make adaptive selection more expensive. Meeting the finite candidate-grid target does not certify error outside the candidate and audit grids or establish soil hydraulic accuracy.
+
 ## Run
 
     cargo fmt --manifest-path research/terra-preta/tools/sparse-passive-rom-reference/Cargo.toml
@@ -58,7 +76,7 @@ The basis is generated from snapshots (A + sigma I)^-1 B for declared nonnegativ
 - node/edge ordering invariance for the branched response;
 - input SHA-256 and create-new output semantics.
 
-The current test suite contains fourteen tests. Synthetic fixtures include a 128-node chain, a four-node branched network, and a high-contrast three-port network. Conductance/storage rescaling by 24 orders of magnitude tests scale invariance. Tests also verify that a zero-shift basis preserves both DC and high-frequency limits, while a nonzero-only basis reports its feedthrough-limit mismatch. None of these fixtures is empirical soil data.
+The current test suite contains sixteen tests. Synthetic fixtures include a 128-node chain, a four-node branched network, and a high-contrast three-port network. Conductance/storage rescaling by 24 orders of magnitude tests scale invariance. Tests also verify that a zero-shift basis preserves both DC and high-frequency limits, while a nonzero-only basis reports its feedthrough-limit mismatch. None of these fixtures is empirical soil data.
 
 ## Claim boundary
 
