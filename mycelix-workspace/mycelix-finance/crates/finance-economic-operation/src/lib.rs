@@ -555,6 +555,81 @@ mod tests {
     }
 
     #[test]
+    fn operation_identity_changes_when_any_key_component_changes() {
+        let original = OperationKeyV1::new(
+            "finance",
+            "did:mycelix:origin",
+            "trade:42:attempt:1",
+        )
+        .derive_identity()
+        .unwrap();
+        let variants = [
+            OperationKeyV1::new(
+                "treasury",
+                "did:mycelix:origin",
+                "trade:42:attempt:1",
+            ),
+            OperationKeyV1::new(
+                "finance",
+                "did:mycelix:other-origin",
+                "trade:42:attempt:1",
+            ),
+            OperationKeyV1::new(
+                "finance",
+                "did:mycelix:origin",
+                "trade:43:attempt:1",
+            ),
+        ];
+        for variant in variants {
+            assert_ne!(original, variant.derive_identity().unwrap());
+        }
+    }
+
+    #[test]
+    fn fingerprint_changes_when_every_immutable_field_changes() {
+        let original = terms().fingerprint().unwrap();
+
+        let mut settlement_profile = terms();
+        settlement_profile.settlement_profile.push_str("_changed");
+        let mut payer = terms();
+        payer.payer_owner.push_str(":changed");
+        let mut beneficiary = terms();
+        beneficiary.beneficiary_owner.push_str(":changed");
+        let mut instrument = terms();
+        instrument.instrument.push_str("_changed");
+        let mut unit = terms();
+        unit.unit.push_str("_changed");
+        let mut amount = terms();
+        amount.amount_minor_units += 1;
+        let mut purpose = terms();
+        purpose.purpose_code.push_str("_changed");
+        let mut source_obligation = terms();
+        source_obligation
+            .source_obligation_reference
+            .push_str("_changed");
+        let mut policy_revision = terms();
+        policy_revision.policy_revision.push_str("_changed");
+        let mut terms_digest = terms();
+        terms_digest.terms_digest = DigestV1([8; 32]);
+
+        let variants = [
+            settlement_profile,
+            payer,
+            beneficiary,
+            instrument,
+            unit,
+            amount,
+            purpose,
+            source_obligation,
+            policy_revision,
+            terms_digest,
+        ];
+        for variant in variants {
+            assert_ne!(original, variant.fingerprint().unwrap());
+        }
+    }
+
+    #[test]
     fn invalid_or_zero_value_terms_are_rejected() {
         let mut zero = terms();
         zero.amount_minor_units = 0;
