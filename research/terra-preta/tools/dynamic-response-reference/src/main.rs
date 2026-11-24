@@ -53,7 +53,8 @@ struct Report {
     samples: Vec<ResponseSample>,
     maximum_symmetry_residual: f64,
     minimum_sampled_quadratic_form: f64,
-    real_laplace_axis_passivity_check: bool,
+    minimum_sampled_response_eigenvalue: f64,
+    real_laplace_axis_sampled_passivity_check: bool,
     interpretation_boundary: String,
 }
 
@@ -64,7 +65,8 @@ struct ResponseSample {
     row_sums: Vec<f64>,
     minimum_sampled_quadratic_form: f64,
     symmetric_within_tolerance: bool,
-    positive_semidefinite_on_sampled_inputs: bool,
+    minimum_response_eigenvalue: f64,
+    positive_semidefinite_within_tolerance: bool,
 }
 
 fn validate(fixture: &Fixture) -> Result<BTreeMap<String, usize>, String> {
@@ -349,8 +351,75 @@ fn symmetry_error(matrix: &[Vec<f64>]) -> f64 {
     maximum
 }
 
+fn minimum_symmetric_eigenvalue(matrix: &[Vec<f64>]) -> Result<f64, String> {
+    let n = matrix.len();
+    if n == 0 || matrix.iter().any(|row| row.len() != n) {
+        return Err("eigenvalue matrix dimensions are invalid".into());
+    }
+    let mut work = matrix.to_vec();
+    let scale = work
+        .iter()
+        .flatten()
+        .fold(0.0_f64, |largest, value| largest.max(value.abs()));
+    if scale == 0.0 {
+        return Ok(0.0);
+    }
+
+    let tolerance = scale * 1.0e-13;
+    let maximum_iterations = 100usize.saturating_mul(n.saturating_mul(n)).max(1);
+    for _ in 0..maximum_iterations {
+        let mut pivot = (0usize, 0usize);
+        let mut largest = 0.0_f64;
+        for row in 0..n {
+            for column in (row + 1)..n {
+                let candidate = work[row][column].abs();
+                if candidate > largest {
+                    largest = candidate;
+                    pivot = (row, column);
+                }
+            }
+        }
+        if largest <= tolerance {
+            return Ok((0..n)
+                .map(|index| work[index][index])
+                .fold(f64::INFINITY, f64::min));
+        }
+
+        let (p, q) = pivot;
+        let app = work[p][p];
+        let aqq = work[q][q];
+        let apq = work[p][q];
+        let angle = 0.5 * (2.0 * apq).atan2(aqq - app);
+        let cosine = angle.cos();
+        let sine = angle.sin();
+
+        for k in 0..n {
+            if k == p || k == q {
+                continue;
+            }
+            let akp = work[k][p];
+            let akq = work[k][q];
+            work[k][p] = cosine * akp - sine * akq;
+            work[p][k] = work[k][p];
+            work[k][q] = sine * akp + cosine * akq;
+            work[q][k] = work[k][q];
+        }
+
+        work[p][p] = cosine * cosine * app
+            - 2.0 * sine * cosine * apq
+            + sine * sine * aqq;
+        work[q][q] = sine * sine * app
+            + 2.0 * sine * cosine * apq
+            + cosine * cosine * aqq;
+        work[p][q] = 0.0;
+        work[q][p] = 0.0;
+    }
+
+    Err("symmetric Jacobi eigensolver did not converge".into())
+}
+
 fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
-    let node_index = validate(fixture)?;
+    validate(fixture)?;
     let interior_nodes: Vec<String> = fixture
         .nodes
         .iter()
@@ -374,7 +443,8 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         let forms = sampled_quadratic_forms(&response);
         let min_form = forms.iter().copied().fold(f64::INFINITY, f64::min);
         let row_sums: Vec<f64> = response.iter().map(|row| row.iter().sum()).collect();
-        let passive = min_form >= -PASSIVITY_TOLERANCE;
+        let minimum_eigenvalue = minimum_symmetric_eigenvalue(&response)?;
+        let passive = minimum_eigenvalue >= -PASSIVITY_TOLERANCE;
 
         maximum_symmetry_residual = maximum_symmetry_residual.max(symmetry);
         minimum_sampled_quadratic_form = minimum_sampled_quadratic_form.min(min_form);
@@ -383,17 +453,17 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             boundary_response: response,
             row_sums,
             minimum_sampled_quadratic_form: min_form,
+            minimum_response_eigenvalue: minimum_eigenvalue,
             symmetric_within_tolerance: symmetry <= PASSIVITY_TOLERANCE,
-            positive_semidefinite_on_sampled_inputs: passive,
+            positive_semidefinite_within_tolerance: passive,
         });
     }
 
     let dc_boundary_response = response_matrix(fixture, 0.0)?;
     let all_passive = samples.iter().all(|sample| {
-        sample.symmetric_within_tolerance && sample.positive_semidefinite_on_sampled_inputs
+        sample.symmetric_within_tolerance && sample.positive_semidefinite_within_tolerance
     });
 
-    let _ = node_index;
     Ok(Report {
         audit_version: VERSION.into(),
         fixture_status: fixture.fixture_status.clone(),
@@ -408,7 +478,11 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         samples,
         maximum_symmetry_residual,
         minimum_sampled_quadratic_form,
-        real_laplace_axis_passivity_check: all_passive,
+        minimum_sampled_response_eigenvalue: samples
+            .iter()
+            .map(|sample| sample.minimum_response_eigenvalue)
+            .fold(f64::INFINITY, f64::min),
+        real_laplace_axis_sampled_passivity_check: all_passive,
         interpretation_boundary: "This is an exact Schur complement for a fixed linear network with positive edge conductances, diagonal lumped storage only at interior nodes, ideal prescribed-potential boundary ports, and real nonnegative Laplace parameter s. The sampled quadratic-form checks are manufactured passivity diagnostics, not a formal complex-frequency positive-real certificate. This does not establish equivalence for nonlinear Richards flow, hysteresis, multiphase flow, reactive transport, root uptake or field soil response.".into(),
     })
 }
@@ -538,7 +612,7 @@ mod tests {
         let conductance_steady = 2.0 * 3.0 / 5.0;
         let time_constant = 4.0 / 5.0;
         let initial = conductance_steady * (1.0 - (-0.0_f64 / time_constant).exp());
-        let at_one_tau = conductance_steady * (1.0 - (-1.0_f64).exp());
+        let at_one_tau = conductance_steady * (1.0 - (-time_constant / time_constant).exp());
         let long_time = conductance_steady * (1.0 - (-100.0_f64 / time_constant).exp());
         close(initial, 0.0, 1.0e-14);
         close(at_one_tau, conductance_steady * (1.0 - (-1.0_f64).exp()), 1.0e-14);
