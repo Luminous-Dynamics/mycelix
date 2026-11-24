@@ -45,6 +45,16 @@ The `constraint_binding` module is a structured reference for GroupAssistBench-s
 
 This is not a natural-language output judge. The validator qualifies the structured evidence-use record only; production evaluation needs a separate independent audit of the actual response against source spans and user-request rubrics.
 
+## Matched benchmark comparison
+
+The `comparison` module checks whether two benchmark runs can support a matched leaderboard claim:
+- **Hard-match controls:** benchmark identity/version, dataset/split/task family, evaluation protocol and scorer, context/output/time/token/compute budgets, agent count, memory budget, seed policy and seed.
+- **Matched-system mode:** also requires identical model snapshot, tokenizer, prompt, toolset and decoding configuration. The system variant/configuration is the intended treatment difference.
+- **Cross-model context mode:** allows model/tokenizer/prompt/tool/decoding differences but explicitly returns `ContextOnly`, never a matched leaderboard comparison.
+- Missing, malformed or mismatched controls return `NotComparable`.
+
+This module compares experiment manifests, not result scores or statistical significance. Paired seeds and matched budgets are necessary but not sufficient: benchmark task licenses, model availability, evaluator drift, confidence intervals and external replication must still be audited.
+
 ## User-directed assistance policy
 
 The `support_policy` module validates an assistant's declared support choice against the user's explicit request and intent:
