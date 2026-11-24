@@ -36,7 +36,10 @@ jobs:
           jq -e '
             .fixture_status == "synthetic_only_not_empirical_evidence" and
             .baseline.sensitivity_rank == 1 and
+            .cost_matched_repeat_bulk_design.sensitivity_rank == 1 and
+            .cost_matched_repeat_bulk_design.total_cost == 4 and
             .optimal_design.sensitivity_rank == 4 and
+            (.optimal_design.regularized_log_determinant_fisher > .cost_matched_repeat_bulk_design.regularized_log_determinant_fisher) and
             .optimal_design.total_cost == 4 and
             .repeated_bulk_negative_control.rank_increase == 0 and
             (.optimal_design.candidate_ids == [
