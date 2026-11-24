@@ -462,6 +462,10 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     let all_passive = samples.iter().all(|sample| {
         sample.symmetric_within_tolerance && sample.positive_semidefinite_within_tolerance
     });
+    let minimum_sampled_response_eigenvalue = samples
+        .iter()
+        .map(|sample| sample.minimum_response_eigenvalue)
+        .fold(f64::INFINITY, f64::min);
 
     Ok(Report {
         audit_version: VERSION.into(),
@@ -477,10 +481,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         samples,
         maximum_symmetry_residual,
         minimum_sampled_quadratic_form,
-        minimum_sampled_response_eigenvalue: samples
-            .iter()
-            .map(|sample| sample.minimum_response_eigenvalue)
-            .fold(f64::INFINITY, f64::min),
+        minimum_sampled_response_eigenvalue,
         real_laplace_axis_sampled_passivity_check: all_passive,
         interpretation_boundary: "This is an exact Schur complement for a fixed linear network with positive edge conductances, diagonal lumped storage only at interior nodes, ideal prescribed-potential boundary ports, and real nonnegative Laplace parameter s. The sampled quadratic-form checks are manufactured passivity diagnostics, not a formal complex-frequency positive-real certificate. This does not establish equivalence for nonlinear Richards flow, hysteresis, multiphase flow, reactive transport, root uptake or field soil response.".into(),
     })
