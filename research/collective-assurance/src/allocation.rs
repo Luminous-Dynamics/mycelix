@@ -8,7 +8,7 @@
 
 use crate::{allocate_complete_blocks, Assignment, RandomizationUnit, RandomSource};
 use rand_chacha::ChaCha20Rng;
-use rand_core::{RngCore, SeedableRng};
+use rand_core::{Rng, SeedableRng};
 use sha2::{Digest, Sha256};
 use zeroize::Zeroize;
 
@@ -244,7 +244,7 @@ pub fn verify_allocation_reveal(
 
 impl RandomSource for ChaCha20Rng {
     fn next_u64(&mut self) -> u64 {
-        <ChaCha20Rng as RngCore>::next_u64(self)
+        <ChaCha20Rng as Rng>::next_u64(self)
     }
 }
 
