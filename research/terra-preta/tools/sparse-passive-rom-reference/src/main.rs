@@ -144,9 +144,16 @@ struct Projection {
     a_r_min_eigenvalue: f64,
 }
 
+#[derive(Clone, Copy, Debug, Serialize)]
+struct SnapshotRequest {
+    shift: f64,
+    input_port_index: usize,
+}
+
 #[derive(Serialize)]
 struct AdaptiveStep {
     selected_shift: f64,
+    selected_input_port_index: usize,
     pre_addition_worst_relative_error: f64,
     basis_dimension_after_addition: usize,
 }
@@ -155,6 +162,7 @@ struct AdaptiveProjectionResult {
     projection: Projection,
     stats: Vec<CgStats>,
     selected_shifts: Vec<f64>,
+    selected_snapshots: Vec<SnapshotRequest>,
     selection_steps: Vec<AdaptiveStep>,
     target_met: bool,
     stop_reason: String,
@@ -179,6 +187,7 @@ struct Report {
     csr_nonzero_count: usize,
     csr_density: f64,
     rational_shifts: Vec<f64>,
+    selected_port_snapshots: Vec<SnapshotRequest>,
     adaptive_selection_steps: Vec<AdaptiveStep>,
     adaptive_target_met: Option<bool>,
     adaptive_stop_reason: String,
