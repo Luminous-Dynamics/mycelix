@@ -673,15 +673,16 @@ fn response_from_sparse(
     Ok((response, stats))
 }
 
-fn build_projection(
+fn build_projection_for_shifts(
     model: &Model,
     fixture: &Fixture,
+    rational_shifts: &[f64],
 ) -> Result<(Projection, Vec<CgStats>), String> {
     let nb = model.boundary_ids.len();
     let mut basis: Vec<Vec<f64>> = Vec::new();
     let mut stats = Vec::new();
     let mut snapshots_attempted = 0;
-    for shift in &fixture.rational_shifts {
+    for shift in rational_shifts {
         for port in 0..nb {
             snapshots_attempted += 1;
             let (snapshot, snapshot_stats) = pcg(
@@ -744,6 +745,13 @@ fn build_projection(
         },
         stats,
     ))
+}
+
+fn build_projection(
+    model: &Model,
+    fixture: &Fixture,
+) -> Result<(Projection, Vec<CgStats>), String> {
+    build_projection_for_shifts(model, fixture, &fixture.rational_shifts)
 }
 
 fn response_from_reduced(projection: &Projection, shift: f64) -> Result<Dense, String> {
