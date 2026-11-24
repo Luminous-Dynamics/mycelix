@@ -252,6 +252,10 @@ pub enum EffectRoleV1 {
 
     // Asset lifecycle effects outside ordinary transfers.
     SapDemurrageAssessment,
+
+    // Local SAP payment saga atomic write set. This is distinct from PCOE's
+    // bilateral owner-authored payer/beneficiary legs.
+    FinanceLocalPaymentTransactionCommit,
 }
 
 impl EffectRoleV1 {
@@ -316,6 +320,9 @@ impl EffectRoleV1 {
             Self::ValueflowsEconomicEvent => "valueflows.economic_event",
             Self::ValueflowsEconomicResource => "valueflows.economic_resource",
             Self::SapDemurrageAssessment => "sap.demurrage_assessment",
+            Self::FinanceLocalPaymentTransactionCommit => {
+                "finance.local_payment_transaction_commit"
+            }
         }
     }
 }
