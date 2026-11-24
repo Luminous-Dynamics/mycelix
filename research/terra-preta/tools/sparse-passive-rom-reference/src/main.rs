@@ -904,7 +904,6 @@ fn build_adaptive_projection(
 
     let mut selection_steps = Vec::new();
     let mut target_met = false;
-    let final_candidate_error;
     let stop_reason;
 
     loop {
@@ -931,7 +930,6 @@ fn build_adaptive_projection(
             }
         }
 
-        final_candidate_error = maximum_candidate_error;
         if maximum_candidate_error <= target {
             target_met = true;
             stop_reason = "target_met".to_string();
@@ -973,6 +971,19 @@ fn build_adaptive_projection(
         projection = next_projection;
     }
 
+    let mut maximum_candidate_relative_error = 0.0_f64;
+    for (shift, full_response) in &candidate_responses {
+        let reduced_response = response_from_reduced(&projection, *shift)?;
+        for port in 0..model.boundary_ids.len() {
+            let full_column = column(full_response, port);
+            let reduced_column = column(&reduced_response, port);
+            maximum_candidate_relative_error = maximum_candidate_relative_error.max(relative_error(
+                std::slice::from_ref(&reduced_column),
+                std::slice::from_ref(&full_column),
+            ));
+        }
+    }
+
     Ok(AdaptiveProjectionResult {
         projection,
         stats,
@@ -980,7 +991,7 @@ fn build_adaptive_projection(
         selected_snapshots,
         selection_steps,
         target_met,
-        maximum_candidate_relative_error: final_candidate_error,
+        maximum_candidate_relative_error,
         stop_reason,
     })
 }
