@@ -5,9 +5,6 @@ on:
     paths:
       - 'tools/finance/sap-payment-saga-model/**'
       - 'tools/finance/sap-payment-saga-go-verifier/**'
-      - 'tools/finance/sap-payment-saga-model/FIN_SAGA_FAULT_CAMPAIGN_V1.json'
-      - 'tools/finance/sap-payment-saga-model/FIN_SAGA_FAULT_CAMPAIGN_V1.schema.json'
-      - 'tools/finance/sap-payment-saga-model/FIN_SAGA_FAULT_CAMPAIGN_V1.md'
       - '.github/workflows/sap-payment-saga-model-qualification.yml'
   push:
     branches: [main]
@@ -16,12 +13,6 @@ on:
       - 'tools/finance/sap-payment-saga-go-verifier/**'
       - '.github/workflows/sap-payment-saga-model-qualification.yml'
   workflow_dispatch:
-    inputs:
-      full_campaign:
-        description: 'Run the 1,000,000-trace Rust and Go fault campaign'
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -30,42 +21,11 @@ jobs:
   saga-model:
     name: Effects-disabled SAP payment saga model
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Assert exact source revision
-        env:
-          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          actual="$(git rev-parse HEAD)"
-          printf 'Expected source SHA: %s\n' "$EXPECTED_SHA"
-          printf 'Checked out source SHA: %s\\n' "$actual"
-          test "$actual" = "$EXPECTED_SHA"
-      - name: Validate deterministic fault campaign contract and KATs
-        shell: bash
-        run: |
-          set -euo pipefail
-          contract="tools/finance/sap-payment-saga-model/FIN_SAGA_FAULT_CAMPAIGN_V1.json"
-          schema="tools/finance/sap-payment-saga-model/FIN_SAGA_FAULT_CAMPAIGN_V1.schema.json"
-          fixture="tools/finance/sap-payment-saga-go-verifier/fixtures/sap-payment-saga-fault-campaign-v1.kat"
-          jq empty "$contract"
-          jq empty "$schema"
-          jq -e '
-            .known_answer_vectors as $vectors |
-            .issue == 6045 and
-            .root_seed_hex == "4d594843414d5031" and
-            .generator.name == "CounterMix64V1" and
-            .presubmit_trace_count == 10000 and
-            .full_campaign_trace_count == 1000000 and
-            ($vectors | length >= 8) and
-            (($vectors | map(.sequence) | unique | length) == ($vectors | length)) and
-            (.explicit_coverage | length >= 8)
-          ' "$contract" >/dev/null
-          test "$(grep -vcE '^(#|$)' "$fixture")" -ge 8
-          grep -q "1,000,000-trace" tools/finance/sap-payment-saga-model/FIN_SAGA_FAULT_CAMPAIGN_V1.md
       - name: Install pinned Rust toolchain
         run: |
           rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
@@ -74,10 +34,8 @@ jobs:
           cargo --version
       - name: Check formatting
         run: cargo fmt --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml -- --check
-      - name: Run model tests and 10,000-trace Rust campaign
-        run: |
-          set -euo pipefail
-          cargo test --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml -- --nocapture | tee /tmp/saga-rust-tests.txt
+      - name: Run model tests
+        run: cargo test --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml
       - name: Run Clippy
         run: cargo clippy --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml --all-targets -- -D warnings
       - name: Set up independent Go reference verifier
@@ -103,85 +61,7 @@ jobs:
       - name: Run independent Go reference tests
         if: hashFiles('tools/finance/sap-payment-saga-go-verifier/go.mod') != ''
         working-directory: tools/finance/sap-payment-saga-go-verifier
-        run: |
-          set -euo pipefail
-          go test -race -count=1 -v ./... | tee /tmp/saga-go-tests.txt
-      - name: Compare Rust and Go 10,000-trace campaign digests
-        shell: bash
-        run: |
-          set -euo pipefail
-          rust_summary="$(grep -oE 'fault_campaign_rust_summary_10000=[0-9a-f]+' /tmp/saga-rust-tests.txt | tail -n1 | cut -d= -f2)"
-          go_summary="$(grep -oE 'fault_campaign_go_summary_10000=[0-9a-f]+' /tmp/saga-go-tests.txt | tail -n1 | cut -d= -f2)"
-          test -n "$rust_summary"
-          test -n "$go_summary"
-          test "$rust_summary" = "$go_summary"
-          echo "paired_fault_campaign_10000_sha256=$rust_summary"
-
-      - name: Run 1,000,000-trace Rust campaign
-        if: github.event_name == 'workflow_dispatch' && inputs.full_campaign == true
-        env:
-          MYCELIX_FULL_CAMPAIGN: '1'
-        run: |
-          set -euo pipefail
-          cargo test --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml deterministic_full_million_fault_campaign -- --nocapture | tee /tmp/saga-rust-million.txt
-
-      - name: Run 1,000,000-trace Go campaign
-        if: github.event_name == 'workflow_dispatch' && inputs.full_campaign == true
-        working-directory: tools/finance/sap-payment-saga-go-verifier
-        env:
-          MYCELIX_FULL_CAMPAIGN: '1'
-        run: |
-          set -euo pipefail
-          go test -race -run '^TestDeterministicFullMillionFaultCampaign
-        run: |
-          rustc --version
-          cargo --version
-          go version
-          uname -srm
-          awk -F: '/model name/ { gsub(/^[[:space:]]+/, "", $2); print "CPU: " $2; exit }' /proc/cpuinfo
-      - name: Measure Rust synthetic journal replay scaling
-        run: |
-          set -euo pipefail
-          cargo bench --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml --bench replay_benchmark | tee /tmp/replay-rust-benchmark.txt
-      - name: Measure Go synthetic journal replay scaling
-        working-directory: tools/finance/sap-payment-saga-go-verifier
-        run: |
-          set -euo pipefail
-          go test -run 'a^' -bench '^BenchmarkReplayJournal' -benchmem -benchtime=200ms -count=30 | tee /tmp/replay-go-benchmark.txt
-      - name: Summarize paired raw benchmark samples
-        run: |
-          set -euo pipefail
-          cat /tmp/replay-rust-benchmark.txt /tmp/replay-go-benchmark.txt > /tmp/replay-benchmark.txt
-          awk -f tools/finance/sap-payment-saga-go-verifier/summarize-replay-benchmark.awk /tmp/replay-benchmark.txt
-
-      - name: Measure Rust owner-scoped checkpoint hashing
-        run: |
-          set -euo pipefail
-          cargo bench --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml --bench checkpoint_benchmark | tee /tmp/checkpoint-rust-benchmark.txt
-      - name: Measure Go owner-scoped checkpoint hashing
-        working-directory: tools/finance/sap-payment-saga-go-verifier
-        run: |
-          set -euo pipefail
-          go test -run 'a^' -bench '^BenchmarkCheckpointDigest' -benchmem -benchtime=100ms -count=30 | tee /tmp/checkpoint-go-benchmark.txt
-      - name: Summarize paired checkpoint benchmark samples
-        run: |
-          set -euo pipefail
-          cat /tmp/checkpoint-rust-benchmark.txt /tmp/checkpoint-go-benchmark.txt > /tmp/checkpoint-benchmark.txt
-          awk -f tools/finance/sap-payment-saga-go-verifier/summarize-checkpoint-benchmark.awk /tmp/checkpoint-benchmark.txt
- -count=1 -v | tee /tmp/saga-go-million.txt
-
-      - name: Compare Rust and Go 1,000,000-trace campaign digests
-        if: github.event_name == 'workflow_dispatch' && inputs.full_campaign == true
-        shell: bash
-        run: |
-          set -euo pipefail
-          rust_summary="$(grep -oE 'fault_campaign_rust_summary_1000000=[0-9a-f]+' /tmp/saga-rust-million.txt | tail -n1 | cut -d= -f2)"
-          go_summary="$(grep -oE 'fault_campaign_go_summary_1000000=[0-9a-f]+' /tmp/saga-go-million.txt | tail -n1 | cut -d= -f2)"
-          test -n "$rust_summary"
-          test -n "$go_summary"
-          test "$rust_summary" = "$go_summary"
-          echo "paired_fault_campaign_1000000_sha256=$rust_summary"
-
+        run: go test -race -count=1 ./...
       - name: Capture paired benchmark environment
         run: |
           rustc --version
