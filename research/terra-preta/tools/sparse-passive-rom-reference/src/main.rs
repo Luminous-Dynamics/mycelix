@@ -116,6 +116,34 @@ impl CsrMatrix {
     fn shifted_diagonal(&self, shift: f64) -> Vec<f64> {
         self.diagonal.iter().map(|value| value + shift).collect()
     }
+
+    fn validate_stieltjes(&self) -> Result<(), String> {
+        let scale = self
+            .values
+            .iter()
+            .fold(0.0_f64, |largest, value| largest.max(value.abs()));
+        let tolerance = scale.max(f64::MIN_POSITIVE) * 1.0e-12;
+        for row in 0..self.size {
+            if self.diagonal[row] <= 0.0 || !self.diagonal[row].is_finite() {
+                return Err("M-matrix certificate requires a positive finite diagonal".into());
+            }
+            for index in self.row_ptr[row]..self.row_ptr[row + 1] {
+                let column = self.col_idx[index];
+                let value = self.values[index];
+                if row != column && value > tolerance {
+                    return Err("M-matrix certificate rejected a positive off-diagonal".into());
+                }
+                let reverse = (self.row_ptr[column]..self.row_ptr[column + 1])
+                    .find(|reverse_index| self.col_idx[*reverse_index] == row)
+                    .map(|reverse_index| self.values[reverse_index])
+                    .unwrap_or(0.0);
+                if (value - reverse).abs() > tolerance {
+                    return Err("M-matrix certificate requires a symmetric sparse operator".into());
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone)]
