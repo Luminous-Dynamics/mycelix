@@ -158,6 +158,8 @@ struct Report {
     exact_dc_response: Dense,
     reduced_dc_response: Dense,
     dc_relative_error: f64,
+    feedthrough_limit_relative_error: f64,
+    maximum_sampled_response_error: f64,
     a_r_min_eigenvalue: f64,
     lambda_0_min_eigenvalue: f64,
     lambda_0_scale: f64,
@@ -786,6 +788,11 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         fixture.cg_max_iterations,
     )?;
     let reduced_dc = response_from_reduced(&projection, 0.0)?;
+    let feedthrough_limit_relative_error = relative_error(&projection.d_r, &model.d);
+    let maximum_sampled_response_error = frequency_samples
+        .iter()
+        .map(|sample| sample.relative_response_error)
+        .fold(0.0_f64, f64::max);
     let maximum_cg_iterations = stats.iter().map(|item| item.iterations).max().unwrap_or(0);
     let maximum_cg_relative_residual = stats.iter()
         .map(|item| item.relative_residual).fold(0.0_f64, f64::max);
@@ -807,6 +814,8 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         exact_dc_response: exact_dc,
         reduced_dc_response: reduced_dc.clone(),
         dc_relative_error,
+        feedthrough_limit_relative_error,
+        maximum_sampled_response_error,
         a_r_min_eigenvalue: projection.a_r_min_eigenvalue,
         lambda_0_min_eigenvalue: projection.lambda_0_min_eigenvalue,
         lambda_0_scale: projection.lambda_0_scale,
