@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-finance/benchmarks/finance/sap-execution-profile-adversarial-corpus.v0.1.schema.json",
+  "title": "SAP Execution Profile Semantic Boundary Adversarial Corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark",
+    "version",
+    "date",
+    "issue",
+    "status",
+    "catalogue_version",
+    "profile_digest_version",
+    "case_count",
+    "dispositions",
+    "cases",
+    "metrics"
+  ],
+  "properties": {
+    "benchmark": {
+      "const": "SAP Execution Profile Semantic Boundary Adversarial Corpus"
+    },
+    "version": {
+      "const": "0.1"
+    },
+    "date": {
+      "const": "2026-11-24"
+    },
+    "issue": {
+      "const": 6634
+    },
+    "status": {
+      "const": "synthetic_execution_profile_conformance_cases_not_runtime_evidence"
+    },
+    "catalogue_version": {
+      "const": "economic-effect-profile-templates.v0.2"
+    },
+    "profile_digest_version": {
+      "const": "FIN-EFFECT-004-claim-profile-digest-v1"
+    },
+    "case_count": {
+      "const": 15
+    },
+    "dispositions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "SupportedWithinDeclaredScope",
+          "Pending",
+          "Indeterminate",
+          "Conflict",
+          "RejectedInput"
+        ]
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 15,
+      "maxItems": 15,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "execution_profile",
+          "threat",
+          "setup",
+          "adversarial_input",
+          "expected",
+          "claim_ceiling"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^SAP-EP-[0-9]{3}$"
+          },
+          "execution_profile": {
+            "type": "string",
+            "minLength": 1
+          },
+          "threat": {
+            "type": "string",
+            "minLength": 1
+          },
+          "setup": {
+            "type": "string",
+            "minLength": 1
+          },
+          "adversarial_input": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected": {
+            "enum": [
+              "SupportedWithinDeclaredScope",
+              "Pending",
+              "Indeterminate",
+              "Conflict",
+              "RejectedInput"
+            ]
+          },
+          "claim_ceiling": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "target",
+          "stage"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^M-SAP-EP-[0-9]{2}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stage": {
+            "enum": [
+              "absolute_safety_gate",
+              "runtime_qualification"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
