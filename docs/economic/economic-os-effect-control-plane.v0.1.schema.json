@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/economic/economic-os-effect-control-plane.v0.1.schema.json",
+  "title": "Economic OS Effect Control Plane Crosswalk v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark",
+    "version",
+    "date",
+    "status",
+    "issue",
+    "primitives",
+    "domains",
+    "metrics"
+  ],
+  "properties": {
+    "benchmark": {
+      "const": "Economic OS Effect Control Plane Crosswalk and Qualification Metrics"
+    },
+    "version": {
+      "const": "0.1"
+    },
+    "date": {
+      "const": "2026-11-24"
+    },
+    "status": {
+      "const": "design-contract-not-implementation"
+    },
+    "issue": {
+      "const": 6602
+    },
+    "primitives": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "domains": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "domain",
+          "obligation",
+          "unit",
+          "effects",
+          "authority",
+          "completion",
+          "composition"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "obligation": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "effects": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "authority": {
+            "type": "string"
+          },
+          "completion": {
+            "type": "string"
+          },
+          "composition": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 15,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "metric",
+          "unit",
+          "target",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^ECOE-[A-Z0-9-]+$"
+          },
+          "metric": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "target_not_measured",
+              "not_modelled_yet",
+              "measure_not_gate"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
