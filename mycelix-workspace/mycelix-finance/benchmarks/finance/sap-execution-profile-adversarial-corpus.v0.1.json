@@ -1,0 +1,204 @@
+{
+  "benchmark": "SAP Execution Profile Semantic Boundary Adversarial Corpus",
+  "version": "0.1",
+  "date": "2026-11-24",
+  "issue": 6634,
+  "status": "synthetic_execution_profile_conformance_cases_not_runtime_evidence",
+  "catalogue_version": "economic-effect-profile-templates.v0.2",
+  "profile_digest_version": "FIN-EFFECT-004-claim-profile-digest-v1",
+  "case_count": 15,
+  "dispositions": [
+    "SupportedWithinDeclaredScope",
+    "Pending",
+    "Indeterminate",
+    "Conflict",
+    "RejectedInput"
+  ],
+  "cases": [
+    {
+      "id": "SAP-EP-001",
+      "execution_profile": "LocalAtomicPrincipalTransferV1",
+      "threat": "Single-author atomic transaction observed",
+      "setup": "One source-chain action commits payer debit, beneficiary credit, Payment, Receipt and outbox intent as a single typed effect.",
+      "adversarial_input": "Provide one consistent local_atomic_payment_transaction observation for the bound local owner.",
+      "expected": "SupportedWithinDeclaredScope",
+      "claim_ceiling": "This is local source-chain transaction support only; it does not imply Treasury delivery or external settlement."
+    },
+    {
+      "id": "SAP-EP-002",
+      "execution_profile": "LocalAtomicPrincipalTransferV1",
+      "threat": "Attempt to satisfy local atomic role with payer-only evidence",
+      "setup": "A payer_debit observation is supplied without the required local atomic transaction role.",
+      "adversarial_input": "Supply payer_debit and no finance.local_atomic_payment_transaction batch.",
+      "expected": "RejectedInput",
+      "claim_ceiling": "A split payer effect cannot substitute for the single atomic local-transaction effect."
+    },
+    {
+      "id": "SAP-EP-003",
+      "execution_profile": "LocalAtomicTransferTreasuryReconciledV1",
+      "threat": "Local transaction observed; Treasury fee batch missing",
+      "setup": "The local transaction is committed but the Treasury owner evidence batch was not returned.",
+      "adversarial_input": "Supply local_atomic_payment_transaction only; omit the Treasury batch.",
+      "expected": "Indeterminate",
+      "claim_ceiling": "Missing Treasury evidence is not evidence of a complete empty Treasury view."
+    },
+    {
+      "id": "SAP-EP-004",
+      "execution_profile": "LocalAtomicTransferTreasuryReconciledV1",
+      "threat": "Treasury complete view has no fee receipt",
+      "setup": "The adapter declares the Treasury owner view complete but no fee receipt is present.",
+      "adversarial_input": "Supply local transaction and a complete empty Treasury fee batch.",
+      "expected": "Pending",
+      "claim_ceiling": "The local transaction may be committed while Treasury fee distribution remains pending."
+    },
+    {
+      "id": "SAP-EP-005",
+      "execution_profile": "LocalAtomicTransferTreasuryReconciledV1",
+      "threat": "Treasury dispatch response is unknown",
+      "setup": "The dispatch request may have committed, but the acknowledgement was lost.",
+      "adversarial_input": "Mark the Treasury evidence frontier incomplete until exact outbox-ID reconciliation returns a receipt.",
+      "expected": "Indeterminate",
+      "claim_ceiling": "Unknown outcome must not mint a new fee effect ID or be treated as a failed dispatch."
+    },
+    {
+      "id": "SAP-EP-006",
+      "execution_profile": "LocalAtomicTransferTreasuryReconciledV1",
+      "threat": "Treasury commit acknowledgement lost then exact same effect reconciled",
+      "setup": "The Treasury effect was committed; the caller lost the response and queries the original outbox/effect identity.",
+      "adversarial_input": "Reconcile the exact same Treasury effect ID and identical receipt bytes/digest.",
+      "expected": "SupportedWithinDeclaredScope",
+      "claim_ceiling": "A same-effect replay can establish the scoped Treasury receipt; it is not a second fee credit."
+    },
+    {
+      "id": "SAP-EP-007",
+      "execution_profile": "OwnerAuthenticatedBilateralTransferV1",
+      "threat": "Payer effect only",
+      "setup": "The payer owner has committed its debit but the beneficiary owner has not supplied a claim.",
+      "adversarial_input": "Supply payer debit plus a complete empty beneficiary claim batch.",
+      "expected": "Pending",
+      "claim_ceiling": "One owner chain cannot establish the other owner's independent claim."
+    },
+    {
+      "id": "SAP-EP-008",
+      "execution_profile": "OwnerAuthenticatedBilateralTransferV1",
+      "threat": "Beneficiary claim only",
+      "setup": "The beneficiary authored a claim but the payer debit is not observed in a complete payer view.",
+      "adversarial_input": "Supply beneficiary claim plus a complete empty payer debit batch.",
+      "expected": "Pending",
+      "claim_ceiling": "A beneficiary claim alone does not prove that the payer authorized or committed the debit."
+    },
+    {
+      "id": "SAP-EP-009",
+      "execution_profile": "OwnerAuthenticatedBilateralTransferV1",
+      "threat": "DHT frontier unavailable",
+      "setup": "The payer or beneficiary owner chain cannot be queried to the declared completeness frontier.",
+      "adversarial_input": "Mark the missing owner evidence batch absent or incomplete.",
+      "expected": "Indeterminate",
+      "claim_ceiling": "DHT non-observation under an incomplete frontier is not global absence."
+    },
+    {
+      "id": "SAP-EP-010",
+      "execution_profile": "OwnerAuthenticatedBilateralTransferV1",
+      "threat": "Two conflicting beneficiary owner histories",
+      "setup": "Two conflicting effects claim the same beneficiary role/owner identity and immutable operation.",
+      "adversarial_input": "Provide contradictory effect digests/receipts for the required beneficiary effect ID.",
+      "expected": "Conflict",
+      "claim_ceiling": "Fork or equivocation evidence must freeze the claim, not select the newest-looking projection."
+    },
+    {
+      "id": "SAP-EP-011",
+      "execution_profile": "OwnerAuthenticatedBilateralTransferV1",
+      "threat": "Payer and beneficiary owner slots bind the same DID",
+      "setup": "The caller tries to construct a bilateral profile with one owner for both roles.",
+      "adversarial_input": "Pass identical owner identity strings to payer_debit and beneficiary_claim bindings.",
+      "expected": "RejectedInput",
+      "claim_ceiling": "A bilateral profile requires distinct payer and beneficiary owners."
+    },
+    {
+      "id": "SAP-EP-012",
+      "execution_profile": "ExecutionModelSubstitution",
+      "threat": "Local atomic evidence substituted into bilateral profile",
+      "setup": "A single local transaction observation is offered to a profile requiring independent payer and beneficiary effects.",
+      "adversarial_input": "Supply local_atomic_payment_transaction batch to the bilateral required-effect set.",
+      "expected": "RejectedInput",
+      "claim_ceiling": "Execution profile IDs and required role sets must not be silently substituted."
+    },
+    {
+      "id": "SAP-EP-013",
+      "execution_profile": "LocalAtomicPrincipalTransferV1",
+      "threat": "Local evidence describes an internally unbalanced principal transfer",
+      "setup": "A typed source adapter observes debit and credit values that do not satisfy the local transaction conservation rules.",
+      "adversarial_input": "Reject the malformed typed source evidence before projecting a local atomic effect; if conflicting receipts are exposed, project Conflict.",
+      "expected": "Conflict",
+      "claim_ceiling": "The projection consumes qualified evidence; it does not independently verify underlying Holochain balance changes."
+    },
+    {
+      "id": "SAP-EP-014",
+      "execution_profile": "LocalAtomicTransferTreasuryReconciledV1",
+      "threat": "Treasury receipt has wrong operation/effect binding",
+      "setup": "A Treasury receipt references another operation's fee outbox ID or a changed fee payload.",
+      "adversarial_input": "Present evidence under an unexpected or conflicting effect identity.",
+      "expected": "RejectedInput",
+      "claim_ceiling": "A fee receipt for another operation cannot satisfy this Treasury profile."
+    },
+    {
+      "id": "SAP-EP-015",
+      "execution_profile": "ExecutionModelSubstitution",
+      "threat": "Generic legacy SAP profile selected for new adapter",
+      "setup": "The caller chooses the retained v0.1 generic SAP bilateral template without pinning the actual execution authority model.",
+      "adversarial_input": "Require adapter registration to select one of the three explicit v0.2 execution profile IDs.",
+      "expected": "RejectedInput",
+      "claim_ceiling": "The legacy generic template is preserved for compatibility but must not be used for a new production SAP adapter."
+    }
+  ],
+  "metrics": [
+    {
+      "id": "M-SAP-EP-01",
+      "name": "Execution profile confusion",
+      "target": "0 cross-profile promotions",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-SAP-EP-02",
+      "name": "Local atomic partial effect promotion",
+      "target": "0 payer-only or beneficiary-only effects satisfy the local-atomic role",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-SAP-EP-03",
+      "name": "Treasury missing/unknown outcome promotion",
+      "target": "0 missing or unknown Treasury outcomes promoted to reconciled",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-SAP-EP-04",
+      "name": "Bilateral one-owner promotion",
+      "target": "0 one-sided owner effects promoted to bilateral support",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-SAP-EP-05",
+      "name": "Same-owner bilateral binding",
+      "target": "0 bilateral templates permit payer owner == beneficiary owner",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-SAP-EP-06",
+      "name": "Fork/conflict detection",
+      "target": "100% conflicting required owner evidence maps to Conflict",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-SAP-EP-07",
+      "name": "Profile digest determinism",
+      "target": "100% byte-identical digest for each exact execution profile and role-owner binding",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-SAP-EP-08",
+      "name": "Owner adapter validation",
+      "target": "Measure false author/role/source binding claims on separately adjudicated runtime cases",
+      "stage": "runtime_qualification"
+    }
+  ]
+}

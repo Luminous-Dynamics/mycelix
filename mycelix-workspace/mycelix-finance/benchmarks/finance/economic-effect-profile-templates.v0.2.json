@@ -1,0 +1,469 @@
+{
+  "benchmark": "Economic OS Typed Effect Role Registry and Claim Template Catalogue",
+  "version": "0.2",
+  "date": "2026-11-24",
+  "issue": 6634,
+  "status": "research_execution_profiles_not_authority_or_runtime_proof",
+  "composition": {
+    "operation_identity": "FIN-EFFECT-001 OperationIdentityV1",
+    "effect_identity": "FIN-EFFECT-001 EffectIdentityV1",
+    "profile_digest": "FIN-EFFECT-004 canonical claim-profile digest v1",
+    "no_replacement_identity_algorithm": true,
+    "legacy_role_strings_preserved": true
+  },
+  "role_registry": [
+    "beneficiary_claim",
+    "beneficiary_output",
+    "external.instruction",
+    "external.ledger_observation",
+    "external.provider_acceptance",
+    "external.reversal",
+    "external_settlement_observation",
+    "finance.local_atomic_payment_transaction",
+    "grant.appropriation",
+    "grant.award",
+    "grant.budget_reservation",
+    "grant.recipient_claim",
+    "grant.recovery",
+    "grant.tranche_release",
+    "hearth.allocation_reservation",
+    "hearth.member_note_spend",
+    "hearth.pool_contribution_receipt",
+    "hearth.pool_disbursement",
+    "payer_debit",
+    "payroll.bank_payment",
+    "payroll.earning_accrual",
+    "payroll.net_payable",
+    "payroll.release",
+    "payroll.withholding_liability",
+    "payroll.worker_receipt",
+    "pool_contribution",
+    "pool_disbursement",
+    "procurement.bank_settlement_receipt",
+    "procurement.goods_service_receipt",
+    "procurement.order_commitment",
+    "procurement.payable_journal",
+    "procurement.payment_instruction",
+    "procurement.supplier_liability",
+    "public_transfer.appeal_recovery",
+    "public_transfer.budget_reservation",
+    "public_transfer.disbursement",
+    "public_transfer.eligibility_decision",
+    "public_transfer.entitlement",
+    "public_transfer.recipient_claim",
+    "reputation.attestation",
+    "reputation.correction",
+    "reputation.projection",
+    "reputation.revocation",
+    "resource.beneficiary_acceptance",
+    "resource.delivery_event",
+    "resource.provider_commitment",
+    "resource.quality_exception_claim",
+    "resource.reservation",
+    "sap.demurrage_assessment",
+    "tend.clearing_adjustment",
+    "tend.mutual_credit_exposure",
+    "tend.provider_credit",
+    "tend.recipient_debit",
+    "tend.repayment",
+    "treasury_fee",
+    "valueflows.claim",
+    "valueflows.commitment",
+    "valueflows.economic_event",
+    "valueflows.economic_resource",
+    "valueflows.intent"
+  ],
+  "templates": [
+    {
+      "id": "SAP-BILATERAL-TRANSFER-V1",
+      "profile_id": "economic-os:claim:sap-bilateral-transfer-reconciled:v1",
+      "claim_name": "sap_bilateral_transfer_reconciled",
+      "domain": "SAP",
+      "required_roles": [
+        "payer_debit",
+        "beneficiary_claim"
+      ],
+      "owner_slots": [
+        [
+          "payer_debit",
+          "payer_owner"
+        ],
+        [
+          "beneficiary_claim",
+          "beneficiary_owner"
+        ]
+      ],
+      "scope": "Payer-side debit and beneficiary-owned claim observed consistently.",
+      "not_proof_of": [
+        "external bank settlement",
+        "legal discharge",
+        "global uniqueness"
+      ],
+      "required_role_count": 2
+    },
+    {
+      "id": "HEARTH-CONTRIBUTION-V1",
+      "profile_id": "economic-os:claim:hearth-contribution-accepted:v1",
+      "claim_name": "hearth_contribution_accepted",
+      "domain": "Hearth",
+      "required_roles": [
+        "hearth.member_note_spend",
+        "hearth.pool_contribution_receipt"
+      ],
+      "owner_slots": [
+        [
+          "hearth.member_note_spend",
+          "member_owner"
+        ],
+        [
+          "hearth.pool_contribution_receipt",
+          "hearth_pool_owner"
+        ]
+      ],
+      "scope": "Member-owned value-note spend and pool-owned contribution receipt are both observed.",
+      "not_proof_of": [
+        "membership entitlement",
+        "pool allocation rights",
+        "external settlement"
+      ],
+      "required_role_count": 2
+    },
+    {
+      "id": "HEARTH-WITHDRAWAL-V1",
+      "profile_id": "economic-os:claim:hearth-withdrawal-claimed:v1",
+      "claim_name": "hearth_withdrawal_claimed",
+      "domain": "Hearth",
+      "required_roles": [
+        "hearth.pool_disbursement",
+        "beneficiary_claim"
+      ],
+      "owner_slots": [
+        [
+          "hearth.pool_disbursement",
+          "hearth_pool_owner"
+        ],
+        [
+          "beneficiary_claim",
+          "recipient_owner"
+        ]
+      ],
+      "scope": "Pool disbursement and recipient-owned claim are both observed.",
+      "not_proof_of": [
+        "membership entitlement",
+        "unqualified pool authority"
+      ],
+      "required_role_count": 2
+    },
+    {
+      "id": "TEND-BILATERAL-CLEARING-V1",
+      "profile_id": "economic-os:claim:tend-bilateral-clearing:v1",
+      "claim_name": "tend_bilateral_clearing",
+      "domain": "TEND",
+      "required_roles": [
+        "tend.provider_credit",
+        "tend.recipient_debit",
+        "tend.mutual_credit_exposure"
+      ],
+      "owner_slots": [
+        [
+          "tend.provider_credit",
+          "provider_owner"
+        ],
+        [
+          "tend.recipient_debit",
+          "recipient_owner"
+        ],
+        [
+          "tend.mutual_credit_exposure",
+          "credit_fabric_owner"
+        ]
+      ],
+      "scope": "Both mutual-credit legs and the declared exposure observation are present.",
+      "not_proof_of": [
+        "SAP conversion",
+        "fiat settlement",
+        "legal tender status"
+      ],
+      "required_role_count": 3
+    },
+    {
+      "id": "GRANT-RECIPIENT-CLAIMED-V1",
+      "profile_id": "economic-os:claim:grant-recipient-claimed:v1",
+      "claim_name": "grant_recipient_claimed",
+      "domain": "Grants/Budgets",
+      "required_roles": [
+        "grant.award",
+        "grant.budget_reservation",
+        "grant.tranche_release",
+        "grant.recipient_claim"
+      ],
+      "owner_slots": [
+        [
+          "grant.award",
+          "grant_authority_owner"
+        ],
+        [
+          "grant.budget_reservation",
+          "treasury_owner"
+        ],
+        [
+          "grant.tranche_release",
+          "disbursement_owner"
+        ],
+        [
+          "grant.recipient_claim",
+          "recipient_owner"
+        ]
+      ],
+      "scope": "Award, reservation, tranche release and recipient claim are separately evidenced.",
+      "not_proof_of": [
+        "beneficiary legal eligibility in another period",
+        "bank finality beyond configured profile"
+      ],
+      "required_role_count": 4
+    },
+    {
+      "id": "PROCUREMENT-RECEIVED-SETTLED-V1",
+      "profile_id": "economic-os:claim:procurement-received-and-settled:v1",
+      "claim_name": "procurement_received_and_settled",
+      "domain": "Procurement",
+      "required_roles": [
+        "procurement.order_commitment",
+        "procurement.goods_service_receipt",
+        "procurement.supplier_liability",
+        "procurement.payable_journal",
+        "procurement.payment_instruction",
+        "procurement.bank_settlement_receipt"
+      ],
+      "owner_slots": [
+        [
+          "procurement.order_commitment",
+          "procurement_authority_owner"
+        ],
+        [
+          "procurement.goods_service_receipt",
+          "receiving_owner"
+        ],
+        [
+          "procurement.supplier_liability",
+          "supplier_claim_owner"
+        ],
+        [
+          "procurement.payable_journal",
+          "accounting_owner"
+        ],
+        [
+          "procurement.payment_instruction",
+          "treasury_owner"
+        ],
+        [
+          "procurement.bank_settlement_receipt",
+          "bank_owner"
+        ]
+      ],
+      "scope": "Order, receipt, liability, payable, instruction and bank settlement evidence all exist.",
+      "not_proof_of": [
+        "supplier legitimacy beyond its evidence profile",
+        "quality acceptance unless separately required",
+        "legal title transfer unless separately evidenced"
+      ],
+      "required_role_count": 6
+    },
+    {
+      "id": "PAYROLL-WORKER-RECEIPT-V1",
+      "profile_id": "economic-os:claim:payroll-worker-receipt-observed:v1",
+      "claim_name": "payroll_worker_receipt_observed",
+      "domain": "Payroll",
+      "required_roles": [
+        "payroll.net_payable",
+        "payroll.release",
+        "payroll.bank_payment",
+        "payroll.worker_receipt"
+      ],
+      "owner_slots": [
+        [
+          "payroll.net_payable",
+          "payroll_accounting_owner"
+        ],
+        [
+          "payroll.release",
+          "employer_payroll_owner"
+        ],
+        [
+          "payroll.bank_payment",
+          "bank_or_rail_owner"
+        ],
+        [
+          "payroll.worker_receipt",
+          "worker_owner"
+        ]
+      ],
+      "scope": "Net payable, payroll release, bank payment and worker receipt are independently observed.",
+      "not_proof_of": [
+        "tax compliance",
+        "employment entitlement correctness"
+      ],
+      "required_role_count": 4
+    },
+    {
+      "id": "COMMONS-SERVICE-ACCEPTED-V1",
+      "profile_id": "economic-os:claim:commons-service-accepted:v1",
+      "claim_name": "commons_service_accepted",
+      "domain": "Commons Resources/Services",
+      "required_roles": [
+        "resource.reservation",
+        "resource.provider_commitment",
+        "resource.delivery_event",
+        "resource.beneficiary_acceptance"
+      ],
+      "owner_slots": [
+        [
+          "resource.reservation",
+          "resource_custodian_owner"
+        ],
+        [
+          "resource.provider_commitment",
+          "provider_owner"
+        ],
+        [
+          "resource.delivery_event",
+          "delivery_observer_owner"
+        ],
+        [
+          "resource.beneficiary_acceptance",
+          "beneficiary_owner"
+        ]
+      ],
+      "scope": "Reservation, provider commitment, delivery event and beneficiary acceptance are observed.",
+      "not_proof_of": [
+        "long-term service quality",
+        "causal outcome improvement",
+        "payment settlement"
+      ],
+      "required_role_count": 4
+    },
+    {
+      "id": "REPUTATION-ATTESTATION-RECORDED-V1",
+      "profile_id": "economic-os:claim:reputation-attestation-recorded:v1",
+      "claim_name": "reputation_attestation_recorded",
+      "domain": "MYCEL/Reputation",
+      "required_roles": [
+        "reputation.attestation",
+        "reputation.projection"
+      ],
+      "owner_slots": [
+        [
+          "reputation.attestation",
+          "attester_or_issuer_owner"
+        ],
+        [
+          "reputation.projection",
+          "reputation_projection_owner"
+        ]
+      ],
+      "scope": "Attestation and derived reputation projection are recorded under the declared issuer scope.",
+      "not_proof_of": [
+        "transferable money",
+        "allocation entitlement",
+        "execution authority"
+      ],
+      "required_role_count": 2
+    }
+  ],
+  "claim_boundary": "A template declares only a required role set and owner-binding slots. The caller must supply authenticated owner identities, approved policy context, evidence completeness and profile digest. A supported projection is scoped to this template and is not universal completion, settlement or legal finality.",
+  "execution_profiles": [
+    {
+      "id": "SAP-LOCAL-ATOMIC-PRINCIPAL-V1",
+      "execution_profile": "LocalAtomicPrincipalTransferV1",
+      "profile_id": "economic-os:execution:sap-local-atomic-principal-transfer:v1",
+      "claim_name": "sap_local_atomic_principal_transfer_committed",
+      "authority_model": "single_author_atomic_source_chain_transaction",
+      "required_roles": [
+        "finance.local_atomic_payment_transaction"
+      ],
+      "owner_slots": [
+        [
+          "finance.local_atomic_payment_transaction",
+          "local_transaction_owner"
+        ]
+      ],
+      "atomic_transaction_boundary": "One author-owned zome invocation atomically commits payer debit, beneficiary credit, Payment, Receipt and the durable Treasury outbox intent as one effect.",
+      "outbox_dependency": "Treasury fee delivery is not required by this claim profile; it is separately reconciled if a fee exists.",
+      "finality_scope": "Local source-chain transaction only; no global DHT uniqueness, Treasury delivery, bank settlement or legal discharge.",
+      "forbidden_inferences": [
+        "separate payer/beneficiary source-chain commits",
+        "Treasury fee delivery",
+        "external bank settlement",
+        "legal discharge",
+        "global exactly-once uniqueness"
+      ]
+    },
+    {
+      "id": "SAP-LOCAL-ATOMIC-TREASURY-V1",
+      "execution_profile": "LocalAtomicTransferTreasuryReconciledV1",
+      "profile_id": "economic-os:execution:sap-local-atomic-transfer-treasury-reconciled:v1",
+      "claim_name": "sap_local_atomic_transfer_treasury_reconciled",
+      "authority_model": "single_author_atomic_source_chain_transaction_plus_separate_treasury_owner_effect",
+      "required_roles": [
+        "finance.local_atomic_payment_transaction",
+        "treasury_fee"
+      ],
+      "owner_slots": [
+        [
+          "finance.local_atomic_payment_transaction",
+          "local_transaction_owner"
+        ],
+        [
+          "treasury_fee",
+          "treasury_effect_owner"
+        ]
+      ],
+      "atomic_transaction_boundary": "Payer debit, beneficiary credit, Payment, Receipt and fee outbox intent form one local atomic transaction; Treasury fee receipt is a separate owner effect.",
+      "outbox_dependency": "The Treasury fee effect depends on the committed local transaction and reuses the stable outbox-derived effect ID across retries.",
+      "finality_scope": "Local transaction plus the explicitly named Treasury receipt; not external bank settlement or legal finality.",
+      "forbidden_inferences": [
+        "partial debit/credit within the local atomic write set",
+        "Treasury dispatch accepted implies Treasury committed",
+        "external bank settlement",
+        "legal discharge",
+        "cross-agent uniqueness"
+      ]
+    },
+    {
+      "id": "SAP-OWNER-BILATERAL-V1",
+      "execution_profile": "OwnerAuthenticatedBilateralTransferV1",
+      "profile_id": "economic-os:execution:sap-owner-authenticated-bilateral-transfer:v1",
+      "claim_name": "sap_owner_authenticated_bilateral_transfer_reconciled",
+      "authority_model": "independent_payer_and_beneficiary_source_chains",
+      "required_roles": [
+        "payer_debit",
+        "beneficiary_claim"
+      ],
+      "owner_slots": [
+        [
+          "payer_debit",
+          "payer_owner"
+        ],
+        [
+          "beneficiary_claim",
+          "beneficiary_owner"
+        ]
+      ],
+      "owner_constraints": [
+        "payer_owner != beneficiary_owner",
+        "each role is committed by its own owner-authenticated source-chain action"
+      ],
+      "atomic_transaction_boundary": "No cross-owner atomic transaction is assumed; each owner commits an independent local effect.",
+      "outbox_dependency": "No implicit Treasury fee effect. A fee requires a separately declared role and profile.",
+      "finality_scope": "Both named owner effects within declared source-chain frontiers; DHT non-observation is not global absence.",
+      "forbidden_inferences": [
+        "single-writer local atomic principal transaction",
+        "DHT absence proves no effect exists",
+        "latest projection resolves competing forks",
+        "external bank settlement",
+        "legal discharge"
+      ]
+    }
+  ],
+  "compatibility_note": "The v0.1 SAP-BILATERAL-TRANSFER-V1 generic template is retained unchanged for compatibility. It is ambiguous about execution authority and must not be selected for a new production SAP adapter. New adapters must select one of the explicit execution_profiles in v0.2. These templates bind profile identity and required roles; they do not authenticate authors, prove Holochain atomicity or certify completeness."
+}
