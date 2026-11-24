@@ -160,6 +160,7 @@ jobs:
           java -jar "$RUNNER_TEMP/tla2tools.jar" -config PCOEAuthorityEpochTransition-early-new-mutant.cfg PCOEAuthorityEpochTransition.tla > "$RUNNER_TEMP/epoch-early-new.log" 2>&1
           code=$?
           set -e
+          test "$code" -ne 0
           grep -q "NewAdmissionRequiresActivation" "$RUNNER_TEMP/epoch-early-new.log"
 
       - name: Write exact-head qualification manifest
