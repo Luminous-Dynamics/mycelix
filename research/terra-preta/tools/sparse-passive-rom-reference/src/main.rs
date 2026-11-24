@@ -373,7 +373,35 @@ fn pcg(
         let iterations = iteration + 1;
         relative_residual = norm(&residual) / rhs_norm;
         if relative_residual <= relative_tolerance {
-            return Ok((x, CgStats { iterations, relative_residual }));
+            let action = matrix.matvec(&x, shift)?;
+            let verified_residual: Vec<f64> = rhs
+                .iter()
+                .zip(action.iter())
+                .map(|(right, left)| right - left)
+                .collect();
+            let verified_relative_residual = norm(&verified_residual) / rhs_norm;
+            if verified_relative_residual <= relative_tolerance {
+                return Ok((
+                    x,
+                    CgStats {
+                        iterations,
+                        relative_residual: verified_relative_residual,
+                    },
+                ));
+            }
+            residual = verified_residual;
+            z = residual
+                .iter()
+                .zip(diagonal.iter())
+                .map(|(r, d)| r / d)
+                .collect();
+            direction.clone_from(&z);
+            rz = dot(&residual, &z);
+            if !rz.is_finite() || rz <= 0.0 {
+                return Err("PCG residual restart lost positive definiteness".into());
+            }
+            relative_residual = verified_relative_residual;
+            continue;
         }
         z = residual.iter().zip(diagonal.iter()).map(|(r, d)| r / d).collect();
         let next_rz = dot(&residual, &z);
