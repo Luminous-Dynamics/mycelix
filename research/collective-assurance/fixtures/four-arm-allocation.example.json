@@ -1,6 +1,6 @@
 {
   "schema_version":"team-allocation-manifest-v0.1","run_id":"synthetic-order-study-001",
-  "allocation_unit":"team","algorithm_id":"complete-block-fisher-yates-v0.1",
+  "allocation_unit":"team","algorithm_id":"complete-block-fisher-yates-chacha20-v0.1",
   "design_digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "roster_digest":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "strata":["baseline-mid"],"arms":["ai-first","independent-first","evidence-first","human-only"],
