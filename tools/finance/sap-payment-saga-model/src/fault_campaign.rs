@@ -273,29 +273,16 @@ fn run_fault_plan_v1(plan: FaultCampaignPlanV1) -> CampaignOutcomeV1 {
 
     // Independent integer-unit conservation oracle. Local sender debit must
     // equal beneficiary principal credit plus the separately observed fee.
-    if plan.fee_minor > 0 {
-        let treasury_preview = treasury_evidence_for_plan(journal, plan);
-        let sender_debit = match &local_evidence.kind {
-            EffectEvidenceKind::LocalPaymentTransaction {
-                sender_debit_minor,
-                recipient_credit_minor,
-                ..
-            } => {
-                assert_eq!(
-                    *sender_debit_minor,
-                    *recipient_credit_minor
-                        + match &treasury_preview.kind {
-                            EffectEvidenceKind::TreasuryFee { amount_minor, .. } => *amount_minor,
-                            _ => unreachable!("Treasury preview has Treasury evidence kind"),
-                        }
-                );
-                *sender_debit_minor
-            }
-            _ => unreachable!("local effect has local transaction evidence kind"),
-        };
-        assert_eq!(sender_debit, plan.amount_minor + plan.fee_minor);
+    if let EffectEvidenceKind::LocalPaymentTransaction {
+        sender_debit_minor,
+        recipient_credit_minor,
+        ..
+    } = &local_evidence.kind
+    {
+        assert_eq!(*sender_debit_minor, plan.amount_minor + plan.fee_minor);
+        assert_eq!(*recipient_credit_minor, plan.amount_minor);
     } else {
-        assert_eq!(plan.fee_minor, 0);
+        unreachable!("local effect has local transaction evidence kind");
     }
 
     let treasury_effect_id = journal.effect_id(PaymentLeg::TreasuryFee);
@@ -323,6 +310,23 @@ fn run_fault_plan_v1(plan: FaultCampaignPlanV1) -> CampaignOutcomeV1 {
         }
 
         let treasury_evidence = treasury_evidence_for_plan(journal, plan);
+        let treasury_fee_minor = match &treasury_evidence.kind {
+            EffectEvidenceKind::TreasuryFee { amount_minor, .. } => *amount_minor,
+            _ => unreachable!("Treasury effect has Treasury evidence kind"),
+        };
+        assert_eq!(treasury_fee_minor, plan.fee_minor);
+        let (recipient_credit_minor, sender_debit_minor) = match &local_evidence.kind {
+            EffectEvidenceKind::LocalPaymentTransaction {
+                recipient_credit_minor,
+                sender_debit_minor,
+                ..
+            } => (*recipient_credit_minor, *sender_debit_minor),
+            _ => unreachable!("local effect has local transaction evidence kind"),
+        };
+        assert_eq!(
+            recipient_credit_minor + treasury_fee_minor,
+            sender_debit_minor
+        );
         assert_eq!(
             journal
                 .commit_leg(PaymentLeg::TreasuryFee, treasury_evidence.clone())
