@@ -30,6 +30,16 @@ struct Edge {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct AdaptiveOptions {
+    candidate_shifts: Vec<f64>,
+    target_max_relative_error: Option<f64>,
+    maximum_basis_dimension: Option<usize>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Fixture {
     schema_version: String,
     fixture_status: String,
@@ -39,6 +49,8 @@ struct Fixture {
     boundary_node_ids: Vec<String>,
     rational_shifts: Vec<f64>,
     laplace_samples: Vec<f64>,
+    #[serde(default)]
+    adaptive: AdaptiveOptions,
     cg_relative_tolerance: f64,
     cg_max_iterations: usize,
 }
@@ -135,6 +147,13 @@ struct Projection {
 }
 
 #[derive(Serialize)]
+struct AdaptiveStep {
+    selected_shift: f64,
+    pre_addition_worst_relative_error: f64,
+    basis_dimension_after_addition: usize,
+}
+
+#[derive(Serialize)]
 struct SampleResult {
     laplace_s: f64,
     relative_response_error: f64,
@@ -153,6 +172,9 @@ struct Report {
     csr_nonzero_count: usize,
     csr_density: f64,
     rational_shifts: Vec<f64>,
+    adaptive_selection_steps: Vec<AdaptiveStep>,
+    adaptive_target_met: Option<bool>,
+    adaptive_stop_reason: String,
     basis_dimension: usize,
     basis_snapshots_attempted: usize,
     exact_dc_response: Dense,
