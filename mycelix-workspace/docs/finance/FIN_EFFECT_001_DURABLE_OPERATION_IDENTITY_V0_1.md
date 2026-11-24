@@ -208,6 +208,19 @@ This is genuine abstract model-check evidence for the two-owner protocol. It doe
 
 FIN-EFFECT-001 should extend and crosswalk that model rather than duplicate it. The next formal increment is to make the state variables explicit for (a) obligation identity vs immutable intent fingerprint, (b) role/owner effect identities, (c) provider/API replay windows vs durable tombstone retention, and (d) evidence completeness vs missing observations. Preserve the existing counterexample-producing negative control. Add provider API v1/v2 and Adyen expiry/scope profiles as environment parameters rather than hardcoding one provider's semantics into the core theorem. The 33-case corpus remains a language-independent conformance layer; model coverage must be recorded per case, including the 7 currently not-in-model cases, not inferred from corpus presence.
 
+### 6.4 Canonical known-answer vectors
+
+The v0.1 corpus now carries four permanent BLAKE3-256 known-answer vectors and the Rust kernel asserts each digest. They freeze the encoding across languages and independently authored implementations:
+
+| Vector | Canonical object | Expected digest |
+|---|---|---|
+| KAT-001 | Operation identity | `15a08e9c3bf2599c15b37cb700698aec1898cd4c66b15ebf5208568e4953f204` |
+| KAT-002 | Immutable intent fingerprint | `6a52f1479b7a407d6de4f2650b61bf3203741c80e28f836db523f58625e62235` |
+| KAT-003 | Payer debit effect identity | `984fcc30e27b1ccbb5b266f6b0960c5791be3a68ada8512aa0fb39dcf575e56a` |
+| KAT-004 | Beneficiary claim effect identity | `35ddfe65d8d3beb9ce06fcb1245802d0cc7799d8366bef9087ee5f6d63e6f24b` |
+
+The vectors specify exact UTF-8 inputs, domain strings, schema versions, big-endian integer encodings, length-prefix rules and raw digest bytes. Independent implementations must reproduce these values byte-for-byte; normalization, case folding, locale-dependent numeric formatting, or changing a domain/schema version silently is not allowed. Any intentional encoding change requires a new version and a new vector set, not replacing v1 expected digests.
+
 ## 7. Benchmark plan
 
 The machine-readable v0.1 corpus is in [economic-operation-identity-corpus.v0.1.json](../../mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json) and its [Draft 2020-12 schema](../../mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json).
