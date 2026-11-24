@@ -219,6 +219,7 @@ These are **proposed research targets**, not achieved results or guaranteed SOTA
 | Response constraint binding | GroupAssistBench L2 and Assistance Constraint Binding; COLLABMEM provenance/conflict checks | Zero silent omission of required visible evidence; zero use of superseded/expired or unverified facts as current; zero scope/status metadata substitution; 100% explicit handling of condition, dispute, exclusion or unresolved status in synthetic conformance |
 | Independent response audit | GroupAssistBench L2; independent human/held-out evaluator | 100% exact span-to-text digest binding; zero unsupported material claims accepted; zero contradictory claims collapsed; 100% coverage attestation on deterministic fixtures; inter-rater agreement and false-positive/false-negative rates reported before human-study use |
 | Human agency / support choice | HumanAgencyBench six behavioral dimensions; new support-choice validator | Zero unconfirmed changes to explicit user-requested modes; 100% request/decision binding; zero required-accommodation withdrawal in contract tests; report the six HumanAgencyBench dimensions separately rather than collapsing them into capability |
+| Comparison validity | Exact baseline manifests, benchmark dataset/version digests, scorer and budget controls | 100% of claimed matched comparisons pass strict manifest parity; every cross-model or altered-split result is explicitly context-only; zero leaderboard claims from non-matched runs |
 | Human capability dividend | No Luminous human result yet | Confirmatory target is a positive delayed AI-off transfer effect versus matched controls while agency meets a preregistered non-inferiority margin and burden does not materially worsen; set numeric effect and sample size only after pilot variance and ICC estimates |
 
 The ≥0.50 overall / ≥0.35 conflicting-memory figures are **stretch research targets**, not observed results. They require reproducing the official split, backbone versions, prompt/evaluator rubric and seed protocol; the comparison is valid only if model/tool budgets and scoring remain matched. If the benchmark authors change the split or scoring, rerun the baseline before making a SOTA claim.
@@ -286,12 +287,13 @@ Report cost, quality, agency, privacy, provenance, workload and distribution as 
 
 ## Current implementation crosswalk
 
-The research protocol now has six connected reference components in the Mycelix PR:
+The research protocol now has seven connected reference components in the Mycelix PR:
 - `ledger.rs`: event lineage from rights-bearing information assignment through verified recipient exposure, claim revision and decision; holder identity is distinct from source-origin identity.
 - `allocation.rs`: OS-entropy seed/salt, domain-separated commitment, canonical roster/design digests, pinned ChaCha20 schedule and post-study reveal verification.
 - `support_policy.rs`: respects explicit requested assistance mode, requires confirmation for mode changes, restricts unsolicited challenge-style support to learning/practice intent, and preserves required accommodations.
 - `constraint_binding.rs`: requires visible evidence constraints to be applied, excluded, conditionally applied, conflict-preserved or left unresolved according to verified status, scope and applicability; silent omission and metadata substitution fail.
 - `response_audit.rs`: an independent auditor binds rendered response spans to claim dispositions and verified source origins, including complete-coverage attestations; this is a contract, not an automated semantic judge.
+- `comparison.rs`: rejects matched leaderboard comparisons when model/prompt/tools, task version/split, scorer, budgets, agent count, seed policy or seed differ; cross-model comparisons are explicitly classified as context-only.
 
 The implementations are synthetic/reference validators. Their claims are bounded by the trustworthiness of the event recorder, source-origin registry, user's captured preferences, and production allocation operator. A different source-origin string is not proof that two sources are truly independent until those origin references are independently authenticated.
 
