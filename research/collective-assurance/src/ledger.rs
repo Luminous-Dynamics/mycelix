@@ -57,6 +57,7 @@ pub struct ClaimReference {
 pub enum LedgerEventKind {
     InformationAssigned {
         information_id: String,
+        source_origin_id: String,
         permission: DisclosurePermission,
         permitted_recipients: Vec<String>,
     },
@@ -121,6 +122,7 @@ pub struct LedgerValidationReport {
 struct AssignmentState {
     event_id: String,
     holder_id: String,
+    source_origin_id: String,
     permission: DisclosurePermission,
     permitted_recipients: BTreeSet<String>,
 }
@@ -139,6 +141,7 @@ struct RequestState {
 struct EvidenceState {
     disclosure_event_id: String,
     source_holder_id: String,
+    source_origin_id: String,
     recipient_id: String,
     payload_digest: String,
     verified: bool,
@@ -193,11 +196,13 @@ fn encode_kind(out: &mut Vec<u8>, kind: &LedgerEventKind) {
     match kind {
         LedgerEventKind::InformationAssigned {
             information_id,
+            source_origin_id,
             permission,
             permitted_recipients,
         } => {
             out.push(1);
             push_str(out, information_id);
+            push_str(out, source_origin_id);
             out.push(match permission {
                 DisclosurePermission::Shareable => 1,
                 DisclosurePermission::Scoped => 2,
@@ -449,13 +454,17 @@ pub fn validate_ledger(events: &[LedgerEvent]) -> LedgerValidationReport {
         match &event.kind {
             LedgerEventKind::InformationAssigned {
                 information_id,
+                source_origin_id,
                 permission,
                 permitted_recipients,
             } => {
                 if event.recipient_id.is_some() || event.parent_event_id.is_some() {
                     add_error(&mut errors, event.sequence, "assignment must not have a recipient or parent");
                 }
-                if !is_nonempty(information_id) || assignments_by_id.contains_key(information_id) {
+                if !is_nonempty(information_id)
+                    || !is_nonempty(source_origin_id)
+                    || assignments_by_id.contains_key(information_id)
+                {
                     add_error(&mut errors, event.sequence, "information id must be non-empty and assigned once");
                 }
                 if !check_reference_list(permitted_recipients) {
@@ -469,6 +478,7 @@ pub fn validate_ledger(events: &[LedgerEvent]) -> LedgerValidationReport {
                     AssignmentState {
                         event_id: event.event_id.clone(),
                         holder_id: event.actor_id.clone(),
+                        source_origin_id: source_origin_id.clone(),
                         permission: *permission,
                         permitted_recipients: permitted_recipients.iter().cloned().collect(),
                     },
@@ -571,6 +581,7 @@ pub fn validate_ledger(events: &[LedgerEvent]) -> LedgerValidationReport {
                             EvidenceState {
                                 disclosure_event_id: event.event_id.clone(),
                                 source_holder_id: request.holder_id.clone(),
+                                source_origin_id: assignment.source_origin_id.clone(),
                                 recipient_id: request.requester_id.clone(),
                                 payload_digest: payload_digest.clone(),
                                 verified: false,
@@ -681,7 +692,7 @@ pub fn validate_ledger(events: &[LedgerEvent]) -> LedgerValidationReport {
                     ClaimDisposition::Disputed => {
                         let supporting_sources: BTreeSet<&str> = supporting_evidence_ids
                             .iter()
-                            .filter_map(|id| evidence.get(id).map(|item| item.source_holder_id.as_str()))
+                            .filter_map(|id| evidence.get(id).map(|item| item.source_origin_id.as_str()))
                             .collect();
                         let contradicting_sources: BTreeSet<&str> = contradicting_evidence_ids
                             .iter()
@@ -827,6 +838,7 @@ mod tests {
             None,
             LedgerEventKind::InformationAssigned {
                 information_id: "fact-1".into(),
+                source_origin_id: "source-record-1".into(),
                 permission: DisclosurePermission::Scoped,
                 permitted_recipients: vec!["requester".into()],
             },
@@ -1001,6 +1013,7 @@ mod tests {
             None,
             LedgerEventKind::InformationAssigned {
                 information_id: "fact-secret".into(),
+                source_origin_id: "source-secret-1".into(),
                 permission: DisclosurePermission::WithheldByRights,
                 permitted_recipients: vec![],
             },
