@@ -195,6 +195,8 @@ struct Report {
     adaptive_stop_reason: String,
     block_arnoldi_baseline_basis_dimension: Option<usize>,
     block_arnoldi_baseline_maximum_sampled_response_error: Option<f64>,
+    block_arnoldi_baseline_dc_relative_error: Option<f64>,
+    block_arnoldi_baseline_feedthrough_limit_relative_error: Option<f64>,
     block_arnoldi_baseline_cg_solve_count: Option<usize>,
     block_arnoldi_baseline_total_cg_iterations: Option<usize>,
     block_arnoldi_baseline_passivity_certificate_valid: Option<bool>,
@@ -1163,6 +1165,16 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         .map(|item| item.relative_residual).fold(0.0_f64, f64::max);
     let csr_density = model.a.nnz() as f64 / (model.a.size * model.a.size) as f64;
     let dc_relative_error = relative_error(&reduced_dc, &exact_dc);
+    let block_arnoldi_baseline_dc_relative_error = if let Some((block_projection, _)) =
+        block_arnoldi_baseline.as_ref()
+    {
+        Some(relative_error(&response_from_reduced(block_projection, 0.0)?, &exact_dc))
+    } else {
+        None
+    };
+    let block_arnoldi_baseline_feedthrough_limit_relative_error = block_arnoldi_baseline
+        .as_ref()
+        .map(|(block_projection, _)| relative_error(&block_projection.d_r, &model.d));
     let block_arnoldi_baseline_metrics = block_arnoldi_baseline.as_ref().map(
         |(block_projection, block_stats)| {
             let block_passivity_tolerance =
@@ -1197,6 +1209,8 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             .map(|metrics| metrics.0),
         block_arnoldi_baseline_maximum_sampled_response_error: block_arnoldi_baseline_metrics
             .map(|metrics| metrics.1),
+        block_arnoldi_baseline_dc_relative_error,
+        block_arnoldi_baseline_feedthrough_limit_relative_error,
         block_arnoldi_baseline_cg_solve_count: block_arnoldi_baseline_metrics
             .map(|metrics| metrics.2),
         block_arnoldi_baseline_total_cg_iterations: block_arnoldi_baseline_metrics
