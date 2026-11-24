@@ -13,36 +13,31 @@ This reference makes two mathematical objects explicit:
 
 ## Model
 
-For an undirected edge (e=(i,j)) with positive conductance (g_e), assemble the graph Laplacian
+For an undirected edge e=(i,j) with positive conductance g_e, assemble the graph Laplacian:
 
-[
-L = B,mathrm{diag}(g),B^T.
-]
+`L = B diag(g) B^T`.
 
-Partition nodes into boundary (b) and interior (i). The exact linear steady boundary operator is
+Partition nodes into boundary b and interior i. The exact linear steady boundary operator is:
 
-[
-Lambda = L_{bb} - L_{bi} L_{ii}^{-1} L_{ib},
-qquad q_b = Lambda u_b.
-]
+`Lambda = L_bb - L_bi L_ii^(-1) L_ib,   q_b = Lambda u_b`.
 
-For two boundary ports, the effective conductance is (-Lambda_{12}). The coarse boundary graph records (-Lambda_{ij}) for positive off-diagonal coupling. This preserves boundary response under arbitrary prescribed potentials at the declared ports, not merely one chosen pressure drop.
+For two boundary ports, the effective conductance is `-Lambda[1,2]`. The coarse boundary graph records `-Lambda[i,j]` for positive off-diagonal coupling. This preserves boundary response under arbitrary prescribed potentials at the declared ports, not merely one chosen pressure drop.
 
-For parameter vector (eta_e=log g_e), the diagnostic estimates
+For parameter vector `eta_e = log(g_e)`, the diagnostic estimates:
 
-[
-J_{ke} = rac{partial,mathrm{vech}(Lambda)_k}{partial eta_e}
-]
+`J[k,e] = d vech(Lambda)[k] / d eta_e`
 
-using a central finite difference in log-conductance space. The reported nullity is (N_{mathrm{edges}}-mathrm{rank}(J)). This is a local numerical diagnostic at the supplied conductances, not a global uniqueness theorem and not a posterior uncertainty interval.
+using a central finite difference in log-conductance space. The reported nullity is `N_edges - rank(J)`. This is a local numerical diagnostic at the supplied conductances, not a global uniqueness theorem and not a posterior uncertainty interval.
 
 ## Manufactured example
 
 The fixture has two parallel paths. Each path contains two series edges of conductance 2, so each path has equivalent conductance 1 and the total two-terminal conductance is 2.
 
-A distinct assignment ([4,;4/3,;3,;1.5]) also has path conductances 1 and 1, and therefore the same bulk response. The reference tests this non-uniqueness and reports one observable sensitivity direction for four local conductance parameters (local nullity 3).
+A distinct assignment `[4, 4/3, 3, 1.5]` also has path conductances 1 and 1, and therefore the same bulk response. The reference tests this non-uniqueness and reports one observable sensitivity direction for four local conductance parameters (local nullity 3).
 
 A second test uses a triangle with all three nodes exposed as boundary ports. Its full response matrix locally identifies its three edge conductances. This is a controlled illustration of how richer boundary access can add information; real experiments still require noise, geometry, boundary registration and model discrepancy to be handled.
+
+The suite also proves two negative controls: node/edge storage permutations do not change physical boundary response, and repeating the same linear two-terminal excitation at a different pressure-drop magnitude does not increase structural sensitivity rank. Repetition may reduce independent measurement noise, but it cannot resolve an exact structural nullspace.
 
 ## Run
 
@@ -60,7 +55,8 @@ The CLI hashes exact input bytes and uses create-new semantics for the report pa
 ## Qualification coverage
 
 - Schur complement equals an analytically reduced two-terminal graph.
-- Endpoint reversal and edge-storage permutation preserve physical response.
+- Endpoint reversal, edge-storage permutation and node-storage permutation preserve physical response.
+- Repeating a scaled version of the same linear two-terminal excitation does not increase sensitivity rank.
 - Distinct local conductances can produce the same effective bulk response.
 - Jacobian rank/nullity is checked on a non-identifiable parallel-path fixture.
 - A fully instrumented three-boundary triangle is locally identifiable.
