@@ -153,6 +153,22 @@ jobs:
       - name: Rust formatting
         run: cargo fmt --manifest-path mycelix-finance/crates/finance-economic-operation/Cargo.toml -- --check
 
+      - name: Diagnose canonical Cargo lock resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          before="$RUNNER_TEMP/Cargo.lock.before"
+          cp mycelix-finance/Cargo.lock "$before"
+          # Deliberately omit --locked for this diagnostic only. Cargo prints the
+          # canonical lockfile it expects; fail if that differs so no uncommitted
+          # lock rewrite is silently used as qualification evidence.
+          cargo metadata --manifest-path mycelix-finance/Cargo.toml --format-version 1 > "$RUNNER_TEMP/cargo-metadata.json"
+          if ! cmp -s "$before" mycelix-finance/Cargo.lock; then
+            echo "Cargo requires a canonical lockfile update; this run is diagnostic, not a test pass."
+            diff -u "$before" mycelix-finance/Cargo.lock || true
+            exit 42
+          fi
+
       - name: Pure identity/evidence kernel tests
         run: cargo test --manifest-path mycelix-finance/Cargo.toml -p finance-economic-operation --locked
 
