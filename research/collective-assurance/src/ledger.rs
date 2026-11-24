@@ -696,7 +696,7 @@ pub fn validate_ledger(events: &[LedgerEvent]) -> LedgerValidationReport {
                             .collect();
                         let contradicting_sources: BTreeSet<&str> = contradicting_evidence_ids
                             .iter()
-                            .filter_map(|id| evidence.get(id).map(|item| item.source_holder_id.as_str()))
+                            .filter_map(|id| evidence.get(id).map(|item| item.source_origin_id.as_str()))
                             .collect();
                         if !supporting_sources.is_disjoint(&contradicting_sources) {
                             add_error(&mut errors, event.sequence, "disputed claim requires independent supporting and contradicting origins");
