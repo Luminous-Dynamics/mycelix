@@ -1,0 +1,281 @@
+{
+  "benchmark": "Economic OS Claim Template Semantic Boundary Adversarial Corpus",
+  "version": "0.1",
+  "date": "2026-11-24",
+  "issue": 6612,
+  "status": "proposed_synthetic_template_boundary_corpus_not_execution_evidence",
+  "role_registry_version": "economic-os-effect-profile-templates.v0.1",
+  "profile_digest_version": "FIN-EFFECT-004-claim-profile-digest-v1",
+  "case_count": 24,
+  "dispositions": [
+    "SupportedWithinDeclaredScope",
+    "Pending",
+    "Indeterminate",
+    "Conflict",
+    "RejectedInput",
+    "RejectedPromotion",
+    "DeterministicProfile"
+  ],
+  "cases": [
+    {
+      "id": "TPL-001",
+      "template_or_domain": "hearth_contribution_accepted",
+      "threat": "Member spend observed; pool receipt absent in complete pool-owner view",
+      "precondition": "Contribution profile requires member note spend and pool contribution receipt.",
+      "adversarial_input": "Observe only member-owned note spend with a complete empty pool receipt batch.",
+      "expected": "Pending",
+      "safety_assertion": "A member-side spend does not establish pool acceptance."
+    },
+    {
+      "id": "TPL-002",
+      "template_or_domain": "hearth_contribution_accepted",
+      "threat": "Pool receipt evidence batch missing",
+      "precondition": "The adapter cannot establish a complete view of the pool owner.",
+      "adversarial_input": "Omit the pool receipt batch entirely.",
+      "expected": "Indeterminate",
+      "safety_assertion": "Missing evidence is not a complete empty observation."
+    },
+    {
+      "id": "TPL-003",
+      "template_or_domain": "hearth_contribution_accepted",
+      "threat": "Required role omitted from owner bindings",
+      "precondition": "The caller supplies only member note spend.",
+      "adversarial_input": "Build the template without a pool contribution receipt owner binding.",
+      "expected": "RejectedInput",
+      "safety_assertion": "Templates reject missing required role bindings."
+    },
+    {
+      "id": "TPL-004",
+      "template_or_domain": "hearth_contribution_accepted",
+      "threat": "Unexpected payment role included",
+      "precondition": "The template does not include a Treasury fee role.",
+      "adversarial_input": "Add an unexpected Treasury fee binding to the Hearth profile.",
+      "expected": "RejectedInput",
+      "safety_assertion": "The template rejects extra roles instead of silently broadening its claim."
+    },
+    {
+      "id": "TPL-005",
+      "template_or_domain": "hearth_contribution_accepted",
+      "threat": "Duplicate pool role supplied under two owners",
+      "precondition": "One pool contribution receipt role is duplicated.",
+      "adversarial_input": "Supply two owner bindings for the same role.",
+      "expected": "RejectedInput",
+      "safety_assertion": "One template role can be bound exactly once."
+    },
+    {
+      "id": "TPL-006",
+      "template_or_domain": "hearth_withdrawal_claimed",
+      "threat": "Pool disbursement observed; recipient claim absent",
+      "precondition": "The pool owner committed its disbursement, but the recipient has not authored a claim.",
+      "adversarial_input": "Evaluate with a complete empty recipient claim view.",
+      "expected": "Pending",
+      "safety_assertion": "Pool debit/disbursement is not beneficiary receipt."
+    },
+    {
+      "id": "TPL-007",
+      "template_or_domain": "tend_bilateral_clearing",
+      "threat": "Both TEND legs and declared credit exposure observed",
+      "precondition": "Provider credit, recipient debit and mutual-credit exposure are all consistent.",
+      "adversarial_input": "Provide all three role observations under the same TEND profile.",
+      "expected": "SupportedWithinDeclaredScope",
+      "safety_assertion": "This is a TEND clearing claim only, not a fiat settlement claim."
+    },
+    {
+      "id": "TPL-008",
+      "template_or_domain": "tend_bilateral_clearing",
+      "threat": "Provider credit without recipient debit",
+      "precondition": "The provider effect exists but the recipient's counterpart is not observed in a complete view.",
+      "adversarial_input": "Supply provider credit and a complete empty recipient debit batch.",
+      "expected": "Pending",
+      "safety_assertion": "One-sided mutual credit is not bilateral clearing."
+    },
+    {
+      "id": "TPL-009",
+      "template_or_domain": "tend_bilateral_clearing",
+      "threat": "TEND role evidence carries a mismatched SAP intent fingerprint",
+      "precondition": "The observed effect is bound to a different instrument/unit intent.",
+      "adversarial_input": "Supply a receipt with a changed immutable intent fingerprint.",
+      "expected": "Conflict",
+      "safety_assertion": "The composite layer cannot promote evidence for another instrument."
+    },
+    {
+      "id": "TPL-010",
+      "template_or_domain": "grant_recipient_claimed",
+      "threat": "Award recorded but budget reservation not recorded",
+      "precondition": "Grant authority approved the award but treasury has not reserved funds.",
+      "adversarial_input": "Supply award and complete empty reservation evidence.",
+      "expected": "Pending",
+      "safety_assertion": "Approval is not funding reservation."
+    },
+    {
+      "id": "TPL-011",
+      "template_or_domain": "grant_recipient_claimed",
+      "threat": "Tranche release recorded; beneficiary claim missing",
+      "precondition": "Treasury/agency release exists but recipient-owned claim is not observed.",
+      "adversarial_input": "Supply award, reservation, release and complete empty recipient claim.",
+      "expected": "Pending",
+      "safety_assertion": "Release is not recipient receipt."
+    },
+    {
+      "id": "TPL-012",
+      "template_or_domain": "procurement_received_and_settled",
+      "threat": "Invoice/payable exists but goods receipt absent",
+      "precondition": "Supplier invoice and payable journal are observed; physical receipt is missing.",
+      "adversarial_input": "Supply every other role and a complete empty goods/service receipt batch.",
+      "expected": "Pending",
+      "safety_assertion": "Invoice/payable does not prove delivery."
+    },
+    {
+      "id": "TPL-013",
+      "template_or_domain": "procurement_received_and_settled",
+      "threat": "Payment instruction accepted but bank settlement receipt absent",
+      "precondition": "The payment rail acknowledged the instruction but no final settlement evidence exists.",
+      "adversarial_input": "Supply payment instruction and complete empty bank settlement receipt.",
+      "expected": "Pending",
+      "safety_assertion": "Instruction acceptance is not final settlement."
+    },
+    {
+      "id": "TPL-014",
+      "template_or_domain": "payroll_worker_receipt_observed",
+      "threat": "Net payable and bank payment observed; worker receipt absent",
+      "precondition": "Employer calculated/released payroll and rail evidence exists, but worker receipt is missing.",
+      "adversarial_input": "Provide a complete empty worker receipt batch.",
+      "expected": "Pending",
+      "safety_assertion": "Bank payment status is not the same as worker-confirmed receipt under this profile."
+    },
+    {
+      "id": "TPL-015",
+      "template_or_domain": "public_transfer",
+      "threat": "Eligibility decision alone presented as a disbursement claim",
+      "precondition": "The authority has an eligibility result but no entitlement/reservation/disbursement/recipient claim.",
+      "adversarial_input": "Attempt to substitute eligibility evidence for the full recipient-claim template.",
+      "expected": "RejectedPromotion",
+      "safety_assertion": "Eligibility is not award or payment."
+    },
+    {
+      "id": "TPL-016",
+      "template_or_domain": "commons_service_accepted",
+      "threat": "Delivery event observed but beneficiary acceptance absent",
+      "precondition": "Provider delivered a resource/service; beneficiary acceptance is not observed.",
+      "adversarial_input": "Supply reservation, commitment and delivery with a complete empty acceptance batch.",
+      "expected": "Pending",
+      "safety_assertion": "Delivery is not acceptance."
+    },
+    {
+      "id": "TPL-017",
+      "template_or_domain": "reputation_attestation_recorded",
+      "threat": "Reputation projection exists but attestation source is absent",
+      "precondition": "A computed reputation projection exists without the required issuer attestation.",
+      "adversarial_input": "Supply projection and complete empty attestation batch.",
+      "expected": "Pending",
+      "safety_assertion": "Projection is not proof of issuer attestation."
+    },
+    {
+      "id": "TPL-018",
+      "template_or_domain": "reputation_attestation_recorded",
+      "threat": "Reputation attestation exported as transferable monetary value",
+      "precondition": "A downstream adapter maps a reputation score into SAP or bankable value without an explicit economic instrument.",
+      "adversarial_input": "Attempt to promote reputation role into an asset/payment role.",
+      "expected": "RejectedPromotion",
+      "safety_assertion": "MYCEL reputation does not become money or spend authority."
+    },
+    {
+      "id": "TPL-019",
+      "template_or_domain": "external_instrument",
+      "threat": "Provider acceptance exists; final settlement receipt missing",
+      "precondition": "An external payment/provider API reports acceptance but settlement profile requires separate bank/rail evidence.",
+      "adversarial_input": "Supply provider acceptance without external settlement receipt.",
+      "expected": "Pending",
+      "safety_assertion": "Provider acceptance does not prove settlement finality."
+    },
+    {
+      "id": "TPL-020",
+      "template_or_domain": "valueflows",
+      "threat": "Commitment node promoted to EconomicEvent",
+      "precondition": "An operational plan/commitment is imported as if physical fulfilment has occurred.",
+      "adversarial_input": "Map Commitment as an observed owner effect without an EconomicEvent/independent evidence.",
+      "expected": "RejectedPromotion",
+      "safety_assertion": "Plan and observed event are different semantic layers."
+    },
+    {
+      "id": "TPL-021",
+      "template_or_domain": "epcis",
+      "threat": "Receiving visibility event promoted to title or beneficiary acceptance",
+      "precondition": "An EPCIS event shows an object at a location but there is no title or recipient acceptance evidence.",
+      "adversarial_input": "Attempt to satisfy acceptance/ownership slots using only an EPCIS receiving event.",
+      "expected": "RejectedPromotion",
+      "safety_assertion": "Visibility events do not establish legal title or beneficiary acceptance."
+    },
+    {
+      "id": "TPL-022",
+      "template_or_domain": "prov",
+      "threat": "PROV Agent attribution promoted to execution authority",
+      "precondition": "A provenance record attributes an activity to an agent but carries no scoped credential/delegation evidence.",
+      "adversarial_input": "Attempt to count PROV attribution as an owner authorization proof.",
+      "expected": "RejectedPromotion",
+      "safety_assertion": "Attribution and authority are different claims."
+    },
+    {
+      "id": "TPL-023",
+      "template_or_domain": "procurement_received_and_settled",
+      "threat": "Conflicting bank settlement receipts for one required effect",
+      "precondition": "Two receipts assert different effect digests for the same owner/effect identity.",
+      "adversarial_input": "Supply conflicting final-settlement observations.",
+      "expected": "Conflict",
+      "safety_assertion": "Conflicting settlement observations freeze the claim."
+    },
+    {
+      "id": "TPL-024",
+      "template_or_domain": "multi_domain",
+      "threat": "Same role-owner profile built from permuted binding order",
+      "precondition": "The required role-owner bindings are identical but caller order differs.",
+      "adversarial_input": "Build the same template twice with permuted role binding inputs.",
+      "expected": "DeterministicProfile",
+      "safety_assertion": "Canonical template ordering and profile digest must be byte-identical."
+    }
+  ],
+  "metrics": [
+    {
+      "id": "M-TPL-01",
+      "name": "False SupportedWithinDeclaredScope rate",
+      "target": "0 on declared template conformance corpus",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-TPL-02",
+      "name": "Missing owner-slot acceptance",
+      "target": "0 missing template role bindings silently accepted",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-TPL-03",
+      "name": "Unexpected role acceptance",
+      "target": "0 roles outside template silently accepted",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-TPL-04",
+      "name": "Plan-to-event promotion",
+      "target": "0 Commitment/Intent promoted to observed event",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-TPL-05",
+      "name": "External finality promotion",
+      "target": "0 provider/status-only observations promoted to final settlement",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-TPL-06",
+      "name": "Profile binding determinism",
+      "target": "100% same digest under permutation of identical role-owner bindings",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-TPL-07",
+      "name": "Profile construction/projection p50/p95/p99 latency",
+      "target": "Measure by required role count; compare matched Rust baselines",
+      "stage": "performance_after_safety"
+    }
+  ]
+}
