@@ -373,7 +373,8 @@ jobs:
             .case_count == 15 and
             (.cases | length == 15) and
             (.cases | map(.id) | unique | length == 15) and
-            (.metrics | map(.id) | unique | length == (.metrics | length)) and
+            (.metrics | map(.id)) as $metric_ids |
+            (($metric_ids | unique | length) == ($metric_ids | length)) and
             ([.cases[] | select(.id == "SAP-EP-003") | .expected] | first == "Indeterminate") and
             ([.cases[] | select(.id == "SAP-EP-004") | .expected] | first == "Pending") and
             ([.cases[] | select(.id == "SAP-EP-010") | .expected] | first == "Conflict") and
