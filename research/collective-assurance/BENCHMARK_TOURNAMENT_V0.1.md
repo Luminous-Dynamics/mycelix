@@ -159,6 +159,28 @@ The AI-off endpoint evaluates whether the experimental AI contribution can be re
 - Report the participant's chosen support level, agency, accessibility, and burden. A positive capability result should increase available choices, not impose independence as a compulsory norm.
 - Do not use these results for employee ranking, hiring, discipline, insurance, eligibility, or access to public services.
 
+## Evidence-lineage and allocation qualification
+
+The v0.1 Rust implementation now contains a causal evidence ledger and a seed-commitment/reveal allocator.
+
+The ledger extends the benchmark metrics with:
+- **Assignment-to-exposure traceability:** every disclosure must map to a prior rights-bearing information assignment, a created request and a delivered request.
+- **Recipient exposure correctness:** only the permitted recipient may receive and view scoped evidence.
+- **Independent verification:** evidence must be verified by an actor other than the source holder and recipient, against the disclosed payload digest.
+- **Claim lineage:** supported/disputed/unknown status remains explicit; claim authors must have viewed the evidence they cite; dispute requires distinct supporting and contradicting origins.
+- **Decision lineage:** every decision cites explicit claim revisions; decisive outcomes cannot rely on unknown/disputed premises or stale claim revisions.
+- **Tamper evidence:** event chains are checked against a retained root digest.
+
+Proposed targets (not yet independently demonstrated in deployed systems):
+- 100% traceability for material decision premises in synthetic fixtures.
+- 0 unauthorized scoped disclosures accepted by the validator.
+- 0 decisions promoted from unverified or unviewed evidence.
+- 0 stale claim revisions accepted as current decision premises.
+- 100% detection of event mutation when an independently retained ledger root is available.
+- 100% regeneration of team allocations from a revealed seed/salt and the original frozen design.
+
+Rights-based withholding is not a scoring error. Candidate or participant-visible information must not include evaluator-only truth or restricted payloads. Hash chaining is only tamper-evidence: it does not authenticate the event recorder, timestamp or source. Production runs need signed recorder receipts and an independently retained root.
+
 ## Statistical and reproducibility contract
 
 - Pin benchmark and task dataset version/hash; maintain separate training/dev/held-out task families.
