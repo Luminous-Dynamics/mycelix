@@ -1580,10 +1580,7 @@ mod effect_vector_tests {
             required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
             required(EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob"),
         ]);
-        assert_eq!(
-            p.profile_digest.to_hex(),
-            "__PROFILE_DIGEST_KAT__"
-        );
+        assert_eq!(p.profile_digest.to_hex(), "__PROFILE_DIGEST_KAT__");
     }
 
     #[test]
