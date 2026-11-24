@@ -1,0 +1,18 @@
+[package]
+name = "sap-payment-saga-model"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Pure Rust reference model for idempotent SAP payment effects and crash recovery"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+sha2 = "=0.10.9"
+
+[[bench]]
+name = "replay_benchmark"
+path = "benches/replay_benchmark.rs"
+harness = false
