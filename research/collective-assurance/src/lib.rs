@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod allocation;
 mod ledger;
+mod support_policy;
 
 pub use allocation::{
     allocate_committed_teams, compute_design_digest, compute_roster_digest,
@@ -16,6 +17,10 @@ pub use ledger::{
     genesis_digest, validate_ledger, ClaimDisposition, ClaimReference, DecisionDisposition,
     DisclosureOutcome, DisclosurePermission, LedgerEvent, LedgerEventKind,
     LedgerValidationReport, VerificationOutcome,
+};
+pub use support_policy::{
+    qualify_support_choice, SupportDecision, SupportMode, SupportQualificationReport,
+    SupportQualificationStatus, SupportRequest, UserIntent,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
