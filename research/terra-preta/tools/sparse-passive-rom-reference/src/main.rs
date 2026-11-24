@@ -355,8 +355,6 @@ fn pcg(
     let mut direction = z.clone();
     let mut rz = dot(&residual, &z);
     let mut relative_residual = norm(&residual) / rhs_norm;
-    let mut iterations = 0;
-
     for iteration in 0..max_iterations {
         let product = matrix.matvec(&direction, shift)?;
         let denominator = dot(&direction, &product);
@@ -368,7 +366,7 @@ fn pcg(
             x[index] += alpha * direction[index];
             residual[index] -= alpha * product[index];
         }
-        iterations = iteration + 1;
+        let iterations = iteration + 1;
         relative_residual = norm(&residual) / rhs_norm;
         if relative_residual <= relative_tolerance {
             return Ok((x, CgStats { iterations, relative_residual }));
@@ -735,6 +733,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     let maximum_cg_relative_residual = stats.iter()
         .map(|item| item.relative_residual).fold(0.0_f64, f64::max);
     let csr_density = model.a.nnz() as f64 / (model.a.size * model.a.size) as f64;
+    let dc_relative_error = relative_error(&reduced_dc, &exact_dc);
 
     Ok(Report {
         audit_version: VERSION.into(),
@@ -750,7 +749,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         basis_snapshots_attempted: projection.basis_snapshots,
         exact_dc_response: exact_dc,
         reduced_dc_response: reduced_dc.clone(),
-        dc_relative_error: relative_error(&reduced_dc, &exact_dc),
+        dc_relative_error,
         a_r_min_eigenvalue: projection.a_r_min_eigenvalue,
         lambda_0_min_eigenvalue: projection.lambda_0_min_eigenvalue,
         structural_passivity_certificate_valid: projection.a_r_min_eigenvalue > 0.0
