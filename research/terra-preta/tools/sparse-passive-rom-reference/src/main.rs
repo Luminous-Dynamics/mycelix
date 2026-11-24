@@ -701,25 +701,16 @@ fn response_from_sparse(
     Ok((response, stats))
 }
 
-fn build_projection_from_basis(
+fn assemble_projection_from_basis(
     model: &Model,
     basis: Vec<Vec<f64>>,
     snapshot_count: usize,
-    mut stats: Vec<CgStats>,
-    fixture: &Fixture,
-) -> Result<(Projection, Vec<CgStats>), String> {
+    lambda_0: &Dense,
+) -> Result<Projection, String> {
     if basis.is_empty() {
         return Err("reduced projection basis is numerically empty".into());
     }
     let nb = model.boundary_ids.len();
-    let (lambda_0, dc_stats) = response_from_sparse(
-        model,
-        0.0,
-        fixture.cg_relative_tolerance,
-        fixture.cg_max_iterations,
-    )?;
-    stats.extend(dc_stats);
-
     let mut a_basis = Vec::with_capacity(basis.len());
     for vector in &basis {
         a_basis.push(model.a.matvec(vector, 0.0)?);
@@ -739,24 +730,40 @@ fn build_projection_from_basis(
     }
 
     let a_r_min = min_symmetric_eigenvalue(&a_r)?;
-    let lambda_0_min = min_symmetric_eigenvalue(&lambda_0)?;
+    let lambda_0_min = min_symmetric_eigenvalue(lambda_0)?;
     let lambda_0_scale = lambda_0
         .iter()
         .flatten()
         .fold(0.0_f64, |largest, value| largest.max(value.abs()));
-    Ok((
-        Projection {
-            a_r,
-            b_r,
-            d_r,
-            basis_dimension: basis.len(),
-            basis_snapshots: snapshot_count,
-            lambda_0_min_eigenvalue: lambda_0_min,
-            lambda_0_scale,
-            a_r_min_eigenvalue: a_r_min,
-        },
-        stats,
-    ))
+    Ok(Projection {
+        a_r,
+        b_r,
+        d_r,
+        basis_dimension: basis.len(),
+        basis_snapshots: snapshot_count,
+        lambda_0_min_eigenvalue: lambda_0_min,
+        lambda_0_scale,
+        a_r_min_eigenvalue: a_r_min,
+    })
+}
+
+fn build_projection_from_basis(
+    model: &Model,
+    basis: Vec<Vec<f64>>,
+    snapshot_count: usize,
+    mut stats: Vec<CgStats>,
+    fixture: &Fixture,
+) -> Result<(Projection, Vec<CgStats>), String> {
+    let (lambda_0, dc_stats) = response_from_sparse(
+        model,
+        0.0,
+        fixture.cg_relative_tolerance,
+        fixture.cg_max_iterations,
+    )?;
+    stats.extend(dc_stats);
+    let projection =
+        assemble_projection_from_basis(model, basis, snapshot_count, &lambda_0)?;
+    Ok((projection, stats))
 }
 
 fn build_projection_for_requests(
