@@ -487,7 +487,7 @@ fn solve_process(scenario: &Scenario, process: &Process) -> Result<ProcessResult
             flux_value: flux,
         });
     }
-    edge_fluxes.sort_by(|left, right| left.edge_id.cmp(&right.edge_id));
+    edge_fluxes.sort_by_key(|edge| edge.edge_id.clone());
 
     let source_flux: f64 = process.dirichlet_boundaries
         .iter()
@@ -527,7 +527,7 @@ fn solve_process(scenario: &Scenario, process: &Process) -> Result<ProcessResult
             boundary_role,
         });
     }
-    node_potentials.sort_by(|left, right| left.node_id.cmp(&right.node_id));
+    node_potentials.sort_by_key(|node| node.node_id.clone());
 
     Ok(ProcessResult {
         process_id: process.process_id.clone(),
@@ -613,10 +613,6 @@ mod tests {
             "../fixtures/synthetic-cell-complex.json"
         ))
         .expect("synthetic cube fixture parses")
-    }
-
-    fn process<'a>(scenario: &'a Scenario, process_id: &str) -> &'a Process {
-        scenario.processes.iter().find(|process| process.process_id == process_id).unwrap()
     }
 
     fn make_network(conductances: &[f64]) -> Scenario {
@@ -771,10 +767,12 @@ mod tests {
     #[test]
     fn rejects_duplicate_face_edge_and_volume_face_terms() {
         let mut scenario = scenario();
-        scenario.faces[0].boundary_edges.push(scenario.faces[0].boundary_edges[0].clone());
+        let duplicate_edge = scenario.faces[0].boundary_edges[0].clone();
+        scenario.faces[0].boundary_edges.push(duplicate_edge);
         assert!(validate(&scenario).is_err());
         let mut scenario = scenario();
-        scenario.volumes[0].boundary_faces.push(scenario.volumes[0].boundary_faces[0].clone());
+        let duplicate_face = scenario.volumes[0].boundary_faces[0].clone();
+        scenario.volumes[0].boundary_faces.push(duplicate_face);
         assert!(validate(&scenario).is_err());
     }
 
