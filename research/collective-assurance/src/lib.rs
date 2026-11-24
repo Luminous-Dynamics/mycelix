@@ -848,7 +848,10 @@ mod tests {
                 7 => c.runner_digest.replace_range(0..1, "f"),
                 8 => signature = b"invalid".to_vec(),
                 9 => c.phase_id.clear(),
-                10 => c.probes.push(c.probes[0].clone()),
+                10 => {
+                    let probe = c.probes[0].clone();
+                    c.probes.push(probe);
+                },
                 11 => e.phase_id.clear(),
                 _ => unreachable!(),
             }
