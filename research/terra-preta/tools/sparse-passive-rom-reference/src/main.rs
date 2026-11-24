@@ -1443,6 +1443,29 @@ mod tests {
     }
 
     #[test]
+    fn prima_style_block_arnoldi_baseline_is_passive_at_adaptive_rank() {
+        let adaptive_fixture = adaptive_multiport_fixture();
+        let report = analyze(&adaptive_fixture, "block-arnoldi-comparison-fixture".into()).unwrap();
+        assert_eq!(
+            report.block_arnoldi_baseline_basis_dimension,
+            Some(report.basis_dimension)
+        );
+        assert_eq!(
+            report.block_arnoldi_baseline_passivity_certificate_valid,
+            Some(true)
+        );
+        assert!(report
+            .block_arnoldi_baseline_maximum_sampled_response_error
+            .is_some_and(f64::is_finite));
+        assert!(report
+            .block_arnoldi_baseline_cg_solve_count
+            .is_some_and(|count| count > 0));
+        assert!(report
+            .block_arnoldi_baseline_total_cg_iterations
+            .is_some_and(|iterations| iterations > 0));
+    }
+
+    #[test]
     fn adaptive_validation_grid_must_be_disjoint_from_seed_and_audit_grids() {
         let mut invalid = adaptive_multiport_fixture();
         invalid.adaptive.candidate_shifts[0] = invalid.laplace_samples[1];
