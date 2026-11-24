@@ -126,8 +126,8 @@ SignTransitionA(w) ==
   /\ DigestA \notin votes[w]
   /\ (w \in Faulty \/ votes[w] = {})
   /\ votes' = [votes EXCEPT ![w] = @ \cup {DigestA}]
-  /\ oldSignersA' = IF w \in OldWitnesses THEN oldSignersA \cup {w} ELSE oldSignersA
-  /\ newSignersA' = IF w \in NewWitnesses THEN newSignersA \cup {w} ELSE newSignersA
+  /\ oldSignersA' = oldSignersA \cup (OldWitnesses \cap {w})
+  /\ newSignersA' = newSignersA \cup (NewWitnesses \cap {w})
   /\ UNCHANGED <<phase, proposalDigest, lockedDigest,
                  oldSignersB, newSignersB, certificateA, certificateB,
                  oldEpochClosed, newEpochActive, oldEffectA, oldEffectB,
@@ -141,8 +141,8 @@ SignTransitionB(w) ==
   /\ DigestB \notin votes[w]
   /\ (w \in Faulty \/ votes[w] = {})
   /\ votes' = [votes EXCEPT ![w] = @ \cup {DigestB}]
-  /\ oldSignersB' = IF w \in OldWitnesses THEN oldSignersB \cup {w} ELSE oldSignersB
-  /\ newSignersB' = IF w \in NewWitnesses THEN newSignersB \cup {w} ELSE newSignersB
+  /\ oldSignersB' = oldSignersB \cup (OldWitnesses \cap {w})
+  /\ newSignersB' = newSignersB \cup (NewWitnesses \cap {w})
   /\ UNCHANGED <<phase, proposalDigest, lockedDigest,
                  oldSignersA, newSignersA, certificateA, certificateB,
                  oldEpochClosed, newEpochActive, oldEffectA, oldEffectB,
