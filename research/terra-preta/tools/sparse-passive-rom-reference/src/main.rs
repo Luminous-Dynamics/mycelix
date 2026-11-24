@@ -194,6 +194,9 @@ struct Report {
     lambda_0_scale: f64,
     lambda_0_passivity_tolerance: f64,
     structural_passivity_certificate_valid: bool,
+    cg_solve_count: usize,
+    total_cg_iterations: usize,
+    adaptive_candidate_shift_count: usize,
     maximum_cg_iterations: usize,
     maximum_cg_relative_residual: f64,
     frequency_samples: Vec<SampleResult>,
@@ -995,6 +998,9 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         .iter()
         .map(|sample| sample.relative_response_error)
         .fold(0.0_f64, f64::max);
+    let cg_solve_count = stats.len();
+    let total_cg_iterations = stats.iter().map(|item| item.iterations).sum();
+    let adaptive_candidate_shift_count = fixture.adaptive.candidate_shifts.len();
     let maximum_cg_iterations = stats.iter().map(|item| item.iterations).max().unwrap_or(0);
     let maximum_cg_relative_residual = stats.iter()
         .map(|item| item.relative_residual).fold(0.0_f64, f64::max);
@@ -1027,6 +1033,9 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         lambda_0_passivity_tolerance,
         structural_passivity_certificate_valid: projection.a_r_min_eigenvalue > 0.0
             && projection.lambda_0_min_eigenvalue >= -lambda_0_passivity_tolerance,
+        cg_solve_count,
+        total_cg_iterations,
+        adaptive_candidate_shift_count,
         maximum_cg_iterations,
         maximum_cg_relative_residual,
         frequency_samples,
