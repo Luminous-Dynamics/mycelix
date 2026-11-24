@@ -18,6 +18,10 @@ on:
       - "mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json"
+      - "mycelix-finance/benchmarks/finance/economic-effect-profile-template-adversarial-corpus.v0.1.json"
+      - "mycelix-finance/benchmarks/finance/economic-effect-profile-template-adversarial-corpus.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-template-adversarial-corpus.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-template-adversarial-corpus.v0.1.schema.json"
       - "docs/economic/economic-os-effect-role-vocabulary-v0.1.md"
       - "mycelix-workspace/docs/economic/economic-os-effect-role-vocabulary-v0.1.md"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
@@ -49,6 +53,10 @@ on:
       - "mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json"
+      - "mycelix-finance/benchmarks/finance/economic-effect-profile-template-adversarial-corpus.v0.1.json"
+      - "mycelix-finance/benchmarks/finance/economic-effect-profile-template-adversarial-corpus.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-template-adversarial-corpus.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-template-adversarial-corpus.v0.1.schema.json"
       - "docs/economic/economic-os-effect-role-vocabulary-v0.1.md"
       - "mycelix-workspace/docs/economic/economic-os-effect-role-vocabulary-v0.1.md"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
@@ -165,6 +173,8 @@ jobs:
           cmp docs/economic/economic-os-effect-role-vocabulary-v0.1.md mycelix-workspace/docs/economic/economic-os-effect-role-vocabulary-v0.1.md
           cmp mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.json
           cmp mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json
+          cmp mycelix-finance/benchmarks/finance/economic-effect-profile-template-adversarial-corpus.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-template-adversarial-corpus.v0.1.json
+          cmp mycelix-finance/benchmarks/finance/economic-effect-profile-template-adversarial-corpus.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-template-adversarial-corpus.v0.1.schema.json
           cmp docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md mycelix-workspace/docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md
           cmp docs/finance/FIN_EFFECT_004_PROFILE_BOUND_EFFECT_VECTOR_V0_1.md mycelix-workspace/docs/finance/FIN_EFFECT_004_PROFILE_BOUND_EFFECT_VECTOR_V0_1.md
           cmp mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json
@@ -248,6 +258,32 @@ jobs:
           cmp "$catalogue" "mycelix-workspace/$catalogue"
           cmp "$schema" "mycelix-workspace/$schema"
           echo "Validated nine Economic OS claim templates and role bindings; templates are not policy authority."
+
+      - name: Validate Economic OS claim template adversarial corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          corpus="mycelix-finance/benchmarks/finance/economic-effect-profile-template-adversarial-corpus.v0.1.json"
+          schema="mycelix-finance/benchmarks/finance/economic-effect-profile-template-adversarial-corpus.v0.1.schema.json"
+          jq empty "$corpus"
+          jq empty "$schema"
+          jq -e '
+            .issue == 6612 and
+            .status == "proposed_synthetic_template_boundary_corpus_not_execution_evidence" and
+            .case_count == 24 and
+            (.cases | length == 24) and
+            (.cases | map(.id) | unique | length == 24) and
+            (.metrics | map(.id) | unique | length == (.metrics | length)) and
+            ([.cases[].expected] - .dispositions | length == 0) and
+            ([.cases[] | select(.id == "TPL-001") | .expected][0] == "Pending") and
+            ([.cases[] | select(.id == "TPL-003") | .expected][0] == "RejectedInput") and
+            ([.cases[] | select(.id == "TPL-016") | .expected][0] == "Pending") and
+            ([.cases[] | select(.id == "TPL-020") | .expected][0] == "RejectedPromotion") and
+            ([.cases[] | select(.id == "TPL-023") | .expected][0] == "Conflict")
+          ' "$corpus" >/dev/null
+          cmp "$corpus" "mycelix-workspace/$corpus"
+          cmp "$schema" "mycelix-workspace/$schema"
+          echo "Validated 24 semantic boundary cases; cases are synthetic targets, not runtime evidence."
 
       - name: Validate Economic OS role template documentation
         shell: bash
