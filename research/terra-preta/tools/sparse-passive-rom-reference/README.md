@@ -25,7 +25,9 @@ and
 
     Lambda_r(s) = D_r - B_r^T (sI + A_r)^-1 B_r.
 
-The reduced model has the same DC response. Its realization passivity matrix
+The reduced model has the same DC response. If the basis contains the zero-shift port snapshots `A^-1 B`, it also preserves the original high-frequency feedthrough `D`; without those snapshots, the DC correction may change the `s -> infinity` limit. The report exposes the feedthrough-limit error separately from finite-frequency sample error so exact DC cannot hide a high-frequency mismatch.
+
+Its realization passivity matrix
 
     Q_r = [[D_r, B_r^T], [B_r, A_r]]
 
@@ -45,9 +47,10 @@ The basis is generated from snapshots (A + sigma I)^-1 B for declared nonnegativ
 
 - sparse CSR assembly for the graph Laplacian and storage-normalized operator;
 - anchored-component and positive-storage checks;
-- PCG solution residuals recorded for DC, rational shifts and response samples;
+- PCG true residuals recomputed before convergence is accepted, with diagnostics recorded for DC, rational shifts and response samples;
+- scale-aware basis, pivot, eigenvalue and passivity tolerances;
 - port-driven rational Krylov snapshot generation and double-pass modified Gram-Schmidt;
-- exact DC correction in the reduced feedthrough;
+- exact DC correction in the reduced feedthrough and separate high-frequency feedthrough-limit error;
 - A_r positive definiteness and Lambda_0 positive-semidefinite checks;
 - full sparse vs reduced response comparisons at declared nonnegative real Laplace samples;
 - sparse-storage growth check on a generated 128-node chain;
@@ -55,7 +58,7 @@ The basis is generated from snapshots (A + sigma I)^-1 B for declared nonnegativ
 - node/edge ordering invariance for the branched response;
 - input SHA-256 and create-new output semantics.
 
-The current test suite contains nine tests. The 128-node chain and four-node branched network are synthetic qualification fixtures, not empirical soil data.
+The current test suite contains twelve tests. The synthetic fixtures include a 128-node chain, a four-node branched network, and a high-contrast three-port network. Conductance/storage rescaling by 24 orders of magnitude is used to test scale invariance; none of these fixtures is empirical soil data.
 
 ## Claim boundary
 
