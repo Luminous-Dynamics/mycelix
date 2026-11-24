@@ -683,13 +683,13 @@ fn main() {
 mod tests {
     use super::*;
 
-    fn scenario() -> Scenario {
+    fn cube_fixture() -> Scenario {
         serde_json::from_str(include_str!("../fixtures/synthetic-cell-complex.json"))
             .expect("synthetic cube fixture parses")
     }
 
     fn make_network(conductances: &[f64]) -> Scenario {
-        let mut scenario = scenario();
+        let mut scenario = cube_fixture();
         scenario.nodes = vec![
             Node {
                 node_id: "source".into(),
@@ -758,7 +758,7 @@ mod tests {
 
     #[test]
     fn cube_has_zero_boundary_of_boundary() {
-        let scenario = scenario();
+        let scenario = cube_fixture();
         let checks = validate(&scenario).expect("cube incidence validates");
         assert_eq!(checks.checked_faces, 6);
         assert_eq!(checks.checked_volumes, 1);
@@ -767,7 +767,7 @@ mod tests {
 
     #[test]
     fn same_complex_supports_distinct_hydraulic_and_thermal_operators() {
-        let report = build_report(&scenario(), "0".repeat(64)).unwrap();
+        let report = build_report(&cube_fixture(), "0".repeat(64)).unwrap();
         assert_eq!(report.cell_counts.zero_cells, 8);
         assert_eq!(report.cell_counts.one_cells, 12);
         assert_eq!(report.cell_counts.two_cells, 6);
@@ -864,24 +864,24 @@ mod tests {
 
     #[test]
     fn rejects_nonzero_face_boundary_residual() {
-        let mut scenario = scenario();
+        let mut scenario = cube_fixture();
         scenario.faces[0].boundary_edges[0].orientation *= -1;
         assert!(validate(&scenario).is_err());
     }
 
     #[test]
     fn rejects_nonzero_volume_boundary_residual() {
-        let mut scenario = scenario();
+        let mut scenario = cube_fixture();
         scenario.volumes[0].boundary_faces[0].orientation *= -1;
         assert!(validate(&scenario).is_err());
     }
 
     #[test]
     fn rejects_zero_edge_conductance_and_missing_edge_coefficient() {
-        let mut scenario = scenario();
+        let mut scenario = cube_fixture();
         scenario.processes[0].edge_conductances[0].value = 0.0;
         assert!(validate(&scenario).is_err());
-        let mut scenario = scenario();
+        let mut scenario = cube_fixture();
         scenario.processes[0].edge_conductances.pop();
         assert!(validate(&scenario).is_err());
     }
@@ -908,11 +908,11 @@ mod tests {
 
     #[test]
     fn rejects_duplicate_face_edge_and_volume_face_terms() {
-        let mut scenario = scenario();
+        let mut scenario = cube_fixture();
         let duplicate_edge = scenario.faces[0].boundary_edges[0].clone();
         scenario.faces[0].boundary_edges.push(duplicate_edge);
         assert!(validate(&scenario).is_err());
-        let mut scenario = scenario();
+        let mut scenario = cube_fixture();
         let duplicate_face = scenario.volumes[0].boundary_faces[0].clone();
         scenario.volumes[0].boundary_faces.push(duplicate_face);
         assert!(validate(&scenario).is_err());
@@ -920,7 +920,7 @@ mod tests {
 
     #[test]
     fn report_process_order_is_deterministic() {
-        let mut scenario = scenario();
+        let mut scenario = cube_fixture();
         let before = build_report(&scenario, "0".repeat(64)).unwrap();
         scenario.processes.reverse();
         let after = build_report(&scenario, "0".repeat(64)).unwrap();
