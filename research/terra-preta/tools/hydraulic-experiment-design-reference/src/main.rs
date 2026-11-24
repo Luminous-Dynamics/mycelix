@@ -289,9 +289,13 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         .candidates
         .iter()
         .find(|candidate| matches!(candidate.observation, ObservationKind::BulkConductance))
-        .ok_or_else(|| "a repeat-bulk candidate is required for the cost-matched baseline".to_string())?;
+        .ok_or_else(|| {
+            "a repeat-bulk candidate is required for the cost-matched baseline".to_string()
+        })?;
     if repeat_candidate.cost != 1 {
-        return Err("repeat-bulk candidate cost must be one unit for the cost-matched baseline".into());
+        return Err(
+            "repeat-bulk candidate cost must be one unit for the cost-matched baseline".into(),
+        );
     }
     for repeat in 0..repeat_count {
         repeated_bulk_rows.push(bulk_row);
@@ -532,7 +536,9 @@ mod tests {
         assert_eq!(report.optimal_design.total_cost, 4);
         assert!(
             report.optimal_design.regularized_log_determinant_fisher
-                > report.cost_matched_repeat_bulk_design.regularized_log_determinant_fisher
+                > report
+                    .cost_matched_repeat_bulk_design
+                    .regularized_log_determinant_fisher
         );
         assert_eq!(
             report.optimal_design.candidate_ids,
