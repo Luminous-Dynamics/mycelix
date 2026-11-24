@@ -29,6 +29,7 @@ The full lifecycle is the proposed differentiator. It composes existing benchmar
 | [COLLABMEM (EMNLP 2026)](https://aclanthology.org/2026.emnlp-main.1194/) | Role routing, access control, source/provenance, conflict resolution and retention in collaborative memory | 58 scenarios / 1,118 core probes; scaled split 174 / 3,359; TMS-GRAPH++ reports 69.6% non-oracle average | Memory operation benchmark, not a human intervention or team withdrawal study |
 | [GroupAssistBench (Nov 3 2026)](https://arxiv.org/abs/2611.04867) | Real-world open-ended group assistance, memory use and recall | 80,299 messages across 50 groups and 2,395 evaluation instances: 1,374 recall and 1,021 open-ended assistance cases across single, distributed and conflicting memories | Data are real group histories but scores do not establish human capability change or causal effects of AI |
 | [Common Ground (Feb 2026)](https://arxiv.org/abs/2602.21337) | Human–AI shared understanding, joint action, referential coordination and repair | Confirmatory user-study-backed collaborative puzzle benchmark | No delayed AI-off retention endpoint |
+| [HumanAgencyBench (Findings EMNLP 2026)](https://aclanthology.org/2026.findings-emnlp.730/) | Assistant behavior that supports human agency | Six dimensions: clarify, avoid value manipulation, correct misinformation, defer important decisions, encourage learning and maintain social boundaries; reports low-to-moderate agency support and cross-developer variation | Primarily a diagnostic of model responses, not a causal study of users' long-term agency or retained capability |
 | [Empirical Information Design (Nov 5 2026)](https://arxiv.org/abs/2611.07667) | Effects of information disclosure granularity across multi-agent economic mechanisms and models | Ten frontier LLMs; finer disclosure can help or harm depending on model and mechanism | Economic-agent results must not be generalized directly to human deliberation |
 
 ### Interoperability foundation
@@ -47,6 +48,56 @@ GroupMemBench, COLLABMEM and GroupAssistBench are complementary:
 - GroupAssistBench asks whether that memory can actually be used to serve a real request.
 - SympoeticBench asks whether humans/teams retain independent capability after AI withdrawal.
 No one benchmark covers all four.
+
+## Assistance-policy tournament: choose support without taking away choice
+
+Do not assume either unrestricted automation or forced scaffolding is universally best. Published randomized evidence differs by task and by how people use assistance:
+- Liu et al. report randomized human–AI experiments with N=1,222 in which short AI interactions improved immediate performance but reduced persistence and unaided performance in their tested conditions ([paper](https://arxiv.org/abs/2604.04721)).
+- Contractor and Reyes' July 2026 IZA randomized experiment reports immediate test-score gains of 0.27 SD and a smaller one-week gain; delayed writing gains are concentrated among people using AI to explain concepts (augmentation) rather than generate the text (automation) ([IZA DP 18792](https://iza.org/publications/dp/18792/experimental-evidence-on-the-learning-impact-of-generative-ai)).
+- Cruces et al.'s randomized workplace-style experiment with 1,174 adults reports that AI narrowed the performance gap between higher- and lower-education participants during assisted work; part of the gain persisted in an unassisted follow-up, but gaps re-emerged and sustained effort moderated results ([NBER WP 34851](https://www.nber.org/papers/w34851)).
+- HumanAgencyBench provides a complementary response-level diagnostic for six behaviors, but its model-evaluated interaction scenarios should not be treated as human-subject evidence ([EMNLP 2026](https://aclanthology.org/2026.findings-emnlp.730/)).
+
+These results imply that assistance design, task, user goal, baseline knowledge, effort, accessibility and delay interval are likely moderators. Do not convert any one study into a universal rule that AI must always withhold answers or always automate.
+
+### Treatment conditions
+
+For model-only and later human/team experiments, compare support modes as separate, user-visible conditions:
+1. **Direct completion:** perform the requested task or supply the direct answer.
+2. **Explanation / augmentation:** explain concepts, evidence and reasoning so the user can use them.
+3. **Co-solving:** share intermediate steps and preserve the human's contribution.
+4. **Critique / verification:** inspect the user's work, reveal uncertainty and surface counterevidence.
+5. **Hint / challenge:** offer optional hints or a next-step question when the user's stated goal is learning or practice.
+6. **Defer / pause / handoff:** clarify uncertainty, seek qualified human judgment or stop when requested.
+
+These are support modes, not a forced linear curriculum. A user may request direct completion at any point. Do not withhold help to manufacture persistence or score a person's willingness to struggle. Never withdraw an essential accommodation or assistive tool.
+
+### Core hypotheses
+
+- Support-mode × task × baseline-skill interactions matter more than one fixed global assistance style.
+- Explanation and co-solving may improve delayed unaided performance for some learning tasks, while delegation may improve immediate output without the same retained benefit.
+- Direct completion can be the right outcome when the user's goal is access, communication, execution, time-saving or an accommodation rather than learning.
+- User agency is not synonymous with independent task completion: the ability to choose delegation, collaboration, explanation, review or no assistance is itself a form of agency.
+- Distributional outcomes matter: an intervention can raise average performance while narrowing or widening gaps in retained capability, burden or access.
+
+### Evaluation metrics
+
+Report, separately and by task/baseline strata:
+- assisted task quality and completion;
+- immediate AI-off accuracy/quality;
+- delayed AI-off retention (pre-register interval);
+- transfer to new task family;
+- user-selected support mode and mode-switch rate;
+- preference alignment and override success;
+- agency dimensions from HumanAgencyBench plus user-reported control and satisfaction;
+- active human effort, elapsed time, correction burden and compute cost;
+- distribution of gains across baseline skill, language, accessibility and task strata;
+- unwanted automation, unrequested withholding, unsupported persuasion and false confidence.
+
+For each user request, compare the system's selected mode against the user's explicit intent. A correct direct answer must not be scored as an agency failure merely because it did not teach. A good learning-oriented explanation must not be scored as task failure merely because it did not take over the work.
+
+### Competitive target
+
+Beat the strongest matched baseline on a Pareto frontier rather than one composite score: improve task success or retained capability without worsening user control, access, burden or distributional outcomes beyond preregistered limits. HumanAgencyBench is a diagnostic comparator; SympoeticBench supplies the delayed human/team outcome; the Mycelix ledger supplies auditable support/evidence/decision lineage. There is no result yet showing Luminous outperforms these benchmarks.
 
 ## Tournament design
 
