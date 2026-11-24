@@ -263,6 +263,15 @@ No accuracy or speed gain can compensate for:
 
 Report cost, quality, agency, privacy, provenance, workload and distribution as a Pareto frontier. Never hide a safety/rights failure in an aggregate.
 
+## Current implementation crosswalk
+
+The research protocol now has three reference implementations in the Mycelix PR:
+- `ledger.rs`: event lineage from rights-bearing information assignment through verified recipient exposure, claim revision and decision; holder identity is distinct from source-origin identity.
+- `allocation.rs`: OS-entropy seed/salt, domain-separated commitment, canonical roster/design digests, pinned ChaCha20 schedule and post-study reveal verification.
+- `support_policy.rs`: respects explicit requested assistance mode, requires confirmation for mode changes, restricts unsolicited challenge-style support to learning/practice intent, and preserves required accommodations.
+
+The implementations are synthetic/reference validators. Their claims are bounded by the trustworthiness of the event recorder, source-origin registry, user's captured preferences, and production allocation operator. A different source-origin string is not proof that two sources are truly independent until those origin references are independently authenticated.
+
 ## Immediate engineering sequence
 
 1. Finish the signed AI-off qualification adapter: attestation source, trusted signer registry, durable nonce ledger, process/artifact measurement and enforceable isolated runner.
