@@ -1405,6 +1405,11 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     } else {
         None
     };
+    let error_certificate = m_matrix_lambda_min_lower_bound(
+        &model.a,
+        fixture.cg_relative_tolerance,
+        fixture.cg_max_iterations,
+    )?;
     let mut block_arnoldi_baseline_error = 0.0_f64;
     let mut exact_dc_from_audit: Option<Dense> = None;
     let mut frequency_samples = Vec::with_capacity(fixture.laplace_samples.len());
@@ -1420,6 +1425,20 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             exact_dc_from_audit = Some(full.clone());
         }
         let reduced = response_from_reduced(&projection, *shift)?;
+        let (absolute_response_error_upper_bound, relative_response_error_upper_bound,
+            absolute_response_error, error_bound_valid) = response_error_upper_bound(
+                &model,
+                &projection,
+                *shift,
+                error_certificate.lambda_min_lower_bound,
+                &full,
+                &reduced,
+            )?;
+        if !error_bound_valid {
+            return Err(format!(
+                "residual response-error bound failed to dominate observed error at s={shift}"
+            ));
+        }
         if let Some((block_projection, _)) = block_arnoldi_baseline.as_ref() {
             let block_reduced = response_from_reduced(block_projection, *shift)?;
             block_arnoldi_baseline_error = block_arnoldi_baseline_error
@@ -1428,6 +1447,10 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         frequency_samples.push(SampleResult {
             laplace_s: *shift,
             relative_response_error: relative_error(&reduced, &full),
+            absolute_response_error,
+            absolute_response_error_upper_bound,
+            relative_response_error_upper_bound,
+            error_bound_valid,
             full_cg_max_iterations: full_stats.iter().map(|item| item.iterations).max().unwrap_or(0),
             full_cg_max_relative_residual: full_stats.iter()
                 .map(|item| item.relative_residual).fold(0.0_f64, f64::max),
@@ -1453,6 +1476,20 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         .fold(0.0_f64, f64::max);
     let cg_solve_count = stats.len();
     let total_cg_iterations = stats.iter().map(|item| item.iterations).sum();
+    let maximum_absolute_response_error_upper_bound = frequency_samples
+        .iter()
+        .map(|sample| sample.absolute_response_error_upper_bound)
+        .fold(0.0_f64, f64::max);
+    let maximum_relative_response_error_upper_bound = frequency_samples
+        .iter()
+        .map(|sample| sample.relative_response_error_upper_bound)
+        .fold(0.0_f64, f64::max);
+    let error_certificate_valid = frequency_samples.iter().all(|sample| sample.error_bound_valid)
+        && error_certificate.lambda_min_lower_bound > 0.0;
+    let error_certificate_pcg_solve_count = 1usize;
+    let error_certificate_pcg_iterations = error_certificate.cg_stats.iterations;
+    let overall_pcg_solve_count = cg_solve_count + error_certificate_pcg_solve_count;
+    let overall_pcg_iterations = total_cg_iterations + error_certificate_pcg_iterations;
     let adaptive_candidate_shift_count = fixture.adaptive.candidate_shifts.len();
     let maximum_cg_iterations = stats.iter().map(|item| item.iterations).max().unwrap_or(0);
     let maximum_cg_relative_residual = stats.iter()
@@ -1518,6 +1555,15 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         dc_relative_error,
         feedthrough_limit_relative_error,
         maximum_sampled_response_error,
+        m_matrix_lambda_min_lower_bound: error_certificate.lambda_min_lower_bound,
+        m_matrix_supersolution_max_component: error_certificate.supersolution_max_component,
+        error_certificate_valid,
+        error_certificate_pcg_solve_count,
+        error_certificate_pcg_iterations,
+        maximum_absolute_response_error_upper_bound,
+        maximum_relative_response_error_upper_bound,
+        overall_pcg_solve_count,
+        overall_pcg_iterations,
         a_r_min_eigenvalue: projection.a_r_min_eigenvalue,
         lambda_0_min_eigenvalue: projection.lambda_0_min_eigenvalue,
         lambda_0_scale: projection.lambda_0_scale,
