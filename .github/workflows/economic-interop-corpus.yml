@@ -46,14 +46,14 @@ jobs:
             .status == "normative_synthetic_development_crosswalk_not_execution_evidence" and
             (.crosswalk | length >= 12) and
             (.source_standards | length == 5) and
-            ([.crosswalk[].id] | unique | length == (.crosswalk | length))
+            (.crosswalk | map(.id) | unique | length) == (.crosswalk | length)
           ' "$mapping" >/dev/null
           jq -e '
             .issue == 6610 and
             .status == "proposed_synthetic_adversarial_corpus_not_execution_evidence" and
             (.cases | length == 24) and
             ([.cases[].id] | unique | length == 24) and
-            ([.metrics[].id] | unique | length == (.metrics | length)) and
+            (.metrics | map(.id) | unique | length) == (.metrics | length) and
             ([.cases[] | select(.id == "INT-001") | .expected][0] == "plan_only") and
             ([.cases[] | select(.id == "INT-015") | .expected][0] == "hold_profile_finality") and
             ([.cases[] | select(.id == "INT-018") | .expected][0] == "profile_validation_failure") and
