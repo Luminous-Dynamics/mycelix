@@ -5,6 +5,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 mod allocation;
+mod comparison;
 mod constraint_binding;
 mod ledger;
 mod response_audit;
@@ -32,6 +33,10 @@ pub use constraint_binding::{
 pub use response_audit::{
     validate_independent_response_audit, AuditedClaimDisposition, AuditedEvidenceRecord,
     IndependentResponseAudit, MaterialClaimAnnotation, ResponseAuditReport, ResponseAuditStatus,
+};
+pub use comparison::{
+    qualify_benchmark_comparison, BenchmarkRunManifest, ComparisonIntent,
+    ComparisonReport, ComparisonStatus,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
