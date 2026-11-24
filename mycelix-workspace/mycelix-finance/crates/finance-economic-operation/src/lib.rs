@@ -1155,6 +1155,20 @@ mod effect_vector_tests {
         }
     }
 
+    fn empty_batch(
+        profile: &CompositeClaimProfileV1,
+        role: EffectRoleV1,
+        owner: &str,
+        completeness: EvidenceCompletenessV1,
+    ) -> EffectEvidenceBatchV1 {
+        let effect_id = EffectIdentityV1::derive(profile.operation_id, role, owner).unwrap();
+        EffectEvidenceBatchV1 {
+            effect_id,
+            completeness,
+            observations: vec![],
+        }
+    }
+
     #[test]
     fn vector_is_supported_only_when_every_profile_required_effect_is_observed() {
         let p = profile(vec![
@@ -1200,7 +1214,13 @@ mod effect_vector_tests {
             DigestV1([1; 32]),
             "receipt:payer:1",
         );
-        let result = classify_effect_vector(&p, &[payer]).unwrap();
+        let beneficiary = empty_batch(
+            &p,
+            EffectRoleV1::BeneficiaryClaim,
+            "did:mycelix:bob",
+            EvidenceCompletenessV1::CompleteForDeclaredAuthority,
+        );
+        let result = classify_effect_vector(&p, &[payer, beneficiary]).unwrap();
         assert!(matches!(
             result.disposition,
             CompositeClaimDispositionV1::Pending { .. }
@@ -1398,7 +1418,14 @@ mod effect_vector_tests {
             "receipt:payer:1",
         );
         let first = classify_effect_vector(&payer_only, &[payer.clone()]).unwrap();
-        let second = classify_effect_vector(&both_legs, &[payer]).unwrap();
+        let beneficiary_not_observed = empty_batch(
+            &both_legs,
+            EffectRoleV1::BeneficiaryClaim,
+            "did:mycelix:bob",
+            EvidenceCompletenessV1::CompleteForDeclaredAuthority,
+        );
+        let second =
+            classify_effect_vector(&both_legs, &[payer, beneficiary_not_observed]).unwrap();
         assert!(matches!(
             first.disposition,
             CompositeClaimDispositionV1::SupportedWithinDeclaredScope { .. }
