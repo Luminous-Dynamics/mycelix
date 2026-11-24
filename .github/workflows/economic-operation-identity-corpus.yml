@@ -5,8 +5,11 @@ on:
     paths:
       - ".github/workflows/economic-operation-identity-corpus.yml"
       - "docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md"
+      - "mycelix-workspace/docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md"
       - "mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
       - "mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
       - "mycelix-finance/Cargo.toml"
       - "mycelix-finance/Cargo.lock"
       - "mycelix-finance/crates/finance-economic-operation/**"
@@ -19,8 +22,11 @@ on:
     paths:
       - ".github/workflows/economic-operation-identity-corpus.yml"
       - "docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md"
+      - "mycelix-workspace/docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md"
       - "mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
       - "mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
       - "mycelix-finance/Cargo.toml"
       - "mycelix-finance/Cargo.lock"
       - "mycelix-finance/crates/finance-economic-operation/**"
@@ -111,6 +117,9 @@ jobs:
           cmp mycelix-finance/Cargo.lock mycelix-workspace/mycelix-finance/Cargo.lock
           cmp mycelix-finance/crates/finance-economic-operation/Cargo.toml mycelix-workspace/mycelix-finance/crates/finance-economic-operation/Cargo.toml
           cmp mycelix-finance/crates/finance-economic-operation/src/lib.rs mycelix-workspace/mycelix-finance/crates/finance-economic-operation/src/lib.rs
+          cmp docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md mycelix-workspace/docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md
+          cmp mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json
+          cmp mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json
           {
             echo "subject_commit=$(git rev-parse HEAD)"
             echo "corpus_sha256=$(sha256sum "$corpus" | cut -d' ' -f1)"
