@@ -34,6 +34,20 @@ The `support_policy` module validates an assistant's declared support choice aga
 
 This is a policy-contract check, not preference inference or enforcement by itself. The recorder must faithfully capture the user's stated intent/choice, and production systems must enforce the chosen mode. No participant should be forced to struggle, and asking for a direct answer must not be scored as failure.
 
+## Response constraint binding
+
+The `constraint_binding` module converts provenance into explicit response-use obligations:
+- Every required evidence item visible to a responder must be accounted for; silent omission fails.
+- Current, verified and applicable facts must be applied.
+- Conditional facts must be applied with an explicit condition.
+- Superseded or non-applicable facts must be explicitly excluded with a rationale.
+- Disputed facts must be preserved as a conflict rather than collapsed to one answer.
+- Unknown applicability, unknown status or unverified evidence must remain unresolved.
+- Every response use must match the source digest, subject, scope, status and applicability in the trusted available-evidence record.
+- Evidence not authorized for the responder is rejected.
+
+This is a structured use-contract validator inspired by GroupAssistBench's Assistance Constraint Binding. It does not read the natural-language answer or prove that the answer obeys the structured declaration. Production evaluation must independently audit generated text against the response constraints and source spans. The available-evidence records also need to be derived from authenticated ledger receipts, not from model self-report.
+
 ## Evidence lineage ledger
 
 The ledger explicitly distinguishes the **information holder** (the actor permitted to respond) from the **source origin** (the underlying record or evidence source). Multiple people repeating one source do not create independent corroboration; one holder disclosing two independently identified source records can. The `source_origin_id` is a pseudonymous provenance reference, not self-authenticating proof of independence: production must resolve it to a trusted source registry, signed source receipt or externally auditable reference.
