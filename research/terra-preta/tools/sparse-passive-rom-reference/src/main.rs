@@ -554,6 +554,108 @@ fn pcg(
     ))
 }
 
+struct MMatrixLowerBound {
+    lambda_min_lower_bound: f64,
+    supersolution_max_component: f64,
+    cg_stats: CgStats,
+}
+
+fn m_matrix_lambda_min_lower_bound(
+    matrix: &CsrMatrix,
+    relative_tolerance: f64,
+    max_iterations: usize,
+) -> Result<MMatrixLowerBound, String> {
+    matrix.validate_stieltjes()?;
+    let rhs = vec![1.0; matrix.size];
+    let (approximate_solution, cg_stats) =
+        pcg(matrix, 0.0, &rhs, relative_tolerance, max_iterations)?;
+    if approximate_solution
+        .iter()
+        .any(|value| !value.is_finite() || *value <= 0.0)
+    {
+        return Err("M-matrix supersolution rejected non-positive PCG components".into());
+    }
+
+    let action = matrix.matvec(&approximate_solution, 0.0)?;
+    if action.iter().any(|value| !value.is_finite() || *value <= 0.0) {
+        return Err("M-matrix supersolution rejected non-positive A*y components".into());
+    }
+
+    // For a Stieltjes matrix, A^-1 is entrywise nonnegative. A positive y
+    // satisfying A*y >= 1 is therefore a componentwise upper bound on A^-1*1.
+    // Inflate once for floating-point margin, then verify the inequality again.
+    let maximum_scale = action
+        .iter()
+        .map(|value| 1.0 / value)
+        .fold(0.0_f64, f64::max);
+    let mut scale = maximum_scale * (1.0 + 1.0e-10);
+    let mut supersolution: Vec<f64> =
+        approximate_solution.iter().map(|value| value * scale).collect();
+    let mut verified_action = matrix.matvec(&supersolution, 0.0)?;
+    for _ in 0..8 {
+        if verified_action.iter().all(|value| value.is_finite() && *value >= 1.0) {
+            break;
+        }
+        let correction = verified_action
+            .iter()
+            .map(|value| if *value > 0.0 { 1.0 / value } else { f64::INFINITY })
+            .fold(1.0_f64, f64::max);
+        if !correction.is_finite() {
+            return Err("M-matrix supersolution could not be scaled to dominate one".into());
+        }
+        scale *= correction * (1.0 + 1.0e-10);
+        for (value, original) in supersolution.iter_mut().zip(approximate_solution.iter()) {
+            *value = *original * scale;
+        }
+        verified_action = matrix.matvec(&supersolution, 0.0)?;
+    }
+    if verified_action.iter().any(|value| !value.is_finite() || *value < 1.0) {
+        return Err("M-matrix supersolution failed its final componentwise verification".into());
+    }
+    let supersolution_max_component = supersolution
+        .iter()
+        .copied()
+        .reduce(f64::max)
+        .ok_or_else(|| "cannot bound an empty M-matrix".to_string())?;
+    if !supersolution_max_component.is_finite() || supersolution_max_component <= 0.0 {
+        return Err("M-matrix supersolution maximum is invalid".into());
+    }
+    let lambda_min_lower_bound = 1.0 / supersolution_max_component;
+    if !lambda_min_lower_bound.is_finite() || lambda_min_lower_bound <= 0.0 {
+        return Err("M-matrix eigenvalue lower bound is invalid".into());
+    }
+
+    Ok(MMatrixLowerBound {
+        lambda_min_lower_bound,
+        supersolution_max_component,
+        cg_stats,
+    })
+}
+
+fn frobenius_norm(matrix: &[Vec<f64>]) -> f64 {
+    matrix
+        .iter()
+        .flatten()
+        .map(|value| value * value)
+        .sum::<f64>()
+        .sqrt()
+}
+
+fn frobenius_difference(left: &[Vec<f64>], right: &[Vec<f64>]) -> Result<f64, String> {
+    if left.len() != right.len()
+        || left.iter().zip(right.iter()).any(|(a, b)| a.len() != b.len())
+    {
+        return Err("Frobenius difference requires equal matrix dimensions".into());
+    }
+    Ok(left
+        .iter()
+        .flatten()
+        .zip(right.iter().flatten())
+        .map(|(a, b)| (a - b) * (a - b))
+        .sum::<f64>()
+        .sqrt())
+}
+
 fn column(matrix: &[Vec<f64>], index: usize) -> Vec<f64> {
     matrix.iter().map(|row| row[index]).collect()
 }
