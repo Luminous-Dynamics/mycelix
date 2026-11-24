@@ -7,6 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 mod allocation;
 mod constraint_binding;
 mod ledger;
+mod response_audit;
 mod support_policy;
 
 pub use allocation::{
@@ -27,6 +28,10 @@ pub use constraint_binding::{
     qualify_response_grounding, Applicability, AvailableEvidenceConstraint,
     ConstraintHandling, ConstraintQualificationReport, ConstraintQualificationStatus,
     EvidenceStatus, ResponseConstraintUse, ResponseGrounding,
+};
+pub use response_audit::{
+    validate_independent_response_audit, AuditedClaimDisposition, AuditedEvidenceRecord,
+    IndependentResponseAudit, MaterialClaimAnnotation, ResponseAuditReport, ResponseAuditStatus,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
