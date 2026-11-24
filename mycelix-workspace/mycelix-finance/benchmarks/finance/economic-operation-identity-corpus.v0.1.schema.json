@@ -12,7 +12,8 @@
     "identity_rules",
     "invariants",
     "cases",
-    "metrics"
+    "metrics",
+    "known_answer_vectors"
   ],
   "properties": {
     "benchmark": {
@@ -137,6 +138,51 @@
               "absolute_safety_gate",
               "performance_after_safety"
             ]
+          }
+        }
+      }
+    },
+    "known_answer_vectors": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "vector_id",
+          "name",
+          "algorithm",
+          "schema",
+          "encoding",
+          "inputs",
+          "expected_hex"
+        ],
+        "properties": {
+          "vector_id": {
+            "type": "string",
+            "pattern": "^KAT-[0-9]{3}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "algorithm": {
+            "const": "BLAKE3-256"
+          },
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          },
+          "encoding": {
+            "type": "string",
+            "minLength": 20
+          },
+          "inputs": {
+            "type": "object"
+          },
+          "expected_hex": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
           }
         }
       }
