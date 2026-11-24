@@ -1583,3 +1583,6 @@ mod tests {
     }
 }
 
+
+#[cfg(test)]
+mod fault_campaign;
