@@ -58,7 +58,7 @@ The basis is generated from snapshots (A + sigma I)^-1 B for declared nonnegativ
 - node/edge ordering invariance for the branched response;
 - input SHA-256 and create-new output semantics.
 
-The current test suite contains twelve tests. The synthetic fixtures include a 128-node chain, a four-node branched network, and a high-contrast three-port network. Conductance/storage rescaling by 24 orders of magnitude is used to test scale invariance; none of these fixtures is empirical soil data.
+The current test suite contains fourteen tests. Synthetic fixtures include a 128-node chain, a four-node branched network, and a high-contrast three-port network. Conductance/storage rescaling by 24 orders of magnitude tests scale invariance. Tests also verify that a zero-shift basis preserves both DC and high-frequency limits, while a nonzero-only basis reports its feedthrough-limit mismatch. None of these fixtures is empirical soil data.
 
 ## Claim boundary
 
