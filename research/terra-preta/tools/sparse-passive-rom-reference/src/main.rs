@@ -1227,15 +1227,58 @@ mod tests {
     }
 
     fn adaptive_multiport_fixture() -> Fixture {
-        let mut fixture = high_contrast_multiport_fixture();
-        fixture.rational_shifts = vec![1.0];
-        fixture.laplace_samples = vec![0.0, 0.003, 0.3, 3.0, 30.0, 300.0, 3.0e3];
-        fixture.adaptive = AdaptiveOptions {
-            candidate_shifts: vec![1.0e-5, 2.0e-3, 3.0e-2, 0.5, 5.0, 50.0, 500.0, 5.0e3],
-            target_max_relative_error: Some(1.0e-8),
-            maximum_basis_dimension: Some(4),
-        };
-        fixture
+        Fixture {
+            schema_version: VERSION.into(),
+            fixture_status: FIXTURE_STATUS.into(),
+            scenario_id: "eight-interior-three-port-adaptive-rom".into(),
+            nodes: vec![
+                Node { node_id: "left".into(), storage: None },
+                Node { node_id: "right".into(), storage: None },
+                Node { node_id: "top".into(), storage: None },
+                Node { node_id: "n0".into(), storage: Some(1.0e-3) },
+                Node { node_id: "n1".into(), storage: Some(1.0e-2) },
+                Node { node_id: "n2".into(), storage: Some(1.0e-1) },
+                Node { node_id: "n3".into(), storage: Some(1.0) },
+                Node { node_id: "n4".into(), storage: Some(1.0e1) },
+                Node { node_id: "n5".into(), storage: Some(1.0e2) },
+                Node { node_id: "n6".into(), storage: Some(1.0e3) },
+                Node { node_id: "n7".into(), storage: Some(1.0e4) },
+            ],
+            edges: vec![
+                Edge { edge_id: "left-n0".into(), from_node_id: "left".into(), to_node_id: "n0".into(), conductance: 1.0e-2 },
+                Edge { edge_id: "left-n1".into(), from_node_id: "left".into(), to_node_id: "n1".into(), conductance: 1.0e-1 },
+                Edge { edge_id: "left-n2".into(), from_node_id: "left".into(), to_node_id: "n2".into(), conductance: 2.0 },
+                Edge { edge_id: "n0-n1".into(), from_node_id: "n0".into(), to_node_id: "n1".into(), conductance: 1.0e1 },
+                Edge { edge_id: "n1-n2".into(), from_node_id: "n1".into(), to_node_id: "n2".into(), conductance: 5.0e-1 },
+                Edge { edge_id: "n0-n3".into(), from_node_id: "n0".into(), to_node_id: "n3".into(), conductance: 1.0e-2 },
+                Edge { edge_id: "n1-n3".into(), from_node_id: "n1".into(), to_node_id: "n3".into(), conductance: 1.0e1 },
+                Edge { edge_id: "n2-n3".into(), from_node_id: "n2".into(), to_node_id: "n3".into(), conductance: 5.0 },
+                Edge { edge_id: "n2-n4".into(), from_node_id: "n2".into(), to_node_id: "n4".into(), conductance: 2.0e-2 },
+                Edge { edge_id: "n3-n4".into(), from_node_id: "n3".into(), to_node_id: "n4".into(), conductance: 1.0e1 },
+                Edge { edge_id: "n3-n5".into(), from_node_id: "n3".into(), to_node_id: "n5".into(), conductance: 1.0e-1 },
+                Edge { edge_id: "n4-n5".into(), from_node_id: "n4".into(), to_node_id: "n5".into(), conductance: 5.0e1 },
+                Edge { edge_id: "n4-n6".into(), from_node_id: "n4".into(), to_node_id: "n6".into(), conductance: 1.0e-2 },
+                Edge { edge_id: "n5-n6".into(), from_node_id: "n5".into(), to_node_id: "n6".into(), conductance: 2.0e1 },
+                Edge { edge_id: "n5-n7".into(), from_node_id: "n5".into(), to_node_id: "n7".into(), conductance: 5.0e-1 },
+                Edge { edge_id: "n6-n7".into(), from_node_id: "n6".into(), to_node_id: "n7".into(), conductance: 1.0e1 },
+                Edge { edge_id: "n4-right".into(), from_node_id: "n4".into(), to_node_id: "right".into(), conductance: 1.0e-2 },
+                Edge { edge_id: "n6-right".into(), from_node_id: "n6".into(), to_node_id: "right".into(), conductance: 2.0 },
+                Edge { edge_id: "n7-right".into(), from_node_id: "n7".into(), to_node_id: "right".into(), conductance: 5.0 },
+                Edge { edge_id: "top-n1".into(), from_node_id: "top".into(), to_node_id: "n1".into(), conductance: 2.0e-2 },
+                Edge { edge_id: "top-n4".into(), from_node_id: "top".into(), to_node_id: "n4".into(), conductance: 1.0e-1 },
+                Edge { edge_id: "top-n7".into(), from_node_id: "top".into(), to_node_id: "n7".into(), conductance: 1.0 },
+            ],
+            boundary_node_ids: vec!["left".into(), "right".into(), "top".into()],
+            rational_shifts: vec![1.0],
+            laplace_samples: vec![0.0, 5.0e-3, 5.0e-2, 5.0e-1, 5.0, 5.0e1, 5.0e2, 5.0e3, 5.0e4],
+            adaptive: AdaptiveOptions {
+                candidate_shifts: vec![1.0e-5, 1.0e-3, 1.0e-2, 1.0e-1, 1.0, 1.0e1, 1.0e2, 1.0e3, 1.0e4],
+                target_max_relative_error: Some(1.0e-3),
+                maximum_basis_dimension: Some(6),
+            },
+            cg_relative_tolerance: 1.0e-11,
+            cg_max_iterations: 4096,
+        }
     }
 
     #[test]
