@@ -827,6 +827,41 @@ mod tests {
 
     const TOL: f64 = 1.0e-10;
 
+    fn high_contrast_multiport_fixture() -> Fixture {
+        Fixture {
+            schema_version: VERSION.into(),
+            fixture_status: FIXTURE_STATUS.into(),
+            scenario_id: "high-contrast-four-interior-three-boundary-port".into(),
+            nodes: vec![
+                Node { node_id: "left".into(), storage: None },
+                Node { node_id: "right".into(), storage: None },
+                Node { node_id: "top".into(), storage: None },
+                Node { node_id: "a".into(), storage: Some(1.0e-3) },
+                Node { node_id: "b".into(), storage: Some(2.0e-1) },
+                Node { node_id: "c".into(), storage: Some(3.0) },
+                Node { node_id: "d".into(), storage: Some(1.0e2) },
+            ],
+            edges: vec![
+                Edge { edge_id: "left-a".into(), from_node_id: "left".into(), to_node_id: "a".into(), conductance: 1.0e-4 },
+                Edge { edge_id: "left-b".into(), from_node_id: "left".into(), to_node_id: "b".into(), conductance: 1.0e-3 },
+                Edge { edge_id: "a-b".into(), from_node_id: "a".into(), to_node_id: "b".into(), conductance: 5.0e1 },
+                Edge { edge_id: "a-c".into(), from_node_id: "a".into(), to_node_id: "c".into(), conductance: 1.0e-3 },
+                Edge { edge_id: "b-c".into(), from_node_id: "b".into(), to_node_id: "c".into(), conductance: 1.0e2 },
+                Edge { edge_id: "b-d".into(), from_node_id: "b".into(), to_node_id: "d".into(), conductance: 5.0e-1 },
+                Edge { edge_id: "c-d".into(), from_node_id: "c".into(), to_node_id: "d".into(), conductance: 1.0e4 },
+                Edge { edge_id: "c-right".into(), from_node_id: "c".into(), to_node_id: "right".into(), conductance: 1.0e2 },
+                Edge { edge_id: "d-right".into(), from_node_id: "d".into(), to_node_id: "right".into(), conductance: 1.0e1 },
+                Edge { edge_id: "top-b".into(), from_node_id: "top".into(), to_node_id: "b".into(), conductance: 1.0e-1 },
+                Edge { edge_id: "top-d".into(), from_node_id: "top".into(), to_node_id: "d".into(), conductance: 2.0 },
+            ],
+            boundary_node_ids: vec!["left".into(), "right".into(), "top".into()],
+            rational_shifts: vec![0.0, 1.0e-4, 1.0e-2, 1.0, 1.0e2, 1.0e4],
+            laplace_samples: vec![0.0, 1.0e-4, 1.0e-2, 1.0, 1.0e2, 1.0e4],
+            cg_relative_tolerance: 1.0e-11,
+            cg_max_iterations: 1024,
+        }
+    }
+
     fn fixture() -> Fixture {
         Fixture {
             schema_version: VERSION.into(),
@@ -932,6 +967,66 @@ mod tests {
         for (left, right) in baseline.frequency_samples.iter().zip(reordered.frequency_samples.iter()) {
             assert!((left.relative_response_error - right.relative_response_error).abs() < 1.0e-8);
         }
+    }
+
+    #[test]
+    fn high_contrast_three_port_network_preserves_symmetric_response() {
+        let report = analyze(
+            &high_contrast_multiport_fixture(),
+            "synthetic-high-contrast-multiport".into(),
+        )
+        .unwrap();
+        assert_eq!(report.boundary_node_ids.len(), 3);
+        assert_eq!(report.interior_node_count, 4);
+        assert_eq!(report.basis_dimension, 4);
+        assert!(report.dc_relative_error < 1.0e-9);
+        assert!(report.structural_passivity_certificate_valid);
+        for row in 0..3 {
+            for column in 0..3 {
+                let left = report.exact_dc_response[row][column];
+                let right = report.exact_dc_response[column][row];
+                assert!((left - right).abs() < 1.0e-8 * left.abs().max(right.abs()).max(1.0));
+            }
+        }
+        assert!(report
+            .frequency_samples
+            .iter()
+            .all(|sample| sample.relative_response_error < 1.0e-8));
+    }
+
+    #[test]
+    fn passivity_checks_and_basis_construction_are_scale_invariant() {
+        for factor in [1.0e-24, 1.0e24] {
+            let mut scaled = fixture();
+            for node in &mut scaled.nodes {
+                if let Some(storage) = node.storage.as_mut() {
+                    *storage *= factor;
+                }
+            }
+            for edge in &mut scaled.edges {
+                edge.conductance *= factor;
+            }
+            let report = analyze(&scaled, format!("scaled-synthetic-{factor:e}")).unwrap();
+            let expected = factor * (12.0 / 13.0);
+            assert!((report.exact_dc_response[0][0] - expected).abs() < expected.abs() * 1.0e-9);
+            assert!((report.lambda_0_min_eigenvalue).abs() < report.lambda_0_scale * 1.0e-8);
+            assert!(report.lambda_0_passivity_tolerance > 0.0);
+            assert!(report.structural_passivity_certificate_valid);
+            assert_eq!(report.basis_dimension, 2);
+            assert!(report.dc_relative_error < 1.0e-9);
+        }
+    }
+
+    #[test]
+    fn high_contrast_multiport_response_is_invariant_to_input_order() {
+        let original = high_contrast_multiport_fixture();
+        let baseline = analyze(&original, "synthetic-high-contrast-multiport".into()).unwrap();
+        let mut permuted = original;
+        permuted.nodes.reverse();
+        permuted.edges.reverse();
+        let reordered = analyze(&permuted, "synthetic-high-contrast-multiport".into()).unwrap();
+        assert!(relative_error(&baseline.exact_dc_response, &reordered.exact_dc_response) < 1.0e-9);
+        assert!(relative_error(&baseline.reduced_dc_response, &reordered.reduced_dc_response) < 1.0e-8);
     }
 
     #[test]
