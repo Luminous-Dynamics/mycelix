@@ -740,9 +740,7 @@ impl ExecutionProfileV1 {
 
     pub fn claim_name(self) -> &'static str {
         match self {
-            Self::LocalAtomicPrincipalTransferV1 => {
-                "sap_local_atomic_principal_transfer_committed"
-            }
+            Self::LocalAtomicPrincipalTransferV1 => "sap_local_atomic_principal_transfer_committed",
             Self::LocalAtomicTransferTreasuryReconciledV1 => {
                 "sap_local_atomic_transfer_treasury_reconciled"
             }
@@ -808,9 +806,7 @@ impl ExecutionProfileV1 {
             }
             match binding.role {
                 EffectRoleV1::PayerDebit => payer_owner = Some(&binding.effect_owner),
-                EffectRoleV1::BeneficiaryClaim => {
-                    beneficiary_owner = Some(&binding.effect_owner)
-                }
+                EffectRoleV1::BeneficiaryClaim => beneficiary_owner = Some(&binding.effect_owner),
                 _ => {}
             }
         }
@@ -818,9 +814,7 @@ impl ExecutionProfileV1 {
         if supplied != expected {
             return Err(KernelErrorV1::MissingTemplateRoleBinding);
         }
-        if self == Self::OwnerAuthenticatedBilateralTransferV1
-            && payer_owner == beneficiary_owner
-        {
+        if self == Self::OwnerAuthenticatedBilateralTransferV1 && payer_owner == beneficiary_owner {
             return Err(KernelErrorV1::PayerBeneficiaryOwnerMustDiffer);
         }
 
@@ -2369,12 +2363,11 @@ mod effect_vector_tests {
                 "did:mycelix:payments:alice",
             )]
         );
-        assert_eq!(ExecutionProfileV1::LocalAtomicPrincipalTransferV1.authority_model(),
-            "single_author_atomic_source_chain_transaction");
         assert_eq!(
-            built.profile_digest,
-            built.derive_profile_digest().unwrap()
+            ExecutionProfileV1::LocalAtomicPrincipalTransferV1.authority_model(),
+            "single_author_atomic_source_chain_transaction"
         );
+        assert_eq!(built.profile_digest, built.derive_profile_digest().unwrap());
     }
 
     #[test]
@@ -2397,12 +2390,18 @@ mod effect_vector_tests {
             )
             .unwrap();
         assert_eq!(built.required_effects.len(), 2);
-        assert!(built.required_effects.iter().any(|binding|
-            binding.role == EffectRoleV1::FinanceLocalAtomicPaymentTransaction
-        ));
-        assert!(built.required_effects.iter().any(|binding|
-            binding.role == EffectRoleV1::TreasuryFee
-        ));
+        assert!(
+            built
+                .required_effects
+                .iter()
+                .any(|binding| binding.role == EffectRoleV1::FinanceLocalAtomicPaymentTransaction)
+        );
+        assert!(
+            built
+                .required_effects
+                .iter()
+                .any(|binding| binding.role == EffectRoleV1::TreasuryFee)
+        );
         assert_eq!(
             built.profile_id,
             "economic-os:execution:sap-local-atomic-transfer-treasury-reconciled:v1"
