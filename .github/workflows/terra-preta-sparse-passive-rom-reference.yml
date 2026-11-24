@@ -50,7 +50,10 @@ jobs:
             (.interior_node_count == 2) and
             (.basis_dimension == 2) and
             (.dc_relative_error < 1e-10) and
+            (.feedthrough_limit_relative_error < 1e-9) and
+            (.maximum_sampled_response_error < 1e-9) and
             (.structural_passivity_certificate_valid == true) and
+            (.lambda_0_passivity_tolerance > 0) and
             (.maximum_cg_relative_residual < 1e-10) and
             ([.frequency_samples[] | select(.relative_response_error < 1e-9)] | length == 5)
           ' "$RUNNER_TEMP/sparse-rom-report.json"
