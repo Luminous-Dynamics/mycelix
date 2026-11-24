@@ -455,5 +455,66 @@
       "target": "measure_distribution_and_tail",
       "stage": "performance_after_safety"
     }
+  ],
+  "known_answer_vectors": [
+    {
+      "vector_id": "KAT-001",
+      "name": "operation_id_v1",
+      "algorithm": "BLAKE3-256",
+      "schema": "OperationKeyV1",
+      "encoding": "BLAKE3-256(domain='mycelix:economic-operation:v1\\0' || u16be(1) || lp32be(namespace UTF-8) || lp32be(originating_authority UTF-8) || lp32be(stable_obligation_reference UTF-8)); lp32be is u32 big-endian byte length followed by raw UTF-8 bytes.",
+      "inputs": {
+        "namespace": "finance",
+        "originating_authority": "did:mycelix:origin",
+        "stable_obligation_reference": "trade:42:attempt:1"
+      },
+      "expected_hex": "15a08e9c3bf2599c15b37cb700698aec1898cd4c66b15ebf5208568e4953f204"
+    },
+    {
+      "vector_id": "KAT-002",
+      "name": "intent_fingerprint_v1",
+      "algorithm": "BLAKE3-256",
+      "schema": "ImmutableIntentTermsV1",
+      "encoding": "BLAKE3-256(domain='mycelix:economic-intent:v1\\0' || u16be(1) || lp32be(settlement_profile) || lp32be(payer_owner) || lp32be(beneficiary_owner) || lp32be(instrument) || lp32be(unit) || u64be(amount_minor_units) || lp32be(purpose_code) || lp32be(source_obligation_reference) || lp32be(policy_revision) || raw 32-byte terms_digest).",
+      "inputs": {
+        "settlement_profile": "BilateralOwnerClaimV1",
+        "payer_owner": "did:mycelix:alice",
+        "beneficiary_owner": "did:mycelix:bob",
+        "instrument": "SAP",
+        "unit": "micro-SAP",
+        "amount_minor_units": 2500,
+        "purpose_code": "hearth_contribution",
+        "source_obligation_reference": "trade:42:attempt:1",
+        "policy_revision": "policy:hearth:7",
+        "terms_digest_hex": "0707070707070707070707070707070707070707070707070707070707070707"
+      },
+      "expected_hex": "6a52f1479b7a407d6de4f2650b61bf3203741c80e28f836db523f58625e62235"
+    },
+    {
+      "vector_id": "KAT-003",
+      "name": "payer_debit_effect_id_v1",
+      "algorithm": "BLAKE3-256",
+      "schema": "EffectIdentityV1",
+      "encoding": "BLAKE3-256(domain='mycelix:economic-effect:v1\\0' || u16be(1) || raw 32-byte operation ID digest from KAT-001 || lp32be(effect_role UTF-8) || lp32be(effect_owner UTF-8)).",
+      "inputs": {
+        "operation_vector": "KAT-001",
+        "effect_role": "payer_debit",
+        "effect_owner": "did:mycelix:alice"
+      },
+      "expected_hex": "984fcc30e27b1ccbb5b266f6b0960c5791be3a68ada8512aa0fb39dcf575e56a"
+    },
+    {
+      "vector_id": "KAT-004",
+      "name": "beneficiary_claim_effect_id_v1",
+      "algorithm": "BLAKE3-256",
+      "schema": "EffectIdentityV1",
+      "encoding": "BLAKE3-256(domain='mycelix:economic-effect:v1\\0' || u16be(1) || raw 32-byte operation ID digest from KAT-001 || lp32be(effect_role UTF-8) || lp32be(effect_owner UTF-8)).",
+      "inputs": {
+        "operation_vector": "KAT-001",
+        "effect_role": "beneficiary_claim",
+        "effect_owner": "did:mycelix:bob"
+      },
+      "expected_hex": "35ddfe65d8d3beb9ce06fcb1245802d0cc7799d8366bef9087ee5f6d63e6f24b"
+    }
   ]
 }
