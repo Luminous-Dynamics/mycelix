@@ -669,12 +669,12 @@ fn min_symmetric_eigenvalue(matrix: &[Vec<f64>]) -> Result<f64, String> {
     Err("symmetric Jacobi eigensolver did not converge".into())
 }
 
-fn response_from_sparse(
+fn response_and_state_solutions_from_sparse(
     model: &Model,
     shift: f64,
     tolerance: f64,
     max_iterations: usize,
-) -> Result<(Dense, Vec<CgStats>), String> {
+) -> Result<(Dense, Vec<Vec<f64>>, Vec<CgStats>), String> {
     let nb = model.boundary_ids.len();
     let mut solution_columns = Vec::with_capacity(nb);
     let mut stats = Vec::with_capacity(nb);
@@ -698,6 +698,21 @@ fn response_from_sparse(
             *response_value -= correction;
         }
     }
+    Ok((response, solution_columns, stats))
+}
+
+fn response_from_sparse(
+    model: &Model,
+    shift: f64,
+    tolerance: f64,
+    max_iterations: usize,
+) -> Result<(Dense, Vec<CgStats>), String> {
+    let (response, _state_solutions, stats) = response_and_state_solutions_from_sparse(
+        model,
+        shift,
+        tolerance,
+        max_iterations,
+    )?;
     Ok((response, stats))
 }
 
@@ -708,10 +723,6 @@ fn build_projection_from_basis(
     mut stats: Vec<CgStats>,
     fixture: &Fixture,
 ) -> Result<(Projection, Vec<CgStats>), String> {
-    if basis.is_empty() {
-        return Err("reduced projection basis is numerically empty".into());
-    }
-    let nb = model.boundary_ids.len();
     let (lambda_0, dc_stats) = response_from_sparse(
         model,
         0.0,
@@ -719,44 +730,9 @@ fn build_projection_from_basis(
         fixture.cg_max_iterations,
     )?;
     stats.extend(dc_stats);
-
-    let mut a_basis = Vec::with_capacity(basis.len());
-    for vector in &basis {
-        a_basis.push(model.a.matvec(vector, 0.0)?);
-    }
-    let a_r = multiply_transpose_left(&basis, &a_basis);
-    let b_r = transpose_product(&basis, &model.b);
-    let mut inverse_columns = Vec::with_capacity(nb);
-    for port in 0..nb {
-        inverse_columns.push(dense_solve(&a_r, &column(&b_r, port))?);
-    }
-    let b_columns: Vec<Vec<f64>> = (0..nb).map(|port| column(&b_r, port)).collect();
-    let mut d_r = lambda_0.clone();
-    for (row, d_row) in d_r.iter_mut().enumerate() {
-        for (col, value) in d_row.iter_mut().enumerate() {
-            *value += dot(&b_columns[row], &inverse_columns[col]);
-        }
-    }
-
-    let a_r_min = min_symmetric_eigenvalue(&a_r)?;
-    let lambda_0_min = min_symmetric_eigenvalue(&lambda_0)?;
-    let lambda_0_scale = lambda_0
-        .iter()
-        .flatten()
-        .fold(0.0_f64, |largest, value| largest.max(value.abs()));
-    Ok((
-        Projection {
-            a_r,
-            b_r,
-            d_r,
-            basis_dimension: basis.len(),
-            basis_snapshots: snapshot_count,
-            lambda_0_min_eigenvalue: lambda_0_min,
-            lambda_0_scale,
-            a_r_min_eigenvalue: a_r_min,
-        },
-        stats,
-    ))
+    let projection =
+        assemble_projection_from_basis(model, basis, snapshot_count, &lambda_0)?;
+    Ok((projection, stats))
 }
 
 fn build_projection_for_requests(
@@ -945,27 +921,53 @@ fn build_adaptive_projection(
     let mut candidates = fixture.adaptive.candidate_shifts.clone();
     candidates.sort_by(f64::total_cmp);
 
-    // Cache the full multi-port response at each candidate frequency. During
-    // selection, score each input-port column independently and add one
-    // (frequency, input-port) snapshot at a time.
+    // Cache both the full port response and the state solution columns. When
+    // a candidate (frequency, input-port) pair is selected, its already
+    // residual-verified state snapshot is inserted into the basis directly.
     let mut candidate_responses = Vec::with_capacity(candidates.len());
     let mut stats = Vec::new();
     for shift in candidates {
-        let (response, solve_stats) = response_from_sparse(
-            model,
-            shift,
-            fixture.cg_relative_tolerance,
-            fixture.cg_max_iterations,
-        )?;
+        let (response, state_solutions, solve_stats) =
+            response_and_state_solutions_from_sparse(
+                model,
+                shift,
+                fixture.cg_relative_tolerance,
+                fixture.cg_max_iterations,
+            )?;
         stats.extend(solve_stats);
-        candidate_responses.push((shift, response));
+        candidate_responses.push((shift, response, state_solutions));
     }
+
+    // The exact DC Schur operator is independent of the growing Krylov
+    // basis. Compute it once and reuse it for every reduced projection.
+    let (lambda_0, dc_stats) = response_from_sparse(
+        model,
+        0.0,
+        fixture.cg_relative_tolerance,
+        fixture.cg_max_iterations,
+    )?;
+    stats.extend(dc_stats);
 
     let mut selected_shifts = fixture.rational_shifts.clone();
     let mut selected_snapshots = requests_for_shifts(&selected_shifts, model.boundary_ids.len());
-    let (mut projection, initial_stats) =
-        build_projection_for_requests(model, fixture, &selected_snapshots)?;
-    stats.extend(initial_stats);
+    let mut basis = Vec::new();
+    for request in &selected_snapshots {
+        let (snapshot, solve_stats) = pcg(
+            &model.a,
+            request.shift,
+            &column(&model.b, request.input_port_index),
+            fixture.cg_relative_tolerance,
+            fixture.cg_max_iterations,
+        )?;
+        stats.push(solve_stats);
+        push_orthonormal_basis(&mut basis, snapshot);
+    }
+    let mut projection = assemble_projection_from_basis(
+        model,
+        basis.clone(),
+        selected_snapshots.len(),
+        &lambda_0,
+    )?;
     if projection.basis_dimension > maximum_basis_dimension {
         return Err(format!(
             "seed basis dimension {} exceeds adaptive cap {}",
@@ -980,7 +982,7 @@ fn build_adaptive_projection(
     loop {
         let mut maximum_candidate_error = 0.0_f64;
         let mut worst_unselected: Option<(f64, f64, usize)> = None;
-        for (shift, full_response) in &candidate_responses {
+        for (shift, full_response, _) in &candidate_responses {
             let reduced_response = response_from_reduced(&projection, *shift)?;
             for port in 0..model.boundary_ids.len() {
                 let full_column = column(full_response, port);
@@ -1015,14 +1017,25 @@ fn build_adaptive_projection(
             break;
         };
 
+        let cached_snapshot = candidate_responses
+            .iter()
+            .find(|(shift, _, _)| *shift == selected_shift)
+            .and_then(|(_, _, solutions)| solutions.get(selected_port))
+            .cloned()
+            .ok_or_else(|| "selected adaptive snapshot is absent from candidate cache".to_string())?;
+        push_orthonormal_basis(&mut basis, cached_snapshot);
+
         let mut next_snapshots = selected_snapshots.clone();
         next_snapshots.push(SnapshotRequest {
             shift: selected_shift,
             input_port_index: selected_port,
         });
-        let (next_projection, next_stats) =
-            build_projection_for_requests(model, fixture, &next_snapshots)?;
-        stats.extend(next_stats);
+        let next_projection = assemble_projection_from_basis(
+            model,
+            basis.clone(),
+            next_snapshots.len(),
+            &lambda_0,
+        )?;
         if next_projection.basis_dimension > maximum_basis_dimension {
             stop_reason = "basis_dimension_cap".to_string();
             break;
@@ -1043,7 +1056,7 @@ fn build_adaptive_projection(
     }
 
     let mut maximum_candidate_relative_error = 0.0_f64;
-    for (shift, full_response) in &candidate_responses {
+    for (shift, full_response, _) in &candidate_responses {
         let reduced_response = response_from_reduced(&projection, *shift)?;
         for port in 0..model.boundary_ids.len() {
             let full_column = column(full_response, port);
@@ -1454,6 +1467,26 @@ mod tests {
         assert!(adaptive.maximum_sampled_response_error < fixed.maximum_sampled_response_error);
         assert!(adaptive.dc_relative_error < 1.0e-8);
         assert!(adaptive.structural_passivity_certificate_valid);
+        // Candidate full-order columns (27), seed snapshots (3), one DC
+        // operator (3), audit-grid columns (27), and final DC audit (3).
+        // Selected adaptive snapshots are reused from the cached candidate solves.
+        assert_eq!(adaptive.cg_solve_count, 63);
+        assert!(adaptive.total_cg_iterations < 661);
+    }
+
+    #[test]
+    fn adaptive_rank_cap_reports_unmet_target_without_false_qualification() {
+        let mut fixture = adaptive_multiport_fixture();
+        fixture.adaptive.target_max_relative_error = Some(1.0e-12);
+        fixture.adaptive.maximum_basis_dimension = Some(3);
+        let report = analyze(&fixture, "adaptive-rank-cap-negative-control".into()).unwrap();
+        assert_eq!(report.basis_dimension, 3);
+        assert_eq!(report.adaptive_target_met, Some(false));
+        assert_eq!(report.adaptive_stop_reason, "basis_dimension_cap");
+        assert!(report
+            .adaptive_maximum_candidate_relative_error
+            .is_some_and(|error| error > 1.0e-12));
+        assert!(report.structural_passivity_certificate_valid);
     }
 
     #[test]
