@@ -51,6 +51,7 @@ struct Report {
     parameterization: String,
     nominal_observations: NominalObservations,
     baseline: DesignSummary,
+    cost_matched_repeat_bulk_design: DesignSummary,
     candidate_sensitivities: Vec<CandidateSensitivity>,
     optimal_design: DesignSummary,
     repeated_bulk_negative_control: RepeatedMeasurementControl,
@@ -277,6 +278,34 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         &baseline_noise,
     )?;
 
+    // Cost-matched conventional baseline: spend the entire budget repeating
+    // the same bulk experiment. It gains precision along the same direction,
+    // but cannot remove the structural nullspace.
+    let repeat_count = fixture.acquisition_budget as usize;
+    let mut repeated_bulk_rows = baseline_rows.clone();
+    let mut repeated_bulk_noise = baseline_noise.clone();
+    let mut repeated_bulk_ids = Vec::with_capacity(repeat_count);
+    let repeat_candidate = fixture
+        .candidates
+        .iter()
+        .find(|candidate| matches!(candidate.observation, ObservationKind::BulkConductance))
+        .ok_or_else(|| "a repeat-bulk candidate is required for the cost-matched baseline".to_string())?;
+    if repeat_candidate.cost != 1 {
+        return Err("repeat-bulk candidate cost must be one unit for the cost-matched baseline".into());
+    }
+    for repeat in 0..repeat_count {
+        repeated_bulk_rows.push(bulk_row);
+        repeated_bulk_noise.push(repeat_candidate.noise_std);
+        repeated_bulk_ids.push(format!("repeat-bulk-{}", repeat + 1));
+    }
+    let cost_matched_repeat_bulk_design = make_summary(
+        repeated_bulk_ids,
+        fixture.acquisition_budget,
+        fixture.acquisition_budget,
+        &repeated_bulk_rows,
+        &repeated_bulk_noise,
+    )?;
+
     let mut candidate_rows = Vec::with_capacity(fixture.candidates.len());
     for candidate in &fixture.candidates {
         candidate_rows.push(log_conductance_sensitivity(
@@ -359,6 +388,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         parameterization: "four positive throat conductances represented by eta_i = log(g_i); local finite-difference sensitivities are evaluated at the declared nominal conductances".into(),
         nominal_observations,
         baseline,
+        cost_matched_repeat_bulk_design,
         candidate_sensitivities,
         optimal_design,
         repeated_bulk_negative_control,
@@ -495,8 +525,15 @@ mod tests {
         let f = fixture();
         let report = analyze(&f, "0".repeat(64)).expect("analysis");
         assert_eq!(report.baseline.sensitivity_rank, 1);
+        assert_eq!(report.cost_matched_repeat_bulk_design.sensitivity_rank, 1);
+        assert_eq!(report.cost_matched_repeat_bulk_design.total_cost, 4);
+        assert_eq!(report.cost_matched_repeat_bulk_design.local_nullity, 3);
         assert_eq!(report.optimal_design.sensitivity_rank, 4);
         assert_eq!(report.optimal_design.total_cost, 4);
+        assert!(
+            report.optimal_design.regularized_log_determinant_fisher
+                > report.cost_matched_repeat_bulk_design.regularized_log_determinant_fisher
+        );
         assert_eq!(
             report.optimal_design.candidate_ids,
             vec![
