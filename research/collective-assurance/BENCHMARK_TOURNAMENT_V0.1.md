@@ -286,7 +286,7 @@ Report cost, quality, agency, privacy, provenance, workload and distribution as 
 
 ## Current implementation crosswalk
 
-The research protocol now has three reference implementations in the Mycelix PR:
+The research protocol now has six connected reference components in the Mycelix PR:
 - `ledger.rs`: event lineage from rights-bearing information assignment through verified recipient exposure, claim revision and decision; holder identity is distinct from source-origin identity.
 - `allocation.rs`: OS-entropy seed/salt, domain-separated commitment, canonical roster/design digests, pinned ChaCha20 schedule and post-study reveal verification.
 - `support_policy.rs`: respects explicit requested assistance mode, requires confirmation for mode changes, restricts unsolicited challenge-style support to learning/practice intent, and preserves required accommodations.
@@ -297,11 +297,11 @@ The implementations are synthetic/reference validators. Their claims are bounded
 
 ## Immediate engineering sequence
 
-1. Finish the signed AI-off qualification adapter: attestation source, trusted signer registry, durable nonce ledger, process/artifact measurement and enforceable isolated runner.
-2. Extend the current fixtures with generated property/fault tests, including malformed receipts, incomplete inventories, duplicate probes, cache reachability, egress, process injection and nonce replay.
-3. Implement allocation commitment/reveal verification using a well-reviewed cryptographic crate and OS-backed CSPRNG; keep enrollment concealment outside candidate-visible artifacts.
-4. Add event schemas that bind information exposure, delivery, evidence, revision and decision; compose with Mycelix #6089 and Symthaea #11337/#11340.
-5. Run compatible model-only benchmark reproductions before human studies. Use the human study only after protocol, ethics, preregistration and power gates.
+1. **Production AI-off boundary:** bind the existing receipt interface to a real isolated runner, measured process/artifact inventory, network denial, credential isolation, negative-control probes, trusted signer registry and durable atomic nonce ledger. Require independent verification of the actual host/platform measurement.
+2. **Trusted source and auditor registry:** authenticate source-origin references, event-recorder receipts, audit protocol digests and independent auditor attestations; retain ledger roots outside the operator that produces the result.
+3. **Natural-language response conformance:** build an independently scored evaluator that compares actual rendered claim spans to the structured response-audit annotations and underlying source passages. Measure precision/recall of claim extraction, unsupported-claim rate, false support, missed counterevidence, stale-source use and inter-rater agreement.
+4. **Matched model tournament:** reproduce the GroupAssistBench L1/L2, M1/M2/M3 results with pinned models, prompt/evaluator versions, and budget parity; then compare retrieval, RER, ACB and our combined ledger + constraint-binding + audit pipeline across multi-seed held-out splits. Reproduce HiddenBench, GroupMemBench and COLLABMEM under their official evaluation protocols.
+5. **Human/team confirmatory study:** only after separate ethics approval, accessible consent, compensation, preregistration, pilot-informed power/ICC, blinded scoring and independent replication plans. Keep AI-off machine isolation separate from retained human learning, and never withdraw essential assistive support.
 
 ## Ownership
 
