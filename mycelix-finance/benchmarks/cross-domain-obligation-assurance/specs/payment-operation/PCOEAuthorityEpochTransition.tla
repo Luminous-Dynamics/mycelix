@@ -60,6 +60,9 @@ VARIABLES
   oldPostBarrierEffect,
   newPreActivationEffect
 
+AllSignersA == oldSignersA \\cup newSignersA
+AllSignersB == oldSignersB \\cup newSignersB
+
 vars ==
   <<phase, proposalDigest, lockedDigest, votes,
     oldSignersA, oldSignersB, newSignersA, newSignersB,
