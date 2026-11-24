@@ -1,0 +1,204 @@
+{
+  "benchmark": "SAP Payment Saga deterministic fault campaign v1",
+  "version": "1.0",
+  "issue": 6045,
+  "status": "source_and_presubmit_harness_pending_exact_head_run",
+  "root_seed_hex": "4d594843414d5031",
+  "generator": {
+    "name": "CounterMix64V1",
+    "semantics": "field-domain-separated SplitMix64 finalizer; stateless counter derivation",
+    "sequence_multiplier_hex": "9e3779b97f4a7c15",
+    "field_domain_multiplier_hex": "d1b54a32d192ed03",
+    "finalizer_multipliers_hex": [
+      "bf58476d1ce4e5b9",
+      "94d049bb133111eb"
+    ],
+    "equation": "mix64(root_seed XOR (sequence * sequence_multiplier mod 2^64) XOR (field_domain * field_domain_multiplier mod 2^64))",
+    "field_domains": [
+      {
+        "domain": 0,
+        "name": "trace_seed"
+      },
+      {
+        "domain": 1,
+        "name": "principal_minor"
+      },
+      {
+        "domain": 2,
+        "name": "fee_mode"
+      },
+      {
+        "domain": 3,
+        "name": "fee_minor"
+      },
+      {
+        "domain": 4,
+        "name": "local_indeterminate_retries"
+      },
+      {
+        "domain": 5,
+        "name": "treasury_indeterminate_retries"
+      },
+      {
+        "domain": 6,
+        "name": "lost_commit_ack_mask"
+      }
+    ],
+    "value_bounds": {
+      "principal_minor": "1..=1000000",
+      "fee_minor": "0 or 1..=500",
+      "local_indeterminate_retries": "0..=3",
+      "treasury_indeterminate_retries": "0 when fee=0; otherwise 0..=3",
+      "lost_commit_ack_mask": "bit 0 local; bit 1 Treasury; Treasury bit cleared when fee=0"
+    }
+  },
+  "trace_semantics": {
+    "local_transaction": "One sender-owned atomic source-chain transaction containing debit, recipient credit, Payment, Receipt and Treasury outbox intent.",
+    "treasury_fee": "A separately owned effect dependent on committed local payment; same stable effect ID on retry.",
+    "retry_semantics": "Indeterminate followed by same-effect prepare; no new operation or effect identity.",
+    "lost_ack_semantics": "A commit is recorded, acknowledgement loss is injected, then the same committed effect is observed/replayed with the exact same evidence.",
+    "replay": "Replay the complete anchored append-only event stream and require operation/effect state parity with the live reference reducer.",
+    "independent_oracle": "Integer minor-unit conservation: sender debit = recipient principal credit + separately committed Treasury fee.",
+    "no_live_effects": true
+  },
+  "presubmit_trace_count": 10000,
+  "full_campaign_trace_count": 1000000,
+  "summary_profile": "MXSAP-FAULT-CAMPAIGN-RESULT-V1",
+  "known_answer_vectors": [
+    {
+      "sequence": 0,
+      "trace_seed_hex": "4bc40189a1594036",
+      "principal_minor": 792399,
+      "fee_minor": 211,
+      "local_indeterminate_retries": 1,
+      "treasury_indeterminate_retries": 2,
+      "lost_commit_ack_mask": 3
+    },
+    {
+      "sequence": 1,
+      "trace_seed_hex": "f3e51c1dcf041030",
+      "principal_minor": 756785,
+      "fee_minor": 266,
+      "local_indeterminate_retries": 1,
+      "treasury_indeterminate_retries": 3,
+      "lost_commit_ack_mask": 0
+    },
+    {
+      "sequence": 2,
+      "trace_seed_hex": "ef302faf520a9765",
+      "principal_minor": 96778,
+      "fee_minor": 0,
+      "local_indeterminate_retries": 3,
+      "treasury_indeterminate_retries": 0,
+      "lost_commit_ack_mask": 0
+    },
+    {
+      "sequence": 3,
+      "trace_seed_hex": "ccb84e13d9fa7a9f",
+      "principal_minor": 662977,
+      "fee_minor": 218,
+      "local_indeterminate_retries": 0,
+      "treasury_indeterminate_retries": 2,
+      "lost_commit_ack_mask": 2
+    },
+    {
+      "sequence": 7,
+      "trace_seed_hex": "8f52140d51de8e18",
+      "principal_minor": 754476,
+      "fee_minor": 40,
+      "local_indeterminate_retries": 2,
+      "treasury_indeterminate_retries": 3,
+      "lost_commit_ack_mask": 1
+    },
+    {
+      "sequence": 17,
+      "trace_seed_hex": "9e94b5c42173c2e6",
+      "principal_minor": 520541,
+      "fee_minor": 0,
+      "local_indeterminate_retries": 3,
+      "treasury_indeterminate_retries": 0,
+      "lost_commit_ack_mask": 0
+    },
+    {
+      "sequence": 255,
+      "trace_seed_hex": "815fa115c2a1bf65",
+      "principal_minor": 576385,
+      "fee_minor": 421,
+      "local_indeterminate_retries": 2,
+      "treasury_indeterminate_retries": 1,
+      "lost_commit_ack_mask": 0
+    },
+    {
+      "sequence": 65535,
+      "trace_seed_hex": "3a2836f4221506ec",
+      "principal_minor": 837445,
+      "fee_minor": 344,
+      "local_indeterminate_retries": 3,
+      "treasury_indeterminate_retries": 3,
+      "lost_commit_ack_mask": 0
+    }
+  ],
+  "explicit_coverage": [
+    "same-effect local indeterminate retries",
+    "same-effect Treasury indeterminate retries",
+    "lost acknowledgement after local commit",
+    "lost acknowledgement after Treasury commit",
+    "zero-fee path with no Treasury effect",
+    "anchored replay reconstructs final operation state",
+    "input-independent counter generation",
+    "integer minor-unit principal-plus-fee conservation"
+  ],
+  "excluded_from_v1": [
+    "Holochain conductor multi-agent concurrency and fork resolution",
+    "DHT completeness and authenticated absence",
+    "wrong-owner or revoked-authority mutations",
+    "arbitrary frame deletion/reordering/splicing mutation campaign",
+    "provider-specific key retention and region failover",
+    "database crash, fsync, lease fencing and process-kill injection",
+    "legal finality or live settlement"
+  ],
+  "metrics": [
+    {
+      "id": "M-FC-01",
+      "name": "Seed plan determinism",
+      "target": "100% byte-identical plan for each sequence in Rust and Go",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-FC-02",
+      "name": "Rust/Go trace summary parity",
+      "target": "100% identical aggregate result digest for the same sequence range",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-FC-03",
+      "name": "Duplicate committed effects after lost acknowledgement",
+      "target": "0 new effect identities and 0 duplicate commits for same-effect retry",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-FC-04",
+      "name": "Replay projection parity",
+      "target": "100% same operation status and owner-effect states before and after replay",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-FC-05",
+      "name": "Integer-unit conservation",
+      "target": "0 unexplained minor-unit delta in every generated trace",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-FC-06",
+      "name": "10,000 trace presubmit runtime",
+      "target": "Report exact wall time, CPU, memory and source/toolchain fingerprints",
+      "stage": "performance_after_safety"
+    },
+    {
+      "id": "M-FC-07",
+      "name": "1,000,000 trace qualification",
+      "target": "Run via explicit workflow dispatch; retain source SHA, seed root, generator version, result digest and raw failure seed",
+      "stage": "qualification_gate"
+    }
+  ]
+}
