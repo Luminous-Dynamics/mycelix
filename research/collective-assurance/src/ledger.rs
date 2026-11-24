@@ -371,9 +371,9 @@ fn add_error(errors: &mut Vec<String>, sequence: u64, message: impl AsRef<str>) 
     errors.push(format!("event {sequence}: {}", message.as_ref()));
 }
 
-fn check_parent<'events, 'map>(
+fn check_parent<'events>(
     event: &LedgerEvent,
-    earlier_events: &'map BTreeMap<String, &'events LedgerEvent>,
+    earlier_events: &BTreeMap<String, &'events LedgerEvent>,
     errors: &mut Vec<String>,
 ) -> Option<&'events LedgerEvent> {
     match event.parent_event_id.as_deref() {
@@ -452,7 +452,7 @@ pub fn validate_ledger(events: &[LedgerEvent]) -> LedgerValidationReport {
                 if !check_reference_list(permitted_recipients) {
                     add_error(&mut errors, event.sequence, "permitted recipients must be unique and non-empty");
                 }
-                if (*permission == DisclosurePermission::Scoped) != !permitted_recipients.is_empty() {
+                if (*permission == DisclosurePermission::Scoped) == permitted_recipients.is_empty() {
                     add_error(&mut errors, event.sequence, "only scoped permissions may declare a non-empty recipient list");
                 }
                 assignments_by_id.insert(
@@ -751,10 +751,10 @@ pub fn validate_ledger(events: &[LedgerEvent]) -> LedgerValidationReport {
             }
         }
 
-        if let Some(parent) = parent {
-            if parent.sequence >= event.sequence {
-                add_error(&mut errors, event.sequence, "parent event must precede child event");
-            }
+        if let Some(parent) = parent
+            && parent.sequence >= event.sequence
+        {
+            add_error(&mut errors, event.sequence, "parent event must precede child event");
         }
         seen_events.insert(event.event_id.clone(), event);
     }
