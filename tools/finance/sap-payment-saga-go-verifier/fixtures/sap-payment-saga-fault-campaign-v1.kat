@@ -1,0 +1,11 @@
+# MXSAP-FAULT-CAMPAIGN-V1 known-answer vectors
+# Fields: sequence seed_hex principal_minor fee_minor local_indeterminate_retries treasury_indeterminate_retries lost_commit_ack_mask
+# Root seed: 0x4d594843414d5031; schedule: counter/domain-separated SplitMix64 finalizer
+0 4bc40189a1594036 792399 211 1 2 3
+1 f3e51c1dcf041030 756785 266 1 3 0
+2 ef302faf520a9765 96778 0 3 0 0
+3 ccb84e13d9fa7a9f 662977 218 0 2 2
+7 8f52140d51de8e18 754476 40 2 3 1
+17 9e94b5c42173c2e6 520541 0 3 0 0
+255 815fa115c2a1bf65 576385 421 2 1 0
+65535 3a2836f4221506ec 837445 344 3 3 0
