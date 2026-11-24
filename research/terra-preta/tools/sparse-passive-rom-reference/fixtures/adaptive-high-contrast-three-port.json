@@ -1,0 +1,37 @@
+{
+  "schema_version": "terra-sparse-passive-rom-reference-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "scenario_id": "adaptive-high-contrast-four-interior-three-port",
+  "nodes": [
+    {"node_id": "left", "storage": null},
+    {"node_id": "right", "storage": null},
+    {"node_id": "top", "storage": null},
+    {"node_id": "a", "storage": 0.001},
+    {"node_id": "b", "storage": 0.2},
+    {"node_id": "c", "storage": 3.0},
+    {"node_id": "d", "storage": 100.0}
+  ],
+  "edges": [
+    {"edge_id": "left-a", "from_node_id": "left", "to_node_id": "a", "conductance": 0.0001},
+    {"edge_id": "left-b", "from_node_id": "left", "to_node_id": "b", "conductance": 0.001},
+    {"edge_id": "a-b", "from_node_id": "a", "to_node_id": "b", "conductance": 50.0},
+    {"edge_id": "a-c", "from_node_id": "a", "to_node_id": "c", "conductance": 0.001},
+    {"edge_id": "b-c", "from_node_id": "b", "to_node_id": "c", "conductance": 100.0},
+    {"edge_id": "b-d", "from_node_id": "b", "to_node_id": "d", "conductance": 0.5},
+    {"edge_id": "c-d", "from_node_id": "c", "to_node_id": "d", "conductance": 10000.0},
+    {"edge_id": "c-right", "from_node_id": "c", "to_node_id": "right", "conductance": 100.0},
+    {"edge_id": "d-right", "from_node_id": "d", "to_node_id": "right", "conductance": 10.0},
+    {"edge_id": "top-b", "from_node_id": "top", "to_node_id": "b", "conductance": 0.1},
+    {"edge_id": "top-d", "from_node_id": "top", "to_node_id": "d", "conductance": 2.0}
+  ],
+  "boundary_node_ids": ["left", "right", "top"],
+  "rational_shifts": [1.0],
+  "laplace_samples": [0.0, 0.003, 0.3, 3.0, 30.0, 300.0, 3000.0],
+  "adaptive": {
+    "candidate_shifts": [0.00001, 0.002, 0.03, 0.5, 5.0, 50.0, 500.0, 5000.0],
+    "target_max_relative_error": 0.00000001,
+    "maximum_basis_dimension": 4
+  },
+  "cg_relative_tolerance": 0.00000000001,
+  "cg_max_iterations": 1024
+}
