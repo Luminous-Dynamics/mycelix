@@ -252,9 +252,7 @@ pub enum BindingProjectionV1 {
     /// This is NOT an admission capability and is NOT proof of global absence.
     NoBindingObserved,
     /// Existing evidence binds this operation to the requested fingerprint.
-    ExactReplay {
-        evidence_references: Vec<String>,
-    },
+    ExactReplay { evidence_references: Vec<String> },
     /// A known observation contradicts the requested intent/evidence.
     Conflict {
         reason: BindingConflictReasonV1,
@@ -262,9 +260,7 @@ pub enum BindingProjectionV1 {
     },
     /// The adapter cannot establish a complete view; absence and replay cannot be
     /// promoted to authoritative outcomes.
-    Indeterminate {
-        evidence_references: Vec<String>,
-    },
+    Indeterminate { evidence_references: Vec<String> },
 }
 
 /// Classify observations for one operation identity.
@@ -289,19 +285,19 @@ pub fn classify_operation_binding(
         match by_reference.get(&observation.evidence_reference) {
             Some(existing) if existing == observation => {}
             Some(_) => {
-                let refs = sorted_references(by_reference.keys().cloned().chain(
-                    std::iter::once(observation.evidence_reference.clone()),
-                ));
+                let refs = sorted_references(
+                    by_reference
+                        .keys()
+                        .cloned()
+                        .chain(std::iter::once(observation.evidence_reference.clone())),
+                );
                 return Ok(BindingProjectionV1::Conflict {
                     reason: BindingConflictReasonV1::EvidenceReferenceMutation,
                     evidence_references: refs,
                 });
             }
             None => {
-                by_reference.insert(
-                    observation.evidence_reference.clone(),
-                    observation.clone(),
-                );
+                by_reference.insert(observation.evidence_reference.clone(), observation.clone());
             }
         }
     }
@@ -311,7 +307,10 @@ pub fn classify_operation_binding(
         fingerprints.insert(observation.intent_fingerprint);
     }
 
-    if fingerprints.iter().any(|fingerprint| *fingerprint != expected_fingerprint) {
+    if fingerprints
+        .iter()
+        .any(|fingerprint| *fingerprint != expected_fingerprint)
+    {
         return Ok(BindingProjectionV1::Conflict {
             reason: BindingConflictReasonV1::IntentFingerprintMismatch,
             evidence_references: by_reference.keys().cloned().collect(),
@@ -390,16 +389,16 @@ pub fn classify_effect_observations(
             Some(_) => {
                 return Ok(EffectProjectionV1::Conflict {
                     reason: EffectConflictReasonV1::ReceiptReferenceMutation,
-                    receipt_references: sorted_references(by_reference.keys().cloned().chain(
-                        std::iter::once(observation.receipt_reference.clone()),
-                    )),
+                    receipt_references: sorted_references(
+                        by_reference
+                            .keys()
+                            .cloned()
+                            .chain(std::iter::once(observation.receipt_reference.clone())),
+                    ),
                 });
             }
             None => {
-                by_reference.insert(
-                    observation.receipt_reference.clone(),
-                    observation.clone(),
-                );
+                by_reference.insert(observation.receipt_reference.clone(), observation.clone());
             }
         }
     }
@@ -451,10 +450,7 @@ fn validate_component(value: &str) -> Result<(), KernelErrorV1> {
     Ok(())
 }
 
-fn update_field(
-    hasher: &mut blake3::Hasher,
-    value: &[u8],
-) -> Result<(), KernelErrorV1> {
+fn update_field(hasher: &mut blake3::Hasher, value: &[u8]) -> Result<(), KernelErrorV1> {
     if value.len() > MAX_COMPONENT_BYTES || value.len() > u32::MAX as usize {
         return Err(KernelErrorV1::ComponentTooLong);
     }
@@ -467,7 +463,11 @@ fn sorted_references<I>(references: I) -> Vec<String>
 where
     I: IntoIterator<Item = String>,
 {
-    references.into_iter().collect::<BTreeSet<_>>().into_iter().collect()
+    references
+        .into_iter()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -500,13 +500,9 @@ mod tests {
     }
 
     fn operation() -> OperationIdentityV1 {
-        OperationKeyV1::new(
-            "finance",
-            "did:mycelix:origin",
-            "trade:42:attempt:1",
-        )
-        .derive_identity()
-        .unwrap()
+        OperationKeyV1::new("finance", "did:mycelix:origin", "trade:42:attempt:1")
+            .derive_identity()
+            .unwrap()
     }
 
     #[test]
@@ -514,24 +510,19 @@ mod tests {
         let first = operation();
         let mut changed = terms();
         changed.amount_minor_units += 1;
-        let second = OperationKeyV1::new(
-            "finance",
-            "did:mycelix:origin",
-            "trade:42:attempt:1",
-        )
-        .derive_identity()
-        .unwrap();
+        let second = OperationKeyV1::new("finance", "did:mycelix:origin", "trade:42:attempt:1")
+            .derive_identity()
+            .unwrap();
         assert_eq!(first, second);
-        assert_ne!(terms().fingerprint().unwrap(), changed.fingerprint().unwrap());
+        assert_ne!(
+            terms().fingerprint().unwrap(),
+            changed.fingerprint().unwrap()
+        );
     }
 
     #[test]
     fn binding_rejects_a_fingerprint_for_a_different_obligation() {
-        let key = OperationKeyV1::new(
-            "finance",
-            "did:mycelix:origin",
-            "trade:42:settlement:1",
-        );
+        let key = OperationKeyV1::new("finance", "did:mycelix:origin", "trade:42:settlement:1");
         let mut mismatched = terms();
         mismatched.source_obligation_reference = "trade:43:settlement:1".into();
         assert_eq!(
@@ -542,11 +533,7 @@ mod tests {
 
     #[test]
     fn binding_returns_operation_identity_and_exact_fingerprint_together() {
-        let key = OperationKeyV1::new(
-            "finance",
-            "did:mycelix:origin",
-            "trade:42:attempt:1",
-        );
+        let key = OperationKeyV1::new("finance", "did:mycelix:origin", "trade:42:attempt:1");
         let bound = key.bind_intent(&terms()).unwrap();
         assert_eq!(bound.operation_id, operation());
         assert_eq!(bound.intent_fingerprint, terms().fingerprint().unwrap());
@@ -581,14 +568,13 @@ mod tests {
     #[test]
     fn effect_identity_is_scoped_by_role_and_owner() {
         let op = operation();
-        let payer = EffectIdentityV1::derive(op, EffectRoleV1::PayerDebit, "did:mycelix:alice")
-            .unwrap();
+        let payer =
+            EffectIdentityV1::derive(op, EffectRoleV1::PayerDebit, "did:mycelix:alice").unwrap();
         let beneficiary =
             EffectIdentityV1::derive(op, EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob")
                 .unwrap();
         let other_owner =
-            EffectIdentityV1::derive(op, EffectRoleV1::PayerDebit, "did:mycelix:carol")
-                .unwrap();
+            EffectIdentityV1::derive(op, EffectRoleV1::PayerDebit, "did:mycelix:carol").unwrap();
 
         assert_ne!(payer, beneficiary);
         assert_ne!(payer, other_owner);
