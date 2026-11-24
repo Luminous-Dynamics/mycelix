@@ -51,7 +51,11 @@ The basis is generated from snapshots (A + sigma I)^-1 B for declared nonnegativ
 - A_r positive definiteness and Lambda_0 positive-semidefinite checks;
 - full sparse vs reduced response comparisons at declared nonnegative real Laplace samples;
 - sparse-storage growth check on a generated 128-node chain;
+- four-interior-node cross-linked parallel-pathway network with full-port response recovery;
+- node/edge ordering invariance for the branched response;
 - input SHA-256 and create-new output semantics.
+
+The current test suite contains nine tests. The 128-node chain and four-node branched network are synthetic qualification fixtures, not empirical soil data.
 
 ## Claim boundary
 
