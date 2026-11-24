@@ -173,7 +173,10 @@ jobs:
             .benchmark == "FIN-EFFECT-004 Profile-Bound Economic Effect Vector Projection" and
             .issue == 6608 and
             .status == "normative_adversarial_corpus_not_execution_evidence" and
-            .composition.no_new_identity_algorithm == true and
+            .composition.no_new_operation_or_effect_identity_algorithm == true and
+            .composition.claim_profile_digest.schema_version == 1 and
+            ([.known_answer_vectors[] | select(.vector_id == "KAT-VEC-001") | .expected_hex][0] ==
+              "5ad833aef24a53646218b7fbe43fb1d3314563b165a0233898e5a96b4e1f8e4c") and
             .aggregation_precedence == ["Conflict","Indeterminate","Pending","SupportedWithinDeclaredScope"] and
             (.cases | length == 16) and
             ([.cases[].id] | unique | length == 16) and
