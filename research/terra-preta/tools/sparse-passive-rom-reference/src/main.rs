@@ -716,6 +716,52 @@ fn response_from_sparse(
     Ok((response, stats))
 }
 
+fn assemble_projection_from_basis(
+    model: &Model,
+    basis: Vec<Vec<f64>>,
+    snapshot_count: usize,
+    lambda_0: &Dense,
+) -> Result<Projection, String> {
+    if basis.is_empty() {
+        return Err("reduced projection basis is numerically empty".into());
+    }
+    let nb = model.boundary_ids.len();
+    let mut a_basis = Vec::with_capacity(basis.len());
+    for vector in &basis {
+        a_basis.push(model.a.matvec(vector, 0.0)?);
+    }
+    let a_r = multiply_transpose_left(&basis, &a_basis);
+    let b_r = transpose_product(&basis, &model.b);
+    let mut inverse_columns = Vec::with_capacity(nb);
+    for port in 0..nb {
+        inverse_columns.push(dense_solve(&a_r, &column(&b_r, port))?);
+    }
+    let b_columns: Vec<Vec<f64>> = (0..nb).map(|port| column(&b_r, port)).collect();
+    let mut d_r = lambda_0.clone();
+    for (row, d_row) in d_r.iter_mut().enumerate() {
+        for (col, value) in d_row.iter_mut().enumerate() {
+            *value += dot(&b_columns[row], &inverse_columns[col]);
+        }
+    }
+
+    let a_r_min = min_symmetric_eigenvalue(&a_r)?;
+    let lambda_0_min = min_symmetric_eigenvalue(lambda_0)?;
+    let lambda_0_scale = lambda_0
+        .iter()
+        .flatten()
+        .fold(0.0_f64, |largest, value| largest.max(value.abs()));
+    Ok(Projection {
+        a_r,
+        b_r,
+        d_r,
+        basis_dimension: basis.len(),
+        basis_snapshots: snapshot_count,
+        lambda_0_min_eigenvalue: lambda_0_min,
+        lambda_0_scale,
+        a_r_min_eigenvalue: a_r_min,
+    })
+}
+
 fn build_projection_from_basis(
     model: &Model,
     basis: Vec<Vec<f64>>,
