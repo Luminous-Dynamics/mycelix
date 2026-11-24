@@ -18,6 +18,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub const OPERATION_ID_SCHEMA_V1: u16 = 1;
 pub const INTENT_FINGERPRINT_SCHEMA_V1: u16 = 1;
 pub const EFFECT_ID_SCHEMA_V1: u16 = 1;
+pub const CLAIM_PROFILE_DIGEST_SCHEMA_V1: u16 = 1;
 pub const MAX_COMPONENT_BYTES: usize = 1_024;
 
 const OPERATION_ID_DOMAIN: &[u8] = b"mycelix:economic-operation:v1\0";
@@ -509,6 +510,56 @@ pub struct CompositeClaimProfileV1 {
     pub required_effects: Vec<RequiredEffectV1>,
 }
 
+impl CompositeClaimProfileV1 {
+    /// Compute a canonical digest over the complete claim profile.
+    ///
+    /// Required effects are ordered by their existing FIN-EFFECT-001 effect IDs,
+    /// so input order cannot alter the profile digest. This digest binds only the
+    /// profile's declared scope; it does not prove that the profile is approved,
+    /// complete, or legally sufficient.
+    pub fn derive_profile_digest(&self) -> Result<DigestV1, KernelErrorV1> {
+        validate_component(&self.profile_id)?;
+        validate_component(&self.claim_name)?;
+        if self.required_effects.is_empty() {
+            return Err(KernelErrorV1::EmptyRequiredEffects);
+        }
+
+        let mut required = Vec::with_capacity(self.required_effects.len());
+        let mut seen = BTreeSet::new();
+        for requirement in &self.required_effects {
+            validate_component(&requirement.effect_owner)?;
+            let effect_id = EffectIdentityV1::derive(
+                self.operation_id,
+                requirement.role,
+                &requirement.effect_owner,
+            )?;
+            if !seen.insert(effect_id) {
+                return Err(KernelErrorV1::DuplicateRequiredEffect);
+            }
+            required.push((effect_id, requirement.role, requirement.effect_owner.as_str()));
+        }
+        required.sort_by_key(|(effect_id, _, _)| *effect_id);
+
+        let count = u32::try_from(required.len()).map_err(|_| KernelErrorV1::TooManyRequiredEffects)?;
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(CLAIM_PROFILE_DIGEST_DOMAIN);
+        hasher.update(&CLAIM_PROFILE_DIGEST_SCHEMA_V1.to_be_bytes());
+        update_field(&mut hasher, self.profile_id.as_bytes())?;
+        update_field(&mut hasher, self.claim_name.as_bytes())?;
+        hasher.update(self.operation_id.digest().as_bytes());
+        hasher.update(self.expected_intent_fingerprint.as_bytes());
+        hasher.update(&count.to_be_bytes());
+
+        for (effect_id, role, owner) in required {
+            hasher.update(effect_id.digest().as_bytes());
+            update_field(&mut hasher, role.as_str().as_bytes())?;
+            update_field(&mut hasher, owner.as_bytes())?;
+        }
+
+        Ok(DigestV1(*hasher.finalize().as_bytes()))
+    }
+}
+
 /// Evidence supplied for one effect slot. Completeness is an adapter assertion
 /// and remains outside the authority of this pure kernel.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -563,10 +614,9 @@ pub fn classify_effect_vector(
     profile: &CompositeClaimProfileV1,
     batches: &[EffectEvidenceBatchV1],
 ) -> Result<EffectVectorProjectionV1, KernelErrorV1> {
-    validate_component(&profile.profile_id)?;
-    validate_component(&profile.claim_name)?;
-    if profile.required_effects.is_empty() {
-        return Err(KernelErrorV1::EmptyRequiredEffects);
+    let derived_profile_digest = profile.derive_profile_digest()?;
+    if derived_profile_digest != profile.profile_digest {
+        return Err(KernelErrorV1::ProfileDigestMismatch);
     }
 
     let mut required = Vec::with_capacity(profile.required_effects.len());
