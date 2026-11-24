@@ -1,0 +1,190 @@
+{
+  "benchmark": "PCOE Authority Epoch Transition and Durable Revocation Qualification",
+  "version": "0.1",
+  "date": "2026-11-24",
+  "status": "proposed-synthetic-adversarial-corpus-not-executed",
+  "scenario_count": 16,
+  "source_snapshot": {
+    "repository": "Luminous-Dynamics/mycelix",
+    "base_pr": 6595,
+    "base_commit": "b48221cb0c578e04781f54fb4bd9c5784719881a",
+    "related_issue": 6596
+  },
+  "disposition_vocabulary": [
+    "activate_epoch",
+    "hold_indeterminate",
+    "reject_conflict",
+    "deduplicate_logical_signer",
+    "reject_stale",
+    "reject_revoked_key",
+    "needs_review",
+    "resolve_original"
+  ],
+  "model_coverage_vocabulary": [
+    "bounded_model",
+    "partially_modelled",
+    "not_in_model"
+  ],
+  "scenarios": [
+    {
+      "id": "EPOCH-001",
+      "domain": "joint_quorum",
+      "threat": "Both authority sets sign the exact same transition digest",
+      "preconditions": "Old and new witness sets are authenticated; checkpoint is complete; both sets retain quorum.",
+      "adversarial_mutation": "Collect one old-set quorum and one new-set quorum over the identical transition digest.",
+      "expected_disposition": "activate_epoch",
+      "required_control": "Require both independently evaluated membership quorums over the same digest and checkpoint.",
+      "model_coverage": "bounded_model"
+    },
+    {
+      "id": "EPOCH-002",
+      "domain": "old_quorum_only",
+      "threat": "Old set reaches quorum while the new set is unavailable",
+      "preconditions": "The old set has quorum; the new set has fewer than its threshold during a partition.",
+      "adversarial_mutation": "Attempt to certify the transition using only the old-set quorum.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "A joint transition certificate is not issued; the old set remains frozen for new admissions once preparation begins.",
+      "model_coverage": "bounded_model"
+    },
+    {
+      "id": "EPOCH-003",
+      "domain": "new_quorum_only",
+      "threat": "New set reaches quorum while the old set is unavailable",
+      "preconditions": "The new set has quorum; the old set has fewer than its threshold.",
+      "adversarial_mutation": "Attempt to activate the new epoch using only the new-set quorum.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "No unilateral new-set activation; do not silently lower either threshold.",
+      "model_coverage": "bounded_model"
+    },
+    {
+      "id": "EPOCH-004",
+      "domain": "digest_conflict",
+      "threat": "Old and new signers attest different transition payloads",
+      "preconditions": "A transition identity is already bound to one immutable digest.",
+      "adversarial_mutation": "Present a second payload under the same transition identity or mix signatures for different digests.",
+      "expected_disposition": "reject_conflict",
+      "required_control": "Every signer and certificate must bind one canonical digest; mixed-digest evidence is rejected or held.",
+      "model_coverage": "bounded_model"
+    },
+    {
+      "id": "EPOCH-005",
+      "domain": "membership_overlap",
+      "threat": "One logical witness belongs to both old and new sets",
+      "preconditions": "The signer is a member of both sets and signs the joint transition digest once.",
+      "adversarial_mutation": "Attempt to count an alias or repeated signature as multiple identities within either set.",
+      "expected_disposition": "deduplicate_logical_signer",
+      "required_control": "One authenticated logical identity is counted at most once per membership set; a shared member may satisfy membership in each set without being duplicated inside a set.",
+      "model_coverage": "bounded_model"
+    },
+    {
+      "id": "EPOCH-006",
+      "domain": "key_alias",
+      "threat": "One logical witness presents old and new key aliases",
+      "preconditions": "Two key identifiers resolve to one enrolled logical witness identity.",
+      "adversarial_mutation": "Present both key aliases as independent quorum members.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Resolve keys to one stable logical identity before counting; alias enrollment cannot increase quorum cardinality.",
+      "model_coverage": "not_in_model"
+    },
+    {
+      "id": "EPOCH-007",
+      "domain": "stale_old_epoch",
+      "threat": "Removed old signer attempts a new admission after activation",
+      "preconditions": "The new epoch is active and the old epoch barrier is committed.",
+      "adversarial_mutation": "Replay a stale old-epoch certificate as authority for a newly created effect.",
+      "expected_disposition": "reject_stale",
+      "required_control": "Historical old certificates remain evidence for historical effects only; they cannot authorize new effects after the barrier.",
+      "model_coverage": "partially_modelled"
+    },
+    {
+      "id": "EPOCH-008",
+      "domain": "premature_new_epoch",
+      "threat": "New signer attempts admission before joint activation",
+      "preconditions": "The transition is prepared or incomplete; the new epoch is not active.",
+      "adversarial_mutation": "Submit a new-epoch effect before activation.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "No new-epoch effect becomes spendable before a joint transition certificate and activation.",
+      "model_coverage": "bounded_model"
+    },
+    {
+      "id": "EPOCH-009",
+      "domain": "digest_rewrite",
+      "threat": "Transition payload changes after preparation",
+      "preconditions": "An initial digest has been prepared and signer evidence may already exist.",
+      "adversarial_mutation": "Rewrite the proposal digest while keeping the transition identity and existing signer evidence.",
+      "expected_disposition": "reject_conflict",
+      "required_control": "The prepared digest is immutable; a changed payload requires a new, explicitly authorized transition identity.",
+      "model_coverage": "bounded_model"
+    },
+    {
+      "id": "EPOCH-010",
+      "domain": "journal_restart",
+      "threat": "Witness restarts after signing",
+      "preconditions": "A witness has persisted its non-equivocation journal before acknowledging its signature.",
+      "adversarial_mutation": "Restart the witness and ask it to sign a conflicting digest.",
+      "expected_disposition": "reject_conflict",
+      "required_control": "The durable journal survives restart and refuses a second digest for the same transition identity.",
+      "model_coverage": "partially_modelled"
+    },
+    {
+      "id": "EPOCH-011",
+      "domain": "snapshot_rollback",
+      "threat": "Witness restores a snapshot preceding an issued vote",
+      "preconditions": "An already-issued signature remains externally observable; the restored snapshot lacks that vote.",
+      "adversarial_mutation": "Restore the old snapshot and request a conflicting signature.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Recovery must prove journal monotonicity from a trusted checkpoint; unproven rollback disables signing.",
+      "model_coverage": "not_in_model"
+    },
+    {
+      "id": "EPOCH-012",
+      "domain": "revocation_before_certificate",
+      "threat": "A signing key is revoked before joint certification",
+      "preconditions": "A revocation record has a qualified effective checkpoint and scope.",
+      "adversarial_mutation": "Submit a certificate whose required signature depends on the revoked key.",
+      "expected_disposition": "reject_revoked_key",
+      "required_control": "Apply revocation according to explicit effective-checkpoint semantics; do not count revoked authority for later admissions.",
+      "model_coverage": "not_in_model"
+    },
+    {
+      "id": "EPOCH-013",
+      "domain": "compromise_after_certificate",
+      "threat": "A key is reported compromised after a certificate",
+      "preconditions": "A previously valid certificate exists; compromise timing and scope require adjudication.",
+      "adversarial_mutation": "Attempt to retroactively erase or silently grandfather all prior certificates.",
+      "expected_disposition": "needs_review",
+      "required_control": "Preserve historical evidence and apply the declared compromise-window policy; do not rewrite past effects by default.",
+      "model_coverage": "not_in_model"
+    },
+    {
+      "id": "EPOCH-014",
+      "domain": "partition_during_transition",
+      "threat": "Network partition prevents one side reaching quorum",
+      "preconditions": "Joint preparation has begun; only one membership set can form quorum.",
+      "adversarial_mutation": "Retry, timeout, or lower a threshold to force progress.",
+      "expected_disposition": "hold_indeterminate",
+      "required_control": "Safety thresholds remain fixed; liveness may pause until both sides and checkpoint evidence are available.",
+      "model_coverage": "bounded_model"
+    },
+    {
+      "id": "EPOCH-015",
+      "domain": "duplicate_transition",
+      "threat": "Same transition request is submitted concurrently many times",
+      "preconditions": "Identical transition identity, digest, old/new set digests and checkpoint are presented.",
+      "adversarial_mutation": "Submit 100 identical requests concurrently and replay them after response loss.",
+      "expected_disposition": "resolve_original",
+      "required_control": "Exactly one logical transition record is retained; retries resolve its original certificate and do not increment the epoch twice.",
+      "model_coverage": "partially_modelled"
+    },
+    {
+      "id": "EPOCH-016",
+      "domain": "same_id_different_payload",
+      "threat": "Conflicting payloads race under one transition identity",
+      "preconditions": "One transition identity is concurrently presented with 100 distinct transition digests.",
+      "adversarial_mutation": "Race all payloads and attempt first-writer ambiguity or last-write-wins.",
+      "expected_disposition": "reject_conflict",
+      "required_control": "One digest may bind; every conflicting payload is held/rejected with no second active epoch.",
+      "model_coverage": "partially_modelled"
+    }
+  ]
+}
