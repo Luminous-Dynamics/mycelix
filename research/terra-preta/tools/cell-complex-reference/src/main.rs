@@ -815,6 +815,7 @@ mod tests {
         scenario.edges[1].tail_node_id = "source".into();
         scenario.edges[1].head_node_id = "sink".into();
         scenario.edges[1].edge_id = "parallel".into();
+        scenario.processes[0].edge_conductances[1].edge_id = "parallel".into();
         scenario.processes[0].dirichlet_boundaries = vec![
             DirichletBoundary {
                 node_id: "source".into(),
