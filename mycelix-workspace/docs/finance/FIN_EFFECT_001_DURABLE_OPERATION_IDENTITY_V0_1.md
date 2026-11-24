@@ -266,3 +266,15 @@ This research track can be promoted only when:
 - public reports separate implemented, structurally checked, model-checked, runtime-tested, provider-tested and externally settled claims.
 
 **Claim ceiling:** this v0.1 document and corpus define a research contract. They do not establish implementation, global exactly-once behavior, production readiness, live payments, reserve backing, external settlement or legal finality.
+
+## Profile-bound economic effect vectors (FIN-EFFECT-004 / #6608)
+
+The pure kernel now projects multiple owner-specific effects against an explicit versioned claim profile. A profile derives required effect IDs using the existing FIN-EFFECT-001 `(operation_id, role, owner)` algorithm and carries its own profile digest and expected intent fingerprint.
+
+The composite dispositions are `SupportedWithinDeclaredScope`, `Pending`, `Indeterminate` and `Conflict`. Aggregation precedence is Conflict > Indeterminate > Pending > Supported. A complete empty effect view is Pending; a missing or incomplete batch is Indeterminate. Unexpected batches and duplicate required role/owner pairs are rejected. The output is sorted by effect ID for deterministic replay.
+
+Crucially, `SupportedWithinDeclaredScope` means only that the evidence supports the exact required-effect set in the supplied claim profile. It does not mean universally completed, settled, delivered, spendable or legally discharged. A different profile can require additional effects—for example, a supplier payable profile versus a bank-settlement profile, or a delivery profile versus an accepted-service profile.
+
+The synthetic corpus and Draft 2020-12 schema are `mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.json` and `.schema.json`. They are mirrored under `mycelix-workspace`. Sixteen cases cover payer/beneficiary legs, Hearth, TEND, procurement, payroll, grants, external rails, resource delivery/acceptance, conflict precedence and input-order determinism.
+
+Claim ceiling: the projection does not authenticate evidence, validate the semantic completeness or approval of a claim profile, authorize a first effect, commit any owner mutation or prove global/Holochain/external finality.
