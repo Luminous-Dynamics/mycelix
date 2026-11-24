@@ -556,29 +556,13 @@ mod tests {
 
     #[test]
     fn operation_identity_changes_when_any_key_component_changes() {
-        let original = OperationKeyV1::new(
-            "finance",
-            "did:mycelix:origin",
-            "trade:42:attempt:1",
-        )
-        .derive_identity()
-        .unwrap();
+        let original = OperationKeyV1::new("finance", "did:mycelix:origin", "trade:42:attempt:1")
+            .derive_identity()
+            .unwrap();
         let variants = [
-            OperationKeyV1::new(
-                "treasury",
-                "did:mycelix:origin",
-                "trade:42:attempt:1",
-            ),
-            OperationKeyV1::new(
-                "finance",
-                "did:mycelix:other-origin",
-                "trade:42:attempt:1",
-            ),
-            OperationKeyV1::new(
-                "finance",
-                "did:mycelix:origin",
-                "trade:43:attempt:1",
-            ),
+            OperationKeyV1::new("treasury", "did:mycelix:origin", "trade:42:attempt:1"),
+            OperationKeyV1::new("finance", "did:mycelix:other-origin", "trade:42:attempt:1"),
+            OperationKeyV1::new("finance", "did:mycelix:origin", "trade:43:attempt:1"),
         ];
         for variant in variants {
             assert_ne!(original, variant.derive_identity().unwrap());
