@@ -609,10 +609,6 @@ fn build_projection(
     for port in 0..nb {
         inverse_columns.push(dense_solve(&a_r, &column(&b_r, port))?);
     }
-    let a_r_inv_b: Dense = (0..basis.len())
-        .map(|row| inverse_columns.iter().map(|values| values[row]).collect())
-        .collect();
-
     let b_columns: Vec<Vec<f64>> = (0..nb).map(|port| column(&b_r, port)).collect();
     let mut d_r = lambda_0.clone();
     for (row, d_row) in d_r.iter_mut().enumerate() {
@@ -639,7 +635,6 @@ fn build_projection(
 
 fn response_from_reduced(projection: &Projection, shift: f64) -> Result<Dense, String> {
     let nb = projection.d_r.len();
-    let rank = projection.a_r.len();
     let mut shifted = projection.a_r.clone();
     for (index, row) in shifted.iter_mut().enumerate() {
         row[index] += shift;
@@ -796,6 +791,8 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const TOL: f64 = 1.0e-10;
 
     fn fixture() -> Fixture {
         Fixture {
