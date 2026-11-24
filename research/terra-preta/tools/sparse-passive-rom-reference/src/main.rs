@@ -872,8 +872,9 @@ fn build_adaptive_projection(
     let mut candidates = fixture.adaptive.candidate_shifts.clone();
     candidates.sort_by(f64::total_cmp);
 
-    // Full-order candidate responses are computed once. The adaptive loop
-    // evaluates each current reduced model against this cached candidate grid.
+    // Cache the full multi-port response at each candidate frequency. During
+    // selection, score each input-port column independently and add one
+    // (frequency, input-port) snapshot at a time.
     let mut candidate_responses = Vec::with_capacity(candidates.len());
     let mut stats = Vec::new();
     for shift in candidates {
@@ -888,8 +889,9 @@ fn build_adaptive_projection(
     }
 
     let mut selected_shifts = fixture.rational_shifts.clone();
+    let mut selected_snapshots = requests_for_shifts(&selected_shifts, model.boundary_ids.len());
     let (mut projection, initial_stats) =
-        build_projection_for_shifts(model, fixture, &selected_shifts)?;
+        build_projection_for_requests(model, fixture, &selected_snapshots)?;
     stats.extend(initial_stats);
     if projection.basis_dimension > maximum_basis_dimension {
         return Err(format!(
@@ -904,15 +906,25 @@ fn build_adaptive_projection(
 
     loop {
         let mut maximum_candidate_error = 0.0_f64;
-        let mut worst_unselected: Option<(f64, f64)> = None;
+        let mut worst_unselected: Option<(f64, f64, usize)> = None;
         for (shift, full_response) in &candidate_responses {
             let reduced_response = response_from_reduced(&projection, *shift)?;
-            let error = relative_error(&reduced_response, full_response);
-            maximum_candidate_error = maximum_candidate_error.max(error);
-            if !selected_shifts.contains(shift)
-                && worst_unselected.is_none_or(|(best_error, _)| error > best_error)
-            {
-                worst_unselected = Some((error, *shift));
+            for port in 0..model.boundary_ids.len() {
+                let full_column = column(full_response, port);
+                let reduced_column = column(&reduced_response, port);
+                let error = relative_error(
+                    std::slice::from_ref(&reduced_column),
+                    std::slice::from_ref(&full_column),
+                );
+                maximum_candidate_error = maximum_candidate_error.max(error);
+                let already_selected = selected_snapshots.iter().any(|request| {
+                    request.shift == *shift && request.input_port_index == port
+                });
+                if !already_selected
+                    && worst_unselected.is_none_or(|(best_error, _, _)| error > best_error)
+                {
+                    worst_unselected = Some((error, *shift, port));
+                }
             }
         }
 
@@ -925,15 +937,18 @@ fn build_adaptive_projection(
             stop_reason = "basis_dimension_cap".to_string();
             break;
         }
-        let Some((worst_error, selected_shift)) = worst_unselected else {
+        let Some((worst_error, selected_shift, selected_port)) = worst_unselected else {
             stop_reason = "candidate_grid_exhausted".to_string();
             break;
         };
 
-        let mut next_shifts = selected_shifts.clone();
-        next_shifts.push(selected_shift);
+        let mut next_snapshots = selected_snapshots.clone();
+        next_snapshots.push(SnapshotRequest {
+            shift: selected_shift,
+            input_port_index: selected_port,
+        });
         let (next_projection, next_stats) =
-            build_projection_for_shifts(model, fixture, &next_shifts)?;
+            build_projection_for_requests(model, fixture, &next_snapshots)?;
         stats.extend(next_stats);
         if next_projection.basis_dimension > maximum_basis_dimension {
             stop_reason = "basis_dimension_cap".to_string();
@@ -942,10 +957,15 @@ fn build_adaptive_projection(
 
         selection_steps.push(AdaptiveStep {
             selected_shift,
-            pre_addition_worst_relative_error: worst_error.max(maximum_candidate_error),
+            selected_input_port_index: selected_port,
+            pre_addition_worst_relative_error: maximum_candidate_error.max(worst_error),
             basis_dimension_after_addition: next_projection.basis_dimension,
         });
-        selected_shifts = next_shifts;
+        if !selected_shifts.contains(&selected_shift) {
+            selected_shifts.push(selected_shift);
+            selected_shifts.sort_by(f64::total_cmp);
+        }
+        selected_snapshots = next_snapshots;
         projection = next_projection;
     }
 
@@ -953,6 +973,7 @@ fn build_adaptive_projection(
         projection,
         stats,
         selected_shifts,
+        selected_snapshots,
         selection_steps,
         target_met,
         stop_reason,
@@ -966,6 +987,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         projection,
         mut stats,
         effective_shifts,
+        selected_port_snapshots,
         adaptive_selection_steps,
         adaptive_target_met,
         adaptive_stop_reason,
@@ -975,6 +997,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             adaptive.projection,
             adaptive.stats,
             adaptive.selected_shifts,
+            adaptive.selected_snapshots,
             adaptive.selection_steps,
             Some(adaptive.target_met),
             adaptive.stop_reason,
@@ -985,6 +1008,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             projection,
             stats,
             fixture.rational_shifts.clone(),
+            requests_for_shifts(&fixture.rational_shifts, model.boundary_ids.len()),
             Vec::new(),
             None,
             "fixed_shift_mode".to_string(),
@@ -1047,6 +1071,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         csr_nonzero_count: model.a.nnz(),
         csr_density,
         rational_shifts: effective_shifts,
+        selected_port_snapshots,
         adaptive_selection_steps,
         adaptive_target_met,
         adaptive_stop_reason,
