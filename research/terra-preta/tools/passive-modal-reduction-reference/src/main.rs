@@ -74,10 +74,6 @@ impl Complex {
         Self::new(self.real, -self.imag)
     }
 
-    fn reciprocal(self) -> Self {
-        let denominator = self.real.mul_add(self.real, self.imag * self.imag);
-        Self::new(self.real / denominator, -self.imag / denominator)
-    }
 }
 
 impl Add for Complex {
