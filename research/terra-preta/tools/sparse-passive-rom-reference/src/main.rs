@@ -193,6 +193,11 @@ struct Report {
     adaptive_target_met: Option<bool>,
     adaptive_maximum_candidate_relative_error: Option<f64>,
     adaptive_stop_reason: String,
+    block_arnoldi_baseline_basis_dimension: Option<usize>,
+    block_arnoldi_baseline_maximum_sampled_response_error: Option<f64>,
+    block_arnoldi_baseline_cg_solve_count: Option<usize>,
+    block_arnoldi_baseline_total_cg_iterations: Option<usize>,
+    block_arnoldi_baseline_passivity_certificate_valid: Option<bool>,
     basis_dimension: usize,
     basis_snapshots_attempted: usize,
     exact_dc_response: Dense,
@@ -1104,6 +1109,16 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     {
         return Err("reduced model failed the scale-aware structural passivity checks".into());
     }
+    let block_arnoldi_baseline = if adaptive_requested {
+        Some(build_zero_shift_block_arnoldi_projection(
+            &model,
+            fixture,
+            projection.basis_dimension,
+        )?)
+    } else {
+        None
+    };
+    let mut block_arnoldi_baseline_error = 0.0_f64;
     let mut frequency_samples = Vec::with_capacity(fixture.laplace_samples.len());
     for shift in &fixture.laplace_samples {
         let (full, full_stats) = response_from_sparse(
@@ -1114,6 +1129,11 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         )?;
         stats.extend(full_stats.iter().copied());
         let reduced = response_from_reduced(&projection, *shift)?;
+        if let Some((block_projection, _)) = block_arnoldi_baseline.as_ref() {
+            let block_reduced = response_from_reduced(block_projection, *shift)?;
+            block_arnoldi_baseline_error = block_arnoldi_baseline_error
+                .max(relative_error(&block_reduced, &full));
+        }
         frequency_samples.push(SampleResult {
             laplace_s: *shift,
             relative_response_error: relative_error(&reduced, &full),
@@ -1143,6 +1163,20 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         .map(|item| item.relative_residual).fold(0.0_f64, f64::max);
     let csr_density = model.a.nnz() as f64 / (model.a.size * model.a.size) as f64;
     let dc_relative_error = relative_error(&reduced_dc, &exact_dc);
+    let block_arnoldi_baseline_metrics = block_arnoldi_baseline.as_ref().map(
+        |(block_projection, block_stats)| {
+            let block_passivity_tolerance =
+                block_projection.lambda_0_scale.max(f64::MIN_POSITIVE) * 1.0e-10;
+            (
+                block_projection.basis_dimension,
+                block_arnoldi_baseline_error,
+                block_stats.len(),
+                block_stats.iter().map(|item| item.iterations).sum::<usize>(),
+                block_projection.a_r_min_eigenvalue > 0.0
+                    && block_projection.lambda_0_min_eigenvalue >= -block_passivity_tolerance,
+            )
+        },
+    );
 
     Ok(Report {
         audit_version: VERSION.into(),
@@ -1159,6 +1193,16 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         adaptive_target_met,
         adaptive_maximum_candidate_relative_error,
         adaptive_stop_reason,
+        block_arnoldi_baseline_basis_dimension: block_arnoldi_baseline_metrics
+            .map(|metrics| metrics.0),
+        block_arnoldi_baseline_maximum_sampled_response_error: block_arnoldi_baseline_metrics
+            .map(|metrics| metrics.1),
+        block_arnoldi_baseline_cg_solve_count: block_arnoldi_baseline_metrics
+            .map(|metrics| metrics.2),
+        block_arnoldi_baseline_total_cg_iterations: block_arnoldi_baseline_metrics
+            .map(|metrics| metrics.3),
+        block_arnoldi_baseline_passivity_certificate_valid: block_arnoldi_baseline_metrics
+            .map(|metrics| metrics.4),
         basis_dimension: projection.basis_dimension,
         basis_snapshots_attempted: projection.basis_snapshots,
         exact_dc_response: exact_dc,
