@@ -611,6 +611,9 @@ pub enum KernelErrorV1 {
     UnexpectedEffectEvidenceBatch,
     ProfileDigestMismatch,
     TooManyRequiredEffects,
+    MissingTemplateRoleBinding,
+    DuplicateTemplateRoleBinding,
+    UnexpectedTemplateRoleBinding,
 }
 
 /// One owner-specific effect required by an explicit composite claim profile.
@@ -690,6 +693,164 @@ impl CompositeClaimProfileV1 {
         }
 
         Ok(DigestV1(*hasher.finalize().as_bytes()))
+    }
+}
+
+/// Reusable Economic OS claim-profile starting points.
+///
+/// Templates provide a reviewed, versioned required-role shape. The caller must
+/// still bind the actual effect owners and policy context. A template is not
+/// authority, legal policy, settlement finality, or proof of profile completeness.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EconomicClaimTemplateV1 {
+    SapBilateralTransferReconciled,
+    HearthContributionAccepted,
+    HearthWithdrawalClaimed,
+    TendBilateralClearing,
+    GrantRecipientClaimed,
+    ProcurementReceivedAndSettled,
+    PayrollWorkerReceiptObserved,
+    CommonsServiceAccepted,
+    ReputationAttestationRecorded,
+}
+
+impl EconomicClaimTemplateV1 {
+    pub fn profile_id(self) -> &'static str {
+        match self {
+            Self::SapBilateralTransferReconciled => {
+                "economic-os:claim:sap-bilateral-transfer-reconciled:v1"
+            }
+            Self::HearthContributionAccepted => {
+                "economic-os:claim:hearth-contribution-accepted:v1"
+            }
+            Self::HearthWithdrawalClaimed => {
+                "economic-os:claim:hearth-withdrawal-claimed:v1"
+            }
+            Self::TendBilateralClearing => "economic-os:claim:tend-bilateral-clearing:v1",
+            Self::GrantRecipientClaimed => "economic-os:claim:grant-recipient-claimed:v1",
+            Self::ProcurementReceivedAndSettled => {
+                "economic-os:claim:procurement-received-and-settled:v1"
+            }
+            Self::PayrollWorkerReceiptObserved => {
+                "economic-os:claim:payroll-worker-receipt-observed:v1"
+            }
+            Self::CommonsServiceAccepted => "economic-os:claim:commons-service-accepted:v1",
+            Self::ReputationAttestationRecorded => {
+                "economic-os:claim:reputation-attestation-recorded:v1"
+            }
+        }
+    }
+
+    pub fn claim_name(self) -> &'static str {
+        match self {
+            Self::SapBilateralTransferReconciled => "sap_bilateral_transfer_reconciled",
+            Self::HearthContributionAccepted => "hearth_contribution_accepted",
+            Self::HearthWithdrawalClaimed => "hearth_withdrawal_claimed",
+            Self::TendBilateralClearing => "tend_bilateral_clearing",
+            Self::GrantRecipientClaimed => "grant_recipient_claimed",
+            Self::ProcurementReceivedAndSettled => "procurement_received_and_settled",
+            Self::PayrollWorkerReceiptObserved => "payroll_worker_receipt_observed",
+            Self::CommonsServiceAccepted => "commons_service_accepted",
+            Self::ReputationAttestationRecorded => "reputation_attestation_recorded",
+        }
+    }
+
+    pub fn required_roles(self) -> Vec<EffectRoleV1> {
+        match self {
+            Self::SapBilateralTransferReconciled => {
+                vec![EffectRoleV1::PayerDebit, EffectRoleV1::BeneficiaryClaim]
+            }
+            Self::HearthContributionAccepted => vec![
+                EffectRoleV1::HearthMemberNoteSpend,
+                EffectRoleV1::HearthPoolContributionReceipt,
+            ],
+            Self::HearthWithdrawalClaimed => vec![
+                EffectRoleV1::HearthPoolDisbursement,
+                EffectRoleV1::BeneficiaryClaim,
+            ],
+            Self::TendBilateralClearing => vec![
+                EffectRoleV1::TendProviderCredit,
+                EffectRoleV1::TendRecipientDebit,
+                EffectRoleV1::TendMutualCreditExposure,
+            ],
+            Self::GrantRecipientClaimed => vec![
+                EffectRoleV1::GrantAward,
+                EffectRoleV1::GrantBudgetReservation,
+                EffectRoleV1::GrantTrancheRelease,
+                EffectRoleV1::GrantRecipientClaim,
+            ],
+            Self::ProcurementReceivedAndSettled => vec![
+                EffectRoleV1::ProcurementOrderCommitment,
+                EffectRoleV1::GoodsServiceReceipt,
+                EffectRoleV1::SupplierLiability,
+                EffectRoleV1::PayableJournal,
+                EffectRoleV1::PaymentInstruction,
+                EffectRoleV1::BankSettlementReceipt,
+            ],
+            Self::PayrollWorkerReceiptObserved => vec![
+                EffectRoleV1::PayrollNetPayable,
+                EffectRoleV1::PayrollRelease,
+                EffectRoleV1::BankPayment,
+                EffectRoleV1::WorkerReceipt,
+            ],
+            Self::CommonsServiceAccepted => vec![
+                EffectRoleV1::ResourceReservation,
+                EffectRoleV1::ProviderCommitment,
+                EffectRoleV1::DeliveryEvent,
+                EffectRoleV1::BeneficiaryAcceptance,
+            ],
+            Self::ReputationAttestationRecorded => vec![
+                EffectRoleV1::ReputationAttestation,
+                EffectRoleV1::ReputationProjection,
+            ],
+        }
+    }
+
+    /// Bind a template's exact role set to explicit effect owners.
+    ///
+    /// Missing, unexpected and duplicate role bindings are rejected. The returned
+    /// profile digest is derived from the exact template ID, claim name, operation,
+    /// intent fingerprint and sorted role/owner/effect tuples.
+    pub fn build_profile(
+        self,
+        operation_id: OperationIdentityV1,
+        expected_intent_fingerprint: DigestV1,
+        owner_bindings: Vec<RequiredEffectV1>,
+    ) -> Result<CompositeClaimProfileV1, KernelErrorV1> {
+        let required_roles = self.required_roles();
+        let expected: BTreeSet<EffectRoleV1> = required_roles.iter().copied().collect();
+        let mut supplied = BTreeSet::new();
+
+        for binding in &owner_bindings {
+            validate_component(&binding.effect_owner)?;
+            if !expected.contains(&binding.role) {
+                return Err(KernelErrorV1::UnexpectedTemplateRoleBinding);
+            }
+            if !supplied.insert(binding.role) {
+                return Err(KernelErrorV1::DuplicateTemplateRoleBinding);
+            }
+        }
+
+        if supplied != expected {
+            return Err(KernelErrorV1::MissingTemplateRoleBinding);
+        }
+
+        let mut required_effects = owner_bindings;
+        required_effects.sort_by(|left, right| {
+            (left.role, left.effect_owner.as_str())
+                .cmp(&(right.role, right.effect_owner.as_str()))
+        });
+
+        let mut profile = CompositeClaimProfileV1 {
+            profile_id: self.profile_id().into(),
+            profile_digest: DigestV1([0; 32]),
+            claim_name: self.claim_name().into(),
+            operation_id,
+            expected_intent_fingerprint,
+            required_effects,
+        };
+        profile.profile_digest = profile.derive_profile_digest()?;
+        Ok(profile)
     }
 }
 
