@@ -7,10 +7,7 @@
 //! the explicit unstable Cargo features are requested. It does not run a
 //! countersigning session or make a safety/finality claim.
 
-use hdk::prelude::{
-    accept_countersigning_preflight_request, hdk_extern, ExternResult, PreflightRequest,
-    PreflightRequestAcceptance,
-};
+use hdk::prelude::*;
 
 /// Minimal bridge to the feature-gated Holochain preflight host function.
 ///
