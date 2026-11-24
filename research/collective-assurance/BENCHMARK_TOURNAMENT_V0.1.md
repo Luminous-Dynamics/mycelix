@@ -148,6 +148,17 @@ These are **proposed research targets**, not achieved results or guaranteed SOTA
 
 Why some targets are intentionally conservative: the first task is to establish a valid, matched baseline and expose hidden conditions. A large improvement over a non-comparable score is marketing, not science.
 
+## Accessibility and non-coercive withdrawal
+
+The AI-off endpoint evaluates whether the experimental AI contribution can be removed without destroying capability; it is not a moral preference for self-sufficiency and must not become a test of whether a person deserves assistance.
+
+- Never withdraw assistive technology, accessibility accommodations, communication aids, translation supports, or other tools a participant needs for safe or meaningful participation.
+- Where the AI feature is itself an essential accommodation, do not remove it for that participant. Use an alternate non-withdrawal design or an opt-in matched task; do not force an unsafe or inaccessible condition.
+- Participants may request direct answers, hints, a pause, a human facilitator, or task termination. Do not manufacture frustration by withholding requested support.
+- Voluntary stopping is not a failure, and challenge-seeking/persistence must not be used as a proxy for intelligence, effort, motivation, employability, or civic fitness.
+- Report the participant's chosen support level, agency, accessibility, and burden. A positive capability result should increase available choices, not impose independence as a compulsory norm.
+- Do not use these results for employee ranking, hiring, discipline, insurance, eligibility, or access to public services.
+
 ## Statistical and reproducibility contract
 
 - Pin benchmark and task dataset version/hash; maintain separate training/dev/held-out task families.
