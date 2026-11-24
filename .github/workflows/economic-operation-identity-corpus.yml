@@ -177,7 +177,7 @@ jobs:
             .aggregation_precedence == ["Conflict","Indeterminate","Pending","SupportedWithinDeclaredScope"] and
             (.cases | length == 16) and
             ([.cases[].id] | unique | length == 16) and
-            ([.metrics[].id] | unique) as $metric_ids | ($metric_ids | length) == (.metrics | length) and
+            (.metrics | map(.id) | unique | length) == (.metrics | length) and
             ([.cases[] | select(.id == "VEC-002") | .expected][0] == "Pending") and
             ([.cases[] | select(.id == "VEC-004") | .expected][0] == "Indeterminate") and
             ([.cases[] | select(.id == "VEC-006") | .expected][0] == "Conflict") and
