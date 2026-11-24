@@ -1,0 +1,524 @@
+{
+  "schema_version": "cell-complex-reference-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "scenario_id": "oriented-unit-cube-dual-operator",
+  "source_artifact_uri": "urn:synthetic:cell-complex:unit-cube",
+  "source_artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "nodes": [
+    {
+      "node_id": "n000",
+      "coordinates_m": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "node_id": "n100",
+      "coordinates_m": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "node_id": "n110",
+      "coordinates_m": [
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "node_id": "n010",
+      "coordinates_m": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "node_id": "n001",
+      "coordinates_m": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "node_id": "n101",
+      "coordinates_m": [
+        1,
+        0,
+        1
+      ]
+    },
+    {
+      "node_id": "n111",
+      "coordinates_m": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "node_id": "n011",
+      "coordinates_m": [
+        0,
+        1,
+        1
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "ex000",
+      "tail_node_id": "n000",
+      "head_node_id": "n100",
+      "length_m": 1,
+      "cross_section_m2": 1
+    },
+    {
+      "edge_id": "ex010",
+      "tail_node_id": "n010",
+      "head_node_id": "n110",
+      "length_m": 1,
+      "cross_section_m2": 1
+    },
+    {
+      "edge_id": "ex001",
+      "tail_node_id": "n001",
+      "head_node_id": "n101",
+      "length_m": 1,
+      "cross_section_m2": 1
+    },
+    {
+      "edge_id": "ex011",
+      "tail_node_id": "n011",
+      "head_node_id": "n111",
+      "length_m": 1,
+      "cross_section_m2": 1
+    },
+    {
+      "edge_id": "ey000",
+      "tail_node_id": "n000",
+      "head_node_id": "n010",
+      "length_m": 1,
+      "cross_section_m2": 1
+    },
+    {
+      "edge_id": "ey100",
+      "tail_node_id": "n100",
+      "head_node_id": "n110",
+      "length_m": 1,
+      "cross_section_m2": 1
+    },
+    {
+      "edge_id": "ey001",
+      "tail_node_id": "n001",
+      "head_node_id": "n011",
+      "length_m": 1,
+      "cross_section_m2": 1
+    },
+    {
+      "edge_id": "ey101",
+      "tail_node_id": "n101",
+      "head_node_id": "n111",
+      "length_m": 1,
+      "cross_section_m2": 1
+    },
+    {
+      "edge_id": "ez000",
+      "tail_node_id": "n000",
+      "head_node_id": "n001",
+      "length_m": 1,
+      "cross_section_m2": 1
+    },
+    {
+      "edge_id": "ez100",
+      "tail_node_id": "n100",
+      "head_node_id": "n101",
+      "length_m": 1,
+      "cross_section_m2": 1
+    },
+    {
+      "edge_id": "ez110",
+      "tail_node_id": "n110",
+      "head_node_id": "n111",
+      "length_m": 1,
+      "cross_section_m2": 1
+    },
+    {
+      "edge_id": "ez010",
+      "tail_node_id": "n010",
+      "head_node_id": "n011",
+      "length_m": 1,
+      "cross_section_m2": 1
+    }
+  ],
+  "faces": [
+    {
+      "face_id": "bottom-z",
+      "boundary_edges": [
+        {
+          "cell_id": "ey000",
+          "orientation": 1
+        },
+        {
+          "cell_id": "ex010",
+          "orientation": 1
+        },
+        {
+          "cell_id": "ey100",
+          "orientation": -1
+        },
+        {
+          "cell_id": "ex000",
+          "orientation": -1
+        }
+      ]
+    },
+    {
+      "face_id": "top-z",
+      "boundary_edges": [
+        {
+          "cell_id": "ex001",
+          "orientation": 1
+        },
+        {
+          "cell_id": "ey101",
+          "orientation": 1
+        },
+        {
+          "cell_id": "ex011",
+          "orientation": -1
+        },
+        {
+          "cell_id": "ey001",
+          "orientation": -1
+        }
+      ]
+    },
+    {
+      "face_id": "front-y",
+      "boundary_edges": [
+        {
+          "cell_id": "ex000",
+          "orientation": 1
+        },
+        {
+          "cell_id": "ez100",
+          "orientation": 1
+        },
+        {
+          "cell_id": "ex001",
+          "orientation": -1
+        },
+        {
+          "cell_id": "ez000",
+          "orientation": -1
+        }
+      ]
+    },
+    {
+      "face_id": "back-y",
+      "boundary_edges": [
+        {
+          "cell_id": "ez010",
+          "orientation": 1
+        },
+        {
+          "cell_id": "ex011",
+          "orientation": 1
+        },
+        {
+          "cell_id": "ez110",
+          "orientation": -1
+        },
+        {
+          "cell_id": "ex010",
+          "orientation": -1
+        }
+      ]
+    },
+    {
+      "face_id": "left-x",
+      "boundary_edges": [
+        {
+          "cell_id": "ez000",
+          "orientation": 1
+        },
+        {
+          "cell_id": "ey001",
+          "orientation": 1
+        },
+        {
+          "cell_id": "ez010",
+          "orientation": -1
+        },
+        {
+          "cell_id": "ey000",
+          "orientation": -1
+        }
+      ]
+    },
+    {
+      "face_id": "right-x",
+      "boundary_edges": [
+        {
+          "cell_id": "ey100",
+          "orientation": 1
+        },
+        {
+          "cell_id": "ez110",
+          "orientation": 1
+        },
+        {
+          "cell_id": "ey101",
+          "orientation": -1
+        },
+        {
+          "cell_id": "ez100",
+          "orientation": -1
+        }
+      ]
+    }
+  ],
+  "volumes": [
+    {
+      "volume_id": "unit-cube",
+      "boundary_faces": [
+        {
+          "cell_id": "bottom-z",
+          "orientation": 1
+        },
+        {
+          "cell_id": "top-z",
+          "orientation": 1
+        },
+        {
+          "cell_id": "front-y",
+          "orientation": 1
+        },
+        {
+          "cell_id": "back-y",
+          "orientation": 1
+        },
+        {
+          "cell_id": "left-x",
+          "orientation": 1
+        },
+        {
+          "cell_id": "right-x",
+          "orientation": 1
+        }
+      ]
+    }
+  ],
+  "processes": [
+    {
+      "process_id": "hydraulic",
+      "process_name": "synthetic hydraulic conductance",
+      "potential_name": "pressure",
+      "potential_unit": "Pa",
+      "flux_name": "volumetric_flow_rate",
+      "flux_unit": "m3/s",
+      "conductance_name": "hydraulic_conductance",
+      "conductance_unit": "m3/(Pa*s)",
+      "edge_conductances": [
+        {
+          "edge_id": "ex000",
+          "value": 1
+        },
+        {
+          "edge_id": "ex010",
+          "value": 1
+        },
+        {
+          "edge_id": "ex001",
+          "value": 1
+        },
+        {
+          "edge_id": "ex011",
+          "value": 1
+        },
+        {
+          "edge_id": "ey000",
+          "value": 1
+        },
+        {
+          "edge_id": "ey100",
+          "value": 1
+        },
+        {
+          "edge_id": "ey001",
+          "value": 1
+        },
+        {
+          "edge_id": "ey101",
+          "value": 1
+        },
+        {
+          "edge_id": "ez000",
+          "value": 1
+        },
+        {
+          "edge_id": "ez100",
+          "value": 1
+        },
+        {
+          "edge_id": "ez110",
+          "value": 1
+        },
+        {
+          "edge_id": "ez010",
+          "value": 1
+        }
+      ],
+      "dirichlet_boundaries": [
+        {
+          "node_id": "n000",
+          "role": "source",
+          "potential_value": 1
+        },
+        {
+          "node_id": "n010",
+          "role": "source",
+          "potential_value": 1
+        },
+        {
+          "node_id": "n001",
+          "role": "source",
+          "potential_value": 1
+        },
+        {
+          "node_id": "n011",
+          "role": "source",
+          "potential_value": 1
+        },
+        {
+          "node_id": "n100",
+          "role": "sink",
+          "potential_value": 0
+        },
+        {
+          "node_id": "n110",
+          "role": "sink",
+          "potential_value": 0
+        },
+        {
+          "node_id": "n101",
+          "role": "sink",
+          "potential_value": 0
+        },
+        {
+          "node_id": "n111",
+          "role": "sink",
+          "potential_value": 0
+        }
+      ]
+    },
+    {
+      "process_id": "thermal",
+      "process_name": "synthetic conductive heat",
+      "potential_name": "temperature",
+      "potential_unit": "K",
+      "flux_name": "heat_rate",
+      "flux_unit": "W",
+      "conductance_name": "thermal_conductance",
+      "conductance_unit": "W/K",
+      "edge_conductances": [
+        {
+          "edge_id": "ex000",
+          "value": 2
+        },
+        {
+          "edge_id": "ex010",
+          "value": 2
+        },
+        {
+          "edge_id": "ex001",
+          "value": 2
+        },
+        {
+          "edge_id": "ex011",
+          "value": 2
+        },
+        {
+          "edge_id": "ey000",
+          "value": 2
+        },
+        {
+          "edge_id": "ey100",
+          "value": 2
+        },
+        {
+          "edge_id": "ey001",
+          "value": 2
+        },
+        {
+          "edge_id": "ey101",
+          "value": 2
+        },
+        {
+          "edge_id": "ez000",
+          "value": 2
+        },
+        {
+          "edge_id": "ez100",
+          "value": 2
+        },
+        {
+          "edge_id": "ez110",
+          "value": 2
+        },
+        {
+          "edge_id": "ez010",
+          "value": 2
+        }
+      ],
+      "dirichlet_boundaries": [
+        {
+          "node_id": "n000",
+          "role": "source",
+          "potential_value": 1
+        },
+        {
+          "node_id": "n010",
+          "role": "source",
+          "potential_value": 1
+        },
+        {
+          "node_id": "n001",
+          "role": "source",
+          "potential_value": 1
+        },
+        {
+          "node_id": "n011",
+          "role": "source",
+          "potential_value": 1
+        },
+        {
+          "node_id": "n100",
+          "role": "sink",
+          "potential_value": 0
+        },
+        {
+          "node_id": "n110",
+          "role": "sink",
+          "potential_value": 0
+        },
+        {
+          "node_id": "n101",
+          "role": "sink",
+          "potential_value": 0
+        },
+        {
+          "node_id": "n111",
+          "role": "sink",
+          "potential_value": 0
+        }
+      ]
+    }
+  ]
+}
