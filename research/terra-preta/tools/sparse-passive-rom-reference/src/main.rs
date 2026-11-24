@@ -130,6 +130,7 @@ struct Projection {
     basis_dimension: usize,
     basis_snapshots: usize,
     lambda_0_min_eigenvalue: f64,
+    lambda_0_scale: f64,
     a_r_min_eigenvalue: f64,
 }
 
@@ -159,6 +160,8 @@ struct Report {
     dc_relative_error: f64,
     a_r_min_eigenvalue: f64,
     lambda_0_min_eigenvalue: f64,
+    lambda_0_scale: f64,
+    lambda_0_passivity_tolerance: f64,
     structural_passivity_certificate_valid: bool,
     maximum_cg_iterations: usize,
     maximum_cg_relative_residual: f64,
@@ -352,6 +355,9 @@ fn pcg(
         .map(|(r, d)| r / d).collect();
     let mut direction = z.clone();
     let mut rz = dot(&residual, &z);
+    if !rz.is_finite() || rz <= 0.0 {
+        return Err("PCG initial preconditioned residual is not positive and finite".into());
+    }
     let mut relative_residual = norm(&residual) / rhs_norm;
     for iteration in 0..max_iterations {
         let product = matrix.matvec(&direction, shift)?;
@@ -371,7 +377,7 @@ fn pcg(
         }
         z = residual.iter().zip(diagonal.iter()).map(|(r, d)| r / d).collect();
         let next_rz = dot(&residual, &z);
-        if !next_rz.is_finite() || rz <= 0.0 {
+        if !next_rz.is_finite() || next_rz <= 0.0 {
             return Err("PCG preconditioned residual lost positive definiteness".into());
         }
         let beta = next_rz / rz;
@@ -391,6 +397,10 @@ fn column(matrix: &[Vec<f64>], index: usize) -> Vec<f64> {
 }
 
 fn push_orthonormal_basis(basis: &mut Vec<Vec<f64>>, mut candidate: Vec<f64>) -> bool {
+    let initial_norm = norm(&candidate);
+    if !initial_norm.is_finite() || initial_norm <= f64::MIN_POSITIVE {
+        return false;
+    }
     for _ in 0..2 {
         for vector in basis.iter() {
             let projection = dot(&candidate, vector);
@@ -400,7 +410,7 @@ fn push_orthonormal_basis(basis: &mut Vec<Vec<f64>>, mut candidate: Vec<f64>) ->
         }
     }
     let candidate_norm = norm(&candidate);
-    if !candidate_norm.is_finite() || candidate_norm <= 1.0e-10 {
+    if !candidate_norm.is_finite() || candidate_norm <= initial_norm * 1.0e-10 {
         return false;
     }
     for value in &mut candidate {
@@ -416,12 +426,17 @@ fn dense_solve(matrix: &[Vec<f64>], rhs: &[f64]) -> Result<Vec<f64>, String> {
         return Err("dense solve dimensions are invalid".into());
     }
     let mut a = matrix.to_vec();
+    let matrix_scale = a
+        .iter()
+        .flatten()
+        .fold(0.0_f64, |largest, value| largest.max(value.abs()));
+    let pivot_tolerance = matrix_scale.max(f64::MIN_POSITIVE) * 1.0e-14;
     let mut b = rhs.to_vec();
     for column in 0..n {
         let pivot = (column..n).max_by(|left, right| {
             a[*left][column].abs().total_cmp(&a[*right][column].abs())
         }).ok_or_else(|| "dense solve found no pivot".to_string())?;
-        if a[pivot][column].abs() <= 1.0e-14 {
+        if a[pivot][column].abs() <= pivot_tolerance {
             return Err("reduced matrix is singular or unresolved".into());
         }
         a.swap(column, pivot);
@@ -479,15 +494,22 @@ fn min_symmetric_eigenvalue(matrix: &[Vec<f64>]) -> Result<f64, String> {
         return Err("eigenvalue calculation requires a non-empty square matrix".into());
     }
     let mut a = matrix.to_vec();
+    let scale = a
+        .iter()
+        .flatten()
+        .fold(0.0_f64, |largest, value| largest.max(value.abs()));
+    let symmetry_tolerance = scale.max(f64::MIN_POSITIVE) * 1.0e-10;
     for row in 0..n {
         for column_index in 0..n {
-            if (a[row][column_index] - a[column_index][row]).abs() > 1.0e-9 {
+            if (a[row][column_index] - a[column_index][row]).abs() > symmetry_tolerance {
                 return Err("eigenvalue calculation received a nonsymmetric matrix".into());
             }
         }
     }
-    let scale = a.iter().flatten().fold(0.0_f64, |largest, value| largest.max(value.abs()));
-    let tolerance = scale.max(1.0) * 1.0e-13;
+    if scale == 0.0 {
+        return Ok(0.0);
+    }
+    let tolerance = scale * 1.0e-13;
     for _ in 0..(n * n * 100).max(100) {
         let mut pivot = (0usize, 0usize);
         let mut largest = 0.0_f64;
@@ -619,6 +641,10 @@ fn build_projection(
 
     let a_r_min = min_symmetric_eigenvalue(&a_r)?;
     let lambda_0_min = min_symmetric_eigenvalue(&lambda_0)?;
+    let lambda_0_scale = lambda_0
+        .iter()
+        .flatten()
+        .fold(0.0_f64, |largest, value| largest.max(value.abs()));
     Ok((
         Projection {
             a_r,
@@ -627,6 +653,7 @@ fn build_projection(
             basis_dimension: basis.len(),
             basis_snapshots: snapshots_attempted,
             lambda_0_min_eigenvalue: lambda_0_min,
+            lambda_0_scale,
             a_r_min_eigenvalue: a_r_min,
         },
         stats,
@@ -699,8 +726,12 @@ fn chain_fixture(interior_count: usize) -> Fixture {
 fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     let model = assemble(fixture)?;
     let (projection, mut stats) = build_projection(&model, fixture)?;
-    if projection.a_r_min_eigenvalue <= 0.0 || projection.lambda_0_min_eigenvalue < -1.0e-8 {
-        return Err("reduced model failed the numerical structural passivity checks".into());
+    let lambda_0_passivity_tolerance =
+        projection.lambda_0_scale.max(f64::MIN_POSITIVE) * 1.0e-10;
+    if projection.a_r_min_eigenvalue <= 0.0
+        || projection.lambda_0_min_eigenvalue < -lambda_0_passivity_tolerance
+    {
+        return Err("reduced model failed the scale-aware structural passivity checks".into());
     }
     let mut frequency_samples = Vec::with_capacity(fixture.laplace_samples.len());
     for shift in &fixture.laplace_samples {
@@ -750,8 +781,10 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         dc_relative_error,
         a_r_min_eigenvalue: projection.a_r_min_eigenvalue,
         lambda_0_min_eigenvalue: projection.lambda_0_min_eigenvalue,
+        lambda_0_scale: projection.lambda_0_scale,
+        lambda_0_passivity_tolerance,
         structural_passivity_certificate_valid: projection.a_r_min_eigenvalue > 0.0
-            && projection.lambda_0_min_eigenvalue >= -1.0e-8,
+            && projection.lambda_0_min_eigenvalue >= -lambda_0_passivity_tolerance,
         maximum_cg_iterations,
         maximum_cg_relative_residual,
         frequency_samples,
