@@ -1,0 +1,10 @@
+{
+  "schema_version":"team-allocation-commitment-v0.1",
+  "algorithm_id":"complete-block-fisher-yates-chacha20-v0.1",
+  "run_id":"synthetic-order-study-001",
+  "design_digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "roster_digest":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "seed_commitment_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "fixture_only":true,
+  "note":"Commitment value is a placeholder; no actual seed or salt is published."
+}
