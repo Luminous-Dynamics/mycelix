@@ -8,7 +8,13 @@
     "intent_fingerprint": "FIN-EFFECT-001 immutable intent fingerprint",
     "effect_identity": "FIN-EFFECT-001 role-and-owner effect identity",
     "projection": "classify_effect_vector",
-    "no_new_identity_algorithm": true
+    "no_new_operation_or_effect_identity_algorithm": true,
+    "claim_profile_digest": {
+      "algorithm": "BLAKE3-256",
+      "schema_version": 1,
+      "domain_separator": "mycelix:economic-claim-profile:v1\\0",
+      "derived_from": "profile_id, claim_name, operation_id, expected_intent_fingerprint, sorted required role/owner effects"
+    }
   },
   "aggregation_precedence": [
     "Conflict",
@@ -204,6 +210,34 @@
       "name": "Evidence-read amplification",
       "target": "Measure required/observed reads per effect claim",
       "stage": "performance_after_safety"
+    }
+  ],
+  "known_answer_vectors": [
+    {
+      "vector_id": "KAT-VEC-001",
+      "name": "Bilateral payer and beneficiary claim profile digest",
+      "algorithm": "BLAKE3-256",
+      "schema_version": 1,
+      "encoding": "domain separator bytes; u16be schema version; u32be-length-prefixed UTF-8 profile_id and claim_name; 32 raw operation-id bytes; 32 raw intent-fingerprint bytes; u32be required-effect count; for each required effect sorted by raw derived effect-ID bytes: 32 raw effect-id bytes, then u32be-length-prefixed UTF-8 role name and owner; BLAKE3-256 output",
+      "inputs": {
+        "profile_id": "claim:bilateral-payment:v1",
+        "claim_name": "bilateral_payment_reconciled",
+        "operation_id_hex": "15a08e9c3bf2599c15b37cb700698aec1898cd4c66b15ebf5208568e4953f204",
+        "intent_fingerprint_hex": "6a52f1479b7a407d6de4f2650b61bf3203741c80e28f836db523f58625e62235",
+        "required_effects": [
+          {
+            "role": "beneficiary_claim",
+            "owner": "did:mycelix:bob",
+            "effect_id_hex": "35ddfe65d8d3beb9ce06fcb1245802d0cc7799d8366bef9087ee5f6d63e6f24b"
+          },
+          {
+            "role": "payer_debit",
+            "owner": "did:mycelix:alice",
+            "effect_id_hex": "984fcc30e27b1ccbb5b266f6b0960c5791be3a68ada8512aa0fb39dcf575e56a"
+          }
+        ]
+      },
+      "expected_hex": "5ad833aef24a53646218b7fbe43fb1d3314563b165a0233898e5a96b4e1f8e4c"
     }
   ]
 }
