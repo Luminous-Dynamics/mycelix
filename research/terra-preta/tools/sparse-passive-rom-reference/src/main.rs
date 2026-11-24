@@ -1066,6 +1066,78 @@ fn response_from_reduced(projection: &Projection, shift: f64) -> Result<Dense, S
     Ok(response)
 }
 
+fn reduced_state_in_full_space(
+    model: &Model,
+    projection: &Projection,
+    shift: f64,
+) -> Result<Dense, String> {
+    let rank = projection.a_r.len();
+    let port_count = projection.d_r.len();
+    let mut shifted = projection.a_r.clone();
+    for (index, row) in shifted.iter_mut().enumerate() {
+        row[index] += shift;
+    }
+    let mut reduced_columns = Vec::with_capacity(port_count);
+    for port in 0..port_count {
+        reduced_columns.push(dense_solve(&shifted, &column(&projection.b_r, port))?);
+    }
+    let mut full_state = vec![vec![0.0; port_count]; model.a.size];
+    for (mode, basis_vector) in projection.basis.iter().enumerate() {
+        for (state, basis_value) in basis_vector.iter().enumerate() {
+            for (port, reduced_column) in reduced_columns.iter().enumerate() {
+                full_state[state][port] += basis_value * reduced_column[mode];
+            }
+        }
+    }
+    Ok(full_state)
+}
+
+fn response_error_upper_bound(
+    model: &Model,
+    projection: &Projection,
+    shift: f64,
+    lambda_min_lower_bound: f64,
+    full_response: &[Vec<f64>],
+    reduced_response: &[Vec<f64>],
+) -> Result<(f64, f64, f64, bool), String> {
+    if !lambda_min_lower_bound.is_finite() || lambda_min_lower_bound <= 0.0 {
+        return Err("response error bound requires a positive verified eigenvalue lower bound".into());
+    }
+    if !shift.is_finite() || shift < 0.0 {
+        return Err("response error bound only supports nonnegative real Laplace samples".into());
+    }
+    let full_state_approx = reduced_state_in_full_space(model, projection, shift)?;
+    let mut residual_matrix = vec![vec![0.0; model.boundary_ids.len()]; model.a.size];
+    for port in 0..model.boundary_ids.len() {
+        let approximate_state = column(&full_state_approx, port);
+        let action = model.a.matvec(&approximate_state, shift)?;
+        let input = column(&model.b, port);
+        for state in 0..model.a.size {
+            residual_matrix[state][port] = input[state] - action[state];
+        }
+    }
+
+    let residual_norm = frobenius_norm(&residual_matrix);
+    let feedthrough_difference = frobenius_difference(&model.d, &projection.d_r)?;
+    let b_norm = frobenius_norm(&model.b);
+    let denominator = lambda_min_lower_bound + shift;
+    let raw_bound = feedthrough_difference + b_norm * residual_norm / denominator;
+    if !raw_bound.is_finite() {
+        return Err("response error upper bound is non-finite".into());
+    }
+    // Explicit safety inflation for the floating-point implementation. This
+    // is not interval arithmetic; the supersolution inequality is independently
+    // recomputed and the resulting bound is checked against manufactured truth.
+    let absolute_bound = raw_bound * (1.0 + 1.0e-10)
+        + f64::EPSILON * (feedthrough_difference + b_norm * residual_norm + 1.0);
+    let actual_absolute_error = frobenius_difference(full_response, reduced_response)?;
+    let response_scale = frobenius_norm(full_response).max(f64::MIN_POSITIVE);
+    let relative_bound = absolute_bound / response_scale;
+    let valid = actual_absolute_error
+        <= absolute_bound * (1.0 + 1.0e-8) + f64::EPSILON * response_scale * 32.0;
+    Ok((absolute_bound, relative_bound, actual_absolute_error, valid))
+}
+
 fn relative_error(left: &[Vec<f64>], right: &[Vec<f64>]) -> f64 {
     let numerator = left.iter().flatten().zip(right.iter().flatten())
         .map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt();
