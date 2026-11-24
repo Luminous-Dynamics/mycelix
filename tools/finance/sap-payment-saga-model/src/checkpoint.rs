@@ -114,7 +114,10 @@ impl JournalCheckpointSubject {
         }
 
         validate_action_hash(&self.source_action_hash)?;
-        match (&self.source_previous_action_hash, self.source_action_sequence) {
+        match (
+            &self.source_previous_action_hash,
+            self.source_action_sequence,
+        ) {
             (None, 0) => {}
             (Some(hash), sequence) if sequence > 0 => validate_action_hash(hash)
                 .map_err(|_| CheckpointError::InvalidSourceChainFrontier)?,
@@ -127,7 +130,9 @@ impl JournalCheckpointSubject {
 /// Hashes the complete immutable intent under a separate versioned profile.
 /// The operation identity is bound separately in the checkpoint subject.
 pub fn canonical_intent_digest(intent: &PaymentIntent) -> Result<String, CheckpointError> {
-    intent.validate().map_err(|_| CheckpointError::InvalidIntent)?;
+    intent
+        .validate()
+        .map_err(|_| CheckpointError::InvalidIntent)?;
     let mut output = Vec::with_capacity(256);
     output.extend_from_slice(INTENT_DOMAIN);
     append_text(&mut output, &intent.sender_did)?;
@@ -214,19 +219,21 @@ mod tests {
         include_str!(
             "../../sap-payment-saga-go-verifier/fixtures/sap-payment-journal-checkpoint-v1.kat"
         )
-            .lines()
-            .filter(|line| !line.is_empty() && !line.starts_with('#'))
-            .map(|line| {
-                let (key, value) = line.split_once('=').expect("fixture key=value");
-                (key.to_owned(), value.to_owned())
-            })
-            .collect()
+        .lines()
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(|line| {
+            let (key, value) = line.split_once('=').expect("fixture key=value");
+            (key.to_owned(), value.to_owned())
+        })
+        .collect()
     }
 
     fn payments_subject(intent: &PaymentIntent) -> JournalCheckpointSubject {
         JournalCheckpointSubject {
             owner_domain: CheckpointOwnerDomain::Payments,
-            operation_id: PaymentJournal::new(intent.clone()).operation_id().to_owned(),
+            operation_id: PaymentJournal::new(intent.clone())
+                .operation_id()
+                .to_owned(),
             intent_digest: canonical_intent_digest(intent).expect("valid intent"),
             owner_did: "did:mycelix:payments:alice".into(),
             event_log_id: "sap-journal:payments:op-001".into(),
@@ -246,7 +253,9 @@ mod tests {
     fn treasury_subject(intent: &PaymentIntent) -> JournalCheckpointSubject {
         JournalCheckpointSubject {
             owner_domain: CheckpointOwnerDomain::Treasury,
-            operation_id: PaymentJournal::new(intent.clone()).operation_id().to_owned(),
+            operation_id: PaymentJournal::new(intent.clone())
+                .operation_id()
+                .to_owned(),
             intent_digest: canonical_intent_digest(intent).expect("valid intent"),
             owner_did: "did:mycelix:treasury:community".into(),
             event_log_id: "sap-journal:treasury:op-001".into(),
@@ -262,7 +271,6 @@ mod tests {
             source_previous_action_hash: Some(action_hash(0x77, 0x88)),
         }
     }
-
 
     fn benchmark_action_hash(index: u32) -> Vec<u8> {
         let mut hash = ACTION_HASH_PREFIX.to_vec();
@@ -295,8 +303,7 @@ mod tests {
         let mut previous_action_hash = benchmark_action_hash(41);
         let mut tail_digest = String::new();
         for index in 0..checkpoint_count {
-            let action_sequence =
-                u32::try_from(index + 42).expect("benchmark sequence fits u32");
+            let action_sequence = u32::try_from(index + 42).expect("benchmark sequence fits u32");
             let current_action_hash = benchmark_action_hash(action_sequence);
             let subject = JournalCheckpointSubject {
                 owner_domain,
@@ -304,8 +311,7 @@ mod tests {
                 intent_digest: intent_digest.clone(),
                 owner_did: owner_did.to_owned(),
                 event_log_id: event_log_id.to_owned(),
-                event_count: u64::try_from(index + 1)
-                    .expect("benchmark event count fits u64"),
+                event_count: u64::try_from(index + 1).expect("benchmark event count fits u64"),
                 tail_digest: format!("sha256:{:064x}", index + 1),
                 checkpoint_sequence: u64::try_from(index + 1)
                     .expect("benchmark checkpoint sequence fits u64"),
@@ -314,7 +320,9 @@ mod tests {
                 source_action_sequence: action_sequence,
                 source_previous_action_hash: Some(previous_action_hash),
             };
-            tail_digest = subject.canonical_digest().expect("valid benchmark checkpoint");
+            tail_digest = subject
+                .canonical_digest()
+                .expect("valid benchmark checkpoint");
             previous_checkpoint_digest = Some(tail_digest.clone());
             previous_action_hash = current_action_hash;
         }
@@ -359,23 +367,48 @@ mod tests {
 
         let mut changed = original.clone();
         changed.owner_domain = CheckpointOwnerDomain::Treasury;
-        assert_ne!(changed.canonical_digest().expect("valid changed checkpoint"), baseline);
+        assert_ne!(
+            changed
+                .canonical_digest()
+                .expect("valid changed checkpoint"),
+            baseline
+        );
 
         let mut changed = original.clone();
         changed.owner_did.push_str(":substituted");
-        assert_ne!(changed.canonical_digest().expect("valid changed checkpoint"), baseline);
+        assert_ne!(
+            changed
+                .canonical_digest()
+                .expect("valid changed checkpoint"),
+            baseline
+        );
 
         let mut changed = original.clone();
         changed.event_count += 1;
-        assert_ne!(changed.canonical_digest().expect("valid changed checkpoint"), baseline);
+        assert_ne!(
+            changed
+                .canonical_digest()
+                .expect("valid changed checkpoint"),
+            baseline
+        );
 
         let mut changed = original.clone();
         changed.tail_digest.replace_range(7..8, "b");
-        assert_ne!(changed.canonical_digest().expect("valid changed checkpoint"), baseline);
+        assert_ne!(
+            changed
+                .canonical_digest()
+                .expect("valid changed checkpoint"),
+            baseline
+        );
 
         let mut changed = original.clone();
         changed.source_action_hash[10] ^= 1;
-        assert_ne!(changed.canonical_digest().expect("valid changed checkpoint"), baseline);
+        assert_ne!(
+            changed
+                .canonical_digest()
+                .expect("valid changed checkpoint"),
+            baseline
+        );
     }
 
     #[test]
@@ -387,9 +420,7 @@ mod tests {
             subject.validate(),
             Err(CheckpointError::InvalidCheckpointSequence)
         );
-        subject.previous_checkpoint_digest = Some(
-            format!("sha256:{}", "b".repeat(64)),
-        );
+        subject.previous_checkpoint_digest = Some(format!("sha256:{}", "b".repeat(64)));
         assert_eq!(subject.validate(), Ok(()));
     }
 
@@ -422,8 +453,6 @@ mod tests {
         assert_eq!(subject.validate(), Err(CheckpointError::InvalidSubject));
     }
 
-
-
     #[test]
     fn paired_benchmark_owner_chains_match_shared_terminal_vectors() {
         let vectors = vectors();
@@ -453,14 +482,15 @@ mod tests {
         let mut next = first.clone();
         next.event_count = 3;
         next.checkpoint_sequence = 2;
-        next.previous_checkpoint_digest = Some(
-            first.canonical_digest().expect("prior Treasury checkpoint"),
-        );
+        next.previous_checkpoint_digest =
+            Some(first.canonical_digest().expect("prior Treasury checkpoint"));
         next.source_action_hash = action_hash(0x99, 0xaa);
         next.source_action_sequence = 102;
         next.source_previous_action_hash = Some(first.source_action_hash.clone());
 
-        let bytes = next.canonical_bytes().expect("continued Treasury checkpoint");
+        let bytes = next
+            .canonical_bytes()
+            .expect("continued Treasury checkpoint");
         assert_eq!(hex(&bytes), vectors["treasury-next-subject-hex"]);
         assert_eq!(
             next.canonical_digest().expect("continued Treasury digest"),
