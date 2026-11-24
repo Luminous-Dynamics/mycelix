@@ -195,6 +195,19 @@ Draft [PR #6589](https://github.com/Luminous-Dynamics/mycelix/pull/6589) adds th
 
 This kernel deliberately cannot prove an observation view complete, authenticate a source author, establish a unique Holochain claim, or authorize a value-moving write. `NoBindingObserved` and `NoEffectObserved` are not admission grants. Do not promote the test count to PASS until the exact-head workflow succeeds.
 
+### 6.2 Reuse the existing PCOE two-owner TLA+ model
+
+Do not create a competing payment state model. Draft [PR #6556](https://github.com/Luminous-Dynamics/mycelix/pull/6556) already supplies a bounded TLA+ model, safe configuration, deliberately unsafe sender-debit mutant, and a 22-scenario coverage map. Its exact-head workflow [#45167699932](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45167699932) passed on subject `1dc92170a74d08db44bacfb0a37813831256fa80`:
+
+- 66,120 states generated; 12,105 distinct reachable states; maximum depth 19.
+- Safe model: no invariant violations and no TLC specification warnings.
+- Unsafe sender-debit mutant: rejected by `SenderIntentDebitAtomicity`.
+- Scenario mapping: 9 bounded-modelled, 6 partially-modelled and 7 not-in-model.
+
+This is genuine abstract model-check evidence for the two-owner protocol. It does **not** establish the new Rust kernel's correctness, uniqueness of a live Holochain claim, DHT completeness, runtime fork detection, multi-agent execution, external settlement or legal finality.
+
+FIN-EFFECT-001 should extend and crosswalk that model rather than duplicate it. The next formal increment is to make the state variables explicit for (a) obligation identity vs immutable intent fingerprint, (b) role/owner effect identities, (c) provider/API replay windows vs durable tombstone retention, and (d) evidence completeness vs missing observations. Preserve the existing counterexample-producing negative control. Add provider API v1/v2 and Adyen expiry/scope profiles as environment parameters rather than hardcoding one provider's semantics into the core theorem. The 33-case corpus remains a language-independent conformance layer; model coverage must be recorded per case, including the 7 currently not-in-model cases, not inferred from corpus presence.
+
 ## 7. Benchmark plan
 
 The machine-readable v0.1 corpus is in [economic-operation-identity-corpus.v0.1.json](../../mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json) and its [Draft 2020-12 schema](../../mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json).
