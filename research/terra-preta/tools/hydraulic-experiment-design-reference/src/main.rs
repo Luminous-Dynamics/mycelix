@@ -150,17 +150,17 @@ fn predict(kind: ObservationKind, g: &[f64; 4]) -> f64 {
 
 fn log_conductance_sensitivity(kind: ObservationKind, conductances: &[f64; 4]) -> [f64; 4] {
     let mut derivative = [0.0; 4];
-    for parameter in 0..4 {
+    for (parameter, value) in derivative.iter_mut().enumerate() {
         let mut plus = *conductances;
         let mut minus = *conductances;
         plus[parameter] *= LOG_PARAMETER_STEP.exp();
         minus[parameter] *= (-LOG_PARAMETER_STEP).exp();
-        derivative[parameter] =
-            (predict(kind, &plus) - predict(kind, &minus)) / (2.0 * LOG_PARAMETER_STEP);
+        *value = (predict(kind, &plus) - predict(kind, &minus)) / (2.0 * LOG_PARAMETER_STEP);
     }
     derivative
 }
 
+#[allow(clippy::needless_range_loop)]
 fn rank_rows(rows: &[[f64; 4]]) -> usize {
     if rows.is_empty() {
         return 0;
@@ -210,15 +210,16 @@ fn fisher_information(rows: &[[f64; 4]], noise: &[f64]) -> [[f64; 4]; 4] {
     let mut fisher = [[0.0; 4]; 4];
     for (row, sigma) in rows.iter().zip(noise.iter()) {
         let precision = 1.0 / (sigma * sigma);
-        for left in 0..4 {
-            for right in 0..4 {
-                fisher[left][right] += row[left] * row[right] * precision;
+        for (left, fisher_row) in fisher.iter_mut().enumerate() {
+            for (right, value) in fisher_row.iter_mut().enumerate() {
+                *value += row[left] * row[right] * precision;
             }
         }
     }
     fisher
 }
 
+#[allow(clippy::needless_range_loop)]
 fn regularized_log_determinant(mut matrix: [[f64; 4]; 4]) -> Result<f64, String> {
     for (index, row) in matrix.iter_mut().enumerate() {
         row[index] += DETERMINANT_REGULARIZER;
