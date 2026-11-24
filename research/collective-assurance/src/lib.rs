@@ -4,6 +4,20 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+mod allocation;
+mod ledger;
+
+pub use allocation::{
+    allocate_committed_teams, compute_design_digest, compute_roster_digest,
+    create_allocation_commitment, verify_allocation_reveal, AllocationCommitment,
+    AllocationSecret,
+};
+pub use ledger::{
+    genesis_digest, validate_ledger, ClaimDisposition, ClaimReference, DecisionDisposition,
+    DisclosureOutcome, DisclosurePermission, LedgerEvent, LedgerEventKind,
+    LedgerValidationReport, VerificationOutcome,
+};
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum QualificationStatus {
     Pass,
@@ -489,6 +503,7 @@ pub fn allocate_complete_blocks<R: RandomSource>(
         if teams.len() % arms.len() != 0 {
             return Err(format!("stratum {stratum} cannot form complete arm blocks"));
         }
+        teams.sort_by(|left, right| left.unit_id.cmp(&right.unit_id));
         shuffle(&mut teams, rng);
         for block in teams.chunks_exact(arms.len()) {
             let mut block_arms = arms.to_vec();
