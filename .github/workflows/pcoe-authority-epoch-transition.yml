@@ -1,0 +1,200 @@
+name: PCOE authority epoch transition model
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/pcoe-authority-epoch-transition.yml"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation/PCOEAuthorityEpochTransition*"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation/FIN-EFFECT-003-authority-epoch-transition-v0.1.md"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation/README.md"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-authority-epoch-transition-corpus.v0.1.json"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-authority-epoch-transition-corpus.v0.1.schema.json"
+  push:
+    branches:
+      - "research/pcoe-authority-epoch-transition-v0.1-20261124"
+    paths:
+      - ".github/workflows/pcoe-authority-epoch-transition.yml"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation/PCOEAuthorityEpochTransition*"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation/FIN-EFFECT-003-authority-epoch-transition-v0.1.md"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation/README.md"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-authority-epoch-transition-corpus.v0.1.json"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-authority-epoch-transition-corpus.v0.1.schema.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pcoe-authority-epoch-transition-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  epoch-model:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert exact source commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SUBJECT_SHA"
+          echo "Exact source commit verified: $actual"
+
+      - name: Validate adversarial corpus and schema JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          corpus="mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-authority-epoch-transition-corpus.v0.1.json"
+          schema="mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-authority-epoch-transition-corpus.v0.1.schema.json"
+          jq empty "$corpus"
+          jq empty "$schema"
+          jq -e '
+            .scenario_count == 16 and
+            (.scenarios | length == 16) and
+            (([.scenarios[].id] | unique | length) == 16) and
+            ([.scenarios[].expected_disposition] - .disposition_vocabulary | length == 0) and
+            ([.scenarios[].model_coverage] - .model_coverage_vocabulary | length == 0)
+          ' "$corpus" >/dev/null
+
+      - name: Set up Java
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Download and verify pinned TLC
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar \
+            --output "$RUNNER_TEMP/tla2tools.jar"
+          printf '%s  %s\n' \
+            "bee4a54f3ee3d4afc347c3240ec2d9e93b075104" \
+            "$RUNNER_TEMP/tla2tools.jar" | sha1sum --check -
+
+      - name: Check safe joint-transition model
+        working-directory: mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -jar "$RUNNER_TEMP/tla2tools.jar" \
+            -config PCOEAuthorityEpochTransition.cfg \
+            PCOEAuthorityEpochTransition.tla 2>&1 | tee "$RUNNER_TEMP/epoch-safe.log"
+
+      - name: Require old-only quorum mutant to fail
+        working-directory: mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          java -jar "$RUNNER_TEMP/tla2tools.jar" -config PCOEAuthorityEpochTransition-old-only-mutant.cfg PCOEAuthorityEpochTransition.tla > "$RUNNER_TEMP/epoch-old-only.log" 2>&1
+          code=$?
+          set -e
+          test "$code" -ne 0
+          grep -q "JointCertificateRequiresBothQuorums" "$RUNNER_TEMP/epoch-old-only.log"
+
+      - name: Require new-only quorum mutant to fail
+        working-directory: mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          java -jar "$RUNNER_TEMP/tla2tools.jar" -config PCOEAuthorityEpochTransition-new-only-mutant.cfg PCOEAuthorityEpochTransition.tla > "$RUNNER_TEMP/epoch-new-only.log" 2>&1
+          code=$?
+          set -e
+          test "$code" -ne 0
+          grep -q "JointCertificateRequiresBothQuorums" "$RUNNER_TEMP/epoch-new-only.log"
+
+      - name: Require direct-switch mutant to fail
+        working-directory: mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          java -jar "$RUNNER_TEMP/tla2tools.jar" -config PCOEAuthorityEpochTransition-direct-switch-mutant.cfg PCOEAuthorityEpochTransition.tla > "$RUNNER_TEMP/epoch-direct-switch.log" 2>&1
+          code=$?
+          set -e
+          test "$code" -ne 0
+          grep -q "NewEpochActivationRequiresJointCertificate" "$RUNNER_TEMP/epoch-direct-switch.log"
+
+      - name: Require journal rollback and digest rewrite mutant to fail
+        working-directory: mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          java -jar "$RUNNER_TEMP/tla2tools.jar" -config PCOEAuthorityEpochTransition-journal-mutant.cfg PCOEAuthorityEpochTransition.tla > "$RUNNER_TEMP/epoch-journal.log" 2>&1
+          code=$?
+          set -e
+          test "$code" -ne 0
+          grep -q "HonestNonEquivocation" "$RUNNER_TEMP/epoch-journal.log"
+
+      - name: Require stale old-epoch admission mutant to fail
+        working-directory: mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          java -jar "$RUNNER_TEMP/tla2tools.jar" -config PCOEAuthorityEpochTransition-stale-old-mutant.cfg PCOEAuthorityEpochTransition.tla > "$RUNNER_TEMP/epoch-stale-old.log" 2>&1
+          code=$?
+          set -e
+          test "$code" -ne 0
+          grep -q "OldEpochClosedAfterActivation" "$RUNNER_TEMP/epoch-stale-old.log"
+
+      - name: Require premature new-epoch admission mutant to fail
+        working-directory: mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          java -jar "$RUNNER_TEMP/tla2tools.jar" -config PCOEAuthorityEpochTransition-early-new-mutant.cfg PCOEAuthorityEpochTransition.tla > "$RUNNER_TEMP/epoch-early-new.log" 2>&1
+          code=$?
+          set -e
+          grep -q "NewAdmissionRequiresActivation" "$RUNNER_TEMP/epoch-early-new.log"
+
+      - name: Write exact-head qualification manifest
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          spec="mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation"
+          corpus="mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-authority-epoch-transition-corpus.v0.1.json"
+          {
+            echo "subject_commit=$(git rev-parse HEAD)"
+            echo "expected_subject_commit=$EXPECTED_SUBJECT_SHA"
+            echo "tlc_release=v1.7.4"
+            echo "tlc_jar_sha1=bee4a54f3ee3d4afc347c3240ec2d9e93b075104"
+            echo "model_sha256=$(sha256sum "$spec/PCOEAuthorityEpochTransition.tla" | cut -d' ' -f1)"
+            echo "corpus_sha256=$(sha256sum "$corpus" | cut -d' ' -f1)"
+          } | tee "$RUNNER_TEMP/authority-epoch-manifest.txt"
+          {
+            echo "## PCOE authority epoch transition"
+            cat "$RUNNER_TEMP/authority-epoch-manifest.txt"
+            for log in epoch-safe.log epoch-old-only.log epoch-new-only.log epoch-direct-switch.log epoch-journal.log epoch-stale-old.log epoch-early-new.log; do
+              if [ -f "$RUNNER_TEMP/$log" ]; then
+                echo "### $log"
+                tail -n 35 "$RUNNER_TEMP/$log"
+              fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload exact-head model receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pcoe-authority-epoch-transition-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/epoch-*.log
+            ${{ runner.temp }}/authority-epoch-manifest.txt
+          if-no-files-found: warn
+          retention-days: 90
