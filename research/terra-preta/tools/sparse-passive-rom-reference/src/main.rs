@@ -1032,6 +1032,40 @@ mod tests {
     }
 
     #[test]
+    fn zero_shift_snapshots_preserve_dc_and_high_frequency_feedthrough() {
+        let report = analyze(
+            &high_contrast_multiport_fixture(),
+            "synthetic-zero-shift-multiport".into(),
+        )
+        .unwrap();
+        assert!(report.dc_relative_error < 1.0e-8);
+        assert!(report.feedthrough_limit_relative_error < 1.0e-8);
+        assert!(report.maximum_sampled_response_error < 1.0e-8);
+    }
+
+    #[test]
+    fn nonzero_shift_model_reports_feedthrough_limit_error_separately() {
+        let mut fixture = high_contrast_multiport_fixture();
+        fixture.rational_shifts = vec![1.0];
+        fixture.laplace_samples = vec![0.0, 1.0, 10.0, 100.0];
+        let model = assemble(&fixture).unwrap();
+        let (projection, _) = build_projection(&model, &fixture).unwrap();
+        let expected_feedthrough_error = relative_error(&projection.d_r, &model.d);
+        let report = analyze(&fixture, "synthetic-nonzero-shift-multiport".into()).unwrap();
+        assert!(report.dc_relative_error < 1.0e-8);
+        assert!(
+            (report.feedthrough_limit_relative_error - expected_feedthrough_error).abs() < 1.0e-12
+        );
+        assert!(report.feedthrough_limit_relative_error.is_finite());
+        let maximum_sampled = report
+            .frequency_samples
+            .iter()
+            .map(|sample| sample.relative_response_error)
+            .fold(0.0_f64, f64::max);
+        assert!((report.maximum_sampled_response_error - maximum_sampled).abs() < 1.0e-12);
+    }
+
+    #[test]
     fn passivity_checks_and_basis_construction_are_scale_invariant() {
         for factor in [1.0e-24, 1.0e24] {
             let mut scaled = fixture();
