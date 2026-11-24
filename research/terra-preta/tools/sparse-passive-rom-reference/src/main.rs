@@ -1057,6 +1057,7 @@ mod tests {
             (report.feedthrough_limit_relative_error - expected_feedthrough_error).abs() < 1.0e-12
         );
         assert!(report.feedthrough_limit_relative_error.is_finite());
+        assert!(report.feedthrough_limit_relative_error > 1.0e-6);
         let maximum_sampled = report
             .frequency_samples
             .iter()
