@@ -53,8 +53,8 @@ jobs:
             .issue == 6588 and
             .status == "normative_adversarial_corpus_not_execution_evidence" and
             (.invariants | length) >= 10 and
-            (.cases | length) == 30 and
-            ([.cases[].id] | unique | length) == 30 and
+            (.cases | length) == 33 and
+            ([.cases[].id] | unique | length) == 33 and
             all(.cases[];
               (.id | test("^EOP-[0-9]{3}$")) and
               (.surface | type == "string" and length > 0) and
@@ -86,7 +86,10 @@ jobs:
             (case_by_id("EOP-017").expected == "ConflictFrozen") and
             (case_by_id("EOP-020").expected == "CompensatingEffect") and
             (case_by_id("EOP-024").expected == "Indeterminate") and
-            (case_by_id("EOP-028").expected == "Pending")
+            (case_by_id("EOP-028").expected == "Pending") and
+            (case_by_id("EOP-031").expected == "ReplayOriginal") and
+            (case_by_id("EOP-032").max_new_effects == 0) and
+            (case_by_id("EOP-033").expected == "Indeterminate")
           ' "$corpus" >/dev/null
 
           grep -q "does not claim" "$doc"
