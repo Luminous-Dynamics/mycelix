@@ -399,7 +399,7 @@ mod tests {
             v ^ (v >> 31)
         }
     }
-    fn digest(c: char) -> String { std::iter::repeat(c).take(64).collect() }
+    fn digest(c: char) -> String { std::iter::repeat_n(c, 64).collect() }
     fn claims() -> AiOffClaims {
         AiOffClaims {
             schema_version: "ai-off-attestation-v0.1".into(),
