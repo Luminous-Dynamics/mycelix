@@ -107,7 +107,11 @@ impl Mul for Complex {
 impl Div for Complex {
     type Output = Self;
     fn div(self, rhs: Self) -> Self::Output {
-        self * rhs.reciprocal()
+        let denominator = rhs.real.mul_add(rhs.real, rhs.imag * rhs.imag);
+        Self::new(
+            (self.real * rhs.real + self.imag * rhs.imag) / denominator,
+            (self.imag * rhs.real - self.real * rhs.imag) / denominator,
+        )
     }
 }
 
@@ -126,16 +130,11 @@ struct Model {
 #[derive(Clone)]
 struct ModalModel {
     eigenvalues: Vec<f64>,
-    eigenvectors: Matrix,
     modal_b: Matrix,
     residues: Vec<Matrix>,
     feedthrough: Matrix,
     eigenpair_residual_max: f64,
     orthogonality_error_max: f64,
-}
-
-struct BoundarySolution {
-    response: Vec<Vec<Complex>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -357,10 +356,10 @@ fn symmetric_eigendecomposition(matrix: &[Vec<f64>]) -> Result<(Vec<f64>, Matrix
     for _ in 0..JACOBI_MAX_ITERATIONS {
         let mut pivot = (0usize, 0usize);
         let mut largest = 0.0_f64;
-        for row in 0..n {
-            for col in (row + 1)..n {
-                if a[row][col].abs() > largest {
-                    largest = a[row][col].abs();
+        for (row, values) in a.iter().enumerate() {
+            for (col, value) in values.iter().enumerate().skip(row + 1) {
+                if value.abs() > largest {
+                    largest = value.abs();
                     pivot = (row, col);
                 }
             }
@@ -461,7 +460,6 @@ fn build_modal_model(model: &Model) -> Result<ModalModel, String> {
         eigenpair_residual_max: max_eigenpair_residual(&model.a, &eigenvalues, &eigenvectors),
         orthogonality_error_max: max_orthogonality_error(&eigenvectors),
         eigenvalues,
-        eigenvectors,
         modal_b,
         residues,
         feedthrough: model.l_bb.clone(),
@@ -533,17 +531,21 @@ fn solve_complex(mut matrix: Vec<Vec<Complex>>, mut rhs: Vec<Complex>) -> Result
         matrix.swap(column, pivot);
         rhs.swap(column, pivot);
         let divisor = matrix[column][column];
-        for item in column..n {
-            matrix[column][item] = matrix[column][item] / divisor;
+        for value in matrix[column].iter_mut().skip(column) {
+            *value = *value / divisor;
         }
         rhs[column] = rhs[column] / divisor;
-        for row in 0..n {
-            if row == column { continue; }
-            let factor = matrix[row][column];
-            for item in column..n {
-                matrix[row][item] = matrix[row][item] - factor * matrix[column][item];
+        let pivot_values = matrix[column].clone();
+        let pivot_rhs = rhs[column];
+        for (row_index, row_values) in matrix.iter_mut().enumerate() {
+            if row_index == column {
+                continue;
             }
-            rhs[row] = rhs[row] - factor * rhs[column];
+            let factor = row_values[column];
+            for (target, pivot_value) in row_values.iter_mut().zip(pivot_values.iter()).skip(column) {
+                *target = *target - factor * *pivot_value;
+            }
+            rhs[row_index] = rhs[row_index] - factor * pivot_rhs;
         }
     }
     if rhs.iter().any(|value| !value.abs().is_finite()) {
