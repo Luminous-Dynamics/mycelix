@@ -87,7 +87,9 @@ fn validate(fixture: &Fixture) -> Result<BTreeMap<String, usize>, String> {
 
     let mut node_index = BTreeMap::new();
     for (index, node) in fixture.nodes.iter().enumerate() {
-        if node.node_id.trim().is_empty() || node_index.insert(node.node_id.clone(), index).is_some() {
+        if node.node_id.trim().is_empty()
+            || node_index.insert(node.node_id.clone(), index).is_some()
+        {
             return Err("node IDs must be non-empty and unique".into());
         }
     }
@@ -105,10 +107,16 @@ fn validate(fixture: &Fixture) -> Result<BTreeMap<String, usize>, String> {
             .get(&edge.head_node_id)
             .ok_or_else(|| format!("unknown head node {}", edge.head_node_id))?;
         if tail == head {
-            return Err(format!("self-loop edge {} is not supported in v0.1", edge.edge_id));
+            return Err(format!(
+                "self-loop edge {} is not supported in v0.1",
+                edge.edge_id
+            ));
         }
         if !edge.conductance.is_finite() || edge.conductance <= 0.0 {
-            return Err(format!("edge {} conductance must be finite and positive", edge.edge_id));
+            return Err(format!(
+                "edge {} conductance must be finite and positive",
+                edge.edge_id
+            ));
         }
         adjacency[tail].push(head);
         adjacency[head].push(tail);
@@ -436,12 +444,16 @@ fn run() -> Result<(), String> {
     if arguments.len() != 3 {
         return Err(format!(
             "usage: {} INPUT.json OUTPUT.json",
-            arguments.first().map(String::as_str).unwrap_or("response-operator-reference")
+            arguments
+                .first()
+                .map(String::as_str)
+                .unwrap_or("response-operator-reference")
         ));
     }
     let input_path = &arguments[1];
     let output_path = &arguments[2];
-    let input_bytes = fs::read(input_path).map_err(|error| format!("cannot read input: {error}"))?;
+    let input_bytes =
+        fs::read(input_path).map_err(|error| format!("cannot read input: {error}"))?;
     let input_sha256 = format!("{:x}", Sha256::digest(&input_bytes));
     let fixture: Fixture = serde_json::from_slice(&input_bytes)
         .map_err(|error| format!("invalid fixture JSON: {error}"))?;
@@ -480,16 +492,44 @@ mod tests {
             fixture_status: FIXTURE_STATUS.into(),
             scenario_id: "two-parallel-series-paths".into(),
             nodes: vec![
-                Node { node_id: "left".into() },
-                Node { node_id: "upper".into() },
-                Node { node_id: "lower".into() },
-                Node { node_id: "right".into() },
+                Node {
+                    node_id: "left".into(),
+                },
+                Node {
+                    node_id: "upper".into(),
+                },
+                Node {
+                    node_id: "lower".into(),
+                },
+                Node {
+                    node_id: "right".into(),
+                },
             ],
             edges: vec![
-                Edge { edge_id: "e-left-upper".into(), tail_node_id: "left".into(), head_node_id: "upper".into(), conductance: conductances[0] },
-                Edge { edge_id: "e-upper-right".into(), tail_node_id: "upper".into(), head_node_id: "right".into(), conductance: conductances[1] },
-                Edge { edge_id: "e-left-lower".into(), tail_node_id: "left".into(), head_node_id: "lower".into(), conductance: conductances[2] },
-                Edge { edge_id: "e-lower-right".into(), tail_node_id: "lower".into(), head_node_id: "right".into(), conductance: conductances[3] },
+                Edge {
+                    edge_id: "e-left-upper".into(),
+                    tail_node_id: "left".into(),
+                    head_node_id: "upper".into(),
+                    conductance: conductances[0],
+                },
+                Edge {
+                    edge_id: "e-upper-right".into(),
+                    tail_node_id: "upper".into(),
+                    head_node_id: "right".into(),
+                    conductance: conductances[1],
+                },
+                Edge {
+                    edge_id: "e-left-lower".into(),
+                    tail_node_id: "left".into(),
+                    head_node_id: "lower".into(),
+                    conductance: conductances[2],
+                },
+                Edge {
+                    edge_id: "e-lower-right".into(),
+                    tail_node_id: "lower".into(),
+                    head_node_id: "right".into(),
+                    conductance: conductances[3],
+                },
             ],
             boundary_nodes: vec!["left".into(), "right".into()],
         }
@@ -514,8 +554,12 @@ mod tests {
             fixture_status: FIXTURE_STATUS.into(),
             scenario_id: "coarse-equivalent".into(),
             nodes: vec![
-                Node { node_id: "left".into() },
-                Node { node_id: "right".into() },
+                Node {
+                    node_id: "left".into(),
+                },
+                Node {
+                    node_id: "right".into(),
+                },
             ],
             edges: vec![Edge {
                 edge_id: "equivalent".into(),
@@ -572,14 +616,35 @@ mod tests {
             fixture_status: FIXTURE_STATUS.into(),
             scenario_id: "fully-instrumented-triangle".into(),
             nodes: vec![
-                Node { node_id: "a".into() },
-                Node { node_id: "b".into() },
-                Node { node_id: "c".into() },
+                Node {
+                    node_id: "a".into(),
+                },
+                Node {
+                    node_id: "b".into(),
+                },
+                Node {
+                    node_id: "c".into(),
+                },
             ],
             edges: vec![
-                Edge { edge_id: "ab".into(), tail_node_id: "a".into(), head_node_id: "b".into(), conductance: 2.0 },
-                Edge { edge_id: "bc".into(), tail_node_id: "b".into(), head_node_id: "c".into(), conductance: 3.0 },
-                Edge { edge_id: "ac".into(), tail_node_id: "a".into(), head_node_id: "c".into(), conductance: 4.0 },
+                Edge {
+                    edge_id: "ab".into(),
+                    tail_node_id: "a".into(),
+                    head_node_id: "b".into(),
+                    conductance: 2.0,
+                },
+                Edge {
+                    edge_id: "bc".into(),
+                    tail_node_id: "b".into(),
+                    head_node_id: "c".into(),
+                    conductance: 3.0,
+                },
+                Edge {
+                    edge_id: "ac".into(),
+                    tail_node_id: "a".into(),
+                    head_node_id: "c".into(),
+                    conductance: 4.0,
+                },
             ],
             boundary_nodes: vec!["a".into(), "b".into(), "c".into()],
         };
@@ -591,7 +656,9 @@ mod tests {
     #[test]
     fn rejects_unanchored_components_and_nonpositive_conductances() {
         let mut fixture = two_path_fixture([2.0, 2.0, 2.0, 2.0]);
-        fixture.nodes.push(Node { node_id: "isolated".into() });
+        fixture.nodes.push(Node {
+            node_id: "isolated".into(),
+        });
         assert!(validate(&fixture).is_err());
 
         let mut invalid = two_path_fixture([2.0, 2.0, 2.0, 2.0]);
