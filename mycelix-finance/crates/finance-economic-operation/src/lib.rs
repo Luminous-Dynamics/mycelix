@@ -820,12 +820,9 @@ mod tests {
         let payer_effect =
             EffectIdentityV1::derive(operation, EffectRoleV1::PayerDebit, "did:mycelix:alice")
                 .unwrap();
-        let beneficiary_effect = EffectIdentityV1::derive(
-            operation,
-            EffectRoleV1::BeneficiaryClaim,
-            "did:mycelix:bob",
-        )
-        .unwrap();
+        let beneficiary_effect =
+            EffectIdentityV1::derive(operation, EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob")
+                .unwrap();
         println!("operation_id_v1={}", operation.digest().to_hex());
         println!("intent_fingerprint_v1={}", fingerprint.to_hex());
         println!(
