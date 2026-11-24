@@ -60,7 +60,10 @@ miden-vm = { version = "=0.22.1", optional = true, features = ["std"] }
 miden-core = { version = "=0.22.1", optional = true }
 
 # --- Backend: Dilithium5 PQ Signatures ---
-pqcrypto-dilithium = { version = "0.5", optional = true }
+# RUSTSEC-2026-0593: keep the portable verifier; the upstream AVX2 path
+# accepts non-conforming signatures and rejects some valid boundary cases.
+# Keep std, but do not enable AVX2 or platform-specific accelerated variants.
+pqcrypto-dilithium = { version = "0.5", default-features = false, features = ["std"], optional = true }
 pqcrypto-traits = { version = "0.3", optional = true }
 
 # Random number generation (needed for benchmarks and STARK witness generation)
