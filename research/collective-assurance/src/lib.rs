@@ -787,4 +787,44 @@ mod tests {
                 .is_err()
         );
     }
+    #[test]
+    fn missing_negative_control_is_indeterminate() {
+        let mut c = claims();
+        c.probes.pop();
+        let report = qualify_ai_off(
+            &c, b"test-only", &expected(), &TestVerifier, &mut TestReplay::default()
+        );
+        assert_eq!(report.status, QualificationStatus::Indeterminate);
+    }
+
+    #[test]
+    fn observed_external_connection_fails() {
+        let mut c = claims();
+        c.observed_external_connections = Some(1);
+        let report = qualify_ai_off(
+            &c, b"test-only", &expected(), &TestVerifier, &mut TestReplay::default()
+        );
+        assert_eq!(report.status, QualificationStatus::Fail);
+    }
+
+    #[test]
+    fn candidate_agent_process_fails() {
+        let mut c = claims();
+        c.processes.push(ProcessClass::CandidateAgent);
+        let report = qualify_ai_off(
+            &c, b"test-only", &expected(), &TestVerifier, &mut TestReplay::default()
+        );
+        assert_eq!(report.status, QualificationStatus::Fail);
+    }
+
+    #[test]
+    fn missing_harness_is_indeterminate() {
+        let mut c = claims();
+        c.processes.clear();
+        let report = qualify_ai_off(
+            &c, b"test-only", &expected(), &TestVerifier, &mut TestReplay::default()
+        );
+        assert_eq!(report.status, QualificationStatus::Indeterminate);
+    }
+
 }
