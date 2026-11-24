@@ -1059,6 +1059,120 @@ mod tests {
         assert!(report.valid, "{:?}", report.errors);
     }
 
+    fn append_conflicting_evidence(
+        events: &mut Vec<LedgerEvent>,
+        source_origin_id: &str,
+    ) {
+        let digest = "a".repeat(64);
+        append(
+            events,
+            "assigned-2",
+            9,
+            "holder",
+            None,
+            None,
+            LedgerEventKind::InformationAssigned {
+                information_id: "fact-2".into(),
+                source_origin_id: source_origin_id.into(),
+                permission: DisclosurePermission::Shareable,
+                permitted_recipients: vec![],
+            },
+        );
+        append(
+            events,
+            "request-2",
+            10,
+            "requester",
+            Some("holder"),
+            Some("assigned-2"),
+            LedgerEventKind::RequestCreated {
+                request_id: "r-2".into(),
+                information_id: "fact-2".into(),
+            },
+        );
+        append(
+            events,
+            "delivered-2",
+            11,
+            "transport",
+            Some("holder"),
+            Some("request-2"),
+            LedgerEventKind::RequestDelivered {
+                request_id: "r-2".into(),
+            },
+        );
+        append(
+            events,
+            "disclosure-2",
+            12,
+            "holder",
+            Some("requester"),
+            Some("delivered-2"),
+            LedgerEventKind::Disclosure {
+                request_id: "r-2".into(),
+                outcome: DisclosureOutcome::Granted,
+                evidence_id: Some("evidence-2".into()),
+                payload_digest: Some(digest.clone()),
+            },
+        );
+        append(
+            events,
+            "verified-2",
+            13,
+            "independent-verifier-2",
+            None,
+            Some("disclosure-2"),
+            LedgerEventKind::EvidenceVerified {
+                evidence_id: "evidence-2".into(),
+                outcome: VerificationOutcome::Verified,
+                payload_digest: digest,
+            },
+        );
+        append(
+            events,
+            "viewed-2",
+            14,
+            "requester",
+            None,
+            Some("disclosure-2"),
+            LedgerEventKind::InformationViewed {
+                evidence_id: "evidence-2".into(),
+            },
+        );
+        append(
+            events,
+            "claim-2",
+            15,
+            "requester",
+            None,
+            Some("claim-1"),
+            LedgerEventKind::ClaimRevised {
+                claim_id: "claim-1".into(),
+                revision: 2,
+                disposition: ClaimDisposition::Disputed,
+                supporting_evidence_ids: vec!["evidence-1".into()],
+                contradicting_evidence_ids: vec!["evidence-2".into()],
+            },
+        );
+    }
+
+    #[test]
+    fn distinct_origins_can_be_independent_even_with_one_holder() {
+        let mut events = valid_ledger();
+        append_conflicting_evidence(&mut events, "source-record-2");
+        let report = validate_ledger(&events);
+        assert!(report.valid, "{:?}", report.errors);
+    }
+
+    #[test]
+    fn different_holders_do_not_make_one_origin_independent() {
+        let mut events = valid_ledger();
+        append_conflicting_evidence(&mut events, "source-record-1");
+        let report = validate_ledger(&events);
+        assert!(!report.valid);
+        assert!(report.errors.iter().any(|error| error.contains("independent supporting and contradicting origins")));
+    }
+
     #[test]
     fn claim_must_link_to_prior_revision() {
         let mut events = valid_ledger();
