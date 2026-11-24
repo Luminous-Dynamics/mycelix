@@ -338,17 +338,17 @@ jobs:
           jq empty "$catalogue"
           jq empty "$schema"
           jq -e '
-            .issue == 6634 and
-            .version == "0.2" and
-            .status == "research_execution_profiles_not_authority_or_runtime_proof" and
-            (.role_registry | length == 60) and
+            .execution_profiles as $profiles |
+            (.issue == 6634) and
+            (.version == "0.2") and
+            (.status == "research_execution_profiles_not_authority_or_runtime_proof") and
+            ((.role_registry | length) == 60) and
             ((.role_registry | unique | length) == (.role_registry | length)) and
-            (.execution_profiles | length == 3) and
-            ((.execution_profiles | map(.profile_id) | unique | length) == 3) and
-            ((.execution_profiles | map(.execution_profile) | unique | length) == 3) and
-            (.execution_profiles) as $profiles |
+            (($profiles | length) == 3) and
+            (($profiles | map(.profile_id) | unique | length) == 3) and
+            (($profiles | map(.execution_profile) | unique | length) == 3) and
             all($profiles[];
-              (.required_roles | length) == (.owner_slots | length) and
+              ((.required_roles | length) == (.owner_slots | length)) and
               ((.required_roles | sort) == ([.owner_slots[][0]] | sort))
             ) and
             ([ $profiles[] | select(.execution_profile == "LocalAtomicPrincipalTransferV1") | .required_roles ] | first == ["finance.local_atomic_payment_transaction"]) and
