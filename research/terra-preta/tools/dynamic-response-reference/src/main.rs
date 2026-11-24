@@ -116,7 +116,10 @@ fn validate(fixture: &Fixture) -> Result<BTreeMap<String, usize>, String> {
             .get(&edge.head_node_id)
             .ok_or_else(|| format!("unknown head node {}", edge.head_node_id))?;
         if tail == head {
-            return Err(format!("self-loop edge {} is not supported in v0.1", edge.edge_id));
+            return Err(format!(
+                "self-loop edge {} is not supported in v0.1",
+                edge.edge_id
+            ));
         }
         if !edge.conductance.is_finite() || edge.conductance <= 0.0 {
             return Err(format!(
@@ -405,12 +408,8 @@ fn minimum_symmetric_eigenvalue(matrix: &[Vec<f64>]) -> Result<f64, String> {
             work[q][k] = work[k][q];
         }
 
-        work[p][p] = cosine * cosine * app
-            - 2.0 * sine * cosine * apq
-            + sine * sine * aqq;
-        work[q][q] = sine * sine * app
-            + 2.0 * sine * cosine * apq
-            + cosine * cosine * aqq;
+        work[p][p] = cosine * cosine * app - 2.0 * sine * cosine * apq + sine * sine * aqq;
+        work[q][q] = sine * sine * app + 2.0 * sine * cosine * apq + cosine * cosine * aqq;
         work[p][q] = 0.0;
         work[q][p] = 0.0;
     }
@@ -500,7 +499,8 @@ fn run() -> Result<(), String> {
     }
     let input_path = &arguments[1];
     let output_path = &arguments[2];
-    let input_bytes = fs::read(input_path).map_err(|error| format!("cannot read input: {error}"))?;
+    let input_bytes =
+        fs::read(input_path).map_err(|error| format!("cannot read input: {error}"))?;
     let input_sha256 = format!("{:x}", Sha256::digest(&input_bytes));
     let fixture: Fixture = serde_json::from_slice(&input_bytes)
         .map_err(|error| format!("invalid fixture JSON: {error}"))?;
@@ -615,7 +615,11 @@ mod tests {
         let at_one_tau = conductance_steady * (1.0 - (-time_constant / time_constant).exp());
         let long_time = conductance_steady * (1.0 - (-100.0_f64 / time_constant).exp());
         close(initial, 0.0, 1.0e-14);
-        close(at_one_tau, conductance_steady * (1.0 - (-1.0_f64).exp()), 1.0e-14);
+        close(
+            at_one_tau,
+            conductance_steady * (1.0 - (-1.0_f64).exp()),
+            1.0e-14,
+        );
         close(long_time, conductance_steady, 1.0e-12);
     }
 
