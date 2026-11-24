@@ -1,0 +1,161 @@
+name: SAP execution profile TLA qualification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/sap-execution-profile-model.yml'
+      - 'mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation/SAPExecutionProfiles*'
+  push:
+    branches:
+      - 'research/sap-execution-profile-tla-v0.1-20261124'
+    paths:
+      - '.github/workflows/sap-execution-profile-model.yml'
+      - 'mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation/SAPExecutionProfiles*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sap-execution-profile-model-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  model-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      MODEL_DIR: mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert exact source commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SUBJECT_SHA"
+          echo "Exact source commit verified: $actual"
+
+      - name: Set up Java
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Download and verify pinned TLC
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar \
+            --output "$RUNNER_TEMP/tla2tools.jar"
+          printf '%s  %s\n' \
+            'bee4a54f3ee3d4afc347c3240ec2d9e93b075104' \
+            "$RUNNER_TEMP/tla2tools.jar" | sha1sum --check -
+
+      - name: Check local atomic principal profile
+        working-directory: ${{ env.MODEL_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -jar "$RUNNER_TEMP/tla2tools.jar" -config SAPExecutionProfiles-local-atomic.cfg SAPExecutionProfiles.tla 2>&1 | tee "$RUNNER_TEMP/sap-profile-local.log"
+          grep -q 'No error has been found' "$RUNNER_TEMP/sap-profile-local.log"
+
+      - name: Check local atomic plus Treasury profile
+        working-directory: ${{ env.MODEL_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -jar "$RUNNER_TEMP/tla2tools.jar" -config SAPExecutionProfiles-local-treasury.cfg SAPExecutionProfiles.tla 2>&1 | tee "$RUNNER_TEMP/sap-profile-treasury.log"
+          grep -q 'No error has been found' "$RUNNER_TEMP/sap-profile-treasury.log"
+
+      - name: Check owner-authenticated bilateral profile
+        working-directory: ${{ env.MODEL_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -jar "$RUNNER_TEMP/tla2tools.jar" -config SAPExecutionProfiles-owner-bilateral.cfg SAPExecutionProfiles.tla 2>&1 | tee "$RUNNER_TEMP/sap-profile-bilateral.log"
+          grep -q 'No error has been found' "$RUNNER_TEMP/sap-profile-bilateral.log"
+
+      - name: Require split local transaction mutant to violate atomicity
+        working-directory: ${{ env.MODEL_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          java -jar "$RUNNER_TEMP/tla2tools.jar" -config SAPExecutionProfiles-split-local-mutant.cfg SAPExecutionProfiles.tla > "$RUNNER_TEMP/sap-profile-split-mutant.log" 2>&1
+          code=$?
+          set -e
+          test "$code" -ne 0
+          grep -q 'LocalAtomicNoPartial' "$RUNNER_TEMP/sap-profile-split-mutant.log"
+          echo 'Split local write mutant caught by LocalAtomicNoPartial.'
+
+      - name: Require early Treasury completion mutant to violate completion gate
+        working-directory: ${{ env.MODEL_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          java -jar "$RUNNER_TEMP/tla2tools.jar" -config SAPExecutionProfiles-early-treasury-mutant.cfg SAPExecutionProfiles.tla > "$RUNNER_TEMP/sap-profile-early-treasury-mutant.log" 2>&1
+          code=$?
+          set -e
+          test "$code" -ne 0
+          grep -q 'CompletionRequiresEffects' "$RUNNER_TEMP/sap-profile-early-treasury-mutant.log"
+          echo 'Early completion mutant caught by CompletionRequiresEffects.'
+
+      - name: Require same-owner bilateral mutant to violate owner separation
+        working-directory: ${{ env.MODEL_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          java -jar "$RUNNER_TEMP/tla2tools.jar" -config SAPExecutionProfiles-same-owner-mutant.cfg SAPExecutionProfiles.tla > "$RUNNER_TEMP/sap-profile-same-owner-mutant.log" 2>&1
+          code=$?
+          set -e
+          test "$code" -ne 0
+          grep -q 'BilateralOwnerSeparation' "$RUNNER_TEMP/sap-profile-same-owner-mutant.log"
+          echo 'Same-owner bilateral mutant caught by BilateralOwnerSeparation.'
+
+      - name: Write exact-head model manifest
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          spec="$MODEL_DIR/SAPExecutionProfiles.tla"
+          {
+            echo "subject_commit=$(git rev-parse HEAD)"
+            echo "expected_subject_commit=$EXPECTED_SUBJECT_SHA"
+            echo 'tlc_release=v1.7.4'
+            echo 'tlc_jar_sha1=bee4a54f3ee3d4afc347c3240ec2d9e93b075104'
+            echo "model_sha256=$(sha256sum "$spec" | cut -d' ' -f1)"
+            for config in "$MODEL_DIR"/SAPExecutionProfiles-*.cfg; do
+              echo "$(basename "$config")_sha256=$(sha256sum "$config" | cut -d' ' -f1)"
+            done
+          } | tee "$RUNNER_TEMP/sap-execution-profile-manifest.txt"
+          {
+            echo '## SAP execution profile model qualification'
+            cat "$RUNNER_TEMP/sap-execution-profile-manifest.txt"
+            for log in "$RUNNER_TEMP"/sap-profile-*.log; do
+              if [ -f "$log" ]; then
+                echo "### $(basename "$log")"
+                tail -n 30 "$log"
+              fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload TLC receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sap-execution-profile-model-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/sap-profile-*.log
+            ${{ runner.temp }}/sap-execution-profile-manifest.txt
+          if-no-files-found: warn
+          retention-days: 90
