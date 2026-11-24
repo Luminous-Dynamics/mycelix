@@ -720,12 +720,8 @@ impl EconomicClaimTemplateV1 {
             Self::SapBilateralTransferReconciled => {
                 "economic-os:claim:sap-bilateral-transfer-reconciled:v1"
             }
-            Self::HearthContributionAccepted => {
-                "economic-os:claim:hearth-contribution-accepted:v1"
-            }
-            Self::HearthWithdrawalClaimed => {
-                "economic-os:claim:hearth-withdrawal-claimed:v1"
-            }
+            Self::HearthContributionAccepted => "economic-os:claim:hearth-contribution-accepted:v1",
+            Self::HearthWithdrawalClaimed => "economic-os:claim:hearth-withdrawal-claimed:v1",
             Self::TendBilateralClearing => "economic-os:claim:tend-bilateral-clearing:v1",
             Self::GrantRecipientClaimed => "economic-os:claim:grant-recipient-claimed:v1",
             Self::ProcurementReceivedAndSettled => {
@@ -837,8 +833,7 @@ impl EconomicClaimTemplateV1 {
 
         let mut required_effects = owner_bindings;
         required_effects.sort_by(|left, right| {
-            (left.role, left.effect_owner.as_str())
-                .cmp(&(right.role, right.effect_owner.as_str()))
+            (left.role, left.effect_owner.as_str()).cmp(&(right.role, right.effect_owner.as_str()))
         });
 
         let mut profile = CompositeClaimProfileV1 {
@@ -1883,10 +1878,7 @@ mod effect_vector_tests {
                 base.operation_id,
                 base.expected_intent_fingerprint,
                 vec![
-                    required(
-                        EffectRoleV1::HearthMemberNoteSpend,
-                        "did:mycelix:member",
-                    ),
+                    required(EffectRoleV1::HearthMemberNoteSpend, "did:mycelix:member"),
                     required(
                         EffectRoleV1::HearthPoolContributionReceipt,
                         "did:mycelix:hearth-pool",
@@ -1899,10 +1891,7 @@ mod effect_vector_tests {
             "economic-os:claim:hearth-contribution-accepted:v1"
         );
         assert_eq!(built.required_effects.len(), 2);
-        assert_eq!(
-            built.profile_digest,
-            built.derive_profile_digest().unwrap()
-        );
+        assert_eq!(built.profile_digest, built.derive_profile_digest().unwrap());
     }
 
     #[test]
@@ -2008,8 +1997,10 @@ mod effect_vector_tests {
             EconomicClaimTemplateV1::CommonsServiceAccepted,
             EconomicClaimTemplateV1::ReputationAttestationRecorded,
         ];
-        let profile_ids: BTreeSet<&str> =
-            templates.iter().map(|template| template.profile_id()).collect();
+        let profile_ids: BTreeSet<&str> = templates
+            .iter()
+            .map(|template| template.profile_id())
+            .collect();
         assert_eq!(profile_ids.len(), templates.len());
         for template in templates {
             let roles = template.required_roles();
@@ -2119,7 +2110,10 @@ mod effect_vector_tests {
             EffectRoleV1::SapDemurrageAssessment.as_str(),
         ];
         assert_eq!(names.len(), 59);
-        assert_eq!(names.iter().copied().collect::<BTreeSet<_>>().len(), names.len());
+        assert_eq!(
+            names.iter().copied().collect::<BTreeSet<_>>().len(),
+            names.len()
+        );
     }
 
     #[test]
