@@ -5,7 +5,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum QualificationStatus { Pass, Fail, Indeterminate }
+pub enum QualificationStatus {
+    Pass,
+    Fail,
+    Indeterminate,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct QualificationReport {
@@ -14,7 +18,12 @@ pub struct QualificationReport {
 }
 
 impl QualificationReport {
-    fn new() -> Self { Self { status: QualificationStatus::Pass, reasons: Vec::new() } }
+    fn new() -> Self {
+        Self {
+            status: QualificationStatus::Pass,
+            reasons: Vec::new(),
+        }
+    }
     fn fail(&mut self, reason: impl Into<String>) {
         self.status = QualificationStatus::Fail;
         self.reasons.push(reason.into());
@@ -28,12 +37,22 @@ impl QualificationReport {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub enum ProcessClass { ApprovedHarness, CandidateAgent, ModelRuntime, Unclassified }
+pub enum ProcessClass {
+    ApprovedHarness,
+    CandidateAgent,
+    ModelRuntime,
+    Unclassified,
+}
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum ArtifactClass {
-    TaskInput, HumanAuthored, CandidateOutput, AiGeneratedAnswer,
-    ModelWeights, PromptOrSessionCache, Unclassified,
+    TaskInput,
+    HumanAuthored,
+    CandidateOutput,
+    AiGeneratedAnswer,
+    ModelWeights,
+    PromptOrSessionCache,
+    Unclassified,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -45,18 +64,33 @@ pub struct ArtifactObservation {
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum ProbeKind {
-    InferenceEndpoint, AgentControlPlane, ExternalNetworkEgress,
-    ModelCredentialVault, CacheReplayCanary,
+    InferenceEndpoint,
+    AgentControlPlane,
+    ExternalNetworkEgress,
+    ModelCredentialVault,
+    CacheReplayCanary,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ProbeOutcome { Blocked, Allowed, Unknown, NotRun }
+pub enum ProbeOutcome {
+    Blocked,
+    Allowed,
+    Unknown,
+    NotRun,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ProbeObservation { pub kind: ProbeKind, pub outcome: ProbeOutcome }
+pub struct ProbeObservation {
+    pub kind: ProbeKind,
+    pub outcome: ProbeOutcome,
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum InventoryStatus { Complete, Incomplete, Unknown }
+pub enum InventoryStatus {
+    Complete,
+    Incomplete,
+    Unknown,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AiOffClaims {
@@ -82,14 +116,23 @@ impl AiOffClaims {
     pub fn signing_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
         for value in [
-            self.schema_version.as_str(), self.run_id.as_str(), self.phase_id.as_str(),
-            self.challenge_nonce.as_str(), self.signer_key_id.as_str(),
-            self.isolation_profile_id.as_str(), self.platform_measurement_digest.as_str(),
-            self.runner_digest.as_str(), self.isolation_policy_digest.as_str(),
-        ] { push_str(&mut out, value); }
+            self.schema_version.as_str(),
+            self.run_id.as_str(),
+            self.phase_id.as_str(),
+            self.challenge_nonce.as_str(),
+            self.signer_key_id.as_str(),
+            self.isolation_profile_id.as_str(),
+            self.platform_measurement_digest.as_str(),
+            self.runner_digest.as_str(),
+            self.isolation_policy_digest.as_str(),
+        ] {
+            push_str(&mut out, value);
+        }
         out.push(inventory_tag(self.process_inventory));
         push_len(&mut out, self.processes.len());
-        for value in &self.processes { out.push(process_tag(*value)); }
+        for value in &self.processes {
+            out.push(process_tag(*value));
+        }
         out.push(inventory_tag(self.artifact_inventory));
         push_len(&mut out, self.artifacts.len());
         for artifact in &self.artifacts {
@@ -103,7 +146,10 @@ impl AiOffClaims {
             out.push(outcome_tag(probe.outcome));
         }
         match self.observed_external_connections {
-            Some(count) => { out.push(1); out.extend_from_slice(&count.to_be_bytes()); }
+            Some(count) => {
+                out.push(1);
+                out.extend_from_slice(&count.to_be_bytes());
+            }
             None => out.push(0),
         }
         out
@@ -117,28 +163,49 @@ fn push_str(out: &mut Vec<u8>, value: &str) {
     push_len(out, value.len());
     out.extend_from_slice(value.as_bytes());
 }
-fn inventory_tag(v: InventoryStatus) -> u8 { match v {
-    InventoryStatus::Complete => 1, InventoryStatus::Incomplete => 2, InventoryStatus::Unknown => 3,
-}}
-fn process_tag(v: ProcessClass) -> u8 { match v {
-    ProcessClass::ApprovedHarness => 1, ProcessClass::CandidateAgent => 2,
-    ProcessClass::ModelRuntime => 3, ProcessClass::Unclassified => 4,
-}}
-fn artifact_tag(v: ArtifactClass) -> u8 { match v {
-    ArtifactClass::TaskInput => 1, ArtifactClass::HumanAuthored => 2,
-    ArtifactClass::CandidateOutput => 3, ArtifactClass::AiGeneratedAnswer => 4,
-    ArtifactClass::ModelWeights => 5, ArtifactClass::PromptOrSessionCache => 6,
-    ArtifactClass::Unclassified => 7,
-}}
-fn probe_tag(v: ProbeKind) -> u8 { match v {
-    ProbeKind::InferenceEndpoint => 1, ProbeKind::AgentControlPlane => 2,
-    ProbeKind::ExternalNetworkEgress => 3, ProbeKind::ModelCredentialVault => 4,
-    ProbeKind::CacheReplayCanary => 5,
-}}
-fn outcome_tag(v: ProbeOutcome) -> u8 { match v {
-    ProbeOutcome::Blocked => 1, ProbeOutcome::Allowed => 2,
-    ProbeOutcome::Unknown => 3, ProbeOutcome::NotRun => 4,
-}}
+fn inventory_tag(v: InventoryStatus) -> u8 {
+    match v {
+        InventoryStatus::Complete => 1,
+        InventoryStatus::Incomplete => 2,
+        InventoryStatus::Unknown => 3,
+    }
+}
+fn process_tag(v: ProcessClass) -> u8 {
+    match v {
+        ProcessClass::ApprovedHarness => 1,
+        ProcessClass::CandidateAgent => 2,
+        ProcessClass::ModelRuntime => 3,
+        ProcessClass::Unclassified => 4,
+    }
+}
+fn artifact_tag(v: ArtifactClass) -> u8 {
+    match v {
+        ArtifactClass::TaskInput => 1,
+        ArtifactClass::HumanAuthored => 2,
+        ArtifactClass::CandidateOutput => 3,
+        ArtifactClass::AiGeneratedAnswer => 4,
+        ArtifactClass::ModelWeights => 5,
+        ArtifactClass::PromptOrSessionCache => 6,
+        ArtifactClass::Unclassified => 7,
+    }
+}
+fn probe_tag(v: ProbeKind) -> u8 {
+    match v {
+        ProbeKind::InferenceEndpoint => 1,
+        ProbeKind::AgentControlPlane => 2,
+        ProbeKind::ExternalNetworkEgress => 3,
+        ProbeKind::ModelCredentialVault => 4,
+        ProbeKind::CacheReplayCanary => 5,
+    }
+}
+fn outcome_tag(v: ProbeOutcome) -> u8 {
+    match v {
+        ProbeOutcome::Blocked => 1,
+        ProbeOutcome::Allowed => 2,
+        ProbeOutcome::Unknown => 3,
+        ProbeOutcome::NotRun => 4,
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExpectedAiOffPhase {
@@ -166,19 +233,30 @@ fn is_sha256(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|b| b.is_ascii_hexdigit())
 }
 fn require_match(report: &mut QualificationReport, label: &str, actual: &str, expected: &str) {
-    if actual != expected { report.fail(format!("{label} differs from preregistered phase")); }
+    if actual != expected {
+        report.fail(format!("{label} differs from preregistered phase"));
+    }
 }
 
 pub fn qualify_ai_off<V: ReceiptSignatureVerifier, R: ReplayGuard>(
-    claims: &AiOffClaims, signature: &[u8], expected: &ExpectedAiOffPhase,
-    verifier: &V, replay: &mut R,
+    claims: &AiOffClaims,
+    signature: &[u8],
+    expected: &ExpectedAiOffPhase,
+    verifier: &V,
+    replay: &mut R,
 ) -> QualificationReport {
     let mut report = QualificationReport::new();
     for (label, value) in [
         ("expected run id", expected.run_id.as_str()),
         ("expected phase id", expected.phase_id.as_str()),
-        ("expected signer key id", expected.trusted_signer_key_id.as_str()),
-        ("expected isolation profile", expected.isolation_profile_id.as_str()),
+        (
+            "expected signer key id",
+            expected.trusted_signer_key_id.as_str(),
+        ),
+        (
+            "expected isolation profile",
+            expected.isolation_profile_id.as_str(),
+        ),
     ] {
         if value.trim().is_empty() {
             report.fail(format!("{label} must not be empty"));
@@ -187,38 +265,80 @@ pub fn qualify_ai_off<V: ReceiptSignatureVerifier, R: ReplayGuard>(
     if expected.challenge_nonce.len() < 32 {
         report.fail("expected challenge nonce must contain at least 32 characters");
     }
-    require_match(&mut report, "schema version", &claims.schema_version, "ai-off-attestation-v0.1");
+    require_match(
+        &mut report,
+        "schema version",
+        &claims.schema_version,
+        "ai-off-attestation-v0.1",
+    );
     for (label, actual, expected_value) in [
         ("run id", claims.run_id.as_str(), expected.run_id.as_str()),
-        ("phase id", claims.phase_id.as_str(), expected.phase_id.as_str()),
-        ("challenge nonce", claims.challenge_nonce.as_str(), expected.challenge_nonce.as_str()),
-        ("signer key id", claims.signer_key_id.as_str(), expected.trusted_signer_key_id.as_str()),
-        ("isolation profile", claims.isolation_profile_id.as_str(), expected.isolation_profile_id.as_str()),
-        ("platform measurement digest", claims.platform_measurement_digest.as_str(), expected.platform_measurement_digest.as_str()),
-        ("runner digest", claims.runner_digest.as_str(), expected.runner_digest.as_str()),
-        ("isolation policy digest", claims.isolation_policy_digest.as_str(), expected.isolation_policy_digest.as_str()),
-    ] { require_match(&mut report, label, actual, expected_value); }
+        (
+            "phase id",
+            claims.phase_id.as_str(),
+            expected.phase_id.as_str(),
+        ),
+        (
+            "challenge nonce",
+            claims.challenge_nonce.as_str(),
+            expected.challenge_nonce.as_str(),
+        ),
+        (
+            "signer key id",
+            claims.signer_key_id.as_str(),
+            expected.trusted_signer_key_id.as_str(),
+        ),
+        (
+            "isolation profile",
+            claims.isolation_profile_id.as_str(),
+            expected.isolation_profile_id.as_str(),
+        ),
+        (
+            "platform measurement digest",
+            claims.platform_measurement_digest.as_str(),
+            expected.platform_measurement_digest.as_str(),
+        ),
+        (
+            "runner digest",
+            claims.runner_digest.as_str(),
+            expected.runner_digest.as_str(),
+        ),
+        (
+            "isolation policy digest",
+            claims.isolation_policy_digest.as_str(),
+            expected.isolation_policy_digest.as_str(),
+        ),
+    ] {
+        require_match(&mut report, label, actual, expected_value);
+    }
 
     for (label, value) in [
-        ("platform measurement", claims.platform_measurement_digest.as_str()),
+        (
+            "platform measurement",
+            claims.platform_measurement_digest.as_str(),
+        ),
         ("runner", claims.runner_digest.as_str()),
         ("isolation policy", claims.isolation_policy_digest.as_str()),
     ] {
-        if !is_sha256(value) { report.fail(format!("{label} digest is not 64 hex characters")); }
+        if !is_sha256(value) {
+            report.fail(format!("{label} digest is not 64 hex characters"));
+        }
     }
     if signature.is_empty() {
         report.fail("receipt signature is empty");
     } else {
         match verifier.verify(&claims.signer_key_id, &claims.signing_bytes(), signature) {
-            Ok(true) => {},
+            Ok(true) => {}
             Ok(false) => report.fail("receipt signature is invalid"),
             Err(error) => report.indeterminate(format!("signature verifier unavailable: {error}")),
         }
     }
-    if report.status == QualificationStatus::Fail { return report; }
+    if report.status == QualificationStatus::Fail {
+        return report;
+    }
 
     match replay.consume_once(&claims.run_id, &claims.phase_id, &claims.challenge_nonce) {
-        Ok(true) => {},
+        Ok(true) => {}
         Ok(false) => report.fail("challenge nonce was already consumed"),
         Err(error) => report.indeterminate(format!("durable replay guard unavailable: {error}")),
     }
@@ -226,18 +346,18 @@ pub fn qualify_ai_off<V: ReceiptSignatureVerifier, R: ReplayGuard>(
         report.indeterminate("approved qualification harness is absent from the process inventory");
     }
     match claims.process_inventory {
-        InventoryStatus::Complete => {},
+        InventoryStatus::Complete => {}
         InventoryStatus::Incomplete => report.indeterminate("process inventory incomplete"),
         InventoryStatus::Unknown => report.indeterminate("process inventory unknown"),
     }
     match claims.artifact_inventory {
-        InventoryStatus::Complete => {},
+        InventoryStatus::Complete => {}
         InventoryStatus::Incomplete => report.indeterminate("artifact inventory incomplete"),
         InventoryStatus::Unknown => report.indeterminate("artifact inventory unknown"),
     }
     for process in &claims.processes {
         match process {
-            ProcessClass::ApprovedHarness => {},
+            ProcessClass::ApprovedHarness => {}
             ProcessClass::CandidateAgent => report.fail("candidate agent process present"),
             ProcessClass::ModelRuntime => report.fail("model runtime process present"),
             ProcessClass::Unclassified => report.indeterminate("unclassified process present"),
@@ -245,13 +365,21 @@ pub fn qualify_ai_off<V: ReceiptSignatureVerifier, R: ReplayGuard>(
     }
     let mut artifact_ids = BTreeSet::new();
     for artifact in &claims.artifacts {
-        if artifact.artifact_id.trim().is_empty() || !artifact_ids.insert(artifact.artifact_id.as_str()) {
+        if artifact.artifact_id.trim().is_empty()
+            || !artifact_ids.insert(artifact.artifact_id.as_str())
+        {
             report.fail("artifact identifiers must be non-empty and unique");
         }
-        if artifact.candidate_reachable && matches!(
-            artifact.class, ArtifactClass::AiGeneratedAnswer | ArtifactClass::ModelWeights
-                | ArtifactClass::PromptOrSessionCache
-        ) { report.fail("candidate can reach AI answer, model weights, or prompt/session cache"); }
+        if artifact.candidate_reachable
+            && matches!(
+                artifact.class,
+                ArtifactClass::AiGeneratedAnswer
+                    | ArtifactClass::ModelWeights
+                    | ArtifactClass::PromptOrSessionCache
+            )
+        {
+            report.fail("candidate can reach AI answer, model weights, or prompt/session cache");
+        }
         if artifact.class == ArtifactClass::Unclassified {
             report.indeterminate("unclassified artifact present");
         }
@@ -263,20 +391,28 @@ pub fn qualify_ai_off<V: ReceiptSignatureVerifier, R: ReplayGuard>(
         }
     }
     for required in [
-        ProbeKind::InferenceEndpoint, ProbeKind::AgentControlPlane,
-        ProbeKind::ExternalNetworkEgress, ProbeKind::ModelCredentialVault,
+        ProbeKind::InferenceEndpoint,
+        ProbeKind::AgentControlPlane,
+        ProbeKind::ExternalNetworkEgress,
+        ProbeKind::ModelCredentialVault,
         ProbeKind::CacheReplayCanary,
     ] {
         match probes.get(&required) {
-            Some(ProbeOutcome::Blocked) => {},
-            Some(ProbeOutcome::Allowed) => report.fail(format!("negative control {required:?} allowed")),
-            Some(ProbeOutcome::Unknown) => report.indeterminate(format!("negative control {required:?} unknown")),
-            Some(ProbeOutcome::NotRun) => report.indeterminate(format!("negative control {required:?} not run")),
+            Some(ProbeOutcome::Blocked) => {}
+            Some(ProbeOutcome::Allowed) => {
+                report.fail(format!("negative control {required:?} allowed"))
+            }
+            Some(ProbeOutcome::Unknown) => {
+                report.indeterminate(format!("negative control {required:?} unknown"))
+            }
+            Some(ProbeOutcome::NotRun) => {
+                report.indeterminate(format!("negative control {required:?} not run"))
+            }
             None => report.indeterminate(format!("negative control {required:?} missing")),
         }
     }
     match claims.observed_external_connections {
-        Some(0) => {},
+        Some(0) => {}
         Some(_) => report.fail("external network connections observed during AI-off phase"),
         None => report.indeterminate("external connection count unavailable"),
     }
@@ -284,12 +420,21 @@ pub fn qualify_ai_off<V: ReceiptSignatureVerifier, R: ReplayGuard>(
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RandomizationUnit { pub unit_id: String, pub stratum: String }
+pub struct RandomizationUnit {
+    pub unit_id: String,
+    pub stratum: String,
+}
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Assignment { pub unit_id: String, pub stratum: String, pub arm: String }
+pub struct Assignment {
+    pub unit_id: String,
+    pub stratum: String,
+    pub arm: String,
+}
 
 /// Supply an operating-system-backed cryptographically secure RNG in production.
-pub trait RandomSource { fn next_u64(&mut self) -> u64; }
+pub trait RandomSource {
+    fn next_u64(&mut self) -> u64;
+}
 
 fn uniform_below<R: RandomSource>(rng: &mut R, upper: usize) -> usize {
     assert!(upper > 0);
@@ -297,7 +442,9 @@ fn uniform_below<R: RandomSource>(rng: &mut R, upper: usize) -> usize {
     let threshold = bound.wrapping_neg() % bound;
     loop {
         let value = rng.next_u64();
-        if value >= threshold { return (value % bound) as usize; }
+        if value >= threshold {
+            return (value % bound) as usize;
+        }
     }
 }
 fn shuffle<T, R: RandomSource>(items: &mut [T], rng: &mut R) {
@@ -309,11 +456,18 @@ fn shuffle<T, R: RandomSource>(items: &mut [T], rng: &mut R) {
 
 /// Assigns whole teams within predeclared strata, one of every arm per complete block.
 pub fn allocate_complete_blocks<R: RandomSource>(
-    roster: &[RandomizationUnit], arms: &[String], rng: &mut R,
+    roster: &[RandomizationUnit],
+    arms: &[String],
+    rng: &mut R,
 ) -> Result<Vec<Assignment>, String> {
-    if arms.len() < 2 { return Err("at least two arms required".into()); }
+    if arms.len() < 2 {
+        return Err("at least two arms required".into());
+    }
     let mut unique_arms = BTreeSet::new();
-    if arms.iter().any(|arm| arm.trim().is_empty() || !unique_arms.insert(arm.as_str())) {
+    if arms
+        .iter()
+        .any(|arm| arm.trim().is_empty() || !unique_arms.insert(arm.as_str()))
+    {
         return Err("arm names must be non-empty and unique".into());
     }
     let mut strata: BTreeMap<&str, Vec<&RandomizationUnit>> = BTreeMap::new();
@@ -322,10 +476,14 @@ pub fn allocate_complete_blocks<R: RandomSource>(
         if unit.unit_id.trim().is_empty() || unit.stratum.trim().is_empty() {
             return Err("team id and stratum must be non-empty".into());
         }
-        if !ids.insert(unit.unit_id.as_str()) { return Err("duplicate team id".into()); }
+        if !ids.insert(unit.unit_id.as_str()) {
+            return Err("duplicate team id".into());
+        }
         strata.entry(unit.stratum.as_str()).or_default().push(unit);
     }
-    if roster.is_empty() { return Err("roster is empty".into()); }
+    if roster.is_empty() {
+        return Err("roster is empty".into());
+    }
     let mut assignments = Vec::with_capacity(roster.len());
     for (stratum, mut teams) in strata {
         if teams.len() % arms.len() != 0 {
@@ -337,7 +495,9 @@ pub fn allocate_complete_blocks<R: RandomSource>(
             shuffle(&mut block_arms, rng);
             for (team, arm) in block.iter().zip(block_arms) {
                 assignments.push(Assignment {
-                    unit_id: team.unit_id.clone(), stratum: stratum.to_owned(), arm,
+                    unit_id: team.unit_id.clone(),
+                    stratum: stratum.to_owned(),
+                    arm,
                 });
             }
         }
@@ -348,17 +508,25 @@ pub fn allocate_complete_blocks<R: RandomSource>(
 
 /// Checks externally supplied assignments against the frozen roster and arm set.
 pub fn validate_assignments(
-    roster: &[RandomizationUnit], arms: &[String], assignments: &[Assignment],
+    roster: &[RandomizationUnit],
+    arms: &[String],
+    assignments: &[Assignment],
 ) -> Result<(), String> {
-    if arms.len() < 2 { return Err("at least two arms required".into()); }
+    if arms.len() < 2 {
+        return Err("at least two arms required".into());
+    }
     let allowed: BTreeSet<&str> = arms.iter().map(String::as_str).collect();
     if allowed.len() != arms.len() || allowed.contains("") {
         return Err("arm names must be non-empty and unique".into());
     }
     let mut expected = BTreeMap::new();
     for unit in roster {
-        if unit.unit_id.trim().is_empty() || unit.stratum.trim().is_empty()
-            || expected.insert(unit.unit_id.as_str(), unit.stratum.as_str()).is_some() {
+        if unit.unit_id.trim().is_empty()
+            || unit.stratum.trim().is_empty()
+            || expected
+                .insert(unit.unit_id.as_str(), unit.stratum.as_str())
+                .is_some()
+        {
             return Err("roster contains empty or duplicate team identity".into());
         }
     }
@@ -371,15 +539,25 @@ pub fn validate_assignments(
         let Some(stratum) = expected.get(assignment.unit_id.as_str()) else {
             return Err("assignment contains team absent from roster".into());
         };
-        if !seen.insert(assignment.unit_id.as_str()) { return Err("team assigned more than once".into()); }
-        if assignment.stratum != *stratum { return Err("assignment stratum differs from roster".into()); }
-        if !allowed.contains(assignment.arm.as_str()) { return Err("unknown assignment arm".into()); }
-        *counts.entry((assignment.stratum.as_str(), assignment.arm.as_str())).or_default() += 1;
+        if !seen.insert(assignment.unit_id.as_str()) {
+            return Err("team assigned more than once".into());
+        }
+        if assignment.stratum != *stratum {
+            return Err("assignment stratum differs from roster".into());
+        }
+        if !allowed.contains(assignment.arm.as_str()) {
+            return Err("unknown assignment arm".into());
+        }
+        *counts
+            .entry((assignment.stratum.as_str(), assignment.arm.as_str()))
+            .or_default() += 1;
     }
     let strata: BTreeSet<&str> = roster.iter().map(|unit| unit.stratum.as_str()).collect();
     for stratum in strata {
-        let per_arm: Vec<usize> = arms.iter()
-            .map(|arm| *counts.get(&(stratum, arm.as_str())).unwrap_or(&0)).collect();
+        let per_arm: Vec<usize> = arms
+            .iter()
+            .map(|arm| *counts.get(&(stratum, arm.as_str())).unwrap_or(&0))
+            .collect();
         if per_arm.iter().any(|count| *count != per_arm[0]) {
             return Err("arm counts unbalanced within stratum".into());
         }
@@ -415,79 +593,158 @@ mod tests {
             v ^ (v >> 31)
         }
     }
-    fn digest(c: char) -> String { std::iter::repeat_n(c, 64).collect() }
+    fn digest(c: char) -> String {
+        std::iter::repeat_n(c, 64).collect()
+    }
     fn claims() -> AiOffClaims {
         AiOffClaims {
             schema_version: "ai-off-attestation-v0.1".into(),
-            run_id: "run-1".into(), phase_id: "ai-off-1".into(),
-            challenge_nonce: "n".repeat(32), signer_key_id: "trusted-test-key".into(),
+            run_id: "run-1".into(),
+            phase_id: "ai-off-1".into(),
+            challenge_nonce: "n".repeat(32),
+            signer_key_id: "trusted-test-key".into(),
             isolation_profile_id: "microvm-v1".into(),
-            platform_measurement_digest: digest('a'), runner_digest: digest('b'),
-            isolation_policy_digest: digest('c'), process_inventory: InventoryStatus::Complete,
+            platform_measurement_digest: digest('a'),
+            runner_digest: digest('b'),
+            isolation_policy_digest: digest('c'),
+            process_inventory: InventoryStatus::Complete,
             processes: vec![ProcessClass::ApprovedHarness],
             artifact_inventory: InventoryStatus::Complete,
             artifacts: vec![ArtifactObservation {
-                artifact_id: "task-1".into(), class: ArtifactClass::TaskInput, candidate_reachable: true,
+                artifact_id: "task-1".into(),
+                class: ArtifactClass::TaskInput,
+                candidate_reachable: true,
             }],
             probes: vec![
-                ProbeObservation { kind: ProbeKind::InferenceEndpoint, outcome: ProbeOutcome::Blocked },
-                ProbeObservation { kind: ProbeKind::AgentControlPlane, outcome: ProbeOutcome::Blocked },
-                ProbeObservation { kind: ProbeKind::ExternalNetworkEgress, outcome: ProbeOutcome::Blocked },
-                ProbeObservation { kind: ProbeKind::ModelCredentialVault, outcome: ProbeOutcome::Blocked },
-                ProbeObservation { kind: ProbeKind::CacheReplayCanary, outcome: ProbeOutcome::Blocked },
+                ProbeObservation {
+                    kind: ProbeKind::InferenceEndpoint,
+                    outcome: ProbeOutcome::Blocked,
+                },
+                ProbeObservation {
+                    kind: ProbeKind::AgentControlPlane,
+                    outcome: ProbeOutcome::Blocked,
+                },
+                ProbeObservation {
+                    kind: ProbeKind::ExternalNetworkEgress,
+                    outcome: ProbeOutcome::Blocked,
+                },
+                ProbeObservation {
+                    kind: ProbeKind::ModelCredentialVault,
+                    outcome: ProbeOutcome::Blocked,
+                },
+                ProbeObservation {
+                    kind: ProbeKind::CacheReplayCanary,
+                    outcome: ProbeOutcome::Blocked,
+                },
             ],
             observed_external_connections: Some(0),
         }
     }
     fn expected() -> ExpectedAiOffPhase {
         ExpectedAiOffPhase {
-            run_id: "run-1".into(), phase_id: "ai-off-1".into(), challenge_nonce: "n".repeat(32),
-            trusted_signer_key_id: "trusted-test-key".into(), isolation_profile_id: "microvm-v1".into(),
-            platform_measurement_digest: digest('a'), runner_digest: digest('b'),
+            run_id: "run-1".into(),
+            phase_id: "ai-off-1".into(),
+            challenge_nonce: "n".repeat(32),
+            trusted_signer_key_id: "trusted-test-key".into(),
+            isolation_profile_id: "microvm-v1".into(),
+            platform_measurement_digest: digest('a'),
+            runner_digest: digest('b'),
             isolation_policy_digest: digest('c'),
         }
     }
 
     #[test]
     fn valid_receipt_passes_once_then_replay_fails() {
-        let c = claims(); let mut replay = TestReplay::default();
-        assert_eq!(qualify_ai_off(&c, b"test-only", &expected(), &TestVerifier, &mut replay).status, QualificationStatus::Pass);
-        assert_eq!(qualify_ai_off(&c, b"test-only", &expected(), &TestVerifier, &mut replay).status, QualificationStatus::Fail);
+        let c = claims();
+        let mut replay = TestReplay::default();
+        assert_eq!(
+            qualify_ai_off(&c, b"test-only", &expected(), &TestVerifier, &mut replay).status,
+            QualificationStatus::Pass
+        );
+        assert_eq!(
+            qualify_ai_off(&c, b"test-only", &expected(), &TestVerifier, &mut replay).status,
+            QualificationStatus::Fail
+        );
     }
     #[test]
     fn reachable_answer_cache_fails() {
         let mut c = claims();
-        c.artifacts.push(ArtifactObservation { artifact_id: "cache".into(), class: ArtifactClass::PromptOrSessionCache, candidate_reachable: true });
-        let report = qualify_ai_off(&c, b"test-only", &expected(), &TestVerifier, &mut TestReplay::default());
+        c.artifacts.push(ArtifactObservation {
+            artifact_id: "cache".into(),
+            class: ArtifactClass::PromptOrSessionCache,
+            candidate_reachable: true,
+        });
+        let report = qualify_ai_off(
+            &c,
+            b"test-only",
+            &expected(),
+            &TestVerifier,
+            &mut TestReplay::default(),
+        );
         assert_eq!(report.status, QualificationStatus::Fail);
     }
     #[test]
     fn unknown_inventory_is_indeterminate() {
-        let mut c = claims(); c.process_inventory = InventoryStatus::Unknown;
-        let report = qualify_ai_off(&c, b"test-only", &expected(), &TestVerifier, &mut TestReplay::default());
+        let mut c = claims();
+        c.process_inventory = InventoryStatus::Unknown;
+        let report = qualify_ai_off(
+            &c,
+            b"test-only",
+            &expected(),
+            &TestVerifier,
+            &mut TestReplay::default(),
+        );
         assert_eq!(report.status, QualificationStatus::Indeterminate);
     }
     #[test]
     fn allowed_endpoint_fails() {
-        let mut c = claims(); c.probes[0].outcome = ProbeOutcome::Allowed;
-        let report = qualify_ai_off(&c, b"test-only", &expected(), &TestVerifier, &mut TestReplay::default());
+        let mut c = claims();
+        c.probes[0].outcome = ProbeOutcome::Allowed;
+        let report = qualify_ai_off(
+            &c,
+            b"test-only",
+            &expected(),
+            &TestVerifier,
+            &mut TestReplay::default(),
+        );
         assert_eq!(report.status, QualificationStatus::Fail);
     }
     #[test]
     fn bad_signature_fails() {
-        let report = qualify_ai_off(&claims(), b"tampered", &expected(), &TestVerifier, &mut TestReplay::default());
+        let report = qualify_ai_off(
+            &claims(),
+            b"tampered",
+            &expected(),
+            &TestVerifier,
+            &mut TestReplay::default(),
+        );
         assert_eq!(report.status, QualificationStatus::Fail);
     }
     #[test]
     fn partial_allocation_block_is_rejected() {
-        let roster: Vec<_> = (0..7).map(|n| RandomizationUnit { unit_id: format!("t{n}"), stratum: "s".into() }).collect();
+        let roster: Vec<_> = (0..7)
+            .map(|n| RandomizationUnit {
+                unit_id: format!("t{n}"),
+                stratum: "s".into(),
+            })
+            .collect();
         let arms = vec!["a".into(), "b".into(), "c".into(), "d".into()];
         assert!(allocate_complete_blocks(&roster, &arms, &mut TestRng::default()).is_err());
     }
     #[test]
     fn allocation_is_balanced_and_reproducible() {
-        let roster: Vec<_> = (0..8).map(|n| RandomizationUnit { unit_id: format!("t{n}"), stratum: "s".into() }).collect();
-        let arms = vec!["ai-first".into(), "independent-first".into(), "evidence-first".into(), "human-only".into()];
+        let roster: Vec<_> = (0..8)
+            .map(|n| RandomizationUnit {
+                unit_id: format!("t{n}"),
+                stratum: "s".into(),
+            })
+            .collect();
+        let arms = vec![
+            "ai-first".into(),
+            "independent-first".into(),
+            "evidence-first".into(),
+            "human-only".into(),
+        ];
         let first = allocate_complete_blocks(&roster, &arms, &mut TestRng::default()).unwrap();
         let second = allocate_complete_blocks(&roster, &arms, &mut TestRng::default()).unwrap();
         assert_eq!(first, second);
@@ -495,19 +752,39 @@ mod tests {
     }
     #[test]
     fn externally_supplied_imbalance_is_rejected() {
-        let roster: Vec<_> = (0..8).map(|n| RandomizationUnit { unit_id: format!("t{n}"), stratum: "s".into() }).collect();
+        let roster: Vec<_> = (0..8)
+            .map(|n| RandomizationUnit {
+                unit_id: format!("t{n}"),
+                stratum: "s".into(),
+            })
+            .collect();
         let arms = vec!["a".into(), "b".into(), "c".into(), "d".into()];
-        let assignments: Vec<_> = roster.iter().enumerate().map(|(i, u)| Assignment {
-            unit_id: u.unit_id.clone(), stratum: u.stratum.clone(), arm: if i < 5 { "a" } else { "b" }.into(),
-        }).collect();
+        let assignments: Vec<_> = roster
+            .iter()
+            .enumerate()
+            .map(|(i, u)| Assignment {
+                unit_id: u.unit_id.clone(),
+                stratum: u.stratum.clone(),
+                arm: if i < 5 { "a" } else { "b" }.into(),
+            })
+            .collect();
         assert!(validate_assignments(&roster, &arms, &assignments).is_err());
     }
     #[test]
     fn duplicate_roster_team_is_rejected() {
         let roster = vec![
-            RandomizationUnit { unit_id: "t1".into(), stratum: "s".into() },
-            RandomizationUnit { unit_id: "t1".into(), stratum: "s".into() },
+            RandomizationUnit {
+                unit_id: "t1".into(),
+                stratum: "s".into(),
+            },
+            RandomizationUnit {
+                unit_id: "t1".into(),
+                stratum: "s".into(),
+            },
         ];
-        assert!(allocate_complete_blocks(&roster, &["a".into(), "b".into()], &mut TestRng::default()).is_err());
+        assert!(
+            allocate_complete_blocks(&roster, &["a".into(), "b".into()], &mut TestRng::default())
+                .is_err()
+        );
     }
 }
