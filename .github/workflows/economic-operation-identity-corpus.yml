@@ -8,6 +8,10 @@ on:
       - "mycelix-workspace/docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md"
       - "mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
       - "mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
+      - "mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.json"
+      - "mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.schema.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
       - "mycelix-finance/Cargo.toml"
@@ -19,12 +23,17 @@ on:
   push:
     branches:
       - "research/fin-effect-001-durable-operation-identity-v0.1-20261124"
+      - "research/fin-effect-004-effect-vector-projection-v0.1-20261124"
     paths:
       - ".github/workflows/economic-operation-identity-corpus.yml"
       - "docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md"
       - "mycelix-workspace/docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md"
       - "mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
       - "mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
+      - "mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.json"
+      - "mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.schema.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
       - "mycelix-finance/Cargo.toml"
@@ -151,6 +160,33 @@ jobs:
             echo "claim=corpus structural validation plus pure Rust kernel tests; no Holochain/runtime or global uniqueness proof"
           } | tee "$RUNNER_TEMP/economic-operation-identity-manifest.txt"
           cat "$RUNNER_TEMP/economic-operation-identity-manifest.txt" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate profile-bound effect-vector corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          corpus="mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.json"
+          schema="mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.schema.json"
+          jq empty "$corpus"
+          jq empty "$schema"
+          jq -e '
+            .benchmark == "FIN-EFFECT-004 Profile-Bound Economic Effect Vector Projection" and
+            .issue == 6608 and
+            .status == "normative_adversarial_corpus_not_execution_evidence" and
+            .composition.no_new_identity_algorithm == true and
+            .aggregation_precedence == ["Conflict","Indeterminate","Pending","SupportedWithinDeclaredScope"] and
+            (.cases | length == 16) and
+            ([.cases[].id] | unique | length == 16) and
+            ([.metrics[].id] | unique | length == (.metrics | length)) and
+            ([.cases[] | select(.id == "VEC-002") | .expected][0] == "Pending") and
+            ([.cases[] | select(.id == "VEC-004") | .expected][0] == "Indeterminate") and
+            ([.cases[] | select(.id == "VEC-006") | .expected][0] == "Conflict") and
+            ([.cases[] | select(.id == "VEC-010") | .expected][0] == "Pending") and
+            ([.cases[] | select(.id == "VEC-016") | .expected][0] == "Conflict")
+          ' "$corpus" >/dev/null
+          cmp "$corpus" "mycelix-workspace/$corpus"
+          cmp "$schema" "mycelix-workspace/$schema"
+          echo "16 effect-vector adversarial cases validated; targets are not execution evidence."
 
       - name: Install pinned Rust toolchain
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
