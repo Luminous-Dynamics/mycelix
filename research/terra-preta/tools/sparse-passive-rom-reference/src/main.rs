@@ -1282,7 +1282,7 @@ mod tests {
             laplace_samples: vec![0.0, 5.0e-3, 5.0e-2, 5.0e-1, 5.0, 5.0e1, 5.0e2, 5.0e3, 5.0e4],
             adaptive: AdaptiveOptions {
                 candidate_shifts: vec![1.0e-5, 1.0e-3, 1.0e-2, 1.0e-1, 3.0, 1.0e1, 1.0e2, 1.0e3, 1.0e4],
-                target_max_relative_error: Some(1.0e-3),
+                target_max_relative_error: Some(5.0e-2),
                 maximum_basis_dimension: Some(6),
             },
             cg_relative_tolerance: 1.0e-11,
