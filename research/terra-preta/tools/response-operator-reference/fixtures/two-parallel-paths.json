@@ -1,0 +1,18 @@
+{
+  "schema_version": "response-operator-reference-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "scenario_id": "two-parallel-series-paths-identifiability",
+  "nodes": [
+    { "node_id": "left" },
+    { "node_id": "upper" },
+    { "node_id": "lower" },
+    { "node_id": "right" }
+  ],
+  "edges": [
+    { "edge_id": "e-left-upper", "tail_node_id": "left", "head_node_id": "upper", "conductance": 2.0 },
+    { "edge_id": "e-upper-right", "tail_node_id": "upper", "head_node_id": "right", "conductance": 2.0 },
+    { "edge_id": "e-left-lower", "tail_node_id": "left", "head_node_id": "lower", "conductance": 2.0 },
+    { "edge_id": "e-lower-right", "tail_node_id": "lower", "head_node_id": "right", "conductance": 2.0 }
+  ],
+  "boundary_nodes": ["left", "right"]
+}
