@@ -65,7 +65,7 @@ func localEvidence(j *Journal, label string, seed uint64) Evidence {
 			ReceiptSignerDID:           j.intent.SenderDID,
 			SigningProfile:             ReceiptProfileV1,
 			SignatureDigest:            digest(seed + 100_000),
-			TreasuryFeeOutboxID:         outboxID,
+			TreasuryFeeOutboxID:        outboxID,
 		},
 	}
 	digestValue, err := canonicalEvidenceDigest(evidence)
@@ -133,7 +133,7 @@ func TestPublicConformancePack(t *testing.T) {
 		Schema       string `json:"schema"`
 		Version      string `json:"version"`
 		State        string `json:"state"`
-		CaseCount    int `json:"case_count"`
+		CaseCount    int    `json:"case_count"`
 		ClaimCeiling string `json:"claim_ceiling"`
 		Cases        []struct {
 			ID       string `json:"id"`
