@@ -1575,6 +1575,18 @@ mod effect_vector_tests {
     }
 
     #[test]
+    fn canonical_claim_profile_digest_known_answer_vector_is_stable() {
+        let p = profile(vec![
+            required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
+            required(EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob"),
+        ]);
+        assert_eq!(
+            p.profile_digest.to_hex(),
+            "__PROFILE_DIGEST_KAT__"
+        );
+    }
+
+    #[test]
     fn profile_identifiers_are_validated() {
         let mut p = profile(vec![required(
             EffectRoleV1::PayerDebit,
