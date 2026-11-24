@@ -1,0 +1,266 @@
+{
+  "benchmark": "Economic OS Loss-Aware Standards Interoperability Adversarial Corpus",
+  "version": "0.1",
+  "date": "2026-11-24",
+  "status": "proposed_synthetic_adversarial_corpus_not_execution_evidence",
+  "issue": 6610,
+  "source_snapshot": {
+    "captured_date": "2026-11-24",
+    "valueflows": "1.0.0 stable major release",
+    "w3c_prov_dm": "W3C Recommendation 2013-04-30",
+    "gs1_epcis": "EPCIS 2.0.0",
+    "iso20022_catalogue_snapshot": "Catalogue page last updated 2026-03-19 for selected payment/cash-management sets",
+    "peppol_bis_billing": "3.0.21; published 2026-05-20; mandatory from 2026-08-17",
+    "caveat": "Version/effective-date applicability must be selected by the actual jurisdiction and transaction scope; this corpus is synthetic."
+  },
+  "cases": [
+    {
+      "id": "INT-001",
+      "standard": "Valueflows",
+      "threat": "Intent promoted to observed fulfilment",
+      "stimulus": "An Intent node is imported and incorrectly counted as delivered resource.",
+      "expected": "plan_only",
+      "required_control": "Intent remains a plan; no delivery effect is inferred."
+    },
+    {
+      "id": "INT-002",
+      "standard": "Valueflows",
+      "threat": "Commitment treated as fully fulfilled",
+      "stimulus": "A commitment is fulfilled only partially by one EconomicEvent.",
+      "expected": "partial_fulfilment",
+      "required_control": "Preserve fulfilled and remaining quantities separately."
+    },
+    {
+      "id": "INT-003",
+      "standard": "Valueflows",
+      "threat": "EconomicEvent unit mismatch",
+      "stimulus": "A kilogram event is mapped to a litre resource without a qualified conversion.",
+      "expected": "reject_unit_mismatch",
+      "required_control": "Reject or hold; no raw numeric unit substitution."
+    },
+    {
+      "id": "INT-004",
+      "standard": "Valueflows",
+      "threat": "Corrected event overwrites source history",
+      "stimulus": "A later correction mutates the original EconomicEvent payload.",
+      "expected": "correction_lineage",
+      "required_control": "Append a correction/compensating lineage record."
+    },
+    {
+      "id": "INT-005",
+      "standard": "Valueflows",
+      "threat": "Foreign IDs collide with local IDs",
+      "stimulus": "A remote resource identifier equals a local ID string but uses a different namespace.",
+      "expected": "preserve_scoped_identity",
+      "required_control": "Namespace-qualified IDs remain distinct."
+    },
+    {
+      "id": "INT-006",
+      "standard": "W3C PROV",
+      "threat": "Evidence lacks generation activity",
+      "stimulus": "A PDF receipt is imported without source activity or capture provenance.",
+      "expected": "hold_indeterminate",
+      "required_control": "Preserve artifact bytes but mark source provenance incomplete."
+    },
+    {
+      "id": "INT-007",
+      "standard": "W3C PROV",
+      "threat": "Agent attribution treated as authorization",
+      "stimulus": "A PROV association names a user but no scoped credential or mandate exists.",
+      "expected": "reject_claim_promotion",
+      "required_control": "Provenance responsibility does not authorize a value mutation."
+    },
+    {
+      "id": "INT-008",
+      "standard": "W3C PROV",
+      "threat": "Transformation chain loses input lineage",
+      "stimulus": "A normalized bank record is produced without binding its source message digest.",
+      "expected": "hold_indeterminate",
+      "required_control": "No independent evidence claim without source-to-transform lineage."
+    },
+    {
+      "id": "INT-009",
+      "standard": "W3C PROV",
+      "threat": "Conflicting derivation bundles",
+      "stimulus": "Two bundles assert incompatible source derivations for the same evidence entity.",
+      "expected": "needs_review",
+      "required_control": "Preserve both lineages and block stronger claim projection."
+    },
+    {
+      "id": "INT-010",
+      "standard": "GS1 EPCIS",
+      "threat": "Receiving event treated as title transfer",
+      "stimulus": "An ObjectEvent reports receiving at a site but has no ownership evidence.",
+      "expected": "event_not_finality",
+      "required_control": "Visibility is not title/ownership."
+    },
+    {
+      "id": "INT-011",
+      "standard": "GS1 EPCIS",
+      "threat": "Event time differs from record time",
+      "stimulus": "An event is captured late and arrives after a later event.",
+      "expected": "replay_by_event_and_record_time",
+      "required_control": "Preserve eventTime and recordTime separately; do not use arrival order as truth."
+    },
+    {
+      "id": "INT-012",
+      "standard": "GS1 EPCIS",
+      "threat": "Shipment event treated as beneficiary acceptance",
+      "stimulus": "A shipping/dispatch event exists but the beneficiary has not accepted delivery.",
+      "expected": "pending_acceptance",
+      "required_control": "Delivery/acceptance profile remains pending."
+    },
+    {
+      "id": "INT-013",
+      "standard": "GS1 EPCIS",
+      "threat": "Duplicate capture of same event ID",
+      "stimulus": "The same signed/identified visibility event is delivered more than once.",
+      "expected": "deduplicate_observation",
+      "required_control": "Duplicate evidence does not multiply resource movement."
+    },
+    {
+      "id": "INT-014",
+      "standard": "ISO 20022",
+      "threat": "pain.001 submitted treated as settled",
+      "stimulus": "A payment initiation message has been transmitted but no later status/settlement evidence exists.",
+      "expected": "pending_settlement",
+      "required_control": "Instruction is not settlement."
+    },
+    {
+      "id": "INT-015",
+      "standard": "ISO 20022",
+      "threat": "pacs.002 accepted status promoted to finality",
+      "stimulus": "A status report indicates accepted for processing under a specific scheme.",
+      "expected": "hold_profile_finality",
+      "required_control": "Interpret exact status using scheme/version-specific finality semantics."
+    },
+    {
+      "id": "INT-016",
+      "standard": "ISO 20022",
+      "threat": "pacs.004 return erases original",
+      "stimulus": "A payment return message arrives after an original transfer.",
+      "expected": "append_return_effect",
+      "required_control": "Keep original and append linked return/compensation."
+    },
+    {
+      "id": "INT-017",
+      "standard": "ISO 20022",
+      "threat": "Overlapping camt reports double count",
+      "stimulus": "An intraday report, statement and debit/credit notification describe the same bank transaction.",
+      "expected": "reconcile_without_double_count",
+      "required_control": "Use stable bank transaction identity and report scope."
+    },
+    {
+      "id": "INT-018",
+      "standard": "Peppol",
+      "threat": "Syntax valid but country rule fails",
+      "stimulus": "An invoice passes XML syntax/EN 16931 but fails a country-qualified rule.",
+      "expected": "profile_validation_failure",
+      "required_control": "Keep stage results distinct; do not call the invoice profile-conformant."
+    },
+    {
+      "id": "INT-019",
+      "standard": "Peppol",
+      "threat": "Stale profile version used",
+      "stimulus": "An adapter validates against BIS 3.0.20 after 3.0.21 became mandatory for the relevant scope/date.",
+      "expected": "reject_stale_profile",
+      "required_control": "Pin exact BIS release, effective date and country pack."
+    },
+    {
+      "id": "INT-020",
+      "standard": "Peppol",
+      "threat": "Valid invoice treated as proof of receipt/payment",
+      "stimulus": "A Peppol-valid invoice has no independent delivery or bank evidence.",
+      "expected": "reject_claim_promotion",
+      "required_control": "Invoice validity is not receipt or settlement."
+    },
+    {
+      "id": "INT-021",
+      "standard": "Cross-standard",
+      "threat": "FX rate treated as unit conversion",
+      "stimulus": "USD valuation is converted to ZAR using a current FX rate but no rate observation/profile is bound.",
+      "expected": "require_valuation_evidence",
+      "required_control": "FX is a separate valuation/exchange event, not unit scale conversion."
+    },
+    {
+      "id": "INT-022",
+      "standard": "Cross-standard",
+      "threat": "Round-trip mapping silently drops field",
+      "stimulus": "An adapter loses issuer/network, unit scale, event time or original source reference on export.",
+      "expected": "explicit_loss_or_reject",
+      "required_control": "Round-trip required fields or return an explicit lossy/unsupported result."
+    },
+    {
+      "id": "INT-023",
+      "standard": "Cross-standard",
+      "threat": "Same operation represented by multiple standards",
+      "stimulus": "Valueflows Commitment, ISO instruction and EPCIS event refer to one obligation but have different canonical IDs.",
+      "expected": "join_without_identifier_collapse",
+      "required_control": "Bind standard identifiers as evidence/causal references under one stable operation identity."
+    },
+    {
+      "id": "INT-024",
+      "standard": "Cross-standard",
+      "threat": "Order-independent deterministic replay",
+      "stimulus": "The same immutable events arrive in different transport orders.",
+      "expected": "byte_identical_projection",
+      "required_control": "Canonical projection is identical for the same evidence set and temporal frontier."
+    }
+  ],
+  "metrics": [
+    {
+      "id": "M-INT-01",
+      "name": "Silent required-field loss",
+      "target": "0 unreported required-field losses",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-INT-02",
+      "name": "Plan-to-observation false promotion",
+      "target": "0 Intent/Commitment promoted as occurred effect",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-INT-03",
+      "name": "False payment finality",
+      "target": "0 instructions/status-only observations promoted to final settlement",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-INT-04",
+      "name": "False physical acceptance/title",
+      "target": "0 visibility events promoted to acceptance or title without qualified evidence",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-INT-05",
+      "name": "Duplicate observation effect multiplication",
+      "target": "0 additional effects from duplicate evidence IDs",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-INT-06",
+      "name": "Temporal replay reproducibility",
+      "target": "100% byte-identical output for frozen evidence and event/record-time frontiers",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-INT-07",
+      "name": "Round-trip semantic preservation",
+      "target": "100% required semantics preserved or explicitly flagged lossy/unsupported",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-INT-08",
+      "name": "Mapping/projection p50 p95 p99 latency",
+      "target": "Measure by records, mappings and evidence refs; matched baseline required",
+      "stage": "performance_after_safety"
+    },
+    {
+      "id": "M-INT-09",
+      "name": "Human review burden",
+      "target": "Measure reviewer minutes per 100 ambiguous cases",
+      "stage": "performance_after_safety"
+    }
+  ]
+}

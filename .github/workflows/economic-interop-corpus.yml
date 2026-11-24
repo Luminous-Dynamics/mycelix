@@ -1,0 +1,63 @@
+name: Economic OS standards interoperability corpus
+
+on:
+  pull_request:
+    paths:
+      - "docs/economic/economic-interop-crosswalk-v0.1.md"
+      - "docs/economic/economic-interop-crosswalk.v0.1.json"
+      - "docs/economic/economic-interop-adversarial-corpus.v0.1.json"
+      - "docs/economic/economic-interop-adversarial-corpus.v0.1.schema.json"
+      - ".github/workflows/economic-interop-corpus.yml"
+  push:
+    branches:
+      - "research/econ-interop-crosswalk-v0.1-20261124"
+    paths:
+      - "docs/economic/economic-interop-crosswalk-v0.1.md"
+      - "docs/economic/economic-interop-crosswalk.v0.1.json"
+      - "docs/economic/economic-interop-adversarial-corpus.v0.1.json"
+      - "docs/economic/economic-interop-adversarial-corpus.v0.1.schema.json"
+      - ".github/workflows/economic-interop-corpus.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  crosswalk:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Validate crosswalk and synthetic corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapping="docs/economic/economic-interop-crosswalk.v0.1.json"
+          corpus="docs/economic/economic-interop-adversarial-corpus.v0.1.json"
+          schema="docs/economic/economic-interop-adversarial-corpus.v0.1.schema.json"
+          jq empty "$mapping"
+          jq empty "$corpus"
+          jq empty "$schema"
+          jq -e '
+            .issue == 6610 and
+            .status == "normative_synthetic_development_crosswalk_not_execution_evidence" and
+            (.crosswalk | length >= 12) and
+            (.source_standards | length == 5) and
+            (.crosswalk | map(.id) | unique | length) == (.crosswalk | length)
+          ' "$mapping" >/dev/null
+          jq -e '
+            .issue == 6610 and
+            .status == "proposed_synthetic_adversarial_corpus_not_execution_evidence" and
+            (.cases | length == 24) and
+            ([.cases[].id] | unique | length == 24) and
+            (.metrics | map(.id) | unique | length) == (.metrics | length) and
+            ([.cases[] | select(.id == "INT-001") | .expected][0] == "plan_only") and
+            ([.cases[] | select(.id == "INT-015") | .expected][0] == "hold_profile_finality") and
+            ([.cases[] | select(.id == "INT-018") | .expected][0] == "profile_validation_failure") and
+            ([.cases[] | select(.id == "INT-022") | .expected][0] == "explicit_loss_or_reject")
+          ' "$corpus" >/dev/null
+          sha256sum "$mapping" "$corpus" "$schema" docs/economic/economic-interop-crosswalk-v0.1.md
+          echo "Validated standards crosswalk and 24 synthetic cases; no execution or standards-certification claim."
