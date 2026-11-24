@@ -244,7 +244,7 @@ pub fn verify_allocation_reveal(
 
 impl RandomSource for ChaCha20Rng {
     fn next_u64(&mut self) -> u64 {
-        RngCore::next_u64(self)
+        <ChaCha20Rng as RngCore>::next_u64(self)
     }
 }
 
