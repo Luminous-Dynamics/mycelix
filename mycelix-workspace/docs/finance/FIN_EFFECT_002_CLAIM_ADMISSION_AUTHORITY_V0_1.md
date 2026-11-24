@@ -10,7 +10,7 @@
 
 A durable operation ID identifies the obligation. It does not authorize a first effect, serialize competing claims, prove a complete observation view, or establish spendability.
 
-FIN-EFFECT-001's pure kernel deliberately returns `NoBindingObserved` and `NoEffectObserved` as observations, not mutation permissions. This contract defines the next boundary: **which authority may reserve a singleton effect role, under which fault assumptions, and what further evidence is required before that effect can be considered spendable.**
+FIN-EFFECT-001's pure kernel deliberately returns `NoBindingObserved` and `NoEffectObserved` as observations, **not an admission grant** and not mutation permissions. This contract defines the next boundary: **which authority may reserve a singleton effect role, under which fault assumptions, and what further evidence is required before that effect can be considered spendable.**
 
 The design must never confuse:
 - a stable identifier with an authorization;
