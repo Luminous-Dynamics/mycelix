@@ -10,7 +10,7 @@ const SAMPLE_WINDOW: Duration = Duration::from_millis(100);
 
 fn action_hash(index: u32) -> Vec<u8> {
     let mut hash = vec![0x84, 0x29, 0x24];
-    hash.extend(std::iter::repeat((index & 0xff) as u8).take(32));
+    hash.extend(std::iter::repeat_n((index & 0xff) as u8, 32));
     hash.extend(index.to_be_bytes());
     hash
 }
