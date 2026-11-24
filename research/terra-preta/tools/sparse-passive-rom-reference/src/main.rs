@@ -932,7 +932,29 @@ fn build_adaptive_projection(
 
 fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     let model = assemble(fixture)?;
-    let (projection, mut stats) = build_projection(&model, fixture)?;
+    let adaptive_requested = !fixture.adaptive.candidate_shifts.is_empty();
+    let (
+        projection,
+        mut stats,
+        effective_shifts,
+        adaptive_selection_steps,
+        adaptive_target_met,
+        adaptive_stop_reason,
+    ) = if adaptive_requested {
+        let (projection, stats, shifts, steps, target_met, stop_reason) =
+            build_adaptive_projection(&model, fixture)?;
+        (projection, stats, shifts, steps, Some(target_met), stop_reason)
+    } else {
+        let (projection, stats) = build_projection(&model, fixture)?;
+        (
+            projection,
+            stats,
+            fixture.rational_shifts.clone(),
+            Vec::new(),
+            None,
+            "fixed_shift_mode".to_string(),
+        )
+    };
     let lambda_0_passivity_tolerance =
         projection.lambda_0_scale.max(f64::MIN_POSITIVE) * 1.0e-10;
     if projection.a_r_min_eigenvalue <= 0.0
@@ -985,7 +1007,10 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         interior_node_count: model.interior_ids.len(),
         csr_nonzero_count: model.a.nnz(),
         csr_density,
-        rational_shifts: fixture.rational_shifts.clone(),
+        rational_shifts: effective_shifts,
+        adaptive_selection_steps,
+        adaptive_target_met,
+        adaptive_stop_reason,
         basis_dimension: projection.basis_dimension,
         basis_snapshots_attempted: projection.basis_snapshots,
         exact_dc_response: exact_dc,
