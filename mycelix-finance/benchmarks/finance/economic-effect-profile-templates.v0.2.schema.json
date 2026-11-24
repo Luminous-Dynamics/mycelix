@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json",
+  "title": "Economic OS Effect Role Registry, Claim Templates and SAP Execution Profiles v0.2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark",
+    "version",
+    "date",
+    "issue",
+    "status",
+    "composition",
+    "role_registry",
+    "templates",
+    "claim_boundary",
+    "execution_profiles",
+    "compatibility_note"
+  ],
+  "properties": {
+    "benchmark": {
+      "const": "Economic OS Typed Effect Role Registry and Claim Template Catalogue"
+    },
+    "version": {
+      "const": "0.2"
+    },
+    "date": {
+      "const": "2026-11-24"
+    },
+    "issue": {
+      "const": 6634
+    },
+    "status": {
+      "const": "research_execution_profiles_not_authority_or_runtime_proof"
+    },
+    "composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_identity",
+        "effect_identity",
+        "profile_digest",
+        "no_replacement_identity_algorithm",
+        "legacy_role_strings_preserved"
+      ],
+      "properties": {
+        "operation_identity": {
+          "const": "FIN-EFFECT-001 OperationIdentityV1"
+        },
+        "effect_identity": {
+          "const": "FIN-EFFECT-001 EffectIdentityV1"
+        },
+        "profile_digest": {
+          "const": "FIN-EFFECT-004 canonical claim-profile digest v1"
+        },
+        "no_replacement_identity_algorithm": {
+          "const": true
+        },
+        "legacy_role_strings_preserved": {
+          "const": true
+        }
+      }
+    },
+    "role_registry": {
+      "type": "array",
+      "minItems": 60,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "templates": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "profile_id",
+          "claim_name",
+          "domain",
+          "required_roles",
+          "owner_slots",
+          "scope",
+          "not_proof_of",
+          "required_role_count"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z0-9-]+$"
+          },
+          "profile_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "claim_name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]+$"
+          },
+          "domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required_roles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "owner_slots": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "not_proof_of": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required_role_count": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "claim_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "execution_profiles": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "execution_profile",
+          "profile_id",
+          "claim_name",
+          "authority_model",
+          "required_roles",
+          "owner_slots",
+          "atomic_transaction_boundary",
+          "outbox_dependency",
+          "finality_scope",
+          "forbidden_inferences"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z0-9-]+$"
+          },
+          "execution_profile": {
+            "enum": [
+              "LocalAtomicPrincipalTransferV1",
+              "LocalAtomicTransferTreasuryReconciledV1",
+              "OwnerAuthenticatedBilateralTransferV1"
+            ]
+          },
+          "profile_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "claim_name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]+$"
+          },
+          "authority_model": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required_roles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "owner_slots": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "owner_constraints": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "atomic_transaction_boundary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "outbox_dependency": {
+            "type": "string",
+            "minLength": 1
+          },
+          "finality_scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "forbidden_inferences": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "compatibility_note": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
