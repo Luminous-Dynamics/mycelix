@@ -36,6 +36,7 @@ pub enum ConstraintHandling {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AvailableEvidenceConstraint {
+    pub request_id: String,
     pub evidence_id: String,
     pub source_digest: String,
     pub subject_id: String,
@@ -121,7 +122,9 @@ pub fn qualify_response_grounding(
     let mut available_by_id = BTreeMap::new();
     let mut required_count = 0usize;
     for item in available {
-        if !nonempty(&item.evidence_id)
+        if !nonempty(&item.request_id)
+            || item.request_id != response.request_id
+            || !nonempty(&item.evidence_id)
             || !nonempty(&item.subject_id)
             || !nonempty(&item.scope_id)
             || !nonempty(&item.authorized_responder_id)
@@ -242,6 +245,7 @@ mod tests {
         verified: bool,
     ) -> AvailableEvidenceConstraint {
         AvailableEvidenceConstraint {
+            request_id: "request-1".into(),
             evidence_id: "e-1".into(),
             source_digest: digest(),
             subject_id: "trip-date".into(),
@@ -279,6 +283,22 @@ mod tests {
             responder_id: "assistant-1".into(),
             constraints,
         }
+    }
+
+    #[test]
+    fn evidence_from_another_request_cannot_be_reused() {
+        let mut item = available(EvidenceStatus::Current, Applicability::Applicable, true);
+        item.request_id = "another-request".into();
+        let report = qualify_response_grounding(
+            &[item],
+            &response(vec![use_item(
+                EvidenceStatus::Current,
+                Applicability::Applicable,
+                ConstraintHandling::Applied,
+                None,
+            )]),
+        );
+        assert_eq!(report.status, ConstraintQualificationStatus::Fail);
     }
 
     #[test]
