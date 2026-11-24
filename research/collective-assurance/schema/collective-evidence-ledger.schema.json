@@ -25,9 +25,10 @@
           "previous_digest":{"type":"string","pattern":"^[a-f0-9]{64}$"},
           "event_digest":{"type":"string","pattern":"^[a-f0-9]{64}$"},
           "kind":{"oneOf":[
-            {"type":"object","additionalProperties":false,"required":["type","information_id","permission","permitted_recipients"],"properties":{
+            {"type":"object","additionalProperties":false,"required":["type","information_id","source_origin_id","permission","permitted_recipients"],"properties":{
               "type":{"const":"information_assigned"},
               "information_id":{"type":"string","minLength":1},
+              "source_origin_id":{"type":"string","minLength":1},
               "permission":{"enum":["shareable","scoped","withheld_by_rights","unknown"]},
               "permitted_recipients":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}}
             }},
