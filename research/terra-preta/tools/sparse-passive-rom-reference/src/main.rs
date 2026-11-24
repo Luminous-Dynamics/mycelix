@@ -818,6 +818,118 @@ fn chain_fixture(interior_count: usize) -> Fixture {
     }
 }
 
+fn build_adaptive_projection(
+    model: &Model,
+    fixture: &Fixture,
+) -> Result<
+    (
+        Projection,
+        Vec<CgStats>,
+        Vec<f64>,
+        Vec<AdaptiveStep>,
+        bool,
+        String,
+    ),
+    String,
+> {
+    let target = fixture
+        .adaptive
+        .target_max_relative_error
+        .ok_or_else(|| "adaptive target error is missing".to_string())?;
+    let maximum_basis_dimension = fixture
+        .adaptive
+        .maximum_basis_dimension
+        .ok_or_else(|| "adaptive maximum basis dimension is missing".to_string())?;
+    let mut candidates = fixture.adaptive.candidate_shifts.clone();
+    candidates.sort_by(f64::total_cmp);
+
+    // Full-order candidate responses are computed once. The adaptive loop
+    // evaluates each current reduced model against this cached candidate grid.
+    let mut candidate_responses = Vec::with_capacity(candidates.len());
+    let mut stats = Vec::new();
+    for shift in candidates {
+        let (response, solve_stats) = response_from_sparse(
+            model,
+            shift,
+            fixture.cg_relative_tolerance,
+            fixture.cg_max_iterations,
+        )?;
+        stats.extend(solve_stats);
+        candidate_responses.push((shift, response));
+    }
+
+    let mut selected_shifts = fixture.rational_shifts.clone();
+    let (mut projection, initial_stats) =
+        build_projection_for_shifts(model, fixture, &selected_shifts)?;
+    stats.extend(initial_stats);
+    if projection.basis_dimension > maximum_basis_dimension {
+        return Err(format!(
+            "seed basis dimension {} exceeds adaptive cap {}",
+            projection.basis_dimension, maximum_basis_dimension
+        ));
+    }
+
+    let mut selection_steps = Vec::new();
+    let mut target_met = false;
+    let stop_reason;
+
+    loop {
+        let mut maximum_candidate_error = 0.0_f64;
+        let mut worst_unselected: Option<(f64, f64)> = None;
+        for (shift, full_response) in &candidate_responses {
+            let reduced_response = response_from_reduced(&projection, *shift)?;
+            let error = relative_error(&reduced_response, full_response);
+            maximum_candidate_error = maximum_candidate_error.max(error);
+            if !selected_shifts.contains(shift)
+                && worst_unselected.is_none_or(|(best_error, _)| error > best_error)
+            {
+                worst_unselected = Some((error, *shift));
+            }
+        }
+
+        if maximum_candidate_error <= target {
+            target_met = true;
+            stop_reason = "target_met".to_string();
+            break;
+        }
+        if projection.basis_dimension >= maximum_basis_dimension {
+            stop_reason = "basis_dimension_cap".to_string();
+            break;
+        }
+        let Some((worst_error, selected_shift)) = worst_unselected else {
+            stop_reason = "candidate_grid_exhausted".to_string();
+            break;
+        };
+
+        let mut next_shifts = selected_shifts.clone();
+        next_shifts.push(selected_shift);
+        let (next_projection, next_stats) =
+            build_projection_for_shifts(model, fixture, &next_shifts)?;
+        stats.extend(next_stats);
+        if next_projection.basis_dimension > maximum_basis_dimension {
+            stop_reason = "basis_dimension_cap".to_string();
+            break;
+        }
+
+        selection_steps.push(AdaptiveStep {
+            selected_shift,
+            pre_addition_worst_relative_error: worst_error.max(maximum_candidate_error),
+            basis_dimension_after_addition: next_projection.basis_dimension,
+        });
+        selected_shifts = next_shifts;
+        projection = next_projection;
+    }
+
+    Ok((
+        projection,
+        stats,
+        selected_shifts,
+        selection_steps,
+        target_met,
+        stop_reason,
+    ))
+}
+
 fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     let model = assemble(fixture)?;
     let (projection, mut stats) = build_projection(&model, fixture)?;
