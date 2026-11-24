@@ -7,7 +7,7 @@ on:
       - 'research/terra-preta/tools/sparse-passive-rom-reference/**'
       - '.github/workflows/terra-preta-sparse-passive-rom-reference.yml'
   push:
-    branches: ['research/terra-sparse-passive-rom-v0.1']
+    branches: ['research/terra-sparse-passive-rom-v0.1', 'research/terra-block-arnoldi-baseline-v0.1']
     paths:
       - 'research/terra-preta/tools/sparse-passive-rom-reference/**'
       - '.github/workflows/terra-preta-sparse-passive-rom-reference.yml'
