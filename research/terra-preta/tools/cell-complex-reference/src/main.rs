@@ -170,7 +170,9 @@ fn validate(scenario: &Scenario) -> Result<BoundaryIdentityChecks, String> {
         || scenario.source_artifact_uri.trim().is_empty()
         || !valid_sha256(&scenario.source_artifact_sha256)
     {
-        return Err("scenario identity, fixture status or source artifact provenance is invalid".into());
+        return Err(
+            "scenario identity, fixture status or source artifact provenance is invalid".into(),
+        );
     }
     if scenario.nodes.len() < 2 || scenario.edges.is_empty() || scenario.processes.is_empty() {
         return Err("the complex requires at least two nodes, one edge and one process".into());
@@ -178,9 +180,7 @@ fn validate(scenario: &Scenario) -> Result<BoundaryIdentityChecks, String> {
 
     let mut nodes = BTreeMap::new();
     for node in &scenario.nodes {
-        if node.node_id.trim().is_empty()
-            || nodes.contains_key(node.node_id.as_str())
-        {
+        if node.node_id.trim().is_empty() || nodes.contains_key(node.node_id.as_str()) {
             return Err("node IDs must be non-empty and unique".into());
         }
         for coordinate in node.coordinates_m {
@@ -214,26 +214,42 @@ fn validate(scenario: &Scenario) -> Result<BoundaryIdentityChecks, String> {
             || faces.contains_key(face.face_id.as_str())
             || face.boundary_edges.len() < 3
         {
-            return Err("faces require unique IDs and at least three oriented boundary edges".into());
+            return Err(
+                "faces require unique IDs and at least three oriented boundary edges".into(),
+            );
         }
         let mut seen_edges = BTreeSet::new();
         let mut vertex_boundary: BTreeMap<&str, i32> = BTreeMap::new();
         for term in &face.boundary_edges {
-            if !matches!(term.orientation, -1 | 1)
-                || !seen_edges.insert(term.cell_id.as_str())
-            {
-                return Err(format!("face {} has duplicate edges or invalid orientation", face.face_id));
+            if !matches!(term.orientation, -1 | 1) || !seen_edges.insert(term.cell_id.as_str()) {
+                return Err(format!(
+                    "face {} has duplicate edges or invalid orientation",
+                    face.face_id
+                ));
             }
-            let edge = edges
-                .get(term.cell_id.as_str())
-                .ok_or_else(|| format!("face {} references unknown edge {}", face.face_id, term.cell_id))?;
-            *vertex_boundary.entry(edge.tail_node_id.as_str()).or_default() -= i32::from(term.orientation);
-            *vertex_boundary.entry(edge.head_node_id.as_str()).or_default() += i32::from(term.orientation);
+            let edge = edges.get(term.cell_id.as_str()).ok_or_else(|| {
+                format!(
+                    "face {} references unknown edge {}",
+                    face.face_id, term.cell_id
+                )
+            })?;
+            *vertex_boundary
+                .entry(edge.tail_node_id.as_str())
+                .or_default() -= i32::from(term.orientation);
+            *vertex_boundary
+                .entry(edge.head_node_id.as_str())
+                .or_default() += i32::from(term.orientation);
         }
-        let residual = vertex_boundary.values().filter(|value| **value != 0).count();
+        let residual = vertex_boundary
+            .values()
+            .filter(|value| **value != 0)
+            .count();
         nonzero_terms += residual;
         if residual != 0 {
-            return Err(format!("boundary-of-boundary is nonzero for face {}", face.face_id));
+            return Err(format!(
+                "boundary-of-boundary is nonzero for face {}",
+                face.face_id
+            ));
         }
         faces.insert(face.face_id.as_str(), face);
     }
@@ -244,19 +260,25 @@ fn validate(scenario: &Scenario) -> Result<BoundaryIdentityChecks, String> {
             || volumes.contains_key(volume.volume_id.as_str())
             || volume.boundary_faces.len() < 4
         {
-            return Err("volumes require unique IDs and at least four oriented boundary faces".into());
+            return Err(
+                "volumes require unique IDs and at least four oriented boundary faces".into(),
+            );
         }
         let mut seen_faces = BTreeSet::new();
         let mut edge_boundary: BTreeMap<&str, i32> = BTreeMap::new();
         for term in &volume.boundary_faces {
-            if !matches!(term.orientation, -1 | 1)
-                || !seen_faces.insert(term.cell_id.as_str())
-            {
-                return Err(format!("volume {} has duplicate faces or invalid orientation", volume.volume_id));
+            if !matches!(term.orientation, -1 | 1) || !seen_faces.insert(term.cell_id.as_str()) {
+                return Err(format!(
+                    "volume {} has duplicate faces or invalid orientation",
+                    volume.volume_id
+                ));
             }
-            let face = faces
-                .get(term.cell_id.as_str())
-                .ok_or_else(|| format!("volume {} references unknown face {}", volume.volume_id, term.cell_id))?;
+            let face = faces.get(term.cell_id.as_str()).ok_or_else(|| {
+                format!(
+                    "volume {} references unknown face {}",
+                    volume.volume_id, term.cell_id
+                )
+            })?;
             for edge_term in &face.boundary_edges {
                 *edge_boundary.entry(edge_term.cell_id.as_str()).or_default() +=
                     i32::from(term.orientation) * i32::from(edge_term.orientation);
@@ -265,7 +287,10 @@ fn validate(scenario: &Scenario) -> Result<BoundaryIdentityChecks, String> {
         let residual = edge_boundary.values().filter(|value| **value != 0).count();
         nonzero_terms += residual;
         if residual != 0 {
-            return Err(format!("boundary-of-boundary is nonzero for volume {}", volume.volume_id));
+            return Err(format!(
+                "boundary-of-boundary is nonzero for volume {}",
+                volume.volume_id
+            ));
         }
         volumes.insert(volume.volume_id.as_str(), volume);
     }
@@ -285,14 +310,20 @@ fn validate(scenario: &Scenario) -> Result<BoundaryIdentityChecks, String> {
             return Err("process identity, names and units must be explicit and unique".into());
         }
         if process.edge_conductances.len() != scenario.edges.len() {
-            return Err(format!("process {} must declare one conductance for every edge", process.process_id));
+            return Err(format!(
+                "process {} must declare one conductance for every edge",
+                process.process_id
+            ));
         }
         let mut conductance_ids = BTreeSet::new();
         for coefficient in &process.edge_conductances {
             if !edges.contains_key(coefficient.edge_id.as_str())
                 || !conductance_ids.insert(coefficient.edge_id.as_str())
             {
-                return Err(format!("process {} has duplicate or unknown edge conductance", process.process_id));
+                return Err(format!(
+                    "process {} has duplicate or unknown edge conductance",
+                    process.process_id
+                ));
             }
             finite("edge conductance", coefficient.value)?;
             if coefficient.value <= 0.0 {
@@ -300,7 +331,10 @@ fn validate(scenario: &Scenario) -> Result<BoundaryIdentityChecks, String> {
             }
         }
         if process.dirichlet_boundaries.len() < 2 {
-            return Err(format!("process {} needs at least two Dirichlet boundary nodes", process.process_id));
+            return Err(format!(
+                "process {} needs at least two Dirichlet boundary nodes",
+                process.process_id
+            ));
         }
         let mut boundary_nodes = BTreeSet::new();
         let mut source_values = Vec::new();
@@ -310,7 +344,10 @@ fn validate(scenario: &Scenario) -> Result<BoundaryIdentityChecks, String> {
                 || !boundary_nodes.insert(boundary.node_id.as_str())
                 || !matches!(boundary.role.as_str(), "source" | "sink")
             {
-                return Err(format!("process {} has invalid/duplicate Dirichlet boundary", process.process_id));
+                return Err(format!(
+                    "process {} has invalid/duplicate Dirichlet boundary",
+                    process.process_id
+                ));
             }
             finite("Dirichlet potential", boundary.potential_value)?;
             if boundary.role == "source" {
@@ -322,23 +359,36 @@ fn validate(scenario: &Scenario) -> Result<BoundaryIdentityChecks, String> {
         if source_values.is_empty()
             || sink_values.is_empty()
             || source_values.iter().copied().fold(f64::INFINITY, f64::min)
-                <= sink_values.iter().copied().fold(f64::NEG_INFINITY, f64::max)
+                <= sink_values
+                    .iter()
+                    .copied()
+                    .fold(f64::NEG_INFINITY, f64::max)
         {
-            return Err(format!("process {} requires source potentials greater than sink potentials", process.process_id));
+            return Err(format!(
+                "process {} requires source potentials greater than sink potentials",
+                process.process_id
+            ));
         }
 
         // Every connected component must be anchored by a declared Dirichlet node.
         let mut adjacency: BTreeMap<&str, Vec<&str>> =
             nodes.keys().map(|node_id| (*node_id, Vec::new())).collect();
         for edge in &scenario.edges {
-            adjacency.get_mut(edge.tail_node_id.as_str()).expect("validated tail")
+            adjacency
+                .get_mut(edge.tail_node_id.as_str())
+                .expect("validated tail")
                 .push(edge.head_node_id.as_str());
-            adjacency.get_mut(edge.head_node_id.as_str()).expect("validated head")
+            adjacency
+                .get_mut(edge.head_node_id.as_str())
+                .expect("validated head")
                 .push(edge.tail_node_id.as_str());
         }
         let mut visited = BTreeSet::new();
-        let mut queue: VecDeque<&str> = process.dirichlet_boundaries
-            .iter().map(|boundary| boundary.node_id.as_str()).collect();
+        let mut queue: VecDeque<&str> = process
+            .dirichlet_boundaries
+            .iter()
+            .map(|boundary| boundary.node_id.as_str())
+            .collect();
         visited.extend(queue.iter().copied());
         while let Some(node_id) = queue.pop_front() {
             if let Some(neighbours) = adjacency.get(node_id) {
@@ -350,7 +400,10 @@ fn validate(scenario: &Scenario) -> Result<BoundaryIdentityChecks, String> {
             }
         }
         if visited.len() != nodes.len() {
-            return Err(format!("process {} contains a component not anchored by a Dirichlet boundary", process.process_id));
+            return Err(format!(
+                "process {} contains a component not anchored by a Dirichlet boundary",
+                process.process_id
+            ));
         }
     }
 
@@ -407,13 +460,18 @@ fn solve_dense(mut matrix: Vec<Vec<f64>>, mut rhs: Vec<f64>) -> Result<Vec<f64>,
 }
 
 fn solve_process(scenario: &Scenario, process: &Process) -> Result<ProcessResult, String> {
-    let node_ids: Vec<&str> = scenario.nodes.iter().map(|node| node.node_id.as_str()).collect();
+    let node_ids: Vec<&str> = scenario
+        .nodes
+        .iter()
+        .map(|node| node.node_id.as_str())
+        .collect();
     let node_index: BTreeMap<&str, usize> = node_ids
         .iter()
         .enumerate()
         .map(|(index, node_id)| (*node_id, index))
         .collect();
-    let conductance_by_edge: BTreeMap<&str, f64> = process.edge_conductances
+    let conductance_by_edge: BTreeMap<&str, f64> = process
+        .edge_conductances
         .iter()
         .map(|coefficient| (coefficient.edge_id.as_str(), coefficient.value))
         .collect();
@@ -421,8 +479,12 @@ fn solve_process(scenario: &Scenario, process: &Process) -> Result<ProcessResult
     let mut laplacian = vec![vec![0.0; n]; n];
 
     for edge in &scenario.edges {
-        let tail = *node_index.get(edge.tail_node_id.as_str()).expect("validated tail");
-        let head = *node_index.get(edge.head_node_id.as_str()).expect("validated head");
+        let tail = *node_index
+            .get(edge.tail_node_id.as_str())
+            .expect("validated tail");
+        let head = *node_index
+            .get(edge.head_node_id.as_str())
+            .expect("validated head");
         let conductance = *conductance_by_edge
             .get(edge.edge_id.as_str())
             .expect("validated conductance");
@@ -437,7 +499,9 @@ fn solve_process(scenario: &Scenario, process: &Process) -> Result<ProcessResult
     let mut unknown_indices = Vec::new();
     let mut boundary_indices = Vec::new();
     for boundary in &process.dirichlet_boundaries {
-        let index = *node_index.get(boundary.node_id.as_str()).expect("validated node");
+        let index = *node_index
+            .get(boundary.node_id.as_str())
+            .expect("validated node");
         potentials[index] = boundary.potential_value;
         boundary_indices.push(index);
         boundary_by_node.insert(boundary.node_id.as_str(), boundary);
@@ -456,7 +520,8 @@ fn solve_process(scenario: &Scenario, process: &Process) -> Result<ProcessResult
             reduced_matrix[row][column] = laplacian[global_row][global_column];
         }
         for boundary_index in &boundary_indices {
-            reduced_rhs[row] -= laplacian[global_row][*boundary_index] * potentials[*boundary_index];
+            reduced_rhs[row] -=
+                laplacian[global_row][*boundary_index] * potentials[*boundary_index];
         }
     }
     let interior_solution = solve_dense(reduced_matrix, reduced_rhs)?;
@@ -468,8 +533,12 @@ fn solve_process(scenario: &Scenario, process: &Process) -> Result<ProcessResult
     let mut edge_fluxes = Vec::new();
     let mut quadratic_form = 0.0;
     for edge in &scenario.edges {
-        let tail = *node_index.get(edge.tail_node_id.as_str()).expect("validated tail");
-        let head = *node_index.get(edge.head_node_id.as_str()).expect("validated head");
+        let tail = *node_index
+            .get(edge.tail_node_id.as_str())
+            .expect("validated tail");
+        let head = *node_index
+            .get(edge.head_node_id.as_str())
+            .expect("validated head");
         let conductance = *conductance_by_edge
             .get(edge.edge_id.as_str())
             .expect("validated conductance");
@@ -489,18 +558,24 @@ fn solve_process(scenario: &Scenario, process: &Process) -> Result<ProcessResult
     }
     edge_fluxes.sort_by_key(|edge| edge.edge_id.clone());
 
-    let source_flux: f64 = process.dirichlet_boundaries
+    let source_flux: f64 = process
+        .dirichlet_boundaries
         .iter()
         .filter(|boundary| boundary.role == "source")
         .map(|boundary| {
-            -incidence_balance[*node_index.get(boundary.node_id.as_str()).expect("validated node")]
+            -incidence_balance[*node_index
+                .get(boundary.node_id.as_str())
+                .expect("validated node")]
         })
         .sum();
-    let sink_flux: f64 = process.dirichlet_boundaries
+    let sink_flux: f64 = process
+        .dirichlet_boundaries
         .iter()
         .filter(|boundary| boundary.role == "sink")
         .map(|boundary| {
-            incidence_balance[*node_index.get(boundary.node_id.as_str()).expect("validated node")]
+            incidence_balance[*node_index
+                .get(boundary.node_id.as_str())
+                .expect("validated node")]
         })
         .sum();
 
@@ -609,22 +684,41 @@ mod tests {
     use super::*;
 
     fn scenario() -> Scenario {
-        serde_json::from_str(include_str!(
-            "../fixtures/synthetic-cell-complex.json"
-        ))
-        .expect("synthetic cube fixture parses")
+        serde_json::from_str(include_str!("../fixtures/synthetic-cell-complex.json"))
+            .expect("synthetic cube fixture parses")
     }
 
     fn make_network(conductances: &[f64]) -> Scenario {
         let mut scenario = scenario();
         scenario.nodes = vec![
-            Node { node_id: "source".into(), coordinates_m: [0.0, 0.0, 0.0] },
-            Node { node_id: "mid".into(), coordinates_m: [1.0, 0.0, 0.0] },
-            Node { node_id: "sink".into(), coordinates_m: [2.0, 0.0, 0.0] },
+            Node {
+                node_id: "source".into(),
+                coordinates_m: [0.0, 0.0, 0.0],
+            },
+            Node {
+                node_id: "mid".into(),
+                coordinates_m: [1.0, 0.0, 0.0],
+            },
+            Node {
+                node_id: "sink".into(),
+                coordinates_m: [2.0, 0.0, 0.0],
+            },
         ];
         scenario.edges = vec![
-            Edge { edge_id: "first".into(), tail_node_id: "source".into(), head_node_id: "mid".into(), length_m: 1.0, cross_section_m2: 1.0 },
-            Edge { edge_id: "second".into(), tail_node_id: "mid".into(), head_node_id: "sink".into(), length_m: 1.0, cross_section_m2: 1.0 },
+            Edge {
+                edge_id: "first".into(),
+                tail_node_id: "source".into(),
+                head_node_id: "mid".into(),
+                length_m: 1.0,
+                cross_section_m2: 1.0,
+            },
+            Edge {
+                edge_id: "second".into(),
+                tail_node_id: "mid".into(),
+                head_node_id: "sink".into(),
+                length_m: 1.0,
+                cross_section_m2: 1.0,
+            },
         ];
         scenario.faces.clear();
         scenario.volumes.clear();
@@ -637,11 +731,26 @@ mod tests {
             flux_unit: "f".into(),
             conductance_name: "conductance".into(),
             conductance_unit: "f/u".into(),
-            edge_conductances: scenario.edges.iter().zip(conductances.iter())
-                .map(|(edge, value)| EdgeConductance { edge_id: edge.edge_id.clone(), value: *value }).collect(),
+            edge_conductances: scenario
+                .edges
+                .iter()
+                .zip(conductances.iter())
+                .map(|(edge, value)| EdgeConductance {
+                    edge_id: edge.edge_id.clone(),
+                    value: *value,
+                })
+                .collect(),
             dirichlet_boundaries: vec![
-                DirichletBoundary { node_id: "source".into(), role: "source".into(), potential_value: 12.0 },
-                DirichletBoundary { node_id: "sink".into(), role: "sink".into(), potential_value: 0.0 },
+                DirichletBoundary {
+                    node_id: "source".into(),
+                    role: "source".into(),
+                    potential_value: 12.0,
+                },
+                DirichletBoundary {
+                    node_id: "sink".into(),
+                    role: "sink".into(),
+                    potential_value: 0.0,
+                },
             ],
         }];
         scenario
@@ -663,8 +772,16 @@ mod tests {
         assert_eq!(report.cell_counts.one_cells, 12);
         assert_eq!(report.cell_counts.two_cells, 6);
         assert_eq!(report.cell_counts.three_cells, 1);
-        let hydraulic = report.process_results.iter().find(|result| result.process_id == "hydraulic").unwrap();
-        let thermal = report.process_results.iter().find(|result| result.process_id == "thermal").unwrap();
+        let hydraulic = report
+            .process_results
+            .iter()
+            .find(|result| result.process_id == "hydraulic")
+            .unwrap();
+        let thermal = report
+            .process_results
+            .iter()
+            .find(|result| result.process_id == "thermal")
+            .unwrap();
         assert!((hydraulic.source_flux - 4.0).abs() < 1e-12);
         assert!((hydraulic.sink_flux - 4.0).abs() < 1e-12);
         assert!((thermal.source_flux - 8.0).abs() < 1e-12);
@@ -680,7 +797,11 @@ mod tests {
         let expected_flux = 12.0 / (1.0 / 2.0 + 1.0 / 4.0);
         assert!((result.source_flux - expected_flux).abs() < 1e-12);
         assert!((result.sink_flux - expected_flux).abs() < 1e-12);
-        let middle = result.node_potentials.iter().find(|node| node.node_id == "mid").unwrap();
+        let middle = result
+            .node_potentials
+            .iter()
+            .find(|node| node.node_id == "mid")
+            .unwrap();
         assert!((middle.potential_value - 4.0).abs() < 1e-12);
         assert!(result.max_interior_divergence_abs < 1e-12);
     }
@@ -695,8 +816,16 @@ mod tests {
         scenario.edges[1].head_node_id = "sink".into();
         scenario.edges[1].edge_id = "parallel".into();
         scenario.processes[0].dirichlet_boundaries = vec![
-            DirichletBoundary { node_id: "source".into(), role: "source".into(), potential_value: 12.0 },
-            DirichletBoundary { node_id: "sink".into(), role: "sink".into(), potential_value: 0.0 },
+            DirichletBoundary {
+                node_id: "source".into(),
+                role: "source".into(),
+                potential_value: 12.0,
+            },
+            DirichletBoundary {
+                node_id: "sink".into(),
+                role: "sink".into(),
+                potential_value: 0.0,
+            },
         ];
         let result = solve_process(&scenario, &scenario.processes[0]).unwrap();
         assert!((result.source_flux - 72.0).abs() < 1e-12);
@@ -711,8 +840,18 @@ mod tests {
         let after = solve_process(&scenario, &scenario.processes[0]).unwrap();
         assert!((before.source_flux - after.source_flux).abs() < 1e-12);
         assert!((before.sink_flux - after.sink_flux).abs() < 1e-12);
-        let first_before = before.edge_fluxes.iter().find(|edge| edge.edge_id == "first").unwrap().flux_value;
-        let first_after = after.edge_fluxes.iter().find(|edge| edge.edge_id == "first").unwrap().flux_value;
+        let first_before = before
+            .edge_fluxes
+            .iter()
+            .find(|edge| edge.edge_id == "first")
+            .unwrap()
+            .flux_value;
+        let first_after = after
+            .edge_fluxes
+            .iter()
+            .find(|edge| edge.edge_id == "first")
+            .unwrap()
+            .flux_value;
         assert!((first_before + first_after).abs() < 1e-12);
     }
 
@@ -750,7 +889,10 @@ mod tests {
     #[test]
     fn rejects_disconnected_unanchored_component() {
         let mut scenario = make_network(&[2.0, 4.0]);
-        scenario.nodes.push(Node { node_id: "island".into(), coordinates_m: [4.0, 0.0, 0.0] });
+        scenario.nodes.push(Node {
+            node_id: "island".into(),
+            coordinates_m: [4.0, 0.0, 0.0],
+        });
         assert!(validate(&scenario).is_err());
     }
 
@@ -782,8 +924,16 @@ mod tests {
         let before = build_report(&scenario, "0".repeat(64)).unwrap();
         scenario.processes.reverse();
         let after = build_report(&scenario, "0".repeat(64)).unwrap();
-        let before_ids: Vec<_> = before.process_results.iter().map(|result| result.process_id.as_str()).collect();
-        let after_ids: Vec<_> = after.process_results.iter().map(|result| result.process_id.as_str()).collect();
+        let before_ids: Vec<_> = before
+            .process_results
+            .iter()
+            .map(|result| result.process_id.as_str())
+            .collect();
+        let after_ids: Vec<_> = after
+            .process_results
+            .iter()
+            .map(|result| result.process_id.as_str())
+            .collect();
         assert_eq!(before_ids, after_ids);
     }
 }
