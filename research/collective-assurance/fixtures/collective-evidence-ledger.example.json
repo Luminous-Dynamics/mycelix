@@ -16,6 +16,7 @@
       "kind":{
         "type":"information_assigned",
         "information_id":"fact-1",
+        "source_origin_id":"source-record-1",
         "permission":"scoped",
         "permitted_recipients":["requester-pseudonym-1"]
       }
