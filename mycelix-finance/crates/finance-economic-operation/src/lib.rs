@@ -478,6 +478,195 @@ pub enum KernelErrorV1 {
     ObservationOperationMismatch,
     ObservationEffectMismatch,
     ObligationReferenceMismatch,
+    EmptyRequiredEffects,
+    DuplicateRequiredEffect,
+    DuplicateEffectEvidenceBatch,
+    UnexpectedEffectEvidenceBatch,
+}
+
+
+/// One owner-specific effect required by an explicit composite claim profile.
+/// The effect identity is derived from the existing FIN-EFFECT-001 algorithm;
+/// this type introduces no new identity namespace or hash domain.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RequiredEffectV1 {
+    pub role: EffectRoleV1,
+    pub effect_owner: String,
+}
+
+/// A caller-reviewed, versioned statement of which effects support one claim.
+///
+/// The kernel does not verify that this profile is authorized or complete. Its
+/// digest is carried into the output so downstream systems can bind the exact
+/// profile used. A successful result means only "supported within this declared
+/// scope", never "globally complete", "settled", "delivered" or "spendable".
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CompositeClaimProfileV1 {
+    pub profile_id: String,
+    pub profile_digest: DigestV1,
+    pub claim_name: String,
+    pub operation_id: OperationIdentityV1,
+    pub expected_intent_fingerprint: DigestV1,
+    pub required_effects: Vec<RequiredEffectV1>,
+}
+
+/// Evidence supplied for one effect slot. Completeness is an adapter assertion
+/// and remains outside the authority of this pure kernel.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EffectEvidenceBatchV1 {
+    pub effect_id: EffectIdentityV1,
+    pub completeness: EvidenceCompletenessV1,
+    pub observations: Vec<EffectObservationV1>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EffectVectorEntryV1 {
+    pub effect_id: EffectIdentityV1,
+    pub role: EffectRoleV1,
+    pub effect_owner: String,
+    pub projection: EffectProjectionV1,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CompositeClaimDispositionV1 {
+    /// Every effect required by this exact profile was observed consistently.
+    /// This is not authorization, legal finality, delivery, or spendability.
+    SupportedWithinDeclaredScope {
+        effect_ids: Vec<EffectIdentityV1>,
+    },
+    /// A declared-complete evidence view did not contain one or more required
+    /// effects. This is a pending projection, not permission to create an effect.
+    Pending {
+        effect_ids: Vec<EffectIdentityV1>,
+    },
+    /// One or more required evidence views are absent or incomplete.
+    Indeterminate {
+        effect_ids: Vec<EffectIdentityV1>,
+    },
+    /// At least one required effect has contradictory evidence.
+    /// Conflict dominates every less severe aggregate disposition.
+    Conflict {
+        effect_ids: Vec<EffectIdentityV1>,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EffectVectorProjectionV1 {
+    pub profile_id: String,
+    pub profile_digest: DigestV1,
+    pub claim_name: String,
+    pub operation_id: OperationIdentityV1,
+    pub intent_fingerprint: DigestV1,
+    pub disposition: CompositeClaimDispositionV1,
+    /// Entries are sorted by stable effect identity for deterministic replay.
+    pub entries: Vec<EffectVectorEntryV1>,
+}
+
+/// Project a profile-bound set of independently owned effects.
+///
+/// Aggregation precedence is Conflict > Indeterminate > Pending >
+/// SupportedWithinDeclaredScope. The function is deterministic over the supplied
+/// observations. It neither authorizes a first effect nor authenticates sources,
+/// verifies that the profile is complete, or proves the adapter's view is complete.
+pub fn classify_effect_vector(
+    profile: &CompositeClaimProfileV1,
+    batches: &[EffectEvidenceBatchV1],
+) -> Result<EffectVectorProjectionV1, KernelErrorV1> {
+    validate_component(&profile.profile_id)?;
+    validate_component(&profile.claim_name)?;
+    if profile.required_effects.is_empty() {
+        return Err(KernelErrorV1::EmptyRequiredEffects);
+    }
+
+    let mut required = Vec::with_capacity(profile.required_effects.len());
+    let mut required_ids = BTreeSet::new();
+    for requirement in &profile.required_effects {
+        validate_component(&requirement.effect_owner)?;
+        let effect_id = EffectIdentityV1::derive(
+            profile.operation_id,
+            requirement.role,
+            &requirement.effect_owner,
+        )?;
+        if !required_ids.insert(effect_id) {
+            return Err(KernelErrorV1::DuplicateRequiredEffect);
+        }
+        required.push((effect_id, requirement.role, requirement.effect_owner.clone()));
+    }
+    required.sort_by_key(|(effect_id, _, _)| *effect_id);
+
+    let mut batch_by_id = BTreeMap::new();
+    for batch in batches {
+        if !required_ids.contains(&batch.effect_id) {
+            return Err(KernelErrorV1::UnexpectedEffectEvidenceBatch);
+        }
+        if batch_by_id.insert(batch.effect_id, batch).is_some() {
+            return Err(KernelErrorV1::DuplicateEffectEvidenceBatch);
+        }
+    }
+
+    let mut entries = Vec::with_capacity(required.len());
+    let mut conflicts = Vec::new();
+    let mut indeterminate = Vec::new();
+    let mut pending = Vec::new();
+
+    for (effect_id, role, effect_owner) in required {
+        let projection = match batch_by_id.get(&effect_id) {
+            Some(batch) => classify_effect_observations(
+                effect_id,
+                profile.expected_intent_fingerprint,
+                &batch.observations,
+                batch.completeness,
+            )?,
+            None => EffectProjectionV1::Indeterminate {
+                receipt_references: Vec::new(),
+            },
+        };
+
+        match &projection {
+            EffectProjectionV1::Conflict { .. } => conflicts.push(effect_id),
+            EffectProjectionV1::Indeterminate { .. } => indeterminate.push(effect_id),
+            EffectProjectionV1::NoEffectObserved => pending.push(effect_id),
+            EffectProjectionV1::EffectObserved { .. } => {}
+        }
+
+        entries.push(EffectVectorEntryV1 {
+            effect_id,
+            role,
+            effect_owner,
+            projection,
+        });
+    }
+
+    let all_effect_ids: Vec<EffectIdentityV1> =
+        entries.iter().map(|entry| entry.effect_id).collect();
+
+    let disposition = if !conflicts.is_empty() {
+        CompositeClaimDispositionV1::Conflict {
+            effect_ids: conflicts,
+        }
+    } else if !indeterminate.is_empty() {
+        CompositeClaimDispositionV1::Indeterminate {
+            effect_ids: indeterminate,
+        }
+    } else if !pending.is_empty() {
+        CompositeClaimDispositionV1::Pending {
+            effect_ids: pending,
+        }
+    } else {
+        CompositeClaimDispositionV1::SupportedWithinDeclaredScope {
+            effect_ids: all_effect_ids,
+        }
+    };
+
+    Ok(EffectVectorProjectionV1 {
+        profile_id: profile.profile_id.clone(),
+        profile_digest: profile.profile_digest,
+        claim_name: profile.claim_name.clone(),
+        operation_id: profile.operation_id,
+        intent_fingerprint: profile.expected_intent_fingerprint,
+        disposition,
+        entries,
+    })
 }
 
 #[cfg(test)]
