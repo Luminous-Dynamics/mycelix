@@ -1,0 +1,64 @@
+name: Terra Preta cell-complex linear transport reference
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/CELL_COMPLEX_REFERENCE_V0.1.md'
+      - 'research/terra-preta/schemas/cell-complex-*.schema.json'
+      - 'research/terra-preta/tools/cell-complex-reference/**'
+      - '.github/workflows/terra-preta-cell-complex-reference.yml'
+  push:
+    branches: [research/terra-cell-complex-v0.1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cell-complex-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/cell-complex-reference/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path research/terra-preta/tools/cell-complex-reference/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/cell-complex-reference/Cargo.toml --all-targets -- -D warnings
+      - name: Install pinned Rust JSON Schema validator
+        run: cargo install jsonschema-cli --version 0.61.0 --locked
+      - name: Validate fixture and report
+        run: |
+          jsonschema-cli validate research/terra-preta/schemas/cell-complex-input.schema.json \
+            --instance research/terra-preta/tools/cell-complex-reference/fixtures/synthetic-cell-complex.json
+          cargo run --quiet --manifest-path research/terra-preta/tools/cell-complex-reference/Cargo.toml -- \
+            research/terra-preta/tools/cell-complex-reference/fixtures/synthetic-cell-complex.json \
+            "$RUNNER_TEMP/cell-complex-report.json"
+          jsonschema-cli validate research/terra-preta/schemas/cell-complex-report.schema.json \
+            --instance "$RUNNER_TEMP/cell-complex-report.json"
+          jq -e '
+            .cell_counts.zero_cells == 8 and
+            .cell_counts.one_cells == 12 and
+            .cell_counts.two_cells == 6 and
+            .cell_counts.three_cells == 1 and
+            .boundary_identity_checks.nonzero_boundary_of_boundary_terms == 0 and
+            ((.process_results | map(select(.process_id == "hydraulic"))[0].source_flux - 4.0 | fabs) < 1e-12) and
+            ((.process_results | map(select(.process_id == "thermal"))[0].source_flux - 8.0 | fabs) < 1e-12) and
+            ((.process_results | map(.relative_boundary_balance_error) | max) < 1e-12)
+          ' "$RUNNER_TEMP/cell-complex-report.json"
+      - name: Reject output overwrite
+        run: |
+          before=$(sha256sum "$RUNNER_TEMP/cell-complex-report.json" | cut -d ' ' -f 1)
+          if cargo run --quiet --manifest-path research/terra-preta/tools/cell-complex-reference/Cargo.toml -- \
+            research/terra-preta/tools/cell-complex-reference/fixtures/synthetic-cell-complex.json \
+            "$RUNNER_TEMP/cell-complex-report.json"; then
+            echo "unexpected overwrite success" >&2
+            exit 1
+          fi
+          after=$(sha256sum "$RUNNER_TEMP/cell-complex-report.json" | cut -d ' ' -f 1)
+          test "$before" = "$after"
