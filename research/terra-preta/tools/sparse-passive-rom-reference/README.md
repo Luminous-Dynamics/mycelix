@@ -61,6 +61,19 @@ The adaptive fixture has eight interior states and three boundary ports. The cur
     cargo clippy --manifest-path research/terra-preta/tools/sparse-passive-rom-reference/Cargo.toml --all-targets -- -D warnings
     cargo run --manifest-path research/terra-preta/tools/sparse-passive-rom-reference/Cargo.toml -- research/terra-preta/tools/sparse-passive-rom-reference/fixtures/two-interior-node-chain.json /tmp/sparse-rom-report.json
 
+## PRIMA-style zero-shift block-Krylov comparator
+
+For adaptive fixtures, the analysis also builds a zero-shift block-Krylov baseline at exactly the adaptive model's final rank:
+
+1. Seed the basis with the full port block `A^-1 B`.
+2. Repeatedly apply `A^-1` to the current orthonormal basis vectors using the same residual-verified PCG solver.
+3. Use double-pass modified Gram-Schmidt and stop at the requested rank.
+4. Form the reduced model with the same congruence projection, exact-DC correction and passivity checks.
+
+This is a PRIMA-style passive block-Arnoldi/Krylov comparator for the restricted symmetric conductance/storage realization. It is not a full implementation of the general circuit PRIMA or SPRIM algorithms. The report records its audit-grid error, basis rank, passivity result, PCG solve count and total iterations separately from the adaptive method.
+
+The dedicated workflow asserts equal rank and successful passive construction for both models, and prints the error/work comparison. Full sparse audit solves are shared references; they are not charged twice. The adaptive method additionally pays for its candidate-grid full-order solves and repeated projection rebuilds. No superiority claim is made unless the measured audit error and total offline cost are compared explicitly.
+
 ## Qualification
 
 - sparse CSR assembly for the graph Laplacian and storage-normalized operator;
