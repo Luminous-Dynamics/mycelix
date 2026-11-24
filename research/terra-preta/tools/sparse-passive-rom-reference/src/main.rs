@@ -151,6 +151,15 @@ struct AdaptiveStep {
     basis_dimension_after_addition: usize,
 }
 
+struct AdaptiveProjectionResult {
+    projection: Projection,
+    stats: Vec<CgStats>,
+    selected_shifts: Vec<f64>,
+    selection_steps: Vec<AdaptiveStep>,
+    target_met: bool,
+    stop_reason: String,
+}
+
 #[derive(Serialize)]
 struct SampleResult {
     laplace_s: f64,
@@ -819,17 +828,7 @@ fn chain_fixture(interior_count: usize) -> Fixture {
 fn build_adaptive_projection(
     model: &Model,
     fixture: &Fixture,
-) -> Result<
-    (
-        Projection,
-        Vec<CgStats>,
-        Vec<f64>,
-        Vec<AdaptiveStep>,
-        bool,
-        String,
-    ),
-    String,
-> {
+) -> Result<AdaptiveProjectionResult, String> {
     let target = fixture
         .adaptive
         .target_max_relative_error
@@ -918,14 +917,14 @@ fn build_adaptive_projection(
         projection = next_projection;
     }
 
-    Ok((
+    Ok(AdaptiveProjectionResult {
         projection,
         stats,
         selected_shifts,
         selection_steps,
         target_met,
         stop_reason,
-    ))
+    })
 }
 
 fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
@@ -939,9 +938,15 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         adaptive_target_met,
         adaptive_stop_reason,
     ) = if adaptive_requested {
-        let (projection, stats, shifts, steps, target_met, stop_reason) =
-            build_adaptive_projection(&model, fixture)?;
-        (projection, stats, shifts, steps, Some(target_met), stop_reason)
+        let adaptive = build_adaptive_projection(&model, fixture)?;
+        (
+            adaptive.projection,
+            adaptive.stats,
+            adaptive.selected_shifts,
+            adaptive.selection_steps,
+            Some(adaptive.target_met),
+            adaptive.stop_reason,
+        )
     } else {
         let (projection, stats) = build_projection(&model, fixture)?;
         (
