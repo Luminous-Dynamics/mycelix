@@ -78,9 +78,14 @@ jobs:
             (.structural_passivity_certificate_valid == true) and
             (.adaptive_candidate_shift_count == 9) and
             (.cg_solve_count > 0) and
-            (.total_cg_iterations >= .maximum_cg_iterations)
+            (.total_cg_iterations >= .maximum_cg_iterations) and
+            (.block_arnoldi_baseline_basis_dimension == .basis_dimension) and
+            (.block_arnoldi_baseline_passivity_certificate_valid == true) and
+            (.block_arnoldi_baseline_maximum_sampled_response_error > 0) and
+            (.block_arnoldi_baseline_cg_solve_count > 0) and
+            (.block_arnoldi_baseline_total_cg_iterations > 0)
           ' "$RUNNER_TEMP/adaptive-rom-report.json"
-          jq -r '"adaptive_rank=\(.basis_dimension) candidates=\(.adaptive_candidate_shift_count) shifts=\(.rational_shifts|length) total_cg_solves=\(.cg_solve_count) total_cg_iterations=\(.total_cg_iterations) audit_error=\(.maximum_sampled_response_error) feedthrough_error=\(.feedthrough_limit_relative_error)"' \
+          jq -r '"adaptive_rank=\(.basis_dimension) candidate_error=\(.adaptive_maximum_candidate_relative_error) audit_error=\(.maximum_sampled_response_error) cg_solves=\(.cg_solve_count) cg_iterations=\(.total_cg_iterations) | block_arnoldi_rank=\(.block_arnoldi_baseline_basis_dimension) audit_error=\(.block_arnoldi_baseline_maximum_sampled_response_error) cg_solves=\(.block_arnoldi_baseline_cg_solve_count) cg_iterations=\(.block_arnoldi_baseline_total_cg_iterations)"' \
             "$RUNNER_TEMP/adaptive-rom-report.json"
       - name: Execute fixed two-shift equal-rank comparator
         run: |
