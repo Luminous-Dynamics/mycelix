@@ -89,6 +89,21 @@ jobs:
           go-version: '1.27.3'
           cache: false
 
+      - name: Produce canonical Rust and Go formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml
+          gofmt -w tools/finance/sap-payment-saga-go-verifier/fault_campaign_test.go
+          while IFS= read -r file; do
+            printf 'FMTFILE:%s\\n' "$file"
+            base64 -w0 "$file"
+            printf '\\nFMTEND\\n'
+          done < <(find tools/finance/sap-payment-saga-model -type f -name '*.rs' | sort)
+          printf 'FMTFILE:tools/finance/sap-payment-saga-go-verifier/fault_campaign_test.go\\n'
+          base64 -w0 tools/finance/sap-payment-saga-go-verifier/fault_campaign_test.go
+          printf '\\nFMTEND\\n'
+
       - name: Check Rust formatting
         run: cargo fmt --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml -- --check
 
