@@ -170,7 +170,7 @@ jobs:
           fi
 
       - name: Pure identity/evidence kernel tests
-        run: cargo test --manifest-path mycelix-finance/Cargo.toml -p finance-economic-operation --locked
+        run: cargo test --manifest-path mycelix-finance/Cargo.toml -p finance-economic-operation --locked -- --nocapture
 
       - name: Strict kernel Clippy
         run: cargo clippy --manifest-path mycelix-finance/Cargo.toml -p finance-economic-operation --all-targets --no-deps --locked -- -D warnings
