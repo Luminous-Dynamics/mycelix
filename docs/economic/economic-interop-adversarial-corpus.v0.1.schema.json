@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/economic/economic-interop-adversarial-corpus.v0.1.schema.json",
+  "title": "Economic OS Loss-Aware Standards Interoperability Corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark",
+    "version",
+    "date",
+    "status",
+    "issue",
+    "source_snapshot",
+    "cases",
+    "metrics"
+  ],
+  "properties": {
+    "benchmark": {
+      "const": "Economic OS Loss-Aware Standards Interoperability Adversarial Corpus"
+    },
+    "version": {
+      "const": "0.1"
+    },
+    "date": {
+      "const": "2026-11-24"
+    },
+    "status": {
+      "const": "proposed_synthetic_adversarial_corpus_not_execution_evidence"
+    },
+    "issue": {
+      "const": 6610
+    },
+    "source_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "captured_date",
+        "valueflows",
+        "w3c_prov_dm",
+        "gs1_epcis",
+        "iso20022_catalogue_snapshot",
+        "peppol_bis_billing",
+        "caveat"
+      ],
+      "properties": {
+        "captured_date": {
+          "const": "2026-11-24"
+        },
+        "valueflows": {
+          "type": "string"
+        },
+        "w3c_prov_dm": {
+          "type": "string"
+        },
+        "gs1_epcis": {
+          "type": "string"
+        },
+        "iso20022_catalogue_snapshot": {
+          "type": "string"
+        },
+        "peppol_bis_billing": {
+          "type": "string"
+        },
+        "caveat": {
+          "type": "string"
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 24,
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "standard",
+          "threat",
+          "stimulus",
+          "expected",
+          "required_control"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^INT-[0-9]{3}$"
+          },
+          "standard": {
+            "enum": [
+              "Valueflows",
+              "W3C PROV",
+              "GS1 EPCIS",
+              "ISO 20022",
+              "Peppol",
+              "Cross-standard"
+            ]
+          },
+          "threat": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stimulus": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected": {
+            "enum": [
+              "plan_only",
+              "partial_fulfilment",
+              "reject_unit_mismatch",
+              "correction_lineage",
+              "hold_indeterminate",
+              "needs_review",
+              "reject_claim_promotion",
+              "event_not_finality",
+              "deduplicate_observation",
+              "reject_stale_profile",
+              "profile_validation_failure",
+              "return_or_compensation",
+              "reconcile_without_double_count",
+              "preserve_scoped_identity",
+              "replay_by_event_and_record_time",
+              "pending_acceptance",
+              "append_return_effect",
+              "require_valuation_evidence",
+              "explicit_loss_or_reject",
+              "join_without_identifier_collapse",
+              "byte_identical_projection"
+            ]
+          },
+          "required_control": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 9,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "target",
+          "stage"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^M-INT-[0-9]{2}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stage": {
+            "enum": [
+              "absolute_safety_gate",
+              "performance_after_safety"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
