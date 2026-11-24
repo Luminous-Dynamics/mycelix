@@ -84,9 +84,15 @@ See [BENCHMARK_TOURNAMENT_V0.1.md](BENCHMARK_TOURNAMENT_V0.1.md) for the matched
 
 ## Run
 
-From this directory: cargo fmt -- --check; cargo clippy --all-targets -- -D warnings; cargo test.
+From this directory:
 
-The standalone workflow at .github/workflows/collective-assurance.yml runs these checks with pinned Rust 1.96. External dependencies are pinned in Cargo.toml; commit Cargo.lock for exact transitive dependency reproduction.
+```bash
+cargo fmt
+cargo clippy --locked --all-targets -- -D warnings
+cargo test --locked
+```
+
+The standalone workflow at `.github/workflows/collective-assurance.yml` uses pinned Rust 1.96 and the committed `Cargo.lock`. It currently normalizes source formatting in its isolated checkout before Clippy/tests and exports the formatted source artifact; it does not yet assert that the committed Rust files are already rustfmt-clean. The workflow's locked metadata check and `--locked` build/test steps prevent silent dependency re-resolution.
 
 ## Ownership and study gates
 
