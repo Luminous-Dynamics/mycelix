@@ -233,7 +233,6 @@ func TestCheckpointRejectsMalformedOwnerDigestAndActionFrontiers(t *testing.T) {
 	}
 }
 
-
 func TestPairedBenchmarkOwnerChainsMatchSharedTerminalVectors(t *testing.T) {
 	vectors := checkpointTestVectors(t)
 	for _, owner := range []struct {
