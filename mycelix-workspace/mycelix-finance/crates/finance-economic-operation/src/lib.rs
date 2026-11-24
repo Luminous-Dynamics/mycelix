@@ -2056,6 +2056,153 @@ mod effect_vector_tests {
     }
 
     #[test]
+    fn all_economic_effect_role_wire_names_are_unique() {
+        let names = [
+            EffectRoleV1::PayerDebit.as_str(),
+            EffectRoleV1::BeneficiaryOutput.as_str(),
+            EffectRoleV1::BeneficiaryClaim.as_str(),
+            EffectRoleV1::TreasuryFee.as_str(),
+            EffectRoleV1::PoolContribution.as_str(),
+            EffectRoleV1::PoolDisbursement.as_str(),
+            EffectRoleV1::ExternalSettlementObservation.as_str(),
+            EffectRoleV1::HearthMemberNoteSpend.as_str(),
+            EffectRoleV1::HearthPoolContributionReceipt.as_str(),
+            EffectRoleV1::HearthAllocationReservation.as_str(),
+            EffectRoleV1::HearthPoolDisbursement.as_str(),
+            EffectRoleV1::TendProviderCredit.as_str(),
+            EffectRoleV1::TendRecipientDebit.as_str(),
+            EffectRoleV1::TendRepayment.as_str(),
+            EffectRoleV1::TendMutualCreditExposure.as_str(),
+            EffectRoleV1::TendClearingAdjustment.as_str(),
+            EffectRoleV1::GrantAppropriation.as_str(),
+            EffectRoleV1::GrantBudgetReservation.as_str(),
+            EffectRoleV1::GrantAward.as_str(),
+            EffectRoleV1::GrantTrancheRelease.as_str(),
+            EffectRoleV1::GrantRecipientClaim.as_str(),
+            EffectRoleV1::GrantRecovery.as_str(),
+            EffectRoleV1::ProcurementOrderCommitment.as_str(),
+            EffectRoleV1::GoodsServiceReceipt.as_str(),
+            EffectRoleV1::SupplierLiability.as_str(),
+            EffectRoleV1::PayableJournal.as_str(),
+            EffectRoleV1::PaymentInstruction.as_str(),
+            EffectRoleV1::BankSettlementReceipt.as_str(),
+            EffectRoleV1::PayrollEarningAccrual.as_str(),
+            EffectRoleV1::PayrollWithholdingLiability.as_str(),
+            EffectRoleV1::PayrollNetPayable.as_str(),
+            EffectRoleV1::PayrollRelease.as_str(),
+            EffectRoleV1::BankPayment.as_str(),
+            EffectRoleV1::WorkerReceipt.as_str(),
+            EffectRoleV1::PublicEligibilityDecision.as_str(),
+            EffectRoleV1::PublicEntitlement.as_str(),
+            EffectRoleV1::PublicBudgetReservation.as_str(),
+            EffectRoleV1::PublicDisbursement.as_str(),
+            EffectRoleV1::PublicRecipientClaim.as_str(),
+            EffectRoleV1::PublicAppealRecovery.as_str(),
+            EffectRoleV1::ResourceReservation.as_str(),
+            EffectRoleV1::ProviderCommitment.as_str(),
+            EffectRoleV1::DeliveryEvent.as_str(),
+            EffectRoleV1::BeneficiaryAcceptance.as_str(),
+            EffectRoleV1::QualityExceptionClaim.as_str(),
+            EffectRoleV1::ReputationAttestation.as_str(),
+            EffectRoleV1::ReputationProjection.as_str(),
+            EffectRoleV1::ReputationCorrection.as_str(),
+            EffectRoleV1::ReputationRevocation.as_str(),
+            EffectRoleV1::ExternalInstruction.as_str(),
+            EffectRoleV1::ExternalProviderAcceptance.as_str(),
+            EffectRoleV1::ExternalLedgerObservation.as_str(),
+            EffectRoleV1::ExternalReversal.as_str(),
+            EffectRoleV1::ValueflowsIntent.as_str(),
+            EffectRoleV1::ValueflowsCommitment.as_str(),
+            EffectRoleV1::ValueflowsClaim.as_str(),
+            EffectRoleV1::ValueflowsEconomicEvent.as_str(),
+            EffectRoleV1::ValueflowsEconomicResource.as_str(),
+            EffectRoleV1::SapDemurrageAssessment.as_str(),
+        ];
+        assert_eq!(names.len(), 59);
+        assert_eq!(names.iter().copied().collect::<BTreeSet<_>>().len(), names.len());
+    }
+
+    #[test]
+    fn economic_template_role_sets_are_explicit_and_stable() {
+        let expectations: [(EconomicClaimTemplateV1, &[EffectRoleV1]); 9] = [
+            (
+                EconomicClaimTemplateV1::SapBilateralTransferReconciled,
+                &[EffectRoleV1::PayerDebit, EffectRoleV1::BeneficiaryClaim],
+            ),
+            (
+                EconomicClaimTemplateV1::HearthContributionAccepted,
+                &[
+                    EffectRoleV1::HearthMemberNoteSpend,
+                    EffectRoleV1::HearthPoolContributionReceipt,
+                ],
+            ),
+            (
+                EconomicClaimTemplateV1::HearthWithdrawalClaimed,
+                &[
+                    EffectRoleV1::HearthPoolDisbursement,
+                    EffectRoleV1::BeneficiaryClaim,
+                ],
+            ),
+            (
+                EconomicClaimTemplateV1::TendBilateralClearing,
+                &[
+                    EffectRoleV1::TendProviderCredit,
+                    EffectRoleV1::TendRecipientDebit,
+                    EffectRoleV1::TendMutualCreditExposure,
+                ],
+            ),
+            (
+                EconomicClaimTemplateV1::GrantRecipientClaimed,
+                &[
+                    EffectRoleV1::GrantAward,
+                    EffectRoleV1::GrantBudgetReservation,
+                    EffectRoleV1::GrantTrancheRelease,
+                    EffectRoleV1::GrantRecipientClaim,
+                ],
+            ),
+            (
+                EconomicClaimTemplateV1::ProcurementReceivedAndSettled,
+                &[
+                    EffectRoleV1::ProcurementOrderCommitment,
+                    EffectRoleV1::GoodsServiceReceipt,
+                    EffectRoleV1::SupplierLiability,
+                    EffectRoleV1::PayableJournal,
+                    EffectRoleV1::PaymentInstruction,
+                    EffectRoleV1::BankSettlementReceipt,
+                ],
+            ),
+            (
+                EconomicClaimTemplateV1::PayrollWorkerReceiptObserved,
+                &[
+                    EffectRoleV1::PayrollNetPayable,
+                    EffectRoleV1::PayrollRelease,
+                    EffectRoleV1::BankPayment,
+                    EffectRoleV1::WorkerReceipt,
+                ],
+            ),
+            (
+                EconomicClaimTemplateV1::CommonsServiceAccepted,
+                &[
+                    EffectRoleV1::ResourceReservation,
+                    EffectRoleV1::ProviderCommitment,
+                    EffectRoleV1::DeliveryEvent,
+                    EffectRoleV1::BeneficiaryAcceptance,
+                ],
+            ),
+            (
+                EconomicClaimTemplateV1::ReputationAttestationRecorded,
+                &[
+                    EffectRoleV1::ReputationAttestation,
+                    EffectRoleV1::ReputationProjection,
+                ],
+            ),
+        ];
+        for (template, expected_roles) in expectations {
+            assert_eq!(template.required_roles().as_slice(), expected_roles);
+        }
+    }
+
+    #[test]
     fn profile_identifiers_are_validated() {
         let mut p = profile(vec![required(
             EffectRoleV1::PayerDebit,
