@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"strconv"
 	"testing"
 )
 
@@ -452,7 +453,7 @@ func TestFaultCampaignPlanKnownAnswerVectors(t *testing.T) {
 		if len(fields) != 7 {
 			t.Fatalf("KAT line must have 7 fields, got %d: %q", len(fields), line)
 		}
-		sequence, err := strconvParseUint(fields[0])
+		sequence, err := strconv.ParseUint(fields[0], 10, 64)
 		if err != nil {
 			t.Fatalf("invalid KAT sequence: %v", err)
 		}
