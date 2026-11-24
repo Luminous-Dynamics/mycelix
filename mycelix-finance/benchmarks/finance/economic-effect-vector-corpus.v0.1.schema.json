@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.schema.json",
+  "title": "FIN-EFFECT-004 Profile-Bound Economic Effect Vector Corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark",
+    "schema_version",
+    "issue",
+    "status",
+    "composition",
+    "aggregation_precedence",
+    "cases",
+    "metrics"
+  ],
+  "properties": {
+    "benchmark": {
+      "const": "FIN-EFFECT-004 Profile-Bound Economic Effect Vector Projection"
+    },
+    "schema_version": {
+      "const": "0.1"
+    },
+    "issue": {
+      "const": 6608
+    },
+    "status": {
+      "const": "normative_adversarial_corpus_not_execution_evidence"
+    },
+    "composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_identity",
+        "intent_fingerprint",
+        "effect_identity",
+        "projection",
+        "no_new_identity_algorithm"
+      ],
+      "properties": {
+        "operation_identity": {
+          "const": "FIN-EFFECT-001 operation identity"
+        },
+        "intent_fingerprint": {
+          "const": "FIN-EFFECT-001 immutable intent fingerprint"
+        },
+        "effect_identity": {
+          "const": "FIN-EFFECT-001 role-and-owner effect identity"
+        },
+        "projection": {
+          "const": "classify_effect_vector"
+        },
+        "no_new_identity_algorithm": {
+          "const": true
+        }
+      }
+    },
+    "aggregation_precedence": {
+      "const": [
+        "Conflict",
+        "Indeterminate",
+        "Pending",
+        "SupportedWithinDeclaredScope"
+      ]
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 16,
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "domain",
+          "required_roles",
+          "setup",
+          "stimulus",
+          "expected",
+          "assertion"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^VEC-[0-9]{3}$"
+          },
+          "domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required_roles": {
+            "type": "string",
+            "minLength": 1
+          },
+          "setup": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stimulus": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected": {
+            "enum": [
+              "SupportedWithinDeclaredScope",
+              "Pending",
+              "Indeterminate",
+              "Conflict",
+              "RejectedInput",
+              "ByteIdenticalProjection"
+            ]
+          },
+          "assertion": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "target",
+          "stage"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^M-VEC-[0-9]{2}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stage": {
+            "enum": [
+              "absolute_safety_gate",
+              "performance_after_safety"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
