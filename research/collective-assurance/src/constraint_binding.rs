@@ -169,16 +169,38 @@ pub fn qualify_response_grounding(
         let valid_handling = if !item.verified {
             used.handling == ConstraintHandling::Unresolved
         } else {
-            match (item.status, item.applicability, used.handling) {
-                (EvidenceStatus::Current, Applicability::Applicable, ConstraintHandling::Applied) => true,
-                (EvidenceStatus::Current, Applicability::NotApplicable, ConstraintHandling::Excluded) => true,
-                (EvidenceStatus::Current, Applicability::Conditional, ConstraintHandling::AppliedWithCondition) => true,
-                (EvidenceStatus::Disputed, _, ConstraintHandling::PreservedConflict) => true,
-                (EvidenceStatus::Superseded | EvidenceStatus::Expired, _, ConstraintHandling::Excluded) => true,
-                (EvidenceStatus::Unknown, _, ConstraintHandling::Unresolved) => true,
-                (_, Applicability::Unknown, ConstraintHandling::Unresolved) => true,
-                _ => false,
-            }
+            matches!(
+                (item.status, item.applicability, used.handling),
+                (
+                    EvidenceStatus::Current,
+                    Applicability::Applicable,
+                    ConstraintHandling::Applied
+                ) | (
+                    EvidenceStatus::Current,
+                    Applicability::NotApplicable,
+                    ConstraintHandling::Excluded
+                ) | (
+                    EvidenceStatus::Current,
+                    Applicability::Conditional,
+                    ConstraintHandling::AppliedWithCondition
+                ) | (
+                    EvidenceStatus::Disputed,
+                    _,
+                    ConstraintHandling::PreservedConflict
+                ) | (
+                    EvidenceStatus::Superseded | EvidenceStatus::Expired,
+                    _,
+                    ConstraintHandling::Excluded
+                ) | (
+                    EvidenceStatus::Unknown,
+                    _,
+                    ConstraintHandling::Unresolved
+                ) | (
+                    _,
+                    Applicability::Unknown,
+                    ConstraintHandling::Unresolved
+                )
+            )
         };
         if !valid_handling {
             errors.push(format!(
