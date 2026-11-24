@@ -398,7 +398,6 @@ fn check_reference_list(values: &[String]) -> bool {
 pub fn validate_ledger(events: &[LedgerEvent]) -> LedgerValidationReport {
     let mut errors = Vec::new();
     let mut assignments_by_id: BTreeMap<String, AssignmentState> = BTreeMap::new();
-    let mut assignments_by_event: BTreeMap<String, String> = BTreeMap::new();
     let mut requests: BTreeMap<String, RequestState> = BTreeMap::new();
     let mut evidence: BTreeMap<String, EvidenceState> = BTreeMap::new();
     let mut claims: BTreeMap<(String, u32), ClaimState> = BTreeMap::new();
@@ -407,7 +406,6 @@ pub fn validate_ledger(events: &[LedgerEvent]) -> LedgerValidationReport {
     let mut seen_events: BTreeMap<String, &LedgerEvent> = BTreeMap::new();
     let mut previous_digest = genesis_digest();
     let mut previous_time = 0;
-    let mut valid_prefix = true;
 
     for (index, event) in events.iter().enumerate() {
         let expected_sequence = index as u64 + 1;
@@ -416,7 +414,7 @@ pub fn validate_ledger(events: &[LedgerEvent]) -> LedgerValidationReport {
         }
         if !is_nonempty(&event.event_id)
             || !is_nonempty(&event.actor_id)
-            || !seen_events.insert(event.event_id.clone(), event).is_none()
+            || seen_events.contains_key(&event.event_id)
         {
             add_error(
                 &mut errors,
@@ -437,10 +435,7 @@ pub fn validate_ledger(events: &[LedgerEvent]) -> LedgerValidationReport {
         }
         previous_digest = event.event_digest.clone();
 
-        let parent = check_parent(event, &seen_events.iter()
-            .filter(|(event_id, prior)| event_id.as_str() != event.event_id && prior.sequence < event.sequence)
-            .map(|(event_id, prior)| (event_id.clone(), *prior))
-            .collect(), &mut errors);
+        let parent = check_parent(event, &seen_events, &mut errors);
 
         match &event.kind {
             LedgerEventKind::InformationAssigned {
@@ -460,7 +455,6 @@ pub fn validate_ledger(events: &[LedgerEvent]) -> LedgerValidationReport {
                 if (*permission == DisclosurePermission::Scoped) != !permitted_recipients.is_empty() {
                     add_error(&mut errors, event.sequence, "only scoped permissions may declare a non-empty recipient list");
                 }
-                assignments_by_event.insert(event.event_id.clone(), information_id.clone());
                 assignments_by_id.insert(
                     information_id.clone(),
                     AssignmentState {
@@ -743,11 +737,11 @@ pub fn validate_ledger(events: &[LedgerEvent]) -> LedgerValidationReport {
                 add_error(&mut errors, event.sequence, "parent event must precede child event");
             }
         }
+        seen_events.insert(event.event_id.clone(), event);
     }
 
-    valid_prefix = errors.is_empty();
     LedgerValidationReport {
-        valid: valid_prefix,
+        valid: errors.is_empty(),
         event_count: events.len(),
         root_digest: events.last().map(|event| event.event_digest.clone()),
         errors,
@@ -933,9 +927,11 @@ mod tests {
             *permitted_recipients = vec!["other-person".into()];
         }
         events[0].event_digest = events[0].calculate_digest();
-        for index in 1..events.len() {
-            events[index].previous_digest = events[index - 1].event_digest.clone();
-            events[index].event_digest = events[index].calculate_digest();
+        let mut previous = genesis_digest();
+        for event in &mut events {
+            event.previous_digest = previous;
+            event.event_digest = event.calculate_digest();
+            previous = event.event_digest.clone();
         }
         let report = validate_ledger(&events);
         assert!(!report.valid);
@@ -946,14 +942,12 @@ mod tests {
     fn evidence_cannot_support_claim_before_verification() {
         let mut events = valid_ledger();
         events.remove(4);
+        let mut previous = genesis_digest();
         for (index, event) in events.iter_mut().enumerate() {
             event.sequence = index as u64 + 1;
-            event.previous_digest = if index == 0 {
-                genesis_digest()
-            } else {
-                events[index - 1].event_digest.clone()
-            };
+            event.previous_digest = previous;
             event.event_digest = event.calculate_digest();
+            previous = event.event_digest.clone();
         }
         let report = validate_ledger(&events);
         assert!(!report.valid);
@@ -1038,8 +1032,6 @@ mod tests {
             },
         )
         .unwrap();
-        let mut broken = first_revision;
-        broken.event_id = second.event_id.clone();
         events.push(second);
         let report = validate_ledger(&events);
         assert!(!report.valid);
