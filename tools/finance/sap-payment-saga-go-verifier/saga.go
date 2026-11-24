@@ -22,7 +22,7 @@ type Leg string
 
 const (
 	LocalPaymentTransaction Leg = "local-payment-transaction"
-	TreasuryFee              Leg = "treasury-fee"
+	TreasuryFee             Leg = "treasury-fee"
 )
 
 func (l Leg) suffix() string { return string(l) }
@@ -208,7 +208,7 @@ func newJournal(intent Intent) *Journal {
 		operationID: OperationID(intent.SenderDID, intent.ClientIdempotencyKey),
 		legs: map[Leg]EffectState{
 			LocalPaymentTransaction: {Status: NotStarted},
-			TreasuryFee:              {Status: NotStarted},
+			TreasuryFee:             {Status: NotStarted},
 		},
 	}
 	if intent.FeeMinor == 0 {
