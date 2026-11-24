@@ -290,10 +290,10 @@ fn response_matrix(fixture: &Fixture) -> Result<Vec<Vec<f64>>, String> {
 fn vectorize_symmetric_upper(matrix: &[Vec<f64>]) -> (Vec<String>, Vec<f64>) {
     let mut names = Vec::new();
     let mut values = Vec::new();
-    for row in 0..matrix.len() {
-        for column in row..matrix.len() {
+    for (row, row_values) in matrix.iter().enumerate() {
+        for (column, value) in row_values.iter().enumerate().skip(row) {
             names.push(format!("Lambda[{row},{column}]"));
-            values.push(matrix[row][column]);
+            values.push(*value);
         }
     }
     (names, values)
