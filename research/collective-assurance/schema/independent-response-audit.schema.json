@@ -4,7 +4,7 @@
   "title":"Independent response-span audit v0.1",
   "type":"object",
   "additionalProperties":false,
-  "required":["request_id","response_id","auditor_id","audit_protocol_digest","coverage_complete","response_text","claims"],
+  "required":["request_id","response_id","auditor_id","audit_protocol_digest","coverage_complete","response_text","available_evidence","claims"],
   "properties":{
     "request_id":{"type":"string","minLength":1},
     "response_id":{"type":"string","minLength":1},
