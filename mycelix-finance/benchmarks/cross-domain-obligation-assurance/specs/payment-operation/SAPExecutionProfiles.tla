@@ -117,97 +117,110 @@ BilateralPayerCommit ==
   /\ ProfileMode = "OwnerBilateral"
   /\ payerDebitCommitted = FALSE
   /\ payerDebitCommitted' = TRUE
+  /\ payerViewComplete' = FALSE
+  /\ payerViewObserved' = FALSE
+  /\ projection' = "NotProjected"
+  /\ operationComplete' = FALSE
   /\ UNCHANGED <<localAtomicCommitted, localDebit, localCredit,
                  paymentRecord, receiptRecord, treasuryOutboxPrepared,
                  treasuryFeeCommitted, beneficiaryClaimCommitted,
-                 payerViewComplete, beneficiaryViewComplete,
-                 payerViewObserved, beneficiaryViewObserved,
-                 payerConflict, beneficiaryConflict, projection,
-                 operationComplete>>
+                 beneficiaryViewComplete, beneficiaryViewObserved,
+                 payerConflict, beneficiaryConflict>>
 
 BilateralBeneficiaryCommit ==
   /\ ProfileMode = "OwnerBilateral"
   /\ beneficiaryClaimCommitted = FALSE
   /\ beneficiaryClaimCommitted' = TRUE
+  /\ beneficiaryViewComplete' = FALSE
+  /\ beneficiaryViewObserved' = FALSE
+  /\ projection' = "NotProjected"
+  /\ operationComplete' = FALSE
   /\ UNCHANGED <<localAtomicCommitted, localDebit, localCredit,
                  paymentRecord, receiptRecord, treasuryOutboxPrepared,
                  treasuryFeeCommitted, payerDebitCommitted,
-                 payerViewComplete, beneficiaryViewComplete,
-                 payerViewObserved, beneficiaryViewObserved,
-                 payerConflict, beneficiaryConflict, projection,
-                 operationComplete>>
+                 payerViewComplete, payerViewObserved,
+                 payerConflict, beneficiaryConflict>>
 
 ObservePayerViewComplete ==
   /\ ProfileMode = "OwnerBilateral"
   /\ payerViewComplete = FALSE
   /\ payerViewComplete' = TRUE
   /\ payerViewObserved' = payerDebitCommitted
+  /\ projection' = "NotProjected"
+  /\ operationComplete' = FALSE
   /\ UNCHANGED <<localAtomicCommitted, localDebit, localCredit,
                  paymentRecord, receiptRecord, treasuryOutboxPrepared,
                  treasuryFeeCommitted, payerDebitCommitted,
                  beneficiaryClaimCommitted, beneficiaryViewComplete,
                  beneficiaryViewObserved, payerConflict,
-                 beneficiaryConflict, projection, operationComplete>>
+                 beneficiaryConflict>>
 
 ObservePayerViewIncomplete ==
   /\ ProfileMode = "OwnerBilateral"
   /\ payerViewComplete = FALSE
   /\ payerViewObserved' = payerDebitCommitted
+  /\ projection' = "NotProjected"
+  /\ operationComplete' = FALSE
   /\ UNCHANGED <<localAtomicCommitted, localDebit, localCredit,
                  paymentRecord, receiptRecord, treasuryOutboxPrepared,
                  treasuryFeeCommitted, payerDebitCommitted,
                  beneficiaryClaimCommitted, payerViewComplete,
                  beneficiaryViewComplete, beneficiaryViewObserved,
-                 payerConflict, beneficiaryConflict, projection,
-                 operationComplete>>
+                 payerConflict, beneficiaryConflict>>
 
 ObserveBeneficiaryViewComplete ==
   /\ ProfileMode = "OwnerBilateral"
   /\ beneficiaryViewComplete = FALSE
   /\ beneficiaryViewComplete' = TRUE
   /\ beneficiaryViewObserved' = beneficiaryClaimCommitted
+  /\ projection' = "NotProjected"
+  /\ operationComplete' = FALSE
   /\ UNCHANGED <<localAtomicCommitted, localDebit, localCredit,
                  paymentRecord, receiptRecord, treasuryOutboxPrepared,
                  treasuryFeeCommitted, payerDebitCommitted,
                  beneficiaryClaimCommitted, payerViewComplete,
-                 payerViewObserved, payerConflict, beneficiaryConflict,
-                 projection, operationComplete>>
+                 payerViewObserved, payerConflict, beneficiaryConflict>>
 
 ObserveBeneficiaryViewIncomplete ==
   /\ ProfileMode = "OwnerBilateral"
   /\ beneficiaryViewComplete = FALSE
   /\ beneficiaryViewObserved' = beneficiaryClaimCommitted
+  /\ projection' = "NotProjected"
+  /\ operationComplete' = FALSE
   /\ UNCHANGED <<localAtomicCommitted, localDebit, localCredit,
                  paymentRecord, receiptRecord, treasuryOutboxPrepared,
                  treasuryFeeCommitted, payerDebitCommitted,
                  beneficiaryClaimCommitted, payerViewComplete,
                  beneficiaryViewComplete, payerViewObserved,
-                 payerConflict, beneficiaryConflict, projection,
-                 operationComplete>>
+                 payerConflict, beneficiaryConflict>>
 
 ObservePayerConflict ==
   /\ ProfileMode = "OwnerBilateral"
   /\ payerConflict = FALSE
   /\ payerViewObserved' = TRUE
   /\ payerConflict' = TRUE
+  /\ projection' = "NotProjected"
+  /\ operationComplete' = FALSE
   /\ UNCHANGED <<localAtomicCommitted, localDebit, localCredit,
                  paymentRecord, receiptRecord, treasuryOutboxPrepared,
                  treasuryFeeCommitted, payerDebitCommitted,
                  beneficiaryClaimCommitted, payerViewComplete,
                  beneficiaryViewComplete, beneficiaryViewObserved,
-                 beneficiaryConflict, projection, operationComplete>>
+                 beneficiaryConflict>>
 
 ObserveBeneficiaryConflict ==
   /\ ProfileMode = "OwnerBilateral"
   /\ beneficiaryConflict = FALSE
   /\ beneficiaryViewObserved' = TRUE
   /\ beneficiaryConflict' = TRUE
+  /\ projection' = "NotProjected"
+  /\ operationComplete' = FALSE
   /\ UNCHANGED <<localAtomicCommitted, localDebit, localCredit,
                  paymentRecord, receiptRecord, treasuryOutboxPrepared,
                  treasuryFeeCommitted, payerDebitCommitted,
                  beneficiaryClaimCommitted, payerViewComplete,
                  beneficiaryViewComplete, payerViewObserved,
-                 payerConflict, projection, operationComplete>>
+                 payerConflict>>
 
 ProjectBilateral ==
   /\ ProfileMode = "OwnerBilateral"
