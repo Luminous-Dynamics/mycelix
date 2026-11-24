@@ -1,0 +1,21 @@
+{
+  "schema_version": "terra-sparse-passive-rom-reference-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "scenario_id": "two-interior-node-series-chain",
+  "nodes": [
+    {"node_id": "left", "storage": null},
+    {"node_id": "interior-a", "storage": 1.0},
+    {"node_id": "interior-b", "storage": 2.0},
+    {"node_id": "right", "storage": null}
+  ],
+  "edges": [
+    {"edge_id": "left-a", "from_node_id": "left", "to_node_id": "interior-a", "conductance": 2.0},
+    {"edge_id": "a-b", "from_node_id": "interior-a", "to_node_id": "interior-b", "conductance": 3.0},
+    {"edge_id": "b-right", "from_node_id": "interior-b", "to_node_id": "right", "conductance": 4.0}
+  ],
+  "boundary_node_ids": ["left", "right"],
+  "rational_shifts": [0.0, 0.1, 1.0, 10.0],
+  "laplace_samples": [0.0, 0.1, 1.0, 10.0, 100.0],
+  "cg_relative_tolerance": 1e-11,
+  "cg_max_iterations": 512
+}
