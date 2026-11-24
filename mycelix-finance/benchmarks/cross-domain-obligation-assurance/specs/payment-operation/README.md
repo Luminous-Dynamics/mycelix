@@ -76,3 +76,16 @@ java -jar ./tla2tools.jar -config PCOEClaimAdmissionAuthority-journal-mutant.cfg
 **Exact-head TLC result (24 November 2026): PASS** on subject `da4f42ba18612d343fe9ec0bf5329b6ddbe45610`, [workflow #45377435139](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45377435139). The safe profile explored 539 states generated, 172 distinct states, depth 8, zero states left on queue, and no invariant violation. The minority-acceptance mutant was caught by `CertificateQuorum`; the volatile-journal mutant was caught by `HonestNonEquivocation`. The evidence archive is [artifact 14912511266](https://github.com/Luminous-Dynamics/mycelix/actions/runs/45377435139/artifacts/14912511266), archive SHA-256 `dd905b807c9f3ab918de265e744214f7f1079c3bc885ef36dea365bf54f93d10`. TLC v1.7.4 JAR SHA-1: `bee4a54f3ee3d4afc347c3240ec2d9e93b075104`.
 
 The bound (n=4, f=1, q=3) is a finite illustrative instance, not a general proof for every set size or fault model. The quorum-intersection expression is included as a state invariant. This model still assumes authenticated distinct witness enrollment, a correct fault bound, durable journal semantics in the safe profile, correct cryptography, and a safe authority-set transition protocol. It does not model reconfiguration yet, and it is not a Holochain integration, live witness network, or external settlement proof.
+
+
+## Authority epoch transition submodel (FIN-EFFECT-003)
+
+`PCOEAuthorityEpochTransition.tla` extends the same PCOE lineage with a bounded old/new authority transition. The candidate protocol freezes effect admission in the joint-prepared interval, requires old and new quorums over one immutable digest, then closes the old epoch when the new one activates. Overlapping members are represented as one logical signer and one journal vote, eligible in each set where that identity is a member.
+
+Run the safe model and six deliberate negative controls with the pinned TLC v1.7.4 workflow:
+
+```sh
+java -jar ./tla2tools.jar -config PCOEAuthorityEpochTransition.cfg PCOEAuthorityEpochTransition.tla
+```
+
+The 16-case synthetic corpus and Draft 2020-12 schema live one level above this directory as `pcoe-authority-epoch-transition-corpus.v0.1.json` and `.schema.json`. Key alias resolution, trusted journal rollback recovery and key revocation/compromise timing are explicitly not yet modeled. See `FIN-EFFECT-003-authority-epoch-transition-v0.1.md` for the assumptions and claim ceiling.

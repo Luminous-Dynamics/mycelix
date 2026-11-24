@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-finance/benchmarks/cross-domain-obligation-assurance/pcoe-authority-epoch-transition-corpus.v0.1.schema.json",
+  "title": "PCOE Authority Epoch Transition and Durable Revocation Corpus v0.1",
+  "description": "Synthetic adversarial cases for joint authority transitions, immutable transition identity, stale epochs, key lifecycle and journal recovery. Public cases are not a hidden performance benchmark.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark",
+    "version",
+    "date",
+    "status",
+    "scenario_count",
+    "disposition_vocabulary",
+    "model_coverage_vocabulary",
+    "scenarios"
+  ],
+  "properties": {
+    "benchmark": {
+      "const": "PCOE Authority Epoch Transition and Durable Revocation Qualification"
+    },
+    "version": {
+      "const": "0.1"
+    },
+    "date": {
+      "const": "2026-11-24"
+    },
+    "status": {
+      "const": "proposed-synthetic-adversarial-corpus-not-executed"
+    },
+    "scenario_count": {
+      "const": 16
+    },
+    "source_snapshot": {
+      "type": "object"
+    },
+    "disposition_vocabulary": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "model_coverage_vocabulary": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "bounded_model",
+          "partially_modelled",
+          "not_in_model"
+        ]
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 16,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "domain",
+          "threat",
+          "preconditions",
+          "adversarial_mutation",
+          "expected_disposition",
+          "required_control",
+          "model_coverage"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^EPOCH-[0-9]{3}$"
+          },
+          "domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "threat": {
+            "type": "string",
+            "minLength": 1
+          },
+          "preconditions": {
+            "type": "string",
+            "minLength": 1
+          },
+          "adversarial_mutation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_disposition": {
+            "enum": [
+              "activate_epoch",
+              "hold_indeterminate",
+              "reject_conflict",
+              "deduplicate_logical_signer",
+              "reject_stale",
+              "reject_revoked_key",
+              "needs_review",
+              "resolve_original"
+            ]
+          },
+          "required_control": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model_coverage": {
+            "enum": [
+              "bounded_model",
+              "partially_modelled",
+              "not_in_model"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
