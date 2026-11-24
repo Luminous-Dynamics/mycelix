@@ -827,4 +827,61 @@ mod tests {
         assert_eq!(report.status, QualificationStatus::Indeterminate);
     }
 
+    #[test]
+    fn one_thousand_fault_injections_never_false_pass() {
+        for index in 0..1_000 {
+            let mut c = claims();
+            let mut e = expected();
+            let mut signature = b"test-only".to_vec();
+            match index % 12 {
+                0 => c.processes.push(ProcessClass::ModelRuntime),
+                1 => c.artifacts.push(ArtifactObservation {
+                    artifact_id: format!("answer-{index}"),
+                    class: ArtifactClass::AiGeneratedAnswer,
+                    candidate_reachable: true,
+                }),
+                2 => c.probes[0].outcome = ProbeOutcome::Allowed,
+                3 => { c.probes.pop(); },
+                4 => c.observed_external_connections = Some(1),
+                5 => c.process_inventory = InventoryStatus::Unknown,
+                6 => c.artifact_inventory = InventoryStatus::Incomplete,
+                7 => c.runner_digest.replace_range(0..1, "f"),
+                8 => signature = b"invalid".to_vec(),
+                9 => c.phase_id.clear(),
+                10 => c.probes.push(c.probes[0].clone()),
+                11 => e.phase_id.clear(),
+                _ => unreachable!(),
+            }
+            let report = qualify_ai_off(
+                &c, &signature, &e, &TestVerifier, &mut TestReplay::default()
+            );
+            assert_ne!(
+                report.status,
+                QualificationStatus::Pass,
+                "fault injection {index} unexpectedly passed: {:?}",
+                report.reasons
+            );
+        }
+    }
+
+    #[test]
+    fn multi_stratum_allocation_is_balanced_independently() {
+        let roster: Vec<_> = ["north", "south"]
+            .into_iter()
+            .flat_map(|stratum| (0..8).map(move |n| RandomizationUnit {
+                unit_id: format!("{stratum}-{n}"),
+                stratum: stratum.into(),
+            }))
+            .collect();
+        let arms = vec![
+            "ai-first".into(),
+            "independent-first".into(),
+            "evidence-first".into(),
+            "human-only".into(),
+        ];
+        let assignments =
+            allocate_complete_blocks(&roster, &arms, &mut TestRng::default()).unwrap();
+        validate_assignments(&roster, &arms, &assignments).unwrap();
+    }
+
 }
