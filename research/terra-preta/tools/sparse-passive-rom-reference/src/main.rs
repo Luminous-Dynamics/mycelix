@@ -1301,7 +1301,15 @@ mod tests {
         let adaptive = analyze(&adaptive_fixture, "adaptive-port-shift-candidate".into()).unwrap();
 
         let interior_count = adaptive_fixture.nodes.len() - adaptive_fixture.boundary_node_ids.len();
-        assert_eq!(adaptive.adaptive_target_met, Some(true));
+        assert_eq!(
+            adaptive.adaptive_target_met,
+            Some(true),
+            "candidate error {:?}, stop {}, audit error {}, rank {}",
+            adaptive.adaptive_maximum_candidate_relative_error,
+            adaptive.adaptive_stop_reason,
+            adaptive.maximum_sampled_response_error,
+            adaptive.basis_dimension
+        );
         assert_eq!(adaptive.adaptive_stop_reason, "target_met");
         assert!(!adaptive.adaptive_selection_steps.is_empty());
         assert!(adaptive.adaptive_selection_steps.iter().all(|step| {
