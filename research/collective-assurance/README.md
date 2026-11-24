@@ -25,6 +25,8 @@ AI-off means the candidate execution path cannot use AI services, agent processe
 
 ## Evidence lineage ledger
 
+The ledger explicitly distinguishes the **information holder** (the actor permitted to respond) from the **source origin** (the underlying record or evidence source). Multiple people repeating one source do not create independent corroboration; one holder disclosing two independently identified source records can. The `source_origin_id` is a pseudonymous provenance reference, not self-authenticating proof of independence: production must resolve it to a trusted source registry, signed source receipt or externally auditable reference.
+
 The `ledger` module records the sequence from information assignment to a decision:
 
 1. **Assignment:** identify the pseudonymous holder, disclosure permission and scoped recipient list.
