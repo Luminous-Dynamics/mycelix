@@ -373,9 +373,9 @@ fn minimum_symmetric_eigenvalue(matrix: &[Vec<f64>]) -> Result<f64, String> {
     for _ in 0..maximum_iterations {
         let mut pivot = (0usize, 0usize);
         let mut largest = 0.0_f64;
-        for row in 0..n {
-            for column in (row + 1)..n {
-                let candidate = work[row][column].abs();
+        for (row, row_values) in work.iter().enumerate() {
+            for (column, value) in row_values.iter().enumerate().skip(row + 1) {
+                let candidate = value.abs();
                 if candidate > largest {
                     largest = candidate;
                     pivot = (row, column);
