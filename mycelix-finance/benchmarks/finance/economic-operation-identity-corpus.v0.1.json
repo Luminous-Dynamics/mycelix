@@ -368,6 +368,42 @@
         "API key expiration cannot create a second economic effect.",
         "HTTP interoperability does not replace durable effect identity."
       ]
+    },
+    {
+      "id": "EOP-031",
+      "surface": "provider_v2",
+      "setup": "A Stripe API v2-style request failed or partially failed within its documented idempotency scope; successful side effects must not repeat.",
+      "stimulus": "Replay the same key for the same API and account/sandbox within 30 days.",
+      "expected": "ReplayOriginal",
+      "max_new_effects": 0,
+      "assertions": [
+        "Retry failed work only under the provider's documented profile.",
+        "Do not repeat already successful owner effects."
+      ]
+    },
+    {
+      "id": "EOP-032",
+      "surface": "provider_retention",
+      "setup": "The provider API replay window has elapsed, but the Mycelix operation/effect binding remains within its applicable retention period.",
+      "stimulus": "Retry the original obligation identity after the provider's 30-day API v2 replay scope.",
+      "expected": "ReplayOriginal",
+      "max_new_effects": 0,
+      "assertions": [
+        "Do not delegate Mycelix's durable obligation identity to the provider cache.",
+        "Query or reconcile the original effect identity; do not create a new payment."
+      ]
+    },
+    {
+      "id": "EOP-033",
+      "surface": "cross_api_scope",
+      "setup": "The same obligation is retried through another cell/service/API endpoint, and the caller's view cannot establish the original effect-owner binding.",
+      "stimulus": "Submit the original obligation identity through the second endpoint.",
+      "expected": "Indeterminate",
+      "max_new_effects": 0,
+      "assertions": [
+        "Endpoint scope is not a new economic obligation.",
+        "Incomplete cross-cell evidence cannot authorize a second effect."
+      ]
     }
   ],
   "metrics": [
