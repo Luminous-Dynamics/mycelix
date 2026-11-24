@@ -22,22 +22,22 @@ const (
 )
 
 type faultCampaignPlanV1 struct {
-	Sequence                       uint64
-	Seed                           uint64
-	AmountMinor                    uint64
-	FeeMinor                       uint64
-	LocalIndeterminateRetries      uint8
-	TreasuryIndeterminateRetries   uint8
-	LostCommitAckMask              uint8
+	Sequence                     uint64
+	Seed                         uint64
+	AmountMinor                  uint64
+	FeeMinor                     uint64
+	LocalIndeterminateRetries    uint8
+	TreasuryIndeterminateRetries uint8
+	LostCommitAckMask            uint8
 }
 
 type faultCampaignOutcomeV1 struct {
-	OperationID     string
-	LocalEffectID   string
+	OperationID      string
+	LocalEffectID    string
 	TreasuryEffectID string
-	Status          OperationStatus
-	EventCount      uint64
-	TailDigest      string
+	Status           OperationStatus
+	EventCount       uint64
+	TailDigest       string
 }
 
 func faultCampaignMix64V1(value uint64) uint64 {
@@ -130,7 +130,7 @@ func faultCampaignLocalEvidence(journal *Journal, plan faultCampaignPlanV1) Evid
 			ReceiptSignerDID:           journal.intent.SenderDID,
 			SigningProfile:             ReceiptProfileV1,
 			SignatureDigest:            faultCampaignDigest(plan.Seed ^ 0x4c4f43414c31),
-			TreasuryFeeOutboxID:         outboxID,
+			TreasuryFeeOutboxID:        outboxID,
 		},
 	}
 	digest, err := canonicalEvidenceDigest(evidence)
@@ -357,11 +357,11 @@ func runFaultCampaignPlanV1(t *testing.T, plan faultCampaignPlanV1) faultCampaig
 	}
 
 	outcome := faultCampaignOutcomeV1{
-		OperationID:      journal.OperationID(),
-		LocalEffectID:    localID,
-		Status:           journal.Status(),
-		EventCount:       anchor.EventCount,
-		TailDigest:       anchor.TailDigest,
+		OperationID:   journal.OperationID(),
+		LocalEffectID: localID,
+		Status:        journal.Status(),
+		EventCount:    anchor.EventCount,
+		TailDigest:    anchor.TailDigest,
 	}
 	if plan.FeeMinor > 0 {
 		outcome.TreasuryEffectID = treasuryID
