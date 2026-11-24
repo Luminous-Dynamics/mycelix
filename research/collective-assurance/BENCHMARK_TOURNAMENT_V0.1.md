@@ -215,6 +215,7 @@ These are **proposed research targets**, not achieved results or guaranteed SOTA
 | Open-ended group assistance | GroupAssistBench L2: full-context GPT-5.6-terra 0.431; DeepSeek-v4-flash 0.469; BM25 0.370; dense 0.362; best external memory 0.269 | First reproduce official numbers under pinned backbones; target ≥0.45 L2 on the matched GPT-5.6-terra condition and ≥0.32 on conflicting-memory M3, with every material fact source-anchored and every applicability constraint respected; report all L1/L2 and M1/M2/M3 slices |
 | Common ground / joint action | Common Ground puzzle benchmark | Match benchmark task and compare joint success, repair latency, coordination errors and situation-awareness calibration; no claims about post-AI capability from this track |
 | Evidence lineage / source independence | COLLABMEM provenance/conflict checks, GroupAssistBench source anchors, W3C PROV concepts | 100% material claim-to-origin traceability in qualified fixtures; zero repeated-origin inflation; zero stale claim revisions accepted; zero unauthorized visibility; independently authenticate source-origin references before making production claims |
+| Response constraint binding | GroupAssistBench L2 and Assistance Constraint Binding; COLLABMEM provenance/conflict checks | Zero silent omission of required visible evidence; zero use of superseded/expired or unverified facts as current; zero scope/status metadata substitution; 100% explicit handling of condition, dispute, exclusion or unresolved status in synthetic conformance |
 | Human agency / support choice | HumanAgencyBench six behavioral dimensions; new support-choice validator | Zero unconfirmed changes to explicit user-requested modes; 100% request/decision binding; zero required-accommodation withdrawal in contract tests; report the six HumanAgencyBench dimensions separately rather than collapsing them into capability |
 | Human capability dividend | No Luminous human result yet | Confirmatory target is a positive delayed AI-off transfer effect versus matched controls while agency meets a preregistered non-inferiority margin and burden does not materially worsen; set numeric effect and sample size only after pilot variance and ICC estimates |
 
@@ -250,6 +251,7 @@ Proposed targets (not yet independently demonstrated in deployed systems):
 - 0 stale claim revisions accepted as current decision premises.
 - 100% detection of event mutation when an independently retained ledger root is available.
 - 100% regeneration of team allocations from a revealed seed/salt and the original frozen design.
+- Zero silent omission of required evidence from a response-grounding record; 100% exact binding of evidence ID, source digest, subject, scope, status and applicability.
 
 Rights-based withholding is not a scoring error. Candidate or participant-visible information must not include evaluator-only truth or restricted payloads. Hash chaining is only tamper-evidence: it does not authenticate the event recorder, timestamp or source. Production runs need signed recorder receipts and an independently retained root.
 
@@ -284,6 +286,7 @@ The research protocol now has three reference implementations in the Mycelix PR:
 - `ledger.rs`: event lineage from rights-bearing information assignment through verified recipient exposure, claim revision and decision; holder identity is distinct from source-origin identity.
 - `allocation.rs`: OS-entropy seed/salt, domain-separated commitment, canonical roster/design digests, pinned ChaCha20 schedule and post-study reveal verification.
 - `support_policy.rs`: respects explicit requested assistance mode, requires confirmation for mode changes, restricts unsolicited challenge-style support to learning/practice intent, and preserves required accommodations.
+- `constraint_binding.rs`: requires visible evidence constraints to be applied, excluded, conditionally applied, conflict-preserved or left unresolved according to verified status, scope and applicability; silent omission and metadata substitution fail.
 
 The implementations are synthetic/reference validators. Their claims are bounded by the trustworthiness of the event recorder, source-origin registry, user's captured preferences, and production allocation operator. A different source-origin string is not proof that two sources are truly independent until those origin references are independently authenticated.
 
