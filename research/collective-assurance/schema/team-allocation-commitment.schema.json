@@ -1,0 +1,26 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://luminousdynamics.io/schemas/team-allocation-commitment-v0.1.json",
+  "title":"Team allocation seed commitment and reveal v0.1",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schema_version","algorithm_id","run_id","design_digest","roster_digest","seed_commitment_sha256"],
+  "properties":{
+    "schema_version":{"const":"team-allocation-commitment-v0.1"},
+    "algorithm_id":{"const":"complete-block-fisher-yates-chacha20-v0.1"},
+    "run_id":{"type":"string","minLength":1},
+    "design_digest":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "roster_digest":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "seed_commitment_sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "seed_reveal":{
+      "type":"object",
+      "additionalProperties":false,
+      "required":["seed_hex","salt_hex"],
+      "properties":{
+        "seed_hex":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+        "salt_hex":{"type":"string","pattern":"^[a-f0-9]{64}$"}
+      },
+      "description":"Must be absent from public pre-enrollment material. Publish only after enrollment and analysis are frozen."
+    }
+  }
+}
