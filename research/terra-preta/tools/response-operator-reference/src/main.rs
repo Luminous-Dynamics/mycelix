@@ -613,7 +613,9 @@ mod tests {
         let fixture = two_path_fixture([2.0, 2.0, 2.0, 2.0]);
         let report = analyze(&fixture, "0".repeat(64)).expect("analysis");
         // The two-terminal effective conductance is -Lambda[left,right].
-        let sensitivity = &report.log_conductance_sensitivity.jacobian_d_response_d_log_conductance[1];
+        let sensitivity = &report
+            .log_conductance_sensitivity
+            .jacobian_d_response_d_log_conductance[1];
         let stacked = vec![
             sensitivity.clone(),
             sensitivity.iter().map(|value| 10.0 * value).collect(),
