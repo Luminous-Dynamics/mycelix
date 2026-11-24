@@ -397,6 +397,15 @@ fn check_reference_list(values: &[String]) -> bool {
 
 pub fn validate_ledger(events: &[LedgerEvent]) -> LedgerValidationReport {
     let mut errors = Vec::new();
+    if events.is_empty() {
+        errors.push("ledger must contain at least one event".into());
+        return LedgerValidationReport {
+            valid: false,
+            event_count: 0,
+            root_digest: None,
+            errors,
+        };
+    }
     let mut assignments_by_id: BTreeMap<String, AssignmentState> = BTreeMap::new();
     let mut requests: BTreeMap<String, RequestState> = BTreeMap::new();
     let mut evidence: BTreeMap<String, EvidenceState> = BTreeMap::new();
@@ -916,6 +925,13 @@ mod tests {
             },
         );
         events
+    }
+
+    #[test]
+    fn empty_ledger_is_not_a_valid_evidence_record() {
+        let report = validate_ledger(&[]);
+        assert!(!report.valid);
+        assert!(report.root_digest.is_none());
     }
 
     #[test]
