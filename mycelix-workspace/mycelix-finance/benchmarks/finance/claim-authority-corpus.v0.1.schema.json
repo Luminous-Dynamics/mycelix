@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/claim-authority-corpus-v0.1.schema.json",
+  "title": "Mycelix Claim Authority Adversarial Corpus",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark",
+    "schema_version",
+    "issue",
+    "status",
+    "profiles",
+    "quorum_baseline",
+    "invariants",
+    "cases",
+    "metrics"
+  ],
+  "properties": {
+    "benchmark": {
+      "const": "Mycelix claim admission authority, uniqueness and spendability"
+    },
+    "schema_version": {
+      "const": "0.1"
+    },
+    "issue": {
+      "const": 6593
+    },
+    "status": {
+      "const": "normative_authority_profile_corpus_not_execution_evidence"
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "SingleWriterOwnerChainV1",
+          "ByzantineWitnessQuorumV1",
+          "PartitionedCapabilityV1"
+        ]
+      }
+    },
+    "quorum_baseline": {
+      "type": "object",
+      "required": [
+        "n",
+        "threshold",
+        "max_byzantine",
+        "claim"
+      ],
+      "properties": {
+        "n": {
+          "const": "3f+1"
+        },
+        "threshold": {
+          "const": "2f+1"
+        },
+        "max_byzantine": {
+          "const": "f"
+        },
+        "claim": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "invariants": {
+      "type": "array",
+      "minItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 28,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "profile",
+          "setup",
+          "stimulus",
+          "expected",
+          "assertions"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^CA-[0-9]{3}$"
+          },
+          "profile": {
+            "type": "string",
+            "minLength": 1
+          },
+          "setup": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stimulus": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected": {
+            "enum": [
+              "AtMostOneLocalCommit",
+              "ReplayOriginal",
+              "Conflict",
+              "Indeterminate",
+              "ConflictFrozen",
+              "Certified",
+              "RejectMinority",
+              "RejectInvalidCertificate",
+              "RefuseAndRecordEquivocationAttempt",
+              "IndeterminateOrRefuse",
+              "RejectStaleEpoch",
+              "NoCertificate",
+              "OneCertifiedAtMost",
+              "GuaranteeOutOfProfile",
+              "ClaimPending",
+              "RejectUnauthorizedOwner",
+              "DisjointAllocation",
+              "ReconcileOriginal"
+            ]
+          },
+          "assertions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "target",
+          "stage"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^CA-M[0-9]{2}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "stage": {
+            "enum": [
+              "absolute_safety",
+              "performance_after_safety",
+              "availability",
+              "security_response"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
