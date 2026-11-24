@@ -23,6 +23,17 @@ The signature covers a crate-local length-prefixed encoding, not a public canoni
 
 AI-off means the candidate execution path cannot use AI services, agent processes, or retained AI answer artifacts during the challenge. It cannot erase what human participants remember from earlier collaboration; that retained human knowledge is part of the intervention, not a machine cache leak.
 
+## User-directed assistance policy
+
+The `support_policy` module validates an assistant's declared support choice against the user's explicit request and intent:
+- Direct completion, explanation, co-solving, critique/verification, hint/challenge, or defer/pause/handoff are distinct modes.
+- An explicitly requested mode cannot be changed without user confirmation.
+- Hint/challenge is not the default for task-completion or accessibility requests; it requires a learning/practice intent, explicit request, or user-confirmed switch.
+- A required accommodation must remain available.
+- A support decision must bind to the exact request identifier.
+
+This is a policy-contract check, not preference inference or enforcement by itself. The recorder must faithfully capture the user's stated intent/choice, and production systems must enforce the chosen mode. No participant should be forced to struggle, and asking for a direct answer must not be scored as failure.
+
 ## Evidence lineage ledger
 
 The ledger explicitly distinguishes the **information holder** (the actor permitted to respond) from the **source origin** (the underlying record or evidence source). Multiple people repeating one source do not create independent corroboration; one holder disclosing two independently identified source records can. The `source_origin_id` is a pseudonymous provenance reference, not self-authenticating proof of independence: production must resolve it to a trusted source registry, signed source receipt or externally auditable reference.
