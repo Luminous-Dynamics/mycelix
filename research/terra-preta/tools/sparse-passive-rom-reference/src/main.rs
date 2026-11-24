@@ -692,28 +692,27 @@ fn response_from_sparse(
     Ok((response, stats))
 }
 
-fn build_projection_for_shifts(
+fn build_projection_for_requests(
     model: &Model,
     fixture: &Fixture,
-    rational_shifts: &[f64],
+    requests: &[SnapshotRequest],
 ) -> Result<(Projection, Vec<CgStats>), String> {
     let nb = model.boundary_ids.len();
     let mut basis: Vec<Vec<f64>> = Vec::new();
     let mut stats = Vec::new();
-    let mut snapshots_attempted = 0;
-    for shift in rational_shifts {
-        for port in 0..nb {
-            snapshots_attempted += 1;
-            let (snapshot, snapshot_stats) = pcg(
-                &model.a,
-                *shift,
-                &column(&model.b, port),
-                fixture.cg_relative_tolerance,
-                fixture.cg_max_iterations,
-            )?;
-            stats.push(snapshot_stats);
-            push_orthonormal_basis(&mut basis, snapshot);
+    for request in requests {
+        if request.input_port_index >= nb {
+            return Err("snapshot request references an unknown boundary input port".into());
         }
+        let (snapshot, solve_stats) = pcg(
+            &model.a,
+            request.shift,
+            &column(&model.b, request.input_port_index),
+            fixture.cg_relative_tolerance,
+            fixture.cg_max_iterations,
+        )?;
+        stats.push(solve_stats);
+        push_orthonormal_basis(&mut basis, snapshot);
     }
     if basis.is_empty() {
         return Err("rational Krylov snapshot basis is numerically empty".into());
@@ -757,13 +756,34 @@ fn build_projection_for_shifts(
             b_r,
             d_r,
             basis_dimension: basis.len(),
-            basis_snapshots: snapshots_attempted,
+            basis_snapshots: requests.len(),
             lambda_0_min_eigenvalue: lambda_0_min,
             lambda_0_scale,
             a_r_min_eigenvalue: a_r_min,
         },
         stats,
     ))
+}
+
+fn requests_for_shifts(shifts: &[f64], port_count: usize) -> Vec<SnapshotRequest> {
+    shifts
+        .iter()
+        .flat_map(|shift| {
+            (0..port_count).map(|input_port_index| SnapshotRequest {
+                shift: *shift,
+                input_port_index,
+            })
+        })
+        .collect()
+}
+
+fn build_projection_for_shifts(
+    model: &Model,
+    fixture: &Fixture,
+    rational_shifts: &[f64],
+) -> Result<(Projection, Vec<CgStats>), String> {
+    let requests = requests_for_shifts(rational_shifts, model.boundary_ids.len());
+    build_projection_for_requests(model, fixture, &requests)
 }
 
 fn build_projection(
