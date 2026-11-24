@@ -1,0 +1,200 @@
+name: SAP Payment Saga Deterministic Fault Campaign
+
+on:
+  pull_request:
+    paths:
+      - 'tools/finance/sap-payment-saga-model/**'
+      - 'tools/finance/sap-payment-saga-go-verifier/**'
+      - '.github/workflows/sap-payment-saga-fault-campaign.yml'
+  push:
+    branches:
+      - 'research/fin-saga-model-based-fault-campaign-v0.1-20261124'
+    paths:
+      - 'tools/finance/sap-payment-saga-model/**'
+      - 'tools/finance/sap-payment-saga-go-verifier/**'
+      - '.github/workflows/sap-payment-saga-fault-campaign.yml'
+  workflow_dispatch:
+    inputs:
+      full_campaign:
+        description: 'Run 1,000,000 deterministic traces in Rust and Go'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sap-payment-saga-fault-campaign-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deterministic-campaign:
+    name: Paired Rust and Go reference campaign
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert exact source revision
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          printf 'Expected source SHA: %s\n' "$EXPECTED_SHA"
+          printf 'Checked out source SHA: %s\n' "$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - name: Validate campaign contract and frozen KATs
+        shell: bash
+        run: |
+          set -euo pipefail
+          contract='tools/finance/sap-payment-saga-model/FIN_SAGA_FAULT_CAMPAIGN_V1.json'
+          schema='tools/finance/sap-payment-saga-model/FIN_SAGA_FAULT_CAMPAIGN_V1.schema.json'
+          fixture='tools/finance/sap-payment-saga-go-verifier/fixtures/sap-payment-saga-fault-campaign-v1.kat'
+          jq empty "$contract"
+          jq empty "$schema"
+          jq -e '
+            .known_answer_vectors as $vectors |
+            .issue == 6045 and
+            .root_seed_hex == "4d594843414d5031" and
+            .generator.name == "CounterMix64V1" and
+            .presubmit_trace_count == 10000 and
+            .full_campaign_trace_count == 1000000 and
+            ($vectors | length >= 8) and
+            (($vectors | map(.sequence) | unique | length) == ($vectors | length)) and
+            (.explicit_coverage | length >= 8)
+          ' "$contract" >/dev/null
+          test "$(grep -vcE '^(#|$)' "$fixture")" -ge 8
+          grep -q '1,000,000-trace' tools/finance/sap-payment-saga-model/FIN_SAGA_FAULT_CAMPAIGN_V1.md
+
+      - name: Install pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+          rustup default 1.96.0
+          rustc --version
+          cargo --version
+
+      - name: Install Go toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+          cache: false
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml -- --check
+
+      - name: Run Rust reference tests and 10,000-trace campaign
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml -- --nocapture 2>&1 | tee /tmp/saga-rust-tests.txt
+
+      - name: Run strict Rust Clippy
+        run: cargo clippy --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml --all-targets -- -D warnings
+
+      - name: Check Go formatting
+        working-directory: tools/finance/sap-payment-saga-go-verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            printf 'Files requiring gofmt:\n%s\n' "$unformatted"
+            gofmt -d $unformatted
+            exit 1
+          fi
+
+      - name: Run Go static analysis
+        working-directory: tools/finance/sap-payment-saga-go-verifier
+        run: go vet ./...
+
+      - name: Run independent Go reference tests and 10,000-trace campaign
+        working-directory: tools/finance/sap-payment-saga-go-verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -race -count=1 -v ./... 2>&1 | tee /tmp/saga-go-tests.txt
+
+      - name: Compare Rust and Go 10,000-trace result digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          rust_summary="$(grep -oE 'fault_campaign_rust_summary_10000=[0-9a-f]+' /tmp/saga-rust-tests.txt | tail -n1 | cut -d= -f2)"
+          go_summary="$(grep -oE 'fault_campaign_go_summary_10000=[0-9a-f]+' /tmp/saga-go-tests.txt | tail -n1 | cut -d= -f2)"
+          test -n "$rust_summary"
+          test -n "$go_summary"
+          test "$rust_summary" = "$go_summary"
+          echo "paired_fault_campaign_10000_sha256=$rust_summary"
+          echo "### Paired 10,000-trace fault campaign" >> "$GITHUB_STEP_SUMMARY"
+          echo "Result SHA-256: `$rust_summary`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run 1,000,000-trace Rust campaign
+        if: github.event_name == 'workflow_dispatch' && inputs.full_campaign == true
+        env:
+          MYCELIX_FULL_CAMPAIGN: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path tools/finance/sap-payment-saga-model/Cargo.toml deterministic_full_million_fault_campaign -- --nocapture 2>&1 | tee /tmp/saga-rust-million.txt
+
+      - name: Run 1,000,000-trace Go campaign
+        if: github.event_name == 'workflow_dispatch' && inputs.full_campaign == true
+        working-directory: tools/finance/sap-payment-saga-go-verifier
+        env:
+          MYCELIX_FULL_CAMPAIGN: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -race -run '^TestDeterministicFullMillionFaultCampaign$' -count=1 -v 2>&1 | tee /tmp/saga-go-million.txt
+
+      - name: Compare Rust and Go 1,000,000-trace result digests
+        if: github.event_name == 'workflow_dispatch' && inputs.full_campaign == true
+        shell: bash
+        run: |
+          set -euo pipefail
+          rust_summary="$(grep -oE 'fault_campaign_rust_summary_1000000=[0-9a-f]+' /tmp/saga-rust-million.txt | tail -n1 | cut -d= -f2)"
+          go_summary="$(grep -oE 'fault_campaign_go_summary_1000000=[0-9a-f]+' /tmp/saga-go-million.txt | tail -n1 | cut -d= -f2)"
+          test -n "$rust_summary"
+          test -n "$go_summary"
+          test "$rust_summary" = "$go_summary"
+          echo "paired_fault_campaign_1000000_sha256=$rust_summary"
+          echo "### Paired 1,000,000-trace fault campaign" >> "$GITHUB_STEP_SUMMARY"
+          echo "Result SHA-256: `$rust_summary`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record source and runtime fingerprints
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "subject_commit=$(git rev-parse HEAD)"
+          rustc --version
+          cargo --version
+          go version
+          uname -srm
+          awk -F: '/model name/ { gsub(/^[[:space:]]+/, "", $2); print "CPU: " $2; exit }' /proc/cpuinfo
+          sha256sum tools/finance/sap-payment-saga-model/src/fault_campaign.rs
+          sha256sum tools/finance/sap-payment-saga-go-verifier/fault_campaign_test.go
+          sha256sum tools/finance/sap-payment-saga-go-verifier/fixtures/sap-payment-saga-fault-campaign-v1.kat
+          sha256sum tools/finance/sap-payment-saga-model/FIN_SAGA_FAULT_CAMPAIGN_V1.json
+
+      - name: Retain campaign logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sap-payment-saga-fault-campaign-${{ github.sha }}
+          path: |
+            /tmp/saga-rust-tests.txt
+            /tmp/saga-go-tests.txt
+            /tmp/saga-rust-million.txt
+            /tmp/saga-go-million.txt
+          if-no-files-found: ignore
+          retention-days: 30
