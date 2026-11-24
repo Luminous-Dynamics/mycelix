@@ -1467,6 +1467,11 @@ mod tests {
         assert!(adaptive.maximum_sampled_response_error < fixed.maximum_sampled_response_error);
         assert!(adaptive.dc_relative_error < 1.0e-8);
         assert!(adaptive.structural_passivity_certificate_valid);
+        // Candidate full-order columns (27), seed snapshots (3), one DC
+        // operator (3), audit-grid columns (27), and final DC audit (3).
+        // Selected adaptive snapshots are reused from the cached candidate solves.
+        assert_eq!(adaptive.cg_solve_count, 63);
+        assert!(adaptive.total_cg_iterations < 661);
     }
 
     #[test]
