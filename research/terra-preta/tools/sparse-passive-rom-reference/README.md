@@ -74,6 +74,21 @@ This is a PRIMA-style passive block-Arnoldi/Krylov comparator for the restricted
 
 The dedicated workflow asserts equal rank and successful passive construction for both models, and prints the error/work comparison. Full sparse audit solves are shared references; they are not charged twice. The adaptive method additionally pays for its candidate-grid full-order solves and repeated projection rebuilds. No superiority claim is made unless the measured audit error and total offline cost are compared explicitly.
 
+## A posteriori response-error bound (numerically verified M-matrix supersolution)
+
+For each admitted graph, the reference validates that the normalized interior operator is a symmetric positive definite Z-matrix (a Stieltjes/M-matrix in the anchored graph setting). It solves `A y_hat = 1` with residual-verified PCG, requires positive components, scales the vector until `A y >= 1` is independently rechecked componentwise, and obtains the conservative lower bound:
+
+    lambda_min(A) >= 1 / ||y||_infinity
+
+For each real nonnegative Laplace sample, it computes the reduced state lifted to the full graph, the full-space residual `R(s) = B - (A+sI) X_r(s)`, and the bound:
+
+    ||Lambda(s) - Lambda_r(s)||_F
+      <= ||D - D_r||_F + ||B||_F ||R(s)||_F / (lambda_min_lower + s)
+
+The report includes the lower bound, supersolution size, PCG certificate work, absolute and relative error bounds, and per-sample verification that the bound dominates the measured full-vs-reduced error. If the M-matrix structure, positive supersolution, componentwise inequality or bound check fails, analysis returns an error rather than emitting a qualified certificate.
+
+This is a **floating-point-verified supersolution bound**, not an interval-arithmetic proof. It is limited to the fixed symmetric positive linear network and real nonnegative Laplace samples. It does not certify complex-frequency, nonlinear Richards, hysteresis, multiphase or empirical soil behaviour. A useful certificate must also be reasonably tight; the report exposes bound-to-observed-error ratio for that reason.
+
 ## Qualification
 
 - sparse CSR assembly for the graph Laplacian and storage-normalized operator;
