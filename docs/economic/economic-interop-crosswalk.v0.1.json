@@ -1,0 +1,151 @@
+{
+  "benchmark": "Economic OS Standards Interoperability Semantic Crosswalk",
+  "version": "0.1",
+  "date": "2026-11-24",
+  "issue": 6610,
+  "status": "normative_synthetic_development_crosswalk_not_execution_evidence",
+  "source_standards": [
+    "Valueflows 1.0.0",
+    "W3C PROV-DM",
+    "GS1 EPCIS 2.0.0",
+    "ISO 20022",
+    "Peppol BIS Billing 3.0.21"
+  ],
+  "crosswalk": [
+    {
+      "id": "MAP-001",
+      "standard": "valueflows",
+      "source_concept": "Intent",
+      "semantic_layer": "Plan",
+      "mycelix_mapping": "Obligation/intent reference",
+      "non_equivalence": "Intent is not actual owner effect or delivery",
+      "mapping_rule": "Keep as plan node; bind stable operation identity and later evidence references"
+    },
+    {
+      "id": "MAP-002",
+      "standard": "valueflows",
+      "source_concept": "Commitment",
+      "semantic_layer": "Plan",
+      "mycelix_mapping": "Owner-specific promise/obligation",
+      "non_equivalence": "Commitment is not fulfilment",
+      "mapping_rule": "Create distinct owner effects for fulfilment claims; preserve partial quantities"
+    },
+    {
+      "id": "MAP-003",
+      "standard": "valueflows",
+      "source_concept": "Claim",
+      "semantic_layer": "Claim/assertion",
+      "mycelix_mapping": "Assertion requiring profile-bound support",
+      "non_equivalence": "Claim is not authority merely because it is represented in an ontology",
+      "mapping_rule": "Bind claim profile digest and required effect IDs; evaluate evidence scope"
+    },
+    {
+      "id": "MAP-004",
+      "standard": "valueflows",
+      "source_concept": "EconomicEvent",
+      "semantic_layer": "Observation",
+      "mycelix_mapping": "Economic event affecting a resource",
+      "non_equivalence": "EconomicEvent mapping does not prove legal authority or external finality",
+      "mapping_rule": "Bind author/source, event time, resource, quantity and evidence; separate effect owner"
+    },
+    {
+      "id": "MAP-005",
+      "standard": "valueflows",
+      "source_concept": "EconomicResource",
+      "semantic_layer": "Resource",
+      "mycelix_mapping": "Resource identity and quantity/unit context",
+      "non_equivalence": "Resource identity does not imply current availability, ownership or title",
+      "mapping_rule": "Preserve resource ID, unit, custody/owner profile and time-scoped observations"
+    },
+    {
+      "id": "MAP-006",
+      "standard": "w3c-prov",
+      "source_concept": "Entity",
+      "semantic_layer": "Evidence object",
+      "mycelix_mapping": "Captured evidence artifact or immutable economic record",
+      "non_equivalence": "PROV Entity status does not establish truth or completeness",
+      "mapping_rule": "Content-address bytes; retain source authority, capture time and transformation chain"
+    },
+    {
+      "id": "MAP-007",
+      "standard": "w3c-prov",
+      "source_concept": "Activity",
+      "semantic_layer": "Transformation/observation activity",
+      "mycelix_mapping": "Import, normalize, validate, post, or reconcile activity",
+      "non_equivalence": "Activity provenance is not execution authorization",
+      "mapping_rule": "Record actor/software, inputs, outputs, time and code/profile revision"
+    },
+    {
+      "id": "MAP-008",
+      "standard": "w3c-prov",
+      "source_concept": "Agent",
+      "semantic_layer": "Responsible agent",
+      "mycelix_mapping": "Evidence producer or responsible actor",
+      "non_equivalence": "Attribution/association is not legal delegation or signing authority",
+      "mapping_rule": "Verify credentials and separately evaluate scoped authorization"
+    },
+    {
+      "id": "MAP-009",
+      "standard": "gs1-epcis",
+      "source_concept": "ObjectEvent / TransactionEvent",
+      "semantic_layer": "Physical visibility observation",
+      "mycelix_mapping": "Observed scan, shipment, receiving or transaction event",
+      "non_equivalence": "Visibility event is not legal title, payment settlement or acceptance",
+      "mapping_rule": "Bind eventID, eventTime, recordTime, bizStep, disposition and source"
+    },
+    {
+      "id": "MAP-010",
+      "standard": "gs1-epcis",
+      "source_concept": "TransformationEvent",
+      "semantic_layer": "Resource transformation",
+      "mycelix_mapping": "Consume/produce or transform resources",
+      "non_equivalence": "Transformation event does not settle financial obligations",
+      "mapping_rule": "Map input/output quantity and units; preserve lineage and loss/gain rules"
+    },
+    {
+      "id": "MAP-011",
+      "standard": "iso20022",
+      "source_concept": "pain.001",
+      "semantic_layer": "Payment initiation",
+      "mycelix_mapping": "Customer payment instruction",
+      "non_equivalence": "Initiation is not provider acceptance, booking or settlement",
+      "mapping_rule": "Retain message version, sender, end-to-end ID, instruction status and external references"
+    },
+    {
+      "id": "MAP-012",
+      "standard": "iso20022",
+      "source_concept": "pacs.002",
+      "semantic_layer": "Payment status",
+      "mycelix_mapping": "Interbank status observation",
+      "non_equivalence": "A status value is not universally equivalent to final settlement",
+      "mapping_rule": "Interpret only under the rail's versioned status/finality profile"
+    },
+    {
+      "id": "MAP-013",
+      "standard": "iso20022",
+      "source_concept": "pacs.004 / pacs.007",
+      "semantic_layer": "Return / reversal",
+      "mycelix_mapping": "Return or reversal evidence",
+      "non_equivalence": "Correction does not erase original economic history",
+      "mapping_rule": "Append linked compensating effect and preserve original event"
+    },
+    {
+      "id": "MAP-014",
+      "standard": "iso20022",
+      "source_concept": "camt.052 / camt.053 / camt.054",
+      "semantic_layer": "Account reporting observation",
+      "mycelix_mapping": "Intraday report, statement and debit/credit notification",
+      "non_equivalence": "Duplicate/overlapping reports must not multiply an effect",
+      "mapping_rule": "Bind account, statement/report scope, sequence and bank transaction IDs"
+    },
+    {
+      "id": "MAP-015",
+      "standard": "peppol",
+      "source_concept": "Invoice / CreditNote",
+      "semantic_layer": "Supplier claim/document",
+      "mycelix_mapping": "Invoice amount, tax, parties and references",
+      "non_equivalence": "Schema/CIUS validation does not prove goods receipt, supplier legitimacy or payment",
+      "mapping_rule": "Bind exact profile version and validation layers; require independent receipt/settlement evidence"
+    }
+  ]
+}
