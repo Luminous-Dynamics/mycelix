@@ -904,7 +904,7 @@ fn build_adaptive_projection(
 
     let mut selection_steps = Vec::new();
     let mut target_met = false;
-    let mut final_candidate_error = f64::INFINITY;
+    let final_candidate_error;
     let stop_reason;
 
     loop {
