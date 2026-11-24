@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/mycelix-finance/benchmarks/finance/economic-effect-profile-template-adversarial-corpus.v0.1.schema.json",
+  "title": "Economic OS Claim Template Semantic Boundary Corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark",
+    "version",
+    "date",
+    "issue",
+    "status",
+    "role_registry_version",
+    "profile_digest_version",
+    "case_count",
+    "dispositions",
+    "cases",
+    "metrics"
+  ],
+  "properties": {
+    "benchmark": {
+      "const": "Economic OS Claim Template Semantic Boundary Adversarial Corpus"
+    },
+    "version": {
+      "const": "0.1"
+    },
+    "date": {
+      "const": "2026-11-24"
+    },
+    "issue": {
+      "const": 6612
+    },
+    "status": {
+      "const": "proposed_synthetic_template_boundary_corpus_not_execution_evidence"
+    },
+    "role_registry_version": {
+      "const": "economic-os-effect-profile-templates.v0.1"
+    },
+    "profile_digest_version": {
+      "const": "FIN-EFFECT-004-claim-profile-digest-v1"
+    },
+    "case_count": {
+      "const": 24
+    },
+    "dispositions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 24,
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "template_or_domain",
+          "threat",
+          "precondition",
+          "adversarial_input",
+          "expected",
+          "safety_assertion"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^TPL-[0-9]{3}$"
+          },
+          "template_or_domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "threat": {
+            "type": "string",
+            "minLength": 1
+          },
+          "precondition": {
+            "type": "string",
+            "minLength": 1
+          },
+          "adversarial_input": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected": {
+            "enum": [
+              "SupportedWithinDeclaredScope",
+              "Pending",
+              "Indeterminate",
+              "Conflict",
+              "RejectedInput",
+              "RejectedPromotion",
+              "DeterministicProfile"
+            ]
+          },
+          "safety_assertion": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "target",
+          "stage"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^M-TPL-[0-9]{2}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stage": {
+            "enum": [
+              "absolute_safety_gate",
+              "performance_after_safety"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
