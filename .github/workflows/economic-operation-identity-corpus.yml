@@ -393,7 +393,7 @@ jobs:
           grep -q "Single-author local atomic principal transfer" "$doc"
           grep -q "Owner-authenticated bilateral transfer" "$doc"
           grep -q "Missing or incomplete DHT evidence is Indeterminate" "$doc"
-          grep -q "This pure layer does not prove" "$doc"
+          grep -q "What this pure layer does not prove" "$doc"
 
       - name: Install pinned Rust toolchain
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
