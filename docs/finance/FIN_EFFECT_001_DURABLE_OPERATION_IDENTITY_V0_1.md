@@ -28,24 +28,25 @@ Conceptual derivation:
 ```text
 operation_id = BLAKE3(
   "mycelix:economic-operation:v1\\0" ||
+  u16be(schema_version = 1) ||
   lp(namespace) ||
   lp(origin_authority) ||
   lp(stable_obligation_reference)
 )
 ```
 
-`lp(x)` is an unsigned 32-bit big-endian byte length followed by exactly those UTF-8 bytes. Identity-domain strings and schema versions are fixed. The stable reference is opaque and is not an authorization credential.
+`lp(x)` is a u32 big-endian byte length followed by exactly those UTF-8 bytes; `u16be` and `u64be` are fixed-width big-endian integers. The 32-byte terms digest is appended raw, without a length prefix. Identity-domain strings and schema versions are fixed. The stable reference is opaque and is not an authorization credential.
 
 A production implementation must define the allowed character sets, maximum lengths, normalization rules, and collision domain for every identifier field. It must not silently Unicode-normalize or case-fold values after identity creation.
 
 ### 1.2 Intent fingerprint
 
-The fingerprint binds the immutable economic terms, independently of the obligation identity:
+The fingerprint binds the immutable economic terms, independently of the obligation identity. The source-obligation reference in the terms MUST exactly equal the stable obligation reference used to derive the operation ID; the pure kernel rejects a mismatch:
 
 ```text
 fingerprint = BLAKE3(
   "mycelix:economic-intent:v1\\0" ||
-  schema_version ||
+  u16be(schema_version = 1) ||
   lp(settlement_profile) ||
   lp(payer_owner) ||
   lp(beneficiary_owner) ||
@@ -55,7 +56,7 @@ fingerprint = BLAKE3(
   lp(purpose_code) ||
   lp(source_obligation_reference) ||
   lp(policy_revision) ||
-  lp(terms_digest)
+  terms_digest_32_bytes
 )
 ```
 
@@ -72,6 +73,7 @@ One obligation can legitimately require effects owned by different agents/servic
 ```text
 effect_id = BLAKE3(
   "mycelix:economic-effect:v1\\0" ||
+  u16be(schema_version = 1) ||
   operation_id_bytes ||
   lp(effect_role) ||
   lp(effect_owner)
@@ -186,6 +188,12 @@ If detailed evidence must be erased, retain only a legally permitted non-reversi
 6. **Holochain adapters:** integrate only after the exact conductor/HDK/HDI tuple and authority capabilities are qualified. Keep unqualified paths disabled.
 7. **External rail adapter:** separately qualify provider-specific reference, settlement and reversal semantics.
 8. **Independent review:** compare the pure kernel, integrity validation, coordinator and evidence artifacts against one frozen protocol version.
+
+### 6.1 Initial pure Rust kernel
+
+Draft [PR #6589](https://github.com/Luminous-Dynamics/mycelix/pull/6589) adds the storage-independent `finance-economic-operation` package to the Finance workspace and its public mirror. The initial slice computes the operation ID, intent fingerprint and owner/role-specific effect ID; it classifies binding and effect observations as replay, conflict, no observation, or indeterminate. It has 17 unit tests authored and exact-head format/test/Clippy plus mirror-parity steps wired into the qualification workflow.
+
+This kernel deliberately cannot prove an observation view complete, authenticate a source author, establish a unique Holochain claim, or authorize a value-moving write. `NoBindingObserved` and `NoEffectObserved` are not admission grants. Do not promote the test count to PASS until the exact-head workflow succeeds.
 
 ## 7. Benchmark plan
 
