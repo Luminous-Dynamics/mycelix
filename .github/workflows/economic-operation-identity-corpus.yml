@@ -18,6 +18,8 @@ on:
       - "mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json"
+      - "docs/economic/economic-os-effect-role-vocabulary-v0.1.md"
+      - "mycelix-workspace/docs/economic/economic-os-effect-role-vocabulary-v0.1.md"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
       - "mycelix-finance/Cargo.toml"
@@ -46,6 +48,8 @@ on:
       - "mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json"
+      - "docs/economic/economic-os-effect-role-vocabulary-v0.1.md"
+      - "mycelix-workspace/docs/economic/economic-os-effect-role-vocabulary-v0.1.md"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
       - "mycelix-finance/Cargo.toml"
@@ -156,6 +160,7 @@ jobs:
           cmp mycelix-finance/Cargo.lock mycelix-workspace/mycelix-finance/Cargo.lock
           cmp mycelix-finance/crates/finance-economic-operation/Cargo.toml mycelix-workspace/mycelix-finance/crates/finance-economic-operation/Cargo.toml
           cmp mycelix-finance/crates/finance-economic-operation/src/lib.rs mycelix-workspace/mycelix-finance/crates/finance-economic-operation/src/lib.rs
+          cmp docs/economic/economic-os-effect-role-vocabulary-v0.1.md mycelix-workspace/docs/economic/economic-os-effect-role-vocabulary-v0.1.md
           cmp mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.json
           cmp mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-profile-templates.v0.1.schema.json
           cmp docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md mycelix-workspace/docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md
@@ -241,6 +246,15 @@ jobs:
           cmp "$catalogue" "mycelix-workspace/$catalogue"
           cmp "$schema" "mycelix-workspace/$schema"
           echo "Validated nine Economic OS claim templates and role bindings; templates are not policy authority."
+
+      - name: Validate Economic OS role template documentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          doc="docs/economic/economic-os-effect-role-vocabulary-v0.1.md"
+          grep -q "nine versioned EconomicClaimTemplateV1 presets" "$doc"
+          grep -q "Existing Finance v1 strings are frozen" "$doc"
+          grep -q "A template is a reusable shape, not a pre-approved claim profile" "$doc"
 
       - name: Install pinned Rust toolchain
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
