@@ -10,8 +10,6 @@ use std::{
 
 const VERSION: &str = "terra-sparse-passive-rom-reference-v0.1";
 const FIXTURE_STATUS: &str = "synthetic_only_not_empirical_evidence";
-const TOL: f64 = 1.0e-10;
-
 type Dense = Vec<Vec<f64>>;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -457,9 +455,9 @@ fn transpose_product(basis: &[Vec<f64>], values: &[Vec<f64>]) -> Dense {
     let columns = values.first().map_or(0, Vec::len);
     let mut result = vec![vec![0.0; columns]; rows];
     for (basis_index, vector) in basis.iter().enumerate() {
-        for column_index in 0..columns {
+        for (value, column_index) in result[basis_index].iter_mut().zip(0..columns) {
             let value_column = column(values, column_index);
-            result[basis_index][column_index] = dot(vector, &value_column);
+            *value = dot(vector, &value_column);
         }
     }
     result
@@ -556,10 +554,12 @@ fn response_from_sparse(
         stats.push(solve_stats);
     }
     let mut response = model.d.clone();
-    for row in 0..nb {
-        for col in 0..nb {
-            let correction = dot(&column(&model.b, row), &solution_columns[col]);
-            response[row][col] -= correction;
+    let b_columns: Vec<Vec<f64>> = (0..nb).map(|port| column(&model.b, port)).collect();
+    for (row, response_row) in response.iter_mut().enumerate() {
+        let b_row = &b_columns[row];
+        for (response_value, solution_column) in response_row.iter_mut().zip(solution_columns.iter()) {
+            let correction = dot(b_row, solution_column);
+            *response_value -= correction;
         }
     }
     Ok((response, stats))
@@ -605,18 +605,19 @@ fn build_projection(
     }
     let a_r = multiply_transpose_left(&basis, &a_basis);
     let b_r = transpose_product(&basis, &model.b);
-    let mut a_r_inv_b = vec![vec![0.0; nb]; basis.len()];
+    let mut inverse_columns = Vec::with_capacity(nb);
     for port in 0..nb {
-        let solution = dense_solve(&a_r, &column(&b_r, port))?;
-        for (row, value) in solution.into_iter().enumerate() {
-            a_r_inv_b[row][port] = value;
-        }
+        inverse_columns.push(dense_solve(&a_r, &column(&b_r, port))?);
     }
+    let a_r_inv_b: Dense = (0..basis.len())
+        .map(|row| inverse_columns.iter().map(|values| values[row]).collect())
+        .collect();
 
+    let b_columns: Vec<Vec<f64>> = (0..nb).map(|port| column(&b_r, port)).collect();
     let mut d_r = lambda_0.clone();
-    for row in 0..nb {
-        for col in 0..nb {
-            d_r[row][col] += dot(&column(&b_r, row), &column(&a_r_inv_b, col));
+    for (row, d_row) in d_r.iter_mut().enumerate() {
+        for (col, value) in d_row.iter_mut().enumerate() {
+            *value += dot(&b_columns[row], &inverse_columns[col]);
         }
     }
 
@@ -643,17 +644,18 @@ fn response_from_reduced(projection: &Projection, shift: f64) -> Result<Dense, S
     for (index, row) in shifted.iter_mut().enumerate() {
         row[index] += shift;
     }
-    let mut solutions = vec![vec![0.0; nb]; rank];
+    let mut solution_columns = Vec::with_capacity(nb);
     for port in 0..nb {
-        let solution = dense_solve(&shifted, &column(&projection.b_r, port))?;
-        for (row, value) in solution.into_iter().enumerate() {
-            solutions[row][port] = value;
-        }
+        solution_columns.push(dense_solve(&shifted, &column(&projection.b_r, port))?);
     }
+    let b_columns: Vec<Vec<f64>> = (0..nb)
+        .map(|port| column(&projection.b_r, port))
+        .collect();
     let mut response = projection.d_r.clone();
-    for row in 0..nb {
-        for col in 0..nb {
-            response[row][col] -= dot(&column(&projection.b_r, row), &column(&solutions, col));
+    for (row, response_row) in response.iter_mut().enumerate() {
+        let b_row = &b_columns[row];
+        for (response_value, solution_column) in response_row.iter_mut().zip(solution_columns.iter()) {
+            *response_value -= dot(b_row, solution_column);
         }
     }
     Ok(response)
@@ -667,6 +669,7 @@ fn relative_error(left: &[Vec<f64>], right: &[Vec<f64>]) -> f64 {
     numerator / denominator
 }
 
+#[cfg(test)]
 fn chain_fixture(interior_count: usize) -> Fixture {
     let mut nodes = vec![Node { node_id: "left".into(), storage: None }];
     for index in 0..interior_count {
