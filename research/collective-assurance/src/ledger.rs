@@ -1061,6 +1061,7 @@ mod tests {
 
     fn append_conflicting_evidence(
         events: &mut Vec<LedgerEvent>,
+        holder_id: &str,
         source_origin_id: &str,
     ) {
         let digest = "a".repeat(64);
@@ -1068,7 +1069,7 @@ mod tests {
             events,
             "assigned-2",
             9,
-            "holder",
+            holder_id,
             None,
             None,
             LedgerEventKind::InformationAssigned {
@@ -1083,7 +1084,7 @@ mod tests {
             "request-2",
             10,
             "requester",
-            Some("holder"),
+            Some(holder_id),
             Some("assigned-2"),
             LedgerEventKind::RequestCreated {
                 request_id: "r-2".into(),
@@ -1095,7 +1096,7 @@ mod tests {
             "delivered-2",
             11,
             "transport",
-            Some("holder"),
+            Some(holder_id),
             Some("request-2"),
             LedgerEventKind::RequestDelivered {
                 request_id: "r-2".into(),
@@ -1105,7 +1106,7 @@ mod tests {
             events,
             "disclosure-2",
             12,
-            "holder",
+            holder_id,
             Some("requester"),
             Some("delivered-2"),
             LedgerEventKind::Disclosure {
@@ -1159,15 +1160,15 @@ mod tests {
     #[test]
     fn distinct_origins_can_be_independent_even_with_one_holder() {
         let mut events = valid_ledger();
-        append_conflicting_evidence(&mut events, "source-record-2");
+        append_conflicting_evidence(&mut events, "holder", "source-record-2");
         let report = validate_ledger(&events);
         assert!(report.valid, "{:?}", report.errors);
     }
 
     #[test]
-    fn different_holders_do_not_make_one_origin_independent() {
+    fn different_holders_repeating_one_origin_are_not_independent() {
         let mut events = valid_ledger();
-        append_conflicting_evidence(&mut events, "source-record-1");
+        append_conflicting_evidence(&mut events, "holder-2", "source-record-1");
         let report = validate_ledger(&events);
         assert!(!report.valid);
         assert!(report.errors.iter().any(|error| error.contains("independent supporting and contradicting origins")));
