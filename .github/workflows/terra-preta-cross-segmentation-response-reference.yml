@@ -25,7 +25,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - name: Format
+      - name: Apply rustfmt normalization
+        run: cargo fmt --manifest-path research/terra-preta/tools/cross-segmentation-response-reference/Cargo.toml
+      - name: Export rustfmt-normalized source
+        uses: actions/upload-artifact@v4
+        with:
+          name: terra-cross-segmentation-rustfmt-source
+          path: research/terra-preta/tools/cross-segmentation-response-reference/src/main.rs
+          if-no-files-found: error
+          retention-days: 1
+      - name: Verify normalized formatting
         run: cargo fmt --manifest-path research/terra-preta/tools/cross-segmentation-response-reference/Cargo.toml -- --check
       - name: Tests
         run: cargo test --manifest-path research/terra-preta/tools/cross-segmentation-response-reference/Cargo.toml
