@@ -165,6 +165,7 @@ struct AdaptiveProjectionResult {
     selected_snapshots: Vec<SnapshotRequest>,
     selection_steps: Vec<AdaptiveStep>,
     target_met: bool,
+    maximum_candidate_relative_error: f64,
     stop_reason: String,
 }
 
@@ -190,6 +191,7 @@ struct Report {
     selected_port_snapshots: Vec<SnapshotRequest>,
     adaptive_selection_steps: Vec<AdaptiveStep>,
     adaptive_target_met: Option<bool>,
+    adaptive_maximum_candidate_relative_error: Option<f64>,
     adaptive_stop_reason: String,
     basis_dimension: usize,
     basis_snapshots_attempted: usize,
@@ -902,6 +904,7 @@ fn build_adaptive_projection(
 
     let mut selection_steps = Vec::new();
     let mut target_met = false;
+    let mut final_candidate_error = f64::INFINITY;
     let stop_reason;
 
     loop {
@@ -928,6 +931,7 @@ fn build_adaptive_projection(
             }
         }
 
+        final_candidate_error = maximum_candidate_error;
         if maximum_candidate_error <= target {
             target_met = true;
             stop_reason = "target_met".to_string();
@@ -976,6 +980,7 @@ fn build_adaptive_projection(
         selected_snapshots,
         selection_steps,
         target_met,
+        maximum_candidate_relative_error: final_candidate_error,
         stop_reason,
     })
 }
@@ -990,6 +995,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         selected_port_snapshots,
         adaptive_selection_steps,
         adaptive_target_met,
+        adaptive_maximum_candidate_relative_error,
         adaptive_stop_reason,
     ) = if adaptive_requested {
         let adaptive = build_adaptive_projection(&model, fixture)?;
@@ -1000,6 +1006,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             adaptive.selected_snapshots,
             adaptive.selection_steps,
             Some(adaptive.target_met),
+            Some(adaptive.maximum_candidate_relative_error),
             adaptive.stop_reason,
         )
     } else {
@@ -1010,6 +1017,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             fixture.rational_shifts.clone(),
             requests_for_shifts(&fixture.rational_shifts, model.boundary_ids.len()),
             Vec::new(),
+            None,
             None,
             "fixed_shift_mode".to_string(),
         )
@@ -1074,6 +1082,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         selected_port_snapshots,
         adaptive_selection_steps,
         adaptive_target_met,
+        adaptive_maximum_candidate_relative_error,
         adaptive_stop_reason,
         basis_dimension: projection.basis_dimension,
         basis_snapshots_attempted: projection.basis_snapshots,
