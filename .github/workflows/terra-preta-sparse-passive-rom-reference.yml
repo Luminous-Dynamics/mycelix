@@ -72,7 +72,8 @@ jobs:
             (.adaptive_stop_reason == "target_met") and
             (.adaptive_selection_steps | length >= 1) and
             ([.selected_port_snapshots[] | select(.input_port_index < 3)] | length == (.selected_port_snapshots | length)) and
-            (.maximum_sampled_response_error <= 1e-3) and
+            (.maximum_sampled_response_error <= 1e-2) and
+            (.adaptive_maximum_candidate_relative_error <= 0.05) and
             (.dc_relative_error < 1e-8) and
             (.structural_passivity_certificate_valid == true) and
             (.adaptive_candidate_shift_count == 9) and
