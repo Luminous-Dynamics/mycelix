@@ -250,6 +250,9 @@ pub enum EffectRoleV1 {
     ValueflowsEconomicEvent,
     ValueflowsEconomicResource,
 
+    // SAP execution-profile boundary: one local atomic transaction owned by one author.
+    FinanceLocalAtomicPaymentTransaction,
+
     // Asset lifecycle effects outside ordinary transfers.
     SapDemurrageAssessment,
 }
@@ -315,6 +318,9 @@ impl EffectRoleV1 {
             Self::ValueflowsClaim => "valueflows.claim",
             Self::ValueflowsEconomicEvent => "valueflows.economic_event",
             Self::ValueflowsEconomicResource => "valueflows.economic_resource",
+            Self::FinanceLocalAtomicPaymentTransaction => {
+                "finance.local_atomic_payment_transaction"
+            }
             Self::SapDemurrageAssessment => "sap.demurrage_assessment",
         }
     }
@@ -614,6 +620,7 @@ pub enum KernelErrorV1 {
     MissingTemplateRoleBinding,
     DuplicateTemplateRoleBinding,
     UnexpectedTemplateRoleBinding,
+    PayerBeneficiaryOwnerMustDiffer,
 }
 
 /// One owner-specific effect required by an explicit composite claim profile.
@@ -701,6 +708,140 @@ impl CompositeClaimProfileV1 {
 /// Templates provide a reviewed, versioned required-role shape. The caller must
 /// still bind the actual effect owners and policy context. A template is not
 /// authority, legal policy, settlement finality, or proof of profile completeness.
+/// Explicit SAP execution models. Each enum value maps to a distinct profile ID
+/// and claim name, which are included in the existing FIN-EFFECT-004 profile
+/// content digest. This preserves the v1 digest encoding while making execution
+/// model substitution change the committed profile bytes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ExecutionProfileV1 {
+    /// One Holochain author commits debit, credit, Payment, Receipt and fee outbox
+    /// intent in one atomic source-chain transaction.
+    LocalAtomicPrincipalTransferV1,
+    /// The local atomic transaction above plus a separate Treasury-owned fee effect.
+    LocalAtomicTransferTreasuryReconciledV1,
+    /// Payer debit and beneficiary claim are committed by distinct owner chains.
+    OwnerAuthenticatedBilateralTransferV1,
+}
+
+impl ExecutionProfileV1 {
+    pub fn profile_id(self) -> &'static str {
+        match self {
+            Self::LocalAtomicPrincipalTransferV1 => {
+                "economic-os:execution:sap-local-atomic-principal-transfer:v1"
+            }
+            Self::LocalAtomicTransferTreasuryReconciledV1 => {
+                "economic-os:execution:sap-local-atomic-transfer-treasury-reconciled:v1"
+            }
+            Self::OwnerAuthenticatedBilateralTransferV1 => {
+                "economic-os:execution:sap-owner-authenticated-bilateral-transfer:v1"
+            }
+        }
+    }
+
+    pub fn claim_name(self) -> &'static str {
+        match self {
+            Self::LocalAtomicPrincipalTransferV1 => {
+                "sap_local_atomic_principal_transfer_committed"
+            }
+            Self::LocalAtomicTransferTreasuryReconciledV1 => {
+                "sap_local_atomic_transfer_treasury_reconciled"
+            }
+            Self::OwnerAuthenticatedBilateralTransferV1 => {
+                "sap_owner_authenticated_bilateral_transfer_reconciled"
+            }
+        }
+    }
+
+    pub fn authority_model(self) -> &'static str {
+        match self {
+            Self::LocalAtomicPrincipalTransferV1
+            | Self::LocalAtomicTransferTreasuryReconciledV1 => {
+                "single_author_atomic_source_chain_transaction"
+            }
+            Self::OwnerAuthenticatedBilateralTransferV1 => {
+                "independent_payer_and_beneficiary_source_chains"
+            }
+        }
+    }
+
+    pub fn required_roles(self) -> Vec<EffectRoleV1> {
+        match self {
+            Self::LocalAtomicPrincipalTransferV1 => {
+                vec![EffectRoleV1::FinanceLocalAtomicPaymentTransaction]
+            }
+            Self::LocalAtomicTransferTreasuryReconciledV1 => vec![
+                EffectRoleV1::FinanceLocalAtomicPaymentTransaction,
+                EffectRoleV1::TreasuryFee,
+            ],
+            Self::OwnerAuthenticatedBilateralTransferV1 => {
+                vec![EffectRoleV1::PayerDebit, EffectRoleV1::BeneficiaryClaim]
+            }
+        }
+    }
+
+    /// Bind the selected execution model to caller-supplied effect owners.
+    ///
+    /// The execution model is encoded in profile_id/claim_name and therefore in
+    /// the existing canonical profile digest. This constructor validates role
+    /// cardinality and distinct payer/beneficiary owners for the bilateral model.
+    /// It does not authenticate owners, prove source-chain authorship or verify
+    /// Holochain atomicity; those remain adapter/runtime obligations.
+    pub fn build_profile(
+        self,
+        operation_id: OperationIdentityV1,
+        expected_intent_fingerprint: DigestV1,
+        owner_bindings: Vec<RequiredEffectV1>,
+    ) -> Result<CompositeClaimProfileV1, KernelErrorV1> {
+        let required_roles = self.required_roles();
+        let expected: BTreeSet<EffectRoleV1> = required_roles.iter().copied().collect();
+        let mut supplied = BTreeSet::new();
+        let mut payer_owner: Option<&str> = None;
+        let mut beneficiary_owner: Option<&str> = None;
+
+        for binding in &owner_bindings {
+            validate_component(&binding.effect_owner)?;
+            if !expected.contains(&binding.role) {
+                return Err(KernelErrorV1::UnexpectedTemplateRoleBinding);
+            }
+            if !supplied.insert(binding.role) {
+                return Err(KernelErrorV1::DuplicateTemplateRoleBinding);
+            }
+            match binding.role {
+                EffectRoleV1::PayerDebit => payer_owner = Some(&binding.effect_owner),
+                EffectRoleV1::BeneficiaryClaim => {
+                    beneficiary_owner = Some(&binding.effect_owner)
+                }
+                _ => {}
+            }
+        }
+
+        if supplied != expected {
+            return Err(KernelErrorV1::MissingTemplateRoleBinding);
+        }
+        if self == Self::OwnerAuthenticatedBilateralTransferV1
+            && payer_owner == beneficiary_owner
+        {
+            return Err(KernelErrorV1::PayerBeneficiaryOwnerMustDiffer);
+        }
+
+        let mut required_effects = owner_bindings;
+        required_effects.sort_by(|left, right| {
+            (left.role, left.effect_owner.as_str()).cmp(&(right.role, right.effect_owner.as_str()))
+        });
+
+        let mut profile = CompositeClaimProfileV1 {
+            profile_id: self.profile_id().into(),
+            profile_digest: DigestV1([0; 32]),
+            claim_name: self.claim_name().into(),
+            operation_id,
+            expected_intent_fingerprint,
+            required_effects,
+        };
+        profile.profile_digest = profile.derive_profile_digest()?;
+        Ok(profile)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EconomicClaimTemplateV1 {
     SapBilateralTransferReconciled,
