@@ -1,0 +1,140 @@
+name: PCOE claim-admission quorum model
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/pcoe-claim-admission-quorum.yml"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation/PCOEClaimAdmissionAuthority*"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation/README.md"
+  push:
+    branches:
+      - "research/pcoe-claim-admission-quorum-v0.1-20261124"
+    paths:
+      - ".github/workflows/pcoe-claim-admission-quorum.yml"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation/PCOEClaimAdmissionAuthority*"
+      - "mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation/README.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pcoe-claim-admission-quorum-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  quorum-model:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert exact source commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SUBJECT_SHA"
+          echo "Exact source commit verified: $actual"
+
+      - name: Set up Java
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Download and verify pinned TLC
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar \
+            --output "$RUNNER_TEMP/tla2tools.jar"
+          printf '%s  %s\n' \
+            "bee4a54f3ee3d4afc347c3240ec2d9e93b075104" \
+            "$RUNNER_TEMP/tla2tools.jar" | sha1sum --check -
+
+      - name: Check safe quorum-admission model
+        working-directory: mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -jar "$RUNNER_TEMP/tla2tools.jar" \
+            -config PCOEClaimAdmissionAuthority.cfg \
+            PCOEClaimAdmissionAuthority.tla 2>&1 | tee "$RUNNER_TEMP/claim-authority-safe.log"
+
+      - name: Require minority-certificate mutant to violate quorum
+        working-directory: mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          java -jar "$RUNNER_TEMP/tla2tools.jar" \
+            -config PCOEClaimAdmissionAuthority-minority-mutant.cfg \
+            PCOEClaimAdmissionAuthority.tla > "$RUNNER_TEMP/claim-authority-minority.log" 2>&1
+          code=$?
+          set -e
+          test "$code" -ne 0
+          grep -q "CertificateQuorum" "$RUNNER_TEMP/claim-authority-minority.log"
+          echo "Minority acceptance mutant caught by CertificateQuorum."
+
+      - name: Require journal-loss mutant to violate non-equivocation
+        working-directory: mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          java -jar "$RUNNER_TEMP/tla2tools.jar" \
+            -config PCOEClaimAdmissionAuthority-journal-mutant.cfg \
+            PCOEClaimAdmissionAuthority.tla > "$RUNNER_TEMP/claim-authority-journal.log" 2>&1
+          code=$?
+          set -e
+          test "$code" -ne 0
+          grep -q "HonestNonEquivocation" "$RUNNER_TEMP/claim-authority-journal.log"
+          echo "Volatile journal mutant caught by HonestNonEquivocation."
+
+      - name: Write exact-head qualification manifest
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          spec="mycelix-finance/benchmarks/cross-domain-obligation-assurance/specs/payment-operation"
+          {
+            echo "subject_commit=$(git rev-parse HEAD)"
+            echo "expected_subject_commit=$EXPECTED_SUBJECT_SHA"
+            echo "tlc_release=v1.7.4"
+            echo "tlc_jar_sha1=bee4a54f3ee3d4afc347c3240ec2d9e93b075104"
+            echo "model_sha256=$(sha256sum "$spec/PCOEClaimAdmissionAuthority.tla" | cut -d' ' -f1)"
+            echo "safe_cfg_sha256=$(sha256sum "$spec/PCOEClaimAdmissionAuthority.cfg" | cut -d' ' -f1)"
+            echo "minority_mutant_cfg_sha256=$(sha256sum "$spec/PCOEClaimAdmissionAuthority-minority-mutant.cfg" | cut -d' ' -f1)"
+            echo "journal_mutant_cfg_sha256=$(sha256sum "$spec/PCOEClaimAdmissionAuthority-journal-mutant.cfg" | cut -d' ' -f1)"
+          } | tee "$RUNNER_TEMP/claim-authority-model-manifest.txt"
+          {
+            echo "## PCOE claim-admission authority model"
+            cat "$RUNNER_TEMP/claim-authority-model-manifest.txt"
+            for log in claim-authority-safe.log claim-authority-minority.log claim-authority-journal.log; do
+              if [ -f "$RUNNER_TEMP/$log" ]; then
+                echo "### $log"
+                tail -n 35 "$RUNNER_TEMP/$log"
+              fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload model-check receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pcoe-claim-admission-authority-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/claim-authority-safe.log
+            ${{ runner.temp }}/claim-authority-minority.log
+            ${{ runner.temp }}/claim-authority-journal.log
+            ${{ runner.temp }}/claim-authority-model-manifest.txt
+          if-no-files-found: warn
+          retention-days: 90
