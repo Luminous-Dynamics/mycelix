@@ -1475,6 +1475,21 @@ mod tests {
     }
 
     #[test]
+    fn adaptive_rank_cap_reports_unmet_target_without_false_qualification() {
+        let mut fixture = adaptive_multiport_fixture();
+        fixture.adaptive.target_max_relative_error = Some(1.0e-12);
+        fixture.adaptive.maximum_basis_dimension = Some(3);
+        let report = analyze(&fixture, "adaptive-rank-cap-negative-control".into()).unwrap();
+        assert_eq!(report.basis_dimension, 3);
+        assert_eq!(report.adaptive_target_met, Some(false));
+        assert_eq!(report.adaptive_stop_reason, "basis_dimension_cap");
+        assert!(report
+            .adaptive_maximum_candidate_relative_error
+            .is_some_and(|error| error > 1.0e-12));
+        assert!(report.structural_passivity_certificate_valid);
+    }
+
+    #[test]
     fn prima_style_block_arnoldi_baseline_is_passive_at_adaptive_rank() {
         let adaptive_fixture = adaptive_multiport_fixture();
         let report = analyze(&adaptive_fixture, "block-arnoldi-comparison-fixture".into()).unwrap();
