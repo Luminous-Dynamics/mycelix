@@ -1,7 +1,7 @@
-use sap_payment_saga_model::checkpoint::{
-    canonical_intent_digest, CheckpointOwnerDomain, JournalCheckpointSubject,
-};
 use sap_payment_saga_model::PaymentIntent;
+use sap_payment_saga_model::checkpoint::{
+    CheckpointOwnerDomain, JournalCheckpointSubject, canonical_intent_digest,
+};
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
@@ -101,8 +101,8 @@ fn main() {
                     iterations += 1;
                 }
                 let elapsed = start.elapsed();
-                let denominator = iterations
-                    * u64::try_from(subjects.len()).expect("size fits u64");
+                let denominator =
+                    iterations * u64::try_from(subjects.len()).expect("size fits u64");
                 let ns_per_checkpoint = elapsed.as_nanos() as f64 / denominator as f64;
                 println!(
                     concat!(
