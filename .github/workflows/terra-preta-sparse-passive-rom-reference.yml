@@ -2,12 +2,12 @@ name: Terra Preta sparse passive ROM reference
 
 on:
   pull_request:
-    branches: [main, 'research/terra-block-arnoldi-baseline-v0.2']
+    branches: [main, 'research/terra-incremental-adaptive-krylov-v0.2']
     paths:
       - 'research/terra-preta/tools/sparse-passive-rom-reference/**'
       - '.github/workflows/terra-preta-sparse-passive-rom-reference.yml'
   push:
-    branches: ['research/terra-sparse-passive-rom-v0.1', 'research/terra-block-arnoldi-baseline-v0.2', 'research/terra-incremental-adaptive-krylov-v0.2']
+    branches: ['research/terra-sparse-passive-rom-v0.1', 'research/terra-block-arnoldi-baseline-v0.2', 'research/terra-incremental-adaptive-krylov-v0.2', 'research/terra-rom-error-certificate-v0.1']
     paths:
       - 'research/terra-preta/tools/sparse-passive-rom-reference/**'
       - '.github/workflows/terra-preta-sparse-passive-rom-reference.yml'
@@ -54,8 +54,12 @@ jobs:
             (.maximum_sampled_response_error < 1e-9) and
             (.structural_passivity_certificate_valid == true) and
             (.lambda_0_passivity_tolerance > 0) and
-            (.maximum_cg_relative_residual < 1e-10) and
-            ([.frequency_samples[] | select(.relative_response_error < 1e-9)] | length == 5)
+            (.error_certificate_valid == true) and
+            (.m_matrix_lambda_min_lower_bound > 0) and
+            (.m_matrix_supersolution_max_component > 0) and
+            (.error_certificate_pcg_solve_count == 1) and
+            ([.frequency_samples[] | select(.error_bound_valid == true and .absolute_response_error <= .absolute_response_error_upper_bound)] | length == 5) and
+            (.maximum_cg_relative_residual < 1e-10)
           ' "$RUNNER_TEMP/sparse-rom-report.json"
       - name: Execute adaptive high-contrast multiport fixture
         run: |
@@ -76,6 +80,9 @@ jobs:
             (.adaptive_maximum_candidate_relative_error <= 0.05) and
             (.dc_relative_error < 1e-8) and
             (.structural_passivity_certificate_valid == true) and
+            (.error_certificate_valid == true) and
+            (.m_matrix_lambda_min_lower_bound > 0) and
+            ([.frequency_samples[] | select(.error_bound_valid == true)] | length == 9) and
             (.adaptive_candidate_shift_count == 9) and
             (.cg_solve_count == 60) and
             (.total_cg_iterations < 469) and
