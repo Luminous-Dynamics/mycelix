@@ -31,7 +31,7 @@ impl FaultCampaignPlanV1 {
     fn for_sequence(sequence: u64) -> Self {
         let seed = derive_word_v1(sequence, 0);
         let amount_minor = 1 + derive_word_v1(sequence, 1) % 1_000_000;
-        let fee_minor = if derive_word_v1(sequence, 2) % 5 == 0 {
+        let fee_minor = if derive_word_v1(sequence, 2).is_multiple_of(5) {
             0
         } else {
             1 + derive_word_v1(sequence, 3) % 500
