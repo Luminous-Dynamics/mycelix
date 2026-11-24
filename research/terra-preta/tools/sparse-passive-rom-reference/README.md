@@ -45,7 +45,7 @@ Adaptive mode is opt-in through the `adaptive` fixture object:
 
 The implementation computes the full sparse response at every candidate shift once, then repeatedly evaluates the current reduced model over the candidate grid. It appends the unselected shift with the largest response error, rebuilding the projection, until the worst candidate error meets the target, the basis cap is reached, or the candidate grid is exhausted. All added shifts and pre-addition worst errors are recorded in the report. The separate `laplace_samples` grid is used only for final audit and never for shift selection.
 
-This first greedy selector is deterministic and port-response weighted, but it is not claimed to be globally optimal. Its costs include all full-order candidate solves and repeated projection rebuilds; these are exposed through the PCG diagnostics and should be included in any comparison with fixed shifts, PRIMA-style block Arnoldi or SPRIM-like symmetric reduction.
+This first greedy selector is deterministic and port-response weighted, but it is not claimed to be globally optimal. Its costs include all full-order candidate solves and repeated projection rebuilds. The report records `cg_solve_count`, `total_cg_iterations`, maximum PCG iterations, maximum true relative residual, basis rank and candidate count. These costs must be included in any comparison with fixed shifts, PRIMA-style block Arnoldi or SPRIM-like symmetric reduction; basis rank alone is not a fair cost metric.
 
 Run the adaptive manufactured fixture:
 
