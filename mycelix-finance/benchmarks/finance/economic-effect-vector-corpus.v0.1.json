@@ -1,0 +1,209 @@
+{
+  "benchmark": "FIN-EFFECT-004 Profile-Bound Economic Effect Vector Projection",
+  "schema_version": "0.1",
+  "issue": 6608,
+  "status": "normative_adversarial_corpus_not_execution_evidence",
+  "composition": {
+    "operation_identity": "FIN-EFFECT-001 operation identity",
+    "intent_fingerprint": "FIN-EFFECT-001 immutable intent fingerprint",
+    "effect_identity": "FIN-EFFECT-001 role-and-owner effect identity",
+    "projection": "classify_effect_vector",
+    "no_new_identity_algorithm": true
+  },
+  "aggregation_precedence": [
+    "Conflict",
+    "Indeterminate",
+    "Pending",
+    "SupportedWithinDeclaredScope"
+  ],
+  "cases": [
+    {
+      "id": "VEC-001",
+      "domain": "SAP transfer",
+      "required_roles": "payer_debit + beneficiary_claim",
+      "setup": "Both owner effects observed under the bilateral profile",
+      "stimulus": "Both required roles carry consistent evidence.",
+      "expected": "SupportedWithinDeclaredScope",
+      "assertion": "The result is scoped to this exact profile, not external finality."
+    },
+    {
+      "id": "VEC-002",
+      "domain": "SAP transfer",
+      "required_roles": "payer_debit + beneficiary_claim",
+      "setup": "Payer debit observed; beneficiary claim not observed in a complete view",
+      "stimulus": "Only the payer owner leg has an effect receipt.",
+      "expected": "Pending",
+      "assertion": "A payer-side commit does not imply beneficiary receipt."
+    },
+    {
+      "id": "VEC-003",
+      "domain": "Hearth contribution",
+      "required_roles": "member_note_spend + pool_receipt",
+      "setup": "Member spend observed; pool receipt absent in a complete view",
+      "stimulus": "The pool-owned receipt is required by the contribution profile.",
+      "expected": "Pending",
+      "assertion": "Member-side consumption does not establish pool acceptance."
+    },
+    {
+      "id": "VEC-004",
+      "domain": "Cross-domain transfer",
+      "required_roles": "payer_debit + beneficiary_claim",
+      "setup": "Required beneficiary evidence batch missing",
+      "stimulus": "The adapter did not provide a batch for one required effect.",
+      "expected": "Indeterminate",
+      "assertion": "Missing batch is not a complete empty observation."
+    },
+    {
+      "id": "VEC-005",
+      "domain": "TEND clearing",
+      "required_roles": "provider_credit + recipient_debit",
+      "setup": "Recipient evidence view marked incomplete",
+      "stimulus": "DHT/network evidence has not reached the declared completeness frontier.",
+      "expected": "Indeterminate",
+      "assertion": "An incomplete view cannot establish absence or presence."
+    },
+    {
+      "id": "VEC-006",
+      "domain": "Grant disbursement",
+      "required_roles": "treasury_disbursement + recipient_claim",
+      "setup": "Two receipts assert different effect digests for one role/owner",
+      "stimulus": "Contradictory owner-effect commitments are observed.",
+      "expected": "Conflict",
+      "assertion": "Conflicting receipts freeze this profile claim."
+    },
+    {
+      "id": "VEC-007",
+      "domain": "Payroll",
+      "required_roles": "payroll_release",
+      "setup": "Receipt binds a different immutable intent fingerprint",
+      "stimulus": "The payroll amount or pay-period fingerprint does not match.",
+      "expected": "Conflict",
+      "assertion": "The aggregate layer cannot hide fingerprint disagreement."
+    },
+    {
+      "id": "VEC-008",
+      "domain": "Hearth withdrawal",
+      "required_roles": "pool_disbursement + recipient_claim",
+      "setup": "Same physical receipt is observed twice with identical bytes/digest",
+      "stimulus": "Duplicate transport delivery repeats one immutable receipt.",
+      "expected": "SupportedWithinDeclaredScope",
+      "assertion": "Duplicate physical evidence collapses and does not multiply value."
+    },
+    {
+      "id": "VEC-009",
+      "domain": "Procurement",
+      "required_roles": "supplier_liability",
+      "setup": "Supplier liability observed; beneficiary bank settlement is outside this profile",
+      "stimulus": "The profile asserts payable recognition only.",
+      "expected": "SupportedWithinDeclaredScope",
+      "assertion": "A payable profile must not be interpreted as payment settlement."
+    },
+    {
+      "id": "VEC-010",
+      "domain": "Commons service",
+      "required_roles": "delivery_event + beneficiary_acceptance",
+      "setup": "Delivery event observed; beneficiary acceptance absent in complete view",
+      "stimulus": "The claim specifically means accepted fulfilment.",
+      "expected": "Pending",
+      "assertion": "Delivery is not acceptance."
+    },
+    {
+      "id": "VEC-011",
+      "domain": "TEND time exchange",
+      "required_roles": "provider_credit + recipient_debit",
+      "setup": "Provider credit observed; recipient debit not yet observed",
+      "stimulus": "Both sides are required by the bilateral clearing profile.",
+      "expected": "Pending",
+      "assertion": "One-sided credit is not a complete mutual-credit clearing pair."
+    },
+    {
+      "id": "VEC-012",
+      "domain": "External bank rail",
+      "required_roles": "payment_instruction + settlement_receipt",
+      "setup": "Instruction accepted; final settlement receipt absent",
+      "stimulus": "The claim requires the rail's settlement-finality evidence.",
+      "expected": "Pending",
+      "assertion": "Provider acceptance is not final settlement."
+    },
+    {
+      "id": "VEC-013",
+      "domain": "SAP transfer",
+      "required_roles": "payer_debit",
+      "setup": "Evidence supplied for a Treasury role not required by the profile",
+      "stimulus": "The input includes an unexpected effect batch.",
+      "expected": "RejectedInput",
+      "assertion": "Unexpected evidence is rejected, not silently folded into the claim."
+    },
+    {
+      "id": "VEC-014",
+      "domain": "Public transfer",
+      "required_roles": "entitlement",
+      "setup": "Same owner and effect role listed twice in profile",
+      "stimulus": "The profile has a duplicate required effect identity.",
+      "expected": "RejectedInput",
+      "assertion": "Ambiguous duplicate requirements are invalid."
+    },
+    {
+      "id": "VEC-015",
+      "domain": "Economic OS replay",
+      "required_roles": "multiple owner roles",
+      "setup": "Evidence batches and observations arrive in different orders",
+      "stimulus": "The same set of immutable evidence is evaluated with permuted input order.",
+      "expected": "ByteIdenticalProjection",
+      "assertion": "Output ordering is canonical and independent of arrival order."
+    },
+    {
+      "id": "VEC-016",
+      "domain": "Bilateral settlement",
+      "required_roles": "payer_debit + recipient_claim",
+      "setup": "One required effect conflicts while another required effect view is incomplete",
+      "stimulus": "Conflict and indeterminate states coexist.",
+      "expected": "Conflict",
+      "assertion": "Conflict dominates indeterminate; neither can yield a supported claim."
+    }
+  ],
+  "metrics": [
+    {
+      "id": "M-VEC-01",
+      "name": "False SupportedWithinDeclaredScope rate",
+      "target": "0% on in-profile adversarial cases",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-VEC-02",
+      "name": "Conflict detection recall",
+      "target": "100% of conflicting required-effect fixtures return Conflict",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-VEC-03",
+      "name": "Unknown-to-success promotion",
+      "target": "0 missing/incomplete required slots promoted to supported",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-VEC-04",
+      "name": "Duplicate receipt value multiplication",
+      "target": "0 extra owner effects from repeated identical physical receipts",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-VEC-05",
+      "name": "Input-order determinism",
+      "target": "100% byte-identical canonical projection for all permutations of the same evidence set",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-VEC-06",
+      "name": "p50/p95/p99 projection latency",
+      "target": "Measure by number of required effects and evidence receipts; no target until matched baseline",
+      "stage": "performance_after_safety"
+    },
+    {
+      "id": "M-VEC-07",
+      "name": "Evidence-read amplification",
+      "target": "Measure required/observed reads per effect claim",
+      "stage": "performance_after_safety"
+    }
+  ]
+}
