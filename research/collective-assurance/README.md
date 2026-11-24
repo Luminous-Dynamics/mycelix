@@ -23,6 +23,18 @@ The signature covers a crate-local length-prefixed encoding, not a public canoni
 
 AI-off means the candidate execution path cannot use AI services, agent processes, or retained AI answer artifacts during the challenge. It cannot erase what human participants remember from earlier collaboration; that retained human knowledge is part of the intervention, not a machine cache leak.
 
+## Independent response-span audit
+
+The `response_audit` module adds a second-stage auditor contract over the rendered answer:
+- An independent evaluator annotates material response spans by UTF-8 byte offsets and SHA-256 span digest.
+- Every audited claim is classified as supported, contested, unresolved or non-material.
+- Supported claims need current, independently verified source evidence.
+- Contested claims need supporting and contradicting evidence from disjoint source origins.
+- Unresolved claims need a rationale and must not present evidence as decisive.
+- Duplicate/overlapping annotations, invalid UTF-8 boundaries, stale or unverified citations, unknown evidence IDs, span tampering and incomplete-coverage attestations fail.
+
+This does not extract claims or decide factual correctness on its own. The independent auditor must enumerate all material claims, and production must authenticate the auditor, audit protocol, evidence catalogue and coverage attestation. A self-audit by the answer-generating model is not independent evidence.
+
 ## Response constraint binding
 
 The `constraint_binding` module is a structured reference for GroupAssistBench-style memory use:
