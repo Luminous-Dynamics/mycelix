@@ -88,7 +88,22 @@ jobs:
               (.assertions | type == "array" and length > 0)
             ) and
             (.metrics | length) >= 8 and
-            ([.metrics[].id] | unique | length) == (.metrics | length)
+            ([.metrics[].id] | unique | length) == (.metrics | length) and
+            (.known_answer_vectors | length) == 4 and
+            ([.known_answer_vectors[].vector_id] | unique | length) == 4 and
+            all(.known_answer_vectors[];
+              (.algorithm == "BLAKE3-256") and
+              (.encoding | type == "string" and length >= 20) and
+              (.expected_hex | test("^[0-9a-f]{64}$"))
+            ) and
+            ([.known_answer_vectors[] | select(.vector_id == "KAT-001") | .expected_hex][0] ==
+              "15a08e9c3bf2599c15b37cb700698aec1898cd4c66b15ebf5208568e4953f204") and
+            ([.known_answer_vectors[] | select(.vector_id == "KAT-002") | .expected_hex][0] ==
+              "6a52f1479b7a407d6de4f2650b61bf3203741c80e28f836db523f58625e62235") and
+            ([.known_answer_vectors[] | select(.vector_id == "KAT-003") | .expected_hex][0] ==
+              "984fcc30e27b1ccbb5b266f6b0960c5791be3a68ada8512aa0fb39dcf575e56a") and
+            ([.known_answer_vectors[] | select(.vector_id == "KAT-004") | .expected_hex][0] ==
+              "35ddfe65d8d3beb9ce06fcb1245802d0cc7799d8366bef9087ee5f6d63e6f24b")
           ' "$corpus" >/dev/null
 
           # Pin the semantic guard cases so a schema-valid corpus cannot weaken
@@ -125,6 +140,8 @@ jobs:
             echo "corpus_sha256=$(sha256sum "$corpus" | cut -d' ' -f1)"
             echo "schema_sha256=$(sha256sum "$schema" | cut -d' ' -f1)"
             echo "case_count=$(jq '.cases | length' "$corpus")"
+            echo "known_answer_vector_count=$(jq '.known_answer_vectors | length' "$corpus")"
+            echo "known_answer_vectors_sha256=$(jq -c '.known_answer_vectors' "$corpus" | sha256sum | cut -d' ' -f1)"
             echo "unique_case_ids=$(jq '[.cases[].id] | unique | length' "$corpus")"
             echo "invariant_count=$(jq '.invariants | length' "$corpus")"
             echo "metric_count=$(jq '.metrics | length' "$corpus")"
@@ -170,7 +187,7 @@ jobs:
           fi
 
       - name: Pure identity/evidence kernel tests
-        run: cargo test --manifest-path mycelix-finance/Cargo.toml -p finance-economic-operation --locked -- --nocapture
+        run: cargo test --manifest-path mycelix-finance/Cargo.toml -p finance-economic-operation --locked
 
       - name: Strict kernel Clippy
         run: cargo clippy --manifest-path mycelix-finance/Cargo.toml -p finance-economic-operation --all-targets --no-deps --locked -- -D warnings
