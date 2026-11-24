@@ -172,6 +172,7 @@ impl ImmutableIntentTermsV1 {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum EffectRoleV1 {
+    // Legacy Finance roles retain their original wire strings and effect IDs.
     PayerDebit,
     BeneficiaryOutput,
     BeneficiaryClaim,
@@ -179,6 +180,78 @@ pub enum EffectRoleV1 {
     PoolContribution,
     PoolDisbursement,
     ExternalSettlementObservation,
+
+    // Hearth pool/member ownership.
+    HearthMemberNoteSpend,
+    HearthPoolContributionReceipt,
+    HearthAllocationReservation,
+    HearthPoolDisbursement,
+
+    // TEND mutual-credit lifecycle.
+    TendProviderCredit,
+    TendRecipientDebit,
+    TendRepayment,
+    TendMutualCreditExposure,
+    TendClearingAdjustment,
+
+    // Grants and budget execution.
+    GrantAppropriation,
+    GrantBudgetReservation,
+    GrantAward,
+    GrantTrancheRelease,
+    GrantRecipientClaim,
+    GrantRecovery,
+
+    // Procurement and supplier obligations.
+    ProcurementOrderCommitment,
+    GoodsServiceReceipt,
+    SupplierLiability,
+    PayableJournal,
+    PaymentInstruction,
+    BankSettlementReceipt,
+
+    // Payroll and worker compensation.
+    PayrollEarningAccrual,
+    PayrollWithholdingLiability,
+    PayrollNetPayable,
+    PayrollRelease,
+    BankPayment,
+    WorkerReceipt,
+
+    // Public benefits and transfers.
+    PublicEligibilityDecision,
+    PublicEntitlement,
+    PublicBudgetReservation,
+    PublicDisbursement,
+    PublicRecipientClaim,
+    PublicAppealRecovery,
+
+    // Physical resources and services.
+    ResourceReservation,
+    ProviderCommitment,
+    DeliveryEvent,
+    BeneficiaryAcceptance,
+    QualityExceptionClaim,
+
+    // Non-transferable reputation / contribution recognition.
+    ReputationAttestation,
+    ReputationProjection,
+    ReputationCorrection,
+    ReputationRevocation,
+
+    // External instruments and Valueflows references/effects.
+    ExternalInstruction,
+    ExternalProviderAcceptance,
+    ExternalLedgerObservation,
+    ExternalReversal,
+    ValueflowsIntent,
+    ValueflowsCommitment,
+    ValueflowsClaim,
+    ValueflowsEconomicEvent,
+    ValueflowsEconomicResource,
+
+    // Asset lifecycle effects outside ordinary transfers.
+    SapDemurrageAssessment,
 }
 
 impl EffectRoleV1 {
@@ -191,6 +264,58 @@ impl EffectRoleV1 {
             Self::PoolContribution => "pool_contribution",
             Self::PoolDisbursement => "pool_disbursement",
             Self::ExternalSettlementObservation => "external_settlement_observation",
+            Self::HearthMemberNoteSpend => "hearth.member_note_spend",
+            Self::HearthPoolContributionReceipt => "hearth.pool_contribution_receipt",
+            Self::HearthAllocationReservation => "hearth.allocation_reservation",
+            Self::HearthPoolDisbursement => "hearth.pool_disbursement",
+            Self::TendProviderCredit => "tend.provider_credit",
+            Self::TendRecipientDebit => "tend.recipient_debit",
+            Self::TendRepayment => "tend.repayment",
+            Self::TendMutualCreditExposure => "tend.mutual_credit_exposure",
+            Self::TendClearingAdjustment => "tend.clearing_adjustment",
+            Self::GrantAppropriation => "grant.appropriation",
+            Self::GrantBudgetReservation => "grant.budget_reservation",
+            Self::GrantAward => "grant.award",
+            Self::GrantTrancheRelease => "grant.tranche_release",
+            Self::GrantRecipientClaim => "grant.recipient_claim",
+            Self::GrantRecovery => "grant.recovery",
+            Self::ProcurementOrderCommitment => "procurement.order_commitment",
+            Self::GoodsServiceReceipt => "procurement.goods_service_receipt",
+            Self::SupplierLiability => "procurement.supplier_liability",
+            Self::PayableJournal => "procurement.payable_journal",
+            Self::PaymentInstruction => "procurement.payment_instruction",
+            Self::BankSettlementReceipt => "procurement.bank_settlement_receipt",
+            Self::PayrollEarningAccrual => "payroll.earning_accrual",
+            Self::PayrollWithholdingLiability => "payroll.withholding_liability",
+            Self::PayrollNetPayable => "payroll.net_payable",
+            Self::PayrollRelease => "payroll.release",
+            Self::BankPayment => "payroll.bank_payment",
+            Self::WorkerReceipt => "payroll.worker_receipt",
+            Self::PublicEligibilityDecision => "public_transfer.eligibility_decision",
+            Self::PublicEntitlement => "public_transfer.entitlement",
+            Self::PublicBudgetReservation => "public_transfer.budget_reservation",
+            Self::PublicDisbursement => "public_transfer.disbursement",
+            Self::PublicRecipientClaim => "public_transfer.recipient_claim",
+            Self::PublicAppealRecovery => "public_transfer.appeal_recovery",
+            Self::ResourceReservation => "resource.reservation",
+            Self::ProviderCommitment => "resource.provider_commitment",
+            Self::DeliveryEvent => "resource.delivery_event",
+            Self::BeneficiaryAcceptance => "resource.beneficiary_acceptance",
+            Self::QualityExceptionClaim => "resource.quality_exception_claim",
+            Self::ReputationAttestation => "reputation.attestation",
+            Self::ReputationProjection => "reputation.projection",
+            Self::ReputationCorrection => "reputation.correction",
+            Self::ReputationRevocation => "reputation.revocation",
+            Self::ExternalInstruction => "external.instruction",
+            Self::ExternalProviderAcceptance => "external.provider_acceptance",
+            Self::ExternalLedgerObservation => "external.ledger_observation",
+            Self::ExternalReversal => "external.reversal",
+            Self::ValueflowsIntent => "valueflows.intent",
+            Self::ValueflowsCommitment => "valueflows.commitment",
+            Self::ValueflowsClaim => "valueflows.claim",
+            Self::ValueflowsEconomicEvent => "valueflows.economic_event",
+            Self::ValueflowsEconomicResource => "valueflows.economic_resource",
+            Self::SapDemurrageAssessment => "sap.demurrage_assessment",
         }
     }
 }
