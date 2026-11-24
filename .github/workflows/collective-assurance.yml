@@ -27,6 +27,20 @@ jobs:
           components: clippy, rustfmt
       - name: Verify lockfile is honored
         run: cargo metadata --locked --manifest-path research/collective-assurance/Cargo.toml --format-version 1 > /dev/null
+      - name: Validate contract schemas and fixtures as JSON
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          paths = sorted(Path("research/collective-assurance/schema").glob("*.json"))
+          paths += sorted(Path("research/collective-assurance/fixtures").glob("*.json"))
+          if not paths:
+              raise SystemExit("no schemas or fixtures found")
+          for path in paths:
+              json.loads(path.read_text(encoding="utf-8"))
+              print(f"valid JSON: {path}")
+          PY
       - name: Normalize Rust sources in isolated checkout
         run: cargo fmt --manifest-path research/collective-assurance/Cargo.toml
       - name: Run strict Clippy with committed lockfile
