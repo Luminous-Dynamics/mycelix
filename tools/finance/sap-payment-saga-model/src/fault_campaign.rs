@@ -5,7 +5,7 @@
 //! a draw to one field cannot perturb later fields or later traces.
 
 use super::*;
-use crate::replay::{replay_journal, JournalEventLog};
+use crate::replay::{JournalEventLog, replay_journal};
 use sha2::{Digest, Sha256};
 
 const ROOT_SEED_V1: u64 = 0x4d59_4843_414d_5031; // "MYHCAMP1"
@@ -100,10 +100,7 @@ struct CampaignOutcomeV1 {
     tail_digest: String,
 }
 
-fn local_evidence_for_plan(
-    journal: &PaymentJournal,
-    plan: FaultCampaignPlanV1,
-) -> EffectEvidence {
+fn local_evidence_for_plan(journal: &PaymentJournal, plan: FaultCampaignPlanV1) -> EffectEvidence {
     let intent = journal.intent();
     let label = format!("campaign-{}-local", plan.sequence);
     let mut evidence = EffectEvidence {
@@ -204,7 +201,9 @@ fn run_fault_plan_v1(plan: FaultCampaignPlanV1) -> CampaignOutcomeV1 {
         .get_mut(sender, &idempotency_key)
         .expect("new operation must exist in the reference registry");
 
-    journal.authorize().expect("new operation can be authorized");
+    journal
+        .authorize()
+        .expect("new operation can be authorized");
     event_log
         .record_authorized()
         .expect("authorization event is valid");
@@ -369,8 +368,8 @@ fn run_fault_plan_v1(plan: FaultCampaignPlanV1) -> CampaignOutcomeV1 {
 
     let snapshot = event_log.frames().to_vec();
     let anchor = event_log.anchor();
-    let replayed = replay_journal(&snapshot, &anchor)
-        .expect("generated valid campaign history must replay");
+    let replayed =
+        replay_journal(&snapshot, &anchor).expect("generated valid campaign history must replay");
     assert_eq!(event_log.frames(), snapshot.as_slice());
     assert_eq!(replayed.status(), journal.status());
     assert_eq!(
@@ -437,7 +436,11 @@ fn fault_campaign_plan_known_answer_vectors_match_shared_fixture() {
     );
 
     let mut found = 0usize;
-    for line in fixture.lines().map(str::trim).filter(|line| !line.is_empty() && !line.starts_with('#')) {
+    for line in fixture
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+    {
         let sequence = line
             .split_whitespace()
             .next()
@@ -447,7 +450,10 @@ fn fault_campaign_plan_known_answer_vectors_match_shared_fixture() {
         assert_eq!(FaultCampaignPlanV1::for_sequence(sequence).kat_line(), line);
         found += 1;
     }
-    assert!(found >= 8, "shared fixture must pin at least eight sequences");
+    assert!(
+        found >= 8,
+        "shared fixture must pin at least eight sequences"
+    );
 }
 
 #[test]
