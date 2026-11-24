@@ -68,3 +68,11 @@ A full Draft 2020-12 validator and hidden, independently adjudicated evaluation 
 ## Claim ceiling
 
 The role catalogue and templates broaden the vocabulary Mycelix can represent. They do not establish a production Economic OS adapter, policy approval, authorization, legal ownership, accounting or tax compliance, global uniqueness, external settlement, physical delivery or production readiness.
+
+## Cross-domain semantic boundary corpus
+
+The paired `economic-effect-profile-template-adversarial-corpus.v0.1.json` contains 24 public synthetic cases and a closed schema. The cases distinguish member spend from pool acceptance; award from reservation; supplier invoice/payable from goods receipt; payment instruction from final bank settlement; payroll payable/payment from worker receipt; eligibility from entitlement/disbursement; delivery from beneficiary acceptance; reputation attestation from money; provider acceptance from external settlement; Valueflows Commitment from observed EconomicEvent; EPCIS visibility from title/acceptance; and PROV attribution from authorization.
+
+The corpus also checks incomplete evidence, wrong instrument/fingerprint, conflicting settlement receipts, duplicate/extra/missing role bindings and deterministic profile binding. It is a public development suite, not a hidden evaluation set or runtime measurement. The workflow validates corpus/schema syntax, unique IDs, selected boundary dispositions and workspace mirror parity.
+
+Hard targets (not achieved results): zero false positive supported claims; zero plan-to-event or provider-status-to-finality promotion; zero missing/extra owner bindings silently accepted; 100% deterministic binding/digest for the same role-owner set. Performance targets are measured only after these safety conditions pass.
