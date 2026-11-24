@@ -1,0 +1,276 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cell-complex-input.schema.json",
+  "title": "Mixed-dimensional cell complex linear transport input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_status",
+    "scenario_id",
+    "source_artifact_uri",
+    "source_artifact_sha256",
+    "nodes",
+    "edges",
+    "faces",
+    "volumes",
+    "processes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "cell-complex-reference-v0.1"
+    },
+    "fixture_status": {
+      "const": "synthetic_only_not_empirical_evidence"
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_artifact_uri": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_artifact_sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "node_id",
+          "coordinates_m"
+        ],
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "coordinates_m": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "edge_id",
+          "tail_node_id",
+          "head_node_id",
+          "length_m",
+          "cross_section_m2"
+        ],
+        "properties": {
+          "edge_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tail_node_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "head_node_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "length_m": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "cross_section_m2": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
+    },
+    "faces": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "face_id",
+          "boundary_edges"
+        ],
+        "properties": {
+          "face_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "boundary_edges": {
+            "type": "array",
+            "minItems": 3,
+            "items": {
+              "$ref": "#/$defs/oriented_ref"
+            }
+          }
+        }
+      }
+    },
+    "volumes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "volume_id",
+          "boundary_faces"
+        ],
+        "properties": {
+          "volume_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "boundary_faces": {
+            "type": "array",
+            "minItems": 4,
+            "items": {
+              "$ref": "#/$defs/oriented_ref"
+            }
+          }
+        }
+      }
+    },
+    "processes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "process_id",
+          "process_name",
+          "potential_name",
+          "potential_unit",
+          "flux_name",
+          "flux_unit",
+          "conductance_name",
+          "conductance_unit",
+          "edge_conductances",
+          "dirichlet_boundaries"
+        ],
+        "properties": {
+          "process_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "process_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "potential_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "potential_unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "flux_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "flux_unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "conductance_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "conductance_unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "edge_conductances": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "edge_id",
+                "value"
+              ],
+              "properties": {
+                "edge_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "value": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              }
+            }
+          },
+          "dirichlet_boundaries": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "node_id",
+                "role",
+                "potential_value"
+              ],
+              "properties": {
+                "node_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "role": {
+                  "enum": [
+                    "source",
+                    "sink"
+                  ]
+                },
+                "potential_value": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "oriented_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cell_id",
+        "orientation"
+      ],
+      "properties": {
+        "cell_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "orientation": {
+          "enum": [
+            -1,
+            1
+          ]
+        }
+      }
+    }
+  }
+}
