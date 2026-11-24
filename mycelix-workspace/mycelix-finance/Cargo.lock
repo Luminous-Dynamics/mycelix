@@ -140,10 +140,10 @@ dependencies = [
 name = "cgc_integrity"
 version = "0.1.0"
 dependencies = [
- "mycelix-bridge-entry-types",
  "getrandom 0.2.17",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -226,10 +226,10 @@ dependencies = [
 name = "credit_scoring_integrity"
 version = "0.1.0"
 dependencies = [
- "mycelix-bridge-entry-types",
  "getrandom 0.2.17",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -712,10 +712,10 @@ dependencies = [
 name = "hearth_integrity"
 version = "0.1.0"
 dependencies = [
- "mycelix-bridge-entry-types",
  "getrandom 0.2.17",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -976,10 +976,10 @@ dependencies = [
 name = "lending_integrity"
 version = "0.1.0"
 dependencies = [
- "mycelix-bridge-entry-types",
  "getrandom 0.2.17",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "serde",
  "serde_json",
 ]
@@ -1133,9 +1133,9 @@ dependencies = [
 name = "payments_integrity"
 version = "0.1.0"
 dependencies = [
- "mycelix-bridge-entry-types",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "mycelix_finance_types",
  "serde",
  "serde_json",
@@ -1366,9 +1366,9 @@ dependencies = [
 name = "recognition_integrity"
 version = "0.1.0"
 dependencies = [
- "mycelix-bridge-entry-types",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "mycelix_finance_types",
  "serde",
 ]
@@ -1583,9 +1583,9 @@ dependencies = [
 name = "staking_integrity"
 version = "0.1.0"
 dependencies = [
- "mycelix-bridge-entry-types",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "mycelix_finance_types",
  "serde",
  "serde_json",
@@ -1674,9 +1674,9 @@ dependencies = [
 name = "tend_integrity"
 version = "0.1.0"
 dependencies = [
- "mycelix-bridge-entry-types",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "mycelix_finance_types",
  "serde",
  "serde_json",
@@ -1753,9 +1753,9 @@ dependencies = [
 name = "treasury_integrity"
 version = "0.1.0"
 dependencies = [
- "mycelix-bridge-entry-types",
  "hdi",
  "holochain_serialized_bytes",
+ "mycelix-bridge-entry-types",
  "mycelix_finance_types",
  "serde",
  "serde_json",
