@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/tools/finance/sap-payment-saga-model/FIN_SAGA_FAULT_CAMPAIGN_V1.schema.json",
+  "title": "SAP Payment Saga deterministic fault campaign v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark",
+    "version",
+    "issue",
+    "status",
+    "root_seed_hex",
+    "generator",
+    "trace_semantics",
+    "presubmit_trace_count",
+    "full_campaign_trace_count",
+    "summary_profile",
+    "known_answer_vectors",
+    "explicit_coverage",
+    "excluded_from_v1",
+    "metrics"
+  ],
+  "properties": {
+    "benchmark": {
+      "const": "SAP Payment Saga deterministic fault campaign v1"
+    },
+    "version": {
+      "const": "1.0"
+    },
+    "issue": {
+      "const": 6045
+    },
+    "status": {
+      "const": "source_and_presubmit_harness_pending_exact_head_run"
+    },
+    "root_seed_hex": {
+      "const": "4d594843414d5031"
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "semantics",
+        "sequence_multiplier_hex",
+        "field_domain_multiplier_hex",
+        "finalizer_multipliers_hex",
+        "equation",
+        "field_domains",
+        "value_bounds"
+      ],
+      "properties": {
+        "name": {
+          "const": "CounterMix64V1"
+        },
+        "semantics": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sequence_multiplier_hex": {
+          "const": "9e3779b97f4a7c15"
+        },
+        "field_domain_multiplier_hex": {
+          "const": "d1b54a32d192ed03"
+        },
+        "finalizer_multipliers_hex": {
+          "const": [
+            "bf58476d1ce4e5b9",
+            "94d049bb133111eb"
+          ]
+        },
+        "equation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "field_domains": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "domain",
+              "name"
+            ],
+            "properties": {
+              "domain": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "value_bounds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "principal_minor",
+            "fee_minor",
+            "local_indeterminate_retries",
+            "treasury_indeterminate_retries",
+            "lost_commit_ack_mask"
+          ],
+          "properties": {
+            "principal_minor": {
+              "type": "string"
+            },
+            "fee_minor": {
+              "type": "string"
+            },
+            "local_indeterminate_retries": {
+              "type": "string"
+            },
+            "treasury_indeterminate_retries": {
+              "type": "string"
+            },
+            "lost_commit_ack_mask": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "trace_semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "local_transaction",
+        "treasury_fee",
+        "retry_semantics",
+        "lost_ack_semantics",
+        "replay",
+        "independent_oracle",
+        "no_live_effects"
+      ],
+      "properties": {
+        "local_transaction": {
+          "type": "string"
+        },
+        "treasury_fee": {
+          "type": "string"
+        },
+        "retry_semantics": {
+          "type": "string"
+        },
+        "lost_ack_semantics": {
+          "type": "string"
+        },
+        "replay": {
+          "type": "string"
+        },
+        "independent_oracle": {
+          "type": "string"
+        },
+        "no_live_effects": {
+          "const": true
+        }
+      }
+    },
+    "presubmit_trace_count": {
+      "const": 10000
+    },
+    "full_campaign_trace_count": {
+      "const": 1000000
+    },
+    "summary_profile": {
+      "const": "MXSAP-FAULT-CAMPAIGN-RESULT-V1"
+    },
+    "known_answer_vectors": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sequence",
+          "trace_seed_hex",
+          "principal_minor",
+          "fee_minor",
+          "local_indeterminate_retries",
+          "treasury_indeterminate_retries",
+          "lost_commit_ack_mask"
+        ],
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "trace_seed_hex": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{16}$"
+          },
+          "principal_minor": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "fee_minor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 500
+          },
+          "local_indeterminate_retries": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          },
+          "treasury_indeterminate_retries": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          },
+          "lost_commit_ack_mask": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          }
+        }
+      }
+    },
+    "explicit_coverage": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "excluded_from_v1": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "target",
+          "stage"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^M-FC-[0-9]{2}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stage": {
+            "enum": [
+              "absolute_safety_gate",
+              "performance_after_safety",
+              "qualification_gate"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
