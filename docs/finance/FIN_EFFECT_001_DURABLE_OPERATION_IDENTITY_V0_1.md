@@ -211,12 +211,13 @@ Compare only against matched workloads and semantic guarantees. Report baseline 
 
 ## 8. Industry comparison
 
-- **Stripe / Adyen:** request/API idempotency is valuable and appropriate at the API boundary. Their published retention and scope rules are not the retention guarantee for a Mycelix accounting obligation.
+- **Stripe:** API v1 stores the first response after endpoint execution begins and allows keys to be pruned after at least 24 hours; a reused pruned key can initiate a new request. API v2 is a stronger comparator: failed or partially failed work is retried without repeating successful side effects, with a 30-day replay scope for the same API and account/sandbox. Mycelix must benchmark against both profiles, not only v1. The opportunity is to bind the underlying obligation and owner-specific effects beyond provider API replay windows and across service/owner boundaries.
+- **Adyen:** keys are company-account scoped, valid for 7–14 days, and simultaneous regional endpoints do not share duplicate checks. Mycelix’s identity must be scoped by its originating obligation/authority and independently reconciled across effect owners; it must not assume one provider's regional key store is a global registry.
 - **Transactional outbox:** atomically links local state and event publication. Standard queue semantics can be at-least-once; duplicate-safe consumers and durable receipts remain required.
 - **IETF Idempotency-Key:** use the current HTTPAPI Internet-Draft as an interoperability reference only. It remains an Internet-Draft, allows resource-defined expiry, and makes request fingerprinting optional. Do not claim RFC conformance/certification.
 - **Holochain:** local zome-call atomicity is useful within its boundary. DHT observations are eventually consistent; fork/warrant capability and countersigning must be qualified on the exact shipped runtime. Do not infer global exactly-once execution.
 
-The differentiator is not a claim that Mycelix is faster or globally safer than incumbent processors. It is a testable, explicit contract for the economic obligation across multiple effect owners, with exact conflict and unknown-outcome handling.
+The current [Stripe API v1 idempotency contract](https://docs.stripe.com/api/idempotent_requests) and [API v2 idempotency contract](https://docs.stripe.com/api-v2-overview#idempotency) are explicit benchmark baselines; Adyen documents its own retention and regional scope [here](https://docs.adyen.com/development-resources/api-idempotency). The differentiator is not a claim that Mycelix is faster or globally safer than incumbent processors. It is a testable, explicit contract for the economic obligation across multiple effect owners, with exact conflict and unknown-outcome handling.
 
 ## 9. Exit criteria
 
