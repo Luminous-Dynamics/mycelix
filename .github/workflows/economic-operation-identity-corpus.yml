@@ -6,8 +6,14 @@ on:
       - ".github/workflows/economic-operation-identity-corpus.yml"
       - "docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md"
       - "mycelix-workspace/docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md"
+      - "docs/finance/FIN_EFFECT_004_PROFILE_BOUND_EFFECT_VECTOR_V0_1.md"
+      - "mycelix-workspace/docs/finance/FIN_EFFECT_004_PROFILE_BOUND_EFFECT_VECTOR_V0_1.md"
       - "mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
       - "mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
+      - "mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.json"
+      - "mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.schema.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
       - "mycelix-finance/Cargo.toml"
@@ -19,12 +25,19 @@ on:
   push:
     branches:
       - "research/fin-effect-001-durable-operation-identity-v0.1-20261124"
+      - "research/fin-effect-004-effect-vector-projection-v0.1-20261124"
     paths:
       - ".github/workflows/economic-operation-identity-corpus.yml"
       - "docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md"
       - "mycelix-workspace/docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md"
+      - "docs/finance/FIN_EFFECT_004_PROFILE_BOUND_EFFECT_VECTOR_V0_1.md"
+      - "mycelix-workspace/docs/finance/FIN_EFFECT_004_PROFILE_BOUND_EFFECT_VECTOR_V0_1.md"
       - "mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
       - "mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
+      - "mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.json"
+      - "mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.schema.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
       - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
       - "mycelix-finance/Cargo.toml"
@@ -63,6 +76,7 @@ jobs:
           corpus="mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
           schema="mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
           doc="docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md"
+          effect_doc="docs/finance/FIN_EFFECT_004_PROFILE_BOUND_EFFECT_VECTOR_V0_1.md"
           jq empty "$corpus"
           jq empty "$schema"
           jq -e '
@@ -128,11 +142,14 @@ jobs:
           grep -q "does not claim" "$doc"
           grep -q "same operation ID + different fingerprint" "$doc"
           grep -q "global exactly-once" "$doc"
+          grep -q "Canonical claim-profile digest v1" "$effect_doc"
+          grep -q "5ad833aef24a53646218b7fbe43fb1d3314563b165a0233898e5a96b4e1f8e4c" "$effect_doc"
           cmp mycelix-finance/Cargo.toml mycelix-workspace/mycelix-finance/Cargo.toml
           cmp mycelix-finance/Cargo.lock mycelix-workspace/mycelix-finance/Cargo.lock
           cmp mycelix-finance/crates/finance-economic-operation/Cargo.toml mycelix-workspace/mycelix-finance/crates/finance-economic-operation/Cargo.toml
           cmp mycelix-finance/crates/finance-economic-operation/src/lib.rs mycelix-workspace/mycelix-finance/crates/finance-economic-operation/src/lib.rs
           cmp docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md mycelix-workspace/docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md
+          cmp docs/finance/FIN_EFFECT_004_PROFILE_BOUND_EFFECT_VECTOR_V0_1.md mycelix-workspace/docs/finance/FIN_EFFECT_004_PROFILE_BOUND_EFFECT_VECTOR_V0_1.md
           cmp mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json
           cmp mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json
           {
@@ -148,9 +165,45 @@ jobs:
             echo "kernel_manifest_sha256=$(sha256sum mycelix-finance/crates/finance-economic-operation/Cargo.toml | cut -d' ' -f1)"
             echo "kernel_source_sha256=$(sha256sum mycelix-finance/crates/finance-economic-operation/src/lib.rs | cut -d' ' -f1)"
             echo "finance_lock_sha256=$(sha256sum mycelix-finance/Cargo.lock | cut -d' ' -f1)"
+            effect_vector_corpus="mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.json"
+            effect_vector_schema="mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.schema.json"
+            echo "effect_vector_corpus_sha256=$(sha256sum "$effect_vector_corpus" | cut -d' ' -f1)"
+            echo "effect_vector_schema_sha256=$(sha256sum "$effect_vector_schema" | cut -d' ' -f1)"
+            echo "effect_vector_case_count=$(jq '.cases | length' "$effect_vector_corpus")"
+            echo "claim_profile_kat_sha256=$(jq -c '.known_answer_vectors' "$effect_vector_corpus" | sha256sum | cut -d' ' -f1)"
             echo "claim=corpus structural validation plus pure Rust kernel tests; no Holochain/runtime or global uniqueness proof"
           } | tee "$RUNNER_TEMP/economic-operation-identity-manifest.txt"
           cat "$RUNNER_TEMP/economic-operation-identity-manifest.txt" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate profile-bound effect-vector corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          corpus="mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.json"
+          schema="mycelix-finance/benchmarks/finance/economic-effect-vector-corpus.v0.1.schema.json"
+          jq empty "$corpus"
+          jq empty "$schema"
+          jq -e '
+            .benchmark == "FIN-EFFECT-004 Profile-Bound Economic Effect Vector Projection" and
+            .issue == 6608 and
+            .status == "normative_adversarial_corpus_not_execution_evidence" and
+            .composition.no_new_operation_or_effect_identity_algorithm == true and
+            .composition.claim_profile_digest.schema_version == 1 and
+            ([.known_answer_vectors[] | select(.vector_id == "KAT-VEC-001") | .expected_hex][0] ==
+              "5ad833aef24a53646218b7fbe43fb1d3314563b165a0233898e5a96b4e1f8e4c") and
+            .aggregation_precedence == ["Conflict","Indeterminate","Pending","SupportedWithinDeclaredScope"] and
+            (.cases | length == 16) and
+            ([.cases[].id] | unique | length == 16) and
+            (.metrics | map(.id) | unique | length) == (.metrics | length) and
+            ([.cases[] | select(.id == "VEC-002") | .expected][0] == "Pending") and
+            ([.cases[] | select(.id == "VEC-004") | .expected][0] == "Indeterminate") and
+            ([.cases[] | select(.id == "VEC-006") | .expected][0] == "Conflict") and
+            ([.cases[] | select(.id == "VEC-010") | .expected][0] == "Pending") and
+            ([.cases[] | select(.id == "VEC-016") | .expected][0] == "Conflict")
+          ' "$corpus" >/dev/null
+          cmp "$corpus" "mycelix-workspace/$corpus"
+          cmp "$schema" "mycelix-workspace/$schema"
+          echo "16 effect-vector adversarial cases validated; targets are not execution evidence."
 
       - name: Install pinned Rust toolchain
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
