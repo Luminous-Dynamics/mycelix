@@ -443,7 +443,7 @@ mod tests {
     #[test]
     fn overlapping_claim_spans_fail() {
         let text = "The revised date is 12 June.";
-        let first = annotation("c1",0,10,"The revised",AuditedClaimDisposition::Unresolved,&[],&[],Some("context"));
+        let first = annotation("c1",0,11,"The revised",AuditedClaimDisposition::Unresolved,&[],&[],Some("context"));
         let second = annotation("c2",5,text.len(),"vised date is 12 June.",AuditedClaimDisposition::Unresolved,&[],&[],Some("context"));
         let report = validate_independent_response_audit(&audit(text, vec![first,second]), &[]);
         assert_eq!(report.status, ResponseAuditStatus::Fail);
