@@ -371,11 +371,11 @@ fn add_error(errors: &mut Vec<String>, sequence: u64, message: impl AsRef<str>) 
     errors.push(format!("event {sequence}: {}", message.as_ref()));
 }
 
-fn check_parent<'a>(
+fn check_parent<'events, 'map>(
     event: &LedgerEvent,
-    earlier_events: &'a BTreeMap<String, &'a LedgerEvent>,
+    earlier_events: &'map BTreeMap<String, &'events LedgerEvent>,
     errors: &mut Vec<String>,
-) -> Option<&'a LedgerEvent> {
+) -> Option<&'events LedgerEvent> {
     match event.parent_event_id.as_deref() {
         Some(parent_id) => match earlier_events.get(parent_id) {
             Some(parent) => Some(*parent),
@@ -669,6 +669,19 @@ pub fn validate_ledger(events: &[LedgerEvent]) -> LedgerValidationReport {
                     {
                         add_error(&mut errors, event.sequence, "disputed claim requires both supporting and contradicting evidence");
                     }
+                    ClaimDisposition::Disputed => {
+                        let supporting_sources: BTreeSet<&str> = supporting_evidence_ids
+                            .iter()
+                            .filter_map(|id| evidence.get(id).map(|item| item.source_holder_id.as_str()))
+                            .collect();
+                        let contradicting_sources: BTreeSet<&str> = contradicting_evidence_ids
+                            .iter()
+                            .filter_map(|id| evidence.get(id).map(|item| item.source_holder_id.as_str()))
+                            .collect();
+                        if !supporting_sources.is_disjoint(&contradicting_sources) {
+                            add_error(&mut errors, event.sequence, "disputed claim requires independent supporting and contradicting origins");
+                        }
+                    }
                     ClaimDisposition::Unknown
                         if !supporting_evidence_ids.is_empty() || !contradicting_evidence_ids.is_empty() =>
                     {
@@ -712,6 +725,12 @@ pub fn validate_ledger(events: &[LedgerEvent]) -> LedgerValidationReport {
                     match claims.get(&(claim_ref.claim_id.clone(), claim_ref.revision)) {
                         Some(claim) => {
                             all_supported &= claim.disposition == ClaimDisposition::Supported;
+                            if latest_claims
+                                .get(&claim_ref.claim_id)
+                                .is_none_or(|latest| latest.revision != claim_ref.revision)
+                            {
+                                add_error(&mut errors, event.sequence, "decision references a stale claim revision");
+                            }
                         }
                         None => {
                             all_supported = false;
@@ -1014,7 +1033,6 @@ mod tests {
     #[test]
     fn claim_must_link_to_prior_revision() {
         let mut events = valid_ledger();
-        let first_revision = events[6].clone();
         let second = LedgerEvent::seal(
             9,
             "claim-2",
