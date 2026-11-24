@@ -82,6 +82,30 @@ jobs:
           ' "$RUNNER_TEMP/adaptive-rom-report.json"
           jq -r '"adaptive_rank=\(.basis_dimension) candidates=\(.adaptive_candidate_shift_count) shifts=\(.rational_shifts|length) total_cg_solves=\(.cg_solve_count) total_cg_iterations=\(.total_cg_iterations) audit_error=\(.maximum_sampled_response_error) feedthrough_error=\(.feedthrough_limit_relative_error)"' \
             "$RUNNER_TEMP/adaptive-rom-report.json"
+      - name: Execute fixed two-shift equal-rank comparator
+        run: |
+          cargo run --quiet --manifest-path research/terra-preta/tools/sparse-passive-rom-reference/Cargo.toml -- \
+            research/terra-preta/tools/sparse-passive-rom-reference/fixtures/fixed-high-contrast-three-port.json \
+            "$RUNNER_TEMP/fixed-rom-report.json"
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            (.interior_node_count == 8) and
+            (.basis_dimension == 6) and
+            (.adaptive_target_met == null) and
+            (.structural_passivity_certificate_valid == true)
+          ' "$RUNNER_TEMP/fixed-rom-report.json"
+      - name: Compare adaptive and fixed models at equal rank
+        run: |
+          jq -e --slurpfile fixed "$RUNNER_TEMP/fixed-rom-report.json" '
+            . as $adaptive |
+            ($fixed[0].basis_dimension == $adaptive.basis_dimension) and
+            ($adaptive.maximum_sampled_response_error < $fixed[0].maximum_sampled_response_error) and
+            ($adaptive.dc_relative_error < 1e-8) and
+            ($fixed[0].dc_relative_error < 1e-8)
+          ' "$RUNNER_TEMP/adaptive-rom-report.json"
+          jq -r --slurpfile fixed "$RUNNER_TEMP/fixed-rom-report.json" '
+            "adaptive_rank=\(.basis_dimension) audit_error=\(.maximum_sampled_response_error) candidate_error=\(.adaptive_maximum_candidate_relative_error) cg_solves=\(.cg_solve_count) cg_iterations=\(.total_cg_iterations) | fixed_rank=\($fixed[0].basis_dimension) audit_error=\($fixed[0].maximum_sampled_response_error) cg_solves=\($fixed[0].cg_solve_count) cg_iterations=\($fixed[0].total_cg_iterations)"
+          ' "$RUNNER_TEMP/adaptive-rom-report.json"
       - name: Reject output overwrite
         run: |
           before=$(sha256sum "$RUNNER_TEMP/sparse-rom-report.json" | cut -d ' ' -f 1)
