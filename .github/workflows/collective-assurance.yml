@@ -25,16 +25,9 @@ jobs:
         uses: dtolnay/rust-toolchain@1.96.0
         with:
           components: clippy, rustfmt
-      - name: Format Rust sources in isolated CI checkout
-        run: cargo fmt --manifest-path research/collective-assurance/Cargo.toml
+      - name: Check committed formatting
+        run: cargo fmt --manifest-path research/collective-assurance/Cargo.toml -- --check
       - name: Run strict Clippy
         run: cargo clippy --manifest-path research/collective-assurance/Cargo.toml --all-targets -- -D warnings
       - name: Run unit tests
         run: cargo test --manifest-path research/collective-assurance/Cargo.toml
-      - name: Export rustfmt-normalized source for review
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: collective-assurance-rustfmt-source
-          path: research/collective-assurance/src/lib.rs
-          if-no-files-found: error
