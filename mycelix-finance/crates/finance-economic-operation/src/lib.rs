@@ -79,6 +79,28 @@ impl OperationKeyV1 {
         update_field(&mut hasher, self.stable_obligation_reference.as_bytes())?;
         Ok(OperationIdentityV1(DigestV1(*hasher.finalize().as_bytes())))
     }
+
+    /// Bind the stable obligation reference to its immutable economic terms.
+    /// This prevents a caller from accidentally pairing an operation key for one
+    /// obligation with a fingerprint that describes another obligation.
+    pub fn bind_intent(
+        &self,
+        terms: &ImmutableIntentTermsV1,
+    ) -> Result<BoundOperationIntentV1, KernelErrorV1> {
+        if self.stable_obligation_reference != terms.source_obligation_reference {
+            return Err(KernelErrorV1::ObligationReferenceMismatch);
+        }
+        Ok(BoundOperationIntentV1 {
+            operation_id: self.derive_identity()?,
+            intent_fingerprint: terms.fingerprint()?,
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BoundOperationIntentV1 {
+    pub operation_id: OperationIdentityV1,
+    pub intent_fingerprint: DigestV1,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -455,6 +477,7 @@ pub enum KernelErrorV1 {
     ZeroAmount,
     ObservationOperationMismatch,
     ObservationEffectMismatch,
+    ObligationReferenceMismatch,
 }
 
 #[cfg(test)]
@@ -500,6 +523,33 @@ mod tests {
         .unwrap();
         assert_eq!(first, second);
         assert_ne!(terms().fingerprint().unwrap(), changed.fingerprint().unwrap());
+    }
+
+    #[test]
+    fn binding_rejects_a_fingerprint_for_a_different_obligation() {
+        let key = OperationKeyV1::new(
+            "finance",
+            "did:mycelix:origin",
+            "trade:42:settlement:1",
+        );
+        let mut mismatched = terms();
+        mismatched.source_obligation_reference = "trade:43:settlement:1".into();
+        assert_eq!(
+            key.bind_intent(&mismatched),
+            Err(KernelErrorV1::ObligationReferenceMismatch)
+        );
+    }
+
+    #[test]
+    fn binding_returns_operation_identity_and_exact_fingerprint_together() {
+        let key = OperationKeyV1::new(
+            "finance",
+            "did:mycelix:origin",
+            "trade:42:attempt:1",
+        );
+        let bound = key.bind_intent(&terms()).unwrap();
+        assert_eq!(bound.operation_id, operation());
+        assert_eq!(bound.intent_fingerprint, terms().fingerprint().unwrap());
     }
 
     #[test]
