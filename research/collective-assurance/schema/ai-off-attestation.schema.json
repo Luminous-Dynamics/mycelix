@@ -1,0 +1,36 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://luminousdynamics.io/schemas/ai-off-attestation-v0.1.json",
+  "title":"AI-off attestation envelope v0.1",
+  "type":"object","additionalProperties":false,
+  "required":["claims","signature_b64"],
+  "properties":{
+    "claims":{
+      "type":"object","additionalProperties":false,
+      "required":["schema_version","run_id","phase_id","challenge_nonce","signer_key_id","isolation_profile_id","platform_measurement_digest","runner_digest","isolation_policy_digest","process_inventory","processes","artifact_inventory","artifacts","probe_observations","observed_external_connections"],
+      "properties":{
+        "schema_version":{"const":"ai-off-attestation-v0.1"},
+        "run_id":{"type":"string","minLength":1},"phase_id":{"type":"string","minLength":1},
+        "challenge_nonce":{"type":"string","minLength":32},"signer_key_id":{"type":"string","minLength":1},
+        "isolation_profile_id":{"type":"string","minLength":1},
+        "platform_measurement_digest":{"$ref":"#/$defs/digest"},
+        "runner_digest":{"$ref":"#/$defs/digest"},"isolation_policy_digest":{"$ref":"#/$defs/digest"},
+        "process_inventory":{"enum":["complete","incomplete","unknown"]},
+        "processes":{"type":"array","items":{"enum":["approved_harness","candidate_agent","model_runtime","unclassified"]}},
+        "artifact_inventory":{"enum":["complete","incomplete","unknown"]},
+        "artifacts":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["artifact_id","class","candidate_reachable"],"properties":{
+          "artifact_id":{"type":"string","minLength":1},
+          "class":{"enum":["task_input","human_authored","candidate_output","ai_generated_answer","model_weights","prompt_or_session_cache","unclassified"]},
+          "candidate_reachable":{"type":"boolean"}
+        }}},
+        "probe_observations":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["kind","outcome"],"properties":{
+          "kind":{"enum":["inference_endpoint","agent_control_plane","external_network_egress","model_credential_vault","cache_replay_canary"]},
+          "outcome":{"enum":["blocked","allowed","unknown","not_run"]}
+        }}},
+        "observed_external_connections":{"type":["integer","null"],"minimum":0}
+      }
+    },
+    "signature_b64":{"type":"string","minLength":1,"contentEncoding":"base64"}
+  },
+  "$defs":{"digest":{"type":"string","pattern":"^[a-f0-9]{64}$"}}
+}
