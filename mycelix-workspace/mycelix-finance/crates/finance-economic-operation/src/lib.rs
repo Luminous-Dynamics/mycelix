@@ -172,6 +172,7 @@ impl ImmutableIntentTermsV1 {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum EffectRoleV1 {
+    // Legacy Finance roles retain their original wire strings and effect IDs.
     PayerDebit,
     BeneficiaryOutput,
     BeneficiaryClaim,
@@ -179,6 +180,78 @@ pub enum EffectRoleV1 {
     PoolContribution,
     PoolDisbursement,
     ExternalSettlementObservation,
+
+    // Hearth pool/member ownership.
+    HearthMemberNoteSpend,
+    HearthPoolContributionReceipt,
+    HearthAllocationReservation,
+    HearthPoolDisbursement,
+
+    // TEND mutual-credit lifecycle.
+    TendProviderCredit,
+    TendRecipientDebit,
+    TendRepayment,
+    TendMutualCreditExposure,
+    TendClearingAdjustment,
+
+    // Grants and budget execution.
+    GrantAppropriation,
+    GrantBudgetReservation,
+    GrantAward,
+    GrantTrancheRelease,
+    GrantRecipientClaim,
+    GrantRecovery,
+
+    // Procurement and supplier obligations.
+    ProcurementOrderCommitment,
+    GoodsServiceReceipt,
+    SupplierLiability,
+    PayableJournal,
+    PaymentInstruction,
+    BankSettlementReceipt,
+
+    // Payroll and worker compensation.
+    PayrollEarningAccrual,
+    PayrollWithholdingLiability,
+    PayrollNetPayable,
+    PayrollRelease,
+    BankPayment,
+    WorkerReceipt,
+
+    // Public benefits and transfers.
+    PublicEligibilityDecision,
+    PublicEntitlement,
+    PublicBudgetReservation,
+    PublicDisbursement,
+    PublicRecipientClaim,
+    PublicAppealRecovery,
+
+    // Physical resources and services.
+    ResourceReservation,
+    ProviderCommitment,
+    DeliveryEvent,
+    BeneficiaryAcceptance,
+    QualityExceptionClaim,
+
+    // Non-transferable reputation / contribution recognition.
+    ReputationAttestation,
+    ReputationProjection,
+    ReputationCorrection,
+    ReputationRevocation,
+
+    // External instruments and Valueflows references/effects.
+    ExternalInstruction,
+    ExternalProviderAcceptance,
+    ExternalLedgerObservation,
+    ExternalReversal,
+    ValueflowsIntent,
+    ValueflowsCommitment,
+    ValueflowsClaim,
+    ValueflowsEconomicEvent,
+    ValueflowsEconomicResource,
+
+    // Asset lifecycle effects outside ordinary transfers.
+    SapDemurrageAssessment,
 }
 
 impl EffectRoleV1 {
@@ -191,6 +264,58 @@ impl EffectRoleV1 {
             Self::PoolContribution => "pool_contribution",
             Self::PoolDisbursement => "pool_disbursement",
             Self::ExternalSettlementObservation => "external_settlement_observation",
+            Self::HearthMemberNoteSpend => "hearth.member_note_spend",
+            Self::HearthPoolContributionReceipt => "hearth.pool_contribution_receipt",
+            Self::HearthAllocationReservation => "hearth.allocation_reservation",
+            Self::HearthPoolDisbursement => "hearth.pool_disbursement",
+            Self::TendProviderCredit => "tend.provider_credit",
+            Self::TendRecipientDebit => "tend.recipient_debit",
+            Self::TendRepayment => "tend.repayment",
+            Self::TendMutualCreditExposure => "tend.mutual_credit_exposure",
+            Self::TendClearingAdjustment => "tend.clearing_adjustment",
+            Self::GrantAppropriation => "grant.appropriation",
+            Self::GrantBudgetReservation => "grant.budget_reservation",
+            Self::GrantAward => "grant.award",
+            Self::GrantTrancheRelease => "grant.tranche_release",
+            Self::GrantRecipientClaim => "grant.recipient_claim",
+            Self::GrantRecovery => "grant.recovery",
+            Self::ProcurementOrderCommitment => "procurement.order_commitment",
+            Self::GoodsServiceReceipt => "procurement.goods_service_receipt",
+            Self::SupplierLiability => "procurement.supplier_liability",
+            Self::PayableJournal => "procurement.payable_journal",
+            Self::PaymentInstruction => "procurement.payment_instruction",
+            Self::BankSettlementReceipt => "procurement.bank_settlement_receipt",
+            Self::PayrollEarningAccrual => "payroll.earning_accrual",
+            Self::PayrollWithholdingLiability => "payroll.withholding_liability",
+            Self::PayrollNetPayable => "payroll.net_payable",
+            Self::PayrollRelease => "payroll.release",
+            Self::BankPayment => "payroll.bank_payment",
+            Self::WorkerReceipt => "payroll.worker_receipt",
+            Self::PublicEligibilityDecision => "public_transfer.eligibility_decision",
+            Self::PublicEntitlement => "public_transfer.entitlement",
+            Self::PublicBudgetReservation => "public_transfer.budget_reservation",
+            Self::PublicDisbursement => "public_transfer.disbursement",
+            Self::PublicRecipientClaim => "public_transfer.recipient_claim",
+            Self::PublicAppealRecovery => "public_transfer.appeal_recovery",
+            Self::ResourceReservation => "resource.reservation",
+            Self::ProviderCommitment => "resource.provider_commitment",
+            Self::DeliveryEvent => "resource.delivery_event",
+            Self::BeneficiaryAcceptance => "resource.beneficiary_acceptance",
+            Self::QualityExceptionClaim => "resource.quality_exception_claim",
+            Self::ReputationAttestation => "reputation.attestation",
+            Self::ReputationProjection => "reputation.projection",
+            Self::ReputationCorrection => "reputation.correction",
+            Self::ReputationRevocation => "reputation.revocation",
+            Self::ExternalInstruction => "external.instruction",
+            Self::ExternalProviderAcceptance => "external.provider_acceptance",
+            Self::ExternalLedgerObservation => "external.ledger_observation",
+            Self::ExternalReversal => "external.reversal",
+            Self::ValueflowsIntent => "valueflows.intent",
+            Self::ValueflowsCommitment => "valueflows.commitment",
+            Self::ValueflowsClaim => "valueflows.claim",
+            Self::ValueflowsEconomicEvent => "valueflows.economic_event",
+            Self::ValueflowsEconomicResource => "valueflows.economic_resource",
+            Self::SapDemurrageAssessment => "sap.demurrage_assessment",
         }
     }
 }
@@ -486,6 +611,9 @@ pub enum KernelErrorV1 {
     UnexpectedEffectEvidenceBatch,
     ProfileDigestMismatch,
     TooManyRequiredEffects,
+    MissingTemplateRoleBinding,
+    DuplicateTemplateRoleBinding,
+    UnexpectedTemplateRoleBinding,
 }
 
 /// One owner-specific effect required by an explicit composite claim profile.
@@ -565,6 +693,159 @@ impl CompositeClaimProfileV1 {
         }
 
         Ok(DigestV1(*hasher.finalize().as_bytes()))
+    }
+}
+
+/// Reusable Economic OS claim-profile starting points.
+///
+/// Templates provide a reviewed, versioned required-role shape. The caller must
+/// still bind the actual effect owners and policy context. A template is not
+/// authority, legal policy, settlement finality, or proof of profile completeness.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EconomicClaimTemplateV1 {
+    SapBilateralTransferReconciled,
+    HearthContributionAccepted,
+    HearthWithdrawalClaimed,
+    TendBilateralClearing,
+    GrantRecipientClaimed,
+    ProcurementReceivedAndSettled,
+    PayrollWorkerReceiptObserved,
+    CommonsServiceAccepted,
+    ReputationAttestationRecorded,
+}
+
+impl EconomicClaimTemplateV1 {
+    pub fn profile_id(self) -> &'static str {
+        match self {
+            Self::SapBilateralTransferReconciled => {
+                "economic-os:claim:sap-bilateral-transfer-reconciled:v1"
+            }
+            Self::HearthContributionAccepted => "economic-os:claim:hearth-contribution-accepted:v1",
+            Self::HearthWithdrawalClaimed => "economic-os:claim:hearth-withdrawal-claimed:v1",
+            Self::TendBilateralClearing => "economic-os:claim:tend-bilateral-clearing:v1",
+            Self::GrantRecipientClaimed => "economic-os:claim:grant-recipient-claimed:v1",
+            Self::ProcurementReceivedAndSettled => {
+                "economic-os:claim:procurement-received-and-settled:v1"
+            }
+            Self::PayrollWorkerReceiptObserved => {
+                "economic-os:claim:payroll-worker-receipt-observed:v1"
+            }
+            Self::CommonsServiceAccepted => "economic-os:claim:commons-service-accepted:v1",
+            Self::ReputationAttestationRecorded => {
+                "economic-os:claim:reputation-attestation-recorded:v1"
+            }
+        }
+    }
+
+    pub fn claim_name(self) -> &'static str {
+        match self {
+            Self::SapBilateralTransferReconciled => "sap_bilateral_transfer_reconciled",
+            Self::HearthContributionAccepted => "hearth_contribution_accepted",
+            Self::HearthWithdrawalClaimed => "hearth_withdrawal_claimed",
+            Self::TendBilateralClearing => "tend_bilateral_clearing",
+            Self::GrantRecipientClaimed => "grant_recipient_claimed",
+            Self::ProcurementReceivedAndSettled => "procurement_received_and_settled",
+            Self::PayrollWorkerReceiptObserved => "payroll_worker_receipt_observed",
+            Self::CommonsServiceAccepted => "commons_service_accepted",
+            Self::ReputationAttestationRecorded => "reputation_attestation_recorded",
+        }
+    }
+
+    pub fn required_roles(self) -> Vec<EffectRoleV1> {
+        match self {
+            Self::SapBilateralTransferReconciled => {
+                vec![EffectRoleV1::PayerDebit, EffectRoleV1::BeneficiaryClaim]
+            }
+            Self::HearthContributionAccepted => vec![
+                EffectRoleV1::HearthMemberNoteSpend,
+                EffectRoleV1::HearthPoolContributionReceipt,
+            ],
+            Self::HearthWithdrawalClaimed => vec![
+                EffectRoleV1::HearthPoolDisbursement,
+                EffectRoleV1::BeneficiaryClaim,
+            ],
+            Self::TendBilateralClearing => vec![
+                EffectRoleV1::TendProviderCredit,
+                EffectRoleV1::TendRecipientDebit,
+                EffectRoleV1::TendMutualCreditExposure,
+            ],
+            Self::GrantRecipientClaimed => vec![
+                EffectRoleV1::GrantAward,
+                EffectRoleV1::GrantBudgetReservation,
+                EffectRoleV1::GrantTrancheRelease,
+                EffectRoleV1::GrantRecipientClaim,
+            ],
+            Self::ProcurementReceivedAndSettled => vec![
+                EffectRoleV1::ProcurementOrderCommitment,
+                EffectRoleV1::GoodsServiceReceipt,
+                EffectRoleV1::SupplierLiability,
+                EffectRoleV1::PayableJournal,
+                EffectRoleV1::PaymentInstruction,
+                EffectRoleV1::BankSettlementReceipt,
+            ],
+            Self::PayrollWorkerReceiptObserved => vec![
+                EffectRoleV1::PayrollNetPayable,
+                EffectRoleV1::PayrollRelease,
+                EffectRoleV1::BankPayment,
+                EffectRoleV1::WorkerReceipt,
+            ],
+            Self::CommonsServiceAccepted => vec![
+                EffectRoleV1::ResourceReservation,
+                EffectRoleV1::ProviderCommitment,
+                EffectRoleV1::DeliveryEvent,
+                EffectRoleV1::BeneficiaryAcceptance,
+            ],
+            Self::ReputationAttestationRecorded => vec![
+                EffectRoleV1::ReputationAttestation,
+                EffectRoleV1::ReputationProjection,
+            ],
+        }
+    }
+
+    /// Bind a template's exact role set to explicit effect owners.
+    ///
+    /// Missing, unexpected and duplicate role bindings are rejected. The returned
+    /// profile digest is derived from the exact template ID, claim name, operation,
+    /// intent fingerprint and sorted role/owner/effect tuples.
+    pub fn build_profile(
+        self,
+        operation_id: OperationIdentityV1,
+        expected_intent_fingerprint: DigestV1,
+        owner_bindings: Vec<RequiredEffectV1>,
+    ) -> Result<CompositeClaimProfileV1, KernelErrorV1> {
+        let required_roles = self.required_roles();
+        let expected: BTreeSet<EffectRoleV1> = required_roles.iter().copied().collect();
+        let mut supplied = BTreeSet::new();
+
+        for binding in &owner_bindings {
+            validate_component(&binding.effect_owner)?;
+            if !expected.contains(&binding.role) {
+                return Err(KernelErrorV1::UnexpectedTemplateRoleBinding);
+            }
+            if !supplied.insert(binding.role) {
+                return Err(KernelErrorV1::DuplicateTemplateRoleBinding);
+            }
+        }
+
+        if supplied != expected {
+            return Err(KernelErrorV1::MissingTemplateRoleBinding);
+        }
+
+        let mut required_effects = owner_bindings;
+        required_effects.sort_by(|left, right| {
+            (left.role, left.effect_owner.as_str()).cmp(&(right.role, right.effect_owner.as_str()))
+        });
+
+        let mut profile = CompositeClaimProfileV1 {
+            profile_id: self.profile_id().into(),
+            profile_digest: DigestV1([0; 32]),
+            claim_name: self.claim_name().into(),
+            operation_id,
+            expected_intent_fingerprint,
+            required_effects,
+        };
+        profile.profile_digest = profile.derive_profile_digest()?;
+        Ok(profile)
     }
 }
 
@@ -1584,6 +1865,335 @@ mod effect_vector_tests {
             p.profile_digest.to_hex(),
             "5ad833aef24a53646218b7fbe43fb1d3314563b165a0233898e5a96b4e1f8e4c"
         );
+    }
+
+    #[test]
+    fn economic_template_builds_profile_bound_hearth_contribution() {
+        let base = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:member",
+        )]);
+        let built = EconomicClaimTemplateV1::HearthContributionAccepted
+            .build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![
+                    required(EffectRoleV1::HearthMemberNoteSpend, "did:mycelix:member"),
+                    required(
+                        EffectRoleV1::HearthPoolContributionReceipt,
+                        "did:mycelix:hearth-pool",
+                    ),
+                ],
+            )
+            .unwrap();
+        assert_eq!(
+            built.profile_id,
+            "economic-os:claim:hearth-contribution-accepted:v1"
+        );
+        assert_eq!(built.required_effects.len(), 2);
+        assert_eq!(built.profile_digest, built.derive_profile_digest().unwrap());
+    }
+
+    #[test]
+    fn economic_template_rejects_missing_owner_role_binding() {
+        let base = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:member",
+        )]);
+        assert_eq!(
+            EconomicClaimTemplateV1::HearthContributionAccepted.build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![required(
+                    EffectRoleV1::HearthMemberNoteSpend,
+                    "did:mycelix:member",
+                )],
+            ),
+            Err(KernelErrorV1::MissingTemplateRoleBinding)
+        );
+    }
+
+    #[test]
+    fn economic_template_rejects_unexpected_owner_role_binding() {
+        let base = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:member",
+        )]);
+        assert_eq!(
+            EconomicClaimTemplateV1::SapBilateralTransferReconciled.build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![
+                    required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
+                    required(EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob"),
+                    required(EffectRoleV1::TreasuryFee, "did:mycelix:treasury"),
+                ],
+            ),
+            Err(KernelErrorV1::UnexpectedTemplateRoleBinding)
+        );
+    }
+
+    #[test]
+    fn economic_template_rejects_duplicate_role_bindings() {
+        let base = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:member",
+        )]);
+        assert_eq!(
+            EconomicClaimTemplateV1::SapBilateralTransferReconciled.build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![
+                    required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
+                    required(EffectRoleV1::PayerDebit, "did:mycelix:alice-alt"),
+                    required(EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob"),
+                ],
+            ),
+            Err(KernelErrorV1::DuplicateTemplateRoleBinding)
+        );
+    }
+
+    #[test]
+    fn legacy_effect_role_strings_remain_stable() {
+        assert_eq!(EffectRoleV1::PayerDebit.as_str(), "payer_debit");
+        assert_eq!(EffectRoleV1::BeneficiaryClaim.as_str(), "beneficiary_claim");
+        assert_eq!(EffectRoleV1::TreasuryFee.as_str(), "treasury_fee");
+        assert_eq!(
+            EffectRoleV1::ExternalSettlementObservation.as_str(),
+            "external_settlement_observation"
+        );
+    }
+
+    #[test]
+    fn economic_effect_role_names_are_namespaced() {
+        assert_eq!(
+            EffectRoleV1::TendProviderCredit.as_str(),
+            "tend.provider_credit"
+        );
+        assert_eq!(
+            EffectRoleV1::ProcurementOrderCommitment.as_str(),
+            "procurement.order_commitment"
+        );
+        assert_eq!(
+            EffectRoleV1::WorkerReceipt.as_str(),
+            "payroll.worker_receipt"
+        );
+        assert_eq!(
+            EffectRoleV1::BeneficiaryAcceptance.as_str(),
+            "resource.beneficiary_acceptance"
+        );
+    }
+
+    #[test]
+    fn economic_template_catalogue_has_unique_profiles_and_role_sets() {
+        let templates = [
+            EconomicClaimTemplateV1::SapBilateralTransferReconciled,
+            EconomicClaimTemplateV1::HearthContributionAccepted,
+            EconomicClaimTemplateV1::HearthWithdrawalClaimed,
+            EconomicClaimTemplateV1::TendBilateralClearing,
+            EconomicClaimTemplateV1::GrantRecipientClaimed,
+            EconomicClaimTemplateV1::ProcurementReceivedAndSettled,
+            EconomicClaimTemplateV1::PayrollWorkerReceiptObserved,
+            EconomicClaimTemplateV1::CommonsServiceAccepted,
+            EconomicClaimTemplateV1::ReputationAttestationRecorded,
+        ];
+        let profile_ids: BTreeSet<&str> = templates
+            .iter()
+            .map(|template| template.profile_id())
+            .collect();
+        assert_eq!(profile_ids.len(), templates.len());
+        for template in templates {
+            let roles = template.required_roles();
+            let distinct_roles: BTreeSet<EffectRoleV1> = roles.iter().copied().collect();
+            assert_eq!(distinct_roles.len(), roles.len());
+        }
+    }
+
+    #[test]
+    fn economic_template_binding_order_does_not_change_profile_digest() {
+        let base = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:member",
+        )]);
+        let first = EconomicClaimTemplateV1::TendBilateralClearing
+            .build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![
+                    required(EffectRoleV1::TendProviderCredit, "did:mycelix:provider"),
+                    required(EffectRoleV1::TendRecipientDebit, "did:mycelix:recipient"),
+                    required(
+                        EffectRoleV1::TendMutualCreditExposure,
+                        "did:mycelix:credit-fabric",
+                    ),
+                ],
+            )
+            .unwrap();
+        let second = EconomicClaimTemplateV1::TendBilateralClearing
+            .build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![
+                    required(
+                        EffectRoleV1::TendMutualCreditExposure,
+                        "did:mycelix:credit-fabric",
+                    ),
+                    required(EffectRoleV1::TendRecipientDebit, "did:mycelix:recipient"),
+                    required(EffectRoleV1::TendProviderCredit, "did:mycelix:provider"),
+                ],
+            )
+            .unwrap();
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn all_economic_effect_role_wire_names_are_unique() {
+        let names = [
+            EffectRoleV1::PayerDebit.as_str(),
+            EffectRoleV1::BeneficiaryOutput.as_str(),
+            EffectRoleV1::BeneficiaryClaim.as_str(),
+            EffectRoleV1::TreasuryFee.as_str(),
+            EffectRoleV1::PoolContribution.as_str(),
+            EffectRoleV1::PoolDisbursement.as_str(),
+            EffectRoleV1::ExternalSettlementObservation.as_str(),
+            EffectRoleV1::HearthMemberNoteSpend.as_str(),
+            EffectRoleV1::HearthPoolContributionReceipt.as_str(),
+            EffectRoleV1::HearthAllocationReservation.as_str(),
+            EffectRoleV1::HearthPoolDisbursement.as_str(),
+            EffectRoleV1::TendProviderCredit.as_str(),
+            EffectRoleV1::TendRecipientDebit.as_str(),
+            EffectRoleV1::TendRepayment.as_str(),
+            EffectRoleV1::TendMutualCreditExposure.as_str(),
+            EffectRoleV1::TendClearingAdjustment.as_str(),
+            EffectRoleV1::GrantAppropriation.as_str(),
+            EffectRoleV1::GrantBudgetReservation.as_str(),
+            EffectRoleV1::GrantAward.as_str(),
+            EffectRoleV1::GrantTrancheRelease.as_str(),
+            EffectRoleV1::GrantRecipientClaim.as_str(),
+            EffectRoleV1::GrantRecovery.as_str(),
+            EffectRoleV1::ProcurementOrderCommitment.as_str(),
+            EffectRoleV1::GoodsServiceReceipt.as_str(),
+            EffectRoleV1::SupplierLiability.as_str(),
+            EffectRoleV1::PayableJournal.as_str(),
+            EffectRoleV1::PaymentInstruction.as_str(),
+            EffectRoleV1::BankSettlementReceipt.as_str(),
+            EffectRoleV1::PayrollEarningAccrual.as_str(),
+            EffectRoleV1::PayrollWithholdingLiability.as_str(),
+            EffectRoleV1::PayrollNetPayable.as_str(),
+            EffectRoleV1::PayrollRelease.as_str(),
+            EffectRoleV1::BankPayment.as_str(),
+            EffectRoleV1::WorkerReceipt.as_str(),
+            EffectRoleV1::PublicEligibilityDecision.as_str(),
+            EffectRoleV1::PublicEntitlement.as_str(),
+            EffectRoleV1::PublicBudgetReservation.as_str(),
+            EffectRoleV1::PublicDisbursement.as_str(),
+            EffectRoleV1::PublicRecipientClaim.as_str(),
+            EffectRoleV1::PublicAppealRecovery.as_str(),
+            EffectRoleV1::ResourceReservation.as_str(),
+            EffectRoleV1::ProviderCommitment.as_str(),
+            EffectRoleV1::DeliveryEvent.as_str(),
+            EffectRoleV1::BeneficiaryAcceptance.as_str(),
+            EffectRoleV1::QualityExceptionClaim.as_str(),
+            EffectRoleV1::ReputationAttestation.as_str(),
+            EffectRoleV1::ReputationProjection.as_str(),
+            EffectRoleV1::ReputationCorrection.as_str(),
+            EffectRoleV1::ReputationRevocation.as_str(),
+            EffectRoleV1::ExternalInstruction.as_str(),
+            EffectRoleV1::ExternalProviderAcceptance.as_str(),
+            EffectRoleV1::ExternalLedgerObservation.as_str(),
+            EffectRoleV1::ExternalReversal.as_str(),
+            EffectRoleV1::ValueflowsIntent.as_str(),
+            EffectRoleV1::ValueflowsCommitment.as_str(),
+            EffectRoleV1::ValueflowsClaim.as_str(),
+            EffectRoleV1::ValueflowsEconomicEvent.as_str(),
+            EffectRoleV1::ValueflowsEconomicResource.as_str(),
+            EffectRoleV1::SapDemurrageAssessment.as_str(),
+        ];
+        assert_eq!(names.len(), 59);
+        assert_eq!(
+            names.iter().copied().collect::<BTreeSet<_>>().len(),
+            names.len()
+        );
+    }
+
+    #[test]
+    fn economic_template_role_sets_are_explicit_and_stable() {
+        let expectations: [(EconomicClaimTemplateV1, &[EffectRoleV1]); 9] = [
+            (
+                EconomicClaimTemplateV1::SapBilateralTransferReconciled,
+                &[EffectRoleV1::PayerDebit, EffectRoleV1::BeneficiaryClaim],
+            ),
+            (
+                EconomicClaimTemplateV1::HearthContributionAccepted,
+                &[
+                    EffectRoleV1::HearthMemberNoteSpend,
+                    EffectRoleV1::HearthPoolContributionReceipt,
+                ],
+            ),
+            (
+                EconomicClaimTemplateV1::HearthWithdrawalClaimed,
+                &[
+                    EffectRoleV1::HearthPoolDisbursement,
+                    EffectRoleV1::BeneficiaryClaim,
+                ],
+            ),
+            (
+                EconomicClaimTemplateV1::TendBilateralClearing,
+                &[
+                    EffectRoleV1::TendProviderCredit,
+                    EffectRoleV1::TendRecipientDebit,
+                    EffectRoleV1::TendMutualCreditExposure,
+                ],
+            ),
+            (
+                EconomicClaimTemplateV1::GrantRecipientClaimed,
+                &[
+                    EffectRoleV1::GrantAward,
+                    EffectRoleV1::GrantBudgetReservation,
+                    EffectRoleV1::GrantTrancheRelease,
+                    EffectRoleV1::GrantRecipientClaim,
+                ],
+            ),
+            (
+                EconomicClaimTemplateV1::ProcurementReceivedAndSettled,
+                &[
+                    EffectRoleV1::ProcurementOrderCommitment,
+                    EffectRoleV1::GoodsServiceReceipt,
+                    EffectRoleV1::SupplierLiability,
+                    EffectRoleV1::PayableJournal,
+                    EffectRoleV1::PaymentInstruction,
+                    EffectRoleV1::BankSettlementReceipt,
+                ],
+            ),
+            (
+                EconomicClaimTemplateV1::PayrollWorkerReceiptObserved,
+                &[
+                    EffectRoleV1::PayrollNetPayable,
+                    EffectRoleV1::PayrollRelease,
+                    EffectRoleV1::BankPayment,
+                    EffectRoleV1::WorkerReceipt,
+                ],
+            ),
+            (
+                EconomicClaimTemplateV1::CommonsServiceAccepted,
+                &[
+                    EffectRoleV1::ResourceReservation,
+                    EffectRoleV1::ProviderCommitment,
+                    EffectRoleV1::DeliveryEvent,
+                    EffectRoleV1::BeneficiaryAcceptance,
+                ],
+            ),
+            (
+                EconomicClaimTemplateV1::ReputationAttestationRecorded,
+                &[
+                    EffectRoleV1::ReputationAttestation,
+                    EffectRoleV1::ReputationProjection,
+                ],
+            ),
+        ];
+        for (template, expected_roles) in expectations {
+            assert_eq!(template.required_roles().as_slice(), expected_roles);
+        }
     }
 
     #[test]
