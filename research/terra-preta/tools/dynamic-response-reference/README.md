@@ -58,7 +58,7 @@ Tests cover:
 - analytic dynamic Schur complement at multiple real Laplace samples;
 - DC limit against the steady equivalent conductance;
 - analytic step response initial delay and steady limit;
-- symmetry and nonnegative sampled quadratic forms for real `s >= 0`;
+- symmetry, minimum symmetric response eigenvalue and nonnegative sampled quadratic forms for real `s >= 0`;
 - edge reversal and node-storage permutation invariance;
 - repeated-input scaling negative control;
 - fail-closed validation of boundary storage, negative storage and unanchored components.
