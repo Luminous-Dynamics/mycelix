@@ -484,7 +484,6 @@ pub enum KernelErrorV1 {
     UnexpectedEffectEvidenceBatch,
 }
 
-
 /// One owner-specific effect required by an explicit composite claim profile.
 /// The effect identity is derived from the existing FIN-EFFECT-001 algorithm;
 /// this type introduces no new identity namespace or hash domain.
@@ -531,23 +530,15 @@ pub struct EffectVectorEntryV1 {
 pub enum CompositeClaimDispositionV1 {
     /// Every effect required by this exact profile was observed consistently.
     /// This is not authorization, legal finality, delivery, or spendability.
-    SupportedWithinDeclaredScope {
-        effect_ids: Vec<EffectIdentityV1>,
-    },
+    SupportedWithinDeclaredScope { effect_ids: Vec<EffectIdentityV1> },
     /// A declared-complete evidence view did not contain one or more required
     /// effects. This is a pending projection, not permission to create an effect.
-    Pending {
-        effect_ids: Vec<EffectIdentityV1>,
-    },
+    Pending { effect_ids: Vec<EffectIdentityV1> },
     /// One or more required evidence views are absent or incomplete.
-    Indeterminate {
-        effect_ids: Vec<EffectIdentityV1>,
-    },
+    Indeterminate { effect_ids: Vec<EffectIdentityV1> },
     /// At least one required effect has contradictory evidence.
     /// Conflict dominates every less severe aggregate disposition.
-    Conflict {
-        effect_ids: Vec<EffectIdentityV1>,
-    },
+    Conflict { effect_ids: Vec<EffectIdentityV1> },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -590,7 +581,11 @@ pub fn classify_effect_vector(
         if !required_ids.insert(effect_id) {
             return Err(KernelErrorV1::DuplicateRequiredEffect);
         }
-        required.push((effect_id, requirement.role, requirement.effect_owner.clone()));
+        required.push((
+            effect_id,
+            requirement.role,
+            requirement.effect_owner.clone(),
+        ));
     }
     required.sort_by_key(|(effect_id, _, _)| *effect_id);
 
@@ -1099,7 +1094,6 @@ mod tests {
     }
 }
 
-
 #[cfg(test)]
 mod effect_vector_tests {
     use super::*;
@@ -1148,8 +1142,7 @@ mod effect_vector_tests {
         effect_digest: DigestV1,
         reference: &str,
     ) -> EffectEvidenceBatchV1 {
-        let effect_id =
-            EffectIdentityV1::derive(profile.operation_id, role, owner).unwrap();
+        let effect_id = EffectIdentityV1::derive(profile.operation_id, role, owner).unwrap();
         EffectEvidenceBatchV1 {
             effect_id,
             completeness: EvidenceCompletenessV1::CompleteForDeclaredAuthority,
