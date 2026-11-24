@@ -2248,9 +2248,10 @@ mod effect_vector_tests {
             EffectRoleV1::ValueflowsClaim.as_str(),
             EffectRoleV1::ValueflowsEconomicEvent.as_str(),
             EffectRoleV1::ValueflowsEconomicResource.as_str(),
+            EffectRoleV1::FinanceLocalAtomicPaymentTransaction.as_str(),
             EffectRoleV1::SapDemurrageAssessment.as_str(),
         ];
-        assert_eq!(names.len(), 59);
+        assert_eq!(names.len(), 60);
         assert_eq!(
             names.iter().copied().collect::<BTreeSet<_>>().len(),
             names.len()
@@ -2335,6 +2336,202 @@ mod effect_vector_tests {
         for (template, expected_roles) in expectations {
             assert_eq!(template.required_roles().as_slice(), expected_roles);
         }
+    }
+
+    #[test]
+    fn local_atomic_sap_profile_has_one_atomic_effect_owner() {
+        let base = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+        )]);
+        let built = ExecutionProfileV1::LocalAtomicPrincipalTransferV1
+            .build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![required(
+                    EffectRoleV1::FinanceLocalAtomicPaymentTransaction,
+                    "did:mycelix:payments:alice",
+                )],
+            )
+            .unwrap();
+        assert_eq!(
+            built.profile_id,
+            "economic-os:execution:sap-local-atomic-principal-transfer:v1"
+        );
+        assert_eq!(
+            built.claim_name,
+            "sap_local_atomic_principal_transfer_committed"
+        );
+        assert_eq!(
+            built.required_effects,
+            vec![required(
+                EffectRoleV1::FinanceLocalAtomicPaymentTransaction,
+                "did:mycelix:payments:alice",
+            )]
+        );
+        assert_eq!(ExecutionProfileV1::LocalAtomicPrincipalTransferV1.authority_model(),
+            "single_author_atomic_source_chain_transaction");
+        assert_eq!(
+            built.profile_digest,
+            built.derive_profile_digest().unwrap()
+        );
+    }
+
+    #[test]
+    fn local_atomic_treasury_profile_requires_a_separate_treasury_effect_slot() {
+        let base = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+        )]);
+        let built = ExecutionProfileV1::LocalAtomicTransferTreasuryReconciledV1
+            .build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![
+                    required(
+                        EffectRoleV1::FinanceLocalAtomicPaymentTransaction,
+                        "did:mycelix:payments:alice",
+                    ),
+                    required(EffectRoleV1::TreasuryFee, "did:mycelix:treasury"),
+                ],
+            )
+            .unwrap();
+        assert_eq!(built.required_effects.len(), 2);
+        assert!(built.required_effects.iter().any(|binding|
+            binding.role == EffectRoleV1::FinanceLocalAtomicPaymentTransaction
+        ));
+        assert!(built.required_effects.iter().any(|binding|
+            binding.role == EffectRoleV1::TreasuryFee
+        ));
+        assert_eq!(
+            built.profile_id,
+            "economic-os:execution:sap-local-atomic-transfer-treasury-reconciled:v1"
+        );
+    }
+
+    #[test]
+    fn owner_authenticated_bilateral_profile_requires_distinct_payer_and_beneficiary() {
+        let base = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+        )]);
+        let built = ExecutionProfileV1::OwnerAuthenticatedBilateralTransferV1
+            .build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![
+                    required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
+                    required(EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob"),
+                ],
+            )
+            .unwrap();
+        assert_eq!(
+            built.profile_id,
+            "economic-os:execution:sap-owner-authenticated-bilateral-transfer:v1"
+        );
+        assert_eq!(
+            ExecutionProfileV1::OwnerAuthenticatedBilateralTransferV1.authority_model(),
+            "independent_payer_and_beneficiary_source_chains"
+        );
+    }
+
+    #[test]
+    fn owner_authenticated_bilateral_profile_rejects_same_owner_for_both_sides() {
+        let base = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+        )]);
+        assert_eq!(
+            ExecutionProfileV1::OwnerAuthenticatedBilateralTransferV1.build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![
+                    required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
+                    required(EffectRoleV1::BeneficiaryClaim, "did:mycelix:alice"),
+                ],
+            ),
+            Err(KernelErrorV1::PayerBeneficiaryOwnerMustDiffer)
+        );
+    }
+
+    #[test]
+    fn sap_execution_models_have_distinct_profile_ids_and_digests() {
+        let base = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+        )]);
+        let local = ExecutionProfileV1::LocalAtomicPrincipalTransferV1
+            .build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![required(
+                    EffectRoleV1::FinanceLocalAtomicPaymentTransaction,
+                    "did:mycelix:payments:alice",
+                )],
+            )
+            .unwrap();
+        let local_treasury = ExecutionProfileV1::LocalAtomicTransferTreasuryReconciledV1
+            .build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![
+                    required(
+                        EffectRoleV1::FinanceLocalAtomicPaymentTransaction,
+                        "did:mycelix:payments:alice",
+                    ),
+                    required(EffectRoleV1::TreasuryFee, "did:mycelix:treasury"),
+                ],
+            )
+            .unwrap();
+        let bilateral = ExecutionProfileV1::OwnerAuthenticatedBilateralTransferV1
+            .build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![
+                    required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
+                    required(EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob"),
+                ],
+            )
+            .unwrap();
+        assert_ne!(local.profile_id, local_treasury.profile_id);
+        assert_ne!(local.profile_id, bilateral.profile_id);
+        assert_ne!(local_treasury.profile_id, bilateral.profile_id);
+        assert_ne!(local.profile_digest, local_treasury.profile_digest);
+        assert_ne!(local.profile_digest, bilateral.profile_digest);
+        assert_ne!(local_treasury.profile_digest, bilateral.profile_digest);
+    }
+
+    #[test]
+    fn execution_profile_owner_binding_omission_and_extra_role_are_rejected() {
+        let base = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+        )]);
+        assert_eq!(
+            ExecutionProfileV1::LocalAtomicTransferTreasuryReconciledV1.build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![required(
+                    EffectRoleV1::FinanceLocalAtomicPaymentTransaction,
+                    "did:mycelix:payments:alice",
+                )],
+            ),
+            Err(KernelErrorV1::MissingTemplateRoleBinding)
+        );
+        assert_eq!(
+            ExecutionProfileV1::LocalAtomicPrincipalTransferV1.build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![
+                    required(
+                        EffectRoleV1::FinanceLocalAtomicPaymentTransaction,
+                        "did:mycelix:payments:alice",
+                    ),
+                    required(EffectRoleV1::TreasuryFee, "did:mycelix:treasury"),
+                ],
+            ),
+            Err(KernelErrorV1::UnexpectedTemplateRoleBinding)
+        );
     }
 
     #[test]
