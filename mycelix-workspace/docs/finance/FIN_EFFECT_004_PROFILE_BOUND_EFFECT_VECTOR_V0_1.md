@@ -24,7 +24,7 @@ A separate **claim-profile content digest** binds the caller's profile definitio
 
 Domain separator bytes (including the terminal NUL):
 
-\`mycelix:economic-claim-profile:v1\\0\`
+\`mycelix:economic-claim-profile:v1\0\`
 
 The digest is BLAKE3-256 over the concatenation:
 
