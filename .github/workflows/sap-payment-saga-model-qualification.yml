@@ -41,7 +41,7 @@ jobs:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           actual="$(git rev-parse HEAD)"
-          printf 'Expected source SHA: %s\\n' "$EXPECTED_SHA"
+          printf 'Expected source SHA: %s\n' "$EXPECTED_SHA"
           printf 'Checked out source SHA: %s\\n' "$actual"
           test "$actual" = "$EXPECTED_SHA"
       - name: Validate deterministic fault campaign contract and KATs
@@ -60,11 +60,12 @@ jobs:
             .presubmit_trace_count == 10000 and
             .full_campaign_trace_count == 1000000 and
             (.known_answer_vectors | length >= 8) and
-            (.known_answer_vectors | map(.sequence) | unique | length == length) and
+            (.known_answer_vectors) as $vectors |
+            (($vectors | map(.sequence) | unique | length) == ($vectors | length)) and
             (.explicit_coverage | length >= 8)
           ' "$contract" >/dev/null
           test "$(grep -vcE '^(#|$)' "$fixture")" -ge 8
-          grep -q "million traces" tools/finance/sap-payment-saga-model/FIN_SAGA_FAULT_CAMPAIGN_V1.md
+          grep -q "1,000,000-trace" tools/finance/sap-payment-saga-model/FIN_SAGA_FAULT_CAMPAIGN_V1.md
       - name: Install pinned Rust toolchain
         run: |
           rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
@@ -102,7 +103,9 @@ jobs:
       - name: Run independent Go reference tests
         if: hashFiles('tools/finance/sap-payment-saga-go-verifier/go.mod') != ''
         working-directory: tools/finance/sap-payment-saga-go-verifier
-        run: go test -race -count=1 -v ./... | tee /tmp/saga-go-tests.txt
+        run: |
+          set -euo pipefail
+          go test -race -count=1 -v ./... | tee /tmp/saga-go-tests.txt
       - name: Compare Rust and Go 10,000-trace campaign digests
         shell: bash
         run: |
