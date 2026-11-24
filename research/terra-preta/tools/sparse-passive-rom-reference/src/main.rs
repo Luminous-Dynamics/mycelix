@@ -28,8 +28,6 @@ struct Edge {
     conductance: f64,
 }
 
-#[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 struct AdaptiveOptions {
