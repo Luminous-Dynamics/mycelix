@@ -41,6 +41,10 @@ Production callers must supply an OS-backed cryptographically secure random sour
 
 The competitive target is the full capability lifecycle: independent baseline → AI-supported work → AI-off challenge → delayed retention → held-out transfer → resilience perturbation. Report quality, unique-information preservation, provenance, agency, workload, cost and worst-condition outcomes as a Pareto frontier, not one opaque score.
 
+## Benchmark tournament
+
+See [BENCHMARK_TOURNAMENT_V0.1.md](BENCHMARK_TOURNAMENT_V0.1.md) for the matched comparator matrix, proposed targets, statistical contract, and non-compensatory rights/safety gates across HiddenBench, GroupMemBench, COLLABMEM, GroupAssistBench, Common Ground, information-disclosure studies, and the SympoeticBench human capability-dividend track.
+
 ## Proposed qualification targets (not achieved results)
 
 - 100% reproduction of deterministic synthetic known-answer cases.
