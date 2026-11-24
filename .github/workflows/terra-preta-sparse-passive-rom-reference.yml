@@ -71,8 +71,13 @@ jobs:
             (.adaptive_selection_steps | length >= 1) and
             (.maximum_sampled_response_error < 1e-8) and
             (.dc_relative_error < 1e-8) and
-            (.structural_passivity_certificate_valid == true)
+            (.structural_passivity_certificate_valid == true) and
+            (.adaptive_candidate_shift_count == 8) and
+            (.cg_solve_count > 0) and
+            (.total_cg_iterations >= .maximum_cg_iterations)
           ' "$RUNNER_TEMP/adaptive-rom-report.json"
+          jq -r '"adaptive_rank=\(.basis_dimension) candidates=\(.adaptive_candidate_shift_count) shifts=\(.rational_shifts|length) total_cg_solves=\(.cg_solve_count) total_cg_iterations=\(.total_cg_iterations) audit_error=\(.maximum_sampled_response_error) feedthrough_error=\(.feedthrough_limit_relative_error)"' \
+            "$RUNNER_TEMP/adaptive-rom-report.json"
       - name: Reject output overwrite
         run: |
           before=$(sha256sum "$RUNNER_TEMP/sparse-rom-report.json" | cut -d ' ' -f 1)
