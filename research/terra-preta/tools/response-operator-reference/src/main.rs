@@ -161,6 +161,7 @@ fn laplacian(fixture: &Fixture, node_index: &BTreeMap<String, usize>) -> Vec<Vec
     matrix
 }
 
+#[allow(clippy::needless_range_loop)]
 fn solve_linear(mut matrix: Vec<Vec<f64>>, mut rhs: Vec<f64>) -> Result<Vec<f64>, String> {
     let n = matrix.len();
     if n == 0 || rhs.len() != n || matrix.iter().any(|row| row.len() != n) {
@@ -170,7 +171,7 @@ fn solve_linear(mut matrix: Vec<Vec<f64>>, mut rhs: Vec<f64>) -> Result<Vec<f64>
         .iter()
         .flatten()
         .fold(0.0_f64, |largest, value| largest.max(value.abs()));
-    let pivot_floor = scale.max(1.0) * 1.0e-13;
+    let pivot_floor = scale.max(f64::MIN_POSITIVE) * 1.0e-13;
 
     for column in 0..n {
         let pivot_row = (column..n)
@@ -212,6 +213,7 @@ fn solve_linear(mut matrix: Vec<Vec<f64>>, mut rhs: Vec<f64>) -> Result<Vec<f64>
     Ok(rhs)
 }
 
+#[allow(clippy::needless_range_loop)]
 fn response_matrix(fixture: &Fixture) -> Result<Vec<Vec<f64>>, String> {
     let node_index = validate(fixture)?;
     let l = laplacian(fixture, &node_index);
@@ -289,6 +291,7 @@ fn vectorize_symmetric_upper(matrix: &[Vec<f64>]) -> (Vec<String>, Vec<f64>) {
     (names, values)
 }
 
+#[allow(clippy::needless_range_loop)]
 fn matrix_rank(matrix: &[Vec<f64>], relative_tolerance: f64) -> usize {
     if matrix.is_empty() || matrix[0].is_empty() {
         return 0;
@@ -334,6 +337,7 @@ fn matrix_rank(matrix: &[Vec<f64>], relative_tolerance: f64) -> usize {
     pivot_row
 }
 
+#[allow(clippy::needless_range_loop)]
 fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     validate(fixture)?;
     let base = response_matrix(fixture)?;
