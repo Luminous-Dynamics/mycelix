@@ -1580,7 +1580,10 @@ mod effect_vector_tests {
             required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
             required(EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob"),
         ]);
-        assert_eq!(p.profile_digest.to_hex(), "5ad833aef24a53646218b7fbe43fb1d3314563b165a0233898e5a96b4e1f8e4c");
+        assert_eq!(
+            p.profile_digest.to_hex(),
+            "5ad833aef24a53646218b7fbe43fb1d3314563b165a0233898e5a96b4e1f8e4c"
+        );
     }
 
     #[test]
