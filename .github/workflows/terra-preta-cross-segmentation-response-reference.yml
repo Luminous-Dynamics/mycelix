@@ -1,0 +1,57 @@
+name: Terra Preta cross-segmentation response reference
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/tools/cross-segmentation-response-reference/**'
+      - '.github/workflows/terra-preta-cross-segmentation-response-reference.yml'
+  push:
+    branches: ['research/terra-cross-segmentation-response-v0.1']
+    paths:
+      - 'research/terra-preta/tools/cross-segmentation-response-reference/**'
+      - '.github/workflows/terra-preta-cross-segmentation-response-reference.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cross-segmentation-response-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --manifest-path research/terra-preta/tools/cross-segmentation-response-reference/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path research/terra-preta/tools/cross-segmentation-response-reference/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/cross-segmentation-response-reference/Cargo.toml --all-targets -- -D warnings
+      - name: Execute manufactured topology ensemble
+        run: |
+          cargo run --quiet --manifest-path research/terra-preta/tools/cross-segmentation-response-reference/Cargo.toml -- \
+            research/terra-preta/tools/cross-segmentation-response-reference/fixtures/percentile-two-branch.json \
+            "$RUNNER_TEMP/cross-segmentation-response.json"
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            (.variant_results | length == 5) and
+            ([.variant_results[] | select((.variant_id == "alpha-10") and ((.effective_conductance - (1/3) | fabs) < 1e-10) and .source_sink_connected)] | length == 1) and
+            ([.variant_results[] | select((.variant_id == "alpha-70") and ((.effective_conductance - 0.25 | fabs) < 1e-10) and .source_sink_connected and (.localized_path_observation.status == "path_not_fully_resolved") and (.localized_path_observation.complete_path_flow == null))] | length == 1) and
+            ([.variant_results[] | select((.variant_id == "alpha-90") and ((.effective_conductance | fabs) < 1e-10) and (.source_sink_connected == false) and (.connected_component_count == 2) and (.localized_path_observation.fraction_of_total_flow == null))] | length == 1) and
+            ([.variant_results[] | select((.response_symmetry_max_abs < 1e-10) and (.response_row_sum_max_abs < 1e-10) and (.boundary_flux_balance_abs < 1e-10))] | length == 5)
+          ' "$RUNNER_TEMP/cross-segmentation-response.json"
+      - name: Reject output overwrite
+        run: |
+          before=$(sha256sum "$RUNNER_TEMP/cross-segmentation-response.json" | cut -d ' ' -f 1)
+          if cargo run --quiet --manifest-path research/terra-preta/tools/cross-segmentation-response-reference/Cargo.toml -- \
+            research/terra-preta/tools/cross-segmentation-response-reference/fixtures/percentile-two-branch.json \
+            "$RUNNER_TEMP/cross-segmentation-response.json"; then
+            echo "unexpected overwrite success" >&2
+            exit 1
+          fi
+          after=$(sha256sum "$RUNNER_TEMP/cross-segmentation-response.json" | cut -d ' ' -f 1)
+          test "$before" = "$after"
