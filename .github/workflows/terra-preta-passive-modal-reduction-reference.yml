@@ -25,7 +25,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - name: Format
+      - name: Apply pinned rustfmt normalization
+        run: cargo fmt --manifest-path research/terra-preta/tools/passive-modal-reduction-reference/Cargo.toml
+      - name: Export normalized Rust source
+        uses: actions/upload-artifact@v4
+        with:
+          name: terra-passive-modal-rustfmt-source
+          path: research/terra-preta/tools/passive-modal-reduction-reference/src/main.rs
+          if-no-files-found: error
+          retention-days: 1
+      - name: Verify normalized formatting
         run: cargo fmt --manifest-path research/terra-preta/tools/passive-modal-reduction-reference/Cargo.toml -- --check
       - name: Tests
         run: cargo test --manifest-path research/terra-preta/tools/passive-modal-reduction-reference/Cargo.toml
