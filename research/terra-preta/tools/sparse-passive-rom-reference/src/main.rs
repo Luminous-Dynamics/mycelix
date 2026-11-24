@@ -986,12 +986,13 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
                 .map(|item| item.relative_residual).fold(0.0_f64, f64::max),
         });
     }
-    let (exact_dc, _) = response_from_sparse(
+    let (exact_dc, exact_dc_stats) = response_from_sparse(
         &model,
         0.0,
         fixture.cg_relative_tolerance,
         fixture.cg_max_iterations,
     )?;
+    stats.extend(exact_dc_stats);
     let reduced_dc = response_from_reduced(&projection, 0.0)?;
     let feedthrough_limit_relative_error = relative_error(&projection.d_r, &model.d);
     let maximum_sampled_response_error = frequency_samples
