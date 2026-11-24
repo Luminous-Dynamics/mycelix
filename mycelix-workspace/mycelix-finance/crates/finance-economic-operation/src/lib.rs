@@ -814,7 +814,7 @@ mod tests {
     }
 
     #[test]
-    fn emit_v1_known_answer_candidates_for_freezing() {
+    fn canonical_v1_known_answer_vectors_are_stable() {
         let operation = operation();
         let fingerprint = terms().fingerprint().unwrap();
         let payer_effect =
@@ -823,15 +823,22 @@ mod tests {
         let beneficiary_effect =
             EffectIdentityV1::derive(operation, EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob")
                 .unwrap();
-        println!("operation_id_v1={}", operation.digest().to_hex());
-        println!("intent_fingerprint_v1={}", fingerprint.to_hex());
-        println!(
-            "payer_debit_effect_id_v1={}",
-            payer_effect.digest().to_hex()
+
+        assert_eq!(
+            operation.digest().to_hex(),
+            "15a08e9c3bf2599c15b37cb700698aec1898cd4c66b15ebf5208568e4953f204"
         );
-        println!(
-            "beneficiary_claim_effect_id_v1={}",
-            beneficiary_effect.digest().to_hex()
+        assert_eq!(
+            fingerprint.to_hex(),
+            "6a52f1479b7a407d6de4f2650b61bf3203741c80e28f836db523f58625e62235"
+        );
+        assert_eq!(
+            payer_effect.digest().to_hex(),
+            "984fcc30e27b1ccbb5b266f6b0960c5791be3a68ada8512aa0fb39dcf575e56a"
+        );
+        assert_eq!(
+            beneficiary_effect.digest().to_hex(),
+            "35ddfe65d8d3beb9ce06fcb1245802d0cc7799d8366bef9087ee5f6d63e6f24b"
         );
     }
 
