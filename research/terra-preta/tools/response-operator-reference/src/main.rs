@@ -595,6 +595,33 @@ mod tests {
     }
 
     #[test]
+    fn node_storage_permutation_preserves_boundary_response() {
+        let fixture = two_path_fixture([2.0, 2.0, 2.0, 2.0]);
+        let original = response_matrix(&fixture).expect("original response");
+        let mut transformed = fixture.clone();
+        transformed.nodes.reverse();
+        let changed = response_matrix(&transformed).expect("permuted response");
+        for row in 0..2 {
+            for column in 0..2 {
+                close(original[row][column], changed[row][column], 1.0e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn repeating_the_same_linear_boundary_pair_at_scaled_pressure_does_not_add_rank() {
+        let fixture = two_path_fixture([2.0, 2.0, 2.0, 2.0]);
+        let report = analyze(&fixture, "0".repeat(64)).expect("analysis");
+        // The two-terminal effective conductance is -Lambda[left,right].
+        let sensitivity = &report.log_conductance_sensitivity.jacobian_d_response_d_log_conductance[1];
+        let stacked = vec![
+            sensitivity.clone(),
+            sensitivity.iter().map(|value| 10.0 * value).collect(),
+        ];
+        assert_eq!(matrix_rank(&stacked, 1.0e-8), 1);
+    }
+
+    #[test]
     fn bulk_response_exposes_local_conductance_non_identifiability() {
         let first = two_path_fixture([2.0, 2.0, 2.0, 2.0]);
         let second = two_path_fixture([4.0, 4.0 / 3.0, 3.0, 1.5]);
