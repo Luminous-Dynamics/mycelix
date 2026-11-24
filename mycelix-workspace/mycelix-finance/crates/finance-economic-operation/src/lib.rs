@@ -1098,3 +1098,369 @@ mod tests {
         );
     }
 }
+
+
+#[cfg(test)]
+mod effect_vector_tests {
+    use super::*;
+
+    fn required(role: EffectRoleV1, owner: &str) -> RequiredEffectV1 {
+        RequiredEffectV1 {
+            role,
+            effect_owner: owner.into(),
+        }
+    }
+
+    fn profile(required_effects: Vec<RequiredEffectV1>) -> CompositeClaimProfileV1 {
+        CompositeClaimProfileV1 {
+            profile_id: "claim:bilateral-payment:v1".into(),
+            profile_digest: DigestV1([0x44; 32]),
+            claim_name: "bilateral_payment_reconciled".into(),
+            operation_id: OperationKeyV1::new(
+                "finance",
+                "did:mycelix:origin",
+                "trade:42:attempt:1",
+            )
+            .derive_identity()
+            .unwrap(),
+            expected_intent_fingerprint: ImmutableIntentTermsV1 {
+                settlement_profile: "BilateralOwnerClaimV1".into(),
+                payer_owner: "did:mycelix:alice".into(),
+                beneficiary_owner: "did:mycelix:bob".into(),
+                instrument: "SAP".into(),
+                unit: "micro-SAP".into(),
+                amount_minor_units: 2_500,
+                purpose_code: "hearth_contribution".into(),
+                source_obligation_reference: "trade:42:attempt:1".into(),
+                policy_revision: "policy:hearth:7".into(),
+                terms_digest: DigestV1([7; 32]),
+            }
+            .fingerprint()
+            .unwrap(),
+            required_effects,
+        }
+    }
+
+    fn batch(
+        profile: &CompositeClaimProfileV1,
+        role: EffectRoleV1,
+        owner: &str,
+        effect_digest: DigestV1,
+        reference: &str,
+    ) -> EffectEvidenceBatchV1 {
+        let effect_id =
+            EffectIdentityV1::derive(profile.operation_id, role, owner).unwrap();
+        EffectEvidenceBatchV1 {
+            effect_id,
+            completeness: EvidenceCompletenessV1::CompleteForDeclaredAuthority,
+            observations: vec![EffectObservationV1 {
+                effect_id,
+                intent_fingerprint: profile.expected_intent_fingerprint,
+                effect_digest,
+                receipt_reference: reference.into(),
+            }],
+        }
+    }
+
+    #[test]
+    fn vector_is_supported_only_when_every_profile_required_effect_is_observed() {
+        let p = profile(vec![
+            required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
+            required(EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob"),
+        ]);
+        let batches = vec![
+            batch(
+                &p,
+                EffectRoleV1::PayerDebit,
+                "did:mycelix:alice",
+                DigestV1([1; 32]),
+                "receipt:payer:1",
+            ),
+            batch(
+                &p,
+                EffectRoleV1::BeneficiaryClaim,
+                "did:mycelix:bob",
+                DigestV1([2; 32]),
+                "receipt:beneficiary:1",
+            ),
+        ];
+        let result = classify_effect_vector(&p, &batches).unwrap();
+        assert!(matches!(
+            result.disposition,
+            CompositeClaimDispositionV1::SupportedWithinDeclaredScope { .. }
+        ));
+        assert_eq!(result.entries.len(), 2);
+        assert_eq!(result.profile_digest, p.profile_digest);
+        assert_eq!(result.operation_id, p.operation_id);
+    }
+
+    #[test]
+    fn payer_effect_without_beneficiary_claim_is_pending_not_completed() {
+        let p = profile(vec![
+            required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
+            required(EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob"),
+        ]);
+        let payer = batch(
+            &p,
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+            DigestV1([1; 32]),
+            "receipt:payer:1",
+        );
+        let result = classify_effect_vector(&p, &[payer]).unwrap();
+        assert!(matches!(
+            result.disposition,
+            CompositeClaimDispositionV1::Pending { .. }
+        ));
+    }
+
+    #[test]
+    fn complete_empty_effect_view_is_pending_and_never_admission_permission() {
+        let p = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+        )]);
+        let effect_id = EffectIdentityV1::derive(
+            p.operation_id,
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+        )
+        .unwrap();
+        let result = classify_effect_vector(
+            &p,
+            &[EffectEvidenceBatchV1 {
+                effect_id,
+                completeness: EvidenceCompletenessV1::CompleteForDeclaredAuthority,
+                observations: vec![],
+            }],
+        )
+        .unwrap();
+        assert!(matches!(
+            result.disposition,
+            CompositeClaimDispositionV1::Pending { .. }
+        ));
+    }
+
+    #[test]
+    fn incomplete_effect_view_is_indeterminate() {
+        let p = profile(vec![required(
+            EffectRoleV1::BeneficiaryClaim,
+            "did:mycelix:bob",
+        )]);
+        let effect_id = EffectIdentityV1::derive(
+            p.operation_id,
+            EffectRoleV1::BeneficiaryClaim,
+            "did:mycelix:bob",
+        )
+        .unwrap();
+        let result = classify_effect_vector(
+            &p,
+            &[EffectEvidenceBatchV1 {
+                effect_id,
+                completeness: EvidenceCompletenessV1::Incomplete,
+                observations: vec![],
+            }],
+        )
+        .unwrap();
+        assert!(matches!(
+            result.disposition,
+            CompositeClaimDispositionV1::Indeterminate { .. }
+        ));
+    }
+
+    #[test]
+    fn missing_required_batch_is_indeterminate_not_absent() {
+        let p = profile(vec![required(
+            EffectRoleV1::ExternalSettlementObservation,
+            "bank:example",
+        )]);
+        let result = classify_effect_vector(&p, &[]).unwrap();
+        assert!(matches!(
+            result.disposition,
+            CompositeClaimDispositionV1::Indeterminate { .. }
+        ));
+    }
+
+    #[test]
+    fn conflict_dominates_indeterminate_across_effect_slots() {
+        let p = profile(vec![
+            required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
+            required(EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob"),
+        ]);
+        let mut payer = batch(
+            &p,
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+            DigestV1([1; 32]),
+            "receipt:payer:a",
+        );
+        let mut conflicting = payer.observations[0].clone();
+        conflicting.effect_digest = DigestV1([9; 32]);
+        conflicting.receipt_reference = "receipt:payer:b".into();
+        payer.observations.push(conflicting);
+        let beneficiary_id = EffectIdentityV1::derive(
+            p.operation_id,
+            EffectRoleV1::BeneficiaryClaim,
+            "did:mycelix:bob",
+        )
+        .unwrap();
+        let beneficiary = EffectEvidenceBatchV1 {
+            effect_id: beneficiary_id,
+            completeness: EvidenceCompletenessV1::Incomplete,
+            observations: vec![],
+        };
+        let result = classify_effect_vector(&p, &[payer, beneficiary]).unwrap();
+        assert!(matches!(
+            result.disposition,
+            CompositeClaimDispositionV1::Conflict { .. }
+        ));
+    }
+
+    #[test]
+    fn changed_intent_fingerprint_cannot_be_promoted_by_vector_layer() {
+        let p = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+        )]);
+        let mut b = batch(
+            &p,
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+            DigestV1([1; 32]),
+            "receipt:payer:1",
+        );
+        b.observations[0].intent_fingerprint = DigestV1([0xEE; 32]);
+        let result = classify_effect_vector(&p, &[b]).unwrap();
+        assert!(matches!(
+            result.disposition,
+            CompositeClaimDispositionV1::Conflict { .. }
+        ));
+    }
+
+    #[test]
+    fn duplicate_required_owner_role_is_rejected() {
+        let p = profile(vec![
+            required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
+            required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
+        ]);
+        assert_eq!(
+            classify_effect_vector(&p, &[]),
+            Err(KernelErrorV1::DuplicateRequiredEffect)
+        );
+    }
+
+    #[test]
+    fn duplicate_evidence_batches_for_one_effect_are_rejected() {
+        let p = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+        )]);
+        let b = batch(
+            &p,
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+            DigestV1([1; 32]),
+            "receipt:payer:1",
+        );
+        assert_eq!(
+            classify_effect_vector(&p, &[b.clone(), b]),
+            Err(KernelErrorV1::DuplicateEffectEvidenceBatch)
+        );
+    }
+
+    #[test]
+    fn evidence_for_an_unrequested_effect_is_rejected() {
+        let p = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+        )]);
+        let unexpected = batch(
+            &p,
+            EffectRoleV1::TreasuryFee,
+            "did:mycelix:treasury",
+            DigestV1([1; 32]),
+            "receipt:treasury:1",
+        );
+        assert_eq!(
+            classify_effect_vector(&p, &[unexpected]),
+            Err(KernelErrorV1::UnexpectedEffectEvidenceBatch)
+        );
+    }
+
+    #[test]
+    fn independent_claim_profiles_can_project_different_supported_scopes() {
+        let payer_only = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+        )]);
+        let both_legs = profile(vec![
+            required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
+            required(EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob"),
+        ]);
+        let payer = batch(
+            &payer_only,
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+            DigestV1([1; 32]),
+            "receipt:payer:1",
+        );
+        let first = classify_effect_vector(&payer_only, &[payer.clone()]).unwrap();
+        let second = classify_effect_vector(&both_legs, &[payer]).unwrap();
+        assert!(matches!(
+            first.disposition,
+            CompositeClaimDispositionV1::SupportedWithinDeclaredScope { .. }
+        ));
+        assert!(matches!(
+            second.disposition,
+            CompositeClaimDispositionV1::Pending { .. }
+        ));
+    }
+
+    #[test]
+    fn input_order_does_not_change_canonical_projection() {
+        let p = profile(vec![
+            required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
+            required(EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob"),
+        ]);
+        let payer = batch(
+            &p,
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+            DigestV1([1; 32]),
+            "receipt:payer:1",
+        );
+        let beneficiary = batch(
+            &p,
+            EffectRoleV1::BeneficiaryClaim,
+            "did:mycelix:bob",
+            DigestV1([2; 32]),
+            "receipt:beneficiary:1",
+        );
+        assert_eq!(
+            classify_effect_vector(&p, &[payer.clone(), beneficiary.clone()]).unwrap(),
+            classify_effect_vector(&p, &[beneficiary, payer]).unwrap()
+        );
+    }
+
+    #[test]
+    fn empty_profile_is_rejected() {
+        let p = profile(vec![]);
+        assert_eq!(
+            classify_effect_vector(&p, &[]),
+            Err(KernelErrorV1::EmptyRequiredEffects)
+        );
+    }
+
+    #[test]
+    fn profile_identifiers_are_validated() {
+        let mut p = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:alice",
+        )]);
+        p.profile_id.clear();
+        assert_eq!(
+            classify_effect_vector(&p, &[]),
+            Err(KernelErrorV1::EmptyComponent)
+        );
+    }
+}
