@@ -133,6 +133,12 @@ struct CgStats {
     relative_residual: f64,
 }
 
+struct SparseResponseSolution {
+    response: Dense,
+    state_solutions: Vec<Vec<f64>>,
+    stats: Vec<CgStats>,
+}
+
 struct Projection {
     a_r: Dense,
     b_r: Dense,
@@ -669,12 +675,12 @@ fn min_symmetric_eigenvalue(matrix: &[Vec<f64>]) -> Result<f64, String> {
     Err("symmetric Jacobi eigensolver did not converge".into())
 }
 
-fn response_from_sparse(
+fn response_and_state_solutions_from_sparse(
     model: &Model,
     shift: f64,
     tolerance: f64,
     max_iterations: usize,
-) -> Result<(Dense, Vec<CgStats>), String> {
+) -> Result<SparseResponseSolution, String> {
     let nb = model.boundary_ids.len();
     let mut solution_columns = Vec::with_capacity(nb);
     let mut stats = Vec::with_capacity(nb);
@@ -698,28 +704,38 @@ fn response_from_sparse(
             *response_value -= correction;
         }
     }
-    Ok((response, stats))
+    Ok(SparseResponseSolution {
+        response,
+        state_solutions: solution_columns,
+        stats,
+    })
 }
 
-fn build_projection_from_basis(
+fn response_from_sparse(
+    model: &Model,
+    shift: f64,
+    tolerance: f64,
+    max_iterations: usize,
+) -> Result<(Dense, Vec<CgStats>), String> {
+    let solved = response_and_state_solutions_from_sparse(
+        model,
+        shift,
+        tolerance,
+        max_iterations,
+    )?;
+    Ok((solved.response, solved.stats))
+}
+
+fn assemble_projection_from_basis(
     model: &Model,
     basis: Vec<Vec<f64>>,
     snapshot_count: usize,
-    mut stats: Vec<CgStats>,
-    fixture: &Fixture,
-) -> Result<(Projection, Vec<CgStats>), String> {
+    lambda_0: &Dense,
+) -> Result<Projection, String> {
     if basis.is_empty() {
         return Err("reduced projection basis is numerically empty".into());
     }
     let nb = model.boundary_ids.len();
-    let (lambda_0, dc_stats) = response_from_sparse(
-        model,
-        0.0,
-        fixture.cg_relative_tolerance,
-        fixture.cg_max_iterations,
-    )?;
-    stats.extend(dc_stats);
-
     let mut a_basis = Vec::with_capacity(basis.len());
     for vector in &basis {
         a_basis.push(model.a.matvec(vector, 0.0)?);
@@ -739,24 +755,40 @@ fn build_projection_from_basis(
     }
 
     let a_r_min = min_symmetric_eigenvalue(&a_r)?;
-    let lambda_0_min = min_symmetric_eigenvalue(&lambda_0)?;
+    let lambda_0_min = min_symmetric_eigenvalue(lambda_0)?;
     let lambda_0_scale = lambda_0
         .iter()
         .flatten()
         .fold(0.0_f64, |largest, value| largest.max(value.abs()));
-    Ok((
-        Projection {
-            a_r,
-            b_r,
-            d_r,
-            basis_dimension: basis.len(),
-            basis_snapshots: snapshot_count,
-            lambda_0_min_eigenvalue: lambda_0_min,
-            lambda_0_scale,
-            a_r_min_eigenvalue: a_r_min,
-        },
-        stats,
-    ))
+    Ok(Projection {
+        a_r,
+        b_r,
+        d_r,
+        basis_dimension: basis.len(),
+        basis_snapshots: snapshot_count,
+        lambda_0_min_eigenvalue: lambda_0_min,
+        lambda_0_scale,
+        a_r_min_eigenvalue: a_r_min,
+    })
+}
+
+fn build_projection_from_basis(
+    model: &Model,
+    basis: Vec<Vec<f64>>,
+    snapshot_count: usize,
+    mut stats: Vec<CgStats>,
+    fixture: &Fixture,
+) -> Result<(Projection, Vec<CgStats>), String> {
+    let (lambda_0, dc_stats) = response_from_sparse(
+        model,
+        0.0,
+        fixture.cg_relative_tolerance,
+        fixture.cg_max_iterations,
+    )?;
+    stats.extend(dc_stats);
+    let projection =
+        assemble_projection_from_basis(model, basis, snapshot_count, &lambda_0)?;
+    Ok((projection, stats))
 }
 
 fn build_projection_for_requests(
@@ -945,27 +977,52 @@ fn build_adaptive_projection(
     let mut candidates = fixture.adaptive.candidate_shifts.clone();
     candidates.sort_by(f64::total_cmp);
 
-    // Cache the full multi-port response at each candidate frequency. During
-    // selection, score each input-port column independently and add one
-    // (frequency, input-port) snapshot at a time.
+    // Cache both the full port response and the state solution columns. When
+    // a candidate (frequency, input-port) pair is selected, its already
+    // residual-verified state snapshot is inserted into the basis directly.
     let mut candidate_responses = Vec::with_capacity(candidates.len());
     let mut stats = Vec::new();
     for shift in candidates {
-        let (response, solve_stats) = response_from_sparse(
+        let solved = response_and_state_solutions_from_sparse(
             model,
             shift,
             fixture.cg_relative_tolerance,
             fixture.cg_max_iterations,
         )?;
-        stats.extend(solve_stats);
-        candidate_responses.push((shift, response));
+        stats.extend(solved.stats);
+        candidate_responses.push((shift, solved.response, solved.state_solutions));
     }
+
+    // The exact DC Schur operator is independent of the growing Krylov
+    // basis. Compute it once and reuse it for every reduced projection.
+    let (lambda_0, dc_stats) = response_from_sparse(
+        model,
+        0.0,
+        fixture.cg_relative_tolerance,
+        fixture.cg_max_iterations,
+    )?;
+    stats.extend(dc_stats);
 
     let mut selected_shifts = fixture.rational_shifts.clone();
     let mut selected_snapshots = requests_for_shifts(&selected_shifts, model.boundary_ids.len());
-    let (mut projection, initial_stats) =
-        build_projection_for_requests(model, fixture, &selected_snapshots)?;
-    stats.extend(initial_stats);
+    let mut basis = Vec::new();
+    for request in &selected_snapshots {
+        let (snapshot, solve_stats) = pcg(
+            &model.a,
+            request.shift,
+            &column(&model.b, request.input_port_index),
+            fixture.cg_relative_tolerance,
+            fixture.cg_max_iterations,
+        )?;
+        stats.push(solve_stats);
+        push_orthonormal_basis(&mut basis, snapshot);
+    }
+    let mut projection = assemble_projection_from_basis(
+        model,
+        basis.clone(),
+        selected_snapshots.len(),
+        &lambda_0,
+    )?;
     if projection.basis_dimension > maximum_basis_dimension {
         return Err(format!(
             "seed basis dimension {} exceeds adaptive cap {}",
@@ -980,7 +1037,7 @@ fn build_adaptive_projection(
     loop {
         let mut maximum_candidate_error = 0.0_f64;
         let mut worst_unselected: Option<(f64, f64, usize)> = None;
-        for (shift, full_response) in &candidate_responses {
+        for (shift, full_response, _) in &candidate_responses {
             let reduced_response = response_from_reduced(&projection, *shift)?;
             for port in 0..model.boundary_ids.len() {
                 let full_column = column(full_response, port);
@@ -1015,14 +1072,25 @@ fn build_adaptive_projection(
             break;
         };
 
+        let cached_snapshot = candidate_responses
+            .iter()
+            .find(|(shift, _, _)| *shift == selected_shift)
+            .and_then(|(_, _, solutions)| solutions.get(selected_port))
+            .cloned()
+            .ok_or_else(|| "selected adaptive snapshot is absent from candidate cache".to_string())?;
+        push_orthonormal_basis(&mut basis, cached_snapshot);
+
         let mut next_snapshots = selected_snapshots.clone();
         next_snapshots.push(SnapshotRequest {
             shift: selected_shift,
             input_port_index: selected_port,
         });
-        let (next_projection, next_stats) =
-            build_projection_for_requests(model, fixture, &next_snapshots)?;
-        stats.extend(next_stats);
+        let next_projection = assemble_projection_from_basis(
+            model,
+            basis.clone(),
+            next_snapshots.len(),
+            &lambda_0,
+        )?;
         if next_projection.basis_dimension > maximum_basis_dimension {
             stop_reason = "basis_dimension_cap".to_string();
             break;
@@ -1043,7 +1111,7 @@ fn build_adaptive_projection(
     }
 
     let mut maximum_candidate_relative_error = 0.0_f64;
-    for (shift, full_response) in &candidate_responses {
+    for (shift, full_response, _) in &candidate_responses {
         let reduced_response = response_from_reduced(&projection, *shift)?;
         for port in 0..model.boundary_ids.len() {
             let full_column = column(full_response, port);
@@ -1121,6 +1189,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         None
     };
     let mut block_arnoldi_baseline_error = 0.0_f64;
+    let mut exact_dc_from_audit: Option<Dense> = None;
     let mut frequency_samples = Vec::with_capacity(fixture.laplace_samples.len());
     for shift in &fixture.laplace_samples {
         let (full, full_stats) = response_from_sparse(
@@ -1130,6 +1199,9 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             fixture.cg_max_iterations,
         )?;
         stats.extend(full_stats.iter().copied());
+        if *shift == 0.0 {
+            exact_dc_from_audit = Some(full.clone());
+        }
         let reduced = response_from_reduced(&projection, *shift)?;
         if let Some((block_projection, _)) = block_arnoldi_baseline.as_ref() {
             let block_reduced = response_from_reduced(block_projection, *shift)?;
@@ -1144,13 +1216,18 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
                 .map(|item| item.relative_residual).fold(0.0_f64, f64::max),
         });
     }
-    let (exact_dc, exact_dc_stats) = response_from_sparse(
-        &model,
-        0.0,
-        fixture.cg_relative_tolerance,
-        fixture.cg_max_iterations,
-    )?;
-    stats.extend(exact_dc_stats);
+    let exact_dc = if let Some(response) = exact_dc_from_audit {
+        response
+    } else {
+        let (response, exact_dc_stats) = response_from_sparse(
+            &model,
+            0.0,
+            fixture.cg_relative_tolerance,
+            fixture.cg_max_iterations,
+        )?;
+        stats.extend(exact_dc_stats);
+        response
+    };
     let reduced_dc = response_from_reduced(&projection, 0.0)?;
     let feedthrough_limit_relative_error = relative_error(&projection.d_r, &model.d);
     let maximum_sampled_response_error = frequency_samples
@@ -1454,6 +1531,26 @@ mod tests {
         assert!(adaptive.maximum_sampled_response_error < fixed.maximum_sampled_response_error);
         assert!(adaptive.dc_relative_error < 1.0e-8);
         assert!(adaptive.structural_passivity_certificate_valid);
+        // Candidate full-order columns (27), seed snapshots (3), one DC
+        // operator (3), and audit-grid columns (27). The audit's zero-shift
+        // response is also the exact DC reference, so no duplicate solve occurs.
+        assert_eq!(adaptive.cg_solve_count, 60);
+        assert!(adaptive.total_cg_iterations < 469);
+    }
+
+    #[test]
+    fn adaptive_rank_cap_reports_unmet_target_without_false_qualification() {
+        let mut fixture = adaptive_multiport_fixture();
+        fixture.adaptive.target_max_relative_error = Some(1.0e-12);
+        fixture.adaptive.maximum_basis_dimension = Some(3);
+        let report = analyze(&fixture, "adaptive-rank-cap-negative-control".into()).unwrap();
+        assert_eq!(report.basis_dimension, 3);
+        assert_eq!(report.adaptive_target_met, Some(false));
+        assert_eq!(report.adaptive_stop_reason, "basis_dimension_cap");
+        assert!(report
+            .adaptive_maximum_candidate_relative_error
+            .is_some_and(|error| error > 1.0e-12));
+        assert!(report.structural_passivity_certificate_valid);
     }
 
     #[test]

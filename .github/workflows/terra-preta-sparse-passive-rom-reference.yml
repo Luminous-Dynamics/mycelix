@@ -2,12 +2,12 @@ name: Terra Preta sparse passive ROM reference
 
 on:
   pull_request:
-    branches: [main, 'research/terra-adaptive-passive-krylov-v0.2', 'research/terra-block-arnoldi-baseline-v0.2']
+    branches: [main, 'research/terra-block-arnoldi-baseline-v0.2']
     paths:
       - 'research/terra-preta/tools/sparse-passive-rom-reference/**'
       - '.github/workflows/terra-preta-sparse-passive-rom-reference.yml'
   push:
-    branches: ['research/terra-sparse-passive-rom-v0.1', 'research/terra-block-arnoldi-baseline-v0.2']
+    branches: ['research/terra-sparse-passive-rom-v0.1', 'research/terra-block-arnoldi-baseline-v0.2', 'research/terra-incremental-adaptive-krylov-v0.2']
     paths:
       - 'research/terra-preta/tools/sparse-passive-rom-reference/**'
       - '.github/workflows/terra-preta-sparse-passive-rom-reference.yml'
@@ -77,7 +77,8 @@ jobs:
             (.dc_relative_error < 1e-8) and
             (.structural_passivity_certificate_valid == true) and
             (.adaptive_candidate_shift_count == 9) and
-            (.cg_solve_count > 0) and
+            (.cg_solve_count == 60) and
+            (.total_cg_iterations < 469) and
             (.total_cg_iterations >= .maximum_cg_iterations) and
             (.block_arnoldi_baseline_basis_dimension == .basis_dimension) and
             (.block_arnoldi_baseline_passivity_certificate_valid == true) and
@@ -99,6 +100,8 @@ jobs:
             (.interior_node_count == 8) and
             (.basis_dimension == 6) and
             (.adaptive_target_met == null) and
+            (.cg_solve_count == 36) and
+            (.total_cg_iterations < 288) and
             (.structural_passivity_certificate_valid == true)
           ' "$RUNNER_TEMP/fixed-rom-report.json"
       - name: Compare adaptive and fixed models at equal rank
