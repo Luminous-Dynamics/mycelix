@@ -1873,6 +1873,189 @@ mod effect_vector_tests {
     }
 
     #[test]
+    fn economic_template_builds_profile_bound_hearth_contribution() {
+        let base = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:member",
+        )]);
+        let built = EconomicClaimTemplateV1::HearthContributionAccepted
+            .build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![
+                    required(
+                        EffectRoleV1::HearthMemberNoteSpend,
+                        "did:mycelix:member",
+                    ),
+                    required(
+                        EffectRoleV1::HearthPoolContributionReceipt,
+                        "did:mycelix:hearth-pool",
+                    ),
+                ],
+            )
+            .unwrap();
+        assert_eq!(
+            built.profile_id,
+            "economic-os:claim:hearth-contribution-accepted:v1"
+        );
+        assert_eq!(built.required_effects.len(), 2);
+        assert_eq!(
+            built.profile_digest,
+            built.derive_profile_digest().unwrap()
+        );
+    }
+
+    #[test]
+    fn economic_template_rejects_missing_owner_role_binding() {
+        let base = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:member",
+        )]);
+        assert_eq!(
+            EconomicClaimTemplateV1::HearthContributionAccepted.build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![required(
+                    EffectRoleV1::HearthMemberNoteSpend,
+                    "did:mycelix:member",
+                )],
+            ),
+            Err(KernelErrorV1::MissingTemplateRoleBinding)
+        );
+    }
+
+    #[test]
+    fn economic_template_rejects_unexpected_owner_role_binding() {
+        let base = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:member",
+        )]);
+        assert_eq!(
+            EconomicClaimTemplateV1::SapBilateralTransferReconciled.build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![
+                    required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
+                    required(EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob"),
+                    required(EffectRoleV1::TreasuryFee, "did:mycelix:treasury"),
+                ],
+            ),
+            Err(KernelErrorV1::UnexpectedTemplateRoleBinding)
+        );
+    }
+
+    #[test]
+    fn economic_template_rejects_duplicate_role_bindings() {
+        let base = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:member",
+        )]);
+        assert_eq!(
+            EconomicClaimTemplateV1::SapBilateralTransferReconciled.build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![
+                    required(EffectRoleV1::PayerDebit, "did:mycelix:alice"),
+                    required(EffectRoleV1::PayerDebit, "did:mycelix:alice-alt"),
+                    required(EffectRoleV1::BeneficiaryClaim, "did:mycelix:bob"),
+                ],
+            ),
+            Err(KernelErrorV1::DuplicateTemplateRoleBinding)
+        );
+    }
+
+    #[test]
+    fn legacy_effect_role_strings_remain_stable() {
+        assert_eq!(EffectRoleV1::PayerDebit.as_str(), "payer_debit");
+        assert_eq!(EffectRoleV1::BeneficiaryClaim.as_str(), "beneficiary_claim");
+        assert_eq!(EffectRoleV1::TreasuryFee.as_str(), "treasury_fee");
+        assert_eq!(
+            EffectRoleV1::ExternalSettlementObservation.as_str(),
+            "external_settlement_observation"
+        );
+    }
+
+    #[test]
+    fn economic_effect_role_names_are_namespaced() {
+        assert_eq!(
+            EffectRoleV1::TendProviderCredit.as_str(),
+            "tend.provider_credit"
+        );
+        assert_eq!(
+            EffectRoleV1::ProcurementOrderCommitment.as_str(),
+            "procurement.order_commitment"
+        );
+        assert_eq!(
+            EffectRoleV1::PayrollWorkerReceipt.as_str(),
+            "payroll.worker_receipt"
+        );
+        assert_eq!(
+            EffectRoleV1::BeneficiaryAcceptance.as_str(),
+            "resource.beneficiary_acceptance"
+        );
+    }
+
+    #[test]
+    fn economic_template_catalogue_has_unique_profiles_and_role_sets() {
+        let templates = [
+            EconomicClaimTemplateV1::SapBilateralTransferReconciled,
+            EconomicClaimTemplateV1::HearthContributionAccepted,
+            EconomicClaimTemplateV1::HearthWithdrawalClaimed,
+            EconomicClaimTemplateV1::TendBilateralClearing,
+            EconomicClaimTemplateV1::GrantRecipientClaimed,
+            EconomicClaimTemplateV1::ProcurementReceivedAndSettled,
+            EconomicClaimTemplateV1::PayrollWorkerReceiptObserved,
+            EconomicClaimTemplateV1::CommonsServiceAccepted,
+            EconomicClaimTemplateV1::ReputationAttestationRecorded,
+        ];
+        let profile_ids: BTreeSet<&str> =
+            templates.iter().map(|template| template.profile_id()).collect();
+        assert_eq!(profile_ids.len(), templates.len());
+        for template in templates {
+            let roles = template.required_roles();
+            let distinct_roles: BTreeSet<EffectRoleV1> = roles.iter().copied().collect();
+            assert_eq!(distinct_roles.len(), roles.len());
+        }
+    }
+
+    #[test]
+    fn economic_template_binding_order_does_not_change_profile_digest() {
+        let base = profile(vec![required(
+            EffectRoleV1::PayerDebit,
+            "did:mycelix:member",
+        )]);
+        let first = EconomicClaimTemplateV1::TendBilateralClearing
+            .build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![
+                    required(EffectRoleV1::TendProviderCredit, "did:mycelix:provider"),
+                    required(EffectRoleV1::TendRecipientDebit, "did:mycelix:recipient"),
+                    required(
+                        EffectRoleV1::TendMutualCreditExposure,
+                        "did:mycelix:credit-fabric",
+                    ),
+                ],
+            )
+            .unwrap();
+        let second = EconomicClaimTemplateV1::TendBilateralClearing
+            .build_profile(
+                base.operation_id,
+                base.expected_intent_fingerprint,
+                vec![
+                    required(
+                        EffectRoleV1::TendMutualCreditExposure,
+                        "did:mycelix:credit-fabric",
+                    ),
+                    required(EffectRoleV1::TendRecipientDebit, "did:mycelix:recipient"),
+                    required(EffectRoleV1::TendProviderCredit, "did:mycelix:provider"),
+                ],
+            )
+            .unwrap();
+        assert_eq!(first, second);
+    }
+
+    #[test]
     fn profile_identifiers_are_validated() {
         let mut p = profile(vec![required(
             EffectRoleV1::PayerDebit,
