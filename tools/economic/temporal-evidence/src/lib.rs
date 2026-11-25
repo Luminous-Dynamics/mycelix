@@ -233,7 +233,7 @@ impl TemporalEvidenceSetV1 {
             }
 
             match (&assertion.quality, &assertion.uncertainty_window) {
-                (TemporalQualityV1::Uncertain, None) => {
+                (TemporalQualityV1::Estimated | TemporalQualityV1::Uncertain, None) => {
                     return Err(TemporalKernelErrorV1::UncertaintyWindowRequired);
                 }
                 (_, Some(window)) => {
@@ -360,7 +360,7 @@ impl TemporalEvidenceSetV1 {
             Selection::Selected(assertion, knowledge) => (Some(assertion), knowledge),
             Selection::Missing | Selection::NotKnown | Selection::Indeterminate => (None, Vec::new()),
             Selection::Conflict => {
-                return Ok(self.validity_result(
+                return Ok(Self::validity_result(
                     QueryDispositionV1::Conflict,
                     claim_id,
                     &subject_ref,
@@ -374,7 +374,7 @@ impl TemporalEvidenceSetV1 {
             }
         };
         let Some(from) = from else {
-            return Ok(self.validity_result(
+            return Ok(Self::validity_result(
                 QueryDispositionV1::Indeterminate,
                 claim_id,
                 &subject_ref,
@@ -391,7 +391,7 @@ impl TemporalEvidenceSetV1 {
             Selection::Selected(assertion, knowledge) => (Some(assertion), knowledge),
             Selection::Missing if allow_open_ended_valid_to => (None, Vec::new()),
             Selection::Missing | Selection::NotKnown | Selection::Indeterminate => {
-                return Ok(self.validity_result(
+                return Ok(Self::validity_result(
                     QueryDispositionV1::Indeterminate,
                     claim_id,
                     &subject_ref,
@@ -404,7 +404,7 @@ impl TemporalEvidenceSetV1 {
                 ));
             }
             Selection::Conflict => {
-                return Ok(self.validity_result(
+                return Ok(Self::validity_result(
                     QueryDispositionV1::Conflict,
                     claim_id,
                     &subject_ref,
@@ -451,7 +451,7 @@ impl TemporalEvidenceSetV1 {
             QueryDispositionV1::ValidAtQuery
         };
 
-        Ok(self.validity_result(
+        Ok(Self::validity_result(
             disposition,
             claim_id,
             &subject_ref,
@@ -629,7 +629,6 @@ impl TemporalEvidenceSetV1 {
     }
 
     fn validity_result(
-        &self,
         disposition: QueryDispositionV1,
         claim_id: &str,
         subject_ref: &str,
@@ -999,7 +998,7 @@ mod tests {
 
     #[test]
     fn occurrence_correction_is_selected_only_after_verifier_knows_it() {
-        let mut assertions = TemporalEvidenceSetV1 {
+        let assertions = TemporalEvidenceSetV1 {
             assertions: vec![
                 fact(
                     "occurred-v1",
@@ -1212,6 +1211,19 @@ mod tests {
             )
             .unwrap();
         assert_eq!(result.disposition, QueryDispositionV1::Indeterminate);
+    }
+
+    #[test]
+    fn estimated_boundary_requires_explicit_uncertainty_window() {
+        let mut assertions = valid_fixture();
+        let from = assertions.assertions.iter_mut()
+            .find(|assertion| assertion.assertion_id == "from-v1").unwrap();
+        from.quality = TemporalQualityV1::Estimated;
+        from.uncertainty_window = None;
+        assert_eq!(
+            assertions.validate(),
+            Err(TemporalKernelErrorV1::UncertaintyWindowRequired)
+        );
     }
 
     #[test]
