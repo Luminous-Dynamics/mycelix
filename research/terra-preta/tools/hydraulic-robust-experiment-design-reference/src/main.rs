@@ -14,7 +14,7 @@ const FIXTURE_STATUS: &str = "synthetic_only_not_empirical_evidence";
 const N: usize = 4;
 const MAX_SCENARIOS: usize = 8;
 const MAX_CANDIDATES: usize = 16;
-const EIGEN_TOLERANCE: f64 = 1.0e-12;
+const EIGEN_TOLERANCE: f64 = 64.0 * f64::EPSILON;
 
 type Vector = [f64; N];
 type Matrix = [[f64; N]; N];
@@ -125,6 +125,8 @@ struct ScenarioOracle {
     scenario_id: String,
     oracle_candidate_ids: Vec<String>,
     oracle_cost: u32,
+    baseline_log_determinant_total_information: f64,
+    maximum_available_log_determinant_gain: f64,
     oracle_log_determinant_total_information: f64,
     oracle_minimum_eigenvalue_data_information: f64,
     oracle_minimum_eigenvalue_total_information: f64,
@@ -257,6 +259,14 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
             {
                 return Err(format!("candidate {} has invalid sensitivity, noise or support", candidate.candidate_id));
             }
+            let scaled_row = scale_row(&measurement.sensitivity, &fixture.parameter_scales);
+            if scaled_row.iter().any(|value| !value.is_finite()) {
+                return Err(format!("candidate {} has non-finite scaled sensitivity", candidate.candidate_id));
+            }
+            let precision = 1.0 / measurement.noise_std.powi(2);
+            if !precision.is_finite() || precision <= 0.0 {
+                return Err(format!("candidate {} has noise variance outside the finite inverse-variance range", candidate.candidate_id));
+            }
         }
     }
     Ok(())
@@ -275,6 +285,10 @@ fn validate_measurement(measurement: &Measurement, scales: &Vector) -> Result<()
     if row.iter().any(|value| !value.is_finite()) {
         return Err("scaled baseline sensitivity is non-finite".into());
     }
+    let precision = 1.0 / measurement.noise_std.powi(2);
+    if !precision.is_finite() || precision <= 0.0 {
+        return Err("baseline noise variance is outside the finite inverse-variance range".into());
+    }
     Ok(())
 }
 
@@ -282,15 +296,25 @@ fn validate_symmetric_information(matrix: &Matrix, name: &str) -> Result<(), Str
     if matrix.iter().flatten().any(|value| !value.is_finite()) {
         return Err(format!("{name} contains a non-finite value"));
     }
+
+    // Compare in normalized coordinates so symmetry and PSD admission do not
+    // depend on the units or magnitude used for information.
+    let scale = matrix.iter().flatten().fold(0.0_f64, |largest, value| largest.max(value.abs()));
+    if scale == 0.0 {
+        return Ok(());
+    }
     for row in 0..N {
         for column in 0..N {
-            if (matrix[row][column] - matrix[column][row]).abs() > 1.0e-10 {
-                return Err(format!("{name} is not symmetric"));
+            let left = matrix[row][column] / scale;
+            let right = matrix[column][row] / scale;
+            if (left - right).abs() > EIGEN_TOLERANCE {
+                return Err(format!("{name} is not symmetric at its declared scale"));
             }
         }
     }
-    if minimum_symmetric_eigenvalue(*matrix) < -1.0e-10 {
-        return Err(format!("{name} is not positive semidefinite"));
+    let minimum_eigenvalue = minimum_symmetric_eigenvalue(*matrix);
+    if minimum_eigenvalue / scale < -EIGEN_TOLERANCE {
+        return Err(format!("{name} is not positive semidefinite at its declared scale"));
     }
     Ok(())
 }
@@ -367,6 +391,21 @@ fn log_determinant_spd(mut matrix: Matrix, regularizer: f64) -> Result<f64, Stri
 }
 
 fn minimum_symmetric_eigenvalue(mut matrix: Matrix) -> f64 {
+    // Normalize before Jacobi rotations. An absolute stopping threshold on the
+    // unscaled matrix can miss an indefinite operator expressed in small units.
+    let scale = matrix
+        .iter()
+        .flatten()
+        .fold(0.0_f64, |largest, value| largest.max(value.abs()));
+    if scale == 0.0 {
+        return 0.0;
+    }
+    for row in &mut matrix {
+        for value in row {
+            *value /= scale;
+        }
+    }
+
     for _ in 0..64 {
         let mut p = 0usize;
         let mut q = 1usize;
@@ -409,7 +448,7 @@ fn minimum_symmetric_eigenvalue(mut matrix: Matrix) -> f64 {
             matrix[q][index] = matrix[index][q];
         }
     }
-    (0..N).map(|index| matrix[index][index]).fold(f64::INFINITY, f64::min)
+    (0..N).map(|index| matrix[index][index]).fold(f64::INFINITY, f64::min) * scale
 }
 
 fn find_scenario_measurement<'a>(candidate: &'a Candidate, scenario_id: &str) -> Result<&'a ScenarioMeasurement, String> {
@@ -433,10 +472,16 @@ fn evaluate_scenario(fixture: &Fixture, scenario: &Scenario, selected: &[usize])
         rows.push(row);
         add_outer_product(&mut data_fisher, &row, 1.0 / measurement.noise_std.powi(2));
     }
+    if data_fisher.iter().flatten().any(|value| !value.is_finite()) {
+        return Err(format!("scenario {} produced non-finite data information", scenario.scenario_id));
+    }
     for row in 0..N {
         for column in 0..N {
             information[row][column] += data_fisher[row][column];
         }
+    }
+    if information.iter().flatten().any(|value| !value.is_finite()) {
+        return Err(format!("scenario {} produced non-finite total information", scenario.scenario_id));
     }
 
     Ok(ScenarioScore {
@@ -502,40 +547,68 @@ fn enumerate_designs(fixture: &Fixture) -> Result<Vec<EvaluatedDesign>, String> 
     Ok(designs)
 }
 
-fn scenario_oracles(fixture: &Fixture, designs: &[EvaluatedDesign]) -> Vec<ScenarioOracle> {
+fn scenario_oracles(fixture: &Fixture, designs: &[EvaluatedDesign]) -> Result<Vec<ScenarioOracle>, String> {
     fixture.scenarios.iter().enumerate().map(|(scenario_index, scenario)| {
+        let baseline = evaluate_scenario(fixture, scenario, &[])?;
         let best = designs.iter().max_by(|left, right| {
             left.scenario_scores[scenario_index].log_determinant_total_information
                 .total_cmp(&right.scenario_scores[scenario_index].log_determinant_total_information)
                 .then_with(|| right.total_cost.cmp(&left.total_cost))
                 .then_with(|| right.candidate_ids.cmp(&left.candidate_ids))
-        }).expect("feasible design set is nonempty");
+        }).ok_or_else(|| "feasible design set is empty".to_string())?;
         let score = &best.scenario_scores[scenario_index];
-        ScenarioOracle {
+        let baseline_log_determinant_total_information = baseline.log_determinant_total_information;
+        let maximum_available_log_determinant_gain =
+            (score.log_determinant_total_information - baseline_log_determinant_total_information).max(0.0);
+        Ok(ScenarioOracle {
             scenario_id: scenario.scenario_id.clone(),
             oracle_candidate_ids: best.candidate_ids.clone(),
             oracle_cost: best.total_cost,
+            baseline_log_determinant_total_information,
+            maximum_available_log_determinant_gain,
             oracle_log_determinant_total_information: score.log_determinant_total_information,
             oracle_minimum_eigenvalue_data_information: score.minimum_eigenvalue_data_information,
             oracle_minimum_eigenvalue_total_information: score.minimum_eigenvalue_total_information,
             oracle_data_rank: score.data_sensitivity_rank,
-        }
+        })
     }).collect()
 }
 
-fn assign_regrets(designs: &mut [EvaluatedDesign], oracles: &[ScenarioOracle]) {
+fn assign_regrets(designs: &mut [EvaluatedDesign], oracles: &[ScenarioOracle]) -> Result<(), String> {
     for design in designs {
         let mut max_absolute = 0.0_f64;
         let mut max_normalized = 0.0_f64;
         for (index, score) in design.scenario_scores.iter().enumerate() {
-            let regret = (oracles[index].oracle_log_determinant - score.log_determinant_total_information).max(0.0);
-            let normalized = regret / oracles[index].oracle_log_determinant.abs().max(1.0);
+            let oracle_logdet = oracles[index].oracle_log_determinant_total_information;
+            let baseline_logdet = oracles[index].baseline_log_determinant_total_information;
+            let available_gain = oracles[index].maximum_available_log_determinant_gain;
+            let regret = (oracle_logdet - score.log_determinant_total_information).max(0.0);
+            let tolerance = EIGEN_TOLERANCE * oracle_logdet.abs().max(baseline_logdet.abs()).max(1.0);
+
+            let normalized = if available_gain > tolerance {
+                if regret > available_gain + tolerance {
+                    return Err(format!(
+                        "scenario {} design regret exceeds its available baseline-to-oracle gain",
+                        oracles[index].scenario_id
+                    ));
+                }
+                (regret / available_gain).clamp(0.0, 1.0)
+            } else {
+                if regret > tolerance {
+                    return Err(format!(
+                        "scenario {} has regret but no numerically resolvable design gain",
+                        oracles[index].scenario_id
+                    ));
+                }
+                0.0
+            };
             max_absolute = max_absolute.max(regret);
             max_normalized = max_normalized.max(normalized);
         }
         design.max_absolute_regret = max_absolute;
         design.max_normalized_regret = max_normalized;
     }
+    Ok(())
 }
 
 fn scalar_order(left: f64, right: f64, maximize: bool) -> Ordering {
@@ -586,8 +659,8 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     let nominal_index = fixture.scenarios.iter().position(|scenario| scenario.nominal)
         .ok_or_else(|| "nominal scenario missing".to_string())?;
     let mut designs = enumerate_designs(fixture)?;
-    let oracles = scenario_oracles(fixture, &designs);
-    assign_regrets(&mut designs, &oracles);
+    let oracles = scenario_oracles(fixture, &designs)?;
+    assign_regrets(&mut designs, &oracles)?;
 
     let nominal = select_design(&designs, "nominal_d_optimal", nominal_index)?;
     let robust_d = select_design(&designs, "robust_d_optimal", nominal_index)?;
@@ -800,4 +873,92 @@ mod tests {
         assert!(report.robust_d_optimal_design.per_scenario_scores.iter()
             .all(|score| score.minimum_eigenvalue_total_information > score.minimum_eigenvalue_data_information));
     }
+    #[test]
+    fn normalized_symmetric_eigenvalue_is_scale_invariant() {
+        let base = [
+            [1.0, 2.0, 0.0, 0.0],
+            [2.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 3.0, 0.0],
+            [0.0, 0.0, 0.0, 4.0],
+        ];
+        for scale in [1.0e-24, 1.0, 1.0e24] {
+            let scaled = base.map(|row| row.map(|value| value * scale));
+            let normalized = minimum_symmetric_eigenvalue(scaled) / scale;
+            assert!((normalized + 1.0).abs() < 1.0e-12);
+        }
+    }
+
+    #[test]
+    fn small_scale_indefinite_prior_is_rejected() {
+        let mut invalid = fixture();
+        invalid.scenarios[0].prior_information = [
+            [1.0e-18, 2.0e-18, 0.0, 0.0],
+            [2.0e-18, 1.0e-18, 0.0, 0.0],
+            [0.0, 0.0, 1.0e-18, 0.0],
+            [0.0, 0.0, 0.0, 1.0e-18],
+        ];
+        assert!(validate(&invalid).is_err());
+    }
+
+    #[test]
+    fn small_scale_asymmetry_is_rejected() {
+        let mut invalid = fixture();
+        invalid.scenarios[0].prior_information = [[0.0; N]; N];
+        invalid.scenarios[0].prior_information[0][1] = 1.0e-18;
+        assert!(validate(&invalid).is_err());
+    }
+
+    #[test]
+    fn inverse_variance_overflow_and_scaled_sensitivity_overflow_are_rejected() {
+        let mut invalid_noise = fixture();
+        invalid_noise.candidates[0].measurements[0].noise_std = 1.0e-300;
+        assert!(validate(&invalid_noise).is_err());
+
+        let mut invalid_sensitivity = fixture();
+        invalid_sensitivity.parameter_scales[0] = 1.0e308;
+        invalid_sensitivity.candidates[0].measurements[0].sensitivity[0] = 10.0;
+        assert!(validate(&invalid_sensitivity).is_err());
+    }
+
+    #[test]
+    fn minimax_regret_is_invariant_to_uniform_parameter_reparameterization() {
+        let original_fixture = fixture();
+        let original = analyze(&original_fixture, "a".repeat(64)).unwrap();
+
+        let mut rescaled_fixture = original_fixture;
+        let scale = 1.0e6;
+        let scale_squared = scale * scale;
+        for parameter_scale in &mut rescaled_fixture.parameter_scales {
+            *parameter_scale *= scale;
+        }
+        for scenario in &mut rescaled_fixture.scenarios {
+            for row in &mut scenario.prior_information {
+                for value in row {
+                    *value *= scale_squared;
+                }
+            }
+        }
+        rescaled_fixture.determinant_regularizer *= scale_squared;
+
+        let rescaled = analyze(&rescaled_fixture, "b".repeat(64)).unwrap();
+        assert_eq!(original.nominal_design.candidate_ids, rescaled.nominal_design.candidate_ids);
+        assert_eq!(original.robust_d_optimal_design.candidate_ids, rescaled.robust_d_optimal_design.candidate_ids);
+        assert_eq!(original.robust_e_optimal_design.candidate_ids, rescaled.robust_e_optimal_design.candidate_ids);
+        assert_eq!(original.minimax_regret_design.candidate_ids, rescaled.minimax_regret_design.candidate_ids);
+        assert!(
+            (original.minimax_regret_design.maximum_normalized_d_optimal_regret
+                - rescaled.minimax_regret_design.maximum_normalized_d_optimal_regret)
+                .abs()
+                < 1.0e-10
+        );
+        for (left, right) in original.per_scenario_oracles.iter().zip(&rescaled.per_scenario_oracles) {
+            assert!(
+                (left.maximum_available_log_determinant_gain
+                    - right.maximum_available_log_determinant_gain)
+                    .abs()
+                    < 1.0e-9
+            );
+        }
+    }
+
 }
