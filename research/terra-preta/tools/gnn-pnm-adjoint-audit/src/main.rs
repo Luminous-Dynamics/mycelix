@@ -185,12 +185,18 @@ fn objective(case: &Case) -> Result<f64, AuditError> {
 fn finite_difference_gradient(case: &Case) -> Result<Vec<f64>, AuditError> {
     let mut gradient = Vec::with_capacity(case.conductances.len());
     for (index, conductance) in case.conductances.iter().enumerate() {
-        let epsilon = conductance.abs().max(f64::MIN_POSITIVE) * 1.0e-6;
-        let mut plus = case.clone();
-        let mut minus = case.clone();
-        plus.conductances[index] += epsilon;
-        minus.conductances[index] -= epsilon;
-        let derivative = (objective(&plus)? - objective(&minus)?) / (2.0 * epsilon);
+        let epsilon = conductance.abs().max(f64::MIN_POSITIVE) * 1.0e-4;
+        let mut plus_one = case.clone();
+        let mut plus_two = case.clone();
+        let mut minus_one = case.clone();
+        let mut minus_two = case.clone();
+        plus_one.conductances[index] += epsilon;
+        plus_two.conductances[index] += 2.0 * epsilon;
+        minus_one.conductances[index] -= epsilon;
+        minus_two.conductances[index] -= 2.0 * epsilon;
+        let derivative = (-objective(&plus_two)? + 8.0 * objective(&plus_one)?
+            - 8.0 * objective(&minus_one)? + objective(&minus_two)?)
+            / (12.0 * epsilon);
         gradient.push(derivative);
     }
     Ok(gradient)
