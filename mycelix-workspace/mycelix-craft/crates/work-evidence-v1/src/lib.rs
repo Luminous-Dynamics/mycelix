@@ -266,8 +266,9 @@ fn hex_encode(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut output = String::with_capacity(bytes.len() * 2);
     for byte in bytes {
-        output.push(HEX[(byte >> 4) as usize] as char);
-        output.push(HEX[(byte & 0x0f) as usize] as char);
+        let value = *byte;
+        output.push(HEX[(value >> 4) as usize] as char);
+        output.push(HEX[(value & 0x0f) as usize] as char);
     }
     output
 }
@@ -453,6 +454,9 @@ fn validate_claim(claim: &WorkEvidenceClaimV1) -> VerifyResult<()> {
     }
     if claim.observed_until_unix < claim.observed_from_unix {
         return Err(VerificationError::InvalidClaim("observation interval is inverted"));
+    }
+    if claim.evidence.is_empty() {
+        return Err(VerificationError::InvalidClaim("at least one evidence artifact is required"));
     }
     if claim.evidence.len() > MAX_EVIDENCE_ARTIFACTS {
         return Err(VerificationError::InvalidClaim("too many evidence artifacts"));
@@ -1078,7 +1082,7 @@ mod tests {
     fn duplicate_assessor_cannot_satisfy_independent_quorum() {
         let claim = sample_claim();
         let authority = sample_authority();
-        let mut first = sample_attestation(&claim);
+        let first = sample_attestation(&claim);
         let mut second = first.clone();
         second.attestation_id = "attestation:0002".into();
         second.nonce = "nonce-0002".into();
