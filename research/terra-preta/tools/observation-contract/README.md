@@ -20,8 +20,10 @@ It deliberately does not parse or claim to ingest the external datasets. Their e
 4. Require canonical grouping IDs for sample-, site- or study-level folds. Missing IDs cause strict folds to fail closed; they are never replaced with row IDs or approximate coordinate matching.
 5. All repeated observations sharing a canonical group ID must map to one fold.
 6. Derived maps and numerical reference data cannot be admitted as observed measurement truth.
+7. Folds are balanced deterministically by record count at the selected group level. Larger groups are assigned first to the currently least-loaded fold; FNV-1a and canonical group ID break ties. This makes the result independent of input row order.
+8. The contract rejects fewer independent groups than folds and rejects assignments with an empty fold.
 
-The deterministic fold hash uses FNV-1a only for repeatable partitioning; it is not a security primitive. The contract does not itself define the final fraction of training/test groups. A real benchmark should freeze fold manifests, source-file digests, crosswalk versions and exclusion reasons before modelling.
+FNV-1a is only a deterministic tie-break, not a security primitive. Balancing record counts does not itself stratify target, protocol, soil class, geography or study era. Those strata need preregistered crosswalks and a separate stratified grouping policy; never split a canonical group to force class balance. The contract does not itself define the final train/test proportions. A real benchmark should freeze fold manifests, source-file digests, crosswalk versions, balancing summaries and exclusion reasons before modelling.
 
 ## Intended paradigm
 
