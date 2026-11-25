@@ -20,6 +20,7 @@
     { "case_id": "CWE-016", "name": "unsupported schema version", "mutation": "unsupported_schema", "expected_accept": false },
     { "case_id": "CWE-017", "name": "disputed work claim", "mutation": "disputed_outcome", "expected_accept": false },
     { "case_id": "CWE-018", "name": "assessor key revoked", "mutation": "revoked_assessor_key", "expected_accept": false },
-    { "case_id": "CWE-019", "name": "assessor key expired", "mutation": "expired_assessor_key", "expected_accept": false }
+    { "case_id": "CWE-019", "name": "assessor key expired", "mutation": "expired_assessor_key", "expected_accept": false },
+    { "case_id": "CWE-020", "name": "attestation identifier replay", "mutation": "replayed_attestation_id", "expected_accept": false }
   ]
 }
