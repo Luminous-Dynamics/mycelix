@@ -28,7 +28,7 @@ A candidate that is more accurate but violates authority is not "a little better
 
 ### Mandatory gates
 
-The caller freezes the set of mandatory gate IDs before the tournament. Each run must supply exactly one result and evidence digest for every gate. Missing or unknown evidence is `INDETERMINATE`; a failed gate is `FAIL`.
+The caller freezes the set of mandatory gate IDs before the tournament. Authority, privacy, evidence and evaluator are mandatory core gates and cannot be omitted. Each run must supply exactly one result and evidence digest for every gate. Missing or unknown evidence is `INDETERMINATE`; a failed gate is `FAIL`.
 
 Suggested common gates:
 - authority and exact-effect authorization;
@@ -60,7 +60,7 @@ The reference implementation compares confidence bounds at the preregistered con
 - Baseline dominance is symmetric.
 - Otherwise the runs are `Incomparable`.
 
-This is deliberately conservative. Overlapping intervals do not establish non-inferiority. The comparator consumes supplied intervals; it does not calculate them. Their statistical method, clustering, multiplicity and calibration must be qualified separately.
+This is deliberately conservative. Overlapping intervals do not establish non-inferiority. A paired-cohort or inference-plan mismatch makes the entire vector not evaluable; partial metrics are never promoted to dominance. The comparator consumes supplied intervals; it does not calculate them. Their statistical method, clustering, multiplicity and calibration must be qualified separately.
 
 The metric set and direction are code-defined. A candidate cannot relabel a safety rate as higher-is-better to manufacture dominance. There is no hidden weighted score.
 
