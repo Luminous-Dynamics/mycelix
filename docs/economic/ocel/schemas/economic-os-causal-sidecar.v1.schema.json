@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/economic-os-causal-sidecar-v1.json",
+  "title": "Mycelix Economic Owner-Scoped Causal Sidecar v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile",
+    "version",
+    "status",
+    "relationship_rule",
+    "event_mapping_profile",
+    "owner_frontier_semantics",
+    "nodes"
+  ],
+  "properties": {
+    "profile": {
+      "const": "MYCELIX-ECONOMIC-CAUSAL-SIDECAR-V1"
+    },
+    "version": {
+      "const": "1.0"
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "relationship_rule": {
+      "type": "string",
+      "minLength": 1
+    },
+    "event_mapping_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "owner_frontier_semantics": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "owner_id",
+          "event_id",
+          "ocel_event_id",
+          "owner_sequence",
+          "owner_predecessor",
+          "caused_by"
+        ],
+        "properties": {
+          "owner_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "ocel_event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "owner_sequence": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "owner_predecessor": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/eventRef"
+              }
+            ]
+          },
+          "caused_by": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/eventRef"
+            },
+            "maxItems": 64
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "eventRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner_id",
+        "event_id"
+      ],
+      "properties": {
+        "owner_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "event_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      }
+    }
+  }
+}
