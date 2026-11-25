@@ -67,6 +67,24 @@ The earlier proposed values remain useful as aspirations, but their comparator s
 
 These are target definitions, not achieved scores. Do not report a leaderboard rank or SOTA superiority until the official evaluation has been reproduced and the strict comparison manifest has passed.
 
+## Backbone-specific competitive targets and cost parity
+
+The official Table 3 reports the following separate full-context reference tracks (all 52,435 context tokens):
+- GPT-5.6-terra: L2 average 0.431; M3 0.303.
+- DeepSeek-v4-flash: L2 average 0.469; M3 0.374.
+
+Do not collapse these into one baseline. Prospective, matched-track targets after reproducing each official condition:
+- **GPT-5.6-terra track:** L2 average ≥0.451 (at least +2 percentage points over 0.431) and M3 ≥0.35 (at least +4.7 pp over 0.303).
+- **DeepSeek-v4-flash track:** L2 average ≥0.489 (at least +2 pp over 0.469) and M3 ≥0.42 (at least +4.6 pp over 0.374).
+
+These are research targets, not achieved results. The confidence interval for the paired difference must exclude zero under group-clustered inference; absolute mean targets alone do not establish superiority. If the official scorer/model version changes, reproduce the new reference rather than carrying these values forward.
+
+### Cost/quality target
+
+The paper's Table 6 reports $260.40 full-context GPT-5.6-terra total deployment cost over 2,395 queries; dense retrieval $55.00; LightMem $69.60; and EverMemOS $814.90. Those reported totals exclude judge cost. They include different construction/retrieval profiles, so they are operational reference points, not a strict equal-resource comparison.
+
+Prospective stretch target: under the **same GPT-5.6-terra benchmark/scorer/task split**, achieve L2 non-inferiority to full context within a preregistered 0.02 margin while using ≤50% of the full-context total deployment cost across the same workload. Count one-time memory/index construction, query-time retrieval, answer generation, retries, failures and evaluator/judge cost. Report cost per assigned query and per successful authorized task; do not discard failed or refused queries from denominators.
+
 ## Statistical unit and uncertainty
 
 GroupAssistBench contains many evaluation instances but only 50 source groups. Repeated questions from the same group are not independent observations. Use paired, group-clustered bootstrap resampling (with M1/M2/M3 strata preserved) or another preregistered cluster-aware estimator. Report:
