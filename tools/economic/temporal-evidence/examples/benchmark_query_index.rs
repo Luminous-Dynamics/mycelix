@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use mycelix_temporal_evidence_kernel::{
     TemporalAssertionV1, TemporalDimensionV1, TemporalEvidenceIndexV1,
-    TemporalEvidenceSetV1, TemporalPrecisionV1, TemporalQualityV1,
+    TemporalEvidenceScanV1, TemporalEvidenceSetV1, TemporalPrecisionV1, TemporalQualityV1,
 };
 
 const VERIFIER: &str = "did:mycelix:verifier:benchmark-v1";
@@ -97,22 +97,28 @@ fn workload(claim_count: usize) -> TemporalEvidenceSetV1 {
 }
 
 fn main() {
-    println!("claims,assertions,queries,index_build_us,reference_query_us,indexed_query_us,speedup");
+    println!("claims,assertions,queries,scan_build_us,index_build_us,scan_query_us,indexed_query_us,speedup");
     for claim_count in [32_usize, 64, 128, 256] {
         let evidence = workload(claim_count);
-        let build_start = Instant::now();
+
+        let scan_build_start = Instant::now();
+        let scan = TemporalEvidenceScanV1::new(evidence.clone())
+            .expect("generated evidence should validate");
+        let scan_build = scan_build_start.elapsed();
+
+        let index_build_start = Instant::now();
         let index = TemporalEvidenceIndexV1::new(evidence.clone())
             .expect("generated evidence should validate");
-        let index_build = build_start.elapsed();
+        let index_build = index_build_start.elapsed();
 
         let query_count = claim_count.min(16);
         let reference_start = Instant::now();
         let mut reference_results = Vec::with_capacity(query_count);
         for query in 0..query_count {
             let claim_id = format!("claim:{:08}", (query * 17) % claim_count);
-            let result = evidence
+            let result = scan
                 .evaluate_valid_at(&claim_id, VERIFIER, VALID_AT, KNOWN, false)
-                .expect("reference query should succeed");
+                .expect("prevalidated scan query should succeed");
             reference_results.push(black_box(result));
         }
         let reference_elapsed = reference_start.elapsed();
@@ -132,8 +138,9 @@ fn main() {
         let indexed_ns = indexed_elapsed.as_nanos().max(1) as f64;
         let speedup = reference_ns / indexed_ns;
         println!(
-            "{claim_count},{},{query_count},{},{},{},{speedup:.3}",
+            "{claim_count},{},{query_count},{},{},{},{},{speedup:.3}",
             evidence.assertions.len(),
+            scan_build.as_micros(),
             index_build.as_micros(),
             reference_elapsed.as_micros(),
             indexed_elapsed.as_micros(),
