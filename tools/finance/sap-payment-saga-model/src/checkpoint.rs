@@ -205,6 +205,86 @@ pub fn canonical_intent_digest(intent: &PaymentIntent) -> Result<String, Checkpo
     Ok(output)
 }
 
+/// Structural continuity errors for a checkpoint that advances one
+/// owner-local journal frontier. These checks do not authenticate either
+/// checkpoint's issuer, Holochain action, authority grant or source chain.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CheckpointAdvanceErrorV1 {
+    InvalidPreviousSubject,
+    InvalidNextSubject,
+    OperationScopeMismatch,
+    OwnerScopeMismatch,
+    EventLogMismatch,
+    SequenceOverflow,
+    SequenceNotContiguous,
+    PriorCheckpointDigestMismatch,
+    FrontierDidNotAdvance,
+    SourceActionDidNotAdvance,
+}
+
+/// Verify a *structural* one-step continuation between two canonical
+/// owner-scoped checkpoint subjects.
+///
+/// The next checkpoint must bind the previous subject's exact canonical
+/// digest, preserve operation/intent/owner/log scope, increment checkpoint
+/// sequence by one, advance the event count and source frontier, and name a
+/// distinct source action. Issuer, verification method and authority grant
+/// may change: a caller must independently validate historical/current
+/// authorization and key lifecycle for both subjects.
+///
+/// This function deliberately does not establish Holochain authorship,
+/// source-action validity, DHT completeness, fork choice or settlement.
+pub fn validate_checkpoint_frontier_advance_v1(
+    previous: &CheckpointSubjectV1,
+    next: &CheckpointSubjectV1,
+    intent: &PaymentIntent,
+) -> Result<(), CheckpointAdvanceErrorV1> {
+    previous
+        .validate_against_intent(intent)
+        .map_err(|_| CheckpointAdvanceErrorV1::InvalidPreviousSubject)?;
+    next.validate_against_intent(intent)
+        .map_err(|_| CheckpointAdvanceErrorV1::InvalidNextSubject)?;
+
+    if previous.operation_id != next.operation_id
+        || previous.intent_digest != next.intent_digest
+    {
+        return Err(CheckpointAdvanceErrorV1::OperationScopeMismatch);
+    }
+    if previous.owner != next.owner {
+        return Err(CheckpointAdvanceErrorV1::OwnerScopeMismatch);
+    }
+    if previous.event_log_id != next.event_log_id {
+        return Err(CheckpointAdvanceErrorV1::EventLogMismatch);
+    }
+
+    let expected_sequence = previous
+        .checkpoint_sequence
+        .checked_add(1)
+        .ok_or(CheckpointAdvanceErrorV1::SequenceOverflow)?;
+    if next.checkpoint_sequence != expected_sequence {
+        return Err(CheckpointAdvanceErrorV1::SequenceNotContiguous);
+    }
+
+    let previous_digest = previous
+        .canonical_digest_against_intent(intent)
+        .map_err(|_| CheckpointAdvanceErrorV1::InvalidPreviousSubject)?;
+    if next.prior_checkpoint_digest.as_deref() != Some(previous_digest.as_str()) {
+        return Err(CheckpointAdvanceErrorV1::PriorCheckpointDigestMismatch);
+    }
+
+    if next.event_count <= previous.event_count
+        || next.tail_digest == previous.tail_digest
+        || next.source_chain_frontier == previous.source_chain_frontier
+    {
+        return Err(CheckpointAdvanceErrorV1::FrontierDidNotAdvance);
+    }
+    if next.source_action_hash == previous.source_action_hash {
+        return Err(CheckpointAdvanceErrorV1::SourceActionDidNotAdvance);
+    }
+
+    Ok(())
+}
+
 fn append_text(output: &mut Vec<u8>, value: &str) -> Result<(), CheckpointError> {
     let encoded = value.as_bytes();
     if encoded.len() > MAX_FIELD_BYTES {
