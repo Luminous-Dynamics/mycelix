@@ -1463,15 +1463,23 @@ mod tests {
     #[test]
     fn preindexed_engine_matches_reference_for_validity_and_occurrence_queries() {
         let evidence = valid_fixture();
+        let scan = TemporalEvidenceScanV1::new(evidence.clone()).unwrap();
         let index = TemporalEvidenceIndexV1::new(evidence.clone()).unwrap();
         for (valid_at, known_at) in [
             ("2026-11-19T00:00:00Z", "2026-11-19T00:00:00Z"),
             ("2026-11-19T00:00:00Z", "2026-11-21T00:00:00Z"),
             ("2026-11-22T00:00:00Z", "2026-11-21T00:00:00Z"),
         ] {
+            let scan_result = scan.evaluate_valid_at(
+                "grant-1", VERIFIER, valid_at, known_at, false
+            ).unwrap();
             assert_eq!(
                 evidence.evaluate_valid_at("grant-1", VERIFIER, valid_at, known_at, false),
                 index.evaluate_valid_at("grant-1", VERIFIER, valid_at, known_at, false)
+            );
+            assert_eq!(
+                scan_result,
+                index.evaluate_valid_at("grant-1", VERIFIER, valid_at, known_at, false).unwrap()
             );
         }
 
@@ -1497,12 +1505,20 @@ mod tests {
                 ),
             ],
         };
+        let occurrence_scan =
+            TemporalEvidenceScanV1::new(occurrence_evidence.clone()).unwrap();
         let occurrence_index =
             TemporalEvidenceIndexV1::new(occurrence_evidence.clone()).unwrap();
         for known_at in ["2026-11-21T10:00:20Z", "2026-11-21T10:00:40Z"] {
+            let scan_result = occurrence_scan
+                .occurred_at_as_known("delivery-1", VERIFIER, known_at).unwrap();
             assert_eq!(
                 occurrence_evidence.occurred_at_as_known("delivery-1", VERIFIER, known_at),
                 occurrence_index.occurred_at_as_known("delivery-1", VERIFIER, known_at)
+            );
+            assert_eq!(
+                scan_result,
+                occurrence_index.occurred_at_as_known("delivery-1", VERIFIER, known_at).unwrap()
             );
         }
     }
