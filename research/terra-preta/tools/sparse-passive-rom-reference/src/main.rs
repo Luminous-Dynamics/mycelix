@@ -245,6 +245,10 @@ struct Report {
     feedthrough_limit_relative_error: f64,
     maximum_sampled_response_error: f64,
     m_matrix_lambda_min_lower_bound: f64,
+    m_matrix_initial_lambda_min_lower_bound: f64,
+    m_matrix_collatz_refinement_steps: usize,
+    m_matrix_collatz_max_true_residual_inf: f64,
+    m_matrix_collatz_fallback_reason: Option<String>,
     m_matrix_supersolution_min_component: f64,
     m_matrix_supersolution_max_component: f64,
     m_matrix_supersolution_minimum_margin: f64,
@@ -558,11 +562,15 @@ fn pcg(
 
 struct MMatrixLowerBound {
     lambda_min_lower_bound: f64,
+    initial_lambda_min_lower_bound: f64,
     supersolution_min_component: f64,
     supersolution_max_component: f64,
     minimum_supersolution_margin: f64,
     supersolution_sha256: String,
-    cg_stats: CgStats,
+    refinement_steps: usize,
+    refinement_max_residual_inf: f64,
+    refinement_fallback_reason: Option<String>,
+    cg_stats: Vec<CgStats>,
 }
 
 fn m_matrix_lambda_min_lower_bound(
@@ -572,7 +580,7 @@ fn m_matrix_lambda_min_lower_bound(
 ) -> Result<MMatrixLowerBound, String> {
     matrix.validate_stieltjes()?;
     let rhs = vec![1.0; matrix.size];
-    let (approximate_solution, cg_stats) =
+    let (approximate_solution, initial_stats) =
         pcg(matrix, 0.0, &rhs, relative_tolerance, max_iterations)?;
     if approximate_solution
         .iter()
@@ -625,8 +633,8 @@ fn m_matrix_lambda_min_lower_bound(
     if !supersolution_max_component.is_finite() || supersolution_max_component <= 0.0 {
         return Err("M-matrix supersolution maximum is invalid".into());
     }
-    let lambda_min_lower_bound = 1.0 / supersolution_max_component;
-    if !lambda_min_lower_bound.is_finite() || lambda_min_lower_bound <= 0.0 {
+    let initial_lambda_min_lower_bound = 1.0 / supersolution_max_component;
+    if !initial_lambda_min_lower_bound.is_finite() || initial_lambda_min_lower_bound <= 0.0 {
         return Err("M-matrix eigenvalue lower bound is invalid".into());
     }
     let supersolution_min_component = supersolution.iter().copied().reduce(f64::min)
@@ -643,15 +651,128 @@ fn m_matrix_lambda_min_lower_bound(
     }
     let supersolution_sha256 = format!("{:x}", digest.finalize());
 
+    // Collatz–Wielandt refinement for M=A^-1 >= 0. For v>0, solve A*z=v
+    // and recompute r=v-A*z. Since A^-1*1 <= y and M is nonnegative,
+    // M*v = z + M*r <= z + ||r||_infinity*y componentwise.
+    // Thus max_i((z_i + ||r||_infinity*y_i)/v_i) bounds rho(M).
+    // The original supersolution bound remains the fail-closed fallback.
+    let mut stats = vec![initial_stats];
+    let mut best_beta = supersolution_max_component;
+    let mut refinement_max_residual_inf = 0.0_f64;
+    let mut refinement_steps = 0usize;
+    let mut refinement_fallback_reason = None;
+    let mut v = vec![1.0; matrix.size];
+    const MAX_COLLATZ_REFINEMENTS: usize = 4;
+
+    for _ in 0..MAX_COLLATZ_REFINEMENTS {
+        let (z, solve_stats) = match pcg(
+            matrix,
+            0.0,
+            &v,
+            relative_tolerance,
+            max_iterations,
+        ) {
+            Ok(result) => result,
+            Err(error) => {
+                refinement_fallback_reason = Some(format!("refinement PCG failed: {error}"));
+                break;
+            }
+        };
+        stats.push(solve_stats);
+        refinement_steps += 1;
+
+        if z.iter().any(|value| !value.is_finite() || *value <= 0.0) {
+            refinement_fallback_reason =
+                Some("Collatz refinement rejected a non-positive resolvent vector".into());
+            break;
+        }
+
+        let action = match matrix.matvec(&z, 0.0) {
+            Ok(value) => value,
+            Err(error) => {
+                refinement_fallback_reason =
+                    Some(format!("Collatz residual matvec failed: {error}"));
+                break;
+            }
+        };
+        let residual_inf = v
+            .iter()
+            .zip(action.iter())
+            .map(|(right, left)| (right - left).abs())
+            .fold(0.0_f64, f64::max);
+        refinement_max_residual_inf = refinement_max_residual_inf.max(residual_inf);
+        if !residual_inf.is_finite() {
+            refinement_fallback_reason =
+                Some("Collatz refinement produced a non-finite true residual".into());
+            break;
+        }
+
+        let mut candidate_beta = 0.0_f64;
+        for ((z_value, y_value), v_value) in
+            z.iter().zip(supersolution.iter()).zip(v.iter())
+        {
+            if !v_value.is_finite() || *v_value <= 0.0 {
+                refinement_fallback_reason =
+                    Some("Collatz refinement lost a positive weight vector".into());
+                break;
+            }
+            let raw_upper = z_value + residual_inf * y_value;
+            let upper = raw_upper * (1.0 + 1.0e-10)
+                + f64::EPSILON * (z_value.abs() + residual_inf * y_value.abs() + 1.0) * 64.0;
+            let ratio = upper / v_value;
+            if !upper.is_finite() || upper <= 0.0 || !ratio.is_finite() || ratio <= 0.0 {
+                refinement_fallback_reason =
+                    Some("Collatz componentwise upper ratio was non-positive or non-finite".into());
+                break;
+            }
+            candidate_beta = candidate_beta.max(ratio);
+        }
+        if refinement_fallback_reason.is_some() {
+            break;
+        }
+        if !candidate_beta.is_finite() || candidate_beta <= 0.0 {
+            refinement_fallback_reason =
+                Some("Collatz spectral upper bound was invalid".into());
+            break;
+        }
+        best_beta = best_beta.min(candidate_beta);
+
+        let maximum_z = z.iter().copied().reduce(f64::max).unwrap_or(0.0);
+        if !maximum_z.is_finite() || maximum_z <= 0.0 {
+            refinement_fallback_reason =
+                Some("Collatz power vector could not be normalized".into());
+            break;
+        }
+        v = z.iter().map(|value| value / maximum_z).collect();
+        if v.iter().any(|value| !value.is_finite() || *value <= 0.0) {
+            refinement_fallback_reason =
+                Some("Collatz normalized power vector lost positivity".into());
+            break;
+        }
+    }
+
+    let lambda_min_lower_bound = 1.0 / best_beta;
+    if !lambda_min_lower_bound.is_finite()
+        || lambda_min_lower_bound <= 0.0
+        || lambda_min_lower_bound < initial_lambda_min_lower_bound
+    {
+        return Err("Collatz refinement violated the original supersolution lower bound".into());
+    }
+
     Ok(MMatrixLowerBound {
         lambda_min_lower_bound,
+        initial_lambda_min_lower_bound,
         supersolution_min_component,
         supersolution_max_component,
         minimum_supersolution_margin,
         supersolution_sha256,
-        cg_stats,
+        refinement_steps,
+        refinement_max_residual_inf,
+        refinement_fallback_reason,
+        cg_stats: stats,
     })
 }
+
 
 fn frobenius_norm(matrix: &[Vec<f64>]) -> f64 {
     matrix
@@ -1533,8 +1654,12 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         .fold(0.0_f64, f64::max);
     let error_certificate_valid = frequency_samples.iter().all(|sample| sample.error_bound_valid)
         && error_certificate.lambda_min_lower_bound > 0.0;
-    let error_certificate_pcg_solve_count = 1usize;
-    let error_certificate_pcg_iterations = error_certificate.cg_stats.iterations;
+    let error_certificate_pcg_solve_count = error_certificate.cg_stats.len();
+    let error_certificate_pcg_iterations = error_certificate
+        .cg_stats
+        .iter()
+        .map(|stats| stats.iterations)
+        .sum::<usize>();
     let overall_pcg_solve_count = cg_solve_count + error_certificate_pcg_solve_count;
     let overall_pcg_iterations = total_cg_iterations + error_certificate_pcg_iterations;
     let adaptive_candidate_shift_count = fixture.adaptive.candidate_shifts.len();
@@ -1609,11 +1734,15 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         feedthrough_limit_relative_error,
         maximum_sampled_response_error,
         m_matrix_lambda_min_lower_bound: error_certificate.lambda_min_lower_bound,
+        m_matrix_initial_lambda_min_lower_bound: error_certificate.initial_lambda_min_lower_bound,
+        m_matrix_collatz_refinement_steps: error_certificate.refinement_steps,
+        m_matrix_collatz_max_true_residual_inf: error_certificate.refinement_max_residual_inf,
+        m_matrix_collatz_fallback_reason: error_certificate.refinement_fallback_reason.clone(),
         m_matrix_supersolution_min_component: error_certificate.supersolution_min_component,
         m_matrix_supersolution_max_component: error_certificate.supersolution_max_component,
         m_matrix_supersolution_minimum_margin: error_certificate.minimum_supersolution_margin,
         m_matrix_supersolution_sha256: error_certificate.supersolution_sha256,
-        m_matrix_supersolution_relative_residual: error_certificate.cg_stats.relative_residual,
+        m_matrix_supersolution_relative_residual: error_certificate.cg_stats[0].relative_residual,
         error_certificate_valid,
         error_certificate_pcg_solve_count,
         error_certificate_pcg_iterations,
@@ -1692,8 +1821,46 @@ mod tests {
         assert!(certificate.supersolution_min_component > 0.0);
         assert!(certificate.supersolution_max_component >= 1.0);
         assert!(certificate.minimum_supersolution_margin >= 0.0);
-        assert!(certificate.cg_stats.relative_residual <= 1.0e-12);
+        assert!(certificate.cg_stats[0].relative_residual <= 1.0e-12);
         assert_eq!(certificate.supersolution_sha256.len(), 64);
+    }
+
+    #[test]
+    fn collatz_refinement_never_weakens_supersolution_bound() {
+        for matrix in [
+            two_by_two_stieltjes(1.0),
+            CsrMatrix::from_rows(vec![
+                BTreeMap::from([(0, 4.0)]),
+                BTreeMap::from([(1, 2.0)]),
+                BTreeMap::from([(2, 0.5)]),
+            ])
+            .unwrap(),
+        ] {
+            let bound = m_matrix_lambda_min_lower_bound(&matrix, 1.0e-12, 64).unwrap();
+            assert!(bound.lambda_min_lower_bound >= bound.initial_lambda_min_lower_bound);
+            assert!(bound.lambda_min_lower_bound > 0.0);
+            assert!(bound.refinement_steps <= 4);
+            assert_eq!(bound.cg_stats.len(), 1 + bound.refinement_steps);
+            assert!(bound.cg_stats.iter().all(|stats| stats.relative_residual <= 1.0e-12));
+            assert!(bound.refinement_max_residual_inf.is_finite());
+        }
+    }
+
+    #[test]
+    fn collatz_refinement_spends_at_most_four_extra_pcg_solves_on_adaptive_graph() {
+        let fixture = adaptive_multiport_fixture();
+        let model = assemble(&fixture).unwrap();
+        let bound = m_matrix_lambda_min_lower_bound(
+            &model.a,
+            fixture.cg_relative_tolerance,
+            fixture.cg_max_iterations,
+        )
+        .unwrap();
+        assert!(bound.lambda_min_lower_bound >= bound.initial_lambda_min_lower_bound);
+        assert!(bound.refinement_steps <= 4);
+        assert_eq!(bound.cg_stats.len(), 1 + bound.refinement_steps);
+        assert!(bound.lambda_min_lower_bound > 0.0);
+        assert!(bound.refinement_max_residual_inf.is_finite());
     }
 
     #[test]
@@ -1744,7 +1911,12 @@ mod tests {
         assert!(report.m_matrix_supersolution_minimum_margin >= 0.0);
         assert!(report.m_matrix_supersolution_relative_residual <= fixture.cg_relative_tolerance);
         assert_eq!(report.m_matrix_supersolution_sha256.len(), 64);
-        assert_eq!(report.error_certificate_pcg_solve_count, 1);
+        assert!(report.error_certificate_pcg_solve_count > 0);
+        assert!(report.error_certificate_pcg_solve_count <= 5);
+        assert!(
+            report.m_matrix_lambda_min_lower_bound
+                >= report.m_matrix_initial_lambda_min_lower_bound
+        );
         assert!(report.overall_pcg_solve_count > report.cg_solve_count);
         assert!(report.maximum_relative_response_error_upper_bound.is_finite());
         for sample in &report.frequency_samples {
@@ -2032,7 +2204,12 @@ mod tests {
                 .iter()
                 .all(|sample| sample.absolute_response_error
                     <= sample.absolute_response_error_upper_bound));
-            assert_eq!(report.error_certificate_pcg_solve_count, 1);
+            assert!(report.error_certificate_pcg_solve_count > 0);
+            assert!(report.error_certificate_pcg_solve_count <= 5);
+            assert!(
+                report.m_matrix_lambda_min_lower_bound
+                    >= report.m_matrix_initial_lambda_min_lower_bound
+            );
             assert!(report.error_certificate_pcg_iterations > 0);
         }
     }
