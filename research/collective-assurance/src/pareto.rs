@@ -107,6 +107,8 @@ pub struct MetricEstimate {
     pub independent_units: u64,
     /// Total observations nested within the independent units.
     pub observation_count: u64,
+    /// Commitment to the exact independent-unit cohort used for this metric.
+    pub paired_unit_manifest_digest: Option<String>,
     pub measurement_evidence_digest: Option<String>,
 }
 
@@ -272,6 +274,17 @@ fn validate_metric_set<'a>(
                 ),
             );
         }
+        match metric.paired_unit_manifest_digest.as_deref() {
+            Some(digest) if valid_digest(digest) => {}
+            Some(_) => fail(
+                report,
+                format!("{label}: paired-unit manifest digest is malformed for {:?}", metric.metric),
+            ),
+            None => indeterminate(
+                report,
+                format!("{label}: paired-unit manifest is missing for {:?}", metric.metric),
+            ),
+        }
         match metric.measurement_evidence_digest.as_deref() {
             Some(digest) if valid_digest(digest) => {}
             Some(_) => fail(
@@ -412,6 +425,16 @@ pub fn qualify_pareto_comparison(
     for metric_id in &contract.required_metrics {
         let left = baseline_metrics[metric_id];
         let right = candidate_metrics[metric_id];
+
+        if left.paired_unit_manifest_digest != right.paired_unit_manifest_digest
+            || left.independent_units != right.independent_units
+        {
+            fail(
+                &mut qualification,
+                format!("paired independent-unit cohort differs for {metric_id:?}"),
+            );
+            continue;
+        }
 
         let result = if metric_id.higher_is_better() {
             let candidate_non_worse = right.lower_bound >= left.upper_bound;
@@ -564,6 +587,7 @@ mod tests {
             confidence_level_bps: 9500,
             independent_units: 50,
             observation_count: 500,
+            paired_unit_manifest_digest: Some(digest('c')),
             measurement_evidence_digest: Some(digest('b')),
         })
         .collect()
@@ -716,6 +740,35 @@ mod tests {
         candidate.metrics[0].measurement_evidence_digest = None;
         let report = qualify_pareto_comparison(&c, &baseline, &candidate);
         assert_eq!(report.qualification.status, QualificationStatus::Indeterminate);
+    }
+
+
+    #[test]
+    fn different_independent_unit_cohorts_block_paired_dominance() {
+        let c = contract();
+        let (baseline, mut candidate) = runs(true);
+        candidate.metrics[0].paired_unit_manifest_digest = Some(digest('9'));
+        let report = qualify_pareto_comparison(&c, &baseline, &candidate);
+        assert_eq!(report.qualification.status, QualificationStatus::Fail);
+        assert_eq!(report.relation, ParetoRelation::NotEvaluable);
+    }
+
+    #[test]
+    fn missing_paired_unit_manifest_is_indeterminate() {
+        let c = contract();
+        let (baseline, mut candidate) = runs(true);
+        candidate.metrics[0].paired_unit_manifest_digest = None;
+        let report = qualify_pareto_comparison(&c, &baseline, &candidate);
+        assert_eq!(report.qualification.status, QualificationStatus::Indeterminate);
+    }
+
+    #[test]
+    fn core_assurance_dimensions_cannot_be_omitted() {
+        let mut c = contract();
+        c.required_metrics.retain(|metric| *metric != MetricId::Agency);
+        let (baseline, candidate) = runs(true);
+        let report = qualify_pareto_comparison(&c, &baseline, &candidate);
+        assert_eq!(report.qualification.status, QualificationStatus::Fail);
     }
 
     #[test]
