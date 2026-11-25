@@ -229,6 +229,9 @@ struct SampleResult {
     output_adjoint_absolute_response_error_upper_bound: f64,
     output_adjoint_relative_response_error_upper_bound: f64,
     output_adjoint_error_bound_valid: bool,
+    signed_output_adjoint_absolute_response_error_upper_bound: f64,
+    signed_output_adjoint_relative_response_error_upper_bound: f64,
+    signed_output_adjoint_error_bound_valid: bool,
     relative_response_error: f64,
     absolute_response_error: f64,
     absolute_response_error_upper_bound: f64,
@@ -271,6 +274,9 @@ struct Report {
     block_arnoldi_baseline_maximum_output_adjoint_absolute_error_upper_bound: Option<f64>,
     block_arnoldi_baseline_maximum_output_adjoint_relative_error_upper_bound: Option<f64>,
     block_arnoldi_baseline_output_adjoint_error_bound_valid: Option<bool>,
+    block_arnoldi_baseline_maximum_signed_output_adjoint_absolute_error_upper_bound: Option<f64>,
+    block_arnoldi_baseline_maximum_signed_output_adjoint_relative_error_upper_bound: Option<f64>,
+    block_arnoldi_baseline_signed_output_adjoint_error_bound_valid: Option<bool>,
     block_arnoldi_baseline_dc_relative_error: Option<f64>,
     block_arnoldi_baseline_feedthrough_limit_relative_error: Option<f64>,
     block_arnoldi_baseline_cg_solve_count: Option<usize>,
@@ -304,6 +310,11 @@ struct Report {
     maximum_best_relative_response_error_upper_bound: f64,
     maximum_output_adjoint_absolute_response_error_upper_bound: f64,
     maximum_output_adjoint_relative_response_error_upper_bound: f64,
+    maximum_signed_output_adjoint_absolute_response_error_upper_bound: f64,
+    maximum_signed_output_adjoint_relative_response_error_upper_bound: f64,
+    signed_output_adjoint_solve_count: usize,
+    signed_output_adjoint_total_cg_iterations: usize,
+    signed_output_adjoint_max_residual_inf: f64,
     output_adjoint_solve_count: usize,
     output_adjoint_total_cg_iterations: usize,
     output_adjoint_max_residual_inf: f64,
@@ -610,6 +621,13 @@ fn pcg(
 
 struct OutputAdjointWeights {
     upper_vectors: Vec<Vec<f64>>,
+    solve_stats: Vec<CgStats>,
+    maximum_residual_inf: f64,
+}
+
+struct SignedShiftedOutputAdjoint {
+    weights: Vec<Vec<f64>>,
+    residual_absolute_upper: Vec<Vec<f64>>,
     solve_stats: Vec<CgStats>,
     maximum_residual_inf: f64,
 }
