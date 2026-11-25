@@ -205,6 +205,86 @@ pub fn canonical_intent_digest(intent: &PaymentIntent) -> Result<String, Checkpo
     Ok(output)
 }
 
+/// Structural continuity errors for a checkpoint that advances one
+/// owner-local journal frontier. These checks do not authenticate either
+/// checkpoint's issuer, Holochain action, authority grant or source chain.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CheckpointAdvanceErrorV1 {
+    InvalidPreviousSubject,
+    InvalidNextSubject,
+    OperationScopeMismatch,
+    OwnerScopeMismatch,
+    EventLogMismatch,
+    SequenceOverflow,
+    SequenceNotContiguous,
+    PriorCheckpointDigestMismatch,
+    FrontierDidNotAdvance,
+    SourceActionDidNotAdvance,
+}
+
+/// Verify a *structural* one-step continuation between two canonical
+/// owner-scoped checkpoint subjects.
+///
+/// The next checkpoint must bind the previous subject's exact canonical
+/// digest, preserve operation/intent/owner/log scope, increment checkpoint
+/// sequence by one, advance the event count and source frontier, and name a
+/// distinct source action. Issuer, verification method and authority grant
+/// may change: a caller must independently validate historical/current
+/// authorization and key lifecycle for both subjects.
+///
+/// This function deliberately does not establish Holochain authorship,
+/// source-action validity, DHT completeness, fork choice or settlement.
+pub fn validate_checkpoint_frontier_advance_v1(
+    previous: &CheckpointSubjectV1,
+    next: &CheckpointSubjectV1,
+    intent: &PaymentIntent,
+) -> Result<(), CheckpointAdvanceErrorV1> {
+    previous
+        .validate_against_intent(intent)
+        .map_err(|_| CheckpointAdvanceErrorV1::InvalidPreviousSubject)?;
+    next.validate_against_intent(intent)
+        .map_err(|_| CheckpointAdvanceErrorV1::InvalidNextSubject)?;
+
+    if previous.operation_id != next.operation_id
+        || previous.intent_digest != next.intent_digest
+    {
+        return Err(CheckpointAdvanceErrorV1::OperationScopeMismatch);
+    }
+    if previous.owner != next.owner {
+        return Err(CheckpointAdvanceErrorV1::OwnerScopeMismatch);
+    }
+    if previous.event_log_id != next.event_log_id {
+        return Err(CheckpointAdvanceErrorV1::EventLogMismatch);
+    }
+
+    let expected_sequence = previous
+        .checkpoint_sequence
+        .checked_add(1)
+        .ok_or(CheckpointAdvanceErrorV1::SequenceOverflow)?;
+    if next.checkpoint_sequence != expected_sequence {
+        return Err(CheckpointAdvanceErrorV1::SequenceNotContiguous);
+    }
+
+    let previous_digest = previous
+        .canonical_digest_against_intent(intent)
+        .map_err(|_| CheckpointAdvanceErrorV1::InvalidPreviousSubject)?;
+    if next.prior_checkpoint_digest.as_deref() != Some(previous_digest.as_str()) {
+        return Err(CheckpointAdvanceErrorV1::PriorCheckpointDigestMismatch);
+    }
+
+    if next.event_count <= previous.event_count
+        || next.tail_digest == previous.tail_digest
+        || next.source_chain_frontier == previous.source_chain_frontier
+    {
+        return Err(CheckpointAdvanceErrorV1::FrontierDidNotAdvance);
+    }
+    if next.source_action_hash == previous.source_action_hash {
+        return Err(CheckpointAdvanceErrorV1::SourceActionDidNotAdvance);
+    }
+
+    Ok(())
+}
+
 fn append_text(output: &mut Vec<u8>, value: &str) -> Result<(), CheckpointError> {
     let encoded = value.as_bytes();
     if encoded.len() > MAX_FIELD_BYTES {
@@ -507,4 +587,127 @@ mod tests {
         value.source_action_hash = "x".repeat(MAX_FIELD_BYTES + 1);
         assert_eq!(value.validate(), Err(CheckpointError::OversizedField));
     }
+    fn next_subject(previous: &CheckpointSubjectV1, intent: &PaymentIntent) -> CheckpointSubjectV1 {
+        let mut next = previous.clone();
+        next.event_count = previous.event_count + 3;
+        next.tail_digest = format!("sha256:{}", "22".repeat(32));
+        next.checkpoint_sequence = previous.checkpoint_sequence + 1;
+        next.prior_checkpoint_digest = Some(
+            previous
+                .canonical_digest_against_intent(intent)
+                .expect("previous checkpoint digest"),
+        );
+        next.source_action_hash = "uhCkk-source-payment-action-next".into();
+        next.source_chain_frontier = "uhCkk-source-chain-frontier-next".into();
+        next.issuer_did = "did:mycelix:agent:sender-next".into();
+        next.verification_method = "did:mycelix:agent:sender#holochain-key-2".into();
+        next.authority_grant_ref = "uhCkk-payments-authority-grant-next".into();
+        next.issued_at_unix_ms += 1;
+        next
+    }
+
+    #[test]
+    fn checkpoint_frontier_advance_binds_previous_digest_and_allows_key_rotation() {
+        let intent = payment_intent();
+        let previous = subject();
+        let next = next_subject(&previous, &intent);
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &next, &intent),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn checkpoint_frontier_advance_rejects_skipped_sequence() {
+        let intent = payment_intent();
+        let previous = subject();
+        let mut next = next_subject(&previous, &intent);
+        next.checkpoint_sequence += 1;
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &next, &intent),
+            Err(CheckpointAdvanceErrorV1::SequenceNotContiguous)
+        );
+    }
+
+    #[test]
+    fn checkpoint_frontier_advance_rejects_wrong_prior_digest() {
+        let intent = payment_intent();
+        let previous = subject();
+        let mut next = next_subject(&previous, &intent);
+        next.prior_checkpoint_digest = Some(format!("sha256:{}", "33".repeat(32)));
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &next, &intent),
+            Err(CheckpointAdvanceErrorV1::PriorCheckpointDigestMismatch)
+        );
+    }
+
+    #[test]
+    fn checkpoint_frontier_advance_rejects_owner_and_log_substitution() {
+        let intent = payment_intent();
+        let previous = subject();
+        let mut wrong_owner = next_subject(&previous, &intent);
+        wrong_owner.owner = CheckpointOwner::Treasury;
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &wrong_owner, &intent),
+            Err(CheckpointAdvanceErrorV1::OwnerScopeMismatch)
+        );
+
+        let mut wrong_log = next_subject(&previous, &intent);
+        wrong_log.event_log_id.push_str(":other");
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &wrong_log, &intent),
+            Err(CheckpointAdvanceErrorV1::EventLogMismatch)
+        );
+    }
+
+    #[test]
+    fn checkpoint_frontier_advance_rejects_nonadvancing_frontiers() {
+        let intent = payment_intent();
+        let previous = subject();
+        let mut next = next_subject(&previous, &intent);
+        next.event_count = previous.event_count;
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &next, &intent),
+            Err(CheckpointAdvanceErrorV1::FrontierDidNotAdvance)
+        );
+
+        let mut next = next_subject(&previous, &intent);
+        next.source_chain_frontier = previous.source_chain_frontier.clone();
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &next, &intent),
+            Err(CheckpointAdvanceErrorV1::FrontierDidNotAdvance)
+        );
+    }
+
+    #[test]
+    fn checkpoint_frontier_advance_rejects_reused_source_action() {
+        let intent = payment_intent();
+        let previous = subject();
+        let mut next = next_subject(&previous, &intent);
+        next.source_action_hash = previous.source_action_hash.clone();
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &next, &intent),
+            Err(CheckpointAdvanceErrorV1::SourceActionDidNotAdvance)
+        );
+    }
+
+    #[test]
+    fn checkpoint_frontier_advance_rejects_sequence_overflow() {
+        let intent = payment_intent();
+        let mut previous = subject();
+        previous.checkpoint_sequence = u64::MAX;
+        previous.prior_checkpoint_digest = Some(format!("sha256:{}", "44".repeat(32)));
+        let mut next = next_subject(&subject(), &intent);
+        next.checkpoint_sequence = 2;
+        next.prior_checkpoint_digest = Some(
+            previous
+                .canonical_digest_against_intent(&intent)
+                .expect("valid maximal prior checkpoint"),
+        );
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &next, &intent),
+            Err(CheckpointAdvanceErrorV1::SequenceOverflow)
+        );
+    }
+
 }

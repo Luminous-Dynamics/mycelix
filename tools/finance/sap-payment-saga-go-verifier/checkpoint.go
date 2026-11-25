@@ -215,6 +215,66 @@ func (s CheckpointSubjectV1) canonicalDigest() (string, error) {
 	return "sha256:" + hex.EncodeToString(digest[:]), nil
 }
 
+var (
+	ErrCheckpointAdvanceInvalidPrevious = errors.New("checkpoint advance rejected: invalid previous subject")
+	ErrCheckpointAdvanceInvalidNext = errors.New("checkpoint advance rejected: invalid next subject")
+	ErrCheckpointAdvanceOperationScope = errors.New("checkpoint advance rejected: operation scope mismatch")
+	ErrCheckpointAdvanceOwnerScope = errors.New("checkpoint advance rejected: owner scope mismatch")
+	ErrCheckpointAdvanceEventLog = errors.New("checkpoint advance rejected: event log mismatch")
+	ErrCheckpointAdvanceSequenceOverflow = errors.New("checkpoint advance rejected: checkpoint sequence overflow")
+	ErrCheckpointAdvanceSequence = errors.New("checkpoint advance rejected: sequence is not contiguous")
+	ErrCheckpointAdvancePriorDigest = errors.New("checkpoint advance rejected: prior checkpoint digest mismatch")
+	ErrCheckpointAdvanceFrontier = errors.New("checkpoint advance rejected: owner frontier did not advance")
+	ErrCheckpointAdvanceSourceAction = errors.New("checkpoint advance rejected: source action did not advance")
+)
+
+// ValidateCheckpointFrontierAdvanceV1 checks structural one-step continuity
+// between two canonical owner-scoped checkpoint subjects. Issuer, verification
+// method and authority grant may change for key rotation, but a caller must
+// independently validate authorization and key lifecycle for both subjects.
+//
+// This function does not authenticate Holochain authorship, source actions,
+// authority grants, DHT completeness, fork choice, or external settlement.
+func ValidateCheckpointFrontierAdvanceV1(previous, next CheckpointSubjectV1, intent Intent) error {
+	if err := previous.ValidateAgainstIntent(intent); err != nil {
+		return ErrCheckpointAdvanceInvalidPrevious
+	}
+	if err := next.ValidateAgainstIntent(intent); err != nil {
+		return ErrCheckpointAdvanceInvalidNext
+	}
+	if previous.OperationID != next.OperationID || previous.IntentDigest != next.IntentDigest {
+		return ErrCheckpointAdvanceOperationScope
+	}
+	if previous.Owner != next.Owner {
+		return ErrCheckpointAdvanceOwnerScope
+	}
+	if previous.EventLogID != next.EventLogID {
+		return ErrCheckpointAdvanceEventLog
+	}
+	if previous.CheckpointSequence == ^uint64(0) {
+		return ErrCheckpointAdvanceSequenceOverflow
+	}
+	if next.CheckpointSequence != previous.CheckpointSequence+1 {
+		return ErrCheckpointAdvanceSequence
+	}
+	previousDigest, err := previous.CanonicalDigestAgainstIntent(intent)
+	if err != nil {
+		return ErrCheckpointAdvanceInvalidPrevious
+	}
+	if next.PriorCheckpointDigest != previousDigest {
+		return ErrCheckpointAdvancePriorDigest
+	}
+	if next.EventCount <= previous.EventCount ||
+		next.TailDigest == previous.TailDigest ||
+		next.SourceChainFrontier == previous.SourceChainFrontier {
+		return ErrCheckpointAdvanceFrontier
+	}
+	if next.SourceActionHash == previous.SourceActionHash {
+		return ErrCheckpointAdvanceSourceAction
+	}
+	return nil
+}
+
 func appendCheckpointText(output []byte, value string) ([]byte, error) {
 	if !utf8.ValidString(value) || len(value) > maxCheckpointFieldBytes {
 		return nil, ErrCheckpointInvalidSubject
