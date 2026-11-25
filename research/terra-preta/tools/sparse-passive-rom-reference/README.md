@@ -51,7 +51,7 @@ Run the adaptive manufactured fixture:
 
     cargo run --manifest-path research/terra-preta/tools/sparse-passive-rom-reference/Cargo.toml -- research/terra-preta/tools/sparse-passive-rom-reference/fixtures/adaptive-high-contrast-three-port.json /tmp/adaptive-rom-report.json
 
-The adaptive fixture has eight interior states and three boundary ports. The declared target is at most 5% worst relative port-column error on the candidate grid, with at most 1% maximum response error on the separate audit grid and rank capped at six. The output-adjoint bound adds one PCG solve per boundary output port (three on the current fixture), amortized across every audit frequency. The dedicated workflow compares this with a fixed two-shift model at the same rank. Before incremental caching, the adaptive path used 87 PCG solves / 661 iterations; the refreshed implementation is designed to use 60 solves, reusing selected candidate state solutions, the one DC operator and the zero-shift audit response. The fixed two-shift baseline is designed to use 36 solves. Exact-head CI must verify the cost assertions; do not treat these as achieved until that run passes. This is a synthetic equal-rank comparison, not an equal-offline-cost comparison. Meeting the finite candidate-grid target does not certify error outside the candidate and audit grids or establish soil hydraulic accuracy.
+The adaptive fixture has eight interior states and three boundary ports. The declared target is at most 5% worst relative port-column error on the candidate grid, with at most 1% maximum response error on the separate audit grid and rank capped at six. The unsigned output-adjoint bound adds one PCG solve per boundary output port (three on the current fixture), amortized across every audit frequency. The signed shift-specific variant adds one solve per output port per audit frequency (27 on the current 3-port / 9-frequency fixture); this extra cost is reported separately. The dedicated workflow compares this with a fixed two-shift model at the same rank. Before incremental caching, the adaptive path used 87 PCG solves / 661 iterations; the refreshed implementation is designed to use 60 solves, reusing selected candidate state solutions, the one DC operator and the zero-shift audit response. The fixed two-shift baseline is designed to use 36 solves. Exact-head CI must verify the cost assertions; do not treat these as achieved until that run passes. This is a synthetic equal-rank comparison, not an equal-offline-cost comparison. Meeting the finite candidate-grid target does not certify error outside the candidate and audit grids or establish soil hydraulic accuracy.
 
 ## Run
 
@@ -178,6 +178,25 @@ U_{ij}(s)=|D-D_r|_{ij}
 ]
 
 This uses output-specific Green support and requires only one additional solve per output port for the whole ROM, independent of the number of audit frequencies. The report records the extra solve count, total iterations and maximum true residual. The workflow checks each matrix entry and the Frobenius envelope for both adaptive and block-Arnoldi models. The best reported envelope is the minimum of the independently valid spectral, supersolution-portwise and output-adjoint bounds.
+
+## Signed shift-specific output-adjoint bound
+
+The unsigned output Green bound takes absolute values of the coupling and residual before contraction. This can discard cancellation. The new candidate solves, for every declared audit shift (s\ge0) and output port (i),
+
+[
+(A+sI)\hat z_i=B_i.
+]
+
+Let (e_i=B_i-(A+sI)\hat z_i), and let (q_j=R_{\rm reference,j}-R_{\rm ROM,j}). For exact (z_i=(A+sI)^{-1}B_i),
+
+[
+B_i^T(A+sI)^{-1}q_j=z_i^Tq_j
+=\hat z_i^Tq_j+e_i^T(A+sI)^{-1}q_j.
+]
+
+The implementation preserves the signed contraction (\hat z_i^Tq_j), while bounding the remaining solve residual using the supersolution (Ay\ge\mathbf1) and entrywise resolvent inequality ((A+sI)^{-1}\le A^{-1}). The PCG residual, q-vector arithmetic, sparse matvec roundoff and response-evaluation roundoff are all included.
+
+Cost is explicit: one signed adjoint solve per output port and audit frequency (27 additional PCG solves on the current 3-port / 9-frequency fixtures). This bound is evaluated independently for adaptive and block-Arnoldi projections, and can only enter the best-of-valid-bounds minimum after every component passes.
 
 ## Qualification
 
