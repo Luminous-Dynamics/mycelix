@@ -1,0 +1,75 @@
+name: Economic OS OCEL Exporter Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'tools/economic/ocel-projection/**'
+      - '.github/workflows/economic-os-ocel-exporter.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/economic/ocel-projection/**'
+      - '.github/workflows/economic-os-ocel-exporter.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust-exporter:
+    name: Deterministic loss-aware OCEL 2.0 reference exporter
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: \${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact source revision
+        env:
+          EXPECTED_SHA: \${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'Expected source SHA: %s\n' "$EXPECTED_SHA"
+          printf 'Checked out source SHA: %s\n' "$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - name: Install pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+          rustup default 1.96.0
+          rustc --version
+          cargo --version
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path tools/economic/ocel-projection/Cargo.toml -- --check
+
+      - name: Run exporter unit and adversarial tests
+        run: cargo test --locked --manifest-path tools/economic/ocel-projection/Cargo.toml
+
+      - name: Run strict Clippy
+        run: cargo clippy --locked --manifest-path tools/economic/ocel-projection/Cargo.toml --all-targets -- -D warnings
+
+      - name: Serialize deterministic sample and validate JSON shape
+        run: |
+          set -euo pipefail
+          cargo run --locked --quiet --manifest-path tools/economic/ocel-projection/Cargo.toml --example minimal > /tmp/mycelix-economic-ocel.json
+          jq -e '
+            (keys == ["eventTypes","events","objectTypes","objects"]) and
+            (.eventTypes | length == 1) and
+            (.events | length == 1) and
+            (.objectTypes | length == 1) and
+            (.objects | length == 1) and
+            (.events[0].time == "2026-11-21T13:00:00Z") and
+            (any(.events[0].attributes[]; .name == "time_basis" and .value == "source_record_event_time")) and
+            (any(.events[0].relationships[]; .objectId == "LOT-001" and .qualifier == "received_lot"))
+          ' /tmp/mycelix-economic-ocel.json
+          sha256sum /tmp/mycelix-economic-ocel.json
+
+      - name: Report claim boundary
+        run: |
+          printf '%s\n' \
+            'PASS = pinned Rust tests, strict Clippy, deterministic sample serialization and JSON structural checks.' \
+            'NOT TESTED = official full OCEL JSON Schema, Ocelot/PM4Py round-trip, source-time authenticity, source completeness, legal authority, settlement, or production performance.' \
+            'No standards certification or production conformance is implied.'
