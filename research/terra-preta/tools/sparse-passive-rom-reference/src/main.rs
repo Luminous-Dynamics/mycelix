@@ -118,11 +118,6 @@ impl CsrMatrix {
     }
 
     fn validate_stieltjes(&self) -> Result<(), String> {
-        let scale = self
-            .values
-            .iter()
-            .fold(0.0_f64, |largest, value| largest.max(value.abs()));
-        let tolerance = scale.max(f64::MIN_POSITIVE) * 1.0e-12;
         for row in 0..self.size {
             if self.diagonal[row] <= 0.0 || !self.diagonal[row].is_finite() {
                 return Err("M-matrix certificate requires a positive finite diagonal".into());
