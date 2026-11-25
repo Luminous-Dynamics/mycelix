@@ -312,6 +312,21 @@ impl VerifierFrontierV1 {
             return Ok(FrontierRelationV1::Unknown);
         }
 
+        let mut consistency_index = BTreeSet::new();
+        for link in consistency_links {
+            validate_id(&link.owner_ref)?;
+            validate_id(&link.history_ref)?;
+            validate_digest(&link.ancestor_root_digest)?;
+            validate_digest(&link.descendant_root_digest)?;
+            validate_id(&link.consistency_proof_ref)?;
+            consistency_index.insert((
+                link.owner_ref.as_str(),
+                link.history_ref.as_str(),
+                link.ancestor_root_digest.as_str(),
+                link.descendant_root_digest.as_str(),
+            ));
+        }
+
         let mut before = false;
         let mut after = false;
         for (owner_ref, left_cut) in &left {
@@ -337,13 +352,12 @@ impl VerifierFrontierV1 {
             } else {
                 (right_cut, left_cut, FrontierRelationV1::After)
             };
-            let link_exists = consistency_links.iter().any(|link| {
-                link.owner_ref == *owner_ref
-                    && link.history_ref == ancestor.history_ref
-                    && link.ancestor_root_digest == ancestor.root_digest
-                    && link.descendant_root_digest == descendant.root_digest
-                    && validate_id(&link.consistency_proof_ref).is_ok()
-            });
+            let link_exists = consistency_index.contains(&(
+                *owner_ref,
+                ancestor.history_ref.as_str(),
+                ancestor.root_digest.as_str(),
+                descendant.root_digest.as_str(),
+            ));
             if !link_exists {
                 return Ok(FrontierRelationV1::Unknown);
             }
