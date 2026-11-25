@@ -71,6 +71,8 @@ impl MetricId {
     }
 }
 
+const CORE_REQUIRED_GATE_IDS: [&str; 4] = ["authority", "privacy", "evidence", "evaluator"];
+
 const CORE_REQUIRED_METRICS: [MetricId; 8] = [
     MetricId::TaskQuality,
     MetricId::EvidenceCoverage,
@@ -360,6 +362,15 @@ pub fn qualify_pareto_comparison(
         fail(&mut qualification, "minimum independent units must be at least two");
     }
 
+    for core_gate_id in CORE_REQUIRED_GATE_IDS {
+        if !contract.required_gate_ids.iter().any(|gate| gate == core_gate_id) {
+            fail(
+                &mut qualification,
+                format!("required gate set omits core assurance gate {core_gate_id}"),
+            );
+        }
+    }
+
     for core_metric in CORE_REQUIRED_METRICS {
         if !contract.required_metrics.contains(&core_metric) {
             fail(
@@ -449,6 +460,7 @@ pub fn qualify_pareto_comparison(
 
         if left.paired_unit_manifest_digest != right.paired_unit_manifest_digest
             || left.independent_units != right.independent_units
+            || left.observation_count != right.observation_count
             || left.inference_plan_digest != right.inference_plan_digest
         {
             fail(
@@ -781,6 +793,27 @@ mod tests {
     }
 
 
+
+
+    #[test]
+    fn core_authority_gate_cannot_be_omitted() {
+        let mut c = contract();
+        c.required_gate_ids.retain(|gate| gate != "authority");
+        let (baseline, candidate) = runs(true);
+        let report = qualify_pareto_comparison(&c, &baseline, &candidate);
+        assert_eq!(report.qualification.status, QualificationStatus::Fail);
+        assert_eq!(report.relation, ParetoRelation::NotEvaluable);
+    }
+
+    #[test]
+    fn mismatched_observation_counts_block_paired_dominance() {
+        let c = contract();
+        let (baseline, mut candidate) = runs(true);
+        candidate.metrics[0].observation_count = 499;
+        let report = qualify_pareto_comparison(&c, &baseline, &candidate);
+        assert_eq!(report.qualification.status, QualificationStatus::Fail);
+        assert_eq!(report.relation, ParetoRelation::NotEvaluable);
+    }
 
     #[test]
     fn non_simultaneous_intervals_cannot_qualify_pareto_claim() {
