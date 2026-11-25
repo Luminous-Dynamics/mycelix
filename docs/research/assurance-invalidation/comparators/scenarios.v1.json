@@ -1,0 +1,449 @@
+{
+  "corpus_id": "LISE-METADATA-COMP-18-v1",
+  "status": "public_development_seed",
+  "disclosure": "Public synthetic TUF/Rekor comparator scenarios and separate oracle; not a hidden or blinded holdout or official conformance suite.",
+  "scenario_count": 18,
+  "pair_count": 9,
+  "dimensions": [
+    "comparator",
+    "metadata_currentness",
+    "delegation_currentness",
+    "root_trust_currentness",
+    "log_inclusion",
+    "checkpoint_consistency",
+    "split_view_detection",
+    "event_absence_completeness"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "META-001",
+      "pair_id": "META-M01",
+      "variant": "A",
+      "comparator": "TUF",
+      "family": "tuf_metadata_freshness",
+      "contrast": "current timestamp metadata vs rollback to a previously trusted version",
+      "claim_id": "TUF-TIMESTAMP-ROLLBACK",
+      "claim_property": "metadata_version_currentness",
+      "claim_scope": "Client's current timestamp/snapshot chain for one repository",
+      "prior_evidence": [
+        "Client has accepted timestamp metadata version 22.",
+        "Trusted local state records version 22 and its snapshot version."
+      ],
+      "change_observations": [
+        "Repository now serves correctly signed timestamp metadata version 23.",
+        "Version 23 references the current snapshot and is not expired."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "trusted timestamp v22",
+      "frontier_after": "timestamp v23",
+      "source_owner": "TUF v1.0.37: root/targets/snapshot/timestamp role semantics, thresholds, versions, expiry and delegation",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    },
+    {
+      "scenario_id": "META-002",
+      "pair_id": "META-M01",
+      "variant": "B",
+      "comparator": "TUF",
+      "family": "tuf_metadata_freshness",
+      "contrast": "current timestamp metadata vs rollback to a previously trusted version",
+      "claim_id": "TUF-TIMESTAMP-ROLLBACK",
+      "claim_property": "metadata_version_currentness",
+      "claim_scope": "Client's current timestamp/snapshot chain for one repository",
+      "prior_evidence": [
+        "Client has accepted timestamp metadata version 22.",
+        "Trusted local state records version 22."
+      ],
+      "change_observations": [
+        "Repository serves correctly signed timestamp metadata version 21.",
+        "The signature is valid but the version is lower than the client's trusted version."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "trusted timestamp v22",
+      "frontier_after": "replayed timestamp v21",
+      "source_owner": "TUF v1.0.37: root/targets/snapshot/timestamp role semantics, thresholds, versions, expiry and delegation",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    },
+    {
+      "scenario_id": "META-003",
+      "pair_id": "META-M02",
+      "variant": "A",
+      "comparator": "TUF",
+      "family": "tuf_metadata_freshness",
+      "contrast": "unexpired metadata vs signed but expired metadata",
+      "claim_id": "TUF-METADATA-EXPIRY",
+      "claim_property": "metadata_expiry_currentness",
+      "claim_scope": "Whether the timestamp/snapshot metadata can be trusted at update start",
+      "prior_evidence": [
+        "Timestamp and snapshot metadata signatures and versions are valid.",
+        "Their EXPIRES values are after the fixed update start time."
+      ],
+      "change_observations": [
+        "No expiry or version change occurred.",
+        "The update begins before both metadata expiry times."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "metadata v31, unexpired",
+      "frontier_after": "metadata v31, unexpired",
+      "source_owner": "TUF v1.0.37: root/targets/snapshot/timestamp role semantics, thresholds, versions, expiry and delegation",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    },
+    {
+      "scenario_id": "META-004",
+      "pair_id": "META-M02",
+      "variant": "B",
+      "comparator": "TUF",
+      "family": "tuf_metadata_freshness",
+      "contrast": "unexpired metadata vs signed but expired metadata",
+      "claim_id": "TUF-METADATA-EXPIRY",
+      "claim_property": "metadata_expiry_currentness",
+      "claim_scope": "Whether the timestamp/snapshot metadata can be trusted at update start",
+      "prior_evidence": [
+        "Timestamp and snapshot metadata signatures and versions are valid.",
+        "Their EXPIRES values were once in the future."
+      ],
+      "change_observations": [
+        "Update begins after the timestamp metadata EXPIRES time.",
+        "The metadata remains correctly signed and has no higher version available."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "metadata v31, unexpired",
+      "frontier_after": "metadata v31, expired",
+      "source_owner": "TUF v1.0.37: root/targets/snapshot/timestamp role semantics, thresholds, versions, expiry and delegation",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    },
+    {
+      "scenario_id": "META-005",
+      "pair_id": "META-M03",
+      "variant": "A",
+      "comparator": "TUF",
+      "family": "tuf_snapshot_consistency",
+      "contrast": "snapshot commits to exact targets metadata vs mix-and-match metadata",
+      "claim_id": "TUF-SNAPSHOT-CONSISTENCY",
+      "claim_property": "metadata_set_coherence",
+      "claim_scope": "The repository metadata set selected by timestamp and snapshot roles",
+      "prior_evidence": [
+        "Timestamp metadata binds snapshot digest S10 and version 10.",
+        "Snapshot S10 binds the exact targets metadata digest/version T15."
+      ],
+      "change_observations": [
+        "Downloaded snapshot digest and targets metadata digest match the committed hashes and versions.",
+        "The metadata set is validated as one coherent snapshot."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "snapshot S10 / targets T15",
+      "frontier_after": "snapshot S10 / targets T15",
+      "source_owner": "TUF v1.0.37: root/targets/snapshot/timestamp role semantics, thresholds, versions, expiry and delegation",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    },
+    {
+      "scenario_id": "META-006",
+      "pair_id": "META-M03",
+      "variant": "B",
+      "comparator": "TUF",
+      "family": "tuf_snapshot_consistency",
+      "contrast": "snapshot commits to exact targets metadata vs mix-and-match metadata",
+      "claim_id": "TUF-SNAPSHOT-CONSISTENCY",
+      "claim_property": "metadata_set_coherence",
+      "claim_scope": "The repository metadata set selected by timestamp and snapshot roles",
+      "prior_evidence": [
+        "Trusted timestamp metadata binds snapshot digest S10 and version 10.",
+        "The expected targets metadata version is T15."
+      ],
+      "change_observations": [
+        "Downloaded snapshot or targets metadata has a different digest/version from the timestamp/snapshot commitment.",
+        "Each artifact may have a valid signature individually, but the set is mixed."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "snapshot S10 / targets T15",
+      "frontier_after": "snapshot S10 / targets T16-mismatch",
+      "source_owner": "TUF v1.0.37: root/targets/snapshot/timestamp role semantics, thresholds, versions, expiry and delegation",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    },
+    {
+      "scenario_id": "META-007",
+      "pair_id": "META-M04",
+      "variant": "A",
+      "comparator": "TUF",
+      "family": "tuf_delegation_revocation",
+      "contrast": "active delegated targets role vs delegation removed by parent",
+      "claim_id": "TUF-DELEGATION-REVOCATION",
+      "claim_property": "delegated_role_currentness",
+      "claim_scope": "Whether delegated role D is currently authorized by its parent role",
+      "prior_evidence": [
+        "Parent targets metadata P8 delegates path scope /team to role D3.",
+        "Delegated targets metadata D3 is signed by the authorized delegated-role keys."
+      ],
+      "change_observations": [
+        "Current parent metadata P9 continues to delegate /team to D3.",
+        "Delegation path and role keys remain within the current trust chain."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "parent P8 -> D3",
+      "frontier_after": "parent P9 -> D3",
+      "source_owner": "TUF v1.0.37: root/targets/snapshot/timestamp role semantics, thresholds, versions, expiry and delegation",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    },
+    {
+      "scenario_id": "META-008",
+      "pair_id": "META-M04",
+      "variant": "B",
+      "comparator": "TUF",
+      "family": "tuf_delegation_revocation",
+      "contrast": "active delegated targets role vs delegation removed by parent",
+      "claim_id": "TUF-DELEGATION-REVOCATION",
+      "claim_property": "delegated_role_currentness",
+      "claim_scope": "Whether delegated role D is currently authorized by its parent role",
+      "prior_evidence": [
+        "Historical parent metadata P8 delegated /team to D3.",
+        "Historical D3 metadata is correctly signed."
+      ],
+      "change_observations": [
+        "New current parent metadata P9 removes the delegation to D3.",
+        "D3 remains cryptographically signed but is no longer reachable through the current delegation chain."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "parent P8 -> D3",
+      "frontier_after": "parent P9 removes D3",
+      "source_owner": "TUF v1.0.37: root/targets/snapshot/timestamp role semantics, thresholds, versions, expiry and delegation",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    },
+    {
+      "scenario_id": "META-009",
+      "pair_id": "META-M05",
+      "variant": "A",
+      "comparator": "TUF",
+      "family": "tuf_root_rotation",
+      "contrast": "sequential root rotation meets old and new thresholds vs invalid root transition",
+      "claim_id": "TUF-ROOT-ROTATION",
+      "claim_property": "root_trust_currentness",
+      "claim_scope": "Client trust root used to validate future repository metadata",
+      "prior_evidence": [
+        "Client trusts root metadata version N.",
+        "New root metadata version N+1 is signed by thresholds of both the currently trusted root and the new root's key set."
+      ],
+      "change_observations": [
+        "Client validates version N+1 sequentially and persists it.",
+        "The next version, if any, is processed in order."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "root vN",
+      "frontier_after": "root vN+1",
+      "source_owner": "TUF v1.0.37: root/targets/snapshot/timestamp role semantics, thresholds, versions, expiry and delegation",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    },
+    {
+      "scenario_id": "META-010",
+      "pair_id": "META-M05",
+      "variant": "B",
+      "comparator": "TUF",
+      "family": "tuf_root_rotation",
+      "contrast": "sequential root rotation meets old and new thresholds vs invalid root transition",
+      "claim_id": "TUF-ROOT-ROTATION",
+      "claim_property": "root_trust_currentness",
+      "claim_scope": "Client trust root used to validate future repository metadata",
+      "prior_evidence": [
+        "Client trusts root metadata version N.",
+        "A new root artifact is presented with a valid signature from some known key."
+      ],
+      "change_observations": [
+        "Presented root version skips N+1 or does not meet the required old/new root-role threshold.",
+        "Client cannot establish an authorized root transition."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "root vN",
+      "frontier_after": "invalid root transition",
+      "source_owner": "TUF v1.0.37: root/targets/snapshot/timestamp role semantics, thresholds, versions, expiry and delegation",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    },
+    {
+      "scenario_id": "META-011",
+      "pair_id": "META-M06",
+      "variant": "A",
+      "comparator": "Rekor",
+      "family": "rekor_inclusion",
+      "contrast": "valid inclusion proof at a pinned checkpoint vs invalid inclusion proof",
+      "claim_id": "REKOR-INCLUSION-PROOF",
+      "claim_property": "log_entry_inclusion",
+      "claim_scope": "Whether exact entry E is included in the declared Rekor tree checkpoint",
+      "prior_evidence": [
+        "Entry E has a canonical body and entry UUID.",
+        "Verifier pins a signed checkpoint with tree size and root hash."
+      ],
+      "change_observations": [
+        "Inclusion proof verifies E's leaf hash at the exact pinned tree size/root.",
+        "The entry body and checkpoint signature are validated."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "checkpoint size 500",
+      "frontier_after": "checkpoint size 500",
+      "source_owner": "Sigstore Rekor transparency log: inclusion proofs, signed checkpoints, consistency proofs and witness monitoring",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    },
+    {
+      "scenario_id": "META-012",
+      "pair_id": "META-M06",
+      "variant": "B",
+      "comparator": "Rekor",
+      "family": "rekor_inclusion",
+      "contrast": "valid inclusion proof at a pinned checkpoint vs invalid inclusion proof",
+      "claim_id": "REKOR-INCLUSION-PROOF",
+      "claim_property": "log_entry_inclusion",
+      "claim_scope": "Whether exact entry E is included in the declared Rekor tree checkpoint",
+      "prior_evidence": [
+        "Entry E has a canonical body and entry UUID.",
+        "Verifier pins a signed checkpoint with tree size and root hash."
+      ],
+      "change_observations": [
+        "Supplied inclusion path does not verify against the pinned root hash or leaf index.",
+        "The proof may belong to another checkpoint or another entry."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "checkpoint size 500",
+      "frontier_after": "proof/root mismatch",
+      "source_owner": "Sigstore Rekor transparency log: inclusion proofs, signed checkpoints, consistency proofs and witness monitoring",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    },
+    {
+      "scenario_id": "META-013",
+      "pair_id": "META-M07",
+      "variant": "A",
+      "comparator": "Rekor",
+      "family": "rekor_consistency",
+      "contrast": "valid consistency proof extends persisted checkpoint vs missing proof",
+      "claim_id": "REKOR-CHECKPOINT-CONSISTENCY",
+      "claim_property": "append_only_log_currentness",
+      "claim_scope": "Whether new checkpoint is a verifiable append-only extension of a previously trusted checkpoint",
+      "prior_evidence": [
+        "Verifier persisted signed checkpoint C100 with tree size 100 and root R100.",
+        "Verifier retains C100 as its prior trust frontier."
+      ],
+      "change_observations": [
+        "New signed checkpoint C120 is presented.",
+        "A consistency proof verifies that C100 is a prefix of C120."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "C100 size 100",
+      "frontier_after": "C120 size 120 + consistency proof",
+      "source_owner": "Sigstore Rekor transparency log: inclusion proofs, signed checkpoints, consistency proofs and witness monitoring",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    },
+    {
+      "scenario_id": "META-014",
+      "pair_id": "META-M07",
+      "variant": "B",
+      "comparator": "Rekor",
+      "family": "rekor_consistency",
+      "contrast": "valid consistency proof extends persisted checkpoint vs missing proof",
+      "claim_id": "REKOR-CHECKPOINT-CONSISTENCY",
+      "claim_property": "append_only_log_currentness",
+      "claim_scope": "Whether new checkpoint is a verifiable append-only extension of a previously trusted checkpoint",
+      "prior_evidence": [
+        "Verifier persisted signed checkpoint C100 with tree size 100 and root R100.",
+        "Verifier retains C100 as its prior trust frontier."
+      ],
+      "change_observations": [
+        "New signed checkpoint C120 is presented.",
+        "No valid consistency proof from C100 to C120 is available."
+      ],
+      "change_coverage": "UNKNOWN",
+      "frontier_before": "C100 size 100",
+      "frontier_after": "C120 size 120 without consistency proof",
+      "source_owner": "Sigstore Rekor transparency log: inclusion proofs, signed checkpoints, consistency proofs and witness monitoring",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    },
+    {
+      "scenario_id": "META-015",
+      "pair_id": "META-M08",
+      "variant": "A",
+      "comparator": "Rekor",
+      "family": "rekor_split_view",
+      "contrast": "independent witnesses agree on checkpoint vs same-size root equivocation",
+      "claim_id": "REKOR-SPLIT-VIEW",
+      "claim_property": "transparency_log_consistency",
+      "claim_scope": "Whether independent witnesses observe a consistent checkpoint for one log size",
+      "prior_evidence": [
+        "Witness W1 and W2 retain the same prior checkpoint C200.",
+        "Their independently obtained checkpoints have the same tree size and root hash."
+      ],
+      "change_observations": [
+        "Both witnesses observe checkpoint size 220 with identical root hash R220.",
+        "Consistency proofs from C200 validate for both."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "C200",
+      "frontier_after": "C220/R220 witnessed",
+      "source_owner": "Sigstore Rekor transparency log: inclusion proofs, signed checkpoints, consistency proofs and witness monitoring",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    },
+    {
+      "scenario_id": "META-016",
+      "pair_id": "META-M08",
+      "variant": "B",
+      "comparator": "Rekor",
+      "family": "rekor_split_view",
+      "contrast": "independent witnesses agree on checkpoint vs same-size root equivocation",
+      "claim_id": "REKOR-SPLIT-VIEW",
+      "claim_property": "transparency_log_consistency",
+      "claim_scope": "Whether independent witnesses observe a consistent checkpoint for one log size",
+      "prior_evidence": [
+        "Witness W1 and W2 retain the same prior checkpoint C200."
+      ],
+      "change_observations": [
+        "W1 observes tree size 220/root R220-A while W2 observes tree size 220/root R220-B.",
+        "No reconciliation or authoritative resolution is available."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "C200",
+      "frontier_after": "same-size divergent checkpoints",
+      "source_owner": "Sigstore Rekor transparency log: inclusion proofs, signed checkpoints, consistency proofs and witness monitoring",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    },
+    {
+      "scenario_id": "META-017",
+      "pair_id": "META-M09",
+      "variant": "A",
+      "comparator": "Rekor",
+      "family": "rekor_absence",
+      "contrast": "verified inclusion receipt vs no search result without completeness proof",
+      "claim_id": "REKOR-ABSENCE",
+      "claim_property": "event_absence_claim",
+      "claim_scope": "Whether a specific expected event was never entered into the transparency log",
+      "prior_evidence": [
+        "Producer declares event E with unique expected event ID and canonical body hash.",
+        "A signed receipt and valid inclusion proof bind E to checkpoint C300."
+      ],
+      "change_observations": [
+        "Verifier checks exact leaf inclusion at C300.",
+        "Claim is limited to inclusion of E, not completeness of all producer events."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "expected event E",
+      "frontier_after": "E included at C300",
+      "source_owner": "Sigstore Rekor transparency log: inclusion proofs, signed checkpoints, consistency proofs and witness monitoring",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    },
+    {
+      "scenario_id": "META-018",
+      "pair_id": "META-M09",
+      "variant": "B",
+      "comparator": "Rekor",
+      "family": "rekor_absence",
+      "contrast": "verified inclusion receipt vs no search result without completeness proof",
+      "claim_id": "REKOR-ABSENCE",
+      "claim_property": "event_absence_claim",
+      "claim_scope": "Whether a specific expected event was never entered into the transparency log",
+      "prior_evidence": [
+        "Producer declares expected event E with unique ID and canonical body hash."
+      ],
+      "change_observations": [
+        "A search/query returns no matching Rekor entry.",
+        "No producer sequence manifest, expected-event commitment or complete submission inventory proves every relevant event was submitted."
+      ],
+      "change_coverage": "INCOMPLETE",
+      "frontier_before": "expected event E",
+      "frontier_after": "no matching entry returned",
+      "source_owner": "Sigstore Rekor transparency log: inclusion proofs, signed checkpoints, consistency proofs and witness monitoring",
+      "evaluator_instruction": "Evaluate only the claim and protocol boundary named in this packet. A signed artifact is not automatically current; inclusion is not consistency; a missing search result is not proof of absence. Preserve historical validity separately from current qualification."
+    }
+  ]
+}

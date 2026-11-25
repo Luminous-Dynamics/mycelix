@@ -1,0 +1,286 @@
+{
+  "corpus_id": "LISE-METADATA-COMP-18-v1",
+  "status": "public_development_oracle",
+  "disclosure": "Public expected outcomes; calibration only, not official TUF or Rekor conformance evidence.",
+  "outcome_count": 18,
+  "outcomes": [
+    {
+      "scenario_id": "META-001",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "NOT_APPLICABLE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "historical_metadata_signature",
+        "current_repository_frontier"
+      ],
+      "reason_code": "TUF_VERSION_ADVANCES_FROM_TRUSTED_STATE"
+    },
+    {
+      "scenario_id": "META-002",
+      "applicability": "RequiresTargetedRevalidation",
+      "currentness": "StaleRelativeToCutoff",
+      "horizon_relation": "NOT_APPLICABLE",
+      "change_coverage": "COMPLETE",
+      "disposition": "TARGETED_REQUALIFICATION",
+      "invalidated_dimensions": [
+        "current_metadata_frontier",
+        "current_target_admission"
+      ],
+      "preserved_dimensions": [
+        "historical_signature_validity",
+        "previously_trusted_v22_record"
+      ],
+      "reason_code": "TUF_MUST_REJECT_METADATA_ROLLBACK"
+    },
+    {
+      "scenario_id": "META-003",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "NOT_APPLICABLE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "signature_integrity",
+        "metadata_version_chain",
+        "current_update_frontier"
+      ],
+      "reason_code": "TUF_METADATA_WITHIN_DECLARED_EXPIRY"
+    },
+    {
+      "scenario_id": "META-004",
+      "applicability": "RequiresTargetedRevalidation",
+      "currentness": "StaleRelativeToCutoff",
+      "horizon_relation": "NOT_APPLICABLE",
+      "change_coverage": "COMPLETE",
+      "disposition": "TARGETED_REQUALIFICATION",
+      "invalidated_dimensions": [
+        "current_metadata_authority",
+        "current_target_admission"
+      ],
+      "preserved_dimensions": [
+        "historical_signature_integrity",
+        "historical_metadata_content"
+      ],
+      "reason_code": "TUF_EXPIRED_METADATA_MUST_NOT_REMAIN_TRUSTED"
+    },
+    {
+      "scenario_id": "META-005",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "NOT_APPLICABLE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "historical_metadata_artifact_signatures",
+        "current_metadata_set_coherence"
+      ],
+      "reason_code": "TUF_SNAPSHOT_BINDS_CONSISTENT_TARGETS_METADATA"
+    },
+    {
+      "scenario_id": "META-006",
+      "applicability": "RequiresTargetedRevalidation",
+      "currentness": "StaleRelativeToCutoff",
+      "horizon_relation": "NOT_APPLICABLE",
+      "change_coverage": "COMPLETE",
+      "disposition": "TARGETED_REQUALIFICATION",
+      "invalidated_dimensions": [
+        "current_metadata_set_coherence",
+        "current_target_admission"
+      ],
+      "preserved_dimensions": [
+        "individual_artifact_signature_validity",
+        "historical_s10_record"
+      ],
+      "reason_code": "TUF_MIX_AND_MATCH_METADATA_SET_REJECTED"
+    },
+    {
+      "scenario_id": "META-007",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "NOT_APPLICABLE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "historical_d3_signature",
+        "current_delegation_authority"
+      ],
+      "reason_code": "TUF_DELEGATION_REMAINS_IN_CURRENT_PARENT_METADATA"
+    },
+    {
+      "scenario_id": "META-008",
+      "applicability": "HistoricalOnly",
+      "currentness": "SupersededByKnownEvidence",
+      "horizon_relation": "NOT_APPLICABLE",
+      "change_coverage": "COMPLETE",
+      "disposition": "HISTORICAL_ONLY",
+      "invalidated_dimensions": [
+        "current_delegated_role_authority",
+        "current_target_admission"
+      ],
+      "preserved_dimensions": [
+        "historical_d3_signature",
+        "historical_parent_p8_delegation"
+      ],
+      "reason_code": "TUF_PARENT_METADATA_REVOKES_DELEGATION"
+    },
+    {
+      "scenario_id": "META-009",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "NOT_APPLICABLE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "historical_root_chain",
+        "current_root_trust"
+      ],
+      "reason_code": "TUF_ROOT_ROTATION_SATISFIES_SEQUENTIAL_DUAL_THRESHOLD"
+    },
+    {
+      "scenario_id": "META-010",
+      "applicability": "Unknown",
+      "currentness": "CurrentnessUnknown",
+      "horizon_relation": "UNKNOWN",
+      "change_coverage": "COMPLETE",
+      "disposition": "INDETERMINATE",
+      "invalidated_dimensions": [
+        "current_root_trust",
+        "downstream_metadata_currentness"
+      ],
+      "preserved_dimensions": [
+        "historical_root_vN_signature"
+      ],
+      "reason_code": "TUF_ROOT_UPDATE_REQUIRES_SEQUENTIAL_VERSION_AND_THRESHOLDS"
+    },
+    {
+      "scenario_id": "META-011",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "NOT_APPLICABLE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "entry_body_integrity",
+        "historical_checkpoint_identity",
+        "inclusion_claim"
+      ],
+      "reason_code": "REKOR_INCLUSION_PROOF_VALID_FOR_PINNED_CHECKPOINT"
+    },
+    {
+      "scenario_id": "META-012",
+      "applicability": "RequiresTargetedRevalidation",
+      "currentness": "StaleRelativeToCutoff",
+      "horizon_relation": "NOT_APPLICABLE",
+      "change_coverage": "COMPLETE",
+      "disposition": "TARGETED_REQUALIFICATION",
+      "invalidated_dimensions": [
+        "current_entry_inclusion_claim"
+      ],
+      "preserved_dimensions": [
+        "historical_entry_bytes",
+        "pinned_checkpoint_record"
+      ],
+      "reason_code": "REKOR_INVALID_INCLUSION_PROOF_CANNOT_SUPPORT_ENTRY_INCLUSION"
+    },
+    {
+      "scenario_id": "META-013",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "NOT_APPLICABLE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "historical_c100_checkpoint",
+        "append_only_extension",
+        "new_c120_frontier"
+      ],
+      "reason_code": "REKOR_CONSISTENCY_PROOF_EXTENDS_PRIOR_CHECKPOINT"
+    },
+    {
+      "scenario_id": "META-014",
+      "applicability": "Unknown",
+      "currentness": "CurrentnessUnknown",
+      "horizon_relation": "UNKNOWN",
+      "change_coverage": "UNKNOWN",
+      "disposition": "INDETERMINATE",
+      "invalidated_dimensions": [
+        "current_append_only_frontier",
+        "log_consistency_claim"
+      ],
+      "preserved_dimensions": [
+        "historical_c100_checkpoint"
+      ],
+      "reason_code": "NEW_CHECKPOINT_AUTHENTICITY_ALONE_DOES_NOT_ESTABLISH_CONTINUITY"
+    },
+    {
+      "scenario_id": "META-015",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "NOT_APPLICABLE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "historical_c200",
+        "current_checkpoint_agreement",
+        "append_only_consistency"
+      ],
+      "reason_code": "WITNESSES_AGREE_ON_CURRENT_CHECKPOINT_AND_CONSISTENT_EXTENSION"
+    },
+    {
+      "scenario_id": "META-016",
+      "applicability": "Inapplicable",
+      "currentness": "ConflictingCurrentEvidence",
+      "horizon_relation": "NOT_APPLICABLE",
+      "change_coverage": "COMPLETE",
+      "disposition": "INDETERMINATE",
+      "invalidated_dimensions": [
+        "current_log_consistency",
+        "single_current_checkpoint"
+      ],
+      "preserved_dimensions": [
+        "historical_c200_checkpoint"
+      ],
+      "reason_code": "SAME_SIZE_DIFFERENT_ROOTS_INDICATE_SPLIT_VIEW_OR_EQUIVOCATION"
+    },
+    {
+      "scenario_id": "META-017",
+      "applicability": "ExactSubject",
+      "currentness": "CurrentWithinDeclaredCutoff",
+      "horizon_relation": "NOT_APPLICABLE",
+      "change_coverage": "COMPLETE",
+      "disposition": "RETAIN_WITHIN_SCOPE",
+      "invalidated_dimensions": [],
+      "preserved_dimensions": [
+        "producer_event_identity",
+        "log_inclusion"
+      ],
+      "reason_code": "EXACT_EVENT_INCLUSION_ESTABLISHED_WITHIN_CLAIM_SCOPE"
+    },
+    {
+      "scenario_id": "META-018",
+      "applicability": "Unknown",
+      "currentness": "CurrentnessUnknown",
+      "horizon_relation": "UNKNOWN",
+      "change_coverage": "INCOMPLETE",
+      "disposition": "INDETERMINATE",
+      "invalidated_dimensions": [
+        "event_absence_claim",
+        "log_submission_completeness"
+      ],
+      "preserved_dimensions": [
+        "producer_event_expectation"
+      ],
+      "reason_code": "MISSING_SEARCH_RESULT_IS_NOT_PROOF_OF_NON_SUBMISSION_OR_ABSENCE"
+    }
+  ]
+}
