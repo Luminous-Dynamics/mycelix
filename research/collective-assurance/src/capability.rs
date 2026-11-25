@@ -98,6 +98,9 @@ pub struct CapabilityStudyContract {
     pub expected_team_ids: Vec<String>,
 }
 
+type TeamStageKey<'a> = (&'a str, CapabilityStage);
+type OutcomePanel<'a> = BTreeMap<TeamStageKey<'a>, &'a CapabilityOutcomeObservation>;
+
 fn valid_unit_interval(value: f64) -> bool {
     value.is_finite() && (0.0..=1.0).contains(&value)
 }
@@ -172,8 +175,7 @@ pub fn qualify_capability_outcomes(
         return report;
     }
 
-    let mut panel: BTreeMap<(&str, CapabilityStage), &CapabilityOutcomeObservation> =
-        BTreeMap::new();
+    let mut panel: OutcomePanel<'_> = BTreeMap::new();
     let mut roster_digests: BTreeMap<&str, &str> = BTreeMap::new();
     let mut team_sizes: BTreeMap<&str, u32> = BTreeMap::new();
 
