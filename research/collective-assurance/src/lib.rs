@@ -6,12 +6,18 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod allocation;
 mod capability;
+mod common_ground;
 mod comparison;
 mod constraint_binding;
 mod ledger;
 mod response_audit;
 mod support_policy;
 
+pub use common_ground::{
+    qualify_common_ground_trial, CommonGroundEvent, CommonGroundEventKind,
+    CommonGroundOutcomeStatus, CommonGroundTrialContract, CommonGroundTrialReport,
+    CommonGroundViewMode, RequiredPlacement,
+};
 pub use capability::{
     qualify_capability_outcomes, AccommodationState, CapabilityMeasurement,
     CapabilityOutcomeObservation, CapabilityStage, CapabilityStudyContract,
