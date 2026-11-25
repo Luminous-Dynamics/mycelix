@@ -8,7 +8,7 @@
 use std::collections::BTreeSet;
 
 use super::{
-    is_sha256, qualify_benchmark_comparison, BenchmarkRunManifest, ComparisonIntent,
+    qualify_benchmark_comparison, BenchmarkRunManifest, ComparisonIntent,
     ComparisonStatus, QualificationReport, QualificationStatus,
 };
 
@@ -60,6 +60,13 @@ pub struct InformationContributionReport {
     /// Counterfactual minus baseline decision quality; negative means quality fell.
     pub decision_quality_delta: Option<f64>,
     pub removed_origin_count: Option<usize>,
+}
+
+fn valid_digest(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 fn fail(report: &mut QualificationReport, reason: impl Into<String>) {
@@ -150,7 +157,7 @@ pub fn qualify_information_origin_counterfactual(
             case.counterfactual_decision_digest.as_str(),
         ),
     ] {
-        if !is_sha256(digest) {
+        if !valid_digest(digest) {
             fail(&mut report, format!("{label} digest is malformed"));
         }
     }
