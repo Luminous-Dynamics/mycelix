@@ -176,6 +176,39 @@ func TestCausalProjectionDoesNotInventGlobalOrder(t *testing.T) {
 	}
 }
 
+func TestCausalProjectionAllowsSameNativeEventIDUnderDifferentOwners(t *testing.T) {
+	events := []CausalEventV1{
+		causalEvent("payments", "commit", 0, nil),
+		causalEvent("treasury", "commit", 0, nil),
+	}
+	projection, err := ProjectCausalGraphV1(events)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if projection.EventCount != 2 || projection.EdgeCount != 0 ||
+		len(projection.TopologicalLayers) != 1 || len(projection.TopologicalLayers[0]) != 2 {
+		t.Fatalf("cross-owner event IDs were conflated: %+v", projection)
+	}
+}
+
+func TestCausalProjectionRejectsDuplicateOwnerSequence(t *testing.T) {
+	events := []CausalEventV1{
+		causalEvent("payments", "p0", 0, nil),
+		causalEvent("payments", "p1", 0, nil),
+	}
+	if _, err := ProjectCausalGraphV1(events); err != ErrCausalDuplicateOwnerSequence {
+		t.Fatalf("error = %v, want %v", err, ErrCausalDuplicateOwnerSequence)
+	}
+}
+
+func TestCausalProjectionRejectsSelfCausality(t *testing.T) {
+	self := causalRef("payments", "p0")
+	events := []CausalEventV1{causalEvent("payments", "p0", 0, nil, self)}
+	if _, err := ProjectCausalGraphV1(events); err != ErrCausalSelfReference {
+		t.Fatalf("error = %v, want %v", err, ErrCausalSelfReference)
+	}
+}
+
 func TestCausalProjectionRejectsEmptyGraph(t *testing.T) {
 	if _, err := ProjectCausalGraphV1(nil); err != ErrCausalEmptyGraph {
 		t.Fatalf("error = %v, want %v", err, ErrCausalEmptyGraph)
