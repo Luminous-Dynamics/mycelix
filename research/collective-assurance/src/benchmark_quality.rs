@@ -110,7 +110,7 @@ fn require_gate(report: &mut QualificationReport, label: &str, gate: EvidenceGat
 }
 
 fn has_valid_optional_digest(value: Option<&str>) -> bool {
-    value.is_some_and(is_sha256)
+    value.is_some_and(valid_digest)
 }
 
 /// Qualifies a benchmark's evidence package for a declared claim profile.
