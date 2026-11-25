@@ -28,6 +28,17 @@ impl CapabilityStage {
         Self::Resilience,
     ];
 
+    fn sequence(self) -> u32 {
+        match self {
+            Self::IndependentBaseline => 0,
+            Self::AssistedCollaboration => 1,
+            Self::ImmediateAiOff => 2,
+            Self::DelayedAiOff => 3,
+            Self::FarTransfer => 4,
+            Self::Resilience => 5,
+        }
+    }
+
     fn is_ai_off(self) -> bool {
         matches!(
             self,
@@ -67,6 +78,8 @@ pub struct CapabilityOutcomeObservation {
     pub team_roster_digest: String,
     pub team_size: u32,
     pub stage: CapabilityStage,
+    /// Preregistered trajectory order: baseline=0 through resilience=5.
+    pub stage_sequence: u32,
     pub task_family_id: String,
     pub task_digest: String,
     pub evaluator_digest: String,
@@ -77,7 +90,7 @@ pub struct CapabilityOutcomeObservation {
     /// Voluntary pause/stop is missing outcome data, never a zero score or failure.
     pub voluntary_stop: bool,
     pub measurement: Option<CapabilityMeasurement>,
-    /// The externally qualified AI-off receipt status for withdrawal/transfer stages.
+    /// Status copied from the independent verifier; this field alone is not proof.
     pub ai_off_qualification: Option<QualificationStatus>,
     /// Digest/reference to the independently retained AI-off receipt.
     pub ai_off_receipt_digest: Option<String>,
@@ -178,6 +191,7 @@ pub fn qualify_capability_outcomes(
     let mut panel: OutcomePanel<'_> = BTreeMap::new();
     let mut roster_digests: BTreeMap<&str, &str> = BTreeMap::new();
     let mut team_sizes: BTreeMap<&str, u32> = BTreeMap::new();
+    let mut task_digests: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
 
     for observation in observations {
         if observation.run_id != contract.run_id {
@@ -217,6 +231,16 @@ pub fn qualify_capability_outcomes(
 
         if observation.task_family_id.trim().is_empty() {
             fail(&mut report, "task family identifier must be non-empty");
+        }
+        if observation.stage_sequence != observation.stage.sequence() {
+            fail(&mut report, "stage sequence differs from the preregistered trajectory order");
+        }
+        if !task_digests
+            .entry(observation.team_id.as_str())
+            .or_default()
+            .insert(observation.task_digest.as_str())
+        {
+            fail(&mut report, "the exact same task digest was reused across team stages");
         }
         match observation.stage {
             CapabilityStage::IndependentBaseline => {
@@ -413,8 +437,9 @@ mod tests {
                     team_roster_digest: digest('b'),
                     team_size: 4,
                     stage,
+                    stage_sequence: stage.sequence(),
                     task_family_id,
-                    task_digest: digest('c'),
+                    task_digest: digest(char::from(b'c' + stage.sequence() as u8)),
                     evaluator_digest: contract.evaluator_digest.clone(),
                     ai_available: stage == CapabilityStage::AssistedCollaboration,
                     ai_used: stage == CapabilityStage::AssistedCollaboration,
@@ -559,6 +584,29 @@ mod tests {
         let contract = contract();
         let mut observations = panel(&contract);
         observations[0].measurement.as_mut().unwrap().agency = 1.5;
+        let report = qualify_capability_outcomes(&contract, &observations);
+        assert_eq!(report.status, QualificationStatus::Fail);
+    }
+
+
+    #[test]
+    fn incorrect_stage_order_fails() {
+        let contract = contract();
+        let mut observations = panel(&contract);
+        let item = observations
+            .iter_mut()
+            .find(|item| item.stage == CapabilityStage::DelayedAiOff)
+            .unwrap();
+        item.stage_sequence = 2;
+        let report = qualify_capability_outcomes(&contract, &observations);
+        assert_eq!(report.status, QualificationStatus::Fail);
+    }
+
+    #[test]
+    fn exact_task_reuse_across_stages_fails() {
+        let contract = contract();
+        let mut observations = panel(&contract);
+        observations[1].task_digest = observations[0].task_digest.clone();
         let report = qualify_capability_outcomes(&contract, &observations);
         assert_eq!(report.status, QualificationStatus::Fail);
     }
