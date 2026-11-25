@@ -242,6 +242,13 @@ Report a Pareto frontier across task quality, capability retention, privacy, age
 - Mycelix #6655/#6657 own the AI-off execution boundary protocol and reference external-witness receipt qualification.
 - Mycelix #6656 owns GroupAssistBench comparison parity.
 - Symthaea #12299/#13535 own the corresponding individual capability and challenge-response measurements.
+- Symthaea SAT #13574 owns the wider system-level sovereignty, authority, adaptive control, auditor integrity and evidence-integrity tournament. Mycelix contributes the rights-aware group-information and human/team capability outcome contracts that SAT consumes; it does not create a parallel authority kernel, sandbox, security evaluator or alignment score.
+
+## SAT composition boundary
+
+The Mycelix capability-outcome validator is the team-level outcome contract for SAT Track E. It supplies structurally checked baseline, assisted, immediate AI-off, delayed, far-transfer and resilience observations. It does not qualify the execution environment, authenticate the external AI-off receipt, decide authority, or score system-level alignment. SAT consumes the independent qualification/evidence from its owner-native execution and authority components, then evaluates the human and collective outcomes without collapsing them into a scalar.
+
+The runner and external witness follow-up PRs #6655/#6657 supply an AI-off protocol and reference receipt validator; SAT must still consume the owner-native isolation, revocation and enforcement boundaries rather than treat these documents as a deployed control. The dynamic complementarity tournament composes with SAT's adaptive-control and pluralistic-agency tracks and must not duplicate them.
 
 ## Claim ceiling
 
