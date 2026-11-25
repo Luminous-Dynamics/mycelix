@@ -128,7 +128,7 @@ pub struct DependencyNode {
     pub key: FaultDomainKey,
     pub effect: DependencyEffect,
     pub currentness: EvidenceCurrentness,
-    pub evidence_refs: BTreeSet<Digest>,
+    pub evidence_refs: BTreeSet<String>,
     pub depends_on: Vec<String>,
 }
 
@@ -844,7 +844,7 @@ mod tests {
             key: key(dimension, identity),
             effect,
             currentness: EvidenceCurrentness::Current,
-            evidence_refs: BTreeSet::from([Digest::from_byte(identity)]),
+            evidence_refs: BTreeSet::from([format!("receipt:node-{identity}")]),
             depends_on: depends_on.iter().map(|item| (*item).to_owned()).collect(),
         }
     }
@@ -1297,7 +1297,7 @@ mod tests {
                 },
                 effect: DependencyEffect::ClaimCritical,
                 currentness: EvidenceCurrentness::Current,
-                evidence_refs: BTreeSet::from([Digest::from_byte(1)]),
+                evidence_refs: BTreeSet::from(["receipt:runtime-a".to_owned()]),
                 depends_on: vec![],
             },
             DependencyNode {
@@ -1308,7 +1308,7 @@ mod tests {
                 },
                 effect: DependencyEffect::ClaimCritical,
                 currentness: EvidenceCurrentness::Current,
-                evidence_refs: BTreeSet::from([Digest::from_byte(2)]),
+                evidence_refs: BTreeSet::from(["receipt:provider-b".to_owned()]),
                 depends_on: vec![],
             },
         ];
@@ -2015,7 +2015,7 @@ mod tests {
                 ),
                 effect: DependencyEffect::ClaimCritical,
                 currentness: EvidenceCurrentness::Current,
-                evidence_refs: BTreeSet::from([Digest::from_byte((index % 251) as u8)]),
+                evidence_refs: BTreeSet::from([format!("receipt:large-graph-node-{index}")]),
                 depends_on: next,
             });
         }
