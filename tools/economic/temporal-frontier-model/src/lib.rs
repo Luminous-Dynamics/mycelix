@@ -168,12 +168,11 @@ impl OwnerCutV1 {
     /// by this cut. This is structural gap accounting, not proof that the
     /// root or coverage declaration is authentic.
     pub fn prefix_is_complete_through(&self, through: u64) -> bool {
-        self.validate().is_ok()
-            && through <= self.sequence
-            && !self
-                .gaps
-                .iter()
-                .any(|gap| gap.first <= through)
+        self.validate().is_ok() && self.prefix_is_complete_after_validation(through)
+    }
+
+    fn prefix_is_complete_after_validation(&self, through: u64) -> bool {
+        through <= self.sequence && !self.gaps.iter().any(|gap| gap.first <= through)
     }
 
     pub fn contains_unresolved_gap(&self, sequence: u64) -> bool {
@@ -231,7 +230,7 @@ impl VerifierFrontierV1 {
         self.validate().is_ok()
             && self
                 .owner_cut(owner_ref)
-                .is_some_and(|cut| cut.prefix_is_complete_through(through))
+                .is_some_and(|cut| cut.prefix_is_complete_after_validation(through))
     }
 
     pub fn classify_receipt(
@@ -249,14 +248,14 @@ impl VerifierFrontierV1 {
         };
 
         if receipt.owner_sequence > owner_cut.sequence {
-            return Ok(if owner_cut.prefix_is_complete_through(owner_cut.sequence) {
+            return Ok(if owner_cut.prefix_is_complete_after_validation(owner_cut.sequence) {
                 ReceiptVisibilityV1::NotKnown
             } else {
                 ReceiptVisibilityV1::Indeterminate
             });
         }
 
-        if !owner_cut.prefix_is_complete_through(receipt.owner_sequence) {
+        if !owner_cut.prefix_is_complete_after_validation(receipt.owner_sequence) {
             return Ok(ReceiptVisibilityV1::Indeterminate);
         }
 
@@ -264,7 +263,7 @@ impl VerifierFrontierV1 {
             let Some(dependency_cut) = self.owner_cut(&dependency.owner_ref) else {
                 return Ok(ReceiptVisibilityV1::Indeterminate);
             };
-            if !dependency_cut.prefix_is_complete_through(dependency.sequence) {
+            if !dependency_cut.prefix_is_complete_after_validation(dependency.sequence) {
                 return Ok(ReceiptVisibilityV1::Indeterminate);
             }
         }
