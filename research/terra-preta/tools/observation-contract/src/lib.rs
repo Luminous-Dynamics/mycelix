@@ -599,13 +599,13 @@ mod tests {
             observation("r3", "sample-2", "site-1", "study-1"),
             observation("r4", "sample-3", "site-2", "study-2"),
         ];
-        let assignments = grouped_folds(&records, GroupingLevel::PhysicalSample, 5).unwrap();
+        let assignments = grouped_folds(&records, GroupingLevel::PhysicalSample, 3).unwrap();
         assert_eq!(assignments[0].fold, assignments[1].fold);
         assert_ne!(
             assignments[0].canonical_group_id,
             assignments[2].canonical_group_id
         );
-        validate_no_group_leakage(&assignments, 5).unwrap();
+        validate_no_group_leakage(&assignments, 3).unwrap();
     }
 
     #[test]
@@ -615,7 +615,7 @@ mod tests {
             observation("r2", "sample-2", "site-a", "study-1"),
             observation("r3", "sample-3", "site-b", "study-2"),
         ];
-        let assignments = grouped_folds(&records, GroupingLevel::Site, 4).unwrap();
+        let assignments = grouped_folds(&records, GroupingLevel::Site, 2).unwrap();
         assert_eq!(assignments[0].fold, assignments[1].fold);
         assert_ne!(
             assignments[0].canonical_group_id,
@@ -630,12 +630,108 @@ mod tests {
             observation("r2", "sample-2", "site-b", "paper-a"),
             observation("r3", "sample-3", "site-c", "paper-b"),
         ];
-        let assignments = grouped_folds(&records, GroupingLevel::Study, 7).unwrap();
+        let assignments = grouped_folds(&records, GroupingLevel::Study, 2).unwrap();
         assert_eq!(assignments[0].fold, assignments[1].fold);
         assert_ne!(
             assignments[0].canonical_group_id,
             assignments[2].canonical_group_id
         );
+    }
+
+    #[test]
+    fn grouped_folds_balance_record_loads_without_splitting_groups() {
+        let mut records = Vec::new();
+        for index in 0..4 {
+            records.push(observation(
+                &format!("large-{index}"),
+                "group-large",
+                "site-large",
+                "study-large",
+            ));
+        }
+        for index in 0..3 {
+            records.push(observation(
+                &format!("medium-{index}"),
+                "group-medium",
+                "site-medium",
+                "study-medium",
+            ));
+        }
+        for index in 0..2 {
+            records.push(observation(
+                &format!("small-{index}"),
+                "group-small",
+                "site-small",
+                "study-small",
+            ));
+        }
+        records.push(observation("single", "group-single", "site-single", "study-single"));
+
+        let assignments = grouped_folds(&records, GroupingLevel::PhysicalSample, 3).unwrap();
+        let mut loads = [0usize; 3];
+        let mut group_folds = BTreeMap::<String, usize>::new();
+        for assignment in &assignments {
+            loads[assignment.fold] += 1;
+            if let Some(previous) = group_folds.insert(
+                assignment.canonical_group_id.clone(),
+                assignment.fold,
+            ) {
+                assert_eq!(previous, assignment.fold);
+            }
+        }
+        let minimum = *loads.iter().min().unwrap();
+        let maximum = *loads.iter().max().unwrap();
+        assert_eq!(loads, [4, 3, 3]);
+        assert!(maximum - minimum <= 1);
+
+        let mut reversed = records.clone();
+        reversed.reverse();
+        let reversed_assignments =
+            grouped_folds(&reversed, GroupingLevel::PhysicalSample, 3).unwrap();
+        let baseline_map: BTreeMap<_, _> = assignments
+            .iter()
+            .map(|item| (item.canonical_group_id.clone(), item.fold))
+            .collect();
+        let reversed_map: BTreeMap<_, _> = reversed_assignments
+            .iter()
+            .map(|item| (item.canonical_group_id.clone(), item.fold))
+            .collect();
+        assert_eq!(baseline_map, reversed_map);
+    }
+
+    #[test]
+    fn grouped_folds_reject_fewer_independent_groups_than_folds() {
+        let records = vec![
+            observation("r1", "same-sample", "same-site", "same-study"),
+            observation("r2", "same-sample", "same-site", "same-study"),
+        ];
+        assert!(matches!(
+            grouped_folds(&records, GroupingLevel::PhysicalSample, 2),
+            Err(ContractError::InsufficientGroups {
+                groups: 1,
+                folds: 2
+            })
+        ));
+    }
+
+    #[test]
+    fn manually_empty_fold_is_rejected() {
+        let assignments = vec![
+            FoldAssignment {
+                record_id: "r1".into(),
+                canonical_group_id: "sample-1".into(),
+                fold: 0,
+            },
+            FoldAssignment {
+                record_id: "r2".into(),
+                canonical_group_id: "sample-2".into(),
+                fold: 0,
+            },
+        ];
+        assert!(matches!(
+            validate_no_group_leakage(&assignments, 2),
+            Err(ContractError::EmptyFold(1))
+        ));
     }
 
     #[test]
@@ -658,9 +754,11 @@ mod tests {
         first.source_dataset_id = "soilksatdb-v0.3".into();
         let mut second = observation("r2", "canonical-core-42", "site-9", "study-2");
         second.source_dataset_id = "unsoda-2.0".into();
+        let third = observation("r3", "independent-core-99", "site-10", "study-3");
         let assignments =
-            grouped_folds(&[first, second], GroupingLevel::PhysicalSample, 5).unwrap();
+            grouped_folds(&[first, second, third], GroupingLevel::PhysicalSample, 2).unwrap();
         assert_eq!(assignments[0].fold, assignments[1].fold);
+        assert_ne!(assignments[0].fold, assignments[2].fold);
         assert_eq!(
             assignments[0].canonical_group_id,
             assignments[1].canonical_group_id
