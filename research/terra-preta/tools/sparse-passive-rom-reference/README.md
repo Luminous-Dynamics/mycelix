@@ -152,7 +152,7 @@ U_{ij}(s)=|D-D_r|_{ij}
 \lVert\Lambda-\Lambda_r\rVert_F\le\lVert U\rVert_F.
 ]
 
-The implementation independently checks every response-matrix entry against this componentwise envelope before emitting the portwise Frobenius bound. It reports the original global spectral bound, the portwise bound, and the minimum of the two independently valid bounds. The same check is applied separately to the adaptive projection and the zero-shift block-Arnoldi baseline.
+The implementation independently checks every response-matrix entry against this componentwise envelope before emitting the portwise Frobenius bound. It reports the original global spectral bound, the portwise bound, and the minimum of the two independently valid bounds. The same check is applied separately to the adaptive projection and the zero-shift block-Arnoldi baseline. The benchmark's full-order reference response is itself computed with finite-tolerance PCG, so the residual of that reference solve is added to the ROM residual envelope. This certifies the observed PCG-reference-versus-ROM difference rather than silently treating the PCG reference as exact.
 
 This method requires the exact symmetric anchored M-matrix admission checks and the verified supersolution. It applies only to real nonnegative Laplace samples. It is not a substitute for interval arithmetic and does not validate the pore graph or underlying soil model.
 
