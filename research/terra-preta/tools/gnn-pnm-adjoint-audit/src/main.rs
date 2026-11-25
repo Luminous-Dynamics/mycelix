@@ -449,13 +449,23 @@ mod tests {
         assert!(
             max_relative_difference(
                 &baseline.finite_difference_gradient,
-                &reordered.finite_difference_gradient.iter().rev().copied().collect::<Vec<_>>()
+                &reordered
+                    .finite_difference_gradient
+                    .iter()
+                    .rev()
+                    .copied()
+                    .collect::<Vec<_>>()
             ) < 1.0e-9
         );
         assert!(
             max_relative_difference(
                 &baseline.corrected_adjoint_gradient,
-                &reordered.corrected_adjoint_gradient.iter().rev().copied().collect::<Vec<_>>()
+                &reordered
+                    .corrected_adjoint_gradient
+                    .iter()
+                    .rev()
+                    .copied()
+                    .collect::<Vec<_>>()
             ) < 1.0e-6
         );
     }
