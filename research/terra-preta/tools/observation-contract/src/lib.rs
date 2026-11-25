@@ -583,6 +583,31 @@ mod tests {
     }
 
     #[test]
+    fn registry_distinguishes_current_release_counts_from_paper_counts() {
+        let registry = source_registry();
+        let soilksat = registry
+            .iter()
+            .find(|manifest| manifest.dataset_id == "soilksatdb-v0.3")
+            .unwrap();
+        assert_eq!(soilksat.row_count, Some(13_267));
+        assert_eq!(soilksat.independent_site_count, Some(1_910));
+        assert!(soilksat.notes.contains("13,286"));
+        assert!(soilksat.notes.contains("4,131 field and 9,155 laboratory"));
+
+        let unsoda = registry
+            .iter()
+            .find(|manifest| manifest.dataset_id == "unsoda-2.0")
+            .unwrap();
+        assert_eq!(unsoda.doi.as_deref(), Some("10.3886/E250569V1"));
+
+        let fine = registry
+            .iter()
+            .find(|manifest| manifest.dataset_id == "fg-ksat-6-1358")
+            .unwrap();
+        assert_eq!(fine.independent_study_count, Some(33));
+    }
+
+    #[test]
     fn observation_retains_protocol_label_and_support_domain() {
         let record = observation("r1", "sample-1", "site-1", "study-1");
         validate_observation(&record, &source_registry()).unwrap();
