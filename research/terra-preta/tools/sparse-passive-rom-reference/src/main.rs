@@ -130,7 +130,7 @@ impl CsrMatrix {
             for index in self.row_ptr[row]..self.row_ptr[row + 1] {
                 let column = self.col_idx[index];
                 let value = self.values[index];
-                if row != column && value > tolerance {
+                if row != column && value > 0.0 {
                     return Err("M-matrix certificate rejected a positive off-diagonal".into());
                 }
                 let reverse = (self.row_ptr[column]..self.row_ptr[column + 1])
@@ -556,7 +556,10 @@ fn pcg(
 
 struct MMatrixLowerBound {
     lambda_min_lower_bound: f64,
+    supersolution_min_component: f64,
     supersolution_max_component: f64,
+    minimum_supersolution_margin: f64,
+    supersolution_sha256: String,
     cg_stats: CgStats,
 }
 
@@ -624,10 +627,26 @@ fn m_matrix_lambda_min_lower_bound(
     if !lambda_min_lower_bound.is_finite() || lambda_min_lower_bound <= 0.0 {
         return Err("M-matrix eigenvalue lower bound is invalid".into());
     }
+    let supersolution_min_component = supersolution.iter().copied().reduce(f64::min)
+        .ok_or_else(|| "cannot bound an empty M-matrix".to_string())?;
+    let minimum_supersolution_margin = verified_action
+        .iter()
+        .copied()
+        .reduce(f64::min)
+        .ok_or_else(|| "cannot verify an empty M-matrix".to_string())? - 1.0;
+    let mut digest = Sha256::new();
+    digest.update(b"TERRA-MATRIX-SUPERSOLUTION-V1\\0");
+    for value in &supersolution {
+        digest.update(value.to_le_bytes());
+    }
+    let supersolution_sha256 = format!("{:x}", digest.finalize());
 
     Ok(MMatrixLowerBound {
         lambda_min_lower_bound,
+        supersolution_min_component,
         supersolution_max_component,
+        minimum_supersolution_margin,
+        supersolution_sha256,
         cg_stats,
     })
 }
