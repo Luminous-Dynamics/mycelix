@@ -1079,6 +1079,76 @@ mod tests {
     }
 
     #[test]
+    fn distinct_assessors_can_satisfy_policy_quorum() {
+        let claim = sample_claim();
+        let first_authority = sample_authority();
+        let second_signer = SigningKey::from_bytes(&[9; 32]);
+        let second_authority_id = "authority:independent-inspectors-za";
+
+        let mut second_authority = AssessorAuthorityV1 {
+            schema_version: 1,
+            authority_id: second_authority_id.into(),
+            revision: 1,
+            issuer_did: "did:mycelix:water-guild".into(),
+            issuer_key_id: "key:water-guild-1".into(),
+            assessor_did: "did:mycelix:inspector-3".into(),
+            professional_domain: "water-systems".into(),
+            scopes: vec!["pump-repair".into()],
+            jurisdiction: "ZA-GP".into(),
+            valid_from_unix: NOW - 86_400,
+            valid_until_unix: NOW + 86_400,
+            signature_hex: String::new(),
+        };
+        sign_authority(&mut second_authority, &issuer_key());
+
+        let first = sample_attestation(&claim);
+        let mut second = sample_attestation(&claim);
+        second.attestation_id = "attestation:0002".into();
+        second.verifier_did = "did:mycelix:inspector-3".into();
+        second.assessor_key_id = "key:inspector-3".into();
+        second.authority_id = second_authority_id.into();
+        second.nonce = "nonce-0002".into();
+        sign_attestation(&mut second, &second_signer);
+
+        let mut trust = sample_trust();
+        trust.trusted_authority_ids.insert(second_authority_id.into());
+        trust.keys.insert(
+            "key:inspector-3".into(),
+            TrustedKeyV1 {
+                controller_did: "did:mycelix:inspector-3".into(),
+                public_key_hex: hex(&second_signer.verifying_key().to_bytes()),
+                valid_from_unix: NOW - 86_400,
+                valid_until_unix: NOW + 86_400,
+                revoked: false,
+            },
+        );
+
+        let authorities = BTreeMap::from([
+            (first_authority.authority_id.clone(), first_authority),
+            (second_authority.authority_id.clone(), second_authority),
+        ]);
+        let mut policy = sample_policy();
+        policy.minimum_distinct_assessors = 2;
+
+        let result = verify_work_evidence_bundle(
+            &claim,
+            &authorities,
+            &[first, second],
+            &policy,
+            &trust,
+            NOW,
+            &BTreeSet::new(),
+        )
+        .unwrap();
+
+        assert_eq!(result.attestations.len(), 2);
+        assert_ne!(
+            result.attestations[0].verifier_did,
+            result.attestations[1].verifier_did
+        );
+    }
+
+    #[test]
     fn duplicate_assessor_cannot_satisfy_independent_quorum() {
         let claim = sample_claim();
         let authority = sample_authority();
