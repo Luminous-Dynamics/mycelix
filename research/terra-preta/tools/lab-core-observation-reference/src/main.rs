@@ -396,7 +396,7 @@ mod tests {
     }
 
     #[test]
-    fn consistent_millimetre_to_metre_conversion_preserves_k() {
+    fn equivalent_si_inputs_produce_identical_k() {
         let specimen_m = geometry();
         let flow_m3_s = 1.0e-6;
         let dh_m = 0.5;
@@ -409,6 +409,42 @@ mod tests {
             flow_m3_s,
         ).unwrap();
         assert!((k_m / k_mm_inputs - 1.0).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn method_label_and_specimen_preparation_are_required() {
+        let mut observation = LabObservation::ConstantHead {
+            record_id: "core-2".into(),
+            physical_sample_group_id: "sample-2".into(),
+            original_method_label: "constant head permeameter".into(),
+            specimen_preparation: "repacked".into(),
+            specimen: geometry(),
+            delta_head_m: 0.5,
+            flow_rate_m3_s: 1.0e-6,
+        };
+        assert!(analyse_observation(&observation).is_ok());
+        if let LabObservation::ConstantHead { original_method_label, .. } = &mut observation {
+            original_method_label.clear();
+        }
+        assert!(analyse_observation(&observation).is_err());
+    }
+
+    #[test]
+    fn falling_head_receipt_keeps_source_method_and_preparation() {
+        let observation = LabObservation::FallingHead {
+            record_id: "core-3".into(),
+            physical_sample_group_id: "sample-3".into(),
+            original_method_label: "falling head permeameter".into(),
+            specimen_preparation: "repacked".into(),
+            specimen: geometry(),
+            standpipe_diameter_m: 0.005,
+            elapsed_time_s: 600.0,
+            initial_head_m: 1.0,
+            final_head_m: 0.5,
+        };
+        let receipt = analyse_observation(&observation).unwrap();
+        assert_eq!(receipt.original_method_label, "falling head permeameter");
+        assert_eq!(receipt.specimen_preparation, "repacked");
     }
 
     #[test]
