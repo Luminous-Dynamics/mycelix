@@ -460,12 +460,22 @@ mod tests {
         }
     }
 
-    fn frontier(id: &str, owner_cuts: Vec<OwnerCutV1>) -> VerifierFrontierV1 {
+    fn frontier(id: &str, mut owner_cuts: Vec<OwnerCutV1>) -> VerifierFrontierV1 {
+        // Test-only deterministic stand-in: the production adapter must
+        // compute and authenticate the actual canonical aggregate root.
+        let aggregate_value = id
+            .bytes()
+            .fold(0_u64, |value, byte| value.wrapping_mul(31).wrapping_add(u64::from(byte)));
+        let checkpoint_root_digest = format!("sha256:{aggregate_value:064x}");
+        for cut in &mut owner_cuts {
+            cut.checkpoint_inclusion.checkpoint_root_digest =
+                checkpoint_root_digest.clone();
+        }
         VerifierFrontierV1 {
             frontier_id: id.into(),
             verifier_ref: VERIFIER.into(),
             policy_epoch_ref: "policy-epoch:1".into(),
-            checkpoint_root_digest: digest('f'),
+            checkpoint_root_digest,
             parent_frontier_ids: Vec::new(),
             owner_cuts,
         }
