@@ -146,6 +146,10 @@ pub struct ConversionQuoteV1 {
     pub from_profile: EconomicProfileRefV1,
     /// Destination profile.
     pub to_profile: EconomicProfileRefV1,
+    /// Agreement component representing the source side of this quote.
+    pub from_component_id: String,
+    /// Agreement component representing the destination side of this quote.
+    pub to_component_id: String,
     /// Exact source quantity.
     pub from_quantity: ExactQuantityV1,
     /// Exact quoted destination quantity.
@@ -388,6 +392,11 @@ fn validate_quote(
     {
         return Err(AgreementErrorV1::QuoteDoesNotConvert);
     }
+    require_non_empty(&quote.from_component_id)?;
+    require_non_empty(&quote.to_component_id)?;
+    if quote.from_component_id == quote.to_component_id {
+        return Err(AgreementErrorV1::QuoteNotBoundToAgreement);
+    }
     if quote.issued_at >= quote.expires_at || now < quote.issued_at || now >= quote.expires_at {
         return Err(AgreementErrorV1::QuoteExpiredOrInvalid);
     }
@@ -402,9 +411,17 @@ fn validate_quote(
         return Err(AgreementErrorV1::InvalidQuantity);
     }
 
-    let source_is_bound = agreement.components.iter().any(|c| c.profile == quote.from_profile);
-    let target_is_bound = agreement.components.iter().any(|c| c.profile == quote.to_profile);
-    if !source_is_bound || !target_is_bound {
+    let from_component = agreement.components.iter()
+        .find(|component| component.component_id == quote.from_component_id)
+        .ok_or(AgreementErrorV1::QuoteNotBoundToAgreement)?;
+    let to_component = agreement.components.iter()
+        .find(|component| component.component_id == quote.to_component_id)
+        .ok_or(AgreementErrorV1::QuoteNotBoundToAgreement)?;
+    if from_component.profile != quote.from_profile
+        || to_component.profile != quote.to_profile
+        || from_component.quantity != quote.from_quantity
+        || to_component.quantity != quote.to_quantity
+    {
         return Err(AgreementErrorV1::QuoteNotBoundToAgreement);
     }
 
@@ -658,8 +675,10 @@ mod tests {
             quote_digest: [8; 32],
             from_profile: profiles[0].reference.clone(),
             to_profile: profiles[1].reference.clone(),
+            from_component_id: "wage".to_owned(),
+            to_component_id: "local-services".to_owned(),
             from_quantity: ExactQuantityV1 { atoms: 100, scale: 0 },
-            to_quantity: ExactQuantityV1 { atoms: 90, scale: 0 },
+            to_quantity: ExactQuantityV1 { atoms: 100, scale: 0 },
             fee: None,
             method: "issuer-quote".to_owned(),
             source_reference: "quote-evidence-1".to_owned(),
@@ -678,8 +697,10 @@ mod tests {
             quote_digest: [8; 32],
             from_profile: profiles[0].reference.clone(),
             to_profile: profiles[1].reference.clone(),
+            from_component_id: "wage".to_owned(),
+            to_component_id: "local-services".to_owned(),
             from_quantity: ExactQuantityV1 { atoms: 100, scale: 0 },
-            to_quantity: ExactQuantityV1 { atoms: 90, scale: 0 },
+            to_quantity: ExactQuantityV1 { atoms: 100, scale: 0 },
             fee: None,
             method: "issuer-quote".to_owned(),
             source_reference: "quote-evidence-2".to_owned(),
@@ -698,8 +719,10 @@ mod tests {
             quote_digest: [8; 32],
             from_profile: profiles[0].reference.clone(),
             to_profile: profiles[1].reference.clone(),
+            from_component_id: "wage".to_owned(),
+            to_component_id: "local-services".to_owned(),
             from_quantity: ExactQuantityV1 { atoms: 100, scale: 0 },
-            to_quantity: ExactQuantityV1 { atoms: 90, scale: 0 },
+            to_quantity: ExactQuantityV1 { atoms: 100, scale: 0 },
             fee: None,
             method: "issuer-quote".to_owned(),
             source_reference: "quote-evidence-3".to_owned(),
@@ -708,6 +731,32 @@ mod tests {
             accepted_by: vec!["worker".to_owned(), "guild".to_owned()],
         });
         assert_eq!(validate_agreement(&agreement, &profiles, NOW), Err(AgreementErrorV1::QuoteExpiredOrInvalid));
+    }
+
+
+    #[test]
+    fn conversion_quote_must_match_the_bound_component_quantities() {
+        let (mut agreement, profiles) = base();
+        agreement.conversion_quotes.push(ConversionQuoteV1 {
+            quote_id: "quote-amount-mismatch".to_owned(),
+            quote_digest: [8; 32],
+            from_profile: profiles[0].reference.clone(),
+            to_profile: profiles[1].reference.clone(),
+            from_component_id: "wage".to_owned(),
+            to_component_id: "local-services".to_owned(),
+            from_quantity: ExactQuantityV1 { atoms: 100, scale: 0 },
+            to_quantity: ExactQuantityV1 { atoms: 99, scale: 0 },
+            fee: None,
+            method: "issuer-quote".to_owned(),
+            source_reference: "quote-evidence-mismatch".to_owned(),
+            issued_at: 1,
+            expires_at: 20,
+            accepted_by: vec!["worker".to_owned(), "guild".to_owned()],
+        });
+        assert_eq!(
+            validate_agreement(&agreement, &profiles, NOW),
+            Err(AgreementErrorV1::QuoteNotBoundToAgreement)
+        );
     }
 
     #[test]
