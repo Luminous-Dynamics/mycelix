@@ -19,6 +19,10 @@ The published 0.431 GPT-5.6-terra result is therefore a same-backbone reference 
 
 Source: [One Assistant, Many Memories: Benchmarking Real-World Group Assistance When Recall Is Not Enough, arXiv:2611.04867](https://arxiv.org/abs/2611.04867). The paper describes 80,299 messages from 50 groups and 2,395 evaluation instances (1,374 L1 recall and 1,021 L2 memory-use instances). Its Table 3 reports the model and retrieval results above.
 
+## Benchmark-definition qualification
+
+Before interpreting a reproduced baseline or declaring a superiority result, qualify the benchmark release, evaluator and scoring evidence with [Mycelix #6678](https://github.com/Luminous-Dynamics/mycelix/pull/6678). Its manifest binds task/data/split provenance, hidden-split commitment, oracle/scorer evidence, independent evaluator, leakage audit, judge calibration and human adjudication where applicable, reproducibility records and cost telemetry. A benchmark-definition PASS does not qualify a candidate system; a matched-run PASS does not repair an unqualified benchmark. These are separate gates.
+
 ## Required comparison tiers
 
 ### Tier 0 — reproduce the published reference
