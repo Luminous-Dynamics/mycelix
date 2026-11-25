@@ -141,13 +141,16 @@
             "minLength": 1
           },
           "payload_digest": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
           },
           "source_registry_receipt_digest": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
           },
           "disclosure_receipt_digest": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
           },
           "source_timestamp_ms": {
             "type": "integer",
