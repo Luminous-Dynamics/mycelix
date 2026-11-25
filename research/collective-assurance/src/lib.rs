@@ -23,7 +23,9 @@ pub use allocation::{
     AllocationSecret,
 };
 pub use relational_evidence::{
-    bind_refined_evidence_constraints, refine_relational_evidence, EvidenceRelationEdge, EvidenceRelationKind,
+    bind_refined_evidence_constraints, diagnose_evidence_use_bottlenecks,
+    refine_relational_evidence, EvidenceBottleneck, EvidenceRelationEdge,
+    EvidenceRelationKind, EvidenceUseDiagnostic, EvidenceUseDiagnosticStatus,
     RelationalDisclosurePermission, RelationalEvidenceRecord, RelationalEvidenceReport,
     RelationalEvidenceScope, RelationalEvidenceStatus, RelationalVerification,
 };
