@@ -21,6 +21,15 @@ struct Case {
 }
 
 #[derive(Clone, Debug)]
+struct AdjointGradientResult {
+    pressures: Vec<f64>,
+    adjoint: Vec<f64>,
+    corrected_gradient: Vec<f64>,
+    published_gradient: Vec<f64>,
+    permeability: f64,
+}
+
+#[derive(Clone, Debug)]
 struct Audit {
     permeability: f64,
     pressures: Vec<f64>,
@@ -187,9 +196,7 @@ fn finite_difference_gradient(case: &Case) -> Result<Vec<f64>, AuditError> {
     Ok(gradient)
 }
 
-fn adjoint_gradients(
-    case: &Case,
-) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, f64), AuditError> {
+fn adjoint_gradients(case: &Case) -> Result<AdjointGradientResult, AuditError> {
     let (pressures, permeability, matrix) = solve_forward(case)?;
     let residual = permeability - case.target_permeability;
     let mut d_objective_d_pressure = vec![0.0; case.pore_count];
@@ -256,18 +263,24 @@ fn adjoint_gradients(
         published.push(public_gradient);
     }
 
-    Ok((pressures, adjoint, corrected, published, permeability))
+    Ok(AdjointGradientResult {
+        pressures,
+        adjoint,
+        corrected_gradient: corrected,
+        published_gradient: published,
+        permeability,
+    })
 }
 
 fn audit_case(case: &Case) -> Result<Audit, AuditError> {
-    let (pressures, adjoint, corrected, published, permeability) = adjoint_gradients(case)?;
+    let result = adjoint_gradients(case)?;
     Ok(Audit {
-        permeability,
-        pressures,
-        adjoint,
+        permeability: result.permeability,
+        pressures: result.pressures,
+        adjoint: result.adjoint,
         finite_difference_gradient: finite_difference_gradient(case)?,
-        corrected_adjoint_gradient: corrected,
-        published_formula_gradient: published,
+        corrected_adjoint_gradient: result.corrected_gradient,
+        published_formula_gradient: result.published_gradient,
     })
 }
 
