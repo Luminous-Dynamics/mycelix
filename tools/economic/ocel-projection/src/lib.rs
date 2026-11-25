@@ -774,7 +774,7 @@ fn timestamp_fraction_digits(value: &str) -> Option<usize> {
 fn timezone_suffix(value: &str) -> &str {
     let bytes = value.as_bytes();
     let start = bytes.iter().enumerate().skip(19).find_map(|(index, byte)| {
-        matches!(byte, b'Z' | b'+' | b'-').then_some(index)
+        matches!(*byte, b'Z' | b'+' | b'-').then_some(index)
     }).unwrap_or(value.len());
     &value[start..]
 }
