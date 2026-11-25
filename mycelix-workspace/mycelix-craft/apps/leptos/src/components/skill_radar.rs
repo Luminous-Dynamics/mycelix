@@ -75,7 +75,7 @@ fn radar_points(values: &[f64], radius: f64, center: f64) -> String {
 /// Skill Coherence Radar — SVG component.
 ///
 /// Reads credentials from CraftCtx and plots vitality across 8 domains.
-/// Uses mock credentials as fallback when conductor data is empty.
+/// Uses synthetic examples only when the provider explicitly reports mock mode.
 #[component]
 pub fn SkillRadar() -> impl IntoView {
     let craft = use_craft();
