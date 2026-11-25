@@ -1,0 +1,279 @@
+{
+  "benchmark": "Economic OS OCEL 2.0 Semantic Preservation Adversarial Corpus",
+  "version": "0.1",
+  "date": "2026-11-25",
+  "status": "synthetic_public_development_cases_not_hidden_evaluation",
+  "target_profile": "OCEL-2.0-JSON",
+  "case_count": 36,
+  "allowed_dispositions": [
+    "SUPPORTED_WITHIN_SCOPE",
+    "PENDING",
+    "INDETERMINATE",
+    "CONFLICT",
+    "REJECTED_INPUT",
+    "REJECTED_PROMOTION",
+    "HELD_NOT_EXPORTED",
+    "LOSS_DECLARED"
+  ],
+  "hard_targets": {
+    "silent_required_field_loss": 0,
+    "false_event_time_promotions": 0,
+    "false_authority_promotions": 0,
+    "false_settlement_promotions": 0,
+    "unresolved_causal_reference_acceptance": 0
+  },
+  "cases": [
+    {
+      "id": "OCEL-001",
+      "dimension": "time",
+      "adversarial_input": "Event has no source-backed event time; exporter proposes current clock",
+      "expected_disposition": "HELD_NOT_EXPORTED",
+      "safety_assertion": "Exporter must not invent an event timestamp."
+    },
+    {
+      "id": "OCEL-002",
+      "dimension": "time",
+      "adversarial_input": "Only recordTime exists; exporter copies it into OCEL event time",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Record time is not event time."
+    },
+    {
+      "id": "OCEL-003",
+      "dimension": "time",
+      "adversarial_input": "Only ingestion timestamp exists; exporter uses it as event time",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Ingestion order does not establish occurrence time."
+    },
+    {
+      "id": "OCEL-004",
+      "dimension": "time",
+      "adversarial_input": "Owner-local sequence number is converted into a timestamp",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Sequence order is not wall-clock time."
+    },
+    {
+      "id": "OCEL-005",
+      "dimension": "time",
+      "adversarial_input": "Two qualified source event-time assertions contradict each other",
+      "expected_disposition": "INDETERMINATE",
+      "safety_assertion": "Conflicting time evidence must be held for resolution."
+    },
+    {
+      "id": "OCEL-006",
+      "dimension": "time",
+      "adversarial_input": "Timestamp has no timezone offset and no pinned local-zone rule",
+      "expected_disposition": "HELD_NOT_EXPORTED",
+      "safety_assertion": "Ambiguous local time must not be normalized by guesswork."
+    },
+    {
+      "id": "OCEL-007",
+      "dimension": "time",
+      "adversarial_input": "Timed object attribute update lacks its own time evidence",
+      "expected_disposition": "HELD_NOT_EXPORTED",
+      "safety_assertion": "Object-attribute time cannot be fabricated from the nearest event."
+    },
+    {
+      "id": "OCEL-008",
+      "dimension": "identity",
+      "adversarial_input": "Two source records map to the same OCEL event ID",
+      "expected_disposition": "REJECTED_INPUT",
+      "safety_assertion": "Event identifiers must be unique within the export."
+    },
+    {
+      "id": "OCEL-009",
+      "dimension": "identity",
+      "adversarial_input": "One object ID is emitted under two object types",
+      "expected_disposition": "REJECTED_INPUT",
+      "safety_assertion": "OCEL object identity cannot change type silently."
+    },
+    {
+      "id": "OCEL-010",
+      "dimension": "identity",
+      "adversarial_input": "Same native event string occurs under two owner domains, with owner-qualified source references",
+      "expected_disposition": "SUPPORTED_WITHIN_SCOPE",
+      "safety_assertion": "Owner-local identifiers are not globally conflated."
+    },
+    {
+      "id": "OCEL-011",
+      "dimension": "relationship",
+      "adversarial_input": "Event-to-object relationship references a nonexistent object",
+      "expected_disposition": "REJECTED_INPUT",
+      "safety_assertion": "Dangling relationships are not valid projections."
+    },
+    {
+      "id": "OCEL-012",
+      "dimension": "relationship",
+      "adversarial_input": "Event-to-object relationship has no role qualifier",
+      "expected_disposition": "REJECTED_INPUT",
+      "safety_assertion": "The object's role in the event must remain explicit."
+    },
+    {
+      "id": "OCEL-013",
+      "dimension": "relationship",
+      "adversarial_input": "Object-to-object relationship references a nonexistent object",
+      "expected_disposition": "REJECTED_INPUT",
+      "safety_assertion": "Object graph referential integrity is mandatory."
+    },
+    {
+      "id": "OCEL-014",
+      "dimension": "relationship",
+      "adversarial_input": "Same O2O relation and qualifier is emitted twice",
+      "expected_disposition": "REJECTED_INPUT",
+      "safety_assertion": "Duplicate relation rows indicate noncanonical projection."
+    },
+    {
+      "id": "OCEL-015",
+      "dimension": "relationship",
+      "adversarial_input": "Object co-occurrence is used to infer beneficial ownership",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Co-occurrence is not an ownership assertion."
+    },
+    {
+      "id": "OCEL-016",
+      "dimension": "relationship",
+      "adversarial_input": "A PROV attribution edge is mapped to a legal signing mandate",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Provenance attribution is not authority."
+    },
+    {
+      "id": "OCEL-017",
+      "dimension": "semantics",
+      "adversarial_input": "Valueflows Commitment is emitted as a physical Delivery event",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "A plan/commitment is not an observed resource event."
+    },
+    {
+      "id": "OCEL-018",
+      "dimension": "semantics",
+      "adversarial_input": "EPCIS shipping visibility is emitted as beneficiary acceptance",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Shipping is not receipt or acceptance."
+    },
+    {
+      "id": "OCEL-019",
+      "dimension": "semantics",
+      "adversarial_input": "EPCIS receiving scan is emitted as legal title transfer",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Visibility is not legal title."
+    },
+    {
+      "id": "OCEL-020",
+      "dimension": "semantics",
+      "adversarial_input": "Peppol invoice validation is emitted as goods receipt",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Invoice conformance is not physical fulfilment."
+    },
+    {
+      "id": "OCEL-021",
+      "dimension": "semantics",
+      "adversarial_input": "pain.001 instruction is emitted as payment settlement",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Payment initiation is not settlement."
+    },
+    {
+      "id": "OCEL-022",
+      "dimension": "semantics",
+      "adversarial_input": "Generic pacs.002 status accepted is emitted as finality",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "A status code needs a rail-qualified interpretation and reconciliation."
+    },
+    {
+      "id": "OCEL-023",
+      "dimension": "semantics",
+      "adversarial_input": "Statement entry observation is emitted as beneficiary receipt",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "External account observation is not recipient-authored receipt."
+    },
+    {
+      "id": "OCEL-024",
+      "dimension": "semantics",
+      "adversarial_input": "Provider acceptance is emitted as legal discharge",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Provider acknowledgment is not legal finality."
+    },
+    {
+      "id": "OCEL-025",
+      "dimension": "quantity",
+      "adversarial_input": "Monetary minor units are serialized as floating-point values",
+      "expected_disposition": "REJECTED_INPUT",
+      "safety_assertion": "Money must preserve exact integer minor units and instrument profile."
+    },
+    {
+      "id": "OCEL-026",
+      "dimension": "quantity",
+      "adversarial_input": "EUR amount is relabeled as SAP units without a declared conversion evidence record",
+      "expected_disposition": "CONFLICT",
+      "safety_assertion": "Currency/instrument conversion cannot be inferred from a label."
+    },
+    {
+      "id": "OCEL-027",
+      "dimension": "quantity",
+      "adversarial_input": "Delivered quantity is below committed quantity and the partial amount is retained",
+      "expected_disposition": "PENDING",
+      "safety_assertion": "Partial fulfilment remains partial rather than becoming complete."
+    },
+    {
+      "id": "OCEL-028",
+      "dimension": "quantity",
+      "adversarial_input": "Split invoice totals exceed the purchase-order amount without an explicit approved amendment",
+      "expected_disposition": "CONFLICT",
+      "safety_assertion": "Conservation/commitment mismatch must remain visible."
+    },
+    {
+      "id": "OCEL-029",
+      "dimension": "history",
+      "adversarial_input": "Correction rewrites or deletes the original source event",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Corrections and reversals are append-only and reference the original effect."
+    },
+    {
+      "id": "OCEL-030",
+      "dimension": "provenance",
+      "adversarial_input": "Evidence artifact digest or source reference is missing",
+      "expected_disposition": "HELD_NOT_EXPORTED",
+      "safety_assertion": "A projected event without required provenance cannot be silently trusted."
+    },
+    {
+      "id": "OCEL-031",
+      "dimension": "loss",
+      "adversarial_input": "Unsupported source field is omitted without a loss-manifest entry",
+      "expected_disposition": "REJECTED_INPUT",
+      "safety_assertion": "Every unsupported or excluded mapping must be declared."
+    },
+    {
+      "id": "OCEL-032",
+      "dimension": "causality",
+      "adversarial_input": "A causal sidecar reference is dangling or cross-operation substituted",
+      "expected_disposition": "REJECTED_INPUT",
+      "safety_assertion": "Causal links must resolve to owner-scoped event identities."
+    },
+    {
+      "id": "OCEL-033",
+      "dimension": "causality",
+      "adversarial_input": "Cross-owner explicit causal references form a directed cycle",
+      "expected_disposition": "REJECTED_INPUT",
+      "safety_assertion": "A causal projection containing a cycle is invalid."
+    },
+    {
+      "id": "OCEL-034",
+      "dimension": "causality",
+      "adversarial_input": "Exporter adds an event-event causal edge based only on lexical sort or ingestion order",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Deterministic serialization order must not become causal order."
+    },
+    {
+      "id": "OCEL-035",
+      "dimension": "identity",
+      "adversarial_input": "Retry creates a second OCEL effect event with a fresh effect ID for the same singleton owner effect",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Retries must retain original effect identity; exporter cannot hide duplicate effects."
+    },
+    {
+      "id": "OCEL-036",
+      "dimension": "history",
+      "adversarial_input": "A reversal is exported as deletion of the original effect rather than a new correcting event",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Original assertion and correction lineage must both remain reconstructable."
+    }
+  ]
+}
