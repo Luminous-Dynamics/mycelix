@@ -1,0 +1,334 @@
+{
+  "contract": {
+    "required_gate_ids": [
+      "authority",
+      "privacy",
+      "evidence",
+      "evaluator"
+    ],
+    "required_metrics": [
+      "task_quality",
+      "evidence_coverage",
+      "agency",
+      "unauthorized_action_rate",
+      "unauthorized_disclosure_rate",
+      "over_refusal_rate",
+      "total_cost_micro_usd",
+      "p95_latency_ms"
+    ],
+    "confidence_level_bps": 9500,
+    "minimum_independent_units": 20
+  },
+  "baseline": {
+    "manifest": {
+      "run_id": "baseline-run",
+      "system_variant": "baseline",
+      "system_config_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "benchmark_id": "pareto-fixture",
+      "benchmark_version": "0.1",
+      "dataset_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "split_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "task_family_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "evaluation_protocol_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "scorer_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "model_snapshot_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "tokenizer_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "prompt_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "toolset_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+      "decoding_config_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+      "context_tokens": 4096,
+      "max_output_tokens": 1024,
+      "time_budget_ms": 30000,
+      "token_budget": 8192,
+      "compute_budget_millijoules": 100000,
+      "agent_count": 1,
+      "memory_budget_bytes": 100000000,
+      "seed_policy_id": "paired-seed-v1",
+      "seed": 11
+    },
+    "mandatory_gates": [
+      {
+        "gate_id": "authority",
+        "disposition": "pass",
+        "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "gate_id": "privacy",
+        "disposition": "pass",
+        "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "gate_id": "evidence",
+        "disposition": "pass",
+        "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "gate_id": "evaluator",
+        "disposition": "pass",
+        "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "metrics": [
+      {
+        "metric": "task_quality",
+        "lower_bound": 0.7,
+        "point_estimate": 0.73,
+        "upper_bound": 0.76,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "simultaneous_intervals": true,
+        "inference_plan_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "metric": "unauthorized_action_rate",
+        "lower_bound": 0.05,
+        "point_estimate": 0.07,
+        "upper_bound": 0.09,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "simultaneous_intervals": true,
+        "inference_plan_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "metric": "total_cost_micro_usd",
+        "lower_bound": 100,
+        "point_estimate": 110,
+        "upper_bound": 120,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "simultaneous_intervals": true,
+        "inference_plan_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "metric": "p95_latency_ms",
+        "lower_bound": 1000,
+        "point_estimate": 1100,
+        "upper_bound": 1200,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "simultaneous_intervals": true,
+        "inference_plan_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "metric": "evidence_coverage",
+        "lower_bound": 0.75,
+        "point_estimate": 0.78,
+        "upper_bound": 0.81,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "simultaneous_intervals": true,
+        "inference_plan_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "metric": "agency",
+        "lower_bound": 0.7,
+        "point_estimate": 0.73,
+        "upper_bound": 0.76,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "simultaneous_intervals": true,
+        "inference_plan_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "metric": "unauthorized_disclosure_rate",
+        "lower_bound": 0.04,
+        "point_estimate": 0.06,
+        "upper_bound": 0.08,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "simultaneous_intervals": true,
+        "inference_plan_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "metric": "over_refusal_rate",
+        "lower_bound": 0.05,
+        "point_estimate": 0.07,
+        "upper_bound": 0.09,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "simultaneous_intervals": true,
+        "inference_plan_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    ]
+  },
+  "candidate": {
+    "manifest": {
+      "run_id": "candidate-run",
+      "system_variant": "candidate",
+      "system_config_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "benchmark_id": "pareto-fixture",
+      "benchmark_version": "0.1",
+      "dataset_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "split_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "task_family_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "evaluation_protocol_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "scorer_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "model_snapshot_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "tokenizer_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "prompt_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "toolset_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+      "decoding_config_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+      "context_tokens": 4096,
+      "max_output_tokens": 1024,
+      "time_budget_ms": 30000,
+      "token_budget": 8192,
+      "compute_budget_millijoules": 100000,
+      "agent_count": 1,
+      "memory_budget_bytes": 100000000,
+      "seed_policy_id": "paired-seed-v1",
+      "seed": 11
+    },
+    "mandatory_gates": [
+      {
+        "gate_id": "authority",
+        "disposition": "pass",
+        "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "gate_id": "privacy",
+        "disposition": "pass",
+        "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "gate_id": "evidence",
+        "disposition": "pass",
+        "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "gate_id": "evaluator",
+        "disposition": "pass",
+        "evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "metrics": [
+      {
+        "metric": "task_quality",
+        "lower_bound": 0.82,
+        "point_estimate": 0.85,
+        "upper_bound": 0.88,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "simultaneous_intervals": true,
+        "inference_plan_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "metric": "unauthorized_action_rate",
+        "lower_bound": 0,
+        "point_estimate": 0.01,
+        "upper_bound": 0.02,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "simultaneous_intervals": true,
+        "inference_plan_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "metric": "total_cost_micro_usd",
+        "lower_bound": 80,
+        "point_estimate": 85,
+        "upper_bound": 90,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "simultaneous_intervals": true,
+        "inference_plan_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "metric": "p95_latency_ms",
+        "lower_bound": 800,
+        "point_estimate": 850,
+        "upper_bound": 900,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "simultaneous_intervals": true,
+        "inference_plan_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "metric": "evidence_coverage",
+        "lower_bound": 0.9,
+        "point_estimate": 0.92,
+        "upper_bound": 0.94,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "simultaneous_intervals": true,
+        "inference_plan_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "metric": "agency",
+        "lower_bound": 0.86,
+        "point_estimate": 0.88,
+        "upper_bound": 0.9,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "simultaneous_intervals": true,
+        "inference_plan_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "metric": "unauthorized_disclosure_rate",
+        "lower_bound": 0,
+        "point_estimate": 0.005,
+        "upper_bound": 0.01,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "simultaneous_intervals": true,
+        "inference_plan_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      {
+        "metric": "over_refusal_rate",
+        "lower_bound": 0.01,
+        "point_estimate": 0.02,
+        "upper_bound": 0.03,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "simultaneous_intervals": true,
+        "inference_plan_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    ]
+  }
+}
