@@ -587,4 +587,127 @@ mod tests {
         value.source_action_hash = "x".repeat(MAX_FIELD_BYTES + 1);
         assert_eq!(value.validate(), Err(CheckpointError::OversizedField));
     }
+    fn next_subject(previous: &CheckpointSubjectV1, intent: &PaymentIntent) -> CheckpointSubjectV1 {
+        let mut next = previous.clone();
+        next.event_count = previous.event_count + 3;
+        next.tail_digest = format!("sha256:{}", "22".repeat(32));
+        next.checkpoint_sequence = previous.checkpoint_sequence + 1;
+        next.prior_checkpoint_digest = Some(
+            previous
+                .canonical_digest_against_intent(intent)
+                .expect("previous checkpoint digest"),
+        );
+        next.source_action_hash = "uhCkk-source-payment-action-next".into();
+        next.source_chain_frontier = "uhCkk-source-chain-frontier-next".into();
+        next.issuer_did = "did:mycelix:agent:sender-next".into();
+        next.verification_method = "did:mycelix:agent:sender#holochain-key-2".into();
+        next.authority_grant_ref = "uhCkk-payments-authority-grant-next".into();
+        next.issued_at_unix_ms += 1;
+        next
+    }
+
+    #[test]
+    fn checkpoint_frontier_advance_binds_previous_digest_and_allows_key_rotation() {
+        let intent = payment_intent();
+        let previous = subject();
+        let next = next_subject(&previous, &intent);
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &next, &intent),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn checkpoint_frontier_advance_rejects_skipped_sequence() {
+        let intent = payment_intent();
+        let previous = subject();
+        let mut next = next_subject(&previous, &intent);
+        next.checkpoint_sequence += 1;
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &next, &intent),
+            Err(CheckpointAdvanceErrorV1::SequenceNotContiguous)
+        );
+    }
+
+    #[test]
+    fn checkpoint_frontier_advance_rejects_wrong_prior_digest() {
+        let intent = payment_intent();
+        let previous = subject();
+        let mut next = next_subject(&previous, &intent);
+        next.prior_checkpoint_digest = Some(format!("sha256:{}", "33".repeat(32)));
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &next, &intent),
+            Err(CheckpointAdvanceErrorV1::PriorCheckpointDigestMismatch)
+        );
+    }
+
+    #[test]
+    fn checkpoint_frontier_advance_rejects_owner_and_log_substitution() {
+        let intent = payment_intent();
+        let previous = subject();
+        let mut wrong_owner = next_subject(&previous, &intent);
+        wrong_owner.owner = CheckpointOwner::Treasury;
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &wrong_owner, &intent),
+            Err(CheckpointAdvanceErrorV1::OwnerScopeMismatch)
+        );
+
+        let mut wrong_log = next_subject(&previous, &intent);
+        wrong_log.event_log_id.push_str(":other");
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &wrong_log, &intent),
+            Err(CheckpointAdvanceErrorV1::EventLogMismatch)
+        );
+    }
+
+    #[test]
+    fn checkpoint_frontier_advance_rejects_nonadvancing_frontiers() {
+        let intent = payment_intent();
+        let previous = subject();
+        let mut next = next_subject(&previous, &intent);
+        next.event_count = previous.event_count;
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &next, &intent),
+            Err(CheckpointAdvanceErrorV1::FrontierDidNotAdvance)
+        );
+
+        let mut next = next_subject(&previous, &intent);
+        next.source_chain_frontier = previous.source_chain_frontier.clone();
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &next, &intent),
+            Err(CheckpointAdvanceErrorV1::FrontierDidNotAdvance)
+        );
+    }
+
+    #[test]
+    fn checkpoint_frontier_advance_rejects_reused_source_action() {
+        let intent = payment_intent();
+        let previous = subject();
+        let mut next = next_subject(&previous, &intent);
+        next.source_action_hash = previous.source_action_hash.clone();
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &next, &intent),
+            Err(CheckpointAdvanceErrorV1::SourceActionDidNotAdvance)
+        );
+    }
+
+    #[test]
+    fn checkpoint_frontier_advance_rejects_sequence_overflow() {
+        let intent = payment_intent();
+        let mut previous = subject();
+        previous.checkpoint_sequence = u64::MAX;
+        previous.prior_checkpoint_digest = Some(format!("sha256:{}", "44".repeat(32)));
+        let mut next = next_subject(&subject(), &intent);
+        next.checkpoint_sequence = 2;
+        next.prior_checkpoint_digest = Some(
+            previous
+                .canonical_digest_against_intent(&intent)
+                .expect("valid maximal prior checkpoint"),
+        );
+        assert_eq!(
+            validate_checkpoint_frontier_advance_v1(&previous, &next, &intent),
+            Err(CheckpointAdvanceErrorV1::SequenceOverflow)
+        );
+    }
+
 }
