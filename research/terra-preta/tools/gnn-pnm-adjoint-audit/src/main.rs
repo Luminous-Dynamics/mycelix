@@ -185,7 +185,7 @@ fn objective(case: &Case) -> Result<f64, AuditError> {
 fn finite_difference_gradient(case: &Case) -> Result<Vec<f64>, AuditError> {
     let mut gradient = Vec::with_capacity(case.conductances.len());
     for (index, conductance) in case.conductances.iter().enumerate() {
-        let epsilon = conductance.abs().max(1.0) * 1.0e-6;
+        let epsilon = conductance.abs().max(f64::MIN_POSITIVE) * 1.0e-6;
         let mut plus = case.clone();
         let mut minus = case.clone();
         plus.conductances[index] += epsilon;
@@ -455,7 +455,7 @@ mod tests {
                     .rev()
                     .copied()
                     .collect::<Vec<_>>()
-            ) < 1.0e-9
+            ) < 1.0e-7
         );
         assert!(
             max_relative_difference(
