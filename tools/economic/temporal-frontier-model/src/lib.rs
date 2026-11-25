@@ -492,6 +492,117 @@ mod tests {
         }
     }
 
+    fn root_for(owner_index: usize, sequence: u64) -> char {
+        match (owner_index, sequence) {
+            (0, 0) => 'a',
+            (0, 1) => 'b',
+            (0, 2) => 'c',
+            (1, 0) => 'd',
+            (1, 1) => 'e',
+            (1, 2) => 'g',
+            _ => panic!("bounded oracle root lookup out of range"),
+        }
+    }
+
+    fn vector_oracle(left: [u64; 2], right: [u64; 2]) -> FrontierRelationV1 {
+        let mut before = false;
+        let mut after = false;
+        for (left_position, right_position) in left.into_iter().zip(right) {
+            before |= left_position < right_position;
+            after |= left_position > right_position;
+        }
+        match (before, after) {
+            (false, false) => FrontierRelationV1::Equal,
+            (true, false) => FrontierRelationV1::Before,
+            (false, true) => FrontierRelationV1::After,
+            (true, true) => FrontierRelationV1::Concurrent,
+        }
+    }
+
+    fn bounded_frontier(id: &str, positions: [u64; 2]) -> VerifierFrontierV1 {
+        frontier(
+            id,
+            vec![
+                cut("owner:a", positions[0], root_for(0, positions[0])),
+                cut("owner:b", positions[1], root_for(1, positions[1])),
+            ],
+        )
+    }
+
+    fn bounded_links(left: [u64; 2], right: [u64; 2]) -> Vec<OwnerConsistencyLinkV1> {
+        let mut links = Vec::new();
+        for owner_index in 0..2 {
+            let (ancestor, descendant) = if left[owner_index] < right[owner_index] {
+                (left[owner_index], right[owner_index])
+            } else if right[owner_index] < left[owner_index] {
+                (right[owner_index], left[owner_index])
+            } else {
+                continue;
+            };
+            let owner_ref = if owner_index == 0 { "owner:a" } else { "owner:b" };
+            links.push(OwnerConsistencyLinkV1 {
+                owner_ref: owner_ref.into(),
+                history_ref: format!("history:{owner_ref}"),
+                ancestor_root_digest: digest(root_for(owner_index, ancestor)),
+                descendant_root_digest: digest(root_for(owner_index, descendant)),
+                consistency_proof_ref: format!("proof:{owner_ref}:{ancestor}:{descendant}"),
+            });
+        }
+        links
+    }
+
+    #[test]
+    fn exhaustive_two_owner_frontiers_match_independent_vector_oracle() {
+        let mut states = Vec::new();
+        for owner_a in 0..=2 {
+            for owner_b in 0..=2 {
+                let positions = [owner_a, owner_b];
+                let id = format!("frontier:{}:{}", owner_a, owner_b);
+                states.push((positions, bounded_frontier(&id, positions)));
+            }
+        }
+
+        for (left_positions, left) in &states {
+            for (right_positions, right) in &states {
+                let expected = vector_oracle(*left_positions, *right_positions);
+                let actual = left
+                    .compare(right, &bounded_links(*left_positions, *right_positions))
+                    .unwrap();
+                assert_eq!(
+                    actual, expected,
+                    "frontier relation mismatch: {left_positions:?} vs {right_positions:?}"
+                );
+
+                let inverse = right
+                    .compare(left, &bounded_links(*right_positions, *left_positions))
+                    .unwrap();
+                let inverse_expected = match expected {
+                    FrontierRelationV1::Before => FrontierRelationV1::After,
+                    FrontierRelationV1::After => FrontierRelationV1::Before,
+                    relation => relation,
+                };
+                assert_eq!(inverse, inverse_expected);
+            }
+        }
+
+        for (a_positions, a) in &states {
+            for (b_positions, b) in &states {
+                if vector_oracle(*a_positions, *b_positions) != FrontierRelationV1::Before {
+                    continue;
+                }
+                for (c_positions, c) in &states {
+                    if vector_oracle(*b_positions, *c_positions) != FrontierRelationV1::Before {
+                        continue;
+                    }
+                    assert_eq!(
+                        a.compare(c, &bounded_links(*a_positions, *c_positions)),
+                        Ok(FrontierRelationV1::Before)
+                    );
+                }
+            }
+        }
+    }
+
     #[test]
     fn same_owner_prefix_extension_is_before_only_with_consistency_link() {
         let first_cut = cut("owner:grants", 10, 'a');
