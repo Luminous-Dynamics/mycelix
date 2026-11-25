@@ -89,6 +89,30 @@ The report includes the lower bound, supersolution size, PCG certificate work, a
 
 This is a **floating-point-verified supersolution bound**, not an interval-arithmetic proof. It is limited to the fixed symmetric positive linear network and real nonnegative Laplace samples. It does not certify complex-frequency, nonlinear Richards, hysteresis, multiphase or empirical soil behaviour. A useful certificate must also be reasonably tight; the report exposes bound-to-observed-error ratio for that reason.
 
+## A posteriori response-error bound (real nonnegative Laplace axis)
+
+For the normalized symmetric interior operator (A=C^{-1/2}L_{ii}C^{-1/2}), the certificate requires exact sparse symmetry, positive diagonal and nonpositive off-diagonals. It computes a residual-verified solution of (A\hat y=\mathbf1), then scales it until the floating-point recomputation satisfies (y>0) and (Ay\ge\mathbf1) componentwise.
+
+For a symmetric Z-matrix, a positive vector with (Ay>0) is a nonsingular M-matrix characterization. Under that mathematical condition, (A^{-1}\ge0), so (A^{-1}\mathbf1\le y) and
+[
+\lambda_{\min}(A)\ge\frac{1}{\lVert y\rVert_\infty}.
+]
+This gives a conservative resolvent norm bound on the real (s\ge0) axis. For the reduced state (X_r(s)=V(A_r+sI)^{-1}B_r), the full-space residual is
+[
+R(s)=B-(A+sI)X_r(s),
+]
+and the report uses
+[
+\lVert\Lambda(s)-\Lambda_r(s)\rVert_F
+\le \lVert D-D_r\rVert_F
++\frac{\lVert B\rVert_F\,\lVert R(s)\rVert_F}
+{\lambda_{\min}^{LB}(A)+s}.
+]
+
+Each sample records observed absolute/relative response error and the corresponding conservative upper bounds. The report also records the supersolution digest, minimum/maximum components, minimum componentwise (Ay-\mathbf1) margin, and PCG residual. The workflow rejects a sample if its reported upper bound does not dominate the observed full sparse error.
+
+**Claim boundary:** this is a floating-point verified supersolution prototype, not interval arithmetic or a formal proof about rounding. It applies only to fixed symmetric anchored conductance/storage graphs and real (s\ge0). It does not certify complex-frequency behaviour, nonlinear Richards dynamics, hysteresis, topology uncertainty or empirical soil prediction. Bound tightness must be reported alongside validity; a valid but very loose bound is not automatically useful.
+
 ## Qualification
 
 - sparse CSR assembly for the graph Laplacian and storage-normalized operator;
@@ -104,8 +128,8 @@ This is a **floating-point-verified supersolution bound**, not an interval-arith
 - node/edge ordering invariance for the branched response;
 - input SHA-256 and create-new output semantics.
 
-The current test suite contains sixteen tests. Synthetic fixtures include a 128-node chain, a four-node branched network, and a high-contrast three-port network. Conductance/storage rescaling by 24 orders of magnitude tests scale invariance. Tests also verify that a zero-shift basis preserves both DC and high-frequency limits, while a nonzero-only basis reports its feedthrough-limit mismatch. None of these fixtures is empirical soil data.
+The current test suite contains twenty tests, including an analytic 2×2 M-matrix bound, 24-order rescaling, positive/asymmetric off-diagonal rejection, and adaptive response-error bound dominance over every audit sample. Synthetic fixtures include a 128-node chain, a four-node branched network, and a high-contrast three-port network. Conductance/storage rescaling by 24 orders of magnitude tests scale invariance. Tests also verify that a zero-shift basis preserves both DC and high-frequency limits, while a nonzero-only basis reports its feedthrough-limit mismatch. None of these fixtures is empirical soil data.
 
 ## Claim boundary
 
-This package does not implement complex-frequency responses, adaptive optimal shift selection, certified a-posteriori frequency error bounds, nonlinear Richards flow, state-dependent conductivity, hysteresis, multiphase flow, reactive transport, root uptake or empirical soil validation. A measured speed advantage is not claimed. The current purpose is to establish sparse structure and a passivity-preserving projection baseline against the dense exact reference.
+This package includes a floating-point a-posteriori response-error upper-bound prototype on the real nonnegative Laplace axis; it is not interval-certified. It does not implement complex-frequency certification, adaptive globally optimal shift selection, nonlinear Richards flow, state-dependent conductivity, hysteresis, multiphase flow, reactive transport, root uptake or empirical soil validation. A measured speed advantage is not claimed. The current purpose is to establish sparse structure and a passivity-preserving projection baseline against the dense exact reference.
