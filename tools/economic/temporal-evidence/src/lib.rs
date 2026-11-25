@@ -15,10 +15,8 @@
 //! separately qualified, evidence-preserving clock profile.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::fmt::Write as _;
 
 const MAX_ID_BYTES: usize = 1_024;
-const MAX_TEXT_BYTES: usize = 4_096;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TemporalDimensionV1 {
@@ -111,14 +109,22 @@ pub struct BitemporalValidityResultV1 {
     pub knowledge_assertions: Vec<String>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum OccurrenceQueryDispositionV1 {
+    Known,
+    NotKnown,
+    Conflict,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OccurrenceAsKnownResultV1 {
-    pub assertion_id: String,
+    pub disposition: OccurrenceQueryDispositionV1,
+    pub assertion_id: Option<String>,
     pub claim_id: String,
     pub subject_ref: String,
-    pub occurred_at: String,
-    pub quality: TemporalQualityV1,
-    pub precision: TemporalPrecisionV1,
+    pub occurred_at: Option<String>,
+    pub quality: Option<TemporalQualityV1>,
+    pub precision: Option<TemporalPrecisionV1>,
     pub uncertainty_window: Option<UncertaintyWindowV1>,
     pub knowledge_assertion_ids: Vec<String>,
 }
@@ -130,6 +136,7 @@ pub enum TemporalKernelErrorV1 {
     IdentifierTooLong,
     TextTooLong,
     DuplicateAssertionId,
+    ClaimSubjectMismatch,
     InvalidTimestamp,
     NonUtcTimestampUnsupported,
     TimestampPrecisionMismatch,
@@ -165,10 +172,19 @@ impl TemporalEvidenceSetV1 {
         }
 
         let mut by_id = BTreeMap::<&str, &TemporalAssertionV1>::new();
+        let mut claim_subjects = BTreeMap::<&str, &str>::new();
         for assertion in &self.assertions {
             validate_identifier(&assertion.assertion_id)?;
             validate_identifier(&assertion.claim_id)?;
             validate_identifier(&assertion.subject_ref)?;
+            if let Some(previous_subject) = claim_subjects.insert(
+                assertion.claim_id.as_str(),
+                assertion.subject_ref.as_str(),
+            ) {
+                if previous_subject != assertion.subject_ref {
+                    return Err(TemporalKernelErrorV1::ClaimSubjectMismatch);
+                }
+            }
             validate_identifier(&assertion.clock_profile)
                 .map_err(|_| TemporalKernelErrorV1::MissingClockProfile)?;
             validate_identifier(&assertion.source_authority_ref)
@@ -325,13 +341,13 @@ impl TemporalEvidenceSetV1 {
             TemporalDimensionV1::ValidFrom,
             verifier_ref,
             &knowledge_query,
-        );
+        )?;
         let to = self.select_as_known(
             claim_id,
             TemporalDimensionV1::ValidTo,
             verifier_ref,
             &knowledge_query,
-        );
+        )?;
 
         let (from, from_knowledge) = match from {
             Selection::Selected(assertion, knowledge) => (Some(assertion), knowledge),
@@ -446,27 +462,47 @@ impl TemporalEvidenceSetV1 {
         validate_identifier(claim_id)?;
         validate_identifier(verifier_ref)?;
         let knowledge_query = normalize_utc(known_at)?;
-        match self.select_as_known(
+        let result = match self.select_as_known(
             claim_id,
             TemporalDimensionV1::OccurredAt,
             verifier_ref,
             &knowledge_query,
-        ) {
-            Selection::Missing => Ok(None),
-            Selection::Conflict => Ok(None),
-            Selection::Selected(assertion, knowledge_ids) => Ok(Some(
-                OccurrenceAsKnownResultV1 {
-                    assertion_id: assertion.assertion_id.clone(),
-                    claim_id: assertion.claim_id.clone(),
-                    subject_ref: assertion.subject_ref.clone(),
-                    occurred_at: assertion.time_value.clone(),
-                    quality: assertion.quality,
-                    precision: assertion.precision,
-                    uncertainty_window: assertion.uncertainty_window.clone(),
-                    knowledge_assertion_ids: knowledge_ids,
-                },
-            )),
-        }
+        )? {
+            Selection::Missing => OccurrenceAsKnownResultV1 {
+                disposition: OccurrenceQueryDispositionV1::NotKnown,
+                assertion_id: None,
+                claim_id: claim_id.into(),
+                subject_ref: String::new(),
+                occurred_at: None,
+                quality: None,
+                precision: None,
+                uncertainty_window: None,
+                knowledge_assertion_ids: Vec::new(),
+            },
+            Selection::Conflict => OccurrenceAsKnownResultV1 {
+                disposition: OccurrenceQueryDispositionV1::Conflict,
+                assertion_id: None,
+                claim_id: claim_id.into(),
+                subject_ref: String::new(),
+                occurred_at: None,
+                quality: None,
+                precision: None,
+                uncertainty_window: None,
+                knowledge_assertion_ids: Vec::new(),
+            },
+            Selection::Selected(assertion, knowledge_ids) => OccurrenceAsKnownResultV1 {
+                disposition: OccurrenceQueryDispositionV1::Known,
+                assertion_id: Some(assertion.assertion_id.clone()),
+                claim_id: assertion.claim_id.clone(),
+                subject_ref: assertion.subject_ref.clone(),
+                occurred_at: Some(assertion.time_value.clone()),
+                quality: Some(assertion.quality),
+                precision: Some(assertion.precision),
+                uncertainty_window: assertion.uncertainty_window.clone(),
+                knowledge_assertion_ids: knowledge_ids,
+            },
+        };
+        Ok(result)
     }
 
     fn select_as_known(
@@ -475,7 +511,7 @@ impl TemporalEvidenceSetV1 {
         dimension: TemporalDimensionV1,
         verifier_ref: &str,
         known_at: &NormalizedTime,
-    ) -> Selection<'_> {
+    ) -> Result<Selection<'_>, TemporalKernelErrorV1> {
         let by_id: BTreeMap<&str, &TemporalAssertionV1> = self
             .assertions
             .iter()
@@ -487,39 +523,40 @@ impl TemporalEvidenceSetV1 {
             assertion.claim_id == claim_id && assertion.dimension == dimension
         }) {
             let mut knowledge_ids = Vec::new();
-            let known = self.assertions.iter().any(|knowledge| {
-                if knowledge.dimension != TemporalDimensionV1::VerifierKnowledgeAt
-                    || knowledge.assertion_ref.as_deref() != Some(assertion.assertion_id.as_str())
-                    || knowledge.verifier_ref.as_deref() != Some(verifier_ref)
-                {
-                    return false;
-                }
-                let Ok(time) = normalize_utc(&knowledge.time_value) else {
-                    return false;
-                };
+            let mut contested_knowledge = false;
+            let mut uncertain_knowledge = false;
+            for knowledge in self.assertions.iter().filter(|knowledge| {
+                knowledge.dimension == TemporalDimensionV1::VerifierKnowledgeAt
+                    && knowledge.assertion_ref.as_deref() == Some(assertion.assertion_id.as_str())
+                    && knowledge.verifier_ref.as_deref() == Some(verifier_ref)
+            }) {
+                let time = normalize_utc(&knowledge.time_value)?;
                 if time.sortable <= known_at.sortable {
-                    knowledge_ids.push(knowledge.assertion_id.clone());
-                    true
-                } else {
-                    false
+                    match knowledge.quality {
+                        TemporalQualityV1::SourceAsserted => {
+                            knowledge_ids.push(knowledge.assertion_id.clone());
+                        }
+                        TemporalQualityV1::Contested => contested_knowledge = true,
+                        TemporalQualityV1::Estimated | TemporalQualityV1::Uncertain => {
+                            uncertain_knowledge = true;
+                        }
+                    }
                 }
-            });
-            if known {
+            }
+            if contested_knowledge || (uncertain_knowledge && knowledge_ids.is_empty()) {
+                return Ok(Selection::Conflict);
+            }
+            if !knowledge_ids.is_empty() {
                 knowledge_ids.sort();
                 eligible.push((assertion, knowledge_ids));
             }
         }
 
         if eligible.is_empty() {
-            return Selection::Missing;
+            return Ok(Selection::Missing);
         }
 
-        let eligible_ids: BTreeSet<&str> = eligible
-            .iter()
-            .map(|(assertion, _)| assertion.assertion_id.as_str())
-            .collect();
         let mut maximal: Vec<&TemporalAssertionV1> = Vec::new();
-
         for (candidate, _) in &eligible {
             let mut shadowed = false;
             for (other, _) in &eligible {
@@ -547,7 +584,7 @@ impl TemporalEvidenceSetV1 {
         }
 
         if maximal.len() != 1 {
-            return Selection::Conflict;
+            return Ok(Selection::Conflict);
         }
 
         let selected = maximal[0];
@@ -556,7 +593,7 @@ impl TemporalEvidenceSetV1 {
             .find(|(assertion, _)| assertion.assertion_id == selected.assertion_id)
             .map(|(_, knowledge)| knowledge)
             .unwrap_or_default();
-        Selection::Selected(selected, knowledge_ids)
+        Ok(Selection::Selected(selected, knowledge_ids))
     }
 
     fn validity_result(
@@ -660,8 +697,11 @@ fn validate_identifier(value: &str) -> Result<(), TemporalKernelErrorV1> {
 
 fn normalize_utc(value: &str) -> Result<NormalizedTime, TemporalKernelErrorV1> {
     let bytes = value.as_bytes();
-    if bytes.len() < 20 || bytes.get(19) != Some(&b'Z') {
-        return Err(TemporalKernelErrorV1::NonUtcTimestampUnsupported);
+    if bytes.len() != 20 || bytes.get(19) != Some(&b'Z') {
+        if bytes.get(19) != Some(&b'Z') {
+            return Err(TemporalKernelErrorV1::NonUtcTimestampUnsupported);
+        }
+        return Err(TemporalKernelErrorV1::InvalidTimestamp);
     }
     if bytes[4] != b'-' || bytes[7] != b'-' || bytes[10] != b'T'
         || bytes[13] != b':' || bytes[16] != b':'
@@ -692,11 +732,7 @@ fn normalize_utc(value: &str) -> Result<NormalizedTime, TemporalKernelErrorV1> {
         return Err(TemporalKernelErrorV1::InvalidTimestamp);
     }
 
-    let fraction = if bytes.get(19) == Some(&b'.') {
-        return Err(TemporalKernelErrorV1::InvalidTimestamp);
-    } else {
-        String::from("000000000")
-    };
+    let fraction = "000000000";
     let normalized = format!(
         "{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}.{fraction}Z"
     );
