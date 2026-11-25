@@ -103,6 +103,10 @@ pub struct MetricEstimate {
     pub point_estimate: f64,
     pub upper_bound: f64,
     pub confidence_level_bps: u16,
+    /// True only when these bounds have simultaneous family-wise coverage across the vector.
+    pub simultaneous_intervals: bool,
+    /// Shared preregistered inference plan digest for the full metric vector.
+    pub inference_plan_digest: Option<String>,
     /// Independent experimental units (e.g. teams), not messages or repeated items.
     pub independent_units: u64,
     /// Total observations nested within the independent units.
@@ -213,6 +217,7 @@ fn validate_metric_set<'a>(
     report: &mut QualificationReport,
 ) -> BTreeMap<MetricId, &'a MetricEstimate> {
     let mut observed = BTreeMap::new();
+    let mut inference_plan: Option<&str> = None;
     let required: BTreeSet<MetricId> = contract.required_metrics.iter().copied().collect();
     if required.len() != contract.required_metrics.len() {
         fail(report, "required metric list contains duplicates");
@@ -249,6 +254,22 @@ fn validate_metric_set<'a>(
                 report,
                 format!("{label}: non-negative resource metric {:?} is negative", metric.metric),
             );
+        }
+        if !metric.simultaneous_intervals {
+            fail(
+                report,
+                format!("{label}: {:?} interval is not simultaneous across the metric vector", metric.metric),
+            );
+        }
+        match metric.inference_plan_digest.as_deref() {
+            Some(digest) if valid_digest(digest) => {
+                if inference_plan.is_some_and(|existing| existing != digest) {
+                    fail(report, format!("{label}: inference plan digest differs across metrics"));
+                }
+                inference_plan.get_or_insert(digest);
+            }
+            Some(_) => fail(report, format!("{label}: inference plan digest is malformed")),
+            None => indeterminate(report, format!("{label}: inference plan digest is missing")),
         }
         if metric.confidence_level_bps != contract.confidence_level_bps {
             fail(
@@ -428,6 +449,7 @@ pub fn qualify_pareto_comparison(
 
         if left.paired_unit_manifest_digest != right.paired_unit_manifest_digest
             || left.independent_units != right.independent_units
+            || left.inference_plan_digest != right.inference_plan_digest
         {
             fail(
                 &mut qualification,
@@ -467,6 +489,20 @@ pub fn qualify_pareto_comparison(
         candidate_strict_any |= result.candidate_strictly_better_at_confidence;
         baseline_strict_any |= result.baseline_strictly_better_at_confidence;
         metric_comparisons.push(result);
+    }
+
+
+    if qualification.status != QualificationStatus::Pass {
+        return ParetoComparisonReport {
+            qualification,
+            run_comparison: comparison.status,
+            relation: ParetoRelation::NotEvaluable,
+            metric_comparisons: Vec::new(),
+            rationale: vec![
+                "A paired-cohort or inference-plan mismatch invalidates the entire vector comparison.".into(),
+                "No partial metric set is promoted to a Pareto-dominance claim.".into(),
+            ],
+        };
     }
 
     let relation = if candidate_non_worse_all && candidate_strict_any {
@@ -585,6 +621,8 @@ mod tests {
             point_estimate,
             upper_bound,
             confidence_level_bps: 9500,
+            simultaneous_intervals: true,
+            inference_plan_digest: Some(digest('d')),
             independent_units: 50,
             observation_count: 500,
             paired_unit_manifest_digest: Some(digest('c')),
@@ -742,6 +780,37 @@ mod tests {
         assert_eq!(report.qualification.status, QualificationStatus::Indeterminate);
     }
 
+
+
+    #[test]
+    fn non_simultaneous_intervals_cannot_qualify_pareto_claim() {
+        let c = contract();
+        let (baseline, mut candidate) = runs(true);
+        candidate.metrics[0].simultaneous_intervals = false;
+        let report = qualify_pareto_comparison(&c, &baseline, &candidate);
+        assert_eq!(report.qualification.status, QualificationStatus::Fail);
+        assert_eq!(report.relation, ParetoRelation::NotEvaluable);
+    }
+
+    #[test]
+    fn different_inference_plans_block_paired_dominance() {
+        let c = contract();
+        let (baseline, mut candidate) = runs(true);
+        candidate.metrics[0].inference_plan_digest = Some(digest('9'));
+        let report = qualify_pareto_comparison(&c, &baseline, &candidate);
+        assert_eq!(report.qualification.status, QualificationStatus::Fail);
+        assert_eq!(report.relation, ParetoRelation::NotEvaluable);
+    }
+
+    #[test]
+    fn missing_inference_plan_is_indeterminate() {
+        let c = contract();
+        let (baseline, mut candidate) = runs(true);
+        candidate.metrics[0].inference_plan_digest = None;
+        let report = qualify_pareto_comparison(&c, &baseline, &candidate);
+        assert_eq!(report.qualification.status, QualificationStatus::Indeterminate);
+        assert_eq!(report.relation, ParetoRelation::NotEvaluable);
+    }
 
     #[test]
     fn different_independent_unit_cohorts_block_paired_dominance() {
