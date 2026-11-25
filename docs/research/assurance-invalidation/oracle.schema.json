@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/assurance-invalidation/oracle.schema.json",
+  "title": "LISE Assurance Invalidation Oracle Outcome",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scenario_id",
+    "applicability",
+    "currentness",
+    "horizon_relation",
+    "change_coverage",
+    "disposition",
+    "invalidated_dimensions",
+    "preserved_dimensions",
+    "reason_code"
+  ],
+  "properties": {
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^INV-[0-9]{3}$"
+    },
+    "applicability": {
+      "enum": [
+        "ExactSubject",
+        "ControlledEquivalent",
+        "ConditionallyTransferable",
+        "RequiresTargetedRevalidation",
+        "HistoricalOnly",
+        "Inapplicable",
+        "Unknown"
+      ]
+    },
+    "currentness": {
+      "enum": [
+        "CurrentWithinDeclaredCutoff",
+        "StaleRelativeToCutoff",
+        "SupersededByKnownEvidence",
+        "ConflictingCurrentEvidence",
+        "CurrentnessUnknown",
+        "NotApplicable"
+      ]
+    },
+    "horizon_relation": {
+      "enum": [
+        "WITHIN_EVIDENCE_LEASE",
+        "EXPIRED_EVIDENCE_LEASE",
+        "NOT_APPLICABLE",
+        "UNKNOWN"
+      ]
+    },
+    "change_coverage": {
+      "enum": [
+        "COMPLETE",
+        "INCOMPLETE",
+        "UNKNOWN",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "disposition": {
+      "enum": [
+        "RETAIN_WITHIN_SCOPE",
+        "TARGETED_REQUALIFICATION",
+        "HISTORICAL_ONLY",
+        "INDETERMINATE",
+        "NOT_APPLICABLE"
+      ]
+    },
+    "invalidated_dimensions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "preserved_dimensions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "reason_code": {
+      "type": "string",
+      "pattern": "^[A-Z0-9_]+$"
+    }
+  }
+}

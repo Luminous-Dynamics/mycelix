@@ -1,0 +1,1325 @@
+{
+  "corpus_id": "LISE-ASSURANCE-INV-50-v1",
+  "status": "public_development_seed",
+  "disclosure": "Public synthetic development corpus; not a hidden or blinded holdout.",
+  "scenario_count": 50,
+  "pair_count": 25,
+  "owner_semantics": [
+    "#181 EvidenceLease",
+    "#1087 EvidenceApplicability",
+    "#2631 CurrentnessAssessment",
+    "#1207 evidence epochs and causal ordering",
+    "#2688 no-duplicate-lease ownership"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "INV-001",
+      "pair_id": "INV-M01",
+      "variant": "A",
+      "family": "identity_key_lifecycle",
+      "contrast": "key revocation after an earlier positive check",
+      "claim_id": "CLM-KEY-REVOCATION",
+      "claim_property": "current_key_authority",
+      "claim_scope": "New invocations under the designated current trust root",
+      "prior_evidence": [
+        "Key K1 resolves to principal P1 at registry epoch 8.",
+        "Current evidence lease remains open."
+      ],
+      "change_observations": [
+        "No revocation or binding change is recorded in the complete epoch-8 feed."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "F8",
+      "frontier_after": "F8",
+      "owner_semantics": [
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-002",
+      "pair_id": "INV-M01",
+      "variant": "B",
+      "family": "identity_key_lifecycle",
+      "contrast": "key revocation after an earlier positive check",
+      "claim_id": "CLM-KEY-REVOCATION",
+      "claim_property": "current_key_authority",
+      "claim_scope": "New invocations under the designated current trust root",
+      "prior_evidence": [
+        "Key K1 resolved to principal P1 at registry epoch 8.",
+        "Prior signature remains mathematically verifiable."
+      ],
+      "change_observations": [
+        "Authority revokes K1 at epoch 9 before the new invocation.",
+        "The PEP observes epoch 9; the old positive check was performed at epoch 8."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "F8",
+      "frontier_after": "F9",
+      "owner_semantics": [
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-003",
+      "pair_id": "INV-M02",
+      "variant": "A",
+      "family": "identity_key_lifecycle",
+      "contrast": "key rotation with unchanged principal identity",
+      "claim_id": "CLM-KEY-ROTATION",
+      "claim_property": "signing_key_currentness",
+      "claim_scope": "Current signing capability for principal P2",
+      "prior_evidence": [
+        "K2 is the designated active key for P2.",
+        "The registry and PEP key epoch match."
+      ],
+      "change_observations": [
+        "No key transition occurred in the observed epoch."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "K2/F4",
+      "frontier_after": "K2/F4",
+      "owner_semantics": [
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-004",
+      "pair_id": "INV-M02",
+      "variant": "B",
+      "family": "identity_key_lifecycle",
+      "contrast": "key rotation with unchanged principal identity",
+      "claim_id": "CLM-KEY-ROTATION",
+      "claim_property": "signing_key_currentness",
+      "claim_scope": "Current signing capability for principal P2",
+      "prior_evidence": [
+        "K2 previously signed artifacts for P2.",
+        "New key K3 has been validly enrolled for P2."
+      ],
+      "change_observations": [
+        "Authority rotates from K2 to K3.",
+        "K2 remains valid for historical artifact verification but is no longer designated for new invocations."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "K2/F4",
+      "frontier_after": "K3/F5",
+      "owner_semantics": [
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-005",
+      "pair_id": "INV-M03",
+      "variant": "A",
+      "family": "identity_key_lifecycle",
+      "contrast": "registry consistency versus unresolved equivocation",
+      "claim_id": "CLM-REGISTRY-CONSISTENCY",
+      "claim_property": "identity_binding_currentness",
+      "claim_scope": "Same key-to-principal binding across all enforcing PEPs",
+      "prior_evidence": [
+        "PEP-A and PEP-B use the same pinned registry root.",
+        "Both resolve K4 to P4."
+      ],
+      "change_observations": [
+        "Independent checks confirm identical registry commitment and current epoch."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "R11",
+      "frontier_after": "R11",
+      "owner_semantics": [
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-006",
+      "pair_id": "INV-M03",
+      "variant": "B",
+      "family": "identity_key_lifecycle",
+      "contrast": "registry consistency versus unresolved equivocation",
+      "claim_id": "CLM-REGISTRY-CONSISTENCY",
+      "claim_property": "identity_binding_currentness",
+      "claim_scope": "Same key-to-principal binding across all enforcing PEPs",
+      "prior_evidence": [
+        "PEP-A resolves K4 to P4.",
+        "PEP-B resolves K4 to P9 under the same nominal epoch."
+      ],
+      "change_observations": [
+        "The registry source is unavailable and no authoritative resolution or consistent checkpoint exists."
+      ],
+      "change_coverage": "UNKNOWN",
+      "frontier_before": "R11",
+      "frontier_after": "R11?",
+      "owner_semantics": [
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-007",
+      "pair_id": "INV-M04",
+      "variant": "A",
+      "family": "identity_key_lifecycle",
+      "contrast": "backup restore with old trust-root state",
+      "claim_id": "CLM-TRUST-ROOT-ROLLBACK",
+      "claim_property": "trust_root_currentness",
+      "claim_scope": "PEP trust-root state used to admit new invocations",
+      "prior_evidence": [
+        "PEP persists trust-root epoch 12.",
+        "Latest witnessed checkpoint is epoch 12."
+      ],
+      "change_observations": [
+        "Restore/restart recovers epoch 12 and verifies it against the latest retained checkpoint."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "TR12",
+      "frontier_after": "TR12",
+      "owner_semantics": [
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-008",
+      "pair_id": "INV-M04",
+      "variant": "B",
+      "family": "identity_key_lifecycle",
+      "contrast": "backup restore with old trust-root state",
+      "claim_id": "CLM-TRUST-ROOT-ROLLBACK",
+      "claim_property": "trust_root_currentness",
+      "claim_scope": "PEP trust-root state used to admit new invocations",
+      "prior_evidence": [
+        "PEP once persisted trust-root epoch 10.",
+        "Epoch 12 revoked a key used by the old trust root."
+      ],
+      "change_observations": [
+        "A backup restores epoch 10 after epoch 12 became authoritative.",
+        "No anti-rollback checkpoint or external latest-root witness is consulted."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "TR12",
+      "frontier_after": "TR10",
+      "owner_semantics": [
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-009",
+      "pair_id": "INV-M05",
+      "variant": "A",
+      "family": "policy_authority_delegation",
+      "contrast": "policy epoch changes after permit",
+      "claim_id": "CLM-POLICY-EPOCH",
+      "claim_property": "policy_decision_currentness",
+      "claim_scope": "Use of a previous allow for a new protected effect",
+      "prior_evidence": [
+        "Decision D1 references policy epoch 21.",
+        "The current epoch remains 21 and the operation digest is unchanged."
+      ],
+      "change_observations": [
+        "No policy supersession is present in the complete policy feed."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "P21",
+      "frontier_after": "P21",
+      "owner_semantics": [
+        "#4753 decision-to-effect currentness",
+        "#181 EvidenceLease",
+        "#2631 CurrentnessAssessment"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-010",
+      "pair_id": "INV-M05",
+      "variant": "B",
+      "family": "policy_authority_delegation",
+      "contrast": "policy epoch changes after permit",
+      "claim_id": "CLM-POLICY-EPOCH",
+      "claim_property": "policy_decision_currentness",
+      "claim_scope": "Use of a previous allow for a new protected effect",
+      "prior_evidence": [
+        "Decision D1 references policy epoch 21 and allowed operation OP5.",
+        "Current policy authority publishes epoch 22 before effect commit."
+      ],
+      "change_observations": [
+        "The exact new operation has not been evaluated under epoch 22.",
+        "The signature on D1 still verifies."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "P21",
+      "frontier_after": "P22",
+      "owner_semantics": [
+        "#4753 decision-to-effect currentness",
+        "#181 EvidenceLease",
+        "#2631 CurrentnessAssessment"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-011",
+      "pair_id": "INV-M06",
+      "variant": "A",
+      "family": "policy_authority_delegation",
+      "contrast": "parent delegation narrows while child session remains active",
+      "claim_id": "CLM-DELEGATION-NARROWING",
+      "claim_property": "delegation_applicability",
+      "claim_scope": "Child capability use after a parent grant changes",
+      "prior_evidence": [
+        "Parent P grants child C resource set {A,B}.",
+        "Child C is bounded to {A}."
+      ],
+      "change_observations": [
+        "Parent grant remains current and unchanged."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "D5",
+      "frontier_after": "D5",
+      "owner_semantics": [
+        "#4753 decision-to-effect currentness",
+        "#181 EvidenceLease",
+        "#2631 CurrentnessAssessment"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-012",
+      "pair_id": "INV-M06",
+      "variant": "B",
+      "family": "policy_authority_delegation",
+      "contrast": "parent delegation narrows while child session remains active",
+      "claim_id": "CLM-DELEGATION-NARROWING",
+      "claim_property": "delegation_applicability",
+      "claim_scope": "Child capability use after a parent grant changes",
+      "prior_evidence": [
+        "Parent P granted child C resource set {A,B}.",
+        "Child C token still carries the parent-bounded set {A,B}."
+      ],
+      "change_observations": [
+        "Parent P is amended to {A} only and the new epoch is known.",
+        "The child session still carries its old scope token."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "D5",
+      "frontier_after": "D6",
+      "owner_semantics": [
+        "#4753 decision-to-effect currentness",
+        "#181 EvidenceLease",
+        "#2631 CurrentnessAssessment"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-013",
+      "pair_id": "INV-M07",
+      "variant": "A",
+      "family": "policy_authority_delegation",
+      "contrast": "constitutional authority changes between Ready and effectuation",
+      "claim_id": "CLM-CONSTITUTION-EPOCH",
+      "claim_property": "effect_authority_currentness",
+      "claim_scope": "One exact approved operation at the external effect boundary",
+      "prior_evidence": [
+        "Approval A7 binds constitution epoch C7 and exact operation digest O7.",
+        "C7 remains designated current at effectuation."
+      ],
+      "change_observations": [
+        "Resource precondition and authority epoch still match at the effect boundary."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "C7",
+      "frontier_after": "C7",
+      "owner_semantics": [
+        "#4753 decision-to-effect currentness",
+        "#181 EvidenceLease",
+        "#2631 CurrentnessAssessment"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-014",
+      "pair_id": "INV-M07",
+      "variant": "B",
+      "family": "policy_authority_delegation",
+      "contrast": "constitutional authority changes between Ready and effectuation",
+      "claim_id": "CLM-CONSTITUTION-EPOCH",
+      "claim_property": "effect_authority_currentness",
+      "claim_scope": "One exact approved operation at the external effect boundary",
+      "prior_evidence": [
+        "Approval A7 binds constitution epoch C7 and exact operation digest O7.",
+        "The operation is Ready but not yet effected."
+      ],
+      "change_observations": [
+        "Constitution epoch C8 supersedes C7 after Ready and before effectuation.",
+        "No explicit carry-forward or reauthorization is provided."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "C7",
+      "frontier_after": "C8",
+      "owner_semantics": [
+        "#4753 decision-to-effect currentness",
+        "#181 EvidenceLease",
+        "#2631 CurrentnessAssessment"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-015",
+      "pair_id": "INV-M08",
+      "variant": "A",
+      "family": "policy_authority_delegation",
+      "contrast": "unrelated policy namespace changes",
+      "claim_id": "CLM-POLICY-NAMESPACE-ISOLATION",
+      "claim_property": "policy_scope_applicability",
+      "claim_scope": "Claim bound only to policy namespace alpha",
+      "prior_evidence": [
+        "Claim C8 depends only on policy namespace alpha.",
+        "The namespace-alpha digest and epoch are pinned."
+      ],
+      "change_observations": [
+        "Only namespace beta changes; the dependency manifest proves alpha is not transitively dependent on beta."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "PA-alpha-4",
+      "frontier_after": "PA-alpha-4/PB-beta-9",
+      "owner_semantics": [
+        "#4753 decision-to-effect currentness",
+        "#181 EvidenceLease",
+        "#2631 CurrentnessAssessment"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-016",
+      "pair_id": "INV-M08",
+      "variant": "B",
+      "family": "policy_authority_delegation",
+      "contrast": "unrelated policy namespace changes",
+      "claim_id": "CLM-POLICY-NAMESPACE-ISOLATION",
+      "claim_property": "policy_scope_applicability",
+      "claim_scope": "Claim bound only to policy namespace alpha",
+      "prior_evidence": [
+        "Claim C8 depends on namespaces alpha and beta through a shared policy import.",
+        "Both namespaces were included in the original dependency closure."
+      ],
+      "change_observations": [
+        "Namespace beta changes and the new closure alters an imported predicate used by alpha."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "PA-alpha-4/PB-beta-8",
+      "frontier_after": "PA-alpha-5/PB-beta-9",
+      "owner_semantics": [
+        "#4753 decision-to-effect currentness",
+        "#181 EvidenceLease",
+        "#2631 CurrentnessAssessment"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-017",
+      "pair_id": "INV-M09",
+      "variant": "A",
+      "family": "pep_route_profile",
+      "contrast": "new effect-capable route added to complete mediation claim",
+      "claim_id": "CLM-ROUTE-COMPLETENESS",
+      "claim_property": "complete_mediation",
+      "claim_scope": "All reachable routes to protected write effect E",
+      "prior_evidence": [
+        "Closed route inventory R9 includes API, MCP, batch and recovery.",
+        "Every route traverses the expected PEP."
+      ],
+      "change_observations": [
+        "No route set change occurred in deployment revision 9."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "R9",
+      "frontier_after": "R9",
+      "owner_semantics": [
+        "#6136 effectuation scope",
+        "#6140 observation coverage",
+        "#1087 applicability"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-018",
+      "pair_id": "INV-M09",
+      "variant": "B",
+      "family": "pep_route_profile",
+      "contrast": "new effect-capable route added to complete mediation claim",
+      "claim_id": "CLM-ROUTE-COMPLETENESS",
+      "claim_property": "complete_mediation",
+      "claim_scope": "All reachable routes to protected write effect E",
+      "prior_evidence": [
+        "Closed route inventory R9 enumerated all known paths.",
+        "Every listed route traversed the expected PEP."
+      ],
+      "change_observations": [
+        "Deployment revision 10 adds a maintenance route capable of the same protected write.",
+        "The new route has not yet been qualified against the required PEP."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "R9",
+      "frontier_after": "R10",
+      "owner_semantics": [
+        "#6136 effectuation scope",
+        "#6140 observation coverage",
+        "#1087 applicability"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-019",
+      "pair_id": "INV-M10",
+      "variant": "A",
+      "family": "pep_route_profile",
+      "contrast": "incomplete dynamic route inventory",
+      "claim_id": "CLM-DYNAMIC-ROUTE-INVENTORY",
+      "claim_property": "route_coverage_currentness",
+      "claim_scope": "All effect-capable routes in the declared deployment",
+      "prior_evidence": [
+        "Inventory explicitly covers API, plugin, import, maintenance and fallback routes.",
+        "Dynamic loading is disabled and owner attests bounded route closure."
+      ],
+      "change_observations": [
+        "Deployment and route configuration remain pinned."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "ROUTE-SET-12",
+      "frontier_after": "ROUTE-SET-12",
+      "owner_semantics": [
+        "#6136 effectuation scope",
+        "#6140 observation coverage",
+        "#1087 applicability"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-020",
+      "pair_id": "INV-M10",
+      "variant": "B",
+      "family": "pep_route_profile",
+      "contrast": "incomplete dynamic route inventory",
+      "claim_id": "CLM-DYNAMIC-ROUTE-INVENTORY",
+      "claim_property": "route_coverage_currentness",
+      "claim_scope": "All effect-capable routes in the declared deployment",
+      "prior_evidence": [
+        "Inventory covers static routes.",
+        "Dynamic plugin loading is enabled but the discovered route set is unavailable."
+      ],
+      "change_observations": [
+        "A plugin can add a new effect-capable route without a corresponding inventory observation."
+      ],
+      "change_coverage": "INCOMPLETE",
+      "frontier_before": "ROUTE-SET-12",
+      "frontier_after": "ROUTE-SET-UNKNOWN",
+      "owner_semantics": [
+        "#6136 effectuation scope",
+        "#6140 observation coverage",
+        "#1087 applicability"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-021",
+      "pair_id": "INV-M11",
+      "variant": "A",
+      "family": "pep_route_profile",
+      "contrast": "known alternate route bypasses expected PEP",
+      "claim_id": "CLM-PEP-BYPASS",
+      "claim_property": "complete_mediation",
+      "claim_scope": "Protected write effect through every reachable route",
+      "prior_evidence": [
+        "All reachable routes pass through PEP-13.",
+        "Negative controls show direct resource access is rejected."
+      ],
+      "change_observations": [
+        "Independent reachability tests cover the declared route set."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "PEP-13/R2",
+      "frontier_after": "PEP-13/R2",
+      "owner_semantics": [
+        "#6136 effectuation scope",
+        "#6140 observation coverage",
+        "#1087 applicability"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-022",
+      "pair_id": "INV-M11",
+      "variant": "B",
+      "family": "pep_route_profile",
+      "contrast": "known alternate route bypasses expected PEP",
+      "claim_id": "CLM-PEP-BYPASS",
+      "claim_property": "complete_mediation",
+      "claim_scope": "Protected write effect through every reachable route",
+      "prior_evidence": [
+        "Previously qualified routes all passed through PEP-13."
+      ],
+      "change_observations": [
+        "A newly observed maintenance route successfully writes the protected resource without PEP-13.",
+        "The bypass is independently observed and within the claim scope."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "PEP-13/R2",
+      "frontier_after": "PEP-13/R3",
+      "owner_semantics": [
+        "#6136 effectuation scope",
+        "#6140 observation coverage",
+        "#1087 applicability"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-023",
+      "pair_id": "INV-M12",
+      "variant": "A",
+      "family": "pep_route_profile",
+      "contrast": "PEP binary changes but friendly version label stays the same",
+      "claim_id": "CLM-PEP-BINARY-IDENTITY",
+      "claim_property": "pep_implementation_identity",
+      "claim_scope": "Exact PEP executable/configuration used for the protected boundary",
+      "prior_evidence": [
+        "PEP version label and executable digest are pinned.",
+        "Deployment reports the same binary digest as the evidence subject."
+      ],
+      "change_observations": [
+        "No PEP artifact or configuration mutation is observed."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "PEP-build-44",
+      "frontier_after": "PEP-build-44",
+      "owner_semantics": [
+        "#6136 effectuation scope",
+        "#6140 observation coverage",
+        "#1087 applicability"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-024",
+      "pair_id": "INV-M12",
+      "variant": "B",
+      "family": "pep_route_profile",
+      "contrast": "PEP binary changes but friendly version label stays the same",
+      "claim_id": "CLM-PEP-BINARY-IDENTITY",
+      "claim_property": "pep_implementation_identity",
+      "claim_scope": "Exact PEP executable/configuration used for the protected boundary",
+      "prior_evidence": [
+        "PEP version label is 4.4 in both reports.",
+        "Qualified evidence binds executable digest H1."
+      ],
+      "change_observations": [
+        "Runtime now loads digest H2 while retaining the friendly label 4.4.",
+        "No equivalence or targeted bridge test is supplied."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "PEP-build-H1",
+      "frontier_after": "PEP-build-H2",
+      "owner_semantics": [
+        "#6136 effectuation scope",
+        "#6140 observation coverage",
+        "#1087 applicability"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-025",
+      "pair_id": "INV-M13",
+      "variant": "A",
+      "family": "pep_route_profile",
+      "contrast": "ACS profile version changes with unknown semantics",
+      "claim_id": "CLM-ACS-PROFILE-CURRENTNESS",
+      "claim_property": "acs_profile_conformance",
+      "claim_scope": "ACS hook and disposition conformance under an exact profile revision",
+      "prior_evidence": [
+        "ACS v0.1.4 schema and profile set are pinned.",
+        "The implementation evidence is evaluated against that exact revision."
+      ],
+      "change_observations": [
+        "No ACS profile or schema transition has occurred."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "ACS-v0.1.4",
+      "frontier_after": "ACS-v0.1.4",
+      "owner_semantics": [
+        "#6136 effectuation scope",
+        "#6140 observation coverage",
+        "#1087 applicability"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-026",
+      "pair_id": "INV-M13",
+      "variant": "B",
+      "family": "pep_route_profile",
+      "contrast": "ACS profile version changes with unknown semantics",
+      "claim_id": "CLM-ACS-PROFILE-CURRENTNESS",
+      "claim_property": "acs_profile_conformance",
+      "claim_scope": "ACS hook and disposition conformance under an exact profile revision",
+      "prior_evidence": [
+        "ACS v0.1.4 conformance was qualified.",
+        "Runtime now advertises v0.2.0 profile namespace."
+      ],
+      "change_observations": [
+        "The v0.2.0 mapping and implementation conformance evidence are incomplete.",
+        "No owner-approved compatibility bridge exists."
+      ],
+      "change_coverage": "UNKNOWN",
+      "frontier_before": "ACS-v0.1.4",
+      "frontier_after": "ACS-v0.2.0?",
+      "owner_semantics": [
+        "#6136 effectuation scope",
+        "#6140 observation coverage",
+        "#1087 applicability"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-027",
+      "pair_id": "INV-M14",
+      "variant": "A",
+      "family": "agent_subject_context",
+      "contrast": "model weights change but tool/policy stack stays fixed",
+      "claim_id": "CLM-MODEL-BEHAVIOR-EVIDENCE",
+      "claim_property": "model_specific_behavioral_evidence",
+      "claim_scope": "Behavioral benchmark result for exact model artifact M1",
+      "prior_evidence": [
+        "Benchmark receipt binds model digest M1 and fixed scaffold/tool configuration.",
+        "The evaluated model remains M1."
+      ],
+      "change_observations": [
+        "No model or relevant scaffold change occurred."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "M1/S1",
+      "frontier_after": "M1/S1",
+      "owner_semantics": [
+        "#1087 dimension-specific applicability",
+        "#2631 evidence frontier",
+        "#6216 auth mesh"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-028",
+      "pair_id": "INV-M14",
+      "variant": "B",
+      "family": "agent_subject_context",
+      "contrast": "model weights change but tool/policy stack stays fixed",
+      "claim_id": "CLM-MODEL-BEHAVIOR-EVIDENCE",
+      "claim_property": "model_specific_behavioral_evidence",
+      "claim_scope": "Behavioral benchmark result for exact model artifact M1",
+      "prior_evidence": [
+        "Benchmark receipt binds model digest M1 and measured behavior B1."
+      ],
+      "change_observations": [
+        "Deployment updates model weights to digest M2.",
+        "Policy engine and PEP remain unchanged, but the old behavior result has no transfer test."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "M1/S1",
+      "frontier_after": "M2/S1",
+      "owner_semantics": [
+        "#1087 dimension-specific applicability",
+        "#2631 evidence frontier",
+        "#6216 auth mesh"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-029",
+      "pair_id": "INV-M15",
+      "variant": "A",
+      "family": "agent_subject_context",
+      "contrast": "new memory store appears in dynamic agent inventory",
+      "claim_id": "CLM-AGBOM-COMPLETENESS",
+      "claim_property": "agent_inventory_completeness",
+      "claim_scope": "Current inventory of tools, memory stores and context sources",
+      "prior_evidence": [
+        "AgBOM snapshot contains every observed tool and memory store.",
+        "No dynamic component change is reported in the session feed."
+      ],
+      "change_observations": [
+        "The complete session hook set confirms no inventory mutation."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "AGBOM-10",
+      "frontier_after": "AGBOM-10",
+      "owner_semantics": [
+        "#1087 dimension-specific applicability",
+        "#2631 evidence frontier",
+        "#6216 auth mesh"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-030",
+      "pair_id": "INV-M15",
+      "variant": "B",
+      "family": "agent_subject_context",
+      "contrast": "new memory store appears in dynamic agent inventory",
+      "claim_id": "CLM-AGBOM-COMPLETENESS",
+      "claim_property": "agent_inventory_completeness",
+      "claim_scope": "Current inventory of tools, memory stores and context sources",
+      "prior_evidence": [
+        "AgBOM-10 contains model and MCP tools.",
+        "A memory store is loaded dynamically and can influence retrieved context."
+      ],
+      "change_observations": [
+        "The session reports the new memory store but AgBOM delta omits it.",
+        "The inventory is incomplete for the current session."
+      ],
+      "change_coverage": "INCOMPLETE",
+      "frontier_before": "AGBOM-10",
+      "frontier_after": "AGBOM-11?",
+      "owner_semantics": [
+        "#1087 dimension-specific applicability",
+        "#2631 evidence frontier",
+        "#6216 auth mesh"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-031",
+      "pair_id": "INV-M16",
+      "variant": "A",
+      "family": "agent_subject_context",
+      "contrast": "context sequence is complete versus missing event gap",
+      "claim_id": "CLM-CONTEXT-CHAIN-COMPLETENESS",
+      "claim_property": "context_history_completeness",
+      "claim_scope": "As-known context chain for session S",
+      "prior_evidence": [
+        "Session genesis is authority-bound.",
+        "Expected sequence 1–12 is complete with predecessor digest continuity."
+      ],
+      "change_observations": [
+        "Independent ingress manifest confirms all 12 expected events."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "CTX-12",
+      "frontier_after": "CTX-12",
+      "owner_semantics": [
+        "#1087 dimension-specific applicability",
+        "#2631 evidence frontier",
+        "#6216 auth mesh"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-032",
+      "pair_id": "INV-M16",
+      "variant": "B",
+      "family": "agent_subject_context",
+      "contrast": "context sequence is complete versus missing event gap",
+      "claim_id": "CLM-CONTEXT-CHAIN-COMPLETENESS",
+      "claim_property": "context_history_completeness",
+      "claim_scope": "As-known context chain for session S",
+      "prior_evidence": [
+        "Events 1–9 and 12 are present and locally hash-consistent."
+      ],
+      "change_observations": [
+        "Events 10–11 are absent and no authenticated compaction receipt exists.",
+        "Missing events could contain revocation, narrowing or source changes."
+      ],
+      "change_coverage": "INCOMPLETE",
+      "frontier_before": "CTX-12",
+      "frontier_after": "CTX-12-gap",
+      "owner_semantics": [
+        "#1087 dimension-specific applicability",
+        "#2631 evidence frontier",
+        "#6216 auth mesh"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-033",
+      "pair_id": "INV-M17",
+      "variant": "A",
+      "family": "agent_subject_context",
+      "contrast": "model tokenizer changes but separate policy claim does not depend on tokenizer",
+      "claim_id": "CLM-POLICY-ENGINE-INDEPENDENCE",
+      "claim_property": "policy_engine_subject_applicability",
+      "claim_scope": "Policy engine correctness claim excluding model/tokenizer behavior",
+      "prior_evidence": [
+        "Policy engine artifact P7 is pinned independently from the agent tokenizer.",
+        "Claim scope excludes agent language parsing and prompt interpretation."
+      ],
+      "change_observations": [
+        "No policy artifact or policy input semantics changed."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "P7/T1",
+      "frontier_after": "P7/T1",
+      "owner_semantics": [
+        "#1087 dimension-specific applicability",
+        "#2631 evidence frontier",
+        "#6216 auth mesh"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-034",
+      "pair_id": "INV-M17",
+      "variant": "B",
+      "family": "agent_subject_context",
+      "contrast": "model tokenizer changes but separate policy claim does not depend on tokenizer",
+      "claim_id": "CLM-POLICY-ENGINE-INDEPENDENCE",
+      "claim_property": "policy_engine_subject_applicability",
+      "claim_scope": "Policy engine correctness claim excluding model/tokenizer behavior",
+      "prior_evidence": [
+        "Policy engine artifact P7 remains byte-identical.",
+        "Agent tokenizer changes from T1 to T2."
+      ],
+      "change_observations": [
+        "Dependency manifest shows the policy evaluator does not consume model tokens or tokenizer tables."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "P7/T1",
+      "frontier_after": "P7/T2",
+      "owner_semantics": [
+        "#1087 dimension-specific applicability",
+        "#2631 evidence frontier",
+        "#6216 auth mesh"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-035",
+      "pair_id": "INV-M18",
+      "variant": "A",
+      "family": "agent_subject_context",
+      "contrast": "prompt/context source classification and derivation change",
+      "claim_id": "CLM-PROMPT-PROVENANCE",
+      "claim_property": "prompt_source_applicability",
+      "claim_scope": "Claim that the context contains only owner-authorized source material",
+      "prior_evidence": [
+        "Context provenance binds each source and derivation step.",
+        "Source classification and purpose permission remain current."
+      ],
+      "change_observations": [
+        "No source or derivation update occurs."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "CTX-PROV-3",
+      "frontier_after": "CTX-PROV-3",
+      "owner_semantics": [
+        "#1087 dimension-specific applicability",
+        "#2631 evidence frontier",
+        "#6216 auth mesh"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-036",
+      "pair_id": "INV-M18",
+      "variant": "B",
+      "family": "agent_subject_context",
+      "contrast": "prompt/context source classification and derivation change",
+      "claim_id": "CLM-PROMPT-PROVENANCE",
+      "claim_property": "prompt_source_applicability",
+      "claim_scope": "Claim that the context contains only owner-authorized source material",
+      "prior_evidence": [
+        "Prior context chain is authentic and complete.",
+        "A retrieved source is reclassified as untrusted and outside task purpose."
+      ],
+      "change_observations": [
+        "Current context still contains the derived instruction.",
+        "The new classification is authenticated and applies to the current task."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "CTX-PROV-3",
+      "frontier_after": "CTX-PROV-4",
+      "owner_semantics": [
+        "#1087 dimension-specific applicability",
+        "#2631 evidence frontier",
+        "#6216 auth mesh"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-037",
+      "pair_id": "INV-M19",
+      "variant": "A",
+      "family": "evidence_observer_dependency",
+      "contrast": "two observers discovered to share a common upstream source",
+      "claim_id": "CLM-OBSERVER-INDEPENDENCE",
+      "claim_property": "observer_independence",
+      "claim_scope": "Claim that two observations independently corroborate one effect",
+      "prior_evidence": [
+        "Observer A and B have distinct operators and data acquisition paths.",
+        "Dependency graph is complete for the declared observer set."
+      ],
+      "change_observations": [
+        "No common upstream source or shared collector is found."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "OBS-A/B-G3",
+      "frontier_after": "OBS-A/B-G3",
+      "owner_semantics": [
+        "#6140 provenance/dependency closure",
+        "#2631 currentness",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-038",
+      "pair_id": "INV-M19",
+      "variant": "B",
+      "family": "evidence_observer_dependency",
+      "contrast": "two observers discovered to share a common upstream source",
+      "claim_id": "CLM-OBSERVER-INDEPENDENCE",
+      "claim_property": "observer_independence",
+      "claim_scope": "Claim that two observations independently corroborate one effect",
+      "prior_evidence": [
+        "Observer A and B signed separate observations.",
+        "Both are later found to depend on the same upstream event feed and collector."
+      ],
+      "change_observations": [
+        "Dependency discovery is authenticated and within the claimed observation interval."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "OBS-A/B-G3",
+      "frontier_after": "OBS-A/B-SHARED",
+      "owner_semantics": [
+        "#6140 provenance/dependency closure",
+        "#2631 currentness",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-039",
+      "pair_id": "INV-M20",
+      "variant": "A",
+      "family": "evidence_observer_dependency",
+      "contrast": "observer signing key rotates with valid historical records",
+      "claim_id": "CLM-OBSERVER-KEY-LIFECYCLE",
+      "claim_property": "observation_signature_validity",
+      "claim_scope": "Historical observation bytes and new observations from observer O",
+      "prior_evidence": [
+        "Observer O's active key K8 is current.",
+        "Existing observation signature verifies under K8."
+      ],
+      "change_observations": [
+        "The same key and registry binding remain current."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "OBS-K8",
+      "frontier_after": "OBS-K8",
+      "owner_semantics": [
+        "#6140 provenance/dependency closure",
+        "#2631 currentness",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-040",
+      "pair_id": "INV-M20",
+      "variant": "B",
+      "family": "evidence_observer_dependency",
+      "contrast": "observer signing key rotates with valid historical records",
+      "claim_id": "CLM-OBSERVER-KEY-LIFECYCLE",
+      "claim_property": "observation_signature_validity",
+      "claim_scope": "Historical observation bytes and new observations from observer O",
+      "prior_evidence": [
+        "Historical observations are signed with K8 and verify correctly."
+      ],
+      "change_observations": [
+        "Observer rotates to K9 under authenticated registry transition.",
+        "K8 is retained for historical verification but is no longer authorized for new observations."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "OBS-K8",
+      "frontier_after": "OBS-K9",
+      "owner_semantics": [
+        "#6140 provenance/dependency closure",
+        "#2631 currentness",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-041",
+      "pair_id": "INV-M21",
+      "variant": "A",
+      "family": "evidence_observer_dependency",
+      "contrast": "expected source feed unavailable versus complete source coverage",
+      "claim_id": "CLM-EXPECTED-SOURCE-COVERAGE",
+      "claim_property": "evidence_coverage_currentness",
+      "claim_scope": "Claim that all expected observer sources were reconciled",
+      "prior_evidence": [
+        "Expected source set is enumerated and every source supplied its observation or explicit no-event result."
+      ],
+      "change_observations": [
+        "All expected feeds are available and reconciled through cutoff F."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "SRC-F10",
+      "frontier_after": "SRC-F10",
+      "owner_semantics": [
+        "#6140 provenance/dependency closure",
+        "#2631 currentness",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-042",
+      "pair_id": "INV-M21",
+      "variant": "B",
+      "family": "evidence_observer_dependency",
+      "contrast": "expected source feed unavailable versus complete source coverage",
+      "claim_id": "CLM-EXPECTED-SOURCE-COVERAGE",
+      "claim_property": "evidence_coverage_currentness",
+      "claim_scope": "Claim that all expected observer sources were reconciled",
+      "prior_evidence": [
+        "Expected source set includes feed X.",
+        "Feed X becomes unavailable and no qualified fallback or no-event evidence exists."
+      ],
+      "change_observations": [
+        "The evaluator cannot distinguish no event from missing observation."
+      ],
+      "change_coverage": "INCOMPLETE",
+      "frontier_before": "SRC-F10",
+      "frontier_after": "SRC-F11-incomplete",
+      "owner_semantics": [
+        "#6140 provenance/dependency closure",
+        "#2631 currentness",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-043",
+      "pair_id": "INV-M22",
+      "variant": "A",
+      "family": "evidence_observer_dependency",
+      "contrast": "two endpoints are mirrors of the same receipt",
+      "claim_id": "CLM-OBSERVER-CORROBORATION",
+      "claim_property": "independent_corroboration",
+      "claim_scope": "Number of independent observations supporting effect E",
+      "prior_evidence": [
+        "Observer A and B have separate acquisition and dependency roots.",
+        "Both observe the same operation and distinct protected-state evidence."
+      ],
+      "change_observations": [
+        "Dependency closure remains complete and disjoint."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "OBS-SET-4",
+      "frontier_after": "OBS-SET-4",
+      "owner_semantics": [
+        "#6140 provenance/dependency closure",
+        "#2631 currentness",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-044",
+      "pair_id": "INV-M22",
+      "variant": "B",
+      "family": "evidence_observer_dependency",
+      "contrast": "two endpoints are mirrors of the same receipt",
+      "claim_id": "CLM-OBSERVER-CORROBORATION",
+      "claim_property": "independent_corroboration",
+      "claim_scope": "Number of independent observations supporting effect E",
+      "prior_evidence": [
+        "Two endpoints return separate URLs for the same receipt bytes and source reference."
+      ],
+      "change_observations": [
+        "Deduplication reveals one observation mirrored through two services.",
+        "No independent source exists."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "OBS-SET-4",
+      "frontier_after": "OBS-SET-4-mirror",
+      "owner_semantics": [
+        "#6140 provenance/dependency closure",
+        "#2631 currentness",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-045",
+      "pair_id": "INV-M23",
+      "variant": "A",
+      "family": "temporal_frontier_checkpoint",
+      "contrast": "late evidence changes current view but not historical as-known cutoff",
+      "claim_id": "CLM-AS-KNOWN-F1",
+      "claim_property": "historical_reconstruction",
+      "claim_scope": "What institution could know at frontier F1 versus current F2",
+      "prior_evidence": [
+        "Frontier F1 commits the evidence set available at the original decision cutoff.",
+        "Historical replay uses recorded/knowledge time as well as valid time."
+      ],
+      "change_observations": [
+        "No post-F1 evidence is included in the F1 reconstruction."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "F1",
+      "frontier_after": "F1",
+      "owner_semantics": [
+        "#2631 evidence frontier",
+        "#1207 causal ordering",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-046",
+      "pair_id": "INV-M23",
+      "variant": "B",
+      "family": "temporal_frontier_checkpoint",
+      "contrast": "late evidence changes current view but not historical as-known cutoff",
+      "claim_id": "CLM-AS-KNOWN-F1",
+      "claim_property": "historical_reconstruction",
+      "claim_scope": "What institution could know at frontier F1 versus current F2",
+      "prior_evidence": [
+        "Frontier F1 is frozen and its decision packet digest is retained."
+      ],
+      "change_observations": [
+        "Evidence E arrives after F1 but asserts earlier effective time.",
+        "F2 includes E; F1 replay must still exclude it while current view evaluates it."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "F1",
+      "frontier_after": "F2",
+      "owner_semantics": [
+        "#2631 evidence frontier",
+        "#1207 causal ordering",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-047",
+      "pair_id": "INV-M24",
+      "variant": "A",
+      "family": "temporal_frontier_checkpoint",
+      "contrast": "transparency checkpoint has versus lacks consistency proof",
+      "claim_id": "CLM-LOG-CHECKPOINT-CURRENTNESS",
+      "claim_property": "append_only_evidence_frontier",
+      "claim_scope": "Current log frontier used for evidence completeness",
+      "prior_evidence": [
+        "Verifier persisted checkpoint C10.",
+        "A valid consistency proof links C10 to the latest witnessed checkpoint C11."
+      ],
+      "change_observations": [
+        "Witnesses agree on the current checkpoint and inclusion evidence."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "C10",
+      "frontier_after": "C11",
+      "owner_semantics": [
+        "#2631 evidence frontier",
+        "#1207 causal ordering",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-048",
+      "pair_id": "INV-M24",
+      "variant": "B",
+      "family": "temporal_frontier_checkpoint",
+      "contrast": "transparency checkpoint has versus lacks consistency proof",
+      "claim_id": "CLM-LOG-CHECKPOINT-CURRENTNESS",
+      "claim_property": "append_only_evidence_frontier",
+      "claim_scope": "Current log frontier used for evidence completeness",
+      "prior_evidence": [
+        "Verifier persisted checkpoint C10."
+      ],
+      "change_observations": [
+        "A newer checkpoint is presented but no consistency proof from C10 is available.",
+        "The log may be stale, split-view or non-prefix."
+      ],
+      "change_coverage": "UNKNOWN",
+      "frontier_before": "C10",
+      "frontier_after": "C11-unproven",
+      "owner_semantics": [
+        "#2631 evidence frontier",
+        "#1207 causal ordering",
+        "#181 EvidenceLease"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-049",
+      "pair_id": "INV-M25",
+      "variant": "A",
+      "family": "evidence_lease",
+      "contrast": "EvidenceLease remains within horizon versus expires",
+      "claim_id": "CLM-EVIDENCE-LEASE-REUSE",
+      "claim_property": "reusable_verification_horizon",
+      "claim_scope": "Reuse of an already-qualified verifier result for the same subject",
+      "prior_evidence": [
+        "EvidenceLease for verifier result L1 has verified_at V1 and valid_until U1.",
+        "Current cutoff T is before U1; semantic subject and dependencies are unchanged."
+      ],
+      "change_observations": [
+        "No expiry, subject change or supersession occurred."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "V1..U1",
+      "frontier_after": "T<U1",
+      "owner_semantics": [
+        "#181 EvidenceLease",
+        "#2688 no-duplicate-lease ownership"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    },
+    {
+      "scenario_id": "INV-050",
+      "pair_id": "INV-M25",
+      "variant": "B",
+      "family": "evidence_lease",
+      "contrast": "EvidenceLease remains within horizon versus expires",
+      "claim_id": "CLM-EVIDENCE-LEASE-REUSE",
+      "claim_property": "reusable_verification_horizon",
+      "claim_scope": "Reuse of an already-qualified verifier result for the same subject",
+      "prior_evidence": [
+        "EvidenceLease for verifier result L1 has verified_at V1 and valid_until U1.",
+        "Underlying source proposition remains historically valid."
+      ],
+      "change_observations": [
+        "Current cutoff T is after U1.",
+        "No fresh verification has extended or replaced the lease."
+      ],
+      "change_coverage": "COMPLETE",
+      "frontier_before": "V1..U1",
+      "frontier_after": "T>U1",
+      "owner_semantics": [
+        "#181 EvidenceLease",
+        "#2688 no-duplicate-lease ownership"
+      ],
+      "evaluator_instruction": "Appraise historical validity, applicability, currentness and reusable evidence horizon separately. Apply only the named owner semantics. Do not infer that an unobserved or missing change means no change occurred."
+    }
+  ]
+}
