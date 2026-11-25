@@ -239,7 +239,10 @@ impl TemporalEvidenceSetV1 {
                 (_, Some(window)) => {
                     let earliest = normalize_utc(&window.earliest)?;
                     let latest = normalize_utc(&window.latest)?;
-                    if earliest.sortable > latest.sortable {
+                    if earliest.sortable > latest.sortable
+                        || time.sortable < earliest.sortable
+                        || time.sortable > latest.sortable
+                    {
                         return Err(TemporalKernelErrorV1::InvalidUncertaintyWindow);
                     }
                 }
@@ -572,17 +575,13 @@ impl TemporalEvidenceSetV1 {
                     && knowledge.assertion_ref.as_deref() == Some(assertion.assertion_id.as_str())
                     && knowledge.verifier_ref.as_deref() == Some(verifier_ref)
             }) {
-                let time = normalize_utc(&knowledge.time_value)?;
-                if time.sortable <= known_at.sortable {
-                    match knowledge.quality {
-                        TemporalQualityV1::SourceAsserted => {
-                            knowledge_ids.push(knowledge.assertion_id.clone());
-                        }
-                        TemporalQualityV1::Contested => contested_knowledge = true,
-                        TemporalQualityV1::Estimated | TemporalQualityV1::Uncertain => {
-                            uncertain_knowledge = true;
-                        }
+                match knowledge_visibility(knowledge, known_at)? {
+                    KnowledgeVisibility::Known => {
+                        knowledge_ids.push(knowledge.assertion_id.clone());
                     }
+                    KnowledgeVisibility::NotKnown => {}
+                    KnowledgeVisibility::Indeterminate => uncertain_knowledge = true,
+                    KnowledgeVisibility::Conflict => contested_knowledge = true,
                 }
             }
             if contested_knowledge {
@@ -959,17 +958,13 @@ impl TemporalEvidenceIndexV1 {
             {
                 for knowledge_position in knowledge_positions {
                     let knowledge = &self.evidence.assertions[*knowledge_position];
-                    let time = normalize_utc(&knowledge.time_value)?;
-                    if time.sortable <= known_at.sortable {
-                        match knowledge.quality {
-                            TemporalQualityV1::SourceAsserted => {
-                                knowledge_ids.push(knowledge.assertion_id.clone());
-                            }
-                            TemporalQualityV1::Contested => contested_knowledge = true,
-                            TemporalQualityV1::Estimated | TemporalQualityV1::Uncertain => {
-                                uncertain_knowledge = true;
-                            }
+                    match knowledge_visibility(knowledge, known_at)? {
+                        KnowledgeVisibility::Known => {
+                            knowledge_ids.push(knowledge.assertion_id.clone());
                         }
+                        KnowledgeVisibility::NotKnown => {}
+                        KnowledgeVisibility::Indeterminate => uncertain_knowledge = true,
+                        KnowledgeVisibility::Conflict => contested_knowledge = true,
                     }
                 }
             }
@@ -1056,6 +1051,53 @@ enum Selection<'a> {
     Indeterminate,
     Conflict,
 }
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum KnowledgeVisibility {
+    Known,
+    NotKnown,
+    Indeterminate,
+    Conflict,
+}
+
+fn knowledge_visibility(
+    assertion: &TemporalAssertionV1,
+    known_at: &NormalizedTime,
+) -> Result<KnowledgeVisibility, TemporalKernelErrorV1> {
+    match assertion.quality {
+        TemporalQualityV1::SourceAsserted => {
+            let time = normalize_utc(&assertion.time_value)?;
+            Ok(if time.sortable <= known_at.sortable {
+                KnowledgeVisibility::Known
+            } else {
+                KnowledgeVisibility::NotKnown
+            })
+        }
+        TemporalQualityV1::Contested => {
+            let time = normalize_utc(&assertion.time_value)?;
+            Ok(if time.sortable <= known_at.sortable {
+                KnowledgeVisibility::Conflict
+            } else {
+                KnowledgeVisibility::NotKnown
+            })
+        }
+        TemporalQualityV1::Estimated | TemporalQualityV1::Uncertain => {
+            let window = assertion
+                .uncertainty_window
+                .as_ref()
+                .ok_or(TemporalKernelErrorV1::UncertaintyWindowRequired)?;
+            let earliest = normalize_utc(&window.earliest)?;
+            let latest = normalize_utc(&window.latest)?;
+            Ok(if known_at.sortable < earliest.sortable {
+                KnowledgeVisibility::NotKnown
+            } else if known_at.sortable >= latest.sortable {
+                KnowledgeVisibility::Known
+            } else {
+                KnowledgeVisibility::Indeterminate
+            })
+        }
+    }
+}
+
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum BoundaryResult {
@@ -1654,6 +1696,35 @@ mod tests {
             )
             .unwrap();
         assert_eq!(result.disposition, QueryDispositionV1::Indeterminate);
+    }
+
+    #[test]
+    fn uncertain_knowledge_frontier_is_indeterminate_until_window_closes() {
+        let mut evidence = valid_fixture();
+        let receipt = evidence.assertions.iter_mut()
+            .find(|assertion| assertion.assertion_id == "from-known")
+            .unwrap();
+        receipt.quality = TemporalQualityV1::Uncertain;
+        receipt.uncertainty_window = Some(UncertaintyWindowV1 {
+            earliest: "2026-11-20T08:00:20Z".into(),
+            latest: "2026-11-20T08:00:30Z".into(),
+        });
+        let index = TemporalEvidenceIndexV1::new(evidence.clone()).unwrap();
+
+        for (known_at, expected) in [
+            ("2026-11-20T08:00:19Z", QueryDispositionV1::Indeterminate),
+            ("2026-11-20T08:00:25Z", QueryDispositionV1::Indeterminate),
+            ("2026-11-20T08:00:30Z", QueryDispositionV1::ValidAtQuery),
+        ] {
+            let reference = evidence.evaluate_valid_at(
+                "grant-1", VERIFIER, "2026-11-19T00:00:00Z", known_at, false
+            ).unwrap();
+            let indexed = index.evaluate_valid_at(
+                "grant-1", VERIFIER, "2026-11-19T00:00:00Z", known_at, false
+            ).unwrap();
+            assert_eq!(reference, indexed);
+            assert_eq!(indexed.disposition, expected);
+        }
     }
 
     #[test]
