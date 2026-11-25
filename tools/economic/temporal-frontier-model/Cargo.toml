@@ -1,0 +1,10 @@
+[package]
+name = "mycelix-temporal-frontier-model"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Structural model of verifier-relative owner-scoped causal frontiers"
+
+[lib]
+path = "src/lib.rs"
