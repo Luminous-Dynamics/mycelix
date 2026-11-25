@@ -202,6 +202,9 @@ struct AdaptiveProjectionResult {
 #[derive(Serialize)]
 struct SampleResult {
     laplace_s: f64,
+    output_adjoint_absolute_response_error_upper_bound: f64,
+    output_adjoint_relative_response_error_upper_bound: f64,
+    output_adjoint_error_bound_valid: bool,
     relative_response_error: f64,
     absolute_response_error: f64,
     absolute_response_error_upper_bound: f64,
@@ -272,6 +275,11 @@ struct Report {
     maximum_portwise_relative_response_error_upper_bound: f64,
     maximum_best_absolute_response_error_upper_bound: f64,
     maximum_best_relative_response_error_upper_bound: f64,
+    maximum_output_adjoint_absolute_response_error_upper_bound: f64,
+    maximum_output_adjoint_relative_response_error_upper_bound: f64,
+    output_adjoint_solve_count: usize,
+    output_adjoint_total_cg_iterations: usize,
+    output_adjoint_max_residual_inf: f64,
     overall_pcg_solve_count: usize,
     overall_pcg_iterations: usize,
     a_r_min_eigenvalue: f64,
@@ -571,6 +579,12 @@ fn pcg(
     Err(format!(
         "PCG failed to converge within {max_iterations} iterations (relative residual {relative_residual:e})"
     ))
+}
+
+struct OutputAdjointWeights {
+    upper_vectors: Vec<Vec<f64>>,
+    solve_stats: Vec<CgStats>,
+    maximum_residual_inf: f64,
 }
 
 struct MMatrixLowerBound {
