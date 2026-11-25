@@ -106,33 +106,126 @@ impl TimeBasis {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TimePrecision {
+    Nanosecond,
+    Microsecond,
+    Millisecond,
+    Second,
+    Minute,
+    Day,
+}
+
+impl TimePrecision {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Nanosecond => "NANOSECOND",
+            Self::Microsecond => "MICROSECOND",
+            Self::Millisecond => "MILLISECOND",
+            Self::Second => "SECOND",
+            Self::Minute => "MINUTE",
+            Self::Day => "DAY",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TimeQuality {
+    SourceAsserted,
+    Estimated,
+    Uncertain,
+    Contested,
+}
+
+impl TimeQuality {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::SourceAsserted => "SOURCE_ASSERTED",
+            Self::Estimated => "ESTIMATED",
+            Self::Uncertain => "UNCERTAIN",
+            Self::Contested => "CONTESTED",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TimeUncertaintyWindow {
+    pub earliest: String,
+    pub latest: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TimeAssertionMetadata {
+    pub precision: TimePrecision,
+    pub quality: TimeQuality,
+    pub clock_profile: String,
+    pub source_authority_ref: String,
+    pub uncertainty_window: Option<TimeUncertaintyWindow>,
+}
+
+impl TimeAssertionMetadata {
+    pub fn source_asserted(
+        clock_profile: impl Into<String>,
+        source_authority_ref: impl Into<String>,
+        precision: TimePrecision,
+    ) -> Self {
+        Self {
+            precision,
+            quality: TimeQuality::SourceAsserted,
+            clock_profile: clock_profile.into(),
+            source_authority_ref: source_authority_ref.into(),
+            uncertainty_window: None,
+        }
+    }
+
+    pub fn uncertain(
+        clock_profile: impl Into<String>,
+        source_authority_ref: impl Into<String>,
+        precision: TimePrecision,
+        uncertainty_window: TimeUncertaintyWindow,
+    ) -> Self {
+        Self {
+            precision,
+            quality: TimeQuality::Uncertain,
+            clock_profile: clock_profile.into(),
+            source_authority_ref: source_authority_ref.into(),
+            uncertainty_window: Some(uncertainty_window),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct QualifiedTime {
     pub iso8601: String,
     pub basis: TimeBasis,
     pub evidence_ref: String,
+    pub metadata: TimeAssertionMetadata,
 }
 
 impl QualifiedTime {
     pub fn source_event_time(
         iso8601: impl Into<String>,
         evidence_ref: impl Into<String>,
+        metadata: TimeAssertionMetadata,
     ) -> Self {
         Self {
             iso8601: iso8601.into(),
             basis: TimeBasis::SourceEventTime,
             evidence_ref: evidence_ref.into(),
+            metadata,
         }
     }
 
     pub fn source_attribute_time(
         iso8601: impl Into<String>,
         evidence_ref: impl Into<String>,
+        metadata: TimeAssertionMetadata,
     ) -> Self {
         Self {
             iso8601: iso8601.into(),
             basis: TimeBasis::SourceAttributeTime,
             evidence_ref: evidence_ref.into(),
+            metadata,
         }
     }
 }
@@ -204,6 +297,11 @@ pub enum ProjectionError {
     MissingSourceEventReference,
     InvalidTimestamp,
     MissingTimeEvidence,
+    MissingClockProfile,
+    MissingTimeAuthority,
+    ContestedTimeCannotExport,
+    UncertaintyWindowRequired,
+    InvalidUncertaintyTimestamp,
     InvalidEventTimeBasis,
     InvalidObjectAttributeTimeBasis,
     EventWithoutObjectRelationship,
@@ -536,8 +634,30 @@ fn validate_time(time: &QualifiedTime, expected_basis: TimeBasis) -> Result<(), 
         });
     }
     validate_identifier(&time.evidence_ref).map_err(|_| ProjectionError::MissingTimeEvidence)?;
+    if time.metadata.clock_profile.trim().is_empty() {
+        return Err(ProjectionError::MissingClockProfile);
+    }
+    if time.metadata.source_authority_ref.trim().is_empty() {
+        return Err(ProjectionError::MissingTimeAuthority);
+    }
     if !is_rfc3339_timestamp(&time.iso8601) {
         return Err(ProjectionError::InvalidTimestamp);
+    }
+    if time.metadata.quality == TimeQuality::Contested {
+        return Err(ProjectionError::ContestedTimeCannotExport);
+    }
+    match (&time.metadata.quality, &time.metadata.uncertainty_window) {
+        (TimeQuality::Uncertain, None) => {
+            return Err(ProjectionError::UncertaintyWindowRequired);
+        }
+        (_, Some(window)) => {
+            if !is_rfc3339_timestamp(&window.earliest)
+                || !is_rfc3339_timestamp(&window.latest)
+            {
+                return Err(ProjectionError::InvalidUncertaintyTimestamp);
+            }
+        }
+        _ => {}
     }
     Ok(())
 }
