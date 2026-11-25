@@ -1,7 +1,7 @@
 # Economic Pluralism and Craft Agreements V1
 
 - **Work item:** CRAFT-ECONOMIC-AGREEMENTS-001
-- **Status:** Proposed integration contract; no new currency or ledger implemented
+- **Status:** Pure Rust agreement-reference validator added; no new currency or ledger implemented; owner integrations remain pending
 - **Version:** 1.0-draft
 - **Owner:** Mycelix Craft
 - **License:** AGPL-3.0-or-later
@@ -20,6 +20,10 @@ This is not a request to build another currency inside Craft. Mycelix already ha
 - [ECON-SAP-PROFILES-001 #6634](https://github.com/Luminous-Dynamics/mycelix/issues/6634) distinguishes local atomic transfer from owner-authenticated bilateral transfer.
 
 Craft should reference those systems through typed, versioned agreement terms. Finance and other domain owners remain responsible for authorization, ledgers, resource movements and settlement.
+
+### 1.1 Executable reference core
+
+The companion crate `crates/economic-agreement-v1` now validates immutable issuer/profile/revision/digest references, owner and unit identity, exact integer quantities, party consent to the terms digest, duplicate owner-obligation pairs, profile lifecycle/validity, and explicit conversion-quote references accepted by all parties. It performs no arithmetic across units and has no payment, balance, journal, FX-execution, reserve, or settlement API. Profile signatures, consent signatures, quote authenticity, and owner-side effects remain external verification duties.
 
 ## 2. Why pluralism matters
 

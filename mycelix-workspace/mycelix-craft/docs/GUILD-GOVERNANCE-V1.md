@@ -1,7 +1,7 @@
 # Mycelix Craft Guild Governance V1
 
 - **Work item:** CRAFT-GUILD-GOVERNANCE-001
-- **Status:** Proposed reference architecture; migration and runtime implementation not yet qualified
+- **Status:** Pure Rust reference core added; Holochain integration, issuer verification and qualification remain pending
 - **Version:** 1.0-draft
 - **Owner:** Mycelix Craft
 - **License:** AGPL-3.0-or-later
@@ -21,6 +21,10 @@ The central change is to stop representing five different things with one `Guild
 5. decision rights under a particular guild charter.
 
 These dimensions must be represented separately. No title, age, tenure, reputation score, founder status, currency balance, or governance office automatically proves professional competence.
+
+### 1.1 Executable reference core
+
+The companion crate `crates/guild-governance-v1` now provides a pure Rust authorization evaluator for exact-scope assignments, active membership, inclusive-start/exclusive-expiry, revocation, declared conflicts of interest, duplicate assignment IDs, and fail-closed denial. It includes negative tests for founder provenance, an Elder display alias, facilitator/treasury separation, and federation-to-guild scope leakage. The evaluator assumes the assignment snapshot has already passed issuer, charter, signature, and grantor-authority verification; it does not perform those checks itself.
 
 ## 2. Why the current model needs a redesign
 
