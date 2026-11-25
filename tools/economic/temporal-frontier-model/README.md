@@ -16,7 +16,7 @@ A wall-clock K can still be useful for reporting, but it is not proof that a ver
 
 - OwnerCutV1 binds an owner, stable history identity, covered sequence, owner-history root, a declaration binding that owner root to the aggregate checkpoint root, and explicit gap ranges.
 - VerifierFrontierV1 binds a verifier, policy epoch, aggregate checkpoint root, parent frontier references, and one cut per covered owner.
-- KnowledgeReceiptV1 binds a verifier, assertion ID/digest, owner-local receipt sequence, causal dependencies, receipt digest, and an optional inclusion declaration.
+- KnowledgeReceiptV1 binds a verifier, assertion ID/digest, the verifier's receipt-acceptance log owner and local sequence, causal dependencies, receipt digest, and an optional inclusion declaration. The owner is not automatically the source owner of the underlying fact.
 - OwnerConsistencyLinkV1 represents the declared relationship between two owner-history roots at different sequences.
 - FrontierRelationV1 distinguishes Equal, Before, After, Concurrent, Unknown, and Conflict.
 - ReceiptVisibilityV1 distinguishes DeclaredIncluded, NotKnown, and Indeterminate.
@@ -27,7 +27,7 @@ A wall-clock K can still be useful for reporting, but it is not proof that a ver
 2. **No proof, no inclusion claim.** A receipt under a covered owner prefix is DeclaredIncluded only when the inclusion declaration names the cut's owner root and receipt digest and has structurally valid index/tree-size fields.
 3. **Declared is not verified.** This crate does not execute Merkle proof verification, signature verification, checkpoint authentication, or parent-frontier consistency verification. The word DeclaredIncluded deliberately avoids implying cryptographic validation.
 4. **Gaps block absence.** If the owner prefix contains a known gap, a receipt within that prefix is Indeterminate. The frontier cannot be compared as a complete cut while any included owner cut contains unresolved gaps.
-5. **Not known requires complete coverage.** A receipt sequence beyond a gap-free cut is NotKnown; if the covered prefix itself contains gaps, the answer is Indeterminate.
+5. **Not known requires complete coverage.** A receipt sequence beyond a gap-free cut is NotKnown; if the covered prefix itself contains gaps, the answer is Indeterminate. Prefix coverage is necessary but not sufficient for a general absence claim: callers must also reconcile the complete accepted-receipt inventory for that verifier and owner.
 6. **Causal closure.** Every dependency referenced by a covered receipt must have an owner cut with complete coverage through that dependency position. Same-owner dependencies must precede the receipt sequence.
 7. **Verifier isolation.** A frontier cannot consume a receipt that names another verifier.
 8. **Fork detection.** Different roots at the same owner sequence are Conflict. Different sequence positions require an explicit consistency-link reference or compare as Unknown.
