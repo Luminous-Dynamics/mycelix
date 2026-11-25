@@ -240,6 +240,26 @@ Compare the specific arrangement and effect boundary—not entire platforms:
 
 Use the same work tasks, agreement requirements, exact instrument profiles and failure scenarios. Report legal/jurisdiction constraints and operational costs rather than claiming a universal best model.
 
+## 7.1 Industry baselines and the Craft differentiation
+
+Craft should compare with actual market capabilities, not a straw-man résumé board.
+
+| Baseline | Existing capability | What Craft should add or measure |
+| --- | --- | --- |
+| Upwork-style work marketplaces | Talent profiles, work history, proposals, contract terms, project workspaces, milestone/hourly protections and payment workflows | Portable evidence across marketplaces, independent physical-work verification, member-governed rules and multiple economic arrangements |
+| Eightfold-style talent intelligence | Skills-based candidate matching, internal mobility, project staffing, skill-gap identification and development recommendations | Explainable evidence provenance, subject-controlled disclosure, explicit abstention, independent assessment and no opaque universal person score |
+| Platform cooperatives | Shared ownership and democratic control of platform technology, work structures, algorithms and data | Reusable infrastructure for member-owned guilds while leaving ownership and policy with each cooperative |
+| Community-currency / mutual-credit networks | Local issuance, exchange and community-specific credit rules | Versioned instrument identity, explicit federation agreements, bounded exposure and typed cross-system clearing |
+| Commons and grant programmes | Shared resource allocation, public-purpose budgets, eligibility and milestone funding | Bind work acceptance to resource evidence without pretending an allocation is cash or physical capacity |
+
+References:
+- Upwork profile/work-history and protected-payment documentation: https://support.upwork.com/hc/en-us/articles/360016252373-How-to-build-your-freelancer-profile-the-essentials and https://www.upwork.com/pricing/client
+- Eightfold product and skill insights: https://docs.eightfold.ai/ and https://docs.eightfold.ai/en_US/ta-core/skills-related-insights
+- Platform Cooperativism Consortium: https://platform.coop/
+- FED-CUR-001 / NCF-1 #5464 and PR #5465 for community-currency federation.
+
+The realistic competitive claim is that Craft can compose evidence, work, governance and economic pluralism across communities. It should not claim that skill matching, portfolios, protected payments, token exchange or cooperative governance are individually novel.
+
 ## 8. Implementation sequence
 
 1. **CRAFT-ECON-001:** publish this ownership boundary and map Craft terms to existing Economic OS references.
