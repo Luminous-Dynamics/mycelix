@@ -1474,19 +1474,27 @@ fn response_error_upper_bound_output_adjoint(
     }
 
     let full_state_approx = reduced_state_in_full_space(model, projection, shift)?;
+    let reduced_coefficients = reduced_state_coefficients(projection, shift)?;
     let reference_residual =
         full_order_reference_residual_matrix(model, full_state_solutions, shift)?;
     let mut residual_columns = Vec::with_capacity(port_count);
     for input_port in 0..port_count {
         let approximate_state = column(&full_state_approx, input_port);
         let action = model.a.matvec(&approximate_state, shift)?;
+        let rom_roundoff = model.a.matvec_roundoff_bound(&approximate_state, shift)?;
+        let reference_state = &full_state_solutions[input_port];
+        let reference_roundoff = model.a.matvec_roundoff_bound(reference_state, shift)?;
         let input = column(&model.b, input_port);
         let residual_abs: Vec<f64> = input
             .iter()
             .zip(action.iter())
             .enumerate()
             .map(|(state, (right, left))| {
-                (right - left).abs() + reference_residual[state][input_port].abs()
+                (right - left).abs()
+                    + reference_residual[state][input_port].abs()
+                    + rom_roundoff[state]
+                    + reference_roundoff[state]
+                    + f64::EPSILON * (right.abs() + left.abs()) * 2.0
             })
             .collect();
         if residual_abs.iter().any(|value| !value.is_finite()) {
@@ -1510,13 +1518,44 @@ fn response_error_upper_bound_output_adjoint(
             if !raw.is_finite() || raw < 0.0 {
                 return Err("output-adjoint componentwise envelope is invalid".into());
             }
+            let reference_dot_magnitude = full_state_solutions[input_port]
+                .iter()
+                .enumerate()
+                .map(|(state, value)| model.b[state][output_port].abs() * value.abs())
+                .sum::<f64>();
+            let reduced_dot_magnitude = reduced_coefficients[input_port]
+                .iter()
+                .enumerate()
+                .map(|(mode, value)| projection.b_r[mode][output_port].abs() * value.abs())
+                .sum::<f64>();
+            let reference_operations = 2 * model.a.size + 2;
+            let reduced_operations = 2 * projection.a_r.len() + 2;
+            let reference_evaluation_roundoff = rounding_gamma(reference_operations)
+                * (model.d[output_port][input_port].abs() + reference_dot_magnitude);
+            let reduced_evaluation_roundoff = rounding_gamma(reduced_operations)
+                * (projection.d_r[output_port][input_port].abs() + reduced_dot_magnitude);
+            let subtraction_roundoff = f64::EPSILON
+                * (full_response[output_port][input_port].abs()
+                    + reduced_response[output_port][input_port].abs())
+                * 2.0;
+            let feedthrough_roundoff = f64::EPSILON
+                * (model.d[output_port][input_port].abs()
+                    + projection.d_r[output_port][input_port].abs());
+            let evaluation_roundoff = reference_evaluation_roundoff
+                + reduced_evaluation_roundoff
+                + subtraction_roundoff
+                + feedthrough_roundoff;
             let upper = raw * (1.0 + 1.0e-10)
-                + f64::EPSILON * (feedthrough + transport + 1.0) * 64.0;
+                + evaluation_roundoff
+                + f64::EPSILON * (feedthrough + transport) * 64.0;
+            if !upper.is_finite() {
+                return Err("output-adjoint roundoff-inflated envelope is non-finite".into());
+            }
             envelope[output_port][input_port] = upper;
             let actual = (full_response[output_port][input_port]
                 - reduced_response[output_port][input_port])
                 .abs();
-            let tolerance = upper * 1.0e-8 + f64::EPSILON * 64.0;
+            let tolerance = upper * 1.0e-8 + f64::EPSILON * (actual + upper) * 32.0;
             if actual > upper + tolerance {
                 return Err(format!(
                     "output-adjoint component bound failed at (out={output_port}, in={input_port}, s={shift:e}): actual={actual:e}, upper={upper:e}, transport={transport:e}, feedthrough={feedthrough:e}, residual_inf={:e}, weight_inf={:e}",
