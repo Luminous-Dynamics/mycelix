@@ -225,6 +225,8 @@ impl VerifierFrontierV1 {
     /// Does the frontier structurally cover a complete owner prefix through
     /// this sequence? False means "do not assert absence"; it does not say
     /// whether the missing information is malicious or merely delayed.
+    /// True is necessary but not sufficient for an absence claim: callers
+    /// must also reconcile the complete accepted-receipt inventory.
     pub fn proves_prefix_coverage(&self, owner_ref: &str, through: u64) -> bool {
         self.validate().is_ok()
             && self
