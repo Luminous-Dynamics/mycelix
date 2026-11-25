@@ -137,8 +137,8 @@ impl CsrMatrix {
                     .find(|reverse_index| self.col_idx[*reverse_index] == row)
                     .map(|reverse_index| self.values[reverse_index])
                     .unwrap_or(0.0);
-                if (value - reverse).abs() > tolerance {
-                    return Err("M-matrix certificate requires a symmetric sparse operator".into());
+                if value != reverse {
+                    return Err("M-matrix certificate requires an exactly symmetric sparse operator".into());
                 }
             }
         }
@@ -247,7 +247,11 @@ struct Report {
     feedthrough_limit_relative_error: f64,
     maximum_sampled_response_error: f64,
     m_matrix_lambda_min_lower_bound: f64,
+    m_matrix_supersolution_min_component: f64,
     m_matrix_supersolution_max_component: f64,
+    m_matrix_supersolution_minimum_margin: f64,
+    m_matrix_supersolution_sha256: String,
+    m_matrix_supersolution_relative_residual: f64,
     error_certificate_valid: bool,
     error_certificate_pcg_solve_count: usize,
     error_certificate_pcg_iterations: usize,
@@ -1575,7 +1579,11 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         feedthrough_limit_relative_error,
         maximum_sampled_response_error,
         m_matrix_lambda_min_lower_bound: error_certificate.lambda_min_lower_bound,
+        m_matrix_supersolution_min_component: error_certificate.supersolution_min_component,
         m_matrix_supersolution_max_component: error_certificate.supersolution_max_component,
+        m_matrix_supersolution_minimum_margin: error_certificate.minimum_supersolution_margin,
+        m_matrix_supersolution_sha256: error_certificate.supersolution_sha256,
+        m_matrix_supersolution_relative_residual: error_certificate.cg_stats.relative_residual,
         error_certificate_valid,
         error_certificate_pcg_solve_count,
         error_certificate_pcg_iterations,
