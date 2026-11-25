@@ -116,6 +116,29 @@ impl CsrMatrix {
     fn shifted_diagonal(&self, shift: f64) -> Vec<f64> {
         self.diagonal.iter().map(|value| value + shift).collect()
     }
+
+    fn validate_stieltjes(&self) -> Result<(), String> {
+        for row in 0..self.size {
+            if self.diagonal[row] <= 0.0 || !self.diagonal[row].is_finite() {
+                return Err("M-matrix certificate requires a positive finite diagonal".into());
+            }
+            for index in self.row_ptr[row]..self.row_ptr[row + 1] {
+                let column = self.col_idx[index];
+                let value = self.values[index];
+                if row != column && value > 0.0 {
+                    return Err("M-matrix certificate rejected a positive off-diagonal".into());
+                }
+                let reverse = (self.row_ptr[column]..self.row_ptr[column + 1])
+                    .find(|reverse_index| self.col_idx[*reverse_index] == row)
+                    .map(|reverse_index| self.values[reverse_index])
+                    .unwrap_or(0.0);
+                if value != reverse {
+                    return Err("M-matrix certificate requires an exactly symmetric sparse operator".into());
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone)]
@@ -143,6 +166,7 @@ struct Projection {
     a_r: Dense,
     b_r: Dense,
     d_r: Dense,
+    basis: Vec<Vec<f64>>,
     basis_dimension: usize,
     basis_snapshots: usize,
     lambda_0_min_eigenvalue: f64,
@@ -179,6 +203,10 @@ struct AdaptiveProjectionResult {
 struct SampleResult {
     laplace_s: f64,
     relative_response_error: f64,
+    absolute_response_error: f64,
+    absolute_response_error_upper_bound: f64,
+    relative_response_error_upper_bound: f64,
+    error_bound_valid: bool,
     full_cg_max_iterations: usize,
     full_cg_max_relative_residual: f64,
 }
@@ -201,6 +229,9 @@ struct Report {
     adaptive_stop_reason: String,
     block_arnoldi_baseline_basis_dimension: Option<usize>,
     block_arnoldi_baseline_maximum_sampled_response_error: Option<f64>,
+    block_arnoldi_baseline_maximum_absolute_response_error_upper_bound: Option<f64>,
+    block_arnoldi_baseline_maximum_relative_response_error_upper_bound: Option<f64>,
+    block_arnoldi_baseline_error_bound_valid: Option<bool>,
     block_arnoldi_baseline_dc_relative_error: Option<f64>,
     block_arnoldi_baseline_feedthrough_limit_relative_error: Option<f64>,
     block_arnoldi_baseline_cg_solve_count: Option<usize>,
@@ -213,6 +244,19 @@ struct Report {
     dc_relative_error: f64,
     feedthrough_limit_relative_error: f64,
     maximum_sampled_response_error: f64,
+    m_matrix_lambda_min_lower_bound: f64,
+    m_matrix_supersolution_min_component: f64,
+    m_matrix_supersolution_max_component: f64,
+    m_matrix_supersolution_minimum_margin: f64,
+    m_matrix_supersolution_sha256: String,
+    m_matrix_supersolution_relative_residual: f64,
+    error_certificate_valid: bool,
+    error_certificate_pcg_solve_count: usize,
+    error_certificate_pcg_iterations: usize,
+    maximum_absolute_response_error_upper_bound: f64,
+    maximum_relative_response_error_upper_bound: f64,
+    overall_pcg_solve_count: usize,
+    overall_pcg_iterations: usize,
     a_r_min_eigenvalue: f64,
     lambda_0_min_eigenvalue: f64,
     lambda_0_scale: f64,
@@ -512,6 +556,127 @@ fn pcg(
     ))
 }
 
+struct MMatrixLowerBound {
+    lambda_min_lower_bound: f64,
+    supersolution_min_component: f64,
+    supersolution_max_component: f64,
+    minimum_supersolution_margin: f64,
+    supersolution_sha256: String,
+    cg_stats: CgStats,
+}
+
+fn m_matrix_lambda_min_lower_bound(
+    matrix: &CsrMatrix,
+    relative_tolerance: f64,
+    max_iterations: usize,
+) -> Result<MMatrixLowerBound, String> {
+    matrix.validate_stieltjes()?;
+    let rhs = vec![1.0; matrix.size];
+    let (approximate_solution, cg_stats) =
+        pcg(matrix, 0.0, &rhs, relative_tolerance, max_iterations)?;
+    if approximate_solution
+        .iter()
+        .any(|value| !value.is_finite() || *value <= 0.0)
+    {
+        return Err("M-matrix supersolution rejected non-positive PCG components".into());
+    }
+
+    let action = matrix.matvec(&approximate_solution, 0.0)?;
+    if action.iter().any(|value| !value.is_finite() || *value <= 0.0) {
+        return Err("M-matrix supersolution rejected non-positive A*y components".into());
+    }
+
+    // For a Stieltjes matrix, A^-1 is entrywise nonnegative. A positive y
+    // satisfying A*y >= 1 is therefore a componentwise upper bound on A^-1*1.
+    // Inflate once for floating-point margin, then verify the inequality again.
+    let maximum_scale = action
+        .iter()
+        .map(|value| 1.0 / value)
+        .fold(0.0_f64, f64::max);
+    let mut scale = maximum_scale * (1.0 + 1.0e-10);
+    let mut supersolution: Vec<f64> =
+        approximate_solution.iter().map(|value| value * scale).collect();
+    let mut verified_action = matrix.matvec(&supersolution, 0.0)?;
+    for _ in 0..8 {
+        if verified_action.iter().all(|value| value.is_finite() && *value >= 1.0) {
+            break;
+        }
+        let correction = verified_action
+            .iter()
+            .map(|value| if *value > 0.0 { 1.0 / value } else { f64::INFINITY })
+            .fold(1.0_f64, f64::max);
+        if !correction.is_finite() {
+            return Err("M-matrix supersolution could not be scaled to dominate one".into());
+        }
+        scale *= correction * (1.0 + 1.0e-10);
+        for (value, original) in supersolution.iter_mut().zip(approximate_solution.iter()) {
+            *value = *original * scale;
+        }
+        verified_action = matrix.matvec(&supersolution, 0.0)?;
+    }
+    if verified_action.iter().any(|value| !value.is_finite() || *value < 1.0) {
+        return Err("M-matrix supersolution failed its final componentwise verification".into());
+    }
+    let supersolution_max_component = supersolution
+        .iter()
+        .copied()
+        .reduce(f64::max)
+        .ok_or_else(|| "cannot bound an empty M-matrix".to_string())?;
+    if !supersolution_max_component.is_finite() || supersolution_max_component <= 0.0 {
+        return Err("M-matrix supersolution maximum is invalid".into());
+    }
+    let lambda_min_lower_bound = 1.0 / supersolution_max_component;
+    if !lambda_min_lower_bound.is_finite() || lambda_min_lower_bound <= 0.0 {
+        return Err("M-matrix eigenvalue lower bound is invalid".into());
+    }
+    let supersolution_min_component = supersolution.iter().copied().reduce(f64::min)
+        .ok_or_else(|| "cannot bound an empty M-matrix".to_string())?;
+    let minimum_supersolution_margin = verified_action
+        .iter()
+        .copied()
+        .reduce(f64::min)
+        .ok_or_else(|| "cannot verify an empty M-matrix".to_string())? - 1.0;
+    let mut digest = Sha256::new();
+    digest.update(b"TERRA-MATRIX-SUPERSOLUTION-V1\\0");
+    for value in &supersolution {
+        digest.update(value.to_le_bytes());
+    }
+    let supersolution_sha256 = format!("{:x}", digest.finalize());
+
+    Ok(MMatrixLowerBound {
+        lambda_min_lower_bound,
+        supersolution_min_component,
+        supersolution_max_component,
+        minimum_supersolution_margin,
+        supersolution_sha256,
+        cg_stats,
+    })
+}
+
+fn frobenius_norm(matrix: &[Vec<f64>]) -> f64 {
+    matrix
+        .iter()
+        .flatten()
+        .map(|value| value * value)
+        .sum::<f64>()
+        .sqrt()
+}
+
+fn frobenius_difference(left: &[Vec<f64>], right: &[Vec<f64>]) -> Result<f64, String> {
+    if left.len() != right.len()
+        || left.iter().zip(right.iter()).any(|(a, b)| a.len() != b.len())
+    {
+        return Err("Frobenius difference requires equal matrix dimensions".into());
+    }
+    Ok(left
+        .iter()
+        .flatten()
+        .zip(right.iter().flatten())
+        .map(|(a, b)| (a - b) * (a - b))
+        .sum::<f64>()
+        .sqrt())
+}
+
 fn column(matrix: &[Vec<f64>], index: usize) -> Vec<f64> {
     matrix.iter().map(|row| row[index]).collect()
 }
@@ -764,6 +929,7 @@ fn assemble_projection_from_basis(
         a_r,
         b_r,
         d_r,
+        basis: basis.clone(),
         basis_dimension: basis.len(),
         basis_snapshots: snapshot_count,
         lambda_0_min_eigenvalue: lambda_0_min,
@@ -919,6 +1085,83 @@ fn response_from_reduced(projection: &Projection, shift: f64) -> Result<Dense, S
         }
     }
     Ok(response)
+}
+
+fn reduced_state_in_full_space(
+    model: &Model,
+    projection: &Projection,
+    shift: f64,
+) -> Result<Dense, String> {
+    let port_count = projection.d_r.len();
+    let mut shifted = projection.a_r.clone();
+    for (index, row) in shifted.iter_mut().enumerate() {
+        row[index] += shift;
+    }
+    let mut reduced_columns = Vec::with_capacity(port_count);
+    for port in 0..port_count {
+        reduced_columns.push(dense_solve(&shifted, &column(&projection.b_r, port))?);
+    }
+    let mut full_state = vec![vec![0.0; port_count]; model.a.size];
+    for (mode, basis_vector) in projection.basis.iter().enumerate() {
+        for (state, basis_value) in basis_vector.iter().enumerate() {
+            for (port, reduced_column) in reduced_columns.iter().enumerate() {
+                full_state[state][port] += basis_value * reduced_column[mode];
+            }
+        }
+    }
+    Ok(full_state)
+}
+
+fn response_error_upper_bound(
+    model: &Model,
+    projection: &Projection,
+    shift: f64,
+    lambda_min_lower_bound: f64,
+    full_response: &[Vec<f64>],
+    reduced_response: &[Vec<f64>],
+) -> Result<(f64, f64, f64, bool), String> {
+    if !lambda_min_lower_bound.is_finite() || lambda_min_lower_bound <= 0.0 {
+        return Err("response error bound requires a positive verified eigenvalue lower bound".into());
+    }
+    if !shift.is_finite() || shift < 0.0 {
+        return Err("response error bound only supports nonnegative real Laplace samples".into());
+    }
+    let full_state_approx = reduced_state_in_full_space(model, projection, shift)?;
+    let mut residual_matrix = vec![Vec::with_capacity(model.boundary_ids.len()); model.a.size];
+    for port in 0..model.boundary_ids.len() {
+        let approximate_state = column(&full_state_approx, port);
+        let action = model.a.matvec(&approximate_state, shift)?;
+        let input = column(&model.b, port);
+        for (row, (right, left)) in residual_matrix
+            .iter_mut()
+            .zip(input.iter().zip(action.iter()))
+        {
+            row.push(right - left);
+        }
+    }
+
+    let residual_norm = frobenius_norm(&residual_matrix);
+    let feedthrough_difference = frobenius_difference(&model.d, &projection.d_r)?;
+    let b_norm = frobenius_norm(&model.b);
+    let denominator = lambda_min_lower_bound + shift;
+    let raw_bound = feedthrough_difference + b_norm * residual_norm / denominator;
+    if !raw_bound.is_finite() {
+        return Err("response error upper bound is non-finite".into());
+    }
+    // Explicit safety inflation for the floating-point implementation. This
+    // is not interval arithmetic; the supersolution inequality is independently
+    // recomputed and the resulting bound is checked against manufactured truth.
+    let absolute_bound = raw_bound * (1.0 + 1.0e-10)
+        + f64::EPSILON * (feedthrough_difference + b_norm * residual_norm + 1.0);
+    let actual_absolute_error = frobenius_difference(full_response, reduced_response)?;
+    let response_scale = frobenius_norm(full_response).max(f64::MIN_POSITIVE);
+    let relative_bound = absolute_bound / response_scale;
+    if !relative_bound.is_finite() {
+        return Err("relative response error upper bound is non-finite; abstaining".into());
+    }
+    let valid = actual_absolute_error
+        <= absolute_bound * (1.0 + 1.0e-8) + f64::EPSILON * response_scale * 32.0;
+    Ok((absolute_bound, relative_bound, actual_absolute_error, valid))
 }
 
 fn relative_error(left: &[Vec<f64>], right: &[Vec<f64>]) -> f64 {
@@ -1188,7 +1431,15 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     } else {
         None
     };
+    let error_certificate = m_matrix_lambda_min_lower_bound(
+        &model.a,
+        fixture.cg_relative_tolerance,
+        fixture.cg_max_iterations,
+    )?;
     let mut block_arnoldi_baseline_error = 0.0_f64;
+    let mut block_arnoldi_baseline_absolute_error_bound = 0.0_f64;
+    let mut block_arnoldi_baseline_relative_error_bound = 0.0_f64;
+    let mut block_arnoldi_baseline_error_bound_valid = true;
     let mut exact_dc_from_audit: Option<Dense> = None;
     let mut frequency_samples = Vec::with_capacity(fixture.laplace_samples.len());
     for shift in &fixture.laplace_samples {
@@ -1203,14 +1454,50 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             exact_dc_from_audit = Some(full.clone());
         }
         let reduced = response_from_reduced(&projection, *shift)?;
+        let (absolute_response_error_upper_bound, relative_response_error_upper_bound,
+            absolute_response_error, error_bound_valid) = response_error_upper_bound(
+                &model,
+                &projection,
+                *shift,
+                error_certificate.lambda_min_lower_bound,
+                &full,
+                &reduced,
+            )?;
+        if !error_bound_valid {
+            return Err(format!(
+                "residual response-error bound failed to dominate observed error at s={shift}"
+            ));
+        }
         if let Some((block_projection, _)) = block_arnoldi_baseline.as_ref() {
             let block_reduced = response_from_reduced(block_projection, *shift)?;
             block_arnoldi_baseline_error = block_arnoldi_baseline_error
                 .max(relative_error(&block_reduced, &full));
+            let (
+                block_absolute_bound,
+                block_relative_bound,
+                _block_absolute_error,
+                block_bound_valid,
+            ) = response_error_upper_bound(
+                &model,
+                block_projection,
+                *shift,
+                error_certificate.lambda_min_lower_bound,
+                &full,
+                &block_reduced,
+            )?;
+            block_arnoldi_baseline_absolute_error_bound =
+                block_arnoldi_baseline_absolute_error_bound.max(block_absolute_bound);
+            block_arnoldi_baseline_relative_error_bound =
+                block_arnoldi_baseline_relative_error_bound.max(block_relative_bound);
+            block_arnoldi_baseline_error_bound_valid &= block_bound_valid;
         }
         frequency_samples.push(SampleResult {
             laplace_s: *shift,
             relative_response_error: relative_error(&reduced, &full),
+            absolute_response_error,
+            absolute_response_error_upper_bound,
+            relative_response_error_upper_bound,
+            error_bound_valid,
             full_cg_max_iterations: full_stats.iter().map(|item| item.iterations).max().unwrap_or(0),
             full_cg_max_relative_residual: full_stats.iter()
                 .map(|item| item.relative_residual).fold(0.0_f64, f64::max),
@@ -1236,6 +1523,20 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         .fold(0.0_f64, f64::max);
     let cg_solve_count = stats.len();
     let total_cg_iterations = stats.iter().map(|item| item.iterations).sum();
+    let maximum_absolute_response_error_upper_bound = frequency_samples
+        .iter()
+        .map(|sample| sample.absolute_response_error_upper_bound)
+        .fold(0.0_f64, f64::max);
+    let maximum_relative_response_error_upper_bound = frequency_samples
+        .iter()
+        .map(|sample| sample.relative_response_error_upper_bound)
+        .fold(0.0_f64, f64::max);
+    let error_certificate_valid = frequency_samples.iter().all(|sample| sample.error_bound_valid)
+        && error_certificate.lambda_min_lower_bound > 0.0;
+    let error_certificate_pcg_solve_count = 1usize;
+    let error_certificate_pcg_iterations = error_certificate.cg_stats.iterations;
+    let overall_pcg_solve_count = cg_solve_count + error_certificate_pcg_solve_count;
+    let overall_pcg_iterations = total_cg_iterations + error_certificate_pcg_iterations;
     let adaptive_candidate_shift_count = fixture.adaptive.candidate_shifts.len();
     let maximum_cg_iterations = stats.iter().map(|item| item.iterations).max().unwrap_or(0);
     let maximum_cg_relative_residual = stats.iter()
@@ -1286,6 +1587,12 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             .map(|metrics| metrics.0),
         block_arnoldi_baseline_maximum_sampled_response_error: block_arnoldi_baseline_metrics
             .map(|metrics| metrics.1),
+        block_arnoldi_baseline_maximum_absolute_response_error_upper_bound: block_arnoldi_baseline
+            .as_ref().map(|_| block_arnoldi_baseline_absolute_error_bound),
+        block_arnoldi_baseline_maximum_relative_response_error_upper_bound: block_arnoldi_baseline
+            .as_ref().map(|_| block_arnoldi_baseline_relative_error_bound),
+        block_arnoldi_baseline_error_bound_valid: block_arnoldi_baseline
+            .as_ref().map(|_| block_arnoldi_baseline_error_bound_valid),
         block_arnoldi_baseline_dc_relative_error,
         block_arnoldi_baseline_feedthrough_limit_relative_error,
         block_arnoldi_baseline_cg_solve_count: block_arnoldi_baseline_metrics
@@ -1301,6 +1608,19 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         dc_relative_error,
         feedthrough_limit_relative_error,
         maximum_sampled_response_error,
+        m_matrix_lambda_min_lower_bound: error_certificate.lambda_min_lower_bound,
+        m_matrix_supersolution_min_component: error_certificate.supersolution_min_component,
+        m_matrix_supersolution_max_component: error_certificate.supersolution_max_component,
+        m_matrix_supersolution_minimum_margin: error_certificate.minimum_supersolution_margin,
+        m_matrix_supersolution_sha256: error_certificate.supersolution_sha256,
+        m_matrix_supersolution_relative_residual: error_certificate.cg_stats.relative_residual,
+        error_certificate_valid,
+        error_certificate_pcg_solve_count,
+        error_certificate_pcg_iterations,
+        maximum_absolute_response_error_upper_bound,
+        maximum_relative_response_error_upper_bound,
+        overall_pcg_solve_count,
+        overall_pcg_iterations,
         a_r_min_eigenvalue: projection.a_r_min_eigenvalue,
         lambda_0_min_eigenvalue: projection.lambda_0_min_eigenvalue,
         lambda_0_scale: projection.lambda_0_scale,
@@ -1313,7 +1633,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         maximum_cg_iterations,
         maximum_cg_relative_residual,
         frequency_samples,
-        interpretation_boundary: "Sparse CSR and PCG reference for fixed positive linear conductance graphs with positive diagonal interior storage and ideal Dirichlet ports. The projected model uses port-driven rational-shift snapshots and exact numerical DC correction. Structural passivity is tolerance-qualified through positive A_r and positive-semidefinite Lambda_0. This is not a nonlinear Richards, hysteretic, multiphase or empirical soil model. No speedup or production-scale claim is made.".into(),
+        interpretation_boundary: "Sparse CSR and PCG reference for fixed symmetric anchored conductance/storage graphs with ideal Dirichlet ports. The projected models use passivity-preserving congruence projections and exact numerical DC correction. A floating-point M-matrix supersolution provides a lower bound on lambda_min(A), and full-space residuals provide a-posteriori response-error upper bounds only for real nonnegative Laplace samples. The result is not interval-arithmetic certification, and does not certify complex-frequency responses, nonlinear Richards flow, hysteresis, multiphase behaviour or empirical soil prediction. No speedup or production-scale claim is made.".into(),
     })
 }
 
@@ -1351,6 +1671,100 @@ mod tests {
     use super::*;
 
     const TOL: f64 = 1.0e-10;
+
+    fn two_by_two_stieltjes(scale: f64) -> CsrMatrix {
+        CsrMatrix::from_rows(vec![
+            BTreeMap::from([(0, 2.0 * scale), (1, -scale)]),
+            BTreeMap::from([(0, -scale), (1, 2.0 * scale)]),
+        ])
+        .unwrap()
+    }
+
+    #[test]
+    fn m_matrix_supersolution_bounds_analytic_two_by_two_eigenvalue() {
+        let matrix = two_by_two_stieltjes(1.0);
+        let certificate = m_matrix_lambda_min_lower_bound(&matrix, 1.0e-12, 32).unwrap();
+        // Eigenvalues of [[2,-1],[-1,2]] are 1 and 3. The exact A^-1*1
+        // is [1,1], so the supersolution-derived lower bound is tight up to
+        // the declared floating-point inflation.
+        assert!(certificate.lambda_min_lower_bound > 0.999_999);
+        assert!(certificate.lambda_min_lower_bound <= 1.0);
+        assert!(certificate.supersolution_min_component > 0.0);
+        assert!(certificate.supersolution_max_component >= 1.0);
+        assert!(certificate.minimum_supersolution_margin >= 0.0);
+        assert!(certificate.cg_stats.relative_residual <= 1.0e-12);
+        assert_eq!(certificate.supersolution_sha256.len(), 64);
+    }
+
+    #[test]
+    fn m_matrix_lower_bound_is_invariant_under_24_order_unit_rescaling() {
+        let baseline = m_matrix_lambda_min_lower_bound(
+            &two_by_two_stieltjes(1.0),
+            1.0e-11,
+            32,
+        )
+        .unwrap();
+        for scale in [1.0e-24, 1.0e24] {
+            let certificate = m_matrix_lambda_min_lower_bound(
+                &two_by_two_stieltjes(scale),
+                1.0e-11,
+                32,
+            )
+            .unwrap();
+            let normalized = certificate.lambda_min_lower_bound / scale;
+            assert!((normalized - baseline.lambda_min_lower_bound).abs() < 1.0e-8);
+            assert!(certificate.minimum_supersolution_margin >= 0.0);
+        }
+    }
+
+    #[test]
+    fn m_matrix_certificate_rejects_positive_or_asymmetric_off_diagonals() {
+        let positive_off_diagonal = CsrMatrix::from_rows(vec![
+            BTreeMap::from([(0, 2.0), (1, 0.1)]),
+            BTreeMap::from([(0, 0.1), (1, 2.0)]),
+        ])
+        .unwrap();
+        assert!(m_matrix_lambda_min_lower_bound(&positive_off_diagonal, 1.0e-10, 32).is_err());
+
+        let asymmetric = CsrMatrix::from_rows(vec![
+            BTreeMap::from([(0, 2.0), (1, -1.0)]),
+            BTreeMap::from([(0, -0.5), (1, 2.0)]),
+        ])
+        .unwrap();
+        assert!(m_matrix_lambda_min_lower_bound(&asymmetric, 1.0e-10, 32).is_err());
+    }
+
+    #[test]
+    fn response_error_upper_bounds_dominate_every_adaptive_audit_sample() {
+        let fixture = adaptive_multiport_fixture();
+        let report = analyze(&fixture, "m-matrix-response-certificate-test".into()).unwrap();
+        assert!(report.error_certificate_valid);
+        assert!(report.m_matrix_lambda_min_lower_bound > 0.0);
+        assert!(report.m_matrix_supersolution_min_component > 0.0);
+        assert!(report.m_matrix_supersolution_minimum_margin >= 0.0);
+        assert!(report.m_matrix_supersolution_relative_residual <= fixture.cg_relative_tolerance);
+        assert_eq!(report.m_matrix_supersolution_sha256.len(), 64);
+        assert_eq!(report.error_certificate_pcg_solve_count, 1);
+        assert!(report.overall_pcg_solve_count > report.cg_solve_count);
+        assert!(report.maximum_relative_response_error_upper_bound.is_finite());
+        for sample in &report.frequency_samples {
+            assert!(sample.error_bound_valid);
+            assert!(
+                sample.absolute_response_error_upper_bound >= sample.absolute_response_error,
+                "upper bound {:?} must dominate observed error {:?} at s={}",
+                sample.absolute_response_error_upper_bound,
+                sample.absolute_response_error,
+                sample.laplace_s
+            );
+            assert!(
+                sample.relative_response_error_upper_bound >= sample.relative_response_error,
+                "relative upper bound {:?} must dominate observed error {:?} at s={}",
+                sample.relative_response_error_upper_bound,
+                sample.relative_response_error,
+                sample.laplace_s
+            );
+        }
+    }
 
     fn high_contrast_multiport_fixture() -> Fixture {
         Fixture {
@@ -1578,6 +1992,11 @@ mod tests {
         assert!(report
             .block_arnoldi_baseline_maximum_sampled_response_error
             .is_some_and(f64::is_finite));
+        assert_eq!(report.block_arnoldi_baseline_error_bound_valid, Some(true));
+        assert!(
+            report.block_arnoldi_baseline_maximum_relative_response_error_upper_bound
+                >= report.block_arnoldi_baseline_maximum_sampled_response_error
+        );
         assert!(report
             .block_arnoldi_baseline_cg_solve_count
             .is_some_and(|count| count > 0));
@@ -1595,6 +2014,83 @@ mod tests {
         let mut invalid = adaptive_multiport_fixture();
         invalid.adaptive.maximum_basis_dimension = Some(0);
         assert!(validate(&invalid).is_err());
+    }
+
+    #[test]
+    fn residual_error_certificate_bounds_actual_response_error_on_manufactured_graphs() {
+        for fixture in [fixture(), branched_fixture(), high_contrast_multiport_fixture()] {
+            let report = analyze(&fixture, "certificate-manufactured".into()).unwrap();
+            assert!(report.error_certificate_valid);
+            assert!(report.m_matrix_lambda_min_lower_bound > 0.0);
+            assert!(report.m_matrix_supersolution_max_component > 0.0);
+            assert!(report
+                .frequency_samples
+                .iter()
+                .all(|sample| sample.error_bound_valid));
+            assert!(report
+                .frequency_samples
+                .iter()
+                .all(|sample| sample.absolute_response_error
+                    <= sample.absolute_response_error_upper_bound));
+            assert_eq!(report.error_certificate_pcg_solve_count, 1);
+            assert!(report.error_certificate_pcg_iterations > 0);
+        }
+    }
+
+    #[test]
+    fn m_matrix_eigenvalue_lower_bound_is_invariant_to_joint_unit_rescaling() {
+        let base = fixture();
+        let base_model = assemble(&base).unwrap();
+        let base_bound = m_matrix_lambda_min_lower_bound(
+            &base_model.a,
+            base.cg_relative_tolerance,
+            base.cg_max_iterations,
+        )
+        .unwrap();
+
+        for factor in [1.0e-24, 1.0e24] {
+            let mut scaled = fixture();
+            for node in &mut scaled.nodes {
+                if let Some(storage) = node.storage.as_mut() {
+                    *storage *= factor;
+                }
+            }
+            for edge in &mut scaled.edges {
+                edge.conductance *= factor;
+            }
+            let model = assemble(&scaled).unwrap();
+            let bound = m_matrix_lambda_min_lower_bound(
+                &model.a,
+                scaled.cg_relative_tolerance,
+                scaled.cg_max_iterations,
+            )
+            .unwrap();
+            assert!(
+                (bound.lambda_min_lower_bound - base_bound.lambda_min_lower_bound).abs()
+                    <= base_bound.lambda_min_lower_bound * 1.0e-8
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_non_stieltjes_sparse_operator_before_certifying_error() {
+        let invalid = CsrMatrix {
+            size: 2,
+            row_ptr: vec![0, 2, 4],
+            col_idx: vec![0, 1, 0, 1],
+            values: vec![2.0, 0.1, 0.1, 2.0],
+            diagonal: vec![2.0, 2.0],
+        };
+        assert!(invalid.validate_stieltjes().is_err());
+
+        let asymmetric = CsrMatrix {
+            size: 2,
+            row_ptr: vec![0, 2, 4],
+            col_idx: vec![0, 1, 0, 1],
+            values: vec![2.0, -0.5, -0.4, 2.0],
+            diagonal: vec![2.0, 2.0],
+        };
+        assert!(asymmetric.validate_stieltjes().is_err());
     }
 
     #[test]
