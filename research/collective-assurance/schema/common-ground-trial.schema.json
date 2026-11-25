@@ -1,0 +1,491 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/common-ground-trial-v0.1.json",
+  "title": "Common Ground joint-action trace v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "events",
+    "expected"
+  ],
+  "properties": {
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trial_id",
+        "benchmark_version",
+        "task_digest",
+        "oracle_spec_digest",
+        "expected_final_state_digest",
+        "oracle_attestation_digest",
+        "helper_id",
+        "worker_id",
+        "worker_state_digest",
+        "worker_state_version",
+        "view_mode",
+        "required_placements",
+        "time_budget_ms",
+        "turn_budget"
+      ],
+      "properties": {
+        "trial_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "benchmark_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "task_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "oracle_spec_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "expected_final_state_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "oracle_attestation_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "helper_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "worker_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "worker_state_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "worker_state_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "view_mode": {
+          "enum": [
+            "shared_worker_state",
+            "private_worker_state"
+          ]
+        },
+        "required_placements": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "object_id",
+              "target_slot_id"
+            ],
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "target_slot_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "time_budget_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "turn_budget": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sequence",
+          "event_id",
+          "timestamp_ms",
+          "kind"
+        ],
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "event_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "timestamp_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "kind": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "viewer_id",
+                  "state_owner_id",
+                  "state_digest",
+                  "state_version",
+                  "exposure_receipt_digest"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "task_state_visible"
+                  },
+                  "viewer_id": {
+                    "type": "string"
+                  },
+                  "state_owner_id": {
+                    "type": "string"
+                  },
+                  "state_digest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "state_version": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "exposure_receipt_digest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "message_id",
+                  "sender_id",
+                  "recipient_id",
+                  "payload_digest",
+                  "delivery_receipt_digest"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "message_delivered"
+                  },
+                  "message_id": {
+                    "type": "string"
+                  },
+                  "sender_id": {
+                    "type": "string"
+                  },
+                  "recipient_id": {
+                    "type": "string"
+                  },
+                  "payload_digest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "delivery_receipt_digest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "request_id",
+                  "requester_id",
+                  "message_id",
+                  "ambiguous_referent_digest"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "clarification_requested"
+                  },
+                  "request_id": {
+                    "type": "string"
+                  },
+                  "requester_id": {
+                    "type": "string"
+                  },
+                  "message_id": {
+                    "type": "string"
+                  },
+                  "ambiguous_referent_digest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "request_id",
+                  "resolver_id",
+                  "resolved_referent_id",
+                  "object_id",
+                  "rationale_digest"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "clarification_resolved"
+                  },
+                  "request_id": {
+                    "type": "string"
+                  },
+                  "resolver_id": {
+                    "type": "string"
+                  },
+                  "resolved_referent_id": {
+                    "type": "string"
+                  },
+                  "object_id": {
+                    "type": "string"
+                  },
+                  "rationale_digest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "request_id",
+                  "confirmer_id"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "referent_confirmed"
+                  },
+                  "request_id": {
+                    "type": "string"
+                  },
+                  "confirmer_id": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "action_id",
+                  "initiator_id",
+                  "confirmer_id",
+                  "object_id",
+                  "target_slot_id",
+                  "clarification_request_id",
+                  "environment_accepted",
+                  "effect_receipt_digest"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "joint_action_executed"
+                  },
+                  "action_id": {
+                    "type": "string"
+                  },
+                  "initiator_id": {
+                    "type": "string"
+                  },
+                  "confirmer_id": {
+                    "type": "string"
+                  },
+                  "object_id": {
+                    "type": "string"
+                  },
+                  "target_slot_id": {
+                    "type": "string"
+                  },
+                  "clarification_request_id": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "environment_accepted": {
+                    "type": "boolean"
+                  },
+                  "effect_receipt_digest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "repair_id",
+                  "actor_id",
+                  "trigger_event_id"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "repair_started"
+                  },
+                  "repair_id": {
+                    "type": "string"
+                  },
+                  "actor_id": {
+                    "type": "string"
+                  },
+                  "trigger_event_id": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "repair_id",
+                  "outcome_digest",
+                  "repair_duration_ms"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "repair_completed"
+                  },
+                  "repair_id": {
+                    "type": "string"
+                  },
+                  "outcome_digest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "repair_duration_ms": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "actor_id",
+                  "message_id"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "verbal_acknowledgement"
+                  },
+                  "actor_id": {
+                    "type": "string"
+                  },
+                  "message_id": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "final_state_digest",
+                  "environment_completion_receipt_digest"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "trial_completed"
+                  },
+                  "final_state_digest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "environment_completion_receipt_digest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "qualification",
+        "outcome",
+        "joint_success",
+        "exact_placements",
+        "required_placements",
+        "verbal_acknowledgements"
+      ],
+      "properties": {
+        "qualification": {
+          "enum": [
+            "pass",
+            "fail",
+            "indeterminate"
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "success",
+            "incomplete",
+            "incorrect",
+            "not_evaluable"
+          ]
+        },
+        "joint_success": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        },
+        "exact_placements": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "required_placements": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "verbal_acknowledgements": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
