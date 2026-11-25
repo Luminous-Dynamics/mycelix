@@ -205,8 +205,8 @@ jobs:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           actual="$(git rev-parse HEAD)"
-          printf 'Expected source SHA: %s\\n' "$EXPECTED_SHA"
-          printf 'Checked out source SHA: %s\\n' "$actual"
+          printf 'Expected source SHA: %s\n' "$EXPECTED_SHA"
+          printf 'Checked out source SHA: %s\n' "$actual"
           test "$actual" = "$EXPECTED_SHA"
 
       - name: Install pinned Rust toolchain
@@ -230,7 +230,7 @@ jobs:
 
       - name: Report qualification boundary
         run: |
-          printf '%s\\n' \\
-            'PASS = structural owner-cut, partial-order, coverage-gap, verifier-isolation and receipt-declaration checks.' \\
-            'NOT TESTED = cryptographic Merkle inclusion/consistency, signature verification, authenticated completeness, or distributed persistence.' \\
+          printf '%s\n' \
+            'PASS = structural owner-cut, partial-order, coverage-gap, verifier-isolation and receipt-declaration checks.' \
+            'NOT TESTED = cryptographic Merkle inclusion/consistency, signature verification, authenticated completeness, or distributed persistence.' \
             'Declared inclusion is not cryptographically verified inclusion.'
