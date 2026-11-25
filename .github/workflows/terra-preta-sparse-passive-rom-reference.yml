@@ -76,6 +76,7 @@ jobs:
           cargo run --quiet --manifest-path research/terra-preta/tools/sparse-passive-rom-reference/Cargo.toml -- \
             research/terra-preta/tools/sparse-passive-rom-reference/fixtures/adaptive-high-contrast-three-port.json \
             "$RUNNER_TEMP/adaptive-rom-report.json"
+          jq '{basis_dimension, interior_node_count, adaptive_target_met, adaptive_stop_reason, adaptive_maximum_candidate_relative_error, maximum_sampled_response_error, maximum_relative_response_error_upper_bound, maximum_portwise_relative_response_error_upper_bound, maximum_output_adjoint_relative_response_error_upper_bound, maximum_best_relative_response_error_upper_bound, output_adjoint_solve_count, output_adjoint_total_cg_iterations, output_adjoint_max_residual_inf, error_certificate_valid, block_arnoldi_baseline_output_adjoint_error_bound_valid, block_arnoldi_baseline_maximum_output_adjoint_relative_error_upper_bound}' "$RUNNER_TEMP/adaptive-rom-report.json"
           jq -e '
             .fixture_status == "synthetic_only_not_empirical_evidence" and
             (.boundary_node_ids | length == 3) and
