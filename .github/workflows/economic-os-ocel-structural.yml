@@ -46,6 +46,7 @@ jobs:
             docs/economic/ocel/fixtures/economic-os-procurement-causal-sidecar.v0.1.json \
             docs/economic/ocel/fixtures/economic-os-procurement-loss-manifest.v0.1.json \
             docs/economic/ocel/benchmarks/economic-os-ocel-adversarial-corpus.v0.1.json \
+            docs/economic/ocel/benchmarks/external-reference-datasets.v0.1.json \
             docs/economic/ocel/schemas/economic-os-causal-sidecar.v1.schema.json \
             docs/economic/ocel/schemas/economic-os-ocel-adversarial-corpus.v0.1.schema.json; do
             jq -e . "$file" >/dev/null
@@ -219,6 +220,34 @@ jobs:
 
           jq -r '"Loss manifest PASS: held_sources=\(.excluded_sources|length)"' "$LOSS"
           jq -r '"Adversarial corpus PASS: cases=\(.cases|length), dimensions=\(.cases|map(.dimension)|unique|length)"' "$CORPUS"
+
+      - name: Validate external reference dataset benchmark manifest
+        run: |
+          set -euo pipefail
+          FILE=docs/economic/ocel/benchmarks/external-reference-datasets.v0.1.json
+          jq -e '
+            (.benchmark == "Economic OS external object-centric event-log reference datasets") and
+            (.status == "pinned_public_dataset_manifest_not_executed_benchmark_result") and
+            (.datasets | length == 2) and
+            ([.datasets[].id] | length == ([.datasets[].id] | unique | length)) and
+            (.datasets[] | select(.id == "ocel-p2p-simulation") |
+              .properties.event_types == 10 and
+              .properties.object_types == 7 and
+              .properties.events == 14671 and
+              .properties.objects == 9543 and
+              (.behaviors | index("duplicate payments") != null)
+            ) and
+            (.datasets[] | select(.id == "ocel-synthetic-relational-v1") |
+              .seed == 20260820 and
+              .primary_instances_per_scenario == 3000 and
+              (.scenarios | length == 6) and
+              ([.scenarios[].slug] | length == ([.scenarios[].slug] | unique | length)) and
+              all(.scenarios[]; .source_rows > 0 and .reference_events > 0 and .reference_objects > 0)
+            ) and
+            (.matched_arms | map(.id) == ["A","B","C","D"]) and
+            (.guardrails | length >= 4)
+          ' "$FILE" >/dev/null
+          jq -r '"External OCEL manifest PASS: datasets=(.datasets|length), relational_scenarios=(.datasets[]|select(.id=="ocel-synthetic-relational-v1")|.scenarios|length)"' "$FILE"
 
       - name: Report qualification boundary
         run: |
