@@ -1826,6 +1826,45 @@ mod tests {
     }
 
     #[test]
+    fn collatz_refinement_never_weakens_supersolution_bound() {
+        for matrix in [
+            two_by_two_stieltjes(1.0),
+            CsrMatrix::from_rows(vec![
+                BTreeMap::from([(0, 4.0)]),
+                BTreeMap::from([(1, 2.0)]),
+                BTreeMap::from([(2, 0.5)]),
+            ])
+            .unwrap(),
+        ] {
+            let bound = m_matrix_lambda_min_lower_bound(&matrix, 1.0e-12, 64).unwrap();
+            assert!(bound.lambda_min_lower_bound >= bound.initial_lambda_min_lower_bound);
+            assert!(bound.lambda_min_lower_bound > 0.0);
+            assert!(bound.refinement_steps <= 4);
+            assert_eq!(bound.cg_stats.len(), 1 + bound.refinement_steps);
+            assert!(bound.cg_stats.iter().all(|stats| stats.relative_residual <= 1.0e-12));
+            assert!(bound.refinement_max_residual_inf.is_finite());
+        }
+    }
+
+    #[test]
+    fn collatz_refinement_spends_at_most_four_extra_pcg_solves_on_adaptive_graph() {
+        let fixture = adaptive_multiport_fixture();
+        let model = assemble(&fixture).unwrap();
+        let bound = m_matrix_lambda_min_lower_bound(
+            &model.a,
+            fixture.cg_relative_tolerance,
+            fixture.cg_max_iterations,
+        )
+        .unwrap();
+        assert!(bound.lambda_min_lower_bound >= bound.initial_lambda_min_lower_bound);
+        assert!(bound.refinement_steps <= 4);
+        assert_eq!(bound.cg_stats.len(), 1 + bound.refinement_steps);
+        assert_eq!(bound.cg_stats.len(), 1 + bound.refinement_steps);
+        assert!(bound.lambda_min_lower_bound > 0.0);
+        assert!(bound.refinement_max_residual_inf.is_finite());
+    }
+
+    #[test]
     fn m_matrix_lower_bound_is_invariant_under_24_order_unit_rescaling() {
         let baseline = m_matrix_lambda_min_lower_bound(
             &two_by_two_stieltjes(1.0),
