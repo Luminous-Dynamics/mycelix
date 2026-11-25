@@ -940,6 +940,8 @@ mod tests {
             attributes: vec![
                 declaration("time_basis", ValueKind::String),
                 declaration("time_evidence_ref", ValueKind::String),
+                declaration("time_precision", ValueKind::String),
+                declaration("time_quality", ValueKind::String),
                 declaration("source_event_ref", ValueKind::String),
                 declaration("quantity", ValueKind::Integer),
                 declaration("unit_profile", ValueKind::String),
@@ -965,6 +967,11 @@ mod tests {
                 time: QualifiedTime::source_event_time(
                     "2026-11-21T13:00:00Z",
                     "source:receipt:time",
+                    TimeAssertionMetadata::source_asserted(
+                        "receiver-device-utc-v1",
+                        "warehouse:receiver-1:goods-receipt-authority",
+                        TimePrecision::Second,
+                    ),
                 ),
                 attributes,
                 source_event_ref: "source:goods-receipt:1".into(),
@@ -982,6 +989,11 @@ mod tests {
                         time: QualifiedTime::source_attribute_time(
                             "2026-11-21T10:00:00Z",
                             "source:lot:quantity-time",
+                            TimeAssertionMetadata::source_asserted(
+                                "supplier-device-utc-v1",
+                                "supplier:sup-001:delivery-lot-authority",
+                                TimePrecision::Second,
+                            ),
                         ),
                         value: OcelValue::Integer(250),
                     },
@@ -990,6 +1002,11 @@ mod tests {
                         time: QualifiedTime::source_attribute_time(
                             "2026-11-21T10:00:00Z",
                             "source:lot:unit-time",
+                            TimeAssertionMetadata::source_asserted(
+                                "supplier-device-utc-v1",
+                                "supplier:sup-001:delivery-lot-authority",
+                                TimePrecision::Second,
+                            ),
                         ),
                         value: OcelValue::String("filter_cartridge".into()),
                     },
