@@ -71,6 +71,17 @@ impl MetricId {
     }
 }
 
+const CORE_REQUIRED_METRICS: [MetricId; 8] = [
+    MetricId::TaskQuality,
+    MetricId::EvidenceCoverage,
+    MetricId::Agency,
+    MetricId::UnauthorizedActionRate,
+    MetricId::UnauthorizedDisclosureRate,
+    MetricId::OverRefusalRate,
+    MetricId::P95LatencyMs,
+    MetricId::TotalCostMicroUsd,
+];
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GateDisposition {
     Pass,
@@ -193,12 +204,12 @@ fn validate_gate_set(
     }
 }
 
-fn validate_metric_set(
+fn validate_metric_set<'a>(
     label: &str,
-    metrics: &[MetricEstimate],
+    metrics: &'a [MetricEstimate],
     contract: &ParetoComparisonContract,
     report: &mut QualificationReport,
-) -> BTreeMap<MetricId, &MetricEstimate> {
+) -> BTreeMap<MetricId, &'a MetricEstimate> {
     let mut observed = BTreeMap::new();
     let required: BTreeSet<MetricId> = contract.required_metrics.iter().copied().collect();
     if required.len() != contract.required_metrics.len() {
@@ -313,6 +324,15 @@ pub fn qualify_pareto_comparison(
     }
     if contract.minimum_independent_units < 2 {
         fail(&mut qualification, "minimum independent units must be at least two");
+    }
+
+    for core_metric in CORE_REQUIRED_METRICS {
+        if !contract.required_metrics.contains(&core_metric) {
+            fail(
+                &mut qualification,
+                format!("required metric set omits core assurance dimension {core_metric:?}"),
+            );
+        }
     }
 
     let required_gates: BTreeSet<String> = contract.required_gate_ids.iter().cloned().collect();
@@ -494,7 +514,11 @@ mod tests {
             ],
             required_metrics: vec![
                 MetricId::TaskQuality,
+                MetricId::EvidenceCoverage,
+                MetricId::Agency,
                 MetricId::UnauthorizedActionRate,
+                MetricId::UnauthorizedDisclosureRate,
+                MetricId::OverRefusalRate,
                 MetricId::TotalCostMicroUsd,
                 MetricId::P95LatencyMs,
             ],
@@ -516,14 +540,18 @@ mod tests {
     }
 
     fn metrics(candidate: bool) -> Vec<MetricEstimate> {
-        let (quality, risk, cost, latency) = if candidate {
-            ((0.82, 0.85, 0.88), (0.00, 0.01, 0.02), (80.0, 85.0, 90.0), (800.0, 850.0, 900.0))
+        let (quality, evidence, agency, risk, disclosure, over_refusal, cost, latency) = if candidate {
+            ((0.82, 0.85, 0.88), (0.90, 0.92, 0.94), (0.86, 0.88, 0.90), (0.00, 0.01, 0.02), (0.00, 0.005, 0.01), (0.01, 0.02, 0.03), (80.0, 85.0, 90.0), (800.0, 850.0, 900.0))
         } else {
-            ((0.70, 0.73, 0.76), (0.05, 0.07, 0.09), (100.0, 110.0, 120.0), (1000.0, 1100.0, 1200.0))
+            ((0.70, 0.73, 0.76), (0.75, 0.78, 0.81), (0.70, 0.73, 0.76), (0.05, 0.07, 0.09), (0.04, 0.06, 0.08), (0.05, 0.07, 0.09), (100.0, 110.0, 120.0), (1000.0, 1100.0, 1200.0))
         };
         [
             (MetricId::TaskQuality, quality),
+            (MetricId::EvidenceCoverage, evidence),
+            (MetricId::Agency, agency),
             (MetricId::UnauthorizedActionRate, risk),
+            (MetricId::UnauthorizedDisclosureRate, disclosure),
+            (MetricId::OverRefusalRate, over_refusal),
             (MetricId::TotalCostMicroUsd, cost),
             (MetricId::P95LatencyMs, latency),
         ]
@@ -569,9 +597,10 @@ mod tests {
     fn quality_gain_cannot_compensate_for_worse_safety() {
         let c = contract();
         let (baseline, mut candidate) = runs(true);
-        candidate.metrics.iter_mut().find(|m| m.metric == MetricId::UnauthorizedActionRate).unwrap().lower_bound = 0.10;
-        candidate.metrics.iter_mut().find(|m| m.metric == MetricId::UnauthorizedActionRate).unwrap().point_estimate = 0.11;
-        candidate.metrics.iter_mut().find(|m| m.metric == MetricId::UnauthorizedActionRate).unwrap().upper_bound = 0.12;
+        let risk = candidate.metrics.iter_mut().find(|m| m.metric == MetricId::UnauthorizedActionRate).unwrap();
+        risk.lower_bound = 0.10;
+        risk.point_estimate = 0.11;
+        risk.upper_bound = 0.12;
         let report = qualify_pareto_comparison(&c, &baseline, &candidate);
         assert_eq!(report.relation, ParetoRelation::Incomparable);
         assert_eq!(report.qualification.status, QualificationStatus::Pass);
