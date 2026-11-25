@@ -51,7 +51,7 @@ Run the adaptive manufactured fixture:
 
     cargo run --manifest-path research/terra-preta/tools/sparse-passive-rom-reference/Cargo.toml -- research/terra-preta/tools/sparse-passive-rom-reference/fixtures/adaptive-high-contrast-three-port.json /tmp/adaptive-rom-report.json
 
-The adaptive fixture has eight interior states and three boundary ports. The declared target is at most 5% worst relative port-column error on the candidate grid, with at most 1% maximum response error on the separate audit grid and rank capped at six. The dedicated workflow compares this with a fixed two-shift model at the same rank. Before incremental caching, the adaptive path used 87 PCG solves / 661 iterations; the refreshed implementation is designed to use 60 solves, reusing selected candidate state solutions, the one DC operator and the zero-shift audit response. The fixed two-shift baseline is designed to use 36 solves. Exact-head CI must verify the cost assertions; do not treat these as achieved until that run passes. This is a synthetic equal-rank comparison, not an equal-offline-cost comparison. Meeting the finite candidate-grid target does not certify error outside the candidate and audit grids or establish soil hydraulic accuracy.
+The adaptive fixture has eight interior states and three boundary ports. The declared target is at most 5% worst relative port-column error on the candidate grid, with at most 1% maximum response error on the separate audit grid and rank capped at six. The output-adjoint bound adds one PCG solve per boundary output port (three on the current fixture), amortized across every audit frequency. The dedicated workflow compares this with a fixed two-shift model at the same rank. Before incremental caching, the adaptive path used 87 PCG solves / 661 iterations; the refreshed implementation is designed to use 60 solves, reusing selected candidate state solutions, the one DC operator and the zero-shift audit response. The fixed two-shift baseline is designed to use 36 solves. Exact-head CI must verify the cost assertions; do not treat these as achieved until that run passes. This is a synthetic equal-rank comparison, not an equal-offline-cost comparison. Meeting the finite candidate-grid target does not certify error outside the candidate and audit grids or establish soil hydraulic accuracy.
 
 ## Run
 
@@ -155,6 +155,29 @@ U_{ij}(s)=|D-D_r|_{ij}
 The implementation independently checks every response-matrix entry against this componentwise envelope before emitting the portwise Frobenius bound. It reports the original global spectral bound, the portwise bound, and the minimum of the two independently valid bounds. The same check is applied separately to the adaptive projection and the zero-shift block-Arnoldi baseline. The benchmark's full-order reference response is itself computed with finite-tolerance PCG, so the residual of that reference solve is added to the ROM residual envelope. This certifies the observed PCG-reference-versus-ROM difference rather than silently treating the PCG reference as exact.
 
 This method requires the exact symmetric anchored M-matrix admission checks and the verified supersolution. It applies only to real nonnegative Laplace samples. It is not a substitute for interval arithmetic and does not validate the pore graph or underlying soil model.
+
+## Output-adjoint Green-weighted bound
+
+The global and first portwise bounds use the same supersolution vector for every output. The output-adjoint refinement instead computes one Green-weight vector per boundary output port:
+
+[
+A w_i=|B_i|.
+]
+
+The solve is performed with the sparse PCG reference. Recomputing the true residual (e_i=|B_i|-Aw_i^{\rm hat}) and using (A^{-1}\mathbf1\le y) gives the componentwise upper vector
+
+[
+w_i^{\rm upper}=\widehat w_i+\lVert e_i\rVert_\infty y.
+]
+
+For each real (s\ge0), the response envelope becomes
+
+[
+U_{ij}(s)=|D-D_r|_{ij}
++(w_i^{\rm upper})^T\left(|R_j^{\rm ROM}(s)|+|R_j^{\rm reference}(s)|\right).
+]
+
+This uses output-specific Green support and requires only one additional solve per output port for the whole ROM, independent of the number of audit frequencies. The report records the extra solve count, total iterations and maximum true residual. The workflow checks each matrix entry and the Frobenius envelope for both adaptive and block-Arnoldi models. The best reported envelope is the minimum of the independently valid spectral, supersolution-portwise and output-adjoint bounds.
 
 ## Qualification
 
