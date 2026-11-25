@@ -36,14 +36,15 @@
       "elapsed_days_since_collaboration": 0,
       "perturbation_id": null,
       "ai_off_qualification": null,
-      "ai_off_receipt_digest": null
+      "ai_off_receipt_digest": null,
+      "stage_sequence": 0
     },
     {
       "run_id": "synthetic-capability-run-001",
       "team_id": "team-001",
       "team_roster_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "team_size": 4,
-      "task_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "task_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
       "evaluator_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "accommodation_state": "not_required",
       "voluntary_stop": false,
@@ -63,14 +64,15 @@
       "elapsed_days_since_collaboration": 0,
       "perturbation_id": null,
       "ai_off_qualification": null,
-      "ai_off_receipt_digest": null
+      "ai_off_receipt_digest": null,
+      "stage_sequence": 1
     },
     {
       "run_id": "synthetic-capability-run-001",
       "team_id": "team-001",
       "team_roster_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "team_size": 4,
-      "task_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "task_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       "evaluator_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "accommodation_state": "not_required",
       "voluntary_stop": false,
@@ -90,14 +92,15 @@
       "elapsed_days_since_collaboration": 0,
       "perturbation_id": null,
       "ai_off_qualification": "pass",
-      "ai_off_receipt_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      "ai_off_receipt_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "stage_sequence": 2
     },
     {
       "run_id": "synthetic-capability-run-001",
       "team_id": "team-001",
       "team_roster_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "team_size": 4,
-      "task_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "task_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
       "evaluator_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "accommodation_state": "not_required",
       "voluntary_stop": false,
@@ -117,14 +120,15 @@
       "elapsed_days_since_collaboration": 7,
       "perturbation_id": null,
       "ai_off_qualification": "pass",
-      "ai_off_receipt_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      "ai_off_receipt_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "stage_sequence": 3
     },
     {
       "run_id": "synthetic-capability-run-001",
       "team_id": "team-001",
       "team_roster_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "team_size": 4,
-      "task_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "task_digest": "gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg",
       "evaluator_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "accommodation_state": "not_required",
       "voluntary_stop": false,
@@ -144,14 +148,15 @@
       "elapsed_days_since_collaboration": 7,
       "perturbation_id": null,
       "ai_off_qualification": "pass",
-      "ai_off_receipt_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      "ai_off_receipt_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "stage_sequence": 4
     },
     {
       "run_id": "synthetic-capability-run-001",
       "team_id": "team-001",
       "team_roster_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "team_size": 4,
-      "task_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "task_digest": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
       "evaluator_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "accommodation_state": "not_required",
       "voluntary_stop": false,
@@ -171,7 +176,8 @@
       "elapsed_days_since_collaboration": 0,
       "perturbation_id": "network-loss-30s",
       "ai_off_qualification": "pass",
-      "ai_off_receipt_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      "ai_off_receipt_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "stage_sequence": 5
     }
   ]
 }
