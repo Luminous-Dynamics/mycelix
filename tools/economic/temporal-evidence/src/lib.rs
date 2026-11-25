@@ -14,7 +14,7 @@
 //! normalizing offsets. Offset-to-UTC conversion must be performed by a
 //! separately qualified, evidence-preserving clock profile.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 const MAX_ID_BYTES: usize = 1_024;
 
@@ -635,6 +635,394 @@ impl TemporalEvidenceSetV1 {
             return Ok(Selection::Conflict);
         }
 
+        let selected = maximal[0];
+        let knowledge_ids = eligible
+            .into_iter()
+            .find(|(assertion, _)| assertion.assertion_id == selected.assertion_id)
+            .map(|(_, knowledge)| knowledge)
+            .unwrap_or_default();
+        Ok(Selection::Selected(selected, knowledge_ids))
+    }
+
+    fn validity_result(
+        disposition: QueryDispositionV1,
+        claim_id: &str,
+        subject_ref: &str,
+        verifier_ref: &str,
+        valid_at: &str,
+        known_at: &str,
+        valid_from: Option<&TemporalAssertionV1>,
+        valid_to: Option<&TemporalAssertionV1>,
+        knowledge_assertions: Vec<String>,
+    ) -> BitemporalValidityResultV1 {
+        BitemporalValidityResultV1 {
+            disposition,
+            claim_id: claim_id.into(),
+            subject_ref: subject_ref.into(),
+            verifier_ref: verifier_ref.into(),
+            valid_at: valid_at.into(),
+            known_at: known_at.into(),
+            valid_from_assertion: valid_from.map(|assertion| assertion.assertion_id.clone()),
+            valid_to_assertion: valid_to.map(|assertion| assertion.assertion_id.clone()),
+            knowledge_assertions,
+        }
+    }
+}
+
+
+/// Query-ready evidence snapshot. Build once after authenticating and validating
+/// the input assertions; subsequent queries touch only the relevant claim,
+/// dimension, fact, and verifier indexes.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TemporalEvidenceIndexV1 {
+    evidence: TemporalEvidenceSetV1,
+    assertion_by_id: BTreeMap<String, usize>,
+    facts_by_claim: BTreeMap<String, Vec<usize>>,
+    facts_by_claim_dimension: BTreeMap<(String, TemporalDimensionV1), Vec<usize>>,
+    knowledge_by_fact_verifier: BTreeMap<(String, String), Vec<usize>>,
+}
+
+impl TemporalEvidenceIndexV1 {
+    /// Validate once, then construct deterministic lookup indexes.
+    pub fn new(evidence: TemporalEvidenceSetV1) -> Result<Self, TemporalKernelErrorV1> {
+        evidence.validate()?;
+        let mut index = Self {
+            evidence,
+            assertion_by_id: BTreeMap::new(),
+            facts_by_claim: BTreeMap::new(),
+            facts_by_claim_dimension: BTreeMap::new(),
+            knowledge_by_fact_verifier: BTreeMap::new(),
+        };
+        for (position, assertion) in index.evidence.assertions.iter().enumerate() {
+            index
+                .assertion_by_id
+                .insert(assertion.assertion_id.clone(), position);
+            if assertion.dimension.is_fact() {
+                index
+                    .facts_by_claim
+                    .entry(assertion.claim_id.clone())
+                    .or_default()
+                    .push(position);
+                index
+                    .facts_by_claim_dimension
+                    .entry((assertion.claim_id.clone(), assertion.dimension))
+                    .or_default()
+                    .push(position);
+            } else if assertion.dimension == TemporalDimensionV1::VerifierKnowledgeAt {
+                if let (Some(assertion_ref), Some(verifier_ref)) =
+                    (&assertion.assertion_ref, &assertion.verifier_ref)
+                {
+                    index
+                        .knowledge_by_fact_verifier
+                        .entry((assertion_ref.clone(), verifier_ref.clone()))
+                        .or_default()
+                        .push(position);
+                }
+            }
+        }
+        Ok(index)
+    }
+
+    pub fn evidence(&self) -> &TemporalEvidenceSetV1 {
+        &self.evidence
+    }
+
+    /// Evaluate [VALID_FROM, VALID_TO) at V using only evidence accepted by
+    /// verifier X by K. An open end requires both caller opt-in and no
+    /// VALID_TO assertion for the claim.
+    pub fn evaluate_valid_at(
+        &self,
+        claim_id: &str,
+        verifier_ref: &str,
+        valid_at: &str,
+        known_at: &str,
+        allow_open_ended_valid_to: bool,
+    ) -> Result<BitemporalValidityResultV1, TemporalKernelErrorV1> {
+        validate_identifier(claim_id)?;
+        validate_identifier(verifier_ref)?;
+        let valid_query = normalize_utc(valid_at)?;
+        let knowledge_query = normalize_utc(known_at)?;
+        let Some(positions) = self.facts_by_claim.get(claim_id) else {
+            return Ok(Self::validity_result(
+                QueryDispositionV1::Indeterminate,
+                claim_id,
+                "",
+                verifier_ref,
+                valid_at,
+                known_at,
+                None,
+                None,
+                Vec::new(),
+            ));
+        };
+        let subject_ref = self.evidence.assertions[positions[0]].subject_ref.clone();
+
+        let from = self.select_as_known(
+            claim_id,
+            TemporalDimensionV1::ValidFrom,
+            verifier_ref,
+            &knowledge_query,
+        )?;
+        let (from, from_knowledge) = match from {
+            Selection::Selected(assertion, knowledge) => (Some(assertion), knowledge),
+            Selection::Missing | Selection::NotKnown | Selection::Indeterminate => (None, Vec::new()),
+            Selection::Conflict => {
+                return Ok(Self::validity_result(
+                    QueryDispositionV1::Conflict,
+                    claim_id,
+                    &subject_ref,
+                    verifier_ref,
+                    valid_at,
+                    known_at,
+                    None,
+                    None,
+                    Vec::new(),
+                ));
+            }
+        };
+        let Some(from) = from else {
+            return Ok(Self::validity_result(
+                QueryDispositionV1::Indeterminate,
+                claim_id,
+                &subject_ref,
+                verifier_ref,
+                valid_at,
+                known_at,
+                None,
+                None,
+                Vec::new(),
+            ));
+        };
+
+        let to = self.select_as_known(
+            claim_id,
+            TemporalDimensionV1::ValidTo,
+            verifier_ref,
+            &knowledge_query,
+        )?;
+        let (to, to_knowledge) = match to {
+            Selection::Selected(assertion, knowledge) => (Some(assertion), knowledge),
+            Selection::Missing if allow_open_ended_valid_to => (None, Vec::new()),
+            Selection::Missing | Selection::NotKnown | Selection::Indeterminate => {
+                return Ok(Self::validity_result(
+                    QueryDispositionV1::Indeterminate,
+                    claim_id,
+                    &subject_ref,
+                    verifier_ref,
+                    valid_at,
+                    known_at,
+                    Some(from),
+                    None,
+                    from_knowledge,
+                ));
+            }
+            Selection::Conflict => {
+                return Ok(Self::validity_result(
+                    QueryDispositionV1::Conflict,
+                    claim_id,
+                    &subject_ref,
+                    verifier_ref,
+                    valid_at,
+                    known_at,
+                    Some(from),
+                    None,
+                    from_knowledge,
+                ));
+            }
+        };
+
+        if let Some(to_assertion) = to {
+            let from_time = normalize_utc(&from.time_value)?;
+            let to_time = normalize_utc(&to_assertion.time_value)?;
+            if from_time.sortable > to_time.sortable {
+                return Err(TemporalKernelErrorV1::InvalidValidityInterval);
+            }
+        }
+
+        let mut knowledge_ids = from_knowledge;
+        knowledge_ids.extend(to_knowledge);
+        knowledge_ids.sort();
+        knowledge_ids.dedup();
+
+        let disposition = if from.quality == TemporalQualityV1::Contested
+            || to.is_some_and(|assertion| assertion.quality == TemporalQualityV1::Contested)
+        {
+            QueryDispositionV1::Conflict
+        } else if boundary_result(from, &valid_query, true) == BoundaryResult::Uncertain
+            || to.is_some_and(|assertion| {
+                boundary_result(assertion, &valid_query, false) == BoundaryResult::Uncertain
+            })
+        {
+            QueryDispositionV1::Indeterminate
+        } else if boundary_result(from, &valid_query, true) == BoundaryResult::Outside
+            || to.is_some_and(|assertion| {
+                boundary_result(assertion, &valid_query, false) == BoundaryResult::Outside
+            })
+        {
+            QueryDispositionV1::NotValidAtQuery
+        } else {
+            QueryDispositionV1::ValidAtQuery
+        };
+
+        Ok(Self::validity_result(
+            disposition,
+            claim_id,
+            &subject_ref,
+            verifier_ref,
+            valid_at,
+            known_at,
+            Some(from),
+            to,
+            knowledge_ids,
+        ))
+    }
+
+    pub fn occurred_at_as_known(
+        &self,
+        claim_id: &str,
+        verifier_ref: &str,
+        known_at: &str,
+    ) -> Result<OccurrenceAsKnownResultV1, TemporalKernelErrorV1> {
+        validate_identifier(claim_id)?;
+        validate_identifier(verifier_ref)?;
+        let knowledge_query = normalize_utc(known_at)?;
+        let result = match self.select_as_known(
+            claim_id,
+            TemporalDimensionV1::OccurredAt,
+            verifier_ref,
+            &knowledge_query,
+        )? {
+            Selection::Missing | Selection::NotKnown => OccurrenceAsKnownResultV1 {
+                disposition: OccurrenceQueryDispositionV1::NotKnown,
+                assertion_id: None,
+                claim_id: claim_id.into(),
+                subject_ref: String::new(),
+                occurred_at: None,
+                quality: None,
+                precision: None,
+                uncertainty_window: None,
+                knowledge_assertion_ids: Vec::new(),
+            },
+            Selection::Indeterminate => OccurrenceAsKnownResultV1 {
+                disposition: OccurrenceQueryDispositionV1::Indeterminate,
+                assertion_id: None,
+                claim_id: claim_id.into(),
+                subject_ref: String::new(),
+                occurred_at: None,
+                quality: None,
+                precision: None,
+                uncertainty_window: None,
+                knowledge_assertion_ids: Vec::new(),
+            },
+            Selection::Conflict => OccurrenceAsKnownResultV1 {
+                disposition: OccurrenceQueryDispositionV1::Conflict,
+                assertion_id: None,
+                claim_id: claim_id.into(),
+                subject_ref: String::new(),
+                occurred_at: None,
+                quality: None,
+                precision: None,
+                uncertainty_window: None,
+                knowledge_assertion_ids: Vec::new(),
+            },
+            Selection::Selected(assertion, knowledge_ids) => OccurrenceAsKnownResultV1 {
+                disposition: OccurrenceQueryDispositionV1::Known,
+                assertion_id: Some(assertion.assertion_id.clone()),
+                claim_id: assertion.claim_id.clone(),
+                subject_ref: assertion.subject_ref.clone(),
+                occurred_at: Some(assertion.time_value.clone()),
+                quality: Some(assertion.quality),
+                precision: Some(assertion.precision),
+                uncertainty_window: assertion.uncertainty_window.clone(),
+                knowledge_assertion_ids: knowledge_ids,
+            },
+        };
+        Ok(result)
+    }
+
+    fn select_as_known(
+        &self,
+        claim_id: &str,
+        dimension: TemporalDimensionV1,
+        verifier_ref: &str,
+        known_at: &NormalizedTime,
+    ) -> Result<Selection<'_>, TemporalKernelErrorV1> {
+        let key = (claim_id.to_owned(), dimension);
+        let Some(candidate_positions) = self.facts_by_claim_dimension.get(&key) else {
+            return Ok(Selection::Missing);
+        };
+        let mut eligible: Vec<(&TemporalAssertionV1, Vec<String>)> = Vec::new();
+        for candidate_position in candidate_positions {
+            let candidate = &self.evidence.assertions[*candidate_position];
+            let knowledge_key = (candidate.assertion_id.clone(), verifier_ref.to_owned());
+            let mut knowledge_ids = Vec::new();
+            let mut contested_knowledge = false;
+            let mut uncertain_knowledge = false;
+            if let Some(knowledge_positions) =
+                self.knowledge_by_fact_verifier.get(&knowledge_key)
+            {
+                for knowledge_position in knowledge_positions {
+                    let knowledge = &self.evidence.assertions[*knowledge_position];
+                    let time = normalize_utc(&knowledge.time_value)?;
+                    if time.sortable <= known_at.sortable {
+                        match knowledge.quality {
+                            TemporalQualityV1::SourceAsserted => {
+                                knowledge_ids.push(knowledge.assertion_id.clone());
+                            }
+                            TemporalQualityV1::Contested => contested_knowledge = true,
+                            TemporalQualityV1::Estimated | TemporalQualityV1::Uncertain => {
+                                uncertain_knowledge = true;
+                            }
+                        }
+                    }
+                }
+            }
+            if contested_knowledge {
+                return Ok(Selection::Conflict);
+            }
+            if uncertain_knowledge && knowledge_ids.is_empty() {
+                return Ok(Selection::Indeterminate);
+            }
+            if !knowledge_ids.is_empty() {
+                knowledge_ids.sort();
+                eligible.push((candidate, knowledge_ids));
+            }
+        }
+
+        if eligible.is_empty() {
+            return Ok(Selection::NotKnown);
+        }
+
+        let mut maximal: Vec<&TemporalAssertionV1> = Vec::new();
+        for (candidate, _) in &eligible {
+            let mut shadowed = false;
+            for (other, _) in &eligible {
+                if candidate.assertion_id == other.assertion_id {
+                    continue;
+                }
+                let mut current = *other;
+                while let Some(previous_id) = current.supersedes_assertion_id.as_deref() {
+                    if previous_id == candidate.assertion_id {
+                        shadowed = true;
+                        break;
+                    }
+                    let Some(parent_position) = self.assertion_by_id.get(previous_id) else {
+                        break;
+                    };
+                    current = &self.evidence.assertions[*parent_position];
+                }
+                if shadowed {
+                    break;
+                }
+            }
+            if !shadowed {
+                maximal.push(candidate);
+            }
+        }
+
+        if maximal.len() != 1 {
+            return Ok(Selection::Conflict);
+        }
         let selected = maximal[0];
         let knowledge_ids = eligible
             .into_iter()
