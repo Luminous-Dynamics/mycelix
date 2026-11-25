@@ -70,10 +70,10 @@
       ]
     },
     "baseline_manifest": {
-      "$ref": "benchmark-comparison.schema.json#/$defs/run"
+      "$ref": "https://luminousdynamics.io/schemas/benchmark-comparison-v0.1.json#/$defs/run"
     },
     "counterfactual_manifest": {
-      "$ref": "benchmark-comparison.schema.json#/$defs/run"
+      "$ref": "https://luminousdynamics.io/schemas/benchmark-comparison-v0.1.json#/$defs/run"
     },
     "baseline_input_digest": {
       "$ref": "#/$defs/digest"
