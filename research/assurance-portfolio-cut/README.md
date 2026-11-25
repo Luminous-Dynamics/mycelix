@@ -186,6 +186,27 @@ The unit panel covers caller-pinned policy identity and policy-owned role/separa
 
 These are finite model tests. Policy and identity manifests are still supplied data: passing profile and cut-set tests do not authenticate ownership, prove organizational independence, or establish that all real common-cause failures have been enumerated.
 
+## Multi-valued dependency inventory v0.2
+
+The v0.2 extension admits more than one exact `Digest` identity within a single role/fault-domain dimension:
+
+```rust
+DomainDisposition::MultiValue {
+    identities: BTreeSet<Digest>,
+    completeness: DependencySetCompleteness,
+}
+```
+
+- `Complete` means the listed set is the complete declared inventory for that role/dimension.
+- `UnknownRemainder` means the listed identities remain visible but the inventory is incomplete. The profile remains incomplete, and no numeric cut-set result is published.
+- Required pairwise separation is checked over the **entire identity sets**. Any intersection blocks the required separation; set difference alone is not sufficient.
+- The existing incremental minimal-hitting-set solver consumes multiple `FaultDomainKey` values in the same dimension. It does not change its any-one-declared-dependency compromise semantics.
+- Incomplete cut-set receipts retain `known_dependencies_by_role`, so known overlaps are not erased when an unknown remainder prevents a numeric result.
+
+Frozen tests cover multi-valued profile-to-manifest binding, partial overlap, known-subset preservation under unknown remainder, exact same-dimension minimal cut sets, and 48 deterministic multi-role cases checked against the independent brute-force reference.
+
+This v0.2 increment does **not** claim to ingest the LEX-NET-030 graph schema or compute transitive closure itself. It consumes a flattened, already materialized identity set represented by the typed manifest. Source dependency IDs, per-edge evidence references, dependency classes (claim-critical versus evidentiary lineage/optional/fallback), and authenticated graph revision binding remain explicit follow-on requirements for the LEX-NET-030 integration. Do not flatten optional/fallback relations into mandatory cut-set members. Until those types are present, this crate makes no such inference.
+
 ## Profile-to-cut-set binding and algorithmic comparison
 
 The downstream `analyze_profile_cut_sets` entry point is stricter than the lower-level finite enumerator. It accepts an opaque `VerifiedProfile` token created by `check_profile`, not a caller-constructible report struct. Its inner report is private; the report fields are exposed read-only through deref. This prevents a caller from fabricating a public report with `CompleteForDeclaredThreatModel` and skipping the profile checker. It accepts only a `CompleteForDeclaredThreatModel` profile and checks claim, subject, profile and policy identifiers; exact policy-required role set; and every role's 15 domain classifications and identities against the dependency manifest before it calls `minimal_cut_sets`. A manifest that merely repeats a matching profile digest but substitutes a dependency identity is rejected. The manifest and attack-model digests are carried into the report; the caller must still verify those digests against the exact source bytes.
