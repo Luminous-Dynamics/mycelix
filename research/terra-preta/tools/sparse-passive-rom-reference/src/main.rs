@@ -1642,6 +1642,100 @@ mod tests {
 
     const TOL: f64 = 1.0e-10;
 
+    fn two_by_two_stieltjes(scale: f64) -> CsrMatrix {
+        CsrMatrix::from_rows(vec![
+            BTreeMap::from([(0, 2.0 * scale), (1, -scale)]),
+            BTreeMap::from([(0, -scale), (1, 2.0 * scale)]),
+        ])
+        .unwrap()
+    }
+
+    #[test]
+    fn m_matrix_supersolution_bounds_analytic_two_by_two_eigenvalue() {
+        let matrix = two_by_two_stieltjes(1.0);
+        let certificate = m_matrix_lambda_min_lower_bound(&matrix, 1.0e-12, 32).unwrap();
+        // Eigenvalues of [[2,-1],[-1,2]] are 1 and 3. The exact A^-1*1
+        // is [1,1], so the supersolution-derived lower bound is tight up to
+        // the declared floating-point inflation.
+        assert!(certificate.lambda_min_lower_bound > 0.999_999);
+        assert!(certificate.lambda_min_lower_bound <= 1.0);
+        assert!(certificate.supersolution_min_component > 0.0);
+        assert!(certificate.supersolution_max_component >= 1.0);
+        assert!(certificate.minimum_supersolution_margin >= 0.0);
+        assert!(certificate.cg_stats.relative_residual <= 1.0e-12);
+        assert_eq!(certificate.supersolution_sha256.len(), 64);
+    }
+
+    #[test]
+    fn m_matrix_lower_bound_is_invariant_under_24_order_unit_rescaling() {
+        let baseline = m_matrix_lambda_min_lower_bound(
+            &two_by_two_stieltjes(1.0),
+            1.0e-11,
+            32,
+        )
+        .unwrap();
+        for scale in [1.0e-24, 1.0e24] {
+            let certificate = m_matrix_lambda_min_lower_bound(
+                &two_by_two_stieltjes(scale),
+                1.0e-11,
+                32,
+            )
+            .unwrap();
+            let normalized = certificate.lambda_min_lower_bound / scale;
+            assert!((normalized - baseline.lambda_min_lower_bound).abs() < 1.0e-8);
+            assert!(certificate.minimum_supersolution_margin >= 0.0);
+        }
+    }
+
+    #[test]
+    fn m_matrix_certificate_rejects_positive_or_asymmetric_off_diagonals() {
+        let positive_off_diagonal = CsrMatrix::from_rows(vec![
+            BTreeMap::from([(0, 2.0), (1, 0.1)]),
+            BTreeMap::from([(0, 0.1), (1, 2.0)]),
+        ])
+        .unwrap();
+        assert!(m_matrix_lambda_min_lower_bound(&positive_off_diagonal, 1.0e-10, 32).is_err());
+
+        let asymmetric = CsrMatrix::from_rows(vec![
+            BTreeMap::from([(0, 2.0), (1, -1.0)]),
+            BTreeMap::from([(0, -0.5), (1, 2.0)]),
+        ])
+        .unwrap();
+        assert!(m_matrix_lambda_min_lower_bound(&asymmetric, 1.0e-10, 32).is_err());
+    }
+
+    #[test]
+    fn response_error_upper_bounds_dominate_every_adaptive_audit_sample() {
+        let fixture = adaptive_multiport_fixture();
+        let report = analyze(&fixture, "m-matrix-response-certificate-test".into()).unwrap();
+        assert!(report.error_certificate_valid);
+        assert!(report.m_matrix_lambda_min_lower_bound > 0.0);
+        assert!(report.m_matrix_supersolution_min_component > 0.0);
+        assert!(report.m_matrix_supersolution_minimum_margin >= 0.0);
+        assert!(report.m_matrix_supersolution_relative_residual <= fixture.cg_relative_tolerance);
+        assert_eq!(report.m_matrix_supersolution_sha256.len(), 64);
+        assert_eq!(report.error_certificate_pcg_solve_count, 1);
+        assert!(report.overall_pcg_solve_count > report.cg_solve_count);
+        assert!(report.maximum_relative_response_error_upper_bound.is_finite());
+        for sample in &report.frequency_samples {
+            assert!(sample.error_bound_valid);
+            assert!(
+                sample.absolute_response_error_upper_bound >= sample.absolute_response_error,
+                "upper bound {:?} must dominate observed error {:?} at s={}",
+                sample.absolute_response_error_upper_bound,
+                sample.absolute_response_error,
+                sample.laplace_s
+            );
+            assert!(
+                sample.relative_response_error_upper_bound >= sample.relative_response_error,
+                "relative upper bound {:?} must dominate observed error {:?} at s={}",
+                sample.relative_response_error_upper_bound,
+                sample.relative_response_error,
+                sample.laplace_s
+            );
+        }
+    }
+
     fn high_contrast_multiport_fixture() -> Fixture {
         Fixture {
             schema_version: VERSION.into(),
