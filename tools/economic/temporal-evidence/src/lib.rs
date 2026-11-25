@@ -14,7 +14,7 @@
 //! normalizing offsets. Offset-to-UTC conversion must be performed by a
 //! separately qualified, evidence-preserving clock profile.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 const MAX_ID_BYTES: usize = 1_024;
 
@@ -604,32 +604,28 @@ impl TemporalEvidenceSetV1 {
             return Ok(if has_assertion { Selection::NotKnown } else { Selection::Missing });
         }
 
-        let mut maximal: Vec<&TemporalAssertionV1> = Vec::new();
-        for (candidate, _) in &eligible {
-            let mut shadowed = false;
-            for (other, _) in &eligible {
-                if candidate.assertion_id == other.assertion_id {
-                    continue;
+        let eligible_ids: BTreeSet<&str> = eligible
+            .iter()
+            .map(|(assertion, _)| assertion.assertion_id.as_str())
+            .collect();
+        let mut shadowed = BTreeSet::<String>::new();
+        for (other, _) in &eligible {
+            let mut current = *other;
+            while let Some(parent_id) = current.supersedes_assertion_id.as_deref() {
+                if eligible_ids.contains(parent_id) {
+                    shadowed.insert(parent_id.to_owned());
                 }
-                let mut current = *other;
-                while let Some(parent_id) = current.supersedes_assertion_id.as_deref() {
-                    if parent_id == candidate.assertion_id {
-                        shadowed = true;
-                        break;
-                    }
-                    let Some(parent) = by_id.get(parent_id) else {
-                        break;
-                    };
-                    current = parent;
-                }
-                if shadowed {
+                let Some(parent) = by_id.get(parent_id) else {
                     break;
-                }
-            }
-            if !shadowed {
-                maximal.push(candidate);
+                };
+                current = parent;
             }
         }
+        let maximal: Vec<&TemporalAssertionV1> = eligible
+            .iter()
+            .map(|(assertion, _)| *assertion)
+            .filter(|assertion| !shadowed.contains(&assertion.assertion_id))
+            .collect();
 
         if maximal.len() != 1 {
             return Ok(Selection::Conflict);
@@ -993,32 +989,28 @@ impl TemporalEvidenceIndexV1 {
             return Ok(Selection::NotKnown);
         }
 
-        let mut maximal: Vec<&TemporalAssertionV1> = Vec::new();
-        for (candidate, _) in &eligible {
-            let mut shadowed = false;
-            for (other, _) in &eligible {
-                if candidate.assertion_id == other.assertion_id {
-                    continue;
+        let eligible_ids: BTreeSet<&str> = eligible
+            .iter()
+            .map(|(assertion, _)| assertion.assertion_id.as_str())
+            .collect();
+        let mut shadowed = BTreeSet::<String>::new();
+        for (other, _) in &eligible {
+            let mut current = *other;
+            while let Some(previous_id) = current.supersedes_assertion_id.as_deref() {
+                if eligible_ids.contains(previous_id) {
+                    shadowed.insert(previous_id.to_owned());
                 }
-                let mut current = *other;
-                while let Some(previous_id) = current.supersedes_assertion_id.as_deref() {
-                    if previous_id == candidate.assertion_id {
-                        shadowed = true;
-                        break;
-                    }
-                    let Some(parent_position) = self.assertion_by_id.get(previous_id) else {
-                        break;
-                    };
-                    current = &self.evidence.assertions[*parent_position];
-                }
-                if shadowed {
+                let Some(parent_position) = self.assertion_by_id.get(previous_id) else {
                     break;
-                }
-            }
-            if !shadowed {
-                maximal.push(candidate);
+                };
+                current = &self.evidence.assertions[*parent_position];
             }
         }
+        let maximal: Vec<&TemporalAssertionV1> = eligible
+            .iter()
+            .map(|(assertion, _)| *assertion)
+            .filter(|assertion| !shadowed.contains(&assertion.assertion_id))
+            .collect();
 
         if maximal.len() != 1 {
             return Ok(Selection::Conflict);
