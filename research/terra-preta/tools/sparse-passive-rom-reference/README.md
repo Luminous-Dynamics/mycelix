@@ -128,7 +128,7 @@ Each sample records observed absolute/relative response error and the correspond
 - node/edge ordering invariance for the branched response;
 - input SHA-256 and create-new output semantics.
 
-The current test suite contains twenty tests, including an analytic 2×2 M-matrix bound, 24-order rescaling, positive/asymmetric off-diagonal rejection, and adaptive response-error bound dominance over every audit sample. Synthetic fixtures include a 128-node chain, a four-node branched network, and a high-contrast three-port network. Conductance/storage rescaling by 24 orders of magnitude tests scale invariance. Tests also verify that a zero-shift basis preserves both DC and high-frequency limits, while a nonzero-only basis reports its feedthrough-limit mismatch. None of these fixtures is empirical soil data.
+The current test suite contains twenty-five tests, including an analytic 2×2 M-matrix bound, 24-order rescaling, positive/asymmetric off-diagonal rejection, and adaptive response-error bound dominance over every audit sample. Synthetic fixtures include a 128-node chain, a four-node branched network, and a high-contrast three-port network. Conductance/storage rescaling by 24 orders of magnitude tests scale invariance. Tests also verify that a zero-shift basis preserves both DC and high-frequency limits, while a nonzero-only basis reports its feedthrough-limit mismatch. None of these fixtures is empirical soil data.
 
 ## Claim boundary
 
