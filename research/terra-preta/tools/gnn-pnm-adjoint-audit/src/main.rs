@@ -182,11 +182,7 @@ fn objective(case: &Case) -> Result<f64, AuditError> {
     Ok(0.5 * (permeability - case.target_permeability).powi(2))
 }
 
-fn five_point_derivative(
-    case: &Case,
-    edge_index: usize,
-    epsilon: f64,
-) -> Result<f64, AuditError> {
+fn five_point_derivative(case: &Case, edge_index: usize, epsilon: f64) -> Result<f64, AuditError> {
     let mut plus_one = case.clone();
     let mut plus_two = case.clone();
     let mut minus_one = case.clone();
@@ -195,10 +191,11 @@ fn five_point_derivative(
     plus_two.conductances[edge_index] += 2.0 * epsilon;
     minus_one.conductances[edge_index] -= epsilon;
     minus_two.conductances[edge_index] -= 2.0 * epsilon;
-    Ok((-objective(&plus_two)? + 8.0 * objective(&plus_one)?
-        - 8.0 * objective(&minus_one)?
-        + objective(&minus_two)?)
-        / (12.0 * epsilon))
+    Ok(
+        (-objective(&plus_two)? + 8.0 * objective(&plus_one)? - 8.0 * objective(&minus_one)?
+            + objective(&minus_two)?)
+            / (12.0 * epsilon),
+    )
 }
 
 fn finite_difference_gradient(case: &Case) -> Result<Vec<f64>, AuditError> {
