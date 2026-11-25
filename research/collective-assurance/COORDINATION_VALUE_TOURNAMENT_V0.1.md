@@ -118,13 +118,13 @@ Use held-out task families and model configurations. Report calibration, uncerta
 Prospective research targets, not achieved results:
 - Reproduce the published matched single-agent vs multi-agent protocol on at least three benchmark families before extending it.
 - Evaluate all five architecture families with equal total budget and pinned model/task/scorer.
-- At least 90% held-out prediction accuracy for the sign of coordination gain across at least 100 independent held-out configurations, with confidence intervals and family-stratified results.
-- At least 85% held-out architecture-selection accuracy, including the single-agent option, under a preregistered regret metric.
+- At least 95% held-out prediction accuracy for the sign of coordination gain across at least 100 independent held-out configurations, with the 95% confidence-interval lower bound above 90% and family-stratified results.
+- At least 90% held-out architecture-selection accuracy, including the single-agent option, with the 95% confidence-interval lower bound above 85% under a preregistered regret metric.
 - Demonstrate positive, confidence-bounded quality gain without exceeding cost/token/latency/error limits on at least two structurally distinct task families.
 - Zero authority, privacy, evidence or execution-boundary gate failures in the qualified comparison set.
 - Publish task-structure, coordination-overhead, message-density and error-amplification traces for every configuration.
 
-The paper's 94% sign-prediction result is a replication comparator, not a claim that we have already surpassed it. Our 100-configuration target broadens the held-out confirmation base.
+The paper reports 94% sign prediction on 16 validation configurations and 87% architecture selection on its held-out within-domain configurations. Our proposed 95%/90% targets are intentionally stronger and require at least 100 independent held-out configurations plus uncertainty bounds. These targets are not directly comparable until we reproduce the paper's task/model split and selection protocol; do not claim superiority from the target definition.
 
 ## Integration
 
