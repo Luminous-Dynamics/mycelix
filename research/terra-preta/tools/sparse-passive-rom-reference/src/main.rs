@@ -62,6 +62,11 @@ struct CsrMatrix {
     diagonal: Vec<f64>,
 }
 
+fn rounding_gamma(operation_count: usize) -> f64 {
+    let product = operation_count as f64 * f64::EPSILON;
+    product / (1.0 - product)
+}
+
 impl CsrMatrix {
     fn from_rows(rows: Vec<BTreeMap<usize, f64>>) -> Result<Self, String> {
         let size = rows.len();
@@ -111,6 +116,25 @@ impl CsrMatrix {
             *value = sum + shift * vector[row];
         }
         Ok(result)
+    }
+
+    fn matvec_roundoff_bound(&self, vector: &[f64], shift: f64) -> Result<Vec<f64>, String> {
+        if vector.len() != self.size || !shift.is_finite() || shift < 0.0 {
+            return Err("matvec roundoff bound dimensions or shift are invalid".into());
+        }
+        let mut bounds = vec![0.0; self.size];
+        for (row, bound) in bounds.iter_mut().enumerate() {
+            let mut magnitude = shift * vector[row].abs();
+            for index in self.row_ptr[row]..self.row_ptr[row + 1] {
+                magnitude += self.values[index].abs() * vector[self.col_idx[index]].abs();
+            }
+            let operations = 2 * (self.row_ptr[row + 1] - self.row_ptr[row]) + 2;
+            *bound = rounding_gamma(operations) * magnitude;
+        }
+        if bounds.iter().any(|value| !value.is_finite()) {
+            return Err("matvec roundoff bound is non-finite".into());
+        }
+        Ok(bounds)
     }
 
     fn shifted_diagonal(&self, shift: f64) -> Vec<f64> {
