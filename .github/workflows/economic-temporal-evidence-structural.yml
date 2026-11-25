@@ -5,12 +5,14 @@ on:
     paths:
       - 'docs/economic/temporal/**'
       - 'tools/economic/temporal-evidence/**'
+      - 'tools/economic/temporal-frontier-model/**'
       - '.github/workflows/economic-temporal-evidence-structural.yml'
   push:
     branches: [main]
     paths:
       - 'docs/economic/temporal/**'
       - 'tools/economic/temporal-evidence/**'
+      - 'tools/economic/temporal-frontier-model/**'
       - '.github/workflows/economic-temporal-evidence-structural.yml'
   workflow_dispatch:
 
