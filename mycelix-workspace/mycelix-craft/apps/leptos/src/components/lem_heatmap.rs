@@ -11,6 +11,7 @@
 
 use crate::context::{PublishedCredentialView, use_craft};
 use leptos::prelude::*;
+use mycelix_leptos_core::holochain_provider::use_holochain;
 
 /// Parse "E3-N1-M2" into (empirical, normative, materiality) as u8 values.
 fn parse_epistemic_code(code: &str) -> Option<(u8, u8, u8)> {
@@ -114,12 +115,13 @@ fn render_panel(
 #[component]
 pub fn LemHeatmap() -> impl IntoView {
     let craft = use_craft();
+    let demo_mode = use_holochain().is_mock();
 
     let panels_data = Memo::new(move |_| {
         let creds = craft.credentials.get();
 
-        // Use mock data if empty
-        let source: Vec<PublishedCredentialView> = if creds.is_empty() {
+        // Synthetic examples are restricted to explicit mock-provider mode.
+        let source: Vec<PublishedCredentialView> = if creds.is_empty() && demo_mode {
             vec![
                 PublishedCredentialView {
                     credential_id: String::new(),
@@ -189,6 +191,9 @@ pub fn LemHeatmap() -> impl IntoView {
     view! {
         <div class="lem-heatmap">
             <h3>"Epistemic Profile"</h3>
+            {demo_mode.then(|| view! {
+                <span class="status-indicator mock">"Synthetic demo data — not a worker assessment"</span>
+            })}
             <p class="text-secondary" style="font-size: 0.8rem; margin-bottom: 0.75rem">
                 "Where your knowledge lives in the LEM space"
             </p>
