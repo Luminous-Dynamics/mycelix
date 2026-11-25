@@ -471,6 +471,35 @@ jobs:
         working-directory: mycelix-workspace/mycelix-craft
         run: cargo clippy -p craft-guild-governance-v1 -p craft-economic-agreement-v1 --all-targets -- -D warnings
 
+  # Craft's browser UI is a root-workspace package, separate from its zome workspace.
+  test-craft-ui:
+    name: Craft opportunity matching UI
+    needs: changes
+    if: needs.changes.outputs.craft == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Test the exact PR head, not GitHub's synthetic merge commit.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace
+      - name: Verify exact checkout
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/Cargo.toml -p mycelix-craft-ui --check
+      - name: Test Craft UI and matching contracts
+        run: cargo test --manifest-path mycelix-workspace/Cargo.toml -p mycelix-craft-ui
+      - name: Clippy Craft UI
+        run: cargo clippy --manifest-path mycelix-workspace/Cargo.toml -p mycelix-craft-ui --all-targets -- -D warnings
+
   # Summary gate
   ci-pass:
     if: always() && !cancelled() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
@@ -490,6 +519,7 @@ jobs:
       - test-sdk
       - test-prism
       - test-craft-reference
+      - test-craft-ui
     runs-on: ubuntu-latest
     steps:
       - name: Check results
@@ -511,9 +541,10 @@ jobs:
           echo "SDK: ${{ needs.test-sdk.result }}"
           echo "Prism: ${{ needs.test-prism.result }}"
           echo "Craft reference cores: ${{ needs.test-craft-reference.result }}"
+          echo "Craft UI: ${{ needs.test-craft-ui.result }}"
           if [ "${{ needs.format.result }}" = "failure" ]; then exit 1; fi
           # Skipped jobs are OK (path filter didn't match)
-          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}" "${{ needs.test-craft-reference.result }}"; do
+          for result in "${{ needs.test-cos-conformance.result }}" "${{ needs.test-commons.result }}" "${{ needs.test-civic.result }}" "${{ needs.test-hearth.result }}" "${{ needs.test-finance.result }}" "${{ needs.test-governance.result }}" "${{ needs.test-identity.result }}" "${{ needs.test-personal.result }}" "${{ needs.test-attribution.result }}" "${{ needs.test-bridge.result }}" "${{ needs.test-sdk.result }}" "${{ needs.test-prism.result }}" "${{ needs.test-craft-reference.result }}" "${{ needs.test-craft-ui.result }}"; do
             if [ "$result" = "failure" ]; then exit 1; fi
           done
           echo "All checks passed!"
