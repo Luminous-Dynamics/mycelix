@@ -1248,12 +1248,38 @@ fn reduced_state_in_full_space(
     Ok(full_state)
 }
 
+fn full_order_reference_residual_matrix(
+    model: &Model,
+    full_state_solutions: &[Vec<f64>],
+    shift: f64,
+) -> Result<Dense, String> {
+    let port_count = model.boundary_ids.len();
+    if full_state_solutions.len() != port_count
+        || full_state_solutions.iter().any(|state| state.len() != model.a.size)
+    {
+        return Err("full-order reference state solution dimensions are invalid".into());
+    }
+    let mut residual_matrix = vec![Vec::with_capacity(port_count); model.a.size];
+    for (port, approximate_state) in full_state_solutions.iter().enumerate() {
+        let action = model.a.matvec(approximate_state, shift)?;
+        let input = column(&model.b, port);
+        for (row, (right, left)) in residual_matrix
+            .iter_mut()
+            .zip(input.iter().zip(action.iter()))
+        {
+            row.push(right - left);
+        }
+    }
+    Ok(residual_matrix)
+}
+
 fn response_error_upper_bound(
     model: &Model,
     projection: &Projection,
     shift: f64,
     lambda_min_lower_bound: f64,
     full_response: &[Vec<f64>],
+    full_state_solutions: &[Vec<f64>],
     reduced_response: &[Vec<f64>],
 ) -> Result<(f64, f64, f64, bool), String> {
     if !lambda_min_lower_bound.is_finite() || lambda_min_lower_bound <= 0.0 {
@@ -1276,7 +1302,18 @@ fn response_error_upper_bound(
         }
     }
 
-    let residual_norm = frobenius_norm(&residual_matrix);
+    let reference_residual =
+        full_order_reference_residual_matrix(model, full_state_solutions, shift)?;
+    let mut residual_envelope = vec![vec![0.0; model.boundary_ids.len()]; model.a.size];
+    for state in 0..model.a.size {
+        for port in 0..model.boundary_ids.len() {
+            residual_envelope[state][port] =
+                residual_matrix[state][port].abs() + reference_residual[state][port].abs();
+        }
+    }
+    // Include the PCG reference residual as well as the ROM residual so the
+    // reported envelope covers the numerical full-order comparison actually used.
+    let residual_norm = frobenius_norm(&residual_envelope);
     let feedthrough_difference = frobenius_difference(&model.d, &projection.d_r)?;
     let b_norm = frobenius_norm(&model.b);
     let denominator = lambda_min_lower_bound + shift;
@@ -1306,6 +1343,7 @@ fn response_error_upper_bound_portwise(
     shift: f64,
     supersolution: &[f64],
     full_response: &[Vec<f64>],
+    full_state_solutions: &[Vec<f64>],
     reduced_response: &[Vec<f64>],
 ) -> Result<(f64, f64, f64, bool), String> {
     if !shift.is_finite() || shift < 0.0 {
@@ -1319,18 +1357,21 @@ fn response_error_upper_bound_portwise(
     let full_state_approx = reduced_state_in_full_space(model, projection, shift)?;
     let port_count = model.boundary_ids.len();
     let mut residual_column_infinity_norms = vec![0.0_f64; port_count];
+    let reference_residual =
+        full_order_reference_residual_matrix(model, full_state_solutions, shift)?;
     for port in 0..port_count {
         let approximate_state = column(&full_state_approx, port);
         let action = model.a.matvec(&approximate_state, shift)?;
         let input = column(&model.b, port);
-        let residual: Vec<f64> = input
-            .iter()
-            .zip(action.iter())
-            .map(|(right, left)| right - left)
-            .collect();
-        let residual_inf = residual.iter().map(|value| value.abs()).fold(0.0_f64, f64::max);
+        let mut residual_inf = 0.0_f64;
+        for state in 0..model.a.size {
+            let rom_residual = input[state] - action[state];
+            residual_inf = residual_inf.max(
+                rom_residual.abs() + reference_residual[state][port].abs(),
+            );
+        }
         if !residual_inf.is_finite() {
-            return Err("portwise response residual is non-finite".into());
+            return Err("portwise combined response residual is non-finite".into());
         }
         residual_column_infinity_norms[port] = residual_inf;
     }
@@ -1670,13 +1711,15 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     let mut exact_dc_from_audit: Option<Dense> = None;
     let mut frequency_samples = Vec::with_capacity(fixture.laplace_samples.len());
     for shift in &fixture.laplace_samples {
-        let (full, full_stats) = response_from_sparse(
+        let full_solve = response_and_state_solutions_from_sparse(
             &model,
             *shift,
             fixture.cg_relative_tolerance,
             fixture.cg_max_iterations,
         )?;
-        stats.extend(full_stats.iter().copied());
+        let full = full_solve.response;
+        let full_state_solutions = full_solve.state_solutions;
+        stats.extend(full_solve.stats.iter().copied());
         if *shift == 0.0 {
             exact_dc_from_audit = Some(full.clone());
         }
@@ -1692,6 +1735,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             *shift,
             error_certificate.lambda_min_lower_bound,
             &full,
+            &full_state_solutions,
             &reduced,
         )?;
         let (
@@ -1705,6 +1749,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             *shift,
             &error_certificate.supersolution,
             &full,
+            &full_state_solutions,
             &reduced,
         )?;
         if !error_bound_valid || !portwise_error_bound_valid {
@@ -1731,6 +1776,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
                 *shift,
                 error_certificate.lambda_min_lower_bound,
                 &full,
+                &full_state_solutions,
                 &block_reduced,
             )?;
             block_arnoldi_baseline_absolute_error_bound =
@@ -1750,6 +1796,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
                 *shift,
                 &error_certificate.supersolution,
                 &full,
+                &full_state_solutions,
                 &block_reduced,
             )?;
             block_arnoldi_baseline_portwise_absolute_error_bound =
