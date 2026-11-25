@@ -58,6 +58,8 @@ pub enum EvidenceRelationKind {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RelationalEvidenceRecord {
     pub evidence_id: String,
+    /// Request that established the disclosure/exposure context for this record.
+    pub request_id: String,
     /// Evidence origin is deliberately distinct from the person/agent holding it.
     pub source_origin_id: String,
     pub source_holder_id: String,
@@ -163,7 +165,7 @@ fn candidate_is_eligible(
     matches!(
         record.permission,
         RelationalDisclosurePermission::Shareable | RelationalDisclosurePermission::Scoped
-    ) && record
+    ) && record.request_id == scope.request_id && record
         .permitted_recipient_ids
         .iter()
         .any(|recipient| recipient == &scope.recipient_id)
@@ -186,6 +188,13 @@ fn seed_disposition(
             "a retrieval seed is absent from the complete candidate pool".into(),
         ));
     };
+
+    if record.request_id != scope.request_id {
+        return Some((
+            RelationalEvidenceStatus::Fail,
+            "retrieval seed belongs to a different request context".into(),
+        ));
+    }
 
     match record.permission {
         RelationalDisclosurePermission::WithheldByRights => {
@@ -316,6 +325,7 @@ pub fn refine_relational_evidence(
     let mut by_id: BTreeMap<&str, &RelationalEvidenceRecord> = BTreeMap::new();
     for candidate in candidates {
         if !nonempty(&candidate.evidence_id)
+            || !nonempty(&candidate.request_id)
             || !nonempty(&candidate.source_origin_id)
             || !nonempty(&candidate.source_holder_id)
             || !nonempty(&candidate.source_message_id)
@@ -594,6 +604,7 @@ mod tests {
     fn record(id: &str, origin: &str, holder: &str) -> RelationalEvidenceRecord {
         RelationalEvidenceRecord {
             evidence_id: id.into(),
+            request_id: "request-1".into(),
             source_origin_id: origin.into(),
             source_holder_id: holder.into(),
             source_message_id: format!("message-{id}"),
@@ -731,6 +742,28 @@ mod tests {
         let report = refine_relational_evidence(&query, &[withheld], &[]);
         assert_eq!(report.status, RelationalEvidenceStatus::Fail);
         assert!(report.selected_evidence_ids.is_empty());
+    }
+
+
+    #[test]
+    fn seed_from_another_request_context_fails() {
+        let mut item = record("e1", "origin-a", "holder-a");
+        item.request_id = "other-request".into();
+        let report = refine_relational_evidence(&scope(), &[item], &[]);
+        assert_eq!(report.status, RelationalEvidenceStatus::Fail);
+    }
+
+    #[test]
+    fn related_candidate_from_another_request_is_not_added() {
+        let mut item = record("e2", "origin-b", "holder-b");
+        item.request_id = "other-request".into();
+        let report = refine_relational_evidence(
+            &scope(),
+            &[record("e1", "origin-a", "holder-a"), item],
+            &[edge("e1", "e2", EvidenceRelationKind::Supports)],
+        );
+        assert_eq!(report.status, RelationalEvidenceStatus::Pass);
+        assert_eq!(report.selected_evidence_ids, vec!["e1"]);
     }
 
     #[test]
