@@ -132,6 +132,30 @@ The report exposes both initial and refined lower bounds, the number of refineme
 
 This is still a floating-point residual-corrected Collatz prototype, not interval arithmetic. Its useful performance is determined by the measured lower-bound gain and the resulting response-error-bound tightness; merely returning a valid positive bound is not enough.
 
+## Portwise componentwise response-error bound
+
+The global spectral-norm bound can be very conservative because it multiplies global `||B||_F` and `||R||_F` norms. The M-matrix supersolution also gives a componentwise envelope that preserves which boundary ports actually couple to the residual support.
+
+For output port (i) and input port (j), let (B_i) denote column (i) of the interior-to-boundary coupling matrix and (R_j(s)) the full-space residual column of the reduced state. Since ((A+sI)^{-1}) is nonnegative and no larger than (A^{-1}) elementwise for real (s\ge0), and (A^{-1}\mathbf1\le y),
+
+[
+\left|B_i^T(A+sI)^{-1}R_j\right|
+\le \left(|B_i|^T y\right)\,\lVert R_j\rVert_\infty.
+]
+
+The response-error envelope is
+
+[
+U_{ij}(s)=|D-D_r|_{ij}
++\left(|B_i|^T y\right)\,\lVert R_j(s)\rVert_\infty,
+\qquad
+\lVert\Lambda-\Lambda_r\rVert_F\le\lVert U\rVert_F.
+]
+
+The implementation independently checks every response-matrix entry against this componentwise envelope before emitting the portwise Frobenius bound. It reports the original global spectral bound, the portwise bound, and the minimum of the two independently valid bounds. The same check is applied separately to the adaptive projection and the zero-shift block-Arnoldi baseline.
+
+This method requires the exact symmetric anchored M-matrix admission checks and the verified supersolution. It applies only to real nonnegative Laplace samples. It is not a substitute for interval arithmetic and does not validate the pore graph or underlying soil model.
+
 ## Qualification
 
 - sparse CSR assembly for the graph Laplacian and storage-normalized operator;
@@ -147,7 +171,7 @@ This is still a floating-point residual-corrected Collatz prototype, not interva
 - node/edge ordering invariance for the branched response;
 - input SHA-256 and create-new output semantics.
 
-The current test suite contains twenty-seven tests, including an analytic 2×2 M-matrix bound, 24-order rescaling, positive/asymmetric off-diagonal rejection, and adaptive response-error bound dominance over every audit sample. Synthetic fixtures include a 128-node chain, a four-node branched network, and a high-contrast three-port network. Conductance/storage rescaling by 24 orders of magnitude tests scale invariance. Tests also verify that a zero-shift basis preserves both DC and high-frequency limits, while a nonzero-only basis reports its feedthrough-limit mismatch. None of these fixtures is empirical soil data.
+The current test suite contains twenty-seven tests, including an analytic 2×2 M-matrix bound, 24-order rescaling, positive/asymmetric off-diagonal rejection, Collatz monotonicity/solve-budget controls, and spectral plus portwise response-error bound dominance over every audit sample. Synthetic fixtures include a 128-node chain, a four-node branched network, and a high-contrast three-port network. Conductance/storage rescaling by 24 orders of magnitude tests scale invariance. Tests also verify that a zero-shift basis preserves both DC and high-frequency limits, while a nonzero-only basis reports its feedthrough-limit mismatch. None of these fixtures is empirical soil data.
 
 ## Claim boundary
 
