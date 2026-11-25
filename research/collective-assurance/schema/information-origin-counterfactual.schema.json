@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/information-origin-counterfactual-v0.1.json",
+  "title": "Information-origin counterfactual replay v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "experiment_id",
+    "origin_disclosure_status",
+    "omitted_source_origin_id",
+    "omitted_source_origin_digest",
+    "source_origin_registry_receipt_digest",
+    "removal_closure_attestation_digest",
+    "baseline_manifest",
+    "counterfactual_manifest",
+    "baseline_input_digest",
+    "counterfactual_input_digest",
+    "baseline_shared_context_digest",
+    "counterfactual_shared_context_digest",
+    "baseline_ledger_root_digest",
+    "counterfactual_ledger_root_digest",
+    "baseline_source_origins",
+    "counterfactual_source_origins",
+    "removed_origin_closure",
+    "baseline_decision_digest",
+    "counterfactual_decision_digest",
+    "baseline_confidence",
+    "counterfactual_confidence",
+    "baseline_decision_quality",
+    "counterfactual_decision_quality"
+  ],
+  "properties": {
+    "experiment_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "origin_disclosure_status": {
+      "enum": [
+        "authorized_and_disclosed",
+        "withheld_by_rights",
+        "no_response",
+        "unknown"
+      ]
+    },
+    "omitted_source_origin_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "omitted_source_origin_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "source_origin_registry_receipt_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/digest"
+        }
+      ]
+    },
+    "removal_closure_attestation_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/digest"
+        }
+      ]
+    },
+    "baseline_manifest": {
+      "$ref": "https://luminousdynamics.io/schemas/benchmark-comparison-v0.1.json#/$defs/run"
+    },
+    "counterfactual_manifest": {
+      "$ref": "https://luminousdynamics.io/schemas/benchmark-comparison-v0.1.json#/$defs/run"
+    },
+    "baseline_input_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "counterfactual_input_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "baseline_shared_context_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "counterfactual_shared_context_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "baseline_ledger_root_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/digest"
+        }
+      ]
+    },
+    "counterfactual_ledger_root_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/digest"
+        }
+      ]
+    },
+    "baseline_source_origins": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "counterfactual_source_origins": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "removed_origin_closure": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "baseline_decision_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "counterfactual_decision_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "baseline_confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "counterfactual_confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "baseline_decision_quality": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "counterfactual_decision_quality": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
