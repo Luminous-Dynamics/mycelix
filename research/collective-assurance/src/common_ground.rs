@@ -472,8 +472,8 @@ pub fn qualify_common_ground_trial(
     };
     let actual_viewers: BTreeSet<&str> = state_views
         .iter()
-        .filter(|(_, (version, _))| *version == contract.worker_state_version)
-        .map(|(viewer, _)| *viewer)
+        .filter(|entry| entry.1 .0 == contract.worker_state_version)
+        .map(|entry| *entry.0)
         .collect();
     if let Some(first_message) = first_message_timestamp {
         if state_views.values().any(|(_, timestamp)| *timestamp >= first_message) {
