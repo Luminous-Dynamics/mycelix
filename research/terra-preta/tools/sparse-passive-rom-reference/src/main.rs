@@ -1809,8 +1809,25 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         .iter()
         .map(|sample| sample.relative_response_error_upper_bound)
         .fold(0.0_f64, f64::max);
-    let error_certificate_valid = frequency_samples.iter().all(|sample| sample.error_bound_valid)
-        && error_certificate.lambda_min_lower_bound > 0.0;
+    let maximum_portwise_absolute_response_error_upper_bound = frequency_samples
+        .iter()
+        .map(|sample| sample.portwise_absolute_response_error_upper_bound)
+        .fold(0.0_f64, f64::max);
+    let maximum_portwise_relative_response_error_upper_bound = frequency_samples
+        .iter()
+        .map(|sample| sample.portwise_relative_response_error_upper_bound)
+        .fold(0.0_f64, f64::max);
+    let maximum_best_absolute_response_error_upper_bound = frequency_samples
+        .iter()
+        .map(|sample| sample.best_absolute_response_error_upper_bound)
+        .fold(0.0_f64, f64::max);
+    let maximum_best_relative_response_error_upper_bound = frequency_samples
+        .iter()
+        .map(|sample| sample.best_relative_response_error_upper_bound)
+        .fold(0.0_f64, f64::max);
+    let error_certificate_valid = frequency_samples.iter().all(|sample| {
+        sample.error_bound_valid && sample.portwise_error_bound_valid
+    }) && error_certificate.lambda_min_lower_bound > 0.0;
     let error_certificate_pcg_solve_count = error_certificate.cg_stats.len();
     let error_certificate_pcg_iterations = error_certificate
         .cg_stats
@@ -1875,6 +1892,14 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             .as_ref().map(|_| block_arnoldi_baseline_relative_error_bound),
         block_arnoldi_baseline_error_bound_valid: block_arnoldi_baseline
             .as_ref().map(|_| block_arnoldi_baseline_error_bound_valid),
+        block_arnoldi_baseline_maximum_portwise_absolute_error_upper_bound: block_arnoldi_baseline
+            .as_ref().map(|_| block_arnoldi_baseline_portwise_absolute_error_bound),
+        block_arnoldi_baseline_maximum_portwise_relative_error_upper_bound: block_arnoldi_baseline
+            .as_ref().map(|_| block_arnoldi_baseline_portwise_relative_error_bound),
+        block_arnoldi_baseline_portwise_error_bound_valid: block_arnoldi_baseline
+            .as_ref().map(|_| block_arnoldi_baseline_portwise_error_bound_valid),
+        block_arnoldi_baseline_maximum_best_relative_error_upper_bound: block_arnoldi_baseline
+            .as_ref().map(|_| block_arnoldi_baseline_best_relative_error_bound),
         block_arnoldi_baseline_dc_relative_error,
         block_arnoldi_baseline_feedthrough_limit_relative_error,
         block_arnoldi_baseline_cg_solve_count: block_arnoldi_baseline_metrics
@@ -1905,6 +1930,10 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         error_certificate_pcg_iterations,
         maximum_absolute_response_error_upper_bound,
         maximum_relative_response_error_upper_bound,
+        maximum_portwise_absolute_response_error_upper_bound,
+        maximum_portwise_relative_response_error_upper_bound,
+        maximum_best_absolute_response_error_upper_bound,
+        maximum_best_relative_response_error_upper_bound,
         overall_pcg_solve_count,
         overall_pcg_iterations,
         a_r_min_eigenvalue: projection.a_r_min_eigenvalue,
