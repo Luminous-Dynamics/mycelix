@@ -894,7 +894,7 @@ mod tests {
                 sign_authority(&mut authority, &issuer_key());
             }
             "tampered_authority" => {
-                authority.scopes = vec!["unrelated-scope".into()];
+                authority.signature_hex = "00".repeat(64);
             }
             "future_observation" => {
                 attestation.observed_at_unix = NOW + 1;
@@ -933,7 +933,7 @@ mod tests {
     fn adversarial_corpus_matches_expected_dispositions() {
         let corpus: Corpus =
             serde_json::from_str(include_str!("../fixtures/adversarial-v1.json")).unwrap();
-        assert_eq!(corpus.cases.len(), 17);
+        assert_eq!(corpus.cases.len(), 19);
         for case in corpus.cases {
             let result = verify_fixture(&case.mutation);
             assert_eq!(
