@@ -38,7 +38,7 @@ Neither stage proves factual truth merely because a relation or source receipt e
 `src/relational_evidence.rs` provides `refine_relational_evidence`.
 
 Inputs:
-- a request-bound scope with recipient, purpose and frozen history cutoff;
+- a request-bound scope with recipient, purpose and frozen history cutoff; each candidate record is bound to that same request context;
 - a set of candidate evidence records with distinct evidence ID, source origin, source holder and source message identities;
 - source, payload and disclosure receipt digests;
 - verification, evidence status and applicability;
