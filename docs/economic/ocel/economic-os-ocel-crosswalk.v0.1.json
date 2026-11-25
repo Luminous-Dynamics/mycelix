@@ -1,0 +1,287 @@
+{
+  "benchmark": "Economic OS to OCEL 2.0 loss-aware crosswalk",
+  "version": "0.1",
+  "date": "2026-11-25",
+  "status": "synthetic_development_mapping_not_runtime_adapter_or_standards_certification",
+  "canonical_source": "FIN-EFFECT owner effects plus domain-owned source records and explicit causal references",
+  "target_profile": {
+    "standard": "OCEL",
+    "version": "2.0",
+    "serialization": "JSON",
+    "extension": ".json"
+  },
+  "experimental_profiles": [
+    {
+      "standard": "OCEL",
+      "version": "2.1.0pre5",
+      "serialization": "CSV"
+    },
+    {
+      "standard": "OCEL",
+      "version": "2.1.0pre5",
+      "serialization": "bundled CSV or Parquet ZIP"
+    }
+  ],
+  "stable_rules": [
+    "OCEL is a derived analytical view; it is never the canonical journal or authority system.",
+    "Each OCEL event requires a qualified source event-time assertion; record-time, ingestion-time and sequence numbers are not substitute event times.",
+    "Every exported event carries source_time_basis and time_evidence_ref attributes in addition to the OCEL time field.",
+    "Object attribute values carry their own OCEL time and source_time_basis/time_evidence_ref attributes.",
+    "The FIN/SAP causal graph remains a separate owner-scoped sidecar; OCEL event-object and object-object relations do not encode event-event happens-before.",
+    "Owner, authority, legal title, beneficiary receipt and settlement claims require their own evidence profiles; object co-occurrence never grants them.",
+    "Unsupported or excluded source fields must appear in the loss manifest; silent omission is rejected."
+  ],
+  "object_types": [
+    {
+      "name": "EconomicObligation",
+      "source_roles": [
+        "FIN-EFFECT operation_id",
+        "stable obligation reference"
+      ],
+      "non_equivalence": "Stable identity is not authority or proof of discharge."
+    },
+    {
+      "name": "GrantAllocation",
+      "source_roles": [
+        "grant.appropriation",
+        "grant.budget_reservation"
+      ],
+      "non_equivalence": "Approval and reservation are separate from tranche release and recipient claim."
+    },
+    {
+      "name": "PurchaseOrder",
+      "source_roles": [
+        "procurement.order_commitment"
+      ],
+      "non_equivalence": "Order commitment is not goods receipt or supplier acceptance."
+    },
+    {
+      "name": "Supplier",
+      "source_roles": [
+        "procurement.supplier_liability owner"
+      ],
+      "non_equivalence": "Supplier object identity does not prove legitimacy or mandate."
+    },
+    {
+      "name": "DeliveryLot",
+      "source_roles": [
+        "resource.delivery_event"
+      ],
+      "non_equivalence": "Dispatch and visibility are not beneficiary acceptance or quality certification."
+    },
+    {
+      "name": "Beneficiary",
+      "source_roles": [
+        "resource.beneficiary_acceptance",
+        "payroll.worker_receipt"
+      ],
+      "non_equivalence": "A beneficiary object is not an entitlement or receipt claim."
+    },
+    {
+      "name": "Invoice",
+      "source_roles": [
+        "procurement.supplier_liability"
+      ],
+      "non_equivalence": "Invoice validity is not goods receipt or payment."
+    },
+    {
+      "name": "Payable",
+      "source_roles": [
+        "procurement.payable_journal",
+        "payroll.net_payable"
+      ],
+      "non_equivalence": "A payable is not an external payment instruction or settlement."
+    },
+    {
+      "name": "PaymentInstruction",
+      "source_roles": [
+        "external.instruction",
+        "sap.payer_debit"
+      ],
+      "non_equivalence": "Instruction and provider acceptance are not bank settlement."
+    },
+    {
+      "name": "TreasuryOwner",
+      "source_roles": [
+        "treasury_fee",
+        "grant tranche owner"
+      ],
+      "non_equivalence": "Treasury observation cannot write or assert another owner's effect."
+    },
+    {
+      "name": "ExternalAccount",
+      "source_roles": [
+        "external.ledger_observation"
+      ],
+      "non_equivalence": "An account statement entry is an observation under a bank profile, not universal legal finality."
+    }
+  ],
+  "event_types": [
+    {
+      "name": "budget_reserved",
+      "source_role": "grant.budget_reservation",
+      "claim_ceiling": "budget reservation recorded",
+      "not_equivalent_to": "award, tranche release, recipient claim"
+    },
+    {
+      "name": "purchase_order_committed",
+      "source_role": "procurement.order_commitment",
+      "claim_ceiling": "owner-specific purchase commitment recorded",
+      "not_equivalent_to": "delivery or payable"
+    },
+    {
+      "name": "supplier_committed",
+      "source_role": "supplier owner attestation",
+      "claim_ceiling": "supplier commitment assertion recorded",
+      "not_equivalent_to": "supplier authority or future fulfilment"
+    },
+    {
+      "name": "delivery_dispatched",
+      "source_role": "resource provider dispatch observation",
+      "claim_ceiling": "dispatch/visibility event observed",
+      "not_equivalent_to": "receipt, acceptance or quality"
+    },
+    {
+      "name": "goods_received",
+      "source_role": "procurement goods receipt",
+      "claim_ceiling": "goods receipt evidence observed",
+      "not_equivalent_to": "beneficiary acceptance or title"
+    },
+    {
+      "name": "beneficiary_accepted",
+      "source_role": "resource.beneficiary_acceptance",
+      "claim_ceiling": "beneficiary acceptance assertion supported within named profile",
+      "not_equivalent_to": "payment or legal title"
+    },
+    {
+      "name": "invoice_issued",
+      "source_role": "supplier invoice event",
+      "claim_ceiling": "invoice issuance observed",
+      "not_equivalent_to": "invoice validation, delivery or payment"
+    },
+    {
+      "name": "payable_recognized",
+      "source_role": "procurement.payable_journal",
+      "claim_ceiling": "payable journal effect observed",
+      "not_equivalent_to": "payment instruction or settlement"
+    },
+    {
+      "name": "payment_instruction_sent",
+      "source_role": "external.instruction",
+      "claim_ceiling": "payment instruction dispatched",
+      "not_equivalent_to": "provider acceptance or settlement"
+    },
+    {
+      "name": "provider_status_observed",
+      "source_role": "external.provider_acceptance",
+      "claim_ceiling": "provider status observed under provider profile",
+      "not_equivalent_to": "bank settlement or legal discharge"
+    },
+    {
+      "name": "statement_entry_observed",
+      "source_role": "external.ledger_observation",
+      "claim_ceiling": "statement entry observed from named external account source",
+      "not_equivalent_to": "beneficiary receipt or unconditional finality"
+    },
+    {
+      "name": "beneficiary_receipt_claimed",
+      "source_role": "grant.recipient_claim or payroll.worker_receipt",
+      "claim_ceiling": "recipient-authored receipt claim recorded",
+      "not_equivalent_to": "independent corroboration or legal discharge"
+    }
+  ],
+  "relationship_qualifiers": [
+    {
+      "name": "obligation_for",
+      "from": "PurchaseOrder",
+      "to": "EconomicObligation",
+      "meaning": "source order references the named obligation"
+    },
+    {
+      "name": "budget_source",
+      "from": "EconomicObligation",
+      "to": "GrantAllocation",
+      "meaning": "declared budget allocation link"
+    },
+    {
+      "name": "supplier_for_order",
+      "from": "Supplier",
+      "to": "PurchaseOrder",
+      "meaning": "source contract or order names supplier"
+    },
+    {
+      "name": "lot_for_order",
+      "from": "DeliveryLot",
+      "to": "PurchaseOrder",
+      "meaning": "source shipping/receipt record binds lot to order"
+    },
+    {
+      "name": "invoice_for_order",
+      "from": "Invoice",
+      "to": "PurchaseOrder",
+      "meaning": "invoice source explicitly references order"
+    },
+    {
+      "name": "payable_for_invoice",
+      "from": "Payable",
+      "to": "Invoice",
+      "meaning": "accounting journal references invoice"
+    },
+    {
+      "name": "instruction_for_payable",
+      "from": "PaymentInstruction",
+      "to": "Payable",
+      "meaning": "instruction references payable"
+    },
+    {
+      "name": "instruction_to_supplier",
+      "from": "PaymentInstruction",
+      "to": "Supplier",
+      "meaning": "payment beneficiary/payee relationship as declared by instruction"
+    },
+    {
+      "name": "statement_for_instruction",
+      "from": "ExternalAccount",
+      "to": "PaymentInstruction",
+      "meaning": "statement source correlates entry to instruction"
+    },
+    {
+      "name": "receipt_claim_for_obligation",
+      "from": "Beneficiary",
+      "to": "EconomicObligation",
+      "meaning": "beneficiary claim references obligation"
+    }
+  ],
+  "rejected_promotions": [
+    {
+      "from": "Valueflows Intent or Commitment",
+      "to": "OCEL execution event",
+      "reason": "Plans/commitments are not observed fulfilment."
+    },
+    {
+      "from": "PROV wasAssociatedWith / wasAttributedTo",
+      "to": "authority grant",
+      "reason": "Attribution is not legal authority or scoped delegation."
+    },
+    {
+      "from": "EPCIS shipping/receiving visibility event",
+      "to": "beneficiary acceptance or title",
+      "reason": "Visibility is not beneficiary acceptance or title transfer."
+    },
+    {
+      "from": "ISO 20022 pain.001 or generic pacs.002 status",
+      "to": "settlement finality",
+      "reason": "Instruction and status semantics depend on rail-specific evidence and finality profile."
+    },
+    {
+      "from": "Peppol invoice validation",
+      "to": "goods receipt or supplier legitimacy",
+      "reason": "Invoice conformance does not prove physical delivery or supplier authority."
+    },
+    {
+      "from": "OCEL object relationship",
+      "to": "ownership or authority",
+      "reason": "A qualified analytical relation is not a legal ownership or authorization proof."
+    }
+  ]
+}
