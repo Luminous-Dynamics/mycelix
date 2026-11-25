@@ -1092,7 +1092,6 @@ fn reduced_state_in_full_space(
     projection: &Projection,
     shift: f64,
 ) -> Result<Dense, String> {
-    let rank = projection.a_r.len();
     let port_count = projection.d_r.len();
     let mut shifted = projection.a_r.clone();
     for (index, row) in shifted.iter_mut().enumerate() {
@@ -2022,11 +2021,11 @@ mod tests {
             assert!(report.m_matrix_lambda_min_lower_bound > 0.0);
             assert!(report.m_matrix_supersolution_max_component > 0.0);
             assert!(report
-                .frequency_results
+                .frequency_samples
                 .iter()
                 .all(|sample| sample.error_bound_valid));
             assert!(report
-                .frequency_results
+                .frequency_samples
                 .iter()
                 .all(|sample| sample.absolute_response_error
                     <= sample.absolute_response_error_upper_bound));
@@ -2037,7 +2036,7 @@ mod tests {
 
     #[test]
     fn m_matrix_eigenvalue_lower_bound_is_invariant_to_joint_unit_rescaling() {
-        let mut base = fixture();
+        let base = fixture();
         let base_model = assemble(&base).unwrap();
         let base_bound = m_matrix_lambda_min_lower_bound(
             &base_model.a,
