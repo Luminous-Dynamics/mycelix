@@ -1,0 +1,332 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/relational-evidence-refinement-v0.1.json",
+  "title": "Relational evidence refinement v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scope",
+    "candidate_pool",
+    "relation_edges",
+    "expected"
+  ],
+  "properties": {
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "recipient_id",
+        "purpose_id",
+        "history_cutoff_ms",
+        "seed_evidence_ids",
+        "max_relation_hops",
+        "max_selected_evidence",
+        "candidate_pool_complete",
+        "candidate_pool_receipt_digest",
+        "relation_index_complete",
+        "relation_index_receipt_digest"
+      ],
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recipient_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "history_cutoff_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "seed_evidence_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "max_relation_hops": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "max_selected_evidence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        },
+        "candidate_pool_complete": {
+          "type": "boolean"
+        },
+        "candidate_pool_receipt_digest": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          ]
+        },
+        "relation_index_complete": {
+          "type": "boolean"
+        },
+        "relation_index_receipt_digest": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          ]
+        }
+      }
+    },
+    "candidate_pool": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evidence_id",
+          "request_id",
+          "source_origin_id",
+          "source_holder_id",
+          "source_message_id",
+          "payload_digest",
+          "source_registry_receipt_digest",
+          "disclosure_receipt_digest",
+          "source_timestamp_ms",
+          "recorded_at_ms",
+          "subject_ids",
+          "event_ids",
+          "decision_ids",
+          "permission",
+          "permitted_recipient_ids",
+          "permitted_purpose_ids",
+          "verification",
+          "status",
+          "applicability"
+        ],
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_origin_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_holder_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_message_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payload_digest": {
+            "type": "string"
+          },
+          "source_registry_receipt_digest": {
+            "type": "string"
+          },
+          "disclosure_receipt_digest": {
+            "type": "string"
+          },
+          "source_timestamp_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "recorded_at_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "subject_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "event_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "decision_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "permission": {
+            "enum": [
+              "shareable",
+              "scoped",
+              "withheld_by_rights",
+              "unknown"
+            ]
+          },
+          "permitted_recipient_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "permitted_purpose_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "verification": {
+            "enum": [
+              "verified",
+              "rejected",
+              "unknown"
+            ]
+          },
+          "status": {
+            "enum": [
+              "current",
+              "superseded",
+              "disputed",
+              "expired",
+              "unknown"
+            ]
+          },
+          "applicability": {
+            "enum": [
+              "applicable",
+              "not_applicable",
+              "conditional",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    "relation_edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from_evidence_id",
+          "to_evidence_id",
+          "relation",
+          "verification",
+          "relation_receipt_digest"
+        ],
+        "properties": {
+          "from_evidence_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "to_evidence_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "relation": {
+            "enum": [
+              "same_subject",
+              "same_event",
+              "same_decision",
+              "supports",
+              "contradicts",
+              "supersedes",
+              "updates",
+              "related_context"
+            ]
+          },
+          "verification": {
+            "enum": [
+              "verified",
+              "rejected",
+              "unknown"
+            ]
+          },
+          "relation_receipt_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "selected_evidence_ids",
+        "added_evidence_ids",
+        "selected_source_origin_ids",
+        "selected_source_holder_ids",
+        "unverified_relation_count"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "pass",
+            "fail",
+            "indeterminate"
+          ]
+        },
+        "selected_evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "added_evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "selected_source_origin_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "selected_source_holder_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unverified_relation_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
