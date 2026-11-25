@@ -125,9 +125,10 @@ struct ScenarioOracle {
     scenario_id: String,
     oracle_candidate_ids: Vec<String>,
     oracle_cost: u32,
-    oracle_log_determinant: f64,
-    oracle_minimum_eigenvalue: f64,
-    oracle_rank: usize,
+    oracle_log_determinant_total_information: f64,
+    oracle_minimum_eigenvalue_data_information: f64,
+    oracle_minimum_eigenvalue_total_information: f64,
+    oracle_data_rank: usize,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -514,9 +515,10 @@ fn scenario_oracles(fixture: &Fixture, designs: &[EvaluatedDesign]) -> Vec<Scena
             scenario_id: scenario.scenario_id.clone(),
             oracle_candidate_ids: best.candidate_ids.clone(),
             oracle_cost: best.total_cost,
-            oracle_log_determinant: score.log_determinant_total_information,
-            oracle_minimum_eigenvalue: score.minimum_eigenvalue_total_information,
-            oracle_rank: score.data_sensitivity_rank,
+            oracle_log_determinant_total_information: score.log_determinant_total_information,
+            oracle_minimum_eigenvalue_data_information: score.minimum_eigenvalue_data_information,
+            oracle_minimum_eigenvalue_total_information: score.minimum_eigenvalue_total_information,
+            oracle_data_rank: score.data_sensitivity_rank,
         }
     }).collect()
 }
