@@ -1319,7 +1319,6 @@ fn response_error_upper_bound_portwise(
     let full_state_approx = reduced_state_in_full_space(model, projection, shift)?;
     let port_count = model.boundary_ids.len();
     let mut residual_column_infinity_norms = vec![0.0_f64; port_count];
-    let mut residual_columns = Vec::with_capacity(port_count);
     for port in 0..port_count {
         let approximate_state = column(&full_state_approx, port);
         let action = model.a.matvec(&approximate_state, shift)?;
@@ -1334,7 +1333,6 @@ fn response_error_upper_bound_portwise(
             return Err("portwise response residual is non-finite".into());
         }
         residual_column_infinity_norms[port] = residual_inf;
-        residual_columns.push(residual);
     }
 
     // For an anchored Stieltjes matrix, (A+sI)^-1 is nonnegative and
@@ -1352,7 +1350,6 @@ fn response_error_upper_bound_portwise(
 
     let mut componentwise_envelope = vec![vec![0.0; port_count]; port_count];
     let mut componentwise_valid = true;
-    let mut maximum_component_violation = 0.0_f64;
     for output_port in 0..port_count {
         for input_port in 0..port_count {
             let feedthrough = (model.d[output_port][input_port]
@@ -1373,8 +1370,6 @@ fn response_error_upper_bound_portwise(
             let tolerance = upper * 1.0e-8 + f64::EPSILON * 64.0;
             if actual_component > upper + tolerance {
                 componentwise_valid = false;
-                maximum_component_violation =
-                    maximum_component_violation.max(actual_component - upper);
             }
         }
     }
@@ -1389,10 +1384,6 @@ fn response_error_upper_bound_portwise(
     let valid = componentwise_valid
         && actual_absolute_error
             <= absolute_bound * (1.0 + 1.0e-8) + f64::EPSILON * response_scale * 32.0;
-    if !valid && maximum_component_violation.is_finite() {
-        // The detailed violation is intentionally returned via the validity
-        // flag; callers fail closed and retain the global independent bound.
-    }
     Ok((absolute_bound, relative_bound, actual_absolute_error, valid))
 }
 
