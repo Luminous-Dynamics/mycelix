@@ -45,6 +45,9 @@ jobs:
       - name: Check formatting
         run: cargo fmt --manifest-path tools/economic/ocel-projection/Cargo.toml -- --check
 
+      - name: Parse provenance schema
+        run: jq -e . tools/economic/ocel-projection/schemas/time-provenance.v1.schema.json >/dev/null
+
       - name: Run exporter unit and adversarial tests
         run: cargo test --locked --manifest-path tools/economic/ocel-projection/Cargo.toml
 
@@ -55,6 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           cargo run --locked --quiet --manifest-path tools/economic/ocel-projection/Cargo.toml --example minimal > /tmp/mycelix-economic-ocel.json
+          cargo run --locked --quiet --manifest-path tools/economic/ocel-projection/Cargo.toml --example minimal -- --provenance > /tmp/mycelix-economic-ocel-time-provenance.json
           jq -e '
             (keys == ["eventTypes","events","objectTypes","objects"]) and
             (.eventTypes | length == 1) and
@@ -63,9 +67,18 @@ jobs:
             (.objects | length == 1) and
             (.events[0].time == "2026-11-21T13:00:00Z") and
             (any(.events[0].attributes[]; .name == "time_basis" and .value == "source_record_event_time")) and
+            (any(.events[0].attributes[]; .name == "time_precision" and .value == "SECOND")) and
+            (any(.events[0].attributes[]; .name == "time_quality" and .value == "SOURCE_ASSERTED")) and
             (any(.events[0].relationships[]; .objectId == "LOT-001" and .qualifier == "received_lot"))
           ' /tmp/mycelix-economic-ocel.json
-          sha256sum /tmp/mycelix-economic-ocel.json
+          jq -e '
+            (.profile == "MYCELIX-OCEL-TIME-PROVENANCE-V1") and
+            (.event_time_evidence | length == 1) and
+            (.object_attribute_time_evidence | length == 2) and
+            all(.event_time_evidence[]; (.clock_profile | length > 0) and (.source_authority_ref | length > 0) and (.precision == "SECOND") and (.quality == "SOURCE_ASSERTED")) and
+            all(.object_attribute_time_evidence[]; (.clock_profile | length > 0) and (.source_authority_ref | length > 0) and (.time_basis == "source_record_attribute_time"))
+          ' /tmp/mycelix-economic-ocel-time-provenance.json
+          sha256sum /tmp/mycelix-economic-ocel.json /tmp/mycelix-economic-ocel-time-provenance.json
 
       - name: Report claim boundary
         run: |
