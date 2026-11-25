@@ -1154,6 +1154,9 @@ fn response_error_upper_bound(
     let actual_absolute_error = frobenius_difference(full_response, reduced_response)?;
     let response_scale = frobenius_norm(full_response).max(f64::MIN_POSITIVE);
     let relative_bound = absolute_bound / response_scale;
+    if !relative_bound.is_finite() {
+        return Err("relative response error upper bound is non-finite; abstaining".into());
+    }
     let valid = actual_absolute_error
         <= absolute_bound * (1.0 + 1.0e-8) + f64::EPSILON * response_scale * 32.0;
     Ok((absolute_bound, relative_bound, actual_absolute_error, valid))
@@ -1628,7 +1631,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         maximum_cg_iterations,
         maximum_cg_relative_residual,
         frequency_samples,
-        interpretation_boundary: "Sparse CSR and PCG reference for fixed positive linear conductance graphs with positive diagonal interior storage and ideal Dirichlet ports. The projected model uses port-driven rational-shift snapshots and exact numerical DC correction. Structural passivity is tolerance-qualified through positive A_r and positive-semidefinite Lambda_0. This is not a nonlinear Richards, hysteretic, multiphase or empirical soil model. No speedup or production-scale claim is made.".into(),
+        interpretation_boundary: "Sparse CSR and PCG reference for fixed symmetric anchored conductance/storage graphs with ideal Dirichlet ports. The projected models use passivity-preserving congruence projections and exact numerical DC correction. A floating-point M-matrix supersolution provides a lower bound on lambda_min(A), and full-space residuals provide a-posteriori response-error upper bounds only for real nonnegative Laplace samples. The result is not interval-arithmetic certification, and does not certify complex-frequency responses, nonlinear Richards flow, hysteresis, multiphase behaviour or empirical soil prediction. No speedup or production-scale claim is made.".into(),
     })
 }
 
