@@ -689,7 +689,7 @@ impl TemporalEvidenceIndexV1 {
             knowledge_by_fact_verifier: BTreeMap::new(),
         };
         for (position, assertion) in index.evidence.assertions.iter().enumerate() {
-            index
+            let _ = index
                 .assertion_by_id
                 .insert(assertion.assertion_id.clone(), position);
             if assertion.dimension.is_fact() {
@@ -1605,6 +1605,11 @@ mod tests {
         let result = assertions
             .occurred_at_as_known("claim", VERIFIER, "2026-11-21T10:00:30Z")
             .unwrap();
+        let index = TemporalEvidenceIndexV1::new(assertions.clone()).unwrap();
+        assert_eq!(
+            result,
+            index.occurred_at_as_known("claim", VERIFIER, "2026-11-21T10:00:30Z").unwrap()
+        );
         assert_eq!(result.disposition, OccurrenceQueryDispositionV1::Conflict);
         assert_eq!(result.assertion_id, None);
     }
