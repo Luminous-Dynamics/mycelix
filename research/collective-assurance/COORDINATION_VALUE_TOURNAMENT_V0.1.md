@@ -85,7 +85,7 @@ The reference validator requires execution, outcome and cost evidence digests. I
 - the paired gain interval is simultaneous at the declared confidence level and bound to a paired-unit manifest and inference plan;
 - the gain point estimate equals coordinated quality minus single-agent quality;
 - actual cost, token and latency ratios are reported independently;
-- relative error amplification is reported against a study-defined ceiling.
+- relative error amplification is reported against a study-defined ceiling; the single-agent reference is fixed at exactly 1.0.
 
 Disposition:
 - `CoordinationSupported`: paired gain lower bound is above zero and all efficiency/error gates are within their preregistered ceilings.
