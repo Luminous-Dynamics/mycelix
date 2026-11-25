@@ -58,6 +58,7 @@ pub struct ExternalWitnessReceipt {
     pub observation_end_ms: u64,
     pub event_sequence_start: u64,
     pub event_sequence_end: u64,
+    pub event_sequences: Vec<u64>,
     pub probes: Vec<WitnessProbeObservation>,
 }
 
@@ -81,6 +82,10 @@ impl ExternalWitnessReceipt {
         out.extend_from_slice(&self.observation_end_ms.to_be_bytes());
         out.extend_from_slice(&self.event_sequence_start.to_be_bytes());
         out.extend_from_slice(&self.event_sequence_end.to_be_bytes());
+        push_len(&mut out, self.event_sequences.len());
+        for sequence in &self.event_sequences {
+            out.extend_from_slice(&sequence.to_be_bytes());
+        }
 
         let mut probes = self.probes.clone();
         probes.sort_by_key(|probe| probe.channel);
@@ -181,6 +186,21 @@ pub fn qualify_external_witness<V: ReceiptSignatureVerifier>(
     }
     if receipt.event_sequence_start > receipt.event_sequence_end {
         report.fail("external witness event sequence is reversed");
+    }
+    if receipt.event_sequences.is_empty() {
+        report.indeterminate("external witness event sequence is missing");
+    } else {
+        if receipt.event_sequences.first() != Some(&receipt.event_sequence_start)
+            || receipt.event_sequences.last() != Some(&receipt.event_sequence_end)
+        {
+            report.fail("external witness sequence bounds differ from recorded events");
+        }
+        for pair in receipt.event_sequences.windows(2) {
+            match pair[0].checked_add(1) {
+                Some(expected_next) if pair[1] == expected_next => {}
+                _ => report.fail("external witness event sequence contains a gap, duplicate, or reordering"),
+            }
+        }
     }
 
     if signature.is_empty() {
@@ -288,6 +308,18 @@ pub fn qualify_ai_off_with_witness<V: ReceiptSignatureVerifier, R: ReplayGuard>(
     verifier: &V,
     replay: &mut R,
 ) -> QualificationReport {
+    if bundle.expected_phase.run_id != bundle.expected_witness.run_id
+        || bundle.expected_phase.phase_id != bundle.expected_witness.phase_id
+        || bundle.expected_phase.challenge_nonce != bundle.expected_witness.challenge_nonce
+    {
+        return QualificationReport {
+            status: QualificationStatus::Fail,
+            reasons: vec![
+                "host and external witness expectations do not bind the same run, phase, and challenge nonce".into(),
+            ],
+        };
+    }
+
     let host_report = super::qualify_ai_off(
         bundle.claims,
         bundle.host_signature,
@@ -405,6 +437,7 @@ mod tests {
             observation_end_ms: 210,
             event_sequence_start: 1,
             event_sequence_end: 4,
+            event_sequences: vec![1, 2, 3, 4],
             probes: expected
                 .required_probes
                 .iter()
@@ -505,6 +538,83 @@ mod tests {
         receipt.probes[0].outcome = WitnessOutcome::Unknown;
         let report = qualify(&receipt, b"valid", &expected);
         assert_eq!(report.status, QualificationStatus::Indeterminate);
+    }
+
+
+    #[test]
+    fn event_sequence_gap_fails() {
+        let expected = expected();
+        let mut receipt = receipt(&expected);
+        receipt.event_sequences = vec![1, 2, 4];
+        receipt.event_sequence_end = 4;
+        let report = qualify(&receipt, b"valid", &expected);
+        assert_eq!(report.status, QualificationStatus::Fail);
+        assert!(report.reasons.iter().any(|reason| reason.contains("sequence contains a gap")));
+    }
+
+    #[test]
+    fn combined_entrypoint_rejects_cross_phase_witness_binding() {
+        use super::super::{
+            AiOffClaims, ArtifactObservation, InventoryStatus, ProcessClass,
+        };
+
+        struct Replay;
+        impl ReplayGuard for Replay {
+            fn consume_once(&mut self, _: &str, _: &str, _: &str) -> Result<bool, String> {
+                Ok(true)
+            }
+        }
+
+        let host_expected = super::super::ExpectedAiOffPhase {
+            run_id: "run-1".into(),
+            phase_id: "ai-off-1".into(),
+            challenge_nonce: "n".repeat(32),
+            trusted_signer_key_id: "host-key".into(),
+            isolation_profile_id: "microvm-kvm-v1".into(),
+            platform_measurement_digest: digest('d'),
+            runner_digest: digest('e'),
+            isolation_policy_digest: digest('f'),
+        };
+        let mut witness_expected = expected();
+        witness_expected.run_id = "different-run".into();
+        let claims = AiOffClaims {
+            schema_version: "ai-off-attestation-v0.1".into(),
+            run_id: host_expected.run_id.clone(),
+            phase_id: host_expected.phase_id.clone(),
+            challenge_nonce: host_expected.challenge_nonce.clone(),
+            signer_key_id: host_expected.trusted_signer_key_id.clone(),
+            isolation_profile_id: host_expected.isolation_profile_id.clone(),
+            platform_measurement_digest: host_expected.platform_measurement_digest.clone(),
+            runner_digest: host_expected.runner_digest.clone(),
+            isolation_policy_digest: host_expected.isolation_policy_digest.clone(),
+            process_inventory: InventoryStatus::Unknown,
+            processes: vec![ProcessClass::ApprovedHarness],
+            artifact_inventory: InventoryStatus::Unknown,
+            artifacts: vec![ArtifactObservation {
+                artifact_id: "placeholder".into(),
+                class: super::super::ArtifactClass::TaskInput,
+                candidate_reachable: false,
+            }],
+            probes: vec![],
+            observed_external_connections: None,
+        };
+        let witness_receipt = receipt(&witness_expected);
+        let mut replay = Replay;
+        let report = qualify_ai_off_with_witness(
+            AiOffWitnessBundle {
+                claims: &claims,
+                host_signature: b"",
+                expected_phase: &host_expected,
+                witness_receipt: &witness_receipt,
+                witness_signature: b"valid",
+                expected_witness: &witness_expected,
+            },
+            &TestVerifier,
+            &mut replay,
+        );
+        assert_eq!(report.status, QualificationStatus::Fail);
+        assert_eq!(report.reasons.len(), 1);
+        assert!(report.reasons[0].contains("same run, phase, and challenge nonce"));
     }
 
     #[test]
