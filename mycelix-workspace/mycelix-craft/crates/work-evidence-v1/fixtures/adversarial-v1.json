@@ -21,6 +21,9 @@
     { "case_id": "CWE-017", "name": "disputed work claim", "mutation": "disputed_outcome", "expected_accept": false },
     { "case_id": "CWE-018", "name": "assessor key revoked", "mutation": "revoked_assessor_key", "expected_accept": false },
     { "case_id": "CWE-019", "name": "assessor key expired", "mutation": "expired_assessor_key", "expected_accept": false },
-    { "case_id": "CWE-020", "name": "attestation identifier replay", "mutation": "replayed_attestation_id", "expected_accept": false }
+    { "case_id": "CWE-020", "name": "attestation identifier replay", "mutation": "replayed_attestation_id", "expected_accept": false },
+    { "case_id": "CWE-021", "name": "claim creation timestamp in the future", "mutation": "future_claim_creation", "expected_accept": false },
+    { "case_id": "CWE-022", "name": "evidence captured after claim creation", "mutation": "future_artifact_capture", "expected_accept": false },
+    { "case_id": "CWE-023", "name": "attestation predates the work claim", "mutation": "attestation_precedes_claim", "expected_accept": false }
   ]
 }
