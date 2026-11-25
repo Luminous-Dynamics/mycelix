@@ -2,7 +2,8 @@ use std::collections::BTreeMap;
 
 use mycelix_economic_ocel_projection::{
     AttributeDeclaration, EventRecord, EventType, ObjectRecord, ObjectType, OcelValue,
-    ProjectionInput, QualifiedRelation, QualifiedTime, TimedObjectAttribute, ValueKind,
+    ProjectionInput, QualifiedRelation, QualifiedTime, TimeAssertionMetadata, TimePrecision,
+    TimedObjectAttribute, ValueKind,
 };
 
 fn declaration(name: &str, kind: ValueKind) -> AttributeDeclaration {
@@ -24,6 +25,8 @@ fn main() {
             attributes: vec![
                 declaration("time_basis", ValueKind::String),
                 declaration("time_evidence_ref", ValueKind::String),
+                declaration("time_precision", ValueKind::String),
+                declaration("time_quality", ValueKind::String),
                 declaration("source_event_ref", ValueKind::String),
                 declaration("quantity", ValueKind::Integer),
                 declaration("unit_profile", ValueKind::String),
@@ -42,6 +45,11 @@ fn main() {
             time: QualifiedTime::source_event_time(
                 "2026-11-21T13:00:00Z",
                 "source:receipt:time",
+                TimeAssertionMetadata::source_asserted(
+                    "receiver-device-utc-v1",
+                    "warehouse:receiver-1:goods-receipt-authority",
+                    TimePrecision::Second,
+                ),
             ),
             attributes: event_attributes,
             source_event_ref: "source:goods-receipt:1".into(),
@@ -59,6 +67,11 @@ fn main() {
                     time: QualifiedTime::source_attribute_time(
                         "2026-11-21T10:00:00Z",
                         "source:lot:quantity-time",
+                        TimeAssertionMetadata::source_asserted(
+                            "supplier-device-utc-v1",
+                            "supplier:sup-001:delivery-lot-authority",
+                            TimePrecision::Second,
+                        ),
                     ),
                     value: OcelValue::Integer(250),
                 },
@@ -67,6 +80,11 @@ fn main() {
                     time: QualifiedTime::source_attribute_time(
                         "2026-11-21T10:00:00Z",
                         "source:lot:unit-time",
+                        TimeAssertionMetadata::source_asserted(
+                            "supplier-device-utc-v1",
+                            "supplier:sup-001:delivery-lot-authority",
+                            TimePrecision::Second,
+                        ),
                     ),
                     value: OcelValue::String("filter_cartridge".into()),
                 },
