@@ -195,7 +195,8 @@ fn finite_difference_gradient(case: &Case) -> Result<Vec<f64>, AuditError> {
         minus_one.conductances[index] -= epsilon;
         minus_two.conductances[index] -= 2.0 * epsilon;
         let derivative = (-objective(&plus_two)? + 8.0 * objective(&plus_one)?
-            - 8.0 * objective(&minus_one)? + objective(&minus_two)?)
+            - 8.0 * objective(&minus_one)?
+            + objective(&minus_two)?)
             / (12.0 * epsilon);
         gradient.push(derivative);
     }
