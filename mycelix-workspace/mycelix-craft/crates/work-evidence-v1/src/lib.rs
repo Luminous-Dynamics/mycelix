@@ -181,6 +181,7 @@ pub enum VerificationError {
     InvalidClaim(&'static str),
     InvalidAuthority(&'static str),
     InvalidAttestation(&'static str),
+    InvalidPolicy(&'static str),
     ClaimDigestMismatch,
     UnknownAuthority,
     RevokedAuthority,
@@ -418,7 +419,7 @@ pub fn replay_keys(attestation: &WorkAttestationV1) -> [String; 2] {
             "nonce:{}:{}:{}",
             attestation.verifier_did, attestation.authority_id, attestation.nonce
         ),
-        format!("attestation:{}", attestation.attestation_id),
+        format!("attestation:{}:{}", attestation.authority_id, attestation.attestation_id),
     ]
 }
 
@@ -426,22 +427,26 @@ fn validate_claim(claim: &WorkEvidenceClaimV1) -> VerifyResult<()> {
     if claim.schema_version != WORK_EVIDENCE_SCHEMA_VERSION {
         return Err(VerificationError::UnsupportedSchema);
     }
-    for (value, label) in [
-        (claim.claim_id.as_str(), "claim id"),
-        (claim.subject_did.as_str(), "subject"),
-        (claim.organization.as_str(), "organization"),
-        (claim.professional_domain.as_str(), "professional domain"),
-        (claim.participant_role.as_str(), "participant role"),
-        (claim.contribution_scope.as_str(), "contribution scope"),
-        (claim.outcome_summary.as_str(), "outcome summary"),
+    for value in [
+        claim.claim_id.as_str(),
+        claim.subject_did.as_str(),
+        claim.organization.as_str(),
+        claim.professional_domain.as_str(),
+        claim.participant_role.as_str(),
+        claim.contribution_scope.as_str(),
+        claim.outcome_summary.as_str(),
     ] {
         if value.trim().is_empty() {
-            let _ = label;
             return Err(VerificationError::InvalidClaim("required field is empty"));
         }
         if value.len() > 4096 {
             return Err(VerificationError::InvalidClaim("field exceeds 4096 bytes"));
         }
+    }
+    if claim.agreement_ref.as_ref().is_some_and(|value| value.len() > 4096)
+        || claim.work_order_ref.as_ref().is_some_and(|value| value.len() > 4096)
+    {
+        return Err(VerificationError::InvalidClaim("agreement or work-order reference exceeds 4096 bytes"));
     }
     if claim.revision == 0 {
         return Err(VerificationError::InvalidClaim("revision must be positive"));
@@ -462,6 +467,14 @@ fn validate_claim(claim: &WorkEvidenceClaimV1) -> VerifyResult<()> {
         {
             return Err(VerificationError::InvalidClaim("artifact metadata is incomplete"));
         }
+        if item.artifact_id.len() > 512
+            || item.uri.len() > 4096
+            || item.media_type.len() > 256
+            || item.provenance.actor_did.len() > 512
+            || item.provenance.source_ref.as_ref().is_some_and(|value| value.len() > 4096)
+        {
+            return Err(VerificationError::InvalidClaim("artifact field exceeds its size bound"));
+        }
         if !ids.insert(item.artifact_id.as_str()) {
             return Err(VerificationError::InvalidClaim("duplicate artifact id"));
         }
@@ -479,6 +492,12 @@ fn verify_key_signature(
     at_unix: u64,
     now_unix: u64,
 ) -> VerifyResult<()> {
+    if key.public_key_hex.len() != 64 {
+        return Err(VerificationError::UnknownKey);
+    }
+    if signature_hex.len() != 128 {
+        return Err(VerificationError::InvalidSignature);
+    }
     if key.revoked {
         return Err(VerificationError::RevokedKey);
     }
@@ -582,7 +601,7 @@ fn validate_policy(policy: &VerificationPolicyV1) -> VerifyResult<()> {
         || policy.minimum_distinct_assessors == 0
         || usize::from(policy.minimum_distinct_assessors) > MAX_ATTESTATIONS
     {
-        return Err(VerificationError::InvalidAttestation("verification policy is incomplete or outside supported bounds"));
+        return Err(VerificationError::InvalidPolicy("verification policy is incomplete or outside supported bounds"));
     }
     Ok(())
 }
