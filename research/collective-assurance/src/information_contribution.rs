@@ -116,19 +116,22 @@ pub fn qualify_information_origin_counterfactual(
             indeterminate(
                 &mut report,
                 "source was withheld by rights; do not score it as a missing contribution",
-            )
+            );
+            return no_metrics(report);
         }
         OriginDisclosureStatus::NoResponse => {
             indeterminate(
                 &mut report,
                 "source holder did not respond; no source contribution is inferable",
-            )
+            );
+            return no_metrics(report);
         }
         OriginDisclosureStatus::Unknown => {
             indeterminate(
                 &mut report,
                 "source disclosure status is unknown; contribution is not evaluable",
-            )
+            );
+            return no_metrics(report);
         }
     }
 
@@ -350,10 +353,10 @@ mod tests {
             removed_origin_closure: vec!["origin-A".into()],
             baseline_decision_digest: digest('d'),
             counterfactual_decision_digest: digest('e'),
-            baseline_confidence: 0.9,
-            counterfactual_confidence: 0.6,
-            baseline_decision_quality: 0.85,
-            counterfactual_decision_quality: 0.55,
+            baseline_confidence: 0.875,
+            counterfactual_confidence: 0.625,
+            baseline_decision_quality: 0.875,
+            counterfactual_decision_quality: 0.625,
         }
     }
 
@@ -362,8 +365,8 @@ mod tests {
         let report = qualify_information_origin_counterfactual(&case());
         assert_eq!(report.qualification.status, QualificationStatus::Pass);
         assert_eq!(report.decision_changed, Some(true));
-        assert_eq!(report.confidence_delta, Some(-0.3));
-        assert_eq!(report.decision_quality_delta, Some(-0.3));
+        assert_eq!(report.confidence_delta, Some(-0.25));
+        assert_eq!(report.decision_quality_delta, Some(-0.25));
         assert_eq!(report.removed_origin_count, Some(1));
     }
 
@@ -371,6 +374,9 @@ mod tests {
     fn rights_withholding_is_indeterminate_not_a_missing_contribution() {
         let mut test = case();
         test.origin_disclosure_status = OriginDisclosureStatus::WithheldByRights;
+        test.baseline_source_origins = vec!["origin-B".into()];
+        test.counterfactual_source_origins = vec!["origin-B".into()];
+        test.removed_origin_closure.clear();
         let report = qualify_information_origin_counterfactual(&test);
         assert_eq!(report.qualification.status, QualificationStatus::Indeterminate);
         assert!(report.decision_quality_delta.is_none());
