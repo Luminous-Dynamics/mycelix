@@ -8,6 +8,7 @@ mod allocation;
 mod comparison;
 mod constraint_binding;
 mod ledger;
+mod pareto;
 mod response_audit;
 mod support_policy;
 
@@ -33,6 +34,10 @@ pub use constraint_binding::{
 pub use response_audit::{
     validate_independent_response_audit, AuditedClaimDisposition, AuditedEvidenceRecord,
     IndependentResponseAudit, MaterialClaimAnnotation, ResponseAuditReport, ResponseAuditStatus,
+};
+pub use pareto::{
+    qualify_pareto_comparison, GateDisposition, GateEvidence, MetricComparison, MetricEstimate,
+    MetricId, ParetoComparisonContract, ParetoComparisonReport, ParetoRelation, ParetoRun,
 };
 pub use comparison::{
     qualify_benchmark_comparison, BenchmarkRunManifest, ComparisonIntent,
