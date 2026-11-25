@@ -1,0 +1,14 @@
+[package]
+name = "mycelix-economic-ocel-projection"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Dependency-free, loss-aware deterministic OCEL 2.0 JSON projection"
+
+[lib]
+path = "src/lib.rs"
+
+[[example]]
+name = "minimal"
+path = "examples/minimal.rs"
