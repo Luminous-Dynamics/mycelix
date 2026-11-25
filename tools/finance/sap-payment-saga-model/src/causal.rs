@@ -217,7 +217,7 @@ pub fn project_causal_graph_v1(
 
             let event = &events[*index];
             let current_reference = event.reference();
-            match (sequence, &event.owner_predecessor, &previous) {
+            match (*sequence, &event.owner_predecessor, &previous) {
                 (0, None, None) => {}
                 (0, Some(_), None) => {
                     return Err(CausalErrorV1::UnexpectedGenesisPredecessor);
