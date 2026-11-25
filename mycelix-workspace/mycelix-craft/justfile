@@ -9,3 +9,11 @@ test:
 # Check (fast)
 check:
     cargo check --workspace
+
+# Run only the standalone work-evidence reference contract tests
+test-work-evidence:
+    cargo test -p craft-work-evidence-v1
+
+# Check only the standalone work-evidence reference package
+check-work-evidence:
+    cargo check -p craft-work-evidence-v1
