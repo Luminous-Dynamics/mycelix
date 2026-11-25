@@ -1987,6 +1987,11 @@ mod tests {
         assert!(report
             .block_arnoldi_baseline_maximum_sampled_response_error
             .is_some_and(f64::is_finite));
+        assert_eq!(report.block_arnoldi_baseline_error_bound_valid, Some(true));
+        assert!(
+            report.block_arnoldi_baseline_maximum_relative_response_error_upper_bound
+                >= report.block_arnoldi_baseline_maximum_sampled_response_error
+        );
         assert!(report
             .block_arnoldi_baseline_cg_solve_count
             .is_some_and(|count| count > 0));
