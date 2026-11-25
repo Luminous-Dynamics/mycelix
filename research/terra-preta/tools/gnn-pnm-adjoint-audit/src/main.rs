@@ -196,7 +196,8 @@ fn adjoint_gradients(
     let mut p1_inlet = vec![false; case.edges.len()];
     let mut p2_inlet = vec![false; case.edges.len()];
 
-    for (index, (edge, conductance)) in case.edges.iter().zip(case.conductances.iter()).enumerate() {
+    for (index, (edge, conductance)) in case.edges.iter().zip(case.conductances.iter()).enumerate()
+    {
         p1_inlet[index] = is_member(&case.inlet_pores, edge.p1);
         p2_inlet[index] = is_member(&case.inlet_pores, edge.p2);
         if p1_inlet[index] && !p2_inlet[index] {
