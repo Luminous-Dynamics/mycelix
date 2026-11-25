@@ -87,6 +87,28 @@ RER expands and organizes the evidence bundle; ACB governs the response's use of
 
 The reference module contains 32 declared Rust tests, including direct adapter tests for non-PASS rejection, request binding, subject/scope mapping and missing selected records.
 
+## Evidence-loss decomposition and bottleneck routing
+
+GroupAssistBench's paired analysis follows 497 memories that are directly queried at L1 and required by an L2 request in the same group. Across its six memory systems, recalled-but-unused memories account for 21–27% of all pairs, versus 11–16% for full-context models. Among the unused memory-system pairs, 36% never enter the L2 input and 64% are present in the input but are still not applied. Retrieval coverage also depends on cue wording: the paper reports input coverage rising from 62% to 83% as lexical overlap increases. These are observations in the paper's workload, not universal rates.
+
+The Mycelix tournament should record a separate receipt at each boundary:
+
+1. **Discovery/indexing:** was the oracle-eligible source origin present in the complete authorized candidate pool? If not, this is an acquisition/indexing gap owned by #6089.
+2. **Initial retrieval:** was it in the initial retrieval seed set? If it existed in the eligible pool but was absent from the seeds, this is a retrieval gap.
+3. **Relational refinement:** did the verified relation closure add it? This is the RER recovery count reported by #6688.
+4. **Prompt exposure:** was the selected evidence actually rendered into the exact generation input? A selected-but-not-exposed item is a handoff/transport gap, not an ACB success.
+5. **Constraint application:** was each visible required item represented in the response constraint use list with the correct subject, scope, status and applicability? Visible-but-unaccounted or incorrectly handled evidence is an ACB gap.
+6. **Rendered claim grounding:** did each material claim in the final answer bind to the correct evidence origin and response span? ACB PASS does not imply this; use #6619's independent response audit.
+
+Report counts and rates for each transition with their denominators. Do not merge missing-from-pool, missing-from-prompt, visible-but-unused, and unsupported-claim failures into one recall score. An aggregate "unused" rate can be retained for comparison with the paper, but diagnosis and engineering prioritization must use the separate stages.
+
+This gives a concrete bottleneck-routing rule:
+- discovery/indexing gap → improve #6089 source discovery and candidate-pool coverage;
+- eligible evidence omitted from the initial seed → improve retrieval and RER relation coverage;
+- refined evidence not exposed → repair the prompt/input handoff and exposure receipt;
+- visible evidence not handled → improve ACB/response constraint binding;
+- evidence handled but claims unsupported → improve source-span audit and semantic adjudication.
+
 ## Targeted GroupAssistBench programme
 
 First reproduce the official benchmark and baselines:
@@ -113,7 +135,7 @@ Primary outcomes:
 - conflicting-evidence preservation and stale-state rejection;
 - material-claim source attribution and constraint-handling accuracy;
 - unauthorized recipient exposure and silent evidence omission;
-- cost/query, total deployment cost including construction, tokens, p95 latency and human review time.
+- cost/query, total deployment cost including construction, tokens, p95 latency and human review time. The published cost comparison excludes judge cost, so Mycelix results must state whether judge/evaluator costs are included and report them separately.
 
 ### Prospective targets (not achieved results)
 
@@ -121,6 +143,8 @@ Primary outcomes:
 - 100% of visible required evidence is explicitly handled by ACB qualification fixtures;
 - ≥95% material claim/source-origin attribution coverage;
 - positive, paired and group-clustered L2 improvement over the strongest reproduced same-backbone baseline on M2/M3;
+- recalled-but-unused rate ≤10% under the official paired-memory protocol (the paper reports 21–27% for its six memory systems and 11–16% for full-context conditions);
+- stretch: L2 quality non-inferior to the reproduced same-backbone full-context baseline within a preregistered 0.02 margin at ≤50% of its total deployment cost, including one-time construction and query-time costs;
 - RER's benefit is largest on task families with independently measured missing-support-evidence bottlenecks; ACB's benefit is largest where evidence is present but under-applied;
 - the combined condition should improve the full quality/privacy/cost Pareto frontier, not merely L2 mean.
 
