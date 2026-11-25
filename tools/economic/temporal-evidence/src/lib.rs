@@ -2,13 +2,15 @@
 
 //! Pure bitemporal evidence selection for the Economic OS.
 //!
-//! The kernel answers: "What was valid at V, according to the assertions
-//! verifier X had accepted by knowledge frontier K?".
+//! The v0.1 kernel answers: "What was valid at V, according to the
+//! assertions verifier X had accepted by knowledge-time cutoff K?".
 //!
 //! It never substitutes source record time, receiver observation time, or
 //! owner-local sequence for occurrence/valid time. Corrections are append-only
 //! assertions linked to their predecessor. A correction not yet known to the
 //! queried verifier does not rewrite the verifier's earlier as-known result.
+//! A knowledge_frontier_ref is preserved as opaque provenance in v0.1; this
+//! crate does not authenticate checkpoint membership or causal frontier order.
 //!
 //! V1 compares canonical UTC RFC3339 strings (Z suffix only) to avoid silently
 //! normalizing offsets. Offset-to-UTC conversion must be performed by a
