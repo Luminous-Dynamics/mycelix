@@ -8,7 +8,10 @@
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-use super::{Applicability, AvailableEvidenceConstraint, EvidenceStatus};
+use super::{
+    qualify_response_grounding, Applicability, AvailableEvidenceConstraint,
+    ConstraintQualificationStatus, EvidenceStatus, ResponseGrounding,
+};
 
 fn nonempty(value: &str) -> bool {
     !value.trim().is_empty()
@@ -680,6 +683,163 @@ pub fn bind_refined_evidence_constraints(
     Ok(constraints)
 }
 
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EvidenceBottleneck {
+    RetrievalCoverageGap,
+    HandoffExposureGap,
+    ConstraintApplicationGap,
+    OutOfBandVisibleEvidence,
+    NoDetectedGap,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EvidenceUseDiagnosticStatus {
+    Complete,
+    NotEvaluable,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EvidenceUseDiagnostic {
+    /// Complete means the evidence inputs were sufficient to classify bottlenecks;
+    /// it does not mean there were no failures.
+    pub status: EvidenceUseDiagnosticStatus,
+    pub bottlenecks: Vec<EvidenceBottleneck>,
+    pub retrieval_seed_count: usize,
+    pub relationally_added_count: usize,
+    pub selected_evidence_count: usize,
+    pub generator_visible_count: usize,
+    pub handoff_gap_count: usize,
+    pub unaccounted_visible_count: usize,
+    pub out_of_band_visible_count: usize,
+    pub constraint_gate_status: Option<ConstraintQualificationStatus>,
+    pub constraint_error_count: usize,
+    pub constraint_errors: Vec<String>,
+    pub reasons: Vec<String>,
+}
+
+/// Decomposes the evidence-use path into retrieval, exposure and application
+/// bottlenecks. The caller must provide the exact generator-visible evidence
+/// inventory and its independently retained exposure receipt; a declared
+/// refinement result alone is not proof that evidence reached the model.
+pub fn diagnose_evidence_use_bottlenecks(
+    scope: &RelationalEvidenceScope,
+    refinement: &RelationalEvidenceReport,
+    generator_visible: &[AvailableEvidenceConstraint],
+    response: &ResponseGrounding,
+    generation_input_receipt_digest: &str,
+) -> EvidenceUseDiagnostic {
+    let not_evaluable = |reason: String| EvidenceUseDiagnostic {
+        status: EvidenceUseDiagnosticStatus::NotEvaluable,
+        bottlenecks: Vec::new(),
+        retrieval_seed_count: scope.seed_evidence_ids.len(),
+        relationally_added_count: refinement.added_evidence_ids.len(),
+        selected_evidence_count: refinement.selected_evidence_ids.len(),
+        generator_visible_count: generator_visible.len(),
+        handoff_gap_count: 0,
+        unaccounted_visible_count: 0,
+        out_of_band_visible_count: 0,
+        constraint_gate_status: None,
+        constraint_error_count: 0,
+        constraint_errors: Vec::new(),
+        reasons: vec![reason],
+    };
+
+    if refinement.status != RelationalEvidenceStatus::Pass {
+        return not_evaluable("relational refinement did not PASS".into());
+    }
+    if !valid_digest(generation_input_receipt_digest) {
+        return not_evaluable("generation-input exposure receipt is missing or malformed".into());
+    }
+    if response.request_id != scope.request_id
+        || response.responder_id != scope.recipient_id
+    {
+        return not_evaluable("response request/responder differs from the frozen RER scope".into());
+    }
+    if refinement.selected_evidence_ids.is_empty()
+        || !unique_nonempty(&refinement.selected_evidence_ids)
+        || !unique_nonempty(&refinement.added_evidence_ids)
+    {
+        return not_evaluable("refined/added evidence IDs are empty or duplicated".into());
+    }
+    let selected: BTreeSet<&str> = refinement
+        .selected_evidence_ids
+        .iter()
+        .map(String::as_str)
+        .collect();
+    if !refinement
+        .added_evidence_ids
+        .iter()
+        .all(|id| selected.contains(id.as_str()))
+    {
+        return not_evaluable("RER added-evidence list is not a subset of selected evidence".into());
+    }
+
+    let mut visible = BTreeSet::new();
+    for item in generator_visible {
+        if item.request_id != scope.request_id
+            || item.authorized_responder_id != scope.recipient_id
+            || !valid_digest(&item.source_digest)
+            || !nonempty(&item.evidence_id)
+            || !visible.insert(item.evidence_id.as_str())
+        {
+            return not_evaluable(
+                "generator-visible evidence inventory has a scope, digest or duplicate-ID defect"
+                    .into(),
+            );
+        }
+    }
+
+    let used: BTreeSet<&str> = response
+        .constraints
+        .iter()
+        .map(|item| item.evidence_id.as_str())
+        .filter(|id| nonempty(id))
+        .collect();
+    let handoff_gap_count = selected.difference(&visible).count();
+    let out_of_band_visible_count = visible.difference(&selected).count();
+    let unaccounted_visible_count = visible.difference(&used).count();
+
+    let constraint_report = qualify_response_grounding(generator_visible, response);
+    let mut bottlenecks = Vec::new();
+    if !refinement.added_evidence_ids.is_empty() {
+        bottlenecks.push(EvidenceBottleneck::RetrievalCoverageGap);
+    }
+    if handoff_gap_count > 0 {
+        bottlenecks.push(EvidenceBottleneck::HandoffExposureGap);
+    }
+    if unaccounted_visible_count > 0
+        || constraint_report.status == ConstraintQualificationStatus::Fail
+    {
+        bottlenecks.push(EvidenceBottleneck::ConstraintApplicationGap);
+    }
+    if out_of_band_visible_count > 0 {
+        bottlenecks.push(EvidenceBottleneck::OutOfBandVisibleEvidence);
+    }
+    if bottlenecks.is_empty() {
+        bottlenecks.push(EvidenceBottleneck::NoDetectedGap);
+    }
+
+    EvidenceUseDiagnostic {
+        status: EvidenceUseDiagnosticStatus::Complete,
+        bottlenecks,
+        retrieval_seed_count: scope.seed_evidence_ids.len(),
+        relationally_added_count: refinement.added_evidence_ids.len(),
+        selected_evidence_count: refinement.selected_evidence_ids.len(),
+        generator_visible_count: generator_visible.len(),
+        handoff_gap_count,
+        unaccounted_visible_count,
+        out_of_band_visible_count,
+        constraint_gate_status: Some(constraint_report.status),
+        constraint_error_count: constraint_report.errors.len(),
+        constraint_errors: constraint_report.errors,
+        reasons: vec![
+            "retrieval gaps, handoff/exposure gaps, constraint-application gaps and out-of-band visibility are reported separately".into(),
+            "diagnostic completeness is not a quality score or proof of source truth".into(),
+        ],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1090,6 +1250,182 @@ mod tests {
         assert_eq!(report.status, RelationalEvidenceStatus::Fail);
     }
 
+
+
+    fn response_for(
+        scope: &RelationalEvidenceScope,
+        available: &[AvailableEvidenceConstraint],
+    ) -> ResponseGrounding {
+        ResponseGrounding {
+            request_id: scope.request_id.clone(),
+            response_id: "response-1".into(),
+            responder_id: scope.recipient_id.clone(),
+            constraints: available
+                .iter()
+                .map(|item| super::super::ResponseConstraintUse {
+                    evidence_id: item.evidence_id.clone(),
+                    source_digest: item.source_digest.clone(),
+                    subject_id: item.subject_id.clone(),
+                    scope_id: item.scope_id.clone(),
+                    status: item.status,
+                    applicability: item.applicability,
+                    handling: super::super::ConstraintHandling::Applied,
+                    rationale: None,
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn diagnostic_reports_no_gap_when_refined_evidence_is_visible_and_applied() {
+        let scope = scope();
+        let candidates = vec![record("e1", "origin-a", "holder-a")];
+        let refinement = refine_relational_evidence(&scope, &candidates, &[]);
+        let available = bind_refined_evidence_constraints(&scope, &candidates, &refinement).unwrap();
+        let response = response_for(&scope, &available);
+        let result = diagnose_evidence_use_bottlenecks(
+            &scope, &refinement, &available, &response, &digest('9')
+        );
+        assert_eq!(result.status, EvidenceUseDiagnosticStatus::Complete);
+        assert_eq!(result.bottlenecks, vec![EvidenceBottleneck::NoDetectedGap]);
+        assert_eq!(result.constraint_gate_status, Some(ConstraintQualificationStatus::Pass));
+    }
+
+    #[test]
+    fn diagnostic_separates_rer_retrieval_gap_from_application() {
+        let scope = scope();
+        let candidates = vec![
+            record("e1", "origin-a", "holder-a"),
+            record("e2", "origin-b", "holder-b"),
+        ];
+        let refinement = refine_relational_evidence(
+            &scope, &candidates, &[edge("e1", "e2", EvidenceRelationKind::Supports)]
+        );
+        let available = bind_refined_evidence_constraints(&scope, &candidates, &refinement).unwrap();
+        let response = response_for(&scope, &available);
+        let result = diagnose_evidence_use_bottlenecks(
+            &scope, &refinement, &available, &response, &digest('9')
+        );
+        assert_eq!(result.relationally_added_count, 1);
+        assert_eq!(result.unaccounted_visible_count, 0);
+        assert!(result.bottlenecks.contains(&EvidenceBottleneck::RetrievalCoverageGap));
+        assert!(!result.bottlenecks.contains(&EvidenceBottleneck::ConstraintApplicationGap));
+    }
+
+    #[test]
+    fn diagnostic_counts_visible_but_unaccounted_evidence_as_acb_gap() {
+        let scope = scope();
+        let candidates = vec![record("e1", "origin-a", "holder-a")];
+        let refinement = refine_relational_evidence(&scope, &candidates, &[]);
+        let available = bind_refined_evidence_constraints(&scope, &candidates, &refinement).unwrap();
+        let response = ResponseGrounding {
+            request_id: scope.request_id.clone(),
+            response_id: "response-1".into(),
+            responder_id: scope.recipient_id.clone(),
+            constraints: Vec::new(),
+        };
+        let result = diagnose_evidence_use_bottlenecks(
+            &scope, &refinement, &available, &response, &digest('9')
+        );
+        assert_eq!(result.unaccounted_visible_count, 1);
+        assert!(result.bottlenecks.contains(&EvidenceBottleneck::ConstraintApplicationGap));
+        assert_eq!(result.constraint_gate_status, Some(ConstraintQualificationStatus::Fail));
+    }
+
+    #[test]
+    fn diagnostic_counts_selected_but_not_exposed_items_as_handoff_gap() {
+        let scope = scope();
+        let candidates = vec![
+            record("e1", "origin-a", "holder-a"),
+            record("e2", "origin-b", "holder-b"),
+        ];
+        let refinement = refine_relational_evidence(
+            &scope, &candidates, &[edge("e1", "e2", EvidenceRelationKind::Supports)]
+        );
+        let all = bind_refined_evidence_constraints(&scope, &candidates, &refinement).unwrap();
+        let available = vec![all[0].clone()];
+        let response = response_for(&scope, &available);
+        let result = diagnose_evidence_use_bottlenecks(
+            &scope, &refinement, &available, &response, &digest('9')
+        );
+        assert_eq!(result.handoff_gap_count, 1);
+        assert!(result.bottlenecks.contains(&EvidenceBottleneck::HandoffExposureGap));
+    }
+
+    #[test]
+    fn diagnostic_flags_visible_items_outside_refined_bundle() {
+        let scope = scope();
+        let candidates = vec![
+            record("e1", "origin-a", "holder-a"),
+            record("e2", "origin-b", "holder-b"),
+        ];
+        let refinement = refine_relational_evidence(&scope, &candidates, &[]);
+        let available = bind_refined_evidence_constraints(
+            &scope, &candidates, &refinement
+        )
+        .unwrap()
+        .into_iter()
+        .chain(vec![AvailableEvidenceConstraint {
+            request_id: scope.request_id.clone(),
+            evidence_id: "e2".into(),
+            source_digest: digest('a'),
+            subject_id: "trip-date".into(),
+            scope_id: "group-trip-2026".into(),
+            authorized_responder_id: scope.recipient_id.clone(),
+            status: EvidenceStatus::Current,
+            applicability: Applicability::Applicable,
+            verified: true,
+            required: true,
+        }])
+        .collect::<Vec<_>>();
+        let response = response_for(&scope, &available);
+        let result = diagnose_evidence_use_bottlenecks(
+            &scope, &refinement, &available, &response, &digest('9')
+        );
+        assert_eq!(result.out_of_band_visible_count, 1);
+        assert!(result.bottlenecks.contains(&EvidenceBottleneck::OutOfBandVisibleEvidence));
+    }
+
+    #[test]
+    fn diagnostic_requires_actual_generation_input_receipt() {
+        let scope = scope();
+        let candidates = vec![record("e1", "origin-a", "holder-a")];
+        let refinement = refine_relational_evidence(&scope, &candidates, &[]);
+        let available = bind_refined_evidence_constraints(&scope, &candidates, &refinement).unwrap();
+        let response = response_for(&scope, &available);
+        let result = diagnose_evidence_use_bottlenecks(
+            &scope, &refinement, &available, &response, "missing"
+        );
+        assert_eq!(result.status, EvidenceUseDiagnosticStatus::NotEvaluable);
+        assert!(result.bottlenecks.is_empty());
+    }
+
+    #[test]
+    fn diagnostic_never_qualifies_failed_refinement() {
+        let scope = scope();
+        let candidates = vec![record("e1", "origin-a", "holder-a")];
+        let mut refinement = refine_relational_evidence(&scope, &candidates, &[]);
+        refinement.status = RelationalEvidenceStatus::Fail;
+        let response = response_for(&scope, &[]);
+        let result = diagnose_evidence_use_bottlenecks(
+            &scope, &refinement, &[], &response, &digest('9')
+        );
+        assert_eq!(result.status, EvidenceUseDiagnosticStatus::NotEvaluable);
+    }
+
+    #[test]
+    fn diagnostic_rejects_out_of_scope_visible_evidence_inventory() {
+        let scope = scope();
+        let candidates = vec![record("e1", "origin-a", "holder-a")];
+        let refinement = refine_relational_evidence(&scope, &candidates, &[]);
+        let mut available = bind_refined_evidence_constraints(&scope, &candidates, &refinement).unwrap();
+        available[0].request_id = "other-request".into();
+        let response = response_for(&scope, &available);
+        let result = diagnose_evidence_use_bottlenecks(
+            &scope, &refinement, &available, &response, &digest('9')
+        );
+        assert_eq!(result.status, EvidenceUseDiagnosticStatus::NotEvaluable);
+    }
 
     #[test]
     fn reversed_duplicate_symmetric_relation_fails() {
