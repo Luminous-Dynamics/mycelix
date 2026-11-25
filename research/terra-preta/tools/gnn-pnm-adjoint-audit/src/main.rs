@@ -46,7 +46,9 @@ type Matrix = Vec<Vec<f64>>;
 fn solve_dense(matrix: &[Vec<f64>], rhs: &[f64]) -> Result<Vec<f64>, AuditError> {
     let n = matrix.len();
     if n == 0 || rhs.len() != n || matrix.iter().any(|row| row.len() != n) {
-        return Err(AuditError("dense solve requires a nonempty square system".into()));
+        return Err(AuditError(
+            "dense solve requires a nonempty square system".into(),
+        ));
     }
 
     let mut a = matrix.to_vec();
@@ -62,14 +64,12 @@ fn solve_dense(matrix: &[Vec<f64>], rhs: &[f64]) -> Result<Vec<f64>, AuditError>
 
     for column in 0..n {
         let pivot = (column..n)
-            .max_by(|left, right| {
-                a[*left][column]
-                    .abs()
-                    .total_cmp(&a[*right][column].abs())
-            })
+            .max_by(|left, right| a[*left][column].abs().total_cmp(&a[*right][column].abs()))
             .ok_or_else(|| AuditError("dense solve has no pivot candidate".into()))?;
         if a[pivot][column].abs() <= pivot_tolerance {
-            return Err(AuditError("dense solve encountered a singular pivot".into()));
+            return Err(AuditError(
+                "dense solve encountered a singular pivot".into(),
+            ));
         }
         a.swap(column, pivot);
         b.swap(column, pivot);
@@ -187,26 +187,22 @@ fn finite_difference_gradient(case: &Case) -> Result<Vec<f64>, AuditError> {
     Ok(gradient)
 }
 
-fn adjoint_gradients(case: &Case) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, f64), AuditError> {
+fn adjoint_gradients(
+    case: &Case,
+) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, f64), AuditError> {
     let (pressures, permeability, matrix) = solve_forward(case)?;
     let residual = permeability - case.target_permeability;
     let mut d_objective_d_pressure = vec![0.0; case.pore_count];
     let mut p1_inlet = vec![false; case.edges.len()];
     let mut p2_inlet = vec![false; case.edges.len()];
 
-    for (index, (edge, conductance)) in case
-        .edges
-        .iter()
-        .zip(case.conductances.iter())
-        .enumerate()
-    {
+    for (index, (edge, conductance)) in case.edges.iter().zip(case.conductances.iter()).enumerate() {
         p1_inlet[index] = is_member(&case.inlet_pores, edge.p1);
         p2_inlet[index] = is_member(&case.inlet_pores, edge.p2);
         if p1_inlet[index] && !p2_inlet[index] {
             d_objective_d_pressure[edge.p2] -= residual * case.conversion * conductance;
         } else if p2_inlet[index] && !p1_inlet[index] {
-            d_objective_d_pressure[edge.p1] -=
-                residual * case.conversion * conductance;
+            d_objective_d_pressure[edge.p1] -= residual * case.conversion * conductance;
         }
     }
 
