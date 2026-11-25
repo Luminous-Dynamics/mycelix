@@ -1504,7 +1504,7 @@ fn response_error_upper_bound_output_adjoint(
     }
 
     let mut envelope = vec![vec![0.0; port_count]; port_count];
-    let mut componentwise_valid = true;
+    let componentwise_valid = true;
     for output_port in 0..port_count {
         for input_port in 0..port_count {
             let feedthrough = (model.d[output_port][input_port]
