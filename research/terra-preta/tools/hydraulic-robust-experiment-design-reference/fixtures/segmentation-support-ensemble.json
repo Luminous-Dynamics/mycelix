@@ -1,0 +1,377 @@
+{
+  "schema_version": "hydraulic-robust-experiment-design-reference-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "scenario_set_id": "synthetic-three-way-segmentation-registration-ensemble",
+  "common_estimand_id": "four_dimensionless_path_conductance_estimands-v1",
+  "parameter_ids": [
+    "upper_inlet_log_g",
+    "upper_outlet_log_g",
+    "lower_inlet_log_g",
+    "lower_outlet_log_g"
+  ],
+  "parameter_scales": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "acquisition_budget": 4,
+  "determinant_regularizer": 0.000001,
+  "scenarios": [
+    {
+      "scenario_id": "seg-a",
+      "segmentation_variant_id": "seg-a",
+      "registration_variant_id": "reg-a",
+      "estimand_id": "four_dimensionless_path_conductance_estimands-v1",
+      "nominal": true,
+      "prior_information": [
+        [
+          0.01,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0.01,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0.01,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0.01
+        ]
+      ],
+      "baseline_measurements": [
+        {
+          "measurement_id": "bulk-boundary-flux",
+          "sensitivity": [
+            0.5,
+            0.5,
+            0.5,
+            0.5
+          ],
+          "noise_std": 0.02,
+          "support_description": "whole-sample inlet/outlet boundary flux; no local path assignment"
+        }
+      ]
+    },
+    {
+      "scenario_id": "seg-b",
+      "segmentation_variant_id": "seg-b",
+      "registration_variant_id": "reg-b",
+      "estimand_id": "four_dimensionless_path_conductance_estimands-v1",
+      "nominal": false,
+      "prior_information": [
+        [
+          0.01,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0.01,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0.01,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0.01
+        ]
+      ],
+      "baseline_measurements": [
+        {
+          "measurement_id": "bulk-boundary-flux",
+          "sensitivity": [
+            0.5,
+            0.5,
+            0.5,
+            0.5
+          ],
+          "noise_std": 0.02,
+          "support_description": "whole-sample flux across the same declared boundary ports"
+        }
+      ]
+    },
+    {
+      "scenario_id": "seg-c",
+      "segmentation_variant_id": "seg-c",
+      "registration_variant_id": "reg-c",
+      "estimand_id": "four_dimensionless_path_conductance_estimands-v1",
+      "nominal": false,
+      "prior_information": [
+        [
+          0.01,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0.01,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0.01,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0.01
+        ]
+      ],
+      "baseline_measurements": [
+        {
+          "measurement_id": "bulk-boundary-flux",
+          "sensitivity": [
+            0.5,
+            0.5,
+            0.5,
+            0.5
+          ],
+          "noise_std": 0.02,
+          "support_description": "whole-sample flux, unaffected by local pressure-probe registration"
+        }
+      ]
+    }
+  ],
+  "candidates": [
+    {
+      "candidate_id": "upper-pressure",
+      "sensor_kind": "pressure_probe",
+      "cost": 1,
+      "measurements": [
+        {
+          "scenario_id": "seg-a",
+          "sensitivity": [
+            0.25,
+            -0.25,
+            0,
+            0
+          ],
+          "noise_std": 0.01,
+          "support_coverage_fraction": 1,
+          "support_description": "registered upper-branch intermediate pressure"
+        },
+        {
+          "scenario_id": "seg-b",
+          "sensitivity": [
+            0.1875,
+            -0.1875,
+            0.0625,
+            -0.0625
+          ],
+          "noise_std": 0.013333333333333334,
+          "support_coverage_fraction": 0.75,
+          "support_description": "upper probe footprint mixes 25% lower branch"
+        },
+        {
+          "scenario_id": "seg-c",
+          "sensitivity": [
+            0.1375,
+            -0.1375,
+            0.1125,
+            -0.1125
+          ],
+          "noise_std": 0.01818181818181818,
+          "support_coverage_fraction": 0.55,
+          "support_description": "upper probe footprint mixes 45% lower branch"
+        }
+      ]
+    },
+    {
+      "candidate_id": "lower-pressure",
+      "sensor_kind": "pressure_probe",
+      "cost": 1,
+      "measurements": [
+        {
+          "scenario_id": "seg-a",
+          "sensitivity": [
+            0,
+            0,
+            0.25,
+            -0.25
+          ],
+          "noise_std": 0.01,
+          "support_coverage_fraction": 1,
+          "support_description": "registered lower-branch intermediate pressure"
+        },
+        {
+          "scenario_id": "seg-b",
+          "sensitivity": [
+            0.0625,
+            -0.0625,
+            0.1875,
+            -0.1875
+          ],
+          "noise_std": 0.013333333333333334,
+          "support_coverage_fraction": 0.75,
+          "support_description": "lower probe footprint mixes 25% upper branch"
+        },
+        {
+          "scenario_id": "seg-c",
+          "sensitivity": [
+            0.1125,
+            -0.1125,
+            0.1375,
+            -0.1375
+          ],
+          "noise_std": 0.01818181818181818,
+          "support_coverage_fraction": 0.55,
+          "support_description": "lower probe footprint mixes 45% upper branch"
+        }
+      ]
+    },
+    {
+      "candidate_id": "upper-path-flow",
+      "sensor_kind": "path_flow_sensor",
+      "cost": 2,
+      "measurements": [
+        {
+          "scenario_id": "seg-a",
+          "sensitivity": [
+            0.5,
+            0.5,
+            0,
+            0
+          ],
+          "noise_std": 0.02,
+          "support_coverage_fraction": 1,
+          "support_description": "idealized upper path flow support"
+        },
+        {
+          "scenario_id": "seg-b",
+          "sensitivity": [
+            0.375,
+            0.375,
+            0.125,
+            0.125
+          ],
+          "noise_std": 0.02666666666666667,
+          "support_coverage_fraction": 0.75,
+          "support_description": "finite footprint mixes 25% lower path"
+        },
+        {
+          "scenario_id": "seg-c",
+          "sensitivity": [
+            0.275,
+            0.275,
+            0.225,
+            0.225
+          ],
+          "noise_std": 0.03636363636363636,
+          "support_coverage_fraction": 0.55,
+          "support_description": "finite footprint mixes 45% lower path"
+        }
+      ]
+    },
+    {
+      "candidate_id": "lower-path-flow",
+      "sensor_kind": "path_flow_sensor",
+      "cost": 2,
+      "measurements": [
+        {
+          "scenario_id": "seg-a",
+          "sensitivity": [
+            0,
+            0,
+            0.5,
+            0.5
+          ],
+          "noise_std": 0.02,
+          "support_coverage_fraction": 1,
+          "support_description": "idealized lower path flow support"
+        },
+        {
+          "scenario_id": "seg-b",
+          "sensitivity": [
+            0.125,
+            0.125,
+            0.375,
+            0.375
+          ],
+          "noise_std": 0.02666666666666667,
+          "support_coverage_fraction": 0.75,
+          "support_description": "finite footprint mixes 25% upper path"
+        },
+        {
+          "scenario_id": "seg-c",
+          "sensitivity": [
+            0.225,
+            0.225,
+            0.275,
+            0.275
+          ],
+          "noise_std": 0.03636363636363636,
+          "support_coverage_fraction": 0.55,
+          "support_description": "finite footprint mixes 45% upper path"
+        }
+      ]
+    },
+    {
+      "candidate_id": "repeat-bulk",
+      "sensor_kind": "bulk_flux",
+      "cost": 1,
+      "measurements": [
+        {
+          "scenario_id": "seg-a",
+          "sensitivity": [
+            0.5,
+            0.5,
+            0.5,
+            0.5
+          ],
+          "noise_std": 0.02,
+          "support_coverage_fraction": 1,
+          "support_description": "repeat of the same whole-sample bulk support"
+        },
+        {
+          "scenario_id": "seg-b",
+          "sensitivity": [
+            0.5,
+            0.5,
+            0.5,
+            0.5
+          ],
+          "noise_std": 0.02,
+          "support_coverage_fraction": 1,
+          "support_description": "repeat of the same whole-sample bulk support"
+        },
+        {
+          "scenario_id": "seg-c",
+          "sensitivity": [
+            0.5,
+            0.5,
+            0.5,
+            0.5
+          ],
+          "noise_std": 0.02,
+          "support_coverage_fraction": 1,
+          "support_description": "repeat of the same whole-sample bulk support"
+        }
+      ]
+    }
+  ]
+}
