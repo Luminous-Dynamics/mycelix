@@ -93,5 +93,9 @@ fn main() {
         }],
     };
     let artifacts = input.export().expect("synthetic source-evidence fixture is valid");
-    println!("{}", artifacts.ocel_json);
+    if std::env::args().any(|argument| argument == "--provenance") {
+        println!("{}", artifacts.time_provenance_json);
+    } else {
+        println!("{}", artifacts.ocel_json);
+    }
 }
