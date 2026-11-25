@@ -1,0 +1,635 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/coordination-trial-v0.1.json",
+  "title": "Matched coordination trial v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "trial"
+  ],
+  "properties": {
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected_task_family_digest",
+        "confidence_level_bps",
+        "minimum_independent_units",
+        "maximum_cost_ratio",
+        "maximum_token_ratio",
+        "maximum_latency_ratio",
+        "maximum_error_amplification"
+      ],
+      "properties": {
+        "expected_task_family_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "confidence_level_bps": {
+          "type": "integer",
+          "minimum": 9000,
+          "maximum": 9999
+        },
+        "minimum_independent_units": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "maximum_cost_ratio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "maximum_token_ratio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "maximum_latency_ratio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "maximum_error_amplification": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "trial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trial_id",
+        "task_features",
+        "single_agent",
+        "coordinated",
+        "paired_gain"
+      ],
+      "properties": {
+        "trial_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "task_features": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "decomposability_score",
+            "sequential_interdependence_score",
+            "partial_observability",
+            "requires_environment_feedback"
+          ],
+          "properties": {
+            "decomposability_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "sequential_interdependence_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "partial_observability": {
+              "type": "boolean"
+            },
+            "requires_environment_feedback": {
+              "type": "boolean"
+            }
+          }
+        },
+        "single_agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "manifest",
+            "architecture",
+            "task_instance_digest",
+            "execution_trace_digest",
+            "outcome_evidence_digest",
+            "cost_evidence_digest",
+            "task_quality",
+            "unique_information_preservation",
+            "total_cost_micro_usd",
+            "total_tokens",
+            "wall_clock_ms",
+            "inter_agent_messages",
+            "relative_error_amplification"
+          ],
+          "properties": {
+            "manifest": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "run_id",
+                "system_variant",
+                "system_config_digest",
+                "benchmark_id",
+                "benchmark_version",
+                "dataset_digest",
+                "split_digest",
+                "task_family_digest",
+                "evaluation_protocol_digest",
+                "scorer_digest",
+                "model_snapshot_digest",
+                "tokenizer_digest",
+                "prompt_digest",
+                "toolset_digest",
+                "decoding_config_digest",
+                "context_tokens",
+                "max_output_tokens",
+                "time_budget_ms",
+                "token_budget",
+                "compute_budget_millijoules",
+                "agent_count",
+                "memory_budget_bytes",
+                "seed_policy_id",
+                "seed"
+              ],
+              "properties": {
+                "run_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "system_variant": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "system_config_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "benchmark_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "benchmark_version": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "dataset_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "split_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "task_family_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "evaluation_protocol_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "scorer_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "model_snapshot_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "tokenizer_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "prompt_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "toolset_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "decoding_config_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "context_tokens": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "max_output_tokens": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "time_budget_ms": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "token_budget": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "compute_budget_millijoules": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "agent_count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "memory_budget_bytes": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "seed_policy_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "seed": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "architecture": {
+              "enum": [
+                "single_agent",
+                "independent_parallel",
+                "centralized",
+                "decentralized",
+                "hybrid"
+              ]
+            },
+            "task_instance_digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "execution_trace_digest": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              ]
+            },
+            "outcome_evidence_digest": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              ]
+            },
+            "cost_evidence_digest": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              ]
+            },
+            "task_quality": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "unique_information_preservation": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "total_cost_micro_usd": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "total_tokens": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "wall_clock_ms": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "inter_agent_messages": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "relative_error_amplification": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "coordinated": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "manifest",
+            "architecture",
+            "task_instance_digest",
+            "execution_trace_digest",
+            "outcome_evidence_digest",
+            "cost_evidence_digest",
+            "task_quality",
+            "unique_information_preservation",
+            "total_cost_micro_usd",
+            "total_tokens",
+            "wall_clock_ms",
+            "inter_agent_messages",
+            "relative_error_amplification"
+          ],
+          "properties": {
+            "manifest": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "run_id",
+                "system_variant",
+                "system_config_digest",
+                "benchmark_id",
+                "benchmark_version",
+                "dataset_digest",
+                "split_digest",
+                "task_family_digest",
+                "evaluation_protocol_digest",
+                "scorer_digest",
+                "model_snapshot_digest",
+                "tokenizer_digest",
+                "prompt_digest",
+                "toolset_digest",
+                "decoding_config_digest",
+                "context_tokens",
+                "max_output_tokens",
+                "time_budget_ms",
+                "token_budget",
+                "compute_budget_millijoules",
+                "agent_count",
+                "memory_budget_bytes",
+                "seed_policy_id",
+                "seed"
+              ],
+              "properties": {
+                "run_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "system_variant": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "system_config_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "benchmark_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "benchmark_version": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "dataset_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "split_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "task_family_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "evaluation_protocol_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "scorer_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "model_snapshot_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "tokenizer_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "prompt_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "toolset_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "decoding_config_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "context_tokens": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "max_output_tokens": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "time_budget_ms": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "token_budget": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "compute_budget_millijoules": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "agent_count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "memory_budget_bytes": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "seed_policy_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "seed": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "architecture": {
+              "enum": [
+                "single_agent",
+                "independent_parallel",
+                "centralized",
+                "decentralized",
+                "hybrid"
+              ]
+            },
+            "task_instance_digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "execution_trace_digest": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              ]
+            },
+            "outcome_evidence_digest": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              ]
+            },
+            "cost_evidence_digest": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              ]
+            },
+            "task_quality": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "unique_information_preservation": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "total_cost_micro_usd": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "total_tokens": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "wall_clock_ms": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "inter_agent_messages": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "relative_error_amplification": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "paired_gain": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lower_bound",
+            "point_estimate",
+            "upper_bound",
+            "confidence_level_bps",
+            "simultaneous_intervals",
+            "independent_units",
+            "observation_count",
+            "paired_unit_manifest_digest",
+            "inference_plan_digest",
+            "evidence_digest"
+          ],
+          "properties": {
+            "lower_bound": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "point_estimate": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "upper_bound": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "confidence_level_bps": {
+              "type": "integer",
+              "minimum": 9000,
+              "maximum": 9999
+            },
+            "simultaneous_intervals": {
+              "type": "boolean",
+              "const": true
+            },
+            "independent_units": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "observation_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "paired_unit_manifest_digest": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              ]
+            },
+            "inference_plan_digest": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              ]
+            },
+            "evidence_digest": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
