@@ -2,14 +2,14 @@
 
 A dependency-free Rust kernel for asking a verifier-relative bitemporal question:
 
-> What was valid at event/valid time **V**, according to the assertions verifier **X** had accepted by knowledge time/frontier **K**?
+> What was valid at event/valid time **V**, according to the assertions verifier **X** had accepted by knowledge time **K**?
 
 This is deliberately narrower than a general temporal database. It makes the evidence and epistemic boundary explicit instead of treating one timestamp as a universal truth.
 
 ## Current contract
 
 - **Valid time and knowledge time are independent.** Queries provide a valid-time instant V and a verifier-knowledge instant K.
-- **Verifier-relative knowledge.** A fact is eligible only when a `VERIFIER_KNOWLEDGE_AT` assertion references that exact fact, names the queried verifier, and has a timestamp at or before (K).
+- **Verifier-relative knowledge.** A fact is eligible only when a `VERIFIER_KNOWLEDGE_AT` assertion references that exact fact, names the queried verifier, and has a timestamp at or before K. Its opaque `knowledge_frontier_ref` is preserved but not resolved or authenticated by this v0.1 kernel.
 - **Append-only correction lineage.** A correction supersedes a predecessor; it changes the as-known answer only after the queried verifier has a qualifying knowledge assertion for that correction.
 - **Half-open intervals.** Validity is `[VALID_FROM, VALID_TO)`.
 - **No inferred open interval.** An absent `VALID_TO` is open-ended only when the caller opts in and there is no end-boundary assertion at all. An existing but unknown end boundary remains indeterminate.
@@ -35,7 +35,7 @@ The historical example models a revocation effective on November 18, 2026, which
 
 ## Qualification boundary
 
-The scan-based evidence-set query is retained as a reference path. `TemporalEvidenceIndexV1` validates once and builds deterministic claim/dimension and fact/verifier indexes for repeated queries. Both paths operate on caller-supplied assertions. It is not yet:
+The validating `TemporalEvidenceSetV1` methods are retained as a semantic reference. `TemporalEvidenceScanV1` validates once and performs full scans; `TemporalEvidenceIndexV1` validates once and builds deterministic claim/dimension, assertion-ID, and fact/verifier indexes for repeated queries. Both paths operate on caller-supplied assertions. It is not yet:
 
 - a Holochain DHT / checkpoint integration;
 - a signature, issuer, authority-grant, or source authenticity verifier;
@@ -44,7 +44,7 @@ The scan-based evidence-set query is retained as a reference path. `TemporalEvid
 - an OCEL importer/exporter or a certified OCEL implementation;
 - a complete bitemporal policy engine.
 
-The caller is responsible for authenticating the assertions, evidence payloads, verifier identity, and knowledge-frontier receipts before constructing the set. Until that adapter is implemented and independently tested, results are **structural query results over supplied data**, not authoritative legal, financial, or operational determinations.
+The caller is responsible for authenticating the assertions, evidence payloads, verifier identity, and knowledge-frontier receipts before constructing the set. The `knowledge_frontier_ref` is currently an opaque provenance reference: v0.1 filters on the verifier-knowledge timestamp K and does not prove that a receipt is included in a particular distributed checkpoint or causal frontier. Until those adapters are implemented and independently tested, results are **structural query results over supplied data**, not authoritative legal, financial, or operational determinations.
 
 ## Benchmark direction
 
@@ -53,7 +53,8 @@ See [BENCHMARK_PROTOCOL_V0.1.md](BENCHMARK_PROTOCOL_V0.1.md) for matched SQL Ser
 The full benchmark should compare this kernel against:
 
 1. a straightforward reference interpreter (semantic oracle);
-2. an indexed in-memory implementation;
+2. the prevalidated full-scan engine;
+3. the preindexed in-memory engine;
 4. selected SQL temporal-history / event-sourcing implementations where the semantics can be matched.
 
 The benchmark must report correctness separately from speed. Required workload dimensions include assertion count, correction-chain depth, number of verifier identities, metadata-to-fact ratio, correction-branch fan-out, event-time disorder, and uncertainty/contestation prevalence. Required outputs include p50/p95/p99 query latency, throughput, memory, index-build cost, bytes scanned, and semantic disagreement. A fast incorrect answer is a failure.
