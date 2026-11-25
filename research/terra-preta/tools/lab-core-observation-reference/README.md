@@ -18,11 +18,17 @@ From standpipe continuity coupled to Darcy flow:
 
 The implementation evaluates the logarithm as `ln_1p((h0-h1)/h1)` for stability when the two heads are close. Its forward map is `h1 = h0 exp(-K A t/(a L))`.
 
-All input geometry and measurements are SI. The report records the protocol, physical core support, geometry, K estimate, forward reconstruction error and idealized assumptions.
+All input geometry and measurements are SI. The report records the protocol, original method label, specimen preparation, physical core support, geometry, K estimate, forward reconstruction error and idealized assumptions. Every observation requires a record ID and canonical physical-sample group ID so repeated observations can remain grouped in downstream validation.
 
 ## Why this matters
 
 Two core specimens with the same latent conductivity but different diameter or length do not produce the same measured flow. The geometry and protocol therefore belong in the observation operator; Ksat should not be treated as a raw, protocol-free label. The measurement contract still preserves the source method, units, sample ID and study/site groups.
+
+## Provenance and validation
+
+The implementation accepts SI-valued geometry and measurement fields. Dataset adapters must retain the original units and source strings in the broader observation contract before converting to SI; this small solver is not an importer and does not infer preparation or units. The specimen preparation field is preserved verbatim and is not inferred from the protocol.
+
+The test suite includes analytic constant- and falling-head round trips, multiple K scales, near-equal head differences, geometry scaling, nonphysical inputs, and missing source-method metadata.
 
 ## Explicit exclusions
 
