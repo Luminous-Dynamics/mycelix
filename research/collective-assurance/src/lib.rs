@@ -10,6 +10,7 @@ mod constraint_binding;
 mod ledger;
 mod response_audit;
 mod support_policy;
+mod witness;
 
 pub use allocation::{
     allocate_committed_teams, compute_design_digest, compute_roster_digest,
@@ -37,6 +38,11 @@ pub use response_audit::{
 pub use comparison::{
     qualify_benchmark_comparison, BenchmarkRunManifest, ComparisonIntent,
     ComparisonReport, ComparisonStatus,
+};
+pub use witness::{
+    qualify_ai_off_with_witness, qualify_external_witness, AiOffWitnessBundle,
+    ExpectedExternalWitness, ExternalWitnessReceipt, RequiredWitnessProbe,
+    WitnessChannel, WitnessOutcome, WitnessProbeObservation,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
