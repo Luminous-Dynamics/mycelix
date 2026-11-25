@@ -1401,13 +1401,6 @@ fn build_output_adjoint_weights(
         if upper.iter().any(|value| !value.is_finite() || *value < 0.0) {
             return Err("output-adjoint Green weight is negative or non-finite".into());
         }
-        // Keep exact zero-coupling states at zero only if their upper bound is
-        // already zero; otherwise the residual correction above is retained.
-        for value in &mut upper {
-            if *value == 0.0 {
-                *value = 0.0_f64;
-            }
-        }
         upper_vectors.push(upper);
         solve_stats.push(stats);
     }
