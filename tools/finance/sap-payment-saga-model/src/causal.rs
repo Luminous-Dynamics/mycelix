@@ -117,17 +117,12 @@ fn append_text_v1(output: &mut Vec<u8>, value: &str) -> Result<(), CausalErrorV1
     Ok(())
 }
 
-fn append_reference_v1(
-    output: &mut Vec<u8>,
-    reference: &EventRefV1,
-) -> Result<(), CausalErrorV1> {
+fn append_reference_v1(output: &mut Vec<u8>, reference: &EventRefV1) -> Result<(), CausalErrorV1> {
     append_text_v1(output, &reference.owner_id)?;
     append_text_v1(output, &reference.event_id)
 }
 
-fn canonical_graph_bytes_v1(
-    events: &[CausalEventV1],
-) -> Result<Vec<u8>, CausalErrorV1> {
+fn canonical_graph_bytes_v1(events: &[CausalEventV1]) -> Result<Vec<u8>, CausalErrorV1> {
     let mut ordered: Vec<&CausalEventV1> = events.iter().collect();
     ordered.sort_by(|left, right| {
         (&left.owner_id, left.owner_sequence, &left.event_id).cmp(&(
@@ -418,7 +413,13 @@ mod tests {
     fn missing_owner_sequence_is_rejected() {
         let events = vec![
             event("payments", "p0", 0, None, vec![]),
-            event("payments", "p2", 2, Some(reference("payments", "p1")), vec![]),
+            event(
+                "payments",
+                "p2",
+                2,
+                Some(reference("payments", "p1")),
+                vec![],
+            ),
         ];
         assert_eq!(
             project_causal_graph_v1(&events),
@@ -430,7 +431,13 @@ mod tests {
     fn owner_predecessor_must_be_exact_and_owner_local() {
         let events = vec![
             event("payments", "p0", 0, None, vec![]),
-            event("payments", "p1", 1, Some(reference("treasury", "t0")), vec![]),
+            event(
+                "payments",
+                "p1",
+                1,
+                Some(reference("treasury", "t0")),
+                vec![],
+            ),
         ];
         assert_eq!(
             project_causal_graph_v1(&events),
@@ -471,7 +478,13 @@ mod tests {
     fn duplicate_event_reference_is_rejected() {
         let events = vec![
             event("payments", "p0", 0, None, vec![]),
-            event("payments", "p0", 1, Some(reference("payments", "p0")), vec![]),
+            event(
+                "payments",
+                "p0",
+                1,
+                Some(reference("payments", "p0")),
+                vec![],
+            ),
         ];
         assert_eq!(
             project_causal_graph_v1(&events),
@@ -520,13 +533,7 @@ mod tests {
     #[test]
     fn self_causality_is_rejected() {
         let self_reference = reference("payments", "p0");
-        let events = vec![event(
-            "payments",
-            "p0",
-            0,
-            None,
-            vec![self_reference],
-        )];
+        let events = vec![event("payments", "p0", 0, None, vec![self_reference])];
         assert_eq!(
             project_causal_graph_v1(&events),
             Err(CausalErrorV1::SelfCausality)
@@ -535,9 +542,6 @@ mod tests {
 
     #[test]
     fn empty_graph_is_rejected() {
-        assert_eq!(
-            project_causal_graph_v1(&[]),
-            Err(CausalErrorV1::EmptyGraph)
-        );
+        assert_eq!(project_causal_graph_v1(&[]), Err(CausalErrorV1::EmptyGraph));
     }
 }
