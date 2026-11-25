@@ -1,0 +1,42 @@
+{
+  "schema_version": "groupassistbench-parity-cases-v0.1",
+  "fixture_only": true,
+  "note": "Synthetic comparison-classification examples. Digests and identifiers are placeholders; no benchmark result is asserted.",
+  "cases": [
+    {
+      "id": "GAB-PARITY-001",
+      "description": "Same pinned GPT-5.6-terra answerer and evaluator, but full-context 52,435 tokens versus retrieval 10,769 tokens.",
+      "intent": "matched_system",
+      "expected": "NotComparable",
+      "reason": "context-token/resource envelope differs"
+    },
+    {
+      "id": "GAB-PARITY-002",
+      "description": "DeepSeek-v4-flash full-context score is compared with a GPT-5.6-terra candidate.",
+      "intent": "cross_model_context",
+      "expected": "ContextOnly",
+      "reason": "different model snapshots; cannot support matched-system superiority"
+    },
+    {
+      "id": "GAB-PARITY-003",
+      "description": "Same model, tokenizer, prompt, tools, evaluator, task/split, budgets, agent count, memory budget, seed policy and paired seed; only memory-system variant differs.",
+      "intent": "matched_system",
+      "expected": "MatchedSystem",
+      "reason": "all declared controls match"
+    },
+    {
+      "id": "GAB-PARITY-004",
+      "description": "Same model and token budgets, but the task split digest differs.",
+      "intent": "matched_system",
+      "expected": "NotComparable",
+      "reason": "different evaluation population"
+    },
+    {
+      "id": "GAB-PARITY-005",
+      "description": "Same task and scorer, but the evaluator version differs.",
+      "intent": "matched_system",
+      "expected": "NotComparable",
+      "reason": "scorer/evaluation protocol mismatch"
+    }
+  ]
+}
