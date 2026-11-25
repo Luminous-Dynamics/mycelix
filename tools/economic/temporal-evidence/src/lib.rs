@@ -298,7 +298,8 @@ impl TemporalEvidenceSetV1 {
                     return Err(TemporalKernelErrorV1::InvalidAssertionReference);
                 }
                 if assertion.dimension == TemporalDimensionV1::VerifierKnowledgeAt
-                    && (assertion.verifier_ref.is_none() || assertion.knowledge_frontier_ref.is_none())
+                    && (assertion.verifier_ref.is_none()
+                        || assertion.knowledge_frontier_ref.is_none())
                 {
                     return Err(TemporalKernelErrorV1::MissingVerifierReference);
                 }
@@ -431,7 +432,9 @@ impl TemporalEvidenceSetV1 {
 
         let (from, from_knowledge) = match from {
             Selection::Selected(assertion, knowledge) => (Some(assertion), knowledge),
-            Selection::Missing | Selection::NotKnown | Selection::Indeterminate => (None, Vec::new()),
+            Selection::Missing
+            | Selection::NotKnown
+            | Selection::Indeterminate => (None, Vec::new()),
             Selection::Conflict => {
                 return Ok(build_validity_result(ValidityResultInput {
                     disposition: QueryDispositionV1::Conflict,
@@ -804,7 +807,9 @@ impl TemporalEvidenceIndexV1 {
         )?;
         let (from, from_knowledge) = match from {
             Selection::Selected(assertion, knowledge) => (Some(assertion), knowledge),
-            Selection::Missing | Selection::NotKnown | Selection::Indeterminate => (None, Vec::new()),
+            Selection::Missing
+            | Selection::NotKnown
+            | Selection::Indeterminate => (None, Vec::new()),
             Selection::Conflict => {
                 return Ok(build_validity_result(ValidityResultInput {
                     disposition: QueryDispositionV1::Conflict,
