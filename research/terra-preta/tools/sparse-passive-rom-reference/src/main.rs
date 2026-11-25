@@ -1412,10 +1412,15 @@ fn build_output_adjoint_weights(
         let (approximate_weight, stats) =
             pcg(&model.a, 0.0, &rhs, relative_tolerance, max_iterations)?;
         let action = model.a.matvec(&approximate_weight, 0.0)?;
+        let roundoff = model.a.matvec_roundoff_bound(&approximate_weight, 0.0)?;
         let residual_inf = rhs
             .iter()
-            .zip(action.iter())
-            .map(|(right, left)| (right - left).abs())
+            .zip(action.iter().zip(roundoff.iter()))
+            .map(|(right, (left, arithmetic_error))| {
+                (right - left).abs()
+                    + arithmetic_error
+                    + f64::EPSILON * (right.abs() + left.abs()) * 2.0
+            })
             .fold(0.0_f64, f64::max);
         if !residual_inf.is_finite() {
             return Err("output-adjoint solve has a non-finite true residual".into());
