@@ -1062,6 +1062,48 @@ enum Selection<'a> {
     Conflict,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// Prevalidated scan engine. It performs the same one-time structural
+/// validation as the indexed engine but intentionally builds no lookup maps.
+/// Use it as a fair performance comparator for the indexed implementation.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TemporalEvidenceScanV1 {
+    evidence: TemporalEvidenceSetV1,
+}
+
+impl TemporalEvidenceScanV1 {
+    pub fn new(evidence: TemporalEvidenceSetV1) -> Result<Self, TemporalKernelErrorV1> {
+        evidence.validate()?;
+        Ok(Self { evidence })
+    }
+
+    pub fn evidence(&self) -> &TemporalEvidenceSetV1 {
+        &self.evidence
+    }
+
+    pub fn evaluate_valid_at(
+        &self,
+        claim_id: &str,
+        verifier_ref: &str,
+        valid_at: &str,
+        known_at: &str,
+        allow_open_ended_valid_to: bool,
+    ) -> Result<BitemporalValidityResultV1, TemporalKernelErrorV1> {
+        self.evidence.evaluate_valid_at_validated(
+            claim_id, verifier_ref, valid_at, known_at, allow_open_ended_valid_to,
+        )
+    }
+
+    pub fn occurred_at_as_known(
+        &self,
+        claim_id: &str,
+        verifier_ref: &str,
+        known_at: &str,
+    ) -> Result<OccurrenceAsKnownResultV1, TemporalKernelErrorV1> {
+        self.evidence
+            .occurred_at_as_known_validated(claim_id, verifier_ref, known_at)
+    }
+}
+
 enum KnowledgeVisibility {
     Known,
     NotKnown,
