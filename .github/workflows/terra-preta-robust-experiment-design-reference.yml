@@ -1,0 +1,67 @@
+name: Terra Preta robust hydraulic experiment design reference
+
+on:
+  pull_request:
+    branches: [main, 'research/terra-active-design-v0.1']
+    paths:
+      - 'research/terra-preta/tools/hydraulic-robust-experiment-design-reference/**'
+      - '.github/workflows/terra-preta-robust-experiment-design-reference.yml'
+  push:
+    branches: ['research/terra-robust-active-design-v0.1']
+    paths:
+      - 'research/terra-preta/tools/hydraulic-robust-experiment-design-reference/**'
+      - '.github/workflows/terra-preta-robust-experiment-design-reference.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terra-robust-active-design-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  robust-experiment-design:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Verify formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/hydraulic-robust-experiment-design-reference/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path research/terra-preta/tools/hydraulic-robust-experiment-design-reference/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/hydraulic-robust-experiment-design-reference/Cargo.toml --all-targets -- -D warnings
+      - name: Run manufactured robust ensemble
+        run: |
+          cargo run --quiet --manifest-path research/terra-preta/tools/hydraulic-robust-experiment-design-reference/Cargo.toml -- \
+            research/terra-preta/tools/hydraulic-robust-experiment-design-reference/fixtures/segmentation-support-ensemble.json \
+            "$RUNNER_TEMP/terra-robust-design.json"
+      - name: Validate output and scenario receipts
+        run: |
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .scenario_count == 3 and
+            (.scenario_probability_policy | contains("unweighted")) and
+            (.nominal_design.total_cost <= .acquisition_budget) and
+            (.robust_d_optimal_design.total_cost <= .acquisition_budget) and
+            (.robust_e_optimal_design.total_cost <= .acquisition_budget) and
+            (.minimax_regret_design.total_cost <= .acquisition_budget) and
+            (.robust_d_optimal_design.per_scenario_scores | length == 3) and
+            (.robust_e_optimal_design.per_scenario_scores | length == 3) and
+            (.minimax_regret_design.per_scenario_scores | length == 3) and
+            (.candidate_support_receipts | length == 5) and
+            ([.repeated_measurement_negative_controls[] | select(.rank_increase != 0)] | length == 0)
+          ' "$RUNNER_TEMP/terra-robust-design.json"
+          sha256sum "$RUNNER_TEMP/terra-robust-design.json"
+      - name: Reject output overwrite
+        run: |
+          if cargo run --quiet --manifest-path research/terra-preta/tools/hydraulic-robust-experiment-design-reference/Cargo.toml -- \
+            research/terra-preta/tools/hydraulic-robust-experiment-design-reference/fixtures/segmentation-support-ensemble.json \
+            "$RUNNER_TEMP/terra-robust-design.json"; then
+            echo "expected no-overwrite failure"
+            exit 1
+          fi
