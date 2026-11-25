@@ -117,7 +117,9 @@
           "permitted_purpose_ids",
           "verification",
           "status",
-          "applicability"
+          "applicability",
+          "response_subject_id",
+          "response_scope_id"
         ],
         "properties": {
           "evidence_id": {
@@ -231,6 +233,14 @@
               "conditional",
               "unknown"
             ]
+          },
+          "response_subject_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "response_scope_id": {
+            "type": "string",
+            "minLength": 1
           }
         }
       }
