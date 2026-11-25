@@ -1719,7 +1719,8 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         )?;
         let full = full_solve.response;
         let full_state_solutions = full_solve.state_solutions;
-        stats.extend(full_solve.stats.iter().copied());
+        let full_stats = full_solve.stats;
+        stats.extend(full_stats.iter().copied());
         if *shift == 0.0 {
             exact_dc_from_audit = Some(full.clone());
         }
