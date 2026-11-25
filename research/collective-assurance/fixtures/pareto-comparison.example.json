@@ -73,7 +73,8 @@
         "confidence_level_bps": 9500,
         "independent_units": 50,
         "observation_count": 500,
-        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       },
       {
         "metric": "unauthorized_action_rate",
@@ -83,7 +84,8 @@
         "confidence_level_bps": 9500,
         "independent_units": 50,
         "observation_count": 500,
-        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       },
       {
         "metric": "total_cost_micro_usd",
@@ -93,7 +95,8 @@
         "confidence_level_bps": 9500,
         "independent_units": 50,
         "observation_count": 500,
-        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       },
       {
         "metric": "p95_latency_ms",
@@ -103,6 +106,51 @@
         "confidence_level_bps": 9500,
         "independent_units": 50,
         "observation_count": 500,
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      {
+        "metric": "evidence_coverage",
+        "lower_bound": 0.75,
+        "point_estimate": 0.78,
+        "upper_bound": 0.81,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "metric": "agency",
+        "lower_bound": 0.7,
+        "point_estimate": 0.73,
+        "upper_bound": 0.76,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "metric": "unauthorized_disclosure_rate",
+        "lower_bound": 0.04,
+        "point_estimate": 0.06,
+        "upper_bound": 0.08,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "metric": "over_refusal_rate",
+        "lower_bound": 0.05,
+        "point_estimate": 0.07,
+        "upper_bound": 0.09,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       }
     ]
@@ -165,7 +213,8 @@
         "confidence_level_bps": 9500,
         "independent_units": 50,
         "observation_count": 500,
-        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       },
       {
         "metric": "unauthorized_action_rate",
@@ -175,7 +224,8 @@
         "confidence_level_bps": 9500,
         "independent_units": 50,
         "observation_count": 500,
-        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       },
       {
         "metric": "total_cost_micro_usd",
@@ -185,7 +235,8 @@
         "confidence_level_bps": 9500,
         "independent_units": 50,
         "observation_count": 500,
-        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       },
       {
         "metric": "p95_latency_ms",
@@ -195,6 +246,51 @@
         "confidence_level_bps": 9500,
         "independent_units": 50,
         "observation_count": 500,
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      {
+        "metric": "evidence_coverage",
+        "lower_bound": 0.9,
+        "point_estimate": 0.92,
+        "upper_bound": 0.94,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "metric": "agency",
+        "lower_bound": 0.86,
+        "point_estimate": 0.88,
+        "upper_bound": 0.9,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "metric": "unauthorized_disclosure_rate",
+        "lower_bound": 0,
+        "point_estimate": 0.005,
+        "upper_bound": 0.01,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "metric": "over_refusal_rate",
+        "lower_bound": 0.01,
+        "point_estimate": 0.02,
+        "upper_bound": 0.03,
+        "confidence_level_bps": 9500,
+        "independent_units": 50,
+        "observation_count": 500,
+        "paired_unit_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "measurement_evidence_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       }
     ]
