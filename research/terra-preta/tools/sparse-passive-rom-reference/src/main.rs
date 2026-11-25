@@ -62,6 +62,11 @@ struct CsrMatrix {
     diagonal: Vec<f64>,
 }
 
+fn rounding_gamma(operation_count: usize) -> f64 {
+    let product = operation_count as f64 * f64::EPSILON;
+    product / (1.0 - product)
+}
+
 impl CsrMatrix {
     fn from_rows(rows: Vec<BTreeMap<usize, f64>>) -> Result<Self, String> {
         let size = rows.len();
@@ -111,6 +116,25 @@ impl CsrMatrix {
             *value = sum + shift * vector[row];
         }
         Ok(result)
+    }
+
+    fn matvec_roundoff_bound(&self, vector: &[f64], shift: f64) -> Result<Vec<f64>, String> {
+        if vector.len() != self.size || !shift.is_finite() || shift < 0.0 {
+            return Err("matvec roundoff bound dimensions or shift are invalid".into());
+        }
+        let mut bounds = vec![0.0; self.size];
+        for (row, bound) in bounds.iter_mut().enumerate() {
+            let mut magnitude = shift * vector[row].abs();
+            for index in self.row_ptr[row]..self.row_ptr[row + 1] {
+                magnitude += self.values[index].abs() * vector[self.col_idx[index]].abs();
+            }
+            let operations = 2 * (self.row_ptr[row + 1] - self.row_ptr[row]) + 2;
+            *bound = rounding_gamma(operations) * magnitude;
+        }
+        if bounds.iter().any(|value| !value.is_finite()) {
+            return Err("matvec roundoff bound is non-finite".into());
+        }
+        Ok(bounds)
     }
 
     fn shifted_diagonal(&self, shift: f64) -> Vec<f64> {
@@ -202,6 +226,9 @@ struct AdaptiveProjectionResult {
 #[derive(Serialize)]
 struct SampleResult {
     laplace_s: f64,
+    output_adjoint_absolute_response_error_upper_bound: f64,
+    output_adjoint_relative_response_error_upper_bound: f64,
+    output_adjoint_error_bound_valid: bool,
     relative_response_error: f64,
     absolute_response_error: f64,
     absolute_response_error_upper_bound: f64,
@@ -241,6 +268,9 @@ struct Report {
     block_arnoldi_baseline_maximum_portwise_relative_error_upper_bound: Option<f64>,
     block_arnoldi_baseline_portwise_error_bound_valid: Option<bool>,
     block_arnoldi_baseline_maximum_best_relative_error_upper_bound: Option<f64>,
+    block_arnoldi_baseline_maximum_output_adjoint_absolute_error_upper_bound: Option<f64>,
+    block_arnoldi_baseline_maximum_output_adjoint_relative_error_upper_bound: Option<f64>,
+    block_arnoldi_baseline_output_adjoint_error_bound_valid: Option<bool>,
     block_arnoldi_baseline_dc_relative_error: Option<f64>,
     block_arnoldi_baseline_feedthrough_limit_relative_error: Option<f64>,
     block_arnoldi_baseline_cg_solve_count: Option<usize>,
@@ -272,6 +302,11 @@ struct Report {
     maximum_portwise_relative_response_error_upper_bound: f64,
     maximum_best_absolute_response_error_upper_bound: f64,
     maximum_best_relative_response_error_upper_bound: f64,
+    maximum_output_adjoint_absolute_response_error_upper_bound: f64,
+    maximum_output_adjoint_relative_response_error_upper_bound: f64,
+    output_adjoint_solve_count: usize,
+    output_adjoint_total_cg_iterations: usize,
+    output_adjoint_max_residual_inf: f64,
     overall_pcg_solve_count: usize,
     overall_pcg_iterations: usize,
     a_r_min_eigenvalue: f64,
@@ -571,6 +606,12 @@ fn pcg(
     Err(format!(
         "PCG failed to converge within {max_iterations} iterations (relative residual {relative_residual:e})"
     ))
+}
+
+struct OutputAdjointWeights {
+    upper_vectors: Vec<Vec<f64>>,
+    solve_stats: Vec<CgStats>,
+    maximum_residual_inf: f64,
 }
 
 struct MMatrixLowerBound {
@@ -1200,17 +1241,26 @@ fn build_zero_shift_block_arnoldi_projection(
     build_projection_from_basis(model, basis, snapshot_count, stats, fixture)
 }
 
-fn response_from_reduced(projection: &Projection, shift: f64) -> Result<Dense, String> {
-    let nb = projection.d_r.len();
+fn reduced_state_coefficients(
+    projection: &Projection,
+    shift: f64,
+) -> Result<Vec<Vec<f64>>, String> {
+    let port_count = projection.d_r.len();
     let mut shifted = projection.a_r.clone();
     for (index, row) in shifted.iter_mut().enumerate() {
         row[index] += shift;
     }
-    let mut solution_columns = Vec::with_capacity(nb);
-    for port in 0..nb {
+    let mut solution_columns = Vec::with_capacity(port_count);
+    for port in 0..port_count {
         solution_columns.push(dense_solve(&shifted, &column(&projection.b_r, port))?);
     }
-    let b_columns: Vec<Vec<f64>> = (0..nb)
+    Ok(solution_columns)
+}
+
+fn response_from_reduced(projection: &Projection, shift: f64) -> Result<Dense, String> {
+    let port_count = projection.d_r.len();
+    let solution_columns = reduced_state_coefficients(projection, shift)?;
+    let b_columns: Vec<Vec<f64>> = (0..port_count)
         .map(|port| column(&projection.b_r, port))
         .collect();
     let mut response = projection.d_r.clone();
@@ -1222,6 +1272,7 @@ fn response_from_reduced(projection: &Projection, shift: f64) -> Result<Dense, S
     }
     Ok(response)
 }
+
 
 fn reduced_state_in_full_space(
     model: &Model,
@@ -1334,6 +1385,203 @@ fn response_error_upper_bound(
     }
     let valid = actual_absolute_error
         <= absolute_bound * (1.0 + 1.0e-8) + f64::EPSILON * response_scale * 32.0;
+    Ok((absolute_bound, relative_bound, actual_absolute_error, valid))
+}
+
+fn build_output_adjoint_weights(
+    model: &Model,
+    supersolution: &[f64],
+    relative_tolerance: f64,
+    max_iterations: usize,
+) -> Result<OutputAdjointWeights, String> {
+    if supersolution.len() != model.a.size
+        || supersolution.iter().any(|value| !value.is_finite() || *value <= 0.0)
+    {
+        return Err("output-adjoint weights require a positive M-matrix supersolution".into());
+    }
+
+    let mut upper_vectors = Vec::with_capacity(model.boundary_ids.len());
+    let mut solve_stats = Vec::with_capacity(model.boundary_ids.len());
+    let mut maximum_residual_inf = 0.0_f64;
+
+    for output_port in 0..model.boundary_ids.len() {
+        let rhs: Vec<f64> = column(&model.b, output_port)
+            .into_iter()
+            .map(f64::abs)
+            .collect();
+        let (approximate_weight, stats) =
+            pcg(&model.a, 0.0, &rhs, relative_tolerance, max_iterations)?;
+        let action = model.a.matvec(&approximate_weight, 0.0)?;
+        let roundoff = model.a.matvec_roundoff_bound(&approximate_weight, 0.0)?;
+        let residual_inf = rhs
+            .iter()
+            .zip(action.iter().zip(roundoff.iter()))
+            .map(|(right, (left, arithmetic_error))| {
+                (right - left).abs()
+                    + arithmetic_error
+                    + f64::EPSILON * (right.abs() + left.abs()) * 2.0
+            })
+            .fold(0.0_f64, f64::max);
+        if !residual_inf.is_finite() {
+            return Err("output-adjoint solve has a non-finite true residual".into());
+        }
+        maximum_residual_inf = maximum_residual_inf.max(residual_inf);
+
+        // For M=A^-1>=0, the exact weight is M*|B_i|. The true residual
+        // correction satisfies M*|r| <= ||r||_infinity * M*1 <= ||r||_infinity*y.
+        let upper: Vec<f64> = approximate_weight
+            .iter()
+            .zip(supersolution.iter())
+            .map(|(weight, y)| {
+                let raw = weight + residual_inf * y;
+                raw * (1.0 + 1.0e-10) + f64::EPSILON * (weight.abs() + residual_inf * y.abs() + 1.0) * 64.0
+            })
+            .collect();
+        if upper.iter().any(|value| !value.is_finite() || *value < 0.0) {
+            return Err("output-adjoint Green weight is negative or non-finite".into());
+        }
+        upper_vectors.push(upper);
+        solve_stats.push(stats);
+    }
+
+    Ok(OutputAdjointWeights {
+        upper_vectors,
+        solve_stats,
+        maximum_residual_inf,
+    })
+}
+
+fn response_error_upper_bound_output_adjoint(
+    model: &Model,
+    projection: &Projection,
+    shift: f64,
+    output_weights: &OutputAdjointWeights,
+    full_response: &[Vec<f64>],
+    full_state_solutions: &[Vec<f64>],
+    reduced_response: &[Vec<f64>],
+) -> Result<(f64, f64, f64, bool), String> {
+    if !shift.is_finite() || shift < 0.0 {
+        return Err("output-adjoint bound only supports real nonnegative Laplace samples".into());
+    }
+    let port_count = model.boundary_ids.len();
+    if output_weights.upper_vectors.len() != port_count
+        || output_weights.upper_vectors.iter().any(|vector| {
+            vector.len() != model.a.size
+                || vector.iter().any(|value| !value.is_finite() || *value < 0.0)
+        })
+    {
+        return Err("output-adjoint Green weights have invalid dimensions or entries".into());
+    }
+
+    let full_state_approx = reduced_state_in_full_space(model, projection, shift)?;
+    let reduced_coefficients = reduced_state_coefficients(projection, shift)?;
+    let reference_residual =
+        full_order_reference_residual_matrix(model, full_state_solutions, shift)?;
+    let mut residual_columns = Vec::with_capacity(port_count);
+    for input_port in 0..port_count {
+        let approximate_state = column(&full_state_approx, input_port);
+        let action = model.a.matvec(&approximate_state, shift)?;
+        let rom_roundoff = model.a.matvec_roundoff_bound(&approximate_state, shift)?;
+        let reference_state = &full_state_solutions[input_port];
+        let reference_roundoff = model.a.matvec_roundoff_bound(reference_state, shift)?;
+        let input = column(&model.b, input_port);
+        let residual_abs: Vec<f64> = input
+            .iter()
+            .zip(action.iter())
+            .enumerate()
+            .map(|(state, (right, left))| {
+                (right - left).abs()
+                    + reference_residual[state][input_port].abs()
+                    + rom_roundoff[state]
+                    + reference_roundoff[state]
+                    + f64::EPSILON * (right.abs() + left.abs()) * 2.0
+            })
+            .collect();
+        if residual_abs.iter().any(|value| !value.is_finite()) {
+            return Err("output-adjoint combined residual is non-finite".into());
+        }
+        residual_columns.push(residual_abs);
+    }
+
+    let mut envelope = vec![vec![0.0; port_count]; port_count];
+    let componentwise_valid = true;
+    for output_port in 0..port_count {
+        for input_port in 0..port_count {
+            let feedthrough = (model.d[output_port][input_port]
+                - projection.d_r[output_port][input_port])
+                .abs();
+            let transport = dot(
+                &output_weights.upper_vectors[output_port],
+                &residual_columns[input_port],
+            );
+            let raw = feedthrough + transport;
+            if !raw.is_finite() || raw < 0.0 {
+                return Err("output-adjoint componentwise envelope is invalid".into());
+            }
+            let reference_dot_magnitude = full_state_solutions[input_port]
+                .iter()
+                .enumerate()
+                .map(|(state, value)| model.b[state][output_port].abs() * value.abs())
+                .sum::<f64>();
+            let reduced_dot_magnitude = reduced_coefficients[input_port]
+                .iter()
+                .enumerate()
+                .map(|(mode, value)| projection.b_r[mode][output_port].abs() * value.abs())
+                .sum::<f64>();
+            let reference_operations = 2 * model.a.size + 2;
+            let reduced_operations = 2 * projection.a_r.len() + 2;
+            let reference_evaluation_roundoff = rounding_gamma(reference_operations)
+                * (model.d[output_port][input_port].abs() + reference_dot_magnitude);
+            let reduced_evaluation_roundoff = rounding_gamma(reduced_operations)
+                * (projection.d_r[output_port][input_port].abs() + reduced_dot_magnitude);
+            let subtraction_roundoff = f64::EPSILON
+                * (full_response[output_port][input_port].abs()
+                    + reduced_response[output_port][input_port].abs())
+                * 2.0;
+            let feedthrough_roundoff = f64::EPSILON
+                * (model.d[output_port][input_port].abs()
+                    + projection.d_r[output_port][input_port].abs());
+            let evaluation_roundoff = reference_evaluation_roundoff
+                + reduced_evaluation_roundoff
+                + subtraction_roundoff
+                + feedthrough_roundoff;
+            let upper = raw * (1.0 + 1.0e-10)
+                + evaluation_roundoff
+                + f64::EPSILON * (feedthrough + transport) * 64.0;
+            if !upper.is_finite() {
+                return Err("output-adjoint roundoff-inflated envelope is non-finite".into());
+            }
+            envelope[output_port][input_port] = upper;
+            let actual = (full_response[output_port][input_port]
+                - reduced_response[output_port][input_port])
+                .abs();
+            let tolerance = upper * 1.0e-8 + f64::EPSILON * (actual + upper) * 32.0;
+            if actual > upper + tolerance {
+                return Err(format!(
+                    "output-adjoint component bound failed at (out={output_port}, in={input_port}, s={shift:e}): actual={actual:e}, upper={upper:e}, transport={transport:e}, feedthrough={feedthrough:e}, residual_inf={:e}, weight_inf={:e}",
+                    residual_columns[input_port]
+                        .iter()
+                        .copied()
+                        .fold(0.0_f64, f64::max),
+                    output_weights.upper_vectors[output_port]
+                        .iter()
+                        .copied()
+                        .fold(0.0_f64, f64::max),
+                ));
+            }
+        }
+    }
+
+    let absolute_bound = frobenius_norm(&envelope);
+    let actual_absolute_error = frobenius_difference(full_response, reduced_response)?;
+    let response_scale = frobenius_norm(full_response).max(f64::MIN_POSITIVE);
+    let relative_bound = absolute_bound / response_scale;
+    if !absolute_bound.is_finite() || !relative_bound.is_finite() {
+        return Err("output-adjoint response bound is non-finite; abstaining".into());
+    }
+    let valid = componentwise_valid
+        && actual_absolute_error
+            <= absolute_bound * (1.0 + 1.0e-8) + f64::EPSILON * response_scale * 32.0;
     Ok((absolute_bound, relative_bound, actual_absolute_error, valid))
 }
 
@@ -1700,6 +1948,21 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         fixture.cg_relative_tolerance,
         fixture.cg_max_iterations,
     )?;
+    let output_adjoint_weights = build_output_adjoint_weights(
+        &model,
+        &error_certificate.supersolution,
+        fixture.cg_relative_tolerance,
+        fixture.cg_max_iterations,
+    )?;
+    let output_adjoint_solve_count = output_adjoint_weights.solve_stats.len();
+    let output_adjoint_total_cg_iterations = output_adjoint_weights
+        .solve_stats
+        .iter()
+        .map(|item| item.iterations)
+        .sum::<usize>();
+    let output_adjoint_max_residual_inf = output_adjoint_weights.maximum_residual_inf;
+    stats.extend(output_adjoint_weights.solve_stats.iter().copied());
+
     let mut block_arnoldi_baseline_error = 0.0_f64;
     let mut block_arnoldi_baseline_absolute_error_bound = 0.0_f64;
     let mut block_arnoldi_baseline_relative_error_bound = 0.0_f64;
@@ -1708,6 +1971,9 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     let mut block_arnoldi_baseline_portwise_relative_error_bound = 0.0_f64;
     let mut block_arnoldi_baseline_portwise_error_bound_valid = true;
     let mut block_arnoldi_baseline_best_relative_error_bound = 0.0_f64;
+    let mut block_arnoldi_baseline_output_adjoint_absolute_bound = 0.0_f64;
+    let mut block_arnoldi_baseline_output_adjoint_relative_bound = 0.0_f64;
+    let mut block_arnoldi_baseline_output_adjoint_valid = true;
     let mut exact_dc_from_audit: Option<Dense> = None;
     let mut frequency_samples = Vec::with_capacity(fixture.laplace_samples.len());
     for shift in &fixture.laplace_samples {
@@ -1753,15 +2019,31 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             &full_state_solutions,
             &reduced,
         )?;
-        if !error_bound_valid || !portwise_error_bound_valid {
+        let (
+            output_adjoint_absolute_response_error_upper_bound,
+            output_adjoint_relative_response_error_upper_bound,
+            _output_adjoint_actual_error,
+            output_adjoint_error_bound_valid,
+        ) = response_error_upper_bound_output_adjoint(
+            &model,
+            &projection,
+            *shift,
+            &output_adjoint_weights,
+            &full,
+            &full_state_solutions,
+            &reduced,
+        )?;
+        if !error_bound_valid || !portwise_error_bound_valid || !output_adjoint_error_bound_valid {
             return Err(format!(
-                "independent response-error bounds failed at s={shift}: spectral_valid={error_bound_valid}, portwise_valid={portwise_error_bound_valid}, spectral_abs={absolute_response_error_upper_bound:e}, portwise_abs={portwise_absolute_response_error_upper_bound:e}, actual_abs={absolute_response_error:e}"
+                "independent response-error bounds failed at s={shift}: spectral_valid={error_bound_valid}, portwise_valid={portwise_error_bound_valid}, output_adjoint_valid={output_adjoint_error_bound_valid}, spectral_abs={absolute_response_error_upper_bound:e}, portwise_abs={portwise_absolute_response_error_upper_bound:e}, output_adjoint_abs={output_adjoint_absolute_response_error_upper_bound:e}, actual_abs={absolute_response_error:e}"
             ));
         }
         let best_absolute_response_error_upper_bound = absolute_response_error_upper_bound
-            .min(portwise_absolute_response_error_upper_bound);
+            .min(portwise_absolute_response_error_upper_bound)
+            .min(output_adjoint_absolute_response_error_upper_bound);
         let best_relative_response_error_upper_bound = relative_response_error_upper_bound
-            .min(portwise_relative_response_error_upper_bound);
+            .min(portwise_relative_response_error_upper_bound)
+            .min(output_adjoint_relative_response_error_upper_bound);
         if let Some((block_projection, _)) = block_arnoldi_baseline.as_ref() {
             let block_reduced = response_from_reduced(block_projection, *shift)?;
             block_arnoldi_baseline_error = block_arnoldi_baseline_error
@@ -1807,9 +2089,30 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
                 block_arnoldi_baseline_portwise_relative_error_bound
                     .max(block_portwise_relative_bound);
             block_arnoldi_baseline_portwise_error_bound_valid &= block_portwise_valid;
+            let (
+                block_output_absolute_bound,
+                block_output_relative_bound,
+                _block_output_actual_error,
+                block_output_valid,
+            ) = response_error_upper_bound_output_adjoint(
+                &model,
+                block_projection,
+                *shift,
+                &output_adjoint_weights,
+                &full,
+                &full_state_solutions,
+                &block_reduced,
+            )?;
+            block_arnoldi_baseline_output_adjoint_absolute_bound =
+                block_arnoldi_baseline_output_adjoint_absolute_bound
+                    .max(block_output_absolute_bound);
+            block_arnoldi_baseline_output_adjoint_relative_bound =
+                block_arnoldi_baseline_output_adjoint_relative_bound
+                    .max(block_output_relative_bound);
+            block_arnoldi_baseline_output_adjoint_valid &= block_output_valid;
             block_arnoldi_baseline_best_relative_error_bound =
                 block_arnoldi_baseline_best_relative_error_bound.max(
-                    block_relative_bound.min(block_portwise_relative_bound),
+                    block_relative_bound.min(block_portwise_relative_bound).min(block_output_relative_bound),
                 );
         }
         frequency_samples.push(SampleResult {
@@ -1822,6 +2125,9 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             portwise_absolute_response_error_upper_bound,
             portwise_relative_response_error_upper_bound,
             portwise_error_bound_valid,
+            output_adjoint_absolute_response_error_upper_bound,
+            output_adjoint_relative_response_error_upper_bound,
+            output_adjoint_error_bound_valid,
             best_absolute_response_error_upper_bound,
             best_relative_response_error_upper_bound,
             full_cg_max_iterations: full_stats.iter().map(|item| item.iterations).max().unwrap_or(0),
@@ -1873,8 +2179,18 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         .iter()
         .map(|sample| sample.best_relative_response_error_upper_bound)
         .fold(0.0_f64, f64::max);
+    let maximum_output_adjoint_absolute_response_error_upper_bound = frequency_samples
+        .iter()
+        .map(|sample| sample.output_adjoint_absolute_response_error_upper_bound)
+        .fold(0.0_f64, f64::max);
+    let maximum_output_adjoint_relative_response_error_upper_bound = frequency_samples
+        .iter()
+        .map(|sample| sample.output_adjoint_relative_response_error_upper_bound)
+        .fold(0.0_f64, f64::max);
     let error_certificate_valid = frequency_samples.iter().all(|sample| {
-        sample.error_bound_valid && sample.portwise_error_bound_valid
+        sample.error_bound_valid
+            && sample.portwise_error_bound_valid
+            && sample.output_adjoint_error_bound_valid
     }) && error_certificate.lambda_min_lower_bound > 0.0;
     let error_certificate_pcg_solve_count = error_certificate.cg_stats.len();
     let error_certificate_pcg_iterations = error_certificate
@@ -1948,6 +2264,12 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             .as_ref().map(|_| block_arnoldi_baseline_portwise_error_bound_valid),
         block_arnoldi_baseline_maximum_best_relative_error_upper_bound: block_arnoldi_baseline
             .as_ref().map(|_| block_arnoldi_baseline_best_relative_error_bound),
+        block_arnoldi_baseline_maximum_output_adjoint_absolute_error_upper_bound: block_arnoldi_baseline
+            .as_ref().map(|_| block_arnoldi_baseline_output_adjoint_absolute_bound),
+        block_arnoldi_baseline_maximum_output_adjoint_relative_error_upper_bound: block_arnoldi_baseline
+            .as_ref().map(|_| block_arnoldi_baseline_output_adjoint_relative_bound),
+        block_arnoldi_baseline_output_adjoint_error_bound_valid: block_arnoldi_baseline
+            .as_ref().map(|_| block_arnoldi_baseline_output_adjoint_valid),
         block_arnoldi_baseline_dc_relative_error,
         block_arnoldi_baseline_feedthrough_limit_relative_error,
         block_arnoldi_baseline_cg_solve_count: block_arnoldi_baseline_metrics
@@ -1982,6 +2304,11 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         maximum_portwise_relative_response_error_upper_bound,
         maximum_best_absolute_response_error_upper_bound,
         maximum_best_relative_response_error_upper_bound,
+        maximum_output_adjoint_absolute_response_error_upper_bound,
+        maximum_output_adjoint_relative_response_error_upper_bound,
+        output_adjoint_solve_count,
+        output_adjoint_total_cg_iterations,
+        output_adjoint_max_residual_inf,
         overall_pcg_solve_count,
         overall_pcg_iterations,
         a_r_min_eigenvalue: projection.a_r_min_eigenvalue,
@@ -2155,13 +2482,42 @@ mod tests {
         assert!(report.maximum_relative_response_error_upper_bound.is_finite());
         assert!(report.maximum_portwise_relative_response_error_upper_bound.is_finite());
         assert!(report.maximum_best_relative_response_error_upper_bound.is_finite());
+        assert!(report.maximum_output_adjoint_relative_response_error_upper_bound.is_finite());
+        assert_eq!(report.output_adjoint_solve_count, report.boundary_node_ids.len());
+        assert!(report.output_adjoint_total_cg_iterations > 0);
+        assert!(report.output_adjoint_max_residual_inf.is_finite());
         assert!(
             report.maximum_best_relative_response_error_upper_bound
                 <= report.maximum_relative_response_error_upper_bound
         );
+        assert!(
+            report.maximum_best_relative_response_error_upper_bound
+                <= report.maximum_portwise_relative_response_error_upper_bound
+        );
+        assert!(
+            report.maximum_best_relative_response_error_upper_bound
+                <= report.maximum_output_adjoint_relative_response_error_upper_bound
+        );
         for sample in &report.frequency_samples {
             assert!(sample.error_bound_valid);
             assert!(sample.portwise_error_bound_valid);
+            assert!(sample.output_adjoint_error_bound_valid);
+            assert!(
+                sample.output_adjoint_absolute_response_error_upper_bound
+                    >= sample.absolute_response_error
+            );
+            assert!(
+                sample.output_adjoint_relative_response_error_upper_bound
+                    >= sample.relative_response_error
+            );
+            assert!(
+                sample.best_absolute_response_error_upper_bound
+                    <= sample.output_adjoint_absolute_response_error_upper_bound
+            );
+            assert!(
+                sample.best_relative_response_error_upper_bound
+                    <= sample.output_adjoint_relative_response_error_upper_bound
+            );
             assert!(
                 sample.portwise_absolute_response_error_upper_bound
                     >= sample.absolute_response_error
@@ -2385,8 +2741,11 @@ mod tests {
         // Candidate full-order columns (27), seed snapshots (3), one DC
         // operator (3), and audit-grid columns (27). The audit's zero-shift
         // response is also the exact DC reference, so no duplicate solve occurs.
-        assert_eq!(adaptive.cg_solve_count, 60);
-        assert!(adaptive.total_cg_iterations < 469);
+        assert_eq!(adaptive.cg_solve_count, 63);
+        assert_eq!(adaptive.output_adjoint_solve_count, 3);
+        assert!(adaptive.output_adjoint_total_cg_iterations > 0);
+        assert!(adaptive.output_adjoint_max_residual_inf.is_finite());
+        assert!(adaptive.total_cg_iterations < 520);
     }
 
     #[test]
@@ -2431,6 +2790,11 @@ mod tests {
             .is_some_and(f64::is_finite));
         assert_eq!(report.block_arnoldi_baseline_error_bound_valid, Some(true));
         assert_eq!(report.block_arnoldi_baseline_portwise_error_bound_valid, Some(true));
+        assert_eq!(report.block_arnoldi_baseline_output_adjoint_error_bound_valid, Some(true));
+        assert!(
+            report.block_arnoldi_baseline_maximum_output_adjoint_relative_error_upper_bound
+                >= report.block_arnoldi_baseline_maximum_sampled_response_error
+        );
         assert!(
             report.block_arnoldi_baseline_maximum_relative_response_error_upper_bound
                 >= report.block_arnoldi_baseline_maximum_sampled_response_error
