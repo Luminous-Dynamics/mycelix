@@ -336,7 +336,9 @@
               "independent_units",
               "observation_count",
               "measurement_evidence_digest",
-              "paired_unit_manifest_digest"
+              "paired_unit_manifest_digest",
+              "simultaneous_intervals",
+              "inference_plan_digest"
             ],
             "properties": {
               "metric": {
@@ -395,6 +397,21 @@
                 ]
               },
               "paired_unit_manifest_digest": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                ]
+              },
+              "simultaneous_intervals": {
+                "type": "boolean",
+                "const": true
+              },
+              "inference_plan_digest": {
                 "oneOf": [
                   {
                     "type": "null"
