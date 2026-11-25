@@ -367,6 +367,19 @@ impl TemporalEvidenceSetV1 {
         allow_open_ended_valid_to: bool,
     ) -> Result<BitemporalValidityResultV1, TemporalKernelErrorV1> {
         self.validate()?;
+        self.evaluate_valid_at_validated(
+            claim_id, verifier_ref, valid_at, known_at, allow_open_ended_valid_to,
+        )
+    }
+
+        fn evaluate_valid_at_validated(
+        &self,
+        claim_id: &str,
+        verifier_ref: &str,
+        valid_at: &str,
+        known_at: &str,
+        allow_open_ended_valid_to: bool,
+    ) -> Result<BitemporalValidityResultV1, TemporalKernelErrorV1> {
         validate_identifier(claim_id)?;
         validate_identifier(verifier_ref)?;
         let valid_query = normalize_utc(valid_at)?;
@@ -513,6 +526,7 @@ impl TemporalEvidenceSetV1 {
         }))
     }
 
+
     /// Return the occurrence-time assertion visible to verifier X by K.
     /// If a later correction was not yet known at K, the earlier assertion
     /// remains the historical answer.
@@ -523,6 +537,15 @@ impl TemporalEvidenceSetV1 {
         known_at: &str,
     ) -> Result<OccurrenceAsKnownResultV1, TemporalKernelErrorV1> {
         self.validate()?;
+        self.occurred_at_as_known_validated(claim_id, verifier_ref, known_at)
+    }
+
+        fn occurred_at_as_known_validated(
+        &self,
+        claim_id: &str,
+        verifier_ref: &str,
+        known_at: &str,
+    ) -> Result<OccurrenceAsKnownResultV1, TemporalKernelErrorV1> {
         validate_identifier(claim_id)?;
         validate_identifier(verifier_ref)?;
         let knowledge_query = normalize_utc(known_at)?;
@@ -579,6 +602,7 @@ impl TemporalEvidenceSetV1 {
         };
         Ok(result)
     }
+
 
     fn select_as_known(
         &self,
