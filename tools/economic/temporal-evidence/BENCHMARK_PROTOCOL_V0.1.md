@@ -4,9 +4,9 @@ Status: proposed qualification protocol. No external dataset has been downloaded
 
 ## 1. Research question
 
-Can a temporal evidence engine reconstruct what was valid at business time **V**, according to a particular verifier **X** by knowledge time/frontier **K**, without allowing later corrections, missing observations, uncertain clocks, or competing branches to rewrite what that verifier was justified in knowing?
+Can a temporal evidence engine reconstruct what was valid at business time **V**, according to a particular verifier **X** by knowledge-time cutoff **K**, without allowing later corrections, missing observations, uncertain clocks, or competing branches to rewrite what that verifier was justified in knowing?
 
-This differs from a conventional two-column bitemporal query. The benchmark treats verifier-relative knowledge as a first-class query dimension, while source record time, receiver observation time, and owner-local causal order remain distinct evidence dimensions.
+This differs from a conventional two-column bitemporal query. The benchmark treats verifier-relative knowledge as a first-class query dimension, while source record time, receiver observation time, and owner-local causal order remain distinct evidence dimensions. In the v0.1 kernel K is a timestamp cutoff; the stored `knowledge_frontier_ref` is opaque and is not authenticated or resolved. The stronger partial-order frontier query is specified separately in `VERIFIER_RELATIVE_FRONTIER_QUERY_V0.1.md`.
 
 ## 2. Comparator classes
 
@@ -16,8 +16,9 @@ Use matched-semantics comparators, not product-name comparisons:
 |---|---|---|
 | Microsoft SQL Server temporal tables | System-versioned row history and FOR SYSTEM_TIME AS OF reconstruction | Append-only fact/receipt tables and explicit verifier identity + knowledge-time filter |
 | XTDB | Separate valid-time and system-time querying over immutable history | Explicit verifier-relative knowledge assertions and frontier filter |
-| Relational reference interpreter | Direct scan of the same typed assertions; intentionally simple correctness oracle | None |
-| Mycelix preindexed kernel | Rust in-memory index keyed by claim/dimension and fact/verifier receipt | None for in-memory semantic tests |
+| Prevalidated scan baseline | Full scan of the same typed assertions after one-time structural validation | None |
+| Mycelix preindexed kernel | Rust in-memory index keyed by claim/dimension and fact/verifier receipt; validates once at construction | None for in-memory semantic tests |
+| Independent reference interpreter | Simple, separately implemented oracle over the same fixture semantics | Required to avoid sharing selection logic with the system under test |
 | OCEL / PM4Py process-mining path | Object-centric events, objects, and qualified relationships | Project source records into the same normalized event/object evidence model |
 
 The SQL Server and XTDB comparisons must not imply their native temporal features are semantically identical to verifier-relative knowledge. Query syntax, transaction-time semantics, storage configuration, and isolation level must be documented for each run.
@@ -75,13 +76,13 @@ Run deterministic synthetic workloads at 1K, 10K, 100K, and 1M assertions. Scale
 | Temporal quality | asserted / estimated / uncertain / contested |
 | Event-time order | ordered / shuffled / adversarially reordered |
 
-The first example benchmark sweeps smaller sizes to validate the harness and compare the scan reference against the preindexed engine. It is not the external SOTA benchmark.
+The first example benchmark sweeps smaller sizes to validate the harness and compare the prevalidated scan baseline against the preindexed engine. Both validate once at construction; only their lookup structures differ. The independent reference interpreter remains a semantic oracle and is not conflated with the performance baseline. This smoke test is not the external SOTA benchmark.
 
 ## 5. Correctness gates
 
 Correctness is a hard gate, not a weighted score:
 
-1. **Oracle parity:** 100% identical dispositions and selected assertion IDs between reference and indexed kernels for all generated valid inputs.
+1. **Oracle parity:** 100% identical dispositions and selected assertion IDs between the independent oracle, prevalidated scan engine, and indexed engine for all generated valid inputs.
 2. **No false allow:** zero cases where NotKnown, Indeterminate, or Conflict becomes ValidAtQuery or Known.
 3. **Correction visibility:** exact cutoff behavior; a correction changes the as-known answer only after that verifier's qualifying receipt.
 4. **Verifier isolation:** no knowledge transfer between verifier identities without an explicit receipt.
@@ -118,7 +119,13 @@ Record CPU model, RAM, storage device, OS/kernel, compiler/runtime versions, dat
 - Keep index memory overhead at or below 3x the serialized assertion payload as an initial target; revise only with measured workload evidence.
 - Do not claim superiority over XTDB or SQL Server until both systems are run with a matched verifier-knowledge adapter and the same data, hardware, consistency policy, and query mix.
 
-## 8. Claim ceiling
+## 8. Frontier-relative extension (future work, not v0.1)
+
+The next stage replaces timestamp-only K selection with an authenticated verifier-specific frontier F over owner-scoped causal histories. K may remain an optional reporting constraint, but F controls receipt membership. Frontiers are partially ordered; concurrent cuts are not assigned an artificial total order. An assertion can be classified as `NotKnown` only when the relevant owner prefix is proven complete and no qualifying receipt is included. Incomplete coverage or missing absence evidence is `Indeterminate`.
+
+The frontier extension must add frontier width, owner cardinality, fork/merge frequency, unresolved-gap density, inclusion/consistency proof size and verification cost to the performance matrix. Its own correctness oracle must measure false-`NotKnown` as well as false allows. See [VERIFIER_RELATIVE_FRONTIER_QUERY_V0.1.md](VERIFIER_RELATIVE_FRONTIER_QUERY_V0.1.md) and [Issue #6680](https://github.com/Luminous-Dynamics/mycelix/issues/6680).
+
+## 9. Claim ceiling
 
 The current kernel validates assertion structure, digest shape, correction lineage, and verifier-relative selection over caller-supplied data. It does not recompute evidence digests, authenticate signatures or issuers, calibrate clocks, persist knowledge frontiers, or establish legal/financial authority. External data projection, full-schema validation, database adapters, and production replay require independent qualification.
 
