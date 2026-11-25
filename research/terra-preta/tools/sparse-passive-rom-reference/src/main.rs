@@ -1351,6 +1351,156 @@ fn response_error_upper_bound(
     Ok((absolute_bound, relative_bound, actual_absolute_error, valid))
 }
 
+fn build_output_adjoint_weights(
+    model: &Model,
+    supersolution: &[f64],
+    relative_tolerance: f64,
+    max_iterations: usize,
+) -> Result<OutputAdjointWeights, String> {
+    if supersolution.len() != model.a.size
+        || supersolution.iter().any(|value| !value.is_finite() || *value <= 0.0)
+    {
+        return Err("output-adjoint weights require a positive M-matrix supersolution".into());
+    }
+
+    let mut upper_vectors = Vec::with_capacity(model.boundary_ids.len());
+    let mut solve_stats = Vec::with_capacity(model.boundary_ids.len());
+    let mut maximum_residual_inf = 0.0_f64;
+
+    for output_port in 0..model.boundary_ids.len() {
+        let rhs: Vec<f64> = column(&model.b, output_port)
+            .into_iter()
+            .map(f64::abs)
+            .collect();
+        let (approximate_weight, stats) =
+            pcg(&model.a, 0.0, &rhs, relative_tolerance, max_iterations)?;
+        let action = model.a.matvec(&approximate_weight, 0.0)?;
+        let residual_inf = rhs
+            .iter()
+            .zip(action.iter())
+            .map(|(right, left)| (right - left).abs())
+            .fold(0.0_f64, f64::max);
+        if !residual_inf.is_finite() {
+            return Err("output-adjoint solve has a non-finite true residual".into());
+        }
+        maximum_residual_inf = maximum_residual_inf.max(residual_inf);
+
+        // For M=A^-1>=0, the exact weight is M*|B_i|. The true residual
+        // correction satisfies M*|r| <= ||r||_infinity * M*1 <= ||r||_infinity*y.
+        let mut upper: Vec<f64> = approximate_weight
+            .iter()
+            .zip(supersolution.iter())
+            .map(|(weight, y)| {
+                let raw = weight + residual_inf * y;
+                raw * (1.0 + 1.0e-10) + f64::EPSILON * (weight.abs() + residual_inf * y.abs() + 1.0) * 64.0
+            })
+            .collect();
+        if upper.iter().any(|value| !value.is_finite() || *value < 0.0) {
+            return Err("output-adjoint Green weight is negative or non-finite".into());
+        }
+        // Keep exact zero-coupling states at zero only if their upper bound is
+        // already zero; otherwise the residual correction above is retained.
+        for value in &mut upper {
+            if *value == 0.0 {
+                *value = 0.0_f64;
+            }
+        }
+        upper_vectors.push(upper);
+        solve_stats.push(stats);
+    }
+
+    Ok(OutputAdjointWeights {
+        upper_vectors,
+        solve_stats,
+        maximum_residual_inf,
+    })
+}
+
+fn response_error_upper_bound_output_adjoint(
+    model: &Model,
+    projection: &Projection,
+    shift: f64,
+    output_weights: &OutputAdjointWeights,
+    full_response: &[Vec<f64>],
+    full_state_solutions: &[Vec<f64>],
+    reduced_response: &[Vec<f64>],
+) -> Result<(f64, f64, f64, bool), String> {
+    if !shift.is_finite() || shift < 0.0 {
+        return Err("output-adjoint bound only supports real nonnegative Laplace samples".into());
+    }
+    let port_count = model.boundary_ids.len();
+    if output_weights.upper_vectors.len() != port_count
+        || output_weights.upper_vectors.iter().any(|vector| {
+            vector.len() != model.a.size
+                || vector.iter().any(|value| !value.is_finite() || *value < 0.0)
+        })
+    {
+        return Err("output-adjoint Green weights have invalid dimensions or entries".into());
+    }
+
+    let full_state_approx = reduced_state_in_full_space(model, projection, shift)?;
+    let reference_residual =
+        full_order_reference_residual_matrix(model, full_state_solutions, shift)?;
+    let mut residual_columns = Vec::with_capacity(port_count);
+    for input_port in 0..port_count {
+        let approximate_state = column(&full_state_approx, input_port);
+        let action = model.a.matvec(&approximate_state, shift)?;
+        let input = column(&model.b, input_port);
+        let residual_abs: Vec<f64> = input
+            .iter()
+            .zip(action.iter())
+            .enumerate()
+            .map(|(state, (right, left))| {
+                (right - left).abs() + reference_residual[state][input_port].abs()
+            })
+            .collect();
+        if residual_abs.iter().any(|value| !value.is_finite()) {
+            return Err("output-adjoint combined residual is non-finite".into());
+        }
+        residual_columns.push(residual_abs);
+    }
+
+    let mut envelope = vec![vec![0.0; port_count]; port_count];
+    let mut componentwise_valid = true;
+    for output_port in 0..port_count {
+        for input_port in 0..port_count {
+            let feedthrough = (model.d[output_port][input_port]
+                - projection.d_r[output_port][input_port])
+                .abs();
+            let transport = dot(
+                &output_weights.upper_vectors[output_port],
+                &residual_columns[input_port],
+            );
+            let raw = feedthrough + transport;
+            if !raw.is_finite() || raw < 0.0 {
+                return Err("output-adjoint componentwise envelope is invalid".into());
+            }
+            let upper = raw * (1.0 + 1.0e-10)
+                + f64::EPSILON * (feedthrough + transport + 1.0) * 64.0;
+            envelope[output_port][input_port] = upper;
+            let actual = (full_response[output_port][input_port]
+                - reduced_response[output_port][input_port])
+                .abs();
+            let tolerance = upper * 1.0e-8 + f64::EPSILON * 64.0;
+            if actual > upper + tolerance {
+                componentwise_valid = false;
+            }
+        }
+    }
+
+    let absolute_bound = frobenius_norm(&envelope);
+    let actual_absolute_error = frobenius_difference(full_response, reduced_response)?;
+    let response_scale = frobenius_norm(full_response).max(f64::MIN_POSITIVE);
+    let relative_bound = absolute_bound / response_scale;
+    if !absolute_bound.is_finite() || !relative_bound.is_finite() {
+        return Err("output-adjoint response bound is non-finite; abstaining".into());
+    }
+    let valid = componentwise_valid
+        && actual_absolute_error
+            <= absolute_bound * (1.0 + 1.0e-8) + f64::EPSILON * response_scale * 32.0;
+    Ok((absolute_bound, relative_bound, actual_absolute_error, valid))
+}
+
 fn response_error_upper_bound_portwise(
     model: &Model,
     projection: &Projection,
