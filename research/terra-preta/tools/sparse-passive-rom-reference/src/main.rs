@@ -207,6 +207,11 @@ struct SampleResult {
     absolute_response_error_upper_bound: f64,
     relative_response_error_upper_bound: f64,
     error_bound_valid: bool,
+    portwise_absolute_response_error_upper_bound: f64,
+    portwise_relative_response_error_upper_bound: f64,
+    portwise_error_bound_valid: bool,
+    best_absolute_response_error_upper_bound: f64,
+    best_relative_response_error_upper_bound: f64,
     full_cg_max_iterations: usize,
     full_cg_max_relative_residual: f64,
 }
@@ -232,6 +237,10 @@ struct Report {
     block_arnoldi_baseline_maximum_absolute_response_error_upper_bound: Option<f64>,
     block_arnoldi_baseline_maximum_relative_response_error_upper_bound: Option<f64>,
     block_arnoldi_baseline_error_bound_valid: Option<bool>,
+    block_arnoldi_baseline_maximum_portwise_absolute_error_upper_bound: Option<f64>,
+    block_arnoldi_baseline_maximum_portwise_relative_error_upper_bound: Option<f64>,
+    block_arnoldi_baseline_portwise_error_bound_valid: Option<bool>,
+    block_arnoldi_baseline_maximum_best_relative_error_upper_bound: Option<f64>,
     block_arnoldi_baseline_dc_relative_error: Option<f64>,
     block_arnoldi_baseline_feedthrough_limit_relative_error: Option<f64>,
     block_arnoldi_baseline_cg_solve_count: Option<usize>,
@@ -259,6 +268,10 @@ struct Report {
     error_certificate_pcg_iterations: usize,
     maximum_absolute_response_error_upper_bound: f64,
     maximum_relative_response_error_upper_bound: f64,
+    maximum_portwise_absolute_response_error_upper_bound: f64,
+    maximum_portwise_relative_response_error_upper_bound: f64,
+    maximum_best_absolute_response_error_upper_bound: f64,
+    maximum_best_relative_response_error_upper_bound: f64,
     overall_pcg_solve_count: usize,
     overall_pcg_iterations: usize,
     a_r_min_eigenvalue: f64,
@@ -570,6 +583,7 @@ struct MMatrixLowerBound {
     refinement_steps: usize,
     refinement_max_residual_inf: f64,
     refinement_fallback_reason: Option<String>,
+    supersolution: Vec<f64>,
     cg_stats: Vec<CgStats>,
 }
 
@@ -769,6 +783,7 @@ fn m_matrix_lambda_min_lower_bound(
         refinement_steps,
         refinement_max_residual_inf,
         refinement_fallback_reason,
+        supersolution,
         cg_stats: stats,
     })
 }
@@ -1282,6 +1297,102 @@ fn response_error_upper_bound(
     }
     let valid = actual_absolute_error
         <= absolute_bound * (1.0 + 1.0e-8) + f64::EPSILON * response_scale * 32.0;
+    Ok((absolute_bound, relative_bound, actual_absolute_error, valid))
+}
+
+fn response_error_upper_bound_portwise(
+    model: &Model,
+    projection: &Projection,
+    shift: f64,
+    supersolution: &[f64],
+    full_response: &[Vec<f64>],
+    reduced_response: &[Vec<f64>],
+) -> Result<(f64, f64, f64, bool), String> {
+    if !shift.is_finite() || shift < 0.0 {
+        return Err("portwise response error bound only supports nonnegative real Laplace samples".into());
+    }
+    if supersolution.len() != model.a.size
+        || supersolution.iter().any(|value| !value.is_finite() || *value <= 0.0)
+    {
+        return Err("portwise response error bound requires a positive verified supersolution".into());
+    }
+    let full_state_approx = reduced_state_in_full_space(model, projection, shift)?;
+    let port_count = model.boundary_ids.len();
+    let mut residual_column_infinity_norms = vec![0.0_f64; port_count];
+    let mut residual_columns = Vec::with_capacity(port_count);
+    for port in 0..port_count {
+        let approximate_state = column(&full_state_approx, port);
+        let action = model.a.matvec(&approximate_state, shift)?;
+        let input = column(&model.b, port);
+        let residual: Vec<f64> = input
+            .iter()
+            .zip(action.iter())
+            .map(|(right, left)| right - left)
+            .collect();
+        let residual_inf = residual.iter().map(|value| value.abs()).fold(0.0_f64, f64::max);
+        if !residual_inf.is_finite() {
+            return Err("portwise response residual is non-finite".into());
+        }
+        residual_column_infinity_norms[port] = residual_inf;
+        residual_columns.push(residual);
+    }
+
+    // For an anchored Stieltjes matrix, (A+sI)^-1 is nonnegative and
+    // elementwise bounded by A^-1 for real s>=0. Since A^-1*1<=y,
+    // A^-1*|R_j| <= ||R_j||_infinity*y. This yields a port-pair envelope.
+    let mut output_port_weights = vec![0.0_f64; port_count];
+    for (port, weight) in output_port_weights.iter_mut().enumerate() {
+        for state in 0..model.a.size {
+            *weight += model.b[state][port].abs() * supersolution[state];
+        }
+        if !weight.is_finite() || *weight < 0.0 {
+            return Err("portwise output coupling weight is invalid".into());
+        }
+    }
+
+    let mut componentwise_envelope = vec![vec![0.0; port_count]; port_count];
+    let mut componentwise_valid = true;
+    let mut maximum_component_violation = 0.0_f64;
+    for output_port in 0..port_count {
+        for input_port in 0..port_count {
+            let feedthrough = (model.d[output_port][input_port]
+                - projection.d_r[output_port][input_port])
+                .abs();
+            let transport = output_port_weights[output_port]
+                * residual_column_infinity_norms[input_port];
+            let raw = feedthrough + transport;
+            if !raw.is_finite() || raw < 0.0 {
+                return Err("portwise componentwise response envelope is invalid".into());
+            }
+            let upper = raw * (1.0 + 1.0e-10)
+                + f64::EPSILON * (feedthrough + transport + 1.0) * 64.0;
+            componentwise_envelope[output_port][input_port] = upper;
+            let actual_component = (full_response[output_port][input_port]
+                - reduced_response[output_port][input_port])
+                .abs();
+            let tolerance = upper * 1.0e-8 + f64::EPSILON * 64.0;
+            if actual_component > upper + tolerance {
+                componentwise_valid = false;
+                maximum_component_violation =
+                    maximum_component_violation.max(actual_component - upper);
+            }
+        }
+    }
+
+    let absolute_bound = frobenius_norm(&componentwise_envelope);
+    let actual_absolute_error = frobenius_difference(full_response, reduced_response)?;
+    let response_scale = frobenius_norm(full_response).max(f64::MIN_POSITIVE);
+    let relative_bound = absolute_bound / response_scale;
+    if !absolute_bound.is_finite() || !relative_bound.is_finite() {
+        return Err("portwise response error upper bound is non-finite; abstaining".into());
+    }
+    let valid = componentwise_valid
+        && actual_absolute_error
+            <= absolute_bound * (1.0 + 1.0e-8) + f64::EPSILON * response_scale * 32.0;
+    if !valid && maximum_component_violation.is_finite() {
+        // The detailed violation is intentionally returned via the validity
+        // flag; callers fail closed and retain the global independent bound.
+    }
     Ok((absolute_bound, relative_bound, actual_absolute_error, valid))
 }
 
