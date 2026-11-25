@@ -5,12 +5,18 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 mod allocation;
+mod benchmark_quality;
 mod comparison;
 mod constraint_binding;
 mod ledger;
 mod response_audit;
 mod support_policy;
 
+pub use benchmark_quality::{
+    qualify_benchmark_definition, qualify_benchmark_result_comparison,
+    BenchmarkClaimProfile, BenchmarkQualificationManifest, BenchmarkResultQualification,
+    EvidenceGate, ScoringMethod,
+};
 pub use allocation::{
     allocate_committed_teams, compute_design_digest, compute_roster_digest,
     create_allocation_commitment, verify_allocation_reveal, AllocationCommitment,
