@@ -1859,7 +1859,6 @@ mod tests {
         assert!(bound.lambda_min_lower_bound >= bound.initial_lambda_min_lower_bound);
         assert!(bound.refinement_steps <= 4);
         assert_eq!(bound.cg_stats.len(), 1 + bound.refinement_steps);
-        assert_eq!(bound.cg_stats.len(), 1 + bound.refinement_steps);
         assert!(bound.lambda_min_lower_bound > 0.0);
         assert!(bound.refinement_max_residual_inf.is_finite());
     }
