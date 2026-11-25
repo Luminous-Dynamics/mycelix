@@ -1,0 +1,32 @@
+NCF-ALLOC-9 LOCAL TEST RECORD
+=============================
+
+Command:
+  PYTHONWARNINGS=error::ResourceWarning python3 -m unittest -v ncf_alloc8_crash_consistency_v2.py ncf_alloc9_checkpoint_stress.py
+
+Result:
+  Ran 11 tests in 6.259s
+  OK
+
+Breakdown:
+  NCF-ALLOC-8 resource-safe crash suite: 6 tests passed.
+  NCF-ALLOC-9 checkpoint suite: 5 tests passed, including held-reader checkpoint and SQLite runtime-gate regressions.
+
+NCF-ALLOC-8 v2 source SHA-256:
+  d2fda8ec66a8d3c0c1d364c99e3266e9dff445d9afb0bb6bc4b239e1ac402b23
+
+NCF-ALLOC-9 source SHA-256:
+  534ba9ac776e085b632f453e6cb9282b12c9d8e60f93501146c62a5d7191eeff
+NCF-ALLOC-9 Git blob SHA:
+  436e58d6a48f9be58fb11602069c6c169f035161
+
+Runtime:
+  Python 3.13.5
+  SQLite 3.46.1
+  sqlite_source_id(): 2024-08-13 09:16:08 c9c2ab54ba1f5f46360f1b4f35d849cd3f080e6fc2b6c60e91b16c63f69aalt1
+
+The --require-fixed-sqlite switch was run and exited 2 with NOT_QUALIFIED because this linked runtime is older than 3.51.3. This is the expected fail-closed result, not a failed unit test.
+
+Four campaigns (1k, 8k, 20k, 20k repeat) had zero invariant failures, every write accepted, every reader snapshot consistent, and final checkpoint [0,0,0]. Exact local result JSON hashes and metrics are in ncf-alloc9-checkpoint-results-summary.json.
+
+Claim ceiling: local application-level SQLite stress on one host only. No low-level WAL-reset reproduction, OS crash/power-loss simulation, or Rust/Holochain/multi-host/production qualification.

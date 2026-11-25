@@ -1,0 +1,123 @@
+# NCF-ALLOC-1: deterministic pre-partition escrow allocation
+
+**Status:** Rust reference implementation and deterministic benchmark harness committed; formatting, compile, tests, and benchmark execution are not yet confirmed. This defines a planning policy, not a distributed capacity authority or production-money feature.
+
+## Research question
+
+Can placement of non-overlapping escrow rights before a partition improve the amount of economic demand served, without adding any right to resize or reclaim another owner's allocation during the partition?
+
+This deliberately separates two problems:
+
+1. **Allocation placement:** choose which pre-authorized owner/shard receives each unit of the existing gross-exposure budget.
+2. **Reclamation:** change an allocation after it has become spendable, which requires a separately qualified fencing/reconciliation protocol.
+
+This work explores the first question and must not be used to bypass the second.
+
+## Policies implemented
+
+The dependency-free Rust module is `src/allocation.rs`.
+
+- **EqualSplit:** equal integer weights, satisfying explicit per-shard minimum slices first.
+- **DemandWeighted:** weight by the ceiling of the mean of the declared integer demand samples.
+- **RobustQuantile:** weight by a nearest-rank historical quantile plus an explicit proportional margin. Quantiles are in basis points (9,500 = 95th percentile); margin is in parts per million.
+- **DemandWeightedWithEqualFloor:** split a declared fraction of discretionary capacity equally, then allocate the remainder by historical mean demand. The current matched-trace campaign compares 25%, 50%, and 75% equal-floor variants to expose the trade-off between stationary utilization and shift resilience. The floor affects only pre-partition placement, never post-partition rights.
+
+The plan may also preserve an explicit contingency reserve that is not allocated to an isolated shard. Every shard demand carries a canonical `instrument_id`; the allocator rejects missing or mixed identities, and the resulting plan retains that exact identity. Ticker/display text is not identity. Samples must be normalized to the same instrument/unit and comparable training window. Demand history is a forecast signal, never spending authority. Data-dependent policies fail closed when any shard has no samples: missing history is unknown demand, not zero demand. A legitimate cold-start policy must be explicit, such as a declared minimum slice, or the operator must use EqualSplit until adequate observations exist.
+
+## Integer and reproducibility contract
+
+Allocation is integer-only. The implementation uses checked arithmetic, a stable shard-ID ordering, and largest-remainder apportionment with lexical-ID tie-breaking. This avoids floating-point drift and makes the same canonical inputs produce the same per-shard rights regardless of input list order.
+
+For total capacity C, contingency reserve R, and slice amounts a_i:
+
+- `C = R + sum(a_i)`
+- `a_i >= minimum_i` for every shard
+- `R >= 0` and no shard is allocated the reserve
+- the sum of minima must fit within `C - R`, otherwise allocation fails closed
+- missing history under DemandWeighted or RobustQuantile is an explicit error; it cannot silently assign a new shard zero weight
+- no output slice can expand a configured community/agreement budget
+- this function does not mutate an existing reservation or transfer rights between owners
+
+The module exposes `AllocationPlan::validate` so downstream code can check instrument binding and conservation independently of the policy that produced the plan. Returned slices can then be checked against the existing `ReservationBook` caps; an integration regression is defined for that connection.
+
+## Matched-trace experiment
+
+The benchmark binary is `src/bin/ncf-allocation-bench.rs`; the clean-checkout wrapper is `run-allocation-bench.sh`. It compares eight policies across stationary and shifted workloads (16 reports total): the original six plus 50% equal-floor policies whose historical weights are clipped at 2× or 4× the lower median.
+
+Example:
+
+```sh
+bash mycelix-workspace/simulations/nested-currency-reference/run-allocation-bench.sh \
+  16 32 1000 100000 50000 0x4d5943454c495831
+```
+
+Arguments are shard count, historical samples per shard, evaluation scenarios per mode, total capacity, contingency reserve in ppm, and seed. The wrapper binds the result to the exact commit, profile digest, Rust compiler/toolchain, binary digest, output digest, and receipt digest. JSON output reports all eight allocation policies—including 25%/50%/75% equal-floor hybrids and 2×/4× median-capped variants—over stationary and shifted demand, including requested/served/unserved demand, stranded reserved-unit scenarios, demand-served ppm, allocated-capacity utilization, worst-scenario service, worst-shard demand served, safety accounting checks, the allocation slices, and per-shard requested/served/unserved totals. This prevents a high aggregate score from hiding a poorly served community. Distributed tail latency, partition recovery, economic demand classes and network cost remain targets for future multi-agent tests, not outputs of this single-process harness.
+
+The synthetic generator deliberately has an uneven historical demand profile, bounded jitter, occasional bursts, and a second evaluation mode that rotates the demand profile to simulate distribution shift. The same stationary and shifted traces are shared by all policies. This makes comparisons fair within a benchmark run, but it is a synthetic workload—not evidence of real community demand or an industry performance result.
+
+## Fairness is a separate axis from utilization
+
+The harness reports both aggregate demand served and `worst_shard_demand_served_ppm`, plus per-shard demand-served and worst-scenario service. An allocator is not Pareto-superior merely because its aggregate score rises: it may concentrate rights in historically hot shards and make small or new communities unreliable.
+
+For each policy, compare aggregate service, capacity utilization, worst-shard service, the per-shard service vector and its lower tail, worst-scenario service, and stationary-to-shifted degradation. These measurements are diagnostic, not a mandate for one allocation policy. Equal floors and explicit minimums are governance choices to compare against the same fixed budget; the allocator cannot treat them as permission to resize rights after a partition.
+
+## Required experiments before a strong claim
+
+1. Run unit tests and the exact-head benchmark with several recorded seeds.
+2. Compare equal split, mean-weighted, robust-quantile, 25%/50%/75% equal-floor, and 2×/4× lower-median-capped policies on stationary, shifted, bursty, and held-out traces. A tighter cap may reduce attacker influence while under-serving legitimate hotspots; report both sides of the frontier.
+3. Tune any weights or quantile only on a training corpus; do not select them on the held-out evaluation set.
+4. Add workload-derived traces and independent seeds; report per-shard unmet demand and essential-service classes, not just aggregate utilization.
+5. Compare all policies under the same community/agreement caps and same total contingency reserve.
+6. Verify the resulting slices through `ReservationBook` and the actual authority path before using any policy operationally.
+7. Run concurrent and multi-agent fault workloads separately; this benchmark cannot qualify races, partitions, fencing, Holochain DHT behavior, or recovery.
+
+## Industry comparison and novelty boundary
+
+The policy primitives are not claimed as novel. Escrow allocation and invariant confluence are established approaches for preserving upper bounds while allowing disconnected local operations. Interledger's settlement architecture already uses peer-specific credit limits and idempotent settlement behavior ([Settlement Engines RFC](https://interledger.org/developers/rfcs/settlement-engines/)). Research on coordination avoidance formalizes when invariants can be maintained without coordination ([Bailis et al.](https://arxiv.org/abs/1402.2237)).
+
+Mycelix's testable contribution here is a deterministic policy interface whose output is itself a conserved risk-right plan, paired with held-out demand-shift evaluation and a hard rule that forecast optimization cannot resize active rights during a partition. Any improvement must be demonstrated as a Pareto improvement under matched traces, with zero safety violations; do not claim state-of-the-art performance from a synthetic single-process run.
+
+## Industry comparison and a meaningful performance target
+
+Do not benchmark a reference allocator by comparing its single-process operation count to a payment-rail TPS figure. The workloads and semantics differ.
+
+The BIS Innovation Hub's **Project FuSSE** report (29 January 2026) describes a modular settlement-engine proof of concept that reached 10,000 transactions per second under controlled test conditions and demonstrated independent scaling of services. The report explicitly says it is not a performance benchmark or implementation reference, and does not claim PFMI compliance. It also warns that microservices increase operational complexity and attack surface, while post-quantum cryptography may add computational and bandwidth cost ([BIS report](https://www.bis.org/publications/project-fusse-exploring-flexible-scalable-and-secure-settlement-engines)). Interledger separately defines peer-specific credit limits and idempotent settlement behavior ([Settlement Engines RFC](https://interledger.org/developers/rfcs/settlement-engines/)). These are useful comparison points, not direct evidence that Mycelix is faster or safer.
+
+For a future three-node Mycelix/Holochain deployment, use a staged performance target **after** semantic and distributed correctness are qualified:
+
+- **Functional gate:** zero cap, replay, double-transfer, and post-fence violations during a 10-million-operation mixed workload and injected recovery faults.
+- **Initial load target:** sustain 1,000 accepted local ledger operations per second for 30 minutes, while separately reporting local acceptance and finality/settlement latency.
+- **Stretch load target:** 10,000 accepted local obligation/settlement events per second on a declared 16-shard testbed, with p99 local-accept latency below 100 ms under the published healthy-network workload. This is an aspirational engineering target, not an asserted achievable result and not comparable to the BIS result until the event semantics, hardware, security settings, and end-to-end finality boundaries are matched.
+- **Scale target:** publish throughput and tail latency at 1, 4, 8, and 16 workers; report efficiency as throughput gain divided by worker-count gain, plus memory, CPU, storage I/O, network bytes, receipt verification cost, and cryptographic verification cost.
+- **Fault target:** run the same 10-million-operation trace with partitions, stale owner retries and crash/restart injection. Any safety violation invalidates the run irrespective of throughput.
+- **Security-agility target:** measure receipt size, CPU cost, and p95/p99 latency for each approved signature/verification profile separately; preserve the exact cryptographic profile and software versions in every receipt.
+
+A benchmark receipt must record hardware model/CPU count/RAM, OS/kernel, Rust commit and compiler, build profile, shard/peer topology, durability settings, security profile, trace digest, seeds, warmup and measurement intervals, source commit, binary digest, output digest, and run-to-run variation. Do not report a single best run as the headline; publish repeated runs and distributions.
+
+## Claim ceiling
+
+A future passing result can establish only that this Rust reference allocator and the named synthetic traces satisfied the declared integer accounting checks on an exact source/toolchain. It does not prove a global distributed cap, safe ownership transfer, the quality of any real demand forecast, production Holochain enforcement, solvency, legal tender status, or economic welfare.
+
+
+## NCF-ALLOC-3: bounded-influence demand claims
+
+The additional [NCF-ALLOC-3 research note](../research/NCF-ALLOC-3-bounded-influence.md) evaluates a failure mode not covered by historical utilization alone: an adversarial shard can inflate claimed demand, receive excess rights, and strand capacity while honest demand goes unserved. The Rust reference module now defines an optional equal-floor policy with each historical mean weight clipped at 2× or 4× the lower median. The exact-head matched-trace harness includes both policies, expanding from twelve to sixteen policy/mode reports.
+
+Median clipping is not a proof of need and is not Sybil-resistant. It relies on a stable identity set and the assumption that a minority cannot control the median. The independent Python study ran 20,000 randomized minority-claim-inflation cases: a 2× cap improved aggregate service and reduced stranded rights compared with raw claims in that attack distribution, but clipped a legitimate 4× hotspot; a 4× cap preserved the declared honest 4× hotspot but allowed more attacker influence. The results file, seed, source hash and metrics are in the research/ncf-alloc3-results.json file. They are research-reference results only; Rust compilation, model checking and distributed qualification are still not confirmed.
+
+The production direction is evidence-backed demand: canonical, deduplicated eligible queued obligations with explicit instrument/shard/epoch, monotonic sequence/replay treatment, verifier version and audit receipt. Forecasts and caps may prioritize rights placement but must never be treated as spending authority or permission to resize active rights during a partition.
+
+
+## NCF-ALLOC-4: identity splitting invalidates the cap assumption
+
+The [NCF-ALLOC-4 identity-splitting campaign](../research/NCF-ALLOC-4-identity-splitting.md) holds one attacker's true 4,000-unit backlog constant while that principal presents it under 1, 4, 8, 12, 15, 16, 24 or 32 shard IDs. In the independent Python model, the equal-floor raw-claim policy's attacker allocation share rises from 31.70% at one attacker ID to 62.63% at 32 IDs. The 2x/4x caps cease to change the equal-floor plan at 12 IDs in this workload. This does not establish anything about cryptographic identity systems; it demonstrates that allocation arithmetic cannot replace identity governance, admission controls and deduplication of underlying eligible obligations.
+
+
+### Zero-median bounded-cap fallback
+
+The median-capped policy now treats a zero lower median as **no reliable scale for a relative cap**. Rather than calculating a threshold from only positive claims (which would allow sparse outliers to set their own cap), it zeroes the relative weights and uses the allocator's deterministic equal-share cold-start fallback. The regression `median_cap_with_zero_lower_median_uses_equal_cold_start` and Python analogue cover one positive claim among fifteen zero-claim shards. This fallback is conservative policy behavior, not an assertion that all shards have equal true demand.
+
+
+### Rust obligation admission static audit (2026-10-28)
+
+The typed `src/obligation.rs` sequential reference model was reviewed without a Rust compiler. The audit found a missing initialization for `canonical_id_by_payload_digest` in `ObligationBook::new`, which would prevent compilation; that field is now initialized. It also tightened request-ID replay binding: exact retries must match the verifier version and verifier-receipt digest stored for that request ID. Canonical-work aliases can still return the original canonical receipt, but the alias retains its own verifier evidence so future retries of that alias are consistent. Two test definitions cover a same-ID proof substitution and an alias with its own verifier evidence. The module now has fourteen `#[test]` functions, and `NCF-QUAL-007` names all fourteen. This is a static source correction, not a compile/test pass; Cargo/rustc are unavailable in this environment.

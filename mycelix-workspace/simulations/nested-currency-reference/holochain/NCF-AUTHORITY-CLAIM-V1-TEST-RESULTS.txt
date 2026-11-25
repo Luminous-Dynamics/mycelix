@@ -1,0 +1,42 @@
+NCF-AUTHORITY-CLAIM-V1 LOCAL REFERENCE TEST RECORD
+==================================================
+
+Command:
+  PYTHONWARNINGS=error::ResourceWarning python3 -m unittest -v test_ncf_authority_claim_v1_vectors.py
+
+Result:
+  Ran 11 tests in 0.003s
+  OK
+
+Checked-in fixture:
+  Path: ncf-authority-claim-v1-vectors.json
+  SHA-256: 0a211025a62b6a5c6c050010e2cc156fb2b63fbb9e634a378961ae91389c666f
+  Git blob SHA-1: 6c2a600d8176a4b880bb1cbabc5cfd0e9ae4791b
+  Exact match to locally generated fixture: yes
+
+Checked-in test source:
+  Path: test_ncf_authority_claim_v1_vectors.py
+  SHA-256: 157ffbe1adb1907417389d7d4d19979e3d0d52f115fd4323d02d3943f3928fdf
+  Git blob SHA-1: 0bbf47f389b7ec700a53a5e81a7f979cd9297eb8
+  Exact match to locally executed test source: yes
+
+Profile:
+  NCF-AUTHORITY-CLAIM-V1
+  Domain separator: NCF-AUTHORITY-CLAIM-V1 followed by one zero byte
+  Fields: 19 fixed-order, NUL-free ASCII strings
+  Framing: 4-byte unsigned big-endian byte length + field bytes
+  Digest: SHA-256 over domain separator and ordered framed fields
+
+Coverage:
+  - both golden vectors match byte length and digest
+  - amount 9007199254740993 remains an exact decimal string
+  - field reordering and numeric JSON values reject
+  - leading-zero decimal and epoch values reject
+  - uppercase/noncanonical UUIDs reject
+  - malformed/uppercase digest hex rejects
+  - Unicode and embedded NUL reject
+  - invalid direction and schema version reject
+  - domain separator mutation yields a different digest
+
+Claim ceiling:
+  This is a Python reference encoder test only. It does not prove SQL commit, verify a PostgreSQL receipt's truth, or authenticate the Holochain author. Rust producer and actual Holochain integrity-zome agreement with these golden vectors remain unimplemented/unexecuted.

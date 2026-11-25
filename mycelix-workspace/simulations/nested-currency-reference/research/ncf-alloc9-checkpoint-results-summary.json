@@ -1,0 +1,201 @@
+{
+  "campaign": "NCF-ALLOC-9",
+  "execution_source_sha256": "534ba9ac776e085b632f453e6cb9282b12c9d8e60f93501146c62a5d7191eeff",
+  "execution_source_git_blob_sha": "436e58d6a48f9be58fb11602069c6c169f035161",
+  "repository_source_bytewise_match": true,
+  "environment": {
+    "python": "3.13.5",
+    "sqlite": "3.46.1",
+    "sqlite_source_id": "2024-08-13 09:16:08 c9c2ab54ba1f5f46360f1b4f35d849cd3f080e6fc2b6c60e91b16c63f69aalt1",
+    "platform": "linux",
+    "host": "single local filesystem/host"
+  },
+  "engine_gate": {
+    "required_minimum": "3.51.3",
+    "current_runtime_gate_passed": false,
+    "require_fixed_sqlite_flag_exit_status": 2,
+    "recommended_current_release": "3.54.1",
+    "note": "Generic stress is not a reproduction of the low-level SQLite WAL-reset bug."
+  },
+  "combined_tests": {
+    "test_count": 11,
+    "elapsed_seconds": 6.259,
+    "resource_warning_policy": "ResourceWarning promoted to error",
+    "result": "PASS"
+  },
+  "results": {
+    "1k": {
+      "result_path": "ncf-alloc9-checkpoint-results-1k.json",
+      "result_file_sha256": "a90918c9acc2da2d9b1b94caf1aa8449b37ecba059dfc897df4cefb94bfd6bbe",
+      "write_operations_requested": 1000,
+      "write_operations_accepted": 1000,
+      "elapsed_seconds": 0.5748,
+      "accepted_operations_per_second": 1739.74,
+      "checkpoint_observations": 750,
+      "checkpoints_complete": 749,
+      "checkpoints_busy_or_partial": 1,
+      "reader_snapshot_observations": 900,
+      "expected_reader_snapshots": 900,
+      "consistent_reader_snapshots": 900,
+      "write_latency_ms": {
+        "p50": 0.2473,
+        "p95": 0.5083,
+        "p99": 1.4075
+      },
+      "checkpoint_latency_ms": {
+        "p50": 0.004,
+        "p95": 0.0069,
+        "p99": 0.042
+      },
+      "final_checkpoint_result": [
+        0,
+        0,
+        0
+      ],
+      "final_checkpoint_ok": true,
+      "final_state": {
+        "used_units": 4879,
+        "unique_obligation_units": 4879,
+        "obligation_count": 1000,
+        "unique_work_digests": 1000,
+        "integrity_check": "ok",
+        "foreign_key_violations": 0,
+        "cap_not_overshot": true,
+        "counter_matches_ledger": true,
+        "work_digest_unique": true
+      },
+      "failure_count": 0,
+      "result_source_sha256": "534ba9ac776e085b632f453e6cb9282b12c9d8e60f93501146c62a5d7191eeff"
+    },
+    "8k": {
+      "result_path": "ncf-alloc9-checkpoint-results-8k.json",
+      "result_file_sha256": "3d9725e9d3552da546d6b6808a72c2d9dc342b2e6810a11f709983e582cf5388",
+      "write_operations_requested": 8000,
+      "write_operations_accepted": 8000,
+      "elapsed_seconds": 2.7445,
+      "accepted_operations_per_second": 2914.92,
+      "checkpoint_observations": 2500,
+      "checkpoints_complete": 2494,
+      "checkpoints_busy_or_partial": 6,
+      "reader_snapshot_observations": 4000,
+      "expected_reader_snapshots": 4000,
+      "consistent_reader_snapshots": 4000,
+      "write_latency_ms": {
+        "p50": 0.244,
+        "p95": 0.4955,
+        "p99": 1.067
+      },
+      "checkpoint_latency_ms": {
+        "p50": 0.0041,
+        "p95": 0.013,
+        "p99": 0.1889
+      },
+      "final_checkpoint_result": [
+        0,
+        0,
+        0
+      ],
+      "final_checkpoint_ok": true,
+      "final_state": {
+        "used_units": 39822,
+        "unique_obligation_units": 39822,
+        "obligation_count": 8000,
+        "unique_work_digests": 8000,
+        "integrity_check": "ok",
+        "foreign_key_violations": 0,
+        "cap_not_overshot": true,
+        "counter_matches_ledger": true,
+        "work_digest_unique": true
+      },
+      "failure_count": 0,
+      "result_source_sha256": "534ba9ac776e085b632f453e6cb9282b12c9d8e60f93501146c62a5d7191eeff"
+    },
+    "20k_run_1": {
+      "result_path": "ncf-alloc9-checkpoint-results-20k.json",
+      "result_file_sha256": "4537e1ef47ca9aea8de17fb4fed52afb97b32e40e7c8af47275704e9d3b9d4ce",
+      "write_operations_requested": 20000,
+      "write_operations_accepted": 20000,
+      "elapsed_seconds": 5.9192,
+      "accepted_operations_per_second": 3378.83,
+      "checkpoint_observations": 5000,
+      "checkpoints_complete": 4994,
+      "checkpoints_busy_or_partial": 6,
+      "reader_snapshot_observations": 6000,
+      "expected_reader_snapshots": 6000,
+      "consistent_reader_snapshots": 6000,
+      "write_latency_ms": {
+        "p50": 0.2239,
+        "p95": 0.4683,
+        "p99": 0.9548
+      },
+      "checkpoint_latency_ms": {
+        "p50": 0.0041,
+        "p95": 0.006,
+        "p99": 0.0299
+      },
+      "final_checkpoint_result": [
+        0,
+        0,
+        0
+      ],
+      "final_checkpoint_ok": true,
+      "final_state": {
+        "used_units": 99992,
+        "unique_obligation_units": 99992,
+        "obligation_count": 20000,
+        "unique_work_digests": 20000,
+        "integrity_check": "ok",
+        "foreign_key_violations": 0,
+        "cap_not_overshot": true,
+        "counter_matches_ledger": true,
+        "work_digest_unique": true
+      },
+      "failure_count": 0,
+      "result_source_sha256": "534ba9ac776e085b632f453e6cb9282b12c9d8e60f93501146c62a5d7191eeff"
+    },
+    "20k_run_2": {
+      "result_path": "ncf-alloc9-checkpoint-results-20k-repeat2.json",
+      "result_file_sha256": "32fd6fd12303988b21d1d2f2c484a7d1981fe2b24c29333d3b47b26e3d182471",
+      "write_operations_requested": 20000,
+      "write_operations_accepted": 20000,
+      "elapsed_seconds": 6.8891,
+      "accepted_operations_per_second": 2903.14,
+      "checkpoint_observations": 5000,
+      "checkpoints_complete": 4677,
+      "checkpoints_busy_or_partial": 323,
+      "reader_snapshot_observations": 6000,
+      "expected_reader_snapshots": 6000,
+      "consistent_reader_snapshots": 6000,
+      "write_latency_ms": {
+        "p50": 0.2531,
+        "p95": 0.5517,
+        "p99": 2.2015
+      },
+      "checkpoint_latency_ms": {
+        "p50": 0.0039,
+        "p95": 0.0095,
+        "p99": 0.1486
+      },
+      "final_checkpoint_result": [
+        0,
+        0,
+        0
+      ],
+      "final_checkpoint_ok": true,
+      "final_state": {
+        "used_units": 99992,
+        "unique_obligation_units": 99992,
+        "obligation_count": 20000,
+        "unique_work_digests": 20000,
+        "integrity_check": "ok",
+        "foreign_key_violations": 0,
+        "cap_not_overshot": true,
+        "counter_matches_ledger": true,
+        "work_digest_unique": true
+      },
+      "failure_count": 0,
+      "result_source_sha256": "534ba9ac776e085b632f453e6cb9282b12c9d8e60f93501146c62a5d7191eeff"
+    }
+  },
+  "claim_ceiling": "Local Python/SQLite application-level checkpoint/read/write stress on one host only. No low-level WAL-reset bug reproduction, power-loss testing, Rust/Holochain/multi-host/production qualification."
+}

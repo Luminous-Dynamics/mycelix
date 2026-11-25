@@ -1,0 +1,88 @@
+name: NCF static escrow allocation frontier
+
+on:
+  push:
+    branches:
+      - spec/fed-cur-001-nested-currency-2026-10-23
+    paths:
+      - .github/workflows/ncf-allocation-benchmark.yml
+      - mycelix-workspace/simulations/nested-currency-reference/src/allocation.rs
+      - mycelix-workspace/simulations/nested-currency-reference/src/lib.rs
+      - mycelix-workspace/simulations/nested-currency-reference/src/obligation.rs
+      - mycelix-workspace/simulations/nested-currency-reference/src/bin/ncf-allocation-bench.rs
+      - mycelix-workspace/simulations/nested-currency-reference/run-allocation-bench.sh
+      - mycelix-workspace/simulations/nested-currency-reference/Cargo.toml
+      - mycelix-workspace/simulations/nested-currency-reference/Cargo.lock
+      - mycelix-core/docs/civilizational-os/federation/NESTED_CURRENCY_AND_CLEARING_PROFILE.md
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - .github/workflows/ncf-allocation-benchmark.yml
+      - mycelix-workspace/simulations/nested-currency-reference/src/allocation.rs
+      - mycelix-workspace/simulations/nested-currency-reference/src/lib.rs
+      - mycelix-workspace/simulations/nested-currency-reference/src/obligation.rs
+      - mycelix-workspace/simulations/nested-currency-reference/src/bin/ncf-allocation-bench.rs
+      - mycelix-workspace/simulations/nested-currency-reference/run-allocation-bench.sh
+      - mycelix-workspace/simulations/nested-currency-reference/Cargo.toml
+      - mycelix-workspace/simulations/nested-currency-reference/Cargo.lock
+      - mycelix-core/docs/civilizational-os/federation/NESTED_CURRENCY_AND_CLEARING_PROFILE.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ncf-allocation-benchmark-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  static-allocation-frontier:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NCF_ALLOCATION_OUTPUT_FILE: ${{ runner.temp }}/ncf-allocation-benchmark.json
+      NCF_ALLOCATION_RECEIPT_FILE: ${{ runner.temp }}/ncf-allocation-benchmark.receipt.txt
+      CARGO_TARGET_DIR: ${{ runner.temp }}/ncf-allocation-target
+    steps:
+      - name: Checkout exact PR head or pushed commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
+        with:
+          toolchain: 1.99.1
+          components: rustfmt, clippy
+          cache: false
+          cache-bin: false
+          rustflags: "-D warnings"
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/simulations/nested-currency-reference/Cargo.toml -- --check
+
+      - name: Test reference model and allocator
+        run: cargo test --locked --manifest-path mycelix-workspace/simulations/nested-currency-reference/Cargo.toml
+
+      - name: Check clippy
+        run: cargo clippy --locked --manifest-path mycelix-workspace/simulations/nested-currency-reference/Cargo.toml --all-targets -- -D warnings
+
+      - name: Check benchmark runner syntax
+        run: bash -n mycelix-workspace/simulations/nested-currency-reference/run-allocation-bench.sh
+
+      - name: Run matched-trace allocation simulation
+        run: bash mycelix-workspace/simulations/nested-currency-reference/run-allocation-bench.sh 16 32 1000 100000 50000 0x4d5943454c495831
+
+      - name: Retain simulation result and provenance receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ncf-allocation-frontier-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/ncf-allocation-benchmark.json
+            ${{ runner.temp }}/ncf-allocation-benchmark.receipt.txt
+          if-no-files-found: warn
+          retention-days: 30

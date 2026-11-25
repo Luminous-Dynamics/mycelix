@@ -1,0 +1,24 @@
+NCF-ALLOC-7 local SQLite transactional-admission run — 2026-10-28
+
+Seven tests passed:
+- concurrent distinct obligations never overshoot cap
+- concurrent same work under different request IDs debits once
+- concurrent same request ID conflicting payloads binds one payload
+- commit then lost acknowledgment retry returns exact durable receipt
+- verifier evidence binds each request ID while a canonical alias returns original receipt
+- missing cap, verifier rejection and zero amount fail closed
+- liability counter matches sum of canonical obligations
+
+Concurrent race trials: 50 trials for each of 3 cases (150 paired trials total); zero observed invariant failures.
+
+Benchmark: 2,000 attempts; 1,000 unique accepts; 1,000 exact replays; 1,098.59 attempts/s; p50 1.1528 ms; p95 1.8039 ms; p99 2.1586 ms.
+
+Environment: Python 3.13.5, SQLite 3.46.1, Linux-6.18.55-x86_64-with-glibc2.41. File-backed WAL; synchronous FULL; each admission uses BEGIN IMMEDIATE.
+
+local_executed_source_sha256=75396f7df53b909b62f42a5e7fd38cefa7ddd0f3c4ae62fbdd8c57e0bdd2cdde
+local_results_sha256=e2909b56b93573ef8b606ca3eda56593f344df9fd1a24446ebab08f7034d85c8
+checked_in_source_sha256=2070fde7f5a4d9466cf0243d0b70a084625146c0bc159d3590c76f29ec7e2ec4
+
+Important limitations:
+- Checked-in source is a condensed copy and not byte-identical to locally executed source. The checked-in results file is a normalized transcription, not checksum-bound CI evidence.
+- SQLite is a local single-file storage baseline. It does not qualify multi-host writes, actual power-loss behavior, cryptographic verifier, Mycelix Rust implementation, Holochain/multi-agent behavior or production settlement.

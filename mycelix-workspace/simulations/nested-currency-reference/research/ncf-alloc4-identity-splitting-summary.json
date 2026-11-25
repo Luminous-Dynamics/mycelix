@@ -1,0 +1,69 @@
+{
+  "case_set_sha256": "86b5e7f0f9595aaf6f8f2eebaef06b0d25f0a793f6f9ffa90b3c4aac12affcf4",
+  "cases": [
+    {"attacker_backlog_units":4000,"attacker_identity_count":1,"total_shard_ids":16,"policies":{
+      "weighted_raw_claims":[698656,678500,987750,571432,19286,50286,50286],
+      "equal_floor50_raw_claims":[1000000,1000000,1000000,316968,0,31000,26112],
+      "equal_floor50_cap2x_median":[1000000,1000000,1000000,90084,0,31000,4558],
+      "equal_floor50_cap4x_median":[1000000,1000000,1000000,136516,0,31000,8969],
+      "oracle_equal_floor50_true_backlog":[1000000,1000000,1000000,62505,0,31000,1938]}},
+    {"attacker_backlog_units":4000,"attacker_identity_count":4,"total_shard_ids":19,"policies":{
+      "weighted_raw_claims":[698625,678500,970077,571453,19288,50288,50288],
+      "equal_floor50_raw_claims":[966500,964250,999775,390989,2144,33144,33144],
+      "equal_floor50_cap2x_median":[1000000,1000000,1000000,279200,0,31000,22524],
+      "equal_floor50_cap4x_median":[1000000,1000000,1000000,363326,0,31000,30516],
+      "oracle_equal_floor50_true_backlog":[1000000,1000000,1000000,136505,0,31000,8968]}},
+    {"attacker_backlog_units":4000,"attacker_identity_count":8,"total_shard_ids":23,"policies":{
+      "weighted_raw_claims":[698625,678500,963829,571453,19288,50288,50288],
+      "equal_floor50_raw_claims":[864547,855500,994261,459674,8669,39669,39669],
+      "equal_floor50_cap2x_median":[905547,899250,997369,432053,6045,37045,37045],
+      "equal_floor50_cap4x_median":[864547,855500,994261,459674,8669,39669,39669],
+      "oracle_equal_floor50_true_backlog":[1000000,1000000,1000000,205189,0,31000,15493]}},
+    {"attacker_backlog_units":4000,"attacker_identity_count":12,"total_shard_ids":27,"policies":{
+      "weighted_raw_claims":[698594,678500,963551,571474,19290,50290,50290],
+      "equal_floor50_raw_claims":[792812,779000,984570,508000,13260,44260,44260],
+      "equal_floor50_cap2x_median":[792812,779000,984570,508000,13260,44260,44260],
+      "equal_floor50_cap4x_median":[792812,779000,984570,508000,13260,44260,44260],
+      "oracle_equal_floor50_true_backlog":[1000000,1000000,1000000,253505,0,31000,20083]}},
+    {"attacker_backlog_units":4000,"attacker_identity_count":15,"total_shard_ids":30,"policies":{
+      "weighted_raw_claims":[698594,678500,964611,571474,19290,50290,50290],
+      "equal_floor50_raw_claims":[751562,735000,977203,535789,15900,46900,46900],
+      "equal_floor50_cap2x_median":[751562,735000,977203,535789,15900,46900,46900],
+      "equal_floor50_cap4x_median":[751562,735000,977203,535789,15900,46900,46900],
+      "oracle_equal_floor50_true_backlog":[1000000,1000000,1000000,281263,0,31000,22720]}},
+    {"attacker_backlog_units":4000,"attacker_identity_count":16,"total_shard_ids":31,"policies":{
+      "weighted_raw_claims":[698625,678500,965072,571453,19288,50288,50288],
+      "equal_floor50_raw_claims":[739609,722250,974931,543842,16665,47665,47665],
+      "equal_floor50_cap2x_median":[739609,722250,974931,543842,16665,47665,47665],
+      "equal_floor50_cap4x_median":[739609,722250,974931,543842,16665,47665,47665],
+      "oracle_equal_floor50_true_backlog":[1000000,1000000,1000000,289316,0,31000,23485]}},
+    {"attacker_backlog_units":4000,"attacker_identity_count":24,"total_shard_ids":39,"policies":{
+      "weighted_raw_claims":[698594,678500,969128,571474,19290,50290,50290],
+      "equal_floor50_raw_claims":[665984,643500,961221,593442,21377,52377,52377],
+      "equal_floor50_cap2x_median":[665984,643500,961221,593442,21377,52377,52377],
+      "equal_floor50_cap4x_median":[665984,643500,961221,593442,21377,52377,52377],
+      "oracle_equal_floor50_true_backlog":[1000000,1000000,1000000,338947,0,31000,28200]}},
+    {"attacker_backlog_units":4000,"attacker_identity_count":32,"total_shard_ids":47,"policies":{
+      "weighted_raw_claims":[698594,678500,972867,571474,19290,50290,50290],
+      "equal_floor50_raw_claims":[617266,591750,954308,626263,24495,55495,55495],
+      "equal_floor50_cap2x_median":[617266,591750,954308,626263,24495,55495,55495],
+      "equal_floor50_cap4x_median":[617266,591750,954308,626263,24495,55495,55495],
+      "oracle_equal_floor50_true_backlog":[994906,994500,999994,371853,326,31326,31326]}}
+  ],
+  "claim_ceiling": "This explicitly models one principal splitting a fixed backlog across multiple shard IDs; it does not model cryptographic identities, admission costs, governance, or real distributed execution. Median caps do not stop identity multiplication unless another protocol constrains identity creation.",
+  "policy_metric_order": ["demand_served_ppm","worst_shard_service_ppm","jain_fairness_ppm","attacker_allocation_share_ppm","unserved_units","stranded_units","attacker_stranded_units"],
+  "profile": {
+    "attacker_claim_inflation_multiplier":20,
+    "attacker_identity_counts":[1,4,8,12,15,16,24,32],
+    "attacker_true_backlog_units_fixed":4000,
+    "honest_identity_count":15,
+    "policies":["equal","weighted_raw_claims","equal_floor50_raw_claims","equal_floor50_cap2x_median","equal_floor50_cap4x_median","oracle_equal_floor50_true_backlog"],
+    "reserve_ppm":50000,
+    "spendable_capacity_units":95000,
+    "total_capacity_units":100000
+  },
+  "projection_note":"For every policy, the metric array follows policy_metric_order. This compact projection is derived deterministically from the full harness output.",
+  "schema":"ncf-alloc4-identity-splitting-summary-v1",
+  "source_sha256":"df7a46bb32690ceb264495890eeb5673eef84b81737a85f840b1c4b69d684044",
+  "status":"INDEPENDENT_PYTHON_RESEARCH_MODEL_NOT_RUST_NOT_CI_NOT_PRODUCTION_EVIDENCE"
+}

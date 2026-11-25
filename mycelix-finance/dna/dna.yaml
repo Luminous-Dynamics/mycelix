@@ -39,6 +39,8 @@ integrity:
       path: ../target/wasm32-unknown-unknown/release/staking_integrity.wasm
     - name: tend_integrity
       path: ../target/wasm32-unknown-unknown/release/tend_integrity.wasm
+    - name: federated_clearing_integrity
+      path: ../target/wasm32-unknown-unknown/release/federated_clearing_integrity.wasm
     - name: recognition_integrity
       path: ../target/wasm32-unknown-unknown/release/recognition_integrity.wasm
     - name: currency_mint_integrity
@@ -71,6 +73,10 @@ coordinator:
       path: ../target/wasm32-unknown-unknown/release/tend.wasm
       dependencies:
         - name: tend_integrity
+    - name: federated_clearing
+      path: ../target/wasm32-unknown-unknown/release/federated_clearing.wasm
+      dependencies:
+        - name: federated_clearing_integrity
     - name: recognition
       path: ../target/wasm32-unknown-unknown/release/recognition.wasm
       dependencies:

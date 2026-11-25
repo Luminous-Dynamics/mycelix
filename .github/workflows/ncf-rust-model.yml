@@ -1,0 +1,63 @@
+name: NCF Rust reference qualification
+
+on:
+  push:
+    branches:
+      - spec/fed-cur-001-nested-currency-2026-10-23
+    paths:
+      - .github/workflows/ncf-rust-model.yml
+      - mycelix-workspace/simulations/nested-currency-reference/**
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    paths:
+      - .github/workflows/ncf-rust-model.yml
+      - mycelix-workspace/simulations/nested-currency-reference/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ncf-rust-model-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  rust-reference:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NCF_RUST_OUTPUT_DIR: ${{ runner.temp }}/ncf-rust-qualification
+      CARGO_TARGET_DIR: ${{ runner.temp }}/ncf-cargo-target
+    steps:
+      - name: Checkout exact PR head or pushed commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain and components
+        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f
+        with:
+          toolchain: 1.99.1
+          components: rustfmt, clippy
+          cache: false
+          cache-bin: false
+          rustflags: "-D warnings"
+
+      - name: Check qualification runner shell syntax
+        run: bash -n mycelix-workspace/simulations/nested-currency-reference/run-ncf-rust-qualification.sh
+
+      - name: Run format, test, and clippy against exact head
+        shell: bash
+        run: bash mycelix-workspace/simulations/nested-currency-reference/run-ncf-rust-qualification.sh
+
+      - name: Retain exact-head logs and receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ncf-rust-qualification-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/ncf-rust-qualification/
+          if-no-files-found: warn
+          retention-days: 30

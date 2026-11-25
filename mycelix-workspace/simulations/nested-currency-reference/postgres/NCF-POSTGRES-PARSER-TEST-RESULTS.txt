@@ -1,0 +1,41 @@
+NCF POSTGRES PGbench RECEIPT-PARSER LOCAL TEST RECORD
+=====================================================
+
+Command:
+  PYTHONWARNINGS=error::ResourceWarning python3 -m unittest -v test_summarize_pgbench.py
+  bash -n run-pgbench-benchmark.sh
+  python3 -m py_compile summarize_pgbench.py test_summarize_pgbench.py
+
+Result:
+  Ran 7 tests in 0.009s
+  OK
+  Bash syntax check: PASS
+  Python byte-compilation: PASS
+
+Checked-in source identities (verified by Git blob SHA against local files):
+  summarize_pgbench.py
+    SHA-256: 398228c7b7711d2f6b0871cbd20f343180649eebb7a688209528e62bd7959d20
+    Git blob: 5a373d2884ee4dd81d473f910832ca8411b51d01
+  test_summarize_pgbench.py
+    SHA-256: 7908d5623df346e72343b9fac5f03abcbd57a7bc0676727e635f411a3dc8bf9f
+    Git blob: 1c1ee9d9c191b92d587b120a6aaeb451f524e1bf
+  run-pgbench-benchmark.sh
+    SHA-256: 90fdb8f75b948ee7a5649daa7e49c8f8b450c0cea97dc1f69e3b9280195e32bd
+    Git blob: 646ecb5b15396294f49d81a231331d6f574492e8
+
+Covered cases:
+  - time-mode output with a bare actual-transaction count (the runner uses --time)
+  - count-mode output in actual/target form
+  - psql/pgbench latency is logged in microseconds and converted to milliseconds
+  - fixed tps-output regex
+  - failed transaction fails closed
+  - malformed log row fails closed
+  - missing per-transaction log fails closed
+  - stdout count / log count mismatch fails closed
+  - successful-count.txt is emitted from validated log samples
+
+Environment limitations:
+  No psql, pgbench, postgres server, cargo/rustc, docker, or podman executable is available in this editing container. No live PostgreSQL server or Holochain conductor was run here.
+
+Claim ceiling:
+  This receipt qualifies only the local pgbench parser and shell syntax. It is not a PostgreSQL schema/function PASS, concurrency PASS, pgbench performance result, Rust result, Holochain Sweettest result, or production settlement qualification. Workflow attempts observed before the latest environment fix had zero jobs and are not database evidence.

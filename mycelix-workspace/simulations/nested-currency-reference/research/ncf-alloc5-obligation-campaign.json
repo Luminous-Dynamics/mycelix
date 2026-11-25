@@ -1,0 +1,58 @@
+{
+  "campaign_id": "NCF-ALLOC-5",
+  "title": "Canonical obligation evidence and principal-scoped admission",
+  "status": "python_sequential_reference_executed_rust_crypto_distributed_not_run",
+  "source": "ncf_alloc5_obligation_admission.py",
+  "tests": "test_ncf_alloc5_obligation_admission.py",
+  "results": "ncf-alloc5-obligation-admission-results.json",
+  "profile": {
+    "alias_counts": [
+      1,
+      4,
+      8,
+      16,
+      32
+    ],
+    "unique_obligation_units": 4000,
+    "principal_instrument_cap_units": 10000,
+    "unique_obligation_id": "service-obligation-0001"
+  },
+  "hard_invariants": [
+    "same_obligation_accepted_at_most_once",
+    "exact_retry_returns_original_receipt_without_new_demand",
+    "same_id_changed_amount_principal_or_instrument_rejected_without_mutation",
+    "principal_instrument_cap_aggregates_distinct_obligations_across_shards",
+    "missing_cap_fails_closed",
+    "unverified_or_malformed_evidence_fails_closed_without_consuming_id",
+    "rejected_cap_attempt_can_be_retried_after_corrected_amount",
+    "accepted_backlog_is_independent_of_shard_alias_count",
+    "same_obligation_id_binds_canonical_obligation_payload_digest",
+    "canonical_work_digest_is_accepted_once_across_request_id_aliases",
+    "same_canonical_digest_with_conflicting_amount_principal_or_instrument_rejects"
+  ],
+  "required_metrics": [
+    "alias_count",
+    "actual_unique_obligation_units",
+    "book_outstanding_units",
+    "accepted_unique_obligations",
+    "outcome_counts",
+    "original_receipt_preserved"
+  ],
+  "execution_evidence": {
+    "unit_tests": "12 passed as part of combined 35-test Python suite on 2026-10-28",
+    "rust": "not_run",
+    "cryptographic_verifier": "not_implemented",
+    "concurrent_database": "not_run",
+    "holochain_multi_agent": "not_run",
+    "tla": "not_run"
+  },
+  "claim_ceiling": "Sequential Python reference model that assumes verifier_receipt_ok is supplied by an independent trustworthy verifier. It is not cryptographic identity, real-work verification, concurrent linearizability, Holochain qualification, or production evidence. The canonical payload digest is computed by the model for test determinism; its presence does not authenticate the underlying work or identity. The reference model treats a verifier-derived canonical work digest as a unique-work key, but it does not verify the source work or authenticate the digest.",
+  "source_sha256": "e93c372136a104820c7295809458b5284d4f606b42d7d8d55fa478a9c7531afe",
+  "results_sha256": "e8bc17f8c4d66e6f972e2c18a9fffb517d0cb0989611d96c450e59d78ad2c2b1",
+  "source_provenance": {
+    "local_executed_source_sha256": "e93c372136a104820c7295809458b5284d4f606b42d7d8d55fa478a9c7531afe",
+    "checked_in_source_sha256": "93bdaacfdf190ff5fc90786e63dce4d4e44e59292c159e31a5f38e0adc99ac06",
+    "local_results_sha256": "44a78b3467dcfad0374f0fd7894f3ee77d1ff8939ffac6e4f618834cda37ab17",
+    "note": "The repository source is a manually synchronized copy and its bytes differ from the locally executed source. The recorded Python results are local research evidence, not a checksum-bound CI artifact."
+  }
+}

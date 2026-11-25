@@ -35,6 +35,8 @@ staking_coordinator = { path = "../zomes/staking/coordinator" }
 # TEND (Time Exchange) zome dependencies
 tend_integrity = { path = "../zomes/tend/integrity" }
 tend = { path = "../zomes/tend/coordinator" }
+federated_clearing_integrity = { path = "../zomes/federated-clearing/integrity" }
+federated_clearing = { path = "../zomes/federated-clearing/coordinator" }
 
 # Recognition zome dependencies
 recognition_integrity = { path = "../zomes/recognition/integrity" }
@@ -85,6 +87,10 @@ path = "payments_test.rs"
 [[test]]
 name = "tend_test"
 path = "tend_test.rs"
+
+[[test]]
+name = "federated_clearing_sweettest"
+path = "federated_clearing_sweettest.rs"
 
 # Bridge (Collateral Deposit + Rate Limiting) Tests
 [[test]]
