@@ -173,17 +173,17 @@ pub fn score_job(
     }
 }
 
-/// Rank jobs by advisory profile-signal heuristic, descending.
+/// Rank every supplied opportunity by advisory profile-signal heuristic.
 ///
-/// The average legacy profile signal is accepted only to populate a
-/// compatibility annotation. Missing or below-threshold signals do not exclude
-/// an opportunity.
+/// The legacy profile signal is accepted only to populate a compatibility
+/// annotation. Missing or below-threshold signals do not exclude an opportunity.
+/// There is intentionally no score-threshold parameter: zero/unknown evidence
+/// may lower a result's rank, but it cannot silently remove that opportunity.
 pub fn rank_jobs(
     jobs: &[JobView],
     agent_skills: &HashSet<String>,
     agent_education: Option<&str>,
     agent_avg_vitality: Option<u16>,
-    min_score: f32,
     limit: usize,
 ) -> Vec<JobMatch> {
     let mut matches: Vec<JobMatch> = jobs
@@ -201,7 +201,6 @@ pub fn rank_jobs(
                 };
             matched
         })
-        .filter(|matched| matched.score >= min_score)
         .collect();
 
     matches.sort_by(|a, b| {
@@ -333,7 +332,7 @@ mod tests {
     fn ranked_jobs_preserve_unknown_legacy_signal_as_unknown() {
         let mut job = rust_dev_job();
         job.vitality_minimum = Some(700);
-        let ranked = rank_jobs(&[job], &HashSet::new(), None, None, 0.0, 10);
+        let ranked = rank_jobs(&[job], &HashSet::new(), None, None, 10);
         assert_eq!(ranked.len(), 1);
         assert_eq!(
             ranked[0].legacy_profile_signal_status,
@@ -345,7 +344,7 @@ mod tests {
     fn below_threshold_legacy_signal_does_not_exclude_job() {
         let mut job = rust_dev_job();
         job.vitality_minimum = Some(700);
-        let ranked = rank_jobs(&[job], &HashSet::new(), None, Some(500), 0.0, 10);
+        let ranked = rank_jobs(&[job], &HashSet::new(), None, Some(500), 10);
         assert_eq!(ranked.len(), 1);
         assert_eq!(
             ranked[0].legacy_profile_signal_status,
@@ -357,7 +356,7 @@ mod tests {
     fn sufficient_legacy_signal_is_only_an_annotation() {
         let mut job = rust_dev_job();
         job.vitality_minimum = Some(700);
-        let ranked = rank_jobs(&[job], &HashSet::new(), None, Some(800), 0.0, 10);
+        let ranked = rank_jobs(&[job], &HashSet::new(), None, Some(800), 10);
         assert_eq!(ranked.len(), 1);
         assert_eq!(
             ranked[0].legacy_profile_signal_status,
@@ -369,7 +368,7 @@ mod tests {
     fn education_requirement_and_profile_signals_do_not_overwrite_each_other() {
         let mut job = rust_dev_job();
         job.vitality_minimum = Some(700);
-        let matched = rank_jobs(&[job], &HashSet::new(), Some("Bachelor's"), None, 0.0, 10);
+        let matched = rank_jobs(&[job], &HashSet::new(), Some("Bachelor's"), None, 10);
         assert_eq!(matched.len(), 1);
         assert_eq!(
             matched[0].education_status,
@@ -382,7 +381,15 @@ mod tests {
     }
 
     #[test]
-    fn minimum_score_and_limit_are_still_applied() {
+    fn zero_evidence_does_not_remove_an_opportunity() {
+        let job = rust_dev_job();
+        let ranked = rank_jobs(&[job], &HashSet::new(), None, None, 10);
+        assert_eq!(ranked.len(), 1);
+        assert_eq!(ranked[0].score, 0.0);
+    }
+
+    #[test]
+    fn limit_is_applied_after_ranking_all_opportunities() {
         let jobs = vec![rust_dev_job(), {
             let mut job = rust_dev_job();
             job.title = "Different job".into();
@@ -393,7 +400,7 @@ mod tests {
             .iter()
             .map(|skill| skill.to_string())
             .collect();
-        let ranked = rank_jobs(&jobs, &skills, Some("Bachelor's"), None, 0.5, 1);
+        let ranked = rank_jobs(&jobs, &skills, Some("Bachelor's"), None, 1);
         assert_eq!(ranked.len(), 1);
         assert_eq!(ranked[0].job.title, "Rust Developer");
     }

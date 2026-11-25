@@ -104,8 +104,7 @@ pub fn JobsPage() -> impl IntoView {
     let matched_jobs = Memo::new(move |_| {
         let skills = agent_skills.get();
         let query = search_query.get().to_lowercase();
-        // TODO: compute avg vitality from CraftCtx credentials when available
-        let mut ranked = rank_jobs(&jobs, &skills, None, None, 0.0, 20);
+        let mut ranked = rank_jobs(&jobs, &skills, None, None, 20);
         // Additionally filter by free-text search if present.
         if !query.is_empty() {
             ranked.retain(|m| {
