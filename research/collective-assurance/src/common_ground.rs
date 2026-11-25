@@ -248,6 +248,7 @@ pub fn qualify_common_ground_trial(
     let mut repair_starts: BTreeMap<&str, u64> = BTreeMap::new();
     let mut repair_durations = Vec::new();
     let mut state_views: BTreeMap<&str, u64> = BTreeMap::new();
+    let mut action_ids = BTreeSet::new();
     let mut actions = Vec::new();
     let mut completion: Option<(&str, u64)> = None;
     let mut previous_timestamp = 0u64;
@@ -385,6 +386,7 @@ pub fn qualify_common_ground_trial(
                 effect_receipt_digest,
             } => {
                 if action_id.trim().is_empty()
+                    || !action_ids.insert(action_id.as_str())
                     || !valid_role(contract, initiator_id)
                     || !valid_role(contract, confirmer_id)
                     || initiator_id == confirmer_id
@@ -825,6 +827,19 @@ mod tests {
             repair_id:"repair-1".into(),outcome_digest:digest('9'),repair_duration_ms:30
         }));
         for (n,e) in v.iter_mut().enumerate(){e.sequence=n as u64+1;}
+        let r=qualify_common_ground_trial(&c,&v);
+        assert_eq!(r.qualification.status,QualificationStatus::Fail);
+    }
+
+
+    #[test]
+    fn duplicate_action_ids_fail_even_when_event_ids_are_distinct() {
+        let c=contract(CommonGroundViewMode::SharedWorkerState);
+        let mut v=success_trace(c.view_mode);
+        if let CommonGroundEventKind::JointActionExecuted{action_id,..}=
+            &mut v.iter_mut().find(|e|e.event_id=="act2").unwrap().kind {
+            *action_id="place1".into();
+        }
         let r=qualify_common_ground_trial(&c,&v);
         assert_eq!(r.qualification.status,QualificationStatus::Fail);
     }
