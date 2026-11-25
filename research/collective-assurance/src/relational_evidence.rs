@@ -55,6 +55,19 @@ pub enum EvidenceRelationKind {
     RelatedContext,
 }
 
+impl EvidenceRelationKind {
+    fn is_symmetric(self) -> bool {
+        matches!(
+            self,
+            Self::SameSubject
+                | Self::SameEvent
+                | Self::SameDecision
+                | Self::Contradicts
+                | Self::RelatedContext
+        )
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RelationalEvidenceRecord {
     pub evidence_id: String,
@@ -453,11 +466,14 @@ pub fn refine_relational_evidence(
             errors.push("relation edge references an unknown evidence ID".into());
             continue;
         }
-        if !seen_edges.insert((
-            edge.from_evidence_id.as_str(),
-            edge.to_evidence_id.as_str(),
-            edge.relation,
-        )) {
+        let (canonical_from, canonical_to) = if edge.relation.is_symmetric()
+            && edge.from_evidence_id > edge.to_evidence_id
+        {
+            (edge.to_evidence_id.as_str(), edge.from_evidence_id.as_str())
+        } else {
+            (edge.from_evidence_id.as_str(), edge.to_evidence_id.as_str())
+        };
+        if !seen_edges.insert((canonical_from, canonical_to, edge.relation)) {
             errors.push("duplicate relation edge".into());
             continue;
         }
@@ -931,6 +947,20 @@ mod tests {
             &scope(),
             &[record("e1", "origin-a", "holder-a"), record("e1", "origin-b", "holder-b")],
             &[],
+        );
+        assert_eq!(report.status, RelationalEvidenceStatus::Fail);
+    }
+
+
+    #[test]
+    fn reversed_duplicate_symmetric_relation_fails() {
+        let report = refine_relational_evidence(
+            &scope(),
+            &[record("e1", "origin-a", "holder-a"), record("e2", "origin-b", "holder-b")],
+            &[
+                edge("e1", "e2", EvidenceRelationKind::SameSubject),
+                edge("e2", "e1", EvidenceRelationKind::SameSubject),
+            ],
         );
         assert_eq!(report.status, RelationalEvidenceStatus::Fail);
     }
