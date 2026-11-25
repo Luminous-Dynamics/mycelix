@@ -472,7 +472,7 @@ pub fn qualify_common_ground_trial(
     };
     let actual_viewers: BTreeSet<&str> = state_views
         .iter()
-        .filter(|entry| entry.1 .0 == contract.worker_state_version)
+        .filter(|entry| entry.1.0 == contract.worker_state_version)
         .map(|entry| *entry.0)
         .collect();
     if let Some(first_message) = first_message_timestamp {
