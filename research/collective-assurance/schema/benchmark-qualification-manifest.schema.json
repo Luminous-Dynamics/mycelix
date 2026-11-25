@@ -1,0 +1,415 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/benchmark-qualification-manifest-v0.1.json",
+  "title": "Benchmark qualification manifest v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark_id",
+    "benchmark_version",
+    "benchmark_owner_id",
+    "independent_evaluator_id",
+    "claim_profile",
+    "scoring_method",
+    "stochastic_evaluation",
+    "repeated_run_count",
+    "distinct_seed_count",
+    "task_catalog_digest",
+    "dataset_digest",
+    "split_manifest_digest",
+    "hidden_split_commitment_digest",
+    "license_and_data_rights_digest",
+    "oracle_specification_digest",
+    "scoring_specification_digest",
+    "scorer_implementation_digest",
+    "evaluator_independence_receipt_digest",
+    "leakage_audit_digest",
+    "holdout_separation_evidence_digest",
+    "reproducibility_report_digest",
+    "cost_telemetry_digest",
+    "deterministic_replay_evidence_digest",
+    "judge_calibration_digest",
+    "human_adjudication_digest",
+    "inter_rater_reliability_digest",
+    "property_test_coverage_digest",
+    "agent_environment_image_digest",
+    "agent_attack_surface_manifest_digest",
+    "effect_sink_coverage_digest",
+    "human_preregistration_digest",
+    "human_ethics_approval_digest",
+    "accessible_consent_protocol_digest",
+    "withdrawal_and_data_minimization_digest",
+    "cluster_analysis_plan_digest",
+    "leakage_audit",
+    "oracle_independence",
+    "scorer_validation",
+    "holdout_separation",
+    "replay_reproducibility"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "benchmark_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "benchmark_owner_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "independent_evaluator_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "claim_profile": {
+      "enum": [
+        "synthetic_contract",
+        "agent_system",
+        "human_team"
+      ]
+    },
+    "scoring_method": {
+      "enum": [
+        "deterministic_oracle",
+        "independent_human_adjudication",
+        "llm_judge",
+        "hybrid"
+      ]
+    },
+    "stochastic_evaluation": {
+      "type": "boolean"
+    },
+    "repeated_run_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "distinct_seed_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "task_catalog_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "dataset_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "split_manifest_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "hidden_split_commitment_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "license_and_data_rights_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "oracle_specification_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "scoring_specification_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "scorer_implementation_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "evaluator_independence_receipt_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "leakage_audit_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "holdout_separation_evidence_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "reproducibility_report_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "cost_telemetry_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "deterministic_replay_evidence_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "judge_calibration_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "human_adjudication_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "inter_rater_reliability_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "property_test_coverage_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "agent_environment_image_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "agent_attack_surface_manifest_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "effect_sink_coverage_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "human_preregistration_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "human_ethics_approval_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "accessible_consent_protocol_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "withdrawal_and_data_minimization_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "cluster_analysis_plan_digest": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "leakage_audit": {
+      "enum": [
+        "pass",
+        "fail",
+        "unknown"
+      ]
+    },
+    "oracle_independence": {
+      "enum": [
+        "pass",
+        "fail",
+        "unknown"
+      ]
+    },
+    "scorer_validation": {
+      "enum": [
+        "pass",
+        "fail",
+        "unknown"
+      ]
+    },
+    "holdout_separation": {
+      "enum": [
+        "pass",
+        "fail",
+        "unknown"
+      ]
+    },
+    "replay_reproducibility": {
+      "enum": [
+        "pass",
+        "fail",
+        "unknown"
+      ]
+    }
+  },
+  "$comment": "Schema validates structure only. Evidence digests and gate values require independently authenticated receipts."
+}
