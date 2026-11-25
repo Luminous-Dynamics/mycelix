@@ -80,7 +80,10 @@ pub struct KnowledgeReceiptV1 {
     pub verifier_ref: String,
     pub assertion_id: String,
     pub assertion_digest: String,
+    /// Owner of the verifier's receipt-acceptance log, not necessarily the
+    /// source owner that authored the underlying assertion.
     pub owner_ref: String,
+    /// Position of this acceptance receipt in that owner's append-only log.
     pub owner_sequence: u64,
     pub causal_dependencies: Vec<OwnerPositionV1>,
     pub receipt_digest: String,
@@ -165,7 +168,8 @@ impl OwnerCutV1 {
     /// by this cut. This is structural gap accounting, not proof that the
     /// root or coverage declaration is authentic.
     pub fn prefix_is_complete_through(&self, through: u64) -> bool {
-        through <= self.sequence
+        self.validate().is_ok()
+            && through <= self.sequence
             && !self
                 .gaps
                 .iter()
@@ -222,8 +226,10 @@ impl VerifierFrontierV1 {
     /// this sequence? False means "do not assert absence"; it does not say
     /// whether the missing information is malicious or merely delayed.
     pub fn proves_prefix_coverage(&self, owner_ref: &str, through: u64) -> bool {
-        self.owner_cut(owner_ref)
-            .is_some_and(|cut| cut.prefix_is_complete_through(through))
+        self.validate().is_ok()
+            && self
+                .owner_cut(owner_ref)
+                .is_some_and(|cut| cut.prefix_is_complete_through(through))
     }
 
     pub fn classify_receipt(
@@ -639,6 +645,15 @@ mod tests {
             candidate.validate(),
             Err(FrontierModelErrorV1::InvalidCausalDependency)
         );
+    }
+
+    #[test]
+    fn invalid_cut_cannot_claim_prefix_coverage() {
+        let mut candidate = cut("owner:a", 10, 'a');
+        candidate.gaps = vec![
+            SequenceRangeV1 { first: 5, last: 4 },
+        ];
+        assert!(!candidate.prefix_is_complete_through(10));
     }
 
     #[test]
