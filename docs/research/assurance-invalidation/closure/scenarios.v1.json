@@ -1,0 +1,764 @@
+{
+  "corpus_id": "LISE-INV-CLOSURE-12-v1",
+  "status": "public_development_seed",
+  "disclosure": "Public synthetic benchmark-only dependency closure cases; not a hidden or blinded holdout and not a production dependency graph.",
+  "scenario_count": 12,
+  "pair_count": 6,
+  "scenarios": [
+    {
+      "scenario_id": "CLOSE-001",
+      "pair_id": "CLOSE-M01",
+      "variant": "A",
+      "family": "key_lifecycle",
+      "nodes": [
+        {
+          "node_id": "dep:current-key-state",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:historical-artifact-bytes",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "claim:current-authority",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "current_signing_authority"
+        },
+        {
+          "node_id": "claim:historical-integrity",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "historical_signature_integrity"
+        }
+      ],
+      "dependency_edges": [
+        {
+          "from_node_id": "dep:current-key-state",
+          "to_node_id": "claim:current-authority",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:historical-artifact-bytes",
+          "to_node_id": "claim:historical-integrity",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        }
+      ],
+      "change_events": [],
+      "change_coverage": "COMPLETE",
+      "unknown_scope_claim_nodes": [],
+      "owner_semantics": [
+        "#1243 LEX-NET-030 dependency relations",
+        "#5762 multi-valued/transitive closure",
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment"
+      ]
+    },
+    {
+      "scenario_id": "CLOSE-002",
+      "pair_id": "CLOSE-M01",
+      "variant": "B",
+      "family": "key_lifecycle",
+      "nodes": [
+        {
+          "node_id": "dep:current-key-state",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:historical-artifact-bytes",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "claim:current-authority",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "current_signing_authority"
+        },
+        {
+          "node_id": "claim:historical-integrity",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "historical_signature_integrity"
+        }
+      ],
+      "dependency_edges": [
+        {
+          "from_node_id": "dep:current-key-state",
+          "to_node_id": "claim:current-authority",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:historical-artifact-bytes",
+          "to_node_id": "claim:historical-integrity",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        }
+      ],
+      "change_events": [
+        {
+          "event_id": "EV-KEY-ROTATE",
+          "target_node_id": "dep:current-key-state",
+          "event_type": "KEY_ROTATED",
+          "observation": "OBSERVED_QUALIFIED"
+        }
+      ],
+      "change_coverage": "COMPLETE",
+      "unknown_scope_claim_nodes": [],
+      "owner_semantics": [
+        "#1243 LEX-NET-030 dependency relations",
+        "#5762 multi-valued/transitive closure",
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment"
+      ]
+    },
+    {
+      "scenario_id": "CLOSE-003",
+      "pair_id": "CLOSE-M02",
+      "variant": "A",
+      "family": "policy_dependency",
+      "nodes": [
+        {
+          "node_id": "dep:policy-alpha",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:policy-beta",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:shared-import",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:historical-decision-bytes",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "claim:current-effect-auth",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "current_effect_authority"
+        },
+        {
+          "node_id": "claim:historic-decision",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "historical_decision_integrity"
+        }
+      ],
+      "dependency_edges": [
+        {
+          "from_node_id": "dep:policy-alpha",
+          "to_node_id": "dep:shared-import",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:policy-beta",
+          "to_node_id": "dep:shared-import",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:shared-import",
+          "to_node_id": "claim:current-effect-auth",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:historical-decision-bytes",
+          "to_node_id": "claim:historic-decision",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        }
+      ],
+      "change_events": [],
+      "change_coverage": "COMPLETE",
+      "unknown_scope_claim_nodes": [],
+      "owner_semantics": [
+        "#1243 LEX-NET-030 dependency relations",
+        "#5762 multi-valued/transitive closure",
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment"
+      ]
+    },
+    {
+      "scenario_id": "CLOSE-004",
+      "pair_id": "CLOSE-M02",
+      "variant": "B",
+      "family": "policy_dependency",
+      "nodes": [
+        {
+          "node_id": "dep:policy-alpha",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:policy-beta",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:shared-import",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:historical-decision-bytes",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "claim:current-effect-auth",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "current_effect_authority"
+        },
+        {
+          "node_id": "claim:historic-decision",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "historical_decision_integrity"
+        }
+      ],
+      "dependency_edges": [
+        {
+          "from_node_id": "dep:policy-alpha",
+          "to_node_id": "dep:shared-import",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:policy-beta",
+          "to_node_id": "dep:shared-import",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:shared-import",
+          "to_node_id": "claim:current-effect-auth",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:historical-decision-bytes",
+          "to_node_id": "claim:historic-decision",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        }
+      ],
+      "change_events": [
+        {
+          "event_id": "EV-POLICY-BETA",
+          "target_node_id": "dep:policy-beta",
+          "event_type": "POLICY_NAMESPACE_CHANGED",
+          "observation": "OBSERVED_QUALIFIED"
+        }
+      ],
+      "change_coverage": "COMPLETE",
+      "unknown_scope_claim_nodes": [],
+      "owner_semantics": [
+        "#1243 LEX-NET-030 dependency relations",
+        "#5762 multi-valued/transitive closure",
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment"
+      ]
+    },
+    {
+      "scenario_id": "CLOSE-005",
+      "pair_id": "CLOSE-M03",
+      "variant": "A",
+      "family": "model_policy_scope",
+      "nodes": [
+        {
+          "node_id": "dep:agent-tokenizer",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:policy-engine-p7",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "claim:model-behavior",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "model_specific_behavior"
+        },
+        {
+          "node_id": "claim:policy-semantics",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "policy_engine_semantics"
+        }
+      ],
+      "dependency_edges": [
+        {
+          "from_node_id": "dep:agent-tokenizer",
+          "to_node_id": "claim:model-behavior",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:policy-engine-p7",
+          "to_node_id": "claim:policy-semantics",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        }
+      ],
+      "change_events": [],
+      "change_coverage": "COMPLETE",
+      "unknown_scope_claim_nodes": [],
+      "owner_semantics": [
+        "#1243 LEX-NET-030 dependency relations",
+        "#5762 multi-valued/transitive closure",
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment"
+      ]
+    },
+    {
+      "scenario_id": "CLOSE-006",
+      "pair_id": "CLOSE-M03",
+      "variant": "B",
+      "family": "model_policy_scope",
+      "nodes": [
+        {
+          "node_id": "dep:agent-tokenizer",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:policy-engine-p7",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "claim:model-behavior",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "model_specific_behavior"
+        },
+        {
+          "node_id": "claim:policy-semantics",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "policy_engine_semantics"
+        }
+      ],
+      "dependency_edges": [
+        {
+          "from_node_id": "dep:agent-tokenizer",
+          "to_node_id": "claim:model-behavior",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:policy-engine-p7",
+          "to_node_id": "claim:policy-semantics",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        }
+      ],
+      "change_events": [
+        {
+          "event_id": "EV-TOKENIZER",
+          "target_node_id": "dep:agent-tokenizer",
+          "event_type": "TOKENIZER_CHANGED",
+          "observation": "OBSERVED_QUALIFIED"
+        }
+      ],
+      "change_coverage": "COMPLETE",
+      "unknown_scope_claim_nodes": [],
+      "owner_semantics": [
+        "#1243 LEX-NET-030 dependency relations",
+        "#5762 multi-valued/transitive closure",
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment"
+      ]
+    },
+    {
+      "scenario_id": "CLOSE-007",
+      "pair_id": "CLOSE-M04",
+      "variant": "A",
+      "family": "route_inventory",
+      "nodes": [
+        {
+          "node_id": "dep:route-inventory-r9",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:existing-pep-13",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:alternate-maintenance-route",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "claim:complete-mediation",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "complete_mediation"
+        },
+        {
+          "node_id": "claim:pep-identity",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "pep_identity"
+        }
+      ],
+      "dependency_edges": [
+        {
+          "from_node_id": "dep:route-inventory-r9",
+          "to_node_id": "claim:complete-mediation",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:existing-pep-13",
+          "to_node_id": "claim:complete-mediation",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:existing-pep-13",
+          "to_node_id": "claim:pep-identity",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:alternate-maintenance-route",
+          "to_node_id": "claim:complete-mediation",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        }
+      ],
+      "change_events": [],
+      "change_coverage": "COMPLETE",
+      "unknown_scope_claim_nodes": [],
+      "owner_semantics": [
+        "#1243 LEX-NET-030 dependency relations",
+        "#5762 multi-valued/transitive closure",
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment"
+      ]
+    },
+    {
+      "scenario_id": "CLOSE-008",
+      "pair_id": "CLOSE-M04",
+      "variant": "B",
+      "family": "route_inventory",
+      "nodes": [
+        {
+          "node_id": "dep:route-inventory-r9",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:existing-pep-13",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:alternate-maintenance-route",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "claim:complete-mediation",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "complete_mediation"
+        },
+        {
+          "node_id": "claim:pep-identity",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "pep_identity"
+        }
+      ],
+      "dependency_edges": [
+        {
+          "from_node_id": "dep:route-inventory-r9",
+          "to_node_id": "claim:complete-mediation",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:existing-pep-13",
+          "to_node_id": "claim:complete-mediation",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:existing-pep-13",
+          "to_node_id": "claim:pep-identity",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:alternate-maintenance-route",
+          "to_node_id": "claim:complete-mediation",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        }
+      ],
+      "change_events": [
+        {
+          "event_id": "EV-NEW-ROUTE",
+          "target_node_id": "dep:alternate-maintenance-route",
+          "event_type": "EFFECT_CAPABLE_ROUTE_ADDED",
+          "observation": "OBSERVED_QUALIFIED"
+        }
+      ],
+      "change_coverage": "COMPLETE",
+      "unknown_scope_claim_nodes": [],
+      "owner_semantics": [
+        "#1243 LEX-NET-030 dependency relations",
+        "#5762 multi-valued/transitive closure",
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment"
+      ]
+    },
+    {
+      "scenario_id": "CLOSE-009",
+      "pair_id": "CLOSE-M05",
+      "variant": "A",
+      "family": "route_inventory",
+      "nodes": [
+        {
+          "node_id": "dep:static-route-inventory",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:dynamic-plugin-space",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:pep-coverage-tests",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "claim:route-completeness",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "complete_mediation"
+        },
+        {
+          "node_id": "claim:static-tests",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "historical_static_route_tests"
+        }
+      ],
+      "dependency_edges": [
+        {
+          "from_node_id": "dep:static-route-inventory",
+          "to_node_id": "claim:route-completeness",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:dynamic-plugin-space",
+          "to_node_id": "claim:route-completeness",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:pep-coverage-tests",
+          "to_node_id": "claim:static-tests",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        }
+      ],
+      "change_events": [],
+      "change_coverage": "COMPLETE",
+      "unknown_scope_claim_nodes": [],
+      "owner_semantics": [
+        "#1243 LEX-NET-030 dependency relations",
+        "#5762 multi-valued/transitive closure",
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment"
+      ]
+    },
+    {
+      "scenario_id": "CLOSE-010",
+      "pair_id": "CLOSE-M05",
+      "variant": "B",
+      "family": "route_inventory",
+      "nodes": [
+        {
+          "node_id": "dep:static-route-inventory",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:dynamic-plugin-space",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:pep-coverage-tests",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "claim:route-completeness",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "complete_mediation"
+        },
+        {
+          "node_id": "claim:static-tests",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "historical_static_route_tests"
+        }
+      ],
+      "dependency_edges": [
+        {
+          "from_node_id": "dep:static-route-inventory",
+          "to_node_id": "claim:route-completeness",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:dynamic-plugin-space",
+          "to_node_id": "claim:route-completeness",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:pep-coverage-tests",
+          "to_node_id": "claim:static-tests",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        }
+      ],
+      "change_events": [],
+      "change_coverage": "INCOMPLETE",
+      "unknown_scope_claim_nodes": [
+        "claim:route-completeness"
+      ],
+      "owner_semantics": [
+        "#1243 LEX-NET-030 dependency relations",
+        "#5762 multi-valued/transitive closure",
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment"
+      ]
+    },
+    {
+      "scenario_id": "CLOSE-011",
+      "pair_id": "CLOSE-M06",
+      "variant": "A",
+      "family": "observer_dependency",
+      "nodes": [
+        {
+          "node_id": "dep:observer-a-signature",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:observer-b-signature",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:shared-upstream-feed",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:observation-bytes",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "claim:observer-independence",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "observer_independence"
+        },
+        {
+          "node_id": "claim:observation-authenticity",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "observation_authenticity"
+        }
+      ],
+      "dependency_edges": [
+        {
+          "from_node_id": "dep:shared-upstream-feed",
+          "to_node_id": "claim:observer-independence",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:observer-a-signature",
+          "to_node_id": "claim:observation-authenticity",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:observer-b-signature",
+          "to_node_id": "claim:observation-authenticity",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:observation-bytes",
+          "to_node_id": "claim:observation-authenticity",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        }
+      ],
+      "change_events": [],
+      "change_coverage": "COMPLETE",
+      "unknown_scope_claim_nodes": [],
+      "owner_semantics": [
+        "#1243 LEX-NET-030 dependency relations",
+        "#5762 multi-valued/transitive closure",
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment"
+      ]
+    },
+    {
+      "scenario_id": "CLOSE-012",
+      "pair_id": "CLOSE-M06",
+      "variant": "B",
+      "family": "observer_dependency",
+      "nodes": [
+        {
+          "node_id": "dep:observer-a-signature",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:observer-b-signature",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:shared-upstream-feed",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "dep:observation-bytes",
+          "node_kind": "DEPENDENCY",
+          "claim_dimension": ""
+        },
+        {
+          "node_id": "claim:observer-independence",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "observer_independence"
+        },
+        {
+          "node_id": "claim:observation-authenticity",
+          "node_kind": "CLAIM_DIMENSION",
+          "claim_dimension": "observation_authenticity"
+        }
+      ],
+      "dependency_edges": [
+        {
+          "from_node_id": "dep:shared-upstream-feed",
+          "to_node_id": "claim:observer-independence",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:observer-a-signature",
+          "to_node_id": "claim:observation-authenticity",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:observer-b-signature",
+          "to_node_id": "claim:observation-authenticity",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        },
+        {
+          "from_node_id": "dep:observation-bytes",
+          "to_node_id": "claim:observation-authenticity",
+          "relation": "SUPPORTS_OR_CONDITIONS"
+        }
+      ],
+      "change_events": [
+        {
+          "event_id": "EV-COMMON-CAUSE",
+          "target_node_id": "dep:shared-upstream-feed",
+          "event_type": "COMMON_UPSTREAM_DEPENDENCY_DISCOVERED",
+          "observation": "OBSERVED_QUALIFIED"
+        }
+      ],
+      "change_coverage": "COMPLETE",
+      "unknown_scope_claim_nodes": [],
+      "owner_semantics": [
+        "#1243 LEX-NET-030 dependency relations",
+        "#5762 multi-valued/transitive closure",
+        "#1087 EvidenceApplicability",
+        "#2631 CurrentnessAssessment"
+      ]
+    }
+  ]
+}

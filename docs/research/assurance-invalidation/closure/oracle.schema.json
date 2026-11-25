@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Luminous-Dynamics/mycelix/blob/main/docs/research/assurance-invalidation/closure/oracle.schema.json",
+  "title": "LISE Invalidation Closure Oracle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scenario_id",
+    "affected_claim_nodes",
+    "unknown_claim_nodes",
+    "unaffected_claim_nodes",
+    "rejected_event_ids",
+    "reason_code"
+  ],
+  "properties": {
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^CLOSE-[0-9]{3}$"
+    },
+    "affected_claim_nodes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "unknown_claim_nodes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "unaffected_claim_nodes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "rejected_event_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "reason_code": {
+      "type": "string",
+      "pattern": "^[A-Z0-9_]+$"
+    }
+  }
+}
