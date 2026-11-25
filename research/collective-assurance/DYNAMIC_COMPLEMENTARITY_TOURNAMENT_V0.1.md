@@ -239,6 +239,8 @@ Report a Pareto frontier across task quality, capability retention, privacy, age
 - Mycelix #6616 owns information-order randomization and anchoring effects.
 - Mycelix #6089 owns distributed information acquisition, rights-aware inquiry and provenance.
 - Mycelix #6619 owns the reference evidence, support-choice and comparison validators.
+- Mycelix #6677 owns paired leave-one-source-origin-out replay qualification; it provides a mechanistic information-dependence trace, not a human causal estimate.
+- Mycelix #6678 owns benchmark-definition and evaluator-evidence qualification across synthetic, agent-system and human/team claim profiles.
 - Mycelix #6655/#6657 own the AI-off execution boundary protocol and reference external-witness receipt qualification.
 - Mycelix #6656 owns GroupAssistBench comparison parity.
 - Symthaea #12299/#13535 own the corresponding individual capability and challenge-response measurements.
@@ -249,6 +251,10 @@ Report a Pareto frontier across task quality, capability retention, privacy, age
 The Mycelix capability-outcome validator is the team-level outcome contract for SAT Track E. It supplies structurally checked baseline, assisted, immediate AI-off, delayed, far-transfer and resilience observations. It does not qualify the execution environment, authenticate the external AI-off receipt, decide authority, or score system-level alignment. SAT consumes the independent qualification/evidence from its owner-native execution and authority components, then evaluates the human and collective outcomes without collapsing them into a scalar.
 
 The runner and external witness follow-up PRs #6655/#6657 supply an AI-off protocol and reference receipt validator; SAT must still consume the owner-native isolation, revocation and enforcement boundaries rather than treat these documents as a deployed control. The dynamic complementarity tournament composes with SAT's adaptive-control and pluralistic-agency tracks and must not duplicate them.
+
+## Benchmark and evidence qualification composition
+
+Before reporting GroupAssistBench, COLLABMEM, HiddenBench or a custom human/team result, qualify the benchmark definition and evaluator evidence using Mycelix #6678. Use #6677 only when the question is the paired mechanistic contribution of an authorized source origin and its authenticated derivative closure. Neither structural validator authenticates evidence bytes or estimates human causal effects; both are evidence interfaces consumed by the appropriate owner-native experiment. The existing ledger in #6619 and information acquisition protocol in #6089 remain authoritative for provenance, rights, disclosure and verification.
 
 ## Claim ceiling
 
