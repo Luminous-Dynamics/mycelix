@@ -873,6 +873,7 @@ mod tests {
         assert!(report.robust_d_optimal_design.per_scenario_scores.iter()
             .all(|score| score.minimum_eigenvalue_total_information > score.minimum_eigenvalue_data_information));
     }
+
     #[test]
     fn normalized_symmetric_eigenvalue_is_scale_invariant() {
         let base = [
@@ -951,7 +952,11 @@ mod tests {
                 .abs()
                 < 1.0e-10
         );
-        for (left, right) in original.per_scenario_oracles.iter().zip(&rescaled.per_scenario_oracles) {
+        for (left, right) in original
+            .per_scenario_oracles
+            .iter()
+            .zip(&rescaled.per_scenario_oracles)
+        {
             assert!(
                 (left.maximum_available_log_determinant_gain
                     - right.maximum_available_log_determinant_gain)
@@ -960,5 +965,4 @@ mod tests {
             );
         }
     }
-
 }
