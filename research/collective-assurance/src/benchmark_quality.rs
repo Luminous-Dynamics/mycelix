@@ -4,7 +4,10 @@
 //! benchmark scores are compared. A structural PASS is bounded by the supplied
 //! registry and evidence references; it is not a certification authority.
 
-use super::{QualificationReport, QualificationStatus};
+use super::{
+    qualify_benchmark_comparison, BenchmarkRunManifest, ComparisonIntent, ComparisonReport,
+    ComparisonStatus, QualificationReport, QualificationStatus,
+};
 
 fn valid_digest(value: &str) -> bool {
     value.len() == 64
@@ -349,6 +352,55 @@ pub fn qualify_benchmark_definition(
     report
 }
 
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BenchmarkResultQualification {
+    pub benchmark_qualification: QualificationReport,
+    pub comparison: ComparisonReport,
+    pub benchmark_identity_matches_runs: bool,
+    pub matched_claim_eligible: bool,
+    pub contextual_claim_eligible: bool,
+}
+
+/// Combines benchmark-definition qualification with the actual two run manifests.
+///
+/// A valid benchmark certificate cannot be attached to a different benchmark
+/// identity/version. Matched and contextual claim eligibility are explicit,
+/// separate outputs; contextual comparison never implies a matched win.
+pub fn qualify_benchmark_result_comparison(
+    benchmark: &BenchmarkQualificationManifest,
+    baseline: &BenchmarkRunManifest,
+    candidate: &BenchmarkRunManifest,
+    intent: ComparisonIntent,
+) -> BenchmarkResultQualification {
+    let benchmark_qualification = qualify_benchmark_definition(benchmark);
+    let comparison = qualify_benchmark_comparison(baseline, candidate, intent);
+    let benchmark_identity_matches_runs = benchmark.benchmark_id == baseline.benchmark_id
+        && benchmark.benchmark_id == candidate.benchmark_id
+        && benchmark.benchmark_version == baseline.benchmark_version
+        && benchmark.benchmark_version == candidate.benchmark_version;
+    let benchmark_is_qualified =
+        benchmark_qualification.status == QualificationStatus::Pass
+            && benchmark_identity_matches_runs;
+    let matched_claim_eligible = benchmark_is_qualified
+        && intent == ComparisonIntent::MatchedSystem
+        && comparison.status == ComparisonStatus::Comparable;
+    let contextual_claim_eligible = benchmark_is_qualified
+        && intent == ComparisonIntent::CrossModelContext
+        && matches!(
+            comparison.status,
+            ComparisonStatus::Comparable | ComparisonStatus::ContextOnly
+        );
+
+    BenchmarkResultQualification {
+        benchmark_qualification,
+        comparison,
+        benchmark_identity_matches_runs,
+        matched_claim_eligible,
+        contextual_claim_eligible,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -400,6 +452,86 @@ mod tests {
             withdrawal_and_data_minimization_digest: None,
             cluster_analysis_plan_digest: None,
         }
+    }
+
+
+    fn run_manifest(run_id: &str, model: &str) -> BenchmarkRunManifest {
+        BenchmarkRunManifest {
+            run_id: run_id.into(),
+            system_variant: if model == "model-A" { "baseline".into() } else { "candidate".into() },
+            system_config_digest: digest('a'),
+            benchmark_id: "synthetic-qualification-suite".into(),
+            benchmark_version: "0.1".into(),
+            dataset_digest: digest('b'),
+            split_digest: digest('c'),
+            task_family_digest: digest('d'),
+            evaluation_protocol_digest: digest('e'),
+            scorer_digest: digest('f'),
+            model_snapshot_digest: digest(if model == "model-A" { '1' } else { '2' }),
+            tokenizer_digest: digest('3'),
+            prompt_digest: digest('4'),
+            toolset_digest: digest('5'),
+            decoding_config_digest: digest('6'),
+            context_tokens: 4096,
+            max_output_tokens: 1024,
+            time_budget_ms: 30000,
+            token_budget: 8192,
+            compute_budget_millijoules: 100000,
+            agent_count: 1,
+            memory_budget_bytes: 100000000,
+            seed_policy_id: "paired-seed-v1".into(),
+            seed: 7,
+        }
+    }
+
+    #[test]
+    fn qualified_benchmark_and_matched_runs_enable_matched_claim() {
+        let benchmark = valid_manifest();
+        let baseline = run_manifest("baseline", "model-A");
+        let candidate = run_manifest("candidate", "model-A");
+        let report = qualify_benchmark_result_comparison(
+            &benchmark,
+            &baseline,
+            &candidate,
+            ComparisonIntent::MatchedSystem,
+        );
+        assert_eq!(report.benchmark_qualification.status, QualificationStatus::Pass);
+        assert!(report.benchmark_identity_matches_runs);
+        assert!(report.matched_claim_eligible);
+        assert!(!report.contextual_claim_eligible);
+    }
+
+    #[test]
+    fn benchmark_certificate_cannot_be_attached_to_another_version() {
+        let mut benchmark = valid_manifest();
+        benchmark.benchmark_version = "0.2".into();
+        let baseline = run_manifest("baseline", "model-A");
+        let candidate = run_manifest("candidate", "model-A");
+        let report = qualify_benchmark_result_comparison(
+            &benchmark,
+            &baseline,
+            &candidate,
+            ComparisonIntent::MatchedSystem,
+        );
+        assert!(!report.benchmark_identity_matches_runs);
+        assert!(!report.matched_claim_eligible);
+        assert!(!report.contextual_claim_eligible);
+    }
+
+    #[test]
+    fn cross_model_run_is_contextual_not_matched() {
+        let benchmark = valid_manifest();
+        let baseline = run_manifest("baseline", "model-A");
+        let candidate = run_manifest("candidate", "model-B");
+        let report = qualify_benchmark_result_comparison(
+            &benchmark,
+            &baseline,
+            &candidate,
+            ComparisonIntent::CrossModelContext,
+        );
+        assert!(report.benchmark_identity_matches_runs);
+        assert!(!report.matched_claim_eligible);
+        assert!(report.contextual_claim_eligible);
     }
 
     #[test]
