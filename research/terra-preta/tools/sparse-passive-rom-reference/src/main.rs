@@ -1217,17 +1217,26 @@ fn build_zero_shift_block_arnoldi_projection(
     build_projection_from_basis(model, basis, snapshot_count, stats, fixture)
 }
 
-fn response_from_reduced(projection: &Projection, shift: f64) -> Result<Dense, String> {
-    let nb = projection.d_r.len();
+fn reduced_state_coefficients(
+    projection: &Projection,
+    shift: f64,
+) -> Result<Vec<Vec<f64>>, String> {
+    let port_count = projection.d_r.len();
     let mut shifted = projection.a_r.clone();
     for (index, row) in shifted.iter_mut().enumerate() {
         row[index] += shift;
     }
-    let mut solution_columns = Vec::with_capacity(nb);
-    for port in 0..nb {
+    let mut solution_columns = Vec::with_capacity(port_count);
+    for port in 0..port_count {
         solution_columns.push(dense_solve(&shifted, &column(&projection.b_r, port))?);
     }
-    let b_columns: Vec<Vec<f64>> = (0..nb)
+    Ok(solution_columns)
+}
+
+fn response_from_reduced(projection: &Projection, shift: f64) -> Result<Dense, String> {
+    let port_count = projection.d_r.len();
+    let solution_columns = reduced_state_coefficients(projection, shift)?;
+    let b_columns: Vec<Vec<f64>> = (0..port_count)
         .map(|port| column(&projection.b_r, port))
         .collect();
     let mut response = projection.d_r.clone();
@@ -1239,6 +1248,7 @@ fn response_from_reduced(projection: &Projection, shift: f64) -> Result<Dense, S
     }
     Ok(response)
 }
+
 
 fn reduced_state_in_full_space(
     model: &Model,
