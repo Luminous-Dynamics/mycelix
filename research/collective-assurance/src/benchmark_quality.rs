@@ -455,10 +455,10 @@ mod tests {
     }
 
 
-    fn run_manifest(run_id: &str, model: &str) -> BenchmarkRunManifest {
+    fn run_manifest(run_id: &str, model: &str, variant: &str) -> BenchmarkRunManifest {
         BenchmarkRunManifest {
             run_id: run_id.into(),
-            system_variant: if model == "model-A" { "baseline".into() } else { "candidate".into() },
+            system_variant: variant.into(),
             system_config_digest: digest('a'),
             benchmark_id: "synthetic-qualification-suite".into(),
             benchmark_version: "0.1".into(),
@@ -487,8 +487,8 @@ mod tests {
     #[test]
     fn qualified_benchmark_and_matched_runs_enable_matched_claim() {
         let benchmark = valid_manifest();
-        let baseline = run_manifest("baseline", "model-A");
-        let candidate = run_manifest("candidate", "model-A");
+        let baseline = run_manifest("baseline", "model-A", "baseline");
+        let candidate = run_manifest("candidate", "model-A", "candidate");
         let report = qualify_benchmark_result_comparison(
             &benchmark,
             &baseline,
@@ -522,7 +522,7 @@ mod tests {
     fn cross_model_run_is_contextual_not_matched() {
         let benchmark = valid_manifest();
         let baseline = run_manifest("baseline", "model-A");
-        let candidate = run_manifest("candidate", "model-B");
+        let candidate = run_manifest("candidate", "model-B", "candidate");
         let report = qualify_benchmark_result_comparison(
             &benchmark,
             &baseline,
