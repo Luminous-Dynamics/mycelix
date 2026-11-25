@@ -124,12 +124,12 @@ fn main() {
         let reference_elapsed = reference_start.elapsed();
 
         let indexed_start = Instant::now();
-        for query in 0..query_count {
+        for (query, expected) in reference_results.iter().enumerate() {
             let claim_id = format!("claim:{:08}", (query * 17) % claim_count);
             let result = index
                 .evaluate_valid_at(&claim_id, VERIFIER, VALID_AT, KNOWN, false)
                 .expect("indexed query should succeed");
-            assert_eq!(result, reference_results[query]);
+            assert_eq!(&result, expected);
             black_box(result);
         }
         let indexed_elapsed = indexed_start.elapsed();
