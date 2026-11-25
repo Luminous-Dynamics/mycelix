@@ -347,6 +347,8 @@ pub fn refine_relational_evidence(
             || !nonempty(&candidate.source_message_id)
             || !nonempty(&candidate.response_subject_id)
             || !nonempty(&candidate.response_scope_id)
+            || candidate.subject_ids.is_empty()
+            || !candidate.subject_ids.contains(&candidate.response_subject_id)
             || !unique_nonempty(&candidate.subject_ids)
             || !unique_nonempty(&candidate.event_ids)
             || !unique_nonempty(&candidate.decision_ids)
@@ -758,6 +760,15 @@ mod tests {
         assert!(constraints.iter().all(|item| item.authorized_responder_id == scope.recipient_id));
         assert_eq!(constraints[0].subject_id, "trip-date");
         assert_eq!(constraints[0].scope_id, "group-trip-2026");
+    }
+
+
+    #[test]
+    fn response_subject_must_belong_to_evidence_subject_set() {
+        let mut item = record("e1", "origin-a", "holder-a");
+        item.response_subject_id = "unrelated-subject".into();
+        let report = refine_relational_evidence(&scope(), &[item], &[]);
+        assert_eq!(report.status, RelationalEvidenceStatus::Fail);
     }
 
     #[test]
