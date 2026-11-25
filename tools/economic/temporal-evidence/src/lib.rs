@@ -290,17 +290,33 @@ impl TemporalEvidenceSetV1 {
         &self,
         by_id: &BTreeMap<&str, &TemporalAssertionV1>,
     ) -> Result<(), TemporalKernelErrorV1> {
+        // Three-color iterative traversal: each assertion enters the active
+        // path once and is finalized once, avoiding quadratic rescans of long
+        // correction chains and recursion-depth hazards.
+        let mut state = BTreeMap::<&str, u8>::new();
         for assertion in &self.assertions {
-            let mut visited = BTreeSet::new();
+            let mut path = Vec::<&str>::new();
             let mut current = assertion;
-            while let Some(previous_id) = current.supersedes_assertion_id.as_deref() {
-                if !visited.insert(previous_id) {
-                    return Err(TemporalKernelErrorV1::SupersessionCycle);
+            loop {
+                let id = current.assertion_id.as_str();
+                match state.get(id).copied() {
+                    Some(1) => return Err(TemporalKernelErrorV1::SupersessionCycle),
+                    Some(2) => break,
+                    _ => {
+                        state.insert(id, 1);
+                        path.push(id);
+                    }
                 }
+                let Some(previous_id) = current.supersedes_assertion_id.as_deref() else {
+                    break;
+                };
                 current = by_id
                     .get(previous_id)
                     .copied()
                     .ok_or(TemporalKernelErrorV1::InvalidSupersessionTarget)?;
+            }
+            for id in path {
+                state.insert(id, 2);
             }
         }
         Ok(())
