@@ -1663,6 +1663,10 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     let mut block_arnoldi_baseline_absolute_error_bound = 0.0_f64;
     let mut block_arnoldi_baseline_relative_error_bound = 0.0_f64;
     let mut block_arnoldi_baseline_error_bound_valid = true;
+    let mut block_arnoldi_baseline_portwise_absolute_error_bound = 0.0_f64;
+    let mut block_arnoldi_baseline_portwise_relative_error_bound = 0.0_f64;
+    let mut block_arnoldi_baseline_portwise_error_bound_valid = true;
+    let mut block_arnoldi_baseline_best_relative_error_bound = 0.0_f64;
     let mut exact_dc_from_audit: Option<Dense> = None;
     let mut frequency_samples = Vec::with_capacity(fixture.laplace_samples.len());
     for shift in &fixture.laplace_samples {
@@ -1677,20 +1681,41 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             exact_dc_from_audit = Some(full.clone());
         }
         let reduced = response_from_reduced(&projection, *shift)?;
-        let (absolute_response_error_upper_bound, relative_response_error_upper_bound,
-            absolute_response_error, error_bound_valid) = response_error_upper_bound(
-                &model,
-                &projection,
-                *shift,
-                error_certificate.lambda_min_lower_bound,
-                &full,
-                &reduced,
-            )?;
-        if !error_bound_valid {
+        let (
+            absolute_response_error_upper_bound,
+            relative_response_error_upper_bound,
+            absolute_response_error,
+            error_bound_valid,
+        ) = response_error_upper_bound(
+            &model,
+            &projection,
+            *shift,
+            error_certificate.lambda_min_lower_bound,
+            &full,
+            &reduced,
+        )?;
+        let (
+            portwise_absolute_response_error_upper_bound,
+            portwise_relative_response_error_upper_bound,
+            _portwise_actual_absolute_error,
+            portwise_error_bound_valid,
+        ) = response_error_upper_bound_portwise(
+            &model,
+            &projection,
+            *shift,
+            &error_certificate.supersolution,
+            &full,
+            &reduced,
+        )?;
+        if !error_bound_valid || !portwise_error_bound_valid {
             return Err(format!(
-                "residual response-error bound failed to dominate observed error at s={shift}"
+                "independent response-error bounds failed to dominate observed error at s={shift}"
             ));
         }
+        let best_absolute_response_error_upper_bound = absolute_response_error_upper_bound
+            .min(portwise_absolute_response_error_upper_bound);
+        let best_relative_response_error_upper_bound = relative_response_error_upper_bound
+            .min(portwise_relative_response_error_upper_bound);
         if let Some((block_projection, _)) = block_arnoldi_baseline.as_ref() {
             let block_reduced = response_from_reduced(block_projection, *shift)?;
             block_arnoldi_baseline_error = block_arnoldi_baseline_error
@@ -1713,6 +1738,31 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             block_arnoldi_baseline_relative_error_bound =
                 block_arnoldi_baseline_relative_error_bound.max(block_relative_bound);
             block_arnoldi_baseline_error_bound_valid &= block_bound_valid;
+
+            let (
+                block_portwise_absolute_bound,
+                block_portwise_relative_bound,
+                _block_portwise_actual_error,
+                block_portwise_valid,
+            ) = response_error_upper_bound_portwise(
+                &model,
+                block_projection,
+                *shift,
+                &error_certificate.supersolution,
+                &full,
+                &block_reduced,
+            )?;
+            block_arnoldi_baseline_portwise_absolute_error_bound =
+                block_arnoldi_baseline_portwise_absolute_error_bound
+                    .max(block_portwise_absolute_bound);
+            block_arnoldi_baseline_portwise_relative_error_bound =
+                block_arnoldi_baseline_portwise_relative_error_bound
+                    .max(block_portwise_relative_bound);
+            block_arnoldi_baseline_portwise_error_bound_valid &= block_portwise_valid;
+            block_arnoldi_baseline_best_relative_error_bound =
+                block_arnoldi_baseline_best_relative_error_bound.max(
+                    block_relative_bound.min(block_portwise_relative_bound),
+                );
         }
         frequency_samples.push(SampleResult {
             laplace_s: *shift,
@@ -1721,6 +1771,11 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             absolute_response_error_upper_bound,
             relative_response_error_upper_bound,
             error_bound_valid,
+            portwise_absolute_response_error_upper_bound,
+            portwise_relative_response_error_upper_bound,
+            portwise_error_bound_valid,
+            best_absolute_response_error_upper_bound,
+            best_relative_response_error_upper_bound,
             full_cg_max_iterations: full_stats.iter().map(|item| item.iterations).max().unwrap_or(0),
             full_cg_max_relative_residual: full_stats.iter()
                 .map(|item| item.relative_residual).fold(0.0_f64, f64::max),
