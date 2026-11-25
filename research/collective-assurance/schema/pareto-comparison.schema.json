@@ -138,6 +138,42 @@
               }
             }
           }
+        },
+        {
+          "properties": {
+            "required_gate_ids": {
+              "contains": {
+                "const": "authority"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "required_gate_ids": {
+              "contains": {
+                "const": "privacy"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "required_gate_ids": {
+              "contains": {
+                "const": "evidence"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "required_gate_ids": {
+              "contains": {
+                "const": "evaluator"
+              }
+            }
+          }
         }
       ]
     },
