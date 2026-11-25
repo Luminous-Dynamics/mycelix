@@ -691,7 +691,25 @@ mod tests {
             assert!(design.total_cost <= design.acquisition_budget);
             assert_eq!(design.per_scenario_scores.len(), 3);
         }
-        assert!(report.robust_d_optimal_design.worst_case_rank >= 3);
+        assert!(report.robust_d_optimal_design.worst_case_rank == 4);
+        assert_ne!(
+            report.nominal_design.candidate_ids,
+            report.robust_d_optimal_design.candidate_ids,
+            "nominal D-optimality should select the sensor that loses support under a non-nominal segmentation"
+        );
+        assert_eq!(
+            report.nominal_design.candidate_ids,
+            vec!["upper-pressure", "lower-pressure", "upper-path-flow"]
+        );
+        assert_eq!(
+            report.robust_d_optimal_design.candidate_ids,
+            vec!["upper-pressure", "lower-pressure", "lower-path-flow"]
+        );
+        assert_eq!(
+            report.minimax_regret_design.candidate_ids,
+            vec!["upper-pressure", "lower-pressure", "lower-path-flow"]
+        );
+        assert!(report.minimax_regret_design.maximum_normalized_d_optimal_regret <= 0.05);
     }
 
     #[test]
