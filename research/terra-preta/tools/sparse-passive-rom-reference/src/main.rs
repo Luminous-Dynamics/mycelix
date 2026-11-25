@@ -2105,8 +2105,39 @@ mod tests {
         );
         assert!(report.overall_pcg_solve_count > report.cg_solve_count);
         assert!(report.maximum_relative_response_error_upper_bound.is_finite());
+        assert!(report.maximum_portwise_relative_response_error_upper_bound.is_finite());
+        assert!(report.maximum_best_relative_response_error_upper_bound.is_finite());
+        assert!(
+            report.maximum_best_relative_response_error_upper_bound
+                <= report.maximum_relative_response_error_upper_bound
+        );
         for sample in &report.frequency_samples {
             assert!(sample.error_bound_valid);
+            assert!(sample.portwise_error_bound_valid);
+            assert!(
+                sample.portwise_absolute_response_error_upper_bound
+                    >= sample.absolute_response_error
+            );
+            assert!(
+                sample.portwise_relative_response_error_upper_bound
+                    >= sample.relative_response_error
+            );
+            assert!(
+                sample.best_absolute_response_error_upper_bound
+                    >= sample.absolute_response_error
+            );
+            assert!(
+                sample.best_relative_response_error_upper_bound
+                    >= sample.relative_response_error
+            );
+            assert!(
+                sample.best_absolute_response_error_upper_bound
+                    <= sample.absolute_response_error_upper_bound
+            );
+            assert!(
+                sample.best_relative_response_error_upper_bound
+                    <= sample.relative_response_error_upper_bound
+            );
             assert!(
                 sample.absolute_response_error_upper_bound >= sample.absolute_response_error,
                 "upper bound {:?} must dominate observed error {:?} at s={}",
@@ -2351,8 +2382,17 @@ mod tests {
             .block_arnoldi_baseline_maximum_sampled_response_error
             .is_some_and(f64::is_finite));
         assert_eq!(report.block_arnoldi_baseline_error_bound_valid, Some(true));
+        assert_eq!(report.block_arnoldi_baseline_portwise_error_bound_valid, Some(true));
         assert!(
             report.block_arnoldi_baseline_maximum_relative_response_error_upper_bound
+                >= report.block_arnoldi_baseline_maximum_sampled_response_error
+        );
+        assert!(
+            report.block_arnoldi_baseline_maximum_portwise_relative_error_upper_bound
+                >= report.block_arnoldi_baseline_maximum_sampled_response_error
+        );
+        assert!(
+            report.block_arnoldi_baseline_maximum_best_relative_error_upper_bound
                 >= report.block_arnoldi_baseline_maximum_sampled_response_error
         );
         assert!(report
@@ -2384,12 +2424,16 @@ mod tests {
             assert!(report
                 .frequency_samples
                 .iter()
-                .all(|sample| sample.error_bound_valid));
+                .all(|sample| sample.error_bound_valid && sample.portwise_error_bound_valid));
             assert!(report
                 .frequency_samples
                 .iter()
                 .all(|sample| sample.absolute_response_error
-                    <= sample.absolute_response_error_upper_bound));
+                    <= sample.absolute_response_error_upper_bound
+                    && sample.absolute_response_error
+                        <= sample.portwise_absolute_response_error_upper_bound
+                    && sample.absolute_response_error
+                        <= sample.best_absolute_response_error_upper_bound));
             assert!(report.error_certificate_pcg_solve_count > 0);
             assert!(report.error_certificate_pcg_solve_count <= 5);
             assert!(
