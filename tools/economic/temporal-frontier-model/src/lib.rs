@@ -314,6 +314,7 @@ impl VerifierFrontierV1 {
         let mut before = false;
         let mut after = false;
         for (owner_ref, left_cut) in &left {
+            let left_cut = *left_cut;
             let Some(right_cut) = right.get(*owner_ref).copied() else {
                 return Ok(FrontierRelationV1::Unknown);
             };
@@ -350,6 +351,13 @@ impl VerifierFrontierV1 {
                 FrontierRelationV1::After => after = true,
                 _ => {}
             }
+        }
+
+        if !before
+            && !after
+            && self.checkpoint_root_digest != other.checkpoint_root_digest
+        {
+            return Ok(FrontierRelationV1::Unknown);
         }
 
         Ok(match (before, after) {
@@ -519,6 +527,15 @@ mod tests {
             },
         ];
         assert_eq!(a.compare(&b, &links), Ok(FrontierRelationV1::Concurrent));
+    }
+
+    #[test]
+    fn equal_owner_cuts_with_different_aggregate_root_are_unknown() {
+        let a = frontier("frontier:a", vec![cut("owner:a", 10, 'a')]);
+        let mut b = frontier("frontier:b", vec![cut("owner:a", 10, 'a')]);
+        b.checkpoint_root_digest = digest('e');
+        b.owner_cuts[0].checkpoint_inclusion.checkpoint_root_digest = digest('e');
+        assert_eq!(a.compare(&b, &[]), Ok(FrontierRelationV1::Unknown));
     }
 
     #[test]
