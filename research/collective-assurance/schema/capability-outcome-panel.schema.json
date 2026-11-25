@@ -79,7 +79,8 @@
           "ai_off_qualification",
           "ai_off_receipt_digest",
           "elapsed_days_since_collaboration",
-          "perturbation_id"
+          "perturbation_id",
+          "stage_sequence"
         ],
         "properties": {
           "run_id": {
@@ -179,6 +180,11 @@
                 "minLength": 1
               }
             ]
+          },
+          "stage_sequence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
           }
         }
       }
