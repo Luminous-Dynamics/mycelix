@@ -61,13 +61,14 @@ jobs:
             (.assertions | type == "array" and length >= 10) and
             (([.assertions[].assertion_id] | length) == ([.assertions[].assertion_id] | unique | length)) and
             all(.assertions[];
-              (.subject_ref | type == "string" and length > 0) and
-              (.time_value | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T")) and
-              (.clock_profile | type == "string" and length > 0) and
-              (.source_authority_ref | type == "string" and length > 0) and
-              (.evidence_ref | type == "string" and length > 0) and
-              (.content_digest | test("^sha256:[0-9a-f]{64}$")) and
-              (["OCCURRED_AT","VALID_FROM","VALID_TO","SOURCE_RECORDED_AT","RECEIVER_OBSERVED_AT","VERIFIER_KNOWLEDGE_AT"] | index(.dimension) != null)
+              . as $assertion |
+              ($assertion.subject_ref | type == "string" and length > 0) and
+              ($assertion.time_value | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$")) and
+              ($assertion.clock_profile | type == "string" and length > 0) and
+              ($assertion.source_authority_ref | type == "string" and length > 0) and
+              ($assertion.evidence_ref | type == "string" and length > 0) and
+              ($assertion.content_digest | test("^sha256:[0-9a-f]{64}$")) and
+              (["OCCURRED_AT","VALID_FROM","VALID_TO","SOURCE_RECORDED_AT","RECEIVER_OBSERVED_AT","VERIFIER_KNOWLEDGE_AT"] | index($assertion.dimension) != null)
             ) and
             (all(.assertions[]; has("owner_sequence") | not)) and
             (.assertions as $assertions |
