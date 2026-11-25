@@ -1709,7 +1709,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         )?;
         if !error_bound_valid || !portwise_error_bound_valid {
             return Err(format!(
-                "independent response-error bounds failed to dominate observed error at s={shift}"
+                "independent response-error bounds failed at s={shift}: spectral_valid={error_bound_valid}, portwise_valid={portwise_error_bound_valid}, spectral_abs={absolute_response_error_upper_bound:e}, portwise_abs={portwise_absolute_response_error_upper_bound:e}, actual_abs={absolute_response_error:e}"
             ));
         }
         let best_absolute_response_error_upper_bound = absolute_response_error_upper_bound
