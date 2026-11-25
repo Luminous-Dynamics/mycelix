@@ -1121,6 +1121,49 @@ mod tests {
     }
 
     #[test]
+    fn timestamp_precision_must_match_serialized_timestamp() {
+        let mut input = sample();
+        input.events[0].time.metadata.precision = TimePrecision::Millisecond;
+        assert_eq!(input.export(), Err(ProjectionError::TimestampPrecisionMismatch));
+
+        let mut input = sample();
+        input.events[0].time.iso8601 = "2026-11-21T13:00:00.125Z".into();
+        input.events[0].time.metadata.precision = TimePrecision::Millisecond;
+        assert!(input.export().is_ok());
+
+        let mut input = sample();
+        input.events[0].time.metadata.precision = TimePrecision::Day;
+        assert_eq!(input.export(), Err(ProjectionError::TimestampPrecisionMismatch));
+    }
+
+    #[test]
+    fn uncertainty_window_must_be_ordered_and_share_timezone() {
+        let mut input = sample();
+        input.events[0].time.metadata = TimeAssertionMetadata::uncertain(
+            "provider-rail-clock-v1",
+            "provider:rail-1:status-authority",
+            TimePrecision::Second,
+            TimeUncertaintyWindow {
+                earliest: "2026-11-21T13:00:02Z".into(),
+                latest: "2026-11-21T13:00:01Z".into(),
+            },
+        );
+        assert_eq!(input.export(), Err(ProjectionError::InvalidUncertaintyWindow));
+
+        let mut input = sample();
+        input.events[0].time.metadata = TimeAssertionMetadata::uncertain(
+            "provider-rail-clock-v1",
+            "provider:rail-1:status-authority",
+            TimePrecision::Second,
+            TimeUncertaintyWindow {
+                earliest: "2026-11-21T13:00:01Z".into(),
+                latest: "2026-11-21T15:00:02+02:00".into(),
+            },
+        );
+        assert_eq!(input.export(), Err(ProjectionError::InvalidUncertaintyWindow));
+    }
+
+    #[test]
     fn missing_clock_profile_and_source_authority_are_rejected() {
         let mut input = sample();
         input.events[0].time.metadata.clock_profile.clear();
