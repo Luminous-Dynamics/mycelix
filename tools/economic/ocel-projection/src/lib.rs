@@ -642,12 +642,10 @@ fn validate_time(time: &QualifiedTime, expected_basis: TimeBasis) -> Result<(), 
         });
     }
     validate_identifier(&time.evidence_ref).map_err(|_| ProjectionError::MissingTimeEvidence)?;
-    if time.metadata.clock_profile.trim().is_empty() {
-        return Err(ProjectionError::MissingClockProfile);
-    }
-    if time.metadata.source_authority_ref.trim().is_empty() {
-        return Err(ProjectionError::MissingTimeAuthority);
-    }
+    validate_identifier(&time.metadata.clock_profile)
+        .map_err(|_| ProjectionError::MissingClockProfile)?;
+    validate_identifier(&time.metadata.source_authority_ref)
+        .map_err(|_| ProjectionError::MissingTimeAuthority)?;
     if !is_rfc3339_timestamp(&time.iso8601) {
         return Err(ProjectionError::InvalidTimestamp);
     }
@@ -1034,6 +1032,54 @@ mod tests {
         assert!(artifacts.time_provenance_json.contains("source:receipt:time"));
         assert!(artifacts.time_provenance_json.contains("source:lot:quantity-time"));
         assert!(artifacts.time_provenance_json.contains("source:lot:unit-time"));
+    }
+
+    #[test]
+    fn precision_quality_clock_and_authority_are_preserved() {
+        let artifacts = sample().export().unwrap();
+        assert!(artifacts.ocel_json.contains("\"name\":\"time_precision\",\"value\":\"SECOND\""));
+        assert!(artifacts.ocel_json.contains("\"name\":\"time_quality\",\"value\":\"SOURCE_ASSERTED\""));
+        for expected in [
+            "\"precision\":\"SECOND\"",
+            "\"quality\":\"SOURCE_ASSERTED\"",
+            "\"clock_profile\":\"receiver-device-utc-v1\"",
+            "\"source_authority_ref\":\"warehouse:receiver-1:goods-receipt-authority\"",
+            "\"clock_profile\":\"supplier-device-utc-v1\"",
+        ] {
+            assert!(artifacts.time_provenance_json.contains(expected), "missing {expected}");
+        }
+    }
+
+    #[test]
+    fn uncertain_time_requires_explicit_uncertainty_window() {
+        let mut input = sample();
+        input.events[0].time.metadata.quality = TimeQuality::Uncertain;
+        assert_eq!(input.export(), Err(ProjectionError::UncertaintyWindowRequired));
+        input.events[0].time.metadata.uncertainty_window = Some(TimeUncertaintyWindow {
+            earliest: "2026-11-21T12:59:58Z".into(),
+            latest: "2026-11-21T13:00:04Z".into(),
+        });
+        let artifacts = input.export().unwrap();
+        assert!(artifacts.time_provenance_json.contains("\"uncertainty_window\""));
+        assert!(artifacts.time_provenance_json.contains("2026-11-21T12:59:58Z"));
+    }
+
+    #[test]
+    fn contested_temporal_assertion_is_not_exported() {
+        let mut input = sample();
+        input.events[0].time.metadata.quality = TimeQuality::Contested;
+        assert_eq!(input.export(), Err(ProjectionError::ContestedTimeCannotExport));
+    }
+
+    #[test]
+    fn missing_clock_profile_and_source_authority_are_rejected() {
+        let mut input = sample();
+        input.events[0].time.metadata.clock_profile.clear();
+        assert_eq!(input.export(), Err(ProjectionError::MissingClockProfile));
+
+        let mut input = sample();
+        input.events[0].time.metadata.source_authority_ref.clear();
+        assert_eq!(input.export(), Err(ProjectionError::MissingTimeAuthority));
     }
 
     #[test]
