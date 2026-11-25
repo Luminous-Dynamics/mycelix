@@ -8,6 +8,7 @@ mod allocation;
 mod comparison;
 mod constraint_binding;
 mod ledger;
+mod information_contribution;
 mod response_audit;
 mod support_policy;
 
@@ -15,6 +16,10 @@ pub use allocation::{
     allocate_committed_teams, compute_design_digest, compute_roster_digest,
     create_allocation_commitment, verify_allocation_reveal, AllocationCommitment,
     AllocationSecret,
+};
+pub use information_contribution::{
+    qualify_information_origin_counterfactual, InformationContributionReport,
+    InformationOriginCounterfactual, OriginDisclosureStatus,
 };
 pub use ledger::{
     genesis_digest, validate_ledger, ClaimDisposition, ClaimReference, DecisionDisposition,
