@@ -25,12 +25,20 @@ fn owner_cut(owner: &str, sequence: u64, root: char) -> OwnerCutV1 {
     }
 }
 
-fn frontier(id: &str, cuts: Vec<OwnerCutV1>) -> VerifierFrontierV1 {
+fn frontier(id: &str, mut cuts: Vec<OwnerCutV1>) -> VerifierFrontierV1 {
+    // Synthetic fixture value only; not a cryptographic aggregate-root hash.
+    let aggregate_value = id
+        .bytes()
+        .fold(0_u64, |value, byte| value.wrapping_mul(31).wrapping_add(u64::from(byte)));
+    let checkpoint_root_digest = format!("sha256:{aggregate_value:064x}");
+    for cut in &mut cuts {
+        cut.checkpoint_inclusion.checkpoint_root_digest = checkpoint_root_digest.clone();
+    }
     VerifierFrontierV1 {
         frontier_id: id.into(),
         verifier_ref: VERIFIER.into(),
         policy_epoch_ref: "policy-epoch:1".into(),
-        checkpoint_root_digest: digest('f'),
+        checkpoint_root_digest,
         parent_frontier_ids: Vec::new(),
         owner_cuts: cuts,
     }
