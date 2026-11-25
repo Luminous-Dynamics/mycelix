@@ -28,9 +28,10 @@ cargo +1.96.0 fmt --all -- --check
 cargo +1.96.0 test --locked
 cargo +1.96.0 clippy --locked --all-targets -- -D warnings
 cargo +1.96.0 run --locked --example historical_revocation
+cargo +1.96.0 run --locked --example benchmark_query_index
 ```
 
-The example models a revocation effective on November 18, 2026, which a verifier only learns on November 20. A query at the same valid time can therefore be indeterminate at an earlier knowledge time and valid-at-query after the verifier's receipt, without rewriting the historical knowledge state.
+The historical example models a revocation effective on November 18, 2026, which a verifier only learns on November 20. A query at the same valid time can therefore be indeterminate at an earlier knowledge time and valid-at-query after the verifier's receipt, without rewriting the historical knowledge state. The benchmark example checks exact result parity between the scan reference and preindexed engine and prints local microtimings; it is a smoke benchmark, not an industry comparison or a published performance result.
 
 ## Qualification boundary
 
