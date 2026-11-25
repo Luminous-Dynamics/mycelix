@@ -280,10 +280,10 @@ impl ProjectionInput {
         for event in &self.events {
             validate_identifier(&event.id)?;
             validate_identifier(&event.event_type)?;
-            validate_identifier(&event.source_event_ref)?;
             if event.source_event_ref.trim().is_empty() {
                 return Err(ProjectionError::MissingSourceEventReference);
             }
+            validate_identifier(&event.source_event_ref)?;
             validate_time(&event.time, TimeBasis::SourceEventTime)?;
             let declarations = event_types
                 .get(event.event_type.as_str())
@@ -496,10 +496,10 @@ fn validate_relations(
     let mut seen = BTreeSet::new();
     for relation in relations {
         validate_identifier(&relation.object_id)?;
-        validate_identifier(&relation.qualifier)?;
         if relation.qualifier.trim().is_empty() {
             return Err(ProjectionError::EmptyRelationshipQualifier);
         }
+        validate_identifier(&relation.qualifier)?;
         if !object_ids.contains(relation.object_id.as_str()) {
             return Err(if source_object_id.is_some() {
                 ProjectionError::DanglingObjectObjectReference
@@ -604,8 +604,8 @@ fn is_rfc3339_timestamp(value: &str) -> bool {
         }
     }
     match bytes.get(index) {
-        Some(b'Z') => index + 1 == bytes.len(),
-        Some(b'+') | Some(b'-') => {
+        Some(&b'Z') => index + 1 == bytes.len(),
+        Some(&b'+') | Some(&b'-') => {
             let Some(offset_hour) = parse_digits(bytes, index + 1, 2) else {
                 return false;
             };
@@ -956,11 +956,13 @@ mod tests {
     #[test]
     fn duplicate_event_and_object_ids_are_rejected() {
         let mut duplicate_event = sample();
-        duplicate_event.events.push(duplicate_event.events[0].clone());
+        let repeated_event = duplicate_event.events[0].clone();
+        duplicate_event.events.push(repeated_event);
         assert_eq!(duplicate_event.export(), Err(ProjectionError::DuplicateEventId));
 
         let mut duplicate_object = sample();
-        duplicate_object.objects.push(duplicate_object.objects[0].clone());
+        let repeated_object = duplicate_object.objects[0].clone();
+        duplicate_object.objects.push(repeated_object);
         assert_eq!(duplicate_object.export(), Err(ProjectionError::DuplicateObjectId));
     }
 
@@ -986,7 +988,8 @@ mod tests {
     #[test]
     fn duplicate_event_object_relationship_is_rejected() {
         let mut input = sample();
-        input.events[0].relationships.push(input.events[0].relationships[0].clone());
+        let duplicate = input.events[0].relationships[0].clone();
+        input.events[0].relationships.push(duplicate);
         assert_eq!(input.export(), Err(ProjectionError::DuplicateRelationship));
     }
 
@@ -1016,7 +1019,8 @@ mod tests {
     #[test]
     fn duplicate_object_attribute_at_same_time_is_rejected() {
         let mut input = sample();
-        input.objects[0].attributes.push(input.objects[0].attributes[0].clone());
+        let repeated_attribute = input.objects[0].attributes[0].clone();
+        input.objects[0].attributes.push(repeated_attribute);
         assert_eq!(input.export(), Err(ProjectionError::DuplicateAttributeDeclaration));
     }
 }
