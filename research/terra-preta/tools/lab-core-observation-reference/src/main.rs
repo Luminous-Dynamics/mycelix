@@ -17,6 +17,8 @@ enum LabObservation {
     ConstantHead {
         record_id: String,
         physical_sample_group_id: String,
+        original_method_label: String,
+        specimen_preparation: String,
         specimen: SpecimenGeometry,
         delta_head_m: f64,
         flow_rate_m3_s: f64,
@@ -24,6 +26,8 @@ enum LabObservation {
     FallingHead {
         record_id: String,
         physical_sample_group_id: String,
+        original_method_label: String,
+        specimen_preparation: String,
         specimen: SpecimenGeometry,
         standpipe_diameter_m: f64,
         elapsed_time_s: f64,
@@ -45,6 +49,8 @@ struct ObservationReceipt {
     record_id: String,
     physical_sample_group_id: String,
     protocol: String,
+    original_method_label: String,
+    specimen_preparation: String,
     support_domain: String,
     specimen_diameter_m: f64,
     specimen_length_m: f64,
