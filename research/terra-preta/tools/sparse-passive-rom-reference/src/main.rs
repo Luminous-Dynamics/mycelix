@@ -1390,7 +1390,7 @@ fn build_output_adjoint_weights(
 
         // For M=A^-1>=0, the exact weight is M*|B_i|. The true residual
         // correction satisfies M*|r| <= ||r||_infinity * M*1 <= ||r||_infinity*y.
-        let mut upper: Vec<f64> = approximate_weight
+        let upper: Vec<f64> = approximate_weight
             .iter()
             .zip(supersolution.iter())
             .map(|(weight, y)| {
@@ -1479,7 +1479,17 @@ fn response_error_upper_bound_output_adjoint(
                 .abs();
             let tolerance = upper * 1.0e-8 + f64::EPSILON * 64.0;
             if actual > upper + tolerance {
-                componentwise_valid = false;
+                return Err(format!(
+                    "output-adjoint component bound failed at (out={output_port}, in={input_port}, s={shift:e}): actual={actual:e}, upper={upper:e}, transport={transport:e}, feedthrough={feedthrough:e}, residual_inf={:e}, weight_inf={:e}",
+                    residual_columns[input_port]
+                        .iter()
+                        .copied()
+                        .fold(0.0_f64, f64::max),
+                    output_weights.upper_vectors[output_port]
+                        .iter()
+                        .copied()
+                        .fold(0.0_f64, f64::max),
+                ));
             }
         }
     }
