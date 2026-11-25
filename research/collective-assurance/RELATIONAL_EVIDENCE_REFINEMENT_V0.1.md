@@ -85,7 +85,7 @@ The existing `qualify_response_grounding` function then requires each required v
 
 RER expands and organizes the evidence bundle; ACB governs the response's use of the resulting bundle. The caller passes the returned constraints to the existing `qualify_response_grounding`; a successful RER pass does not imply an ACB pass.
 
-The reference module contains 32 declared Rust tests, including direct adapter tests for non-PASS rejection, request binding, subject/scope mapping and missing selected records.
+The reference module contains 43 declared Rust tests, including direct adapter tests and evidence-loss diagnostic tests for retrieval, exposure/handoff, response application, out-of-band visibility, request/subject/scope binding and missing receipts.
 
 ## Evidence-loss decomposition and bottleneck routing
 
@@ -108,6 +108,18 @@ This gives a concrete bottleneck-routing rule:
 - refined evidence not exposed → repair the prompt/input handoff and exposure receipt;
 - visible evidence not handled → improve ACB/response constraint binding;
 - evidence handled but claims unsupported → improve source-span audit and semantic adjudication.
+
+## Evidence-loss diagnosis
+
+The exported `diagnose_evidence_use_bottlenecks` function consumes a PASS RER report, the exact generator-visible constraint inventory, the structured response-use record and an exposure-receipt digest. It reports separate counts for:
+- **Retrieval coverage gap:** evidence added by RER that was absent from the initial retrieval seeds.
+- **Handoff/exposure gap:** evidence selected by RER but absent from the generator-visible inventory.
+- **Constraint-application gap:** visible required evidence not accounted for, or a failed existing response-grounding gate.
+- **Out-of-band visible evidence:** generator-visible items not in the refined bundle.
+
+It requires the refined set to retain all original seeds, the added set to be disjoint, and the generator-visible set to be request/responder-bound, required and verified. A missing/malformed exposure receipt or a non-PASS RER result is `NotEvaluable`. These are bottleneck diagnostics, not a single quality score.
+
+The exposure-receipt digest is only a reference in this module; the independent response/input recorder must authenticate it and bind it to the exact rendered generation input. The diagnostic cannot prove that a declared input inventory matches model runtime bytes by itself.
 
 ## Targeted GroupAssistBench programme
 
