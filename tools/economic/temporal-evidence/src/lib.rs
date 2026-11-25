@@ -77,6 +77,8 @@ pub struct TemporalAssertionV1 {
     pub clock_profile: String,
     pub source_authority_ref: String,
     pub evidence_ref: String,
+    /// SHA-256 digest of the canonical evidence payload, lower-case hex.
+    pub content_digest: String,
     /// For record/observation/knowledge metadata, the exact fact assertion
     /// whose time/evidence lifecycle this metadata qualifies.
     pub assertion_ref: Option<String>,
@@ -140,6 +142,8 @@ pub enum TemporalKernelErrorV1 {
     InvalidTimestamp,
     NonUtcTimestampUnsupported,
     TimestampPrecisionMismatch,
+    InvalidContentDigest,
+    InvalidValidityInterval,
     MissingEvidenceReference,
     MissingClockProfile,
     MissingSourceAuthority,
@@ -163,6 +167,7 @@ pub struct TemporalEvidenceSetV1 {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct NormalizedTime {
     sortable: String,
+    fractional_digits: usize,
 }
 
 impl TemporalEvidenceSetV1 {
@@ -191,6 +196,7 @@ impl TemporalEvidenceSetV1 {
                 .map_err(|_| TemporalKernelErrorV1::MissingSourceAuthority)?;
             validate_identifier(&assertion.evidence_ref)
                 .map_err(|_| TemporalKernelErrorV1::MissingEvidenceReference)?;
+            validate_content_digest(&assertion.content_digest)?;
 
             if by_id
                 .insert(assertion.assertion_id.as_str(), assertion)
@@ -200,7 +206,7 @@ impl TemporalEvidenceSetV1 {
             }
 
             let time = normalize_utc(&assertion.time_value)?;
-            if !timestamp_matches_precision(&time.sortable, assertion.precision) {
+            if !timestamp_matches_precision(&time, assertion.precision) {
                 return Err(TemporalKernelErrorV1::TimestampPrecisionMismatch);
             }
 
@@ -411,6 +417,14 @@ impl TemporalEvidenceSetV1 {
             }
         };
 
+        if let Some(to_assertion) = to {
+            let from_time = normalize_utc(&from.time_value)?;
+            let to_time = normalize_utc(&to_assertion.time_value)?;
+            if from_time.sortable > to_time.sortable {
+                return Err(TemporalKernelErrorV1::InvalidValidityInterval);
+            }
+        }
+
         let mut knowledge_ids = from_knowledge;
         knowledge_ids.extend(to_knowledge);
         knowledge_ids.sort();
@@ -457,7 +471,7 @@ impl TemporalEvidenceSetV1 {
         claim_id: &str,
         verifier_ref: &str,
         known_at: &str,
-    ) -> Result<Option<OccurrenceAsKnownResultV1>, TemporalKernelErrorV1> {
+    ) -> Result<OccurrenceAsKnownResultV1, TemporalKernelErrorV1> {
         self.validate()?;
         validate_identifier(claim_id)?;
         validate_identifier(verifier_ref)?;
@@ -696,13 +710,29 @@ fn validate_identifier(value: &str) -> Result<(), TemporalKernelErrorV1> {
 }
 
 fn normalize_utc(value: &str) -> Result<NormalizedTime, TemporalKernelErrorV1> {
-    let bytes = value.as_bytes();
-    if bytes.len() != 20 || bytes.get(19) != Some(&b'Z') {
-        if bytes.get(19) != Some(&b'Z') {
+    if !value.ends_with('Z') {
+        if value.contains('+') || value.get(19..).is_some_and(|suffix| suffix.contains('-')) {
             return Err(TemporalKernelErrorV1::NonUtcTimestampUnsupported);
         }
         return Err(TemporalKernelErrorV1::InvalidTimestamp);
     }
+    let body = &value[..value.len() - 1];
+    let (whole_seconds, fraction) = match body.split_once('.') {
+        Some((whole, fraction)) => {
+            if fraction.is_empty()
+                || fraction.len() > 9
+                || !fraction.bytes().all(|byte| byte.is_ascii_digit())
+            {
+                return Err(TemporalKernelErrorV1::InvalidTimestamp);
+            }
+            (whole, fraction)
+        }
+        None => (body, ""),
+    };
+    if whole_seconds.len() != 19 {
+        return Err(TemporalKernelErrorV1::InvalidTimestamp);
+    }
+    let bytes = whole_seconds.as_bytes();
     if bytes[4] != b'-' || bytes[7] != b'-' || bytes[10] != b'T'
         || bytes[13] != b':' || bytes[16] != b':'
     {
@@ -732,11 +762,16 @@ fn normalize_utc(value: &str) -> Result<NormalizedTime, TemporalKernelErrorV1> {
         return Err(TemporalKernelErrorV1::InvalidTimestamp);
     }
 
-    let fraction = "000000000";
+    // RFC3339 permits 1-9 fractional digits; right-padding preserves exact
+    // temporal ordering without claiming greater source precision.
+    let sortable_fraction = format!("{fraction:0<9}");
     let normalized = format!(
-        "{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}.{fraction}Z"
+        "{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}.{sortable_fraction}Z"
     );
-    Ok(NormalizedTime { sortable: normalized })
+    Ok(NormalizedTime {
+        sortable: normalized,
+        fractional_digits: fraction.len(),
+    })
 }
 
 fn parse_digits(bytes: &[u8], start: usize, count: usize) -> Option<u32> {
@@ -749,19 +784,34 @@ fn parse_digits(bytes: &[u8], start: usize, count: usize) -> Option<u32> {
     })
 }
 
-fn timestamp_matches_precision(value: &str, precision: TemporalPrecisionV1) -> bool {
-    let bytes = value.as_bytes();
+fn timestamp_matches_precision(value: &NormalizedTime, precision: TemporalPrecisionV1) -> bool {
+    let bytes = value.sortable.as_bytes();
     let Some(hour) = parse_digits(bytes, 11, 2) else { return false; };
     let Some(minute) = parse_digits(bytes, 14, 2) else { return false; };
     let Some(second) = parse_digits(bytes, 17, 2) else { return false; };
     match precision {
-        TemporalPrecisionV1::Day => hour == 0 && minute == 0 && second == 0,
-        TemporalPrecisionV1::Minute => second == 0,
-        TemporalPrecisionV1::Second
-        | TemporalPrecisionV1::Millisecond
-        | TemporalPrecisionV1::Microsecond
-        | TemporalPrecisionV1::Nanosecond => true,
+        TemporalPrecisionV1::Day => hour == 0 && minute == 0 && second == 0
+            && value.fractional_digits == 0,
+        TemporalPrecisionV1::Minute => second == 0 && value.fractional_digits == 0,
+        TemporalPrecisionV1::Second => value.fractional_digits == 0,
+        TemporalPrecisionV1::Millisecond => value.fractional_digits == 3,
+        TemporalPrecisionV1::Microsecond => value.fractional_digits == 6,
+        TemporalPrecisionV1::Nanosecond => value.fractional_digits == 9,
     }
+}
+
+fn validate_content_digest(value: &str) -> Result<(), TemporalKernelErrorV1> {
+    let Some(hex) = value.strip_prefix("sha256:") else {
+        return Err(TemporalKernelErrorV1::InvalidContentDigest);
+    };
+    if hex.len() != 64
+        || !hex
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(TemporalKernelErrorV1::InvalidContentDigest);
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -789,6 +839,7 @@ mod tests {
             clock_profile: "source-clock-v1".into(),
             source_authority_ref: "source-authority-v1".into(),
             evidence_ref: format!("evidence:{id}"),
+            content_digest: format!("sha256:{}", "a".repeat(64)),
             assertion_ref: None,
             verifier_ref: None,
             knowledge_frontier_ref: None,
@@ -816,6 +867,7 @@ mod tests {
             clock_profile: "verifier-clock-v1".into(),
             source_authority_ref: "verifier-profile-v1".into(),
             evidence_ref: format!("evidence:{id}"),
+            content_digest: format!("sha256:{}", "b".repeat(64)),
             assertion_ref: Some(assertion_ref.into()),
             verifier_ref: Some(verifier.into()),
             knowledge_frontier_ref: Some(format!("frontier:{id}")),
@@ -967,15 +1019,15 @@ mod tests {
             .occurred_at_as_known("delivery-1", VERIFIER, "2026-11-21T10:00:20Z")
             .unwrap()
             .unwrap();
-        assert_eq!(before_correction.assertion_id, "occurred-v1");
-        assert_eq!(before_correction.occurred_at, "2026-11-21T10:00:00Z");
+        assert_eq!(before_correction.assertion_id.as_deref(), Some("occurred-v1"));
+        assert_eq!(before_correction.occurred_at.as_deref(), Some("2026-11-21T10:00:00Z"));
 
         let after_correction = assertions
             .occurred_at_as_known("delivery-1", VERIFIER, "2026-11-21T10:00:40Z")
             .unwrap()
             .unwrap();
-        assert_eq!(after_correction.assertion_id, "occurred-v2");
-        assert_eq!(after_correction.occurred_at, "2026-11-21T10:00:02Z");
+        assert_eq!(after_correction.assertion_id.as_deref(), Some("occurred-v2"));
+        assert_eq!(after_correction.occurred_at.as_deref(), Some("2026-11-21T10:00:02Z"));
         assertions.validate().unwrap();
     }
 
@@ -1048,12 +1100,11 @@ mod tests {
                 ),
             ],
         };
-        assert_eq!(
-            assertions
-                .occurred_at_as_known("claim", VERIFIER, "2026-11-21T10:00:30Z")
-                .unwrap(),
-            None
-        );
+        let result = assertions
+            .occurred_at_as_known("claim", VERIFIER, "2026-11-21T10:00:30Z")
+            .unwrap();
+        assert_eq!(result.disposition, OccurrenceQueryDispositionV1::Conflict);
+        assert_eq!(result.assertion_id, None);
     }
 
     #[test]
@@ -1176,8 +1227,48 @@ mod tests {
     }
 
     #[test]
-    fn timestamps_with_fractions_are_rejected_in_v1_query_clock() {
-        let result = normalize_utc("2026-11-21T10:00:00.123Z");
-        assert_eq!(result, Err(TemporalKernelErrorV1::InvalidTimestamp));
+    fn timestamps_with_one_to_nine_fractional_digits_are_ordered_exactly() {
+        let millis = normalize_utc("2026-11-21T10:00:00.123Z").unwrap();
+        let nanos = normalize_utc("2026-11-21T10:00:00.123000001Z").unwrap();
+        assert_eq!(millis.fractional_digits, 3);
+        assert_eq!(nanos.fractional_digits, 9);
+        assert!(millis.sortable < nanos.sortable);
+        assert_eq!(
+            normalize_utc("2026-11-21T10:00:00.1Z").unwrap().sortable,
+            "2026-11-21T10:00:00.100000000Z"
+        );
+    }
+
+    #[test]
+    fn declared_fractional_precision_must_match_encoded_digits() {
+        let millis = normalize_utc("2026-11-21T10:00:00.123Z").unwrap();
+        assert!(timestamp_matches_precision(&millis, TemporalPrecisionV1::Millisecond));
+        assert!(!timestamp_matches_precision(&millis, TemporalPrecisionV1::Microsecond));
+        let whole_second = normalize_utc("2026-11-21T10:00:00Z").unwrap();
+        assert!(timestamp_matches_precision(&whole_second, TemporalPrecisionV1::Second));
+        assert!(!timestamp_matches_precision(&whole_second, TemporalPrecisionV1::Nanosecond));
+    }
+
+    #[test]
+    fn invalid_digest_and_reversed_validity_interval_are_rejected() {
+        let mut invalid_digest = valid_fixture();
+        invalid_digest.assertions[0].content_digest = "sha256:abc".into();
+        assert_eq!(
+            invalid_digest.validate(),
+            Err(TemporalKernelErrorV1::InvalidContentDigest)
+        );
+
+        let mut reversed = valid_fixture();
+        let to = reversed.assertions.iter_mut()
+            .find(|assertion| assertion.assertion_id == "to-v1")
+            .unwrap();
+        to.time_value = "2026-11-17T00:00:00Z".into();
+        assert_eq!(
+            reversed.evaluate_valid_at(
+                "grant-1", VERIFIER, "2026-11-19T00:00:00Z",
+                "2026-11-21T00:00:00Z", false
+            ),
+            Err(TemporalKernelErrorV1::InvalidValidityInterval)
+        );
     }
 }
