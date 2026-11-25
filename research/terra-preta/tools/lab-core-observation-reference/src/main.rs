@@ -167,12 +167,18 @@ fn analyse_observation(observation: &LabObservation) -> Result<ObservationReceip
         LabObservation::ConstantHead {
             record_id,
             physical_sample_group_id,
+            original_method_label,
+            specimen_preparation,
             specimen,
             delta_head_m,
             flow_rate_m3_s,
         } => {
-            if record_id.trim().is_empty() || physical_sample_group_id.trim().is_empty() {
-                return Err("constant-head observation requires record and canonical sample IDs".into());
+            if record_id.trim().is_empty()
+                || physical_sample_group_id.trim().is_empty()
+                || original_method_label.trim().is_empty()
+                || specimen_preparation.trim().is_empty()
+            {
+                return Err("constant-head observation requires record, sample, method and preparation metadata".into());
             }
             let area = specimen_area(specimen)?;
             let k = constant_head_k_from_measurement(specimen, *delta_head_m, *flow_rate_m3_s)?;
@@ -186,7 +192,9 @@ fn analyse_observation(observation: &LabObservation) -> Result<ObservationReceip
                 record_id: record_id.clone(),
                 physical_sample_group_id: physical_sample_group_id.clone(),
                 protocol: "constant_head".into(),
-                support_domain: "saturated_undisturbed_or_repacked_core".into(),
+                original_method_label: original_method_label.clone(),
+                specimen_preparation: specimen_preparation.clone(),
+                support_domain: "saturated_laboratory_core".into(),
                 specimen_diameter_m: specimen.diameter_m,
                 specimen_length_m: specimen.length_m,
                 specimen_area_m2: area,
@@ -205,14 +213,20 @@ fn analyse_observation(observation: &LabObservation) -> Result<ObservationReceip
         LabObservation::FallingHead {
             record_id,
             physical_sample_group_id,
+            original_method_label,
+            specimen_preparation,
             specimen,
             standpipe_diameter_m,
             elapsed_time_s,
             initial_head_m,
             final_head_m,
         } => {
-            if record_id.trim().is_empty() || physical_sample_group_id.trim().is_empty() {
-                return Err("falling-head observation requires record and canonical sample IDs".into());
+            if record_id.trim().is_empty()
+                || physical_sample_group_id.trim().is_empty()
+                || original_method_label.trim().is_empty()
+                || specimen_preparation.trim().is_empty()
+            {
+                return Err("falling-head observation requires record, sample, method and preparation metadata".into());
             }
             let area = specimen_area(specimen)?;
             let k = falling_head_k_from_measurement(
@@ -238,7 +252,9 @@ fn analyse_observation(observation: &LabObservation) -> Result<ObservationReceip
                 record_id: record_id.clone(),
                 physical_sample_group_id: physical_sample_group_id.clone(),
                 protocol: "falling_head".into(),
-                support_domain: "saturated_undisturbed_or_repacked_core".into(),
+                original_method_label: original_method_label.clone(),
+                specimen_preparation: specimen_preparation.clone(),
+                support_domain: "saturated_laboratory_core".into(),
                 specimen_diameter_m: specimen.diameter_m,
                 specimen_length_m: specimen.length_m,
                 specimen_area_m2: area,
@@ -414,13 +430,17 @@ mod tests {
         let observation = LabObservation::ConstantHead {
             record_id: "core-1".into(),
             physical_sample_group_id: "sample-1".into(),
+            original_method_label: "constant head permeameter".into(),
+            specimen_preparation: "undisturbed".into(),
             specimen: geometry(),
             delta_head_m: 0.5,
             flow_rate_m3_s: 1.0e-6,
         };
         let receipt = analyse_observation(&observation).unwrap();
         assert_eq!(receipt.protocol, "constant_head");
-        assert_eq!(receipt.support_domain, "saturated_undisturbed_or_repacked_core");
+        assert_eq!(receipt.support_domain, "saturated_laboratory_core");
+        assert_eq!(receipt.original_method_label, "constant head permeameter");
+        assert_eq!(receipt.specimen_preparation, "undisturbed");
         assert!(receipt.observation_operator.contains("Q = K * A"));
         assert!(receipt.assumptions.iter().any(|item| item.contains("one-dimensional")));
     }
