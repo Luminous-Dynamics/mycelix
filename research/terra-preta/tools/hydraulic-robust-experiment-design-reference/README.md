@@ -16,12 +16,12 @@ For scenario v and design D:
 
 `F_v(D)=F_{prior,v}+\sum_{e\in D}j_{v,e}^{T}R_{v,e}^{-1}j_{v,e}`.
 
-The fixture declares a dimensionless parameter scaling and a prior-information matrix. Data-only sensitivity rank is reported separately from prior-regularized information.
+The fixture declares a dimensionless parameter scaling and a prior-information matrix. Data-only sensitivity rank and the data-Fisher minimum eigenvalue are reported separately from prior-augmented information. D-optimal log-determinants include the declared prior plus explicit numerical regularizer; E-optimal selection maximizes the worst-case minimum eigenvalue of the data Fisher matrix, so a prior cannot make uninformative observations appear identifiable.
 
 The engine exhaustively enumerates feasible candidate subsets (up to 16 candidates) and reports:
 - nominal D-optimal selection on the single designated nominal scenario;
 - maximin D-optimal design using the smallest scenario log-determinant;
-- maximin E-optimal design using the smallest scenario minimum eigenvalue;
+- maximin E-optimal design using the smallest scenario *data-Fisher* minimum eigenvalue;
 - minimax normalized D-optimal regret against each scenario's own exhaustive oracle;
 - per-scenario rank, nullity, minimum eigenvalue and log-determinant for each selected design.
 
