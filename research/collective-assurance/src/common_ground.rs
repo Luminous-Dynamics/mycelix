@@ -244,7 +244,7 @@ pub fn qualify_common_ground_trial(
     let mut message_deliveries: BTreeMap<&str, (&str, &str)> = BTreeMap::new();
     let mut clarification_requests: BTreeMap<&str, (&str, &str)> = BTreeMap::new();
     let mut clarification_resolutions: BTreeMap<&str, (&str, &str)> = BTreeMap::new();
-    let mut confirmed_requests = BTreeSet::new();
+    let mut confirmed_requests: BTreeMap<&str, &str> = BTreeMap::new();
     let mut repair_starts: BTreeMap<&str, u64> = BTreeMap::new();
     let mut repair_durations = Vec::new();
     let mut state_views: BTreeMap<&str, u64> = BTreeMap::new();
@@ -326,8 +326,8 @@ pub fn qualify_common_ground_trial(
                     fail(&mut qualification, "clarification request identity or referent evidence is invalid");
                     continue;
                 }
-                match message_deliveries.get(message_id.as_str()) {
-                    Some((sender, recipient)) if sender == requester_id && recipient != requester_id => {
+                match message_deliveries.get(message_id.as_str()).copied() {
+                    Some((sender, recipient)) if sender == requester_id.as_str() && recipient != requester_id.as_str() => {
                         clarification_requests.insert(request_id, (requester_id, message_id));
                         request_count += 1;
                     }
@@ -367,7 +367,7 @@ pub fn qualify_common_ground_trial(
                 };
                 if !valid_role(contract, confirmer_id)
                     || confirmer_id == resolver
-                    || !confirmed_requests.insert(request_id.as_str())
+                    || confirmed_requests.insert(request_id, confirmer_id).is_some()
                 {
                     fail(&mut qualification, "referent confirmation must be unique and come from the other role");
                 } else {
@@ -398,11 +398,12 @@ pub fn qualify_common_ground_trial(
                 if let Some(request_id) = clarification_request_id {
                     match (
                         clarification_resolutions.get(request_id.as_str()).copied(),
-                        confirmed_requests.contains(request_id.as_str()),
+                        confirmed_requests.get(request_id.as_str()).copied(),
                     ) {
-                        (Some((resolver, resolved_object)), true)
-                            if resolver != initiator_id
-                                && confirmer_id != resolver
+                        (Some((resolver, resolved_object)), Some(confirmed_by))
+                            if confirmed_by != resolver
+                                && (initiator_id == resolver || confirmer_id == resolver)
+                                && (initiator_id == confirmed_by || confirmer_id == confirmed_by)
                                 && resolved_object == object_id => {}
                         _ => fail(&mut qualification, "action uses an ambiguous referent without resolved, cross-role-confirmed grounding"),
                     }
@@ -500,7 +501,7 @@ pub fn qualify_common_ground_trial(
         if !placed_objects.insert(*object) {
             duplicate_objects += 1;
         }
-        if expected_by_slot.get(slot).is_some_and(|expected| expected == object) {
+        if expected_by_slot.get(*slot).copied().is_some_and(|expected| expected == *object) {
             exact_placements += 1;
         } else {
             incorrect_or_rejected += 1;
@@ -788,6 +789,46 @@ mod tests {
         let r=qualify_common_ground_trial(&c,&v);
         assert_eq!(r.qualification.status,QualificationStatus::Fail);
     }
+
+    #[test]
+    fn delivered_turn_budget_is_enforced() {
+        let mut c=contract(CommonGroundViewMode::SharedWorkerState);
+        c.turn_budget=1;
+        let r=qualify_common_ground_trial(&c,&success_trace(c.view_mode));
+        assert_eq!(r.qualification.status,QualificationStatus::Fail);
+        assert_eq!(r.outcome,CommonGroundOutcomeStatus::NotEvaluable);
+    }
+
+    #[test]
+    fn joint_action_must_include_both_resolver_and_confirming_role() {
+        let c=contract(CommonGroundViewMode::SharedWorkerState);
+        let mut v=success_trace(c.view_mode);
+        if let CommonGroundEventKind::JointActionExecuted{initiator_id,confirmer_id,..}=
+            &mut v.iter_mut().find(|e|e.event_id=="act1").unwrap().kind {
+            *initiator_id="helper".into();
+            *confirmer_id="worker".into();
+        }
+        let r=qualify_common_ground_trial(&c,&v);
+        assert_eq!(r.qualification.status,QualificationStatus::Pass);
+        assert_eq!(r.outcome,CommonGroundOutcomeStatus::Success);
+    }
+
+    #[test]
+    fn repair_cannot_reference_itself_as_trigger() {
+        let c=contract(CommonGroundViewMode::SharedWorkerState);
+        let mut v=success_trace(c.view_mode);
+        let i=v.len()-1;
+        v.insert(i,ev(i as u64+1,"repair-start",250,CommonGroundEventKind::RepairStarted {
+            repair_id:"repair-1".into(),actor_id:"helper".into(),trigger_event_id:"repair-start".into()
+        }));
+        v.insert(i+1,ev(i as u64+2,"repair-done",280,CommonGroundEventKind::RepairCompleted {
+            repair_id:"repair-1".into(),outcome_digest:digest('9'),repair_duration_ms:30
+        }));
+        for (n,e) in v.iter_mut().enumerate(){e.sequence=n as u64+1;}
+        let r=qualify_common_ground_trial(&c,&v);
+        assert_eq!(r.qualification.status,QualificationStatus::Fail);
+    }
+
     #[test]
     fn duplicate_event_ids_fail() {
         let c=contract(CommonGroundViewMode::SharedWorkerState);
