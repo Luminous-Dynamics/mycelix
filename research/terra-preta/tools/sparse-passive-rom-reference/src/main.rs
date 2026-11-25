@@ -1603,6 +1603,234 @@ fn response_error_upper_bound_output_adjoint(
     Ok((absolute_bound, relative_bound, actual_absolute_error, valid))
 }
 
+fn build_signed_shifted_output_adjoint(
+    model: &Model,
+    shift: f64,
+    relative_tolerance: f64,
+    max_iterations: usize,
+) -> Result<SignedShiftedOutputAdjoint, String> {
+    if !shift.is_finite() || shift < 0.0 {
+        return Err("signed output adjoint requires a nonnegative real Laplace shift".into());
+    }
+
+    let mut weights = Vec::with_capacity(model.boundary_ids.len());
+    let mut residual_absolute_upper = Vec::with_capacity(model.boundary_ids.len());
+    let mut solve_stats = Vec::with_capacity(model.boundary_ids.len());
+    let mut maximum_residual_inf = 0.0_f64;
+
+    for output_port in 0..model.boundary_ids.len() {
+        let rhs = column(&model.b, output_port);
+        let (weight, stats) =
+            pcg(&model.a, shift, &rhs, relative_tolerance, max_iterations)?;
+        let action = model.a.matvec(&weight, shift)?;
+        let matvec_roundoff = model.a.matvec_roundoff_bound(&weight, shift)?;
+        let residual_upper: Vec<f64> = rhs
+            .iter()
+            .zip(action.iter().zip(matvec_roundoff.iter()))
+            .map(|(right, (left, arithmetic_error))| {
+                (right - left).abs()
+                    + arithmetic_error
+                    + f64::EPSILON * (right.abs() + left.abs()) * 4.0
+            })
+            .collect();
+        if residual_upper.iter().any(|value| !value.is_finite() || *value < 0.0)
+        {
+            return Err("signed output-adjoint residual envelope is invalid".into());
+        }
+        maximum_residual_inf = maximum_residual_inf.max(
+            residual_upper.iter().copied().fold(0.0_f64, f64::max),
+        );
+        weights.push(weight);
+        residual_absolute_upper.push(residual_upper);
+        solve_stats.push(stats);
+    }
+
+    Ok(SignedShiftedOutputAdjoint {
+        weights,
+        residual_absolute_upper,
+        solve_stats,
+        maximum_residual_inf,
+    })
+}
+
+fn response_error_upper_bound_signed_output_adjoint(
+    model: &Model,
+    projection: &Projection,
+    shift: f64,
+    supersolution: &[f64],
+    signed_adjoint: &SignedShiftedOutputAdjoint,
+    full_response: &[Vec<f64>],
+    full_state_solutions: &[Vec<f64>],
+    reduced_response: &[Vec<f64>],
+) -> Result<(f64, f64, f64, bool), String> {
+    if !shift.is_finite() || shift < 0.0 {
+        return Err("signed output-adjoint bound only supports real s >= 0".into());
+    }
+    if supersolution.len() != model.a.size
+        || supersolution.iter().any(|value| !value.is_finite() || *value <= 0.0)
+    {
+        return Err("signed output-adjoint bound requires a positive M-matrix supersolution".into());
+    }
+
+    let port_count = model.boundary_ids.len();
+    if signed_adjoint.weights.len() != port_count
+        || signed_adjoint.residual_absolute_upper.len() != port_count
+        || signed_adjoint.weights.iter().any(|vector| {
+            vector.len() != model.a.size || vector.iter().any(|value| !value.is_finite())
+        })
+        || signed_adjoint.residual_absolute_upper.iter().any(|vector| {
+            vector.len() != model.a.size
+                || vector.iter().any(|value| !value.is_finite() || *value < 0.0)
+        })
+    {
+        return Err("signed output-adjoint vectors have invalid dimensions or values".into());
+    }
+    if full_state_solutions.len() != port_count
+        || full_state_solutions.iter().any(|state| state.len() != model.a.size)
+    {
+        return Err("signed output-adjoint full-order reference states are invalid".into());
+    }
+
+    let rom_state = reduced_state_in_full_space(model, projection, shift)?;
+    let reduced_coefficients = reduced_state_coefficients(projection, shift)?;
+    let mut q_estimates = Vec::with_capacity(port_count);
+    let mut q_absolute_upper = Vec::with_capacity(port_count);
+
+    for input_port in 0..port_count {
+        let approximate_rom_state = column(&rom_state, input_port);
+        let rom_action = model.a.matvec(&approximate_rom_state, shift)?;
+        let rom_roundoff = model.a.matvec_roundoff_bound(&approximate_rom_state, shift)?;
+        let reference_state = &full_state_solutions[input_port];
+        let reference_action = model.a.matvec(reference_state, shift)?;
+        let reference_roundoff = model.a.matvec_roundoff_bound(reference_state, shift)?;
+        let input = column(&model.b, input_port);
+
+        let mut q = Vec::with_capacity(model.a.size);
+        let mut q_upper = Vec::with_capacity(model.a.size);
+        for state in 0..model.a.size {
+            let rom_residual = input[state] - rom_action[state];
+            let reference_residual = input[state] - reference_action[state];
+            // q = R_reference - R_ROM. The exact difference gives the
+            // reference-PCG-vs-ROM response difference without replacing it
+            // by a sum of absolute residuals.
+            let signed_q = reference_residual - rom_residual;
+            let q_roundoff = rom_roundoff[state]
+                + reference_roundoff[state]
+                + f64::EPSILON
+                    * (input[state].abs()
+                        + rom_action[state].abs()
+                        + reference_action[state].abs()
+                        + rom_residual.abs()
+                        + reference_residual.abs())
+                    * 8.0;
+            let absolute_upper = signed_q.abs() + q_roundoff;
+            if !signed_q.is_finite() || !q_roundoff.is_finite() || !absolute_upper.is_finite() {
+                return Err("signed residual difference or its roundoff envelope is non-finite".into());
+            }
+            q.push(signed_q);
+            q_upper.push(absolute_upper);
+        }
+        q_estimates.push(q);
+        q_absolute_upper.push(q_upper);
+    }
+
+    let mut envelope = vec![vec![0.0; port_count]; port_count];
+    for output_port in 0..port_count {
+        let weight = &signed_adjoint.weights[output_port];
+        let adjoint_residual_upper = &signed_adjoint.residual_absolute_upper[output_port];
+        let adjoint_correction_weight = dot(adjoint_residual_upper, supersolution);
+        if !adjoint_correction_weight.is_finite() || adjoint_correction_weight < 0.0 {
+            return Err("signed output-adjoint residual correction weight is invalid".into());
+        }
+
+        for input_port in 0..port_count {
+            let q = &q_estimates[input_port];
+            let q_upper = &q_absolute_upper[input_port];
+            let signed_contraction = dot(weight, q);
+            let q_arithmetic_error = weight
+                .iter()
+                .zip(q_upper.iter().zip(q.iter()))
+                .map(|(weight_value, (q_abs_upper, q_value))| {
+                    weight_value.abs() * (q_abs_upper - q_value.abs()).max(0.0)
+                })
+                .sum::<f64>();
+            let q_infinity_upper = q_upper.iter().copied().fold(0.0_f64, f64::max);
+            let adjoint_solve_error = q_infinity_upper * adjoint_correction_weight;
+            let feedthrough = (model.d[output_port][input_port]
+                - projection.d_r[output_port][input_port])
+                .abs();
+            let signed_dot_roundoff = rounding_gamma(2 * model.a.size + 2)
+                * dot(
+                    &weight.iter().map(|value| value.abs()).collect::<Vec<_>>(),
+                    q_upper,
+                );
+            let reference_dot_magnitude = full_state_solutions[input_port]
+                .iter()
+                .enumerate()
+                .map(|(state, value)| model.b[state][output_port].abs() * value.abs())
+                .sum::<f64>();
+            let reduced_dot_magnitude = reduced_coefficients[input_port]
+                .iter()
+                .enumerate()
+                .map(|(mode, value)| projection.b_r[mode][output_port].abs() * value.abs())
+                .sum::<f64>();
+            let reference_operations = 2 * model.a.size + 2;
+            let reduced_operations = 2 * projection.a_r.len() + 2;
+            let reference_evaluation_roundoff = rounding_gamma(reference_operations)
+                * (model.d[output_port][input_port].abs() + reference_dot_magnitude);
+            let reduced_evaluation_roundoff = rounding_gamma(reduced_operations)
+                * (projection.d_r[output_port][input_port].abs() + reduced_dot_magnitude);
+            let subtraction_roundoff = f64::EPSILON
+                * (full_response[output_port][input_port].abs()
+                    + reduced_response[output_port][input_port].abs())
+                * 2.0;
+            let feedthrough_roundoff = f64::EPSILON
+                * (model.d[output_port][input_port].abs()
+                    + projection.d_r[output_port][input_port].abs());
+            let total_roundoff = signed_dot_roundoff
+                + reference_evaluation_roundoff
+                + reduced_evaluation_roundoff
+                + subtraction_roundoff
+                + feedthrough_roundoff;
+            let raw = feedthrough
+                + signed_contraction.abs()
+                + q_arithmetic_error
+                + adjoint_solve_error
+                + total_roundoff;
+            if !raw.is_finite() || raw < 0.0 {
+                return Err("signed output-adjoint componentwise envelope is invalid".into());
+            }
+            let upper = raw * (1.0 + 1.0e-10)
+                + f64::EPSILON * (feedthrough + signed_contraction.abs() + q_arithmetic_error
+                    + adjoint_solve_error + 1.0) * 64.0;
+            if !upper.is_finite() {
+                return Err("signed output-adjoint roundoff-inflated bound is non-finite".into());
+            }
+            envelope[output_port][input_port] = upper;
+
+            let actual = (full_response[output_port][input_port]
+                - reduced_response[output_port][input_port])
+                .abs();
+            let tolerance = upper * 1.0e-8 + f64::EPSILON * (actual + upper) * 32.0;
+            if actual > upper + tolerance {
+                return Err(format!(
+                    "signed output-adjoint bound failed at (out={output_port}, in={input_port}, s={shift:e}): actual={actual:e}, upper={upper:e}, signed={:e}, q_error={q_arithmetic_error:e}, adjoint_residual={adjoint_solve_error:e}",
+                    signed_contraction,
+                ));
+            }
+        }
+    }
+
+    let absolute_bound = frobenius_norm(&envelope);
+    let actual_absolute_error = frobenius_difference(full_response, reduced_response)?;
+    let response_scale = frobenius_norm(full_response).max(f64::MIN_POSITIVE);
+    let relative_bound = absolute_bound / response_scale;
+    if !absolute_bound.is_finite() || !relative_bound.is_finite() {
+        return Err("signed output-adjoint response bound is non-finite; abstaining".into());
+    }
+    Ok((absolute_bound, relative_bound, actual_absolute_error, true))
+}
+
 fn response_error_upper_bound_portwise(
     model: &Model,
     projection: &Projection,
