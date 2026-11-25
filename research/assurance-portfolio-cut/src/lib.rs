@@ -56,6 +56,14 @@ impl FaultDomainDimension {
     ];
 }
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum DependencySetCompleteness {
+    /// The enumerated identities are the complete declared inventory for this dimension.
+    Complete,
+    /// The listed identities remain visible, but the source asserts an unresolved remainder.
+    UnknownRemainder,
+}
+
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum DomainDisposition {
     /// A declared identity that the profile requires to differ from another
@@ -64,6 +72,13 @@ pub enum DomainDisposition {
     /// A known shared identity that is explicitly accepted for this
     /// dimension. The rationale remains part of the report.
     SharedAccepted { identity: Digest, rationale: String },
+    /// Multiple exact identities in one canonical dimension. The set may be
+    /// complete or may preserve a known subset plus an unknown remainder.
+    /// These are declared identities, not authenticated real-world sources.
+    MultiValue {
+        identities: BTreeSet<Digest>,
+        completeness: DependencySetCompleteness,
+    },
     /// A dimension excluded from this claim's threat model with a rationale.
     NotApplicable { rationale: String },
     /// Explicitly unresolved. This is never silently treated as distinct.
@@ -142,6 +157,7 @@ pub enum ProfileError {
     SeparationRoleNotRequired,
     NonCanonicalSeparation,
     SharedDimensionRequiresRationale,
+    EmptyDependencySet,
     NotApplicableRequiresRationale,
     UnexpectedRoleManifest,
     PolicyDigestMismatch,
@@ -168,6 +184,7 @@ pub enum ProfileReason {
     RequiredSeparationNotApplicable,
     RequiredSeparationIdentityEqual,
     SharedIdentityNotObserved,
+    DependencySetIncomplete,
     RequiredRolesMismatch,
 }
 
@@ -329,6 +346,19 @@ pub fn check_profile(
                         rationale: rationale.clone(),
                     });
                 }
+                Some(DomainDisposition::MultiValue {
+                    identities,
+                    completeness,
+                }) => {
+                    if identities.is_empty() {
+                        return Err(ProfileError::EmptyDependencySet);
+                    }
+                    if *completeness == DependencySetCompleteness::UnknownRemainder {
+                        reasons.insert(ProfileReason::DependencySetIncomplete);
+                        reasons.insert(ProfileReason::UnknownDimension);
+                        unknown_dimensions.push((role.clone(), dimension));
+                    }
+                }
                 Some(DomainDisposition::NotApplicable { rationale }) => {
                     if rationale.trim().is_empty() {
                         return Err(ProfileError::NotApplicableRequiresRationale);
@@ -353,27 +383,47 @@ pub fn check_profile(
             .get(&requirement.right_role)
             .and_then(|domains| domains.get(&requirement.dimension));
 
-        let distinct_identities_observed = match (left, right) {
-            (Some(DomainDisposition::Distinct(left)), Some(DomainDisposition::Distinct(right))) => {
-                if left == right {
+        let identity_set = |value: Option<&DomainDisposition>| -> Option<BTreeSet<Digest>> {
+            match value {
+                Some(DomainDisposition::Distinct(identity))
+                | Some(DomainDisposition::SharedAccepted { identity, .. }) => {
+                    Some(BTreeSet::from([*identity]))
+                }
+                Some(DomainDisposition::MultiValue {
+                    identities,
+                    completeness: DependencySetCompleteness::Complete,
+                }) => Some(identities.clone()),
+                _ => None,
+            }
+        };
+        let left_identities = identity_set(left);
+        let right_identities = identity_set(right);
+        let distinct_identities_observed = match (left_identities, right_identities) {
+            (Some(left), Some(right)) if !left.is_empty() && !right.is_empty() => {
+                let overlaps = left.intersection(&right).next().is_some();
+                if overlaps {
                     reasons.insert(ProfileReason::RequiredSeparationIdentityEqual);
                     false
                 } else {
                     true
                 }
             }
-            (Some(DomainDisposition::SharedAccepted { .. }), _)
-            | (_, Some(DomainDisposition::SharedAccepted { .. })) => {
-                reasons.insert(ProfileReason::RequiredSeparationShared);
-                false
-            }
-            (Some(DomainDisposition::NotApplicable { .. }), _)
-            | (_, Some(DomainDisposition::NotApplicable { .. })) => {
-                reasons.insert(ProfileReason::RequiredSeparationNotApplicable);
+            (Some(_), Some(_)) => {
+                reasons.insert(ProfileReason::RequiredSeparationUnknown);
                 false
             }
             _ => {
-                reasons.insert(ProfileReason::RequiredSeparationUnknown);
+                if matches!(left, Some(DomainDisposition::SharedAccepted { .. }))
+                    || matches!(right, Some(DomainDisposition::SharedAccepted { .. }))
+                {
+                    reasons.insert(ProfileReason::RequiredSeparationShared);
+                } else if matches!(left, Some(DomainDisposition::NotApplicable { .. }))
+                    || matches!(right, Some(DomainDisposition::NotApplicable { .. }))
+                {
+                    reasons.insert(ProfileReason::RequiredSeparationNotApplicable);
+                } else {
+                    reasons.insert(ProfileReason::RequiredSeparationUnknown);
+                }
                 false
             }
         };
@@ -386,12 +436,15 @@ pub fn check_profile(
     let mut identity_roles = BTreeMap::<(FaultDomainDimension, Digest), BTreeSet<String>>::new();
     for (role, domains) in &profile.role_domains {
         for (dimension, disposition) in domains {
-            let identity = match disposition {
+            let identities: Vec<Digest> = match disposition {
                 DomainDisposition::Distinct(identity)
-                | DomainDisposition::SharedAccepted { identity, .. } => Some(*identity),
-                DomainDisposition::NotApplicable { .. } | DomainDisposition::Unknown => None,
+                | DomainDisposition::SharedAccepted { identity, .. } => vec![*identity],
+                DomainDisposition::MultiValue { identities, .. } => {
+                    identities.iter().copied().collect()
+                }
+                DomainDisposition::NotApplicable { .. } | DomainDisposition::Unknown => Vec::new(),
             };
-            if let Some(identity) = identity {
+            for identity in identities {
                 identity_roles
                     .entry((*dimension, identity))
                     .or_default()
@@ -516,6 +569,9 @@ pub struct CutSetReport {
     pub candidate_extensions_attempted: usize,
     pub max_candidate_extensions: usize,
     pub unresolved_roles: Vec<(String, Vec<FaultDomainDimension>)>,
+    /// Retain every known dependency identity even when a role has an unknown
+    /// remainder and the numeric cut-set result is withheld.
+    pub known_dependencies_by_role: Vec<(String, Vec<FaultDomainKey>)>,
 }
 
 fn cut_set_report(
@@ -540,6 +596,20 @@ fn cut_set_report(
         candidate_extensions_attempted,
         max_candidate_extensions,
         unresolved_roles,
+        known_dependencies_by_role: {
+            let mut roles: Vec<_> = manifest
+                .roles
+                .iter()
+                .map(|role| {
+                    (
+                        role.role.clone(),
+                        role.known_domains.iter().copied().collect(),
+                    )
+                })
+                .collect();
+            roles.sort_by(|left, right| left.0.cmp(&right.0));
+            roles
+        },
     }
 }
 
@@ -582,7 +652,7 @@ pub fn minimal_cut_sets(
             let classifications =
                 (known_count > 0) as usize + (not_applicable.is_some()) as usize + unknown as usize;
 
-            if classifications != 1 || known_count > 1 {
+            if classifications != 1 {
                 unresolved.insert(dimension);
             }
             if not_applicable.is_some_and(|rationale| rationale.trim().is_empty()) {
@@ -768,6 +838,20 @@ pub fn analyze_profile_cut_sets(
                         identity: *identity,
                     });
                 }
+                Some(DomainDisposition::MultiValue {
+                    identities,
+                    completeness,
+                }) => {
+                    expected.known_domains.extend(identities.iter().map(|identity| {
+                        FaultDomainKey {
+                            dimension,
+                            identity: *identity,
+                        }
+                    }));
+                    if *completeness == DependencySetCompleteness::UnknownRemainder {
+                        expected.unknown_dimensions.insert(dimension);
+                    }
+                }
                 Some(DomainDisposition::NotApplicable { rationale }) => {
                     expected
                         .not_applicable_dimensions
@@ -888,6 +972,18 @@ mod tests {
                                 dimension,
                                 identity: *identity,
                             });
+                        }
+                        Some(DomainDisposition::MultiValue {
+                            identities,
+                            completeness,
+                        }) => {
+                            known_domains.extend(identities.iter().map(|identity| FaultDomainKey {
+                                dimension,
+                                identity: *identity,
+                            }));
+                            if *completeness == DependencySetCompleteness::UnknownRemainder {
+                                unknown_dimensions.insert(dimension);
+                            }
                         }
                         Some(DomainDisposition::NotApplicable { rationale }) => {
                             not_applicable_dimensions.insert(dimension, rationale.clone());
