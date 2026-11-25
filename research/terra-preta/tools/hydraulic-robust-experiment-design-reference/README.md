@@ -25,6 +25,12 @@ The engine exhaustively enumerates feasible candidate subsets (up to 16 candidat
 - minimax normalized D-optimal regret against each scenario's own exhaustive oracle;
 - per-scenario rank, nullity, minimum eigenvalue and log-determinant for each selected design.
 
+For scenario v, normalized regret is the fraction of the best feasible experimental-design gain that a candidate design leaves unused:
+
+`regret_v(D) = [logdet F_v(D*_v) - logdet F_v(D)] / [logdet F_v(D*_v) - logdet F_v(D_0)]`
+
+where `D*_v` is that scenario's exhaustive feasible oracle and `D_0` is the no-new-acquisition baseline. The denominator is therefore the available improvement over baseline, not the absolute oracle log-determinant. This removes the arbitrary additive offset introduced by a change of parameter units. A scenario with no numerically resolvable available gain must also have no resolvable regret; otherwise evaluation fails closed. The report records both baseline log-determinant and available gain for every scenario.
+
 Ties are resolved deterministically by lower cost and candidate ID. Scenario ordering does not affect results.
 
 ## Manufactured three-scenario fixture
@@ -37,6 +43,13 @@ The fixture uses four common log-conductance estimands for upper/lower two-throa
 Candidates include two internal pressure probes, two nominal path-flow sensors and a repeat bulk boundary-flux measurement. The path-flow candidates are deliberately not assumed perfectly localized: the per-scenario observation rows mix upper and lower path flow in proportion to the stated support and registration alternatives.
 
 The baseline bulk-flux observation is present in every scenario. Repeating the same bulk support may reduce variance in its direction but cannot raise structural sensitivity rank. The test checks this per scenario.
+
+## Numerical qualification
+
+- Symmetry and positive-semidefinite prior checks are performed relative to the matrix's own maximum-entry scale.
+- The Jacobi eigensolver normalizes the matrix before applying its convergence threshold, avoiding an absolute-unit stopping criterion.
+- Non-finite parameter-scaled sensitivities and inverse-variance overflow/underflow are rejected before Fisher accumulation.
+- Uniform parameter reparameterization (including the prior and determinant regularizer) must leave design selections and normalized regret unchanged.
 
 ## Validation controls
 
