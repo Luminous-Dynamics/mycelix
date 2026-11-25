@@ -164,7 +164,7 @@ pub fn qualify_capability_outcomes(
 
     let mut expected_teams = BTreeSet::new();
     for team_id in &contract.expected_team_ids {
-        if team_id.trim().is_empty() || !expected_teams.insert(team_id.as_str()) {
+        if team_id.trim().is_empty() || !expected_teams.insert(team_id.clone()) {
             fail(&mut report, "expected team identities must be non-empty and unique");
         }
     }
@@ -183,7 +183,7 @@ pub fn qualify_capability_outcomes(
         if observation.run_id != contract.run_id {
             fail(&mut report, "observation belongs to a different study run");
         }
-        if !expected_teams.contains(observation.team_id.as_str()) {
+        if !expected_teams.contains(&observation.team_id) {
             fail(&mut report, "observation contains an unexpected team identity");
         }
         if observation.team_id.trim().is_empty() || observation.team_size < 2 {
