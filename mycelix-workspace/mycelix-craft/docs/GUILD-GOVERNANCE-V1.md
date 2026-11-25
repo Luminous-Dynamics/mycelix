@@ -254,6 +254,26 @@ Compare matched guilds and workflows against:
 
 Use matched tasks, comparable member counts, equivalent authority scopes, declared decision classes, independent evaluators and prospective outcome measures. Measure both safety and operating cost. A system that decentralizes voting but concentrates information, proposal control or financial access has not demonstrated distributed power.
 
+## 7.1 Industry and institutional baselines
+
+Craft should borrow proven institutional patterns rather than claim that guild governance is new.
+
+| Baseline | Existing strength | Craft opportunity |
+| --- | --- | --- |
+| Professional associations / licensing bodies | Occupational standards, member services, professional discipline and formal recognition | Interoperate with their scoped authority; do not pretend a Craft guild is a regulator or substitutes for statutory licensing |
+| Enterprise talent-intelligence platforms such as Eightfold | Skills inference, candidate matching, internal mobility, project staffing and development recommendations | Add subject-controlled external work evidence, explainable evidence gaps, independent assessors and member-governed opportunity rules |
+| Platform cooperatives | Shared worker/user ownership, democratic control, co-design and cooperation among cooperatives | Give member-owned guilds reusable evidence, work and federation infrastructure without taking their ownership or governance |
+| Sociocracy 3.0 / consent-based circles | Explicit domains, semi-autonomous circles, delegated roles, role selection, consent and continuous policy evolution | Represent those roles and delegations as inspectable, scoped, revocable records |
+| DAO-style governance | Transparent proposals, votes and execution records | Avoid treating token holdings or on-chain participation as universal professional competence or legitimate authority |
+
+Relevant references:
+- Eightfold product and capability documentation: https://docs.eightfold.ai/ and https://docs.eightfold.ai/en_US/ta-core/skills-related-insights
+- Platform Cooperativism Consortium: https://platform.coop/
+- OECD, *Platform Cooperatives and Employment*: https://www.oecd.org/content/dam/oecd/en/publications/reports/2023/09/platform-cooperatives-and-employment_8e8a1d61/3eab339f-en.pdf
+- Sociocracy 3.0 role and circle patterns: https://patterns.sociocracy30.org/all.html
+
+The differentiator to measure is not whether Craft can create a guild, hold a vote or match a skill. It is whether it enables multiple independent communities to recognize precisely scoped evidence, govern their own rules, cooperate on productive work and preserve member rights without a universal hierarchy.
+
 ## 8. Migration plan
 
 Do not mutate the current serialized `GuildRole` enum in place.
