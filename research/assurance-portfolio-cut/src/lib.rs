@@ -251,9 +251,7 @@ pub fn check_profile(
     {
         return Err(ProfileError::InvalidValidityWindow);
     }
-    if policy.digest != pinned_policy_digest
-        || profile.policy_digest != pinned_policy_digest
-    {
+    if policy.digest != pinned_policy_digest || profile.policy_digest != pinned_policy_digest {
         return Err(ProfileError::PolicyDigestMismatch);
     }
     let tier = policy
@@ -261,11 +259,18 @@ pub fn check_profile(
         .get(&profile.assurance_tier)
         .ok_or(ProfileError::UnknownAssuranceTier)?;
     if tier.required_roles.is_empty()
-        || tier.required_roles.iter().any(|role| role.trim().is_empty())
+        || tier
+            .required_roles
+            .iter()
+            .any(|role| role.trim().is_empty())
     {
         return Err(ProfileError::InvalidPolicyTier);
     }
-    if profile.required_roles.iter().any(|role| role.trim().is_empty()) {
+    if profile
+        .required_roles
+        .iter()
+        .any(|role| role.trim().is_empty())
+    {
         return Err(ProfileError::EmptyRoleId);
     }
     for requirement in &tier.required_separations {
@@ -328,11 +333,7 @@ pub fn check_profile(
                     if rationale.trim().is_empty() {
                         return Err(ProfileError::NotApplicableRequiresRationale);
                     }
-                    not_applicable_dimensions.push((
-                        role.clone(),
-                        dimension,
-                        rationale.clone(),
-                    ));
+                    not_applicable_dimensions.push((role.clone(), dimension, rationale.clone()));
                 }
                 Some(DomainDisposition::Unknown) => {
                     reasons.insert(ProfileReason::UnknownDimension);
@@ -382,8 +383,7 @@ pub fn check_profile(
         });
     }
 
-    let mut identity_roles =
-        BTreeMap::<(FaultDomainDimension, Digest), BTreeSet<String>>::new();
+    let mut identity_roles = BTreeMap::<(FaultDomainDimension, Digest), BTreeSet<String>>::new();
     for (role, domains) in &profile.role_domains {
         for (dimension, disposition) in domains {
             let identity = match disposition {
@@ -404,17 +404,14 @@ pub fn check_profile(
         .values()
         .flat_map(|domains| domains.iter())
         .filter_map(|(dimension, disposition)| match disposition {
-            DomainDisposition::SharedAccepted { identity, .. } => {
-                Some((*dimension, *identity))
-            }
+            DomainDisposition::SharedAccepted { identity, .. } => Some((*dimension, *identity)),
             _ => None,
         })
         .collect();
-    if declared_shared_keys.iter().any(|key| {
-        identity_roles
-            .get(key)
-            .is_none_or(|roles| roles.len() < 2)
-    }) {
+    if declared_shared_keys
+        .iter()
+        .any(|key| identity_roles.get(key).is_none_or(|roles| roles.len() < 2))
+    {
         reasons.insert(ProfileReason::SharedIdentityNotObserved);
     }
     let observed_shared_dependencies = identity_roles
@@ -665,25 +662,20 @@ pub fn minimal_cut_sets(
         }
 
         let mut ordered: Vec<_> = expanded.into_iter().collect();
-        ordered.sort_by(|left, right| {
-            left.len()
-                .cmp(&right.len())
-                .then_with(|| left.cmp(right))
-        });
+        ordered.sort_by(|left, right| left.len().cmp(&right.len()).then_with(|| left.cmp(right)));
         let mut minimal = Vec::<BTreeSet<FaultDomainKey>>::new();
         for candidate in ordered {
-            if !minimal.iter().any(|existing| existing.is_subset(&candidate)) {
+            if !minimal
+                .iter()
+                .any(|existing| existing.is_subset(&candidate))
+            {
                 minimal.push(candidate);
             }
         }
         candidates = minimal;
     }
 
-    candidates.sort_by(|left, right| {
-        left.len()
-            .cmp(&right.len())
-            .then_with(|| left.cmp(right))
-    });
+    candidates.sort_by(|left, right| left.len().cmp(&right.len()).then_with(|| left.cmp(right)));
     let minimum_cut_cardinality = candidates.first().map(|set| set.len());
 
     Ok(cut_set_report(
@@ -859,10 +851,7 @@ mod tests {
             assurance_tier: "assurance-two-role-independent".to_owned(),
             valid_from: 10,
             valid_until: Some(100),
-            required_roles: BTreeSet::from([
-                "formal".to_owned(),
-                "independent".to_owned(),
-            ]),
+            required_roles: BTreeSet::from(["formal".to_owned(), "independent".to_owned()]),
             role_domains: all_distinct_roles(&["formal", "independent"]),
         }
     }
@@ -964,7 +953,8 @@ mod tests {
 
     #[test]
     fn complete_profile_requires_all_15_dimensions_and_distinct_pairs() {
-        let report = check_profile(&profile(), &assurance_policy(), Digest::from_byte(3), 50).expect("valid profile");
+        let report = check_profile(&profile(), &assurance_policy(), Digest::from_byte(3), 50)
+            .expect("valid profile");
         assert_eq!(
             report.disposition,
             ProfileDisposition::CompleteForDeclaredThreatModel
@@ -1027,9 +1017,14 @@ mod tests {
             .get_mut("formal")
             .expect("role exists")
             .remove(&FaultDomainDimension::TrustRoot);
-        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50).expect("well-formed but incomplete");
+        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50)
+            .expect("well-formed but incomplete");
         assert_eq!(report.disposition, ProfileDisposition::Incomplete);
-        assert!(report.reasons.contains(&ProfileReason::RequiredDimensionMissing));
+        assert!(
+            report
+                .reasons
+                .contains(&ProfileReason::RequiredDimensionMissing)
+        );
     }
 
     #[test]
@@ -1043,10 +1038,15 @@ mod tests {
                 FaultDomainDimension::ImplementationLineage,
                 DomainDisposition::Unknown,
             );
-        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50).expect("well-formed but incomplete");
+        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50)
+            .expect("well-formed but incomplete");
         assert_eq!(report.disposition, ProfileDisposition::Incomplete);
         assert!(report.reasons.contains(&ProfileReason::UnknownDimension));
-        assert!(report.reasons.contains(&ProfileReason::RequiredSeparationUnknown));
+        assert!(
+            report
+                .reasons
+                .contains(&ProfileReason::RequiredSeparationUnknown)
+        );
     }
 
     #[test]
@@ -1074,8 +1074,12 @@ mod tests {
                     rationale: "same declared provider".to_owned(),
                 },
             );
-        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50).expect("valid rationale");
-        assert_eq!(report.disposition, ProfileDisposition::CompleteForDeclaredThreatModel);
+        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50)
+            .expect("valid rationale");
+        assert_eq!(
+            report.disposition,
+            ProfileDisposition::CompleteForDeclaredThreatModel
+        );
         assert_eq!(report.accepted_shared_dependencies.len(), 2);
         assert_eq!(report.observed_shared_dependencies.len(), 1);
         assert_eq!(
@@ -1084,7 +1088,6 @@ mod tests {
         );
         // ExecutionProvider is not a mandatory separation in this profile.
     }
-
 
     #[test]
     fn equal_known_identity_is_reported_as_shared_even_without_label() {
@@ -1100,15 +1103,15 @@ mod tests {
                     DomainDisposition::Distinct(shared),
                 );
         }
-        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50).expect("valid shape");
-        assert_eq!(report.disposition, ProfileDisposition::CompleteForDeclaredThreatModel);
-        assert_eq!(report.observed_shared_dependencies.len(), 1);
+        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50)
+            .expect("valid shape");
         assert_eq!(
-            report.observed_shared_dependencies[0].identity,
-            shared
+            report.disposition,
+            ProfileDisposition::CompleteForDeclaredThreatModel
         );
+        assert_eq!(report.observed_shared_dependencies.len(), 1);
+        assert_eq!(report.observed_shared_dependencies[0].identity, shared);
     }
-
 
     #[test]
     fn accepted_shared_label_requires_a_common_identity_across_roles() {
@@ -1135,7 +1138,8 @@ mod tests {
                     rationale: "declared common provider".to_owned(),
                 },
             );
-        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50).expect("valid shape");
+        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50)
+            .expect("valid shape");
         assert_eq!(report.disposition, ProfileDisposition::Incomplete);
         assert!(
             report
@@ -1158,7 +1162,8 @@ mod tests {
                     DomainDisposition::Distinct(same),
                 );
         }
-        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50).expect("valid shape");
+        let report = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50)
+            .expect("valid shape");
         assert_eq!(report.disposition, ProfileDisposition::Incomplete);
         assert!(
             report
@@ -1182,7 +1187,8 @@ mod tests {
                 },
             );
         assert_eq!(
-            check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50).expect_err("empty rationale rejected"),
+            check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50)
+                .expect_err("empty rationale rejected"),
             ProfileError::SharedDimensionRequiresRationale
         );
     }
@@ -1191,11 +1197,15 @@ mod tests {
     fn profile_expiration_is_explicit() {
         let candidate = profile();
         assert_eq!(
-            check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 100).expect("valid profile").disposition,
+            check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 100)
+                .expect("valid profile")
+                .disposition,
             ProfileDisposition::Expired
         );
         assert_eq!(
-            check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 9).expect("valid profile").disposition,
+            check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 9)
+                .expect("valid profile")
+                .disposition,
             ProfileDisposition::NotYetEffective
         );
     }
@@ -1221,12 +1231,8 @@ mod tests {
     #[test]
     fn self_separation_is_rejected_at_construction() {
         assert_eq!(
-            SeparationRequirement::new(
-                "formal",
-                "formal",
-                FaultDomainDimension::TrustRoot
-            )
-            .expect_err("self separation invalid"),
+            SeparationRequirement::new("formal", "formal", FaultDomainDimension::TrustRoot)
+                .expect_err("self separation invalid"),
             ProfileError::SelfSeparation
         );
     }
@@ -1241,7 +1247,8 @@ mod tests {
             role_dependencies("left", [shared_ci, left_impl]),
             role_dependencies("right", [shared_ci, right_impl]),
         ];
-        let report = minimal_cut_sets(&dependency_manifest(roles.clone()), 100).expect("valid graph");
+        let report =
+            minimal_cut_sets(&dependency_manifest(roles.clone()), 100).expect("valid graph");
 
         assert_eq!(report.disposition, CutSetDisposition::Complete);
         assert_eq!(report.claim_id, "portfolio-cut-claim");
@@ -1253,7 +1260,11 @@ mod tests {
         assert_eq!(report.minimum_cut_cardinality, Some(1));
         assert_eq!(report.max_candidate_extensions, 100);
         assert_eq!(report.minimal_cut_sets.len(), 2);
-        assert!(report.minimal_cut_sets.contains(&BTreeSet::from([shared_ci])));
+        assert!(
+            report
+                .minimal_cut_sets
+                .contains(&BTreeSet::from([shared_ci]))
+        );
         assert!(
             report
                 .minimal_cut_sets
@@ -1272,21 +1283,16 @@ mod tests {
             role_dependencies("b", [shared, b]),
             role_dependencies("c", [shared, c]),
         ];
-        let first = minimal_cut_sets(&dependency_manifest(roles.clone()), 100).expect("valid graph");
+        let first =
+            minimal_cut_sets(&dependency_manifest(roles.clone()), 100).expect("valid graph");
         let second = minimal_cut_sets(&dependency_manifest(roles.clone()), 100).expect("replay");
         assert_eq!(first, second);
         assert_eq!(first.minimal_cut_sets.len(), 2);
         assert!(first.minimal_cut_sets.contains(&BTreeSet::from([shared])));
-        assert!(
-            first
-                .minimal_cut_sets
-                .contains(&BTreeSet::from([a, b, c]))
-        );
+        assert!(first.minimal_cut_sets.contains(&BTreeSet::from([a, b, c])));
     }
 
-    fn brute_force_minimal_cut_sets(
-        roles: &[RoleDependencies],
-    ) -> Vec<BTreeSet<FaultDomainKey>> {
+    fn brute_force_minimal_cut_sets(roles: &[RoleDependencies]) -> Vec<BTreeSet<FaultDomainKey>> {
         let universe: Vec<_> = roles
             .iter()
             .flat_map(|role| role.known_domains.iter().copied())
@@ -1300,9 +1306,7 @@ mod tests {
             let candidate: BTreeSet<_> = universe
                 .iter()
                 .enumerate()
-                .filter_map(|(index, domain)| {
-                    ((mask & (1usize << index)) != 0).then_some(*domain)
-                })
+                .filter_map(|(index, domain)| ((mask & (1usize << index)) != 0).then_some(*domain))
                 .collect();
             if roles.iter().all(|role| {
                 candidate
@@ -1312,16 +1316,14 @@ mod tests {
                 hitting_sets.push(candidate);
             }
         }
-        hitting_sets.sort_by(|left, right| {
-            left.len()
-                .cmp(&right.len())
-                .then_with(|| left.cmp(right))
-        });
+        hitting_sets
+            .sort_by(|left, right| left.len().cmp(&right.len()).then_with(|| left.cmp(right)));
         let mut minimal = Vec::new();
         for candidate in hitting_sets {
-            if !minimal.iter().any(|existing: &BTreeSet<FaultDomainKey>| {
-                existing.is_subset(&candidate)
-            }) {
+            if !minimal
+                .iter()
+                .any(|existing: &BTreeSet<FaultDomainKey>| existing.is_subset(&candidate))
+            {
                 minimal.push(candidate);
             }
         }
@@ -1384,16 +1386,11 @@ mod tests {
                 domain(FaultDomainDimension::ImplementationLineage, 2),
             ],
         );
-        let forward = minimal_cut_sets(
-            &dependency_manifest(vec![left.clone(), right.clone()]),
-            100,
-        )
-        .expect("forward order");
-        let reversed = minimal_cut_sets(
-            &dependency_manifest(vec![right, left]),
-            100,
-        )
-        .expect("reversed order");
+        let forward =
+            minimal_cut_sets(&dependency_manifest(vec![left.clone(), right.clone()]), 100)
+                .expect("forward order");
+        let reversed =
+            minimal_cut_sets(&dependency_manifest(vec![right, left]), 100).expect("reversed order");
         assert_eq!(forward.minimal_cut_sets, reversed.minimal_cut_sets);
         assert_eq!(
             forward.minimum_cut_cardinality,
@@ -1407,10 +1404,7 @@ mod tests {
 
     #[test]
     fn cut_set_budget_use_is_independent_of_role_input_order() {
-        let small = role_dependencies(
-            "small",
-            [domain(FaultDomainDimension::TrustRoot, 1)],
-        );
+        let small = role_dependencies("small", [domain(FaultDomainDimension::TrustRoot, 1)]);
         let medium = role_dependencies(
             "medium",
             [
@@ -1431,11 +1425,8 @@ mod tests {
             10_000,
         )
         .expect("first role order");
-        let second = minimal_cut_sets(
-            &dependency_manifest(vec![medium, large, small]),
-            10_000,
-        )
-        .expect("second role order");
+        let second = minimal_cut_sets(&dependency_manifest(vec![medium, large, small]), 10_000)
+            .expect("second role order");
         assert_eq!(first.minimal_cut_sets, second.minimal_cut_sets);
         assert_eq!(
             first.candidate_extensions_attempted,
@@ -1445,13 +1436,8 @@ mod tests {
 
     #[test]
     fn downstream_cut_sets_require_exact_profile_and_domain_manifest_binding() {
-        let checked = check_profile(
-            &profile(),
-            &assurance_policy(),
-            Digest::from_byte(3),
-            50,
-        )
-        .expect("valid profile");
+        let checked = check_profile(&profile(), &assurance_policy(), Digest::from_byte(3), 50)
+            .expect("valid profile");
         let manifest = manifest_bound_to_profile(&checked);
         let report = analyze_profile_cut_sets(&checked, &manifest, 100_000)
             .expect("profile-bound cut-set analysis");
@@ -1475,14 +1461,12 @@ mod tests {
             .iter_mut()
             .find(|role| role.role == "formal")
             .expect("formal role");
-        formal.known_domains.remove(&domain(
-            FaultDomainDimension::TrustRoot,
-            1,
-        ));
-        formal.known_domains.insert(domain(
-            FaultDomainDimension::TrustRoot,
-            99,
-        ));
+        formal
+            .known_domains
+            .remove(&domain(FaultDomainDimension::TrustRoot, 1));
+        formal
+            .known_domains
+            .insert(domain(FaultDomainDimension::TrustRoot, 99));
         assert_eq!(
             analyze_profile_cut_sets(&checked, &mismatched_domains, 100_000)
                 .expect_err("same digest label cannot hide changed dependency"),
@@ -1497,17 +1481,9 @@ mod tests {
             .role_domains
             .get_mut("formal")
             .expect("role exists")
-            .insert(
-                FaultDomainDimension::TrustRoot,
-                DomainDisposition::Unknown,
-            );
-        let checked = check_profile(
-            &candidate,
-            &assurance_policy(),
-            Digest::from_byte(3),
-            50,
-        )
-        .expect("well-formed but incomplete");
+            .insert(FaultDomainDimension::TrustRoot, DomainDisposition::Unknown);
+        let checked = check_profile(&candidate, &assurance_policy(), Digest::from_byte(3), 50)
+            .expect("well-formed but incomplete");
         assert_eq!(checked.disposition, ProfileDisposition::Incomplete);
         let manifest = manifest_bound_to_profile(&checked);
         assert_eq!(
@@ -1531,7 +1507,8 @@ mod tests {
             "right",
             [domain(FaultDomainDimension::ImplementationLineage, 2)],
         );
-        let report = minimal_cut_sets(&dependency_manifest(vec![left, right]), 100).expect("valid graph");
+        let report =
+            minimal_cut_sets(&dependency_manifest(vec![left, right]), 100).expect("valid graph");
         assert_eq!(report.disposition, CutSetDisposition::Incomplete);
         assert!(report.minimal_cut_sets.is_empty());
         assert_eq!(report.minimum_cut_cardinality, None);
@@ -1549,11 +1526,8 @@ mod tests {
             "right",
             [domain(FaultDomainDimension::ImplementationLineage, 2)],
         );
-        let report = minimal_cut_sets(
-            &dependency_manifest(vec![left, right]),
-            100,
-        )
-        .expect("well-formed but incomplete");
+        let report = minimal_cut_sets(&dependency_manifest(vec![left, right]), 100)
+            .expect("well-formed but incomplete");
         assert_eq!(report.disposition, CutSetDisposition::Incomplete);
         assert_eq!(report.minimum_cut_cardinality, None);
         assert!(report.minimal_cut_sets.is_empty());
@@ -1577,19 +1551,19 @@ mod tests {
             "right",
             [domain(FaultDomainDimension::ImplementationLineage, 2)],
         );
-        let report = minimal_cut_sets(
-            &dependency_manifest(vec![left, right]),
-            100,
-        )
-        .expect("well-formed but contradictory");
+        let report = minimal_cut_sets(&dependency_manifest(vec![left, right]), 100)
+            .expect("well-formed but contradictory");
         assert_eq!(report.disposition, CutSetDisposition::Incomplete);
         assert_eq!(report.minimum_cut_cardinality, None);
     }
 
     #[test]
     fn empty_dependency_manifest_is_incomplete_not_zero_cut() {
-        let report = minimal_cut_sets(&dependency_manifest(vec![role_dependencies("empty", [])]), 100)
-            .expect("well-formed but incomplete");
+        let report = minimal_cut_sets(
+            &dependency_manifest(vec![role_dependencies("empty", [])]),
+            100,
+        )
+        .expect("well-formed but incomplete");
         assert_eq!(report.disposition, CutSetDisposition::Incomplete);
         assert_eq!(report.minimum_cut_cardinality, None);
     }
@@ -1622,31 +1596,23 @@ mod tests {
 
     #[test]
     fn duplicate_role_ids_are_rejected() {
-        let duplicate = role_dependencies(
-            "same",
-            [domain(FaultDomainDimension::TrustRoot, 1)],
-        );
+        let duplicate = role_dependencies("same", [domain(FaultDomainDimension::TrustRoot, 1)]);
         assert_eq!(
-            minimal_cut_sets(&dependency_manifest(vec![duplicate.clone(), duplicate]), 100)
-                .expect_err("duplicate role invalid"),
+            minimal_cut_sets(
+                &dependency_manifest(vec![duplicate.clone(), duplicate]),
+                100
+            )
+            .expect_err("duplicate role invalid"),
             CutSetError::DuplicateRoleId
         );
     }
 
     #[test]
     fn reversed_separation_constructor_normalizes_role_order() {
-        let forward = SeparationRequirement::new(
-            "a",
-            "b",
-            FaultDomainDimension::TrustRoot,
-        )
-        .expect("forward");
-        let reverse = SeparationRequirement::new(
-            "b",
-            "a",
-            FaultDomainDimension::TrustRoot,
-        )
-        .expect("reverse");
+        let forward =
+            SeparationRequirement::new("a", "b", FaultDomainDimension::TrustRoot).expect("forward");
+        let reverse =
+            SeparationRequirement::new("b", "a", FaultDomainDimension::TrustRoot).expect("reverse");
         assert_eq!(forward, reverse);
     }
 }
