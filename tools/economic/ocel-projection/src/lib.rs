@@ -390,7 +390,13 @@ impl ProjectionInput {
                 .iter()
                 .map(|attribute| (attribute.name.as_str(), attribute.kind))
                 .collect();
-            for mandatory in ["time_basis", "time_evidence_ref", "source_event_ref"] {
+            for mandatory in [
+                "time_basis",
+                "time_evidence_ref",
+                "time_precision",
+                "time_quality",
+                "source_event_ref",
+            ] {
                 if declared.get(mandatory) != Some(&ValueKind::String) {
                     return Err(ProjectionError::MissingMandatoryTimeMetadata);
                 }
@@ -400,7 +406,7 @@ impl ProjectionInput {
                 value.validate()?;
                 if matches!(
                     name.as_str(),
-                    "time_basis" | "time_evidence_ref" | "source_event_ref"
+                    "time_basis" | "time_evidence_ref" | "time_precision" | "time_quality" | "source_event_ref"
                 ) {
                     return Err(ProjectionError::UnknownAttribute);
                 }
@@ -505,6 +511,7 @@ impl ProjectionInput {
             push_json_string(&mut output, event.time.basis.as_str());
             output.push_str(",\"time_evidence_ref\":");
             push_json_string(&mut output, &event.time.evidence_ref);
+            encode_temporal_provenance_fields(&mut output, &event.time);
             output.push('}');
         }
 
@@ -533,6 +540,7 @@ impl ProjectionInput {
                 push_json_string(&mut output, attribute.time.basis.as_str());
                 output.push_str(",\"time_evidence_ref\":");
                 push_json_string(&mut output, &attribute.time.evidence_ref);
+                encode_temporal_provenance_fields(&mut output, &attribute.time);
                 output.push('}');
             }
         }
@@ -751,6 +759,25 @@ fn parse_digits(bytes: &[u8], start: usize, count: usize) -> Option<u32> {
     })
 }
 
+fn encode_temporal_provenance_fields(output: &mut String, time: &QualifiedTime) {
+    output.push_str(",\"precision\":");
+    push_json_string(output, time.metadata.precision.as_str());
+    output.push_str(",\"quality\":");
+    push_json_string(output, time.metadata.quality.as_str());
+    output.push_str(",\"clock_profile\":");
+    push_json_string(output, &time.metadata.clock_profile);
+    output.push_str(",\"source_authority_ref\":");
+    push_json_string(output, &time.metadata.source_authority_ref);
+    if let Some(window) = &time.metadata.uncertainty_window {
+        output.push_str(",\"uncertainty_window\":{");
+        output.push_str("\"earliest\":");
+        push_json_string(output, &window.earliest);
+        output.push_str(",\"latest\":");
+        push_json_string(output, &window.latest);
+        output.push('}');
+    }
+}
+
 fn encode_declarations(output: &mut String, declarations: &[AttributeDeclaration]) {
     output.push('[');
     for (index, declaration) in declarations.iter().enumerate() {
@@ -793,6 +820,14 @@ fn encode_event(output: &mut String, event: &EventRecord) {
     values.push((
         "source_event_ref".into(),
         OcelValue::String(event.source_event_ref.clone()),
+    ));
+    values.push((
+        "time_precision".into(),
+        OcelValue::String(event.time.metadata.precision.as_str().into()),
+    ));
+    values.push((
+        "time_quality".into(),
+        OcelValue::String(event.time.metadata.quality.as_str().into()),
     ));
     values.sort_by(|a, b| a.0.cmp(&b.0));
 
