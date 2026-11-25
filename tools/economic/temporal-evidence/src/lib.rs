@@ -115,6 +115,7 @@ pub struct BitemporalValidityResultV1 {
 pub enum OccurrenceQueryDispositionV1 {
     Known,
     NotKnown,
+    Indeterminate,
     Conflict,
 }
 
@@ -357,7 +358,7 @@ impl TemporalEvidenceSetV1 {
 
         let (from, from_knowledge) = match from {
             Selection::Selected(assertion, knowledge) => (Some(assertion), knowledge),
-            Selection::Missing => (None, Vec::new()),
+            Selection::Missing | Selection::NotKnown | Selection::Indeterminate => (None, Vec::new()),
             Selection::Conflict => {
                 return Ok(self.validity_result(
                     QueryDispositionV1::Conflict,
@@ -389,7 +390,7 @@ impl TemporalEvidenceSetV1 {
         let (to, to_knowledge) = match to {
             Selection::Selected(assertion, knowledge) => (Some(assertion), knowledge),
             Selection::Missing if allow_open_ended_valid_to => (None, Vec::new()),
-            Selection::Missing => {
+            Selection::Missing | Selection::NotKnown | Selection::Indeterminate => {
                 return Ok(self.validity_result(
                     QueryDispositionV1::Indeterminate,
                     claim_id,
@@ -482,8 +483,19 @@ impl TemporalEvidenceSetV1 {
             verifier_ref,
             &knowledge_query,
         )? {
-            Selection::Missing => OccurrenceAsKnownResultV1 {
+            Selection::Missing | Selection::NotKnown => OccurrenceAsKnownResultV1 {
                 disposition: OccurrenceQueryDispositionV1::NotKnown,
+                assertion_id: None,
+                claim_id: claim_id.into(),
+                subject_ref: String::new(),
+                occurred_at: None,
+                quality: None,
+                precision: None,
+                uncertainty_window: None,
+                knowledge_assertion_ids: Vec::new(),
+            },
+            Selection::Indeterminate => OccurrenceAsKnownResultV1 {
+                disposition: OccurrenceQueryDispositionV1::Indeterminate,
                 assertion_id: None,
                 claim_id: claim_id.into(),
                 subject_ref: String::new(),
@@ -557,8 +569,11 @@ impl TemporalEvidenceSetV1 {
                     }
                 }
             }
-            if contested_knowledge || (uncertain_knowledge && knowledge_ids.is_empty()) {
+            if contested_knowledge {
                 return Ok(Selection::Conflict);
+            }
+            if uncertain_knowledge && knowledge_ids.is_empty() {
+                return Ok(Selection::Indeterminate);
             }
             if !knowledge_ids.is_empty() {
                 knowledge_ids.sort();
@@ -567,7 +582,10 @@ impl TemporalEvidenceSetV1 {
         }
 
         if eligible.is_empty() {
-            return Ok(Selection::Missing);
+            let has_assertion = self.assertions.iter().any(|assertion| {
+                assertion.claim_id == claim_id && assertion.dimension == dimension
+            });
+            return Ok(if has_assertion { Selection::NotKnown } else { Selection::Missing });
         }
 
         let mut maximal: Vec<&TemporalAssertionV1> = Vec::new();
@@ -639,6 +657,8 @@ impl TemporalEvidenceSetV1 {
 enum Selection<'a> {
     Selected(&'a TemporalAssertionV1, Vec<String>),
     Missing,
+    NotKnown,
+    Indeterminate,
     Conflict,
 }
 
@@ -1017,14 +1037,12 @@ mod tests {
         };
         let before_correction = assertions
             .occurred_at_as_known("delivery-1", VERIFIER, "2026-11-21T10:00:20Z")
-            .unwrap()
             .unwrap();
         assert_eq!(before_correction.assertion_id.as_deref(), Some("occurred-v1"));
         assert_eq!(before_correction.occurred_at.as_deref(), Some("2026-11-21T10:00:00Z"));
 
         let after_correction = assertions
             .occurred_at_as_known("delivery-1", VERIFIER, "2026-11-21T10:00:40Z")
-            .unwrap()
             .unwrap();
         assert_eq!(after_correction.assertion_id.as_deref(), Some("occurred-v2"));
         assert_eq!(after_correction.occurred_at.as_deref(), Some("2026-11-21T10:00:02Z"));
@@ -1158,6 +1176,17 @@ mod tests {
             )
             .unwrap();
         assert_eq!(open.disposition, QueryDispositionV1::ValidAtQuery);
+    }
+
+    #[test]
+    fn unknown_valid_to_is_not_treated_as_open_ended() {
+        let mut assertions = valid_fixture();
+        assertions.assertions.retain(|assertion| assertion.assertion_id != "to-known");
+        let result = assertions.evaluate_valid_at(
+            "grant-1", VERIFIER, "2026-11-21T00:00:00Z",
+            "2026-11-21T00:00:00Z", true
+        ).unwrap();
+        assert_eq!(result.disposition, QueryDispositionV1::Indeterminate);
     }
 
     #[test]
