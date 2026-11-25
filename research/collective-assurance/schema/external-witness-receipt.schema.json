@@ -84,13 +84,13 @@
             "properties": {
               "channel": {
                 "enum": [
-                  "InferenceEndpoint",
-                  "AgentControlPlane",
-                  "Ipv4Egress",
-                  "Ipv6Egress",
-                  "DnsEgress",
-                  "ProxyEgress",
-                  "UdpEgress"
+                  "inference_endpoint",
+                  "agent_control_plane",
+                  "ipv4_egress",
+                  "ipv6_egress",
+                  "dns_egress",
+                  "proxy_egress",
+                  "udp_egress"
                 ]
               },
               "challenge_token_digest": {
@@ -98,10 +98,10 @@
               },
               "outcome": {
                 "enum": [
-                  "NoArrival",
-                  "Arrived",
-                  "Unknown",
-                  "NotObserved"
+                  "no_arrival",
+                  "arrived",
+                  "unknown",
+                  "not_observed"
                 ]
               },
               "window_start_ms": {
