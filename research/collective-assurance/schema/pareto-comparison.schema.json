@@ -65,7 +65,81 @@
           "type": "integer",
           "minimum": 2
         }
-      }
+      },
+      "allOf": [
+        {
+          "properties": {
+            "required_metrics": {
+              "contains": {
+                "const": "task_quality"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "required_metrics": {
+              "contains": {
+                "const": "evidence_coverage"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "required_metrics": {
+              "contains": {
+                "const": "agency"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "required_metrics": {
+              "contains": {
+                "const": "unauthorized_action_rate"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "required_metrics": {
+              "contains": {
+                "const": "unauthorized_disclosure_rate"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "required_metrics": {
+              "contains": {
+                "const": "over_refusal_rate"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "required_metrics": {
+              "contains": {
+                "const": "p95_latency_ms"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "required_metrics": {
+              "contains": {
+                "const": "total_cost_micro_usd"
+              }
+            }
+          }
+        }
+      ]
     },
     "baseline": {
       "$ref": "#/$defs/run"
@@ -261,7 +335,8 @@
               "confidence_level_bps",
               "independent_units",
               "observation_count",
-              "measurement_evidence_digest"
+              "measurement_evidence_digest",
+              "paired_unit_manifest_digest"
             ],
             "properties": {
               "metric": {
@@ -309,6 +384,17 @@
                 "minimum": 0
               },
               "measurement_evidence_digest": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                ]
+              },
+              "paired_unit_manifest_digest": {
                 "oneOf": [
                   {
                     "type": "null"
