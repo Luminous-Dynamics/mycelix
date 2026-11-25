@@ -37,6 +37,21 @@ Do not set an arbitrary SOTA throughput claim before measuring. Freeze:
 
 Report P50/P95/P99 latency, throughput, peak memory and size growth at 1, 10, 100 and 256 evidence references, plus 1/2/3/5/10 assessors. Compare the reference verifier against a naïve signature-only verifier and a coordinator implementation that merely counts verification links. The latter are deliberately weak baselines, not acceptable alternatives. No performance superiority is claimed until results are measured on the same frozen workload.
 
+## 3.1 Published reference points and limits
+
+A recent Annual Review table reproducing Sackett et al. (2022) revised selection-validity estimates reports structured interviews at `ρ = 0.42`, job-knowledge tests at `ρ = 0.40`, empirically keyed biodata at `ρ = 0.38`, and work-sample tests at `ρ = 0.33` ([Annual Review table](https://www.annualreviews.org/content/table/10.1146/annurev-orgpsych-020924-072127.t1)). These are reference estimates from a heterogeneous research literature, not universal constants, not direct Craft results, and not an acceptable substitute for a matched evaluation. The table notes that the job-knowledge estimate is from concurrent samples because no applicant-sample meta-analysis was available.
+
+A review first published on 19 October 2026 argues that much criterion-validity evidence still relies on concurrent incumbent samples and that better primary studies of operational applicant settings are needed ([Niessen et al., 2026](https://onlinelibrary.wiley.com/doi/full/10.1111/ijsa.70086)). Craft's evaluation should therefore be prospective, use the applicant population where decisions are actually made, and measure outcomes after hiring.
+
+For credential interoperability, Craft should complement rather than compete with existing specifications:
+- [W3C Verifiable Credentials Data Model 2.0](https://www.w3.org/TR/vc-data-model-2.0/) for issuer/subject claims and verifiable presentations;
+- [1EdTech Open Badges 3.0](https://www.1edtech.org/standards/open-badges) for individual achievement assertions with criteria and supporting evidence;
+- [1EdTech Comprehensive Learner Record 2.0](https://www.1edtech.org/standards/clr) for learner-curated learning and employment records.
+
+A crucial standards distinction: Open Badges verification establishes that a credential is an authentic and timely statement under its proof/status rules; it does not itself establish that the claims are true. Craft must add scoped evidence validation and independent real-world assessment. Do not claim 1EdTech certification until the applicable test suite and staff review process are complete ([Open Badges certification process](https://www.1edtech.org/certification/open-badges)).
+
+For apprenticeship quality, align the operational model to the ILO Quality Apprenticeships Recommendation No. 208: explicit trainer/instructor competence, a suitable balance of off-the-job and on-the-job learning, competency assessment/certification, and regular monitoring of retention, non-completion and success rates ([ILO Recommendation 208](https://www.ilo.org/resource/other/r208-quality-apprenticeships-recommendation-2023)). These should become measurable agreement and programme fields, not an opaque apprenticeship score.
+
 ## 4. Professional selection and capability evaluation
 
 The relevant comparison is not only credential formats. Compare the opportunity pipeline against matched baselines:
