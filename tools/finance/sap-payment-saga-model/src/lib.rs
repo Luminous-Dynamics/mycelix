@@ -12,6 +12,8 @@
 //! predecessor authorization, monetary conservation in production, or legal
 //!/external settlement finality.
 
+pub mod causal;
+
 use std::collections::{BTreeMap, btree_map::Entry};
 use std::fmt;
 
