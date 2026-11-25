@@ -187,7 +187,7 @@ fn finite_difference_gradient(case: &Case) -> Result<Vec<f64>, AuditError> {
     Ok(gradient)
 }
 
-fn adjoint_gradients(case: &Case) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>, f64), AuditError> {
+fn adjoint_gradients(case: &Case) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, f64), AuditError> {
     let (pressures, permeability, matrix) = solve_forward(case)?;
     let residual = permeability - case.target_permeability;
     let mut d_objective_d_pressure = vec![0.0; case.pore_count];
@@ -234,7 +234,8 @@ fn adjoint_gradients(case: &Case) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>, f64),
 
         // Signed direct derivative of inlet flow: add p1-inlet, subtract
         // p2-inlet. The public formula loses this orientation in is_inlet_pore.
-        let inlet_orientation = f64::from(p1_inlet[index]) - f64::from(p2_inlet[index]);
+        let inlet_orientation = (if p1_inlet[index] { 1.0 } else { 0.0 })
+            - (if p2_inlet[index] { 1.0 } else { 0.0 });
         let direct_term =
             residual * case.conversion * inlet_orientation * pressure_drop;
         corrected.push(state_term + direct_term);
