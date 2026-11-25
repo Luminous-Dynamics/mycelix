@@ -1367,6 +1367,53 @@ mod tests {
     }
 
     #[test]
+    fn preindexed_engine_matches_reference_for_validity_and_occurrence_queries() {
+        let evidence = valid_fixture();
+        let index = TemporalEvidenceIndexV1::new(evidence.clone()).unwrap();
+        for (valid_at, known_at) in [
+            ("2026-11-19T00:00:00Z", "2026-11-19T00:00:00Z"),
+            ("2026-11-19T00:00:00Z", "2026-11-21T00:00:00Z"),
+            ("2026-11-22T00:00:00Z", "2026-11-21T00:00:00Z"),
+        ] {
+            assert_eq!(
+                evidence.evaluate_valid_at("grant-1", VERIFIER, valid_at, known_at, false),
+                index.evaluate_valid_at("grant-1", VERIFIER, valid_at, known_at, false)
+            );
+        }
+
+        let occurrence_evidence = TemporalEvidenceSetV1 {
+            assertions: vec![
+                fact(
+                    "occurred-v1", "delivery-1", "delivery:1",
+                    TemporalDimensionV1::OccurredAt,
+                    "2026-11-21T10:00:00Z", None,
+                ),
+                fact(
+                    "occurred-v2", "delivery-1", "delivery:1",
+                    TemporalDimensionV1::OccurredAt,
+                    "2026-11-21T10:00:02Z", Some("occurred-v1"),
+                ),
+                knowledge(
+                    "v1-known", "delivery-1", "delivery:1", "occurred-v1",
+                    VERIFIER, "2026-11-21T10:00:10Z",
+                ),
+                knowledge(
+                    "v2-known", "delivery-1", "delivery:1", "occurred-v2",
+                    VERIFIER, "2026-11-21T10:00:30Z",
+                ),
+            ],
+        };
+        let occurrence_index =
+            TemporalEvidenceIndexV1::new(occurrence_evidence.clone()).unwrap();
+        for known_at in ["2026-11-21T10:00:20Z", "2026-11-21T10:00:40Z"] {
+            assert_eq!(
+                occurrence_evidence.occurred_at_as_known("delivery-1", VERIFIER, known_at),
+                occurrence_index.occurred_at_as_known("delivery-1", VERIFIER, known_at)
+            );
+        }
+    }
+
+    #[test]
     fn valid_interval_is_half_open() {
         let assertions = valid_fixture();
         let at_start = assertions
