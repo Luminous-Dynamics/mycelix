@@ -335,6 +335,12 @@ pub fn qualify_coordination_trial(
     if baseline.task_instance_digest != coordinated.task_instance_digest {
         fail(&mut report, "single-agent and coordinated runs use different task instances");
     }
+    if (baseline.relative_error_amplification - 1.0).abs() > f64::EPSILON {
+        fail(
+            &mut report,
+            "single-agent baseline must define relative error amplification as exactly 1.0",
+        );
+    }
 
     for mismatch in same_budgeted_experiment(&baseline.manifest, &coordinated.manifest) {
         fail(&mut report, format!("single-agent/multi-agent matched control: {mismatch}"));
@@ -598,6 +604,16 @@ mod tests {
         assert_eq!(result.error_amplification_limit_met, Some(false));
     }
 
+
+
+    #[test]
+    fn baseline_error_amplification_must_be_reference_one() {
+        let mut case = trial();
+        case.single_agent.relative_error_amplification = 0.8;
+        let result = qualify_coordination_trial(&contract(), &case);
+        assert_eq!(result.qualification.status, QualificationStatus::Fail);
+        assert_eq!(result.disposition, CoordinationDisposition::NotEvaluable);
+    }
 
     #[test]
     fn inconsistent_paired_gain_point_estimate_fails() {
