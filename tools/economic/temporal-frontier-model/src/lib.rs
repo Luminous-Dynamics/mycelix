@@ -173,7 +173,7 @@ impl OwnerCutV1 {
             && !self
                 .gaps
                 .iter()
-                .any(|gap| gap.first <= through && gap.last >= 1)
+                .any(|gap| gap.first <= through)
     }
 
     pub fn contains_unresolved_gap(&self, sequence: u64) -> bool {
@@ -227,7 +227,7 @@ impl VerifierFrontierV1 {
     /// whether the missing information is malicious or merely delayed.
     /// True is necessary but not sufficient for an absence claim: callers
     /// must also reconcile the complete accepted-receipt inventory.
-    pub fn proves_prefix_coverage(&self, owner_ref: &str, through: u64) -> bool {
+    pub fn prefix_coverage_is_complete(&self, owner_ref: &str, through: u64) -> bool {
         self.validate().is_ok()
             && self
                 .owner_cut(owner_ref)
@@ -541,11 +541,13 @@ mod tests {
 
     fn bounded_links(left: [u64; 2], right: [u64; 2]) -> Vec<OwnerConsistencyLinkV1> {
         let mut links = Vec::new();
-        for owner_index in 0..2 {
-            let (ancestor, descendant) = if left[owner_index] < right[owner_index] {
-                (left[owner_index], right[owner_index])
-            } else if right[owner_index] < left[owner_index] {
-                (right[owner_index], left[owner_index])
+        for (owner_index, (left_position, right_position)) in
+            left.into_iter().zip(right).enumerate()
+        {
+            let (ancestor, descendant) = if left_position < right_position {
+                (left_position, right_position)
+            } else if right_position < left_position {
+                (right_position, left_position)
             } else {
                 continue;
             };
@@ -719,7 +721,7 @@ mod tests {
             frontier.classify_receipt(&receipt(5, &owner_cut)),
             Ok(ReceiptVisibilityV1::Indeterminate)
         );
-        assert!(!frontier.proves_prefix_coverage("owner:grants", 10));
+        assert!(!frontier.prefix_coverage_is_complete("owner:grants", 10));
     }
 
     #[test]
