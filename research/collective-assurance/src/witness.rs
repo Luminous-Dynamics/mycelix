@@ -246,7 +246,7 @@ pub fn qualify_external_witness<V: ReceiptSignatureVerifier>(
             report.indeterminate(format!("external witness probe {channel:?} is missing"));
             continue;
         };
-        if observed.challenge_token_digest != *expected_token {
+        if observed.challenge_token_digest.as_str() != *expected_token {
             report.fail(format!("external witness probe {channel:?} token digest differs"));
         }
         if observed.window_start_ms > expected.phase_start_ms
