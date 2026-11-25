@@ -112,7 +112,8 @@ struct DesignSummary {
     objective_name: String,
     objective_value: f64,
     worst_case_log_determinant: f64,
-    worst_case_minimum_eigenvalue: f64,
+    worst_case_minimum_eigenvalue_data_information: f64,
+    worst_case_minimum_eigenvalue_total_information: f64,
     worst_case_rank: usize,
     maximum_normalized_d_optimal_regret: f64,
     maximum_absolute_d_optimal_regret: f64,
@@ -161,7 +162,8 @@ struct EvaluatedDesign {
     total_cost: u32,
     scenario_scores: Vec<ScenarioScore>,
     worst_case_log_determinant: f64,
-    worst_case_minimum_eigenvalue: f64,
+    worst_case_minimum_eigenvalue_data: f64,
+    worst_case_minimum_eigenvalue_total: f64,
     worst_case_rank: usize,
     max_normalized_regret: f64,
     max_absolute_regret: f64,
@@ -457,7 +459,10 @@ fn score_design(fixture: &Fixture, selected: Vec<usize>, cost: u32) -> Result<Ev
     let worst_case_log_determinant = scenario_scores.iter()
         .map(|score| score.log_determinant_total_information)
         .fold(f64::INFINITY, f64::min);
-    let worst_case_minimum_eigenvalue = scenario_scores.iter()
+    let worst_case_minimum_eigenvalue_data = scenario_scores.iter()
+        .map(|score| score.minimum_eigenvalue_data_information)
+        .fold(f64::INFINITY, f64::min);
+    let worst_case_minimum_eigenvalue_total = scenario_scores.iter()
         .map(|score| score.minimum_eigenvalue_total_information)
         .fold(f64::INFINITY, f64::min);
     let worst_case_rank = scenario_scores.iter().map(|score| score.data_sensitivity_rank).min().unwrap_or(0);
@@ -466,7 +471,8 @@ fn score_design(fixture: &Fixture, selected: Vec<usize>, cost: u32) -> Result<Ev
         total_cost: cost,
         scenario_scores,
         worst_case_log_determinant,
-        worst_case_minimum_eigenvalue,
+        worst_case_minimum_eigenvalue_data,
+        worst_case_minimum_eigenvalue_total,
         worst_case_rank,
         max_normalized_regret: 0.0,
         max_absolute_regret: 0.0,
@@ -548,7 +554,7 @@ fn select_design(designs: &[EvaluatedDesign], objective: &str, nominal_index: us
                 true,
             ),
             "robust_d_optimal" => (left.worst_case_log_determinant, right.worst_case_log_determinant, true),
-            "robust_e_optimal" => (left.worst_case_minimum_eigenvalue, right.worst_case_minimum_eigenvalue, true),
+            "robust_e_optimal" => (left.worst_case_minimum_eigenvalue_data, right.worst_case_minimum_eigenvalue_data, true),
             "minimax_regret" => (left.max_normalized_regret, right.max_normalized_regret, false),
             _ => (f64::NAN, f64::NAN, true),
         };
@@ -564,7 +570,8 @@ fn summarize(design: &EvaluatedDesign, budget: u32, name: &str, objective_value:
         objective_name: name.into(),
         objective_value,
         worst_case_log_determinant: design.worst_case_log_determinant,
-        worst_case_minimum_eigenvalue: design.worst_case_minimum_eigenvalue,
+        worst_case_minimum_eigenvalue_data_information: design.worst_case_minimum_eigenvalue_data,
+        worst_case_minimum_eigenvalue_total_information: design.worst_case_minimum_eigenvalue_total,
         worst_case_rank: design.worst_case_rank,
         maximum_normalized_d_optimal_regret: design.max_normalized_regret,
         maximum_absolute_d_optimal_regret: design.max_absolute_regret,
@@ -629,7 +636,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         acquisition_budget: fixture.acquisition_budget,
         nominal_design: summarize(&nominal, fixture.acquisition_budget, "nominal_d_optimal", nominal_score),
         robust_d_optimal_design: summarize(&robust_d, fixture.acquisition_budget, "maximin_logdet", robust_d.worst_case_log_determinant),
-        robust_e_optimal_design: summarize(&robust_e, fixture.acquisition_budget, "maximin_minimum_eigenvalue", robust_e.worst_case_minimum_eigenvalue),
+        robust_e_optimal_design: summarize(&robust_e, fixture.acquisition_budget, "maximin_data_minimum_eigenvalue", robust_e.worst_case_minimum_eigenvalue_data),
         minimax_regret_design: summarize(&minimax, fixture.acquisition_budget, "minimax_normalized_regret", minimax.max_normalized_regret),
         per_scenario_oracles: oracles,
         candidate_support_receipts,
