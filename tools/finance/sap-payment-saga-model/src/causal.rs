@@ -493,6 +493,47 @@ mod tests {
     }
 
     #[test]
+    fn same_native_event_id_under_different_owners_is_not_a_collision() {
+        let events = vec![
+            event("payments", "commit", 0, None, vec![]),
+            event("treasury", "commit", 0, None, vec![]),
+        ];
+        let projection = project_causal_graph_v1(&events).unwrap();
+        assert_eq!(projection.event_count, 2);
+        assert_eq!(projection.edge_count, 0);
+        assert_eq!(projection.topological_layers.len(), 1);
+        assert_eq!(projection.topological_layers[0].len(), 2);
+    }
+
+    #[test]
+    fn duplicate_owner_sequence_is_rejected() {
+        let events = vec![
+            event("payments", "p0", 0, None, vec![]),
+            event("payments", "p1", 0, None, vec![]),
+        ];
+        assert_eq!(
+            project_causal_graph_v1(&events),
+            Err(CausalErrorV1::DuplicateOwnerSequence)
+        );
+    }
+
+    #[test]
+    fn self_causality_is_rejected() {
+        let self_reference = reference("payments", "p0");
+        let events = vec![event(
+            "payments",
+            "p0",
+            0,
+            None,
+            vec![self_reference],
+        )];
+        assert_eq!(
+            project_causal_graph_v1(&events),
+            Err(CausalErrorV1::SelfCausality)
+        );
+    }
+
+    #[test]
     fn empty_graph_is_rejected() {
         assert_eq!(
             project_causal_graph_v1(&[]),
