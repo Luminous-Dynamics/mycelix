@@ -311,6 +311,9 @@ pub fn qualify_coordination_trial(
     if baseline.manifest.run_id == coordinated.manifest.run_id {
         fail(&mut report, "single-agent and coordinated run IDs must be distinct");
     }
+    if baseline.manifest.system_variant == coordinated.manifest.system_variant {
+        fail(&mut report, "single-agent and coordinated system variants must be distinct");
+    }
     if baseline.manifest.task_family_digest != contract.expected_task_family_digest
         || coordinated.manifest.task_family_digest != contract.expected_task_family_digest
     {
@@ -353,6 +356,8 @@ pub fn qualify_coordination_trial(
     if !gain.lower_bound.is_finite()
         || !gain.point_estimate.is_finite()
         || !gain.upper_bound.is_finite()
+        || gain.lower_bound < -1.0
+        || gain.upper_bound > 1.0
         || gain.lower_bound > gain.point_estimate
         || gain.point_estimate > gain.upper_bound
     {
@@ -380,6 +385,13 @@ pub fn qualify_coordination_trial(
             Some(_) => fail(&mut report, format!("{name} digest is malformed")),
             None => indeterminate(&mut report, format!("{name} evidence is missing")),
         }
+    }
+
+    if (gain.point_estimate - (coordinated.task_quality - baseline.task_quality)).abs() > 1e-6 {
+        fail(
+            &mut report,
+            "paired-gain point estimate does not equal coordinated minus single-agent task quality",
+        );
     }
 
     if report.status != QualificationStatus::Pass {
@@ -584,6 +596,32 @@ mod tests {
             CoordinationDisposition::PositiveGainButEfficiencyGateExceeded
         );
         assert_eq!(result.error_amplification_limit_met, Some(false));
+    }
+
+
+    #[test]
+    fn inconsistent_paired_gain_point_estimate_fails() {
+        let mut case = trial();
+        case.paired_gain.point_estimate = 0.20;
+        let result = qualify_coordination_trial(&contract(), &case);
+        assert_eq!(result.qualification.status, QualificationStatus::Fail);
+        assert_eq!(result.disposition, CoordinationDisposition::NotEvaluable);
+    }
+
+    #[test]
+    fn paired_gain_outside_normalized_difference_range_fails() {
+        let mut case = trial();
+        case.paired_gain.upper_bound = 1.1;
+        let result = qualify_coordination_trial(&contract(), &case);
+        assert_eq!(result.qualification.status, QualificationStatus::Fail);
+    }
+
+    #[test]
+    fn identical_system_variant_names_fail() {
+        let mut case = trial();
+        case.coordinated.manifest.system_variant = "single".into();
+        let result = qualify_coordination_trial(&contract(), &case);
+        assert_eq!(result.qualification.status, QualificationStatus::Fail);
     }
 
     #[test]
