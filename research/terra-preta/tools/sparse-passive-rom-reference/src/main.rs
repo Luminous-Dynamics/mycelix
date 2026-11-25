@@ -229,6 +229,9 @@ struct Report {
     adaptive_stop_reason: String,
     block_arnoldi_baseline_basis_dimension: Option<usize>,
     block_arnoldi_baseline_maximum_sampled_response_error: Option<f64>,
+    block_arnoldi_baseline_maximum_absolute_response_error_upper_bound: Option<f64>,
+    block_arnoldi_baseline_maximum_relative_response_error_upper_bound: Option<f64>,
+    block_arnoldi_baseline_error_bound_valid: Option<bool>,
     block_arnoldi_baseline_dc_relative_error: Option<f64>,
     block_arnoldi_baseline_feedthrough_limit_relative_error: Option<f64>,
     block_arnoldi_baseline_cg_solve_count: Option<usize>,
@@ -1429,6 +1432,9 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         fixture.cg_max_iterations,
     )?;
     let mut block_arnoldi_baseline_error = 0.0_f64;
+    let mut block_arnoldi_baseline_absolute_error_bound = 0.0_f64;
+    let mut block_arnoldi_baseline_relative_error_bound = 0.0_f64;
+    let mut block_arnoldi_baseline_error_bound_valid = true;
     let mut exact_dc_from_audit: Option<Dense> = None;
     let mut frequency_samples = Vec::with_capacity(fixture.laplace_samples.len());
     for shift in &fixture.laplace_samples {
@@ -1461,6 +1467,24 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             let block_reduced = response_from_reduced(block_projection, *shift)?;
             block_arnoldi_baseline_error = block_arnoldi_baseline_error
                 .max(relative_error(&block_reduced, &full));
+            let (
+                block_absolute_bound,
+                block_relative_bound,
+                _block_absolute_error,
+                block_bound_valid,
+            ) = response_error_upper_bound(
+                &model,
+                block_projection,
+                *shift,
+                error_certificate.lambda_min_lower_bound,
+                &full,
+                &block_reduced,
+            )?;
+            block_arnoldi_baseline_absolute_error_bound =
+                block_arnoldi_baseline_absolute_error_bound.max(block_absolute_bound);
+            block_arnoldi_baseline_relative_error_bound =
+                block_arnoldi_baseline_relative_error_bound.max(block_relative_bound);
+            block_arnoldi_baseline_error_bound_valid &= block_bound_valid;
         }
         frequency_samples.push(SampleResult {
             laplace_s: *shift,
@@ -1558,6 +1582,12 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             .map(|metrics| metrics.0),
         block_arnoldi_baseline_maximum_sampled_response_error: block_arnoldi_baseline_metrics
             .map(|metrics| metrics.1),
+        block_arnoldi_baseline_maximum_absolute_response_error_upper_bound: block_arnoldi_baseline
+            .as_ref().map(|_| block_arnoldi_baseline_absolute_error_bound),
+        block_arnoldi_baseline_maximum_relative_response_error_upper_bound: block_arnoldi_baseline
+            .as_ref().map(|_| block_arnoldi_baseline_relative_error_bound),
+        block_arnoldi_baseline_error_bound_valid: block_arnoldi_baseline
+            .as_ref().map(|_| block_arnoldi_baseline_error_bound_valid),
         block_arnoldi_baseline_dc_relative_error,
         block_arnoldi_baseline_feedthrough_limit_relative_error,
         block_arnoldi_baseline_cg_solve_count: block_arnoldi_baseline_metrics
