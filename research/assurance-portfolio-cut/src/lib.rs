@@ -1388,6 +1388,225 @@ mod tests {
         assert!(first.minimal_cut_sets.contains(&BTreeSet::from([a, b, c])));
     }
 
+    #[test]
+    fn complete_multi_value_dimension_is_preserved_through_profile_and_cut_sets() {
+        let mut candidate = profile();
+        candidate
+            .role_domains
+            .get_mut("formal")
+            .expect("formal role")
+            .insert(
+                FaultDomainDimension::ImplementationLineage,
+                DomainDisposition::MultiValue {
+                    identities: BTreeSet::from([
+                        Digest::from_byte(41),
+                        Digest::from_byte(42),
+                    ]),
+                    completeness: DependencySetCompleteness::Complete,
+                },
+            );
+
+        let checked = check_profile(
+            &candidate,
+            &assurance_policy(),
+            Digest::from_byte(3),
+            50,
+        )
+        .expect("valid multi-value profile");
+        assert_eq!(
+            checked.disposition,
+            ProfileDisposition::CompleteForDeclaredThreatModel
+        );
+        assert!(
+            checked
+                .separation_findings
+                .iter()
+                .filter(|finding| {
+                    finding.requirement.dimension
+                        == FaultDomainDimension::ImplementationLineage
+                })
+                .all(|finding| finding.distinct_identities_observed)
+        );
+
+        let manifest = manifest_bound_to_profile(&checked);
+        let formal = manifest
+            .roles
+            .iter()
+            .find(|role| role.role == "formal")
+            .unwrap();
+        assert_eq!(
+            formal
+                .known_domains
+                .iter()
+                .filter(|domain| {
+                    domain.dimension == FaultDomainDimension::ImplementationLineage
+                })
+                .count(),
+            2
+        );
+
+        let cut_sets = analyze_profile_cut_sets(&checked, &manifest, 100_000)
+            .expect("multi-value profile binds exactly to cut-set manifest");
+        assert_eq!(cut_sets.disposition, CutSetDisposition::Complete);
+    }
+
+    #[test]
+    fn partial_overlap_inside_multi_value_dimension_blocks_required_separation() {
+        let shared = Digest::from_byte(77);
+        let mut candidate = profile();
+        candidate
+            .role_domains
+            .get_mut("formal")
+            .unwrap()
+            .insert(
+                FaultDomainDimension::ImplementationLineage,
+                DomainDisposition::MultiValue {
+                    identities: BTreeSet::from([shared, Digest::from_byte(78)]),
+                    completeness: DependencySetCompleteness::Complete,
+                },
+            );
+        candidate
+            .role_domains
+            .get_mut("independent")
+            .unwrap()
+            .insert(
+                FaultDomainDimension::ImplementationLineage,
+                DomainDisposition::MultiValue {
+                    identities: BTreeSet::from([shared, Digest::from_byte(79)]),
+                    completeness: DependencySetCompleteness::Complete,
+                },
+            );
+
+        let checked = check_profile(
+            &candidate,
+            &assurance_policy(),
+            Digest::from_byte(3),
+            50,
+        )
+        .expect("well-formed but shared dependency");
+        assert_eq!(checked.disposition, ProfileDisposition::Incomplete);
+        assert!(
+            checked
+                .reasons
+                .contains(&ProfileReason::RequiredSeparationIdentityEqual)
+        );
+        assert!(checked.observed_shared_dependencies.iter().any(|finding| {
+            finding.dimension == FaultDomainDimension::ImplementationLineage
+                && finding.identity == shared
+                && finding.roles == vec!["formal".to_owned(), "independent".to_owned()]
+        }));
+    }
+
+    #[test]
+    fn known_multi_value_subset_survives_unknown_remainder_without_numeric_cut_claim() {
+        let shared = Digest::from_byte(88);
+        let mut candidate = profile();
+        for role in ["formal", "independent"] {
+            candidate
+                .role_domains
+                .get_mut(role)
+                .unwrap()
+                .insert(
+                    FaultDomainDimension::ImplementationLineage,
+                    DomainDisposition::MultiValue {
+                        identities: BTreeSet::from([
+                            shared,
+                            Digest::from_byte(if role == "formal" { 89 } else { 90 }),
+                        ]),
+                        completeness: DependencySetCompleteness::UnknownRemainder,
+                    },
+                );
+        }
+
+        let checked = check_profile(
+            &candidate,
+            &assurance_policy(),
+            Digest::from_byte(3),
+            50,
+        )
+        .expect("well-formed but incomplete dependency inventory");
+        assert_eq!(checked.disposition, ProfileDisposition::Incomplete);
+        assert!(checked.reasons.contains(&ProfileReason::DependencySetIncomplete));
+        assert!(checked.observed_shared_dependencies.iter().any(|finding| {
+            finding.dimension == FaultDomainDimension::ImplementationLineage
+                && finding.identity == shared
+        }));
+
+        let manifest = manifest_bound_to_profile(&checked);
+        let report = minimal_cut_sets(&manifest, 100_000).expect("finite but incomplete inventory");
+        assert_eq!(report.disposition, CutSetDisposition::Incomplete);
+        assert!(report.minimal_cut_sets.is_empty());
+        assert_eq!(report.minimum_cut_cardinality, None);
+        assert!(
+            report
+                .known_dependencies_by_role
+                .iter()
+                .all(|(role, domains)| {
+                    domains.iter().any(|domain| {
+                        domain.dimension == FaultDomainDimension::ImplementationLineage
+                            && domain.identity == shared
+                    })
+                    && (role == "formal" || role == "independent")
+                })
+        );
+    }
+
+    #[test]
+    fn multiple_dependencies_in_one_dimension_produce_exact_minimal_cut_sets() {
+        let shared = domain(FaultDomainDimension::ImplementationLineage, 1);
+        let left_a = domain(FaultDomainDimension::ImplementationLineage, 2);
+        let left_b = domain(FaultDomainDimension::ImplementationLineage, 3);
+        let right_b = domain(FaultDomainDimension::ImplementationLineage, 4);
+        let roles = vec![
+            role_dependencies("left", [shared, left_a, left_b]),
+            role_dependencies("right", [shared, right_b]),
+        ];
+
+        let report = minimal_cut_sets(&dependency_manifest(roles), 1_000)
+            .expect("multi-valued dimension is supported");
+        assert_eq!(report.disposition, CutSetDisposition::Complete);
+        assert_eq!(report.minimum_cut_cardinality, Some(1));
+        assert_eq!(
+            report.minimal_cut_sets,
+            vec![
+                BTreeSet::from([shared]),
+                BTreeSet::from([left_a, right_b]),
+                BTreeSet::from([left_b, right_b]),
+            ]
+        );
+        assert_eq!(report.known_dependencies_by_role.len(), 2);
+    }
+
+    #[test]
+    fn multi_value_cut_sets_match_independent_brute_force_reference() {
+        let dimension = FaultDomainDimension::ToolchainDistribution;
+        for seed in 0..48u8 {
+            let role_count = 2 + usize::from(seed % 4);
+            let mut roles = Vec::new();
+            for role_index in 0..role_count {
+                let shared = domain(dimension, seed.wrapping_add(1));
+                let first = domain(
+                    dimension,
+                    40u8.wrapping_add(seed.wrapping_mul(5)).wrapping_add(role_index as u8),
+                );
+                let second = domain(
+                    dimension,
+                    80u8.wrapping_add(seed.wrapping_mul(3)).wrapping_add((role_index * 2) as u8),
+                );
+                let mut dependencies = BTreeSet::from([first, second]);
+                if (seed as usize + role_index) % 2 == 0 {
+                    dependencies.insert(shared);
+                }
+                roles.push(role_dependencies(&format!("role-{role_index}"), dependencies));
+            }
+            let expected = brute_force_minimal_cut_sets(&roles);
+            let actual = minimal_cut_sets(&dependency_manifest(roles), 100_000)
+                .expect("bounded multi-value graph");
+            assert_eq!(actual.disposition, CutSetDisposition::Complete);
+            assert_eq!(actual.minimal_cut_sets, expected, "seed {seed}");
+        }
+    }
+
     fn brute_force_minimal_cut_sets(roles: &[RoleDependencies]) -> Vec<BTreeSet<FaultDomainKey>> {
         let universe: Vec<_> = roles
             .iter()
