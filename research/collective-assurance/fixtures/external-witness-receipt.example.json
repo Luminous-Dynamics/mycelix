@@ -1,0 +1,38 @@
+{
+  "receipt": {
+    "schema_version": "external-witness-v0.1",
+    "run_id": "fixture-run-001",
+    "phase_id": "ai-off-phase-001",
+    "challenge_nonce": "0123456789abcdef0123456789abcdef",
+    "witness_id": "fixture-witness",
+    "witness_key_id": "fixture-key",
+    "endpoint_set_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "observation_start_ms": 900,
+    "observation_end_ms": 2100,
+    "event_sequence_start": 1,
+    "event_sequence_end": 4,
+    "probes": [
+      {
+        "channel": "inference_endpoint",
+        "challenge_token_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "outcome": "no_arrival",
+        "window_start_ms": 900,
+        "window_end_ms": 2100
+      },
+      {
+        "channel": "ipv4_egress",
+        "challenge_token_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "outcome": "no_arrival",
+        "window_start_ms": 900,
+        "window_end_ms": 2100
+      }
+    ],
+    "event_sequences": [
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "signature_b64": "Zml4dHVyZS1vbmx5LW5vdC1hLXJlYWwtc2lnbmF0dXJl"
+}

@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/external-witness-receipt-v0.1.json",
+  "title": "External witness receipt envelope v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt",
+    "signature_b64"
+  ],
+  "properties": {
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "run_id",
+        "phase_id",
+        "challenge_nonce",
+        "witness_id",
+        "witness_key_id",
+        "endpoint_set_digest",
+        "observation_start_ms",
+        "observation_end_ms",
+        "event_sequence_start",
+        "event_sequence_end",
+        "probes",
+        "event_sequences"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "external-witness-v0.1"
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "phase_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "challenge_nonce": {
+          "type": "string",
+          "minLength": 32
+        },
+        "witness_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "witness_key_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "endpoint_set_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "observation_start_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observation_end_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "event_sequence_start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "event_sequence_end": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "probes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "channel",
+              "challenge_token_digest",
+              "outcome",
+              "window_start_ms",
+              "window_end_ms"
+            ],
+            "properties": {
+              "channel": {
+                "enum": [
+                  "inference_endpoint",
+                  "agent_control_plane",
+                  "ipv4_egress",
+                  "ipv6_egress",
+                  "dns_egress",
+                  "proxy_egress",
+                  "udp_egress"
+                ]
+              },
+              "challenge_token_digest": {
+                "$ref": "#/$defs/digest"
+              },
+              "outcome": {
+                "enum": [
+                  "no_arrival",
+                  "arrived",
+                  "unknown",
+                  "not_observed"
+                ]
+              },
+              "window_start_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "window_end_ms": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "event_sequences": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "signature_b64": {
+      "type": "string",
+      "minLength": 1,
+      "contentEncoding": "base64"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "$comment": "Reference schema. Signature bytes in synthetic fixtures are not production cryptographic signatures."
+}
