@@ -2821,9 +2821,16 @@ mod tests {
         assert!(report.maximum_portwise_relative_response_error_upper_bound.is_finite());
         assert!(report.maximum_best_relative_response_error_upper_bound.is_finite());
         assert!(report.maximum_output_adjoint_relative_response_error_upper_bound.is_finite());
+        assert!(report.maximum_signed_output_adjoint_relative_response_error_upper_bound.is_finite());
         assert_eq!(report.output_adjoint_solve_count, report.boundary_node_ids.len());
+        assert_eq!(
+            report.signed_output_adjoint_solve_count,
+            report.frequency_samples.len() * report.boundary_node_ids.len()
+        );
         assert!(report.output_adjoint_total_cg_iterations > 0);
         assert!(report.output_adjoint_max_residual_inf.is_finite());
+        assert!(report.signed_output_adjoint_total_cg_iterations > 0);
+        assert!(report.signed_output_adjoint_max_residual_inf.is_finite());
         assert!(
             report.maximum_best_relative_response_error_upper_bound
                 <= report.maximum_relative_response_error_upper_bound
@@ -2836,10 +2843,31 @@ mod tests {
             report.maximum_best_relative_response_error_upper_bound
                 <= report.maximum_output_adjoint_relative_response_error_upper_bound
         );
+        assert!(
+            report.maximum_best_relative_response_error_upper_bound
+                <= report.maximum_signed_output_adjoint_relative_response_error_upper_bound
+        );
         for sample in &report.frequency_samples {
             assert!(sample.error_bound_valid);
             assert!(sample.portwise_error_bound_valid);
             assert!(sample.output_adjoint_error_bound_valid);
+            assert!(sample.signed_output_adjoint_error_bound_valid);
+            assert!(
+                sample.signed_output_adjoint_absolute_response_error_upper_bound
+                    >= sample.absolute_response_error
+            );
+            assert!(
+                sample.signed_output_adjoint_relative_response_error_upper_bound
+                    >= sample.relative_response_error
+            );
+            assert!(
+                sample.best_absolute_response_error_upper_bound
+                    <= sample.signed_output_adjoint_absolute_response_error_upper_bound
+            );
+            assert!(
+                sample.best_relative_response_error_upper_bound
+                    <= sample.signed_output_adjoint_relative_response_error_upper_bound
+            );
             assert!(
                 sample.output_adjoint_absolute_response_error_upper_bound
                     >= sample.absolute_response_error
@@ -3079,11 +3107,14 @@ mod tests {
         // Candidate full-order columns (27), seed snapshots (3), one DC
         // operator (3), and audit-grid columns (27). The audit's zero-shift
         // response is also the exact DC reference, so no duplicate solve occurs.
-        assert_eq!(adaptive.cg_solve_count, 63);
+        assert_eq!(adaptive.cg_solve_count, 90);
         assert_eq!(adaptive.output_adjoint_solve_count, 3);
+        assert_eq!(adaptive.signed_output_adjoint_solve_count, 27);
         assert!(adaptive.output_adjoint_total_cg_iterations > 0);
+        assert!(adaptive.signed_output_adjoint_total_cg_iterations > 0);
         assert!(adaptive.output_adjoint_max_residual_inf.is_finite());
-        assert!(adaptive.total_cg_iterations < 520);
+        assert!(adaptive.signed_output_adjoint_max_residual_inf.is_finite());
+        assert!(adaptive.total_cg_iterations < 750);
     }
 
     #[test]
@@ -3129,6 +3160,11 @@ mod tests {
         assert_eq!(report.block_arnoldi_baseline_error_bound_valid, Some(true));
         assert_eq!(report.block_arnoldi_baseline_portwise_error_bound_valid, Some(true));
         assert_eq!(report.block_arnoldi_baseline_output_adjoint_error_bound_valid, Some(true));
+        assert_eq!(report.block_arnoldi_baseline_signed_output_adjoint_error_bound_valid, Some(true));
+        assert!(
+            report.block_arnoldi_baseline_maximum_signed_output_adjoint_relative_error_upper_bound
+                >= report.block_arnoldi_baseline_maximum_sampled_response_error
+        );
         assert!(
             report.block_arnoldi_baseline_maximum_output_adjoint_relative_error_upper_bound
                 >= report.block_arnoldi_baseline_maximum_sampled_response_error
