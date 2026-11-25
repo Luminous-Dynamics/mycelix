@@ -24,6 +24,13 @@ pub struct SequenceRangeV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CheckpointInclusionDeclarationV1 {
+    pub checkpoint_root_digest: String,
+    pub owner_root_digest: String,
+    pub proof_ref: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OwnerCutV1 {
     pub owner_ref: String,
     /// Stable identity for one append-only owner history.
@@ -33,6 +40,9 @@ pub struct OwnerCutV1 {
     pub sequence: u64,
     /// Root of this owner's history at `sequence`.
     pub root_digest: String,
+    /// Structural declaration binding the owner root to the frontier root.
+    /// Proof bytes are not verified by this crate.
+    pub checkpoint_inclusion: CheckpointInclusionDeclarationV1,
     /// Known missing or unresolved sequence ranges at or below `sequence`.
     pub gaps: Vec<SequenceRangeV1>,
 }
@@ -121,6 +131,7 @@ pub enum FrontierModelErrorV1 {
     UnsortedOrOverlappingGaps,
     ForeignVerifier,
     DuplicateDependency,
+    InvalidCausalDependency,
     InvalidReceiptSequence,
     InvalidInclusionDeclaration,
 }
@@ -130,6 +141,12 @@ impl OwnerCutV1 {
         validate_id(&self.owner_ref)?;
         validate_id(&self.history_ref)?;
         validate_digest(&self.root_digest)?;
+        validate_digest(&self.checkpoint_inclusion.checkpoint_root_digest)?;
+        validate_digest(&self.checkpoint_inclusion.owner_root_digest)?;
+        validate_id(&self.checkpoint_inclusion.proof_ref)?;
+        if self.checkpoint_inclusion.owner_root_digest != self.root_digest {
+            return Err(FrontierModelErrorV1::InvalidInclusionDeclaration);
+        }
 
         let mut previous_last = 0_u64;
         for (index, gap) in self.gaps.iter().enumerate() {
@@ -183,6 +200,11 @@ impl VerifierFrontierV1 {
         let mut owners = BTreeSet::new();
         for cut in &self.owner_cuts {
             cut.validate()?;
+            if cut.checkpoint_inclusion.checkpoint_root_digest
+                != self.checkpoint_root_digest
+            {
+                return Err(FrontierModelErrorV1::InvalidInclusionDeclaration);
+            }
             if !owners.insert(cut.owner_ref.as_str()) {
                 return Err(FrontierModelErrorV1::DuplicateOwnerCut);
             }
@@ -287,6 +309,9 @@ impl VerifierFrontierV1 {
         let mut after = false;
         for (owner_ref, left_cut) in &left {
             let right_cut = right[owner_ref];
+            if !left_cut.gaps.is_empty() || !right_cut.gaps.is_empty() {
+                return Ok(FrontierRelationV1::Unknown);
+            }
             if left_cut.history_ref != right_cut.history_ref {
                 return Ok(FrontierRelationV1::Conflict);
             }
@@ -348,6 +373,11 @@ impl KnowledgeReceiptV1 {
             {
                 return Err(FrontierModelErrorV1::DuplicateDependency);
             }
+            if dependency.owner_ref == self.owner_ref
+                && dependency.sequence >= self.owner_sequence
+            {
+                return Err(FrontierModelErrorV1::InvalidCausalDependency);
+            }
         }
 
         if let Some(witness) = &self.inclusion {
@@ -402,6 +432,11 @@ mod tests {
             history_ref: format!("history:{owner}"),
             sequence,
             root_digest: digest(root),
+            checkpoint_inclusion: CheckpointInclusionDeclarationV1 {
+                checkpoint_root_digest: digest('f'),
+                owner_root_digest: digest(root),
+                proof_ref: "proof:owner-checkpoint-binding".into(),
+            },
             gaps: Vec::new(),
         }
     }
@@ -562,6 +597,47 @@ mod tests {
         assert_eq!(
             frontier.classify_receipt(&receipt),
             Ok(ReceiptVisibilityV1::Indeterminate)
+        );
+    }
+
+    #[test]
+    fn checkpoint_must_bind_each_owner_root() {
+        let mut candidate = frontier("frontier:1", vec![cut("owner:a", 10, 'a')]);
+        candidate.owner_cuts[0].checkpoint_inclusion.checkpoint_root_digest = digest('e');
+        assert_eq!(
+            candidate.validate(),
+            Err(FrontierModelErrorV1::InvalidInclusionDeclaration)
+        );
+    }
+
+    #[test]
+    fn gaps_make_frontier_comparison_unknown_even_with_sequence_links() {
+        let mut left_cut = cut("owner:a", 10, 'a');
+        left_cut.gaps.push(SequenceRangeV1 { first: 3, last: 3 });
+        let right_cut = cut("owner:a", 20, 'b');
+        let left = frontier("frontier:left", vec![left_cut]);
+        let right = frontier("frontier:right", vec![right_cut]);
+        let link = OwnerConsistencyLinkV1 {
+            owner_ref: "owner:a".into(),
+            history_ref: "history:owner:a".into(),
+            ancestor_root_digest: digest('a'),
+            descendant_root_digest: digest('b'),
+            consistency_proof_ref: "proof:consistency".into(),
+        };
+        assert_eq!(left.compare(&right, &[link]), Ok(FrontierRelationV1::Unknown));
+    }
+
+    #[test]
+    fn same_owner_dependency_must_precede_its_receipt() {
+        let owner_cut = cut("owner:a", 10, 'a');
+        let mut candidate = receipt(5, &owner_cut);
+        candidate.causal_dependencies.push(OwnerPositionV1 {
+            owner_ref: "owner:a".into(),
+            sequence: 5,
+        });
+        assert_eq!(
+            candidate.validate(),
+            Err(FrontierModelErrorV1::InvalidCausalDependency)
         );
     }
 
