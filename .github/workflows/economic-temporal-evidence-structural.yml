@@ -230,9 +230,14 @@ jobs:
         working-directory: tools/economic/temporal-frontier-model
         run: cargo +1.96.0 run --locked --example frontier_scenarios
 
+      - name: Execute wide-frontier comparison microbenchmark
+        working-directory: tools/economic/temporal-frontier-model
+        run: cargo +1.96.0 run --locked --example benchmark_frontier_compare
+
       - name: Report qualification boundary
         run: |
           printf '%s\n' \
             'PASS = structural owner-cut, partial-order, coverage-gap, verifier-isolation and receipt-declaration checks.' \
+            'BENCHMARK = wide-frontier microtimings only; no industry or absolute performance claim.' \
             'NOT TESTED = cryptographic Merkle inclusion/consistency, signature verification, authenticated completeness, or distributed persistence.' \
             'Declared inclusion is not cryptographically verified inclusion.'
