@@ -49,7 +49,7 @@ The module supports:
 - unauthorized action, unauthorized disclosure, false AI-off pass and over-refusal rates;
 - p95 latency, total cost, energy, human-review time, input/output tokens and tool calls.
 
-Each metric carries lower, point and upper estimates, a confidence level, independent-unit count, observation count and evidence digest. Normalized rates must be within [0,1]; resource metrics must be non-negative. Clustered team work must count teams as independent units, not messages or repeated questions.
+Each metric carries lower, point and upper estimates, a confidence level, independent-unit count, observation count, a paired-unit cohort digest and measurement-evidence digest. Baseline and candidate must use the same independent-unit cohort for each metric. Normalized rates must be within [0,1]; resource metrics must be non-negative. Clustered team work must count teams as independent units, not messages or repeated questions.
 
 ### Conservative dominance
 
