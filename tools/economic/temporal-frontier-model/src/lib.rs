@@ -314,7 +314,9 @@ impl VerifierFrontierV1 {
         let mut before = false;
         let mut after = false;
         for (owner_ref, left_cut) in &left {
-            let right_cut = right[owner_ref];
+            let Some(right_cut) = right.get(*owner_ref).copied() else {
+                return Ok(FrontierRelationV1::Unknown);
+            };
             if !left_cut.gaps.is_empty() || !right_cut.gaps.is_empty() {
                 return Ok(FrontierRelationV1::Unknown);
             }
@@ -374,9 +376,10 @@ impl KnowledgeReceiptV1 {
         let mut dependencies = BTreeSet::new();
         for dependency in &self.causal_dependencies {
             validate_id(&dependency.owner_ref)?;
-            if dependency.sequence == 0
-                || !dependencies.insert((dependency.owner_ref.as_str(), dependency.sequence))
-            {
+            if dependency.sequence == 0 {
+                return Err(FrontierModelErrorV1::InvalidCausalDependency);
+            }
+            if !dependencies.insert((dependency.owner_ref.as_str(), dependency.sequence)) {
                 return Err(FrontierModelErrorV1::DuplicateDependency);
             }
             if dependency.owner_ref == self.owner_ref
