@@ -304,6 +304,25 @@ fn chain_case(reverse_inlet_edge: bool) -> Case {
     }
 }
 
+fn branched_case() -> Case {
+    Case {
+        pore_count: 5,
+        edges: vec![
+            Edge { p1: 0, p2: 1 },
+            Edge { p1: 1, p2: 4 },
+            Edge { p1: 0, p2: 2 },
+            Edge { p1: 2, p2: 4 },
+            Edge { p1: 1, p2: 3 },
+            Edge { p1: 3, p2: 2 },
+        ],
+        conductances: vec![2.0, 1.4, 0.8, 2.3, 0.6, 1.1],
+        inlet_pores: vec![0],
+        boundary_pressures: vec![(0, 17.0), (4, 8.0)],
+        conversion: 1.0,
+        target_permeability: 3.7,
+    }
+}
+
 fn max_relative_difference(left: &[f64], right: &[f64]) -> f64 {
     left.iter()
         .zip(right.iter())
@@ -407,6 +426,50 @@ mod tests {
                 &reversed.corrected_adjoint_gradient
             ) < 1.0e-10
         );
+    }
+
+    #[test]
+    fn corrected_adjoint_matches_finite_difference_on_cross_linked_branches() {
+        let audit = audit_case(&branched_case()).unwrap();
+        assert_gradient_matches_finite_difference(&audit);
+        assert!(audit.corrected_adjoint_gradient.len() == 6);
+        assert!(audit
+            .corrected_adjoint_gradient
+            .iter()
+            .all(|value| value.is_finite()));
+    }
+
+    #[test]
+    fn corrected_adjoint_is_invariant_to_edge_order_on_branched_network() {
+        let baseline = audit_case(&branched_case()).unwrap();
+        let mut permuted = branched_case();
+        permuted.edges.reverse();
+        permuted.conductances.reverse();
+        let reordered = audit_case(&permuted).unwrap();
+        assert!(
+            max_relative_difference(
+                &baseline.finite_difference_gradient,
+                &reordered.finite_difference_gradient.iter().rev().copied().collect::<Vec<_>>()
+            ) < 1.0e-9
+        );
+        assert!(
+            max_relative_difference(
+                &baseline.corrected_adjoint_gradient,
+                &reordered.corrected_adjoint_gradient.iter().rev().copied().collect::<Vec<_>>()
+            ) < 1.0e-6
+        );
+    }
+
+    #[test]
+    fn corrected_adjoint_matches_finite_difference_after_conductance_rescaling() {
+        for factor in [1.0e-6, 1.0e6] {
+            let mut case = branched_case();
+            for conductance in &mut case.conductances {
+                *conductance *= factor;
+            }
+            let audit = audit_case(&case).unwrap();
+            assert_gradient_matches_finite_difference(&audit);
+        }
     }
 
     #[test]
