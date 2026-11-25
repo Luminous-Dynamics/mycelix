@@ -13,7 +13,8 @@ mod response_audit;
 mod support_policy;
 
 pub use benchmark_quality::{
-    qualify_benchmark_definition, BenchmarkClaimProfile, BenchmarkQualificationManifest,
+    qualify_benchmark_definition, qualify_benchmark_result_comparison,
+    BenchmarkClaimProfile, BenchmarkQualificationManifest, BenchmarkResultQualification,
     EvidenceGate, ScoringMethod,
 };
 pub use allocation::{
