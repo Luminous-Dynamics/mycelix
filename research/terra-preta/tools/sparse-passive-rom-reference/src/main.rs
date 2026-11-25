@@ -245,6 +245,10 @@ struct Report {
     feedthrough_limit_relative_error: f64,
     maximum_sampled_response_error: f64,
     m_matrix_lambda_min_lower_bound: f64,
+    m_matrix_initial_lambda_min_lower_bound: f64,
+    m_matrix_collatz_refinement_steps: usize,
+    m_matrix_collatz_max_true_residual_inf: f64,
+    m_matrix_collatz_fallback_reason: Option<String>,
     m_matrix_supersolution_min_component: f64,
     m_matrix_supersolution_max_component: f64,
     m_matrix_supersolution_minimum_margin: f64,
@@ -1650,8 +1654,12 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         .fold(0.0_f64, f64::max);
     let error_certificate_valid = frequency_samples.iter().all(|sample| sample.error_bound_valid)
         && error_certificate.lambda_min_lower_bound > 0.0;
-    let error_certificate_pcg_solve_count = 1usize;
-    let error_certificate_pcg_iterations = error_certificate.cg_stats.iterations;
+    let error_certificate_pcg_solve_count = error_certificate.cg_stats.len();
+    let error_certificate_pcg_iterations = error_certificate
+        .cg_stats
+        .iter()
+        .map(|stats| stats.iterations)
+        .sum::<usize>();
     let overall_pcg_solve_count = cg_solve_count + error_certificate_pcg_solve_count;
     let overall_pcg_iterations = total_cg_iterations + error_certificate_pcg_iterations;
     let adaptive_candidate_shift_count = fixture.adaptive.candidate_shifts.len();
@@ -1726,11 +1734,15 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         feedthrough_limit_relative_error,
         maximum_sampled_response_error,
         m_matrix_lambda_min_lower_bound: error_certificate.lambda_min_lower_bound,
+        m_matrix_initial_lambda_min_lower_bound: error_certificate.initial_lambda_min_lower_bound,
+        m_matrix_collatz_refinement_steps: error_certificate.refinement_steps,
+        m_matrix_collatz_max_true_residual_inf: error_certificate.refinement_max_residual_inf,
+        m_matrix_collatz_fallback_reason: error_certificate.refinement_fallback_reason.clone(),
         m_matrix_supersolution_min_component: error_certificate.supersolution_min_component,
         m_matrix_supersolution_max_component: error_certificate.supersolution_max_component,
         m_matrix_supersolution_minimum_margin: error_certificate.minimum_supersolution_margin,
         m_matrix_supersolution_sha256: error_certificate.supersolution_sha256,
-        m_matrix_supersolution_relative_residual: error_certificate.cg_stats.relative_residual,
+        m_matrix_supersolution_relative_residual: error_certificate.cg_stats[0].relative_residual,
         error_certificate_valid,
         error_certificate_pcg_solve_count,
         error_certificate_pcg_iterations,
@@ -1809,7 +1821,7 @@ mod tests {
         assert!(certificate.supersolution_min_component > 0.0);
         assert!(certificate.supersolution_max_component >= 1.0);
         assert!(certificate.minimum_supersolution_margin >= 0.0);
-        assert!(certificate.cg_stats.relative_residual <= 1.0e-12);
+        assert!(certificate.cg_stats[0].relative_residual <= 1.0e-12);
         assert_eq!(certificate.supersolution_sha256.len(), 64);
     }
 
@@ -1861,7 +1873,12 @@ mod tests {
         assert!(report.m_matrix_supersolution_minimum_margin >= 0.0);
         assert!(report.m_matrix_supersolution_relative_residual <= fixture.cg_relative_tolerance);
         assert_eq!(report.m_matrix_supersolution_sha256.len(), 64);
-        assert_eq!(report.error_certificate_pcg_solve_count, 1);
+        assert!(report.error_certificate_pcg_solve_count > 0);
+        assert!(report.error_certificate_pcg_solve_count <= 5);
+        assert!(
+            report.m_matrix_lambda_min_lower_bound
+                >= report.m_matrix_initial_lambda_min_lower_bound
+        );
         assert!(report.overall_pcg_solve_count > report.cg_solve_count);
         assert!(report.maximum_relative_response_error_upper_bound.is_finite());
         for sample in &report.frequency_samples {
@@ -2149,7 +2166,12 @@ mod tests {
                 .iter()
                 .all(|sample| sample.absolute_response_error
                     <= sample.absolute_response_error_upper_bound));
-            assert_eq!(report.error_certificate_pcg_solve_count, 1);
+            assert!(report.error_certificate_pcg_solve_count > 0);
+            assert!(report.error_certificate_pcg_solve_count <= 5);
+            assert!(
+                report.m_matrix_lambda_min_lower_bound
+                    >= report.m_matrix_initial_lambda_min_lower_bound
+            );
             assert!(report.error_certificate_pcg_iterations > 0);
         }
     }
