@@ -970,4 +970,53 @@ mod tests {
         input.objects[0].attributes[0].time.basis = TimeBasis::RecordTime;
         assert_eq!(input.export(), Err(ProjectionError::InvalidObjectAttributeTimeBasis));
     }
+
+    #[test]
+    fn json_string_escaping_preserves_quotes_controls_and_unicode() {
+        let mut input = sample();
+        input.event_types[0].attributes.push(declaration("label", ValueKind::String));
+        input.events[0].attributes.insert(
+            "label".into(),
+            OcelValue::String("lot \"A\"\nfilter\tcartridge — café".into()),
+        );
+        let artifacts = input.export().unwrap();
+        assert!(artifacts.ocel_json.contains("lot \\\"A\\\"\\nfilter\\tcartridge — café"));
+    }
+
+    #[test]
+    fn duplicate_event_object_relationship_is_rejected() {
+        let mut input = sample();
+        input.events[0].relationships.push(input.events[0].relationships[0].clone());
+        assert_eq!(input.export(), Err(ProjectionError::DuplicateRelationship));
+    }
+
+    #[test]
+    fn non_utc_rfc3339_source_event_time_is_preserved_not_normalized() {
+        let mut input = sample();
+        input.events[0].time.iso8601 = "2026-11-21T15:00:00+02:00".into();
+        let artifacts = input.export().unwrap();
+        assert!(artifacts.ocel_json.contains("2026-11-21T15:00:00+02:00"));
+        assert!(artifacts.time_provenance_json.contains("2026-11-21T15:00:00+02:00"));
+    }
+
+    #[test]
+    fn timestamp_without_timezone_is_rejected() {
+        let mut input = sample();
+        input.events[0].time.iso8601 = "2026-11-21T13:00:00".into();
+        assert_eq!(input.export(), Err(ProjectionError::InvalidTimestamp));
+    }
+
+    #[test]
+    fn object_attribute_time_evidence_is_required() {
+        let mut input = sample();
+        input.objects[0].attributes[0].time.evidence_ref.clear();
+        assert_eq!(input.export(), Err(ProjectionError::MissingTimeEvidence));
+    }
+
+    #[test]
+    fn duplicate_object_attribute_at_same_time_is_rejected() {
+        let mut input = sample();
+        input.objects[0].attributes.push(input.objects[0].attributes[0].clone());
+        assert_eq!(input.export(), Err(ProjectionError::DuplicateAttributeDeclaration));
+    }
 }
