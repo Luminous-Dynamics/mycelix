@@ -182,23 +182,34 @@ fn objective(case: &Case) -> Result<f64, AuditError> {
     Ok(0.5 * (permeability - case.target_permeability).powi(2))
 }
 
+fn five_point_derivative(
+    case: &Case,
+    edge_index: usize,
+    epsilon: f64,
+) -> Result<f64, AuditError> {
+    let mut plus_one = case.clone();
+    let mut plus_two = case.clone();
+    let mut minus_one = case.clone();
+    let mut minus_two = case.clone();
+    plus_one.conductances[edge_index] += epsilon;
+    plus_two.conductances[edge_index] += 2.0 * epsilon;
+    minus_one.conductances[edge_index] -= epsilon;
+    minus_two.conductances[edge_index] -= 2.0 * epsilon;
+    Ok((-objective(&plus_two)? + 8.0 * objective(&plus_one)?
+        - 8.0 * objective(&minus_one)?
+        + objective(&minus_two)?)
+        / (12.0 * epsilon))
+}
+
 fn finite_difference_gradient(case: &Case) -> Result<Vec<f64>, AuditError> {
     let mut gradient = Vec::with_capacity(case.conductances.len());
     for (index, conductance) in case.conductances.iter().enumerate() {
-        let epsilon = conductance.abs().max(f64::MIN_POSITIVE) * 1.0e-3;
-        let mut plus_one = case.clone();
-        let mut plus_two = case.clone();
-        let mut minus_one = case.clone();
-        let mut minus_two = case.clone();
-        plus_one.conductances[index] += epsilon;
-        plus_two.conductances[index] += 2.0 * epsilon;
-        minus_one.conductances[index] -= epsilon;
-        minus_two.conductances[index] -= 2.0 * epsilon;
-        let derivative = (-objective(&plus_two)? + 8.0 * objective(&plus_one)?
-            - 8.0 * objective(&minus_one)?
-            + objective(&minus_two)?)
-            / (12.0 * epsilon);
-        gradient.push(derivative);
+        let scale = conductance.abs().max(f64::MIN_POSITIVE);
+        let coarse = five_point_derivative(case, index, scale * 1.0e-2)?;
+        let fine = five_point_derivative(case, index, scale * 5.0e-3)?;
+        // Both five-point stencils have O(h^4) truncation error. Richardson
+        // extrapolation removes the leading term without relaxing the FD gate.
+        gradient.push((16.0 * fine - coarse) / 15.0);
     }
     Ok(gradient)
 }
