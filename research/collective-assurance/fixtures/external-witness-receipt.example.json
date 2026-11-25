@@ -13,16 +13,16 @@
     "event_sequence_end": 4,
     "probes": [
       {
-        "channel": "InferenceEndpoint",
+        "channel": "inference_endpoint",
         "challenge_token_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "outcome": "NoArrival",
+        "outcome": "no_arrival",
         "window_start_ms": 900,
         "window_end_ms": 2100
       },
       {
-        "channel": "Ipv4Egress",
+        "channel": "ipv4_egress",
         "challenge_token_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-        "outcome": "NoArrival",
+        "outcome": "no_arrival",
         "window_start_ms": 900,
         "window_end_ms": 2100
       }
