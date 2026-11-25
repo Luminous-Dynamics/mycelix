@@ -153,6 +153,27 @@ Do not invent a new generic prompt-injection score when existing security suites
 
 Add cross-system attacks: indirect instructions in shared memory, compromised evidence sources, privilege confusion, unauthorized cross-role disclosure, tool/result provenance spoofing, cache replay and monitor suppression. Report attack success, unauthorized action, detection, containment latency, false-positive/over-refusal and utility cost separately.
 
+### Track H — Common ground, joint action and repair
+
+Compose with Poelitz, Doshi-Velez and Lindley's 2026 benchmark, *A Benchmark to Assess Common Ground in Human-AI Collaboration* ([arXiv:2602.21337](https://arxiv.org/abs/2602.21337)). Its collaborative puzzle task gives a Helper the target pattern and a Worker 24 candidate pieces; the pair must select and arrange four pieces through iterative dialogue. It varies Helper/Worker role and shared versus non-shared view of the Worker's state, and uses four repeated trials to measure learning, reference conventions and repair. The confirmatory human study reports 40 participants and GPT-4.1 as the fixed AI model. This is a useful initial protocol, not broad evidence across model families or populations.
+
+**Why it matters:** a system can retrieve the correct facts, cite sources and produce fluent acknowledgements without sharing a task-state representation with its partner. The benchmark argues that common ground must be evidenced through coordinated actions, not merely language-internal patterns such as repeated phrases or superficial acknowledgements.
+
+Add this adapter as a distinct evaluation track:
+- joint task success: exact solution match and completion under a fixed time budget;
+- role-conditional task-state accuracy: Helper's understanding of Worker state and Worker understanding of target constraints;
+- reference grounding: whether ambiguous referents are clarified, accepted and then used consistently;
+- repair quality: misunderstanding detection, correction success, repair latency and repeated repair burden;
+- false-grounding rate: claims or acknowledgements of shared understanding contradicted by subsequent action;
+- communication efficiency: words/turns and clarification count after controlling for task success;
+- learning across repeated trials: error reduction and growth of shared reference conventions;
+- asymmetry: who initiates repair, who bears the communication burden, and whether the burden shifts across roles;
+- situation-awareness effect: separate conversational grounding from access to shared task-state views.
+
+Reproduce the official role × view conditions first. Then test additional task families, models and interaction modalities under matched budgets. The original study's 40-person sample and single fixed model are not a sufficient basis for universal common-ground claims. Human replications require accessible interfaces and accommodations; do not inherit the original participant exclusions as universal design requirements.
+
+Compose with #6616 (information order) and #6597/#6676 (longitudinal capability) without expanding their current treatment arms. A later factorial study may test role × view × information order, but only as a separate, powered and preregistered experiment.
+
 ## Metrics and estimands
 
 The core result is a vector, not a single opaque index.
