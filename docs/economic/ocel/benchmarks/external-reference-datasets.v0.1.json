@@ -1,0 +1,190 @@
+{
+  "benchmark": "Economic OS external object-centric event-log reference datasets",
+  "version": "0.1",
+  "snapshot_date": "2026-11-25",
+  "status": "pinned_public_dataset_manifest_not_executed_benchmark_result",
+  "datasets": [
+    {
+      "id": "ocel-p2p-simulation",
+      "name": "Procure-to-Pay (P2P)",
+      "canonical_page": "https://www.ocel-standard.org/event-logs/simulations/p2p/",
+      "properties": {
+        "event_types": 10,
+        "object_types": 7,
+        "events": 14671,
+        "objects": 9543
+      },
+      "behaviors": [
+        "maverick buying",
+        "duplicate payments",
+        "lengthy approval process"
+      ],
+      "lifecycle": [
+        "purchase requisition",
+        "approval",
+        "RFQ",
+        "vendor quotation",
+        "purchase order",
+        "goods receipt",
+        "invoice and three-way match",
+        "payment"
+      ],
+      "role": "Domain-level OCEL reference; tests multi-object lifecycle and known anomalies, not relational extraction from raw source DB."
+    },
+    {
+      "id": "ocel-synthetic-relational-v1",
+      "name": "Synthetic relational databases and reference OCELs",
+      "version": "Zenodo v1",
+      "published": "2026-08-24",
+      "doi": "10.5281/zenodo.22079246",
+      "zenodo_record": "https://zenodo.org/records/22079246",
+      "canonical_page": "https://www.ocel-standard.org/event-logs/simulations/synthetic-relational-databases/",
+      "seed": 20260820,
+      "primary_instances_per_scenario": 3000,
+      "scenario_count": 6,
+      "source_not_event_log": true,
+      "source_characteristics": [
+        "technical state",
+        "duplicates",
+        "corrections",
+        "retries",
+        "historical rows",
+        "projections",
+        "redundant evidence"
+      ],
+      "formats": {
+        "source_database": "<scenario>.sqlite",
+        "ocel_20_json": "<scenario>.jsonocel.gz",
+        "ocel_20_xml": "<scenario>.xmlocel.gz",
+        "ocel_20_sqlite": "<scenario>.ocel.sqlite",
+        "ocel_21_csv": "<scenario>.ocel.csv",
+        "ocel_21_bundle_parquet": "<scenario>.ocel.zip",
+        "checksums": "SHA256SUMS",
+        "validation": "validation.json"
+      },
+      "scenarios": [
+        {
+          "slug": "forgeflow",
+          "domain": "engineer-to-order manufacturing",
+          "pattern": "normalized OLTP",
+          "source_rows": 140355,
+          "reference_events": 97884,
+          "reference_objects": 59036,
+          "event_types": 48,
+          "object_types": 28,
+          "application_tables": 58
+        },
+        {
+          "slug": "trialversion",
+          "domain": "clinical-trial execution",
+          "pattern": "in-table version history with valid/record time",
+          "source_rows": 240809,
+          "reference_events": 74661,
+          "reference_objects": 33858,
+          "event_types": 56,
+          "object_types": 19,
+          "application_tables": 24
+        },
+        {
+          "slug": "procurechange",
+          "domain": "industrial procure-to-pay",
+          "pattern": "SAP-style change documents and archive copies",
+          "source_rows": 730158,
+          "reference_events": 100504,
+          "reference_objects": 46353,
+          "event_types": 55,
+          "object_types": 20,
+          "application_tables": 44
+        },
+        {
+          "slug": "claimstream",
+          "domain": "insurance claims",
+          "pattern": "append-only event store with inbox/snapshots/projections/sagas/outbox",
+          "source_rows": 115248,
+          "reference_events": 99715,
+          "reference_objects": 40610,
+          "event_types": 58,
+          "object_types": 21,
+          "application_tables": 18
+        },
+        {
+          "slug": "permitflow",
+          "domain": "building-permit approval",
+          "pattern": "workflow-engine activity/task/variable/message/migration/incident history",
+          "source_rows": 133276,
+          "reference_events": 118084,
+          "reference_objects": 32783,
+          "event_types": 63,
+          "object_types": 17,
+          "application_tables": 38
+        },
+        {
+          "slug": "batteryvault",
+          "domain": "circular battery lifecycle",
+          "pattern": "bitemporal Data Vault and balanced asset journal",
+          "source_rows": 158791,
+          "reference_events": 88346,
+          "reference_objects": 25779,
+          "event_types": 60,
+          "object_types": 18,
+          "application_tables": 63
+        }
+      ],
+      "publisher_validation_claims": [
+        "validation.json reports PASS for committed benchmark reports",
+        "source and canonical oracle SHA-256 digests checked against per-scenario validation report",
+        "SQLite integrity checks returned ok for copied source and generated OCEL databases",
+        "generated OCEL read back with matching PM4Py reader",
+        "event/object IDs and types, E2O/O2O relations, temporal change keys and row counts compared with canonical oracle"
+      ],
+      "pinning_policy": "Before a benchmark run, acquire the published SHA256SUMS and validation.json, pin every used file SHA-256 in a local run manifest, and verify checksums. Do not treat Zenodo record ID or MD5 shown on the landing page as a substitute for the package SHA-256 list."
+    }
+  ],
+  "matched_arms": [
+    {
+      "id": "A",
+      "name": "Case flattening",
+      "purpose": "measure lost cross-object context and event duplication"
+    },
+    {
+      "id": "B",
+      "name": "Schema-only OCEL",
+      "purpose": "measure baseline parser/mapping without FIN-EFFECT and time/causal provenance"
+    },
+    {
+      "id": "C",
+      "name": "Typed Mycelix OCEL",
+      "purpose": "measure event/object identities, owner roles, time evidence and declared losses"
+    },
+    {
+      "id": "D",
+      "name": "Full Economic OS projection",
+      "purpose": "add owner-scoped causal sidecar, correction lineage and verifier knowledge frontier"
+    }
+  ],
+  "metrics": [
+    "event identification precision/recall/F1",
+    "object identity/split/merge precision and recall",
+    "E2O/O2O relation and qualifier precision/recall",
+    "event and object type mapping",
+    "typed attribute/unit/instrument preservation",
+    "temporal object attribute history preservation",
+    "duplicate/retry/correction/reversal resolution",
+    "source table/record provenance completeness",
+    "occurrence vs record/observation time confusion",
+    "false authority/ownership/receipt/settlement promotion",
+    "canonical graph round-trip equality",
+    "p50/p95/p99 extraction latency",
+    "peak memory and CPU",
+    "bytes per source row/event/object/relation",
+    "source read amplification",
+    "operator review effort"
+  ],
+  "guardrails": [
+    "Published reference datasets are public development baselines, not hidden evaluation.",
+    "A parser-valid JSON file does not pass semantic reconstruction.",
+    "The candidate extractor cannot read the canonical reference OCEL or validation oracle in hidden evaluation.",
+    "No 100% event recall target where the canonical reference intentionally excludes technical rows; score justified inclusion/exclusion and explanation.",
+    "No performance score offsets a false economic assertion or silent semantic loss."
+  ]
+}
