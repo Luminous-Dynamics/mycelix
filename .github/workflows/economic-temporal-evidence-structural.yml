@@ -178,9 +178,14 @@ jobs:
         working-directory: tools/economic/temporal-evidence
         run: cargo +1.96.0 run --locked --example historical_revocation
 
+      - name: Execute indexed/reference parity microbenchmark
+        working-directory: tools/economic/temporal-evidence
+        run: cargo +1.96.0 run --locked --example benchmark_query_index
+
       - name: Report qualification boundary
         run: |
           printf '%s\n' \
-            'PASS = exact-head Rust formatting, unit tests, Clippy and deterministic example execution.' \
+            'PASS = exact-head Rust formatting, unit tests, Clippy, examples and reference/index query parity.' \
+            'BENCHMARK = smoke microtimings only; no SOTA or absolute performance claim.' \
             'NOT TESTED = evidence-byte digest recomputation, issuer/verifier signatures, clock calibration, Holochain persistence, or production replay.' \
             'The crate selects over caller-supplied structurally valid assertions; it does not authenticate them.'
