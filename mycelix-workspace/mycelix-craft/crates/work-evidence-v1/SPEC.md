@@ -71,8 +71,9 @@ The independent verifier checks in fail-closed order:
 8. outcome is corroborated;
 9. issuer key is trusted, controller-bound, in validity and signature-valid;
 10. assessor key is trusted, controller-bound, in validity and signature-valid;
-11. attestation replay key has not already been consumed;
-12. assessor quorum is made up of distinct identities.
+11. claim observation, artifact-capture, claim-creation and attestation timestamps form a non-future causal sequence;
+12. both attestation replay keys have not already been consumed;
+13. assessor quorum is made up of distinct identities.
 
 All required assessors must pass. A duplicate assessor cannot inflate quorum. A changed claim revision changes the claim digest and invalidates old attestations.
 
