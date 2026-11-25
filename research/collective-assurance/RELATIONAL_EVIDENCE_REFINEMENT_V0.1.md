@@ -83,7 +83,9 @@ The existing `qualify_response_grounding` function then requires each required v
 - disputed → preserved as a conflict;
 - unknown or unverified → unresolved.
 
-RER expands and organizes the evidence bundle; ACB governs the response's use of the resulting bundle. A successful RER pass does not imply an ACB pass.
+RER expands and organizes the evidence bundle; ACB governs the response's use of the resulting bundle. The caller passes the returned constraints to the existing `qualify_response_grounding`; a successful RER pass does not imply an ACB pass.
+
+The reference module contains 32 declared Rust tests, including direct adapter tests for non-PASS rejection, request binding, subject/scope mapping and missing selected records.
 
 ## Targeted GroupAssistBench programme
 
