@@ -26,6 +26,12 @@
         "window_start_ms": 900,
         "window_end_ms": 2100
       }
+    ],
+    "event_sequences": [
+      1,
+      2,
+      3,
+      4
     ]
   },
   "signature_b64": "Zml4dHVyZS1vbmx5LW5vdC1hLXJlYWwtc2lnbmF0dXJl"
