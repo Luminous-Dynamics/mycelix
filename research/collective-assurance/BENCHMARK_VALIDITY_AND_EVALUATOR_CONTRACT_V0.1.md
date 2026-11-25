@@ -87,6 +87,8 @@ A synthetic validator cannot approve recruitment or establish human capability c
 - profile-specific evidence requirements;
 - `PASS`, `FAIL` and `INDETERMINATE` semantics.
 
+The `qualify_benchmark_result_comparison` entry point combines benchmark-definition qualification with the actual baseline/candidate manifests. It verifies that the certified benchmark identity and version match both runs, and separately returns matched-claim versus contextual-claim eligibility. A cross-model result can never become a matched claim merely because its benchmark certificate is valid.
+
 The module validates declared evidence references and states. It does not fetch evidence, authenticate signers, prove that independent parties are truly independent, inspect a hidden dataset for leakage, calculate inter-rater reliability, or measure compute itself. Those are upstream evidence producers; production qualification requires authenticated, independently retained receipts.
 
 ## Required result card
@@ -133,7 +135,7 @@ These are process-conformance goals. They do not imply high reliability, strong 
 
 ## Ownership and composition
 
-- Mycelix #6619 owns the matched run comparison validator; this module qualifies the benchmark/evaluator evidence before a run comparison is trusted.
+- Mycelix #6619 owns the matched run comparison validator; this module qualifies the benchmark/evaluator evidence and binds its identity/version to the actual run manifests before a result claim is eligible.
 - Mycelix #6656 clarifies GroupAssistBench parity and matched baselines.
 - Mycelix #6676 owns dynamic complementarity and the six-stage collective capability outcome panel.
 - Mycelix #6677 owns paired leave-one-source-origin-out replay qualification.
