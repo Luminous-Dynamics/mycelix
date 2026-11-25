@@ -254,3 +254,116 @@ func hexString(value []byte) string {
 	}
 	return string(output)
 }
+
+func nextCheckpointSubject(previous CheckpointSubjectV1, intent Intent) CheckpointSubjectV1 {
+	next := previous
+	next.EventCount = previous.EventCount + 3
+	next.TailDigest = "sha256:" + strings.Repeat("2", 64)
+	next.CheckpointSequence = previous.CheckpointSequence + 1
+	digest, err := previous.CanonicalDigestAgainstIntent(intent)
+	if err != nil {
+		panic(err)
+	}
+	next.PriorCheckpointDigest = digest
+	next.SourceActionHash = "uhCkk-source-payment-action-next"
+	next.SourceChainFrontier = "uhCkk-source-chain-frontier-next"
+	next.IssuerDID = "did:mycelix:agent:sender-next"
+	next.VerificationMethod = "did:mycelix:agent:sender#holochain-key-2"
+	next.AuthorityGrantRef = "uhCkk-payments-authority-grant-next"
+	next.IssuedAtUnixMS++
+	return next
+}
+
+func TestCheckpointFrontierAdvanceBindsPreviousDigestAndAllowsKeyRotation(t *testing.T) {
+	intent := checkpointTestIntent()
+	previous := checkpointTestSubject()
+	next := nextCheckpointSubject(previous, intent)
+	if err := ValidateCheckpointFrontierAdvanceV1(previous, next, intent); err != nil {
+		t.Fatalf("valid checkpoint continuation rejected: %v", err)
+	}
+}
+
+func TestCheckpointFrontierAdvanceRejectsSkippedSequence(t *testing.T) {
+	intent := checkpointTestIntent()
+	previous := checkpointTestSubject()
+	next := nextCheckpointSubject(previous, intent)
+	next.CheckpointSequence++
+	if err := ValidateCheckpointFrontierAdvanceV1(previous, next, intent); err != ErrCheckpointAdvanceSequence {
+		t.Fatalf("error = %v, want %v", err, ErrCheckpointAdvanceSequence)
+	}
+}
+
+func TestCheckpointFrontierAdvanceRejectsWrongPriorDigest(t *testing.T) {
+	intent := checkpointTestIntent()
+	previous := checkpointTestSubject()
+	next := nextCheckpointSubject(previous, intent)
+	next.PriorCheckpointDigest = "sha256:" + strings.Repeat("3", 64)
+	if err := ValidateCheckpointFrontierAdvanceV1(previous, next, intent); err != ErrCheckpointAdvancePriorDigest {
+		t.Fatalf("error = %v, want %v", err, ErrCheckpointAdvancePriorDigest)
+	}
+}
+
+func TestCheckpointFrontierAdvanceRejectsOwnerAndEventLogSubstitution(t *testing.T) {
+	intent := checkpointTestIntent()
+	previous := checkpointTestSubject()
+	wrongOwner := nextCheckpointSubject(previous, intent)
+	wrongOwner.Owner = CheckpointTreasury
+	if err := ValidateCheckpointFrontierAdvanceV1(previous, wrongOwner, intent); err != ErrCheckpointAdvanceOwnerScope {
+		t.Fatalf("owner error = %v, want %v", err, ErrCheckpointAdvanceOwnerScope)
+	}
+
+	wrongLog := nextCheckpointSubject(previous, intent)
+	wrongLog.EventLogID += ":other"
+	if err := ValidateCheckpointFrontierAdvanceV1(previous, wrongLog, intent); err != ErrCheckpointAdvanceEventLog {
+		t.Fatalf("event-log error = %v, want %v", err, ErrCheckpointAdvanceEventLog)
+	}
+}
+
+func TestCheckpointFrontierAdvanceRejectsNonAdvancingFrontiers(t *testing.T) {
+	intent := checkpointTestIntent()
+	previous := checkpointTestSubject()
+	noCountAdvance := nextCheckpointSubject(previous, intent)
+	noCountAdvance.EventCount = previous.EventCount
+	if err := ValidateCheckpointFrontierAdvanceV1(previous, noCountAdvance, intent); err != ErrCheckpointAdvanceFrontier {
+		t.Fatalf("event-count error = %v, want %v", err, ErrCheckpointAdvanceFrontier)
+	}
+
+	noFrontierAdvance := nextCheckpointSubject(previous, intent)
+	noFrontierAdvance.SourceChainFrontier = previous.SourceChainFrontier
+	if err := ValidateCheckpointFrontierAdvanceV1(previous, noFrontierAdvance, intent); err != ErrCheckpointAdvanceFrontier {
+		t.Fatalf("frontier error = %v, want %v", err, ErrCheckpointAdvanceFrontier)
+	}
+
+	noTailAdvance := nextCheckpointSubject(previous, intent)
+	noTailAdvance.TailDigest = previous.TailDigest
+	if err := ValidateCheckpointFrontierAdvanceV1(previous, noTailAdvance, intent); err != ErrCheckpointAdvanceFrontier {
+		t.Fatalf("tail error = %v, want %v", err, ErrCheckpointAdvanceFrontier)
+	}
+}
+
+func TestCheckpointFrontierAdvanceRejectsReusedSourceAction(t *testing.T) {
+	intent := checkpointTestIntent()
+	previous := checkpointTestSubject()
+	next := nextCheckpointSubject(previous, intent)
+	next.SourceActionHash = previous.SourceActionHash
+	if err := ValidateCheckpointFrontierAdvanceV1(previous, next, intent); err != ErrCheckpointAdvanceSourceAction {
+		t.Fatalf("error = %v, want %v", err, ErrCheckpointAdvanceSourceAction)
+	}
+}
+
+func TestCheckpointFrontierAdvanceRejectsSequenceOverflow(t *testing.T) {
+	intent := checkpointTestIntent()
+	previous := checkpointTestSubject()
+	previous.CheckpointSequence = ^uint64(0)
+	previous.PriorCheckpointDigest = "sha256:" + strings.Repeat("4", 64)
+	next := nextCheckpointSubject(checkpointTestSubject(), intent)
+	next.CheckpointSequence = 2
+	digest, err := previous.CanonicalDigestAgainstIntent(intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next.PriorCheckpointDigest = digest
+	if err := ValidateCheckpointFrontierAdvanceV1(previous, next, intent); err != ErrCheckpointAdvanceSequenceOverflow {
+		t.Fatalf("error = %v, want %v", err, ErrCheckpointAdvanceSequenceOverflow)
+	}
+}
