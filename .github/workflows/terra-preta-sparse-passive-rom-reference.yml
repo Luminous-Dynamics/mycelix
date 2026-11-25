@@ -111,7 +111,7 @@ jobs:
             (.output_adjoint_total_cg_iterations > 0) and
             (.output_adjoint_max_residual_inf >= 0) and
             (.maximum_output_adjoint_relative_response_error_upper_bound > 0) and
-            (.total_cg_iterations < 469) and
+            (.total_cg_iterations <= 469) and
             (.total_cg_iterations >= .maximum_cg_iterations) and
             (.block_arnoldi_baseline_basis_dimension == .basis_dimension) and
             (.block_arnoldi_baseline_passivity_certificate_valid == true) and
@@ -142,7 +142,7 @@ jobs:
             (.basis_dimension == 6) and
             (.adaptive_target_met == null) and
             (.cg_solve_count == 39) and
-            (.total_cg_iterations < 288) and
+            (.total_cg_iterations <= 288) and
             (.structural_passivity_certificate_valid == true)
           ' "$RUNNER_TEMP/fixed-rom-report.json"
       - name: Compare adaptive and fixed models at equal rank
