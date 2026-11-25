@@ -203,8 +203,7 @@ fn adjoint_gradients(case: &Case) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>, Vec<f
         p1_inlet[index] = is_member(&case.inlet_pores, edge.p1);
         p2_inlet[index] = is_member(&case.inlet_pores, edge.p2);
         if p1_inlet[index] && !p2_inlet[index] {
-            d_objective_d_pressure[edge.p2] -=
-                residual * case.conversion * conductance;
+            d_objective_d_pressure[edge.p2] -= residual * case.conversion * conductance;
         } else if p2_inlet[index] && !p1_inlet[index] {
             d_objective_d_pressure[edge.p1] -=
                 residual * case.conversion * conductance;
@@ -234,10 +233,9 @@ fn adjoint_gradients(case: &Case) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>, Vec<f
 
         // Signed direct derivative of inlet flow: add p1-inlet, subtract
         // p2-inlet. The public formula loses this orientation in is_inlet_pore.
-        let inlet_orientation = (if p1_inlet[index] { 1.0 } else { 0.0 })
-            - (if p2_inlet[index] { 1.0 } else { 0.0 });
-        let direct_term =
-            residual * case.conversion * inlet_orientation * pressure_drop;
+        let inlet_orientation =
+            (if p1_inlet[index] { 1.0 } else { 0.0 }) - (if p2_inlet[index] { 1.0 } else { 0.0 });
+        let direct_term = residual * case.conversion * inlet_orientation * pressure_drop;
         corrected.push(state_term + direct_term);
 
         // Faithful transcription of the public branch logic:
@@ -308,8 +306,14 @@ fn print_audit(name: &str, audit: &Audit) {
     println!("  K = {:.12}", audit.permeability);
     println!("  pressure = {:?}", audit.pressures);
     println!("  adjoint = {:?}", audit.adjoint);
-    println!("  finite_difference = {:?}", audit.finite_difference_gradient);
-    println!("  corrected_adjoint = {:?}", audit.corrected_adjoint_gradient);
+    println!(
+        "  finite_difference = {:?}",
+        audit.finite_difference_gradient
+    );
+    println!(
+        "  corrected_adjoint = {:?}",
+        audit.corrected_adjoint_gradient
+    );
     println!("  public_formula = {:?}", audit.published_formula_gradient);
     println!(
         "  corrected_vs_fd_max_relative_error = {:.3e}",
@@ -344,7 +348,10 @@ mod tests {
             &audit.corrected_adjoint_gradient,
             &audit.finite_difference_gradient,
         );
-        assert!(error < 1.0e-6, "correct adjoint/FD relative error {error:e}");
+        assert!(
+            error < 1.0e-6,
+            "correct adjoint/FD relative error {error:e}"
+        );
     }
 
     #[test]
