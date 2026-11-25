@@ -67,10 +67,11 @@ fn build_links(owner_count: usize) -> Vec<OwnerConsistencyLinkV1> {
         .collect()
 }
 
-fn percentile(samples: &mut [Duration], percentile: usize) -> Duration {
-    samples.sort_unstable();
-    let index = ((samples.len() - 1) * percentile).div_ceil(100);
-    samples[index]
+fn percentile(samples: &[Duration], percentile: usize) -> Duration {
+    let mut sorted = samples.to_vec();
+    sorted.sort_unstable();
+    let index = ((sorted.len() - 1) * percentile).div_ceil(100);
+    sorted[index]
 }
 
 fn main() {
@@ -95,9 +96,9 @@ fn main() {
             samples.push(start.elapsed());
         }
 
-        let p50 = percentile(&mut samples.clone(), 50);
-        let p95 = percentile(&mut samples.clone(), 95);
-        let p99 = percentile(&mut samples, 99);
+        let p50 = percentile(&samples, 50);
+        let p95 = percentile(&samples, 95);
+        let p99 = percentile(&samples, 99);
         println!(
             "{owner_count},{},{},{},{},{}",
             links.len(),
