@@ -378,7 +378,7 @@ impl TemporalEvidenceSetV1 {
         )
     }
 
-        fn evaluate_valid_at_validated(
+    fn evaluate_valid_at_validated(
         &self,
         claim_id: &str,
         verifier_ref: &str,
@@ -394,10 +394,15 @@ impl TemporalEvidenceSetV1 {
         let claim_assertions: Vec<&TemporalAssertionV1> = self
             .assertions
             .iter()
-            .filter(|assertion| assertion.claim_id == claim_id && assertion.dimension.is_fact())
+            .filter(|assertion| {
+                assertion.claim_id == claim_id && assertion.dimension.is_fact()
+            })
             .collect();
 
-        let Some(subject_ref) = claim_assertions.first().map(|assertion| assertion.subject_ref.clone()) else {
+        let Some(subject_ref) = claim_assertions
+            .first()
+            .map(|assertion| assertion.subject_ref.clone())
+        else {
             return Ok(BitemporalValidityResultV1 {
                 disposition: QueryDispositionV1::Indeterminate,
                 claim_id: claim_id.into(),
@@ -429,30 +434,30 @@ impl TemporalEvidenceSetV1 {
             Selection::Missing | Selection::NotKnown | Selection::Indeterminate => (None, Vec::new()),
             Selection::Conflict => {
                 return Ok(build_validity_result(ValidityResultInput {
-            disposition: QueryDispositionV1::Conflict,
-            claim_id,
-            subject_ref: &subject_ref,
-            verifier_ref,
-            valid_at,
-            known_at,
-            valid_from: None,
-            valid_to: None,
-            knowledge_assertions: Vec::new(),
-        }));
+                    disposition: QueryDispositionV1::Conflict,
+                    claim_id,
+                    subject_ref: &subject_ref,
+                    verifier_ref,
+                    valid_at,
+                    known_at,
+                    valid_from: None,
+                    valid_to: None,
+                    knowledge_assertions: Vec::new(),
+                }));
             }
         };
         let Some(from) = from else {
             return Ok(build_validity_result(ValidityResultInput {
-            disposition: QueryDispositionV1::Indeterminate,
-            claim_id,
-            subject_ref: &subject_ref,
-            verifier_ref,
-            valid_at,
-            known_at,
-            valid_from: None,
-            valid_to: None,
-            knowledge_assertions: Vec::new(),
-        }));
+                disposition: QueryDispositionV1::Indeterminate,
+                claim_id,
+                subject_ref: &subject_ref,
+                verifier_ref,
+                valid_at,
+                known_at,
+                valid_from: None,
+                valid_to: None,
+                knowledge_assertions: Vec::new(),
+            }));
         };
 
         let (to, to_knowledge) = match to {
@@ -460,29 +465,29 @@ impl TemporalEvidenceSetV1 {
             Selection::Missing if allow_open_ended_valid_to => (None, Vec::new()),
             Selection::Missing | Selection::NotKnown | Selection::Indeterminate => {
                 return Ok(build_validity_result(ValidityResultInput {
-            disposition: QueryDispositionV1::Indeterminate,
-            claim_id,
-            subject_ref: &subject_ref,
-            verifier_ref,
-            valid_at,
-            known_at,
-            valid_from: Some(from),
-            valid_to: None,
-            knowledge_assertions: from_knowledge,
-        }));
+                    disposition: QueryDispositionV1::Indeterminate,
+                    claim_id,
+                    subject_ref: &subject_ref,
+                    verifier_ref,
+                    valid_at,
+                    known_at,
+                    valid_from: Some(from),
+                    valid_to: None,
+                    knowledge_assertions: from_knowledge,
+                }));
             }
             Selection::Conflict => {
                 return Ok(build_validity_result(ValidityResultInput {
-            disposition: QueryDispositionV1::Conflict,
-            claim_id,
-            subject_ref: &subject_ref,
-            verifier_ref,
-            valid_at,
-            known_at,
-            valid_from: Some(from),
-            valid_to: None,
-            knowledge_assertions: from_knowledge,
-        }));
+                    disposition: QueryDispositionV1::Conflict,
+                    claim_id,
+                    subject_ref: &subject_ref,
+                    verifier_ref,
+                    valid_at,
+                    known_at,
+                    valid_from: Some(from),
+                    valid_to: None,
+                    knowledge_assertions: from_knowledge,
+                }));
             }
         };
 
@@ -546,7 +551,7 @@ impl TemporalEvidenceSetV1 {
         self.occurred_at_as_known_validated(claim_id, verifier_ref, known_at)
     }
 
-        fn occurred_at_as_known_validated(
+    fn occurred_at_as_known_validated(
         &self,
         claim_id: &str,
         verifier_ref: &str,
@@ -778,16 +783,16 @@ impl TemporalEvidenceIndexV1 {
         let knowledge_query = normalize_utc(known_at)?;
         let Some(positions) = self.facts_by_claim.get(claim_id) else {
             return Ok(build_validity_result(ValidityResultInput {
-            disposition: QueryDispositionV1::Indeterminate,
-            claim_id,
-            subject_ref: "",
-            verifier_ref,
-            valid_at,
-            known_at,
-            valid_from: None,
-            valid_to: None,
-            knowledge_assertions: Vec::new(),
-        }));
+                disposition: QueryDispositionV1::Indeterminate,
+                claim_id,
+                subject_ref: "",
+                verifier_ref,
+                valid_at,
+                known_at,
+                valid_from: None,
+                valid_to: None,
+                knowledge_assertions: Vec::new(),
+            }));
         };
         let subject_ref = self.evidence.assertions[positions[0]].subject_ref.clone();
 
@@ -802,30 +807,30 @@ impl TemporalEvidenceIndexV1 {
             Selection::Missing | Selection::NotKnown | Selection::Indeterminate => (None, Vec::new()),
             Selection::Conflict => {
                 return Ok(build_validity_result(ValidityResultInput {
-            disposition: QueryDispositionV1::Conflict,
-            claim_id,
-            subject_ref: &subject_ref,
-            verifier_ref,
-            valid_at,
-            known_at,
-            valid_from: None,
-            valid_to: None,
-            knowledge_assertions: Vec::new(),
-        }));
+                    disposition: QueryDispositionV1::Conflict,
+                    claim_id,
+                    subject_ref: &subject_ref,
+                    verifier_ref,
+                    valid_at,
+                    known_at,
+                    valid_from: None,
+                    valid_to: None,
+                    knowledge_assertions: Vec::new(),
+                }));
             }
         };
         let Some(from) = from else {
             return Ok(build_validity_result(ValidityResultInput {
-            disposition: QueryDispositionV1::Indeterminate,
-            claim_id,
-            subject_ref: &subject_ref,
-            verifier_ref,
-            valid_at,
-            known_at,
-            valid_from: None,
-            valid_to: None,
-            knowledge_assertions: Vec::new(),
-        }));
+                disposition: QueryDispositionV1::Indeterminate,
+                claim_id,
+                subject_ref: &subject_ref,
+                verifier_ref,
+                valid_at,
+                known_at,
+                valid_from: None,
+                valid_to: None,
+                knowledge_assertions: Vec::new(),
+            }));
         };
 
         let to = self.select_as_known(
@@ -839,29 +844,29 @@ impl TemporalEvidenceIndexV1 {
             Selection::Missing if allow_open_ended_valid_to => (None, Vec::new()),
             Selection::Missing | Selection::NotKnown | Selection::Indeterminate => {
                 return Ok(build_validity_result(ValidityResultInput {
-            disposition: QueryDispositionV1::Indeterminate,
-            claim_id,
-            subject_ref: &subject_ref,
-            verifier_ref,
-            valid_at,
-            known_at,
-            valid_from: Some(from),
-            valid_to: None,
-            knowledge_assertions: from_knowledge,
-        }));
+                    disposition: QueryDispositionV1::Indeterminate,
+                    claim_id,
+                    subject_ref: &subject_ref,
+                    verifier_ref,
+                    valid_at,
+                    known_at,
+                    valid_from: Some(from),
+                    valid_to: None,
+                    knowledge_assertions: from_knowledge,
+                }));
             }
             Selection::Conflict => {
                 return Ok(build_validity_result(ValidityResultInput {
-            disposition: QueryDispositionV1::Conflict,
-            claim_id,
-            subject_ref: &subject_ref,
-            verifier_ref,
-            valid_at,
-            known_at,
-            valid_from: Some(from),
-            valid_to: None,
-            knowledge_assertions: from_knowledge,
-        }));
+                    disposition: QueryDispositionV1::Conflict,
+                    claim_id,
+                    subject_ref: &subject_ref,
+                    verifier_ref,
+                    valid_at,
+                    known_at,
+                    valid_from: Some(from),
+                    valid_to: None,
+                    knowledge_assertions: from_knowledge,
+                }));
             }
         };
 
