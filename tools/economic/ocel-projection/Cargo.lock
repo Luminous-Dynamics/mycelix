@@ -1,0 +1,5 @@
+version = 4
+
+[[package]]
+name = "mycelix-economic-ocel-projection"
+version = "0.1.0"
