@@ -113,6 +113,25 @@ Each sample records observed absolute/relative response error and the correspond
 
 **Claim boundary:** this is a floating-point verified supersolution prototype, not interval arithmetic or a formal proof about rounding. It applies only to fixed symmetric anchored conductance/storage graphs and real (s\ge0). It does not certify complex-frequency behaviour, nonlinear Richards dynamics, hysteresis, topology uncertainty or empirical soil prediction. Bound tightness must be reported alongside validity; a valid but very loose bound is not automatically useful.
 
+## Collatz–Wielandt refinement of the eigenvalue lower bound
+
+The base supersolution gives `lambda_min(A) >= 1 / ||y||_infinity`. The reference now optionally tightens this bound using positive-vector Collatz–Wielandt iterations for the nonnegative inverse `M=A^-1`.
+
+For any positive vector `v`, solve `A*z_hat=v` and recompute the true residual `r=v-A*z_hat`. Since `A^-1*1 <= y`, inverse positivity gives:
+
+    A^-1*v = z_hat + A^-1*r
+           <= z_hat + ||r||_infinity * y
+
+componentwise. After a small floating-point inflation, this gives:
+
+    rho(A^-1) <= max_i (z_hat_i + ||r||_infinity*y_i) / v_i
+
+and therefore a refined `lambda_min(A)` lower bound. The algorithm retains the strongest valid bound seen, never replaces the original supersolution fallback with a weaker value, and stops after at most four additional PCG solves. A failed refinement records a reason and keeps the original bound.
+
+The report exposes both initial and refined lower bounds, the number of refinement steps, maximum true infinity-norm residual, fallback reason, and total certificate PCG work. The workflow asserts the refined lower bound is no weaker and the added solve budget remains bounded.
+
+This is still a floating-point residual-corrected Collatz prototype, not interval arithmetic. Its useful performance is determined by the measured lower-bound gain and the resulting response-error-bound tightness; merely returning a valid positive bound is not enough.
+
 ## Qualification
 
 - sparse CSR assembly for the graph Laplacian and storage-normalized operator;
@@ -128,7 +147,7 @@ Each sample records observed absolute/relative response error and the correspond
 - node/edge ordering invariance for the branched response;
 - input SHA-256 and create-new output semantics.
 
-The current test suite contains twenty-five tests, including an analytic 2×2 M-matrix bound, 24-order rescaling, positive/asymmetric off-diagonal rejection, and adaptive response-error bound dominance over every audit sample. Synthetic fixtures include a 128-node chain, a four-node branched network, and a high-contrast three-port network. Conductance/storage rescaling by 24 orders of magnitude tests scale invariance. Tests also verify that a zero-shift basis preserves both DC and high-frequency limits, while a nonzero-only basis reports its feedthrough-limit mismatch. None of these fixtures is empirical soil data.
+The current test suite contains twenty-seven tests, including an analytic 2×2 M-matrix bound, 24-order rescaling, positive/asymmetric off-diagonal rejection, and adaptive response-error bound dominance over every audit sample. Synthetic fixtures include a 128-node chain, a four-node branched network, and a high-contrast three-port network. Conductance/storage rescaling by 24 orders of magnitude tests scale invariance. Tests also verify that a zero-shift basis preserves both DC and high-frequency limits, while a nonzero-only basis reports its feedthrough-limit mismatch. None of these fixtures is empirical soil data.
 
 ## Claim boundary
 
