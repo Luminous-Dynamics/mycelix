@@ -6,8 +6,8 @@
 //! history, guild endorsements, and epistemic classification.
 //!
 //! When connected to the Holochain conductor the page merges real credential
-//! data from `CraftCtx::credentials`.  Mock data is used as a fallback when
-//! the conductor signal is empty.
+//! data from `CraftCtx::credentials`. Synthetic examples are available only
+//! when the Holochain provider explicitly reports mock mode.
 
 use leptos::prelude::*;
 use mycelix_leptos_core::{
