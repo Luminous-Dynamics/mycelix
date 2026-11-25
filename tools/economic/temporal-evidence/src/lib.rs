@@ -334,13 +334,17 @@ impl TemporalEvidenceSetV1 {
             let mut current = assertion;
             loop {
                 let id = current.assertion_id.as_str();
-                match state.get(id).copied() {
-                    Some(1) => return Err(TemporalKernelErrorV1::SupersessionCycle),
-                    Some(2) => break,
-                    _ => {
-                        state.insert(id, 1);
+                match state.entry(id) {
+                    std::collections::btree_map::Entry::Vacant(entry) => {
+                        entry.insert(1);
                         path.push(id);
                     }
+                    std::collections::btree_map::Entry::Occupied(entry)
+                        if *entry.get() == 1 =>
+                    {
+                        return Err(TemporalKernelErrorV1::SupersessionCycle);
+                    }
+                    std::collections::btree_map::Entry::Occupied(_) => break,
                 }
                 let Some(previous_id) = current.supersedes_assertion_id.as_deref() else {
                     break;
@@ -723,9 +727,10 @@ impl TemporalEvidenceIndexV1 {
             knowledge_by_fact_verifier: BTreeMap::new(),
         };
         for (position, assertion) in index.evidence.assertions.iter().enumerate() {
-            let _ = index
+            index
                 .assertion_by_id
-                .insert(assertion.assertion_id.clone(), position);
+                .entry(assertion.assertion_id.clone())
+                .or_insert(position);
             if assertion.dimension.is_fact() {
                 index
                     .facts_by_claim
