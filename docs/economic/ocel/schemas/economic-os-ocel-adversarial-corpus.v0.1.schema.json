@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/economic-os-ocel-adversarial-corpus-v0.1.json",
+  "title": "Economic OS OCEL Semantic Preservation Adversarial Corpus v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark",
+    "version",
+    "date",
+    "status",
+    "target_profile",
+    "case_count",
+    "allowed_dispositions",
+    "hard_targets",
+    "cases"
+  ],
+  "properties": {
+    "benchmark": {
+      "type": "string"
+    },
+    "version": {
+      "const": "0.1"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string"
+    },
+    "target_profile": {
+      "const": "OCEL-2.0-JSON"
+    },
+    "case_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "allowed_dispositions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "hard_targets": {
+      "type": "object"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "dimension",
+          "adversarial_input",
+          "expected_disposition",
+          "safety_assertion"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dimension": {
+            "type": "string",
+            "minLength": 1
+          },
+          "adversarial_input": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_disposition": {
+            "type": "string"
+          },
+          "safety_assertion": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
