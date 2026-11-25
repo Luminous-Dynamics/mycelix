@@ -49,7 +49,7 @@ The module supports:
 - unauthorized action, unauthorized disclosure, false AI-off pass and over-refusal rates;
 - p95 latency, total cost, energy, human-review time, input/output tokens and tool calls.
 
-Each metric carries lower, point and upper estimates, a confidence level, independent-unit count, observation count, a paired-unit cohort digest and measurement-evidence digest. Baseline and candidate must use the same independent-unit cohort for each metric. Normalized rates must be within [0,1]; resource metrics must be non-negative. Clustered team work must count teams as independent units, not messages or repeated questions.
+Each metric carries lower, point and upper estimates, a confidence level, a simultaneous-interval declaration, one shared preregistered inference-plan digest, independent-unit count, observation count, a paired-unit cohort digest and measurement-evidence digest. Baseline and candidate must use the same independent-unit cohort and inference plan for each metric. Non-simultaneous marginal intervals cannot support a vector-wide dominance claim. Normalized rates must be within [0,1]; resource metrics must be non-negative. Clustered team work must count teams as independent units, not messages or repeated questions.
 
 ### Conservative dominance
 
@@ -83,7 +83,7 @@ Currency is recorded in integer micro-units with an explicit currency code and p
 - Baseline and candidate must pass the existing `MatchedSystem` manifest validator.
 - Pin benchmark, version, split, scorer, model/tokenizer, prompts, tools, decoding, context/output/token/time/compute/memory budget, agent count and seed policy.
 - Require preregistered metric set, directions, confidence level and independent-unit minimum.
-- Use paired evaluation and common random numbers where valid.
+- Use paired evaluation and common random numbers where valid. The confidence bands must provide simultaneous family-wise coverage over the preregistered metric vector; ordinary per-metric 95% intervals are insufficient for a 95% vector-wide dominance claim.
 - Cluster inference at the randomization unit (team, environment or task family); do not treat messages/questions as independent where they are nested.
 - Report p50/p95 latency and cost distributions, tail failures, worst-decile group results, missingness, exclusions, over-refusal and abstentions.
 - Report Pareto relations across the full required vector; never suppress a regression because the mean aggregate score improved.
