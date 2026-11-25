@@ -529,7 +529,7 @@ pub fn diagnose_evidence_use_with_verified_exposure<
 mod tests {
     use super::*;
     use crate::{
-        refine_relational_evidence, ConstraintHandling, EvidenceRelationEdge, EvidenceStatus,
+        refine_relational_evidence, ConstraintHandling, EvidenceStatus,
         RelationalDisclosurePermission, RelationalEvidenceRecord, RelationalEvidenceStatus,
         RelationalVerification, ResponseConstraintUse,
     };
