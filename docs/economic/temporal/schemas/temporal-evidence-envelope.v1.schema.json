@@ -43,7 +43,8 @@
         "clock_profile",
         "source_authority_ref",
         "evidence_ref",
-        "content_digest"
+        "content_digest",
+        "claim_id"
       ],
       "properties": {
         "assertion_id": {
@@ -134,8 +135,69 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 2048
+        },
+        "claim_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "assertion_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "verifier_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "knowledge_frontier_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "dimension": {
+                "enum": [
+                  "SOURCE_RECORDED_AT",
+                  "RECEIVER_OBSERVED_AT",
+                  "VERIFIER_KNOWLEDGE_AT"
+                ]
+              }
+            },
+            "required": [
+              "dimension"
+            ]
+          },
+          "then": {
+            "required": [
+              "assertion_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "dimension": {
+                "const": "VERIFIER_KNOWLEDGE_AT"
+              }
+            },
+            "required": [
+              "dimension"
+            ]
+          },
+          "then": {
+            "required": [
+              "verifier_ref",
+              "knowledge_frontier_ref"
+            ]
+          }
+        }
+      ]
     }
   }
 }
