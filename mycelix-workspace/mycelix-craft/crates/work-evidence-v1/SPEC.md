@@ -78,7 +78,7 @@ All required assessors must pass. A duplicate assessor cannot inflate quorum. A 
 
 ## Replay and distributed-state requirement
 
-The verifier returns replay keys of the form `assessor_did:authority_id:nonce`. The host must atomically reserve/persist every returned replay key and the attestation ID before any consequential downstream action. This in-memory reference library cannot guarantee atomicity across concurrent Holochain calls or nodes. A host that checks and stores replay state in separate non-atomic operations is not protected from races.
+The verifier returns two namespaced replay keys per attestation: `nonce:assessor_did:authority_id:nonce` and `attestation:authority_id:attestation_id`. The host must atomically reserve/persist both before any consequential downstream action. This in-memory reference library cannot guarantee atomicity across concurrent Holochain calls or nodes. A host that checks and stores replay state in separate non-atomic operations is not protected from races.
 
 ## Canonicalization
 
