@@ -247,7 +247,8 @@ pub fn qualify_common_ground_trial(
     let mut confirmed_requests: BTreeMap<&str, &str> = BTreeMap::new();
     let mut repair_starts: BTreeMap<&str, u64> = BTreeMap::new();
     let mut repair_durations = Vec::new();
-    let mut state_views: BTreeMap<&str, u64> = BTreeMap::new();
+    let mut state_views: BTreeMap<&str, (u64, u64)> = BTreeMap::new();
+    let mut first_message_timestamp: Option<u64> = None;
     let mut action_ids = BTreeSet::new();
     let mut actions = Vec::new();
     let mut completion: Option<(&str, u64)> = None;
@@ -288,7 +289,7 @@ pub fn qualify_common_ground_trial(
                     || state_digest != &contract.worker_state_digest
                     || *state_version != contract.worker_state_version
                     || !valid_digest(exposure_receipt_digest)
-                    || state_views.insert(viewer_id, *state_version).is_some()
+                    || state_views.insert(viewer_id, (*state_version, event.timestamp_ms)).is_some()
                 {
                     fail(&mut qualification, "task-state view is invalid, duplicated or lacks exposure evidence");
                 }
@@ -310,6 +311,7 @@ pub fn qualify_common_ground_trial(
                 {
                     fail(&mut qualification, "message delivery is invalid, duplicated or lacks evidence");
                 } else {
+                    first_message_timestamp.get_or_insert(event.timestamp_ms);
                     message_count += 1;
                 }
             }
@@ -470,9 +472,17 @@ pub fn qualify_common_ground_trial(
     };
     let actual_viewers: BTreeSet<&str> = state_views
         .iter()
-        .filter(|(_, version)| **version == contract.worker_state_version)
+        .filter(|(_, (version, _))| *version == contract.worker_state_version)
         .map(|(viewer, _)| *viewer)
         .collect();
+    if let Some(first_message) = first_message_timestamp {
+        if state_views.values().any(|(_, timestamp)| *timestamp >= first_message) {
+            indeterminate(
+                &mut qualification,
+                "task-state view receipt arrived after the first delivered dialogue message",
+            );
+        }
+    }
     if actual_viewers != expected_viewers {
         indeterminate(&mut qualification, "task-state exposure does not match the preregistered view condition");
     }
@@ -720,6 +730,18 @@ mod tests {
         let r=qualify_common_ground_trial(&c,&v);
         assert_eq!(r.qualification.status,QualificationStatus::Indeterminate);
     }
+
+    #[test]
+    fn task_state_view_must_precede_first_dialogue_message() {
+        let c=contract(CommonGroundViewMode::SharedWorkerState);
+        let mut v=success_trace(c.view_mode);
+        let helper_view=v.iter_mut().find(|e|e.event_id=="view-helper").unwrap();
+        helper_view.timestamp_ms=150;
+        let r=qualify_common_ground_trial(&c,&v);
+        assert_eq!(r.qualification.status,QualificationStatus::Indeterminate);
+        assert_eq!(r.outcome,CommonGroundOutcomeStatus::NotEvaluable);
+    }
+
     #[test]
     fn private_view_rejects_helper_exposure() {
         let c=contract(CommonGroundViewMode::PrivateWorkerState);
