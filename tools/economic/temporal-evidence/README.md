@@ -4,7 +4,7 @@ A dependency-free Rust kernel for asking a verifier-relative bitemporal question
 
 > What was valid at event/valid time **V**, according to the assertions verifier **X** had accepted by knowledge time **K**?
 
-This is deliberately narrower than a general temporal database. It makes the evidence and epistemic boundary explicit instead of treating one timestamp as a universal truth.
+This is deliberately narrower than a general temporal database. It makes the evidence and epistemic boundary explicit instead of treating one timestamp as a universal truth. The follow-on design for authenticated, verifier-relative causal frontiers is tracked in [Issue #6680](https://github.com/Luminous-Dynamics/mycelix/issues/6680) and [VERIFIER_RELATIVE_FRONTIER_QUERY_V0.1.md](VERIFIER_RELATIVE_FRONTIER_QUERY_V0.1.md).
 
 ## Current contract
 
@@ -44,7 +44,7 @@ The validating `TemporalEvidenceSetV1` methods are retained as a semantic refere
 - an OCEL importer/exporter or a certified OCEL implementation;
 - a complete bitemporal policy engine.
 
-The caller is responsible for authenticating the assertions, evidence payloads, verifier identity, and knowledge-frontier receipts before constructing the set. The `knowledge_frontier_ref` is currently an opaque provenance reference: v0.1 filters on the verifier-knowledge timestamp K and does not prove that a receipt is included in a particular distributed checkpoint or causal frontier. Until those adapters are implemented and independently tested, results are **structural query results over supplied data**, not authoritative legal, financial, or operational determinations.
+The caller is responsible for authenticating the assertions, evidence payloads, verifier identity, and knowledge-frontier receipts before constructing the set. In this v0.1 implementation, `knowledge_frontier_ref` is an opaque provenance reference; it is not resolved or authenticated. The `knowledge_frontier_ref` is currently an opaque provenance reference: v0.1 filters on the verifier-knowledge timestamp K and does not prove that a receipt is included in a particular distributed checkpoint or causal frontier. Until those adapters are implemented and independently tested, results are **structural query results over supplied data**, not authoritative legal, financial, or operational determinations.
 
 ## Benchmark direction
 
