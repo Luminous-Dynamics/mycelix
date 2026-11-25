@@ -767,18 +767,21 @@ pub fn diagnose_evidence_use_bottlenecks(
         .iter()
         .map(String::as_str)
         .collect();
-    if !refinement
-        .added_evidence_ids
-        .iter()
-        .all(|id| selected.contains(id.as_str()))
-    {
-        return not_evaluable("RER added-evidence list is not a subset of selected evidence".into());
+    let seeds: BTreeSet<&str> = scope.seed_evidence_ids.iter().map(String::as_str).collect();
+    if !seeds.is_subset(&selected) {
+        return not_evaluable("RER selected set omits one or more original retrieval seeds".into());
+    }
+    let added: BTreeSet<&str> = refinement.added_evidence_ids.iter().map(String::as_str).collect();
+    if !added.is_subset(&selected) || !added.is_disjoint(&seeds) {
+        return not_evaluable("RER added-evidence list is not a disjoint subset of selected evidence".into());
     }
 
     let mut visible = BTreeSet::new();
     for item in generator_visible {
         if item.request_id != scope.request_id
             || item.authorized_responder_id != scope.recipient_id
+            || !item.required
+            || !item.verified
             || !valid_digest(&item.source_digest)
             || !nonempty(&item.evidence_id)
             || !visible.insert(item.evidence_id.as_str())
@@ -1384,6 +1387,35 @@ mod tests {
         );
         assert_eq!(result.out_of_band_visible_count, 1);
         assert!(result.bottlenecks.contains(&EvidenceBottleneck::OutOfBandVisibleEvidence));
+    }
+
+
+    #[test]
+    fn diagnostic_requires_all_original_seeds_in_refined_set() {
+        let scope = scope();
+        let candidates = vec![record("e1", "origin-a", "holder-a")];
+        let mut refinement = refine_relational_evidence(&scope, &candidates, &[]);
+        refinement.selected_evidence_ids.clear();
+        refinement.added_evidence_ids.clear();
+        let response = response_for(&scope, &[]);
+        let result = diagnose_evidence_use_bottlenecks(
+            &scope, &refinement, &[], &response, &digest('9')
+        );
+        assert_eq!(result.status, EvidenceUseDiagnosticStatus::NotEvaluable);
+    }
+
+    #[test]
+    fn diagnostic_requires_generator_visible_items_to_be_required_and_verified() {
+        let scope = scope();
+        let candidates = vec![record("e1", "origin-a", "holder-a")];
+        let refinement = refine_relational_evidence(&scope, &candidates, &[]);
+        let mut available = bind_refined_evidence_constraints(&scope, &candidates, &refinement).unwrap();
+        available[0].required = false;
+        let response = response_for(&scope, &available);
+        let result = diagnose_evidence_use_bottlenecks(
+            &scope, &refinement, &available, &response, &digest('9')
+        );
+        assert_eq!(result.status, EvidenceUseDiagnosticStatus::NotEvaluable);
     }
 
     #[test]
