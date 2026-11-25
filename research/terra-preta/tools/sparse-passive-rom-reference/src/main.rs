@@ -1127,13 +1127,16 @@ fn response_error_upper_bound(
         return Err("response error bound only supports nonnegative real Laplace samples".into());
     }
     let full_state_approx = reduced_state_in_full_space(model, projection, shift)?;
-    let mut residual_matrix = vec![vec![0.0; model.boundary_ids.len()]; model.a.size];
+    let mut residual_matrix = vec![Vec::with_capacity(model.boundary_ids.len()); model.a.size];
     for port in 0..model.boundary_ids.len() {
         let approximate_state = column(&full_state_approx, port);
         let action = model.a.matvec(&approximate_state, shift)?;
         let input = column(&model.b, port);
-        for state in 0..model.a.size {
-            residual_matrix[state][port] = input[state] - action[state];
+        for (row, (right, left)) in residual_matrix
+            .iter_mut()
+            .zip(input.iter().zip(action.iter()))
+        {
+            row.push(right - left);
         }
     }
 
