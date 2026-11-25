@@ -424,11 +424,11 @@ impl TemporalEvidenceSetV1 {
             Selection::Conflict => {
                 return Ok(build_validity_result(ValidityResultInput {
             disposition: QueryDispositionV1::Conflict,
-            claim_id: claim_id,
+            claim_id,
             subject_ref: &subject_ref,
-            verifier_ref: verifier_ref,
-            valid_at: valid_at,
-            known_at: known_at,
+            verifier_ref,
+            valid_at,
+            known_at,
             valid_from: None,
             valid_to: None,
             knowledge_assertions: Vec::new(),
@@ -438,11 +438,11 @@ impl TemporalEvidenceSetV1 {
         let Some(from) = from else {
             return Ok(build_validity_result(ValidityResultInput {
             disposition: QueryDispositionV1::Indeterminate,
-            claim_id: claim_id,
+            claim_id,
             subject_ref: &subject_ref,
-            verifier_ref: verifier_ref,
-            valid_at: valid_at,
-            known_at: known_at,
+            verifier_ref,
+            valid_at,
+            known_at,
             valid_from: None,
             valid_to: None,
             knowledge_assertions: Vec::new(),
@@ -455,11 +455,11 @@ impl TemporalEvidenceSetV1 {
             Selection::Missing | Selection::NotKnown | Selection::Indeterminate => {
                 return Ok(build_validity_result(ValidityResultInput {
             disposition: QueryDispositionV1::Indeterminate,
-            claim_id: claim_id,
+            claim_id,
             subject_ref: &subject_ref,
-            verifier_ref: verifier_ref,
-            valid_at: valid_at,
-            known_at: known_at,
+            verifier_ref,
+            valid_at,
+            known_at,
             valid_from: Some(from),
             valid_to: None,
             knowledge_assertions: from_knowledge,
@@ -468,11 +468,11 @@ impl TemporalEvidenceSetV1 {
             Selection::Conflict => {
                 return Ok(build_validity_result(ValidityResultInput {
             disposition: QueryDispositionV1::Conflict,
-            claim_id: claim_id,
+            claim_id,
             subject_ref: &subject_ref,
-            verifier_ref: verifier_ref,
-            valid_at: valid_at,
-            known_at: known_at,
+            verifier_ref,
+            valid_at,
+            known_at,
             valid_from: Some(from),
             valid_to: None,
             knowledge_assertions: from_knowledge,
@@ -514,12 +514,12 @@ impl TemporalEvidenceSetV1 {
         };
 
         Ok(build_validity_result(ValidityResultInput {
-            disposition: disposition,
-            claim_id: claim_id,
+            disposition,
+            claim_id,
             subject_ref: &subject_ref,
-            verifier_ref: verifier_ref,
-            valid_at: valid_at,
-            known_at: known_at,
+            verifier_ref,
+            valid_at,
+            known_at,
             valid_from: Some(from),
             valid_to: to,
             knowledge_assertions: knowledge_ids,
@@ -772,11 +772,11 @@ impl TemporalEvidenceIndexV1 {
         let Some(positions) = self.facts_by_claim.get(claim_id) else {
             return Ok(build_validity_result(ValidityResultInput {
             disposition: QueryDispositionV1::Indeterminate,
-            claim_id: claim_id,
+            claim_id,
             subject_ref: "",
-            verifier_ref: verifier_ref,
-            valid_at: valid_at,
-            known_at: known_at,
+            verifier_ref,
+            valid_at,
+            known_at,
             valid_from: None,
             valid_to: None,
             knowledge_assertions: Vec::new(),
@@ -796,11 +796,11 @@ impl TemporalEvidenceIndexV1 {
             Selection::Conflict => {
                 return Ok(build_validity_result(ValidityResultInput {
             disposition: QueryDispositionV1::Conflict,
-            claim_id: claim_id,
+            claim_id,
             subject_ref: &subject_ref,
-            verifier_ref: verifier_ref,
-            valid_at: valid_at,
-            known_at: known_at,
+            verifier_ref,
+            valid_at,
+            known_at,
             valid_from: None,
             valid_to: None,
             knowledge_assertions: Vec::new(),
@@ -810,11 +810,11 @@ impl TemporalEvidenceIndexV1 {
         let Some(from) = from else {
             return Ok(build_validity_result(ValidityResultInput {
             disposition: QueryDispositionV1::Indeterminate,
-            claim_id: claim_id,
+            claim_id,
             subject_ref: &subject_ref,
-            verifier_ref: verifier_ref,
-            valid_at: valid_at,
-            known_at: known_at,
+            verifier_ref,
+            valid_at,
+            known_at,
             valid_from: None,
             valid_to: None,
             knowledge_assertions: Vec::new(),
@@ -833,11 +833,11 @@ impl TemporalEvidenceIndexV1 {
             Selection::Missing | Selection::NotKnown | Selection::Indeterminate => {
                 return Ok(build_validity_result(ValidityResultInput {
             disposition: QueryDispositionV1::Indeterminate,
-            claim_id: claim_id,
+            claim_id,
             subject_ref: &subject_ref,
-            verifier_ref: verifier_ref,
-            valid_at: valid_at,
-            known_at: known_at,
+            verifier_ref,
+            valid_at,
+            known_at,
             valid_from: Some(from),
             valid_to: None,
             knowledge_assertions: from_knowledge,
@@ -846,11 +846,11 @@ impl TemporalEvidenceIndexV1 {
             Selection::Conflict => {
                 return Ok(build_validity_result(ValidityResultInput {
             disposition: QueryDispositionV1::Conflict,
-            claim_id: claim_id,
+            claim_id,
             subject_ref: &subject_ref,
-            verifier_ref: verifier_ref,
-            valid_at: valid_at,
-            known_at: known_at,
+            verifier_ref,
+            valid_at,
+            known_at,
             valid_from: Some(from),
             valid_to: None,
             knowledge_assertions: from_knowledge,
@@ -892,12 +892,12 @@ impl TemporalEvidenceIndexV1 {
         };
 
         Ok(build_validity_result(ValidityResultInput {
-            disposition: disposition,
-            claim_id: claim_id,
+            disposition,
+            claim_id,
             subject_ref: &subject_ref,
-            verifier_ref: verifier_ref,
-            valid_at: valid_at,
-            known_at: known_at,
+            verifier_ref,
+            valid_at,
+            known_at,
             valid_from: Some(from),
             valid_to: to,
             knowledge_assertions: knowledge_ids,
@@ -1061,7 +1061,7 @@ enum Selection<'a> {
     Indeterminate,
     Conflict,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+
 /// Prevalidated scan engine. It performs the same one-time structural
 /// validation as the indexed engine but intentionally builds no lookup maps.
 /// Use it as a fair performance comparator for the indexed implementation.
@@ -1104,6 +1104,7 @@ impl TemporalEvidenceScanV1 {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum KnowledgeVisibility {
     Known,
     NotKnown,
