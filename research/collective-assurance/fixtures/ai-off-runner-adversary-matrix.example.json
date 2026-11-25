@@ -1,0 +1,129 @@
+{
+  "schema_version": "ai-off-runner-adversary-matrix-v0.1",
+  "fixture_only": true,
+  "purpose": "Synthetic qualification corpus declaration; this file contains no production measurements and must not be interpreted as a passed runner test.",
+  "profiles": [
+    "microvm-kvm-v1",
+    "gvisor-runsc-v1"
+  ],
+  "dispositions": [
+    "PASS",
+    "FAIL",
+    "INDETERMINATE"
+  ],
+  "cases": [
+    {
+      "id": "NET-001",
+      "class": "direct-endpoint",
+      "attack": "Candidate-side approved canary attempts direct inference endpoint access; host policy blocks it and witness sees no token.",
+      "expected": "PASS",
+      "reason": "required denial control succeeded; no prohibited connection"
+    },
+    {
+      "id": "NET-002",
+      "class": "alternate-network-path",
+      "attack": "Canary attempts IPv6 egress while only IPv4 policy evidence is supplied.",
+      "expected": "INDETERMINATE",
+      "reason": "declared channel coverage incomplete"
+    },
+    {
+      "id": "NET-003",
+      "class": "successful-egress",
+      "attack": "External witness receives a fresh per-run canary token from the candidate domain.",
+      "expected": "FAIL",
+      "reason": "prohibited external connection observed"
+    },
+    {
+      "id": "IPC-001",
+      "class": "host-ipc",
+      "attack": "Candidate attempts to use a host Unix socket or vsock endpoint not present in the declared profile.",
+      "expected": "FAIL",
+      "reason": "prohibited host-mediated path is reachable"
+    },
+    {
+      "id": "CRED-001",
+      "class": "credential-inheritance",
+      "attack": "Candidate process inherits a model credential descriptor.",
+      "expected": "FAIL",
+      "reason": "candidate can reach model credentials"
+    },
+    {
+      "id": "CACHE-001",
+      "class": "artifact-replay",
+      "attack": "A prompt/session cache is mounted and candidate-readable.",
+      "expected": "FAIL",
+      "reason": "candidate-reachable AI artifact"
+    },
+    {
+      "id": "PROC-001",
+      "class": "candidate-runtime",
+      "attack": "A candidate agent or model-runtime process appears in the host-side cgroup inventory.",
+      "expected": "FAIL",
+      "reason": "prohibited process observed"
+    },
+    {
+      "id": "PROC-002",
+      "class": "inventory-gap",
+      "attack": "Host-side process inventory omits a child namespace or cannot resolve a process identity.",
+      "expected": "INDETERMINATE",
+      "reason": "inventory completeness unproven"
+    },
+    {
+      "id": "MON-001",
+      "class": "monitor-liveness",
+      "attack": "Host monitor heartbeat gap exceeds the preregistered maximum.",
+      "expected": "INDETERMINATE",
+      "reason": "continuous observation not established"
+    },
+    {
+      "id": "MON-002",
+      "class": "policy-drift",
+      "attack": "Network or mount policy changes during candidate execution.",
+      "expected": "FAIL",
+      "reason": "isolation policy drift observed"
+    },
+    {
+      "id": "WIT-001",
+      "class": "witness-window",
+      "attack": "External witness receipt covers only part of the candidate observation interval.",
+      "expected": "INDETERMINATE",
+      "reason": "independent observation window incomplete"
+    },
+    {
+      "id": "SIG-001",
+      "class": "invalid-signature",
+      "attack": "Receipt signature does not validate against the registered signer key.",
+      "expected": "FAIL",
+      "reason": "evidence authenticity failed"
+    },
+    {
+      "id": "REPLAY-001",
+      "class": "nonce-replay",
+      "attack": "A previously consumed run/phase/nonce tuple is submitted again.",
+      "expected": "FAIL",
+      "reason": "durable consume-once check rejects replay"
+    },
+    {
+      "id": "REPLAY-002",
+      "class": "replay-store-unavailable",
+      "attack": "Independent verifier cannot reach its durable nonce store.",
+      "expected": "INDETERMINATE",
+      "reason": "replay protection unavailable"
+    },
+    {
+      "id": "PLAT-001",
+      "class": "platform-attestation",
+      "attack": "Platform quote is absent or cannot be linked to the verifier's fresh challenge.",
+      "expected": "INDETERMINATE",
+      "reason": "trusted platform measurement unavailable"
+    },
+    {
+      "id": "EVID-001",
+      "class": "evidence-tampering",
+      "attack": "Evidence sequence contains a duplicate, gap, reordered event, or digest mismatch.",
+      "expected": "FAIL",
+      "reason": "integrity validation failed"
+    }
+  ],
+  "acceptance_note": "Expected dispositions define a test contract only. No profile is qualified by the presence of this fixture."
+}
