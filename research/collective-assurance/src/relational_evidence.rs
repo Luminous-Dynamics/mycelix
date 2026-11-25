@@ -8,7 +8,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-use super::{Applicability, EvidenceStatus};
+use super::{Applicability, AvailableEvidenceConstraint, EvidenceStatus};
 
 fn nonempty(value: &str) -> bool {
     !value.trim().is_empty()
@@ -77,6 +77,9 @@ pub struct RelationalEvidenceRecord {
     pub source_origin_id: String,
     pub source_holder_id: String,
     pub source_message_id: String,
+    /// Primary response subject/scope binding consumed by the existing constraint binder.
+    pub response_subject_id: String,
+    pub response_scope_id: String,
     pub payload_digest: String,
     pub source_registry_receipt_digest: String,
     pub disclosure_receipt_digest: String,
@@ -342,6 +345,8 @@ pub fn refine_relational_evidence(
             || !nonempty(&candidate.source_origin_id)
             || !nonempty(&candidate.source_holder_id)
             || !nonempty(&candidate.source_message_id)
+            || !nonempty(&candidate.response_subject_id)
+            || !nonempty(&candidate.response_scope_id)
             || !unique_nonempty(&candidate.subject_ids)
             || !unique_nonempty(&candidate.event_ids)
             || !unique_nonempty(&candidate.decision_ids)
@@ -609,6 +614,70 @@ pub fn refine_relational_evidence(
     }
 }
 
+
+/// Converts a successfully refined bundle into the existing response-constraint
+/// contract. Every selected item is marked required because it is visible to the
+/// answer-generation stage and therefore must be explicitly handled by ACB.
+///
+/// This adapter does not alter source status, applicability, payload digest,
+/// request, subject, scope or responder identity. The existing
+/// `qualify_response_grounding` remains the authority for response handling.
+pub fn bind_refined_evidence_constraints(
+    scope: &RelationalEvidenceScope,
+    candidates: &[RelationalEvidenceRecord],
+    refinement: &RelationalEvidenceReport,
+) -> Result<Vec<AvailableEvidenceConstraint>, String> {
+    if refinement.status != RelationalEvidenceStatus::Pass {
+        return Err("only a PASS relational bundle can be bound to response constraints".into());
+    }
+    if refinement.selected_evidence_ids.is_empty()
+        || !unique_nonempty(&refinement.selected_evidence_ids)
+    {
+        return Err("refined evidence IDs must be non-empty and unique".into());
+    }
+
+    let mut by_id = BTreeMap::new();
+    for candidate in candidates {
+        if by_id
+            .insert(candidate.evidence_id.as_str(), candidate)
+            .is_some()
+        {
+            return Err("candidate evidence pool contains duplicate IDs".into());
+        }
+    }
+
+    let mut constraints = Vec::new();
+    for evidence_id in &refinement.selected_evidence_ids {
+        let Some(record) = by_id.get(evidence_id.as_str()).copied() else {
+            return Err(format!("refined evidence {evidence_id} is absent from the candidate pool"));
+        };
+        if !candidate_is_eligible(record, scope) {
+            return Err(format!("refined evidence {evidence_id} is no longer authorized and verified for this scope"));
+        }
+        if !nonempty(&record.response_subject_id) || !nonempty(&record.response_scope_id) {
+            return Err(format!("refined evidence {evidence_id} lacks response subject/scope binding"));
+        }
+        if !valid_digest(&record.payload_digest) {
+            return Err(format!("refined evidence {evidence_id} has a malformed payload digest"));
+        }
+        constraints.push(AvailableEvidenceConstraint {
+            request_id: scope.request_id.clone(),
+            evidence_id: record.evidence_id.clone(),
+            source_digest: record.payload_digest.clone(),
+            subject_id: record.response_subject_id.clone(),
+            scope_id: record.response_scope_id.clone(),
+            authorized_responder_id: scope.recipient_id.clone(),
+            status: record.status,
+            applicability: record.applicability,
+            verified: true,
+            required: true,
+        });
+    }
+
+    constraints.sort_by(|left, right| left.evidence_id.cmp(&right.evidence_id));
+    Ok(constraints)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -624,6 +693,8 @@ mod tests {
             source_origin_id: origin.into(),
             source_holder_id: holder.into(),
             source_message_id: format!("message-{id}"),
+            response_subject_id: "trip-date".into(),
+            response_scope_id: "group-trip-2026".into(),
             payload_digest: digest('a'),
             source_registry_receipt_digest: digest('b'),
             disclosure_receipt_digest: digest('c'),
@@ -665,6 +736,63 @@ mod tests {
             verification: RelationalVerification::Verified,
             relation_receipt_digest: digest('f'),
         }
+    }
+
+    #[test]
+    fn successful_refinement_binds_to_existing_constraint_contract() {
+        let candidates = vec![
+            record("e1", "origin-a", "holder-a"),
+            record("e2", "origin-b", "holder-b"),
+        ];
+        let scope = scope();
+        let refinement = refine_relational_evidence(
+            &scope,
+            &candidates,
+            &[edge("e1", "e2", EvidenceRelationKind::Supports)],
+        );
+        let constraints =
+            bind_refined_evidence_constraints(&scope, &candidates, &refinement).unwrap();
+        assert_eq!(constraints.len(), 2);
+        assert!(constraints.iter().all(|item| item.required && item.verified));
+        assert!(constraints.iter().all(|item| item.request_id == scope.request_id));
+        assert!(constraints.iter().all(|item| item.authorized_responder_id == scope.recipient_id));
+        assert_eq!(constraints[0].subject_id, "trip-date");
+        assert_eq!(constraints[0].scope_id, "group-trip-2026");
+    }
+
+    #[test]
+    fn non_pass_refinement_cannot_be_bound_to_response_constraints() {
+        let scope = scope();
+        let candidates = vec![record("e1", "origin-a", "holder-a")];
+        let failed = refine_relational_evidence(
+            &scope,
+            &[{
+                let mut item = candidates[0].clone();
+                item.permission = RelationalDisclosurePermission::WithheldByRights;
+                item
+            }],
+            &[],
+        );
+        assert!(bind_refined_evidence_constraints(&scope, &candidates, &failed).is_err());
+    }
+
+    #[test]
+    fn missing_subject_scope_binding_is_rejected() {
+        let scope = scope();
+        let mut item = record("e1", "origin-a", "holder-a");
+        item.response_scope_id.clear();
+        let refinement = refine_relational_evidence(&scope, &[item.clone()], &[]);
+        assert_eq!(refinement.status, RelationalEvidenceStatus::Fail);
+        assert!(bind_refined_evidence_constraints(&scope, &[item], &refinement).is_err());
+    }
+
+    #[test]
+    fn missing_refined_item_is_rejected_by_constraint_adapter() {
+        let scope = scope();
+        let candidates = vec![record("e1", "origin-a", "holder-a")];
+        let mut report = refine_relational_evidence(&scope, &candidates, &[]);
+        report.selected_evidence_ids.push("missing".into());
+        assert!(bind_refined_evidence_constraints(&scope, &candidates, &report).is_err());
     }
 
     #[test]
