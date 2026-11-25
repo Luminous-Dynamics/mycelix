@@ -54,8 +54,19 @@ jobs:
             (.robust_e_optimal_design.per_scenario_scores | length == 3) and
             (.minimax_regret_design.per_scenario_scores | length == 3) and
             (.candidate_support_receipts | length == 5) and
+            (.per_scenario_oracles | length == 3) and
+            (.nominal_design.candidate_ids == ["upper-pressure", "lower-pressure", "upper-path-flow"]) and
+            (.robust_d_optimal_design.candidate_ids == ["upper-pressure", "lower-pressure", "lower-path-flow"]) and
+            (.robust_e_optimal_design.candidate_ids == ["upper-pressure", "lower-pressure", "lower-path-flow"]) and
+            (.minimax_regret_design.candidate_ids == ["upper-pressure", "lower-pressure", "lower-path-flow"]) and
+            (.robust_d_optimal_design.worst_case_rank == 4) and
+            (.robust_e_optimal_design.objective_name == "maximin_data_minimum_eigenvalue") and
+            (.robust_e_optimal_design.maximum_absolute_d_optimal_regret >= 0) and
+            (.minimax_regret_design.maximum_normalized_d_optimal_regret <= 0.05) and
+            ([.robust_d_optimal_design.per_scenario_scores[] | select(.data_sensitivity_rank != 4)] | length == 0) and
             ([.repeated_measurement_negative_controls[] | select(.rank_increase != 0)] | length == 0)
           ' "$RUNNER_TEMP/terra-robust-design.json"
+          jq -r '"nominal=\(.nominal_design.candidate_ids|join(",")) robust_D=\(.robust_d_optimal_design.candidate_ids|join(",")) robust_E=\(.robust_e_optimal_design.candidate_ids|join(",")) minimax_regret=\(.minimax_regret_design.candidate_ids|join(",")) worst_case_rank=\(.robust_d_optimal_design.worst_case_rank) worst_case_logdet=\(.robust_d_optimal_design.worst_case_log_determinant) worst_case_data_lambda_min=\(.robust_e_optimal_design.objective_value) max_regret=\(.minimax_regret_design.maximum_normalized_d_optimal_regret)"' "$RUNNER_TEMP/terra-robust-design.json"
           sha256sum "$RUNNER_TEMP/terra-robust-design.json"
       - name: Reject output overwrite
         run: |
