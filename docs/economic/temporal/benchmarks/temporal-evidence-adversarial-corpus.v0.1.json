@@ -1,0 +1,281 @@
+{
+  "benchmark": "Economic OS Typed Temporal Evidence Adversarial Corpus",
+  "version": "0.1",
+  "date": "2026-11-25",
+  "status": "synthetic_public_development_cases_not_hidden_evaluation",
+  "case_count": 36,
+  "allowed_dispositions": [
+    "SUPPORTED_WITHIN_SCOPE",
+    "PENDING_RECONCILIATION",
+    "HELD",
+    "INDETERMINATE",
+    "CONFLICT",
+    "REJECTED_PROMOTION",
+    "REJECTED_INPUT",
+    "REQUIRES_CLOCK_REVIEW",
+    "HISTORICAL_REPLAY_STABLE",
+    "INCOMPARABLE",
+    "IDEMPOTENT_REPLAY"
+  ],
+  "hard_targets": {
+    "occurrence_time_substitution": 0,
+    "owner_sequence_to_time_promotion": 0,
+    "historical_replay_leakage": 0,
+    "silent_correction_overwrite": 0,
+    "unresolved_temporal_conflict_acceptance": 0
+  },
+  "cases": [
+    {
+      "id": "TME-001",
+      "dimension": "timestamp-promotion",
+      "adversarial_input": "Occurrence time absent; source record time present",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Source record time cannot fill an absent occurrence assertion."
+    },
+    {
+      "id": "TME-002",
+      "dimension": "timestamp-promotion",
+      "adversarial_input": "ObservedTimestamp copied into occurrence time",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Observation time and occurrence time are distinct dimensions."
+    },
+    {
+      "id": "TME-003",
+      "dimension": "timestamp-promotion",
+      "adversarial_input": "Owner sequence is cast to epoch milliseconds",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "A logical owner frontier is not a clock."
+    },
+    {
+      "id": "TME-004",
+      "dimension": "timestamp-promotion",
+      "adversarial_input": "Exporter current clock is used for a source event with no time",
+      "expected_disposition": "HELD",
+      "safety_assertion": "The exporter cannot manufacture occurrence time."
+    },
+    {
+      "id": "TME-005",
+      "dimension": "late-arrival",
+      "adversarial_input": "Older occurrence arrives after a later owner frontier",
+      "expected_disposition": "PENDING_RECONCILIATION",
+      "safety_assertion": "Late arrival requires reconciliation without rewriting the owner chain."
+    },
+    {
+      "id": "TME-006",
+      "dimension": "late-arrival",
+      "adversarial_input": "Record time is newer than occurrence time",
+      "expected_disposition": "SUPPORTED_WITHIN_SCOPE",
+      "safety_assertion": "The two dimensions remain separately represented."
+    },
+    {
+      "id": "TME-007",
+      "dimension": "late-arrival",
+      "adversarial_input": "Ingestion order differs from source occurrence order",
+      "expected_disposition": "SUPPORTED_WITHIN_SCOPE",
+      "safety_assertion": "Arrival order does not establish causal order."
+    },
+    {
+      "id": "TME-008",
+      "dimension": "clock-skew",
+      "adversarial_input": "Origin clock is five minutes ahead of the receiver",
+      "expected_disposition": "REQUIRES_CLOCK_REVIEW",
+      "safety_assertion": "Skew requires a declared clock profile and uncertainty interval."
+    },
+    {
+      "id": "TME-009",
+      "dimension": "clock-skew",
+      "adversarial_input": "Clock rollback makes later source record time lexically earlier",
+      "expected_disposition": "INDETERMINATE",
+      "safety_assertion": "Clock monotonicity cannot be assumed without clock evidence."
+    },
+    {
+      "id": "TME-010",
+      "dimension": "clock-skew",
+      "adversarial_input": "Clock jumps forward after NTP correction",
+      "expected_disposition": "REQUIRES_CLOCK_REVIEW",
+      "safety_assertion": "Clock correction must be versioned and recorded."
+    },
+    {
+      "id": "TME-011",
+      "dimension": "timezone",
+      "adversarial_input": "Local time occurs during DST fall-back overlap with no offset",
+      "expected_disposition": "HELD",
+      "safety_assertion": "Ambiguous local time is not a unique instant."
+    },
+    {
+      "id": "TME-012",
+      "dimension": "timezone",
+      "adversarial_input": "Local time falls in DST spring-forward gap",
+      "expected_disposition": "REJECTED_INPUT",
+      "safety_assertion": "Nonexistent local wall time cannot be normalized by guesswork."
+    },
+    {
+      "id": "TME-013",
+      "dimension": "timezone",
+      "adversarial_input": "Offset is normalized to UTC but original offset evidence is discarded",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Normalization must preserve original offset/zone evidence."
+    },
+    {
+      "id": "TME-014",
+      "dimension": "precision",
+      "adversarial_input": "Milliseconds truncated to seconds without an uncertainty window",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Precision loss must be explicit."
+    },
+    {
+      "id": "TME-015",
+      "dimension": "precision",
+      "adversarial_input": "Leap second is present in input but parser normalizes silently",
+      "expected_disposition": "REQUIRES_CLOCK_REVIEW",
+      "safety_assertion": "Leap-second handling must follow the pinned clock/profile policy."
+    },
+    {
+      "id": "TME-016",
+      "dimension": "uncertainty",
+      "adversarial_input": "Two clock readings differ but both fit their declared uncertainty intervals",
+      "expected_disposition": "SUPPORTED_WITHIN_SCOPE",
+      "safety_assertion": "Do not manufacture a conflict when uncertainty envelopes overlap."
+    },
+    {
+      "id": "TME-017",
+      "dimension": "uncertainty",
+      "adversarial_input": "Two authoritative readings have disjoint uncertainty intervals",
+      "expected_disposition": "CONFLICT",
+      "safety_assertion": "Contradictory temporal assertions remain contested."
+    },
+    {
+      "id": "TME-018",
+      "dimension": "valid-time",
+      "adversarial_input": "Policy valid-from is retroactive relative to recorded time",
+      "expected_disposition": "SUPPORTED_WITHIN_SCOPE",
+      "safety_assertion": "Valid time and record time answer different questions."
+    },
+    {
+      "id": "TME-019",
+      "dimension": "valid-time",
+      "adversarial_input": "Valid-to is earlier than valid-from",
+      "expected_disposition": "REJECTED_INPUT",
+      "safety_assertion": "Invalid half-open validity interval."
+    },
+    {
+      "id": "TME-020",
+      "dimension": "knowledge-time",
+      "adversarial_input": "Query asks what verifier knew before a later evidence arrival",
+      "expected_disposition": "HISTORICAL_REPLAY_STABLE",
+      "safety_assertion": "Later knowledge must not leak into an earlier knowledge-time query."
+    },
+    {
+      "id": "TME-021",
+      "dimension": "knowledge-time",
+      "adversarial_input": "Later evidence changes a current projection but not historical as-known projection",
+      "expected_disposition": "HISTORICAL_REPLAY_STABLE",
+      "safety_assertion": "Historical knowledge frontier remains reproducible."
+    },
+    {
+      "id": "TME-022",
+      "dimension": "knowledge-time",
+      "adversarial_input": "Verifier-known time is omitted but record-time exists",
+      "expected_disposition": "HELD",
+      "safety_assertion": "Source recording does not prove what a specific verifier had accepted."
+    },
+    {
+      "id": "TME-023",
+      "dimension": "correction",
+      "adversarial_input": "Correction replaces the prior assertion in place",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Corrections must append and reference the original assertion."
+    },
+    {
+      "id": "TME-024",
+      "dimension": "correction",
+      "adversarial_input": "Correction arrives later and supersedes prior temporal assertion",
+      "expected_disposition": "SUPPORTED_WITHIN_SCOPE",
+      "safety_assertion": "Both assertions remain available for historical replay."
+    },
+    {
+      "id": "TME-025",
+      "dimension": "correction",
+      "adversarial_input": "Correction link points to an unknown assertion",
+      "expected_disposition": "REJECTED_INPUT",
+      "safety_assertion": "Supersession references must resolve."
+    },
+    {
+      "id": "TME-026",
+      "dimension": "correction",
+      "adversarial_input": "Correction graph contains a supersession cycle",
+      "expected_disposition": "REJECTED_INPUT",
+      "safety_assertion": "Correction lineage must be acyclic."
+    },
+    {
+      "id": "TME-027",
+      "dimension": "revocation",
+      "adversarial_input": "Revocation effective time precedes record and verifier-knowledge time",
+      "expected_disposition": "SUPPORTED_WITHIN_SCOPE",
+      "safety_assertion": "What was valid and what was known remain distinguishable."
+    },
+    {
+      "id": "TME-028",
+      "dimension": "authority",
+      "adversarial_input": "Source time is signed but signing authority is outside the claim scope",
+      "expected_disposition": "INDETERMINATE",
+      "safety_assertion": "A signature does not grant temporal authority for every assertion."
+    },
+    {
+      "id": "TME-029",
+      "dimension": "causality",
+      "adversarial_input": "Two owner events share identical timestamp but have no causal edge",
+      "expected_disposition": "INCOMPARABLE",
+      "safety_assertion": "Equal timestamps do not prove order or simultaneity."
+    },
+    {
+      "id": "TME-030",
+      "dimension": "causality",
+      "adversarial_input": "Timestamp order contradicts explicit authenticated happens-before edge",
+      "expected_disposition": "CONFLICT",
+      "safety_assertion": "Clock order and causal order must be investigated separately."
+    },
+    {
+      "id": "TME-031",
+      "dimension": "causality",
+      "adversarial_input": "Timestamps increase but no causal reference connects events",
+      "expected_disposition": "INCOMPARABLE",
+      "safety_assertion": "Time ordering does not establish the event dependency."
+    },
+    {
+      "id": "TME-032",
+      "dimension": "policy",
+      "adversarial_input": "A historical query uses a new policy revision not known at the queried knowledge time",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "Policy valid-time and knowledge-time revisions remain distinct."
+    },
+    {
+      "id": "TME-033",
+      "dimension": "policy",
+      "adversarial_input": "Policy was valid at V but not known to verifier until K",
+      "expected_disposition": "SUPPORTED_WITHIN_SCOPE",
+      "safety_assertion": "Bitemporal decision records both V and K."
+    },
+    {
+      "id": "TME-034",
+      "dimension": "dht",
+      "adversarial_input": "Evidence arrives after a checkpoint frontier was observed",
+      "expected_disposition": "PENDING_RECONCILIATION",
+      "safety_assertion": "Newly visible evidence does not silently rewrite the previous checkpoint."
+    },
+    {
+      "id": "TME-035",
+      "dimension": "ocel",
+      "adversarial_input": "OCEL exporter substitutes recordTime for missing event time",
+      "expected_disposition": "REJECTED_PROMOTION",
+      "safety_assertion": "OCEL event time requires a source occurrence-time assertion."
+    },
+    {
+      "id": "TME-036",
+      "dimension": "replay",
+      "adversarial_input": "Same source event is observed twice with same assertion identity and digest",
+      "expected_disposition": "IDEMPOTENT_REPLAY",
+      "safety_assertion": "Duplicate observation must not create a second economic effect."
+    }
+  ]
+}
