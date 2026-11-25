@@ -302,6 +302,8 @@ pub enum ProjectionError {
     ContestedTimeCannotExport,
     UncertaintyWindowRequired,
     InvalidUncertaintyTimestamp,
+    InvalidUncertaintyWindow,
+    TimestampPrecisionMismatch,
     InvalidEventTimeBasis,
     InvalidObjectAttributeTimeBasis,
     EventWithoutObjectRelationship,
@@ -649,6 +651,9 @@ fn validate_time(time: &QualifiedTime, expected_basis: TimeBasis) -> Result<(), 
     if !is_rfc3339_timestamp(&time.iso8601) {
         return Err(ProjectionError::InvalidTimestamp);
     }
+    if !timestamp_matches_precision(&time.iso8601, time.metadata.precision) {
+        return Err(ProjectionError::TimestampPrecisionMismatch);
+    }
     if time.metadata.quality == TimeQuality::Contested {
         return Err(ProjectionError::ContestedTimeCannotExport);
     }
@@ -661,6 +666,11 @@ fn validate_time(time: &QualifiedTime, expected_basis: TimeBasis) -> Result<(), 
                 || !is_rfc3339_timestamp(&window.latest)
             {
                 return Err(ProjectionError::InvalidUncertaintyTimestamp);
+            }
+            if timezone_suffix(&window.earliest) != timezone_suffix(&window.latest)
+                || window.earliest > window.latest
+            {
+                return Err(ProjectionError::InvalidUncertaintyWindow);
             }
         }
         _ => {}
@@ -702,7 +712,7 @@ fn is_rfc3339_timestamp(value: &str) -> bool {
         || !(1..=12).contains(&month)
         || !(0..=23).contains(&hour)
         || !(0..=59).contains(&minute)
-        || !(0..=60).contains(&second)
+        || !(0..=59).contains(&second)
     {
         return false;
     }
@@ -744,6 +754,45 @@ fn is_rfc3339_timestamp(value: &str) -> bool {
             index + 6 == bytes.len() && offset_hour <= 23 && offset_minute <= 59
         }
         _ => false,
+    }
+}
+
+fn timestamp_fraction_digits(value: &str) -> Option<usize> {
+    let bytes = value.as_bytes();
+    let mut index = 19;
+    if bytes.get(index) != Some(&b'.') {
+        return Some(0);
+    }
+    index += 1;
+    let start = index;
+    while bytes.get(index).is_some_and(u8::is_ascii_digit) {
+        index += 1;
+    }
+    (index > start).then_some(index - start)
+}
+
+fn timezone_suffix(value: &str) -> &str {
+    let bytes = value.as_bytes();
+    let start = bytes.iter().enumerate().skip(19).find_map(|(index, byte)| {
+        matches!(byte, b'Z' | b'+' | b'-').then_some(index)
+    }).unwrap_or(value.len());
+    &value[start..]
+}
+
+fn timestamp_matches_precision(value: &str, precision: TimePrecision) -> bool {
+    let bytes = value.as_bytes();
+    let Some(hour) = parse_digits(bytes, 11, 2) else { return false; };
+    let Some(minute) = parse_digits(bytes, 14, 2) else { return false; };
+    let Some(second) = parse_digits(bytes, 17, 2) else { return false; };
+    let Some(fraction_digits) = timestamp_fraction_digits(value) else { return false; };
+
+    match precision {
+        TimePrecision::Day => hour == 0 && minute == 0 && second == 0 && fraction_digits == 0,
+        TimePrecision::Minute => second == 0 && fraction_digits == 0,
+        TimePrecision::Second => fraction_digits == 0,
+        TimePrecision::Millisecond => fraction_digits == 3,
+        TimePrecision::Microsecond => fraction_digits == 6,
+        TimePrecision::Nanosecond => fraction_digits == 9,
     }
 }
 
