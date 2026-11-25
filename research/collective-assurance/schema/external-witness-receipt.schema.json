@@ -24,7 +24,8 @@
         "observation_end_ms",
         "event_sequence_start",
         "event_sequence_end",
-        "probes"
+        "probes",
+        "event_sequences"
       ],
       "properties": {
         "schema_version": {
@@ -113,6 +114,14 @@
                 "minimum": 1
               }
             }
+          }
+        },
+        "event_sequences": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       }
