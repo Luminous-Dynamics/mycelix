@@ -195,6 +195,7 @@ pub enum VerificationError {
     AssessorMismatch,
     SelfAttestation,
     FutureObservation,
+    PrematureAttestation,
     AttestationTooOld,
     ConflictDisclosureIncomplete,
     ProhibitedConflict,
@@ -489,6 +490,27 @@ fn validate_claim(claim: &WorkEvidenceClaimV1) -> VerifyResult<()> {
     Ok(())
 }
 
+fn validate_claim_timestamps(claim: &WorkEvidenceClaimV1, now_unix: u64) -> VerifyResult<()> {
+    if claim.observed_until_unix > claim.created_at_unix
+        || claim.created_at_unix > now_unix
+    {
+        return Err(VerificationError::InvalidClaim(
+            "observation must end before claim creation, and claim creation cannot be in the future",
+        ));
+    }
+    if claim
+        .evidence
+        .iter()
+        .any(|artifact| artifact.captured_at_unix > claim.created_at_unix
+            || artifact.captured_at_unix > now_unix)
+    {
+        return Err(VerificationError::InvalidClaim(
+            "evidence capture cannot occur after claim creation or in the future",
+        ));
+    }
+    Ok(())
+}
+
 fn verify_key_signature(
     key: &TrustedKeyV1,
     payload: &[u8],
@@ -660,6 +682,9 @@ fn verify_one_attestation(
     if attestation.observed_at_unix > now_unix {
         return Err(VerificationError::FutureObservation);
     }
+    if attestation.observed_at_unix < claim.created_at_unix {
+        return Err(VerificationError::PrematureAttestation);
+    }
     if let Some(max_age) = policy.max_attestation_age_seconds {
         if now_unix.saturating_sub(attestation.observed_at_unix) > max_age {
             return Err(VerificationError::AttestationTooOld);
@@ -736,6 +761,7 @@ pub fn verify_work_evidence_bundle(
     consumed_replay_keys: &BTreeSet<String>,
 ) -> VerifyResult<VerifiedWorkEvidenceV1> {
     validate_claim(claim)?;
+    validate_claim_timestamps(claim, now_unix)?;
     validate_policy(policy)?;
     if attestations.is_empty() || attestations.len() > MAX_ATTESTATIONS {
         return Err(VerificationError::TooManyAttestations);
@@ -884,7 +910,7 @@ mod tests {
             scope: "pump-repair".into(),
             jurisdiction: "ZA-GP".into(),
             outcome: AttestationOutcome::Corroborated,
-            observed_at_unix: NOW - 120,
+            observed_at_unix: NOW - 30,
             nonce: "nonce-0001".into(),
             conflicts_declared_complete: true,
             conflicts: vec![],
@@ -1010,6 +1036,20 @@ mod tests {
                 attestation.observed_at_unix = NOW + 1;
                 sign_attestation(&mut attestation, &assessor_key());
             }
+            "future_claim_creation" => {
+                claim.created_at_unix = NOW + 1;
+                attestation.claim_digest_hex = claim_digest_hex(&claim).unwrap();
+                sign_attestation(&mut attestation, &assessor_key());
+            }
+            "future_artifact_capture" => {
+                claim.evidence[0].captured_at_unix = NOW + 1;
+                attestation.claim_digest_hex = claim_digest_hex(&claim).unwrap();
+                sign_attestation(&mut attestation, &assessor_key());
+            }
+            "attestation_precedes_claim" => {
+                attestation.observed_at_unix = claim.created_at_unix - 1;
+                sign_attestation(&mut attestation, &assessor_key());
+            }
             "unsupported_schema" => {
                 attestation.schema_version = 2;
                 sign_attestation(&mut attestation, &assessor_key());
@@ -1043,7 +1083,7 @@ mod tests {
     fn adversarial_corpus_matches_expected_dispositions() {
         let corpus: Corpus =
             serde_json::from_str(include_str!("../fixtures/adversarial-v1.json")).unwrap();
-        assert_eq!(corpus.cases.len(), 20);
+        assert_eq!(corpus.cases.len(), 23);
         for case in corpus.cases {
             let result = verify_fixture(&case.mutation);
             assert_eq!(
