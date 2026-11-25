@@ -119,7 +119,12 @@ pub enum ContractError {
         expected: DatasetRole,
     },
     InvalidFoldCount,
+    InsufficientGroups {
+        groups: usize,
+        folds: usize,
+    },
     InvalidFoldIndex,
+    EmptyFold(usize),
     Leakage {
         group_id: String,
         first_fold: usize,
@@ -148,7 +153,12 @@ impl Display for ContractError {
                 "dataset {dataset_id} does not have required role {expected:?}"
             ),
             Self::InvalidFoldCount => write!(formatter, "fold count must be at least two"),
+            Self::InsufficientGroups { groups, folds } => write!(
+                formatter,
+                "cannot populate {folds} folds from only {groups} independent groups"
+            ),
             Self::InvalidFoldIndex => write!(formatter, "fold index is outside the declared range"),
+            Self::EmptyFold(fold) => write!(formatter, "fold {fold} has no assigned groups"),
             Self::Leakage {
                 group_id,
                 first_fold,
@@ -328,7 +338,10 @@ pub fn grouped_folds(
         return Err(ContractError::InvalidFoldCount);
     }
 
-    let mut assignments = Vec::with_capacity(observations.len());
+    // Build groups before assigning folds. Sorting by descending row count,
+    // then by stable hash and canonical ID, makes the greedy assignment
+    // deterministic regardless of incoming row order.
+    let mut grouped_record_ids = BTreeMap::<String, Vec<String>>::new();
     let mut record_ids = BTreeSet::new();
     for observation in observations {
         if !record_ids.insert(observation.record_id.clone()) {
@@ -337,13 +350,62 @@ pub fn grouped_folds(
             ));
         }
         let group_id = canonical_group_id(observation, level)?;
-        let fold = (stable_hash(group_id) % fold_count as u64) as usize;
-        assignments.push(FoldAssignment {
-            record_id: observation.record_id.clone(),
-            canonical_group_id: group_id.to_string(),
-            fold,
+        grouped_record_ids
+            .entry(group_id.to_string())
+            .or_default()
+            .push(observation.record_id.clone());
+    }
+
+    let independent_group_count = grouped_record_ids.len();
+    if independent_group_count < fold_count {
+        return Err(ContractError::InsufficientGroups {
+            groups: independent_group_count,
+            folds: fold_count,
         });
     }
+
+    let mut groups: Vec<(String, Vec<String>)> = grouped_record_ids.into_iter().collect();
+    groups.sort_by(|left, right| {
+        right
+            .1
+            .len()
+            .cmp(&left.1.len())
+            .then_with(|| stable_hash(&left.0).cmp(&stable_hash(&right.0)))
+            .then_with(|| left.0.cmp(&right.0))
+    });
+
+    let mut record_loads = vec![0usize; fold_count];
+    let mut group_loads = vec![0usize; fold_count];
+    let mut group_to_fold = BTreeMap::<String, usize>::new();
+
+    for (group_id, record_ids_for_group) in groups {
+        let selected_fold = (0..fold_count)
+            .min_by_key(|fold| (record_loads[*fold], group_loads[*fold], *fold))
+            .ok_or(ContractError::InvalidFoldCount)?;
+        record_loads[selected_fold] += record_ids_for_group.len();
+        group_loads[selected_fold] += 1;
+        group_to_fold.insert(group_id, selected_fold);
+    }
+
+    let assignments: Vec<FoldAssignment> = observations
+        .iter()
+        .map(|observation| {
+            let group_id = canonical_group_id(observation, level)?;
+            let fold = group_to_fold
+                .get(group_id)
+                .copied()
+                .ok_or_else(|| ContractError::MissingIdentifier {
+                    record_id: observation.record_id.clone(),
+                    level,
+                })?;
+            Ok(FoldAssignment {
+                record_id: observation.record_id.clone(),
+                canonical_group_id: group_id.to_string(),
+                fold,
+            })
+        })
+        .collect::<Result<_, ContractError>>()?;
+
     validate_no_group_leakage(&assignments, fold_count)?;
     Ok(assignments)
 }
@@ -357,10 +419,12 @@ pub fn validate_no_group_leakage(
     }
     let mut group_folds = BTreeMap::<&str, usize>::new();
     let mut record_ids = BTreeSet::new();
+    let mut populated_folds = vec![false; fold_count];
     for assignment in assignments {
         if assignment.fold >= fold_count {
             return Err(ContractError::InvalidFoldIndex);
         }
+        populated_folds[assignment.fold] = true;
         if !record_ids.insert(assignment.record_id.as_str()) {
             return Err(ContractError::DuplicateRecordId(
                 assignment.record_id.clone(),
@@ -379,6 +443,9 @@ pub fn validate_no_group_leakage(
                 group_folds.insert(&assignment.canonical_group_id, assignment.fold);
             }
         }
+    }
+    if let Some(empty_fold) = populated_folds.iter().position(|populated| !populated) {
+        return Err(ContractError::EmptyFold(empty_fold));
     }
     Ok(())
 }
