@@ -347,8 +347,8 @@ pub fn qualify_common_ground_trial(
                 };
                 let recipient = message_deliveries.get(message_id).map(|x| x.1);
                 if !valid_role(contract, resolver_id)
-                    || resolver_id == requester
-                    || recipient != Some(resolver_id)
+                    || resolver_id.as_str() == requester
+                    || recipient != Some(resolver_id.as_str())
                     || resolved_referent_id.trim().is_empty()
                     || object_id.trim().is_empty()
                     || !valid_digest(rationale_digest)
@@ -366,7 +366,7 @@ pub fn qualify_common_ground_trial(
                     continue;
                 };
                 if !valid_role(contract, confirmer_id)
-                    || confirmer_id == resolver
+                    || confirmer_id.as_str() == resolver
                     || confirmed_requests.insert(request_id, confirmer_id).is_some()
                 {
                     fail(&mut qualification, "referent confirmation must be unique and come from the other role");
@@ -402,9 +402,9 @@ pub fn qualify_common_ground_trial(
                     ) {
                         (Some((resolver, resolved_object)), Some(confirmed_by))
                             if confirmed_by != resolver
-                                && (initiator_id == resolver || confirmer_id == resolver)
-                                && (initiator_id == confirmed_by || confirmer_id == confirmed_by)
-                                && resolved_object == object_id => {}
+                                && (initiator_id.as_str() == resolver || confirmer_id.as_str() == resolver)
+                                && (initiator_id.as_str() == confirmed_by || confirmer_id.as_str() == confirmed_by)
+                                && resolved_object == object_id.as_str() => {}
                         _ => fail(&mut qualification, "action uses an ambiguous referent without resolved, cross-role-confirmed grounding"),
                     }
                 }
