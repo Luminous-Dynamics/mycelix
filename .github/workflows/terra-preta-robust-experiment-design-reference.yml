@@ -55,6 +55,7 @@ jobs:
             (.minimax_regret_design.per_scenario_scores | length == 3) and
             (.candidate_support_receipts | length == 5) and
             (.per_scenario_oracles | length == 3) and
+            ([.per_scenario_oracles[] | select(.oracle_minimum_eigenvalue_data_information != null and .oracle_minimum_eigenvalue_total_information != null and .oracle_data_rank == 4)] | length == 3) and
             (.nominal_design.candidate_ids == ["upper-pressure", "lower-pressure", "upper-path-flow"]) and
             (.robust_d_optimal_design.candidate_ids == ["upper-pressure", "lower-pressure", "lower-path-flow"]) and
             (.robust_e_optimal_design.candidate_ids == ["upper-pressure", "lower-pressure", "lower-path-flow"]) and
@@ -67,6 +68,7 @@ jobs:
             ([.repeated_measurement_negative_controls[] | select(.rank_increase != 0)] | length == 0)
           ' "$RUNNER_TEMP/terra-robust-design.json"
           jq -r '"nominal=\(.nominal_design.candidate_ids|join(",")) robust_D=\(.robust_d_optimal_design.candidate_ids|join(",")) robust_E=\(.robust_e_optimal_design.candidate_ids|join(",")) minimax_regret=\(.minimax_regret_design.candidate_ids|join(",")) worst_case_rank=\(.robust_d_optimal_design.worst_case_rank) worst_case_logdet=\(.robust_d_optimal_design.worst_case_log_determinant) worst_case_data_lambda_min=\(.robust_e_optimal_design.objective_value) max_regret=\(.minimax_regret_design.maximum_normalized_d_optimal_regret)"' "$RUNNER_TEMP/terra-robust-design.json"
+          jq -r '"scenario_oracles=" + ([.per_scenario_oracles[] | {scenario: .scenario_id, candidates: .oracle_candidate_ids, data_rank: .oracle_data_rank, data_lambda_min: .oracle_minimum_eigenvalue_data_information, total_lambda_min: .oracle_minimum_eigenvalue_total_information, logdet: .oracle_log_determinant_total_information}] | tojson)' "$RUNNER_TEMP/terra-robust-design.json"
           sha256sum "$RUNNER_TEMP/terra-robust-design.json"
       - name: Reject output overwrite
         run: |
