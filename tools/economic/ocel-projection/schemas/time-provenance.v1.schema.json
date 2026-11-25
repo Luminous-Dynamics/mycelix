@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mycelix-ocel-time-provenance-v1.json",
+  "title": "Mycelix OCEL Time Provenance Sidecar v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile",
+    "mapping_profile_id",
+    "event_time_evidence",
+    "object_attribute_time_evidence"
+  ],
+  "properties": {
+    "profile": {
+      "const": "MYCELIX-OCEL-TIME-PROVENANCE-V1"
+    },
+    "mapping_profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "event_time_evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/timeEvidence"
+      }
+    },
+    "object_attribute_time_evidence": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "#/$defs/timeEvidence"
+          },
+          {
+            "type": "object",
+            "required": [
+              "object_id",
+              "attribute_name",
+              "attribute_time"
+            ],
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "attribute_name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "attribute_time": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "uncertaintyWindow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "earliest",
+        "latest"
+      ],
+      "properties": {
+        "earliest": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "latest": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "timeEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "time_basis",
+        "time_evidence_ref",
+        "precision",
+        "quality",
+        "clock_profile",
+        "source_authority_ref"
+      ],
+      "properties": {
+        "ocel_event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_event_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attribute_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "attribute_time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "time_basis": {
+          "enum": [
+            "source_record_event_time",
+            "source_record_attribute_time"
+          ]
+        },
+        "time_evidence_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "precision": {
+          "enum": [
+            "NANOSECOND",
+            "MICROSECOND",
+            "MILLISECOND",
+            "SECOND",
+            "MINUTE",
+            "DAY"
+          ]
+        },
+        "quality": {
+          "enum": [
+            "SOURCE_ASSERTED",
+            "ESTIMATED",
+            "UNCERTAIN"
+          ]
+        },
+        "clock_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_authority_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uncertainty_window": {
+          "$ref": "#/$defs/uncertaintyWindow"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "quality": {
+                "const": "UNCERTAIN"
+              }
+            },
+            "required": [
+              "quality"
+            ]
+          },
+          "then": {
+            "required": [
+              "uncertainty_window"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
