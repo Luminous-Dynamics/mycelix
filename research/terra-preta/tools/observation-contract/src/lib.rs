@@ -197,6 +197,9 @@ pub fn validate_manifest(manifest: &DatasetManifest) -> Result<(), ContractError
     if manifest.doi.as_ref().is_some_and(|doi| doi.trim().is_empty()) {
         return Err(ContractError::EmptyField("doi"));
     }
+    if manifest.license.as_ref().is_some_and(|license| license.trim().is_empty()) {
+        return Err(ContractError::EmptyField("license"));
+    }
     if manifest.row_count == Some(0)
         || manifest.independent_study_count == Some(0)
         || manifest.independent_site_count == Some(0)
@@ -236,8 +239,20 @@ pub fn validate_observation(
             finite_positive(observation.value, "hydraulic target value")?;
         }
         HydraulicTarget::WaterRetention => {
-            if !observation.value.is_finite() || !(0.0..=1.0).contains(&observation.value) {
-                return Err(ContractError::InvalidRange("volumetric water content"));
+            finite_nonnegative(observation.value, "water-retention value")?;
+            let unit = observation.original_unit.trim().to_ascii_lowercase();
+            if matches!(unit.as_str(), "m3/m3" | "cm3/cm3" | "m^3/m^3" | "cm^3/cm^3") {
+                if observation.value > 1.0 {
+                    return Err(ContractError::InvalidRange(
+                        "volumetric water content expressed as a fraction",
+                    ));
+                }
+            } else if matches!(unit.as_str(), "%" | "percent" | "percentage")
+                && observation.value > 100.0
+            {
+                return Err(ContractError::InvalidRange(
+                    "water retention percentage",
+                ));
             }
         }
     }
@@ -600,13 +615,24 @@ mod tests {
     }
 
     #[test]
-    fn retention_target_is_bounded_between_zero_and_one() {
+    fn retention_ranges_follow_explicit_units_without_guessing_unknown_units() {
         let mut record = observation("r1", "sample-1", "site-1", "study-1");
         record.target = HydraulicTarget::WaterRetention;
+        record.original_unit = "m3/m3".into();
         record.value = 0.42;
         validate_observation(&record, &source_registry()).unwrap();
         record.value = 1.02;
         assert!(validate_observation(&record, &source_registry()).is_err());
+
+        record.original_unit = "%".into();
+        record.value = 42.0;
+        validate_observation(&record, &source_registry()).unwrap();
+        record.value = 102.0;
+        assert!(validate_observation(&record, &source_registry()).is_err());
+
+        record.original_unit = "kg/kg".into();
+        record.value = 1.2;
+        validate_observation(&record, &source_registry()).unwrap();
     }
 
     #[test]
