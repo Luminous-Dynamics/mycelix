@@ -743,6 +743,36 @@ mod tests {
     }
 
     #[test]
+    fn robust_e_optimal_objective_is_data_only_and_prior_is_reported_separately() {
+        let report = analyze(&fixture(), "4".repeat(64)).unwrap();
+        assert_eq!(
+            report.robust_e_optimal_design.objective_name,
+            "maximin_data_minimum_eigenvalue"
+        );
+        let worst_data_eigenvalue = report.robust_e_optimal_design
+            .per_scenario_scores
+            .iter()
+            .map(|score| score.minimum_eigenvalue_data_information)
+            .fold(f64::INFINITY, f64::min);
+        assert!(
+            (report.robust_e_optimal_design.objective_value - worst_data_eigenvalue).abs()
+                < 1.0e-10
+        );
+        assert!(report.robust_e_optimal_design
+            .per_scenario_scores
+            .iter()
+            .all(|score| score.minimum_eigenvalue_total_information
+                >= score.minimum_eigenvalue_data_information));
+    }
+
+    #[test]
+    fn zero_support_coverage_is_rejected() {
+        let mut invalid = fixture();
+        invalid.candidates[0].measurements[1].support_coverage_fraction = 0.0;
+        assert!(validate(&invalid).is_err());
+    }
+
+    #[test]
     fn prior_information_does_not_inflate_data_sensitivity_rank() {
         let report = analyze(&fixture(), "3".repeat(64)).unwrap();
         assert!(report.robust_d_optimal_design.per_scenario_scores.iter()
