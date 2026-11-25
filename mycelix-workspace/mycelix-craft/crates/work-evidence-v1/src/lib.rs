@@ -162,7 +162,9 @@ pub struct VerifiedAttestationV1 {
     pub attestation_id: String,
     pub verifier_did: String,
     pub authority_id: String,
-    pub replay_key: String,
+    /// Both values must be atomically reserved by the host: one-time assessor
+    /// nonce and globally unique attestation identifier.
+    pub replay_keys: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -410,11 +412,14 @@ pub fn verify_artifact_bytes(
     Ok(())
 }
 
-pub fn replay_key(attestation: &WorkAttestationV1) -> String {
-    format!(
-        "{}:{}:{}",
-        attestation.verifier_did, attestation.authority_id, attestation.nonce
-    )
+pub fn replay_keys(attestation: &WorkAttestationV1) -> [String; 2] {
+    [
+        format!(
+            "nonce:{}:{}:{}",
+            attestation.verifier_did, attestation.authority_id, attestation.nonce
+        ),
+        format!("attestation:{}", attestation.attestation_id),
+    ]
 }
 
 fn validate_claim(claim: &WorkEvidenceClaimV1) -> VerifyResult<()> {
@@ -497,6 +502,91 @@ fn verify_key_signature(
         .map_err(|_| VerificationError::InvalidSignature)
 }
 
+fn validate_authority(authority: &AssessorAuthorityV1) -> VerifyResult<()> {
+    if authority.schema_version != WORK_EVIDENCE_SCHEMA_VERSION {
+        return Err(VerificationError::UnsupportedSchema);
+    }
+    if authority.revision == 0
+        || authority.authority_id.trim().is_empty()
+        || authority.issuer_did.trim().is_empty()
+        || authority.issuer_key_id.trim().is_empty()
+        || authority.assessor_did.trim().is_empty()
+        || authority.professional_domain.trim().is_empty()
+        || authority.jurisdiction.trim().is_empty()
+        || authority.valid_until_unix < authority.valid_from_unix
+        || authority.scopes.is_empty()
+        || authority.scopes.len() > 32
+    {
+        return Err(VerificationError::InvalidAuthority("authority fields or validity interval are invalid"));
+    }
+    if [
+        authority.authority_id.as_str(),
+        authority.issuer_did.as_str(),
+        authority.issuer_key_id.as_str(),
+        authority.assessor_did.as_str(),
+        authority.professional_domain.as_str(),
+        authority.jurisdiction.as_str(),
+    ]
+    .iter()
+    .any(|value| value.len() > 512)
+    {
+        return Err(VerificationError::InvalidAuthority("authority field exceeds 512 bytes"));
+    }
+    let mut scopes = BTreeSet::new();
+    for scope in &authority.scopes {
+        if scope.trim().is_empty() || scope.len() > 512 || !scopes.insert(scope.as_str()) {
+            return Err(VerificationError::InvalidAuthority("authority scopes are empty, oversized, or duplicated"));
+        }
+    }
+    Ok(())
+}
+
+fn validate_attestation(attestation: &WorkAttestationV1) -> VerifyResult<()> {
+    if attestation.schema_version != WORK_EVIDENCE_SCHEMA_VERSION {
+        return Err(VerificationError::UnsupportedSchema);
+    }
+    for value in [
+        attestation.attestation_id.as_str(),
+        attestation.verifier_did.as_str(),
+        attestation.assessor_key_id.as_str(),
+        attestation.authority_id.as_str(),
+        attestation.professional_domain.as_str(),
+        attestation.scope.as_str(),
+        attestation.jurisdiction.as_str(),
+        attestation.nonce.as_str(),
+    ] {
+        if value.trim().is_empty() || value.len() > 512 {
+            return Err(VerificationError::InvalidAttestation("required field is empty or oversized"));
+        }
+    }
+    if attestation.nonce.len() > 256 || !valid_hex_digest(&attestation.claim_digest_hex) {
+        return Err(VerificationError::InvalidAttestation("nonce or claim digest is invalid"));
+    }
+    if attestation.conflicts.len() > 16 || attestation.limitations.len() > 32 {
+        return Err(VerificationError::InvalidAttestation("too many conflicts or limitations"));
+    }
+    let mut conflicts = BTreeSet::new();
+    if attestation.conflicts.iter().any(|value| !conflicts.insert(*value)) {
+        return Err(VerificationError::InvalidAttestation("duplicate conflict declaration"));
+    }
+    if attestation.limitations.iter().any(|value| value.len() > 2048) {
+        return Err(VerificationError::InvalidAttestation("limitation exceeds 2048 bytes"));
+    }
+    Ok(())
+}
+
+fn validate_policy(policy: &VerificationPolicyV1) -> VerifyResult<()> {
+    if policy.professional_domain.trim().is_empty()
+        || policy.required_scope.trim().is_empty()
+        || policy.jurisdiction.trim().is_empty()
+        || policy.minimum_distinct_assessors == 0
+        || usize::from(policy.minimum_distinct_assessors) > MAX_ATTESTATIONS
+    {
+        return Err(VerificationError::InvalidAttestation("verification policy is incomplete or outside supported bounds"));
+    }
+    Ok(())
+}
+
 fn verify_one_attestation(
     claim_digest: &str,
     claim: &WorkEvidenceClaimV1,
@@ -507,14 +597,8 @@ fn verify_one_attestation(
     now_unix: u64,
     consumed_replay_keys: &BTreeSet<String>,
 ) -> VerifyResult<VerifiedAttestationV1> {
-    if authority.schema_version != WORK_EVIDENCE_SCHEMA_VERSION
-        || attestation.schema_version != WORK_EVIDENCE_SCHEMA_VERSION
-    {
-        return Err(VerificationError::UnsupportedSchema);
-    }
-    if attestation.attestation_id.trim().is_empty() || attestation.nonce.trim().is_empty() {
-        return Err(VerificationError::InvalidAttestation("id and nonce are required"));
-    }
+    validate_authority(authority)?;
+    validate_attestation(attestation)?;
     if attestation.claim_digest_hex != claim_digest {
         return Err(VerificationError::ClaimDigestMismatch);
     }
@@ -602,15 +686,15 @@ fn verify_one_attestation(
         now_unix,
     )?;
 
-    let key = replay_key(attestation);
-    if consumed_replay_keys.contains(&key) {
+    let keys = replay_keys(attestation);
+    if keys.iter().any(|key| consumed_replay_keys.contains(key)) {
         return Err(VerificationError::Replay);
     }
     Ok(VerifiedAttestationV1 {
         attestation_id: attestation.attestation_id.clone(),
         verifier_did: attestation.verifier_did.clone(),
         authority_id: attestation.authority_id.clone(),
-        replay_key: key,
+        replay_keys: keys.to_vec(),
     })
 }
 
@@ -629,11 +713,9 @@ pub fn verify_work_evidence_bundle(
     consumed_replay_keys: &BTreeSet<String>,
 ) -> VerifyResult<VerifiedWorkEvidenceV1> {
     validate_claim(claim)?;
+    validate_policy(policy)?;
     if attestations.is_empty() || attestations.len() > MAX_ATTESTATIONS {
         return Err(VerificationError::TooManyAttestations);
-    }
-    if policy.minimum_distinct_assessors == 0 {
-        return Err(VerificationError::InsufficientDistinctAssessors);
     }
 
     let digest = sha256_hex(&claim_payload(claim));
@@ -658,8 +740,10 @@ pub fn verify_work_evidence_bundle(
             now_unix,
             consumed_replay_keys,
         )?;
-        if !seen_replay_keys.insert(item.replay_key.clone()) {
-            return Err(VerificationError::Replay);
+        for replay_key in &item.replay_keys {
+            if !seen_replay_keys.insert(replay_key.clone()) {
+                return Err(VerificationError::Replay);
+            }
         }
         verified.push(item);
     }
@@ -887,7 +971,10 @@ mod tests {
                 attestation.signature_hex = "00".repeat(64);
             }
             "replayed_nonce" => {
-                consumed.insert(replay_key(&attestation));
+                consumed.insert(replay_keys(&attestation)[0].clone());
+            }
+            "replayed_attestation_id" => {
+                consumed.insert(replay_keys(&attestation)[1].clone());
             }
             "wrong_assessor" => {
                 authority.assessor_did = "did:mycelix:unlicensed-party".into();
@@ -933,7 +1020,7 @@ mod tests {
     fn adversarial_corpus_matches_expected_dispositions() {
         let corpus: Corpus =
             serde_json::from_str(include_str!("../fixtures/adversarial-v1.json")).unwrap();
-        assert_eq!(corpus.cases.len(), 19);
+        assert_eq!(corpus.cases.len(), 20);
         for case in corpus.cases {
             let result = verify_fixture(&case.mutation);
             assert_eq!(
