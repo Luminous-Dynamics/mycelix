@@ -2505,10 +2505,19 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         .iter()
         .map(|sample| sample.output_adjoint_relative_response_error_upper_bound)
         .fold(0.0_f64, f64::max);
+    let maximum_signed_output_adjoint_absolute_response_error_upper_bound = frequency_samples
+        .iter()
+        .map(|sample| sample.signed_output_adjoint_absolute_response_error_upper_bound)
+        .fold(0.0_f64, f64::max);
+    let maximum_signed_output_adjoint_relative_response_error_upper_bound = frequency_samples
+        .iter()
+        .map(|sample| sample.signed_output_adjoint_relative_response_error_upper_bound)
+        .fold(0.0_f64, f64::max);
     let error_certificate_valid = frequency_samples.iter().all(|sample| {
         sample.error_bound_valid
             && sample.portwise_error_bound_valid
             && sample.output_adjoint_error_bound_valid
+            && sample.signed_output_adjoint_error_bound_valid
     }) && error_certificate.lambda_min_lower_bound > 0.0;
     let error_certificate_pcg_solve_count = error_certificate.cg_stats.len();
     let error_certificate_pcg_iterations = error_certificate
@@ -2588,6 +2597,12 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             .as_ref().map(|_| block_arnoldi_baseline_output_adjoint_relative_bound),
         block_arnoldi_baseline_output_adjoint_error_bound_valid: block_arnoldi_baseline
             .as_ref().map(|_| block_arnoldi_baseline_output_adjoint_valid),
+        block_arnoldi_baseline_maximum_signed_output_adjoint_absolute_error_upper_bound: block_arnoldi_baseline
+            .as_ref().map(|_| block_arnoldi_baseline_signed_output_adjoint_absolute_bound),
+        block_arnoldi_baseline_maximum_signed_output_adjoint_relative_error_upper_bound: block_arnoldi_baseline
+            .as_ref().map(|_| block_arnoldi_baseline_signed_output_adjoint_relative_bound),
+        block_arnoldi_baseline_signed_output_adjoint_error_bound_valid: block_arnoldi_baseline
+            .as_ref().map(|_| block_arnoldi_baseline_signed_output_adjoint_valid),
         block_arnoldi_baseline_dc_relative_error,
         block_arnoldi_baseline_feedthrough_limit_relative_error,
         block_arnoldi_baseline_cg_solve_count: block_arnoldi_baseline_metrics
@@ -2624,6 +2639,11 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         maximum_best_relative_response_error_upper_bound,
         maximum_output_adjoint_absolute_response_error_upper_bound,
         maximum_output_adjoint_relative_response_error_upper_bound,
+        maximum_signed_output_adjoint_absolute_response_error_upper_bound,
+        maximum_signed_output_adjoint_relative_response_error_upper_bound,
+        signed_output_adjoint_solve_count,
+        signed_output_adjoint_total_cg_iterations,
+        signed_output_adjoint_max_residual_inf,
         output_adjoint_solve_count,
         output_adjoint_total_cg_iterations,
         output_adjoint_max_residual_inf,
