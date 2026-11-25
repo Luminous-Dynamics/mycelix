@@ -1740,11 +1740,27 @@ mod tests {
     fn unknown_valid_to_is_not_treated_as_open_ended() {
         let mut assertions = valid_fixture();
         assertions.assertions.retain(|assertion| assertion.assertion_id != "to-known");
+        let scan = TemporalEvidenceScanV1::new(assertions.clone()).unwrap();
+        let index = TemporalEvidenceIndexV1::new(assertions.clone()).unwrap();
         let result = assertions.evaluate_valid_at(
             "grant-1", VERIFIER, "2026-11-21T00:00:00Z",
             "2026-11-21T00:00:00Z", true
         ).unwrap();
         assert_eq!(result.disposition, QueryDispositionV1::Indeterminate);
+        assert_eq!(
+            result,
+            scan.evaluate_valid_at(
+                "grant-1", VERIFIER, "2026-11-21T00:00:00Z",
+                "2026-11-21T00:00:00Z", true
+            ).unwrap()
+        );
+        assert_eq!(
+            result,
+            index.evaluate_valid_at(
+                "grant-1", VERIFIER, "2026-11-21T00:00:00Z",
+                "2026-11-21T00:00:00Z", true
+            ).unwrap()
+        );
     }
 
     #[test]
