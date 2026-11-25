@@ -31,7 +31,7 @@ cargo +1.96.0 run --locked --example historical_revocation
 cargo +1.96.0 run --locked --example benchmark_query_index
 ```
 
-The historical example models a revocation effective on November 18, 2026, which a verifier only learns on November 20. A query at the same valid time can therefore be indeterminate at an earlier knowledge time and valid-at-query after the verifier's receipt, without rewriting the historical knowledge state. The benchmark example checks exact result parity between the scan reference and preindexed engine and prints local microtimings; it is a smoke benchmark, not an industry comparison or a published performance result.
+The historical example models a revocation effective on November 18, 2026, which a verifier only learns on November 20. A query at the same valid time can therefore be indeterminate at an earlier knowledge time and valid-at-query after the verifier's receipt, without rewriting the historical knowledge state. The benchmark example constructs a prevalidated scan baseline and a separately prevalidated indexed engine, checks exact result parity, and prints validation/build/query microtimings. This avoids charging the scan query for full validation on every request while the indexed path validates once. It is a smoke benchmark, not an industry comparison or a published performance result.
 
 ## Qualification boundary
 
