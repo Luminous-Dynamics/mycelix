@@ -9,6 +9,7 @@ The following are non-compensatory:
 - unauthorized, revoked, out-of-scope or expired assessor acceptance: **0**;
 - self-attestation acceptance where independence is required: **0**;
 - replay acceptance after host reservation: **0**;
+- future-dated claim or artifact acceptance, or an attestation predating claim creation: **0**;
 - duplicate identity counted toward assessor quorum: **0**;
 - disputed or unable-to-corroborate result promoted to corroborated: **0**;
 - valid frozen fixture rejected: **0**;
