@@ -29,6 +29,8 @@ FNV-1a is only a deterministic tie-break, not a security primitive. Balancing re
 
 Observation values are not raw labels of a universal scalar. A field tension infiltration estimate, a constant-head core measurement and a PTF map cell have different spatial/temporal supports and protocol operators. The intended hierarchical model separates latent soil response, observation operator, study/protocol effects and measurement error. This contract is the provenance and split layer; it is not yet the hierarchical inference model.
 
+The test suite contains 16 dependency-free unit tests, including count/version reconciliation and order-invariant record-balanced group-fold controls.
+
 ## Run
 
     cargo fmt --manifest-path research/terra-preta/tools/observation-contract/Cargo.toml -- --check
