@@ -24,12 +24,14 @@
       "no_memory",
       "bm25_sparse",
       "hdc_cfc"
-    ]
+    ],
+    "source_corpus_tokens": 100000,
+    "source_memory_record_count": 1000
   },
   "runs": [
     {
       "run_id": "mcsf-no_memory-pilot-001",
-      "control_digest": "1ea6cdc28afb3e75f970e0c1e2fa45de06449b2617be2e8ef34984dd8d5c8b55",
+      "control_digest": "d9a66d8c37f691f4e22e2e6d083adc974c756b953bdabeda329ce0e364ba83fb",
       "architecture": {
         "architecture": "no_memory",
         "policy_class": "native_unrestricted",
@@ -76,7 +78,10 @@
             "provider_cost_micro_usd": 10,
             "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
           },
-          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+          "stale_memory_uses": 0,
+          "revoked_memory_uses": 0,
+          "supersession_conflicts": 0
         },
         {
           "task_id": "task-2",
@@ -104,13 +109,16 @@
             "provider_cost_micro_usd": 10,
             "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
           },
-          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+          "stale_memory_uses": 0,
+          "revoked_memory_uses": 0,
+          "supersession_conflicts": 0
         }
       ]
     },
     {
       "run_id": "mcsf-bm25_sparse-pilot-001",
-      "control_digest": "1ea6cdc28afb3e75f970e0c1e2fa45de06449b2617be2e8ef34984dd8d5c8b55",
+      "control_digest": "d9a66d8c37f691f4e22e2e6d083adc974c756b953bdabeda329ce0e364ba83fb",
       "architecture": {
         "architecture": "bm25_sparse",
         "policy_class": "native_unrestricted",
@@ -157,7 +165,10 @@
             "provider_cost_micro_usd": 10,
             "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
           },
-          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+          "stale_memory_uses": 0,
+          "revoked_memory_uses": 0,
+          "supersession_conflicts": 0
         },
         {
           "task_id": "task-2",
@@ -185,13 +196,16 @@
             "provider_cost_micro_usd": 10,
             "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
           },
-          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+          "stale_memory_uses": 0,
+          "revoked_memory_uses": 0,
+          "supersession_conflicts": 0
         }
       ]
     },
     {
       "run_id": "mcsf-hdc_cfc-pilot-001",
-      "control_digest": "1ea6cdc28afb3e75f970e0c1e2fa45de06449b2617be2e8ef34984dd8d5c8b55",
+      "control_digest": "d9a66d8c37f691f4e22e2e6d083adc974c756b953bdabeda329ce0e364ba83fb",
       "architecture": {
         "architecture": "hdc_cfc",
         "policy_class": "native_unrestricted",
@@ -238,7 +252,10 @@
             "provider_cost_micro_usd": 10,
             "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
           },
-          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+          "stale_memory_uses": 0,
+          "revoked_memory_uses": 0,
+          "supersession_conflicts": 0
         },
         {
           "task_id": "task-2",
@@ -266,7 +283,10 @@
             "provider_cost_micro_usd": 10,
             "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
           },
-          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+          "stale_memory_uses": 0,
+          "revoked_memory_uses": 0,
+          "supersession_conflicts": 0
         }
       ]
     }
