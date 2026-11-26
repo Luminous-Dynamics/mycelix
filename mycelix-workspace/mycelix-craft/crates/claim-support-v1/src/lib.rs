@@ -602,10 +602,15 @@ pub fn evaluate_claim_support(
         })
         .collect::<Vec<_>>();
 
-    if current_reviews
-        .iter()
-        .any(|review| review.decision == ReviewDecisionV1::ConfirmContradiction)
-    {
+    if current_reviews.iter().any(|review| {
+        review.decision == ReviewDecisionV1::ConfirmContradiction
+            && packet.assessments.iter().any(|assessment| {
+                assessment.assessment_id == review.assessment_id
+                    && assessment.assessed_at <= now
+                    && now - assessment.assessed_at <= packet.claim.max_assessment_age_seconds
+                    && assessment.valid_until.map(|expiry| now < expiry).unwrap_or(true)
+            })
+    }) {
         return Ok(ClaimSupportDispositionV1::BlockedByContradiction);
     }
 
@@ -1092,6 +1097,18 @@ mod tests {
         packet.assessments[0].relation = SupportRelationV1::Contradiction;
         packet.reviews.push(review(ReviewDecisionV1::ConfirmContradiction));
         assert_eq!(evaluate_claim_support(&packet, NOW).unwrap(), ClaimSupportDispositionV1::BlockedByContradiction);
+    }
+
+    #[test]
+    fn contradiction_from_expired_assessment_requires_reassessment() {
+        let mut packet = packet();
+        packet.assessments[0].relation = SupportRelationV1::Contradiction;
+        packet.assessments[0].valid_until = Some(50);
+        packet.reviews.push(review(ReviewDecisionV1::ConfirmContradiction));
+        assert_eq!(
+            evaluate_claim_support(&packet, NOW).unwrap(),
+            ClaimSupportDispositionV1::HumanReviewRequired
+        );
     }
 
     #[test]
