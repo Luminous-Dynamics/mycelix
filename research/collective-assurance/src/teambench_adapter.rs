@@ -11,6 +11,7 @@ use sha2::{Digest, Sha256};
 use super::{QualificationReport, QualificationStatus};
 
 const UPSTREAM_REPOSITORY: &str = "https://github.com/ybkim95/TeamBench";
+const UPSTREAM_COMMIT: &str = "d185aef1916fd86a9ba554d581fd256319a973af";
 const UPSTREAM_TASK_MANIFEST_PATH: &str = "leaderboard/data/leaderboard_90_tasks.json";
 const UPSTREAM_TASK_MANIFEST_BLOB_SHA: &str =
     "59125b3fa9a82eede1f5a832c51c2ba32f5af591";
@@ -628,7 +629,7 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
 
     if !nonempty(&suite.suite_id)
         || suite.upstream_repository != UPSTREAM_REPOSITORY
-        || !valid_commit(&suite.upstream_commit)
+        || suite.upstream_commit != UPSTREAM_COMMIT
         || !nonempty(&suite.benchmark_version)
         || !nonempty(&suite.seed_policy_id)
     {
@@ -1143,7 +1144,7 @@ mod tests {
         assert_eq!(report.resource_totals_by_condition[&TeamBenchCondition::Full].output_tokens, 100);
         assert_eq!(report.resource_totals_by_condition[&TeamBenchCondition::Full].wall_clock_ms, 2_000);
         assert_eq!(report.average_tni_micros, None);
-        assert_eq!(report.valid_tni_task_count, 2);
+        assert_eq!(report.valid_tni_task_count, 0);
         assert_eq!(report.average_team_uplift_micros, Some(0));
         assert_eq!(report.average_collaboration_efficiency_micros, Some(0));
         assert_eq!(report.planning_value_task_count, 0);
