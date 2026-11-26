@@ -1,0 +1,60 @@
+{
+  "schema_version": "aml-public-policy-manifest-v0.1",
+  "cycle_id": "agent-memory-challenge-cycle-2-2026",
+  "results_published": "2026-11-19",
+  "deadlines": {
+    "materials_submission": "2026-10-31T23:59:00+08:00",
+    "formal_evaluation_cutoff": "2026-11-04T23:59:00+08:00",
+    "status": "closed"
+  },
+  "api": {
+    "architecture": "participant-hosted Add/Search APIs; fixed benchmark-side Answer/scoring pipeline",
+    "add_requires_durable_persistence_before_http_200": true,
+    "search_returns_ordered_memory_candidates": true,
+    "search_candidate_is_not_generated_final_answer": true,
+    "top_k": 100,
+    "textual_conversation_chunk": {
+      "max_messages": 20,
+      "max_words": 2000
+    },
+    "multimodal": {
+      "max_image_bytes": 10485760,
+      "max_search_response_bytes": 31457280,
+      "images_inline_base64_data_uri": true
+    }
+  },
+  "divisions": {
+    "open_source_methods": {
+      "required_embedding_model": "text-embedding-v4",
+      "required_language_model": "gpt-4o-mini",
+      "reranker": "unrestricted"
+    },
+    "commercial_products": {
+      "model_restrictions": "none"
+    }
+  },
+  "baselines": {
+    "textual_open_source": {
+      "leader": "Resurface",
+      "overall_score": 61.22,
+      "target_initial": 63.22,
+      "target_stretch": 65
+    },
+    "textual_commercial": {
+      "leader": "MemoraX",
+      "overall_score": 69.26,
+      "comparison_division": "commercial_products"
+    },
+    "coding_open_source": {
+      "leader": "InsightMem",
+      "overall_resolved_percent": 63.33,
+      "target_initial": 65.33
+    },
+    "multimodal_open_source": {
+      "leader": "Khipu",
+      "overall_score": 43.26,
+      "target": "reproduce exact release before setting superiority target"
+    }
+  },
+  "claim_ceiling": "Public policy and result summary only. Official release/pipeline/dataset/scoring/API artifact hashes must be independently obtained and pinned before an official score-eligibility claim. Cycle 2 is closed; this manifest supports protocol compatibility and future-cycle preparation only."
+}
