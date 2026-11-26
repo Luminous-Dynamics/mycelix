@@ -590,7 +590,9 @@ mod tests {
         let mut agreement = agreement();
         agreement.parties.push(party("institution-c"));
         agreement.consents.push(consent("institution-c"));
-        agreement.edges.push(edge("institution-b", "institution-c", "edge-b-c"));
+        agreement
+            .edges
+            .push(edge("institution-b", "institution-c", "edge-b-c"));
 
         assert_eq!(
             authorize_cooperation(&agreement, &request("institution-a", "institution-c")),
@@ -601,14 +603,7 @@ mod tests {
     #[test]
     fn exhaustive_three_party_graphs_authorize_only_declared_direct_edges() {
         let parties = ["institution-a", "institution-b", "institution-c"];
-        let pairs = [
-            (0usize, 1usize),
-            (0, 2),
-            (1, 0),
-            (1, 2),
-            (2, 0),
-            (2, 1),
-        ];
+        let pairs = [(0usize, 1usize), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)];
 
         for mask in 0u8..(1u8 << pairs.len()) {
             let mut agreement = agreement();
@@ -619,11 +614,7 @@ mod tests {
                 .enumerate()
                 .filter_map(|(index, (from, to))| {
                     if mask & (1u8 << index) != 0 {
-                        Some(edge(
-                            parties[*from],
-                            parties[*to],
-                            &format!("edge-{index}"),
-                        ))
+                        Some(edge(parties[*from], parties[*to], &format!("edge-{index}")))
                     } else {
                         None
                     }
@@ -632,10 +623,8 @@ mod tests {
 
             for (index, (from, to)) in pairs.iter().enumerate() {
                 let expected = mask & (1u8 << index) != 0;
-                let decision = authorize_cooperation(
-                    &agreement,
-                    &request(parties[*from], parties[*to]),
-                );
+                let decision =
+                    authorize_cooperation(&agreement, &request(parties[*from], parties[*to]));
                 assert_eq!(
                     matches!(decision, CooperationDecisionV1::Authorized { .. }),
                     expected,
@@ -764,7 +753,9 @@ mod tests {
     #[test]
     fn malformed_duplicate_edges_fail_closed() {
         let mut agreement = agreement();
-        agreement.edges.push(edge("institution-a", "institution-b", "edge-a-b-duplicate"));
+        agreement
+            .edges
+            .push(edge("institution-a", "institution-b", "edge-a-b-duplicate"));
         assert_eq!(
             authorize_cooperation(&agreement, &request("institution-a", "institution-b")),
             CooperationDecisionV1::Denied(DenialReasonV1::InvalidRequest)
@@ -774,7 +765,9 @@ mod tests {
     #[test]
     fn a_party_cannot_delegate_through_an_unlisted_institution() {
         let mut agreement = agreement();
-        agreement.edges.push(edge("institution-a", "institution-c", "edge-a-c"));
+        agreement
+            .edges
+            .push(edge("institution-a", "institution-c", "edge-a-c"));
 
         assert_eq!(
             agreement.validate(),
