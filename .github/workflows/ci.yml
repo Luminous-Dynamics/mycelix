@@ -37,6 +37,7 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       prism: ${{ steps.filter.outputs.prism }}
       cos_conformance: ${{ steps.filter.outputs.cos_conformance }}
+      craft_evidence_lineage: ${{ steps.filter.outputs.craft_evidence_lineage }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -74,6 +75,9 @@ jobs:
               - 'mycelix-workspace/sdk-ts/**'
             prism:
               - 'mycelix-workspace/mycelix-prism/**'
+            craft_evidence_lineage:
+              - 'mycelix-workspace/mycelix-craft/Cargo.toml'
+              - 'mycelix-workspace/mycelix-craft/crates/evidence-lineage-v1/**'
             cos_conformance:
               - 'mycelix-manufacturing/crates/cos_conformance/**'
               - 'mycelix-manufacturing/Cargo.toml'
@@ -111,6 +115,34 @@ jobs:
           (cd crates/mycelix-bridge-common && cargo fmt --all --check) || status=1
           (cd crates/mycelix-bridge-entry-types && cargo fmt --all --check) || status=1
           exit $status
+
+  # Change impact is qualified independently of claim/closure CI.
+  test-craft-evidence-lineage:
+    name: Craft evidence lineage reference core
+    needs: changes
+    if: needs.changes.outputs.craft_evidence_lineage == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: \${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mycelix-workspace/mycelix-craft
+      - name: Verify exact checkout
+        env:
+          EXPECTED_HEAD_SHA: \${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+      - name: Check formatting
+        run: cargo fmt --manifest-path mycelix-workspace/mycelix-craft/Cargo.toml -p craft-evidence-lineage-v1 -- --check
+      - name: Test evidence lineage reference core
+        run: cargo test --manifest-path mycelix-workspace/mycelix-craft/Cargo.toml -p craft-evidence-lineage-v1
+      - name: Clippy evidence lineage reference core
+        run: cargo clippy --manifest-path mycelix-workspace/mycelix-craft/Cargo.toml -p craft-evidence-lineage-v1 --all-targets -- -D warnings
 
   # Per-cluster test jobs
   test-cos-conformance:
