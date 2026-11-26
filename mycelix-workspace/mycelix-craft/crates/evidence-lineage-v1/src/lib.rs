@@ -665,6 +665,85 @@ mod tests {
     }
 
     #[test]
+    fn all_nine_two_edge_impact_policy_combinations_match_the_oracle() {
+        let policies = [
+            ImpactPolicyV1::RevalidateOnChange,
+            ImpactPolicyV1::InvalidateOnChange,
+            ImpactPolicyV1::Informational,
+        ];
+        let source = reference("source", 1, 1);
+        let intermediate = reference("intermediate", 1, 2);
+        let final_artifact = reference("final", 1, 3);
+
+        for first_policy in policies {
+            for second_policy in policies {
+                let nodes = vec![
+                    node(source.clone(), vec![]),
+                    node(
+                        intermediate.clone(),
+                        vec![dependency(
+                            source.clone(),
+                            DependencyRelationV1::DerivedFrom,
+                            first_policy,
+                        )],
+                    ),
+                    node(
+                        final_artifact.clone(),
+                        vec![dependency(
+                            intermediate.clone(),
+                            DependencyRelationV1::DerivedFrom,
+                            second_policy,
+                        )],
+                    ),
+                ];
+                let evaluation = evaluate_lineage(
+                    &nodes,
+                    &[event(
+                        "expire-source",
+                        1,
+                        source.clone(),
+                        ChangeReasonV1::Expired,
+                        None,
+                    )],
+                )
+                .expect("well-formed two-edge lineage");
+
+                let expected_intermediate = match first_policy {
+                    ImpactPolicyV1::RevalidateOnChange => {
+                        ArtifactStateV1::NeedsRevalidation
+                    }
+                    ImpactPolicyV1::InvalidateOnChange => ArtifactStateV1::Invalidated,
+                    ImpactPolicyV1::Informational => ArtifactStateV1::Current,
+                };
+                let expected_final = if second_policy == ImpactPolicyV1::Informational
+                    || expected_intermediate == ArtifactStateV1::Current
+                {
+                    ArtifactStateV1::Current
+                } else {
+                    match second_policy {
+                        ImpactPolicyV1::RevalidateOnChange => {
+                            ArtifactStateV1::NeedsRevalidation
+                        }
+                        ImpactPolicyV1::InvalidateOnChange => ArtifactStateV1::Invalidated,
+                        ImpactPolicyV1::Informational => ArtifactStateV1::Current,
+                    }
+                };
+
+                assert_eq!(
+                    state(&evaluation, &intermediate),
+                    expected_intermediate,
+                    "first policy {first_policy:?}"
+                );
+                assert_eq!(
+                    state(&evaluation, &final_artifact),
+                    expected_final,
+                    "first policy {first_policy:?}, second policy {second_policy:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn digest_mismatched_dependency_is_rejected() {
         let source = reference("source", 1, 1);
         let wrong_source = reference("source", 1, 9);
