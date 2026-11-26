@@ -404,7 +404,7 @@
             "result": "passed",
             "source_id": "SRC-LAB-08",
             "independence_group": "ACCREDITED-LAB-08",
-            "context_digest": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+            "context_digest": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
             "digest": "8282828282828282828282828282828282828282828282828282828282828282",
             "digest_kind": "synthetic_test_placeholder"
           }
