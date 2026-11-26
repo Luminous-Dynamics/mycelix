@@ -69,7 +69,7 @@ Split by source document, system, institution and time so that near-duplicate re
 | Contradiction recall | Material contradictions detected and escalated | ≥ 0.99 |
 | Partial-support calibration | Partial/stronger-claim mismatch not promoted to direct support | 0 false promotions |
 | Qualifier preservation | Correct retention of required semantic dimensions | 100% frozen corpus |
-| Source revision invalidation | Reuse after source/claim digest change | 0 |
+| Source revision invalidation | Reuse after source/claim digest/revision change | 0 |
 | Review independence | Assessor approves their own assessment | 0 |
 | Role coverage | Supported result without every required reviewer role | 0 |
 | Abstention calibration | Correct NotAssessable/ContextRequired/ReviewRequired decisions | report per class and confidence |
