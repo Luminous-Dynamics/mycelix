@@ -333,6 +333,47 @@ pub enum ClaimSupportDispositionV1 {
     InsufficientEvidence,
 }
 
+/// Digest-bound output envelope consumable by conclusion-relative Decision Closure.
+///
+/// The host computes `result_digest` over the canonical packet, assessments,
+/// reviewer decisions and this result body. This crate does not canonicalize
+/// or hash bytes; the consuming host must authenticate the envelope and recheck
+/// its freshness immediately before use.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClaimSupportResultV1 {
+    /// Stable support-result identifier.
+    pub result_id: String,
+    /// Digest of the complete result and evidence/review packet.
+    pub result_digest: [u8; 32],
+    /// Exact claim identifier.
+    pub claim_id: String,
+    /// Exact claim digest.
+    pub claim_digest: [u8; 32],
+    /// Exact proposal revision digest containing the claim.
+    pub proposal_digest: [u8; 32],
+    /// Domain context.
+    pub domain_id: String,
+    /// Jurisdiction context.
+    pub jurisdiction_id: String,
+    /// Authorized corpus identifier.
+    pub authorized_corpus_id: String,
+    /// Authorized corpus snapshot digest.
+    pub authorized_corpus_digest: [u8; 32],
+    /// Domain standard identifier.
+    pub domain_standard_id: String,
+    /// Domain standard revision.
+    pub domain_standard_revision: u64,
+    /// Domain standard digest.
+    pub domain_standard_digest: [u8; 32],
+    /// Final claim-support disposition.
+    pub disposition: ClaimSupportDispositionV1,
+    /// Time at which this result was evaluated.
+    pub evaluated_at: u64,
+    /// Exclusive expiry for downstream consumption; None means time-bounded only
+    /// by the upstream references and must be resolved by the host policy.
+    pub valid_until: Option<u64>,
+}
+
 /// Evaluate a packet only after its references have been structurally validated.
 pub fn validate_packet(packet: &ClaimSupportPacketV1) -> Result<(), ClaimSupportErrorV1> {
     if packet.schema_version != CLAIM_SUPPORT_SCHEMA_VERSION {
@@ -611,6 +652,65 @@ pub fn evaluate_claim_support(
     }
 }
 
+/// Produce a digest-bound result envelope for a downstream consumer.
+///
+/// `result_digest` must be computed by the host over a canonical encoding of
+/// the packet, assessment decisions, current reviewer references and result
+/// disposition. The host must not substitute a display-only hash.
+pub fn evaluate_claim_support_result(
+    packet: &ClaimSupportPacketV1,
+    now: u64,
+    result_id: &str,
+    result_digest: [u8; 32],
+) -> Result<ClaimSupportResultV1, ClaimSupportErrorV1> {
+    require_non_empty(result_id)?;
+    require_digest(&result_digest)?;
+    let disposition = evaluate_claim_support(packet, now)?;
+
+    let mut expiry_boundaries = Vec::new();
+    for assessment in &packet.assessments {
+        let status_expiry = assessment
+            .assessed_at
+            .checked_add(packet.claim.max_assessment_age_seconds)
+            .ok_or(ClaimSupportErrorV1::InvalidAssessmentTime)?;
+        expiry_boundaries.push(status_expiry);
+        if let Some(expiry) = assessment.valid_until {
+            expiry_boundaries.push(expiry);
+        }
+    }
+    for review in &packet.reviews {
+        if let Some(expiry) = review.valid_until {
+            expiry_boundaries.push(expiry);
+        }
+        if let Some(withdrawn_at) = review.withdrawn_at {
+            expiry_boundaries.push(withdrawn_at);
+        }
+    }
+
+    let mut valid_until = expiry_boundaries.into_iter().min();
+    if disposition != ClaimSupportDispositionV1::Supported {
+        valid_until = Some(valid_until.map(|expiry| expiry.min(now)).unwrap_or(now));
+    }
+
+    Ok(ClaimSupportResultV1 {
+        result_id: result_id.to_owned(),
+        result_digest,
+        claim_id: packet.claim.claim_id.clone(),
+        claim_digest: packet.claim.claim_digest,
+        proposal_digest: packet.claim.proposal_digest,
+        domain_id: packet.claim.domain_id.clone(),
+        jurisdiction_id: packet.claim.jurisdiction_id.clone(),
+        authorized_corpus_id: packet.claim.authorized_corpus_id.clone(),
+        authorized_corpus_digest: packet.claim.authorized_corpus_digest,
+        domain_standard_id: packet.claim.domain_standard_id.clone(),
+        domain_standard_revision: packet.claim.domain_standard_revision,
+        domain_standard_digest: packet.claim.domain_standard_digest,
+        disposition,
+        evaluated_at: now,
+        valid_until,
+    })
+}
+
 fn require_non_empty(value: &str) -> Result<(), ClaimSupportErrorV1> {
     if !value.is_empty() && value.trim() == value {
         Ok(())
@@ -795,6 +895,38 @@ mod tests {
         assert_eq!(
             validate_packet(&packet),
             Err(ClaimSupportErrorV1::DuplicateIdentifier)
+        );
+    }
+
+    #[test]
+    fn supported_result_envelope_binds_decision_context_and_digest() {
+        let mut packet = packet();
+        packet.reviews.push(review(ReviewDecisionV1::ConfirmDirectSupport));
+        let result = evaluate_claim_support_result(&packet, NOW, "claim-result-1", [42; 32]).unwrap();
+        assert_eq!(result.disposition, ClaimSupportDispositionV1::Supported);
+        assert_eq!(result.claim_id, packet.claim.claim_id);
+        assert_eq!(result.claim_digest, packet.claim.claim_digest);
+        assert_eq!(result.proposal_digest, packet.claim.proposal_digest);
+        assert_eq!(result.domain_id, packet.claim.domain_id);
+        assert_eq!(result.jurisdiction_id, packet.claim.jurisdiction_id);
+        assert_eq!(result.authorized_corpus_digest, packet.claim.authorized_corpus_digest);
+        assert_eq!(result.domain_standard_digest, packet.claim.domain_standard_digest);
+        assert_eq!(result.result_digest, [42; 32]);
+        assert_eq!(result.valid_until, Some(130));
+    }
+
+    #[test]
+    fn non_supported_result_expires_at_evaluation_time() {
+        let result = evaluate_claim_support_result(&packet(), NOW, "needs-review", [43; 32]).unwrap();
+        assert_eq!(result.disposition, ClaimSupportDispositionV1::HumanReviewRequired);
+        assert_eq!(result.valid_until, Some(NOW));
+    }
+
+    #[test]
+    fn result_envelope_requires_host_supplied_digest() {
+        assert_eq!(
+            evaluate_claim_support_result(&packet(), NOW, "no-digest", [0; 32]),
+            Err(ClaimSupportErrorV1::MissingDigest)
         );
     }
 
