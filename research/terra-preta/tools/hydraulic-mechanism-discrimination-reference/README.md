@@ -68,6 +68,22 @@ This is a conservative out-of-family alarm under the declared independent Gaussi
 - Decision EVSI must be positive for an informative action/loss matrix and exactly zero when every available action has an identical state-contingent loss vector.
 - The Gaussian quadrature rule must integrate its normalization, first moment and second moment.
 
+## Sequential adaptive design v0.1
+
+Static subset selection commits the full portfolio before the first result arrives. That is not equivalent to a sequential policy: after an observation, the posterior can change which remaining measurement is worth its cost.
+
+The executable sequential reference adds a two-measurement Bellman oracle:
+
+- **Best fixed set:** exhaustively evaluate every two-candidate set at the full acquisition budget.
+- **Greedy myopic EVSI:** select the first measurement with the largest one-step expected reduction in decision loss, then optimize the final step.
+- **Finite-horizon adaptive EVSI:** enumerate every first candidate and each first-stage quadrature outcome; update the posterior; then choose the remaining affordable candidate with minimum posterior expected terminal decision loss, or stop.
+
+The report records the chosen first measurement, the observation-to-posterior-to-next-action mapping, the predictive quadrature mass of each branch, expected acquisition cost, terminal decision loss and EVSI. Candidate IDs define deterministic tie-breaking, so candidate input order must not change the policy.
+
+The v0.1 oracle deliberately rejects unsupported configurations: it requires a two-measurement budget, unit-cost candidates and at least three candidate measurements. Its finite-horizon optimum is exact **for the declared seven-node Gauss-Hermite quadrature problem** and the two-step policy class. It is not an exact integration over continuous Gaussian outcomes, an unbounded-horizon optimizer or a faithful reproduction of a learned SBI-BOED policy.
+
+The fixture includes a positive adaptivity control in which the second measurement changes with the first observation, plus a negative control where observationally equivalent mechanisms cause the policy to stop. After the first observation, the closed-set discrepancy detector is applied before any second-stage recommendation; an out-of-family result yields an explicit abstention/stop receipt and contributes to a separate discrepancy-abstention probability mass. These are deterministic synthetic checks, not field results. The next qualification step is to calibrate the quadrature approximation against higher-order rules and continuous-space Monte Carlo with common random numbers, then extend the same policy bake-off to the 10-family / 1,000-world campaign in [#6726](https://github.com/Luminous-Dynamics/mycelix/issues/6726).
+
 ## Research comparators and next ladder
 
 This is a small oracle, not an SOTA claim. The next benchmark should compare, at matched simulator/solve/acquisition budgets:
@@ -78,7 +94,8 @@ This is a small oracle, not an SOTA claim. The next benchmark should compare, at
 4. Expected model information gain / classification-based discrimination.
 5. Held-out predictive information gain / EPIG-style utility on future observables, with the estimator and conditioning target stated precisely.
 6. Decision-focused EVSI using the declared action/loss matrix, followed by matched alternate loss matrices and regret calibration.
-7. Faithful maximin robust Bayesian design with its KL ambiguity-set, Sibson-$\alpha$-MI and PAC-Bayes assumptions reproduced.
+7. Adaptive policy search via score matching, which decouples a learned score approximation from subsequent policy optimization.
+8. Faithful maximin robust Bayesian design with its KL ambiguity-set, Sibson-$\alpha$-MI and PAC-Bayes assumptions reproduced.
 
 Relevant current literature includes:
 
@@ -87,6 +104,17 @@ Relevant current literature includes:
 - Rainforth et al., *Modern Bayesian Experimental Design*, Statistical Science 2024: https://doi.org/10.1214/23-STS915
 
 The SBI-BOED work is particularly relevant because it connects mutual-information objectives, surrogate-likelihood training and design under fixed simulator budgets. The robust BOED work provides a materially stronger comparator than simply taking a worst case over a hand-selected finite list of scenarios. These methods must be reproduced faithfully before claiming a comparison or improvement.
+
+### Adaptive BED comparators added to the SOTA ladder
+
+Two 2026 UAI methods are especially relevant to the adaptive-policy stage:
+
+- [Zaballa & Hui, *Optimizing Likelihoods via Mutual Information* (UAI 2026)](https://proceedings.mlr.press/v337/zaballa26a.html) introduce SBI-BOED: a normalized conditional-density / normalizing-flow likelihood trained with an InfoNCE lower bound on EIG, with each simulator call supporting both inference and design. Their MI view also gives EPIG for predictive active learning. The paper reports gains in calibration and predictive accuracy against strong baselines at matched simulation budgets.
+- [Phillips, Kerrigan & Rainforth, *Bayesian Experimental Design via Score Matching* (UAI 2026)](https://proceedings.mlr.press/v337/phillips26a.html) decouple score approximation from policy optimization. Once the score model is learned, multiple adaptive policies and policy hyperparameter searches can be trained without multiplying the expensive likelihood-evaluation cost by every policy trial.
+
+The exact two-step oracle in this repository is not a learned policy and should not be compared to these methods on a single fixture score. Its role is to provide small-instance ground truth for policy evaluation and posterior updating. The next bake-off must compare all methods under common simulator-call budgets, plus report score-model training cost, policy-training FLOPs / wall time, memory, posterior calibration, held-out predictive log score / CRPS, decision regret, and misspecification abstention.
+
+The robust comparator is [Abdulsamad et al., *Maximin Robust Bayesian Experimental Design* (NeurIPS 2026)](https://arxiv.org/abs/2603.14094). It treats misspecification as an adversarial max-min game constrained by information-theoretic ambiguity, using Sibson's alpha-mutual information / Renyi divergence and PAC-Bayes lower bounds for stochastic design policies. A finite list of nominal scenarios is not a faithful substitute. We need to reproduce its ambiguity set, estimator, bounds and assumptions before drawing any result against it.
 
 ## Industry and pore-scale research baselines
 
