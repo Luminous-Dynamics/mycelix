@@ -40,7 +40,7 @@ jq -e '
     and (.input.context_digest | type == "string" and test("^[0-9a-f]{64}$"))
     and ((.input.expected_actions // 0) >= (.input.observed_actions // 0))
     and (all((.input.evidence // [])[];
-      (.evidence_id | type == "string" and length > 0)
+      (.source_id | type == "string" and length > 0)
       and (.digest | type == "string" and test("^[0-9a-f]{64}$"))
       and (.context_digest | type == "string" and test("^[0-9a-f]{64}$"))
       and (.independence_group | type == "string" and length > 0)
