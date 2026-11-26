@@ -40,6 +40,18 @@ The value is SHA-256 over MYCELIX-ASSERTION-INDEX-VALUE-V1, followed by the rece
 
 The receipt digest must be lower-case sha256: plus 64 hex characters. Owner sequence must be non-zero. This value is an index pointer/commitment, not the receipt itself; the referenced receipt and its append-only inclusion proof must still be resolved and verified.
 
+## Cross-language known-answer vectors
+
+The Rust and Go encoders share these independent fixtures:
+
+- Exact assertion key for verifier `did:mycelix:verifier:finance-v1`, policy `policy-epoch:1`, subject `subject:grant:42`, claim `claim:revoked`, dimension `VALID_AT`, assertion `assertion:42`: `6f02bb0fe2b2c6bd9b0c2efac3f74fdc0db676eb21ac5d5f42648428b3dc1817`.
+- Index value for receipt digest `sha256:` followed by 64 lower-case `a` characters, owner `owner:verifier-log`, sequence 7: `d641a80447381fdce99b19eb3e9f4fc58000699bff05c81a3410cf174c5c2d7c`.
+- Three-entry map root (keys 00/80/ff in the first byte, values A1/A2/A3 in the first byte): `620327be5115079f7497e7db9e3b9625ee5cebbe219368f6d5fb5b8960cbf738`.
+- Non-membership path for the key whose first byte is 40: SHA-256 of the 8,192 concatenated sibling bytes is `25f12e72f2826b31bb2ddf311915d4a1908584f0ea73a29ed7cb43c573d84615`.
+- Empty-map root: `3560e65cef251798180c1825f031af9a0455589e9590b1f5fc31af1195898911`.
+
+These vectors freeze canonical scope, leaf/branch tags, key-bit order, proof-sibling order and the empty-subtree profile. They do not authenticate the map root or prove index completeness.
+
 ## Proof dispositions and completeness
 
 The low-level verifier can establish only:
