@@ -22,6 +22,8 @@ Every run records exact source commit/artifact digest, memory representation, in
 
 Each architecture scorecard separately reports:
 - native task utility and paired delta against NoMemory on matched task IDs;
+- task-family utility means and paired family deltas, so a strong fact-recall score cannot conceal a temporal, governance, personalization or streaming regression;
+- deterministic paired-bootstrap 95% percentile intervals for overall and family-level deltas when at least two paired tasks are available. The resampling seed is bound to the matched-control digest and architecture/family; smaller strata return no interval rather than a fabricated estimate;
 - authorized-task success count;
 - unauthorized content disclosures and forbidden metadata inferences;
 - privacy-observer evidence completeness;
