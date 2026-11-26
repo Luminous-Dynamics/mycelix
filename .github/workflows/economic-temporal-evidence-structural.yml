@@ -236,6 +236,10 @@ jobs:
         working-directory: tools/economic/rfc9162-proof-verifier
         run: cargo +1.96.0 run --locked --example append_only_log
 
+      - name: Execute experimental sparse-map proof benchmark
+        working-directory: tools/economic/rfc9162-proof-verifier
+        run: cargo +1.96.0 run --locked --example benchmark_sparse_map
+
   go-frontier-conformance:
     name: Independent Go frontier conformance
     runs-on: ubuntu-latest
@@ -263,7 +267,12 @@ jobs:
       - name: Go formatting
         working-directory: tools/economic/temporal-frontier-model/conformance/go
         run: |
-          test -z "$(gofmt -l .)"
+          gofmt -d .
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            printf 'Files requiring gofmt:\\n%s\\n' "$unformatted"
+            exit 1
+          fi
 
       - name: Independent canonical and RFC 9162 conformance
         working-directory: tools/economic/temporal-frontier-model/conformance/go

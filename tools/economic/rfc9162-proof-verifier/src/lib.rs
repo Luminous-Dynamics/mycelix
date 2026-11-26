@@ -12,6 +12,14 @@
 //! satisfies application policy. Those checks belong to the caller's trust
 //! and witness layer.
 
+mod sparse_map;
+
+pub use sparse_map::{
+    SPARSE_MERKLE_DEPTH_V1, SparseKeyV1, SparseMerkleErrorV1, SparseMerkleProofV1,
+    SparseMerkleTreeV1, SparseValueV1, assertion_index_key_v1, assertion_index_value_v1,
+    verify_sparse_membership_v1, verify_sparse_non_membership_v1,
+};
+
 use sha2::{Digest, Sha256};
 
 pub type Hash32 = [u8; 32];
