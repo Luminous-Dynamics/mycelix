@@ -154,7 +154,12 @@ pub struct ProjectionReceipt {
     pub input_payload_digest: String,
     pub output_payload_digest: String,
     pub transform_digest: String,
-    pub target: ScopeSelector,
+    /// Exact audience clause under which this projection may be received.
+    pub audience_scope: ScopeSelector,
+    /// Exact applicability clause under which the lesson is valid.
+    pub applicability_scope: ScopeSelector,
+    /// Exact disclosure clause authorizing this recipient projection.
+    pub disclosure_scope: ScopeSelector,
     pub situation_digest: String,
     pub policy_digest: String,
     /// Opaque commitment to an independently produced review record.
@@ -178,7 +183,9 @@ pub fn compute_projection_receipt_digest(
         || !valid_digest(&receipt.input_payload_digest)
         || !valid_digest(&receipt.output_payload_digest)
         || !valid_digest(&receipt.transform_digest)
-        || receipt.target.validate().is_err()
+        || receipt.audience_scope.validate().is_err()
+        || receipt.applicability_scope.validate().is_err()
+        || receipt.disclosure_scope.validate().is_err()
         || !valid_digest(&receipt.situation_digest)
         || !valid_digest(&receipt.policy_digest)
         || !valid_digest(&receipt.independent_review_digest)
@@ -195,7 +202,9 @@ pub fn compute_projection_receipt_digest(
     push_str(&mut bytes, &receipt.input_payload_digest);
     push_str(&mut bytes, &receipt.output_payload_digest);
     push_str(&mut bytes, &receipt.transform_digest);
-    push_selector(&mut bytes, &receipt.target);
+    push_selector(&mut bytes, &receipt.audience_scope);
+    push_selector(&mut bytes, &receipt.applicability_scope);
+    push_selector(&mut bytes, &receipt.disclosure_scope);
     push_str(&mut bytes, &receipt.situation_digest);
     push_str(&mut bytes, &receipt.policy_digest);
     push_str(&mut bytes, &receipt.independent_review_digest);
@@ -375,7 +384,7 @@ pub fn qualify_audience_applicability_disclosure(
                 || entry
                     .projection_receipt
                     .as_ref()
-                    .is_some_and(|receipt| receipt.target == rule.selector))
+                    .is_some_and(|receipt| receipt.disclosure_scope == rule.selector))
     });
     report.disclosure_match = matching_disclosure.is_some();
     let Some(disclosure_rule) = matching_disclosure else {
@@ -408,7 +417,14 @@ pub fn qualify_audience_applicability_disclosure(
         || receipt.entry_revision != entry.revision
         || receipt.input_payload_digest != entry.source_payload_digest
         || receipt.output_payload_digest != entry.payload_digest
-        || receipt.target != disclosure_rule.selector
+        || !entry.audience.contains(&receipt.audience_scope)
+        || !receipt.audience_scope.matches(context)
+        || !entry.applicability.iter().any(|rule| {
+            rule.selector == receipt.applicability_scope
+                && rule.situation_digest == receipt.situation_digest
+                && rule.selector.matches(context)
+        })
+        || receipt.disclosure_scope != disclosure_rule.selector
         || receipt.situation_digest != context.situation_digest
         || receipt.policy_digest != context.policy_digest
         || context.used_at_ms < receipt.issued_at_ms
@@ -482,7 +498,9 @@ mod tests {
             input_payload_digest: entry.source_payload_digest.clone(),
             output_payload_digest: entry.payload_digest.clone(),
             transform_digest: D5.into(),
-            target: pair("alice", "planner"),
+            audience_scope: entry.audience[0].clone(),
+            applicability_scope: entry.applicability[0].selector.clone(),
+            disclosure_scope: entry.disclosure[0].selector.clone(),
             situation_digest: D2.into(),
             policy_digest: D3.into(),
             independent_review_digest: D1.into(),
@@ -649,6 +667,115 @@ mod tests {
         );
         let mut entry = base_entry();
         entry.audience.push(entry.audience[0].clone());
+        assert_eq!(
+            qualify_audience_applicability_disclosure(&entry, &context()).status,
+            AudienceQualificationStatus::Fail
+        );
+    }
+
+    fn selector_for_audience(index: usize) -> ScopeSelector {
+        match index {
+            0 => pair("alice", "planner"),
+            1 => ScopeSelector::User { user_id: "alice".into() },
+            2 => ScopeSelector::Agent { agent_id: "planner".into() },
+            3 => ScopeSelector::Global { collective_id: "collective-a".into() },
+            _ => unreachable!(),
+        }
+    }
+
+    fn selector_for_applicability(index: usize) -> ScopeSelector {
+        match index {
+            0 => pair("alice", "planner"),
+            1 => ScopeSelector::User { user_id: "alice".into() },
+            2 => ScopeSelector::Agent { agent_id: "planner".into() },
+            3 => pair("bob", "writer"),
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn sixty_four_cell_panel_checks_audience_applicability_and_disclosure_independently() {
+        // 4 audience granularities × 4 applicability shapes × 4 disclosure states.
+        // Expected outcomes are derived from the independently stated three-way
+        // conjunction, not from the implementation's report fields.
+        for audience_index in 0..4 {
+            for applicability_index in 0..4 {
+                for disclosure_index in 0..4 {
+                    let mut entry = base_entry();
+                    entry.audience = vec![selector_for_audience(audience_index)];
+                    entry.applicability[0].selector =
+                        selector_for_applicability(applicability_index);
+                    entry.disclosure[0].selector = pair("alice", "planner");
+
+                    match disclosure_index {
+                        0 => {
+                            entry.source_stream = SourceStream::Reusable;
+                            entry.projection_receipt = None;
+                        }
+                        1 | 2 => {
+                            entry = projected_entry();
+                            entry.audience = vec![selector_for_audience(audience_index)];
+                            entry.applicability[0].selector =
+                                selector_for_applicability(applicability_index);
+                            entry.disclosure[0].selector = pair("alice", "planner");
+                            entry.source_stream = SourceStream::Protected;
+                            let mut receipt = entry.projection_receipt.take().unwrap();
+                            receipt.audience_scope = if disclosure_index == 2 {
+                                pair("bob", "writer")
+                            } else {
+                                entry.audience[0].clone()
+                            };
+                            receipt.applicability_scope =
+                                entry.applicability[0].selector.clone();
+                            receipt.disclosure_scope = entry.disclosure[0].selector.clone();
+                            receipt.situation_digest = D2.into();
+                            receipt.policy_digest = D3.into();
+                            receipt.receipt_digest =
+                                compute_projection_receipt_digest(&receipt).unwrap();
+                            entry.projection_receipt = Some(receipt);
+                        }
+                        3 => {
+                            entry.source_stream = SourceStream::Reusable;
+                            entry.disclosure.clear();
+                            entry.projection_receipt = None;
+                        }
+                        _ => unreachable!(),
+                    }
+
+                    let report =
+                        qualify_audience_applicability_disclosure(&entry, &context());
+                    let expected = if applicability_index == 3 || disclosure_index == 2 {
+                        AudienceQualificationStatus::Fail
+                    } else if disclosure_index == 3 {
+                        AudienceQualificationStatus::Indeterminate
+                    } else {
+                        AudienceQualificationStatus::Pass
+                    };
+                    assert_eq!(
+                        report.status, expected,
+                        "unexpected result for audience={audience_index}, applicability={applicability_index}, disclosure={disclosure_index}: {:?}",
+                        report.reasons
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn protected_projection_must_bind_all_three_exact_scope_clauses() {
+        let mut entry = projected_entry();
+        let receipt = entry.projection_receipt.as_mut().unwrap();
+        receipt.applicability_scope = pair("bob", "writer");
+        receipt.receipt_digest = compute_projection_receipt_digest(receipt).unwrap();
+        assert_eq!(
+            qualify_audience_applicability_disclosure(&entry, &context()).status,
+            AudienceQualificationStatus::Fail
+        );
+
+        let mut entry = projected_entry();
+        let receipt = entry.projection_receipt.as_mut().unwrap();
+        receipt.audience_scope = ScopeSelector::User { user_id: "bob".into() };
+        receipt.receipt_digest = compute_projection_receipt_digest(receipt).unwrap();
         assert_eq!(
             qualify_audience_applicability_disclosure(&entry, &context()).status,
             AudienceQualificationStatus::Fail
