@@ -832,7 +832,7 @@ mod tests {
         assert_eq!(report.condition_count, 5);
         assert_eq!(report.eligible_task_count, 2);
         assert_eq!(report.mean_score_micros_by_condition.len(), 5);
-        assert_eq!(report.average_tni_micros, Some(750_000));
+        assert_eq!(report.average_tni_micros, None);
         assert_eq!(report.valid_tni_task_count, 2);
         assert_eq!(report.average_team_uplift_micros, Some(0));
         assert_eq!(report.average_collaboration_efficiency_micros, Some(0));
