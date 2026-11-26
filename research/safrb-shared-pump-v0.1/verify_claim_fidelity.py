@@ -45,8 +45,8 @@ def verify(doc):
         require(type(c["lower"]) is int and type(c["upper"]) is int and 0<=c["lower"]<=c["upper"],"invalid uncertainty interval")
         require(c["claim_status"]=="reported_unverified_in_real_world_synthetic_admitted_for_fixture","synthetic fixture claim promoted into field evidence")
         require(c["valid_interval"]==f'[{c["time_index"]},{c["time_index"]+1})',"capacity claim valid interval mismatch")
-    require(claims[0]["lower"]==6 and claims[0]["upper"]==8,"window 1 bounds")
-    require(claims[1]["lower"]==3 and claims[1]["upper"]==8,"window 2 bounds")
+        expected_bounds={0:(6,8),1:(3,8)}[c["time_index"]]
+        require((c["lower"],c["upper"])==expected_bounds,"time-indexed capacity claim differs from frozen source scenario")
     return True
 
 def main():
