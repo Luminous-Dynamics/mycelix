@@ -610,6 +610,7 @@ pub fn qualify_factorial_tournament(
         reason.starts_with("duplicate factorial block ID")
             || reason.starts_with("unexpected factorial block ID")
             || reason.contains("belongs to a different study")
+            || reason.contains("changes the shared model, prompt, evaluator, resource, randomization or witness configuration")
     });
     let missing_scheduled = seen_blocks.len() < expected.len();
     let insufficient_clusters =
@@ -862,6 +863,7 @@ mod tests {
     }
     fn second_block(source_group: &str) -> FactorialBlock {
         let mut block = valid_block();
+        block.study.random_seed_digest = digest('e');
         block.block.block_id = "block-002".into();
         block.block.source_group_id = source_group.into();
         block.block.task_id = "task-002".into();
@@ -869,8 +871,10 @@ mod tests {
         block.block.initial_candidate_pool_digest = digest('8');
         block.block.initial_retrieval_seed_digest = digest('9');
         let block_identity = block.block.clone();
+        let study_identity = block.study.clone();
         for (index, arm) in block.arms.iter_mut().enumerate() {
             arm.block = block_identity.clone();
+            arm.study = study_identity.clone();
             arm.run_id = format!("second-run-{index}");
         }
         block
