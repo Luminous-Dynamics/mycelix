@@ -988,6 +988,78 @@ mod tests {
     }
 
     #[test]
+    fn independently_computed_fixture_golden_vector_replays() {
+        let root = source();
+        let child = derivative(&root);
+        assert_eq!(
+            compute_memory_scope_digest(&root.scope).unwrap(),
+            "93a234d967fefda6b4689ddb1a73b079d2a648e6c2ed3eb5612585bf83dd760d"
+        );
+        assert_eq!(
+            compute_memory_scope_digest(&child.scope).unwrap(),
+            "64654a259a4884946818e75c5fe03583f963d7eb755d177bef7985a9997a2e49"
+        );
+
+        let artifacts = vec![root.clone(), child.clone()];
+        let graph_digest = compute_memory_graph_digest(&artifacts).unwrap();
+        assert_eq!(
+            graph_digest,
+            "ecc0389d9130453c48c78b0e7a126a589645df11aa3a2d2539c201b2b8fa3605"
+        );
+        let event = MemoryRevocationEvent {
+            event_id: "revoke-01".into(),
+            source_artifact_id: "source".into(),
+            effective_at_ms: 150,
+            recorded_at_ms: 140,
+            policy_epoch_digest: digest('3'),
+            authority_receipt_digest: digest('4'),
+            event_receipt_digest: digest('5'),
+        };
+        let closure = MemoryRevocationClosure {
+            event_id: "revoke-01".into(),
+            source_artifact_id: "source".into(),
+            descendant_artifact_ids: vec!["summary".into()],
+            graph_digest: graph_digest.clone(),
+            complete: true,
+            closure_receipt_digest: digest('6'),
+        };
+        let mut snapshot = TransitiveMemorySnapshot {
+            snapshot_id: "snapshot-01".into(),
+            as_of_ms: 300,
+            graph_digest,
+            snapshot_digest: String::new(),
+            inventory_complete: true,
+            revocation_inventory_complete: true,
+            artifacts,
+            revocations: vec![event],
+            revocation_closures: vec![closure],
+            uses: Vec::new(),
+        };
+        snapshot.snapshot_digest =
+            compute_transitive_memory_snapshot_digest(&snapshot).unwrap();
+        assert_eq!(
+            snapshot.snapshot_digest,
+            "7184f08cd5339aa9641ae8db4bc135dc9a1fe834059a6ffc71a263af973fb20f"
+        );
+        snapshot.uses.push(MemoryUseObservation {
+            use_id: "use-after-revoke".into(),
+            artifact_id: "summary".into(),
+            principal: "alice".into(),
+            purpose: "project-a".into(),
+            entity: "entity-1".into(),
+            used_at_ms: 200,
+            snapshot_digest: digest('f'),
+            disposition: MemoryUseDisposition::BlockedByRevocation,
+            use_receipt_digest: digest('e'),
+            effect_receipt_digest: None,
+        });
+        let report = qualify_transitive_memory_snapshot(&snapshot);
+        assert_eq!(report.status, TransitiveMemoryStatus::Pass);
+        assert_eq!(report.revoked_descendant_count, 1);
+        assert_eq!(report.blocked_use_count, 1);
+    }
+
+    #[test]
     fn narrowed_derivative_and_authorized_use_pass() {
         let root = source();
         let child = derivative(&root);
