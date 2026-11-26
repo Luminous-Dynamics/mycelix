@@ -1,0 +1,320 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/teambench-run-package-v0.1.schema.json",
+  "title": "TeamBench Version-Pinned Run Package v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suite_id",
+    "run_mode",
+    "upstream_repository",
+    "upstream_commit",
+    "benchmark_version",
+    "dataset_manifest_digest",
+    "task_manifest_digest",
+    "native_grader_digest",
+    "excluded_task_manifest_digest",
+    "eligible_task_ids",
+    "excluded_tasks",
+    "model_snapshot_digest",
+    "tokenizer_digest",
+    "prompt_config_digest",
+    "toolset_digest",
+    "decoding_config_digest",
+    "seed_policy_id",
+    "seed",
+    "per_task_time_budget_ms",
+    "per_task_token_budget",
+    "per_task_compute_budget_millijoules",
+    "condition_runs"
+  ],
+  "properties": {
+    "suite_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_mode": {
+      "enum": [
+        "mock_provider_smoke",
+        "model_evaluation"
+      ]
+    },
+    "upstream_repository": {
+      "const": "https://github.com/ybkim95/TeamBench"
+    },
+    "upstream_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "benchmark_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dataset_manifest_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "task_manifest_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "native_grader_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "excluded_task_manifest_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "eligible_task_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "excluded_tasks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/excluded_task"
+      }
+    },
+    "model_snapshot_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "tokenizer_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "prompt_config_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "toolset_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "decoding_config_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "seed_policy_id": {
+      "$ref": "#/$defs/id"
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "per_task_time_budget_ms": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "per_task_token_budget": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "per_task_compute_budget_millijoules": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "condition_runs": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "$ref": "#/$defs/condition_run"
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "condition": {
+      "enum": [
+        "solo",
+        "restricted",
+        "full",
+        "no_plan",
+        "no_eval"
+      ]
+    },
+    "role": {
+      "enum": [
+        "planner",
+        "executor",
+        "verifier"
+      ]
+    },
+    "excluded_task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "reason",
+        "evidence_digest"
+      ],
+      "properties": {
+        "task_id": {
+          "$ref": "#/$defs/id"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "boundary_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "actor_role",
+        "boundary_id",
+        "expected_allowed",
+        "observed",
+        "evidence_digest"
+      ],
+      "properties": {
+        "event_id": {
+          "$ref": "#/$defs/id"
+        },
+        "actor_role": {
+          "$ref": "#/$defs/role"
+        },
+        "boundary_id": {
+          "$ref": "#/$defs/id"
+        },
+        "expected_allowed": {
+          "type": "boolean"
+        },
+        "observed": {
+          "enum": [
+            "allowed",
+            "blocked",
+            "unknown"
+          ]
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "task_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "state",
+        "raw_output_digest",
+        "native_grader_output_digest",
+        "native_grader_disposition",
+        "verifier_disposition",
+        "role_boundary_events"
+      ],
+      "properties": {
+        "task_id": {
+          "$ref": "#/$defs/id"
+        },
+        "state": {
+          "enum": [
+            "evaluated",
+            "infrastructure_error",
+            "not_run"
+          ]
+        },
+        "raw_output_digest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "native_grader_output_digest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "native_grader_disposition": {
+          "enum": [
+            "pass",
+            "fail",
+            "unknown",
+            null
+          ]
+        },
+        "verifier_disposition": {
+          "enum": [
+            "accept",
+            "reject",
+            "no_verdict",
+            null
+          ]
+        },
+        "role_boundary_events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/boundary_event"
+          }
+        }
+      }
+    },
+    "condition_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "condition",
+        "system_config_digest",
+        "role_profile_digest",
+        "raw_result_manifest_digest",
+        "agent_count",
+        "verifier_present",
+        "role_boundary_inventory_complete",
+        "tasks"
+      ],
+      "properties": {
+        "run_id": {
+          "$ref": "#/$defs/id"
+        },
+        "condition": {
+          "$ref": "#/$defs/condition"
+        },
+        "system_config_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "role_profile_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "raw_result_manifest_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "agent_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "verifier_present": {
+          "type": "boolean"
+        },
+        "role_boundary_inventory_complete": {
+          "type": "boolean"
+        },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/task_observation"
+          }
+        }
+      }
+    }
+  }
+}
