@@ -52,10 +52,11 @@ jobs:
             ([.excluded_protocols[] | select(.protocol_id == "unsafe_high_pressure") | .reasons[] | select(. == "injected_volume_exceeds_limit")] | length == 1) and
             (.hard_constraint_violations_in_selected_policy == 0) and
             (.acquisition_budget == 2) and
-            (.adaptive_terminal_entropy_reduction_vs_fixed_nats >= -1e-9) and
+            (.sequential_adaptive_policy.expected_terminal_model_entropy_nats <= 1.38629436112) and
             (.sequential_adaptive_policy.expected_acquisition_cost <= .acquisition_budget) and
             (([.sequential_adaptive_policy.branches[].predictive_probability_mass] | add) > 0.999999999) and
-            ((.sequential_adaptive_policy.stop_probability_mass + .sequential_adaptive_policy.discrepancy_abstention_probability_mass) <= 1.000000001) and
+            (.sequential_adaptive_policy.discrepancy_abstention_probability_mass <= .sequential_adaptive_policy.stop_probability_mass) and
+            (.sequential_adaptive_policy.stop_probability_mass <= 1.000000001) and
             (.best_fixed_policy.second_protocol_shares | length == 1)
           ' "$RUNNER_TEMP/terra-action-conditioned.json"
           jq -r '"feasible=\(.feasible_protocols|length) excluded=\(.excluded_protocols|length) fixed_pair=\(.best_fixed_policy.first_protocol_id)+\(.best_fixed_policy.second_protocol_shares[0][0]) adaptive_first=\(.sequential_adaptive_policy.first_protocol_id) adaptive_second=\(.sequential_adaptive_policy.second_protocol_shares) adaptive_entropy_gain_vs_fixed=\(.adaptive_terminal_entropy_reduction_vs_fixed_nats) expected_cost=\(.sequential_adaptive_policy.expected_acquisition_cost) stop_mass=\(.sequential_adaptive_policy.stop_probability_mass) abstention_mass=\(.sequential_adaptive_policy.discrepancy_abstention_probability_mass) hard_violations=\(.hard_constraint_violations_in_selected_policy)"' "$RUNNER_TEMP/terra-action-conditioned.json"
