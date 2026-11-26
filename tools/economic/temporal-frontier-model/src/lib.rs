@@ -1234,6 +1234,44 @@ mod tests {
     }
 
     #[test]
+    fn canonical_owner_and_receipt_payloads_match_shared_go_vectors() {
+        let mut owner_cut = cut("owner:grants", 10, 'a');
+        owner_cut.tree_size = 8;
+        owner_cut.root_digest = digest('a');
+        owner_cut.gaps = vec![SequenceRangeV1 { first: 3, last: 4 }];
+        let owner_bytes =
+            canonical_owner_cut_entry_v1(&owner_cut, VERIFIER, "policy-epoch:1").unwrap();
+        assert_eq!(owner_bytes.len(), 225);
+        assert_eq!(hex_lower(&owner_bytes), concat!(
+            "4d5943454c49582d4f574e45522d4355542d5631000000001f6469643a6d7963656c6978",
+            "3a76657269666965723a66696e616e63652d76310000000e706f6c6963792d65706f6368",
+            "3a310000000c6f776e65723a6772616e747300000014686973746f72793a6f776e65723a",
+            "6772616e7473000000000000000a0000000000000008000000477368613235363a616161",
+            "616161616161616161616161616161616161616161616161616161616161616161616161",
+            "616161616161616161616161616161616161616161616161610000000100000000000000",
+            "030000000000000004",
+        ));
+
+        let mut receipt = receipt(5, "owner:grants");
+        receipt.causal_dependencies = vec![
+            OwnerPositionV1 { owner_ref: "owner:payments".into(), sequence: 2 },
+            OwnerPositionV1 { owner_ref: "owner:governance".into(), sequence: 3 },
+        ];
+        let receipt_bytes = canonical_knowledge_receipt_entry_v1(&receipt).unwrap();
+        assert_eq!(receipt_bytes.len(), 276);
+        assert_eq!(hex_lower(&receipt_bytes), concat!(
+            "4d5943454c49582d4b4e4f574c454447452d524543454950542d56310000000009726563",
+            "656970743a350000001f6469643a6d7963656c69783a76657269666965723a66696e616e",
+            "63652d76310000000e706f6c6963792d65706f63683a3100000014617373657274696f6e",
+            "3a7265766f636174696f6e000000477368613235363a6262626262626262626262626262",
+            "626262626262626262626262626262626262626262626262626262626262626262626262",
+            "62626262626262626262626262620000000c6f776e65723a6772616e7473000000000000",
+            "000500000002000000106f776e65723a676f7665726e616e636500000000000000030000",
+            "000e6f776e65723a7061796d656e74730000000000000002",
+        ));
+    }
+
+    #[test]
     fn receipt_canonical_encoding_is_dependency_order_invariant() {
         let mut first = receipt(5, "owner:grants");
         first.causal_dependencies = vec![
