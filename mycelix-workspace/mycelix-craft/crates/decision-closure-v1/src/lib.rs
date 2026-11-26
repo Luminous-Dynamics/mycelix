@@ -37,6 +37,8 @@ pub struct DecisionContextV1 {
     pub decision_id: String,
     /// Exact conclusion text/structured-content digest.
     pub conclusion_digest: [u8; 32],
+    /// Exact proposal revision whose claims and decision are being closed.
+    pub proposal_digest: [u8; 32],
     /// Domain under whose rules the conclusion is evaluated.
     pub domain_id: String,
     /// Jurisdiction in which the conclusion is asserted.
@@ -285,6 +287,8 @@ pub enum DecisionClosureErrorV1 {
     EvidenceScopeMismatch,
     /// Claim support was evaluated under a different domain standard.
     EvidenceStandardMismatch,
+    /// Claim-support result belongs to a different proposal revision.
+    EvidenceProposalMismatch,
     /// Element has a malformed applicability decision.
     InvalidApplicabilityDecision,
     /// An applicable element has a zero support threshold.
@@ -398,6 +402,7 @@ pub fn validate_packet(packet: &DecisionClosurePacketV1) -> Result<(), DecisionC
     let decision = &packet.decision;
     require_non_empty(&decision.decision_id)?;
     require_digest(&decision.conclusion_digest)?;
+    require_digest(&decision.proposal_digest)?;
     require_non_empty(&decision.domain_id)?;
     require_non_empty(&decision.jurisdiction_id)?;
     require_non_empty(&decision.authorized_corpus_id)?;
@@ -509,6 +514,9 @@ pub fn validate_packet(packet: &DecisionClosurePacketV1) -> Result<(), DecisionC
                     || support.domain_standard_digest != decision.standard_digest
                 {
                     return Err(DecisionClosureErrorV1::EvidenceStandardMismatch);
+                }
+                if support.proposal_digest != decision.proposal_digest {
+                    return Err(DecisionClosureErrorV1::EvidenceProposalMismatch);
                 }
                 if support.valid_until.map(|expiry| expiry < support.evaluated_at).unwrap_or(false) {
                     return Err(DecisionClosureErrorV1::InvalidReviewTime);
@@ -810,6 +818,7 @@ mod tests {
         DecisionContextV1 {
             decision_id: "water-service-compliance".to_owned(),
             conclusion_digest: [3; 32],
+            proposal_digest: [8; 32],
             domain_id: "water-service-assurance-v1".to_owned(),
             jurisdiction_id: "ZA-GP".to_owned(),
             decision_time: NOW,
@@ -975,6 +984,16 @@ mod tests {
         item.jurisdiction_id = "ZA-WC".to_owned();
         let result = validate_packet(&packet(vec![mapping("wrong-scope", vec![element("required", Vec::new(), vec![item])])]));
         assert_eq!(result, Err(DecisionClosureErrorV1::EvidenceScopeMismatch));
+    }
+
+    #[test]
+    fn claim_support_result_from_another_proposal_revision_is_rejected() {
+        let mut item = support("old-proposal", SupportDispositionV1::DirectSupport);
+        item.proposal_digest = [24; 32];
+        assert_eq!(
+            validate_packet(&packet(vec![mapping("old-proposal", vec![element("required", Vec::new(), vec![item])])])),
+            Err(DecisionClosureErrorV1::EvidenceProposalMismatch)
+        );
     }
 
     #[test]
