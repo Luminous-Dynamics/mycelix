@@ -2,12 +2,12 @@ name: Terra Preta hydraulic mechanism-discrimination reference
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, research/terra-model-discrimination-boed-v0.1]
     paths:
       - 'research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/**'
       - '.github/workflows/terra-preta-mechanism-discrimination-reference.yml'
   push:
-    branches: ['research/terra-model-discrimination-boed-v0.1']
+    branches: ['research/terra-model-discrimination-boed-v0.1', 'research/terra-sequential-boed-v0.1']
     paths:
       - 'research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/**'
       - '.github/workflows/terra-preta-mechanism-discrimination-reference.yml'
@@ -65,9 +65,18 @@ jobs:
             (.uniform_cost_matched_baseline.portfolio_count > 1) and
             (.uniform_cost_matched_baseline.p10_model_information_gain_nats <= .uniform_cost_matched_baseline.median_model_information_gain_nats) and
             (.uniform_cost_matched_baseline.median_model_information_gain_nats <= .uniform_cost_matched_baseline.p90_model_information_gain_nats) and
-            (.all_feasible_designs | length == 11)
+            (.all_feasible_designs | length == 11) and
+            (.sequential_policy_comparison.horizon_measurements == 2) and
+            (.sequential_policy_comparison.finite_horizon_adaptive_policy.first_candidate_id == "upper_path_flow") and
+            (.sequential_policy_comparison.greedy_myopic_evsi_policy.first_candidate_id == "early_transient_flow") and
+            (.sequential_policy_comparison.finite_horizon_adaptive_policy.expected_terminal_decision_loss < .sequential_policy_comparison.fixed_best_policy.expected_terminal_decision_loss) and
+            (.sequential_policy_comparison.adaptive_gain_over_fixed_loss_units > 0.001) and
+            (.sequential_policy_comparison.finite_horizon_adaptive_policy.expected_cost <= .acquisition_budget) and
+            (([.sequential_policy_comparison.finite_horizon_adaptive_policy.first_observation_policy[].predictive_probability_mass] | add) > 0.999999999) and
+            ([.sequential_policy_comparison.finite_horizon_adaptive_policy.second_stage_policy[] | select(.next_candidate_id == "lower_path_flow" and .predictive_probability_mass > 0)] | length == 1) and
+            ([.sequential_policy_comparison.finite_horizon_adaptive_policy.first_observation_policy[] | select(((.posterior_model_probabilities | add) - 1 | fabs) > 1e-9)] | length == 0)
           ' "$RUNNER_TEMP/terra-mechanism-discrimination.json"
-          jq -r '"model_discrimination=\(.model_discrimination_design.candidate_ids|join(",")) model_MI_nats=\(.model_discrimination_design.expected_model_information_gain_nats) Fisher_precision=\(.parameter_precision_design.candidate_ids|join(",")) worst_case_logG_Fisher=\(.parameter_precision_design.worst_case_log_conductance_fisher_information) predictive_design=\(.predictive_design.candidate_ids|join(",")) EPIG_nats=\(.predictive_design.expected_predictive_information_gain_nats) decision_design=\(.decision_design.candidate_ids|join(",")) EVSI=\(.decision_design.expected_value_of_sample_information) prior_decision_loss=\(.prior_minimum_expected_decision_loss) uniform_mean_MI=\(.uniform_cost_matched_baseline.mean_model_information_gain_nats) uniform_count=\(.uniform_cost_matched_baseline.portfolio_count) discrepancy_threshold_sd=\(.closed_set_discrepancy_negative_control.threshold_standard_deviations) in_family_max_z=\(.closed_set_discrepancy_negative_control.in_family_best_fit_residual_standard_deviations) in_family_abstain=\(.closed_set_discrepancy_negative_control.in_family_abstained) out_of_family_max_z=\(.closed_set_discrepancy_negative_control.out_of_family_best_fit_residual_standard_deviations) out_of_family_abstain=\(.closed_set_discrepancy_negative_control.out_of_family_abstained)"' "$RUNNER_TEMP/terra-mechanism-discrimination.json"
+          jq -r '"model_discrimination=\(.model_discrimination_design.candidate_ids|join(",")) model_MI_nats=\(.model_discrimination_design.expected_model_information_gain_nats) Fisher_precision=\(.parameter_precision_design.candidate_ids|join(",")) worst_case_logG_Fisher=\(.parameter_precision_design.worst_case_log_conductance_fisher_information) predictive_design=\(.predictive_design.candidate_ids|join(",")) EPIG_nats=\(.predictive_design.expected_predictive_information_gain_nats) decision_design=\(.decision_design.candidate_ids|join(",")) EVSI=\(.decision_design.expected_value_of_sample_information) prior_decision_loss=\(.prior_minimum_expected_decision_loss) adaptive_first=\(.sequential_policy_comparison.finite_horizon_adaptive_policy.first_candidate_id) adaptive_terminal_loss=\(.sequential_policy_comparison.finite_horizon_adaptive_policy.expected_terminal_decision_loss) fixed_terminal_loss=\(.sequential_policy_comparison.fixed_best_policy.expected_terminal_decision_loss) adaptive_gain=\(.sequential_policy_comparison.adaptive_gain_over_fixed_loss_units) adaptive_expected_cost=\(.sequential_policy_comparison.finite_horizon_adaptive_policy.expected_cost) greedy_first=\(.sequential_policy_comparison.greedy_myopic_evsi_policy.first_candidate_id) discrepancy_threshold_sd=\(.closed_set_discrepancy_negative_control.threshold_standard_deviations) in_family_max_z=\(.closed_set_discrepancy_negative_control.in_family_best_fit_residual_standard_deviations) in_family_abstain=\(.closed_set_discrepancy_negative_control.in_family_abstained) out_of_family_max_z=\(.closed_set_discrepancy_negative_control.out_of_family_best_fit_residual_standard_deviations) out_of_family_abstain=\(.closed_set_discrepancy_negative_control.out_of_family_abstained)"' "$RUNNER_TEMP/terra-mechanism-discrimination.json"
           sha256sum "$RUNNER_TEMP/terra-mechanism-discrimination.json"
       - name: Reject output overwrite
         run: |
