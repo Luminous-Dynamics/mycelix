@@ -70,9 +70,7 @@ pub fn tree_hash(entries: &[Vec<u8>]) -> Result<Hash32, MerkleProofErrorV1> {
 }
 
 /// Compute a Merkle Tree Hash over already domain-separated leaf hashes.
-pub fn tree_hash_from_leaf_hashes(
-    leaves: &[Hash32],
-) -> Result<Hash32, MerkleProofErrorV1> {
+pub fn tree_hash_from_leaf_hashes(leaves: &[Hash32]) -> Result<Hash32, MerkleProofErrorV1> {
     if leaves.is_empty() {
         return Ok(empty_tree_hash());
     }
@@ -212,12 +210,7 @@ pub fn consistency_proof(
     }
     let leaves: Vec<Hash32> = entries.iter().map(|entry| leaf_hash(entry)).collect();
     let mut proof = Vec::new();
-    consistency_subproof(
-        first_tree_size as usize,
-        &leaves,
-        true,
-        &mut proof,
-    );
+    consistency_subproof(first_tree_size as usize, &leaves, true, &mut proof);
     Ok(proof)
 }
 
@@ -236,20 +229,10 @@ fn consistency_subproof(
 
     let split = largest_power_of_two_less_than(leaves.len());
     if first_size <= split {
-        consistency_subproof(
-            first_size,
-            &leaves[..split],
-            complete_subtree_known,
-            proof,
-        );
+        consistency_subproof(first_size, &leaves[..split], complete_subtree_known, proof);
         proof.push(tree_hash_range(&leaves[split..]));
     } else {
-        consistency_subproof(
-            first_size - split,
-            &leaves[split..],
-            false,
-            proof,
-        );
+        consistency_subproof(first_size - split, &leaves[split..], false, proof);
         proof.push(tree_hash_range(&leaves[..split]));
     }
 }
@@ -346,7 +329,9 @@ mod tests {
     use super::*;
 
     fn entries(count: usize) -> Vec<Vec<u8>> {
-        (0..count).map(|index| format!("entry-{index}").into_bytes()).collect()
+        (0..count)
+            .map(|index| format!("entry-{index}").into_bytes())
+            .collect()
     }
 
     #[test]
@@ -361,7 +346,10 @@ mod tests {
     fn leaf_and_node_hashes_are_domain_separated() {
         let payload = b"same bytes";
         assert_ne!(leaf_hash(payload), sha256(payload));
-        assert_ne!(node_hash(&leaf_hash(payload), &leaf_hash(payload)), leaf_hash(payload));
+        assert_ne!(
+            node_hash(&leaf_hash(payload), &leaf_hash(payload)),
+            leaf_hash(payload)
+        );
     }
 
     #[test]
