@@ -175,6 +175,7 @@ struct SequentialObservationBranch {
     observed_value: f64,
     posterior_model_probabilities: Vec<f64>,
     next_candidate_id: Option<String>,
+    discrepancy_abstained: bool,
     predictive_probability_mass: f64,
 }
 
@@ -187,6 +188,7 @@ struct SequentialPolicyScore {
     expected_value_of_sample_information: f64,
     second_stage_policy: Vec<SequentialBranchShare>,
     stop_probability_mass: f64,
+    discrepancy_abstention_probability_mass: f64,
     first_observation_policy: Vec<SequentialObservationBranch>,
 }
 
@@ -209,6 +211,7 @@ struct SequentialEvaluation {
     expected_cost: f64,
     second_stage_policy: Vec<SequentialBranchShare>,
     stop_probability_mass: f64,
+    discrepancy_abstention_probability_mass: f64,
     first_observation_policy: Vec<SequentialObservationBranch>,
 }
 
@@ -720,20 +723,58 @@ fn best_second_stage(
     }
 }
 
+fn next_candidate_after_observation(
+    fixture: &Fixture,
+    prior: &[f64],
+    first_candidate_index: usize,
+    observation: f64,
+) -> Result<(Option<usize>, f64, Vec<f64>, bool), String> {
+    let posterior = posterior_from_prior(
+        fixture,
+        prior,
+        &[first_candidate_index],
+        &[observation],
+    );
+    let discrepancy_abstained = should_abstain_closed_set(
+        fixture,
+        &[first_candidate_index],
+        &[observation],
+    )?;
+    if discrepancy_abstained {
+        return Ok((
+            None,
+            minimum_expected_decision_loss(fixture, &posterior),
+            posterior,
+            true,
+        ));
+    }
+
+    let remaining_budget = fixture
+        .acquisition_budget
+        .saturating_sub(fixture.candidates[first_candidate_index].cost);
+    let (next_candidate, terminal_loss) = best_second_stage(
+        fixture,
+        &posterior,
+        first_candidate_index,
+        remaining_budget,
+    );
+    Ok((next_candidate, terminal_loss, posterior, false))
+}
+
 fn evaluate_first_candidate(
     fixture: &Fixture,
     first_candidate_index: usize,
-) -> SequentialEvaluation {
+) -> Result<SequentialEvaluation, String> {
     let prior: Vec<f64> = fixture
         .mechanisms
         .iter()
         .map(|mechanism| mechanism.prior_probability)
         .collect();
     let first_candidate = &fixture.candidates[first_candidate_index];
-    let remaining_budget = fixture.acquisition_budget.saturating_sub(first_candidate.cost);
     let mut expected_terminal_decision_loss = 0.0;
     let mut expected_second_stage_cost = 0.0;
     let mut stop_probability_mass = 0.0;
+    let mut discrepancy_abstention_probability_mass = 0.0;
     let mut second_stage_policy: Vec<SequentialBranchShare> = Vec::new();
     let mut first_observation_policy: Vec<SequentialObservationBranch> = Vec::new();
 
@@ -742,18 +783,20 @@ fn evaluate_first_candidate(
             let observation = first_candidate.expected_observable_by_mechanism
                 [true_mechanism_index]
                 + first_candidate.noise_std * node;
-            let posterior =
-                posterior_from_prior(fixture, &prior, &[first_candidate_index], &[observation]);
-            let (next_candidate, conditional_terminal_loss) = best_second_stage(
-                fixture,
-                &posterior,
-                first_candidate_index,
-                remaining_budget,
-            );
+            let (next_candidate, conditional_terminal_loss, posterior, discrepancy_abstained) =
+                next_candidate_after_observation(
+                    fixture,
+                    &prior,
+                    first_candidate_index,
+                    observation,
+                )?;
             let joint_probability_mass = mechanism.prior_probability * quadrature_weight;
             expected_terminal_decision_loss +=
                 joint_probability_mass * conditional_terminal_loss;
 
+            if discrepancy_abstained {
+                discrepancy_abstention_probability_mass += joint_probability_mass;
+            }
             let next_candidate_id = next_candidate
                 .map(|index| fixture.candidates[index].candidate_id.clone());
             if let Some(next_index) = next_candidate {
@@ -784,6 +827,7 @@ fn evaluate_first_candidate(
                     observed_value: observation,
                     posterior_model_probabilities: posterior,
                     next_candidate_id,
+                    discrepancy_abstained,
                     predictive_probability_mass: joint_probability_mass,
                 });
             }
@@ -797,13 +841,14 @@ fn evaluate_first_candidate(
         left.observed_value.total_cmp(&right.observed_value)
     });
 
-    SequentialEvaluation {
+    Ok(SequentialEvaluation {
         expected_terminal_decision_loss,
         expected_cost: first_candidate.cost as f64 + expected_second_stage_cost,
         second_stage_policy,
         stop_probability_mass,
+        discrepancy_abstention_probability_mass,
         first_observation_policy,
-    }
+    })
 }
 
 fn stop_sequential_policy(
@@ -818,6 +863,7 @@ fn stop_sequential_policy(
         expected_value_of_sample_information: 0.0,
         second_stage_policy: Vec::new(),
         stop_probability_mass: 1.0,
+        discrepancy_abstention_probability_mass: 0.0,
         first_observation_policy: Vec::new(),
     }
 }
@@ -839,6 +885,7 @@ fn sequential_policy_score(
             .max(0.0),
         second_stage_policy: evaluation.second_stage_policy,
         stop_probability_mass: evaluation.stop_probability_mass,
+        discrepancy_abstention_probability_mass: evaluation.discrepancy_abstention_probability_mass,
         first_observation_policy: evaluation.first_observation_policy,
     }
 }
@@ -925,7 +972,7 @@ fn sequential_policy_comparison(
                 fixture,
                 "greedy_myopic_evsi_then_optimal_final_step",
                 candidate_index,
-                evaluate_first_candidate(fixture, candidate_index),
+                evaluate_first_candidate(fixture, candidate_index)?,
                 prior_loss,
             )
         }
@@ -934,7 +981,7 @@ fn sequential_policy_comparison(
 
     let mut adaptive_best: Option<(usize, SequentialEvaluation)> = None;
     for candidate_index in ordered_candidates {
-        let evaluation = evaluate_first_candidate(fixture, candidate_index);
+        let evaluation = evaluate_first_candidate(fixture, candidate_index)?;
         if evaluation.expected_terminal_decision_loss >= prior_loss - 1.0e-12 {
             continue;
         }
@@ -1602,6 +1649,35 @@ mod tests {
         assert!(
             comparison.adaptive_gain_over_fixed_loss_units.abs() < 1.0e-12
         );
+    }
+
+    #[test]
+    fn sequential_policy_abstains_on_an_out_of_family_first_observation() {
+        let f = fixture();
+        let upper = f
+            .candidates
+            .iter()
+            .position(|candidate| candidate.candidate_id == "upper_path_flow")
+            .unwrap();
+        let candidate = &f.candidates[upper];
+        let out_of_family_observation =
+            candidate.expected_observable_by_mechanism[0] + 10.0 * candidate.noise_std;
+        let prior: Vec<f64> = f
+            .mechanisms
+            .iter()
+            .map(|mechanism| mechanism.prior_probability)
+            .collect();
+
+        let (next_candidate, _, _, abstained) = next_candidate_after_observation(
+            &f,
+            &prior,
+            upper,
+            out_of_family_observation,
+        )
+        .unwrap();
+
+        assert!(abstained);
+        assert!(next_candidate.is_none());
     }
 
     #[test]
