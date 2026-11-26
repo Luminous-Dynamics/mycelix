@@ -130,6 +130,8 @@ This work should interoperate with existing standards and should not claim to re
 - **Jama Connect** documents configurable change-request workflows using relationships, impact analysis, reviews and baselines. Its version 9.41.2 release (30 October 2026) also added Trace View and relationship exploration improvements:
   - https://support.jamasoftware.com/hc/en-us/articles/26498325740045-Change-Request-Workflow-in-Jama-Connect
   - https://support.jamasoftware.com/hc/en-us/articles/49388331793805-Version-9-41-2-Self-hosted-Kubernetes-Native-KOTS
+- **ISO/IEC/IEEE 29148:2018** remains the published requirements-engineering standard as of 26 November 2026; ISO shows it as current and confirmed in 2024. Its successor, **ISO/IEC/IEEE DIS 29148:2026**, is still a Draft International Standard in the enquiry/ballot phase, not a published normative edition. Align requirements artifacts to the current published edition while monitoring the draft: https://www.iso.org/standard/72089.html and https://www.iso.org/standard/94091.html
+- **ISO/IEC 42001:2023** is the published AI management-system standard. It is a governance alignment reference for organizational roles, risk management and lifecycle oversight, not a technical proof that any specific claim or decision is correct: https://www.iso.org/standard/42001
 - **Decidim** provides participatory components including proposals, debates, meetings, surveys, budgets and accountability. It is a civic process baseline; this work is about evidence validity and change impact after such a process, not replacing participation itself: https://docs.decidim.org/en/develop/admin/spaces/processes/components.html
 
 ### Research implication
