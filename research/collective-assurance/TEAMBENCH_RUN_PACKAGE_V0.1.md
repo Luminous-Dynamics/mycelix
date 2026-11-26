@@ -18,7 +18,7 @@ The suite manifest binds:
 - explicit per-task time, token and compute budgets;
 - exactly one run for each of the five official conditions.
 
-Each condition run records its system and role-profile digests, run identity, agent count, exact role inventory, completeness of role-boundary observation inventory and raw-result manifest digest. The validator checks the role inventory against the upstream condition definition; verifier presence is derived from that inventory rather than trusted as a separate boolean. Each task row binds raw output bytes and native-grader output bytes by digest, native pass/fail disposition, the native partial score in fixed-point millionths, optional verifier disposition and role-boundary observations. The native partial score is retained for score/TNI analysis rather than discarded after thresholding.
+Each condition run records its system and role-profile digests, run identity, agent count, exact role inventory, execution backend, optional runtime-isolation manifest, completeness of role-boundary observation inventory and raw-result manifest digest. The execution backend distinguishes in-process tool/path boundary enforcement from separately evidenced Docker/container isolation. The validator checks the role inventory against the upstream condition definition; verifier presence is derived from that inventory rather than trusted as a separate boolean. Each task row binds raw output bytes and native-grader output bytes by digest, native pass/fail disposition, the native partial score in fixed-point millionths, optional verifier disposition and role-boundary observations. The native partial score is retained for score/TNI analysis rather than discarded after thresholding.
 
 Task inventories must match exactly across conditions. The official TeamBench-90 task manifest contains 90 IDs; the upstream README currently marks `GH120_redis-py_3863` as under re-curation, so the other 89 are currently fully evaluable. Record the 90-task official manifest plus a per-task exclusion record; do not silently replace the official denominator with an unversioned 89-task local split. Missing rows are INDETERMINATE, not silently dropped; extra, duplicate or excluded task IDs are FAIL.
 
@@ -26,7 +26,7 @@ Task inventories must match exactly across conditions. The official TeamBench-90
 
 False acceptance is counted when the separate Verifier accepts a submission that the native deterministic grader marks Fail. Its denominator is all known grader-failing tasks in conditions that include the Verifier (`team_no_plan` and `full`). False rejection is the reverse and uses all known grader-passing tasks in those conditions. `team_no_verify` writes a stub attestation automatically; that is not a verifier judgement and must never enter false-accept statistics. Explicit NoVerdict, missing verdicts, unknown grader results and infrastructure failures are retained as separate counts/states.
 
-Role-boundary events bind the role, exact boundary ID, policy's expected allow/deny disposition, independently observed outcome and evidence digest. An observed allow on a deny boundary is a hard failure. An incomplete boundary inventory or unknown observation is INDETERMINATE. A blocked action that policy allowed is reported as a false denial rather than hidden inside the violation count.
+Role-boundary events bind the role, exact boundary ID, policy's expected allow/deny disposition, independently observed outcome and evidence digest. An observed allow on a deny boundary is a hard failure. An incomplete boundary inventory or unknown observation is INDETERMINATE. A blocked action that policy allowed is reported as a false denial rather than hidden inside the violation count. Benchmark-score eligibility and OS-isolation eligibility are separate: an in-process tool-boundary run may reproduce the official ablation score, but cannot establish OS/container isolation. OS-isolation eligibility requires a separately committed runtime manifest for every condition.
 
 ## Exact upstream score composition
 
@@ -46,6 +46,17 @@ Mock-provider smoke and incomplete suites expose **no aggregate score or TNI fie
 The adapter does not compute a universal TeamBench score. Preserve the native task score and Team Necessity Index where provided, then report per-condition and paired outcomes, solo-performance strata, verifier false accept/reject, role-boundary violations, missing verdicts, tokens, wall-clock latency, inter-agent messages, compute and total monetary cost separately.
 
 Match exact model snapshot, tokenizer, tool versions, dataset, task IDs, native grader and per-task budgets across conditions. Differences that define the ablation (agent topology/roles and corresponding system/role profile) remain explicit in each condition manifest. The full five-condition set is required before a suite is eligible for a model score.
+
+## Execution-boundary evidence correction
+
+The adapter must not infer OS isolation from the benchmark's role names, role-profile digest, or a successful tool-boundary test. The official `harness.ablation` path uses `AgentLoop` with `ReadFileTool`, `WriteFileTool` and path maps; the upstream `agent_interface.py` labels its path mapping as being for **non-Docker agent runs**. Its tools execute in-process and enforce file access through application-level path checks. The repository also contains a Docker Compose role topology and interactive `run_task` path, but that does not by itself prove that a given ablation result used that backend.
+
+Therefore each condition explicitly records one of:
+- `in_process_tool_boundary`: logical tool/path restrictions only; no OS-isolation claim.
+- `docker_container_isolation`: independently captured container runtime manifest is mandatory.
+- `unknown`: qualification is INDETERMINATE.
+
+The report exposes `benchmark_score_eligible` and `os_isolation_eligible` independently. This is deliberate: it preserves comparability of a faithful upstream score reproduction without silently upgrading application-level restrictions into an OS-enforced security claim. The host-side tool wrappers also merit a separate path-normalization and symlink-escape adversarial audit before any strong containment claim.
 
 ## Initial execution sequence
 
