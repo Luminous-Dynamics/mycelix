@@ -63,6 +63,7 @@ Use at least two independent domain reviewers per mapping role in the field qual
 | Required-element recall | Expert-identified material elements represented in an approved mapping | ≥ 0.99 |
 | Exception recall | Applicable exceptions/scope conditions represented | ≥ 0.99 |
 | Dependency integrity | Dependent elements counted while prerequisites remain unsatisfied | 0 |
+| Cycle detection | Four-element directed graph classified incorrectly against independent reachability oracle | 0 across all 4,096 edge configurations |
 | Cross-scope evidence acceptance | Result from wrong domain/jurisdiction/corpus accepted | 0 |
 | Cross-proposal evidence acceptance | Support result from an older or unrelated proposal revision accepted | 0 |
 | Stale support acceptance | Expired, invalidated or older-than-policy result counted | 0 |
