@@ -204,10 +204,14 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
         limits.maximum_actuator_effort,
         limits.maximum_sample_damage_index,
     ];
-    if limit_values.iter().any(|value| !value.is_finite() || *value <= 0.0)
+    if limit_values
+        .iter()
+        .any(|value| !value.is_finite() || *value <= 0.0)
         || limits.acquisition_budget != 2
     {
-        return Err("finite positive safety limits and a two-step acquisition budget are required".into());
+        return Err(
+            "finite positive safety limits and a two-step acquisition budget are required".into(),
+        );
     }
     let prior_sum: f64 = fixture
         .mechanisms
@@ -407,15 +411,12 @@ fn expected_observation(mechanism: &Mechanism, protocol: &Protocol) -> f64 {
         Waveform::ConstantHeadStep => settling,
         Waveform::SquareWave => settling / frequency_norm,
         Waveform::Sinusoidal => settling * angular_frequency / frequency_norm,
-        Waveform::DualPulseTracer => {
-            settling * (1.0 + 0.25 * mechanism.preferential_flow_fraction)
-        }
+        Waveform::DualPulseTracer => settling * (1.0 + 0.25 * mechanism.preferential_flow_fraction),
     };
     let applied_pressure = protocol.pressure_amplitude * excitation_gain;
     let raw_flow = mechanism.conductance * applied_pressure
         / (1.0 + mechanism.non_darcy_beta * mechanism.conductance * applied_pressure);
-    let partitioned_flow =
-        raw_flow * (0.35 + 0.65 * mechanism.preferential_flow_fraction);
+    let partitioned_flow = raw_flow * (0.35 + 0.65 * mechanism.preferential_flow_fraction);
     match protocol.observable {
         Observable::OutletPressure => {
             applied_pressure / (1.0 + mechanism.non_darcy_beta * raw_flow)
@@ -555,8 +556,7 @@ fn best_second_protocol(
             .map(|(best_index, best_score)| {
                 score < *best_score - 1.0e-12
                     || ((score - *best_score).abs() <= 1.0e-12
-                        && protocol.protocol_id
-                            < fixture.protocols[*best_index].protocol_id)
+                        && protocol.protocol_id < fixture.protocols[*best_index].protocol_id)
             })
             .unwrap_or(true);
         if replace {
@@ -566,10 +566,7 @@ fn best_second_protocol(
     best.filter(|(_, score)| *score < current_entropy - 1.0e-12)
 }
 
-fn discrepancy_abstained(
-    fixture: &Fixture,
-    observation: &ProtocolObservation,
-) -> bool {
+fn discrepancy_abstained(fixture: &Fixture, observation: &ProtocolObservation) -> bool {
     let protocol = &fixture.protocols[observation.protocol_index];
     let minimum_best_residual = fixture
         .mechanisms
@@ -583,10 +580,7 @@ fn discrepancy_abstained(
     minimum_best_residual > fixture.discrepancy_threshold_sd
 }
 
-fn evaluate_first_protocol(
-    fixture: &Fixture,
-    first_protocol_index: usize,
-) -> FirstStageEvaluation {
+fn evaluate_first_protocol(fixture: &Fixture, first_protocol_index: usize) -> FirstStageEvaluation {
     let prior = prior_probabilities(fixture);
     let first_protocol = &fixture.protocols[first_protocol_index];
     let mut terminal_entropy = 0.0;
@@ -597,10 +591,7 @@ fn evaluate_first_protocol(
     let mut branches: Vec<ObservationBranch> = Vec::new();
 
     for (true_mechanism_index, mechanism_probability) in prior.iter().enumerate() {
-        let mean = expected_observation(
-            &fixture.mechanisms[true_mechanism_index],
-            first_protocol,
-        );
+        let mean = expected_observation(&fixture.mechanisms[true_mechanism_index], first_protocol);
         for (node, quadrature_weight) in GH_NODES.iter().zip(GH_WEIGHTS.iter()) {
             let observation = ProtocolObservation {
                 protocol_index: first_protocol_index,
@@ -680,8 +671,10 @@ fn best_fixed_pair(fixture: &Fixture) -> Result<PolicyReport, String> {
             }
             let mut expected_entropy = 0.0;
             for (true_mechanism, mechanism_probability) in prior.iter().enumerate() {
-                let left_mean =
-                    expected_observation(&fixture.mechanisms[true_mechanism], &fixture.protocols[left]);
+                let left_mean = expected_observation(
+                    &fixture.mechanisms[true_mechanism],
+                    &fixture.protocols[left],
+                );
                 let right_mean = expected_observation(
                     &fixture.mechanisms[true_mechanism],
                     &fixture.protocols[right],
@@ -773,11 +766,11 @@ fn adaptive_policy(fixture: &Fixture) -> Result<PolicyReport, String> {
         first_protocol_id: fixture.protocols[first_index].protocol_id.clone(),
         second_protocol_shares: evaluation.second_protocol_shares,
         expected_terminal_model_entropy_nats: evaluation.terminal_entropy,
-        expected_model_information_gain_nats: (prior_entropy - evaluation.terminal_entropy).max(0.0),
+        expected_model_information_gain_nats: (prior_entropy - evaluation.terminal_entropy)
+            .max(0.0),
         expected_acquisition_cost: evaluation.expected_cost,
         stop_probability_mass: evaluation.stop_probability_mass,
-        discrepancy_abstention_probability_mass: evaluation
-            .discrepancy_abstention_probability_mass,
+        discrepancy_abstention_probability_mass: evaluation.discrepancy_abstention_probability_mass,
         branches: evaluation.branches,
     })
 }
@@ -834,8 +827,7 @@ fn evaluate(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     let fixed = best_fixed_pair(fixture)?;
     let adaptive = adaptive_policy(fixture)?;
     let adaptive_terminal_entropy_reduction_vs_fixed_nats =
-        fixed.expected_terminal_model_entropy_nats
-            - adaptive.expected_terminal_model_entropy_nats;
+        fixed.expected_terminal_model_entropy_nats - adaptive.expected_terminal_model_entropy_nats;
     let hard_constraint_violations_in_selected_policy =
         policy_constraint_violations(fixture, &fixed)
             + policy_constraint_violations(fixture, &adaptive);
@@ -885,7 +877,8 @@ fn run(input_path: &str, output_path: &str) -> Result<Report, String> {
         report.feasible_protocols.len(),
         report.excluded_protocols.len(),
         report.best_fixed_policy.first_protocol_id,
-        report.best_fixed_policy
+        report
+            .best_fixed_policy
             .second_protocol_shares
             .first()
             .map(|entry| entry.0.as_str())
@@ -894,7 +887,9 @@ fn run(input_path: &str, output_path: &str) -> Result<Report, String> {
         report.adaptive_terminal_entropy_reduction_vs_fixed_nats,
         report.sequential_adaptive_policy.expected_acquisition_cost,
         report.sequential_adaptive_policy.stop_probability_mass,
-        report.sequential_adaptive_policy.discrepancy_abstention_probability_mass
+        report
+            .sequential_adaptive_policy
+            .discrepancy_abstention_probability_mass
     );
     Ok(report)
 }
@@ -1090,9 +1085,7 @@ mod tests {
         let step = 0;
         let long_tracer = 4;
         assert!(protocol_exclusion_reasons(&f.protocols[step], &f.safety_limits).is_empty());
-        assert!(
-            protocol_exclusion_reasons(&f.protocols[long_tracer], &f.safety_limits).is_empty()
-        );
+        assert!(protocol_exclusion_reasons(&f.protocols[long_tracer], &f.safety_limits).is_empty());
         assert!(!protocol_set_within_limits(&f, &[step, long_tracer]));
     }
 
