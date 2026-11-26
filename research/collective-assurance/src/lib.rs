@@ -12,6 +12,7 @@ mod ledger;
 mod relational_evidence;
 mod relation_counterfactual;
 mod workflow_boundary;
+mod audience_applicability_disclosure;
 mod transitive_memory;
 mod generation_exposure;
 mod response_audit;
@@ -31,6 +32,12 @@ pub use generation_exposure::{
     BoundEvidenceUseDiagnostic, BoundEvidenceUseStatus, ExpectedGenerationExposure,
     ExposureQualificationReport, ExposureQualificationStatus, GenerationEvidenceEntry,
     GenerationInputExposureClaims,
+};
+pub use audience_applicability_disclosure::{
+    compute_projection_receipt_digest, qualify_audience_applicability_disclosure,
+    ApplicabilityRule, AudienceQualificationReport, AudienceQualificationStatus,
+    CollectiveMemoryEntry, DisclosureRule, MemoryUseContext, ProjectionReceipt,
+    ScopeSelector, SourceStream,
 };
 pub use transitive_memory::{
     compute_memory_declassification_receipt_digest, compute_memory_graph_digest,

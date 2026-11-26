@@ -1,0 +1,309 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/collective-memory-audience-applicability-disclosure-v0.1.schema.json",
+  "title": "Collective Memory Audience, Applicability and Disclosure v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "entry",
+    "use_context"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "collective-memory-audience-applicability-disclosure-v0.1"
+    },
+    "entry": {
+      "$ref": "#/$defs/entry"
+    },
+    "use_context": {
+      "$ref": "#/$defs/use_context"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$",
+      "not": {
+        "const": "*"
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "selector": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "user_id",
+            "agent_id"
+          ],
+          "properties": {
+            "kind": {
+              "const": "pair"
+            },
+            "user_id": {
+              "$ref": "#/$defs/id"
+            },
+            "agent_id": {
+              "$ref": "#/$defs/id"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "user_id"
+          ],
+          "properties": {
+            "kind": {
+              "const": "user"
+            },
+            "user_id": {
+              "$ref": "#/$defs/id"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "agent_id"
+          ],
+          "properties": {
+            "kind": {
+              "const": "agent"
+            },
+            "agent_id": {
+              "$ref": "#/$defs/id"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "collective_id"
+          ],
+          "properties": {
+            "kind": {
+              "const": "global"
+            },
+            "collective_id": {
+              "$ref": "#/$defs/id"
+            }
+          }
+        }
+      ]
+    },
+    "applicability_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selector",
+        "situation_digest"
+      ],
+      "properties": {
+        "selector": {
+          "$ref": "#/$defs/selector"
+        },
+        "situation_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "disclosure_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selector",
+        "policy_digest"
+      ],
+      "properties": {
+        "selector": {
+          "$ref": "#/$defs/selector"
+        },
+        "policy_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "projection_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_id",
+        "entry_id",
+        "entry_revision",
+        "input_payload_digest",
+        "output_payload_digest",
+        "transform_digest",
+        "situation_digest",
+        "policy_digest",
+        "independent_review_digest",
+        "issued_at_ms",
+        "expires_at_ms",
+        "receipt_digest",
+        "audience_scope",
+        "applicability_scope",
+        "disclosure_scope"
+      ],
+      "properties": {
+        "receipt_id": {
+          "$ref": "#/$defs/id"
+        },
+        "entry_id": {
+          "$ref": "#/$defs/id"
+        },
+        "entry_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "input_payload_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "output_payload_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "transform_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "situation_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "policy_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "independent_review_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "issued_at_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expires_at_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "receipt_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "audience_scope": {
+          "$ref": "#/$defs/selector"
+        },
+        "applicability_scope": {
+          "$ref": "#/$defs/selector"
+        },
+        "disclosure_scope": {
+          "$ref": "#/$defs/selector"
+        }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entry_id",
+        "revision",
+        "source_payload_digest",
+        "payload_digest",
+        "audience",
+        "applicability",
+        "disclosure",
+        "source_stream",
+        "projection_receipt"
+      ],
+      "properties": {
+        "entry_id": {
+          "$ref": "#/$defs/id"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source_payload_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "payload_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "audience": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/selector"
+          }
+        },
+        "applicability": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/applicability_rule"
+          }
+        },
+        "disclosure": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/disclosure_rule"
+          }
+        },
+        "source_stream": {
+          "enum": [
+            "reusable",
+            "protected"
+          ]
+        },
+        "projection_receipt": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/projection_receipt"
+            }
+          ]
+        }
+      }
+    },
+    "use_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "user_id",
+        "agent_id",
+        "collective_id",
+        "situation_digest",
+        "policy_digest",
+        "used_at_ms"
+      ],
+      "properties": {
+        "user_id": {
+          "$ref": "#/$defs/id"
+        },
+        "agent_id": {
+          "$ref": "#/$defs/id"
+        },
+        "collective_id": {
+          "$ref": "#/$defs/id"
+        },
+        "situation_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "policy_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "used_at_ms": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}
