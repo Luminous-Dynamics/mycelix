@@ -1,0 +1,379 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/transitive-memory-boundary-v0.1.schema.json",
+  "title": "Transitive Collective Memory Boundary Snapshot v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "snapshot"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "transitive-memory-boundary-v0.1"
+    },
+    "snapshot": {
+      "$ref": "#/$defs/snapshot"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "id_list": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principals",
+        "purposes",
+        "entities",
+        "valid_from_ms",
+        "valid_until_ms",
+        "retain_until_ms"
+      ],
+      "properties": {
+        "principals": {
+          "$ref": "#/$defs/id_list"
+        },
+        "purposes": {
+          "$ref": "#/$defs/id_list"
+        },
+        "entities": {
+          "$ref": "#/$defs/id_list"
+        },
+        "valid_from_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "valid_until_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "retain_until_ms": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "declassification": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "receipt_id",
+            "input_artifact_ids",
+            "input_payload_digests",
+            "transform_digest",
+            "output_payload_digest",
+            "output_scope_digest",
+            "policy_digest",
+            "issued_at_ms",
+            "expires_at_ms",
+            "receipt_digest"
+          ],
+          "properties": {
+            "receipt_id": {
+              "$ref": "#/$defs/id"
+            },
+            "input_artifact_ids": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/id"
+              }
+            },
+            "input_payload_digests": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/digest"
+              }
+            },
+            "transform_digest": {
+              "$ref": "#/$defs/digest"
+            },
+            "output_payload_digest": {
+              "$ref": "#/$defs/digest"
+            },
+            "output_scope_digest": {
+              "$ref": "#/$defs/digest"
+            },
+            "policy_digest": {
+              "$ref": "#/$defs/digest"
+            },
+            "issued_at_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "expires_at_ms": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "receipt_digest": {
+              "$ref": "#/$defs/digest"
+            }
+          }
+        }
+      ]
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "payload_digest",
+        "parent_artifact_ids",
+        "transform_digest",
+        "derivation_receipt_digest",
+        "declassification",
+        "scope",
+        "created_at_ms",
+        "lineage_complete"
+      ],
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/id"
+        },
+        "payload_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "parent_artifact_ids": {
+          "$ref": "#/$defs/id_list"
+        },
+        "transform_digest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "derivation_receipt_digest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "declassification": {
+          "$ref": "#/$defs/declassification"
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "created_at_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lineage_complete": {
+          "type": "boolean"
+        }
+      }
+    },
+    "revocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "source_artifact_id",
+        "effective_at_ms",
+        "policy_epoch_digest",
+        "authority_receipt_digest",
+        "event_receipt_digest"
+      ],
+      "properties": {
+        "event_id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_artifact_id": {
+          "$ref": "#/$defs/id"
+        },
+        "effective_at_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "policy_epoch_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "authority_receipt_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "event_receipt_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "closure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "source_artifact_id",
+        "descendant_artifact_ids",
+        "graph_digest",
+        "complete",
+        "closure_receipt_digest"
+      ],
+      "properties": {
+        "event_id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_artifact_id": {
+          "$ref": "#/$defs/id"
+        },
+        "descendant_artifact_ids": {
+          "$ref": "#/$defs/id_list"
+        },
+        "graph_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "closure_receipt_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "use": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "use_id",
+        "artifact_id",
+        "principal",
+        "purpose",
+        "entity",
+        "used_at_ms",
+        "snapshot_digest",
+        "disposition",
+        "use_receipt_digest",
+        "effect_receipt_digest"
+      ],
+      "properties": {
+        "use_id": {
+          "$ref": "#/$defs/id"
+        },
+        "artifact_id": {
+          "$ref": "#/$defs/id"
+        },
+        "principal": {
+          "$ref": "#/$defs/id"
+        },
+        "purpose": {
+          "$ref": "#/$defs/id"
+        },
+        "entity": {
+          "$ref": "#/$defs/id"
+        },
+        "used_at_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "snapshot_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "disposition": {
+          "enum": [
+            "Consumed",
+            "BlockedByScope",
+            "BlockedByRetention",
+            "BlockedByRevocation",
+            "Unknown"
+          ]
+        },
+        "use_receipt_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "effect_receipt_digest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot_id",
+        "graph_digest",
+        "snapshot_digest",
+        "inventory_complete",
+        "revocation_inventory_complete",
+        "artifacts",
+        "revocations",
+        "revocation_closures",
+        "uses"
+      ],
+      "properties": {
+        "snapshot_id": {
+          "$ref": "#/$defs/id"
+        },
+        "graph_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "snapshot_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "inventory_complete": {
+          "type": "boolean"
+        },
+        "revocation_inventory_complete": {
+          "type": "boolean"
+        },
+        "artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/artifact"
+          }
+        },
+        "revocations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/revocation"
+          }
+        },
+        "revocation_closures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/closure"
+          }
+        },
+        "uses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/use"
+          }
+        }
+      }
+    }
+  }
+}
