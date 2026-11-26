@@ -553,6 +553,7 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
     validate_dependency_graph(&dependencies)?;
 
     let mut alternative_ids = HashSet::new();
+    let mut tradeoff_ids = HashSet::new();
     for alternative in &proposal.alternatives {
         require_non_empty(&alternative.alternative_id)?;
         require_non_empty(&alternative.label)?;
@@ -565,6 +566,9 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
         }
         for tradeoff in &alternative.tradeoffs {
             require_non_empty(&tradeoff.tradeoff_id)?;
+            if !tradeoff_ids.insert(tradeoff.tradeoff_id.as_str()) {
+                return Err(NeedIntakeErrorV1::DuplicateIdentifier);
+            }
             require_non_empty(&tradeoff.statement)?;
             validate_traceability(&tradeoff.traceability, &source_map, &assumption_ids)?;
         }
@@ -604,8 +608,12 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
             if contradiction.stakeholder_positions.len() < 2 {
                 return Err(NeedIntakeErrorV1::InsufficientStakeholderPositions);
             }
+            let mut position_groups = HashSet::new();
             for position in &contradiction.stakeholder_positions {
                 require_non_empty(&position.group_id)?;
+                if !position_groups.insert(position.group_id.as_str()) {
+                    return Err(NeedIntakeErrorV1::DuplicateIdentifier);
+                }
                 require_non_empty(&position.statement)?;
                 validate_traceability(&position.traceability, &source_map, &assumption_ids)?;
             }
@@ -1184,6 +1192,34 @@ mod tests {
         let mut proposal = valid_proposal();
         proposal.alternatives[0].work_package_ids.push("invented-package".to_owned());
         assert_eq!(validate_proposal(&proposal), Err(NeedIntakeErrorV1::UnknownWorkReference));
+    }
+
+    #[test]
+    fn stakeholder_positions_must_be_distinct() {
+        let mut proposal = valid_proposal();
+        proposal.contradictions.push(ContradictionV1 {
+            contradiction_id: "duplicate-group-position".to_owned(),
+            kind: ContradictionKindV1::StakeholderPriorityConflict,
+            affected_claim_ids: vec!["outcome:reliable-water-service".to_owned()],
+            stakeholder_positions: vec![
+                StakeholderPositionV1 {
+                    group_id: "same-group".to_owned(),
+                    statement: "Prioritize clinic service".to_owned(),
+                    traceability: proposal.outcomes[0].traceability.clone(),
+                },
+                StakeholderPositionV1 {
+                    group_id: "same-group".to_owned(),
+                    statement: "Prioritize household pressure".to_owned(),
+                    traceability: proposal.outcomes[0].traceability.clone(),
+                },
+            ],
+            resolved: false,
+            resolution_decision_id: None,
+        });
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::DuplicateIdentifier)
+        );
     }
 
     #[test]
