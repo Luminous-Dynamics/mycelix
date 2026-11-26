@@ -2,12 +2,12 @@ name: Terra Preta robust hydraulic experiment design reference
 
 on:
   pull_request:
-    branches: [main, 'research/terra-active-design-v0.1']
+    branches: [main, 'research/terra-active-design-v0.1', 'research/terra-robust-active-design-v0.1']
     paths:
       - 'research/terra-preta/tools/hydraulic-robust-experiment-design-reference/**'
       - '.github/workflows/terra-preta-robust-experiment-design-reference.yml'
   push:
-    branches: ['research/terra-robust-active-design-v0.1']
+    branches: ['research/terra-robust-active-design-v0.1', 'research/terra-robust-uniform-benchmark-v0.1']
     paths:
       - 'research/terra-preta/tools/hydraulic-robust-experiment-design-reference/**'
       - '.github/workflows/terra-preta-robust-experiment-design-reference.yml'
@@ -54,6 +54,12 @@ jobs:
             (.robust_d_optimal_design.per_scenario_scores | length == 3) and
             (.robust_e_optimal_design.per_scenario_scores | length == 3) and
             (.minimax_regret_design.per_scenario_scores | length == 3) and
+            (.uniform_cost_matched_baseline.portfolio_count > 1) and
+            (.uniform_cost_matched_baseline.exact_cost == .robust_d_optimal_design.total_cost) and
+            (.uniform_cost_matched_baseline.per_scenario | length == 3) and
+            (.uniform_cost_matched_baseline.p10_worst_case_incremental_log_determinant <= .uniform_cost_matched_baseline.median_worst_case_incremental_log_determinant) and
+            (.uniform_cost_matched_baseline.median_worst_case_incremental_log_determinant <= .uniform_cost_matched_baseline.p90_worst_case_incremental_log_determinant) and
+            (.robust_d_optimal_design.worst_case_log_determinant_gain >= .uniform_cost_matched_baseline.best_worst_case_incremental_log_determinant - 1e-10) and
             (.candidate_support_receipts | length == 5) and
             (.per_scenario_oracles | length == 3) and
             ([.per_scenario_oracles[] | select(.oracle_minimum_eigenvalue_data_information != null and .oracle_minimum_eigenvalue_total_information != null and .oracle_data_rank == 4)] | length == 3) and

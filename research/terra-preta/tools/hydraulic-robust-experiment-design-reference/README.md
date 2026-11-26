@@ -20,16 +20,18 @@ The fixture declares a dimensionless parameter scaling and a prior-information m
 
 The engine exhaustively enumerates feasible candidate subsets (up to 16 candidates) and reports:
 - nominal D-optimal selection on the single designated nominal scenario;
-- maximin D-optimal design using the smallest scenario log-determinant;
+- maximin D-optimal design using the smallest **baseline-relative log-determinant gain** across scenarios;
 - maximin E-optimal design using the smallest scenario *data-Fisher* minimum eigenvalue;
 - minimax normalized D-optimal regret against each scenario's own exhaustive oracle;
 - per-scenario rank, nullity, minimum eigenvalue and log-determinant for each selected design.
 
 For scenario v, normalized regret is the fraction of the best feasible experimental-design gain that a candidate design leaves unused:
 
-`regret_v(D) = [logdet F_v(D*_v) - logdet F_v(D)] / [logdet F_v(D*_v) - logdet F_v(D_0)]`
+`gain_v(D) = logdet F_v(D) - logdet F_v(D_0)`
 
-where `D*_v` is that scenario's exhaustive feasible oracle and `D_0` is the no-new-acquisition baseline. The denominator is therefore the available improvement over baseline, not the absolute oracle log-determinant. This removes the arbitrary additive offset introduced by a change of parameter units. A scenario with no numerically resolvable available gain must also have no resolvable regret; otherwise evaluation fails closed. The report records both baseline log-determinant and available gain for every scenario.
+`regret_v(D) = [gain_v(D*_v) - gain_v(D)] / gain_v(D*_v)`
+
+where `D*_v` is that scenario's exhaustive feasible oracle and `D_0` is the no-new-acquisition baseline. The denominator is therefore the available improvement over baseline, not the absolute oracle log-determinant. This removes arbitrary additive offsets from scenario-specific determinant scales and makes the robust D-optimal objective directly compare the information added by the experiment rather than the information already present before acquisition. A scenario with no numerically resolvable available gain must also have no resolvable regret; otherwise evaluation fails closed. The report records both baseline log-determinant and available gain for every scenario.
 
 Ties are resolved deterministically by lower cost and candidate ID. Scenario ordering does not affect results.
 
@@ -43,6 +45,12 @@ The fixture uses four common log-conductance estimands for upper/lower two-throa
 Candidates include two internal pressure probes, two nominal path-flow sensors and a repeat bulk boundary-flux measurement. The path-flow candidates are deliberately not assumed perfectly localized: the per-scenario observation rows mix upper and lower path flow in proportion to the stated support and registration alternatives.
 
 The baseline bulk-flux observation is present in every scenario. Repeating the same bulk support may reduce variance in its direction but cannot raise structural sensitivity rank. The test checks this per scenario.
+
+## Cost-matched uniform portfolio comparator
+
+The report includes an exact finite comparator at the same total acquisition cost as the selected robust design. Every distinct feasible candidate subset spending exactly that cost receives equal probability. The comparator reports the distribution of worst-case and per-scenario incremental log-determinant gains (expected value, P10, median and P90), plus the selected robust design's improvement over the uniform policy mean.
+
+This is a uniform *portfolio-selection* baseline, not a physically uniform sensor-spacing baseline. No spatial coordinates or sensor-placement geometry are present in this fixture, so claiming uniform physical coverage would be unsupported. The baseline is deterministic to reproduce because it enumerates all equal-cost portfolios rather than Monte Carlo sampling them.
 
 ## Numerical qualification
 
@@ -61,7 +69,10 @@ The baseline bulk-flux observation is present in every scenario. Repeating the s
 - input scenario order is permuted and robust selected design/objective must remain invariant;
 - prior information is not counted as data rank;
 - all selected designs remain within the stated cost budget;
-- scenario count is not treated as a probability.
+- scenario count is not treated as a probability;
+- the uniform portfolio comparator includes only portfolios with exactly the selected robust design's cost;
+- the robust D-optimal objective maximizes the worst-case incremental log-determinant gain over the no-new-acquisition baseline;
+- scenario-specific information-unit scaling that shifts absolute log-determinants must not change the maximin incremental-gain design.
 
 ## Run
 
