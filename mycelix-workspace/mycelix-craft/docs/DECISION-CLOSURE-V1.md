@@ -99,7 +99,7 @@ Each element references one or more claim-support result references, each bindin
 
 Only current DirectSupport results count. The decision owner sets a positive maximum support age; a result outside that window cannot close an element even if its source, claim and standard digests still match. PartialSupport, Contradiction, HumanReviewRequired and InsufficientEvidence never count as positive coverage. Any contradiction blocks closure. A wrong domain, jurisdiction or corpus is a packet integrity error, not a soft warning.
 
-The host must verify that the referenced result was produced by the Claim Support contract and that all required independent reviewer roles approved it. This core treats the support result as an external input; it does not authenticate the upstream result digest itself.
+The host must verify that the referenced result was produced by the Claim Support contract and that all required independent reviewer roles approved it. Map dispositions exactly: Supported → DirectSupport; BlockedByContradiction → Contradiction; HumanReviewRequired → HumanReviewRequired; InsufficientEvidence → InsufficientEvidence. Never coerce a non-Supported result into DirectSupport. This core treats the support result as an external input; it does not authenticate the upstream result digest itself.
 
 ## 7. Dependencies and scope conditions
 
