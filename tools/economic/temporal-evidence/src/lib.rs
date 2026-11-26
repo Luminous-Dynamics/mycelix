@@ -433,7 +433,7 @@ impl TemporalEvidenceSetV1 {
             Selection::Selected(assertion, knowledge) => (Some(assertion), knowledge),
             Selection::Missing | Selection::NotKnown | Selection::Indeterminate => {
                 (None, Vec::new())
-            },
+            }
             Selection::Conflict => {
                 return Ok(build_validity_result(ValidityResultInput {
                     disposition: QueryDispositionV1::Conflict,
@@ -539,7 +539,6 @@ impl TemporalEvidenceSetV1 {
         }))
     }
 
-
     /// Return the occurrence-time assertion visible to verifier X by K.
     /// If a later correction was not yet known at K, the earlier assertion
     /// remains the historical answer.
@@ -616,7 +615,6 @@ impl TemporalEvidenceSetV1 {
         Ok(result)
     }
 
-
     fn select_as_known(
         &self,
         claim_id: &str,
@@ -631,9 +629,11 @@ impl TemporalEvidenceSetV1 {
             .collect();
 
         let mut eligible: Vec<(&TemporalAssertionV1, Vec<String>)> = Vec::new();
-        for assertion in self.assertions.iter().filter(|assertion| {
-            assertion.claim_id == claim_id && assertion.dimension == dimension
-        }) {
+        for assertion in self
+            .assertions
+            .iter()
+            .filter(|assertion| assertion.claim_id == claim_id && assertion.dimension == dimension)
+        {
             let mut knowledge_ids = Vec::new();
             let mut contested_knowledge = false;
             let mut uncertain_knowledge = false;
@@ -667,7 +667,11 @@ impl TemporalEvidenceSetV1 {
             let has_assertion = self.assertions.iter().any(|assertion| {
                 assertion.claim_id == claim_id && assertion.dimension == dimension
             });
-            return Ok(if has_assertion { Selection::NotKnown } else { Selection::Missing });
+            return Ok(if has_assertion {
+                Selection::NotKnown
+            } else {
+                Selection::Missing
+            });
         }
 
         let eligible_ids: BTreeSet<&str> = eligible
@@ -705,10 +709,7 @@ impl TemporalEvidenceSetV1 {
             .unwrap_or_default();
         Ok(Selection::Selected(selected, knowledge_ids))
     }
-
-
 }
-
 
 /// Query-ready evidence snapshot. Build once after authenticating and validating
 /// the input assertions; subsequent queries touch only the relevant claim,
@@ -808,7 +809,7 @@ impl TemporalEvidenceIndexV1 {
             Selection::Selected(assertion, knowledge) => (Some(assertion), knowledge),
             Selection::Missing | Selection::NotKnown | Selection::Indeterminate => {
                 (None, Vec::new())
-            },
+            }
             Selection::Conflict => {
                 return Ok(build_validity_result(ValidityResultInput {
                     disposition: QueryDispositionV1::Conflict,
@@ -1064,8 +1065,6 @@ impl TemporalEvidenceIndexV1 {
             .unwrap_or_default();
         Ok(Selection::Selected(selected, knowledge_ids))
     }
-
-
 }
 
 enum Selection<'a> {
@@ -1168,7 +1167,6 @@ fn knowledge_visibility(
         }
     }
 }
-
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum BoundaryResult {
