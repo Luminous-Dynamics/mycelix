@@ -1,0 +1,31 @@
+{
+  "claims": {
+    "schema_version": "generation-input-exposure-v0.1",
+    "run_id": "synthetic-run-01",
+    "generation_id": "synthetic-generation-01",
+    "request_id": "synthetic-request-01",
+    "responder_id": "assistant-role-01",
+    "purpose_id": "meeting-scheduling",
+    "challenge_nonce": "0123456789abcdef0123456789abcdef",
+    "signer_key_id": "synthetic-external-witness-key",
+    "model_snapshot_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+    "prompt_template_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "input_payload_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+    "generated_at_ms": 1770000000000,
+    "exposed_evidence": [
+      {
+        "request_id": "synthetic-request-01",
+        "evidence_id": "evidence-meeting-time",
+        "source_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "subject_id": "meeting-time",
+        "scope_id": "project-collective",
+        "authorized_responder_id": "assistant-role-01",
+        "status": "Current",
+        "applicability": "Applicable",
+        "verified": true,
+        "required": true
+      }
+    ]
+  },
+  "signature_base64": "c3ludGhldGljLW9ubHktbm90LWEtcHJvZHVjdGlvbi1zaWduYXR1cmU="
+}
