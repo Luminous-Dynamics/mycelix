@@ -204,7 +204,7 @@ pub struct CollabMemoryQualificationReport {
     pub control_digest: String,
     pub run_digest: String,
     pub metric_evaluable: bool,
-    pub official_collabmem_compatible: bool,
+    pub official_artifact_references_complete: bool,
     pub scores: BTreeMap<CollabMemoryCompetency, CollabCompetencyScore>,
     pub unauthorized_content_exposures: u64,
     pub forbidden_metadata_inferences: u64,
@@ -352,6 +352,13 @@ fn encode_probe(bytes: &mut Vec<u8>, probe: &CollabMemoryProbe) -> Result<(), St
             expected_recipients,
             observed_recipients,
         } => {
+            if expected_recipients
+                .iter()
+                .chain(observed_recipients.iter())
+                .any(|id| !nonempty(id))
+            {
+                return Err("sharing recipient identities must be non-empty".to_owned());
+            }
             bytes.push(u8::from(*observer_complete));
             push_set(bytes, expected_recipients);
             push_set(bytes, observed_recipients);
@@ -471,6 +478,19 @@ pub fn compute_collab_memory_run_digest(run: &CollabMemoryRun) -> Result<String,
     Ok(sha256_hex(&bytes))
 }
 
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct CollabSecurityCounts {
+    unauthorized_content_exposures: u64,
+    forbidden_metadata_inferences: u64,
+    unauthorized_access_grants: u64,
+    unauthorized_role_routes: u64,
+    provenance_mismatches: u64,
+    authority_conflicts: u64,
+    stale_memory_uses: u64,
+    post_revocation_uses: u64,
+    derived_descendant_uses_after_revocation: u64,
+}
+
 fn hard_failure(report: &mut QualificationReport, reason: String) {
     report.fail(reason);
 }
@@ -482,7 +502,7 @@ fn add_reason(report: &mut QualificationReport, reason: impl Into<String>) {
 fn compare_probe(
     probe: &CollabMemoryProbe,
     report: &mut QualificationReport,
-    counts: &mut CollabMemoryQualificationReport,
+    counts: &mut CollabSecurityCounts,
 ) -> bool {
     if !probe.evidence.observer_complete() {
         add_reason(
@@ -492,8 +512,10 @@ fn compare_probe(
         return false;
     }
 
+    let mut global_security_clean = true;
     if probe.unauthorized_content_exposure {
         counts.unauthorized_content_exposures += 1;
+        global_security_clean = false;
         hard_failure(
             report,
             format!("{} exposed content to an unauthorized principal", probe.probe_id),
@@ -501,13 +523,14 @@ fn compare_probe(
     }
     if probe.forbidden_metadata_inference {
         counts.forbidden_metadata_inferences += 1;
+        global_security_clean = false;
         hard_failure(
             report,
             format!("{} permitted a forbidden metadata inference", probe.probe_id),
         );
     }
 
-    let passed = match &probe.evidence {
+    let dimension_passed = match &probe.evidence {
         CollabMemoryEvidence::Sharing {
             expected_recipients,
             observed_recipients,
@@ -639,7 +662,8 @@ fn compare_probe(
         }
     };
 
-    if !passed {
+    let passed = dimension_passed && global_security_clean;
+    if !dimension_passed {
         add_reason(
             report,
             format!("{} failed {} qualification", probe.probe_id, probe.evidence.competency().code()),
@@ -665,7 +689,8 @@ pub fn qualify_collab_memory_run(
             String::new()
         }
     };
-    if run.control_digest != control_digest {
+    let control_digest_valid = run.control_digest == control_digest;
+    if !control_digest_valid {
         qualification.fail("collaborative-memory control digest does not match the manifest");
     }
 
@@ -673,8 +698,8 @@ pub fn qualify_collab_memory_run(
         qualification,
         control_digest,
         run_digest: run.run_digest.clone(),
-        metric_evaluable: true,
-        official_collabmem_compatible: false,
+        metric_evaluable: control_digest_valid,
+        official_artifact_references_complete: false,
         scores,
         unauthorized_content_exposures: 0,
         forbidden_metadata_inferences: 0,
@@ -722,8 +747,9 @@ pub fn qualify_collab_memory_run(
     ]
     .into_iter()
     .all(|value| value.is_some_and(valid_digest));
-    result.official_collabmem_compatible = official_digests_present;
+    result.official_artifact_references_complete = official_digests_present;
 
+    let mut security_counts = CollabSecurityCounts::default();
     let mut probe_ids = BTreeSet::new();
     let mut seen_competencies = BTreeSet::new();
     let mut group_incomplete = BTreeSet::new();
@@ -747,20 +773,31 @@ pub fn qualify_collab_memory_run(
             continue;
         }
 
-        let score = result.scores.get_mut(&competency).expect("all competencies initialized");
         if !probe.evidence.observer_complete() {
-            score.incomplete_probe_count += 1;
+            if let Some(score) = result.scores.get_mut(&competency) {
+                score.incomplete_probe_count += 1;
+            }
+            add_reason(
+                &mut result.qualification,
+                format!("{} observer evidence is incomplete", probe.probe_id),
+            );
             group_incomplete.insert(competency);
-            compare_probe(probe, &mut result.qualification, &mut result);
+            result.metric_evaluable = false;
             continue;
         }
 
-        score.observed_probe_count += 1;
-        let passed = compare_probe(probe, &mut result.qualification, &mut result);
-        if passed {
-            score.passed_probe_count += 1;
-        } else {
-            score.failed_probe_count += 1;
+        let passed = compare_probe(
+            probe,
+            &mut result.qualification,
+            &mut security_counts,
+        );
+        if let Some(score) = result.scores.get_mut(&competency) {
+            score.observed_probe_count += 1;
+            if passed {
+                score.passed_probe_count += 1;
+            } else {
+                score.failed_probe_count += 1;
+            }
         }
     }
 
@@ -776,7 +813,10 @@ pub fn qualify_collab_memory_run(
             result.metric_evaluable = false;
         }
         if let Some(score) = result.scores.get_mut(&competency) {
-            if score.observed_probe_count > 0 && !group_incomplete.contains(&competency) {
+            if result.run_digest == compute_collab_memory_run_digest(run).unwrap_or_default()
+                && score.observed_probe_count > 0
+                && !group_incomplete.contains(&competency)
+            {
                 score.score_micros = Some(
                     ((score.passed_probe_count as u64 * SCORE_SCALE)
                         / score.observed_probe_count as u64) as u32,
@@ -785,7 +825,17 @@ pub fn qualify_collab_memory_run(
         }
     }
 
-    result.reasons.extend(result.qualification.reasons.iter().cloned());
+    result.unauthorized_content_exposures = security_counts.unauthorized_content_exposures;
+    result.forbidden_metadata_inferences = security_counts.forbidden_metadata_inferences;
+    result.unauthorized_access_grants = security_counts.unauthorized_access_grants;
+    result.unauthorized_role_routes = security_counts.unauthorized_role_routes;
+    result.provenance_mismatches = security_counts.provenance_mismatches;
+    result.authority_conflicts = security_counts.authority_conflicts;
+    result.stale_memory_uses = security_counts.stale_memory_uses;
+    result.post_revocation_uses = security_counts.post_revocation_uses;
+    result.derived_descendant_uses_after_revocation =
+        security_counts.derived_descendant_uses_after_revocation;
+    result.reasons = result.qualification.reasons.clone();
     if !result.metric_evaluable && result.qualification.status != QualificationStatus::Fail {
         result.qualification.indeterminate(
             "collaborative-memory scorecard has missing or incomplete competency evidence",
@@ -929,7 +979,7 @@ mod tests {
         assert!(result.metric_evaluable);
         assert!(result.scores.values().all(|score| score.score_micros == Some(1_000_000)));
         assert!(result.scores.values().all(|score| score.observed_probe_count == 1));
-        assert!(!result.official_collabmem_compatible);
+        assert!(!result.official_artifact_references_complete);
     }
 
     #[test]
@@ -1066,7 +1116,7 @@ mod tests {
             QualificationStatus::Indeterminate
         );
         assert!(!result.metric_evaluable);
-        assert!(!result.official_collabmem_compatible);
+        assert!(!result.official_artifact_references_complete);
     }
 
     #[test]
@@ -1101,7 +1151,7 @@ mod tests {
 
         let result = qualify_collab_memory_run(&run);
         assert_eq!(result.qualification.status, QualificationStatus::Pass);
-        assert!(result.official_collabmem_compatible);
+        assert!(result.official_artifact_references_complete);
     }
 
     #[test]
