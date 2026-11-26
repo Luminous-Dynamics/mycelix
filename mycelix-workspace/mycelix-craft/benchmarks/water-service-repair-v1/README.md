@@ -25,3 +25,6 @@ Run the dependency-free fixture validation locally with:
 ```sh
 bash mycelix-workspace/mycelix-craft/benchmarks/water-service-repair-v1/validate.sh
 ```
+
+
+The corpus also includes WSR-016, a metrology negative control: Johannesburg Water's FY2024/25 annual report describes 70.35% of bursts restored within 48 hours, while its 2025/26 business plan gives a 67.46% baseline labelled 2023/24 and operationally defines the 48-hour milestone as on-site response initiated, not necessarily resolved. These measures must not be compared without reconciling period, numerator and event semantics.
