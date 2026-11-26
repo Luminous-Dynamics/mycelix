@@ -167,6 +167,22 @@ struct Accumulator {
     reliability_bins: Vec<Vec<BinAccumulator>>,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct ProtocolObservation<'a> {
+    selected: &'a [usize],
+    observations: &'a [f64],
+    second_choice_index: usize,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct WorldTruth<'a> {
+    heldout_observation: f64,
+    true_family: usize,
+    true_regime: usize,
+    posterior_draw_uniforms: &'a [f64],
+    tie_uniform: f64,
+}
+
 #[derive(Clone, Debug)]
 struct WorldScore {
     family_probabilities: Vec<f64>,
@@ -250,7 +266,7 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
         return Err("at least three finite positive parameter regimes are required".into());
     }
     if fixture.worlds_per_family < 1_000
-        || fixture.worlds_per_family % fixture.parameter_regimes.len() != 0
+        || !fixture.worlds_per_family.is_multiple_of(fixture.parameter_regimes.len())
     {
         return Err("worlds_per_family must be >= 1000 and divisible by regime count".into());
     }
@@ -609,15 +625,21 @@ fn randomized_discrete_sbc_rank(
 fn score_world(
     fixture: &Fixture,
     posterior: &[f64],
-    selected: &[usize],
-    observations: &[f64],
-    heldout_observation: f64,
-    true_family: usize,
-    true_regime: usize,
-    posterior_draw_uniforms: &[f64],
-    tie_uniform: f64,
-    second_choice_index: usize,
+    protocol: ProtocolObservation<'_>,
+    truth: WorldTruth<'_>,
 ) -> WorldScore {
+    let ProtocolObservation {
+        selected,
+        observations,
+        second_choice_index,
+    } = protocol;
+    let WorldTruth {
+        heldout_observation,
+        true_family,
+        true_regime,
+        posterior_draw_uniforms,
+        tie_uniform,
+    } = truth;
     let family_probabilities = family_probabilities(fixture, posterior);
     let regime_probabilities = regime_probabilities(fixture, posterior);
 
@@ -993,29 +1015,32 @@ fn evaluate(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
                 1.0,
             );
 
+            let world_truth = WorldTruth {
+                heldout_observation,
+                true_family: family_index,
+                true_regime: regime_index,
+                posterior_draw_uniforms: &posterior_draw_uniforms,
+                tie_uniform,
+            };
             let fixed_score = score_world(
                 fixture,
                 &fixed_posterior,
-                &fixed_selected,
-                &fixed_observations,
-                heldout_observation,
-                family_index,
-                regime_index,
-                &posterior_draw_uniforms,
-                tie_uniform,
-                fixed_second_index,
+                ProtocolObservation {
+                    selected: &fixed_selected,
+                    observations: &fixed_observations,
+                    second_choice_index: fixed_second_index,
+                },
+                world_truth,
             );
             let adaptive_score = score_world(
                 fixture,
                 &adaptive_posterior,
-                &adaptive_selected,
-                &adaptive_observations,
-                heldout_observation,
-                family_index,
-                regime_index,
-                &posterior_draw_uniforms,
-                tie_uniform,
-                adaptive_second_index,
+                ProtocolObservation {
+                    selected: &adaptive_selected,
+                    observations: &adaptive_observations,
+                    second_choice_index: adaptive_second_index,
+                },
+                world_truth,
             );
             fixed_accumulator.record(&fixed_score, family_index);
             adaptive_accumulator.record(&adaptive_score, family_index);
@@ -1052,7 +1077,7 @@ fn evaluate(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         fixed_second_candidate_id: fixture.fixed_second_candidate_id.clone(),
         adaptive_policy: "first fixed upper-path observation; choose the second candidate by minimum seven-node posterior expected model entropy".into(),
         discrete_parameter_sbc_definition: "Randomized rank histogram for the three-point discrete conductance-scale regime posterior, with randomized tie handling and common posterior-sample uniforms across paired policies. This is discrete-regime SBC, not continuous-parameter SBC.".into(),
-        ood_control_definition: "For each in-family world and each policy, shift both selected observations by +8 sensor standard deviations; report the detection rate of the closed-set minimum-worst-standardized-residual alarm. This is a deterministic residual stress control, not a realistic held-out hydraulic mechanism.".into(),
+        ood_control_definition: "For each in-family world and each policy, shift both selected observations by +20 sensor standard deviations; report the detection rate of the closed-set minimum-worst-standardized-residual alarm. This is a deterministic residual stress control, not a realistic held-out hydraulic mechanism.".into(),
         claim_boundary: "Synthetic known-truth calibration only. Family response signatures and parameter regimes are analyst-authored normalized patterns, not calibrated soil physics. The fixed-versus-adaptive comparison uses common random numbers, but finite-world confidence intervals are normal paired standard-error intervals. No physical or external SOTA superiority claim is established.".into(),
         fixed_policy: fixed_accumulator.report(fixture, "fixed_upper_plus_early_transient"),
         adaptive_policy_report: adaptive_accumulator.report(fixture, "greedy_adaptive_model_eig"),
