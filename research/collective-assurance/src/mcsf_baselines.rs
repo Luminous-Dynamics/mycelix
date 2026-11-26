@@ -83,17 +83,9 @@ impl Bm25Config {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Bm25Adapter {
     config: Bm25Config,
-}
-
-impl Default for Bm25Adapter {
-    fn default() -> Self {
-        Self {
-            config: Bm25Config::default(),
-        }
-    }
 }
 
 impl Bm25Adapter {
