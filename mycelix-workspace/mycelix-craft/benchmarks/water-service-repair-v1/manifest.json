@@ -56,6 +56,45 @@
         "critical_percent": 47
       },
       "use_limit": "National wastewater context only; not a Johannesburg drinking-water result and not directly comparable to burst-repair metrics."
+    },
+    {
+      "source_id": "JOBURG-WATER-BUSINESS-PLAN-2025-26-P83-P95",
+      "title": "Johannesburg Water Business Plan 2025/26, printed pages 83–84 and 95–96",
+      "url": "https://www.johannesburgwater.co.za/wp-content/uploads/2025/07/JHB-Water_Business-Plan-2025_For-Upload_FINAL_070725.pdf",
+      "period": "2025/26 planning year; the cited burst KPI baseline is labelled 2023/24",
+      "facts": {
+        "water_bursts_48_hour_indicator_baseline_percent": 67.46,
+        "water_bursts_48_hour_target_fy2025_26_percent": 90,
+        "e_coli_sans241_sample_compliance_baseline_percent": 99.2,
+        "e_coli_sans241_sample_compliance_target_percent": 99
+      },
+      "use_limit": "The KPI title says bursts restored within 48 hours, but its operational definition says a response is an on-site arrival and initiation of resolution, explicitly not necessarily resolution. The annual report's 70.35% FY2024/25 result must not be compared to the business-plan 67.46% baseline/90% target without reconciling definitions, period and calculation. The 99.20% measure is E. coli sample compliance, not full SANS 241 compliance."
+    },
+    {
+      "source_id": "DWS-REVISED-COMPULSORY-STANDARDS-GAZETTE-2025-06-06",
+      "title": "Revised Compulsory National Water and Sanitation Services Standards, Government Gazette 52814, 6 June 2025",
+      "url": "https://www.gov.za/sites/default/files/gcis_document/202506/52814gon6292.pdf",
+      "period": "Effective published regulatory baseline dated 2025-06-06",
+      "facts": {
+        "drinking_water_fit_for_human_consumption_standard": "SANS 241",
+        "water_safety_plan_review": "at least annually and when risk changes",
+        "drinking_water_sampling_programme": "specify sample points, frequency and parameters",
+        "laboratory_analysis": "ISO 17025 accredited methods or credible proficiency-tested alternative",
+        "water_quality_reporting_to_iris_days": 30,
+        "interruption_trigger_hours": 48,
+        "minimum_alternative_drinking_water_litres_person_day": 15,
+        "extended_alternative_supply_trigger_days": 7,
+        "confirmed_health_risk_notification_hours": 12,
+        "alternative_water_source_monitoring_parameters": [
+          "disinfectant residuals",
+          "turbidity",
+          "E. coli",
+          "Heterotrophic Plate Count",
+          "conductivity",
+          "pH"
+        ]
+      },
+      "use_limit": "The fixture protocol uses these statutory requirements as a test anchor; exact implementation, local applicability and professional interpretation must be validated by the competent authority. The crate does not determine legal compliance."
     }
   ],
   "outcome_dimensions": [
@@ -68,7 +107,12 @@
     "evidence_independence",
     "customer_impact",
     "worker_safety",
-    "community_agency"
+    "community_agency",
+    "time_to_first_response",
+    "repair_completion",
+    "pressure_restoration",
+    "alternative_supply_adequacy",
+    "water_quality_incident_escalation"
   ],
   "required_separation": [
     "provider_reported_completion",
@@ -90,5 +134,24 @@
     "regulatory compliance",
     "water safety from a synthetic fixture",
     "independent source status based only on distinct identifiers"
+  ],
+  "measurement_separation": [
+    "notification_received_at",
+    "crew_dispatched_at",
+    "crew_arrived_at",
+    "repair_work_started_at",
+    "repair_completed_at",
+    "pressure_restoration_observed_at",
+    "water_quality_sampled_at",
+    "water_quality_result_approved_at",
+    "local_authority_closure_at"
+  ],
+  "legal_control_references": [
+    "Water Services Act Revised Compulsory National Water and Sanitation Services Standards (Government Gazette 52814, 6 June 2025), Regulations 4 and 5"
+  ],
+  "metric_definition_warnings": [
+    "Johannesburg Water Business Plan 2025/26 page 95 describes the 48-hour water-burst KPI as on-site response and initiation of resolution, explicitly not necessarily completed resolution, although the KPI title says restored within 48 hours.",
+    "Johannesburg Water FY2024/25 annual report reports 70.35% against an 85% target; this must not be compared to the 2025/26 business-plan baseline 67.46% and 90% target without reconciled periods and definitions.",
+    "The 99.20% Business Plan figure refers to E. coli sample compliance, not full SANS 241 water-quality compliance."
   ]
 }
