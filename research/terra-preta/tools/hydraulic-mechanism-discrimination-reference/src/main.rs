@@ -494,6 +494,17 @@ fn minimum_expected_decision_loss(fixture: &Fixture, probabilities: &[f64]) -> f
         .fold(f64::INFINITY, f64::min)
 }
 
+fn decision_actions_are_equivalent(fixture: &Fixture) -> bool {
+    let Some(first) = fixture.decision_actions.first() else {
+        return false;
+    };
+    fixture
+        .decision_actions
+        .iter()
+        .skip(1)
+        .all(|action| action.loss_by_mechanism == first.loss_by_mechanism)
+}
+
 fn expected_metrics(fixture: &Fixture, selected: &[usize]) -> ExpectedMetrics {
     let prior: Vec<f64> = fixture
         .mechanisms
@@ -565,9 +576,15 @@ fn expected_metrics(fixture: &Fixture, selected: &[usize]) -> ExpectedMetrics {
             fixture, &prior,
         ) - expected_predictive_information)
             .max(0.0),
-        expected_value_of_sample_information: (prior_minimum_expected_decision_loss
-            - expected_posterior_minimum_expected_loss)
-            .max(0.0),
+        expected_value_of_sample_information: if decision_actions_are_equivalent(fixture) {
+            // When every action has the same state-contingent loss vector,
+            // observing data cannot change the available decision. This exact
+            // invariant avoids reporting quadrature integration error as EVSI.
+            0.0
+        } else {
+            (prior_minimum_expected_decision_loss - expected_posterior_minimum_expected_loss)
+                .max(0.0)
+        },
         prior_minimum_expected_decision_loss,
         expected_posterior_minimum_expected_loss,
     }
