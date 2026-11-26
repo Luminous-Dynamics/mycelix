@@ -1,0 +1,9 @@
+[package]
+name = "craft-evidence-lineage-v1"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Deterministic evidence dependency invalidation and revalidation reference core"
+
+[lib]
+path = "src/lib.rs"
