@@ -121,15 +121,38 @@ pub enum McsfIntegrityEvidenceClass {
     ObservedRun,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum McsfIntegrityDetectionPoint {
+    Read,
+    Audit,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum McsfIntegrityObservationPoint {
+    HarnessBoundary,
+    DutReported,
+    ClientSdkBoundary,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct McsfIntegrityManifest {
     pub schema_version: String,
     pub evidence_class: McsfIntegrityEvidenceClass,
     pub sut_id: String,
     pub sut_version: String,
+    pub sut_revision: String,
+    pub store_backend: String,
+    pub store_backend_version: String,
+    pub runtime_version: String,
+    pub runtime_libraries_digest: String,
     pub storage_configuration_digest: String,
     pub test_plan_digest: String,
     pub runner_digest: String,
+    pub measurement_date: String,
+    pub detection_point: McsfIntegrityDetectionPoint,
+    pub observation_point: McsfIntegrityObservationPoint,
+    /// The SUT process was stopped for every storage-layer edit.
+    pub edits_applied_while_sut_stopped: bool,
     /// Whether the SUT supports restoring a complete prior store snapshot.
     pub snapshot_restore_capable: bool,
     /// Whether the SUT exposes a legitimate erasure operation.
@@ -206,6 +229,17 @@ fn valid_digest(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
+fn valid_measurement_date(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() == 10
+        && bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && bytes
+            .iter()
+            .enumerate()
+            .all(|(index, byte)| index == 4 || index == 7 || byte.is_ascii_digit())
+}
+
 fn push_len(output: &mut Vec<u8>, value: usize) {
     output.extend_from_slice(&(value as u64).to_be_bytes());
 }
@@ -278,6 +312,21 @@ fn control_tag(value: McsfIntegrityControlStatus) -> u8 {
     }
 }
 
+fn detection_point_tag(value: McsfIntegrityDetectionPoint) -> u8 {
+    match value {
+        McsfIntegrityDetectionPoint::Read => 1,
+        McsfIntegrityDetectionPoint::Audit => 2,
+    }
+}
+
+fn observation_point_tag(value: McsfIntegrityObservationPoint) -> u8 {
+    match value {
+        McsfIntegrityObservationPoint::HarnessBoundary => 1,
+        McsfIntegrityObservationPoint::DutReported => 2,
+        McsfIntegrityObservationPoint::ClientSdkBoundary => 3,
+    }
+}
+
 /// Compute the portable, domain-separated commitment for an integrity run.
 ///
 /// Observation order is bound exactly as supplied. The qualifier separately
@@ -287,6 +336,12 @@ pub fn compute_mcsf_integrity_run_digest(run: &McsfIntegrityRun) -> Result<Strin
         || run.manifest.schema_version != "mcsf-at-rest-integrity-v0.1"
         || !nonempty(&run.manifest.sut_id)
         || !nonempty(&run.manifest.sut_version)
+        || !nonempty(&run.manifest.sut_revision)
+        || !nonempty(&run.manifest.store_backend)
+        || !nonempty(&run.manifest.store_backend_version)
+        || !nonempty(&run.manifest.runtime_version)
+        || !valid_measurement_date(&run.manifest.measurement_date)
+        || !valid_digest(&run.manifest.runtime_libraries_digest)
         || !valid_digest(&run.manifest.storage_configuration_digest)
         || !valid_digest(&run.manifest.test_plan_digest)
         || !valid_digest(&run.manifest.runner_digest)
@@ -303,9 +358,18 @@ pub fn compute_mcsf_integrity_run_digest(run: &McsfIntegrityRun) -> Result<Strin
     });
     push_str(&mut bytes, &run.manifest.sut_id);
     push_str(&mut bytes, &run.manifest.sut_version);
+    push_str(&mut bytes, &run.manifest.sut_revision);
+    push_str(&mut bytes, &run.manifest.store_backend);
+    push_str(&mut bytes, &run.manifest.store_backend_version);
+    push_str(&mut bytes, &run.manifest.runtime_version);
+    push_str(&mut bytes, &run.manifest.runtime_libraries_digest);
     push_str(&mut bytes, &run.manifest.storage_configuration_digest);
     push_str(&mut bytes, &run.manifest.test_plan_digest);
     push_str(&mut bytes, &run.manifest.runner_digest);
+    push_str(&mut bytes, &run.manifest.measurement_date);
+    bytes.push(detection_point_tag(run.manifest.detection_point));
+    bytes.push(observation_point_tag(run.manifest.observation_point));
+    bytes.push(u8::from(run.manifest.edits_applied_while_sut_stopped));
     bytes.push(u8::from(run.manifest.snapshot_restore_capable));
     bytes.push(u8::from(run.manifest.erasure_capable));
     bytes.push(control_tag(run.controls.no_op_reload));
