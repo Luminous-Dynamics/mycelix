@@ -197,10 +197,11 @@ impl OwnerCutV1 {
                 .checked_add(gap_len)
                 .ok_or(FrontierModelErrorV1::InvalidGap)?;
         }
-        if self.tree_size.checked_add(missing_count) != Some(self.sequence)
-            || self.tree_size == 0
-        {
+        if self.tree_size.checked_add(missing_count) != Some(self.sequence) {
             return Err(FrontierModelErrorV1::InvalidGap);
+        }
+        if self.tree_size == 0 && parse_digest(&self.root_digest)? != empty_tree_hash() {
+            return Err(FrontierModelErrorV1::InvalidDigest);
         }
         Ok(())
     }
@@ -208,6 +209,7 @@ impl OwnerCutV1 {
     /// Map an owner-local sequence to its zero-based committed leaf index.
     /// Returns None for a declared gap or a sequence outside this cut.
     pub fn leaf_index_for_sequence(&self, sequence: u64) -> Option<u64> {
+        self.validate().ok()?;
         if sequence == 0
             || sequence > self.sequence
             || self.gaps.iter().any(|gap| gap.first <= sequence && sequence <= gap.last)
@@ -984,18 +986,24 @@ mod tests {
     }
 
     #[test]
-    fn equal_owner_cuts_with_different_aggregate_root_are_unknown() {
+    fn altered_aggregate_root_without_a_valid_inclusion_path_is_rejected() {
         let a = frontier("frontier:a", vec![cut("owner:a", 10, 'a')]);
         let mut b = frontier("frontier:b", vec![cut("owner:a", 10, 'a')]);
         b.checkpoint_root_digest = digest('e');
         b.owner_cuts[0].checkpoint_inclusion.checkpoint_root_digest = digest('e');
-        assert_eq!(a.compare(&b, &[]), Ok(FrontierRelationV1::Unknown));
+        assert_eq!(
+            b.validate(),
+            Err(FrontierModelErrorV1::InvalidCheckpointProof)
+        );
+        assert!(a.validate().is_ok());
     }
 
     #[test]
     fn equal_sequence_with_different_root_is_a_fork_conflict() {
         let a = frontier("frontier:a", vec![cut("owner:a", 10, 'a')]);
-        let b = frontier("frontier:b", vec![cut("owner:a", 10, 'b')]);
+        let mut fork_cut = cut("owner:a", 10, 'a');
+        fork_cut.root_digest = digest('b');
+        let b = frontier("frontier:b", vec![fork_cut]);
         assert_eq!(a.compare(&b, &[]), Ok(FrontierRelationV1::Conflict));
     }
 
@@ -1045,9 +1053,11 @@ mod tests {
     #[test]
     fn gaps_make_inclusion_and_absence_indeterminate() {
         let mut owner_cut = cut("owner:grants", 10, 'a');
+        owner_cut.gaps.push(SequenceRangeV1 { first: 3, last: 4 });
+        owner_cut.tree_size = 8;
         let mut receipt = receipt(5, "owner:grants");
         attach_receipt_proof(&mut receipt, &mut owner_cut);
-        owner_cut.gaps.push(SequenceRangeV1 { first: 3, last: 4 });
+        assert_eq!(owner_cut.leaf_index_for_sequence(5), Some(2));
         let frontier = frontier("frontier:1", vec![owner_cut]);
         assert_eq!(
             frontier.classify_receipt(&receipt),
