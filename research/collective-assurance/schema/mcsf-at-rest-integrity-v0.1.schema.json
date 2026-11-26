@@ -170,7 +170,8 @@
         "applicability_reason",
         "attack_mutation_landed",
         "outcome",
-        "evidence_digest"
+        "evidence_digest",
+        "only_intended_change"
       ],
       "properties": {
         "test_case": {
@@ -228,6 +229,12 @@
             {
               "type": "null"
             }
+          ]
+        },
+        "only_intended_change": {
+          "type": [
+            "boolean",
+            "null"
           ]
         }
       }
