@@ -39,7 +39,7 @@ revocation event recorded now
 
 ### Scope
 
-A scope contains exact, non-empty unique principal, purpose and entity identifiers, a half-open validity interval `[valid_from_ms, valid_until_ms)`, and a positive retention deadline strictly later than `valid_from_ms`; a deadline at the start of validity leaves no usable interval and is rejected.
+A scope contains exact, non-empty unique principal, purpose and entity identifiers (no wildcard `*` and no leading/trailing whitespace), a half-open validity interval `[valid_from_ms, valid_until_ms)`, and a positive retention deadline strictly later than `valid_from_ms`; a deadline at the start of validity leaves no usable interval and is rejected.
 
 No semantic equivalence, inferred group membership, global role, wildcard, tenant alias, legal interpretation or external identity lookup is performed.
 
@@ -114,12 +114,12 @@ An INDETERMINATE result is not a pass for new protected use.
 
 ## Synthetic adversarial coverage
 
-The current Rust tests cover 15 cases, including:
+The current Rust tests cover 16 cases, including:
 - narrowed derivative and authorized use;
 - scope amplification without declassification;
 - exact declassification receipt binding and mutation of its policy fields;
 - canonical independent golden vectors for scope, declassification receipt, graph and snapshot digests;
-- retention/validity chronology;
+- retention/validity chronology and wildcard/non-canonical scope-ID rejection;
 - post-revocation use of a descendant blocked;
 - historical use before effective revocation;
 - incomplete revocation closure;
