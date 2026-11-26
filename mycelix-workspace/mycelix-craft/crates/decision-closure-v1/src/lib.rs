@@ -55,6 +55,9 @@ pub struct DecisionContextV1 {
     pub standard_digest: [u8; 32],
     /// Reviewer roles required to approve a material-element mapping.
     pub required_mapping_roles: Vec<MappingReviewerRoleV1>,
+    /// Minimum distinct reviewers required for each required role.
+    /// Set to 2 or more when independent mapping agreement is part of qualification.
+    pub minimum_reviewers_per_role: u16,
 }
 
 /// Why a material element is part of the conclusion's element structure.
@@ -393,7 +396,10 @@ pub fn validate_packet(packet: &DecisionClosurePacketV1) -> Result<(), DecisionC
     require_digest(&decision.authorized_corpus_digest)?;
     require_non_empty(&decision.standard_id)?;
     require_digest(&decision.standard_digest)?;
-    if decision.standard_revision == 0 || decision.required_mapping_roles.is_empty() {
+    if decision.standard_revision == 0
+        || decision.required_mapping_roles.is_empty()
+        || decision.minimum_reviewers_per_role == 0
+    {
         return Err(DecisionClosureErrorV1::InvalidRevision);
     }
     let mut required_roles = HashSet::new();
@@ -578,7 +584,13 @@ fn mapping_approved(
     }
 
     decision.required_mapping_roles.iter().all(|role| {
-        current.iter().any(|review| review.role == *role && review.decision == MappingReviewDecisionV1::Approve)
+        current
+            .iter()
+            .filter(|review| review.role == *role && review.decision == MappingReviewDecisionV1::Approve)
+            .map(|review| review.reviewer_id.as_str())
+            .collect::<HashSet<_>>()
+            .len()
+            >= decision.minimum_reviewers_per_role as usize
     })
 }
 
@@ -649,9 +661,7 @@ fn evaluate_mapping(
     while changed {
         changed = false;
         for element in &mapping.elements {
-            if status.get(element.element_id.as_str()) == Some(&ElementClosureStatusV1::Satisfied)
-                || status.get(element.element_id.as_str()) == Some(&ElementClosureStatusV1::NotApplicable)
-            {
+            if status.get(element.element_id.as_str()) == Some(&ElementClosureStatusV1::Satisfied) {
                 if element.depends_on.iter().any(|dependency| {
                     !matches!(
                         status.get(dependency.as_str()),
@@ -790,6 +800,7 @@ mod tests {
             standard_revision: 1,
             standard_digest: [5; 32],
             required_mapping_roles: vec![MappingReviewerRoleV1::DomainExpert],
+            minimum_reviewers_per_role: 1,
         }
     }
 
@@ -1011,6 +1022,63 @@ mod tests {
         mapping.mapping_digest = [12; 32];
         let result = validate_packet(&packet(vec![mapping]));
         assert_eq!(result, Err(DecisionClosureErrorV1::ReviewReferenceMismatch));
+    }
+
+    #[test]
+    fn mapping_quorum_requires_distinct_reviewers_per_role() {
+        let mut decision = decision();
+        decision.minimum_reviewers_per_role = 2;
+        let mut mapping = mapping(
+            "two-reviewers",
+            vec![element("required", Vec::new(), vec![support("good", SupportDispositionV1::DirectSupport)])],
+        );
+        mapping.reviews[0].reviewer_id = "reviewer-one".to_owned();
+        let mut packet = packet(vec![mapping]);
+        packet.decision = decision.clone();
+        assert_eq!(
+            evaluate_decision_closure(&packet, NOW).unwrap().disposition,
+            DecisionClosureDispositionV1::MappingReviewRequired
+        );
+
+        let second = MappingReviewV1 {
+            review_id: "review-two".to_owned(),
+            mapping_id: "two-reviewers".to_owned(),
+            mapping_digest: [9; 32],
+            reviewer_id: "reviewer-two".to_owned(),
+            role: MappingReviewerRoleV1::DomainExpert,
+            authority: authority("second-domain-expert"),
+            decision: MappingReviewDecisionV1::Approve,
+            reviewed_at: 21,
+            valid_until: Some(180),
+            withdrawn_at: None,
+        };
+        packet.mappings[0].reviews.push(second);
+        assert_eq!(
+            evaluate_decision_closure(&packet, NOW).unwrap().disposition,
+            DecisionClosureDispositionV1::Closed
+        );
+    }
+
+    #[test]
+    fn not_applicable_element_does_not_require_irrelevant_prerequisites() {
+        let mut excluded = element("conditional-exception", vec!["primary-rule".to_owned()], Vec::new());
+        excluded.applicability = ElementApplicabilityV1::NotApplicable {
+            decision_id: "exception-does-not-apply".to_owned(),
+            decision_digest: [19; 32],
+            authority: authority("exception-authority"),
+        };
+        let result = evaluate_decision_closure(
+            &packet(vec![mapping("not-applicable", vec![
+                element("primary-rule", Vec::new(), vec![support("rule", SupportDispositionV1::DirectSupport)]),
+                excluded,
+            ])]),
+            NOW,
+        ).unwrap();
+        assert_eq!(result.disposition, DecisionClosureDispositionV1::Closed);
+        assert_eq!(
+            result.mappings[0].elements[1].status,
+            ElementClosureStatusV1::NotApplicable
+        );
     }
 
     #[test]
