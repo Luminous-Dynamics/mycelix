@@ -10,6 +10,6 @@ test:
 check:
     cargo check --workspace
 
-# Run only the pure Rust governance and economic agreement reference cores
+# Run the pure Rust Craft reference policy cores
 core-test:
-    cargo test -p craft-guild-governance-v1 -p craft-economic-agreement-v1 -p craft-professional-assessment-authority-v1
+    cargo test -p craft-guild-governance-v1 -p craft-economic-agreement-v1 -p craft-professional-assessment-authority-v1 -p craft-project-formation-v1
