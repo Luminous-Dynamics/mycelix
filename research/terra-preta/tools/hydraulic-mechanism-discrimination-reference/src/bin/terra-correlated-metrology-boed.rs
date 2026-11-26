@@ -160,6 +160,16 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
     {
         return Err("observation correlation matrix has incorrect dimensions".into());
     }
+    for index in 0..fixture.channels.len() {
+        if (fixture.observation_correlation[index][index] - 1.0).abs() > 1.0e-12 {
+            return Err("observation correlation diagonal must equal one".into());
+        }
+        for column in 0..fixture.channels.len() {
+            if fixture.observation_correlation[index][column].abs() > 1.0 + 1.0e-12 {
+                return Err("observation correlation must lie within [-1, 1]".into());
+            }
+        }
+    }
     let _ = cholesky(&fixture.observation_correlation)?;
     Ok(())
 }
@@ -492,8 +502,16 @@ fn evaluate(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         .enumerate()
         .map(|(index, row)| row[index])
         .fold(f64::INFINITY, f64::min);
-    let duplicate_support_pair_rejected =
-        !supports_are_distinct(fixture, joint_first, joint_first);
+    let mut duplicate_support_fixture = fixture.clone();
+    duplicate_support_fixture.channels[1].support_id =
+        duplicate_support_fixture.channels[0].support_id.clone();
+    let duplicate_support_pair_rejected = expected_posterior_entropy(
+        &duplicate_support_fixture,
+        0,
+        1,
+        LikelihoodMode::JointCovariance,
+    )
+    .is_err();
 
     Ok(Report {
         schema_version: SCHEMA.into(),
@@ -644,6 +662,18 @@ mod tests {
                 vec![0.06, 0.04, 0.55, 1.0],
             ],
         }
+    }
+
+    #[test]
+    fn common_offset_nuisance_induces_the_expected_off_diagonal_covariance() {
+        let residual_variances = [0.04, 0.09];
+        let shared_offset_variance = 0.025;
+        let covariance = shared_offset_covariance(residual_variances, shared_offset_variance);
+        assert!((covariance[0][0] - 0.065).abs() < 1.0e-12);
+        assert!((covariance[1][1] - 0.115).abs() < 1.0e-12);
+        assert!((covariance[0][1] - 0.025).abs() < 1.0e-12);
+        assert!((covariance[1][0] - 0.025).abs() < 1.0e-12);
+        assert!(cholesky(&covariance).is_ok());
     }
 
     #[test]
