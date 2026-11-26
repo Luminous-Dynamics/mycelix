@@ -15,6 +15,7 @@ mod response_audit;
 mod support_policy;
 
 pub use teambench_adapter::{
+    compute_teambench_excluded_manifest_digest, compute_teambench_task_manifest_digest,
     qualify_teambench_suite, TeamBenchBoundaryObservation, TeamBenchCondition,
     TeamBenchConditionRun, TeamBenchExecutionBackend, TeamBenchExcludedTask, TeamBenchGraderDisposition,
     TeamBenchQualificationReport, TeamBenchRole, TeamBenchRoleBoundaryEvent,
