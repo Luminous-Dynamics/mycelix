@@ -260,7 +260,8 @@ pub fn evaluate_lineage(
     // Kahn's algorithm yields a deterministic parent-before-dependent traversal.
     let mut ready: BTreeSet<ArtifactKey> = indegree
         .iter()
-        .filter_map(|(node_key, count)| (*count == 0).then_some(node_key.clone()))
+        .filter(|(_, count)| **count == 0)
+        .map(|(node_key, _)| (*node_key).clone())
         .collect();
     let mut topological_order = Vec::with_capacity(node_map.len());
 
@@ -893,7 +894,8 @@ mod tests {
             let selected = possible_edges
                 .iter()
                 .enumerate()
-                .filter_map(|(index, edge)| ((mask & (1 << index)) != 0).then_some(*edge))
+                .filter(|(index, _)| (mask & (1 << *index)) != 0)
+                .map(|(_, edge)| *edge)
                 .collect::<Vec<_>>();
             let mut nodes = references
                 .iter()
