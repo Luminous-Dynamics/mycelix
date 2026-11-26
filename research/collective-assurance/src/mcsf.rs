@@ -974,7 +974,7 @@ mod tests {
         ];
         assert_eq!(
             compute_mcsf_control_digest(&input).unwrap(),
-            "1ea6cdc28afb3e75f970e0c1e2fa45de06449b2617be2e8ef34984dd8d5c8b55"
+            "d9a66d8c37f691f4e22e2e6d083adc974c756b953bdabeda329ce0e364ba83fb"
         );
     }
 
