@@ -13,8 +13,8 @@ import (
 const SparseMerkleDepthV1 = 256
 
 var (
-	sparseDomain = []byte("MYCELIX-EXPERIMENTAL-SMT-SHA256-V1\x00")
-	sparseKeyDomain = []byte("MYCELIX-ASSERTION-INDEX-KEY-V1\x00")
+	sparseDomain      = []byte("MYCELIX-EXPERIMENTAL-SMT-SHA256-V1\x00")
+	sparseKeyDomain   = []byte("MYCELIX-ASSERTION-INDEX-KEY-V1\x00")
 	sparseValueDomain = []byte("MYCELIX-ASSERTION-INDEX-VALUE-V1\x00")
 )
 
