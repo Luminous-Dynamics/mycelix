@@ -90,6 +90,8 @@ No output from this crate is a work order, construction permit, professional lic
 
 ## 7. Integration with existing practice
 
+Need Intake should align its downstream engineering requirements with ISO/IEC/IEEE 29148:2018 (the currently published edition as of 26 November 2026) and INCOSE's Guide to Writing Requirements V3.1, without claiming either as an implementation certification. ISO lists a third edition, ISO/IEC/IEEE DIS 29148, as a draft international standard under enquiry in 2026; it is not yet the published normative edition.
+
 Need Intake is not a replacement for participatory-democracy platforms or requirements-management suites.
 
 - Decidim and CONSUL already support citizen proposals, deliberation, voting/prioritization, participatory budgeting and accountability for the implementation of selected projects. They should remain possible interfaces for the expression and ratification of community intent.
@@ -116,7 +118,7 @@ V1 explicitly considers:
 
 The host remains responsible for authentication, access control, privacy, canonical serialization, cryptographic commitments, local policy and replay resistance.
 
-## 9. Qualification
+## 10. Qualification
 
 The reference core must pass exact-head format, compile, tests and Clippy. Before production:
 1. Build a frozen dataset of community need statements with expert-reviewed claim and provenance annotations.
