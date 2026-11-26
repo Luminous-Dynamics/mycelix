@@ -21,8 +21,7 @@ fn main() {
     let new_root = tree_hash(&version_two).expect("new tree hash");
 
     let receipt_index = 4_u64;
-    let receipt_proof =
-        inclusion_proof(&version_two, receipt_index).expect("inclusion proof");
+    let receipt_proof = inclusion_proof(&version_two, receipt_index).expect("inclusion proof");
     verify_entry_inclusion_proof(
         &version_two[receipt_index as usize],
         receipt_index,
@@ -33,8 +32,7 @@ fn main() {
     .expect("receipt inclusion verifies");
 
     let extension_proof =
-        consistency_proof(&version_two, version_one.len() as u64)
-            .expect("consistency proof");
+        consistency_proof(&version_two, version_one.len() as u64).expect("consistency proof");
     verify_consistency_proof(
         version_one.len() as u64,
         &old_root,
