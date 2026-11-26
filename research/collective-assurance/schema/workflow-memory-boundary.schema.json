@@ -4,134 +4,472 @@
   "title": "Task-Conditioned Workflow Memory Boundary Pair v0.1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["pair_id", "challenge", "clean", "polluted"],
+  "required": [
+    "pair_id",
+    "challenge",
+    "clean",
+    "polluted"
+  ],
   "properties": {
-    "pair_id": { "type": "string", "minLength": 1 },
-    "challenge": { "$ref": "#/$defs/challenge" },
-    "clean": { "$ref": "#/$defs/run" },
-    "polluted": { "$ref": "#/$defs/run" }
+    "pair_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "challenge": {
+      "$ref": "#/$defs/challenge"
+    },
+    "clean": {
+      "$ref": "#/$defs/run"
+    },
+    "polluted": {
+      "$ref": "#/$defs/run"
+    }
   },
   "$defs": {
-    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
     "identity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["benchmark_id","benchmark_version","benchmark_certificate_digest","split_digest","workflow_id","task_digest","source_group_id","workflow_graph_digest","model_snapshot_digest","toolchain_digest","executor_digest","scorer_digest","evaluator_digest","inference_plan_digest","random_seed_digest","context_budget_tokens","output_budget_tokens","compute_budget_microusd","wall_clock_budget_ms","memory_budget_bytes"],
+      "required": [
+        "benchmark_id",
+        "benchmark_version",
+        "benchmark_certificate_digest",
+        "split_digest",
+        "workflow_id",
+        "topology_id",
+        "task_digest",
+        "source_group_id",
+        "workflow_graph_digest",
+        "model_snapshot_digest",
+        "toolchain_digest",
+        "executor_digest",
+        "scorer_digest",
+        "evaluator_digest",
+        "inference_plan_digest",
+        "random_seed_digest",
+        "context_budget_tokens",
+        "output_budget_tokens",
+        "compute_budget_microusd",
+        "wall_clock_budget_ms",
+        "memory_budget_bytes"
+      ],
       "properties": {
-        "benchmark_id": { "type": "string", "minLength": 1 },
-        "benchmark_version": { "type": "string", "minLength": 1 },
-        "benchmark_certificate_digest": { "$ref": "#/$defs/digest" },
-        "split_digest": { "$ref": "#/$defs/digest" },
-        "workflow_id": { "type": "string", "minLength": 1 },
-        "task_digest": { "$ref": "#/$defs/digest" },
-        "source_group_id": { "type": "string", "minLength": 1 },
-        "workflow_graph_digest": { "$ref": "#/$defs/digest" },
-        "model_snapshot_digest": { "$ref": "#/$defs/digest" },
-        "toolchain_digest": { "$ref": "#/$defs/digest" },
-        "executor_digest": { "$ref": "#/$defs/digest" },
-        "scorer_digest": { "$ref": "#/$defs/digest" },
-        "evaluator_digest": { "$ref": "#/$defs/digest" },
-        "inference_plan_digest": { "$ref": "#/$defs/digest" },
-        "random_seed_digest": { "$ref": "#/$defs/digest" },
-        "context_budget_tokens": { "type": "integer", "minimum": 1 },
-        "output_budget_tokens": { "type": "integer", "minimum": 1 },
-        "compute_budget_microusd": { "type": "integer", "minimum": 1 },
-        "wall_clock_budget_ms": { "type": "integer", "minimum": 1 },
-        "memory_budget_bytes": { "type": "integer", "minimum": 1 }
+        "benchmark_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "benchmark_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "benchmark_certificate_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "split_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "workflow_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "task_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "source_group_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "workflow_graph_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "model_snapshot_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "toolchain_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "executor_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "scorer_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "evaluator_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "inference_plan_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "random_seed_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "context_budget_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "output_budget_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "compute_budget_microusd": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "wall_clock_budget_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "memory_budget_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "topology_id": {
+          "type": "string",
+          "enum": [
+            "chain",
+            "split_join",
+            "reuse",
+            "overlap",
+            "bounded_revision",
+            "mixed",
+            "custom"
+          ]
+        }
       }
     },
     "node": {
-      "type": "object", "additionalProperties": false,
-      "required": ["node_id","task_digest"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_id",
+        "task_digest"
+      ],
       "properties": {
-        "node_id": { "type": "string", "minLength": 1 },
-        "task_digest": { "$ref": "#/$defs/digest" }
+        "node_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "task_digest": {
+          "$ref": "#/$defs/digest"
+        }
       }
     },
     "contract": {
-      "type": "object", "additionalProperties": false,
-      "required": ["edge_id","producer_node_id","consumer_node_id","artifact_type","entity_scope_digest","required_version","verification_required","required"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "edge_id",
+        "producer_node_id",
+        "consumer_node_id",
+        "artifact_type",
+        "entity_scope_digest",
+        "required_version",
+        "verification_required",
+        "required"
+      ],
       "properties": {
-        "edge_id": { "type": "string", "minLength": 1 },
-        "producer_node_id": { "type": "string", "minLength": 1 },
-        "consumer_node_id": { "type": "string", "minLength": 1 },
-        "artifact_type": { "type": "string", "minLength": 1 },
-        "entity_scope_digest": { "$ref": "#/$defs/digest" },
-        "required_version": { "type": "integer", "minimum": 1 },
-        "verification_required": { "type": "boolean" },
-        "required": { "type": "boolean" }
+        "edge_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "producer_node_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "consumer_node_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entity_scope_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "required_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "verification_required": {
+          "type": "boolean"
+        },
+        "required": {
+          "type": "boolean"
+        }
       }
     },
     "artifact": {
-      "type": "object", "additionalProperties": false,
-      "required": ["artifact_id","payload_digest","producer_node_id","artifact_type","entity_scope_digest","version","lifecycle","verification","verification_receipt_digest","operation_state"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "payload_digest",
+        "producer_node_id",
+        "artifact_type",
+        "entity_scope_digest",
+        "version",
+        "lifecycle",
+        "verification",
+        "verification_receipt_digest",
+        "operation_state"
+      ],
       "properties": {
-        "artifact_id": { "type": "string", "minLength": 1 },
-        "payload_digest": { "$ref": "#/$defs/digest" },
-        "producer_node_id": { "type": "string", "minLength": 1 },
-        "artifact_type": { "type": "string", "minLength": 1 },
-        "entity_scope_digest": { "$ref": "#/$defs/digest" },
-        "version": { "type": "integer", "minimum": 1 },
-        "lifecycle": { "enum": ["Current","Superseded"] },
-        "verification": { "enum": ["Verified","Unverified","Rejected","Unknown"] },
-        "verification_receipt_digest": { "$ref": "#/$defs/optional_digest" },
-        "operation_state": { "enum": ["NotOperation","Pending","Completed"] }
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "producer_node_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entity_scope_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lifecycle": {
+          "enum": [
+            "Current",
+            "Superseded"
+          ]
+        },
+        "verification": {
+          "enum": [
+            "Verified",
+            "Unverified",
+            "Rejected",
+            "Unknown"
+          ]
+        },
+        "verification_receipt_digest": {
+          "$ref": "#/$defs/optional_digest"
+        },
+        "operation_state": {
+          "enum": [
+            "NotOperation",
+            "Pending",
+            "Completed"
+          ]
+        }
       }
     },
     "optional_digest": {
-      "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }]
+      "oneOf": [
+        {
+          "$ref": "#/$defs/digest"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "exposure": {
-      "type": "object", "additionalProperties": false,
-      "required": ["exposure_id","consumer_node_id","artifact_id","reported_operation_state","disposition","exposure_receipt_digest","effect_receipt_digest"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exposure_id",
+        "consumer_node_id",
+        "artifact_id",
+        "reported_operation_state",
+        "disposition",
+        "exposure_receipt_digest",
+        "effect_receipt_digest"
+      ],
       "properties": {
-        "exposure_id": { "type": "string", "minLength": 1 },
-        "consumer_node_id": { "type": "string", "minLength": 1 },
-        "artifact_id": { "type": "string", "minLength": 1 },
-        "reported_operation_state": { "enum": ["NotOperation","Pending","Completed"] },
-        "disposition": { "enum": ["Consumed","RejectedInapplicable","RejectedStale","RejectedUnverified","RejectedWrongEntity","RejectedWrongBranch","RejectedCompletedAsPending","Unknown"] },
-        "exposure_receipt_digest": { "$ref": "#/$defs/digest" },
-        "effect_receipt_digest": { "$ref": "#/$defs/optional_digest" }
+        "exposure_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "consumer_node_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reported_operation_state": {
+          "enum": [
+            "NotOperation",
+            "Pending",
+            "Completed"
+          ]
+        },
+        "disposition": {
+          "enum": [
+            "Consumed",
+            "RejectedInapplicable",
+            "RejectedStale",
+            "RejectedUnverified",
+            "RejectedWrongEntity",
+            "RejectedWrongBranch",
+            "RejectedCompletedAsPending",
+            "Unknown"
+          ]
+        },
+        "exposure_receipt_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "effect_receipt_digest": {
+          "$ref": "#/$defs/optional_digest"
+        }
       }
     },
     "node_outcome": {
-      "type": "object", "additionalProperties": false,
-      "required": ["node_id","verified_complete","node_execution_receipt_digest"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_id",
+        "verified_complete",
+        "node_execution_receipt_digest"
+      ],
       "properties": {
-        "node_id": { "type": "string", "minLength": 1 },
-        "verified_complete": { "type": "boolean" },
-        "node_execution_receipt_digest": { "$ref": "#/$defs/digest" }
+        "node_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verified_complete": {
+          "type": "boolean"
+        },
+        "node_execution_receipt_digest": {
+          "$ref": "#/$defs/digest"
+        }
       }
     },
     "run": {
-      "type": "object", "additionalProperties": false,
-      "required": ["run_id","identity","nodes","handoff_contracts","artifacts","exposures","node_outcomes","terminal_success","execution_receipt_digest","exposure_trace_receipt_digest","evaluator_receipt_digest","latency_ms","total_cost_microusd","input_tokens","output_tokens"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "identity",
+        "nodes",
+        "handoff_contracts",
+        "artifacts",
+        "exposures",
+        "node_outcomes",
+        "terminal_success",
+        "execution_receipt_digest",
+        "exposure_trace_receipt_digest",
+        "evaluator_receipt_digest",
+        "latency_ms",
+        "total_cost_microusd",
+        "input_tokens",
+        "output_tokens"
+      ],
       "properties": {
-        "run_id": { "type": "string", "minLength": 1 },
-        "identity": { "$ref": "#/$defs/identity" },
-        "nodes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/node" } },
-        "handoff_contracts": { "type": "array", "items": { "$ref": "#/$defs/contract" } },
-        "artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact" } },
-        "exposures": { "type": "array", "items": { "$ref": "#/$defs/exposure" } },
-        "node_outcomes": { "type": "array", "items": { "$ref": "#/$defs/node_outcome" } },
-        "terminal_success": { "type": "boolean" },
-        "execution_receipt_digest": { "$ref": "#/$defs/digest" },
-        "exposure_trace_receipt_digest": { "$ref": "#/$defs/digest" },
-        "evaluator_receipt_digest": { "$ref": "#/$defs/digest" },
-        "latency_ms": { "type": "integer", "minimum": 0 },
-        "total_cost_microusd": { "type": "integer", "minimum": 0 },
-        "input_tokens": { "type": "integer", "minimum": 0 },
-        "output_tokens": { "type": "integer", "minimum": 0 }
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "handoff_contracts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/contract"
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          }
+        },
+        "exposures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/exposure"
+          }
+        },
+        "node_outcomes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node_outcome"
+          }
+        },
+        "terminal_success": {
+          "type": "boolean"
+        },
+        "execution_receipt_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "exposure_trace_receipt_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "evaluator_receipt_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "latency_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_cost_microusd": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "challenge": {
-      "type": "object", "additionalProperties": false,
-      "required": ["challenge_id","target_consumer_node_id","polluted_artifact_id","operator"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "challenge_id",
+        "target_consumer_node_id",
+        "polluted_artifact_id",
+        "operator"
+      ],
       "properties": {
-        "challenge_id": { "type": "string", "minLength": 1 },
-        "target_consumer_node_id": { "type": "string", "minLength": 1 },
-        "polluted_artifact_id": { "type": "string", "minLength": 1 },
-        "operator": { "enum": ["SiblingCrosswire","IncompatiblePayload","UnverifiedResult","CompletedAsPending","WrongEntity","StaleVersion"] }
+        "challenge_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_consumer_node_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "polluted_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operator": {
+          "enum": [
+            "SiblingCrosswire",
+            "IncompatiblePayload",
+            "UnverifiedResult",
+            "CompletedAsPending",
+            "WrongEntity",
+            "StaleVersion"
+          ]
+        }
       }
     }
   }
