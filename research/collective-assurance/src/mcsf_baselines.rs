@@ -110,9 +110,9 @@ impl Bm25Adapter {
 
 fn tokenize(value: &str) -> Vec<String> {
     value
-        .split(|character: char| !character.is_ascii_alphanumeric())
+        .split(|character: char| !character.is_alphanumeric())
         .filter(|token| !token.is_empty())
-        .map(|token| token.to_ascii_lowercase())
+        .map(str::to_lowercase)
         .collect()
 }
 
@@ -345,6 +345,25 @@ mod tests {
         let adapter = Bm25Adapter::default();
         assert!(adapter.search(&records(), "privacy", 0).is_err());
         assert!(adapter.search(&records(), "!!!", 10).is_err());
+    }
+
+    #[test]
+    fn bm25_tokenizer_supports_non_ascii_words() {
+        let records = vec![
+            McsfMemoryRecord {
+                memory_id: "zulu".into(),
+                content: "ukuvikelwa kwedatha nokwabelana kolwazi".into(),
+            },
+            McsfMemoryRecord {
+                memory_id: "sesotho".into(),
+                content: "tšireletso ea tsebo le boinotši".into(),
+            },
+        ];
+        let adapter = Bm25Adapter::default();
+        let zulu = adapter.search(&records, "ukuvikelwa kwedatha", 10).unwrap();
+        let sesotho = adapter.search(&records, "tšireletso boinotši", 10).unwrap();
+        assert_eq!(zulu.first().map(|hit| hit.memory_id.as_str()), Some("zulu"));
+        assert_eq!(sesotho.first().map(|hit| hit.memory_id.as_str()), Some("sesotho"));
     }
 
     #[test]
