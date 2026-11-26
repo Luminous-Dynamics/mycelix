@@ -805,7 +805,11 @@ impl Accumulator {
             let bin = &mut self.reliability_bins[family_index][bin_index];
             bin.count += 1;
             bin.predicted_sum += probability;
-            bin.observed_sum += if family_index == true_family { 1.0 } else { 0.0 };
+            bin.observed_sum += if family_index == true_family {
+                1.0
+            } else {
+                0.0
+            };
         }
     }
 
