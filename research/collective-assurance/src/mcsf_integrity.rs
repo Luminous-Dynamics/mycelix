@@ -175,6 +175,8 @@ pub struct McsfIntegrityObservation {
     pub applicability_reason: Option<String>,
     /// C3: independent raw-store comparison confirms the intended edit landed.
     pub attack_mutation_landed: Option<bool>,
+    /// Independent comparison confirms no unintended store edits accompanied C3.
+    pub only_intended_change: Option<bool>,
     pub outcome: Option<McsfIntegrityOutcome>,
     /// SHA-256 digest of the raw-store comparison and SUT read-path evidence.
     pub evidence_digest: Option<String>,
@@ -384,6 +386,13 @@ pub fn compute_mcsf_integrity_run_digest(run: &McsfIntegrityRun) -> Result<Strin
             observation.applicability_reason.as_deref(),
         );
         match observation.attack_mutation_landed {
+            Some(value) => {
+                bytes.push(1);
+                bytes.push(u8::from(value));
+            }
+            None => bytes.push(0),
+        }
+        match observation.only_intended_change {
             Some(value) => {
                 bytes.push(1);
                 bytes.push(u8::from(value));
@@ -631,31 +640,50 @@ pub fn qualify_mcsf_integrity_run(
                     increment_profile(&mut profiles, case, ProfileIncrement::Unevaluable);
                     continue;
                 }
-                match observation.attack_mutation_landed {
-                    Some(true) => {}
-                    Some(false) => {
-                        if observation.outcome.is_some() {
-                            qualification.fail(format!(
-                                "{} supplies an outcome although C3 says the edit did not land",
-                                case.code()
-                            ));
-                            metric_evaluable = false;
-                            increment_profile(&mut profiles, case, ProfileIncrement::InvalidEditNotLanded);
-                        } else {
-                            counts.4 += 1;
-                            increment_profile(&mut profiles, case, ProfileIncrement::EditNotLanded);
-                        }
-                        continue;
-                    }
-                    None => {
-                        qualification.indeterminate(format!(
-                            "{} C3 edit-landed control is missing",
+                let (Some(mutation_landed), Some(only_intended_change)) = (
+                    observation.attack_mutation_landed,
+                    observation.only_intended_change,
+                ) else {
+                    qualification.indeterminate(format!(
+                        "{} C3 edit-landed or no-extra-mutation evidence is missing",
+                        case.code()
+                    ));
+                    metric_evaluable = false;
+                    increment_profile(&mut profiles, case, ProfileIncrement::Unevaluable);
+                    continue;
+                };
+
+                if !only_intended_change {
+                    qualification.indeterminate(format!(
+                        "{} C3 shows unintended additional store mutations",
+                        case.code()
+                    ));
+                    metric_evaluable = false;
+                    increment_profile(&mut profiles, case, ProfileIncrement::Unevaluable);
+                    continue;
+                }
+
+                if !mutation_landed {
+                    if observation.outcome.is_some() {
+                        qualification.fail(format!(
+                            "{} supplies an outcome although C3 says the intended edit did not land",
                             case.code()
                         ));
                         metric_evaluable = false;
-                        increment_profile(&mut profiles, case, ProfileIncrement::Unevaluable);
-                        continue;
+                        increment_profile(
+                            &mut profiles,
+                            case,
+                            ProfileIncrement::InvalidEditNotLanded,
+                        );
+                    } else {
+                        counts.4 += 1;
+                        increment_profile(
+                            &mut profiles,
+                            case,
+                            ProfileIncrement::EditNotLanded,
+                        );
                     }
+                    continue;
                 }
 
                 let Some(outcome) = observation.outcome else {
@@ -775,6 +803,7 @@ mod tests {
             applicability: McsfIntegrityApplicability::Applicable,
             applicability_reason: None,
             attack_mutation_landed: Some(true),
+            only_intended_change: Some(true),
             outcome: Some(McsfIntegrityOutcome::RejectedAtRead),
             evidence_digest: Some(digest(case_tag(case))),
         }
@@ -905,6 +934,7 @@ mod tests {
     fn c3_edit_that_did_not_land_is_excluded_not_scored_as_a_pass() {
         let mut observations = all_cases();
         observations[4].attack_mutation_landed = Some(false);
+        observations[4].only_intended_change = Some(true);
         observations[4].outcome = None;
         let run = run_with(observations, passing_controls(), true, true);
         let report = qualify_mcsf_integrity_run(&run);
@@ -923,6 +953,7 @@ mod tests {
             observations[index].applicability_reason =
                 Some("This SUT does not support snapshot restore or erasure".to_owned());
             observations[index].attack_mutation_landed = None;
+            observations[index].only_intended_change = None;
             observations[index].outcome = None;
             observations[index].evidence_digest = Some(digest(30 + index as u8));
         }
@@ -969,6 +1000,21 @@ mod tests {
             QualificationStatus::Indeterminate
         );
         assert!(missing_report.overall_score_micros.is_none());
+    }
+
+    #[test]
+    fn c3_with_unintended_extra_mutation_is_not_a_security_score() {
+        let mut observations = all_cases();
+        observations[2].only_intended_change = Some(false);
+        let run = run_with(observations, passing_controls(), true, true);
+        let report = qualify_mcsf_integrity_run(&run);
+
+        assert_eq!(
+            report.qualification.status,
+            QualificationStatus::Indeterminate
+        );
+        assert!(!report.metric_evaluable);
+        assert!(report.overall_score_micros.is_none());
     }
 
     #[test]
