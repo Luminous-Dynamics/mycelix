@@ -468,13 +468,13 @@ jobs:
         run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
       - name: Check formatting
         working-directory: mycelix-workspace/mycelix-craft
-        run: cargo fmt --check -p craft-guild-governance-v1 -p craft-economic-agreement-v1
+        run: cargo fmt --check -p craft-guild-governance-v1 -p craft-economic-agreement-v1 -p craft-professional-assessment-authority-v1
       - name: Test reference cores
         working-directory: mycelix-workspace/mycelix-craft
-        run: cargo test -p craft-guild-governance-v1 -p craft-economic-agreement-v1
+        run: cargo test -p craft-guild-governance-v1 -p craft-economic-agreement-v1 -p craft-professional-assessment-authority-v1
       - name: Clippy reference cores
         working-directory: mycelix-workspace/mycelix-craft
-        run: cargo clippy -p craft-guild-governance-v1 -p craft-economic-agreement-v1 --all-targets -- -D warnings
+        run: cargo clippy -p craft-guild-governance-v1 -p craft-economic-agreement-v1 -p craft-professional-assessment-authority-v1 --all-targets -- -D warnings
 
   # Craft's browser UI is a root-workspace package, separate from its zome workspace.
   test-craft-ui:
