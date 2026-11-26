@@ -114,6 +114,7 @@ fn main() {
     let mut receipt = KnowledgeReceiptV1 {
         receipt_id: "receipt:grant-revocation:5".into(),
         verifier_ref: VERIFIER.into(),
+        policy_epoch_ref: POLICY.into(),
         assertion_id: "assertion:grant-revocation".into(),
         assertion_digest: format!("sha256:{}", "b".repeat(64)),
         owner_ref: "owner:grants".into(),
@@ -194,6 +195,33 @@ fn main() {
     println!(
         "receipt_with_gap={:?}",
         incomplete.classify_receipt(&incomplete_receipt)
+    );
+    println!(
+        "prefix_has_no_declared_gaps={}",
+        incomplete.prefix_has_no_declared_gaps("owner:grants", 20)
+    );
+
+    let mut gap_receipt = KnowledgeReceiptV1 {
+        receipt_id: "receipt:missing-sequence-3".into(),
+        verifier_ref: VERIFIER.into(),
+        policy_epoch_ref: POLICY.into(),
+        assertion_id: "assertion:missing-sequence-3".into(),
+        assertion_digest: format!("sha256:{}", "c".repeat(64)),
+        owner_ref: "owner:grants".into(),
+        owner_sequence: 3,
+        causal_dependencies: Vec::new(),
+        receipt_digest: String::new(),
+        inclusion: None,
+    };
+    gap_receipt.receipt_digest = format!(
+        "sha256:{}",
+        hex(&sha2_digest(
+            &canonical_knowledge_receipt_entry_v1(&gap_receipt).unwrap()
+        ))
+    );
+    println!(
+        "receipt_at_declared_gap={:?}",
+        incomplete.classify_receipt(&gap_receipt)
     );
 
     assert_eq!(
