@@ -34,6 +34,18 @@ The test suite includes analytic constant- and falling-head round trips, multipl
 
 These equations do not represent tension infiltrometers, Guelph/Aardvark permeameters, unsaturated transient redistribution, anisotropy, sidewall leakage, or heterogeneous core-scale flow. Those require separate observation operators and cannot be admitted by relabelling the protocol to constant/falling head.
 
+## Local observation Jacobians
+
+Each receipt now includes a local sensitivity record with a shared parameter identity, observed-quantity identity, observed value, derivative with respect to log hydraulic conductivity, derivative units, and dimensionless log-elasticity.
+
+For constant-head flow:
+`Q(K) = K A \Delta h / L`, so `dQ/d(log K) = Q` and `d(log Q)/d(log K) = 1`.
+
+For falling-head final level:
+`h_1(K) = h_0 exp(-K A t/(a L))`, so `dh_1/d(log K) = h_1 log(h_1/h_0)` and the log-elasticity is `log(h_1/h_0)`.
+
+The two analytic Jacobians are checked against central finite differences in log-K coordinates over multiple conductivity scales. They are local derivatives of the declared idealized lab operators; no noise model or Fisher information is fabricated when instrument uncertainty is absent from the input.
+
 ## Run
 
 ```bash
