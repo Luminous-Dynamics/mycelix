@@ -1330,7 +1330,7 @@ fn timestamp_matches_precision(value: &NormalizedTime, precision: TemporalPrecis
     match precision {
         TemporalPrecisionV1::Day => {
             hour == 0 && minute == 0 && second == 0 && value.fractional_digits == 0
-        },
+        }
         TemporalPrecisionV1::Minute => second == 0 && value.fractional_digits == 0,
         TemporalPrecisionV1::Second => value.fractional_digits == 0,
         TemporalPrecisionV1::Millisecond => value.fractional_digits == 3,
