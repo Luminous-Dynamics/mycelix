@@ -999,6 +999,7 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
         && report.qualification.status == QualificationStatus::Pass;
     report.os_isolation_eligible = suite.run_mode == TeamBenchRunMode::ModelEvaluation
         && report.condition_count == TeamBenchCondition::all().len()
+        && conditions.len() == TeamBenchCondition::all().len()
         && TeamBenchCondition::all().iter().all(|condition| {
             conditions.get(condition).is_some_and(|run| {
                 run.execution_backend == TeamBenchExecutionBackend::DockerContainerIsolation
@@ -1246,8 +1247,8 @@ mod tests {
         let mut input = suite();
         input.condition_runs[0].execution_backend = TeamBenchExecutionBackend::Unknown;
         let report = qualify_teambench_suite(&input);
-        assert_eq!(report.qualification.status, QualificationStatus::Indeterminate);
-        assert!(!report.benchmark_score_eligible);
+        assert_eq!(report.qualification.status, QualificationStatus::Pass);
+        assert!(report.benchmark_score_eligible);
         assert!(!report.os_isolation_eligible);
     }
 
@@ -1429,7 +1430,9 @@ mod tests {
         let event = &mut input.condition_runs[0].tasks[0].role_boundary_events[0];
         event.observed = TeamBenchBoundaryObservation::Allowed;
         let report = qualify_teambench_suite(&input);
-        assert_eq!(report.qualification.status, QualificationStatus::Fail);
+        assert_eq!(report.qualification.status, QualificationStatus::Pass);
+        assert!(report.benchmark_score_eligible);
+        assert!(!report.role_enforcement_eligible);
         assert_eq!(report.role_boundary_violation_count, 1);
     }
 
@@ -1440,7 +1443,10 @@ mod tests {
         input.condition_runs[0].tasks[0].role_boundary_events[0].observed =
             TeamBenchBoundaryObservation::Unknown;
         let report = qualify_teambench_suite(&input);
-        assert_eq!(report.qualification.status, QualificationStatus::Indeterminate);
+        assert_eq!(report.qualification.status, QualificationStatus::Pass);
+        assert!(report.benchmark_score_eligible);
+        assert!(!report.role_boundary_evidence_complete);
+        assert!(!report.role_enforcement_eligible);
         assert!(report.role_boundary_unknown_count > 0);
     }
 
@@ -1477,14 +1483,15 @@ mod tests {
     }
 
     #[test]
-    fn missing_verifier_judgement_is_indeterminate() {
+    fn missing_verifier_judgement_does_not_invalidate_native_score() {
         let mut input = suite();
         let run = input.condition_runs.iter_mut()
             .find(|r| r.condition == TeamBenchCondition::Full).unwrap();
         run.tasks[0].verifier_disposition = None;
-        assert_eq!(
-            qualify_teambench_suite(&input).qualification.status,
-            QualificationStatus::Indeterminate
-        );
+        let report = qualify_teambench_suite(&input);
+        assert_eq!(report.qualification.status, QualificationStatus::Pass);
+        assert!(report.benchmark_score_eligible);
+        assert!(!report.verifier_evidence_complete);
+        assert_eq!(report.verifier_evidence_missing_count, 1);
     }
 }
