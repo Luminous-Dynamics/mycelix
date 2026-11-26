@@ -65,6 +65,7 @@ This is a conservative out-of-family alarm under the declared independent Gaussi
 - The closed-set discrepancy detector accepts in-family observations and abstains when the best candidate mechanism exceeds the preregistered four-sigma residual threshold.
 - Malformed or non-finite observed vectors fail closed.
 - The exact-cost uniform baseline must have normalized portfolio probabilities and ordered quantiles.
+- Decision EVSI must be positive for an informative action/loss matrix and exactly zero when every available action has an identical state-contingent loss vector.
 - The Gaussian quadrature rule must integrate its normalization, first moment and second moment.
 
 ## Research comparators and next ladder
