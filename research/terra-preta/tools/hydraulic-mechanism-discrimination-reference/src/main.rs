@@ -276,7 +276,7 @@ fn posterior_probabilities(
         .collect()
 }
 
-fn predictive_information_gain(fixture: &Fixture, posterior: &[f64]) -> f64 {
+fn posterior_predictive_mutual_information(fixture: &Fixture, posterior: &[f64]) -> f64 {
     let mut information = 0.0;
     for (true_index, mechanism) in fixture.mechanisms.iter().enumerate() {
         for (node, quadrature_weight) in GH_NODES.iter().zip(GH_WEIGHTS.iter()) {
@@ -386,7 +386,7 @@ fn expected_metrics(fixture: &Fixture, selected: &[usize]) -> ExpectedMetrics {
             expected_log_loss +=
                 mass * -posterior[true_index].max(f64::MIN_POSITIVE).ln();
             expected_predictive_information +=
-                mass * predictive_information_gain(fixture, &posterior);
+                mass * posterior_predictive_mutual_information(fixture, &posterior);
         };
 
         integrate_observation_grid(
@@ -406,7 +406,10 @@ fn expected_metrics(fixture: &Fixture, selected: &[usize]) -> ExpectedMetrics {
         expected_classification_accuracy: expected_accuracy,
         expected_brier_score: expected_brier,
         expected_log_loss,
-        expected_predictive_information_gain: expected_predictive_information,
+        // I(Y_design; Y*) = I(M; Y*) - E[I(M; Y* | Y_design)].
+        expected_predictive_information_gain: (posterior_predictive_mutual_information(fixture, &prior)
+            - expected_predictive_information)
+            .max(0.0),
     }
 }
 
@@ -678,6 +681,11 @@ mod tests {
             report.model_discrimination_design.candidate_ids
                 != report.parameter_precision_design.candidate_ids
         );
+        assert_eq!(
+            report.predictive_design.candidate_ids,
+            vec!["early_transient_flow", "upper_path_flow"]
+        );
+        assert!(report.predictive_design.expected_predictive_information_gain_nats > 0.0);
     }
 
     #[test]
