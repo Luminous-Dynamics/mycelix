@@ -30,16 +30,22 @@ fn valid_commit(value: &str) -> bool {
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum TeamBenchCondition {
-    Solo,
+    Oracle,
     Restricted,
+    TeamNoVerify,
+    TeamNoPlan,
     Full,
-    NoPlan,
-    NoEval,
 }
 
 impl TeamBenchCondition {
     fn all() -> [Self; 5] {
-        [Self::Solo, Self::Restricted, Self::Full, Self::NoPlan, Self::NoEval]
+        [
+            Self::Oracle,
+            Self::Restricted,
+            Self::TeamNoVerify,
+            Self::TeamNoPlan,
+            Self::Full,
+        ]
     }
 }
 
@@ -53,6 +59,8 @@ pub enum TeamBenchRunMode {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TeamBenchRole {
+    Oracle,
+    Restricted,
     Planner,
     Executor,
     Verifier,
@@ -117,7 +125,9 @@ pub struct TeamBenchTaskObservation {
     /// Commitment to the native deterministic grader output.
     pub native_grader_output_digest: Option<String>,
     pub native_grader_disposition: Option<TeamBenchGraderDisposition>,
-    /// None means absent or not captured; condition-level verifier_present disambiguates.
+    /// Native TeamBench partial score in millionths on the [0, 1] scale.
+    pub native_score_micros: Option<u32>,
+    /// None means absent or not captured; role inventory disambiguates.
     pub verifier_disposition: Option<TeamBenchVerifierDisposition>,
     pub role_boundary_events: Vec<TeamBenchRoleBoundaryEvent>,
 }
@@ -130,7 +140,8 @@ pub struct TeamBenchConditionRun {
     pub role_profile_digest: String,
     pub raw_result_manifest_digest: String,
     pub agent_count: u32,
-    pub verifier_present: bool,
+    /// Exact role inventory enabled by the pinned upstream condition.
+    pub roles: Vec<TeamBenchRole>,
     /// False is an explicit incomplete observer inventory, not zero events.
     pub role_boundary_inventory_complete: bool,
     pub tasks: Vec<TeamBenchTaskObservation>,
@@ -173,6 +184,8 @@ pub struct TeamBenchQualificationReport {
     pub condition_count: usize,
     pub eligible_task_count: usize,
     pub task_observation_count: usize,
+    /// Mean native partial score in millionths, keyed by official condition.
+    pub mean_score_micros_by_condition: BTreeMap<TeamBenchCondition, u32>,
     pub grader_pass_count: usize,
     pub grader_fail_count: usize,
     pub grader_unknown_count: usize,
@@ -199,9 +212,10 @@ fn valid_optional_digest(value: Option<&str>) -> bool {
 
 fn qualify_task(
     task: &TeamBenchTaskObservation,
-    verifier_present: bool,
+    roles: &[TeamBenchRole],
     report: &mut TeamBenchQualificationReport,
 ) {
+    let verifier_present = roles.contains(&TeamBenchRole::Verifier);
     match task.state {
         TeamBenchTaskState::Evaluated => {
             if !valid_optional_digest(task.raw_output_digest.as_deref()) {
@@ -215,6 +229,17 @@ fn qualify_task(
                     "task {} native grader output missing or invalid",
                     task.task_id
                 ));
+            }
+            match task.native_score_micros {
+                Some(score) if score <= 1_000_000 => {}
+                Some(_) => report.qualification.fail(format!(
+                    "task {} native score lies outside [0, 1]",
+                    task.task_id
+                )),
+                None => report.qualification.indeterminate(format!(
+                    "task {} native partial score missing",
+                    task.task_id
+                )),
             }
             match task.native_grader_disposition {
                 Some(TeamBenchGraderDisposition::Pass) => report.grader_pass_count += 1,
@@ -270,6 +295,8 @@ fn qualify_task(
             if task.raw_output_digest.is_some()
                 || task.native_grader_output_digest.is_some()
                 || task.native_grader_disposition.is_some()
+                || task.native_score_micros.is_some()
+                || task.verifier_disposition.is_some()
             {
                 report.qualification.fail(format!(
                     "task {} infrastructure-error state carries evaluated output fields",
@@ -287,6 +314,7 @@ fn qualify_task(
             if task.raw_output_digest.is_some()
                 || task.native_grader_output_digest.is_some()
                 || task.native_grader_disposition.is_some()
+                || task.native_score_micros.is_some()
                 || task.verifier_disposition.is_some()
             {
                 report.qualification.fail(format!(
@@ -303,6 +331,13 @@ fn qualify_task(
 
     let mut event_ids = BTreeSet::new();
     for event in &task.role_boundary_events {
+        if !roles.contains(&event.actor_role) {
+            report.qualification.fail(format!(
+                "task {} contains an observation for disabled role {:?}",
+                task.task_id, event.actor_role
+            ));
+            continue;
+        }
         if !nonempty(&event.event_id)
             || !nonempty(&event.boundary_id)
             || !valid_digest(&event.evidence_digest)
@@ -337,6 +372,25 @@ fn qualify_task(
     }
 }
 
+fn expected_roles(condition: TeamBenchCondition) -> BTreeSet<TeamBenchRole> {
+    let roles: &[TeamBenchRole] = match condition {
+        TeamBenchCondition::Oracle => &[TeamBenchRole::Oracle],
+        TeamBenchCondition::Restricted => &[TeamBenchRole::Restricted],
+        TeamBenchCondition::TeamNoVerify => {
+            &[TeamBenchRole::Planner, TeamBenchRole::Executor]
+        }
+        TeamBenchCondition::TeamNoPlan => {
+            &[TeamBenchRole::Executor, TeamBenchRole::Verifier]
+        }
+        TeamBenchCondition::Full => &[
+            TeamBenchRole::Planner,
+            TeamBenchRole::Executor,
+            TeamBenchRole::Verifier,
+        ],
+    };
+    roles.iter().copied().collect()
+}
+
 pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualificationReport {
     let mut report = TeamBenchQualificationReport {
         qualification: QualificationReport::new(),
@@ -359,6 +413,7 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
         role_boundary_unknown_count: 0,
         infrastructure_error_count: 0,
         not_run_count: 0,
+        mean_score_micros_by_condition: BTreeMap::new(),
         reasons: Vec::new(),
     };
 
@@ -431,6 +486,7 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
 
     let mut conditions = BTreeMap::new();
     let mut run_ids = BTreeSet::new();
+    let mut score_totals = BTreeMap::<TeamBenchCondition, (u64, u64)>::new();
     for run in &suite.condition_runs {
         if !nonempty(&run.run_id)
             || !valid_digest(&run.system_config_digest)
@@ -443,14 +499,16 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
                 "condition-run identity, configuration digests, agent count or run uniqueness is invalid",
             );
         }
-        if run.condition == TeamBenchCondition::Solo && run.agent_count != 1 {
-            report
-                .qualification
-                .fail("Solo condition must declare exactly one agent");
-        }
-        if run.condition != TeamBenchCondition::Solo && run.agent_count < 2 {
+        let actual_roles = run.roles.iter().copied().collect::<BTreeSet<_>>();
+        if actual_roles.len() != run.roles.len() || actual_roles != expected_roles(run.condition) {
             report.qualification.fail(format!(
-                "team condition {:?} must declare at least two agents",
+                "condition {:?} role inventory differs from the official upstream ablation",
+                run.condition
+            ));
+        }
+        if run.agent_count as usize != run.roles.len() {
+            report.qualification.fail(format!(
+                "condition {:?} agent count differs from its role inventory",
                 run.condition
             ));
         }
@@ -483,7 +541,14 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
                 ));
                 continue;
             }
-            qualify_task(task, run.verifier_present, &mut report);
+            qualify_task(task, &run.roles, &mut report);
+            if task.state == TeamBenchTaskState::Evaluated {
+                if let Some(score) = task.native_score_micros.filter(|score| *score <= 1_000_000) {
+                    let totals = score_totals.entry(run.condition).or_default();
+                    totals.0 += u64::from(score);
+                    totals.1 += 1;
+                }
+            }
         }
 
         for task_id in &eligible {
@@ -507,7 +572,7 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
     // Denominators use all evaluated native-grader outcomes in verifier-enabled
     // conditions. Missing/no-verdict rows remain separately visible.
     for run in &suite.condition_runs {
-        if !run.verifier_present {
+        if !run.roles.contains(&TeamBenchRole::Verifier) {
             continue;
         }
         for task in &run.tasks {
@@ -523,6 +588,14 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
                 }
                 Some(TeamBenchGraderDisposition::Unknown) | None => {}
             }
+        }
+    }
+
+    for (condition, (sum, count)) in score_totals {
+        if count > 0 {
+            report
+                .mean_score_micros_by_condition
+                .insert(condition, (sum / count) as u32);
         }
     }
 
@@ -553,18 +626,27 @@ mod tests {
     const D5: &str = "5555555555555555555555555555555555555555555555555555555555555555";
     const D6: &str = "6666666666666666666666666666666666666666666666666666666666666666";
 
-    fn task(task_id: &str, verifier_present: bool) -> TeamBenchTaskObservation {
+    fn task(
+        task_id: &str,
+        verifier_present: bool,
+        actor_role: TeamBenchRole,
+    ) -> TeamBenchTaskObservation {
         TeamBenchTaskObservation {
             task_id: task_id.into(),
             state: TeamBenchTaskState::Evaluated,
             raw_output_digest: Some(D4.into()),
             native_grader_output_digest: Some(D5.into()),
             native_grader_disposition: Some(TeamBenchGraderDisposition::Pass),
+            native_score_micros: Some(750_000),
             verifier_disposition: verifier_present.then_some(TeamBenchVerifierDisposition::Accept),
             role_boundary_events: vec![TeamBenchRoleBoundaryEvent {
                 event_id: format!("event-{task_id}"),
-                actor_role: TeamBenchRole::Verifier,
-                boundary_id: "verifier-read-only".into(),
+                actor_role,
+                boundary_id: if actor_role == TeamBenchRole::Verifier {
+                    "verifier-write-workspace".into()
+                } else {
+                    "task-scope-boundary".into()
+                },
                 expected_allowed: false,
                 observed: TeamBenchBoundaryObservation::Blocked,
                 evidence_digest: D6.into(),
@@ -573,20 +655,25 @@ mod tests {
     }
 
     fn run(condition: TeamBenchCondition) -> TeamBenchConditionRun {
-        let verifier_present = condition != TeamBenchCondition::Solo
-            && condition != TeamBenchCondition::NoEval;
+        let roles = expected_roles(condition);
+        let verifier_present = roles.contains(&TeamBenchRole::Verifier);
+        let actor_role = if verifier_present {
+            TeamBenchRole::Verifier
+        } else {
+            *roles.iter().next().unwrap()
+        };
         TeamBenchConditionRun {
             run_id: format!("run-{condition:?}"),
             condition,
             system_config_digest: D1.into(),
             role_profile_digest: D2.into(),
             raw_result_manifest_digest: D3.into(),
-            agent_count: if condition == TeamBenchCondition::Solo { 1 } else { 3 },
-            verifier_present,
+            agent_count: roles.len() as u32,
+            roles: roles.into_iter().collect(),
             role_boundary_inventory_complete: true,
             tasks: vec![
-                task("task-1", verifier_present),
-                task("task-2", verifier_present),
+                task("task-1", verifier_present, actor_role),
+                task("task-2", verifier_present, actor_role),
             ],
         }
     }
@@ -629,6 +716,7 @@ mod tests {
         assert!(report.benchmark_score_eligible);
         assert_eq!(report.condition_count, 5);
         assert_eq!(report.eligible_task_count, 2);
+        assert_eq!(report.mean_score_micros_by_condition.len(), 5);
     }
 
     #[test]
@@ -730,7 +818,7 @@ mod tests {
         assert_eq!(report.false_accept_count, 1);
         assert_eq!(report.false_accept_denominator, 1);
         assert_eq!(report.false_reject_count, 1);
-        assert_eq!(report.false_reject_denominator, 5);
+        assert_eq!(report.false_reject_denominator, 3);
     }
 
     #[test]
@@ -788,6 +876,7 @@ mod tests {
             raw_output_digest: None,
             native_grader_output_digest: None,
             native_grader_disposition: None,
+            native_score_micros: None,
             verifier_disposition: None,
             role_boundary_events: vec![],
         };
@@ -801,7 +890,7 @@ mod tests {
     fn verifier_absent_condition_cannot_supply_verifier_judgements() {
         let mut input = suite();
         let run = input.condition_runs.iter_mut()
-            .find(|r| r.condition == TeamBenchCondition::NoEval).unwrap();
+            .find(|r| r.condition == TeamBenchCondition::TeamNoVerify).unwrap();
         run.tasks[0].verifier_disposition = Some(TeamBenchVerifierDisposition::Accept);
         assert_eq!(
             qualify_teambench_suite(&input).qualification.status,
