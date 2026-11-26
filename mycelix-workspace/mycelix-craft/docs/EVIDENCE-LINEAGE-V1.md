@@ -39,7 +39,7 @@ Supported reasons:
 - Expired
 - Withdrawn
 
-Corrected and Superseded events must identify an existing higher revision of the same logical artifact. Revocation, expiry and withdrawal events cannot smuggle in a replacement. Exact duplicate event replay is idempotent. Reusing an event ID with different content, reusing a sequence number, targeting an unknown revision or submitting multiple mutations for one exact artifact version fails closed.
+Corrected and Superseded events must identify an existing higher revision of the same logical artifact. Revocation, expiry and withdrawal events cannot smuggle in a replacement. Exact duplicate event replay is idempotent. Distinct events may target the same immutable artifact revision; they are ordered by the host-assigned sequence, and the latest event determines the current disposition while every admitted event remains in the replay receipt. Reusing an event ID with different content, reusing a sequence number or targeting an unknown revision fails closed.
 
 The host must authenticate the event issuer, verify signatures, canonicalize and digest event payloads, validate legal or organizational authority, establish effective time and apply jurisdiction-specific rules before admitting an event. This crate only evaluates the consequences of admitted events.
 
