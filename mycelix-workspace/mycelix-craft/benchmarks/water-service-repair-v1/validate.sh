@@ -4,10 +4,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MANIFEST="$ROOT/manifest.json"
 CASES="$ROOT/cases.json"
+INTEGRATION_MAP="$ROOT/integration-map.json"
 
 command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 127; }
 jq -e . "$MANIFEST" >/dev/null
 jq -e . "$CASES" >/dev/null
+jq -e . "$INTEGRATION_MAP" >/dev/null
 
 jq -e '
   .benchmark_id == "CRAFT-WATER-SERVICE-REPAIR-V1"
@@ -48,4 +50,18 @@ jq -e '
   )
 ' "$CASES" >/dev/null
 
-echo "Water Service Repair V1: manifest valid; 12 unique synthetic cases valid."
+
+jq -n -e --slurpfile cases "$CASES" --slurpfile mapping "$INTEGRATION_MAP" '
+  $mapping[0].benchmark_id == "CRAFT-WATER-SERVICE-REPAIR-V1-INTEGRATION-MAP"
+  and $mapping[0].schema_version == "1.0.0"
+  and ($mapping[0].mappings | length == 12)
+  and (($mapping[0].mappings | map(.case_id) | sort) == ($cases[0].cases | map(.case_id) | sort))
+  and all($mapping[0].mappings[];
+    (.owner_issues | type == "array" and length > 0)
+    and all(.owner_issues[]; type == "string" and test("^#[0-9]+$"))
+    and (.checks | type == "array" and length > 0)
+    and (.owner_boundary | type == "string" and length > 0)
+  )
+' >/dev/null
+
+echo "Water Service Repair V1: manifest, 12 unique synthetic cases, and 12 cross-core owner mappings valid."
