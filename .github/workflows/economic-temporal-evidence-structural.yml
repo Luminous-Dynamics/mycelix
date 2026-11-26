@@ -232,6 +232,10 @@ jobs:
         working-directory: tools/economic/rfc9162-proof-verifier
         run: cargo +1.96.0 run --locked --example append_only_log
 
+      - name: Execute experimental sparse-map proof benchmark
+        working-directory: tools/economic/rfc9162-proof-verifier
+        run: cargo +1.96.0 run --locked --example benchmark_sparse_map
+
   go-frontier-conformance:
     name: Independent Go frontier conformance
     runs-on: ubuntu-latest
