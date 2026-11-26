@@ -1050,6 +1050,8 @@ mod tests {
         let report = qualify_aml_run(&input, &release());
         assert!(report.api_contract_eligible);
         assert!(!report.model_policy_eligible);
+        assert!(report.release_provenance_eligible);
+        assert!(report.evaluation_coverage_eligible);
         assert!(!report.official_score_eligible);
     }
 
@@ -1245,6 +1247,8 @@ mod tests {
         input.manifest.expected_question_count = 2;
         let report = qualify_aml_run(&input, &release());
         assert!(report.api_contract_eligible);
+        assert!(report.release_provenance_eligible);
+        assert!(!report.evaluation_coverage_eligible);
         assert!(!report.official_score_eligible);
     }
 
@@ -1266,12 +1270,84 @@ mod tests {
     }
 
     #[test]
+    fn repeated_search_attempt_for_same_question_keeps_one_question_identity() {
+        let mut input = valid_run();
+        let mut retry = input.search_operations[0].clone();
+        retry.request_id = "search-1-retry".into();
+        input.search_operations.push(retry);
+        let report = qualify_aml_run(&input, &release());
+        assert!(report.api_contract_eligible);
+        assert_eq!(report.unique_question_count, 1);
+        assert!(report.evaluation_coverage_eligible);
+        assert!(report.official_score_eligible);
+    }
+
+    #[test]
+    fn ordinary_textual_chunk_limits_do_not_apply_to_streaming_or_coding() {
+        let mut input = valid_run();
+        let add = &mut input.add_operations[0];
+        add.message_count = 21;
+        add.word_count = 2_001;
+        assert_eq!(
+            qualify_aml_run(&input, &release()).qualification.status,
+            QualificationStatus::Fail
+        );
+
+        let mut input = valid_run();
+        let add = &mut input.add_operations[0];
+        add.ingestion_mode = AmlIngestionMode::TextualStreaming;
+        add.message_count = 40;
+        add.word_count = 8_000;
+        assert!(qualify_aml_run(&input, &release()).api_contract_eligible);
+
+        let mut input = valid_run();
+        input.manifest.track = AmlTrack::Coding;
+        let add = &mut input.add_operations[0];
+        add.ingestion_mode = AmlIngestionMode::CodingRepositoryTrajectory;
+        add.message_count = 100;
+        add.word_count = 0;
+        assert!(qualify_aml_run(&input, &release()).api_contract_eligible);
+    }
+
+    #[test]
+    fn ingestion_mode_must_match_selected_track() {
+        let mut input = valid_run();
+        input.manifest.track = AmlTrack::Coding;
+        let add = &mut input.add_operations[0];
+        add.ingestion_mode = AmlIngestionMode::TextualConversation;
+        assert_eq!(
+            qualify_aml_run(&input, &release()).qualification.status,
+            QualificationStatus::Fail
+        );
+    }
+
+    #[test]
+    fn multimodal_remote_image_uri_is_rejected() {
+        let mut input = valid_run();
+        input.manifest.track = AmlTrack::Multimodal;
+        input.search_operations[0].candidates[0].content_parts = vec![
+            AmlContentPart::Image {
+                ordinal: 0,
+                media_type: "image/png".into(),
+                inline_base64_data_uri: false,
+                data_uri_digest: D4.into(),
+                decoded_bytes: 1024,
+            },
+        ];
+        assert_eq!(
+            qualify_aml_run(&input, &release()).qualification.status,
+            QualificationStatus::Fail
+        );
+    }
+
+    #[test]
     fn missing_release_hashes_keep_api_checks_but_block_official_score() {
         let mut release = release();
         release.evaluation_pipeline_digest.clear();
         let input = valid_run();
         let report = qualify_aml_run(&input, &release);
-        assert!(!report.api_contract_eligible);
+        assert!(report.api_contract_eligible);
+        assert!(!report.release_provenance_eligible);
         assert!(!report.official_score_eligible);
     }
 }
