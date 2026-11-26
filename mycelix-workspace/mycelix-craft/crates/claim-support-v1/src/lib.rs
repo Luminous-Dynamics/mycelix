@@ -66,6 +66,8 @@ pub struct ClaimRefV1 {
     pub required_dimensions: Vec<SemanticDimensionV1>,
     /// Qualified independent reviewer roles required for a positive disposition.
     pub required_reviewer_roles: Vec<ReviewerRoleV1>,
+    /// Maximum permitted age of a semantic assessment, in seconds.
+    pub max_assessment_age_seconds: u64,
 }
 
 /// Digest-pinned source excerpt and its locator.
@@ -354,6 +356,9 @@ pub fn validate_packet(packet: &ClaimSupportPacketV1) -> Result<(), ClaimSupport
     if packet.claim.required_reviewer_roles.is_empty() {
         return Err(ClaimSupportErrorV1::NonIndependentReview);
     }
+    if packet.claim.max_assessment_age_seconds == 0 {
+        return Err(ClaimSupportErrorV1::InvalidAssessmentTime);
+    }
     let mut required_roles = HashSet::new();
     for role in &packet.claim.required_reviewer_roles {
         if !required_roles.insert(*role) {
@@ -566,6 +571,7 @@ pub fn evaluate_claim_support(
     let mut all_confirmed = true;
     for assessment in &packet.assessments {
         let current = assessment.assessed_at <= now
+            && now - assessment.assessed_at <= packet.claim.max_assessment_age_seconds
             && assessment.valid_until.map(|expiry| now < expiry).unwrap_or(true);
         if !current || assessment.relation != SupportRelationV1::DirectSupport {
             all_confirmed = false;
@@ -710,6 +716,7 @@ mod tests {
                 domain_standard_digest: [22; 32],
                 required_dimensions: dimensions,
                 required_reviewer_roles: vec![ReviewerRoleV1::DomainExpert],
+                max_assessment_age_seconds: 120,
             },
             sources: vec![source],
             assessments: vec![assessment],
@@ -891,6 +898,27 @@ mod tests {
         assert_eq!(
             validate_packet(&packet),
             Err(ClaimSupportErrorV1::StandardContextMismatch)
+        );
+    }
+
+    #[test]
+    fn stale_semantic_assessment_requires_reassessment() {
+        let mut packet = packet();
+        packet.claim.max_assessment_age_seconds = 20;
+        packet.reviews.push(review(ReviewDecisionV1::ConfirmDirectSupport));
+        assert_eq!(
+            evaluate_claim_support(&packet, NOW).unwrap(),
+            ClaimSupportDispositionV1::HumanReviewRequired
+        );
+    }
+
+    #[test]
+    fn claim_cannot_disable_assessment_freshness() {
+        let mut packet = packet();
+        packet.claim.max_assessment_age_seconds = 0;
+        assert_eq!(
+            validate_packet(&packet),
+            Err(ClaimSupportErrorV1::InvalidAssessmentTime)
         );
     }
 
