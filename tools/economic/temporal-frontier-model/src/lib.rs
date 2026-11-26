@@ -89,6 +89,8 @@ pub struct ReceiptInclusionDeclarationV1 {
 pub struct KnowledgeReceiptV1 {
     pub receipt_id: String,
     pub verifier_ref: String,
+    /// Policy epoch under which the verifier accepted this assertion.
+    pub policy_epoch_ref: String,
     pub assertion_id: String,
     pub assertion_digest: String,
     /// Owner of the verifier's receipt-acceptance log, not necessarily the
@@ -149,6 +151,7 @@ pub enum FrontierModelErrorV1 {
     InvalidGap,
     UnsortedOrOverlappingGaps,
     ForeignVerifier,
+    PolicyEpochMismatch,
     DuplicateDependency,
     InvalidCausalDependency,
     InvalidReceiptSequence,
@@ -331,6 +334,9 @@ impl VerifierFrontierV1 {
         self.validate()?;
         if receipt.verifier_ref != self.verifier_ref {
             return Err(FrontierModelErrorV1::ForeignVerifier);
+        }
+        if receipt.policy_epoch_ref != self.policy_epoch_ref {
+            return Err(FrontierModelErrorV1::PolicyEpochMismatch);
         }
         receipt.validate()?;
 
@@ -519,6 +525,7 @@ impl KnowledgeReceiptV1 {
     pub fn validate(&self) -> Result<(), FrontierModelErrorV1> {
         validate_id(&self.receipt_id)?;
         validate_id(&self.verifier_ref)?;
+        validate_id(&self.policy_epoch_ref)?;
         validate_id(&self.assertion_id)?;
         validate_digest(&self.assertion_digest)?;
         validate_id(&self.owner_ref)?;
@@ -633,6 +640,7 @@ pub fn canonical_knowledge_receipt_entry_v1(
     let mut bytes = b"MYCELIX-KNOWLEDGE-RECEIPT-V1\0".to_vec();
     append_string(&mut bytes, &receipt.receipt_id)?;
     append_string(&mut bytes, &receipt.verifier_ref)?;
+    append_string(&mut bytes, &receipt.policy_epoch_ref)?;
     append_string(&mut bytes, &receipt.assertion_id)?;
     append_string(&mut bytes, &receipt.assertion_digest)?;
     append_string(&mut bytes, &receipt.owner_ref)?;
@@ -795,6 +803,7 @@ mod tests {
         let mut receipt = KnowledgeReceiptV1 {
             receipt_id: format!("receipt:{sequence}"),
             verifier_ref: VERIFIER.into(),
+            policy_epoch_ref: "policy-epoch:1".into(),
             assertion_id: "assertion:revocation".into(),
             assertion_digest: digest('b'),
             owner_ref: owner_ref.into(),
@@ -1081,6 +1090,26 @@ mod tests {
         assert_eq!(
             frontier.classify_receipt(&receipt),
             Err(FrontierModelErrorV1::ForeignVerifier)
+        );
+    }
+
+    #[test]
+    fn receipt_cannot_be_replayed_across_policy_epochs() {
+        let owner_cut = cut("owner:grants", 10, 'a');
+        let mut candidate = receipt(5, "owner:grants");
+        let mut frontier = frontier("frontier:1", vec![owner_cut]);
+        frontier.policy_epoch_ref = "policy-epoch:2".into();
+        assert_eq!(
+            frontier.classify_receipt(&candidate),
+            Err(FrontierModelErrorV1::PolicyEpochMismatch)
+        );
+        candidate.policy_epoch_ref = "policy-epoch:2".into();
+        refresh_receipt_digest(&mut candidate);
+        // It is now bound to the requested policy epoch, but still needs a
+        // matching inclusion proof under the frontier's committed owner root.
+        assert_eq!(
+            frontier.classify_receipt(&candidate),
+            Ok(ReceiptVisibilityV1::Indeterminate)
         );
     }
 
