@@ -107,6 +107,9 @@ pub struct CapabilityRequirementV1 {
     pub assessment_policy: PolicyRefV1,
     /// Number of distinct contributors required for coverage.
     pub minimum_contributors: u16,
+    /// Maximum age of the host's issuer/status observation, in seconds.
+    /// A nominally valid credential with stale revocation state cannot qualify.
+    pub max_status_age_seconds: u64,
     /// Whether the requirement is safety-critical, required, developmental or preferred.
     pub kind: RequirementKindV1,
 }
@@ -209,6 +212,9 @@ impl NeedToProjectV1 {
                 if requirement.minimum_contributors == 0 {
                     return Err(ProjectFormationErrorV1::ZeroMinimumContributors);
                 }
+                if requirement.max_status_age_seconds == 0 {
+                    return Err(ProjectFormationErrorV1::ZeroStatusFreshnessWindow);
+                }
                 if !requirement_ids.insert(requirement.requirement_id.as_str()) {
                     return Err(ProjectFormationErrorV1::DuplicateRequirementId);
                 }
@@ -252,6 +258,8 @@ pub struct CapabilityEvidenceRefV1 {
     pub assessment_policy: PolicyRefV1,
     /// Current disposition from the host's authenticated snapshot.
     pub disposition: EvidenceDispositionV1,
+    /// Time when the host last checked issuer and revocation/status sources.
+    pub status_checked_at: u64,
     /// Inclusive validity start timestamp (Unix seconds).
     pub valid_from: u64,
     /// Exclusive expiry timestamp, if bounded.
@@ -375,6 +383,10 @@ pub struct RequirementCoverageV1 {
     pub disputed_evidence: usize,
     /// Number of expired or revoked evidence records.
     pub stale_or_revoked_evidence: usize,
+    /// Number of records whose issuer/revocation status observation is too old.
+    pub stale_status_evidence: usize,
+    /// Number of records with future-dated issuer/revocation status observations.
+    pub future_status_evidence: usize,
     /// Number of qualified evidence records whose validity has not yet begun.
     pub not_yet_valid_evidence: usize,
     /// Number of records that did not match exact capability/context/policy scope.
@@ -426,6 +438,8 @@ pub enum ProjectFormationErrorV1 {
     DuplicateRequirementId,
     /// A requirement asks for zero contributors.
     ZeroMinimumContributors,
+    /// A requirement disables meaningful status/revocation freshness checks.
+    ZeroStatusFreshnessWindow,
     /// A project's work-package or requirement reference is invalid.
     InvalidProjectReference,
     /// A team proposal refers to a different project.
@@ -583,6 +597,8 @@ pub fn evaluate_team(
             let mut unknown = 0;
             let mut disputed = 0;
             let mut stale_or_revoked = 0;
+            let mut stale_status = 0;
+            let mut future_status = 0;
             let mut not_yet_valid = 0;
             let mut scope_mismatch = 0;
 
@@ -607,6 +623,14 @@ pub fn evaluate_team(
                         && evidence.assessment_policy == requirement.assessment_policy;
                     if !exact_scope {
                         scope_mismatch += 1;
+                        continue;
+                    }
+                    if evidence.status_checked_at > now {
+                        future_status += 1;
+                        continue;
+                    }
+                    if now - evidence.status_checked_at > requirement.max_status_age_seconds {
+                        stale_status += 1;
                         continue;
                     }
 
@@ -656,7 +680,12 @@ pub fn evaluate_team(
                 && !development_contributors.is_empty()
             {
                 RequirementDispositionV1::DevelopmentPathAvailable
-            } else if unknown > 0 || stale_or_revoked > 0 || not_yet_valid > 0 || scope_mismatch > 0
+            } else if unknown > 0
+                || stale_or_revoked > 0
+                || stale_status > 0
+                || future_status > 0
+                || not_yet_valid > 0
+                || scope_mismatch > 0
             {
                 RequirementDispositionV1::UnknownEvidence
             } else {
@@ -678,6 +707,8 @@ pub fn evaluate_team(
                 unknown_evidence: unknown,
                 disputed_evidence: disputed,
                 stale_or_revoked_evidence: stale_or_revoked,
+                stale_status_evidence: stale_status,
+                future_status_evidence: future_status,
                 not_yet_valid_evidence: not_yet_valid,
                 scope_mismatch_evidence: scope_mismatch,
                 minimum_contributors: requirement.minimum_contributors,
@@ -762,6 +793,7 @@ mod tests {
                     jurisdiction_id: "ZA-GP".to_owned(),
                     assessment_policy: policy(),
                     minimum_contributors: minimum,
+                    max_status_age_seconds: 5,
                     kind,
                 }],
             }],
@@ -787,6 +819,7 @@ mod tests {
             jurisdiction_id: "ZA-GP".to_owned(),
             assessment_policy: policy(),
             disposition,
+            status_checked_at: 8,
             valid_from: 1,
             valid_until: Some(100),
         }
@@ -1053,6 +1086,43 @@ mod tests {
         assert_eq!(
             evaluate_team(&project, &proposal, NOW),
             Err(ProjectFormationErrorV1::DuplicateRequirementAssignment)
+        );
+    }
+
+    #[test]
+    fn stale_revocation_status_does_not_qualify_nominally_valid_evidence() {
+        let project = project(RequirementKindV1::Required, 1);
+        let mut item = evidence("alice", EvidenceDispositionV1::Qualified);
+        item.status_checked_at = 4;
+        let proposal = proposal(vec![member("alice")], vec![assignment("alice", vec![item])]);
+
+        let coverage = result(&project, &proposal);
+        assert_eq!(coverage.disposition, RequirementDispositionV1::UnknownEvidence);
+        assert_eq!(coverage.stale_status_evidence, 1);
+        assert_eq!(coverage.stale_or_revoked_evidence, 0);
+        assert!(coverage.qualified_contributors.is_empty());
+    }
+
+    #[test]
+    fn future_dated_status_observation_never_qualifies_evidence() {
+        let project = project(RequirementKindV1::Required, 1);
+        let mut item = evidence("alice", EvidenceDispositionV1::Qualified);
+        item.status_checked_at = NOW + 1;
+        let proposal = proposal(vec![member("alice")], vec![assignment("alice", vec![item])]);
+
+        let coverage = result(&project, &proposal);
+        assert_eq!(coverage.disposition, RequirementDispositionV1::UnknownEvidence);
+        assert_eq!(coverage.future_status_evidence, 1);
+        assert!(coverage.qualified_contributors.is_empty());
+    }
+
+    #[test]
+    fn requirement_cannot_disable_status_freshness_check() {
+        let mut project = project(RequirementKindV1::Required, 1);
+        project.work_packages[0].requirements[0].max_status_age_seconds = 0;
+        assert_eq!(
+            project.validate(),
+            Err(ProjectFormationErrorV1::ZeroStatusFreshnessWindow)
         );
     }
 
