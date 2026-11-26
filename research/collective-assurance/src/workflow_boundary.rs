@@ -533,6 +533,69 @@ fn expected_rejection(
     None
 }
 
+/// Checks every observed exposure against its own task-conditioned handoff contract.
+fn exposure_boundary_issue(
+    run: &WorkflowRun,
+) -> Option<(WorkflowBoundaryStatus, String)> {
+    for exposure in &run.exposures {
+        // Structural validation has already established that the artifact exists.
+        let artifact = run
+            .artifacts
+            .iter()
+            .find(|artifact| artifact.artifact_id == exposure.artifact_id)?;
+
+        let expected = expected_rejection(
+            &run.handoff_contracts,
+            artifact,
+            &exposure.consumer_node_id,
+            exposure.reported_operation_state,
+        );
+
+        match (expected, exposure.disposition) {
+            (Some(expected), actual) if expected == actual => {}
+            (Some(_), ArtifactExposureDisposition::Unknown)
+            | (None, ArtifactExposureDisposition::Unknown) => {
+                return Some((
+                    WorkflowBoundaryStatus::Indeterminate,
+                    format!(
+                        "exposure {} has an unknown disposition at consumer {}",
+                        exposure.exposure_id, exposure.consumer_node_id
+                    ),
+                ));
+            }
+            (Some(_), ArtifactExposureDisposition::Consumed) => {
+                return Some((
+                    WorkflowBoundaryStatus::Fail,
+                    format!(
+                        "ineligible artifact {} was consumed by consumer {} in run {}",
+                        exposure.artifact_id, exposure.consumer_node_id, run.run_id
+                    ),
+                ));
+            }
+            (Some(expected), actual) => {
+                return Some((
+                    WorkflowBoundaryStatus::Fail,
+                    format!(
+                        "exposure {} has disposition {:?}, but its artifact requires {:?}",
+                        exposure.exposure_id, actual, expected
+                    ),
+                ));
+            }
+            (None, ArtifactExposureDisposition::Consumed) => {}
+            (None, actual) => {
+                return Some((
+                    WorkflowBoundaryStatus::Fail,
+                    format!(
+                        "exposure {} reports rejection {:?}, but no handoff-boundary rejection applies",
+                        exposure.exposure_id, actual
+                    ),
+                ));
+            }
+        }
+    }
+    None
+}
+
 fn run_metrics(run: &WorkflowRun) -> WorkflowBoundaryMetrics {
     let mut metrics = empty_metrics(run);
     metrics.verified_completed_node_count = run
@@ -743,6 +806,16 @@ pub fn qualify_workflow_boundary_pair(
             "clean target node did not have verified completion; isolation denominator is ineligible".into(),
         );
         return result;
+    }
+
+    // The paired challenge is not allowed to hide a separate invalid exposure
+    // merely because that exposure appears unchanged in both runs.
+    for (label, run) in [("clean", &pair.clean), ("polluted", &pair.polluted)] {
+        if let Some((status, reason)) = exposure_boundary_issue(run) {
+            result.status = status;
+            result.reasons.push(format!("{label} run: {reason}"));
+            return result;
+        }
     }
 
     match pollution_exposure.disposition {
@@ -1110,6 +1183,66 @@ mod tests {
             qualify_workflow_boundary_pair(&pair).status,
             WorkflowBoundaryStatus::Fail
         );
+    }
+
+    #[test]
+    fn preexisting_unauthorized_consumption_fails_even_when_shared_by_both_runs() {
+        let bad = artifact(
+            "bad-artifact", "producer-b", "report", '6', 2,
+            ArtifactLifecycle::Current, ArtifactVerification::Verified,
+        );
+        let mut pair = valid_pair(
+            BoundaryPollutionOperator::SiblingCrosswire,
+            bad,
+            ArtifactOperationState::NotOperation,
+            ArtifactExposureDisposition::RejectedWrongBranch,
+        );
+        let preexisting = exposure(
+            "preexisting-unauthorized",
+            "consumer",
+            "bad-artifact",
+            ArtifactExposureDisposition::Consumed,
+            ArtifactOperationState::NotOperation,
+        );
+        pair.clean.exposures.push(preexisting.clone());
+        pair.polluted.exposures.push(preexisting);
+
+        let report = qualify_workflow_boundary_pair(&pair);
+        assert_eq!(report.status, WorkflowBoundaryStatus::Fail);
+        assert!(report.reasons.iter().any(|reason| {
+            reason.contains("preexisting-unauthorized")
+                && reason.contains("was consumed")
+        }));
+    }
+
+    #[test]
+    fn unknown_preexisting_exposure_is_indeterminate_even_when_shared_by_both_runs() {
+        let bad = artifact(
+            "bad-artifact", "producer-b", "report", '6', 2,
+            ArtifactLifecycle::Current, ArtifactVerification::Verified,
+        );
+        let mut pair = valid_pair(
+            BoundaryPollutionOperator::SiblingCrosswire,
+            bad,
+            ArtifactOperationState::NotOperation,
+            ArtifactExposureDisposition::RejectedWrongBranch,
+        );
+        let unknown = exposure(
+            "unknown-preexisting",
+            "consumer",
+            "bad-artifact",
+            ArtifactExposureDisposition::Unknown,
+            ArtifactOperationState::NotOperation,
+        );
+        pair.clean.exposures.push(unknown.clone());
+        pair.polluted.exposures.push(unknown);
+
+        let report = qualify_workflow_boundary_pair(&pair);
+        assert_eq!(report.status, WorkflowBoundaryStatus::Indeterminate);
+        assert!(report.reasons.iter().any(|reason| {
+            reason.contains("unknown-preexisting")
+                && reason.contains("unknown disposition")
+        }));
     }
 
     #[test]
