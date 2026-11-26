@@ -564,7 +564,7 @@ mod tests {
         let k = 1.0e-5;
         let delta_head = 0.4;
         let flow = predict_constant_head_flow(k, &specimen, delta_head).unwrap();
-        let epsilon = 1.0e-6;
+        let epsilon: f64 = 1.0e-6;
         let plus = predict_constant_head_flow(k * epsilon.exp(), &specimen, delta_head).unwrap();
         let minus =
             predict_constant_head_flow(k * (-epsilon).exp(), &specimen, delta_head).unwrap();
@@ -610,7 +610,7 @@ mod tests {
             let exponent = -k * specimen_area(&specimen).unwrap() * elapsed
                 / (standpipe_area * specimen.length_m);
             let analytic = final_head * exponent;
-            let epsilon = 1.0e-6;
+            let epsilon: f64 = 1.0e-6;
             let plus = predict_falling_head_final(
                 k * epsilon.exp(),
                 &specimen,
