@@ -185,7 +185,20 @@ pub struct TeamBenchQualificationReport {
     pub eligible_task_count: usize,
     pub task_observation_count: usize,
     /// Mean native partial score in millionths, keyed by official condition.
+    /// This map is empty for mock-provider smoke and incomplete suites.
     pub mean_score_micros_by_condition: BTreeMap<TeamBenchCondition, u32>,
+    /// Exact upstream TeamBench aggregate: mean per-task TNI, excluding
+    /// absolute oracle-restricted gaps below 0.05 and aggregating only
+    /// positive gaps above 0.05, matching harness/compute_tni.py.
+    pub average_tni_micros: Option<i64>,
+    pub valid_tni_task_count: usize,
+    pub average_team_uplift_micros: Option<i64>,
+    pub team_helps_count: usize,
+    pub average_collaboration_efficiency_micros: Option<i64>,
+    pub average_planning_value_micros: Option<i64>,
+    pub planning_value_task_count: usize,
+    pub average_verification_value_micros: Option<i64>,
+    pub verification_value_task_count: usize,
     pub grader_pass_count: usize,
     pub grader_fail_count: usize,
     pub grader_unknown_count: usize,
@@ -372,6 +385,15 @@ fn qualify_task(
     }
 }
 
+fn mean_i64(values: &[i64]) -> Option<i64> {
+    if values.is_empty() {
+        None
+    } else {
+        let sum: i128 = values.iter().map(|value| i128::from(*value)).sum();
+        Some((sum / values.len() as i128) as i64)
+    }
+}
+
 fn expected_roles(condition: TeamBenchCondition) -> BTreeSet<TeamBenchRole> {
     let roles: &[TeamBenchRole] = match condition {
         TeamBenchCondition::Oracle => &[TeamBenchRole::Oracle],
@@ -414,6 +436,15 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
         infrastructure_error_count: 0,
         not_run_count: 0,
         mean_score_micros_by_condition: BTreeMap::new(),
+        average_tni_micros: None,
+        valid_tni_task_count: 0,
+        average_team_uplift_micros: None,
+        team_helps_count: 0,
+        average_collaboration_efficiency_micros: None,
+        average_planning_value_micros: None,
+        planning_value_task_count: 0,
+        average_verification_value_micros: None,
+        verification_value_task_count: 0,
         reasons: Vec::new(),
     };
 
@@ -487,6 +518,7 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
     let mut conditions = BTreeMap::new();
     let mut run_ids = BTreeSet::new();
     let mut score_totals = BTreeMap::<TeamBenchCondition, (u64, u64)>::new();
+    let mut task_scores = BTreeMap::<(String, TeamBenchCondition), u32>::new();
     for run in &suite.condition_runs {
         if !nonempty(&run.run_id)
             || !valid_digest(&run.system_config_digest)
@@ -547,6 +579,15 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
                     let totals = score_totals.entry(run.condition).or_default();
                     totals.0 += u64::from(score);
                     totals.1 += 1;
+                    if task_scores
+                        .insert((task.task_id.clone(), run.condition), score)
+                        .is_some()
+                    {
+                        report.qualification.fail(format!(
+                            "task {} has duplicate score for condition {:?}",
+                            task.task_id, run.condition
+                        ));
+                    }
                 }
             }
         }
@@ -591,25 +632,99 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
         }
     }
 
-    for (condition, (sum, count)) in score_totals {
-        if count > 0 {
-            report
-                .mean_score_micros_by_condition
-                .insert(condition, (sum / count) as u32);
-        }
-    }
-
-    if suite.run_mode == TeamBenchRunMode::MockProviderSmoke {
-        report.qualification.reasons.push(
-            "mock-provider smoke is integration evidence only; no model-performance score is eligible".into(),
-        );
-    }
-
-    report.benchmark_score_eligible = suite.run_mode == TeamBenchRunMode::ModelEvaluation
+    let complete_model_suite = suite.run_mode == TeamBenchRunMode::ModelEvaluation
         && report.qualification.status == QualificationStatus::Pass
         && TeamBenchCondition::all()
             .iter()
             .all(|condition| conditions.contains_key(condition));
+
+    if complete_model_suite {
+        for (condition, (sum, count)) in score_totals {
+            if count > 0 {
+                report
+                    .mean_score_micros_by_condition
+                    .insert(condition, (sum / count) as u32);
+            }
+        }
+
+        let mut tni_values = Vec::new();
+        let mut uplifts = Vec::new();
+        let mut efficiencies = Vec::new();
+        let mut planning_values = Vec::new();
+        let mut verification_values = Vec::new();
+
+        for task_id in &suite.eligible_task_ids {
+            let score = |condition| {
+                task_scores
+                    .get(&(task_id.clone(), condition))
+                    .copied()
+                    .map(i64::from)
+            };
+            let (Some(oracle), Some(restricted), Some(full), Some(no_plan), Some(no_verify)) = (
+                score(TeamBenchCondition::Oracle),
+                score(TeamBenchCondition::Restricted),
+                score(TeamBenchCondition::Full),
+                score(TeamBenchCondition::TeamNoPlan),
+                score(TeamBenchCondition::TeamNoVerify),
+            ) else {
+                // Complete model qualification should guarantee this. Preserve
+                // the claim ceiling if a future adapter change breaks it.
+                report.qualification.indeterminate(format!(
+                    "task {task_id} lacks a score for one or more official conditions"
+                ));
+                continue;
+            };
+
+            let gap = oracle - restricted;
+            let uplift = full - restricted;
+            uplifts.push(uplift);
+            if uplift > 10_000 {
+                report.team_helps_count += 1;
+            }
+
+            // Match harness/compute_tni.py: omit TNI when |gap| < .05,
+            // clamp each task to [-2, 2], and aggregate only positive gaps.
+            if gap.unsigned_abs() >= 50_000 {
+                let raw = uplift.saturating_mul(1_000_000) / gap;
+                let clamped = raw.clamp(-2_000_000, 2_000_000);
+                if gap > 50_000 {
+                    tni_values.push(clamped);
+                }
+            }
+
+            // Match upstream's collaboration-efficiency zero rule.
+            let efficiency = if oracle < 10_000 {
+                0
+            } else {
+                uplift.saturating_mul(1_000_000) / oracle
+            };
+            efficiencies.push(efficiency);
+
+            // Match upstream NaN convention: omit only where both values are zero.
+            if full != 0 || no_plan != 0 {
+                planning_values.push(full - no_plan);
+            }
+            if full != 0 || no_verify != 0 {
+                verification_values.push(full - no_verify);
+            }
+        }
+
+        report.valid_tni_task_count = tni_values.len();
+        report.average_tni_micros = mean_i64(&tni_values);
+        report.average_team_uplift_micros = mean_i64(&uplifts);
+        report.average_collaboration_efficiency_micros = mean_i64(&efficiencies);
+        report.planning_value_task_count = planning_values.len();
+        report.average_planning_value_micros = mean_i64(&planning_values);
+        report.verification_value_task_count = verification_values.len();
+        report.average_verification_value_micros = mean_i64(&verification_values);
+    } else if suite.run_mode == TeamBenchRunMode::MockProviderSmoke {
+        report.qualification.reasons.push(
+            "mock-provider smoke is integration evidence only; no model-performance score or TNI is eligible".into(),
+        );
+    }
+
+    report.benchmark_score_eligible = complete_model_suite
+        && report.qualification.status == QualificationStatus::Pass;
 
     report.reasons = report.qualification.reasons.clone();
     report
@@ -717,6 +832,12 @@ mod tests {
         assert_eq!(report.condition_count, 5);
         assert_eq!(report.eligible_task_count, 2);
         assert_eq!(report.mean_score_micros_by_condition.len(), 5);
+        assert_eq!(report.average_tni_micros, Some(750_000));
+        assert_eq!(report.valid_tni_task_count, 2);
+        assert_eq!(report.average_team_uplift_micros, Some(0));
+        assert_eq!(report.average_collaboration_efficiency_micros, Some(0));
+        assert_eq!(report.planning_value_task_count, 0);
+        assert_eq!(report.verification_value_task_count, 0);
     }
 
     #[test]
@@ -726,6 +847,62 @@ mod tests {
         let report = qualify_teambench_suite(&input);
         assert_eq!(report.qualification.status, QualificationStatus::Pass);
         assert!(!report.benchmark_score_eligible);
+        assert!(report.mean_score_micros_by_condition.is_empty());
+        assert!(report.average_tni_micros.is_none());
+        assert!(report.average_team_uplift_micros.is_none());
+    }
+
+    #[test]
+    fn native_tni_and_component_values_match_upstream_formula() {
+        let mut input = suite();
+        let values = [
+            (800_000, 200_000, 700_000, 500_000, 400_000),
+            (800_000, 300_000, 500_000, 400_000, 300_000),
+        ];
+        for run in &mut input.condition_runs {
+            for (task_index, task) in run.tasks.iter_mut().enumerate() {
+                let (oracle, restricted, full, no_plan, no_verify) = values[task_index];
+                task.native_score_micros = Some(match run.condition {
+                    TeamBenchCondition::Oracle => oracle,
+                    TeamBenchCondition::Restricted => restricted,
+                    TeamBenchCondition::Full => full,
+                    TeamBenchCondition::TeamNoPlan => no_plan,
+                    TeamBenchCondition::TeamNoVerify => no_verify,
+                });
+            }
+        }
+        let report = qualify_teambench_suite(&input);
+        assert_eq!(report.qualification.status, QualificationStatus::Pass);
+        assert_eq!(report.average_tni_micros, Some(616_666));
+        assert_eq!(report.valid_tni_task_count, 2);
+        assert_eq!(report.average_team_uplift_micros, Some(350_000));
+        assert_eq!(report.team_helps_count, 2);
+        assert_eq!(report.average_collaboration_efficiency_micros, Some(437_500));
+        assert_eq!(report.average_planning_value_micros, Some(150_000));
+        assert_eq!(report.planning_value_task_count, 2);
+        assert_eq!(report.average_verification_value_micros, Some(250_000));
+        assert_eq!(report.verification_value_task_count, 2);
+    }
+
+    #[test]
+    fn weak_or_negative_oracle_restricted_gaps_are_excluded_from_aggregate_tni() {
+        let mut input = suite();
+        for run in &mut input.condition_runs {
+            for task in &mut run.tasks {
+                task.native_score_micros = Some(match run.condition {
+                    TeamBenchCondition::Oracle => 300_000,
+                    TeamBenchCondition::Restricted => 280_000,
+                    TeamBenchCondition::Full => 500_000,
+                    TeamBenchCondition::TeamNoPlan => 400_000,
+                    TeamBenchCondition::TeamNoVerify => 450_000,
+                });
+            }
+        }
+        let report = qualify_teambench_suite(&input);
+        assert_eq!(report.qualification.status, QualificationStatus::Pass);
+        assert_eq!(report.valid_tni_task_count, 0);
+        assert_eq!(report.average_tni_micros, None);
+        assert_eq!(report.average_team_uplift_micros, Some(220_000));
     }
 
     #[test]
