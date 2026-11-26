@@ -1,0 +1,671 @@
+{
+  "benchmark": "TeamBench",
+  "manifest_version": "2.1",
+  "upstream": {
+    "repository": "https://github.com/ybkim95/TeamBench",
+    "commit": "d185aef1916fd86a9ba554d581fd256319a973af",
+    "license": "MIT",
+    "task_manifest_path": "leaderboard/data/leaderboard_90_tasks.json",
+    "task_manifest_git_blob_sha": "59125b3fa9a82eede1f5a832c51c2ba32f5af591",
+    "readme_path": "README.md",
+    "readme_git_blob_sha": "6c39b66fed83c52f397c2d3b4f84e7bafe854061",
+    "re_curation_notice_line": 152
+  },
+  "provenance": {
+    "parent": "leaderboard_100_tasks.json",
+    "derivation": "leaderboard_100_tasks.json with 10 broken_grader_post_pr tasks removed",
+    "dropped_at": "2026-04-30T19:21:34.153178+00:00",
+    "selection_date": "2026-04-10",
+    "note": "The upstream 100-task parent was reduced by ten entries with broken post-PR graders; this v2.1 manifest contains 90 task IDs."
+  },
+  "declared_task_count": 90,
+  "eligible_for_reproduction_count": 89,
+  "excluded_under_recuration_count": 1,
+  "tasks": [
+    {
+      "task_id": "TRAP1_spec_conflict",
+      "category": "Adversarial",
+      "refined_category": "Adversarial",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "TRAP5_security_theater",
+      "category": "Adversarial",
+      "refined_category": "Adversarial",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "TRAP6_deprecated_api",
+      "category": "Adversarial",
+      "refined_category": "Adversarial",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "CR4_api_review",
+      "category": "Code Review",
+      "refined_category": "Code Review",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "CR6_review_checklist",
+      "category": "Code Review",
+      "refined_category": "Code Review",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "CR1_review_respond",
+      "category": "Code Review",
+      "refined_category": "Code Review",
+      "difficulty": "medium",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "CROSS1_api_contract",
+      "category": "Cross-System Integration",
+      "refined_category": "Cross-System Integration",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "CROSS2_schema_evolution",
+      "category": "Cross-System Integration",
+      "refined_category": "Cross-System Integration",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "CROSS3_protocol_bridge",
+      "category": "Cross-System Integration",
+      "refined_category": "Cross-System Integration",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "D6_data_reconcile",
+      "category": "Data Engineering",
+      "refined_category": "Data Engineering",
+      "difficulty": "expert",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "D3_schema_migration",
+      "category": "Data Engineering",
+      "refined_category": "Data Engineering",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "D4_data_pipeline",
+      "category": "Data Engineering",
+      "refined_category": "Data Engineering",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "D5_query_optimize",
+      "category": "Data Engineering",
+      "refined_category": "Data Engineering",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "D7_etl_reconciliation",
+      "category": "Data Engineering",
+      "refined_category": "Data Engineering",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "DIST1_queue_race",
+      "category": "Distributed Systems",
+      "refined_category": "Distributed Systems",
+      "difficulty": "expert",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "DIST2_consensus_partition",
+      "category": "Distributed Systems",
+      "refined_category": "Distributed Systems",
+      "difficulty": "expert",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "SYNTH1_distributed_debug",
+      "category": "Distributed Systems",
+      "refined_category": "Distributed Systems",
+      "difficulty": "expert",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH1006_spaCy_13068",
+      "category": "Other",
+      "refined_category": "GitHub Issues (Real-World)",
+      "difficulty": "medium",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH1007_spaCy_13040",
+      "category": "Other",
+      "refined_category": "GitHub Issues (Real-World)",
+      "difficulty": "medium",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH1011_great_expectati_8062",
+      "category": "Other",
+      "refined_category": "GitHub Issues (Real-World)",
+      "difficulty": "medium",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "INC6_deadlock",
+      "category": "Incident Response",
+      "refined_category": "Incident Response",
+      "difficulty": "expert",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "INC10_rollback_plan",
+      "category": "Incident Response",
+      "refined_category": "Incident Response",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "INC1_cascade_failure",
+      "category": "Incident Response",
+      "refined_category": "Incident Response",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "INC2_data_corruption",
+      "category": "Incident Response",
+      "refined_category": "Incident Response",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "INC3_memory_leak",
+      "category": "Incident Response",
+      "refined_category": "Incident Response",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "INC4_dns_miscfg",
+      "category": "Incident Response",
+      "refined_category": "Incident Response",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "IR2_misinformation_trap",
+      "category": "Information Retrieval",
+      "refined_category": "Information Retrieval",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "IR3_multi_source",
+      "category": "Information Retrieval",
+      "refined_category": "Information Retrieval",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "IR4_temporal",
+      "category": "Information Retrieval",
+      "refined_category": "Information Retrieval",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "INT1_pipeline_repair",
+      "category": "Integration",
+      "refined_category": "Integration",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "LH2_budgeted_workflow",
+      "category": "Long-Horizon",
+      "refined_category": "Long-Horizon",
+      "difficulty": "expert",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "LH5_data_migration",
+      "category": "Long-Horizon",
+      "refined_category": "Long-Horizon",
+      "difficulty": "expert",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "LH4_staged_deploy",
+      "category": "Long-Horizon",
+      "refined_category": "Long-Horizon",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "CROSS6_grpc_rest_bridge",
+      "category": "Multi-language",
+      "refined_category": "Multi-language",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "JS2_xss_sanitize",
+      "category": "Multi-language",
+      "refined_category": "Multi-language",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "MULTI2_microservice_debug",
+      "category": "Multi-language",
+      "refined_category": "Multi-language",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "NEG1_tradeoff_config",
+      "category": "Negotiation",
+      "refined_category": "Negotiation",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "LH3_multi_service",
+      "category": "Operations",
+      "refined_category": "Operations",
+      "difficulty": "expert",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "O6_perf_tuning",
+      "category": "Operations",
+      "refined_category": "Operations",
+      "difficulty": "expert",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "TRAP3_metric_mirage",
+      "category": "Operations",
+      "refined_category": "Operations",
+      "difficulty": "expert",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "CROSS7_config_drift",
+      "category": "Operations",
+      "refined_category": "Operations",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "MULTI5_deploy_pipeline",
+      "category": "Operations",
+      "refined_category": "Operations",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "API1_version_compat",
+      "category": "Other",
+      "refined_category": "Other (Misc)",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH14_celery_chain_fail",
+      "category": "Other",
+      "refined_category": "Other (Misc)",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "INFRA2_cicd_repair",
+      "category": "Other",
+      "refined_category": "Other (Misc)",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "TS1_type_mismatch",
+      "category": "Other",
+      "refined_category": "Other (Misc)",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH103_redis-py_3998",
+      "category": "Other",
+      "refined_category": "Other (Misc)",
+      "difficulty": "medium",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH112_redis-py_3996",
+      "category": "Other",
+      "refined_category": "Other (Misc)",
+      "difficulty": "medium",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH120_redis-py_3863",
+      "category": "Other",
+      "refined_category": "Other (Misc)",
+      "difficulty": "medium",
+      "evaluation_status": "excluded_under_recuration"
+    },
+    {
+      "task_id": "GH121_quart_302",
+      "category": "Other",
+      "refined_category": "Other (Misc)",
+      "difficulty": "medium",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH128_mitmproxy_8046",
+      "category": "Other",
+      "refined_category": "Other (Misc)",
+      "difficulty": "medium",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH12_click_envvar_flag",
+      "category": "Other",
+      "refined_category": "Other (Misc)",
+      "difficulty": "medium",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH136_mitmproxy_8054",
+      "category": "Other",
+      "refined_category": "Other (Misc)",
+      "difficulty": "medium",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH139_marshmallow_2894",
+      "category": "Other",
+      "refined_category": "Other (Misc)",
+      "difficulty": "medium",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH13_starlette_bg_block",
+      "category": "Other",
+      "refined_category": "Other (Misc)",
+      "difficulty": "medium",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH140_marshmallow_2874",
+      "category": "Other",
+      "refined_category": "Other (Misc)",
+      "difficulty": "medium",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH141_urllib3_3736",
+      "category": "Other",
+      "refined_category": "Other (Misc)",
+      "difficulty": "medium",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH143_mitmproxy_8095",
+      "category": "Other",
+      "refined_category": "Other (Misc)",
+      "difficulty": "medium",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "PIPE2_data_pipeline",
+      "category": "Pipeline",
+      "refined_category": "Pipeline",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "PIPE3_msg_queue",
+      "category": "Pipeline",
+      "refined_category": "Pipeline",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "PIPE3_stream_processing",
+      "category": "Pipeline",
+      "refined_category": "Pipeline",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "P2_spec_arbitration",
+      "category": "Policy",
+      "refined_category": "Policy",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "P3_access_control",
+      "category": "Policy",
+      "refined_category": "Policy",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "P4_data_retention",
+      "category": "Policy",
+      "refined_category": "Policy",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "RDS10_survey_analysis",
+      "category": "Other",
+      "refined_category": "Real Data Science",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "RDS11_survivorship_bias",
+      "category": "Other",
+      "refined_category": "Real Data Science",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "RDS12_simpsons_income",
+      "category": "Other",
+      "refined_category": "Real Data Science",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "CRYPTO1_nonce_reuse",
+      "category": "Security",
+      "refined_category": "Security",
+      "difficulty": "expert",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "CRYPTO3_cert_chain",
+      "category": "Security",
+      "refined_category": "Security",
+      "difficulty": "expert",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "CRYPTO4_kdf_migration",
+      "category": "Security",
+      "refined_category": "Security",
+      "difficulty": "expert",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "SEC8_dependency_audit",
+      "category": "Security",
+      "refined_category": "Security",
+      "difficulty": "expert",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "CRYPTO5_tls_config",
+      "category": "Security",
+      "refined_category": "Security",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "CRYPTO6_token_validation",
+      "category": "Security",
+      "refined_category": "Security",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GO1_concurrency_fix",
+      "category": "Software Eng.",
+      "refined_category": "Software Eng.",
+      "difficulty": "expert",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "SCALE1_codebase_migration",
+      "category": "Software Eng.",
+      "refined_category": "Software Eng.",
+      "difficulty": "expert",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH10_retry_backoff",
+      "category": "Software Eng.",
+      "refined_category": "Software Eng.",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH11_middleware_order",
+      "category": "Software Eng.",
+      "refined_category": "Software Eng.",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH1_flask_session_ctx",
+      "category": "Software Eng.",
+      "refined_category": "Software Eng.",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH2_click_flag_value",
+      "category": "Software Eng.",
+      "refined_category": "Software Eng.",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "SPEC5_config_system",
+      "category": "Specification",
+      "refined_category": "Specification",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "SPEC2_api_design",
+      "category": "Specification",
+      "refined_category": "Specification",
+      "difficulty": "medium",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "GH7_fixture_scope_leak",
+      "category": "Testing",
+      "refined_category": "Testing",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "TEST2_regression",
+      "category": "Testing",
+      "refined_category": "Testing",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "TEST3_integration",
+      "category": "Testing",
+      "refined_category": "Testing",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "TEST4_property",
+      "category": "Testing",
+      "refined_category": "Testing",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "RDS13_smote_leakage",
+      "category": "Other",
+      "refined_category": "Real Data Science",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "RDS14_housing_leakage",
+      "category": "Other",
+      "refined_category": "Real Data Science",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "RDS15_taxi_circular",
+      "category": "Other",
+      "refined_category": "Real Data Science",
+      "difficulty": "medium",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "RDS16_retail_phacking",
+      "category": "Other",
+      "refined_category": "Real Data Science",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    },
+    {
+      "task_id": "RDS17_macro_spurious",
+      "category": "Other",
+      "refined_category": "Real Data Science",
+      "difficulty": "hard",
+      "evaluation_status": "eligible_for_reproduction"
+    }
+  ],
+  "exclusion_rationale": {
+    "task_id": "GH120_redis-py_3863",
+    "upstream_readme_notice": "One of the 90 leaderboard tasks is currently under re-curation; runs return a 0 score until its specification is restored. The remaining 89 are described by upstream as fully evaluable.",
+    "source_url": "https://github.com/ybkim95/TeamBench/blob/d185aef1916fd86a9ba554d581fd256319a973af/README.md#L152",
+    "handling": "Preserve this task in the official 90-task source manifest, but exclude it from the current 89-task executable comparison and record the exclusion in the suite run package. Re-admit only when the upstream notice/specification is updated."
+  },
+  "corpus_template_count": 851,
+  "corpus_seeded_evaluation_instance_count": 931,
+  "leaderboard_subset": {
+    "name": "TeamBench-90",
+    "declared_task_ids": 90,
+    "currently_evaluable_task_ids": 89,
+    "excluded_recuration_task_id": "GH120_redis-py_3863",
+    "distinction": "The 851 task templates and 931 seeded evaluation instances are the broader corpus. The 90 task IDs in leaderboard/data/leaderboard_90_tasks.json form a stratified leaderboard subset; they are not the full 851-template corpus."
+  }
+}

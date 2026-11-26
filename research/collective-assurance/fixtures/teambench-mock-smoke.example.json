@@ -1,0 +1,221 @@
+{
+  "suite_id": "teambench-mock-smoke-001",
+  "run_mode": "mock_provider_smoke",
+  "upstream_repository": "https://github.com/ybkim95/TeamBench",
+  "upstream_commit": "d185aef1916fd86a9ba554d581fd256319a973af",
+  "benchmark_version": "2.1",
+  "dataset_manifest_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+  "task_manifest_digest": "86cbbc8e45971fcb1ab06a5025cca5ba8d7f73c942432758d683beaf63fdb211",
+  "native_grader_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+  "excluded_task_manifest_digest": "eb9f79da47a74f9b869a72f61227593b5055b35b6f469a727d8ca16c662e0f55",
+  "eligible_task_ids": [
+    "task-001"
+  ],
+  "excluded_tasks": [
+    {
+      "task_id": "task-recuration-001",
+      "reason": "Upstream source marks this item for re-curation; excluded from this smoke fixture only.",
+      "evidence_digest": "5555555555555555555555555555555555555555555555555555555555555555"
+    }
+  ],
+  "model_snapshot_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+  "tokenizer_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+  "prompt_config_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+  "toolset_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+  "decoding_config_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+  "seed_policy_id": "fixed-smoke-seed-v1",
+  "seed": 17,
+  "per_task_time_budget_ms": 120000,
+  "per_task_token_budget": 8000,
+  "per_task_compute_budget_millijoules": 500000,
+  "condition_runs": [
+    {
+      "run_id": "mock-oracle-001",
+      "condition": "oracle",
+      "system_config_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "role_profile_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "raw_result_manifest_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "agent_count": 1,
+      "roles": [
+        "oracle"
+      ],
+      "role_boundary_inventory_complete": true,
+      "tasks": [
+        {
+          "task_id": "task-001",
+          "state": "evaluated",
+          "raw_output_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+          "native_grader_output_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "native_grader_disposition": "pass",
+          "native_score_micros": 750000,
+          "verifier_disposition": null,
+          "role_boundary_events": [
+            {
+              "event_id": "event-oracle-001",
+              "actor_role": "oracle",
+              "boundary_id": "task-scope-boundary",
+              "expected_allowed": false,
+              "observed": "blocked",
+              "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          ],
+          "resource_usage": null
+        }
+      ],
+      "execution_backend": "in_process_tool_boundary",
+      "runtime_manifest_digest": null
+    },
+    {
+      "run_id": "mock-restricted-001",
+      "condition": "restricted",
+      "system_config_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "role_profile_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "raw_result_manifest_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "agent_count": 1,
+      "roles": [
+        "restricted"
+      ],
+      "role_boundary_inventory_complete": true,
+      "tasks": [
+        {
+          "task_id": "task-001",
+          "state": "evaluated",
+          "raw_output_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+          "native_grader_output_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "native_grader_disposition": "pass",
+          "native_score_micros": 750000,
+          "verifier_disposition": null,
+          "role_boundary_events": [
+            {
+              "event_id": "event-restricted-001",
+              "actor_role": "restricted",
+              "boundary_id": "task-scope-boundary",
+              "expected_allowed": false,
+              "observed": "blocked",
+              "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          ],
+          "resource_usage": null
+        }
+      ],
+      "execution_backend": "in_process_tool_boundary",
+      "runtime_manifest_digest": null
+    },
+    {
+      "run_id": "mock-team_no_verify-001",
+      "condition": "team_no_verify",
+      "system_config_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "role_profile_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "raw_result_manifest_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "agent_count": 2,
+      "roles": [
+        "planner",
+        "executor"
+      ],
+      "role_boundary_inventory_complete": true,
+      "tasks": [
+        {
+          "task_id": "task-001",
+          "state": "evaluated",
+          "raw_output_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+          "native_grader_output_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "native_grader_disposition": "pass",
+          "native_score_micros": 750000,
+          "verifier_disposition": null,
+          "role_boundary_events": [
+            {
+              "event_id": "event-team_no_verify-001",
+              "actor_role": "planner",
+              "boundary_id": "task-scope-boundary",
+              "expected_allowed": false,
+              "observed": "blocked",
+              "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          ],
+          "resource_usage": null
+        }
+      ],
+      "execution_backend": "in_process_tool_boundary",
+      "runtime_manifest_digest": null
+    },
+    {
+      "run_id": "mock-team_no_plan-001",
+      "condition": "team_no_plan",
+      "system_config_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "role_profile_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "raw_result_manifest_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "agent_count": 2,
+      "roles": [
+        "executor",
+        "verifier"
+      ],
+      "role_boundary_inventory_complete": true,
+      "tasks": [
+        {
+          "task_id": "task-001",
+          "state": "evaluated",
+          "raw_output_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+          "native_grader_output_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "native_grader_disposition": "pass",
+          "native_score_micros": 750000,
+          "verifier_disposition": "accept",
+          "role_boundary_events": [
+            {
+              "event_id": "event-team_no_plan-001",
+              "actor_role": "verifier",
+              "boundary_id": "verifier-write-workspace",
+              "expected_allowed": false,
+              "observed": "blocked",
+              "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          ],
+          "resource_usage": null
+        }
+      ],
+      "execution_backend": "in_process_tool_boundary",
+      "runtime_manifest_digest": null
+    },
+    {
+      "run_id": "mock-full-001",
+      "condition": "full",
+      "system_config_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "role_profile_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "raw_result_manifest_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "agent_count": 3,
+      "roles": [
+        "planner",
+        "executor",
+        "verifier"
+      ],
+      "role_boundary_inventory_complete": true,
+      "tasks": [
+        {
+          "task_id": "task-001",
+          "state": "evaluated",
+          "raw_output_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+          "native_grader_output_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "native_grader_disposition": "pass",
+          "native_score_micros": 750000,
+          "verifier_disposition": "accept",
+          "role_boundary_events": [
+            {
+              "event_id": "event-full-001",
+              "actor_role": "verifier",
+              "boundary_id": "verifier-write-workspace",
+              "expected_allowed": false,
+              "observed": "blocked",
+              "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          ],
+          "resource_usage": null
+        }
+      ],
+      "execution_backend": "in_process_tool_boundary",
+      "runtime_manifest_digest": null
+    }
+  ],
+  "task_manifest_path": "leaderboard/data/leaderboard_90_tasks.json",
+  "task_manifest_blob_sha": "59125b3fa9a82eede1f5a832c51c2ba32f5af591",
+  "re_curation_notice_path": "README.md",
+  "re_curation_notice_blob_sha": "6c39b66fed83c52f397c2d3b4f84e7bafe854061"
+}
