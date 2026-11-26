@@ -521,6 +521,7 @@ mod tests {
             "subject:grant:42",
             "claim:revoked",
             "VALID_AT",
+            "assertion:42",
         )
         .unwrap();
         assert_ne!(
@@ -531,6 +532,7 @@ mod tests {
                 "subject:grant:42",
                 "claim:revoked",
                 "VALID_AT",
+                "assertion:42",
             )
             .unwrap()
         );
@@ -542,6 +544,7 @@ mod tests {
                 "subject:grant:42",
                 "claim:revoked",
                 "VALID_AT",
+                "assertion:42",
             )
             .unwrap()
         );
