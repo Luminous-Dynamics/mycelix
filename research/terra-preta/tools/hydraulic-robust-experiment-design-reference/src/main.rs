@@ -432,9 +432,7 @@ fn rank_rows(rows: &[Vector]) -> usize {
     pivot_row
 }
 
-// Cholesky's triangular index relationships are clearer as explicit indices.
-#[allow(clippy::needless_range_loop)]
-// The regularizer is dimensionless and relative to the information scale.
+// Cholesky's triangular index relationships use deliberate matrix indexing.
 #[allow(clippy::needless_range_loop)]
 fn log_determinant_spd(mut matrix: Matrix, relative_regularizer: f64) -> Result<f64, String> {
     if !relative_regularizer.is_finite() || relative_regularizer <= 0.0 {
@@ -734,11 +732,11 @@ fn assign_regrets(
         let mut max_normalized = 0.0_f64;
         for (index, score) in design.scenario_scores.iter().enumerate() {
             let oracle_logdet = oracles[index].oracle_log_determinant_total_information;
-            let baseline_logdet = oracles[index].baseline_log_determinant_total_information;
             let available_gain = oracles[index].maximum_available_log_determinant_gain;
             let regret = (oracle_logdet - score.log_determinant_total_information).max(0.0);
-            let tolerance =
-                EIGEN_TOLERANCE * oracle_logdet.abs().max(baseline_logdet.abs()).max(1.0);
+            // Regret tolerance is scaled in gain-space, not absolute logdet
+            // space, so arbitrary scenario-specific information units cancel.
+            let tolerance = EIGEN_TOLERANCE * available_gain.abs().max(regret.abs()).max(1.0);
 
             let normalized = if available_gain > tolerance {
                 if regret > available_gain + tolerance {
@@ -1225,4 +1223,21 @@ mod tests {
             );
         }
     }
+    #[test]
+    fn relative_determinant_regularizer_is_information_scale_invariant() {
+        let base = [
+            [4.0, 0.5, 0.0, 0.0],
+            [0.5, 3.0, 0.25, 0.0],
+            [0.0, 0.25, 2.0, 0.1],
+            [0.0, 0.0, 0.1, 1.0],
+        ];
+        let base_logdet = log_determinant_spd(base, 1.0e-8).unwrap();
+        for scale in [1.0e-18, 1.0, 1.0e18] {
+            let scaled = base.map(|row| row.map(|value| value * scale));
+            let actual = log_determinant_spd(scaled, 1.0e-8).unwrap();
+            let expected = base_logdet + N as f64 * scale.ln();
+            assert!((actual - expected).abs() < 1.0e-8);
+        }
+    }
+
 }
