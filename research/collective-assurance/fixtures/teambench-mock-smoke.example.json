@@ -60,7 +60,9 @@
             }
           ]
         }
-      ]
+      ],
+      "execution_backend": "in_process_tool_boundary",
+      "runtime_manifest_digest": null
     },
     {
       "run_id": "mock-restricted-001",
@@ -93,7 +95,9 @@
             }
           ]
         }
-      ]
+      ],
+      "execution_backend": "in_process_tool_boundary",
+      "runtime_manifest_digest": null
     },
     {
       "run_id": "mock-team_no_verify-001",
@@ -127,7 +131,9 @@
             }
           ]
         }
-      ]
+      ],
+      "execution_backend": "in_process_tool_boundary",
+      "runtime_manifest_digest": null
     },
     {
       "run_id": "mock-team_no_plan-001",
@@ -161,7 +167,9 @@
             }
           ]
         }
-      ]
+      ],
+      "execution_backend": "in_process_tool_boundary",
+      "runtime_manifest_digest": null
     },
     {
       "run_id": "mock-full-001",
@@ -196,7 +204,9 @@
             }
           ]
         }
-      ]
+      ],
+      "execution_backend": "in_process_tool_boundary",
+      "runtime_manifest_digest": null
     }
   ]
 }
