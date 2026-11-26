@@ -1,13 +1,10 @@
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
-use mycelix_rfc9162_proof_verifier::{
-    consistency_proof, inclusion_proof, tree_hash,
-};
+use mycelix_rfc9162_proof_verifier::{consistency_proof, inclusion_proof, tree_hash};
 use mycelix_temporal_frontier_model::{
-    canonical_owner_cut_entry_v1, CheckpointInclusionDeclarationV1,
-    FrontierRelationV1, OwnerConsistencyLinkV1, OwnerCutV1,
-    VerifierFrontierV1,
+    CheckpointInclusionDeclarationV1, FrontierRelationV1, OwnerConsistencyLinkV1, OwnerCutV1,
+    VerifierFrontierV1, canonical_owner_cut_entry_v1,
 };
 
 const VERIFIER: &str = "did:mycelix:verifier:benchmark-v1";
@@ -115,8 +112,12 @@ fn main() {
         let earlier = build_frontier("frontier:earlier", owner_count, 10);
         let later = build_frontier("frontier:later", owner_count, 20);
         let links = build_links(owner_count);
-        earlier.validate().expect("earlier checkpoint inclusion proofs validate");
-        later.validate().expect("later checkpoint inclusion proofs validate");
+        earlier
+            .validate()
+            .expect("earlier checkpoint inclusion proofs validate");
+        later
+            .validate()
+            .expect("later checkpoint inclusion proofs validate");
         let build_elapsed = build_start.elapsed();
 
         let checkpoint_nodes: usize = earlier
@@ -125,10 +126,7 @@ fn main() {
             .chain(later.owner_cuts.iter())
             .map(|cut| cut.checkpoint_inclusion.inclusion_path.len())
             .sum();
-        let consistency_nodes: usize = links
-            .iter()
-            .map(|link| link.consistency_path.len())
-            .sum();
+        let consistency_nodes: usize = links.iter().map(|link| link.consistency_path.len()).sum();
 
         let mut samples = Vec::with_capacity(101);
         for _ in 0..101 {
