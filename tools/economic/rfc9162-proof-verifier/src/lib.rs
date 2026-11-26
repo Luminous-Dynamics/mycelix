@@ -15,9 +15,8 @@
 mod sparse_map;
 
 pub use sparse_map::{
-    SparseKeyV1, SparseMerkleErrorV1, SparseMerkleProofV1,
-    SparseMerkleTreeV1, SparseValueV1, SPARSE_MERKLE_DEPTH_V1,
-    assertion_index_key_v1, assertion_index_value_v1,
+    SPARSE_MERKLE_DEPTH_V1, SparseKeyV1, SparseMerkleErrorV1, SparseMerkleProofV1,
+    SparseMerkleTreeV1, SparseValueV1, assertion_index_key_v1, assertion_index_value_v1,
     verify_sparse_membership_v1, verify_sparse_non_membership_v1,
 };
 
