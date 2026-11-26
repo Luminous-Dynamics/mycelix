@@ -502,6 +502,41 @@ mod tests {
     }
 
     #[test]
+    fn inclusion_and_consistency_paths_match_rfc_9162_seven_leaf_example_shape() {
+        // RFC 9162 Section 2.1.5 names the seven leaves d0..d6 and states:
+        // PATH(6) = [i, k], with i=MTH(d4,d5), k=MTH(d0..d3).
+        let records: Vec<Vec<u8>> = (0_u8..7).map(|index| vec![index]).collect();
+        let path_d6 = inclusion_proof(&records, 6).unwrap();
+        assert_eq!(
+            path_d6,
+            vec![
+                tree_hash(&records[4..6]).unwrap(),
+                tree_hash(&records[..4]).unwrap(),
+            ]
+        );
+
+        // The RFC also gives PROOF(3,D7) = [c,d,g,l].
+        let proof_3_to_7 = consistency_proof(&records, 3).unwrap();
+        assert_eq!(
+            proof_3_to_7,
+            vec![
+                tree_hash(&records[2..3]).unwrap(),
+                tree_hash(&records[3..4]).unwrap(),
+                tree_hash(&records[..2]).unwrap(),
+                tree_hash(&records[4..7]).unwrap(),
+            ]
+        );
+        verify_consistency_proof(
+            3,
+            &tree_hash(&records[..3]).unwrap(),
+            7,
+            &tree_hash(&records).unwrap(),
+            &proof_3_to_7,
+        )
+        .unwrap();
+    }
+
+    #[test]
     fn zero_size_and_equal_size_consistency_edges_are_explicit() {
         let one = entries(1);
         let one_root = tree_hash(&one).unwrap();
