@@ -1097,7 +1097,10 @@ mod tests {
         let proposal = proposal(vec![member("alice")], vec![assignment("alice", vec![item])]);
 
         let coverage = result(&project, &proposal);
-        assert_eq!(coverage.disposition, RequirementDispositionV1::UnknownEvidence);
+        assert_eq!(
+            coverage.disposition,
+            RequirementDispositionV1::UnknownEvidence
+        );
         assert_eq!(coverage.stale_status_evidence, 1);
         assert_eq!(coverage.stale_or_revoked_evidence, 0);
         assert!(coverage.qualified_contributors.is_empty());
@@ -1111,7 +1114,10 @@ mod tests {
         let proposal = proposal(vec![member("alice")], vec![assignment("alice", vec![item])]);
 
         let coverage = result(&project, &proposal);
-        assert_eq!(coverage.disposition, RequirementDispositionV1::UnknownEvidence);
+        assert_eq!(
+            coverage.disposition,
+            RequirementDispositionV1::UnknownEvidence
+        );
         assert_eq!(coverage.future_status_evidence, 1);
         assert!(coverage.qualified_contributors.is_empty());
     }
