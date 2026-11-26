@@ -39,7 +39,7 @@ A proposal contains:
 - outcomes with indicator, baseline, target, time horizon, outcome owner and acceptance-authority reference;
 - capability requirements classified as SafetyCritical, Required, Developmental or Preferred;
 - work packages, outcome links, requirement links and dependency edges;
-- multiple candidate decompositions with explicit trade-offs, without an AI-selected winner;
+- multiple candidate decompositions with explicit trade-offs, without an AI-selected winner; every individual trade-off is a source/assumption/inference-linked claim;
 - explicit contradictions with separately attributed stakeholder positions and any resolution decision references;
 - open questions, including which ones block ratification;
 - safety review requirement;
