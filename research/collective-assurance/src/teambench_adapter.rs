@@ -907,10 +907,10 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
         }
 
         for (condition, (sum, count)) in score_totals {
-            if count > 0 {
+            if let Some(mean) = sum.checked_div(count) {
                 report
                     .mean_score_micros_by_condition
-                    .insert(condition, (sum / count) as u32);
+                    .insert(condition, mean as u32);
             }
         }
 
