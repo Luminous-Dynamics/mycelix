@@ -399,6 +399,10 @@ fn model_policy_matches(
     release: &AmlReleaseContract,
     report: &mut QualificationReport,
 ) -> bool {
+    if manifest.component_uses.is_empty() {
+        report.indeterminate("component inventory is empty; model identity cannot be audited");
+        return false;
+    }
     let mut observed = BTreeMap::<AmlComponentKind, BTreeSet<&str>>::new();
     for component in &manifest.component_uses {
         if !nonempty(&component.model_id)
@@ -1465,6 +1469,32 @@ mod tests {
             qualify_aml_run(&input, &release()).qualification.status,
             QualificationStatus::Fail
         );
+    }
+
+    #[test]
+    fn persistence_receipt_tampering_cannot_authorize_a_different_payload() {
+        let mut input = valid_run();
+        input.add_operations[0].attempts[0]
+            .persistence_receipt.as_mut().unwrap().payload_digest = D1.into();
+        let report = qualify_aml_run(&input, &release());
+        assert!(!report.api_contract_eligible);
+        assert_eq!(report.add_success_count, 1);
+    }
+
+    #[test]
+    fn missing_component_inventory_is_indeterminate_even_when_models_are_unrestricted() {
+        let mut input = valid_run();
+        input.manifest.division = AmlDivision::CommercialProducts;
+        input.manifest.component_uses.clear();
+        let mut release = release();
+        release.division = AmlDivision::CommercialProducts;
+        release.model_policy = AmlModelPolicy::cycle_2_commercial();
+        let report = qualify_aml_run(&input, &release);
+        assert!(report.api_contract_eligible);
+        assert!(!report.model_policy_eligible);
+        assert!(report.release_provenance_eligible);
+        assert!(report.evaluation_coverage_eligible);
+        assert!(!report.official_score_eligible);
     }
 
     #[test]
