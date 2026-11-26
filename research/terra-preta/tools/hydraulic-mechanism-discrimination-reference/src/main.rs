@@ -653,7 +653,6 @@ fn expected_metrics(fixture: &Fixture, selected: &[usize]) -> ExpectedMetrics {
             (prior_minimum_expected_decision_loss - expected_posterior_minimum_expected_loss)
                 .max(0.0)
         },
-
     }
 }
 
@@ -678,12 +677,8 @@ fn expected_decision_loss_after_candidate(
         for (node, quadrature_weight) in GH_NODES.iter().zip(GH_WEIGHTS.iter()) {
             let observation = candidate.expected_observable_by_mechanism[mechanism_index]
                 + candidate.noise_std * node;
-            let updated = posterior_from_prior(
-                fixture,
-                posterior,
-                &[candidate_index],
-                &[observation],
-            );
+            let updated =
+                posterior_from_prior(fixture, posterior, &[candidate_index], &[observation]);
             expected_loss += mechanism_probability
                 * quadrature_weight
                 * minimum_expected_decision_loss(fixture, &updated);
@@ -780,9 +775,9 @@ fn evaluate_first_candidate(
 
     for (true_mechanism_index, mechanism) in fixture.mechanisms.iter().enumerate() {
         for (node, quadrature_weight) in GH_NODES.iter().zip(GH_WEIGHTS.iter()) {
-            let observation = first_candidate.expected_observable_by_mechanism
-                [true_mechanism_index]
-                + first_candidate.noise_std * node;
+            let observation =
+                first_candidate.expected_observable_by_mechanism[true_mechanism_index]
+                    + first_candidate.noise_std * node;
             let (next_candidate, conditional_terminal_loss, posterior, discrepancy_abstained) =
                 next_candidate_after_observation(
                     fixture,
@@ -791,21 +786,19 @@ fn evaluate_first_candidate(
                     observation,
                 )?;
             let joint_probability_mass = mechanism.prior_probability * quadrature_weight;
-            expected_terminal_decision_loss +=
-                joint_probability_mass * conditional_terminal_loss;
+            expected_terminal_decision_loss += joint_probability_mass * conditional_terminal_loss;
 
             if discrepancy_abstained {
                 discrepancy_abstention_probability_mass += joint_probability_mass;
             }
-            let next_candidate_id = next_candidate
-                .map(|index| fixture.candidates[index].candidate_id.clone());
+            let next_candidate_id =
+                next_candidate.map(|index| fixture.candidates[index].candidate_id.clone());
             if let Some(next_index) = next_candidate {
                 expected_second_stage_cost +=
                     joint_probability_mass * fixture.candidates[next_index].cost as f64;
-                if let Some(existing) = second_stage_policy
-                    .iter_mut()
-                    .find(|branch| branch.next_candidate_id == fixture.candidates[next_index].candidate_id)
-                {
+                if let Some(existing) = second_stage_policy.iter_mut().find(|branch| {
+                    branch.next_candidate_id == fixture.candidates[next_index].candidate_id
+                }) {
                     existing.predictive_probability_mass += joint_probability_mass;
                 } else {
                     second_stage_policy.push(SequentialBranchShare {
@@ -834,12 +827,9 @@ fn evaluate_first_candidate(
         }
     }
 
-    second_stage_policy.sort_by(|left, right| {
-        left.next_candidate_id.cmp(&right.next_candidate_id)
-    });
-    first_observation_policy.sort_by(|left, right| {
-        left.observed_value.total_cmp(&right.observed_value)
-    });
+    second_stage_policy.sort_by(|left, right| left.next_candidate_id.cmp(&right.next_candidate_id));
+    first_observation_policy
+        .sort_by(|left, right| left.observed_value.total_cmp(&right.observed_value));
 
     Ok(SequentialEvaluation {
         expected_terminal_decision_loss,
@@ -851,10 +841,7 @@ fn evaluate_first_candidate(
     })
 }
 
-fn stop_sequential_policy(
-    policy_name: &str,
-    prior_loss: f64,
-) -> SequentialPolicyScore {
+fn stop_sequential_policy(policy_name: &str, prior_loss: f64) -> SequentialPolicyScore {
     SequentialPolicyScore {
         policy_name: policy_name.into(),
         first_candidate_id: "stop".into(),
@@ -877,7 +864,9 @@ fn sequential_policy_score(
 ) -> SequentialPolicyScore {
     SequentialPolicyScore {
         policy_name: policy_name.into(),
-        first_candidate_id: fixture.candidates[first_candidate_index].candidate_id.clone(),
+        first_candidate_id: fixture.candidates[first_candidate_index]
+            .candidate_id
+            .clone(),
         expected_cost: evaluation.expected_cost,
         expected_terminal_decision_loss: evaluation.expected_terminal_decision_loss,
         expected_value_of_sample_information: (prior_loss
@@ -890,11 +879,12 @@ fn sequential_policy_score(
     }
 }
 
-fn sequential_policy_comparison(
-    fixture: &Fixture,
-) -> Result<SequentialPolicyComparison, String> {
+fn sequential_policy_comparison(fixture: &Fixture) -> Result<SequentialPolicyComparison, String> {
     if fixture.acquisition_budget != 2
-        || fixture.candidates.iter().any(|candidate| candidate.cost != 1)
+        || fixture
+            .candidates
+            .iter()
+            .any(|candidate| candidate.cost != 1)
         || fixture.candidates.len() < 3
     {
         return Err(
@@ -1010,10 +1000,7 @@ fn sequential_policy_comparison(
             evaluation,
             prior_loss,
         ),
-        None => stop_sequential_policy(
-            "finite_horizon_two_step_adaptive_evsi_oracle",
-            prior_loss,
-        ),
+        None => stop_sequential_policy("finite_horizon_two_step_adaptive_evsi_oracle", prior_loss),
     };
 
     Ok(SequentialPolicyComparison {
@@ -1602,27 +1589,17 @@ mod tests {
             .map(|branch| branch.predictive_probability_mass)
             .sum::<f64>();
         assert!((total_branch_mass - 1.0).abs() < 1.0e-12);
-        assert!(
-            adaptive
-                .first_observation_policy
-                .iter()
-                .all(|branch| {
-                    (branch.posterior_model_probabilities.iter().sum::<f64>() - 1.0).abs()
-                        < 1.0e-12
-                })
-        );
-        assert!(
-            adaptive.second_stage_policy.iter().any(|branch| {
-                branch.next_candidate_id == "early_transient_flow"
-                    && branch.predictive_probability_mass > 0.9
-            })
-        );
-        assert!(
-            adaptive.second_stage_policy.iter().any(|branch| {
-                branch.next_candidate_id == "lower_path_flow"
-                    && branch.predictive_probability_mass > 0.0
-            })
-        );
+        assert!(adaptive.first_observation_policy.iter().all(|branch| {
+            (branch.posterior_model_probabilities.iter().sum::<f64>() - 1.0).abs() < 1.0e-12
+        }));
+        assert!(adaptive.second_stage_policy.iter().any(|branch| {
+            branch.next_candidate_id == "early_transient_flow"
+                && branch.predictive_probability_mass > 0.9
+        }));
+        assert!(adaptive.second_stage_policy.iter().any(|branch| {
+            branch.next_candidate_id == "lower_path_flow"
+                && branch.predictive_probability_mass > 0.0
+        }));
     }
 
     #[test]
@@ -1646,9 +1623,7 @@ mod tests {
                 .abs()
                 < 1.0e-12
         );
-        assert!(
-            comparison.adaptive_gain_over_fixed_loss_units.abs() < 1.0e-12
-        );
+        assert!(comparison.adaptive_gain_over_fixed_loss_units.abs() < 1.0e-12);
     }
 
     #[test]
@@ -1706,7 +1681,9 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         assert!(
-            (original.finite_horizon_adaptive_policy.expected_terminal_decision_loss
+            (original
+                .finite_horizon_adaptive_policy
+                .expected_terminal_decision_loss
                 - reordered
                     .finite_horizon_adaptive_policy
                     .expected_terminal_decision_loss)
