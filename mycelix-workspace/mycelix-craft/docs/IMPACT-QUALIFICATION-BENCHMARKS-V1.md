@@ -25,6 +25,8 @@ Do not compare VEX to general evidence sufficiency as though they solve the same
 - source is linked but absent from the exact use path;
 - not-affected justification lacks evidence;
 - assessor and reviewer are the same principal;
+- reviewer ID remains the same but its authority artifact revision/digest changes;
+- supporting impact evidence belongs to a different context digest;
 - high-consequence packet lacks a SafetyAuthority review;
 - reviewer lease expires or review digest changes;
 - UnderInvestigation attempted as NotAffected;
