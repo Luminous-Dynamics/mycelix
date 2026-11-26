@@ -28,6 +28,12 @@ False acceptance is counted when the separate Verifier accepts a submission that
 
 Role-boundary events bind the role, exact boundary ID, policy's expected allow/deny disposition, independently observed outcome and evidence digest. An observed allow on a deny boundary is a hard failure. An incomplete boundary inventory or unknown observation is INDETERMINATE. A blocked action that policy allowed is reported as a false denial rather than hidden inside the violation count. Benchmark-score eligibility and OS-isolation eligibility are separate: an in-process tool-boundary run may reproduce the official ablation score, but cannot establish OS/container isolation. OS-isolation eligibility requires a separately committed runtime manifest for every condition.
 
+## Resource and cost evidence
+
+Native benchmark scores remain eligible when task results are complete, even when a benchmark release does not expose full usage telemetry. Cost-adjusted comparisons are a separate qualification: every task in every condition must have an independently committed usage observation before aggregate totals are published.
+
+Per-task resource observations record input/output tokens, wall-clock time, provider cost in micro-USD, tool calls and inter-agent messages, plus an evidence digest. Missing or invalid observations are counted as unknown; they are not treated as zero. The aggregate resource table stays empty unless all eligible task-condition cells are complete. This makes cost-adjusted TeamBench uplift auditable without penalizing a score reproduction for telemetry that the upstream artifact does not provide.
+
 ## Exact upstream score composition
 
 The adapter preserves each task's native partial score on a fixed-point millionths scale and reproduces the formulas in upstream `harness/compute_tni.py`:
