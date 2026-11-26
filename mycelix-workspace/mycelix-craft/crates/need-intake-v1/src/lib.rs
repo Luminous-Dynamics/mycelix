@@ -535,7 +535,10 @@ pub fn ratified_need_envelope(
                 && review.decision == ReviewDecisionV1::Approve
                 && review.proposal_digest == proposal.proposal_digest
                 && review.reviewed_at <= now
-                && review.valid_until.map(|expiry| now < expiry).unwrap_or(true)
+                && review
+                    .valid_until
+                    .map(|expiry| now < expiry)
+                    .unwrap_or(true)
                 && review.withdrawn_at.map(|time| now < time).unwrap_or(true)
         })
         .ok_or(NeedIntakeErrorV1::NotRatified)?;
@@ -595,7 +598,10 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
         require_non_empty(&source.source_id)?;
         require_digest(&source.source_digest)?;
         require_non_empty(&source.visibility_profile_id)?;
-        if source_map.insert(source.source_id.clone(), source.source_digest).is_some() {
+        if source_map
+            .insert(source.source_id.clone(), source.source_digest)
+            .is_some()
+        {
             return Err(NeedIntakeErrorV1::DuplicateIdentifier);
         }
     }
@@ -618,7 +624,12 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
         require_non_empty(&outcome.indicator)?;
         require_non_empty(&outcome.measurement_ref)?;
         validate_policy_ref(&outcome.acceptance_policy)?;
-        if outcome.baseline.as_ref().map(|value| value.trim().is_empty() || value.trim() != value).unwrap_or(false) {
+        if outcome
+            .baseline
+            .as_ref()
+            .map(|value| value.trim().is_empty() || value.trim() != value)
+            .unwrap_or(false)
+        {
             return Err(NeedIntakeErrorV1::InvalidBaseline);
         }
         require_non_empty(&outcome.target)?;
@@ -653,8 +664,16 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
         validate_traceability(&requirement.traceability, &source_map, &assumption_ids)?;
     }
 
-    let outcome_ids = proposal.outcomes.iter().map(|x| x.outcome_id.as_str()).collect::<HashSet<_>>();
-    let requirement_ids = proposal.requirements.iter().map(|x| x.requirement_id.as_str()).collect::<HashSet<_>>();
+    let outcome_ids = proposal
+        .outcomes
+        .iter()
+        .map(|x| x.outcome_id.as_str())
+        .collect::<HashSet<_>>();
+    let requirement_ids = proposal
+        .requirements
+        .iter()
+        .map(|x| x.requirement_id.as_str())
+        .collect::<HashSet<_>>();
     let mut package_ids = HashSet::new();
     let mut dependencies = HashMap::new();
 
@@ -689,15 +708,19 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
         return Err(NeedIntakeErrorV1::UnmappedClaim);
     }
 
-    if proposal.requirements.iter().any(|requirement| {
-        requirement.kind == RequirementKindV1::SafetyCritical
-    }) && !proposal.safety_review_required {
+    if proposal
+        .requirements
+        .iter()
+        .any(|requirement| requirement.kind == RequirementKindV1::SafetyCritical)
+        && !proposal.safety_review_required
+    {
         return Err(NeedIntakeErrorV1::SafetyReviewRequired);
     }
 
     for package in &proposal.work_packages {
         for dependency in &package.depends_on {
-            if !package_ids.contains(dependency.as_str()) || dependency == &package.work_package_id {
+            if !package_ids.contains(dependency.as_str()) || dependency == &package.work_package_id
+            {
                 return Err(NeedIntakeErrorV1::UnknownWorkReference);
             }
         }
@@ -804,9 +827,17 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
         if !reviewed_roles.insert((review.role, review.proposal_digest)) {
             return Err(NeedIntakeErrorV1::DuplicateIdentifier);
         }
-        match (review.role, review.decision, &review.selected_alternative_id) {
+        match (
+            review.role,
+            review.decision,
+            &review.selected_alternative_id,
+        ) {
             (ReviewRoleV1::LocalRatifier, ReviewDecisionV1::Approve, Some(selected)) => {
-                if !proposal.alternatives.iter().any(|item| &item.alternative_id == selected) {
+                if !proposal
+                    .alternatives
+                    .iter()
+                    .any(|item| &item.alternative_id == selected)
+                {
                     return Err(NeedIntakeErrorV1::InvalidSelectedAlternative);
                 }
             }
@@ -821,8 +852,14 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
             (_, _, Some(_)) => return Err(NeedIntakeErrorV1::InvalidSelectedAlternative),
             _ => {}
         }
-        if review.valid_until.map(|t| t < review.reviewed_at).unwrap_or(false)
-            || review.withdrawn_at.map(|t| t < review.reviewed_at).unwrap_or(false)
+        if review
+            .valid_until
+            .map(|t| t < review.reviewed_at)
+            .unwrap_or(false)
+            || review
+                .withdrawn_at
+                .map(|t| t < review.reviewed_at)
+                .unwrap_or(false)
         {
             return Err(NeedIntakeErrorV1::InvalidReview);
         }
@@ -841,7 +878,10 @@ fn validate_traceability(
     for link in links {
         require_non_empty(&link.relation)?;
         match &link.basis {
-            TraceabilityBasisV1::Source { source_id, source_digest } => {
+            TraceabilityBasisV1::Source {
+                source_id,
+                source_digest,
+            } => {
                 if sources.get(source_id) != Some(source_digest) {
                     return Err(NeedIntakeErrorV1::UnknownOrMismatchedSource);
                 }
@@ -851,7 +891,11 @@ fn validate_traceability(
                     return Err(NeedIntakeErrorV1::UnknownAssumption);
                 }
             }
-            TraceabilityBasisV1::Inference { inference_id, method_id, source_ids } => {
+            TraceabilityBasisV1::Inference {
+                inference_id,
+                method_id,
+                source_ids,
+            } => {
                 require_non_empty(inference_id)?;
                 require_non_empty(method_id)?;
                 if source_ids.is_empty() || source_ids.iter().any(|id| !sources.contains_key(id)) {
@@ -878,7 +922,9 @@ fn validate_dependency_graph(
         if !active.insert(id.to_owned()) {
             return Err(NeedIntakeErrorV1::DependencyCycle);
         }
-        let edges = graph.get(id).ok_or(NeedIntakeErrorV1::UnknownWorkReference)?;
+        let edges = graph
+            .get(id)
+            .ok_or(NeedIntakeErrorV1::UnknownWorkReference)?;
         for next in edges {
             visit(next, graph, active, done)?;
         }
@@ -904,11 +950,15 @@ pub fn evaluate_ratification(
 ) -> Result<RatificationEvaluationV1, NeedIntakeErrorV1> {
     validate_proposal(proposal)?;
 
-    let blocking_questions = proposal.open_questions.iter()
+    let blocking_questions = proposal
+        .open_questions
+        .iter()
         .filter(|question| question.blocks_ratification)
         .map(|question| question.question_id.clone())
         .collect::<Vec<_>>();
-    let unresolved_contradictions = proposal.contradictions.iter()
+    let unresolved_contradictions = proposal
+        .contradictions
+        .iter()
         .filter(|contradiction| !contradiction.resolved)
         .map(|contradiction| contradiction.contradiction_id.clone())
         .collect::<Vec<_>>();
@@ -922,12 +972,19 @@ pub fn evaluate_ratification(
         required_roles.push(ReviewRoleV1::Safety);
     }
 
-    let current_reviews = proposal.reviews.iter().filter(|review| {
-        review.proposal_digest == proposal.proposal_digest
-            && review.reviewed_at <= now
-            && review.valid_until.map(|expiry| now < expiry).unwrap_or(true)
-            && review.withdrawn_at.map(|time| now < time).unwrap_or(true)
-    }).collect::<Vec<_>>();
+    let current_reviews = proposal
+        .reviews
+        .iter()
+        .filter(|review| {
+            review.proposal_digest == proposal.proposal_digest
+                && review.reviewed_at <= now
+                && review
+                    .valid_until
+                    .map(|expiry| now < expiry)
+                    .unwrap_or(true)
+                && review.withdrawn_at.map(|time| now < time).unwrap_or(true)
+        })
+        .collect::<Vec<_>>();
 
     if current_reviews.is_empty() {
         return Ok(RatificationEvaluationV1 {
@@ -939,7 +996,10 @@ pub fn evaluate_ratification(
         });
     }
 
-    if current_reviews.iter().any(|review| review.decision == ReviewDecisionV1::Reject) {
+    if current_reviews
+        .iter()
+        .any(|review| review.decision == ReviewDecisionV1::Reject)
+    {
         return Ok(RatificationEvaluationV1 {
             state: RatificationStateV1::Rejected,
             proposal_digest: proposal.proposal_digest,
@@ -972,11 +1032,15 @@ pub fn evaluate_ratification(
         });
     }
 
-    let missing_roles = required_roles.iter().copied().filter(|role| {
-        !current_reviews.iter().any(|review| {
-            review.role == *role && review.decision == ReviewDecisionV1::Approve
+    let missing_roles = required_roles
+        .iter()
+        .copied()
+        .filter(|role| {
+            !current_reviews
+                .iter()
+                .any(|review| review.role == *role && review.decision == ReviewDecisionV1::Approve)
         })
-    }).collect::<Vec<_>>();
+        .collect::<Vec<_>>();
 
     if missing_roles.contains(&ReviewRoleV1::Community) {
         return Ok(RatificationEvaluationV1 {
@@ -1031,7 +1095,11 @@ pub fn evaluate_ratification(
             RatificationStateV1::ReadyForLocalRatification
         },
         proposal_digest: proposal.proposal_digest,
-        missing_roles: if local_ratified { Vec::new() } else { vec![ReviewRoleV1::LocalRatifier] },
+        missing_roles: if local_ratified {
+            Vec::new()
+        } else {
+            vec![ReviewRoleV1::LocalRatifier]
+        },
         blocking_questions,
         unresolved_contradictions,
     })
@@ -1045,9 +1113,7 @@ fn validate_policy_ref(policy: &PolicyRefV1) -> Result<(), NeedIntakeErrorV1> {
     require_digest(&policy.digest)
 }
 
-fn validate_capability_profile(
-    profile: &CapabilityProfileRefV1,
-) -> Result<(), NeedIntakeErrorV1> {
+fn validate_capability_profile(profile: &CapabilityProfileRefV1) -> Result<(), NeedIntakeErrorV1> {
     require_non_empty(&profile.vocabulary_id)?;
     require_non_empty(&profile.concept_id)?;
     require_non_empty(&profile.revision)?;
@@ -1277,7 +1343,11 @@ mod tests {
             ReviewRoleV1::Provenance,
             ReviewRoleV1::Safety,
         ] {
-            proposal.reviews.push(review(role, ReviewDecisionV1::Approve, proposal.proposal_digest));
+            proposal.reviews.push(review(
+                role,
+                ReviewDecisionV1::Approve,
+                proposal.proposal_digest,
+            ));
         }
     }
 
@@ -1288,8 +1358,15 @@ mod tests {
         let ready = evaluate_ratification(&proposal, NOW).unwrap();
         assert_eq!(ready.state, RatificationStateV1::ReadyForLocalRatification);
         assert_eq!(ready.missing_roles, vec![ReviewRoleV1::LocalRatifier]);
-        proposal.reviews.push(review(ReviewRoleV1::LocalRatifier, ReviewDecisionV1::Approve, proposal.proposal_digest));
-        assert_eq!(evaluate_ratification(&proposal, NOW).unwrap().state, RatificationStateV1::Ratified);
+        proposal.reviews.push(review(
+            ReviewRoleV1::LocalRatifier,
+            ReviewDecisionV1::Approve,
+            proposal.proposal_digest,
+        ));
+        assert_eq!(
+            evaluate_ratification(&proposal, NOW).unwrap().state,
+            RatificationStateV1::Ratified
+        );
     }
 
     #[test]
@@ -1309,7 +1386,10 @@ mod tests {
             envelope.selected_alternative_id.as_deref(),
             Some("incremental-repair")
         );
-        assert_eq!(envelope.ratification_decision_id, "decision-reviewer-LocalRatifier");
+        assert_eq!(
+            envelope.ratification_decision_id,
+            "decision-reviewer-LocalRatifier"
+        );
     }
 
     #[test]
@@ -1489,17 +1569,25 @@ mod tests {
     #[test]
     fn source_digest_mismatch_is_rejected() {
         let mut proposal = valid_proposal();
-        if let TraceabilityBasisV1::Source { source_digest, .. } = &mut proposal.outcomes[0].traceability[0].basis {
+        if let TraceabilityBasisV1::Source { source_digest, .. } =
+            &mut proposal.outcomes[0].traceability[0].basis
+        {
             *source_digest = [9; 32];
         }
-        assert_eq!(validate_proposal(&proposal), Err(NeedIntakeErrorV1::UnknownOrMismatchedSource));
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::UnknownOrMismatchedSource)
+        );
     }
 
     #[test]
     fn every_outcome_and_requirement_requires_traceability() {
         let mut proposal = valid_proposal();
         proposal.requirements[0].traceability.clear();
-        assert_eq!(validate_proposal(&proposal), Err(NeedIntakeErrorV1::MissingTraceability));
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::MissingTraceability)
+        );
     }
 
     #[test]
@@ -1513,7 +1601,9 @@ mod tests {
         });
         proposal.requirements[0].traceability = vec![TraceabilityLinkV1 {
             relation: "explicit planning assumption".to_owned(),
-            basis: TraceabilityBasisV1::Assumption { assumption_id: "grid-availability".to_owned() },
+            basis: TraceabilityBasisV1::Assumption {
+                assumption_id: "grid-availability".to_owned(),
+            },
         }];
         assert!(validate_proposal(&proposal).is_ok());
     }
@@ -1530,10 +1620,15 @@ mod tests {
             },
         }];
         assert!(validate_proposal(&proposal).is_ok());
-        if let TraceabilityBasisV1::Inference { method_id, .. } = &mut proposal.requirements[0].traceability[0].basis {
+        if let TraceabilityBasisV1::Inference { method_id, .. } =
+            &mut proposal.requirements[0].traceability[0].basis
+        {
             *method_id = String::new();
         }
-        assert_eq!(validate_proposal(&proposal), Err(NeedIntakeErrorV1::EmptyField));
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::EmptyField)
+        );
     }
 
     #[test]
@@ -1546,7 +1641,10 @@ mod tests {
             blocks_ratification: true,
         });
         let result = evaluate_ratification(&proposal, NOW).unwrap();
-        assert_eq!(result.state, RatificationStateV1::NeedsCommunityClarification);
+        assert_eq!(
+            result.state,
+            RatificationStateV1::NeedsCommunityClarification
+        );
         assert_eq!(result.blocking_questions, vec!["potability-standard"]);
     }
 
@@ -1575,7 +1673,10 @@ mod tests {
             resolution_decision_digest: None,
             resolution_authority: None,
         });
-        assert_eq!(evaluate_ratification(&proposal, NOW).unwrap().state, RatificationStateV1::NeedsCommunityClarification);
+        assert_eq!(
+            evaluate_ratification(&proposal, NOW).unwrap().state,
+            RatificationStateV1::NeedsCommunityClarification
+        );
     }
 
     #[test]
@@ -1600,8 +1701,13 @@ mod tests {
     #[test]
     fn alternative_cannot_reference_unknown_work_package() {
         let mut proposal = valid_proposal();
-        proposal.alternatives[0].work_package_ids.push("invented-package".to_owned());
-        assert_eq!(validate_proposal(&proposal), Err(NeedIntakeErrorV1::UnknownWorkReference));
+        proposal.alternatives[0]
+            .work_package_ids
+            .push("invented-package".to_owned());
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::UnknownWorkReference)
+        );
     }
 
     #[test]
@@ -1671,14 +1777,25 @@ mod tests {
             resolution_decision_digest: None,
             resolution_authority: None,
         });
-        assert_eq!(evaluate_ratification(&proposal, NOW).unwrap().state, RatificationStateV1::NeedsDomainExpertReview);
+        assert_eq!(
+            evaluate_ratification(&proposal, NOW).unwrap().state,
+            RatificationStateV1::NeedsDomainExpertReview
+        );
     }
 
     #[test]
     fn missing_safety_review_cannot_be_replaced_by_domain_review() {
         let mut proposal = valid_proposal();
-        for role in [ReviewRoleV1::Community, ReviewRoleV1::DomainExpert, ReviewRoleV1::Provenance] {
-            proposal.reviews.push(review(role, ReviewDecisionV1::Approve, proposal.proposal_digest));
+        for role in [
+            ReviewRoleV1::Community,
+            ReviewRoleV1::DomainExpert,
+            ReviewRoleV1::Provenance,
+        ] {
+            proposal.reviews.push(review(
+                role,
+                ReviewDecisionV1::Approve,
+                proposal.proposal_digest,
+            ));
         }
         let result = evaluate_ratification(&proposal, NOW).unwrap();
         assert_eq!(result.state, RatificationStateV1::NeedsSafetyReview);
@@ -1693,7 +1810,10 @@ mod tests {
             item.proposal_digest = [6; 32];
         }
         let result = evaluate_ratification(&proposal, NOW).unwrap();
-        assert_eq!(result.state, RatificationStateV1::NeedsCommunityClarification);
+        assert_eq!(
+            result.state,
+            RatificationStateV1::NeedsCommunityClarification
+        );
         assert!(result.missing_roles.contains(&ReviewRoleV1::Safety));
     }
 
@@ -1701,12 +1821,17 @@ mod tests {
     fn request_changes_from_a_reviewer_role_is_not_an_approval() {
         let mut proposal = valid_proposal();
         prerequisite_reviews(&mut proposal);
-        let community = proposal.reviews.iter_mut()
+        let community = proposal
+            .reviews
+            .iter_mut()
             .find(|item| item.role == ReviewRoleV1::Community)
             .unwrap();
         community.decision = ReviewDecisionV1::RequestChanges;
         let result = evaluate_ratification(&proposal, NOW).unwrap();
-        assert_eq!(result.state, RatificationStateV1::NeedsCommunityClarification);
+        assert_eq!(
+            result.state,
+            RatificationStateV1::NeedsCommunityClarification
+        );
         assert!(result.missing_roles.contains(&ReviewRoleV1::Community));
     }
 
@@ -1735,7 +1860,10 @@ mod tests {
             proposal.proposal_digest,
         ));
         let result = evaluate_ratification(&proposal, NOW).unwrap();
-        assert_eq!(result.state, RatificationStateV1::NeedsCommunityClarification);
+        assert_eq!(
+            result.state,
+            RatificationStateV1::NeedsCommunityClarification
+        );
         assert_eq!(result.missing_roles, vec![ReviewRoleV1::LocalRatifier]);
     }
 
@@ -1749,7 +1877,10 @@ mod tests {
             }
         }
         let result = evaluate_ratification(&proposal, NOW).unwrap();
-        assert_eq!(result.state, RatificationStateV1::NeedsCommunityClarification);
+        assert_eq!(
+            result.state,
+            RatificationStateV1::NeedsCommunityClarification
+        );
         assert!(result.missing_roles.contains(&ReviewRoleV1::Community));
     }
 
@@ -1757,22 +1888,37 @@ mod tests {
     fn rejection_is_not_overridden_by_other_approvals() {
         let mut proposal = valid_proposal();
         prerequisite_reviews(&mut proposal);
-        proposal.reviews.push(review(ReviewRoleV1::DomainExpert, ReviewDecisionV1::Reject, proposal.proposal_digest));
-        assert_eq!(evaluate_ratification(&proposal, NOW).unwrap().state, RatificationStateV1::Rejected);
+        proposal.reviews.push(review(
+            ReviewRoleV1::DomainExpert,
+            ReviewDecisionV1::Reject,
+            proposal.proposal_digest,
+        ));
+        assert_eq!(
+            evaluate_ratification(&proposal, NOW).unwrap().state,
+            RatificationStateV1::Rejected
+        );
     }
 
     #[test]
     fn dependency_cycle_is_rejected() {
         let mut proposal = valid_proposal();
-        proposal.work_packages[0].depends_on.push("repair".to_owned());
-        assert_eq!(validate_proposal(&proposal), Err(NeedIntakeErrorV1::DependencyCycle));
+        proposal.work_packages[0]
+            .depends_on
+            .push("repair".to_owned());
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::DependencyCycle)
+        );
     }
 
     #[test]
     fn proposal_amendment_requires_previous_digest() {
         let mut proposal = valid_proposal();
         proposal.revision = 2;
-        assert_eq!(validate_proposal(&proposal), Err(NeedIntakeErrorV1::InvalidRevision));
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::InvalidRevision)
+        );
         proposal.previous_proposal_digest = Some([7; 32]);
         assert!(validate_proposal(&proposal).is_ok());
     }
@@ -1781,12 +1927,22 @@ mod tests {
     fn changed_proposal_digest_invalidates_prior_ratification() {
         let mut proposal = valid_proposal();
         prerequisite_reviews(&mut proposal);
-        proposal.reviews.push(review(ReviewRoleV1::LocalRatifier, ReviewDecisionV1::Approve, proposal.proposal_digest));
-        assert_eq!(evaluate_ratification(&proposal, NOW).unwrap().state, RatificationStateV1::Ratified);
+        proposal.reviews.push(review(
+            ReviewRoleV1::LocalRatifier,
+            ReviewDecisionV1::Approve,
+            proposal.proposal_digest,
+        ));
+        assert_eq!(
+            evaluate_ratification(&proposal, NOW).unwrap().state,
+            RatificationStateV1::Ratified
+        );
         proposal.revision = 2;
         proposal.previous_proposal_digest = Some(proposal.proposal_digest);
         proposal.proposal_digest = [8; 32];
-        assert_eq!(evaluate_ratification(&proposal, NOW).unwrap().state, RatificationStateV1::NeedsCommunityClarification);
+        assert_eq!(
+            evaluate_ratification(&proposal, NOW).unwrap().state,
+            RatificationStateV1::NeedsCommunityClarification
+        );
     }
 
     #[test]
