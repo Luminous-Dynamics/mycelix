@@ -24,6 +24,27 @@ Source: [arXiv:2611.07667](https://arxiv.org/abs/2611.07667). This is a preprint
 
 Together these findings motivate a joint design problem: **when should the system coordinate, and what information should each participant receive?** More agents and more disclosure are interventions to test—not defaults to assume.
 
+## A third signal: role separation does not make verification correct
+
+[TeamBench](https://teambench.github.io/) evaluates 851 software-engineering, data-engineering and incident-response task templates (931 seeded instances, 19 categories) under five conditions: Solo, Restricted, No Plan, No Eval and Full. Planner, Executor and Verifier run in isolated containers with distinct information and write permissions; the verifier is read-only.
+
+Its results expose three important failure modes:
+- Team benefit is conditional. The lowest Solo-score quintile gains +15.7 percentage points; the top quintile loses to coordination overhead. Mean Team-vs-Solo uplift over its 155-task reference pool is +0.5 points (p=0.20).
+- In its 27-configuration role-mixing pool, LLM Verifiers approved 49.4% of submissions that failed the deterministic grader (Wilson 95% CI [45.9, 52.9], n=1,083). Removing the Verifier improved mean partial score in the reference ablation.
+- Prompt-only and OS-enforced teams reached statistically indistinguishable pass rates, but prompt-only runs produced 3.6× more cases where the Verifier attempted to rewrite the Executor's code.
+
+TeamBench also defines a Teamwork Necessity Index:
+
+```text
+TNI = (S_team - S_restricted) / max(ε, S_oracle - S_restricted)
+```
+
+Its leaderboard reports a TeamBench-90 full-team pass rate of 37.8 for Claude Opus 4.7 versus 35.6 solo, while GPT-5.4 Mini reports 28.9 full versus 33.3 solo. These are model/task/harness-specific results, not a general agent-count ranking.
+
+Source: [TeamBench benchmark and results](https://teambench.github.io/); [paper](https://arxiv.org/abs/2605.07073).
+
+**Implication for Mycelix:** a verifier is another fallible participant, not an oracle. Role isolation, evidence delivery, certification authority and independent grading must be separate. A role that can see the full task and attest completion must not automatically be able to modify the implementation; more importantly, its attestation must be compared with an independent outcome oracle. Measure false-accept, false-reject, attempted role-boundary violations and corrective value separately.
+
 ## Paradigm shift
 
 Move from:
@@ -49,6 +70,7 @@ Compare at minimum:
 3. Centralized orchestrator with workers.
 4. Decentralized peer coordination.
 5. Hybrid coordination.
+6. **Structurally role-separated teams** (Planner / Executor / read-only Verifier), with prompt-only and OS/container-enforced isolation as separate treatments.
 
 Use the same model snapshot for the first matched architecture study. Heterogeneous model teams are a separate treatment and must be compared with a matched homogeneous baseline.
 
@@ -70,7 +92,7 @@ Run two tracks:
 - **Native-envelope:** each architecture uses its natural operating point; report quality/cost/latency Pareto curves. Do not call this a strict matched win.
 
 ### Outcomes
-Record paired task-quality gain over the single-agent baseline, unique-information preservation, actual cost/token/latency ratios, inter-agent messages and message density, error amplification, redundant work, failed coordination, tool calls, timeouts and retries.
+Record paired task-quality gain over the single-agent baseline, unique-information preservation, actual cost/token/latency ratios, inter-agent messages and message density, error amplification, redundant work, failed coordination, tool calls, timeouts and retries. For role-separated conditions also measure per-role information access, attempted boundary violations, unauthorized writes/reads, verifier false-accept/false-reject against the deterministic grader, attestation-to-outcome disagreement and whether removing a role improves or worsens partial score.
 
 The reference validator requires execution, outcome and cost evidence digests. It verifies matched task/model/tool/evaluator/seed/budget controls while intentionally allowing agent count and coordination configuration to differ.
 
@@ -123,6 +145,7 @@ Prospective research targets, not achieved results:
 - Demonstrate positive, confidence-bounded quality gain without exceeding cost/token/latency/error limits on at least two structurally distinct task families.
 - Zero authority, privacy, evidence or execution-boundary gate failures in the qualified comparison set.
 - Publish task-structure, coordination-overhead, message-density and error-amplification traces for every configuration.
+- On deterministic role-boundary cases, zero unauthorized cross-role reads/writes and zero false verifier PASS. On stochastic held-out TeamBench-compatible cases, target verifier false-accept <5% against the deterministic grader, with false-reject, coverage and abstention reported separately.
 
 The paper reports 94% sign prediction on 16 validation configurations and 87% architecture selection on its held-out within-domain configurations. Our proposed 95%/90% targets are intentionally stronger and require at least 100 independent held-out configurations plus uncertainty bounds. These targets are not directly comparable until we reproduce the paper's task/model split and selection protocol; do not claim superiority from the target definition.
 
