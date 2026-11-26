@@ -2,8 +2,8 @@ use std::hint::black_box;
 use std::time::{Duration, Instant};
 
 use mycelix_rfc9162_proof_verifier::{
-    SparseKeyV1, SparseMerkleTreeV1, SparseValueV1, assertion_index_value_v1,
-    sha256, verify_sparse_membership_v1, verify_sparse_non_membership_v1,
+    SparseKeyV1, SparseMerkleTreeV1, SparseValueV1, assertion_index_value_v1, sha256,
+    verify_sparse_membership_v1, verify_sparse_non_membership_v1,
 };
 
 fn percentile(samples: &[Duration], percentile: usize) -> Duration {
@@ -20,12 +20,8 @@ fn indexed_key(index: u64) -> SparseKeyV1 {
 
 fn indexed_value(index: u64) -> SparseValueV1 {
     let receipt_digest = format!("sha256:{:064x}", index + 1);
-    assertion_index_value_v1(
-        &receipt_digest,
-        "owner:benchmark-receipts",
-        index + 1,
-    )
-    .expect("well-formed receipt index value")
+    assertion_index_value_v1(&receipt_digest, "owner:benchmark-receipts", index + 1)
+        .expect("well-formed receipt index value")
 }
 
 fn measure_verify(
@@ -70,7 +66,9 @@ fn main() {
         let mut absent_key = indexed_key(count + 10_000);
         absent_key[0] ^= 0x80;
         assert!(
-            linear_entries.iter().all(|(candidate, _)| candidate != &absent_key),
+            linear_entries
+                .iter()
+                .all(|(candidate, _)| candidate != &absent_key),
             "benchmark negative-control key unexpectedly collides"
         );
         let nonmembership_start = Instant::now();
@@ -86,11 +84,7 @@ fn main() {
             )
         });
         let nonmembership_samples = measure_verify(|| {
-            verify_sparse_non_membership_v1(
-                &absent_key,
-                black_box(&nonmembership_proof),
-                &root,
-            )
+            verify_sparse_non_membership_v1(&absent_key, black_box(&nonmembership_proof), &root)
         });
 
         // This is only an in-memory lookup cost baseline. It does not provide
@@ -116,7 +110,8 @@ fn main() {
         let proof_bytes = membership_proof
             .siblings_leaf_to_root
             .len()
-            .max(nonmembership_proof.siblings_leaf_to_root.len()) * 32;
+            .max(nonmembership_proof.siblings_leaf_to_root.len())
+            * 32;
 
         println!(
             "{count},{},{},{},{},{},{},{},{},{},{},{},{}",
