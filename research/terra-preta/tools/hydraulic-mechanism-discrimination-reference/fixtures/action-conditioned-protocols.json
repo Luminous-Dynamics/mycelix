@@ -1,0 +1,148 @@
+{
+  "schema_version": "terra-action-conditioned-boed-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "fixture_id": "four-mechanism-safe-pressure-tracer-protocols",
+  "description": "Synthetic dimensionless transient response models illustrating action-conditioned pressure, flow, displacement and tracer observables. All limits are benchmark-only constraints, not field-safe prescriptions.",
+  "discrepancy_threshold_sd": 4,
+  "safety_limits": {
+    "maximum_pressure_amplitude": 0.6,
+    "maximum_injected_volume": 0.6,
+    "maximum_duration_s": 40,
+    "maximum_tracer_mass": 0.1,
+    "maximum_actuator_effort": 0.5,
+    "maximum_sample_damage_index": 0.2,
+    "acquisition_budget": 2
+  },
+  "mechanisms": [
+    {
+      "mechanism_id": "balanced_parallel_paths",
+      "prior_probability": 0.25,
+      "conductance": 1.4,
+      "storage_time_constant_s": 4,
+      "preferential_flow_fraction": 0.5,
+      "immobile_fraction": 0.1,
+      "dead_end_storage_fraction": 0.1,
+      "non_darcy_beta": 0.04,
+      "effective_porosity": 0.3
+    },
+    {
+      "mechanism_id": "preferential_pathway",
+      "prior_probability": 0.25,
+      "conductance": 1.4,
+      "storage_time_constant_s": 2,
+      "preferential_flow_fraction": 0.9,
+      "immobile_fraction": 0.05,
+      "dead_end_storage_fraction": 0.02,
+      "non_darcy_beta": 0.06,
+      "effective_porosity": 0.25
+    },
+    {
+      "mechanism_id": "dual_domain_dead_end_storage",
+      "prior_probability": 0.25,
+      "conductance": 1.4,
+      "storage_time_constant_s": 12,
+      "preferential_flow_fraction": 0.4,
+      "immobile_fraction": 0.55,
+      "dead_end_storage_fraction": 0.4,
+      "non_darcy_beta": 0.03,
+      "effective_porosity": 0.4
+    },
+    {
+      "mechanism_id": "forchheimer_non_darcy",
+      "prior_probability": 0.25,
+      "conductance": 1.4,
+      "storage_time_constant_s": 5,
+      "preferential_flow_fraction": 0.35,
+      "immobile_fraction": 0.15,
+      "dead_end_storage_fraction": 0.1,
+      "non_darcy_beta": 0.8,
+      "effective_porosity": 0.28
+    }
+  ],
+  "protocols": [
+    {
+      "protocol_id": "step_outlet_pressure",
+      "waveform": "constant_head_step",
+      "observable": "outlet_pressure",
+      "pressure_amplitude": 0.4,
+      "frequency_hz": 0,
+      "duration_s": 8,
+      "injected_volume": 0.15,
+      "tracer_mass": 0,
+      "actuator_effort": 0.2,
+      "sample_damage_index": 0.05,
+      "acquisition_cost": 1,
+      "noise_std": 0.08
+    },
+    {
+      "protocol_id": "squarewave_actuator_displacement",
+      "waveform": "square_wave",
+      "observable": "actuator_displacement",
+      "pressure_amplitude": 0.35,
+      "frequency_hz": 0.25,
+      "duration_s": 16,
+      "injected_volume": 0.2,
+      "tracer_mass": 0,
+      "actuator_effort": 0.2,
+      "sample_damage_index": 0.08,
+      "acquisition_cost": 1,
+      "noise_std": 0.14
+    },
+    {
+      "protocol_id": "sine_total_flow",
+      "waveform": "sinusoidal",
+      "observable": "total_flow",
+      "pressure_amplitude": 0.45,
+      "frequency_hz": 0.6,
+      "duration_s": 12,
+      "injected_volume": 0.18,
+      "tracer_mass": 0,
+      "actuator_effort": 0.25,
+      "sample_damage_index": 0.1,
+      "acquisition_cost": 1,
+      "noise_std": 0.09
+    },
+    {
+      "protocol_id": "dual_pulse_tracer_moment",
+      "waveform": "dual_pulse_tracer",
+      "observable": "tracer_first_moment",
+      "pressure_amplitude": 0.3,
+      "frequency_hz": 0,
+      "duration_s": 20,
+      "injected_volume": 0.22,
+      "tracer_mass": 0.05,
+      "actuator_effort": 0.2,
+      "sample_damage_index": 0.15,
+      "acquisition_cost": 1,
+      "noise_std": 0.8
+    },
+    {
+      "protocol_id": "dual_pulse_late_tracer",
+      "waveform": "dual_pulse_tracer",
+      "observable": "late_tracer_fraction",
+      "pressure_amplitude": 0.3,
+      "frequency_hz": 0,
+      "duration_s": 20,
+      "injected_volume": 0.22,
+      "tracer_mass": 0.05,
+      "actuator_effort": 0.2,
+      "sample_damage_index": 0.15,
+      "acquisition_cost": 1,
+      "noise_std": 0.08
+    },
+    {
+      "protocol_id": "unsafe_high_pressure",
+      "waveform": "constant_head_step",
+      "observable": "total_flow",
+      "pressure_amplitude": 1.5,
+      "frequency_hz": 0,
+      "duration_s": 55,
+      "injected_volume": 0.8,
+      "tracer_mass": 0.2,
+      "actuator_effort": 0.8,
+      "sample_damage_index": 0.4,
+      "acquisition_cost": 1,
+      "noise_std": 0.1
+    }
+  ]
+}

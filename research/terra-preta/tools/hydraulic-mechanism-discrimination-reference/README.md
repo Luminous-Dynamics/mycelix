@@ -165,6 +165,25 @@ For the experiment-selection layer, freeze the same solver-call, simulation, acq
 
 The defensible ambition is to outperform established workflows on **uncertainty-aware experiment selection, calibrated predictions and traceable qualification** while interoperating with the best physical solvers—not to assert an unsupported universal solver-speed or accuracy win.
 
+
+## Action-conditioned excitation and joint pressure–tracer design v0.1
+
+The `terra-action-conditioned-boed` reference changes the design unit from a static observable to an **intervention-observation protocol**. A protocol declares its pressure/head waveform, amplitude, frequency, duration, injected volume, tracer mass, actuator effort, sample-damage index, measured observable, acquisition cost and observation noise.
+
+The synthetic fixture contains four equal-prior reduced-order mechanisms (balanced pathways, preferential flow, dual-domain/dead-end storage and Forchheimer-like non-Darcy response) and six protocols (constant-head pressure step, square-wave displacement, sinusoidal flow, two dual-pulse tracer observables and one deliberately unsafe high-pressure protocol). The last protocol must be rejected by hard constraints.
+
+The P0 reference implements:
+- action-conditioned dimensionless transient response functions (the same medium can produce different observables under different excitation waveforms);
+- joint posterior updating over a sequence of protocol-observation pairs;
+- a best fixed two-protocol portfolio enumerated over all feasible pairs;
+- a finite-horizon adaptive protocol policy that updates after the first result, applies a discrepancy gate, then selects the next feasible protocol or stops;
+- hard per-protocol pressure checks and cumulative constraints on acquisition cost, injected volume, duration, tracer mass, actuator effort and sample-damage index;
+- full first-observation-to-posterior-to-next-protocol/stop/abstain branch receipts and a no-overwrite input-hashed report.
+
+The safety values in this fixture are **synthetic benchmark constraints only**, not recommended operating limits or evidence of physical safety. The response functions are illustrative normalized state dynamics, not calibrated Richards, Darcy-Brinkman or Forchheimer constitutive models. No field pressure or tracer recipe is implied.
+
+The next ladder is to introduce correlated pressure/flow/tracer metrology covariance, joint waveform and sensor selection, controlled sample reset/recovery, risk-budgeted dual control, model discrepancy under transient excitations, and then measured calibration against independent Darcy/Richards and pore-scale solver outputs. Candidate policy baselines should include passive fixed sensors, optimal fixed waveform, sequential sensors only, sequential waveform only, joint action+sensor policies, greedy EIG/EPIG/EVSI, and an exact small-horizon oracle. Compare under matched acquisition cost, physical constraints, solver calls and policy-training compute.
+
 ## Qualification targets (targets, not results)
 
 - Exact portfolio optimum on the finite candidate fixture.
