@@ -1,0 +1,101 @@
+{
+  "run_id": "integrity-fixture-synthetic-v0.1",
+  "manifest": {
+    "schema_version": "mcsf-at-rest-integrity-v0.1",
+    "evidence_class": "synthetic_fixture",
+    "sut_id": "memory-sut-synthetic",
+    "sut_version": "0.0.0-fixture",
+    "storage_configuration_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+    "test_plan_digest": "1212121212121212121212121212121212121212121212121212121212121212",
+    "runner_digest": "1313131313131313131313131313131313131313131313131313131313131313",
+    "snapshot_restore_capable": true,
+    "erasure_capable": true
+  },
+  "controls": {
+    "no_op_reload": "passed",
+    "genuine_write_after_restart": "passed"
+  },
+  "observations": [
+    {
+      "test_case": "T1",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0101010101010101010101010101010101010101010101010101010101010101"
+    },
+    {
+      "test_case": "T2",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0202020202020202020202020202020202020202020202020202020202020202"
+    },
+    {
+      "test_case": "T3",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0303030303030303030303030303030303030303030303030303030303030303"
+    },
+    {
+      "test_case": "T4",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0404040404040404040404040404040404040404040404040404040404040404"
+    },
+    {
+      "test_case": "T5",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0505050505050505050505050505050505050505050505050505050505050505"
+    },
+    {
+      "test_case": "T6",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0606060606060606060606060606060606060606060606060606060606060606"
+    },
+    {
+      "test_case": "T7",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0707070707070707070707070707070707070707070707070707070707070707"
+    },
+    {
+      "test_case": "T8",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0808080808080808080808080808080808080808080808080808080808080808"
+    },
+    {
+      "test_case": "T9",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0909090909090909090909090909090909090909090909090909090909090909"
+    },
+    {
+      "test_case": "T10",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+    }
+  ],
+  "run_digest": "2d4221cc62f46f398af1a4b7e8deb0b2195a9588bceadbdeb52f2f85fd30d0e7"
+}
