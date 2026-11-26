@@ -18,3 +18,17 @@ Align the provenance and selective-disclosure design with **NIST IR 8536 (final,
 Reference: https://csrc.nist.gov/pubs/ir/8536/final
 
 **Synthetic only.** No real issuer, organization, title, measurement, credential or legal recognition is represented.
+
+## Executable test-only checks
+
+The fixture now binds both the single-window and two-window Symtropy known answers, with per-window capacity bounds and validity intervals.
+
+Run the independent standard-library checks:
+
+```sh
+python3 research/safrb-shared-pump-v0.1/verify_claim_fidelity.py
+```
+
+The verifier checks issuer recognition, claim scope, title/custody/contract/dispatch separation, common physical-resource identity, common-cause closure, source-scenario digests and exact capacity bounds for each time window. Its mutation controls reject eight deliberate authority, currentness, alias, dependency and temporal promotions.
+
+This script is test-only. It does not verify cryptographic signatures, a real issuer, legal recognition, actual measurements, or a production Mycelix adapter. The companion workflow is included for execution when this workflow definition is available to the repository's Actions event configuration; no CI pass is claimed for this draft head.
