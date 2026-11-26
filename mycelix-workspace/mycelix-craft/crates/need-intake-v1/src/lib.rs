@@ -635,10 +635,14 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
         }
     }
 
+    let mut reviewed_roles = HashSet::new();
     for review in &proposal.reviews {
         require_non_empty(&review.reviewer_id)?;
         validate_authority(&review.authority)?;
         require_digest(&review.proposal_digest)?;
+        if !reviewed_roles.insert((review.role, review.proposal_digest)) {
+            return Err(NeedIntakeErrorV1::DuplicateIdentifier);
+        }
         if review.valid_until.map(|t| t < review.reviewed_at).unwrap_or(false)
             || review.withdrawn_at.map(|t| t < review.reviewed_at).unwrap_or(false)
         {
@@ -821,6 +825,19 @@ pub fn evaluate_ratification(
             state: RatificationStateV1::NeedsDomainExpertReview,
             proposal_digest: proposal.proposal_digest,
             missing_roles,
+            blocking_questions,
+            unresolved_contradictions,
+        });
+    }
+
+    if current_reviews.iter().any(|review| {
+        review.role == ReviewRoleV1::LocalRatifier
+            && review.decision == ReviewDecisionV1::RequestChanges
+    }) {
+        return Ok(RatificationEvaluationV1 {
+            state: RatificationStateV1::NeedsCommunityClarification,
+            proposal_digest: proposal.proposal_digest,
+            missing_roles: vec![ReviewRoleV1::LocalRatifier],
             blocking_questions,
             unresolved_contradictions,
         });
@@ -1279,6 +1296,48 @@ mod tests {
         let result = evaluate_ratification(&proposal, NOW).unwrap();
         assert_eq!(result.state, RatificationStateV1::NeedsCommunityClarification);
         assert!(result.missing_roles.contains(&ReviewRoleV1::Safety));
+    }
+
+    #[test]
+    fn request_changes_from_a_reviewer_role_is_not_an_approval() {
+        let mut proposal = valid_proposal();
+        prerequisite_reviews(&mut proposal);
+        let community = proposal.reviews.iter_mut()
+            .find(|item| item.role == ReviewRoleV1::Community)
+            .unwrap();
+        community.decision = ReviewDecisionV1::RequestChanges;
+        let result = evaluate_ratification(&proposal, NOW).unwrap();
+        assert_eq!(result.state, RatificationStateV1::NeedsCommunityClarification);
+        assert!(result.missing_roles.contains(&ReviewRoleV1::Community));
+    }
+
+    #[test]
+    fn duplicate_decisions_for_one_role_and_digest_are_rejected() {
+        let mut proposal = valid_proposal();
+        prerequisite_reviews(&mut proposal);
+        proposal.reviews.push(review(
+            ReviewRoleV1::Community,
+            ReviewDecisionV1::Approve,
+            proposal.proposal_digest,
+        ));
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::DuplicateIdentifier)
+        );
+    }
+
+    #[test]
+    fn local_ratifier_request_changes_requires_a_new_proposal_revision() {
+        let mut proposal = valid_proposal();
+        prerequisite_reviews(&mut proposal);
+        proposal.reviews.push(review(
+            ReviewRoleV1::LocalRatifier,
+            ReviewDecisionV1::RequestChanges,
+            proposal.proposal_digest,
+        ));
+        let result = evaluate_ratification(&proposal, NOW).unwrap();
+        assert_eq!(result.state, RatificationStateV1::NeedsCommunityClarification);
+        assert_eq!(result.missing_roles, vec![ReviewRoleV1::LocalRatifier]);
     }
 
     #[test]
