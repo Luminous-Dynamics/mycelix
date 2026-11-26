@@ -317,7 +317,8 @@ pub fn compute_memory_graph_digest(artifacts: &[MemoryArtifact]) -> Result<Strin
 }
 
 /// Computes a snapshot identity over the graph, revocation events and closure receipts.
-/// Use observations bind this digest but are excluded to avoid a circular commitment.
+/// Use observations are excluded: each points to the independently archived policy
+/// snapshot that was actually observed at its own event time.
 pub fn compute_transitive_memory_snapshot_digest(
     snapshot: &TransitiveMemorySnapshot,
 ) -> Result<String, String> {
