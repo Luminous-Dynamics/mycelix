@@ -143,13 +143,20 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
         || fixture.fixture_id.trim().is_empty()
         || fixture.description.trim().is_empty()
     {
-        return Err("fixture identity, schema version, description or synthetic-only status is invalid".into());
+        return Err(
+            "fixture identity, schema version, description or synthetic-only status is invalid"
+                .into(),
+        );
     }
     if fixture.mechanisms.len() < 2 || fixture.mechanisms.len() > MAX_MECHANISMS {
-        return Err(format!("between two and {MAX_MECHANISMS} mechanisms are required"));
+        return Err(format!(
+            "between two and {MAX_MECHANISMS} mechanisms are required"
+        ));
     }
     if fixture.candidates.is_empty() || fixture.candidates.len() > MAX_CANDIDATES {
-        return Err(format!("between one and {MAX_CANDIDATES} candidate observations are required"));
+        return Err(format!(
+            "between one and {MAX_CANDIDATES} candidate observations are required"
+        ));
     }
     if fixture.acquisition_budget == 0 {
         return Err("acquisition budget must be positive".into());
@@ -170,7 +177,9 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
             || mechanism.prior_probability <= 0.0
             || !mechanism.heldout_late_transient_flow.is_finite()
         {
-            return Err("mechanism IDs, descriptions, priors and held-out predictions must be valid".into());
+            return Err(
+                "mechanism IDs, descriptions, priors and held-out predictions must be valid".into(),
+            );
         }
         prior_sum += mechanism.prior_probability;
     }
@@ -204,7 +213,10 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
             .chain(candidate.d_observable_d_log_total_conductance.iter())
             .any(|value| !value.is_finite())
         {
-            return Err(format!("candidate {} contains a non-finite model output or derivative", candidate.candidate_id));
+            return Err(format!(
+                "candidate {} contains a non-finite model output or derivative",
+                candidate.candidate_id
+            ));
         }
     }
 
@@ -245,7 +257,12 @@ fn log_normal_density(value: f64, mean: f64, standard_deviation: f64) -> f64 {
 
 fn log_sum_exp(values: &[f64]) -> f64 {
     let maximum = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    maximum + values.iter().map(|value| (value - maximum).exp()).sum::<f64>().ln()
+    maximum
+        + values
+            .iter()
+            .map(|value| (value - maximum).exp())
+            .sum::<f64>()
+            .ln()
 }
 
 fn entropy(probabilities: &[f64]) -> f64 {
@@ -292,8 +309,8 @@ fn posterior_predictive_mutual_information(fixture: &Fixture, posterior: &[f64])
     let mut information = 0.0;
     for (true_index, mechanism) in fixture.mechanisms.iter().enumerate() {
         for (node, quadrature_weight) in GH_NODES.iter().zip(GH_WEIGHTS.iter()) {
-            let observation =
-                mechanism.heldout_late_transient_flow + fixture.heldout_observation_noise_std * node;
+            let observation = mechanism.heldout_late_transient_flow
+                + fixture.heldout_observation_noise_std * node;
             let conditional_log_density = log_normal_density(
                 observation,
                 mechanism.heldout_late_transient_flow,
@@ -395,8 +412,7 @@ fn expected_metrics(fixture: &Fixture, selected: &[usize]) -> ExpectedMetrics {
                 })
                 .sum::<f64>();
             expected_brier += mass * brier;
-            expected_log_loss +=
-                mass * -posterior[true_index].max(f64::MIN_POSITIVE).ln();
+            expected_log_loss += mass * -posterior[true_index].max(f64::MIN_POSITIVE).ln();
             expected_predictive_information +=
                 mass * posterior_predictive_mutual_information(fixture, &posterior);
         };
@@ -419,8 +435,9 @@ fn expected_metrics(fixture: &Fixture, selected: &[usize]) -> ExpectedMetrics {
         expected_brier_score: expected_brier,
         expected_log_loss,
         // I(Y_design; Y*) = I(M; Y*) - E[I(M; Y* | Y_design)].
-        expected_predictive_information_gain: (posterior_predictive_mutual_information(fixture, &prior)
-            - expected_predictive_information)
+        expected_predictive_information_gain: (posterior_predictive_mutual_information(
+            fixture, &prior,
+        ) - expected_predictive_information)
             .max(0.0),
     }
 }
@@ -581,8 +598,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     let model_design = choose_design(&designs, |design| {
         design.summary.expected_model_information_gain_nats
     })?;
-    let precision_design =
-        choose_design(&designs, |design| design.worst_case_fisher)?;
+    let precision_design = choose_design(&designs, |design| design.worst_case_fisher)?;
     let predictive_design = choose_design(&designs, |design| {
         design.summary.expected_predictive_information_gain_nats
     })?;
@@ -668,9 +684,11 @@ mod tests {
             .iter()
             .find(|candidate| candidate.candidate_id == "bulk_steady_flow")
             .unwrap();
-        assert!(bulk.expected_observable_by_mechanism
-            .iter()
-            .all(|value| (*value - 2.0).abs() < 1.0e-12));
+        assert!(
+            bulk.expected_observable_by_mechanism
+                .iter()
+                .all(|value| (*value - 2.0).abs() < 1.0e-12)
+        );
     }
 
     #[test]
@@ -697,7 +715,12 @@ mod tests {
             report.predictive_design.candidate_ids,
             vec!["early_transient_flow", "upper_path_flow"]
         );
-        assert!(report.predictive_design.expected_predictive_information_gain_nats > 0.0);
+        assert!(
+            report
+                .predictive_design
+                .expected_predictive_information_gain_nats
+                > 0.0
+        );
     }
 
     #[test]
@@ -723,16 +746,21 @@ mod tests {
     fn exact_cost_uniform_baseline_is_normalized_and_ordered() {
         let report = analyze(&fixture(), "d".repeat(64)).unwrap();
         let baseline = &report.uniform_cost_matched_baseline;
-        assert_eq!(baseline.exact_cost, report.model_discrimination_design.total_cost);
+        assert_eq!(
+            baseline.exact_cost,
+            report.model_discrimination_design.total_cost
+        );
         assert!(baseline.portfolio_count > 1);
         assert!(
             (baseline.probability_per_portfolio * baseline.portfolio_count as f64 - 1.0).abs()
                 < 1.0e-12
         );
-        assert!(baseline.p10_model_information_gain_nats
-            <= baseline.median_model_information_gain_nats);
-        assert!(baseline.median_model_information_gain_nats
-            <= baseline.p90_model_information_gain_nats);
+        assert!(
+            baseline.p10_model_information_gain_nats <= baseline.median_model_information_gain_nats
+        );
+        assert!(
+            baseline.median_model_information_gain_nats <= baseline.p90_model_information_gain_nats
+        );
     }
 
     #[test]
@@ -746,8 +774,12 @@ mod tests {
             permuted.model_discrimination_design.candidate_ids
         );
         assert!(
-            (original.model_discrimination_design.expected_model_information_gain_nats
-                - permuted.model_discrimination_design.expected_model_information_gain_nats)
+            (original
+                .model_discrimination_design
+                .expected_model_information_gain_nats
+                - permuted
+                    .model_discrimination_design
+                    .expected_model_information_gain_nats)
                 .abs()
                 < 1.0e-12
         );
