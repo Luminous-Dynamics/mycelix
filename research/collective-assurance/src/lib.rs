@@ -11,6 +11,7 @@ mod constraint_binding;
 mod ledger;
 mod relational_evidence;
 mod relation_counterfactual;
+mod scoped_absence;
 mod generation_exposure;
 mod response_audit;
 mod support_policy;
@@ -29,6 +30,13 @@ pub use generation_exposure::{
     BoundEvidenceUseDiagnostic, BoundEvidenceUseStatus, ExpectedGenerationExposure,
     ExposureQualificationReport, ExposureQualificationStatus, GenerationEvidenceEntry,
     GenerationInputExposureClaims,
+};
+pub use scoped_absence::{
+    compute_scoped_absence_scope_digest, compute_source_universe_digest,
+    qualify_scoped_absence_claim, AbsenceClaimKind, CandidateVerificationState,
+    ScopedAbsenceConclusion, ScopedAbsenceReport, ScopedAbsenceScope,
+    ScopedAbsenceStatus, ScopedSourceDisposition, SourceMatchDisposition,
+    SourcePermissionState, SourceQueryDisposition,
 };
 pub use relation_counterfactual::{
     compute_relation_graph_digest, qualify_relation_counterfactual, RecordedGateOutcome,
