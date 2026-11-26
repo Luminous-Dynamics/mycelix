@@ -9,3 +9,7 @@ test:
 # Check (fast)
 check:
     cargo check --workspace
+
+# Run the standalone need-first project formation reference core
+core-project-formation:
+    cargo test --manifest-path Cargo.toml -p craft-project-formation-v1

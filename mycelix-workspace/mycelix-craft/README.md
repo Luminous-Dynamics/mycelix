@@ -1,28 +1,22 @@
 # Mycelix Craft
 
-Decentralized talent marketplace with living credentials, guild-based mastery, and
-employer-funded apprenticeship pathways. This DNA stores opt-in profile metadata,
-publicly indexed credential pointers with Ebbinghaus vitality decay, and peer
-attestations. Verifiable credentials remain in the Identity/Praxis DNAs and are
-referenced via hashes.
+Mycelix Craft is an opt-in professional identity and opportunity-coordination application.
+The current DNA stores profile metadata, credential pointers, peer attestations,
+job postings, work history and connection records. Verifiable credentials remain
+owned by the Identity/Praxis domains and are referenced rather than duplicated.
 
-## Scope
-- Craft profiles (opt-in, user-authored professional identity)
-- Living credentials with Ebbinghaus forgetting curve decay
-- Skill endorsements (peer attestations)
-- Job postings with apprenticeship stakes
-- Work history with peer verification
-- Connection graph and recommendations
-- Application lifecycle (Draft -> Submitted -> Interview -> Offered -> Accepted)
+The architecture is evolving toward a **Federated Productive Capability Network**:
+communities can form useful projects, develop capability, coordinate consenting
+teams and cooperate across autonomous guilds and plural economic institutions.
+This is an architectural direction, not a claim that the full Capability Commons
+runtime is implemented.
 
-## Build
-```sh
-cd mycelix-craft
-cargo build --release --target wasm32-unknown-unknown
-```
+The `craft-project-formation-v1` pure-Rust reference crate evaluates need-first
+project envelopes, contextual capability evidence, exact-terms consent and
+requirement-level team coverage. It is not yet Holochain-integrated or
+production-qualified. See [Project Formation V1](docs/PROJECT-FORMATION-V1.md)
+and [its benchmark plan](docs/PROJECT-FORMATION-BENCHMARKS-V1.md).
 
-Then package the DNA/hApp:
-```sh
-hc dna pack -o dna/mycelix_craft.dna dna/dna.yaml
-hc app pack -o mycelix-craft.happ happ.yaml
-```
+The wider governance, professional-assessment, economic-agreement and Work
+Evidence interfaces remain separate owner-scoped contracts and are tracked in
+the related Mycelix Craft pull requests and issues.
