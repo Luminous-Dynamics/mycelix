@@ -85,6 +85,7 @@ struct Report {
     robust_d_optimal_design: DesignSummary,
     robust_e_optimal_design: DesignSummary,
     minimax_regret_design: DesignSummary,
+    uniform_cost_matched_baseline: UniformCostMatchedBaseline,
     per_scenario_oracles: Vec<ScenarioOracle>,
     candidate_support_receipts: Vec<CandidateSupportReceipt>,
     repeated_measurement_negative_controls: Vec<RepeatedMeasurementControl>,
@@ -112,6 +113,7 @@ struct DesignSummary {
     objective_name: String,
     objective_value: f64,
     worst_case_log_determinant: f64,
+    worst_case_log_determinant_gain: f64,
     worst_case_minimum_eigenvalue_data_information: f64,
     worst_case_minimum_eigenvalue_total_information: f64,
     worst_case_rank: usize,
@@ -159,12 +161,40 @@ struct RepeatedMeasurementControl {
     explanation: String,
 }
 
+#[derive(Clone, Debug, Serialize)]
+struct ScenarioGainDistribution {
+    scenario_id: String,
+    expected_incremental_log_determinant: f64,
+    p10_incremental_log_determinant: f64,
+    median_incremental_log_determinant: f64,
+    p90_incremental_log_determinant: f64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct UniformCostMatchedBaseline {
+    policy_name: String,
+    policy_definition: String,
+    exact_cost: u32,
+    portfolio_count: usize,
+    probability_per_portfolio: f64,
+    expected_worst_case_incremental_log_determinant: f64,
+    p10_worst_case_incremental_log_determinant: f64,
+    median_worst_case_incremental_log_determinant: f64,
+    p90_worst_case_incremental_log_determinant: f64,
+    worst_worst_case_incremental_log_determinant: f64,
+    best_worst_case_incremental_log_determinant: f64,
+    robust_design_worst_case_incremental_log_determinant: f64,
+    robust_design_improvement_over_uniform_mean_percent: Option<f64>,
+    per_scenario: Vec<ScenarioGainDistribution>,
+}
+
 #[derive(Clone, Debug)]
 struct EvaluatedDesign {
     candidate_ids: Vec<String>,
     total_cost: u32,
     scenario_scores: Vec<ScenarioScore>,
     worst_case_log_determinant: f64,
+    worst_case_log_determinant_gain: f64,
     worst_case_minimum_eigenvalue_data: f64,
     worst_case_minimum_eigenvalue_total: f64,
     worst_case_rank: usize,
@@ -499,8 +529,14 @@ fn evaluate_scenario(fixture: &Fixture, scenario: &Scenario, selected: &[usize])
 
 fn score_design(fixture: &Fixture, selected: Vec<usize>, cost: u32) -> Result<EvaluatedDesign, String> {
     let mut scenario_scores = Vec::with_capacity(fixture.scenarios.len());
+    let mut worst_case_log_determinant_gain = f64::INFINITY;
     for scenario in &fixture.scenarios {
-        scenario_scores.push(evaluate_scenario(fixture, scenario, &selected)?);
+        let score = evaluate_scenario(fixture, scenario, &selected)?;
+        let baseline = evaluate_scenario(fixture, scenario, &[])?;
+        worst_case_log_determinant_gain = worst_case_log_determinant_gain.min(
+            score.log_determinant_total_information - baseline.log_determinant_total_information,
+        );
+        scenario_scores.push(score);
     }
     let worst_case_log_determinant = scenario_scores.iter()
         .map(|score| score.log_determinant_total_information)
@@ -517,6 +553,7 @@ fn score_design(fixture: &Fixture, selected: Vec<usize>, cost: u32) -> Result<Ev
         total_cost: cost,
         scenario_scores,
         worst_case_log_determinant,
+        worst_case_log_determinant_gain,
         worst_case_minimum_eigenvalue_data,
         worst_case_minimum_eigenvalue_total,
         worst_case_rank,
@@ -628,7 +665,7 @@ fn select_design(designs: &[EvaluatedDesign], objective: &str, nominal_index: us
                 right.scenario_scores[nominal_index].log_determinant_total_information,
                 true,
             ),
-            "robust_d_optimal" => (left.worst_case_log_determinant, right.worst_case_log_determinant, true),
+            "robust_d_optimal" => (left.worst_case_log_determinant_gain, right.worst_case_log_determinant_gain, true),
             "robust_e_optimal" => (left.worst_case_minimum_eigenvalue_data, right.worst_case_minimum_eigenvalue_data, true),
             "minimax_regret" => (left.max_normalized_regret, right.max_normalized_regret, false),
             _ => (f64::NAN, f64::NAN, true),
@@ -645,6 +682,7 @@ fn summarize(design: &EvaluatedDesign, budget: u32, name: &str, objective_value:
         objective_name: name.into(),
         objective_value,
         worst_case_log_determinant: design.worst_case_log_determinant,
+        worst_case_log_determinant_gain: design.worst_case_log_determinant_gain,
         worst_case_minimum_eigenvalue_data_information: design.worst_case_minimum_eigenvalue_data,
         worst_case_minimum_eigenvalue_total_information: design.worst_case_minimum_eigenvalue_total,
         worst_case_rank: design.worst_case_rank,
@@ -652,6 +690,100 @@ fn summarize(design: &EvaluatedDesign, budget: u32, name: &str, objective_value:
         maximum_absolute_d_optimal_regret: design.max_absolute_regret,
         per_scenario_scores: design.scenario_scores.clone(),
     }
+}
+
+
+fn interpolated_quantile(sorted_values: &[f64], probability: f64) -> Result<f64, String> {
+    if sorted_values.is_empty()
+        || !probability.is_finite()
+        || !(0.0..=1.0).contains(&probability)
+        || sorted_values.iter().any(|value| !value.is_finite())
+    {
+        return Err("quantile requires finite values and a probability in [0, 1]".into());
+    }
+    let position = probability * (sorted_values.len() - 1) as f64;
+    let lower = position.floor() as usize;
+    let upper = position.ceil() as usize;
+    let fraction = position - lower as f64;
+    Ok(sorted_values[lower] * (1.0 - fraction) + sorted_values[upper] * fraction)
+}
+
+fn uniform_cost_matched_baseline(
+    fixture: &Fixture,
+    designs: &[EvaluatedDesign],
+    oracles: &[ScenarioOracle],
+    robust_design: &EvaluatedDesign,
+) -> Result<UniformCostMatchedBaseline, String> {
+    // This is a uniform random policy over the finite set of feasible
+    // portfolios with exactly the robust design's acquisition cost.
+    // It is not a claim about uniform physical sensor spacing.
+    let matched: Vec<&EvaluatedDesign> = designs
+        .iter()
+        .filter(|design| design.total_cost == robust_design.total_cost)
+        .collect();
+    if matched.is_empty() {
+        return Err("no cost-matched feasible portfolios are available for the uniform baseline".into());
+    }
+
+    let mut worst_case_gains: Vec<f64> = matched
+        .iter()
+        .map(|design| design.worst_case_log_determinant_gain)
+        .collect();
+    worst_case_gains.sort_by(f64::total_cmp);
+    let expected_worst_case_incremental_log_determinant =
+        worst_case_gains.iter().sum::<f64>() / worst_case_gains.len() as f64;
+    let robust_design_worst_case_incremental_log_determinant =
+        robust_design.worst_case_log_determinant_gain;
+    let improvement_denominator =
+        expected_worst_case_incremental_log_determinant.abs();
+    let robust_design_improvement_over_uniform_mean_percent =
+        if improvement_denominator > EIGEN_TOLERANCE {
+            Some(
+                (robust_design_worst_case_incremental_log_determinant
+                    - expected_worst_case_incremental_log_determinant)
+                    / improvement_denominator
+                    * 100.0,
+            )
+        } else {
+            None
+        };
+
+    let mut per_scenario = Vec::with_capacity(fixture.scenarios.len());
+    for (index, scenario) in fixture.scenarios.iter().enumerate() {
+        let mut gains: Vec<f64> = matched
+            .iter()
+            .map(|design| {
+                design.scenario_scores[index].log_determinant_total_information
+                    - oracles[index].baseline_log_determinant_total_information
+            })
+            .collect();
+        gains.sort_by(f64::total_cmp);
+        let expected = gains.iter().sum::<f64>() / gains.len() as f64;
+        per_scenario.push(ScenarioGainDistribution {
+            scenario_id: scenario.scenario_id.clone(),
+            expected_incremental_log_determinant: expected,
+            p10_incremental_log_determinant: interpolated_quantile(&gains, 0.10)?,
+            median_incremental_log_determinant: interpolated_quantile(&gains, 0.50)?,
+            p90_incremental_log_determinant: interpolated_quantile(&gains, 0.90)?,
+        });
+    }
+
+    Ok(UniformCostMatchedBaseline {
+        policy_name: "uniform_probability_over_exact_cost_feasible_portfolios".into(),
+        policy_definition: "Each distinct candidate subset whose total cost equals the robust design cost receives equal probability. This is a portfolio-selection baseline, not a spatially uniform sensor-placement design; it introduces no scenario probabilities.".into(),
+        exact_cost: robust_design.total_cost,
+        portfolio_count: matched.len(),
+        probability_per_portfolio: 1.0 / matched.len() as f64,
+        expected_worst_case_incremental_log_determinant,
+        p10_worst_case_incremental_log_determinant: interpolated_quantile(&worst_case_gains, 0.10)?,
+        median_worst_case_incremental_log_determinant: interpolated_quantile(&worst_case_gains, 0.50)?,
+        p90_worst_case_incremental_log_determinant: interpolated_quantile(&worst_case_gains, 0.90)?,
+        worst_worst_case_incremental_log_determinant: worst_case_gains[0],
+        best_worst_case_incremental_log_determinant: *worst_case_gains.last().expect("nonempty matched portfolio set"),
+        robust_design_worst_case_incremental_log_determinant,
+        robust_design_improvement_over_uniform_mean_percent,
+        per_scenario,
+    })
 }
 
 fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
@@ -666,6 +798,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     let robust_d = select_design(&designs, "robust_d_optimal", nominal_index)?;
     let robust_e = select_design(&designs, "robust_e_optimal", nominal_index)?;
     let minimax = select_design(&designs, "minimax_regret", nominal_index)?;
+    let uniform_baseline = uniform_cost_matched_baseline(fixture, &designs, &oracles, &robust_d)?;
     let nominal_score = nominal.scenario_scores[nominal_index].log_determinant_total_information;
 
     let candidate_support_receipts = fixture.candidates.iter().map(|candidate| CandidateSupportReceipt {
@@ -713,6 +846,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         robust_d_optimal_design: summarize(&robust_d, fixture.acquisition_budget, "maximin_logdet", robust_d.worst_case_log_determinant),
         robust_e_optimal_design: summarize(&robust_e, fixture.acquisition_budget, "maximin_data_minimum_eigenvalue", robust_e.worst_case_minimum_eigenvalue_data),
         minimax_regret_design: summarize(&minimax, fixture.acquisition_budget, "minimax_normalized_regret", minimax.max_normalized_regret),
+        uniform_cost_matched_baseline: uniform_baseline,
         per_scenario_oracles: oracles,
         candidate_support_receipts,
         repeated_measurement_negative_controls,
@@ -965,4 +1099,86 @@ mod tests {
             );
         }
     }
+    #[test]
+    fn uniform_baseline_is_exact_cost_matched_and_reports_full_distribution() {
+        let f = fixture();
+        let report = analyze(&f, "c".repeat(64)).unwrap();
+        let baseline = &report.uniform_cost_matched_baseline;
+        assert_eq!(baseline.exact_cost, report.robust_d_optimal_design.total_cost);
+        assert!(baseline.portfolio_count > 1);
+        assert!((baseline.probability_per_portfolio * baseline.portfolio_count as f64 - 1.0).abs() < 1.0e-12);
+        assert!(
+            baseline.p10_worst_case_incremental_log_determinant
+                <= baseline.median_worst_case_incremental_log_determinant
+        );
+        assert!(
+            baseline.median_worst_case_incremental_log_determinant
+                <= baseline.p90_worst_case_incremental_log_determinant
+        );
+        assert_eq!(baseline.per_scenario.len(), f.scenarios.len());
+        assert!(
+            baseline.robust_design_worst_case_incremental_log_determinant
+                >= baseline.best_worst_case_incremental_log_determinant - 1.0e-10
+        );
+    }
+
+    #[test]
+    fn maximin_d_optimal_is_invariant_to_scenario_specific_information_units() {
+        let original = fixture();
+        let original_report = analyze(&original, "d".repeat(64)).unwrap();
+        let mut rescaled = original;
+
+        // Scale every information contribution in one scenario by the same
+        // factor. Its absolute logdet changes by an additive offset, while
+        // its baseline-relative design gains remain invariant.
+        let scenario = rescaled.scenarios.iter_mut().find(|item| item.scenario_id == "seg-c").unwrap();
+        let information_scale = 1.0e8;
+        for row in &mut scenario.prior_information {
+            for value in row {
+                *value *= information_scale;
+            }
+        }
+        let noise_scale = information_scale.sqrt();
+        for measurement in &mut scenario.baseline_measurements {
+            measurement.noise_std /= noise_scale;
+        }
+        for candidate in &mut rescaled.candidates {
+            let measurement = candidate.measurements.iter_mut().find(|item| item.scenario_id == "seg-c").unwrap();
+            measurement.noise_std /= noise_scale;
+        }
+
+        let rescaled_report = analyze(&rescaled, "e".repeat(64)).unwrap();
+        assert_eq!(
+            original_report.robust_d_optimal_design.candidate_ids,
+            rescaled_report.robust_d_optimal_design.candidate_ids
+        );
+        assert!(
+            (original_report.robust_d_optimal_design.worst_case_log_determinant_gain
+                - rescaled_report.robust_d_optimal_design.worst_case_log_determinant_gain)
+                .abs()
+                < 1.0e-6
+        );
+    }
+
+    #[test]
+    fn uniform_baseline_is_independent_of_scenario_order() {
+        let mut f = fixture();
+        let original = analyze(&f, "f".repeat(64)).unwrap();
+        f.scenarios.reverse();
+        for candidate in &mut f.candidates {
+            candidate.measurements.reverse();
+        }
+        let permuted = analyze(&f, "f".repeat(64)).unwrap();
+        assert_eq!(
+            original.uniform_cost_matched_baseline.portfolio_count,
+            permuted.uniform_cost_matched_baseline.portfolio_count
+        );
+        assert!(
+            (original.uniform_cost_matched_baseline.expected_worst_case_incremental_log_determinant
+                - permuted.uniform_cost_matched_baseline.expected_worst_case_incremental_log_determinant)
+                .abs()
+                < 1.0e-10
+        );
+    }
+
 }
