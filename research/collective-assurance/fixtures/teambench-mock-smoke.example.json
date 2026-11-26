@@ -1,0 +1,183 @@
+{
+  "suite_id": "teambench-mock-smoke-001",
+  "run_mode": "mock_provider_smoke",
+  "upstream_repository": "https://github.com/ybkim95/TeamBench",
+  "upstream_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "benchmark_version": "pinned-source-fixture-v0.1",
+  "dataset_manifest_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+  "task_manifest_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+  "native_grader_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+  "excluded_task_manifest_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+  "eligible_task_ids": [
+    "task-001"
+  ],
+  "excluded_tasks": [
+    {
+      "task_id": "task-recuration-001",
+      "reason": "Upstream source marks this item for re-curation; excluded from this smoke fixture only.",
+      "evidence_digest": "5555555555555555555555555555555555555555555555555555555555555555"
+    }
+  ],
+  "model_snapshot_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+  "tokenizer_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+  "prompt_config_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+  "toolset_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+  "decoding_config_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+  "seed_policy_id": "fixed-smoke-seed-v1",
+  "seed": 17,
+  "per_task_time_budget_ms": 120000,
+  "per_task_token_budget": 8000,
+  "per_task_compute_budget_millijoules": 500000,
+  "condition_runs": [
+    {
+      "run_id": "mock-solo-001",
+      "condition": "solo",
+      "system_config_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "role_profile_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "raw_result_manifest_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "agent_count": 1,
+      "verifier_present": false,
+      "role_boundary_inventory_complete": true,
+      "tasks": [
+        {
+          "task_id": "task-001",
+          "state": "evaluated",
+          "raw_output_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+          "native_grader_output_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "native_grader_disposition": "pass",
+          "verifier_disposition": null,
+          "role_boundary_events": [
+            {
+              "event_id": "event-solo-001",
+              "actor_role": "executor",
+              "boundary_id": "executor-target-boundary",
+              "expected_allowed": false,
+              "observed": "blocked",
+              "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "run_id": "mock-restricted-001",
+      "condition": "restricted",
+      "system_config_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "role_profile_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "raw_result_manifest_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "agent_count": 3,
+      "verifier_present": true,
+      "role_boundary_inventory_complete": true,
+      "tasks": [
+        {
+          "task_id": "task-001",
+          "state": "evaluated",
+          "raw_output_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+          "native_grader_output_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "native_grader_disposition": "pass",
+          "verifier_disposition": "accept",
+          "role_boundary_events": [
+            {
+              "event_id": "event-restricted-001",
+              "actor_role": "verifier",
+              "boundary_id": "verifier-write-workspace",
+              "expected_allowed": false,
+              "observed": "blocked",
+              "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "run_id": "mock-full-001",
+      "condition": "full",
+      "system_config_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "role_profile_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "raw_result_manifest_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "agent_count": 3,
+      "verifier_present": true,
+      "role_boundary_inventory_complete": true,
+      "tasks": [
+        {
+          "task_id": "task-001",
+          "state": "evaluated",
+          "raw_output_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+          "native_grader_output_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "native_grader_disposition": "pass",
+          "verifier_disposition": "accept",
+          "role_boundary_events": [
+            {
+              "event_id": "event-full-001",
+              "actor_role": "verifier",
+              "boundary_id": "verifier-write-workspace",
+              "expected_allowed": false,
+              "observed": "blocked",
+              "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "run_id": "mock-no_plan-001",
+      "condition": "no_plan",
+      "system_config_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "role_profile_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "raw_result_manifest_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "agent_count": 3,
+      "verifier_present": true,
+      "role_boundary_inventory_complete": true,
+      "tasks": [
+        {
+          "task_id": "task-001",
+          "state": "evaluated",
+          "raw_output_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+          "native_grader_output_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "native_grader_disposition": "pass",
+          "verifier_disposition": "accept",
+          "role_boundary_events": [
+            {
+              "event_id": "event-no_plan-001",
+              "actor_role": "verifier",
+              "boundary_id": "verifier-write-workspace",
+              "expected_allowed": false,
+              "observed": "blocked",
+              "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "run_id": "mock-no_eval-001",
+      "condition": "no_eval",
+      "system_config_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "role_profile_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "raw_result_manifest_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "agent_count": 3,
+      "verifier_present": false,
+      "role_boundary_inventory_complete": true,
+      "tasks": [
+        {
+          "task_id": "task-001",
+          "state": "evaluated",
+          "raw_output_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+          "native_grader_output_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "native_grader_disposition": "pass",
+          "verifier_disposition": null,
+          "role_boundary_events": [
+            {
+              "event_id": "event-no_eval-001",
+              "actor_role": "executor",
+              "boundary_id": "executor-target-boundary",
+              "expected_allowed": false,
+              "observed": "blocked",
+              "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
