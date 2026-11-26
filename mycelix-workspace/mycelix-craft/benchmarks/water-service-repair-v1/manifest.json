@@ -112,7 +112,9 @@
     "repair_completion",
     "pressure_restoration",
     "alternative_supply_adequacy",
-    "water_quality_incident_escalation"
+    "water_quality_incident_escalation",
+    "measurement_definition_integrity",
+    "first_response_vs_repair_completion_vs_restoration"
   ],
   "required_separation": [
     "provider_reported_completion",
@@ -133,7 +135,8 @@
     "actual service improvement",
     "regulatory compliance",
     "water safety from a synthetic fixture",
-    "independent source status based only on distinct identifiers"
+    "independent source status based only on distinct identifiers",
+    "comparability of the FY2024/25 70.35% reported achievement and FY2025/26 business-plan 67.46% baseline"
   ],
   "measurement_separation": [
     "notification_received_at",
@@ -152,6 +155,7 @@
   "metric_definition_warnings": [
     "Johannesburg Water Business Plan 2025/26 page 95 describes the 48-hour water-burst KPI as on-site response and initiation of resolution, explicitly not necessarily completed resolution, although the KPI title says restored within 48 hours.",
     "Johannesburg Water FY2024/25 annual report reports 70.35% against an 85% target; this must not be compared to the 2025/26 business-plan baseline 67.46% and 90% target without reconciled periods and definitions.",
-    "The 99.20% Business Plan figure refers to E. coli sample compliance, not full SANS 241 water-quality compliance."
+    "The 99.20% Business Plan figure refers to E. coli sample compliance, not full SANS 241 water-quality compliance.",
+    "The Johannesburg Water Business Plan 2025/26 uses a 48-hour burst KPI title saying restored, while its operational definition says arrived on site and initiated resolution, explicitly not necessarily resolved. FY2024/25 annual-report achievement and the FY2025/26 business-plan 2023/24 baseline must remain separate pending reconciliation."
   ]
 }
