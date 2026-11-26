@@ -49,6 +49,11 @@ jobs:
             .candidate_count == 4 and
             (.closed_set_discrepancy_threshold_sd == 4.0) and
             (.closed_set_discrepancy_policy | contains("Abstain")) and
+            (.closed_set_discrepancy_negative_control.threshold_standard_deviations == 4.0) and
+            (.closed_set_discrepancy_negative_control.in_family_abstained == false) and
+            (.closed_set_discrepancy_negative_control.in_family_best_fit_residual_standard_deviations <= 4.0) and
+            (.closed_set_discrepancy_negative_control.out_of_family_abstained == true) and
+            (.closed_set_discrepancy_negative_control.out_of_family_best_fit_residual_standard_deviations > 4.0) and
             (.model_discrimination_design.candidate_ids == ["early_transient_flow", "upper_path_flow"]) and
             (.parameter_precision_design.candidate_ids == ["bulk_steady_flow", "upper_path_flow"]) and
             (.model_discrimination_design.candidate_ids != .parameter_precision_design.candidate_ids) and
