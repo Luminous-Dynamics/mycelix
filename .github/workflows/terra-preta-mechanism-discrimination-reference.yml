@@ -47,6 +47,8 @@ jobs:
             .fixture_status == "synthetic_only_not_empirical_evidence" and
             .mechanism_count == 3 and
             .candidate_count == 4 and
+            (.closed_set_discrepancy_threshold_sd == 4.0) and
+            (.closed_set_discrepancy_policy | contains("Abstain")) and
             (.model_discrimination_design.candidate_ids == ["early_transient_flow", "upper_path_flow"]) and
             (.parameter_precision_design.candidate_ids == ["bulk_steady_flow", "upper_path_flow"]) and
             (.model_discrimination_design.candidate_ids != .parameter_precision_design.candidate_ids) and
