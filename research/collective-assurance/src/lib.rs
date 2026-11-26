@@ -12,6 +12,7 @@ mod ledger;
 mod relational_evidence;
 mod relation_counterfactual;
 mod workflow_boundary;
+mod transitive_memory;
 mod generation_exposure;
 mod response_audit;
 mod support_policy;
@@ -30,6 +31,13 @@ pub use generation_exposure::{
     BoundEvidenceUseDiagnostic, BoundEvidenceUseStatus, ExpectedGenerationExposure,
     ExposureQualificationReport, ExposureQualificationStatus, GenerationEvidenceEntry,
     GenerationInputExposureClaims,
+};
+pub use transitive_memory::{
+    compute_memory_graph_digest, compute_memory_scope_digest,
+    compute_transitive_memory_snapshot_digest, qualify_transitive_memory_snapshot,
+    MemoryArtifact, MemoryDeclassificationReceipt, MemoryRevocationClosure,
+    MemoryRevocationEvent, MemoryScope, MemoryUseDisposition, MemoryUseObservation,
+    TransitiveMemoryReport, TransitiveMemorySnapshot, TransitiveMemoryStatus,
 };
 pub use workflow_boundary::{
     compute_workflow_graph_digest, qualify_workflow_boundary_pair, ArtifactExposureDisposition,
