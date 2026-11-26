@@ -465,6 +465,153 @@ pub fn qualify_factorial_block(block: &FactorialBlock) -> FactorialQualification
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FactorialStudyPlan {
+    pub study_id: String,
+    /// Exact block identities expected from the preregistered schedule.
+    pub expected_block_ids: Vec<String>,
+    /// Set by the independent pilot/power plan; the validator checks execution
+    /// against it but does not calculate statistical power or ICC.
+    pub minimum_source_groups: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FactorialTournament {
+    pub plan: FactorialStudyPlan,
+    pub blocks: Vec<FactorialBlock>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FactorialTournamentReport {
+    pub status: FactorialQualificationStatus,
+    pub qualified_block_count: usize,
+    pub independent_source_group_count: usize,
+    pub qualified_arm_count: usize,
+    pub block_reports: Vec<FactorialQualificationReport>,
+    pub reasons: Vec<String>,
+}
+
+/// Qualifies a collection of matched eight-arm blocks against the preregistered
+/// study schedule and minimum independent source-group count.
+///
+/// Missing scheduled blocks or too few source groups are INDETERMINATE. Duplicate
+/// or unexpected block identities and structurally invalid blocks are FAIL.
+/// PASS is a structural eligibility result, not a sample-size/power determination.
+pub fn qualify_factorial_tournament(
+    tournament: &FactorialTournament,
+) -> FactorialTournamentReport {
+    let mut reasons = Vec::new();
+    if !nonempty(&tournament.plan.study_id) {
+        reasons.push("factorial study ID must be non-empty".into());
+    }
+    if tournament.plan.expected_block_ids.is_empty()
+        || !unique_nonempty(&tournament.plan.expected_block_ids)
+    {
+        reasons.push("expected block IDs must be non-empty and unique".into());
+    }
+    if tournament.plan.minimum_source_groups == 0 {
+        reasons.push("minimum independent source-group count must be positive".into());
+    }
+    if !reasons.is_empty() {
+        return FactorialTournamentReport {
+            status: FactorialQualificationStatus::Fail,
+            qualified_block_count: 0,
+            independent_source_group_count: 0,
+            qualified_arm_count: 0,
+            block_reports: Vec::new(),
+            reasons,
+        };
+    }
+
+    let expected: BTreeSet<&str> = tournament
+        .plan
+        .expected_block_ids
+        .iter()
+        .map(String::as_str)
+        .collect();
+    let mut seen_blocks = BTreeSet::new();
+    let mut source_groups = BTreeSet::new();
+    let mut block_reports = Vec::new();
+    let mut invalid_block = false;
+
+    for block in &tournament.blocks {
+        if block.study.study_id != tournament.plan.study_id {
+            reasons.push(format!(
+                "block {} belongs to a different study",
+                block.block.block_id
+            ));
+        }
+        if !seen_blocks.insert(block.block.block_id.as_str()) {
+            reasons.push(format!(
+                "duplicate factorial block ID {}",
+                block.block.block_id
+            ));
+        }
+        if !expected.contains(block.block.block_id.as_str()) {
+            reasons.push(format!(
+                "unexpected factorial block ID {}",
+                block.block.block_id
+            ));
+        }
+        source_groups.insert(block.block.source_group_id.as_str());
+        let result = qualify_factorial_block(block);
+        if result.status != FactorialQualificationStatus::Pass {
+            invalid_block = true;
+            reasons.push(format!(
+                "block {} did not qualify: {}",
+                block.block.block_id,
+                result.reasons.join("; ")
+            ));
+        }
+        block_reports.push(result);
+    }
+
+    for expected_id in &tournament.plan.expected_block_ids {
+        if !seen_blocks.contains(expected_id.as_str()) {
+            reasons.push(format!("scheduled factorial block {expected_id} is missing"));
+        }
+    }
+
+    let unexpected_or_duplicate = reasons.iter().any(|reason| {
+        reason.starts_with("duplicate factorial block ID")
+            || reason.starts_with("unexpected factorial block ID")
+            || reason.contains("belongs to a different study")
+    });
+    let missing_scheduled = seen_blocks.len() < expected.len();
+    let insufficient_clusters =
+        source_groups.len() < tournament.plan.minimum_source_groups;
+
+    let status = if unexpected_or_duplicate || invalid_block {
+        FactorialQualificationStatus::Fail
+    } else if missing_scheduled || insufficient_clusters {
+        FactorialQualificationStatus::Indeterminate
+    } else {
+        FactorialQualificationStatus::Pass
+    };
+    let qualified_block_count = block_reports
+        .iter()
+        .filter(|report| report.status == FactorialQualificationStatus::Pass)
+        .count();
+    let qualified_arm_count = qualified_block_count * FactorialTreatment::ALL.len();
+
+    if insufficient_clusters {
+        reasons.push(format!(
+            "only {} independent source groups are present; preregistered minimum is {}",
+            source_groups.len(),
+            tournament.plan.minimum_source_groups
+        ));
+    }
+
+    FactorialTournamentReport {
+        status,
+        qualified_block_count,
+        independent_source_group_count: source_groups.len(),
+        qualified_arm_count,
+        block_reports,
+        reasons,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
