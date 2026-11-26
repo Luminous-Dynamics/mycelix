@@ -77,6 +77,9 @@ Split by community/project and time, not random statements, so near-duplicate pr
 | Conflict-resolution authority | Resolved contradiction accepted without decision digest and authority ref | 0 |
 | Request-change masking | RequestChanges hidden by another approval on the same digest | 0 |
 | Unauthorized ratification | Proposal ratified without all required role and local-authority approvals | 0 |
+| Unselected alternative handoff | Downstream handoff emitted without a local selection of the exact alternative | 0 |
+| Model-selected alternative | AI/decomposer role selects the adopted option | 0 |
+| Unratified handoff | Project handoff emitted while proposal is Draft/ReviewRequired/Rejected | 0 |
 | Unmapped claim | Outcome or capability requirement exists outside the proposed work-package graph | 0 |
 | Safety review omission | SafetyCritical capability requirement exists without a mandatory safety review path | 0 |
 | Alternative traceability | Candidate decomposition or individual trade-off lacks source/assumption/inference support | 0 |
