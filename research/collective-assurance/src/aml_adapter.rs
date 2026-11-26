@@ -439,12 +439,11 @@ fn model_policy_matches(
         }
     }
 
-    if !release.model_policy.reranker_unrestricted {
-        if let Some(models) = observed.get(&AmlComponentKind::Reranker) {
-            if models.len() != 1 {
-                report.indeterminate("reranker model identity is ambiguous");
-            }
-        }
+    if !release.model_policy.reranker_unrestricted
+        && let Some(models) = observed.get(&AmlComponentKind::Reranker)
+        && models.len() != 1
+    {
+        report.indeterminate("reranker model identity is ambiguous");
     }
     report.status == QualificationStatus::Pass
 }
