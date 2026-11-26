@@ -835,6 +835,7 @@ mod tests {
         let root = tree_hash(&entries).unwrap();
         owner_cut.tree_size = entries.len() as u64;
         owner_cut.root_digest = format!("sha256:{}", hex_lower(&root));
+        owner_cut.checkpoint_inclusion.owner_root_digest = owner_cut.root_digest.clone();
         receipt.inclusion = Some(ReceiptInclusionDeclarationV1 {
             owner_root_digest: owner_cut.root_digest.clone(),
             leaf_index,
@@ -1050,12 +1051,12 @@ mod tests {
         let mut owner_cut = cut("owner:grants", 10, 'a');
         owner_cut.gaps.push(SequenceRangeV1 { first: 3, last: 4 });
         owner_cut.tree_size = 8;
-        let mut receipt = receipt(5, "owner:grants");
-        attach_receipt_proof(&mut receipt, &mut owner_cut);
+        let mut included_receipt = receipt(5, "owner:grants");
+        attach_receipt_proof(&mut included_receipt, &mut owner_cut);
         assert_eq!(owner_cut.leaf_index_for_sequence(5), Some(2));
         let frontier = frontier("frontier:1", vec![owner_cut.clone()]);
         assert_eq!(
-            frontier.classify_receipt(&receipt),
+            frontier.classify_receipt(&included_receipt),
             Ok(ReceiptVisibilityV1::Indeterminate)
         );
         assert!(!frontier.prefix_has_no_declared_gaps("owner:grants", 10));
@@ -1110,7 +1111,10 @@ mod tests {
 
     #[test]
     fn checkpoint_inclusion_path_tampering_is_rejected() {
-        let mut candidate = frontier("frontier:1", vec![cut("owner:a", 10, 'a')]);
+        let mut candidate = frontier(
+            "frontier:1",
+            vec![cut("owner:a", 10, 'a'), cut("owner:b", 5, 'b')],
+        );
         candidate.owner_cuts[0].checkpoint_inclusion.inclusion_path[0] = sha256(b"tampered");
         assert_eq!(
             candidate.validate(),
