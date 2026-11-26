@@ -81,20 +81,43 @@ func TestRFC9162SevenLeafProofsAndCrossLanguageRoots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(proof) != 2 {
+	wantInclusion := []string{
+		"918566184c9d5be235ad2b6dd60828f5cec14fc409f02f7db8647009ec6da588",
+		"33376a3bd63e9993708a84ddfe6c28ae58b83505dd1fed711bd924ec5a6239f0",
+	}
+	if len(proof) != len(wantInclusion) {
 		t.Fatalf("RFC 9162 PATH(6,D7) should contain 2 nodes; got %d", len(proof))
+	}
+	for i, node := range proof {
+		if got := hex.EncodeToString(node[:]); got != wantInclusion[i] {
+			t.Fatalf("PATH(6,D7) node %d mismatch: %s", i, got)
+		}
 	}
 	if err := VerifyEntryInclusion(entries[6], 6, 7, proof, root); err != nil {
 		t.Fatal(err)
 	}
 
 	oldRoot := TreeHash(entries[:3])
+	if got := hex.EncodeToString(oldRoot[:]); got != "36642e73c2540ab121e3a6bf9545b0a24982cd830eb13d3cd19de3ce6c021ec1" {
+		t.Fatalf("three-leaf root mismatch: %s", got)
+	}
 	consistency, err := ConsistencyProof(entries, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(consistency) != 4 {
+	wantConsistency := []string{
+		"597fcb31282d34654c200d3418fca5705c648ebf326ec73d8ddef11841f876d8",
+		"d070dc5b8da9aea7dc0f5ad4c29d89965200059c9a0ceca3abd5da2492dcb71d",
+		"b137985ff484fb600db93107c77b0365c80d78f5b429ded0fd97361d077999eb",
+		"e286d3390665a7cdc759453bed0b00cded1842d757e3e6cfe87df53db177e725",
+	}
+	if len(consistency) != len(wantConsistency) {
 		t.Fatalf("RFC 9162 PROOF(3,D7) should contain 4 nodes; got %d", len(consistency))
+	}
+	for i, node := range consistency {
+		if got := hex.EncodeToString(node[:]); got != wantConsistency[i] {
+			t.Fatalf("PROOF(3,D7) node %d mismatch: %s", i, got)
+		}
 	}
 	if err := VerifyConsistency(3, oldRoot, 7, root, consistency); err != nil {
 		t.Fatal(err)
