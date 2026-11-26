@@ -108,18 +108,20 @@ If neither condition holds, the proof must expand that subtree. At a leaf, the e
 
 V1 uses a deterministic balanced binary tree over the canonical sorted record sequence. The builder splits each non-leaf sequence at `floor(count / 2)`; both children are non-empty. The tree shape is therefore reproducible from the ordered records.
 
-All hashes use SHA-256 and domain separation. The final byte encoding, tags and known-answer vectors are frozen in the implementation contract before any interoperability claim. The commitment must bind:
+The Go reference prototype freezes this root hash profile. Every hash preimage begins with a one-byte tag followed by the exact domain bytes `MYCELIX-AUTHENTICATED-INTERVAL-QUERY-V0.1\\0`:
 
-- the profile identifier and version;
-- the full query scope tuple;
-- record count;
-- leaf record bytes;
-- each internal node's child hashes, child counts and derived summary;
-- explicit Open-versus-Finite end tags.
+| Tag | Commitment |
+|---|---|
+| `0x30` | `SHA256(tag || domain || canonical_record)` leaf |
+| `0x31` | `SHA256(tag || domain || u64be(count) || canonical_summary || left_hash || right_hash)` branch |
+| `0x32` | `SHA256(tag || domain)` empty tree |
+| `0x33` | `SHA256(tag || domain || canonical_scope || u64be(count) || tree_hash)` scoped root |
 
-No JSON serialization bytes are hashed. Integers are fixed-width big-endian; strings are UTF-8 with an unsigned 32-bit byte length prefix; nanoseconds are unsigned 32-bit big-endian; seconds are signed 64-bit big-endian two's-complement. Hash comparisons are byte comparisons.
+Canonical scope field order is verifier, policy epoch, namespace, subject, claim, source-frontier digest. Each is UTF-8 encoded with a u32be byte-length prefix. Canonical record order is assertion reference (same string encoding), valid-from instant, valid-to bound, receipt digest (same string encoding). An instant is i64be seconds followed by u32be nanoseconds. A bound is tag `0x00` plus an instant for Finite, or tag `0x01` alone for Open. A summary is minimum valid-from instant followed by maximum valid-to bound. The branch commits to its derived count and summary as well as ordered left/right child hashes.
 
-An empty index has a distinct domain-separated empty-tree hash and is still wrapped in the scope commitment. Empty roots are never shared across different verifier, policy, namespace, subject, claim or frontier scopes.
+No JSON serialization bytes are hashed. Hash comparisons are byte comparisons. The empty tree has a distinct domain-separated hash and is still wrapped in the scoped-root commitment; empty roots therefore differ across verifier, policy, namespace, subject, claim and frontier scopes.
+
+The prototype currently verifies an in-memory proof tree. A canonical transport/wire encoding and bounded decoder are **not yet implemented**; the in-memory proof enum must not be mistaken for an interoperable VDP encoding.
 
 ### 4.4 Completeness proof
 
@@ -152,7 +154,9 @@ Compose with #1289 for bounded absence semantics, #2631/#6670 for temporal asser
 
 ## 6. Independent implementation and adversarial corpus
 
-The Go implementation is the independent reference oracle for the initial profile; Rust must reproduce the same canonical bytes, roots, proof outcomes and reason codes. Neither implementation may import or call the other's candidate code.
+The first prototype is a dependency-free Go reference implementation under `tools/economic/temporal-range-index/reference/go/`. Its frozen four-record known-answer root is `a770c656c9afcafc3204006c5e8d217fc5ab38e66f90194e40c4cbdb3aabaac6`. The current tests exercise half-open endpoints, nanoseconds, open ends, scope/query/root substitution, unsafe pruning, malformed nodes, invalid intervals, empty roots, exact scan parity, deterministic tie-breaking and all-overlap results.
+
+This is **one implementation**, not yet an independent cross-language qualification. A Rust implementation must reproduce the same canonical bytes, roots, proof outcomes and reason codes without importing or calling the Go candidate code. Fixed vectors must be independently derived before both implementations are considered conformant.
 
 Frozen cases must include:
 
