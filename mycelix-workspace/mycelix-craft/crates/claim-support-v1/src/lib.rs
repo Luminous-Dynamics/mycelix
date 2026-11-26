@@ -48,6 +48,20 @@ pub struct ClaimRefV1 {
     pub claim_digest: [u8; 32],
     /// Digest of the proposal revision containing this claim.
     pub proposal_digest: [u8; 32],
+    /// Domain whose evidentiary standard governs this claim.
+    pub domain_id: String,
+    /// Jurisdiction relevant to the claim.
+    pub jurisdiction_id: String,
+    /// Authorized source corpus identifier.
+    pub authorized_corpus_id: String,
+    /// Exact authorized corpus snapshot digest.
+    pub authorized_corpus_digest: [u8; 32],
+    /// Domain standard identifier.
+    pub domain_standard_id: String,
+    /// Domain standard revision.
+    pub domain_standard_revision: u64,
+    /// Exact domain standard digest.
+    pub domain_standard_digest: [u8; 32],
     /// Semantic dimensions that must be checked for this claim.
     pub required_dimensions: Vec<SemanticDimensionV1>,
     /// Qualified independent reviewer roles required for a positive disposition.
@@ -59,6 +73,10 @@ pub struct ClaimRefV1 {
 pub struct SourceExcerptRefV1 {
     /// Stable source identifier.
     pub source_id: String,
+    /// Authorized corpus that contains the source.
+    pub authorized_corpus_id: String,
+    /// Exact authorized corpus snapshot digest.
+    pub authorized_corpus_digest: [u8; 32],
     /// Digest of the complete source version.
     pub source_digest: [u8; 32],
     /// Digest of the exact passage, observation or measurement selected.
@@ -136,6 +154,20 @@ pub struct SupportAssessmentV1 {
     pub claim_digest: [u8; 32],
     /// Exact proposal digest assessed.
     pub proposal_digest: [u8; 32],
+    /// Domain standard context used for the assessment.
+    pub domain_id: String,
+    /// Jurisdiction context used for the assessment.
+    pub jurisdiction_id: String,
+    /// Authorized corpus identifier used for the assessment.
+    pub authorized_corpus_id: String,
+    /// Exact authorized corpus snapshot digest.
+    pub authorized_corpus_digest: [u8; 32],
+    /// Domain standard identifier.
+    pub domain_standard_id: String,
+    /// Domain standard revision.
+    pub domain_standard_revision: u64,
+    /// Exact domain standard digest.
+    pub domain_standard_digest: [u8; 32],
     /// Exact source identifier.
     pub source_id: String,
     /// Exact source revision assessed.
@@ -262,6 +294,12 @@ pub enum ClaimSupportErrorV1 {
     DuplicateIdentifier,
     /// Source reference is absent or does not match exact digests.
     SourceReferenceMismatch,
+    /// Assessment domain or jurisdiction differs from the claim context.
+    DomainContextMismatch,
+    /// Source or assessment is outside the authorized corpus snapshot.
+    AuthorizedCorpusMismatch,
+    /// Assessment uses a different domain standard or revision.
+    StandardContextMismatch,
     /// Assessment is not bound to the exact claim/proposal digest.
     ClaimReferenceMismatch,
     /// Assessment qualifier set is malformed.
@@ -301,6 +339,15 @@ pub fn validate_packet(packet: &ClaimSupportPacketV1) -> Result<(), ClaimSupport
     require_non_empty(&packet.claim.claim_id)?;
     require_digest(&packet.claim.claim_digest)?;
     require_digest(&packet.claim.proposal_digest)?;
+    require_non_empty(&packet.claim.domain_id)?;
+    require_non_empty(&packet.claim.jurisdiction_id)?;
+    require_non_empty(&packet.claim.authorized_corpus_id)?;
+    require_digest(&packet.claim.authorized_corpus_digest)?;
+    require_non_empty(&packet.claim.domain_standard_id)?;
+    require_digest(&packet.claim.domain_standard_digest)?;
+    if packet.claim.domain_standard_revision == 0 {
+        return Err(ClaimSupportErrorV1::ClaimReferenceMismatch);
+    }
     if packet.claim.required_dimensions.is_empty() {
         return Err(ClaimSupportErrorV1::MissingQualifierDimension);
     }
@@ -324,6 +371,13 @@ pub fn validate_packet(packet: &ClaimSupportPacketV1) -> Result<(), ClaimSupport
     let mut sources = HashMap::new();
     for source in &packet.sources {
         require_non_empty(&source.source_id)?;
+        require_non_empty(&source.authorized_corpus_id)?;
+        require_digest(&source.authorized_corpus_digest)?;
+        if source.authorized_corpus_id != packet.claim.authorized_corpus_id
+            || source.authorized_corpus_digest != packet.claim.authorized_corpus_digest
+        {
+            return Err(ClaimSupportErrorV1::AuthorizedCorpusMismatch);
+        }
         require_digest(&source.source_digest)?;
         require_digest(&source.excerpt_digest)?;
         require_digest(&source.locator_digest)?;
@@ -345,6 +399,28 @@ pub fn validate_packet(packet: &ClaimSupportPacketV1) -> Result<(), ClaimSupport
         require_non_empty(&assessment.method_version)?;
         require_digest(&assessment.claim_digest)?;
         require_digest(&assessment.proposal_digest)?;
+        require_non_empty(&assessment.domain_id)?;
+        require_non_empty(&assessment.jurisdiction_id)?;
+        require_non_empty(&assessment.authorized_corpus_id)?;
+        require_digest(&assessment.authorized_corpus_digest)?;
+        require_non_empty(&assessment.domain_standard_id)?;
+        require_digest(&assessment.domain_standard_digest)?;
+        if assessment.domain_id != packet.claim.domain_id
+            || assessment.jurisdiction_id != packet.claim.jurisdiction_id
+        {
+            return Err(ClaimSupportErrorV1::DomainContextMismatch);
+        }
+        if assessment.authorized_corpus_id != packet.claim.authorized_corpus_id
+            || assessment.authorized_corpus_digest != packet.claim.authorized_corpus_digest
+        {
+            return Err(ClaimSupportErrorV1::AuthorizedCorpusMismatch);
+        }
+        if assessment.domain_standard_id != packet.claim.domain_standard_id
+            || assessment.domain_standard_revision != packet.claim.domain_standard_revision
+            || assessment.domain_standard_digest != packet.claim.domain_standard_digest
+        {
+            return Err(ClaimSupportErrorV1::StandardContextMismatch);
+        }
         require_digest(&assessment.source_digest)?;
         require_digest(&assessment.excerpt_digest)?;
         require_digest(&assessment.locator_digest)?;
@@ -359,6 +435,11 @@ pub fn validate_packet(packet: &ClaimSupportPacketV1) -> Result<(), ClaimSupport
         let source = sources
             .get(assessment.source_id.as_str())
             .ok_or(ClaimSupportErrorV1::SourceReferenceMismatch)?;
+        if source.authorized_corpus_id != assessment.authorized_corpus_id
+            || source.authorized_corpus_digest != assessment.authorized_corpus_digest
+        {
+            return Err(ClaimSupportErrorV1::AuthorizedCorpusMismatch);
+        }
         if source.source_revision != assessment.source_revision
             || source.source_digest != assessment.source_digest
             || source.excerpt_digest != assessment.excerpt_digest
@@ -571,6 +652,8 @@ mod tests {
         ];
         let source = SourceExcerptRefV1 {
             source_id: "pump-service-measurement".to_owned(),
+            authorized_corpus_id: "ZA-water-standard-corpus".to_owned(),
+            authorized_corpus_digest: [21; 32],
             source_digest: [3; 32],
             excerpt_digest: [4; 32],
             locator_digest: [5; 32],
@@ -589,6 +672,13 @@ mod tests {
             claim_id: "water-service-hours".to_owned(),
             claim_digest: [6; 32],
             proposal_digest: [7; 32],
+            domain_id: "water-service".to_owned(),
+            jurisdiction_id: "ZA-GP".to_owned(),
+            authorized_corpus_id: "ZA-water-standard-corpus".to_owned(),
+            authorized_corpus_digest: [21; 32],
+            domain_standard_id: "water-service-standard".to_owned(),
+            domain_standard_revision: 1,
+            domain_standard_digest: [22; 32],
             source_id: source.source_id.clone(),
             source_revision: source.source_revision,
             source_digest: source.source_digest,
@@ -611,6 +701,13 @@ mod tests {
                 claim_id: "water-service-hours".to_owned(),
                 claim_digest: [6; 32],
                 proposal_digest: [7; 32],
+                domain_id: "water-service".to_owned(),
+                jurisdiction_id: "ZA-GP".to_owned(),
+                authorized_corpus_id: "ZA-water-standard-corpus".to_owned(),
+                authorized_corpus_digest: [21; 32],
+                domain_standard_id: "water-service-standard".to_owned(),
+                domain_standard_revision: 1,
+                domain_standard_digest: [22; 32],
                 required_dimensions: dimensions,
                 required_reviewer_roles: vec![ReviewerRoleV1::DomainExpert],
             },
@@ -764,6 +861,36 @@ mod tests {
         assert_eq!(
             evaluate_claim_support(&packet, NOW).unwrap(),
             ClaimSupportDispositionV1::BlockedByContradiction
+        );
+    }
+
+    #[test]
+    fn different_jurisdiction_is_not_admissible_claim_support() {
+        let mut packet = packet();
+        packet.assessments[0].jurisdiction_id = "ZA-WC".to_owned();
+        assert_eq!(
+            validate_packet(&packet),
+            Err(ClaimSupportErrorV1::DomainContextMismatch)
+        );
+    }
+
+    #[test]
+    fn source_outside_authorized_corpus_is_rejected() {
+        let mut packet = packet();
+        packet.sources[0].authorized_corpus_digest = [23; 32];
+        assert_eq!(
+            validate_packet(&packet),
+            Err(ClaimSupportErrorV1::AuthorizedCorpusMismatch)
+        );
+    }
+
+    #[test]
+    fn different_domain_standard_revision_is_not_admissible() {
+        let mut packet = packet();
+        packet.assessments[0].domain_standard_revision = 2;
+        assert_eq!(
+            validate_packet(&packet),
+            Err(ClaimSupportErrorV1::StandardContextMismatch)
         );
     }
 
