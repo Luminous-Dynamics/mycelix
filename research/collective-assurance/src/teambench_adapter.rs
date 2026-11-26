@@ -617,10 +617,6 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
         role_boundary_violation_count: 0,
         role_boundary_false_denial_count: 0,
         role_boundary_unknown_count: 0,
-        role_boundary_evidence_complete: true,
-        role_enforcement_eligible: true,
-        verifier_evidence_complete: true,
-        verifier_evidence_missing_count: 0,
         infrastructure_error_count: 0,
         not_run_count: 0,
         mean_score_micros_by_condition: BTreeMap::new(),
@@ -1377,7 +1373,8 @@ mod tests {
     #[test]
     fn duplicate_or_unlisted_task_fails() {
         let mut input = suite();
-        input.condition_runs[0].tasks.push(input.condition_runs[0].tasks[0].clone());
+        let duplicate_task = input.condition_runs[0].tasks[0].clone();
+        input.condition_runs[0].tasks.push(duplicate_task);
         assert_eq!(
             qualify_teambench_suite(&input).qualification.status,
             QualificationStatus::Fail
