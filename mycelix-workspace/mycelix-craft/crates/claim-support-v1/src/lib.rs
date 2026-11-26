@@ -501,7 +501,11 @@ pub fn validate_packet(packet: &ClaimSupportPacketV1) -> Result<(), ClaimSupport
             }
             (AssessorKindV1::HumanDomainExpert, None) => {}
         }
-        if assessment.valid_until.map(|expiry| expiry < assessment.assessed_at).unwrap_or(false) {
+        if assessment
+            .valid_until
+            .map(|expiry| expiry < assessment.assessed_at)
+            .unwrap_or(false)
+        {
             return Err(ClaimSupportErrorV1::InvalidAssessmentTime);
         }
 
@@ -512,28 +516,38 @@ pub fn validate_packet(packet: &ClaimSupportPacketV1) -> Result<(), ClaimSupport
             }
             match qualifier.relation {
                 QualifierRelationV1::NotApplicable => {
-                    if qualifier.claim_value_digest.is_some() || qualifier.source_value_digest.is_some() {
+                    if qualifier.claim_value_digest.is_some()
+                        || qualifier.source_value_digest.is_some()
+                    {
                         return Err(ClaimSupportErrorV1::InvalidQualifierComparison);
                     }
                 }
                 _ => {
                     require_digest(
-                        qualifier.claim_value_digest.as_ref().ok_or(
-                            ClaimSupportErrorV1::InvalidQualifierComparison,
-                        )?,
+                        qualifier
+                            .claim_value_digest
+                            .as_ref()
+                            .ok_or(ClaimSupportErrorV1::InvalidQualifierComparison)?,
                     )?;
                     require_digest(
-                        qualifier.source_value_digest.as_ref().ok_or(
-                            ClaimSupportErrorV1::InvalidQualifierComparison,
-                        )?,
+                        qualifier
+                            .source_value_digest
+                            .as_ref()
+                            .ok_or(ClaimSupportErrorV1::InvalidQualifierComparison)?,
                     )?;
                 }
             }
         }
-        if required.iter().any(|dimension| !compared.contains(dimension)) {
+        if required
+            .iter()
+            .any(|dimension| !compared.contains(dimension))
+        {
             return Err(ClaimSupportErrorV1::MissingQualifierDimension);
         }
-        if assessment_ids.insert(assessment.assessment_id.as_str(), assessment).is_some() {
+        if assessment_ids
+            .insert(assessment.assessment_id.as_str(), assessment)
+            .is_some()
+        {
             return Err(ClaimSupportErrorV1::DuplicateIdentifier);
         }
     }
@@ -559,8 +573,14 @@ pub fn validate_packet(packet: &ClaimSupportPacketV1) -> Result<(), ClaimSupport
             return Err(ClaimSupportErrorV1::NonIndependentReview);
         }
         if review.reviewed_at < assessment.assessed_at
-            || review.valid_until.map(|expiry| expiry < review.reviewed_at).unwrap_or(false)
-            || review.withdrawn_at.map(|time| time < review.reviewed_at).unwrap_or(false)
+            || review
+                .valid_until
+                .map(|expiry| expiry < review.reviewed_at)
+                .unwrap_or(false)
+            || review
+                .withdrawn_at
+                .map(|time| time < review.reviewed_at)
+                .unwrap_or(false)
         {
             return Err(ClaimSupportErrorV1::InvalidReviewTime);
         }
@@ -597,7 +617,10 @@ pub fn evaluate_claim_support(
         .iter()
         .filter(|review| {
             review.reviewed_at <= now
-                && review.valid_until.map(|expiry| now < expiry).unwrap_or(true)
+                && review
+                    .valid_until
+                    .map(|expiry| now < expiry)
+                    .unwrap_or(true)
                 && review.withdrawn_at.map(|time| now < time).unwrap_or(true)
         })
         .collect::<Vec<_>>();
@@ -608,7 +631,10 @@ pub fn evaluate_claim_support(
                 assessment.assessment_id == review.assessment_id
                     && assessment.assessed_at <= now
                     && now - assessment.assessed_at <= packet.claim.max_assessment_age_seconds
-                    && assessment.valid_until.map(|expiry| now < expiry).unwrap_or(true)
+                    && assessment
+                        .valid_until
+                        .map(|expiry| now < expiry)
+                        .unwrap_or(true)
             })
     }) {
         return Ok(ClaimSupportDispositionV1::BlockedByContradiction);
@@ -618,7 +644,10 @@ pub fn evaluate_claim_support(
     for assessment in &packet.assessments {
         let current = assessment.assessed_at <= now
             && now - assessment.assessed_at <= packet.claim.max_assessment_age_seconds
-            && assessment.valid_until.map(|expiry| now < expiry).unwrap_or(true);
+            && assessment
+                .valid_until
+                .map(|expiry| now < expiry)
+                .unwrap_or(true);
         if !current || assessment.relation != SupportRelationV1::DirectSupport {
             all_confirmed = false;
             continue;
@@ -770,14 +799,16 @@ mod tests {
             locator_digest: [5; 32],
             source_revision: 1,
         };
-        let qualifiers = dimensions.iter().enumerate().map(|(index, dimension)| {
-            QualifierComparisonV1 {
+        let qualifiers = dimensions
+            .iter()
+            .enumerate()
+            .map(|(index, dimension)| QualifierComparisonV1 {
                 dimension: *dimension,
                 claim_value_digest: Some([10 + index as u8; 32]),
                 source_value_digest: Some([20 + index as u8; 32]),
                 relation: QualifierRelationV1::Preserved,
-            }
-        }).collect();
+            })
+            .collect();
         let assessment = SupportAssessmentV1 {
             assessment_id: "assessment-1".to_owned(),
             claim_id: "water-service-hours".to_owned(),
@@ -847,14 +878,22 @@ mod tests {
     #[test]
     fn direct_support_requires_independent_human_confirmation() {
         let mut packet = packet();
-        packet.reviews.push(review(ReviewDecisionV1::ConfirmDirectSupport));
-        assert_eq!(evaluate_claim_support(&packet, NOW).unwrap(), ClaimSupportDispositionV1::Supported);
+        packet
+            .reviews
+            .push(review(ReviewDecisionV1::ConfirmDirectSupport));
+        assert_eq!(
+            evaluate_claim_support(&packet, NOW).unwrap(),
+            ClaimSupportDispositionV1::Supported
+        );
     }
 
     #[test]
     fn machine_assessment_cannot_self_certify() {
         let packet = packet();
-        assert_eq!(evaluate_claim_support(&packet, NOW).unwrap(), ClaimSupportDispositionV1::HumanReviewRequired);
+        assert_eq!(
+            evaluate_claim_support(&packet, NOW).unwrap(),
+            ClaimSupportDispositionV1::HumanReviewRequired
+        );
     }
 
     #[test]
@@ -864,7 +903,9 @@ mod tests {
             ReviewerRoleV1::DomainExpert,
             ReviewerRoleV1::SafetyAuthority,
         ];
-        packet.reviews.push(review(ReviewDecisionV1::ConfirmDirectSupport));
+        packet
+            .reviews
+            .push(review(ReviewDecisionV1::ConfirmDirectSupport));
         assert_eq!(
             evaluate_claim_support(&packet, NOW).unwrap(),
             ClaimSupportDispositionV1::HumanReviewRequired
@@ -893,7 +934,9 @@ mod tests {
     #[test]
     fn duplicate_reviewer_role_decisions_for_one_assessment_are_rejected() {
         let mut packet = packet();
-        packet.reviews.push(review(ReviewDecisionV1::ConfirmDirectSupport));
+        packet
+            .reviews
+            .push(review(ReviewDecisionV1::ConfirmDirectSupport));
         let mut duplicate = review(ReviewDecisionV1::ConfirmDirectSupport);
         duplicate.review_id = "review-duplicate".to_owned();
         packet.reviews.push(duplicate);
@@ -906,24 +949,37 @@ mod tests {
     #[test]
     fn supported_result_envelope_binds_decision_context_and_digest() {
         let mut packet = packet();
-        packet.reviews.push(review(ReviewDecisionV1::ConfirmDirectSupport));
-        let result = evaluate_claim_support_result(&packet, NOW, "claim-result-1", [42; 32]).unwrap();
+        packet
+            .reviews
+            .push(review(ReviewDecisionV1::ConfirmDirectSupport));
+        let result =
+            evaluate_claim_support_result(&packet, NOW, "claim-result-1", [42; 32]).unwrap();
         assert_eq!(result.disposition, ClaimSupportDispositionV1::Supported);
         assert_eq!(result.claim_id, packet.claim.claim_id);
         assert_eq!(result.claim_digest, packet.claim.claim_digest);
         assert_eq!(result.proposal_digest, packet.claim.proposal_digest);
         assert_eq!(result.domain_id, packet.claim.domain_id);
         assert_eq!(result.jurisdiction_id, packet.claim.jurisdiction_id);
-        assert_eq!(result.authorized_corpus_digest, packet.claim.authorized_corpus_digest);
-        assert_eq!(result.domain_standard_digest, packet.claim.domain_standard_digest);
+        assert_eq!(
+            result.authorized_corpus_digest,
+            packet.claim.authorized_corpus_digest
+        );
+        assert_eq!(
+            result.domain_standard_digest,
+            packet.claim.domain_standard_digest
+        );
         assert_eq!(result.result_digest, [42; 32]);
         assert_eq!(result.valid_until, Some(130));
     }
 
     #[test]
     fn non_supported_result_expires_at_evaluation_time() {
-        let result = evaluate_claim_support_result(&packet(), NOW, "needs-review", [43; 32]).unwrap();
-        assert_eq!(result.disposition, ClaimSupportDispositionV1::HumanReviewRequired);
+        let result =
+            evaluate_claim_support_result(&packet(), NOW, "needs-review", [43; 32]).unwrap();
+        assert_eq!(
+            result.disposition,
+            ClaimSupportDispositionV1::HumanReviewRequired
+        );
         assert_eq!(result.valid_until, Some(NOW));
     }
 
@@ -939,7 +995,10 @@ mod tests {
     fn source_digest_mismatch_is_rejected() {
         let mut packet = packet();
         packet.assessments[0].source_digest = [11; 32];
-        assert_eq!(validate_packet(&packet), Err(ClaimSupportErrorV1::SourceReferenceMismatch));
+        assert_eq!(
+            validate_packet(&packet),
+            Err(ClaimSupportErrorV1::SourceReferenceMismatch)
+        );
     }
 
     #[test]
@@ -966,7 +1025,9 @@ mod tests {
     #[test]
     fn request_context_never_counts_as_positive_confirmation() {
         let mut packet = packet();
-        packet.reviews.push(review(ReviewDecisionV1::RequestContext));
+        packet
+            .reviews
+            .push(review(ReviewDecisionV1::RequestContext));
         assert_eq!(
             evaluate_claim_support(&packet, NOW).unwrap(),
             ClaimSupportDispositionV1::HumanReviewRequired
@@ -999,9 +1060,14 @@ mod tests {
         contradiction_review.assessment_digest = [34; 32];
         contradiction_review.reviewer_id = "independent-source-owner".to_owned();
         contradiction_review.role = ReviewerRoleV1::SourceAuthority;
-        packet.claim.required_reviewer_roles.push(ReviewerRoleV1::SourceAuthority);
+        packet
+            .claim
+            .required_reviewer_roles
+            .push(ReviewerRoleV1::SourceAuthority);
         packet.reviews.push(contradiction_review);
-        packet.reviews.push(review(ReviewDecisionV1::ConfirmDirectSupport));
+        packet
+            .reviews
+            .push(review(ReviewDecisionV1::ConfirmDirectSupport));
         assert_eq!(
             evaluate_claim_support(&packet, NOW).unwrap(),
             ClaimSupportDispositionV1::BlockedByContradiction
@@ -1042,7 +1108,9 @@ mod tests {
     fn stale_semantic_assessment_requires_reassessment() {
         let mut packet = packet();
         packet.claim.max_assessment_age_seconds = 20;
-        packet.reviews.push(review(ReviewDecisionV1::ConfirmDirectSupport));
+        packet
+            .reviews
+            .push(review(ReviewDecisionV1::ConfirmDirectSupport));
         assert_eq!(
             evaluate_claim_support(&packet, NOW).unwrap(),
             ClaimSupportDispositionV1::HumanReviewRequired
@@ -1063,31 +1131,50 @@ mod tests {
     fn changed_claim_digest_invalidates_assessment() {
         let mut packet = packet();
         packet.claim.claim_digest = [12; 32];
-        assert_eq!(validate_packet(&packet), Err(ClaimSupportErrorV1::ClaimReferenceMismatch));
+        assert_eq!(
+            validate_packet(&packet),
+            Err(ClaimSupportErrorV1::ClaimReferenceMismatch)
+        );
     }
 
     #[test]
     fn all_required_qualifier_dimensions_must_be_checked() {
         let mut packet = packet();
         packet.assessments[0].qualifiers.pop();
-        assert_eq!(validate_packet(&packet), Err(ClaimSupportErrorV1::MissingQualifierDimension));
+        assert_eq!(
+            validate_packet(&packet),
+            Err(ClaimSupportErrorV1::MissingQualifierDimension)
+        );
     }
 
     #[test]
     fn strengthened_claim_qualifier_never_counts_as_direct_support() {
         let mut packet = packet();
         packet.assessments[0].qualifiers[1].relation = QualifierRelationV1::ClaimStrongerThanSource;
-        packet.reviews.push(review(ReviewDecisionV1::ConfirmDirectSupport));
-        assert_eq!(evaluate_claim_support(&packet, NOW).unwrap(), ClaimSupportDispositionV1::HumanReviewRequired);
+        packet
+            .reviews
+            .push(review(ReviewDecisionV1::ConfirmDirectSupport));
+        assert_eq!(
+            evaluate_claim_support(&packet, NOW).unwrap(),
+            ClaimSupportDispositionV1::HumanReviewRequired
+        );
     }
 
     #[test]
     fn omitted_or_contradictory_qualifier_requires_review() {
-        for relation in [QualifierRelationV1::Omitted, QualifierRelationV1::Contradicted] {
+        for relation in [
+            QualifierRelationV1::Omitted,
+            QualifierRelationV1::Contradicted,
+        ] {
             let mut packet = packet();
             packet.assessments[0].qualifiers[0].relation = relation;
-            packet.reviews.push(review(ReviewDecisionV1::ConfirmDirectSupport));
-            assert_eq!(evaluate_claim_support(&packet, NOW).unwrap(), ClaimSupportDispositionV1::HumanReviewRequired);
+            packet
+                .reviews
+                .push(review(ReviewDecisionV1::ConfirmDirectSupport));
+            assert_eq!(
+                evaluate_claim_support(&packet, NOW).unwrap(),
+                ClaimSupportDispositionV1::HumanReviewRequired
+            );
         }
     }
 
@@ -1095,8 +1182,13 @@ mod tests {
     fn confirmed_contradiction_blocks_support() {
         let mut packet = packet();
         packet.assessments[0].relation = SupportRelationV1::Contradiction;
-        packet.reviews.push(review(ReviewDecisionV1::ConfirmContradiction));
-        assert_eq!(evaluate_claim_support(&packet, NOW).unwrap(), ClaimSupportDispositionV1::BlockedByContradiction);
+        packet
+            .reviews
+            .push(review(ReviewDecisionV1::ConfirmContradiction));
+        assert_eq!(
+            evaluate_claim_support(&packet, NOW).unwrap(),
+            ClaimSupportDispositionV1::BlockedByContradiction
+        );
     }
 
     #[test]
@@ -1104,7 +1196,9 @@ mod tests {
         let mut packet = packet();
         packet.assessments[0].relation = SupportRelationV1::Contradiction;
         packet.assessments[0].valid_until = Some(50);
-        packet.reviews.push(review(ReviewDecisionV1::ConfirmContradiction));
+        packet
+            .reviews
+            .push(review(ReviewDecisionV1::ConfirmContradiction));
         assert_eq!(
             evaluate_claim_support(&packet, NOW).unwrap(),
             ClaimSupportDispositionV1::HumanReviewRequired
@@ -1115,24 +1209,40 @@ mod tests {
     fn unreviewed_contradiction_requires_human_review() {
         let mut packet = packet();
         packet.assessments[0].relation = SupportRelationV1::Contradiction;
-        assert_eq!(evaluate_claim_support(&packet, NOW).unwrap(), ClaimSupportDispositionV1::HumanReviewRequired);
+        assert_eq!(
+            evaluate_claim_support(&packet, NOW).unwrap(),
+            ClaimSupportDispositionV1::HumanReviewRequired
+        );
     }
 
     #[test]
     fn partial_support_cannot_be_promoted_to_direct_support() {
         let mut packet = packet();
         packet.assessments[0].relation = SupportRelationV1::PartialSupport;
-        packet.reviews.push(review(ReviewDecisionV1::ConfirmDirectSupport));
-        assert_eq!(evaluate_claim_support(&packet, NOW).unwrap(), ClaimSupportDispositionV1::HumanReviewRequired);
+        packet
+            .reviews
+            .push(review(ReviewDecisionV1::ConfirmDirectSupport));
+        assert_eq!(
+            evaluate_claim_support(&packet, NOW).unwrap(),
+            ClaimSupportDispositionV1::HumanReviewRequired
+        );
     }
 
     #[test]
     fn context_required_and_not_assessable_abstain() {
-        for relation in [SupportRelationV1::ContextRequired, SupportRelationV1::NotAssessable] {
+        for relation in [
+            SupportRelationV1::ContextRequired,
+            SupportRelationV1::NotAssessable,
+        ] {
             let mut packet = packet();
             packet.assessments[0].relation = relation;
-            packet.reviews.push(review(ReviewDecisionV1::ConfirmDirectSupport));
-            assert_eq!(evaluate_claim_support(&packet, NOW).unwrap(), ClaimSupportDispositionV1::HumanReviewRequired);
+            packet
+                .reviews
+                .push(review(ReviewDecisionV1::ConfirmDirectSupport));
+            assert_eq!(
+                evaluate_claim_support(&packet, NOW).unwrap(),
+                ClaimSupportDispositionV1::HumanReviewRequired
+            );
         }
     }
 
@@ -1140,14 +1250,20 @@ mod tests {
     fn model_assessment_requires_a_pinned_model_digest() {
         let mut packet = packet();
         packet.assessments[0].model_digest = None;
-        assert_eq!(validate_packet(&packet), Err(ClaimSupportErrorV1::MissingModelDigest));
+        assert_eq!(
+            validate_packet(&packet),
+            Err(ClaimSupportErrorV1::MissingModelDigest)
+        );
     }
 
     #[test]
     fn human_assessment_cannot_claim_a_model_digest() {
         let mut packet = packet();
         packet.assessments[0].assessor_kind = AssessorKindV1::HumanDomainExpert;
-        assert_eq!(validate_packet(&packet), Err(ClaimSupportErrorV1::UnexpectedModelDigest));
+        assert_eq!(
+            validate_packet(&packet),
+            Err(ClaimSupportErrorV1::UnexpectedModelDigest)
+        );
     }
 
     #[test]
@@ -1156,7 +1272,10 @@ mod tests {
         let mut review = review(ReviewDecisionV1::ConfirmDirectSupport);
         review.reviewer_id = "symthaea-assessor".to_owned();
         packet.reviews.push(review);
-        assert_eq!(validate_packet(&packet), Err(ClaimSupportErrorV1::NonIndependentReview));
+        assert_eq!(
+            validate_packet(&packet),
+            Err(ClaimSupportErrorV1::NonIndependentReview)
+        );
     }
 
     #[test]
@@ -1165,7 +1284,10 @@ mod tests {
         let mut review = review(ReviewDecisionV1::ConfirmDirectSupport);
         review.valid_until = Some(50);
         packet.reviews.push(review);
-        assert_eq!(evaluate_claim_support(&packet, NOW).unwrap(), ClaimSupportDispositionV1::HumanReviewRequired);
+        assert_eq!(
+            evaluate_claim_support(&packet, NOW).unwrap(),
+            ClaimSupportDispositionV1::HumanReviewRequired
+        );
     }
 
     #[test]
@@ -1174,7 +1296,10 @@ mod tests {
         let mut review = review(ReviewDecisionV1::ConfirmDirectSupport);
         review.assessment_digest = [13; 32];
         packet.reviews.push(review);
-        assert_eq!(validate_packet(&packet), Err(ClaimSupportErrorV1::ReviewReferenceMismatch));
+        assert_eq!(
+            validate_packet(&packet),
+            Err(ClaimSupportErrorV1::ReviewReferenceMismatch)
+        );
     }
 
     #[test]
@@ -1182,7 +1307,10 @@ mod tests {
         let mut packet = packet();
         packet.assessments.clear();
         packet.reviews.clear();
-        assert_eq!(evaluate_claim_support(&packet, NOW).unwrap(), ClaimSupportDispositionV1::InsufficientEvidence);
+        assert_eq!(
+            evaluate_claim_support(&packet, NOW).unwrap(),
+            ClaimSupportDispositionV1::InsufficientEvidence
+        );
     }
 
     #[test]
@@ -1194,14 +1322,22 @@ mod tests {
             source_value_digest: None,
             relation: QualifierRelationV1::NotApplicable,
         };
-        packet.reviews.push(review(ReviewDecisionV1::ConfirmDirectSupport));
-        assert_eq!(evaluate_claim_support(&packet, NOW).unwrap(), ClaimSupportDispositionV1::Supported);
+        packet
+            .reviews
+            .push(review(ReviewDecisionV1::ConfirmDirectSupport));
+        assert_eq!(
+            evaluate_claim_support(&packet, NOW).unwrap(),
+            ClaimSupportDispositionV1::Supported
+        );
     }
 
     #[test]
     fn duplicate_qualifier_dimension_is_rejected() {
         let mut packet = packet();
         packet.assessments[0].qualifiers[1].dimension = SemanticDimensionV1::Negation;
-        assert_eq!(validate_packet(&packet), Err(ClaimSupportErrorV1::InvalidQualifierComparison));
+        assert_eq!(
+            validate_packet(&packet),
+            Err(ClaimSupportErrorV1::InvalidQualifierComparison)
+        );
     }
 }
