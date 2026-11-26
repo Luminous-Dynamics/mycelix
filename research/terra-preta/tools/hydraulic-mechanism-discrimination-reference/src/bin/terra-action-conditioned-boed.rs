@@ -1095,7 +1095,7 @@ mod tests {
         let mechanism = &f.mechanisms[2];
         let step = expected_observation(mechanism, &f.protocols[0]);
         f.protocols[0].waveform = Waveform::Sinusoidal;
-        f.protocols[0].frequency_hz = 0.6;
+        f.protocols[0].frequency_hz = 0.02;
         let sine = expected_observation(mechanism, &f.protocols[0]);
         assert!((step - sine).abs() > 1.0e-3);
     }
