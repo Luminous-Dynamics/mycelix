@@ -28,7 +28,7 @@ revocation event recorded now
 
 1. **No implicit authority amplification.** A derivative's principal, purpose and entity sets must be subsets of every declared parent scope. Its valid-time interval and retention deadline must also be no broader than each parent. An empty list is never an unbounded wildcard.
 2. **Multi-source composition uses the intersection of parent eligibility.** A derivative based on several sources must fit every parent's constraints. One permissive source cannot wash out a more restrictive source.
-3. **Explicit declassification is a separate event.** A broader derivative requires a receipt binding the exact ordered parent IDs and payload digests, transform, output payload, output scope, policy digest, issue/expiry times and receipt digest. This module checks structural binding only; it does not authenticate the issuer or decide whether the declassification policy was legitimate.
+3. **Explicit declassification is a separate event.** A broader derivative requires a receipt binding the exact ordered parent IDs and payload digests, transform, output payload, output scope, policy digest and issue/expiry times. The validator recomputes a domain-separated canonical receipt digest over every field and compares it to the declared digest. This establishes self-consistent field binding only; it does not authenticate the issuer or decide whether the declassification policy was legitimate.
 4. **Unknown lineage is not a clean result.** Missing declared parents are only representable when the artifact explicitly marks lineage incomplete; the overall result becomes INDETERMINATE. A complete lineage with missing parents, duplicate IDs or cycles fails.
 5. **Revocation closure is transitive and exact.** A complete closure must equal the graph-derived descendant set for the exact graph digest. Omitted or invented descendants fail; missing or incomplete closure is INDETERMINATE.
 6. **Effective and recorded times are distinct.** A revocation blocks a derivation or use only once it is both effective and known in the relevant evaluator/authority domain. An event recorded later does not silently rewrite an earlier use. Retroactive legal/policy semantics are not inferred here.
@@ -114,19 +114,21 @@ An INDETERMINATE result is not a pass for new protected use.
 
 ## Synthetic adversarial coverage
 
-The current Rust tests cover:
-1. narrowed derivative and authorized use;
-2. scope amplification without declassification;
-3. exact declassification receipt binding;
-4. post-revocation use of a descendant blocked;
-5. historical use before effective revocation;
-6. incomplete revocation closure;
-7. unknown use disposition;
-8. omitted descendant in a supposedly complete closure;
-9. event-time historical snapshot digest preserved after later revocation;
-10. effective-before-recorded revocation does not rewrite a prior use, but blocks later use;
-11. a derivative created after a known effective revocation fails;
-12. multi-source derivative must satisfy every parent's scope.
+The current Rust tests cover 15 cases, including:
+- narrowed derivative and authorized use;
+- scope amplification without declassification;
+- exact declassification receipt binding and mutation of its policy fields;
+- canonical independent golden vectors for scope, declassification receipt, graph and snapshot digests;
+- retention/validity chronology;
+- post-revocation use of a descendant blocked;
+- historical use before effective revocation;
+- incomplete revocation closure;
+- unknown use disposition;
+- omitted descendant in a supposedly complete closure;
+- event-time historical snapshot digest preserved after later revocation;
+- effective-before-recorded revocation does not rewrite a prior use, but blocks later use;
+- a derivative created after a known effective revocation fails;
+- multi-source derivative must satisfy every parent's scope.
 
 The JSON fixture demonstrates one source → summary derivation, a source revocation, a complete descendant closure and a blocked post-revocation use.
 
