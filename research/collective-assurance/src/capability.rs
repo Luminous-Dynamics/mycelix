@@ -467,7 +467,7 @@ mod tests {
         let contract = contract();
         let observations = panel(&contract);
         let report = qualify_capability_outcomes(&contract, &observations);
-        assert_eq!(report.status, QualificationStatus::Pass);
+        assert_eq!(report.status, QualificationStatus::Pass, "{:?}", report.reasons);
         assert!(report.reasons.is_empty());
     }
 
@@ -477,7 +477,7 @@ mod tests {
         let mut observations = panel(&contract);
         observations.retain(|item| item.stage != CapabilityStage::DelayedAiOff);
         let report = qualify_capability_outcomes(&contract, &observations);
-        assert_eq!(report.status, QualificationStatus::Indeterminate);
+        assert_eq!(report.status, QualificationStatus::Indeterminate, "{:?}", report.reasons);
     }
 
     #[test]
@@ -516,7 +516,7 @@ mod tests {
             .unwrap();
         item.ai_off_qualification = Some(QualificationStatus::Indeterminate);
         let report = qualify_capability_outcomes(&contract, &observations);
-        assert_eq!(report.status, QualificationStatus::Indeterminate);
+        assert_eq!(report.status, QualificationStatus::Indeterminate, "{:?}", report.reasons);
     }
 
     #[test]
@@ -534,7 +534,7 @@ mod tests {
         let mut observations = panel(&contract);
         observations[0].accommodation_state = AccommodationState::Unknown;
         let report = qualify_capability_outcomes(&contract, &observations);
-        assert_eq!(report.status, QualificationStatus::Indeterminate);
+        assert_eq!(report.status, QualificationStatus::Indeterminate, "{:?}", report.reasons);
     }
 
     #[test]
@@ -548,7 +548,7 @@ mod tests {
         item.voluntary_stop = true;
         item.measurement = None;
         let report = qualify_capability_outcomes(&contract, &observations);
-        assert_eq!(report.status, QualificationStatus::Indeterminate);
+        assert_eq!(report.status, QualificationStatus::Indeterminate, "{:?}", report.reasons);
         assert!(!report
             .reasons
             .iter()
