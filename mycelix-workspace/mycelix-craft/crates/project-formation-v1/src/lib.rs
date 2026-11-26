@@ -1048,10 +1048,7 @@ mod tests {
             "alice",
             vec![evidence("alice", EvidenceDispositionV1::Qualified)],
         );
-        let proposal = proposal(
-            vec![member("alice")],
-            vec![offer.clone(), offer],
-        );
+        let proposal = proposal(vec![member("alice")], vec![offer.clone(), offer]);
 
         assert_eq!(
             evaluate_team(&project, &proposal, NOW),
@@ -1188,8 +1185,14 @@ mod tests {
         let proposal = proposal(
             vec![member("alice"), member("bob")],
             vec![
-                assignment("alice", vec![evidence("alice", EvidenceDispositionV1::Qualified)]),
-                assignment("bob", vec![evidence("bob", EvidenceDispositionV1::Disputed)]),
+                assignment(
+                    "alice",
+                    vec![evidence("alice", EvidenceDispositionV1::Qualified)],
+                ),
+                assignment(
+                    "bob",
+                    vec![evidence("bob", EvidenceDispositionV1::Disputed)],
+                ),
             ],
         );
 
