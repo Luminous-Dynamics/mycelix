@@ -1,0 +1,464 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/memory-capability-sovereignty-frontier-v0.1.schema.json",
+  "title": "Memory Capability–Sovereignty Frontier run package v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suite",
+    "runs"
+  ],
+  "properties": {
+    "suite": {
+      "$ref": "#/$defs/suite"
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/run"
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "git_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "track": {
+      "enum": [
+        "textual",
+        "coding",
+        "multimodal",
+        "governance_only"
+      ]
+    },
+    "architecture": {
+      "enum": [
+        "no_memory",
+        "bm25_sparse",
+        "dense_vector",
+        "hdc",
+        "hdc_cfc",
+        "hybrid_sparse_dense_hdc_cfc",
+        "graph_relational",
+        "governed_mycelix",
+        "coordinated_mycelix"
+      ]
+    },
+    "policy_class": {
+      "enum": [
+        "native_unrestricted",
+        "official_division_compatible"
+      ]
+    },
+    "nullable_digest": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "suite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "suite_id",
+        "track",
+        "task_manifest_digest",
+        "scenario_manifest_digest",
+        "evaluator_digest",
+        "answer_model_digest",
+        "prompt_config_digest",
+        "toolset_digest",
+        "hardware_profile_digest",
+        "budget_profile_digest",
+        "seed",
+        "retrieval_top_k",
+        "context_window_tokens",
+        "per_task_token_budget",
+        "per_task_wall_clock_budget_ms",
+        "per_task_compute_budget_millijoules",
+        "expected_task_ids",
+        "expected_architectures"
+      ],
+      "properties": {
+        "suite_id": {
+          "$ref": "#/$defs/id"
+        },
+        "track": {
+          "$ref": "#/$defs/track"
+        },
+        "task_manifest_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "scenario_manifest_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "evaluator_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "answer_model_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "prompt_config_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "toolset_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "hardware_profile_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "budget_profile_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retrieval_top_k": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "context_window_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "per_task_token_budget": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "per_task_wall_clock_budget_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "per_task_compute_budget_millijoules": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "expected_task_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "expected_architectures": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/architecture"
+          }
+        }
+      }
+    },
+    "architecture_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "architecture",
+        "policy_class",
+        "system_id",
+        "system_version",
+        "system_commit",
+        "system_artifact_digest",
+        "memory_representation_digest",
+        "index_update_policy_digest",
+        "architecture_config_digest",
+        "official_policy_receipt_digest"
+      ],
+      "properties": {
+        "architecture": {
+          "$ref": "#/$defs/architecture"
+        },
+        "policy_class": {
+          "$ref": "#/$defs/policy_class"
+        },
+        "system_id": {
+          "$ref": "#/$defs/id"
+        },
+        "system_version": {
+          "$ref": "#/$defs/id"
+        },
+        "system_commit": {
+          "$ref": "#/$defs/git_commit"
+        },
+        "system_artifact_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "memory_representation_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "index_update_policy_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "architecture_config_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "official_policy_receipt_digest": {
+          "$ref": "#/$defs/nullable_digest"
+        }
+      }
+    },
+    "evidence_references": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "privacy_trace_report_digest",
+        "revocation_report_digest",
+        "model_input_witness_report_digest",
+        "role_enforcement_report_digest",
+        "causal_replay_report_digest"
+      ],
+      "properties": {
+        "privacy_trace_report_digest": {
+          "$ref": "#/$defs/nullable_digest"
+        },
+        "revocation_report_digest": {
+          "$ref": "#/$defs/nullable_digest"
+        },
+        "model_input_witness_report_digest": {
+          "$ref": "#/$defs/nullable_digest"
+        },
+        "role_enforcement_report_digest": {
+          "$ref": "#/$defs/nullable_digest"
+        },
+        "causal_replay_report_digest": {
+          "$ref": "#/$defs/nullable_digest"
+        }
+      }
+    },
+    "resource_usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "memory_storage_bytes",
+        "index_write_time_ms",
+        "search_time_ms",
+        "wall_clock_ms",
+        "energy_millijoules",
+        "provider_cost_micro_usd",
+        "evidence_digest"
+      ],
+      "properties": {
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "memory_storage_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "index_write_time_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "search_time_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wall_clock_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "energy_millijoules": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provider_cost_micro_usd": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "task_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "task_family",
+        "state",
+        "utility_score_micros",
+        "authorized_task_pass",
+        "unauthorized_content_disclosures",
+        "forbidden_metadata_inferences",
+        "revocation_expected_descendants",
+        "revocation_reconciled_descendants",
+        "revocation_unknown_descendants",
+        "retrieved_memory_count",
+        "model_input_consumed_count",
+        "decision_influential_count",
+        "causal_evidence_digest",
+        "resource_usage",
+        "evidence_digest"
+      ],
+      "properties": {
+        "task_id": {
+          "$ref": "#/$defs/id"
+        },
+        "task_family": {
+          "$ref": "#/$defs/id"
+        },
+        "state": {
+          "enum": [
+            "evaluated",
+            "infrastructure_error",
+            "not_run"
+          ]
+        },
+        "utility_score_micros": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "authorized_task_pass": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unauthorized_content_disclosures": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "forbidden_metadata_inferences": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "revocation_expected_descendants": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revocation_reconciled_descendants": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revocation_unknown_descendants": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retrieved_memory_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "model_input_consumed_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "decision_influential_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causal_evidence_digest": {
+          "$ref": "#/$defs/nullable_digest"
+        },
+        "resource_usage": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/resource_usage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "control_digest",
+        "architecture",
+        "evidence_references",
+        "task_observations"
+      ],
+      "properties": {
+        "run_id": {
+          "$ref": "#/$defs/id"
+        },
+        "control_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "architecture": {
+          "$ref": "#/$defs/architecture_manifest"
+        },
+        "evidence_references": {
+          "$ref": "#/$defs/evidence_references"
+        },
+        "task_observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/task_observation"
+          }
+        }
+      }
+    }
+  }
+}
