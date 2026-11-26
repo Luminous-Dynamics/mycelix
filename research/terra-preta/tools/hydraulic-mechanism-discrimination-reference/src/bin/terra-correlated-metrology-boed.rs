@@ -481,10 +481,7 @@ fn log_shared_offset_closed_form(
         - 2.0 * shared_offset_variance * residuals[0] * residuals[1]
         + variance_one * residuals[1].powi(2))
         / determinant;
-    -0.5
-        * (2.0 * (2.0 * std::f64::consts::PI).ln()
-            + determinant.ln()
-            + quadratic)
+    -0.5 * (2.0 * (2.0 * std::f64::consts::PI).ln() + determinant.ln() + quadratic)
 }
 
 fn evaluate(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
