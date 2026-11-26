@@ -88,7 +88,16 @@ Any change to outcomes, capability classes, safety flags, sources, assumptions, 
 
 No output from this crate is a work order, construction permit, professional licence, budget approval, resource reservation, payment instruction or safety authorization.
 
-## 7. Threat model
+## 7. Integration with existing practice
+
+Need Intake is not a replacement for participatory-democracy platforms or requirements-management suites.
+
+- Decidim and CONSUL already support citizen proposals, deliberation, voting/prioritization, participatory budgeting and accountability for the implementation of selected projects. They should remain possible interfaces for the expression and ratification of community intent.
+- Jama Connect and IBM DOORS Next already support structured requirement authoring, baselines, formal reviews/approvals, traceability and change-impact analysis. They should remain possible destinations for downstream engineering requirements and verification.
+
+Craft's hypothesis is a typed handoff between these layers: preserve source provenance, assumptions, inferences, unresolved dissent and alternative trade-offs from community intake; then pass only an exact locally ratified proposal digest to downstream project formation and engineering tools. Interoperability and comparative value must be tested; do not claim these incumbent capabilities are absent.
+
+## 8. Threat model
 
 V1 explicitly considers:
 - fabricated or mismatched source citations;
@@ -107,7 +116,7 @@ V1 explicitly considers:
 
 The host remains responsible for authentication, access control, privacy, canonical serialization, cryptographic commitments, local policy and replay resistance.
 
-## 8. Qualification
+## 9. Qualification
 
 The reference core must pass exact-head format, compile, tests and Clippy. Before production:
 1. Build a frozen dataset of community need statements with expert-reviewed claim and provenance annotations.
