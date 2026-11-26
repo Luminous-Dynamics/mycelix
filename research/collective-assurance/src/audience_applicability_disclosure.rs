@@ -15,7 +15,7 @@ use sha2::{Digest, Sha256};
 const PROJECTION_DOMAIN: &[u8] = b"MYCELIX-MEMORY-PROJECTION-RECEIPT-V0.1\0";
 
 fn nonempty(value: &str) -> bool {
-    !value.trim().is_empty() && value == value.trim()
+    !value.trim().is_empty() && value == value.trim() && value != "*"
 }
 
 fn valid_digest(value: &str) -> bool {
@@ -76,7 +76,7 @@ pub enum ScopeSelector {
     Pair { user_id: String, agent_id: String },
     /// One user across that user's agents.
     User { user_id: String },
-    /// One agent across users in the named collective.
+    /// One globally identified agent across users.
     Agent { agent_id: String },
     /// All pairs in one explicitly named collective, never every tenant by default.
     Global { collective_id: String },
@@ -369,7 +369,13 @@ pub fn qualify_audience_applicability_disclosure(
     }
 
     let matching_disclosure = entry.disclosure.iter().find(|rule| {
-        rule.selector.matches(context) && rule.policy_digest == context.policy_digest
+        rule.selector.matches(context)
+            && rule.policy_digest == context.policy_digest
+            && (entry.source_stream == SourceStream::Reusable
+                || entry
+                    .projection_receipt
+                    .as_ref()
+                    .is_some_and(|receipt| receipt.target == rule.selector))
     });
     report.disclosure_match = matching_disclosure.is_some();
     let Some(disclosure_rule) = matching_disclosure else {
@@ -654,7 +660,8 @@ mod tests {
         let mut entry = projected_entry();
         entry.projection_receipt.as_mut().unwrap().expires_at_ms = 40;
         let receipt = entry.projection_receipt.as_mut().unwrap();
-        receipt.receipt_digest = compute_projection_receipt_digest(receipt).unwrap();
+        let digest = compute_projection_receipt_digest(receipt).unwrap();
+        receipt.receipt_digest = digest;
         assert_eq!(
             qualify_audience_applicability_disclosure(&entry, &context()).status,
             AudienceQualificationStatus::Fail
