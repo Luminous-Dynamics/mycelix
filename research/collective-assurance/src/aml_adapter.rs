@@ -846,8 +846,13 @@ pub fn qualify_aml_run(
         release_report.fail("manifest division differs from selected release policy");
     }
 
+    if !nonempty(&release.release_id) || !nonempty(&manifest.release_id) {
+        release_report.indeterminate("release ID is missing from the run or selected contract");
+    } else if manifest.release_id != release.release_id {
+        release_report.fail("release ID differs from pinned official release");
+    }
+
     for (label, actual, expected) in [
-        ("release ID", manifest.release_id.as_str(), release.release_id.as_str()),
         ("release manifest", manifest.release_manifest_digest.as_str(), release.release_manifest_digest.as_str()),
         ("evaluation pipeline", manifest.evaluation_pipeline_digest.as_str(), release.evaluation_pipeline_digest.as_str()),
         ("dataset bundle", manifest.dataset_bundle_digest.as_str(), release.dataset_bundle_digest.as_str()),
@@ -858,10 +863,10 @@ pub fn qualify_aml_run(
     ] {
         if !nonempty(expected) || !valid_digest(actual) || !valid_digest(expected) {
             release_report.indeterminate(format!(
-                "{label} identity/digest is not available from a pinned official release"
+                "{label} digest is not available from a pinned official release"
             ));
         } else if actual != expected {
-            release_report.fail(format!("{label} differs from pinned official release"));
+            release_report.fail(format!("{label} digest differs from pinned official release"));
         }
     }
     output.release_provenance_eligible =
@@ -1330,6 +1335,7 @@ mod tests {
     fn multimodal_image_parts_are_limited_and_ordered() {
         let mut input = valid_run();
         input.manifest.track = AmlTrack::Multimodal;
+        input.add_operations[0].ingestion_mode = AmlIngestionMode::MultimodalSequence;
         input.search_operations[0].candidates[0].content_parts = vec![
             AmlContentPart::Text {
                 ordinal: 0,
