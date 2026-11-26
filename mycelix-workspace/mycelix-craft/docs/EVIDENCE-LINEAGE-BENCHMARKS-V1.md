@@ -116,3 +116,26 @@ Do not claim superiority because the implementation has a formal graph model. De
 7. prove that revalidation creates a new version rather than rewriting history.
 
 This is the measurable wedge: **evidence-aware change impact**, not a replacement for established requirements-management or participatory-democracy platforms.
+
+## 9. Prior art, standards and interoperability boundaries
+
+This work should interoperate with existing standards and should not claim to replace mature tools.
+
+- **W3C PROV-DM** defines a domain-agnostic provenance data model for entities, activities, agents, derivations and responsibility. Evidence Lineage is a narrower operational profile for dependency-impact evaluation; it is not a replacement provenance vocabulary: https://www.w3.org/TR/prov-dm/
+- **W3C Verifiable Credentials Bitstring Status List v1.0** is a Recommendation for privacy-preserving credential status publication, including suspension and revocation. Credential adapters should consume its status semantics rather than inventing a competing global credential-revocation protocol: https://www.w3.org/TR/2025/REC-vc-bitstring-status-list-20250515/
+- **CISA/NTIA VEX** expresses whether a vulnerability affects a specific product, whether it is fixed, or whether it remains under investigation. It also provides machine-readable justifications for certain NOT AFFECTED decisions. VEX is a useful pattern for scoped impact and non-impact determinations, not an equivalent general evidence-lineage engine:
+  - https://www.ntia.gov/files/ntia/publications/vex_one-page_summary.pdf
+  - https://www.cisa.gov/sites/default/files/2023-01/VEX_Status_Justification_Jun22.pdf
+- **IBM Engineering Requirements Management DOORS Next** documents traceability links, lifecycle change control, and impact analysis; changes can produce suspect-link indicators for downstream artifacts. This is an established baseline, not a novel feature claim: https://www.ibm.com/docs/en/engineering-lifecycle-management-suite/doors-next/7.2.0?topic=requirements-managing
+- **Jama Connect** documents configurable change-request workflows using relationships, impact analysis, reviews and baselines. Its version 9.41.2 release (30 October 2026) also added Trace View and relationship exploration improvements:
+  - https://support.jamasoftware.com/hc/en-us/articles/26498325740045-Change-Request-Workflow-in-Jama-Connect
+  - https://support.jamasoftware.com/hc/en-us/articles/49388331793805-Version-9-41-2-Self-hosted-Kubernetes-Native-KOTS
+- **Decidim** provides participatory components including proposals, debates, meetings, surveys, budgets and accountability. It is a civic process baseline; this work is about evidence validity and change impact after such a process, not replacing participation itself: https://docs.decidim.org/en/develop/admin/spaces/processes/components.html
+
+### Research implication
+
+Static graph reachability is necessary but not sufficient. In a later qualification increment (#6763), Mycelix should study evidence-backed, context-bound NOT AFFECTED determinations and alternative support sets. A source may change without affecting every product version, population, jurisdiction or usage context. Conversely, multiple sources may share a common origin and must not be treated as independent support merely because they have different identifiers.
+
+The safe design is to bind a non-impact determination to the exact event, source, dependent artifact, dependency edge, use context, jurisdiction, evidence, assessor authority and expiry. UnderInvestigation must not be treated as NotAffected. Alternative evidence must declare provenance ancestry and common-cause groups before an any-of or k-of-n rule can preserve a conclusion.
+
+These are research and implementation targets, not capabilities claimed by Evidence Lineage V1.
