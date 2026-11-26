@@ -293,7 +293,10 @@ fn simulate_observer_view(
             } else {
                 "OPAQUE"
             };
-            if signal != "OPAQUE" {
+            // The attacker has a preregistered target value and adapts
+            // only when that value appears in its visible transcript.
+            // Merely seeing any response (including ABSENT) is not enough.
+            if signal == sequence.family.signal_value(true) {
                 any_visible_signal = true;
             }
             principal_signals
@@ -681,14 +684,99 @@ mod tests {
             ObserverProfile::FamilyLeakControl,
             TraceCoverage::Complete,
         );
-        assert_ne!(
-            leaked_public.get("query_sequence"),
-            leaked_protected.get("query_sequence")
+        assert_eq!(
+            leaked_public.get("query_sequence").unwrap(),
+            "initial_lookup|generic_status_poll|generic_status_poll|generic_status_poll"
         );
         assert_eq!(
             leaked_protected.get("query_sequence").unwrap(),
             "initial_lookup|verify_prior_candidate|verify_prior_candidate|verify_prior_candidate"
         );
+        assert_ne!(
+            leaked_public.get("query_sequence"),
+            leaked_protected.get("query_sequence")
+        );
+    }
+
+    #[test]
+    fn every_memory_family_has_a_leak_control_and_forbidden_and_authorised_modes() {
+        for family in FAMILIES {
+            for principal_mode in [PrincipalMode::Single, PrincipalMode::Colluding] {
+                let seed = select(
+                    family,
+                    QueryMode::RepeatedAdaptive,
+                    principal_mode,
+                    DisclosureMode::Forbidden,
+                );
+                let result = evaluate_sequence(
+                    seed,
+                    ObserverProfile::FamilyLeakControl,
+                    TraceCoverage::Complete,
+                );
+                let should_reach_observer = principal_mode == PrincipalMode::Colluding
+                    || family.signal_recipient() == "alice";
+                assert_eq!(
+                    result.disposition == LeakageDisposition::LeakDetected,
+                    should_reach_observer,
+                    "{family:?} / {principal_mode:?}"
+                );
+            }
+
+            let authorised = select(
+                family,
+                QueryMode::RepeatedAdaptive,
+                PrincipalMode::Single,
+                DisclosureMode::Authorised,
+            );
+            let result = evaluate_sequence(
+                authorised,
+                ObserverProfile::Normalized,
+                TraceCoverage::Complete,
+            );
+            assert_eq!(result.disposition, LeakageDisposition::Pass);
+            assert!(result.authorised_sensitivity_detected);
+        }
+    }
+
+    #[test]
+    fn unknown_trace_coverage_never_becomes_a_privacy_pass_even_for_leaky_worlds() {
+        for family in FAMILIES {
+            let seed = select(
+                family,
+                QueryMode::RepeatedAdaptive,
+                PrincipalMode::Colluding,
+                DisclosureMode::Forbidden,
+            );
+            let result = evaluate_sequence(
+                seed,
+                ObserverProfile::FamilyLeakControl,
+                TraceCoverage::Incomplete,
+            );
+            assert_eq!(result.disposition, LeakageDisposition::Indeterminate);
+            assert_eq!(result.missing_fields, vec!["cache_membership"]);
+        }
+    }
+
+    #[test]
+    fn evaluator_only_state_and_labels_are_not_part_of_the_observer_view() {
+        let seed = select(
+            MemoryLeakFamily::Existence,
+            QueryMode::RepeatedAdaptive,
+            PrincipalMode::Colluding,
+            DisclosureMode::Forbidden,
+        );
+        for protected_world in [false, true] {
+            let view = simulate_observer_view(
+                seed,
+                protected_world,
+                ObserverProfile::Normalized,
+                TraceCoverage::Complete,
+            );
+            assert!(!view.contains_key("protected_world"));
+            assert!(!view.contains_key("protected_label"));
+            assert!(!view.contains_key("evaluator_truth"));
+            assert!(view.contains_key("task_result"));
+        }
     }
 
     #[test]
