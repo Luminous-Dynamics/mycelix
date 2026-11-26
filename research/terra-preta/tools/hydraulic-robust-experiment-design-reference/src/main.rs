@@ -178,14 +178,20 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
         || fixture.scenario_set_id.trim().is_empty()
         || fixture.common_estimand_id.trim().is_empty()
     {
-        return Err("fixture identity, common-estimand identity or synthetic-only status is invalid".into());
+        return Err(
+            "fixture identity, common-estimand identity or synthetic-only status is invalid".into(),
+        );
     }
     if fixture.parameter_ids.iter().any(|id| id.trim().is_empty())
         || fixture.parameter_ids.iter().collect::<BTreeSet<_>>().len() != N
     {
         return Err("common parameter IDs must be nonempty and unique".into());
     }
-    if fixture.parameter_scales.iter().any(|value| !value.is_finite() || *value <= 0.0) {
+    if fixture
+        .parameter_scales
+        .iter()
+        .any(|value| !value.is_finite() || *value <= 0.0)
+    {
         return Err("dimensionless parameter scales must be finite and positive".into());
     }
     if fixture.acquisition_budget == 0
@@ -195,17 +201,31 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
         return Err("budget and determinant regularizer must be positive".into());
     }
     if fixture.scenarios.len() < 2 || fixture.scenarios.len() > MAX_SCENARIOS {
-        return Err(format!("between two and {MAX_SCENARIOS} scenarios are required"));
+        return Err(format!(
+            "between two and {MAX_SCENARIOS} scenarios are required"
+        ));
     }
     if fixture.candidates.is_empty() || fixture.candidates.len() > MAX_CANDIDATES {
-        return Err(format!("between one and {MAX_CANDIDATES} candidates are required"));
+        return Err(format!(
+            "between one and {MAX_CANDIDATES} candidates are required"
+        ));
     }
 
-    let scenario_ids: BTreeSet<&str> = fixture.scenarios.iter().map(|scenario| scenario.scenario_id.as_str()).collect();
+    let scenario_ids: BTreeSet<&str> = fixture
+        .scenarios
+        .iter()
+        .map(|scenario| scenario.scenario_id.as_str())
+        .collect();
     if scenario_ids.len() != fixture.scenarios.len() {
         return Err("scenario IDs must be unique".into());
     }
-    if fixture.scenarios.iter().filter(|scenario| scenario.nominal).count() != 1 {
+    if fixture
+        .scenarios
+        .iter()
+        .filter(|scenario| scenario.nominal)
+        .count()
+        != 1
+    {
         return Err("exactly one scenario must be designated nominal".into());
     }
 
@@ -215,17 +235,26 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
             || scenario.registration_variant_id.trim().is_empty()
             || scenario.estimand_id != fixture.common_estimand_id
         {
-            return Err("every scenario must use nonempty identifiers and the declared common estimand".into());
+            return Err(
+                "every scenario must use nonempty identifiers and the declared common estimand"
+                    .into(),
+            );
         }
         validate_symmetric_information(&scenario.prior_information, "prior_information")?;
         if scenario.baseline_measurements.is_empty() {
-            return Err(format!("scenario {} needs a baseline observation", scenario.scenario_id));
+            return Err(format!(
+                "scenario {} needs a baseline observation",
+                scenario.scenario_id
+            ));
         }
         let mut ids = BTreeSet::new();
         for measurement in &scenario.baseline_measurements {
             validate_measurement(measurement, &fixture.parameter_scales)?;
             if !ids.insert(measurement.measurement_id.as_str()) {
-                return Err(format!("duplicate baseline measurement ID in {}", scenario.scenario_id));
+                return Err(format!(
+                    "duplicate baseline measurement ID in {}",
+                    scenario.scenario_id
+                ));
             }
         }
     }
@@ -240,16 +269,25 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
             return Err("candidate IDs/sensor kinds must be nonempty and costs positive".into());
         }
         if candidate.measurements.len() != fixture.scenarios.len() {
-            return Err(format!("candidate {} needs exactly one operator per scenario", candidate.candidate_id));
+            return Err(format!(
+                "candidate {} needs exactly one operator per scenario",
+                candidate.candidate_id
+            ));
         }
         let mut seen_scenarios = BTreeSet::new();
         for measurement in &candidate.measurements {
             if !scenario_ids.contains(measurement.scenario_id.as_str())
                 || !seen_scenarios.insert(measurement.scenario_id.as_str())
             {
-                return Err(format!("candidate {} has a duplicate or unknown scenario operator", candidate.candidate_id));
+                return Err(format!(
+                    "candidate {} has a duplicate or unknown scenario operator",
+                    candidate.candidate_id
+                ));
             }
-            if measurement.sensitivity.iter().any(|value| !value.is_finite())
+            if measurement
+                .sensitivity
+                .iter()
+                .any(|value| !value.is_finite())
                 || !measurement.noise_std.is_finite()
                 || measurement.noise_std <= 0.0
                 || !measurement.support_coverage_fraction.is_finite()
@@ -257,15 +295,24 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
                 || measurement.support_coverage_fraction == 0.0
                 || measurement.support_description.trim().is_empty()
             {
-                return Err(format!("candidate {} has invalid sensitivity, noise or support", candidate.candidate_id));
+                return Err(format!(
+                    "candidate {} has invalid sensitivity, noise or support",
+                    candidate.candidate_id
+                ));
             }
             let scaled_row = scale_row(&measurement.sensitivity, &fixture.parameter_scales);
             if scaled_row.iter().any(|value| !value.is_finite()) {
-                return Err(format!("candidate {} has non-finite scaled sensitivity", candidate.candidate_id));
+                return Err(format!(
+                    "candidate {} has non-finite scaled sensitivity",
+                    candidate.candidate_id
+                ));
             }
             let precision = 1.0 / measurement.noise_std.powi(2);
             if !precision.is_finite() || precision <= 0.0 {
-                return Err(format!("candidate {} has noise variance outside the finite inverse-variance range", candidate.candidate_id));
+                return Err(format!(
+                    "candidate {} has noise variance outside the finite inverse-variance range",
+                    candidate.candidate_id
+                ));
             }
         }
     }
@@ -277,7 +324,10 @@ fn validate_measurement(measurement: &Measurement, scales: &Vector) -> Result<()
         || measurement.support_description.trim().is_empty()
         || !measurement.noise_std.is_finite()
         || measurement.noise_std <= 0.0
-        || measurement.sensitivity.iter().any(|value| !value.is_finite())
+        || measurement
+            .sensitivity
+            .iter()
+            .any(|value| !value.is_finite())
     {
         return Err("baseline measurement ID, support, sensitivity or noise is invalid".into());
     }
@@ -299,7 +349,10 @@ fn validate_symmetric_information(matrix: &Matrix, name: &str) -> Result<(), Str
 
     // Compare in normalized coordinates so symmetry and PSD admission do not
     // depend on the units or magnitude used for information.
-    let scale = matrix.iter().flatten().fold(0.0_f64, |largest, value| largest.max(value.abs()));
+    let scale = matrix
+        .iter()
+        .flatten()
+        .fold(0.0_f64, |largest, value| largest.max(value.abs()));
     if scale == 0.0 {
         return Ok(());
     }
@@ -314,7 +367,9 @@ fn validate_symmetric_information(matrix: &Matrix, name: &str) -> Result<(), Str
     }
     let minimum_eigenvalue = minimum_symmetric_eigenvalue(*matrix);
     if minimum_eigenvalue / scale < -EIGEN_TOLERANCE {
-        return Err(format!("{name} is not positive semidefinite at its declared scale"));
+        return Err(format!(
+            "{name} is not positive semidefinite at its declared scale"
+        ));
     }
     Ok(())
 }
@@ -336,7 +391,10 @@ fn rank_rows(rows: &[Vector]) -> usize {
         return 0;
     }
     let mut matrix: Vec<Vec<f64>> = rows.iter().map(|row| row.to_vec()).collect();
-    let scale = matrix.iter().flatten().fold(0.0_f64, |largest, value| largest.max(value.abs()));
+    let scale = matrix
+        .iter()
+        .flatten()
+        .fold(0.0_f64, |largest, value| largest.max(value.abs()));
     if scale == 0.0 {
         return 0;
     }
@@ -347,9 +405,11 @@ fn rank_rows(rows: &[Vector]) -> usize {
         if pivot_row >= matrix.len() {
             break;
         }
-        let Some(best_row) = (pivot_row..matrix.len())
-            .max_by(|left, right| matrix[*left][column].abs().total_cmp(&matrix[*right][column].abs()))
-        else {
+        let Some(best_row) = (pivot_row..matrix.len()).max_by(|left, right| {
+            matrix[*left][column]
+                .abs()
+                .total_cmp(&matrix[*right][column].abs())
+        }) else {
             break;
         };
         if matrix[best_row][column].abs() <= tolerance {
@@ -375,7 +435,9 @@ fn log_determinant_spd(mut matrix: Matrix, regularizer: f64) -> Result<f64, Stri
     let mut lower = [[0.0; N]; N];
     for row in 0..N {
         for column in 0..=row {
-            let correction: f64 = (0..column).map(|index| lower[row][index] * lower[column][index]).sum();
+            let correction: f64 = (0..column)
+                .map(|index| lower[row][index] * lower[column][index])
+                .sum();
             if row == column {
                 let diagonal = matrix[row][row] - correction;
                 if !diagonal.is_finite() || diagonal <= 0.0 {
@@ -448,15 +510,33 @@ fn minimum_symmetric_eigenvalue(mut matrix: Matrix) -> f64 {
             matrix[q][index] = matrix[index][q];
         }
     }
-    (0..N).map(|index| matrix[index][index]).fold(f64::INFINITY, f64::min) * scale
+    (0..N)
+        .map(|index| matrix[index][index])
+        .fold(f64::INFINITY, f64::min)
+        * scale
 }
 
-fn find_scenario_measurement<'a>(candidate: &'a Candidate, scenario_id: &str) -> Result<&'a ScenarioMeasurement, String> {
-    candidate.measurements.iter().find(|measurement| measurement.scenario_id == scenario_id)
-        .ok_or_else(|| format!("candidate {} has no operator for scenario {scenario_id}", candidate.candidate_id))
+fn find_scenario_measurement<'a>(
+    candidate: &'a Candidate,
+    scenario_id: &str,
+) -> Result<&'a ScenarioMeasurement, String> {
+    candidate
+        .measurements
+        .iter()
+        .find(|measurement| measurement.scenario_id == scenario_id)
+        .ok_or_else(|| {
+            format!(
+                "candidate {} has no operator for scenario {scenario_id}",
+                candidate.candidate_id
+            )
+        })
 }
 
-fn evaluate_scenario(fixture: &Fixture, scenario: &Scenario, selected: &[usize]) -> Result<ScenarioScore, String> {
+fn evaluate_scenario(
+    fixture: &Fixture,
+    scenario: &Scenario,
+    selected: &[usize],
+) -> Result<ScenarioScore, String> {
     let mut information = scenario.prior_information;
     let mut data_fisher = [[0.0; N]; N];
     let mut rows = Vec::new();
@@ -467,13 +547,17 @@ fn evaluate_scenario(fixture: &Fixture, scenario: &Scenario, selected: &[usize])
         add_outer_product(&mut data_fisher, &row, 1.0 / measurement.noise_std.powi(2));
     }
     for index in selected {
-        let measurement = find_scenario_measurement(&fixture.candidates[*index], &scenario.scenario_id)?;
+        let measurement =
+            find_scenario_measurement(&fixture.candidates[*index], &scenario.scenario_id)?;
         let row = scale_row(&measurement.sensitivity, &fixture.parameter_scales);
         rows.push(row);
         add_outer_product(&mut data_fisher, &row, 1.0 / measurement.noise_std.powi(2));
     }
     if data_fisher.iter().flatten().any(|value| !value.is_finite()) {
-        return Err(format!("scenario {} produced non-finite data information", scenario.scenario_id));
+        return Err(format!(
+            "scenario {} produced non-finite data information",
+            scenario.scenario_id
+        ));
     }
     for row in 0..N {
         for column in 0..N {
@@ -481,7 +565,10 @@ fn evaluate_scenario(fixture: &Fixture, scenario: &Scenario, selected: &[usize])
         }
     }
     if information.iter().flatten().any(|value| !value.is_finite()) {
-        return Err(format!("scenario {} produced non-finite total information", scenario.scenario_id));
+        return Err(format!(
+            "scenario {} produced non-finite total information",
+            scenario.scenario_id
+        ));
     }
 
     Ok(ScenarioScore {
@@ -492,28 +579,45 @@ fn evaluate_scenario(fixture: &Fixture, scenario: &Scenario, selected: &[usize])
         local_nullity: N.saturating_sub(rank_rows(&rows)),
         minimum_eigenvalue_data_information: minimum_symmetric_eigenvalue(data_fisher),
         minimum_eigenvalue_total_information: minimum_symmetric_eigenvalue(information),
-        log_determinant_total_information: log_determinant_spd(information, fixture.determinant_regularizer)?,
+        log_determinant_total_information: log_determinant_spd(
+            information,
+            fixture.determinant_regularizer,
+        )?,
         total_data_fisher: data_fisher,
     })
 }
 
-fn score_design(fixture: &Fixture, selected: Vec<usize>, cost: u32) -> Result<EvaluatedDesign, String> {
+fn score_design(
+    fixture: &Fixture,
+    selected: Vec<usize>,
+    cost: u32,
+) -> Result<EvaluatedDesign, String> {
     let mut scenario_scores = Vec::with_capacity(fixture.scenarios.len());
     for scenario in &fixture.scenarios {
         scenario_scores.push(evaluate_scenario(fixture, scenario, &selected)?);
     }
-    let worst_case_log_determinant = scenario_scores.iter()
+    let worst_case_log_determinant = scenario_scores
+        .iter()
         .map(|score| score.log_determinant_total_information)
         .fold(f64::INFINITY, f64::min);
-    let worst_case_minimum_eigenvalue_data = scenario_scores.iter()
+    let worst_case_minimum_eigenvalue_data = scenario_scores
+        .iter()
         .map(|score| score.minimum_eigenvalue_data_information)
         .fold(f64::INFINITY, f64::min);
-    let worst_case_minimum_eigenvalue_total = scenario_scores.iter()
+    let worst_case_minimum_eigenvalue_total = scenario_scores
+        .iter()
         .map(|score| score.minimum_eigenvalue_total_information)
         .fold(f64::INFINITY, f64::min);
-    let worst_case_rank = scenario_scores.iter().map(|score| score.data_sensitivity_rank).min().unwrap_or(0);
+    let worst_case_rank = scenario_scores
+        .iter()
+        .map(|score| score.data_sensitivity_rank)
+        .min()
+        .unwrap_or(0);
     Ok(EvaluatedDesign {
-        candidate_ids: selected.iter().map(|index| fixture.candidates[*index].candidate_id.clone()).collect(),
+        candidate_ids: selected
+            .iter()
+            .map(|index| fixture.candidates[*index].candidate_id.clone())
+            .collect(),
         total_cost: cost,
         scenario_scores,
         worst_case_log_determinant,
@@ -547,34 +651,56 @@ fn enumerate_designs(fixture: &Fixture) -> Result<Vec<EvaluatedDesign>, String> 
     Ok(designs)
 }
 
-fn scenario_oracles(fixture: &Fixture, designs: &[EvaluatedDesign]) -> Result<Vec<ScenarioOracle>, String> {
-    fixture.scenarios.iter().enumerate().map(|(scenario_index, scenario)| {
-        let baseline = evaluate_scenario(fixture, scenario, &[])?;
-        let best = designs.iter().max_by(|left, right| {
-            left.scenario_scores[scenario_index].log_determinant_total_information
-                .total_cmp(&right.scenario_scores[scenario_index].log_determinant_total_information)
-                .then_with(|| right.total_cost.cmp(&left.total_cost))
-                .then_with(|| right.candidate_ids.cmp(&left.candidate_ids))
-        }).ok_or_else(|| "feasible design set is empty".to_string())?;
-        let score = &best.scenario_scores[scenario_index];
-        let baseline_log_determinant_total_information = baseline.log_determinant_total_information;
-        let maximum_available_log_determinant_gain =
-            (score.log_determinant_total_information - baseline_log_determinant_total_information).max(0.0);
-        Ok(ScenarioOracle {
-            scenario_id: scenario.scenario_id.clone(),
-            oracle_candidate_ids: best.candidate_ids.clone(),
-            oracle_cost: best.total_cost,
-            baseline_log_determinant_total_information,
-            maximum_available_log_determinant_gain,
-            oracle_log_determinant_total_information: score.log_determinant_total_information,
-            oracle_minimum_eigenvalue_data_information: score.minimum_eigenvalue_data_information,
-            oracle_minimum_eigenvalue_total_information: score.minimum_eigenvalue_total_information,
-            oracle_data_rank: score.data_sensitivity_rank,
+fn scenario_oracles(
+    fixture: &Fixture,
+    designs: &[EvaluatedDesign],
+) -> Result<Vec<ScenarioOracle>, String> {
+    fixture
+        .scenarios
+        .iter()
+        .enumerate()
+        .map(|(scenario_index, scenario)| {
+            let baseline = evaluate_scenario(fixture, scenario, &[])?;
+            let best = designs
+                .iter()
+                .max_by(|left, right| {
+                    left.scenario_scores[scenario_index]
+                        .log_determinant_total_information
+                        .total_cmp(
+                            &right.scenario_scores[scenario_index]
+                                .log_determinant_total_information,
+                        )
+                        .then_with(|| right.total_cost.cmp(&left.total_cost))
+                        .then_with(|| right.candidate_ids.cmp(&left.candidate_ids))
+                })
+                .ok_or_else(|| "feasible design set is empty".to_string())?;
+            let score = &best.scenario_scores[scenario_index];
+            let baseline_log_determinant_total_information =
+                baseline.log_determinant_total_information;
+            let maximum_available_log_determinant_gain = (score.log_determinant_total_information
+                - baseline_log_determinant_total_information)
+                .max(0.0);
+            Ok(ScenarioOracle {
+                scenario_id: scenario.scenario_id.clone(),
+                oracle_candidate_ids: best.candidate_ids.clone(),
+                oracle_cost: best.total_cost,
+                baseline_log_determinant_total_information,
+                maximum_available_log_determinant_gain,
+                oracle_log_determinant_total_information: score.log_determinant_total_information,
+                oracle_minimum_eigenvalue_data_information: score
+                    .minimum_eigenvalue_data_information,
+                oracle_minimum_eigenvalue_total_information: score
+                    .minimum_eigenvalue_total_information,
+                oracle_data_rank: score.data_sensitivity_rank,
+            })
         })
-    }).collect()
+        .collect()
 }
 
-fn assign_regrets(designs: &mut [EvaluatedDesign], oracles: &[ScenarioOracle]) -> Result<(), String> {
+fn assign_regrets(
+    designs: &mut [EvaluatedDesign],
+    oracles: &[ScenarioOracle],
+) -> Result<(), String> {
     for design in designs {
         let mut max_absolute = 0.0_f64;
         let mut max_normalized = 0.0_f64;
@@ -583,7 +709,8 @@ fn assign_regrets(designs: &mut [EvaluatedDesign], oracles: &[ScenarioOracle]) -
             let baseline_logdet = oracles[index].baseline_log_determinant_total_information;
             let available_gain = oracles[index].maximum_available_log_determinant_gain;
             let regret = (oracle_logdet - score.log_determinant_total_information).max(0.0);
-            let tolerance = EIGEN_TOLERANCE * oracle_logdet.abs().max(baseline_logdet.abs()).max(1.0);
+            let tolerance =
+                EIGEN_TOLERANCE * oracle_logdet.abs().max(baseline_logdet.abs()).max(1.0);
 
             let normalized = if available_gain > tolerance {
                 if regret > available_gain + tolerance {
@@ -617,27 +744,56 @@ fn scalar_order(left: f64, right: f64, maximize: bool) -> Ordering {
 }
 
 fn deterministic_tie_break(left: &EvaluatedDesign, right: &EvaluatedDesign) -> Ordering {
-    right.total_cost.cmp(&left.total_cost).then_with(|| right.candidate_ids.cmp(&left.candidate_ids))
+    right
+        .total_cost
+        .cmp(&left.total_cost)
+        .then_with(|| right.candidate_ids.cmp(&left.candidate_ids))
 }
 
-fn select_design(designs: &[EvaluatedDesign], objective: &str, nominal_index: usize) -> Result<EvaluatedDesign, String> {
-    designs.iter().cloned().max_by(|left, right| {
-        let (left_score, right_score, maximize) = match objective {
-            "nominal_d_optimal" => (
-                left.scenario_scores[nominal_index].log_determinant_total_information,
-                right.scenario_scores[nominal_index].log_determinant_total_information,
-                true,
-            ),
-            "robust_d_optimal" => (left.worst_case_log_determinant, right.worst_case_log_determinant, true),
-            "robust_e_optimal" => (left.worst_case_minimum_eigenvalue_data, right.worst_case_minimum_eigenvalue_data, true),
-            "minimax_regret" => (left.max_normalized_regret, right.max_normalized_regret, false),
-            _ => (f64::NAN, f64::NAN, true),
-        };
-        scalar_order(left_score, right_score, maximize).then_with(|| deterministic_tie_break(left, right))
-    }).ok_or_else(|| format!("no feasible selection for {objective}"))
+fn select_design(
+    designs: &[EvaluatedDesign],
+    objective: &str,
+    nominal_index: usize,
+) -> Result<EvaluatedDesign, String> {
+    designs
+        .iter()
+        .cloned()
+        .max_by(|left, right| {
+            let (left_score, right_score, maximize) = match objective {
+                "nominal_d_optimal" => (
+                    left.scenario_scores[nominal_index].log_determinant_total_information,
+                    right.scenario_scores[nominal_index].log_determinant_total_information,
+                    true,
+                ),
+                "robust_d_optimal" => (
+                    left.worst_case_log_determinant,
+                    right.worst_case_log_determinant,
+                    true,
+                ),
+                "robust_e_optimal" => (
+                    left.worst_case_minimum_eigenvalue_data,
+                    right.worst_case_minimum_eigenvalue_data,
+                    true,
+                ),
+                "minimax_regret" => (
+                    left.max_normalized_regret,
+                    right.max_normalized_regret,
+                    false,
+                ),
+                _ => (f64::NAN, f64::NAN, true),
+            };
+            scalar_order(left_score, right_score, maximize)
+                .then_with(|| deterministic_tie_break(left, right))
+        })
+        .ok_or_else(|| format!("no feasible selection for {objective}"))
 }
 
-fn summarize(design: &EvaluatedDesign, budget: u32, name: &str, objective_value: f64) -> DesignSummary {
+fn summarize(
+    design: &EvaluatedDesign,
+    budget: u32,
+    name: &str,
+    objective_value: f64,
+) -> DesignSummary {
     DesignSummary {
         candidate_ids: design.candidate_ids.clone(),
         total_cost: design.total_cost,
@@ -656,7 +812,10 @@ fn summarize(design: &EvaluatedDesign, budget: u32, name: &str, objective_value:
 
 fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     validate(fixture)?;
-    let nominal_index = fixture.scenarios.iter().position(|scenario| scenario.nominal)
+    let nominal_index = fixture
+        .scenarios
+        .iter()
+        .position(|scenario| scenario.nominal)
         .ok_or_else(|| "nominal scenario missing".to_string())?;
     let mut designs = enumerate_designs(fixture)?;
     let oracles = scenario_oracles(fixture, &designs)?;
@@ -668,18 +827,26 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     let minimax = select_design(&designs, "minimax_regret", nominal_index)?;
     let nominal_score = nominal.scenario_scores[nominal_index].log_determinant_total_information;
 
-    let candidate_support_receipts = fixture.candidates.iter().map(|candidate| CandidateSupportReceipt {
-        candidate_id: candidate.candidate_id.clone(),
-        sensor_kind: candidate.sensor_kind.clone(),
-        cost: candidate.cost,
-        per_scenario_support: candidate.measurements.iter().map(|measurement| ScenarioSupportReceipt {
-            scenario_id: measurement.scenario_id.clone(),
-            support_coverage_fraction: measurement.support_coverage_fraction,
-            noise_std: measurement.noise_std,
-            support_description: measurement.support_description.clone(),
-            sensitivity: measurement.sensitivity,
-        }).collect(),
-    }).collect();
+    let candidate_support_receipts = fixture
+        .candidates
+        .iter()
+        .map(|candidate| CandidateSupportReceipt {
+            candidate_id: candidate.candidate_id.clone(),
+            sensor_kind: candidate.sensor_kind.clone(),
+            cost: candidate.cost,
+            per_scenario_support: candidate
+                .measurements
+                .iter()
+                .map(|measurement| ScenarioSupportReceipt {
+                    scenario_id: measurement.scenario_id.clone(),
+                    support_coverage_fraction: measurement.support_coverage_fraction,
+                    noise_std: measurement.noise_std,
+                    support_description: measurement.support_description.clone(),
+                    sensitivity: measurement.sensitivity,
+                })
+                .collect(),
+        })
+        .collect();
 
     let repeated_measurement_negative_controls = fixture.scenarios.iter().map(|scenario| {
         let rows: Vec<Vector> = scenario.baseline_measurements.iter()
@@ -723,17 +890,30 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
 fn run() -> Result<(), String> {
     let arguments: Vec<String> = env::args().collect();
     if arguments.len() != 3 {
-        return Err(format!("usage: {} INPUT.json OUTPUT.json", arguments.first().map(String::as_str).unwrap_or("hydraulic-robust-experiment-design-reference")));
+        return Err(format!(
+            "usage: {} INPUT.json OUTPUT.json",
+            arguments
+                .first()
+                .map(String::as_str)
+                .unwrap_or("hydraulic-robust-experiment-design-reference")
+        ));
     }
     let bytes = fs::read(&arguments[1]).map_err(|error| format!("cannot read input: {error}"))?;
     let hash = format!("{:x}", Sha256::digest(&bytes));
-    let fixture: Fixture = serde_json::from_slice(&bytes).map_err(|error| format!("invalid fixture: {error}"))?;
+    let fixture: Fixture =
+        serde_json::from_slice(&bytes).map_err(|error| format!("invalid fixture: {error}"))?;
     let report = analyze(&fixture, hash)?;
-    let output = serde_json::to_vec_pretty(&report).map_err(|error| format!("cannot serialize report: {error}"))?;
-    let mut file = OpenOptions::new().write(true).create_new(true).open(&arguments[2])
+    let output = serde_json::to_vec_pretty(&report)
+        .map_err(|error| format!("cannot serialize report: {error}"))?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&arguments[2])
         .map_err(|error| format!("refusing output overwrite or cannot create output: {error}"))?;
-    file.write_all(&output).map_err(|error| format!("cannot write output: {error}"))?;
-    file.write_all(b"\n").map_err(|error| format!("cannot finalize output: {error}"))?;
+    file.write_all(&output)
+        .map_err(|error| format!("cannot write output: {error}"))?;
+    file.write_all(b"\n")
+        .map_err(|error| format!("cannot finalize output: {error}"))?;
     Ok(())
 }
 
@@ -749,7 +929,10 @@ mod tests {
     use super::*;
 
     fn fixture() -> Fixture {
-        serde_json::from_str(include_str!("../fixtures/segmentation-support-ensemble.json")).unwrap()
+        serde_json::from_str(include_str!(
+            "../fixtures/segmentation-support-ensemble.json"
+        ))
+        .unwrap()
     }
 
     #[test]
@@ -768,8 +951,7 @@ mod tests {
         }
         assert!(report.robust_d_optimal_design.worst_case_rank == 4);
         assert_ne!(
-            report.nominal_design.candidate_ids,
-            report.robust_d_optimal_design.candidate_ids,
+            report.nominal_design.candidate_ids, report.robust_d_optimal_design.candidate_ids,
             "nominal D-optimality should select the sensor that loses support under a non-nominal segmentation"
         );
         assert_eq!(
@@ -784,7 +966,12 @@ mod tests {
             report.minimax_regret_design.candidate_ids,
             vec!["upper-pressure", "lower-pressure", "lower-path-flow"]
         );
-        assert!(report.minimax_regret_design.maximum_normalized_d_optimal_regret <= 0.05);
+        assert!(
+            report
+                .minimax_regret_design
+                .maximum_normalized_d_optimal_regret
+                <= 0.05
+        );
     }
 
     #[test]
@@ -792,7 +979,10 @@ mod tests {
         let report = analyze(&fixture(), "1".repeat(64)).unwrap();
         for control in &report.repeated_measurement_negative_controls {
             assert_eq!(control.rank_increase, 0);
-            assert_eq!(control.baseline_rank, control.rank_after_repeating_first_baseline_measurement);
+            assert_eq!(
+                control.baseline_rank,
+                control.rank_after_repeating_first_baseline_measurement
+            );
         }
     }
 
@@ -806,9 +996,20 @@ mod tests {
             candidate.measurements.reverse();
         }
         let permuted = analyze(&reordered, "2".repeat(64)).unwrap();
-        assert_eq!(baseline.robust_d_optimal_design.candidate_ids, permuted.robust_d_optimal_design.candidate_ids);
-        assert!((baseline.robust_d_optimal_design.worst_case_log_determinant - permuted.robust_d_optimal_design.worst_case_log_determinant).abs() < 1.0e-10);
-        assert_eq!(baseline.minimax_regret_design.candidate_ids, permuted.minimax_regret_design.candidate_ids);
+        assert_eq!(
+            baseline.robust_d_optimal_design.candidate_ids,
+            permuted.robust_d_optimal_design.candidate_ids
+        );
+        assert!(
+            (baseline.robust_d_optimal_design.worst_case_log_determinant
+                - permuted.robust_d_optimal_design.worst_case_log_determinant)
+                .abs()
+                < 1.0e-10
+        );
+        assert_eq!(
+            baseline.minimax_regret_design.candidate_ids,
+            permuted.minimax_regret_design.candidate_ids
+        );
     }
 
     #[test]
@@ -842,7 +1043,8 @@ mod tests {
             report.robust_e_optimal_design.objective_name,
             "maximin_data_minimum_eigenvalue"
         );
-        let worst_data_eigenvalue = report.robust_e_optimal_design
+        let worst_data_eigenvalue = report
+            .robust_e_optimal_design
             .per_scenario_scores
             .iter()
             .map(|score| score.minimum_eigenvalue_data_information)
@@ -851,11 +1053,14 @@ mod tests {
             (report.robust_e_optimal_design.objective_value - worst_data_eigenvalue).abs()
                 < 1.0e-10
         );
-        assert!(report.robust_e_optimal_design
-            .per_scenario_scores
-            .iter()
-            .all(|score| score.minimum_eigenvalue_total_information
-                >= score.minimum_eigenvalue_data_information));
+        assert!(
+            report
+                .robust_e_optimal_design
+                .per_scenario_scores
+                .iter()
+                .all(|score| score.minimum_eigenvalue_total_information
+                    >= score.minimum_eigenvalue_data_information)
+        );
     }
 
     #[test]
@@ -868,10 +1073,21 @@ mod tests {
     #[test]
     fn prior_information_does_not_inflate_data_sensitivity_rank() {
         let report = analyze(&fixture(), "3".repeat(64)).unwrap();
-        assert!(report.robust_d_optimal_design.per_scenario_scores.iter()
-            .all(|score| score.data_sensitivity_rank <= N));
-        assert!(report.robust_d_optimal_design.per_scenario_scores.iter()
-            .all(|score| score.minimum_eigenvalue_total_information > score.minimum_eigenvalue_data_information));
+        assert!(
+            report
+                .robust_d_optimal_design
+                .per_scenario_scores
+                .iter()
+                .all(|score| score.data_sensitivity_rank <= N)
+        );
+        assert!(
+            report
+                .robust_d_optimal_design
+                .per_scenario_scores
+                .iter()
+                .all(|score| score.minimum_eigenvalue_total_information
+                    > score.minimum_eigenvalue_data_information)
+        );
     }
 
     #[test]
@@ -942,13 +1158,29 @@ mod tests {
         rescaled_fixture.determinant_regularizer *= scale_squared;
 
         let rescaled = analyze(&rescaled_fixture, "b".repeat(64)).unwrap();
-        assert_eq!(original.nominal_design.candidate_ids, rescaled.nominal_design.candidate_ids);
-        assert_eq!(original.robust_d_optimal_design.candidate_ids, rescaled.robust_d_optimal_design.candidate_ids);
-        assert_eq!(original.robust_e_optimal_design.candidate_ids, rescaled.robust_e_optimal_design.candidate_ids);
-        assert_eq!(original.minimax_regret_design.candidate_ids, rescaled.minimax_regret_design.candidate_ids);
+        assert_eq!(
+            original.nominal_design.candidate_ids,
+            rescaled.nominal_design.candidate_ids
+        );
+        assert_eq!(
+            original.robust_d_optimal_design.candidate_ids,
+            rescaled.robust_d_optimal_design.candidate_ids
+        );
+        assert_eq!(
+            original.robust_e_optimal_design.candidate_ids,
+            rescaled.robust_e_optimal_design.candidate_ids
+        );
+        assert_eq!(
+            original.minimax_regret_design.candidate_ids,
+            rescaled.minimax_regret_design.candidate_ids
+        );
         assert!(
-            (original.minimax_regret_design.maximum_normalized_d_optimal_regret
-                - rescaled.minimax_regret_design.maximum_normalized_d_optimal_regret)
+            (original
+                .minimax_regret_design
+                .maximum_normalized_d_optimal_regret
+                - rescaled
+                    .minimax_regret_design
+                    .maximum_normalized_d_optimal_regret)
                 .abs()
                 < 1.0e-10
         );
