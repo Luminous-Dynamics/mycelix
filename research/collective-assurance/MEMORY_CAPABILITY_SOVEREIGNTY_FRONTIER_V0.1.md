@@ -48,6 +48,14 @@ Each architecture scorecard separately reports:
 
 A scorecard is Pareto-comparison eligible only when task utility, privacy, revocation, causal, resource, role (when relevant) and policy evidence are complete, and no unauthorized disclosure, forbidden inference or unreconciled descendant is observed. This boolean is a gate, not a ranking or scalar score.
 
+## Collaborative memory authority and provenance plane
+
+The separate [collaborative-memory qualification contract](COLLABORATIVE_MEMORY_QUALIFICATION_V0.1.md) adds six non-compensatory dimensions: sharing, access, routing, provenance, conflict resolution and retention. It is informed by [COLLABMEM (EMNLP 2026)](https://aclanthology.org/2026.emnlp-main.1194/), whose paper describes a matched memory-only harness and 58 core scenarios / 1,118 probes, scaled to 174 scenarios / 3,359 probes. The paper reports 69.6% as the highest non-Oracle average over five evaluation splits. These values are COLLABMEM-specific, and must not be compared directly with AML or retrieval accuracy.
+
+This code is a native Mycelix qualification contract, **not** an official reproduction. The ACL paper page says the dataset, evaluation code and reproduced outputs will be released; the implementation leaves the official dataset/harness/split references absent until the real artifacts can be pinned. Its `official_artifact_references_complete` bit indicates only structural completeness of three supplied digests, not their authenticity. The synthetic fixture is contract-only and always produces INDETERMINATE.
+
+Every run binds the frozen trace, target role inventory, answerer, judge, gold events, prompt, tools, hardware, token/resource budget, decoding config, adapter, policy and seed. Each competency has its own score. There is no weighted scalar that allows excellent recall to hide unauthorized sharing or a post-revocation read. Unauthorized access grants, extra recipients/routes, content or metadata disclosure, forged provenance, stale authority, retention-boundary violations and revoked derivative use are hard failures.
+
 ## Executable sparse baseline
 
 The first matched retrieval baseline is implemented in `src/mcsf_baselines.rs`:
