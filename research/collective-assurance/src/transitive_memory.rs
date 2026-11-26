@@ -53,6 +53,7 @@ fn sha256_hex(bytes: &[u8]) -> String {
 }
 
 const SCOPE_DOMAIN: &[u8] = b"MYCELIX-MEMORY-SCOPE-V0.1\0";
+const DECLASSIFICATION_DOMAIN: &[u8] = b"MYCELIX-MEMORY-DECLASSIFICATION-RECEIPT-V0.1\0";
 const GRAPH_DOMAIN: &[u8] = b"MYCELIX-TRANSITIVE-MEMORY-GRAPH-V0.1\0";
 const SNAPSHOT_DOMAIN: &[u8] = b"MYCELIX-TRANSITIVE-MEMORY-SNAPSHOT-V0.1\0";
 
@@ -140,6 +141,53 @@ pub struct MemoryDeclassificationReceipt {
     pub issued_at_ms: u64,
     pub expires_at_ms: u64,
     pub receipt_digest: String,
+}
+
+/// Recomputes the canonical digest of every field in a declassification receipt.
+///
+/// This establishes self-consistent field binding, not issuer authentication or
+/// legitimacy of the policy decision represented by the receipt.
+pub fn compute_memory_declassification_receipt_digest(
+    receipt: &MemoryDeclassificationReceipt,
+) -> Result<String, String> {
+    if !nonempty(&receipt.receipt_id)
+        || receipt.input_artifact_ids.is_empty()
+        || receipt.input_artifact_ids.len() != receipt.input_payload_digests.len()
+        || receipt.input_artifact_ids.iter().any(|id| !nonempty(id))
+        || receipt
+            .input_artifact_ids
+            .iter()
+            .collect::<BTreeSet<_>>()
+            .len()
+            != receipt.input_artifact_ids.len()
+        || receipt.input_payload_digests.iter().any(|digest| !valid_digest(digest))
+        || !valid_digest(&receipt.transform_digest)
+        || !valid_digest(&receipt.output_payload_digest)
+        || !valid_digest(&receipt.output_scope_digest)
+        || !valid_digest(&receipt.policy_digest)
+        || receipt.issued_at_ms >= receipt.expires_at_ms
+    {
+        return Err("declassification receipt fields are invalid or incomplete".into());
+    }
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(DECLASSIFICATION_DOMAIN);
+    push_str(&mut bytes, &receipt.receipt_id);
+    push_len(&mut bytes, receipt.input_artifact_ids.len());
+    for (artifact_id, payload_digest) in receipt
+        .input_artifact_ids
+        .iter()
+        .zip(&receipt.input_payload_digests)
+    {
+        push_str(&mut bytes, artifact_id);
+        push_str(&mut bytes, payload_digest);
+    }
+    push_str(&mut bytes, &receipt.transform_digest);
+    push_str(&mut bytes, &receipt.output_payload_digest);
+    push_str(&mut bytes, &receipt.output_scope_digest);
+    push_str(&mut bytes, &receipt.policy_digest);
+    push_u64(&mut bytes, receipt.issued_at_ms);
+    push_u64(&mut bytes, receipt.expires_at_ms);
+    Ok(sha256_hex(&bytes))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -519,8 +567,9 @@ fn validate_declassification(
         || receipt.transform_digest != artifact.transform_digest.as_deref().unwrap_or_default()
         || receipt.output_payload_digest != artifact.payload_digest
         || receipt.output_scope_digest != compute_memory_scope_digest(&artifact.scope)?
+        || receipt.receipt_digest != compute_memory_declassification_receipt_digest(receipt)?
     {
-        return Err("declassification receipt does not bind the exact inputs, transform, output or scope".into());
+        return Err("declassification receipt does not bind the exact inputs, transform, output, scope or receipt fields".into());
     }
     Ok(())
 }
@@ -1099,7 +1148,7 @@ mod tests {
         let mut child = derivative(&root);
         child.scope.principals.push("bob".into());
         let output_scope_digest = compute_memory_scope_digest(&child.scope).unwrap();
-        child.declassification = Some(MemoryDeclassificationReceipt {
+        let mut receipt = MemoryDeclassificationReceipt {
             receipt_id: "declass-01".into(),
             input_artifact_ids: vec!["source".into()],
             input_payload_digests: vec![root.payload_digest.clone()],
@@ -1109,12 +1158,44 @@ mod tests {
             policy_digest: digest('1'),
             issued_at_ms: 25,
             expires_at_ms: 50,
-            receipt_digest: digest('2'),
-        });
+            receipt_digest: String::new(),
+        };
+        receipt.receipt_digest =
+            compute_memory_declassification_receipt_digest(&receipt).unwrap();
+        child.declassification = Some(receipt);
         let snapshot = base_snapshot(vec![root, child], Vec::new(), Vec::new());
         assert_eq!(
             qualify_transitive_memory_snapshot(&snapshot).status,
             TransitiveMemoryStatus::Pass
+        );
+    }
+
+    #[test]
+    fn declassification_receipt_digest_covers_policy_and_validity_fields() {
+        let root = source();
+        let mut child = derivative(&root);
+        child.scope.principals.push("bob".into());
+        let output_scope_digest = compute_memory_scope_digest(&child.scope).unwrap();
+        let mut receipt = MemoryDeclassificationReceipt {
+            receipt_id: "declass-01".into(),
+            input_artifact_ids: vec!["source".into()],
+            input_payload_digests: vec![root.payload_digest.clone()],
+            transform_digest: digest('c'),
+            output_payload_digest: child.payload_digest.clone(),
+            output_scope_digest,
+            policy_digest: digest('1'),
+            issued_at_ms: 25,
+            expires_at_ms: 50,
+            receipt_digest: String::new(),
+        };
+        receipt.receipt_digest =
+            compute_memory_declassification_receipt_digest(&receipt).unwrap();
+        receipt.policy_digest = digest('2');
+        child.declassification = Some(receipt);
+        let snapshot = base_snapshot(vec![root, child], Vec::new(), Vec::new());
+        assert_eq!(
+            qualify_transitive_memory_snapshot(&snapshot).status,
+            TransitiveMemoryStatus::Fail
         );
     }
 
