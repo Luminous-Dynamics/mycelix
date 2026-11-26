@@ -114,7 +114,7 @@ jobs:
                 {from:.assertion_id,to:.supersedes_assertion_id}
               ] as $edges |
               [ $assertions[].assertion_id ] as $ids |
-              all($ids[] as $start; (cycle_from($edges; $start; $start; [$start]) | not))
+              all($ids[]; . as $start | (cycle_from($edges; $start; $start; [$start]) | not))
             )
           ' "$FILE" >/dev/null
 
