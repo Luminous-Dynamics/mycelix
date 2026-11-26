@@ -484,6 +484,11 @@ pub fn validate_packet(packet: &DecisionClosurePacketV1) -> Result<(), DecisionC
                     require_non_empty(decision_id)?;
                     require_digest(decision_digest)?;
                     validate_authority(authority)?;
+                    if authority.decision_id != *decision_id
+                        || authority.decision_digest != *decision_digest
+                    {
+                        return Err(DecisionClosureErrorV1::InvalidApplicabilityDecision);
+                    }
                 }
             }
             if elements.insert(element.element_id.as_str(), element).is_some() {
@@ -1069,6 +1074,20 @@ mod tests {
         };
         let result = evaluate_decision_closure(&packet(vec![mapping("n-a", vec![item])]), NOW).unwrap();
         assert_eq!(result.disposition, DecisionClosureDispositionV1::Closed);
+    }
+
+    #[test]
+    fn not_applicable_decision_must_match_local_authority_reference() {
+        let mut item = element("not-applicable", Vec::new(), Vec::new());
+        item.applicability = ElementApplicabilityV1::NotApplicable {
+            decision_id: "scope-decision".to_owned(),
+            decision_digest: [10; 32],
+            authority: authority("scope-owner"),
+        };
+        assert_eq!(
+            validate_packet(&packet(vec![mapping("mismatch", vec![item])])),
+            Err(DecisionClosureErrorV1::InvalidApplicabilityDecision)
+        );
     }
 
     #[test]
