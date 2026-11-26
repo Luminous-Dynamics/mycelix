@@ -50,6 +50,8 @@ pub struct ClaimRefV1 {
     pub proposal_digest: [u8; 32],
     /// Semantic dimensions that must be checked for this claim.
     pub required_dimensions: Vec<SemanticDimensionV1>,
+    /// Qualified independent reviewer roles required for a positive disposition.
+    pub required_reviewer_roles: Vec<ReviewerRoleV1>,
 }
 
 /// Digest-pinned source excerpt and its locator.
@@ -300,6 +302,15 @@ pub fn validate_packet(packet: &ClaimSupportPacketV1) -> Result<(), ClaimSupport
     if packet.claim.required_dimensions.is_empty() {
         return Err(ClaimSupportErrorV1::MissingQualifierDimension);
     }
+    if packet.claim.required_reviewer_roles.is_empty() {
+        return Err(ClaimSupportErrorV1::NonIndependentReview);
+    }
+    let mut required_roles = HashSet::new();
+    for role in &packet.claim.required_reviewer_roles {
+        if !required_roles.insert(*role) {
+            return Err(ClaimSupportErrorV1::DuplicateIdentifier);
+        }
+    }
 
     let mut required = HashSet::new();
     for dimension in &packet.claim.required_dimensions {
@@ -423,7 +434,7 @@ pub fn validate_packet(packet: &ClaimSupportPacketV1) -> Result<(), ClaimSupport
         {
             return Err(ClaimSupportErrorV1::InvalidReviewTime);
         }
-        if !reviewed_assessments.insert(review.assessment_id.as_str()) {
+        if !reviewed_assessments.insert((review.assessment_id.as_str(), review.role)) {
             return Err(ClaimSupportErrorV1::DuplicateIdentifier);
         }
     }
@@ -461,31 +472,33 @@ pub fn evaluate_claim_support(
         })
         .collect::<Vec<_>>();
 
+    if current_reviews
+        .iter()
+        .any(|review| review.decision == ReviewDecisionV1::ConfirmContradiction)
+    {
+        return Ok(ClaimSupportDispositionV1::BlockedByContradiction);
+    }
+
     let mut all_confirmed = true;
     for assessment in &packet.assessments {
         let current = assessment.assessed_at <= now
             && assessment.valid_until.map(|expiry| now < expiry).unwrap_or(true);
-        if !current {
+        if !current || assessment.relation != SupportRelationV1::DirectSupport {
             all_confirmed = false;
             continue;
         }
 
-        let review = current_reviews
-            .iter()
-            .find(|review| review.assessment_id == assessment.assessment_id);
-        let Some(review) = review else {
-            all_confirmed = false;
-            continue;
-        };
-
-        if review.decision == ReviewDecisionV1::ConfirmContradiction {
-            return Ok(ClaimSupportDispositionV1::BlockedByContradiction);
-        }
-        if review.decision != ReviewDecisionV1::ConfirmDirectSupport
-            || assessment.relation != SupportRelationV1::DirectSupport
-        {
-            all_confirmed = false;
-            continue;
+        for role in &packet.claim.required_reviewer_roles {
+            let review = current_reviews.iter().find(|review| {
+                review.assessment_id == assessment.assessment_id && review.role == *role
+            });
+            let Some(review) = review else {
+                all_confirmed = false;
+                continue;
+            };
+            if review.decision != ReviewDecisionV1::ConfirmDirectSupport {
+                all_confirmed = false;
+            }
         }
 
         let qualifier_safe = assessment.qualifiers.iter().all(|qualifier| {
@@ -595,6 +608,7 @@ mod tests {
                 claim_digest: [6; 32],
                 proposal_digest: [7; 32],
                 required_dimensions: dimensions,
+                required_reviewer_roles: vec![ReviewerRoleV1::DomainExpert],
             },
             sources: vec![source],
             assessments: vec![assessment],
@@ -628,6 +642,52 @@ mod tests {
     fn machine_assessment_cannot_self_certify() {
         let packet = packet();
         assert_eq!(evaluate_claim_support(&packet, NOW).unwrap(), ClaimSupportDispositionV1::HumanReviewRequired);
+    }
+
+    #[test]
+    fn all_required_reviewer_roles_must_confirm_exact_assessment() {
+        let mut packet = packet();
+        packet.claim.required_reviewer_roles = vec![
+            ReviewerRoleV1::DomainExpert,
+            ReviewerRoleV1::SafetyAuthority,
+        ];
+        packet.reviews.push(review(ReviewDecisionV1::ConfirmDirectSupport));
+        assert_eq!(
+            evaluate_claim_support(&packet, NOW).unwrap(),
+            ClaimSupportDispositionV1::HumanReviewRequired
+        );
+        let mut safety_review = review(ReviewDecisionV1::ConfirmDirectSupport);
+        safety_review.review_id = "review-safety".to_owned();
+        safety_review.role = ReviewerRoleV1::SafetyAuthority;
+        safety_review.reviewer_id = "independent-safety-engineer".to_owned();
+        packet.reviews.push(safety_review);
+        assert_eq!(
+            evaluate_claim_support(&packet, NOW).unwrap(),
+            ClaimSupportDispositionV1::Supported
+        );
+    }
+
+    #[test]
+    fn missing_reviewer_role_requirement_is_rejected() {
+        let mut packet = packet();
+        packet.claim.required_reviewer_roles.clear();
+        assert_eq!(
+            validate_packet(&packet),
+            Err(ClaimSupportErrorV1::NonIndependentReview)
+        );
+    }
+
+    #[test]
+    fn duplicate_reviewer_role_decisions_for_one_assessment_are_rejected() {
+        let mut packet = packet();
+        packet.reviews.push(review(ReviewDecisionV1::ConfirmDirectSupport));
+        let mut duplicate = review(ReviewDecisionV1::ConfirmDirectSupport);
+        duplicate.review_id = "review-duplicate".to_owned();
+        packet.reviews.push(duplicate);
+        assert_eq!(
+            validate_packet(&packet),
+            Err(ClaimSupportErrorV1::DuplicateIdentifier)
+        );
     }
 
     #[test]
