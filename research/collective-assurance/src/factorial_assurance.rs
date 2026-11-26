@@ -491,6 +491,31 @@ pub struct FactorialTournamentReport {
     pub reasons: Vec<String>,
 }
 
+fn same_study_configuration(left: &FactorialStudyIdentity, right: &FactorialStudyIdentity) -> bool {
+    left.study_id == right.study_id
+        && left.benchmark_id == right.benchmark_id
+        && left.benchmark_version == right.benchmark_version
+        && left.benchmark_certificate_digest == right.benchmark_certificate_digest
+        && left.split_digest == right.split_digest
+        && left.model_snapshot_digest == right.model_snapshot_digest
+        && left.tokenizer_digest == right.tokenizer_digest
+        && left.system_prompt_digest == right.system_prompt_digest
+        && left.user_prompt_template_digest == right.user_prompt_template_digest
+        && left.toolchain_digest == right.toolchain_digest
+        && left.decoding_digest == right.decoding_digest
+        && left.scorer_digest == right.scorer_digest
+        && left.evaluator_digest == right.evaluator_digest
+        && left.inference_plan_digest == right.inference_plan_digest
+        && left.randomization_policy_digest == right.randomization_policy_digest
+        && left.context_budget_tokens == right.context_budget_tokens
+        && left.output_budget_tokens == right.output_budget_tokens
+        && left.compute_budget_microusd == right.compute_budget_microusd
+        && left.wall_clock_budget_ms == right.wall_clock_budget_ms
+        && left.memory_budget_bytes == right.memory_budget_bytes
+        && left.agent_count == right.agent_count
+        && left.exposure_trust_profile_digest == right.exposure_trust_profile_digest
+}
+
 /// Qualifies a collection of matched eight-arm blocks against the preregistered
 /// study schedule and minimum independent source-group count.
 ///
@@ -529,6 +554,7 @@ pub fn qualify_factorial_tournament(
         .iter()
         .map(String::as_str)
         .collect();
+    let reference_study = tournament.blocks.first().map(|block| &block.study);
     let mut seen_blocks = BTreeSet::new();
     let mut source_groups = BTreeSet::new();
     let mut block_reports = Vec::new();
@@ -538,6 +564,14 @@ pub fn qualify_factorial_tournament(
         if block.study.study_id != tournament.plan.study_id {
             reasons.push(format!(
                 "block {} belongs to a different study",
+                block.block.block_id
+            ));
+        }
+        if reference_study.is_some_and(|reference| {
+            !same_study_configuration(reference, &block.study)
+        }) {
+            reasons.push(format!(
+                "block {} changes the shared model, prompt, evaluator, resource, randomization or witness configuration",
                 block.block.block_id
             ));
         }
@@ -907,6 +941,43 @@ mod tests {
         assert_eq!(
             qualify_factorial_tournament(&tournament).status,
             FactorialQualificationStatus::Fail
+        );
+    }
+
+    #[test]
+    fn different_model_or_evaluator_between_blocks_fails() {
+        let mut second = second_block("group-002");
+        second.study.evaluator_digest = digest('0');
+        for arm in &mut second.arms {
+            arm.study = second.study.clone();
+        }
+        let tournament = FactorialTournament {
+            plan: FactorialStudyPlan {
+                study_id: "inquiry-rer-acb-v0.1".into(),
+                expected_block_ids: vec!["block-001".into(), "block-002".into()],
+                minimum_source_groups: 2,
+            },
+            blocks: vec![valid_block(), second],
+        };
+        assert_eq!(
+            qualify_factorial_tournament(&tournament).status,
+            FactorialQualificationStatus::Fail
+        );
+    }
+
+    #[test]
+    fn independent_block_random_seeds_are_allowed() {
+        let tournament = FactorialTournament {
+            plan: FactorialStudyPlan {
+                study_id: "inquiry-rer-acb-v0.1".into(),
+                expected_block_ids: vec!["block-001".into(), "block-002".into()],
+                minimum_source_groups: 2,
+            },
+            blocks: vec![valid_block(), second_block("group-002")],
+        };
+        assert_eq!(
+            qualify_factorial_tournament(&tournament).status,
+            FactorialQualificationStatus::Pass
         );
     }
 
