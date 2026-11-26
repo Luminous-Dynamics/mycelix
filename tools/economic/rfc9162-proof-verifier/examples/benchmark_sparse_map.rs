@@ -69,6 +69,10 @@ fn main() {
 
         let mut absent_key = indexed_key(count + 10_000);
         absent_key[0] ^= 0x80;
+        assert!(
+            linear_entries.iter().all(|(candidate, _)| candidate != &absent_key),
+            "benchmark negative-control key unexpectedly collides"
+        );
         let nonmembership_start = Instant::now();
         let nonmembership_proof = tree.prove(absent_key);
         let nonmembership_prove_elapsed = nonmembership_start.elapsed();
