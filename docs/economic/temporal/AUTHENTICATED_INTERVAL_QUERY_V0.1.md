@@ -219,12 +219,47 @@ A bounded state model should vary tree shapes, interval endpoint order, open end
 
 The formal model should compose with #6680's frontier model. This issue does not claim a TLA+/Alloy/model-checker result until the model is checked by its named independent tool and exact state bounds are published.
 
-## 9. Standards and interoperability route
+## 9. Industry and research baseline
+
+This profile must be compared against mature temporal databases and established authenticated-data-structure techniques. It is not sufficient to beat a linear scan.
+
+| Baseline | Existing strength | What this work must add / compare |
+|---|---|---|
+| SQL Server system-versioned temporal tables | Retain current/history row versions and support `FOR SYSTEM_TIME AS OF`, including `datetime2` precision | A signed, independently verifiable result certificate bound to verifier/frontier identity and accepted source coverage |
+| XTDB | Built-in bitemporal system/transaction time plus valid time; supports point-in-time and range queries over closed-open periods | Causal-frontier qualification, evidence lineage and independently verifiable proof of complete interval-query results |
+| Conventional interval tree / ordered index | Fast in-memory point-stabbing query without cryptographic proof overhead | Quantify the cost of authentication, proof construction, proof bytes and incremental root maintenance |
+| Authenticated Merkle B-tree / ordered ADS | Established range-query completeness techniques, including boundary records and authenticated sibling subtrees | Benchmark as the principal cryptographic data-structure baseline; test interval summaries and open-ended validity semantics |
+| Authenticated multidimensional range-query schemes | Research demonstrates authenticated range queries beyond simple point membership | Compare setup, proof size, query dimensions, update cost and verifier assumptions before claiming novelty |
+
+SQL Server's documented `FOR SYSTEM_TIME` feature queries the system-versioned current/history tables; `AS OF` uses the declared `datetime2` precision and UTC interpretation. XTDB documents both system and valid time, with half-open periods and explicit `FOR VALID_TIME` / `FOR SYSTEM_TIME` query forms. These are temporal-semantics baselines; their documentation is not a claim that these products provide this proposal's verifier-relative causal-frontier proof contract.
+
+Authenticated range-query research predates this prototype. In particular, ordered authenticated structures use boundary records and authenticated subtrees to establish that result sets contain no omissions or extraneous records. Multidimensional authenticated range-query schemes are also established research. The present augmented interval tree is therefore a candidate construction, not a claim of a new authenticated-data-structure primitive.
+
+### What could actually move the field
+
+The paradigm shift is not a different timestamp column. It is to make the answer itself carry independently checkable evidence:
+
+```
+valid-time interval proof
++ receipt inclusion / append-only consistency
++ verifier-accepted owner frontier
++ source-to-index projection completeness
++ signed checkpoint / non-equivocation
+= verifier-relative temporal query certificate
+```
+
+The proof layers remain distinct. An interval proof must not claim log inclusion; an inclusion proof must not claim index completeness; a valid signed checkpoint must not claim the represented event was true.
+
+The next architecture after this single-scope prototype is a **frontier-index forest**: each owner maintains an interval index rooted in its own accepted receipt prefix; the verifier's vector frontier commits to the required owner cuts and per-owner index roots. A query certificate carries one interval proof per covered owner, preserves concurrent owner histories as concurrent, and refuses a complete result if any required owner cut or projection coverage is unknown. This avoids manufacturing a global scalar event order or hiding missing owners behind one aggregate index root. It must compose with #6680 and the existing CIV checkpoint / witness owners.
+
+A later dynamic authenticated B+ interval index is a serious competitor to the binary tree used here. Page fan-out (e.g. 8 / 16 / 32 / 64), persistence, incremental insert/delete, proof bytes and I/O count should be compared under the same fixed workload. A high-overlap workload may necessarily return large result sets; the performance target should be output-sensitive rather than promising constant-sized proofs.
+
+## 10. Standards and interoperability route
 
 RFC 9162 remains the append-only log proof layer: it supplies inclusion and consistency semantics, not arbitrary temporal interval-query completeness. RFC 9942 defines COSE receipt envelopes and VDS/VDP registries; the initial RFC 9162 SHA-256 profile does not make this custom interval tree an existing registered proof type.
 
 The proposed interval profile must remain explicitly experimental. If it matures, specify exact proof encodings and register/standardize a VDS/VDP profile through the appropriate standards process. Do not label it RFC 9162 or claim RFC 9942 conformance prematurely.
 
-## 10. Nonclaims
+## 11. Nonclaims
 
 A passing tree verifier proves only a mathematically complete interval-stabbing answer relative to one supplied scoped root. It does not authenticate that root, establish the source frontier's completeness or truth, prove global absence, establish trusted time, or grant financial/operational authority.
