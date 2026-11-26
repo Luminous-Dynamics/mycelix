@@ -109,7 +109,7 @@ Material elements may depend on prerequisite elements. For example:
 - a conclusion about a clinical intervention may depend on indication and population scope;
 - exception handling may depend on a threshold or triggering condition.
 
-The dependency relation must be acyclic. A dependent element cannot count as satisfied while any prerequisite is missing, contradicted, unresolved or excluded without authority. This extends the unordered coverage model discussed in the paper and is a conservative V1 treatment of dependency-sensitive decisions.
+The dependency relation must be acyclic. The reference implementation is tested against exhaustive enumeration of every directed graph on four elements (4,096 edge configurations), compared with an independent transitive-closure cycle oracle. A dependent element cannot count as satisfied while any prerequisite is missing, contradicted, unresolved or excluded without authority. This extends the unordered coverage model discussed in the paper and is a conservative V1 treatment of dependency-sensitive decisions.
 
 Exceptions and scope limitations should be represented as elements or explicit conditions, not left as free-text notes that a coverage calculation can omit.
 
