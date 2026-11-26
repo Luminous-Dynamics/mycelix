@@ -242,7 +242,10 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
         return Err("calibration fixture requires at least ten mechanism families".into());
     }
     if fixture.parameter_regimes.len() < 3
-        || fixture.parameter_regimes.iter().any(|value| !value.is_finite() || *value <= 0.0)
+        || fixture
+            .parameter_regimes
+            .iter()
+            .any(|value| !value.is_finite() || *value <= 0.0)
     {
         return Err("at least three finite positive parameter regimes are required".into());
     }
@@ -266,9 +269,7 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
     if fixture.heldout_noise_std <= 0.0 || !fixture.heldout_noise_std.is_finite() {
         return Err("heldout noise must be finite and positive".into());
     }
-    if fixture.discrepancy_threshold_sd <= 0.0
-        || !fixture.discrepancy_threshold_sd.is_finite()
-    {
+    if fixture.discrepancy_threshold_sd <= 0.0 || !fixture.discrepancy_threshold_sd.is_finite() {
         return Err("discrepancy threshold must be finite and positive".into());
     }
     let first = candidate_index(fixture, &fixture.first_candidate_id)?;
@@ -1228,7 +1229,9 @@ mod tests {
             observations[0] + OOD_SHIFT_STANDARD_DEVIATIONS * fixture.candidates[0].noise_std,
             observations[1] + OOD_SHIFT_STANDARD_DEVIATIONS * fixture.candidates[1].noise_std,
         ];
-        assert!(discrepancy_score(&fixture, &selected, &shifted) > fixture.discrepancy_threshold_sd);
+        assert!(
+            discrepancy_score(&fixture, &selected, &shifted) > fixture.discrepancy_threshold_sd
+        );
     }
 
     #[test]
