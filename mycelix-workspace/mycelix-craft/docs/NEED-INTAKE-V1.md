@@ -36,7 +36,7 @@ A proposal contains:
 - original need identifier, statement digest, submitter and visibility profile;
 - source references with type, digest and visibility profile;
 - explicit assumptions and accountable owners;
-- outcomes with indicator, baseline, target, time horizon, outcome owner and acceptance-authority reference;
+- at least one measurable outcome with indicator, target, time horizon, outcome owner and acceptance-authority reference; a baseline may be explicitly unknown, but a blank declared baseline is invalid;
 - capability requirements classified as SafetyCritical, Required, Developmental or Preferred;
 - work packages, outcome links, requirement links and dependency edges;
 - multiple candidate decompositions with explicit trade-offs, without an AI-selected winner; every individual trade-off is a source/assumption/inference-linked claim;
