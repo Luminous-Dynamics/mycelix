@@ -9,3 +9,7 @@ test:
 # Check (fast)
 check:
     cargo check --workspace
+
+# Run the standalone semantic claim support reference core
+core-claim-support:
+    cargo test --manifest-path Cargo.toml -p craft-claim-support-v1
