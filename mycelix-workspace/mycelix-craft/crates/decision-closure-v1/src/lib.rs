@@ -800,7 +800,7 @@ mod tests {
             standard_revision: 1,
             standard_digest: [5; 32],
             required_mapping_roles: vec![MappingReviewerRoleV1::DomainExpert],
-            minimum_reviewers_per_role: 1,
+            minimum_reviewers_per_role: 2,
         }
     }
 
@@ -858,7 +858,21 @@ mod tests {
             conclusion_digest: [3; 32],
             standard_digest: [5; 32],
             elements,
-            reviews: vec![review(id, digest)],
+            reviews: vec![
+                review(id, digest),
+                MappingReviewV1 {
+                    review_id: format!("review-{id}-second"),
+                    mapping_id: id.to_owned(),
+                    mapping_digest: digest,
+                    reviewer_id: "independent-domain-reviewer-2".to_owned(),
+                    role: MappingReviewerRoleV1::DomainExpert,
+                    authority: authority("domain-2"),
+                    decision: MappingReviewDecisionV1::Approve,
+                    reviewed_at: 21,
+                    valid_until: Some(180),
+                    withdrawn_at: None,
+                },
+            ],
         }
     }
 
@@ -1032,6 +1046,7 @@ mod tests {
             "two-reviewers",
             vec![element("required", Vec::new(), vec![support("good", SupportDispositionV1::DirectSupport)])],
         );
+        mapping.reviews.truncate(1);
         mapping.reviews[0].reviewer_id = "reviewer-one".to_owned();
         let mut packet = packet(vec![mapping]);
         packet.decision = decision.clone();
