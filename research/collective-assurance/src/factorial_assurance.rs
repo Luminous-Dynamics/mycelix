@@ -313,13 +313,12 @@ fn run_errors(run: &FactorialArmRun) -> Vec<String> {
     {
         errors.push("one or more treatment execution receipts disagree with the assigned arm".into());
     }
-    if !run.treatment.inquiry {
-        if run.outcome.inquiry_requests != 0
+    if !run.treatment.inquiry
+        && (run.outcome.inquiry_requests != 0
             || run.outcome.newly_verified_source_origins != 0
-            || run.post_inquiry_candidate_pool_digest != run.block.initial_candidate_pool_digest
-        {
-            errors.push("inquiry-OFF arm contains inquiry activity, new verified origins, or a changed candidate pool".into());
-        }
+            || run.post_inquiry_candidate_pool_digest != run.block.initial_candidate_pool_digest)
+    {
+        errors.push("inquiry-OFF arm contains inquiry activity, new verified origins, or a changed candidate pool".into());
     }
     if !run.treatment.rer && run.outcome.rer_added_evidence_count != 0 {
         errors.push("RER-OFF arm reports relationally added evidence".into());
@@ -733,7 +732,7 @@ mod tests {
                 rer_added_evidence_count: if treatment.rer { 2 } else { 0 },
                 generator_visible_evidence_count: 4,
                 constraint_items_processed: if treatment.acb { 4 } else { 0 },
-                unaccounted_visible_evidence_count: if treatment.acb { 0 } else { 0 },
+                unaccounted_visible_evidence_count: 0,
                 rights_provenance_gate: FactorialGateOutcome::Pass,
                 constraint_gate: if treatment.acb {
                     FactorialGateOutcome::Pass
