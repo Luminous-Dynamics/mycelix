@@ -28,7 +28,7 @@ The verifier proves properties relative to supplied roots. It does not authentic
 - Independent Go reference and shared known-answer vectors.
 - Exact scope: a non-membership proof establishes only that one assertion reference is absent from one supplied sparse-map root. It does not prove no other assertion exists for the claim, that any temporal query has no matching candidate, or that the map is complete.
 
-See EXPERIMENTAL_SPARSE_MAP_V1.md for the profile, proof semantics, completeness requirements and VDS interoperability boundary.
+See EXPERIMENTAL_SPARSE_MAP_V1.md for the profile, proof semantics, shared Rust/Go known-answer vectors, completeness requirements and VDS interoperability boundary.
 
 ## Run
 
@@ -37,6 +37,7 @@ See EXPERIMENTAL_SPARSE_MAP_V1.md for the profile, proof semantics, completeness
     cargo +1.96.0 test --locked
     cargo +1.96.0 clippy --locked --all-targets -- -D warnings
     cargo +1.96.0 run --locked --example append_only_log
+    cargo +1.96.0 run --locked --example benchmark_sparse_map
 
 The cross-language Go conformance suite is in tools/economic/temporal-frontier-model/conformance/go/ and is run by the Economic OS exact-head workflow.
 
