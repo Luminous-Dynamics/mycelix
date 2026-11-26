@@ -6,9 +6,17 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use sha2::{Digest, Sha256};
+
 use super::{QualificationReport, QualificationStatus};
 
 const UPSTREAM_REPOSITORY: &str = "https://github.com/ybkim95/TeamBench";
+const UPSTREAM_TASK_MANIFEST_PATH: &str = "leaderboard/data/leaderboard_90_tasks.json";
+const UPSTREAM_TASK_MANIFEST_BLOB_SHA: &str =
+    "59125b3fa9a82eede1f5a832c51c2ba32f5af591";
+const UPSTREAM_README_PATH: &str = "README.md";
+const UPSTREAM_README_BLOB_SHA: &str =
+    "6c39b66fed83c52f397c2d3b4f84e7bafe854061";
 
 fn nonempty(value: &str) -> bool {
     !value.trim().is_empty() && value == value.trim()
@@ -198,7 +206,13 @@ pub struct TeamBenchSuite {
     pub upstream_commit: String,
     pub benchmark_version: String,
     pub dataset_manifest_digest: String,
+    /// SHA-256 of the canonical task set plus the source-blob/notice commitments.
     pub task_manifest_digest: String,
+    pub task_manifest_path: String,
+    /// Git blob SHA-1 of the exact upstream task-list file, not a content SHA-256.
+    pub task_manifest_blob_sha: String,
+    pub re_curation_notice_path: String,
+    pub re_curation_notice_blob_sha: String,
     pub native_grader_digest: String,
     pub excluded_task_manifest_digest: String,
     /// Exact task IDs included in every condition; order is not significant.
@@ -268,6 +282,114 @@ pub struct TeamBenchQualificationReport {
     pub infrastructure_error_count: usize,
     pub not_run_count: usize,
     pub reasons: Vec<String>,
+}
+
+fn valid_git_blob_sha(value: &str) -> bool {
+    value.len() == 40
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn push_len(output: &mut Vec<u8>, value: usize) {
+    output.extend_from_slice(&(value as u64).to_be_bytes());
+}
+
+fn push_str(output: &mut Vec<u8>, value: &str) {
+    push_len(output, value.len());
+    output.extend_from_slice(value.as_bytes());
+}
+
+fn sha256_hex(value: &[u8]) -> String {
+    let digest = Sha256::digest(value);
+    let mut output = String::with_capacity(64);
+    for byte in digest {
+        use std::fmt::Write;
+        let _ = write!(&mut output, "{byte:02x}");
+    }
+    output
+}
+
+/// Canonical, domain-separated digest of the explicit upstream re-curation
+/// exclusions. The list order is normalized; identifiers and evidence cannot
+/// be changed without changing the digest.
+pub fn compute_teambench_excluded_manifest_digest(
+    excluded_tasks: &[TeamBenchExcludedTask],
+) -> Result<String, String> {
+    let mut records = excluded_tasks.iter().collect::<Vec<_>>();
+    records.sort_by(|left, right| left.task_id.cmp(&right.task_id));
+    let mut seen = BTreeSet::new();
+    let mut bytes = b"MYCELIX-TEAMBENCH-EXCLUSIONS-V0.1\0".to_vec();
+    push_len(&mut bytes, records.len());
+    for task in records {
+        if !nonempty(&task.task_id)
+            || !nonempty(&task.reason)
+            || !valid_digest(&task.evidence_digest)
+            || !seen.insert(task.task_id.as_str())
+        {
+            return Err("excluded task inventory is invalid or duplicated".into());
+        }
+        push_str(&mut bytes, &task.task_id);
+        push_str(&mut bytes, &task.reason);
+        push_str(&mut bytes, &task.evidence_digest);
+    }
+    Ok(sha256_hex(&bytes))
+}
+
+/// Canonical digest binding the pinned official source files and the exact
+/// eligible/excluded task inventory used by a run.
+pub fn compute_teambench_task_manifest_digest(
+    upstream_commit: &str,
+    task_manifest_path: &str,
+    task_manifest_blob_sha: &str,
+    re_curation_notice_path: &str,
+    re_curation_notice_blob_sha: &str,
+    eligible_task_ids: &[String],
+    excluded_tasks: &[TeamBenchExcludedTask],
+) -> Result<String, String> {
+    if !valid_commit(upstream_commit)
+        || task_manifest_path != UPSTREAM_TASK_MANIFEST_PATH
+        || !valid_git_blob_sha(task_manifest_blob_sha)
+        || re_curation_notice_path != UPSTREAM_README_PATH
+        || !valid_git_blob_sha(re_curation_notice_blob_sha)
+    {
+        return Err("upstream task-manifest provenance is invalid".into());
+    }
+
+    let mut eligible = eligible_task_ids.iter().collect::<Vec<_>>();
+    eligible.sort();
+    let mut seen = BTreeSet::new();
+    for task_id in &eligible {
+        if !nonempty(task_id) || !seen.insert(task_id.as_str()) {
+            return Err("eligible task inventory is invalid or duplicated".into());
+        }
+    }
+
+    let mut excluded = excluded_tasks.iter().collect::<Vec<_>>();
+    excluded.sort_by(|left, right| left.task_id.cmp(&right.task_id));
+    for task in &excluded {
+        if !nonempty(&task.task_id)
+            || !nonempty(&task.reason)
+            || !valid_digest(&task.evidence_digest)
+            || !seen.insert(task.task_id.as_str())
+        {
+            return Err("eligible/excluded task inventory overlaps or is invalid".into());
+        }
+    }
+
+    let exclusion_digest = compute_teambench_excluded_manifest_digest(excluded_tasks)?;
+    let mut bytes = b"MYCELIX-TEAMBENCH-TASK-MANIFEST-V0.1\0".to_vec();
+    push_str(&mut bytes, upstream_commit);
+    push_str(&mut bytes, task_manifest_path);
+    push_str(&mut bytes, task_manifest_blob_sha);
+    push_str(&mut bytes, re_curation_notice_path);
+    push_str(&mut bytes, re_curation_notice_blob_sha);
+    push_len(&mut bytes, eligible.len());
+    for task_id in eligible {
+        push_str(&mut bytes, task_id);
+    }
+    push_str(&mut bytes, &exclusion_digest);
+    Ok(sha256_hex(&bytes))
 }
 
 fn valid_optional_digest(value: Option<&str>) -> bool {
@@ -531,6 +653,15 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
                 .fail(format!("{name} digest is not lowercase SHA-256 hex"));
         }
     }
+    if suite.task_manifest_path != UPSTREAM_TASK_MANIFEST_PATH
+        || !valid_git_blob_sha(&suite.task_manifest_blob_sha)
+        || suite.task_manifest_blob_sha != UPSTREAM_TASK_MANIFEST_BLOB_SHA
+        || suite.re_curation_notice_path != UPSTREAM_README_PATH
+        || !valid_git_blob_sha(&suite.re_curation_notice_blob_sha)
+        || suite.re_curation_notice_blob_sha != UPSTREAM_README_BLOB_SHA
+    {
+        report.qualification.fail("TeamBench source file paths or Git blob identities differ from the pinned upstream manifest");
+    }
     if suite.per_task_time_budget_ms == 0
         || suite.per_task_token_budget == 0
         || suite.per_task_compute_budget_millijoules == 0
@@ -569,6 +700,25 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
                 .qualification
                 .fail("task is simultaneously eligible and excluded");
         }
+    }
+
+    match compute_teambench_excluded_manifest_digest(&suite.excluded_tasks) {
+        Ok(digest) if digest == suite.excluded_task_manifest_digest => {}
+        Ok(_) => report.qualification.fail("excluded-task manifest digest does not match its canonical records"),
+        Err(reason) => report.qualification.fail(reason),
+    }
+    match compute_teambench_task_manifest_digest(
+        &suite.upstream_commit,
+        &suite.task_manifest_path,
+        &suite.task_manifest_blob_sha,
+        &suite.re_curation_notice_path,
+        &suite.re_curation_notice_blob_sha,
+        &suite.eligible_task_ids,
+        &suite.excluded_tasks,
+    ) {
+        Ok(digest) if digest == suite.task_manifest_digest => {}
+        Ok(_) => report.qualification.fail("task manifest digest does not match its canonical source/task records"),
+        Err(reason) => report.qualification.fail(reason),
     }
 
     let mut conditions = BTreeMap::new();
