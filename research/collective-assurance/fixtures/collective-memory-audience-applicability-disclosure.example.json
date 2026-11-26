@@ -38,17 +38,25 @@
       "input_payload_digest": "1111111111111111111111111111111111111111111111111111111111111111",
       "output_payload_digest": "4444444444444444444444444444444444444444444444444444444444444444",
       "transform_digest": "5555555555555555555555555555555555555555555555555555555555555555",
-      "target": {
-        "kind": "pair",
-        "user_id": "alice",
-        "agent_id": "planner"
-      },
       "situation_digest": "2222222222222222222222222222222222222222222222222222222222222222",
       "policy_digest": "3333333333333333333333333333333333333333333333333333333333333333",
       "independent_review_digest": "6666666666666666666666666666666666666666666666666666666666666666",
       "issued_at_ms": 10,
       "expires_at_ms": 100,
-      "receipt_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      "receipt_digest": "cd51e126f766d7dfb69697de5b1d71a6767747467b3bcfb67c82fe01cce931a6",
+      "audience_scope": {
+        "kind": "user",
+        "user_id": "alice"
+      },
+      "applicability_scope": {
+        "kind": "agent",
+        "agent_id": "planner"
+      },
+      "disclosure_scope": {
+        "kind": "pair",
+        "user_id": "alice",
+        "agent_id": "planner"
+      }
     }
   },
   "use_context": {
