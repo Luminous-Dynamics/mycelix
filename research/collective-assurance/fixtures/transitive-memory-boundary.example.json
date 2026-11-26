@@ -1,0 +1,100 @@
+{
+  "schema_version": "transitive-memory-boundary-v0.1",
+  "snapshot": {
+    "snapshot_id": "snapshot-01",
+    "as_of_ms": 300,
+    "graph_digest": "ecc0389d9130453c48c78b0e7a126a589645df11aa3a2d2539c201b2b8fa3605",
+    "snapshot_digest": "7184f08cd5339aa9641ae8db4bc135dc9a1fe834059a6ffc71a263af973fb20f",
+    "inventory_complete": true,
+    "revocation_inventory_complete": true,
+    "artifacts": [
+      {
+        "artifact_id": "source",
+        "payload_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parent_artifact_ids": [],
+        "transform_digest": null,
+        "derivation_receipt_digest": null,
+        "declassification": null,
+        "scope": {
+          "principals": [
+            "alice"
+          ],
+          "purposes": [
+            "project-a"
+          ],
+          "entities": [
+            "entity-1"
+          ],
+          "valid_from_ms": 10,
+          "valid_until_ms": 1000,
+          "retain_until_ms": 1100
+        },
+        "created_at_ms": 20,
+        "lineage_complete": true
+      },
+      {
+        "artifact_id": "summary",
+        "payload_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "parent_artifact_ids": [
+          "source"
+        ],
+        "transform_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "derivation_receipt_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "declassification": null,
+        "scope": {
+          "principals": [
+            "alice"
+          ],
+          "purposes": [
+            "project-a"
+          ],
+          "entities": [
+            "entity-1"
+          ],
+          "valid_from_ms": 10,
+          "valid_until_ms": 900,
+          "retain_until_ms": 1000
+        },
+        "created_at_ms": 30,
+        "lineage_complete": true
+      }
+    ],
+    "revocations": [
+      {
+        "event_id": "revoke-01",
+        "source_artifact_id": "source",
+        "effective_at_ms": 150,
+        "recorded_at_ms": 140,
+        "policy_epoch_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+        "authority_receipt_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+        "event_receipt_digest": "5555555555555555555555555555555555555555555555555555555555555555"
+      }
+    ],
+    "revocation_closures": [
+      {
+        "event_id": "revoke-01",
+        "source_artifact_id": "source",
+        "descendant_artifact_ids": [
+          "summary"
+        ],
+        "graph_digest": "ecc0389d9130453c48c78b0e7a126a589645df11aa3a2d2539c201b2b8fa3605",
+        "complete": true,
+        "closure_receipt_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+      }
+    ],
+    "uses": [
+      {
+        "use_id": "use-after-revoke",
+        "artifact_id": "summary",
+        "principal": "alice",
+        "purpose": "project-a",
+        "entity": "entity-1",
+        "used_at_ms": 200,
+        "snapshot_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "disposition": "BlockedByRevocation",
+        "use_receipt_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "effect_receipt_digest": null
+      }
+    ]
+  }
+}
