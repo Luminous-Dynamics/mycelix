@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod allocation;
 mod capability;
+mod collaborative_memory;
 mod coordination;
 mod aml_adapter;
 mod mcsf;
@@ -16,6 +17,12 @@ mod ledger;
 mod response_audit;
 mod support_policy;
 
+pub use collaborative_memory::{
+    compute_collab_memory_control_digest, compute_collab_memory_run_digest,
+    qualify_collab_memory_run, CollabCompetencyScore, CollabMemoryCompetency,
+    CollabMemoryEvidence, CollabMemoryEvidenceClass, CollabMemoryManifest,
+    CollabMemoryProbe, CollabMemoryQualificationReport, CollabMemoryRun,
+};
 pub use mcsf_baselines::{
     Bm25Adapter, Bm25Config, McsfMemoryRecord, McsfRetrievalAdapter,
     McsfRetrievalHit, NoMemoryAdapter,
