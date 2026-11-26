@@ -209,6 +209,7 @@ pub struct CollabMemoryQualificationReport {
     pub unauthorized_content_exposures: u64,
     pub forbidden_metadata_inferences: u64,
     pub unauthorized_access_grants: u64,
+    pub unauthorized_share_recipients: u64,
     pub unauthorized_role_routes: u64,
     pub provenance_mismatches: u64,
     pub authority_conflicts: u64,
@@ -483,6 +484,7 @@ struct CollabSecurityCounts {
     unauthorized_content_exposures: u64,
     forbidden_metadata_inferences: u64,
     unauthorized_access_grants: u64,
+    unauthorized_share_recipients: u64,
     unauthorized_role_routes: u64,
     provenance_mismatches: u64,
     authority_conflicts: u64,
@@ -540,7 +542,7 @@ fn compare_probe(
                 .difference(expected_recipients)
                 .count() as u64;
             if unauthorized > 0 {
-                counts.unauthorized_role_routes += unauthorized;
+                counts.unauthorized_share_recipients += unauthorized;
                 hard_failure(
                     report,
                     format!("{} shared memory outside the authorized recipient set", probe.probe_id),
@@ -614,14 +616,17 @@ fn compare_probe(
             observed_authority_rank,
             ..
         } => {
-            let matches = expected_current_value_digest == observed_current_value_digest
-                && expected_authority_rank == observed_authority_rank;
+            let value_is_stale = expected_current_value_digest != observed_current_value_digest;
+            let authority_is_wrong = expected_authority_rank != observed_authority_rank;
+            let matches = !value_is_stale && !authority_is_wrong;
             if !matches {
                 counts.authority_conflicts += 1;
-                counts.stale_memory_uses += 1;
+                if value_is_stale {
+                    counts.stale_memory_uses += 1;
+                }
                 hard_failure(
                     report,
-                    format!("{} selected a stale or lower-authority current value", probe.probe_id),
+                    format!("{} selected a stale value or incorrect authority winner", probe.probe_id),
                 );
             }
             matches
@@ -704,6 +709,7 @@ pub fn qualify_collab_memory_run(
         unauthorized_content_exposures: 0,
         forbidden_metadata_inferences: 0,
         unauthorized_access_grants: 0,
+        unauthorized_share_recipients: 0,
         unauthorized_role_routes: 0,
         provenance_mismatches: 0,
         authority_conflicts: 0,
@@ -828,6 +834,7 @@ pub fn qualify_collab_memory_run(
     result.unauthorized_content_exposures = security_counts.unauthorized_content_exposures;
     result.forbidden_metadata_inferences = security_counts.forbidden_metadata_inferences;
     result.unauthorized_access_grants = security_counts.unauthorized_access_grants;
+    result.unauthorized_share_recipients = security_counts.unauthorized_share_recipients;
     result.unauthorized_role_routes = security_counts.unauthorized_role_routes;
     result.provenance_mismatches = security_counts.provenance_mismatches;
     result.authority_conflicts = security_counts.authority_conflicts;
@@ -996,6 +1003,28 @@ mod tests {
         assert_eq!(result.qualification.status, QualificationStatus::Fail);
         assert_eq!(result.unauthorized_role_routes, 1);
         assert_eq!(result.scores[&CollabMemoryCompetency::Sharing].score_micros, Some(0));
+    }
+
+    #[test]
+    fn sharing_and_routing_leak_counts_are_reported_separately() {
+        let mut probes = six_probes();
+        if let CollabMemoryEvidence::Sharing {
+            observed_recipients, ..
+        } = &mut probes[0].evidence
+        {
+            observed_recipients.insert("unauthorized-peer".to_owned());
+        }
+        if let CollabMemoryEvidence::Routing {
+            observed_role_ids, ..
+        } = &mut probes[2].evidence
+        {
+            observed_role_ids.insert("unintended-role".to_owned());
+        }
+        let result = qualify_collab_memory_run(&run(CollabMemoryEvidenceClass::ObservedRun, probes));
+
+        assert_eq!(result.unauthorized_share_recipients, 1);
+        assert_eq!(result.unauthorized_role_routes, 1);
+        assert_eq!(result.qualification.status, QualificationStatus::Fail);
     }
 
     #[test]
