@@ -136,3 +136,20 @@ The World Bank/S&P CPPI is a vessel-time-in-port comparator, not a substitute fo
 A passing synthetic fixture establishes only the stated resource and objective semantics. It does not prove a supplier exists, inventory is real, a process is qualified, local production is economical, a vessel is compliant/seaworthy, a port is feasible, a job will be created, a project is bankable, or any physical work is authorized.
 
 No live procurement, payment, inventory mutation, contract award, production dispatch or worksite instruction is in scope.
+
+## Standalone Rust reference
+
+The dependency-free research crate lives at research/maritime-productive-capability and is deliberately outside the Holochain production workspace.
+
+From the repository root:
+
+```sh
+cargo fmt --manifest-path research/maritime-productive-capability/Cargo.toml -- --check
+cargo test --locked --manifest-path research/maritime-productive-capability/Cargo.toml
+cargo clippy --locked --manifest-path research/maritime-productive-capability/Cargo.toml --all-targets -- -D warnings
+cargo run --locked --manifest-path research/maritime-productive-capability/Cargo.toml -- docs/research/maritime-productive-capability/fixtures/maritime-capability-tiny-v0.tsv
+```
+
+The current reference enumerates the finite Cartesian product of sourcing options, rejects unqualified/missing/mis-unit/mis-period/over-capacity reservations, computes the objective vector, and calculates the nondominated feasible set. Its Rust unit tests include the tiny known-answer case, single-local-option controls, unit and period mismatch negative controls, and input-order-invariant receipt rendering.
+
+The available authoring session did not have Cargo/rustc installed, so this Rust crate has not been locally compiled here. Treat hosted exact-head test and strict Clippy results as pending until observed; the independent fixture enumeration is not a substitute for a Rust build.
