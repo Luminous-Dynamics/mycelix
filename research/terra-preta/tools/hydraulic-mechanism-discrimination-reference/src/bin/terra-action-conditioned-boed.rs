@@ -349,6 +349,34 @@ fn protocol_exclusion_reasons(protocol: &Protocol, limits: &SafetyLimits) -> Vec
     reasons
 }
 
+fn protocol_set_within_limits(fixture: &Fixture, protocol_indices: &[usize]) -> bool {
+    let limits = &fixture.safety_limits;
+    let mut total_cost = 0_u32;
+    let mut total_volume = 0.0;
+    let mut total_duration = 0.0;
+    let mut total_tracer_mass = 0.0;
+    let mut total_actuator_effort = 0.0;
+    let mut total_damage_index = 0.0;
+    for index in protocol_indices {
+        let protocol = &fixture.protocols[*index];
+        if protocol.pressure_amplitude > limits.maximum_pressure_amplitude {
+            return false;
+        }
+        total_cost = total_cost.saturating_add(protocol.acquisition_cost);
+        total_volume += protocol.injected_volume;
+        total_duration += protocol.duration_s;
+        total_tracer_mass += protocol.tracer_mass;
+        total_actuator_effort += protocol.actuator_effort;
+        total_damage_index += protocol.sample_damage_index;
+    }
+    total_cost <= limits.acquisition_budget
+        && total_volume <= limits.maximum_injected_volume
+        && total_duration <= limits.maximum_duration_s
+        && total_tracer_mass <= limits.maximum_tracer_mass
+        && total_actuator_effort <= limits.maximum_actuator_effort
+        && total_damage_index <= limits.maximum_sample_damage_index
+}
+
 fn feasible_protocol_indices(fixture: &Fixture) -> Vec<usize> {
     let mut indices: Vec<usize> = fixture
         .protocols
@@ -538,7 +566,10 @@ fn best_second_protocol(
     let mut best: Option<(usize, f64)> = None;
     for protocol_index in feasible_protocol_indices(fixture) {
         let protocol = &fixture.protocols[protocol_index];
-        if protocol_index == first_protocol_index || protocol.acquisition_cost > remaining_budget {
+        if protocol_index == first_protocol_index
+            || protocol.acquisition_cost > remaining_budget
+            || !protocol_set_within_limits(fixture, &[first_protocol_index, protocol_index])
+        {
             continue;
         }
         let score = expected_entropy_after_protocol(fixture, posterior, protocol_index);
@@ -667,9 +698,7 @@ fn best_fixed_pair(fixture: &Fixture) -> Result<PolicyReport, String> {
         for right_position in (left_position + 1)..feasible.len() {
             let left = feasible[left_position];
             let right = feasible[right_position];
-            let cost = fixture.protocols[left].acquisition_cost
-                + fixture.protocols[right].acquisition_cost;
-            if cost > fixture.safety_limits.acquisition_budget {
+            if !protocol_set_within_limits(fixture, &[left, right]) {
                 continue;
             }
             let mut expected_entropy = 0.0;
@@ -776,6 +805,33 @@ fn adaptive_policy(fixture: &Fixture) -> Result<PolicyReport, String> {
     })
 }
 
+fn policy_constraint_violations(fixture: &Fixture, policy: &PolicyReport) -> usize {
+    let first_index = fixture
+        .protocols
+        .iter()
+        .position(|protocol| protocol.protocol_id == policy.first_protocol_id);
+    let Some(first_index) = first_index else {
+        return 1;
+    };
+    let mut violations = 0;
+    for (second_id, share) in &policy.second_protocol_shares {
+        if *share <= 0.0 {
+            continue;
+        }
+        let second_index = fixture
+            .protocols
+            .iter()
+            .position(|protocol| protocol.protocol_id == *second_id);
+        if second_index
+            .map(|index| !protocol_set_within_limits(fixture, &[first_index, index]))
+            .unwrap_or(true)
+        {
+            violations += 1;
+        }
+    }
+    violations
+}
+
 fn evaluate(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     validate(fixture)?;
     let feasible_indices = feasible_protocol_indices(fixture);
@@ -803,6 +859,12 @@ fn evaluate(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     let adaptive_terminal_entropy_reduction_vs_fixed_nats =
         fixed.expected_terminal_model_entropy_nats
             - adaptive.expected_terminal_model_entropy_nats;
+    let hard_constraint_violations_in_selected_policy =
+        policy_constraint_violations(fixture, &fixed)
+            + policy_constraint_violations(fixture, &adaptive);
+    if hard_constraint_violations_in_selected_policy > 0 {
+        return Err("selected policy violates a cumulative protocol safety constraint".into());
+    }
     Ok(Report {
         schema_version: SCHEMA.into(),
         fixture_id: fixture.fixture_id.clone(),
@@ -810,7 +872,7 @@ fn evaluate(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         input_sha256,
         feasible_protocols,
         excluded_protocols,
-        hard_constraint_violations_in_selected_policy: 0,
+        hard_constraint_violations_in_selected_policy,
         discrepancy_threshold_sd: fixture.discrepancy_threshold_sd,
         quadrature_nodes: GH_NODES.len(),
         acquisition_budget: fixture.safety_limits.acquisition_budget,
