@@ -3,6 +3,7 @@
 This folder contains a frozen, synthetic-only adversarial corpus for the prospective CRAFT water-reliability pilot (#6771).
 
 - `manifest.json` records public baseline sources, their periods and claim limitations.
+- `integration-map.json` maps each case to existing Mycelix semantic owners; it deliberately avoids a duplicate generic evidence/currentness service.
 - `cases.json` contains twelve synthetic known-answer cases.
 
 All area references, event IDs, evidence IDs, digests and source groups are synthetic placeholders. The fixtures do not contain real household locations, asset coordinates, staff names or private municipal data.
