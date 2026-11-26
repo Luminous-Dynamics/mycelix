@@ -88,8 +88,8 @@ fn validate_scope(scope: &MemoryScope) -> Result<(), String> {
     if scope.valid_from_ms >= scope.valid_until_ms {
         return Err("memory scope validity interval is empty or reversed".into());
     }
-    if scope.retain_until_ms < scope.valid_from_ms {
-        return Err("memory retention deadline precedes scope validity".into());
+    if scope.retain_until_ms <= scope.valid_from_ms {
+        return Err("memory retention deadline leaves no valid scope interval".into());
     }
     if scope.retain_until_ms == 0 {
         return Err("memory retention deadline must be explicit and positive".into());
@@ -1138,6 +1138,8 @@ mod tests {
         let mut invalid = scope("alice", "project-a", "entity-1", 1000);
         invalid.valid_from_ms = 500;
         invalid.retain_until_ms = 499;
+        assert!(compute_memory_scope_digest(&invalid).is_err());
+        invalid.retain_until_ms = 500;
         assert!(compute_memory_scope_digest(&invalid).is_err());
     }
 
