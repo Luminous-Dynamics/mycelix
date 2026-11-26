@@ -142,6 +142,8 @@ pub struct ClaimSupportResultRefV1 {
     pub domain_id: String,
     /// Jurisdiction of the support assessment.
     pub jurisdiction_id: String,
+    /// Authorized corpus identifier used for claim support.
+    pub authorized_corpus_id: String,
     /// Exact domain standard identifier used for claim support.
     pub domain_standard_id: String,
     /// Domain standard revision used for claim support.
@@ -497,6 +499,7 @@ pub fn validate_packet(packet: &DecisionClosurePacketV1) -> Result<(), DecisionC
                 require_digest(&support.proposal_digest)?;
                 require_non_empty(&support.domain_id)?;
                 require_non_empty(&support.jurisdiction_id)?;
+                require_non_empty(&support.authorized_corpus_id)?;
                 require_non_empty(&support.domain_standard_id)?;
                 require_digest(&support.domain_standard_digest)?;
                 if support.domain_standard_revision == 0 {
@@ -508,6 +511,7 @@ pub fn validate_packet(packet: &DecisionClosurePacketV1) -> Result<(), DecisionC
                 }
                 if support.domain_id != decision.domain_id
                     || support.jurisdiction_id != decision.jurisdiction_id
+                    || support.authorized_corpus_id != decision.authorized_corpus_id
                     || support.corpus_digest != decision.authorized_corpus_digest
                 {
                     return Err(DecisionClosureErrorV1::EvidenceScopeMismatch);
@@ -846,6 +850,7 @@ mod tests {
             proposal_digest: [8; 32],
             domain_id: "water-service-assurance-v1".to_owned(),
             jurisdiction_id: "ZA-GP".to_owned(),
+            authorized_corpus_id: "water-authority-corpus".to_owned(),
             domain_standard_id: "water-service-standard".to_owned(),
             domain_standard_revision: 1,
             domain_standard_digest: [5; 32],
@@ -998,6 +1003,16 @@ mod tests {
         assert_eq!(
             validate_packet(&packet(vec![mapping("old-proposal", vec![element("required", Vec::new(), vec![item])])])),
             Err(DecisionClosureErrorV1::EvidenceProposalMismatch)
+        );
+    }
+
+    #[test]
+    fn claim_support_result_from_different_corpus_id_is_rejected() {
+        let mut item = support("wrong-corpus-id", SupportDispositionV1::DirectSupport);
+        item.authorized_corpus_id = "another-authority-corpus".to_owned();
+        assert_eq!(
+            validate_packet(&packet(vec![mapping("wrong-corpus-id", vec![element("required", Vec::new(), vec![item])])])),
+            Err(DecisionClosureErrorV1::EvidenceScopeMismatch)
         );
     }
 
