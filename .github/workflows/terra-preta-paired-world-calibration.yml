@@ -1,0 +1,84 @@
+name: Terra Preta paired-world calibration reference
+
+on:
+  pull_request:
+    branches: [main, research/terra-model-discrimination-boed-v0.1]
+    paths:
+      - 'research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/**'
+      - '.github/workflows/terra-preta-paired-world-calibration.yml'
+  push:
+    branches: ['research/terra-paired-world-calibration-v0.1']
+    paths:
+      - 'research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/**'
+      - '.github/workflows/terra-preta-paired-world-calibration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terra-paired-world-calibration-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  paired-world-calibration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - name: Verify formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/Cargo.toml -- --check
+      - name: Unit and falsification tests
+        run: cargo test --manifest-path research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/Cargo.toml --bin terra-boed-calibration
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/Cargo.toml --all-targets -- -D warnings
+      - name: Run 10-family paired-world calibration
+        run: |
+          cargo run --quiet --release --manifest-path research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/Cargo.toml --bin terra-boed-calibration -- \
+            research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/fixtures/ten-family-paired-worlds.json \
+            "$RUNNER_TEMP/terra-boed-calibration.json"
+      - name: Validate calibration provenance and invariants
+        run: |
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .family_count == 10 and
+            .parameter_regime_count == 3 and
+            .candidate_count == 6 and
+            .worlds_per_family == 1200 and
+            .worlds_per_parameter_regime_per_family == 400 and
+            .total_paired_worlds == 12000 and
+            .common_random_numbers == true and
+            (.input_sha256 | length == 64) and
+            (.world_stream_sha256 | length == 64) and
+            (.fixed_policy.worlds == .total_paired_worlds) and
+            (.adaptive_policy_report.worlds == .total_paired_worlds) and
+            (.fixed_policy.discrete_regime_sbc_rank_histogram | length == 129) and
+            (.adaptive_policy_report.discrete_regime_sbc_rank_histogram | length == 129) and
+            ((.fixed_policy.discrete_regime_sbc_rank_histogram | add) == .total_paired_worlds) and
+            ((.adaptive_policy_report.discrete_regime_sbc_rank_histogram | add) == .total_paired_worlds) and
+            (.fixed_policy.in_family_abstention_rate < 0.01) and
+            (.adaptive_policy_report.in_family_abstention_rate < 0.01) and
+            (.fixed_policy.shifted_residual_detection_rate > 0.95) and
+            (.adaptive_policy_report.shifted_residual_detection_rate > 0.95) and
+            (.fixed_policy.maximum_unit_rescaling_posterior_error < 1e-9) and
+            (.adaptive_policy_report.maximum_unit_rescaling_posterior_error < 1e-9) and
+            (.fixed_policy.maximum_observation_order_posterior_error < 1e-9) and
+            (.adaptive_policy_report.maximum_observation_order_posterior_error < 1e-9) and
+            (.fixed_policy.heldout_50_percent_interval_mean_width > 0) and
+            (.adaptive_policy_report.heldout_95_percent_interval_mean_width > 0) and
+            (.paired_differences | length == 4)
+          ' "$RUNNER_TEMP/terra-boed-calibration.json"
+          jq -r '"worlds=\(.total_paired_worlds) families=\(.family_count) regimes=\(.parameter_regime_count) fixed_family_Brier=\(.fixed_policy.family_brier_score) adaptive_family_Brier=\(.adaptive_policy_report.family_brier_score) fixed_family_ECE=\(.fixed_policy.family_probability_ece) adaptive_family_ECE=\(.adaptive_policy_report.family_probability_ece) fixed_predictive_CRPS=\(.fixed_policy.heldout_predictive_crps) adaptive_predictive_CRPS=\(.adaptive_policy_report.heldout_predictive_crps) fixed_in_family_abstention=\(.fixed_policy.in_family_abstention_rate) adaptive_shifted_detection=\(.adaptive_policy_report.shifted_residual_detection_rate) world_sha256=\(.world_stream_sha256)"' "$RUNNER_TEMP/terra-boed-calibration.json"
+          sha256sum "$RUNNER_TEMP/terra-boed-calibration.json"
+      - name: Reject output overwrite
+        run: |
+          if cargo run --quiet --manifest-path research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/Cargo.toml --bin terra-boed-calibration -- \
+            research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/fixtures/ten-family-paired-worlds.json \
+            "$RUNNER_TEMP/terra-boed-calibration.json"; then
+            echo "expected no-overwrite failure"
+            exit 1
+          fi
