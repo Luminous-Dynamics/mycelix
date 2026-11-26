@@ -555,6 +555,7 @@ pub fn qualify_factorial_tournament(
         .collect();
     let reference_study = tournament.blocks.first().map(|block| &block.study);
     let mut seen_blocks = BTreeSet::new();
+    let mut seen_run_ids = BTreeSet::new();
     let mut source_groups = BTreeSet::new();
     let mut block_reports = Vec::new();
     let mut invalid_block = false;
@@ -587,6 +588,14 @@ pub fn qualify_factorial_tournament(
             ));
         }
         source_groups.insert(block.block.source_group_id.as_str());
+        for run in &block.arms {
+            if !seen_run_ids.insert(run.run_id.as_str()) {
+                reasons.push(format!(
+                    "duplicate run ID across factorial tournament: {}",
+                    run.run_id
+                ));
+            }
+        }
         let result = qualify_factorial_block(block);
         if result.status != FactorialQualificationStatus::Pass {
             invalid_block = true;
@@ -608,6 +617,7 @@ pub fn qualify_factorial_tournament(
     let unexpected_or_duplicate = reasons.iter().any(|reason| {
         reason.starts_with("duplicate factorial block ID")
             || reason.starts_with("unexpected factorial block ID")
+            || reason.starts_with("duplicate run ID across factorial tournament")
             || reason.contains("belongs to a different study")
             || reason.contains("changes the shared model, prompt, evaluator, resource, randomization or witness configuration")
     });
@@ -981,6 +991,24 @@ mod tests {
         assert_eq!(
             qualify_factorial_tournament(&tournament).status,
             FactorialQualificationStatus::Pass
+        );
+    }
+
+    #[test]
+    fn run_ids_must_be_unique_across_tournament_blocks() {
+        let mut second = second_block("group-002");
+        second.arms[0].run_id = "run-0".into();
+        let tournament = FactorialTournament {
+            plan: FactorialStudyPlan {
+                study_id: "inquiry-rer-acb-v0.1".into(),
+                expected_block_ids: vec!["block-001".into(), "block-002".into()],
+                minimum_source_groups: 2,
+            },
+            blocks: vec![valid_block(), second],
+        };
+        assert_eq!(
+            qualify_factorial_tournament(&tournament).status,
+            FactorialQualificationStatus::Fail
         );
     }
 
