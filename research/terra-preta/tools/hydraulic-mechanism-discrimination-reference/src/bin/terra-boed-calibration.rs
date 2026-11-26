@@ -29,7 +29,7 @@ const GH_WEIGHTS: [f64; 7] = [
 ];
 const FAMILY_BINS: usize = 10;
 const RESCALE_FACTOR: f64 = 37.0;
-const OOD_SHIFT_STANDARD_DEVIATIONS: f64 = 8.0;
+const OOD_SHIFT_STANDARD_DEVIATIONS: f64 = 20.0;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
