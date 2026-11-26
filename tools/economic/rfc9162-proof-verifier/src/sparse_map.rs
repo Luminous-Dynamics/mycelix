@@ -548,5 +548,17 @@ mod tests {
             )
             .unwrap()
         );
+        assert_ne!(
+            baseline,
+            assertion_index_key_v1(
+                "did:mycelix:verifier:finance-v1",
+                "policy-epoch:1",
+                "subject:grant:42",
+                "claim:revoked",
+                "VALID_AT",
+                "assertion:43",
+            )
+            .unwrap()
+        );
     }
 }
