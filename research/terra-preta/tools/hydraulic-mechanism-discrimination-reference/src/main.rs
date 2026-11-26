@@ -709,12 +709,11 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         .collect();
     let discrepancy_negative_control = ClosedSetDiscrepancyNegativeControl {
         threshold_standard_deviations: fixture.closed_set_discrepancy_threshold_sd,
-        in_family_best_fit_residual_standard_deviations:
-            minimum_best_fit_standardized_residual(
-                fixture,
-                &discrepancy_selected,
-                &in_family_observations,
-            )?,
+        in_family_best_fit_residual_standard_deviations: minimum_best_fit_standardized_residual(
+            fixture,
+            &discrepancy_selected,
+            &in_family_observations,
+        )?,
         in_family_abstained: should_abstain_closed_set(
             fixture,
             &discrepancy_selected,
