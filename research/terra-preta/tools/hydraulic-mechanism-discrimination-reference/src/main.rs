@@ -319,7 +319,9 @@ fn minimum_best_fit_standardized_residual(
     observations: &[f64],
 ) -> Result<f64, String> {
     if selected.is_empty() || selected.len() != observations.len() {
-        return Err("closed-set discrepancy check requires one observation per selected candidate".into());
+        return Err(
+            "closed-set discrepancy check requires one observation per selected candidate".into(),
+        );
     }
     if observations.iter().any(|value| !value.is_finite()) {
         return Err("closed-set discrepancy observations must be finite".into());
@@ -339,8 +341,7 @@ fn minimum_best_fit_standardized_residual(
                 .zip(observations.iter())
                 .map(|(candidate_index, observed)| {
                     let candidate = &fixture.candidates[*candidate_index];
-                    ((observed
-                        - candidate.expected_observable_by_mechanism[mechanism_index])
+                    ((observed - candidate.expected_observable_by_mechanism[mechanism_index])
                         / candidate.noise_std)
                         .abs()
                 })
@@ -359,8 +360,10 @@ fn should_abstain_closed_set(
     selected: &[usize],
     observations: &[f64],
 ) -> Result<bool, String> {
-    Ok(minimum_best_fit_standardized_residual(fixture, selected, observations)?
-        > fixture.closed_set_discrepancy_threshold_sd)
+    Ok(
+        minimum_best_fit_standardized_residual(fixture, selected, observations)?
+            > fixture.closed_set_discrepancy_threshold_sd,
+    )
 }
 
 fn posterior_predictive_mutual_information(fixture: &Fixture, posterior: &[f64]) -> f64 {
@@ -966,5 +969,4 @@ mod tests {
         assert!(minimum_best_fit_standardized_residual(&f, &[0], &[f64::NAN]).is_err());
         assert!(minimum_best_fit_standardized_residual(&f, &[], &[]).is_err());
     }
-
 }
