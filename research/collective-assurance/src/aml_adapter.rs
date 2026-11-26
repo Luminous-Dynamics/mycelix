@@ -317,12 +317,6 @@ impl AmlContentPart {
         }
     }
 
-    fn decoded_image_bytes(&self) -> u64 {
-        match self {
-            Self::Image { decoded_bytes, .. } => *decoded_bytes,
-            Self::Text { .. } => 0,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
