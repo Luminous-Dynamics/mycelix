@@ -141,6 +141,7 @@ struct Report {
     predictive_design: DesignScore,
     decision_design: DesignScore,
     prior_minimum_expected_decision_loss: f64,
+    sequential_policy_comparison: SequentialPolicyComparison,
     uniform_cost_matched_baseline: UniformCostMatchedBaseline,
     all_feasible_designs: Vec<DesignScore>,
     interpretation_boundary: String,
@@ -161,6 +162,54 @@ struct ExpectedMetrics {
 struct EvaluatedDesign {
     summary: DesignScore,
     worst_case_fisher: f64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SequentialBranchShare {
+    next_candidate_id: String,
+    predictive_probability_mass: f64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SequentialObservationBranch {
+    observed_value: f64,
+    posterior_model_probabilities: Vec<f64>,
+    next_candidate_id: Option<String>,
+    predictive_probability_mass: f64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SequentialPolicyScore {
+    policy_name: String,
+    first_candidate_id: String,
+    expected_cost: f64,
+    expected_terminal_decision_loss: f64,
+    expected_value_of_sample_information: f64,
+    second_stage_policy: Vec<SequentialBranchShare>,
+    stop_probability_mass: f64,
+    first_observation_policy: Vec<SequentialObservationBranch>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SequentialPolicyComparison {
+    horizon_measurements: usize,
+    acquisition_budget: u32,
+    fixed_best_policy: SequentialPolicyScore,
+    greedy_myopic_evsi_policy: SequentialPolicyScore,
+    finite_horizon_adaptive_policy: SequentialPolicyScore,
+    adaptive_gain_over_fixed_loss_units: f64,
+    adaptive_gain_over_greedy_loss_units: f64,
+    oracle_definition: String,
+    claim_boundary: String,
+}
+
+#[derive(Clone, Debug)]
+struct SequentialEvaluation {
+    expected_terminal_decision_loss: f64,
+    expected_cost: f64,
+    second_stage_policy: Vec<SequentialBranchShare>,
+    stop_probability_mass: f64,
+    first_observation_policy: Vec<SequentialObservationBranch>,
 }
 
 fn validate(fixture: &Fixture) -> Result<(), String> {
@@ -325,8 +374,9 @@ fn entropy(probabilities: &[f64]) -> f64 {
         .sum::<f64>()
 }
 
-fn posterior_probabilities(
+fn posterior_from_prior(
     fixture: &Fixture,
+    prior: &[f64],
     selected: &[usize],
     observations: &[f64],
 ) -> Vec<f64> {
@@ -334,7 +384,7 @@ fn posterior_probabilities(
         .mechanisms
         .iter()
         .enumerate()
-        .map(|(mechanism_index, mechanism)| {
+        .map(|(mechanism_index, _)| {
             let log_likelihood = selected
                 .iter()
                 .enumerate()
@@ -347,7 +397,11 @@ fn posterior_probabilities(
                     )
                 })
                 .sum::<f64>();
-            mechanism.prior_probability.ln() + log_likelihood
+            if prior[mechanism_index] > 0.0 {
+                prior[mechanism_index].ln() + log_likelihood
+            } else {
+                f64::NEG_INFINITY
+            }
         })
         .collect();
     let normalizer = log_sum_exp(&log_weights);
@@ -355,6 +409,19 @@ fn posterior_probabilities(
         .iter()
         .map(|value| (value - normalizer).exp())
         .collect()
+}
+
+fn posterior_probabilities(
+    fixture: &Fixture,
+    selected: &[usize],
+    observations: &[f64],
+) -> Vec<f64> {
+    let prior: Vec<f64> = fixture
+        .mechanisms
+        .iter()
+        .map(|mechanism| mechanism.prior_probability)
+        .collect();
+    posterior_from_prior(fixture, &prior, selected, observations)
 }
 
 fn minimum_best_fit_standardized_residual(
@@ -511,6 +578,7 @@ fn expected_metrics(fixture: &Fixture, selected: &[usize]) -> ExpectedMetrics {
         .collect();
     let prior_entropy = entropy(&prior);
     let prior_minimum_expected_decision_loss = minimum_expected_decision_loss(fixture, &prior);
+    let sequential_policy_comparison = sequential_policy_comparison(fixture)?;
     let mut expected_posterior_minimum_expected_loss = 0.0;
     let mut expected_posterior_entropy = 0.0;
     let mut expected_accuracy = 0.0;
@@ -583,7 +651,340 @@ fn expected_metrics(fixture: &Fixture, selected: &[usize]) -> ExpectedMetrics {
             (prior_minimum_expected_decision_loss - expected_posterior_minimum_expected_loss)
                 .max(0.0)
         },
+
     }
+}
+
+fn candidate_indices_by_id(fixture: &Fixture) -> Vec<usize> {
+    let mut indices: Vec<usize> = (0..fixture.candidates.len()).collect();
+    indices.sort_by(|left, right| {
+        fixture.candidates[*left]
+            .candidate_id
+            .cmp(&fixture.candidates[*right].candidate_id)
+    });
+    indices
+}
+
+fn expected_decision_loss_after_candidate(
+    fixture: &Fixture,
+    posterior: &[f64],
+    candidate_index: usize,
+) -> f64 {
+    let candidate = &fixture.candidates[candidate_index];
+    let mut expected_loss = 0.0;
+    for (mechanism_index, mechanism_probability) in posterior.iter().enumerate() {
+        for (node, quadrature_weight) in GH_NODES.iter().zip(GH_WEIGHTS.iter()) {
+            let observation = candidate.expected_observable_by_mechanism[mechanism_index]
+                + candidate.noise_std * node;
+            let updated = posterior_from_prior(
+                fixture,
+                posterior,
+                &[candidate_index],
+                &[observation],
+            );
+            expected_loss += mechanism_probability
+                * quadrature_weight
+                * minimum_expected_decision_loss(fixture, &updated);
+        }
+    }
+    expected_loss
+}
+
+fn best_second_stage(
+    fixture: &Fixture,
+    posterior: &[f64],
+    first_candidate_index: usize,
+    remaining_budget: u32,
+) -> (Option<usize>, f64) {
+    let current_loss = minimum_expected_decision_loss(fixture, posterior);
+    let mut best_candidate: Option<usize> = None;
+    let mut best_loss = f64::INFINITY;
+
+    for candidate_index in candidate_indices_by_id(fixture) {
+        if candidate_index == first_candidate_index
+            || fixture.candidates[candidate_index].cost > remaining_budget
+        {
+            continue;
+        }
+        let expected_loss =
+            expected_decision_loss_after_candidate(fixture, posterior, candidate_index);
+        if expected_loss < best_loss - 1.0e-12 {
+            best_candidate = Some(candidate_index);
+            best_loss = expected_loss;
+        }
+    }
+
+    if best_loss < current_loss - 1.0e-12 {
+        (best_candidate, best_loss)
+    } else {
+        (None, current_loss)
+    }
+}
+
+fn evaluate_first_candidate(
+    fixture: &Fixture,
+    first_candidate_index: usize,
+) -> SequentialEvaluation {
+    let prior: Vec<f64> = fixture
+        .mechanisms
+        .iter()
+        .map(|mechanism| mechanism.prior_probability)
+        .collect();
+    let first_candidate = &fixture.candidates[first_candidate_index];
+    let remaining_budget = fixture.acquisition_budget.saturating_sub(first_candidate.cost);
+    let mut expected_terminal_decision_loss = 0.0;
+    let mut expected_second_stage_cost = 0.0;
+    let mut stop_probability_mass = 0.0;
+    let mut second_stage_policy: Vec<SequentialBranchShare> = Vec::new();
+    let mut first_observation_policy: Vec<SequentialObservationBranch> = Vec::new();
+
+    for (true_mechanism_index, mechanism) in fixture.mechanisms.iter().enumerate() {
+        for (node, quadrature_weight) in GH_NODES.iter().zip(GH_WEIGHTS.iter()) {
+            let observation = first_candidate.expected_observable_by_mechanism
+                [true_mechanism_index]
+                + first_candidate.noise_std * node;
+            let posterior =
+                posterior_from_prior(fixture, &prior, &[first_candidate_index], &[observation]);
+            let (next_candidate, conditional_terminal_loss) = best_second_stage(
+                fixture,
+                &posterior,
+                first_candidate_index,
+                remaining_budget,
+            );
+            let joint_probability_mass = mechanism.prior_probability * quadrature_weight;
+            expected_terminal_decision_loss +=
+                joint_probability_mass * conditional_terminal_loss;
+
+            let next_candidate_id = next_candidate
+                .map(|index| fixture.candidates[index].candidate_id.clone());
+            if let Some(next_index) = next_candidate {
+                expected_second_stage_cost +=
+                    joint_probability_mass * fixture.candidates[next_index].cost as f64;
+                if let Some(existing) = second_stage_policy
+                    .iter_mut()
+                    .find(|branch| branch.next_candidate_id == fixture.candidates[next_index].candidate_id)
+                {
+                    existing.predictive_probability_mass += joint_probability_mass;
+                } else {
+                    second_stage_policy.push(SequentialBranchShare {
+                        next_candidate_id: fixture.candidates[next_index].candidate_id.clone(),
+                        predictive_probability_mass: joint_probability_mass,
+                    });
+                }
+            } else {
+                stop_probability_mass += joint_probability_mass;
+            }
+
+            if let Some(existing) = first_observation_policy
+                .iter_mut()
+                .find(|branch| branch.observed_value.to_bits() == observation.to_bits())
+            {
+                existing.predictive_probability_mass += joint_probability_mass;
+            } else {
+                first_observation_policy.push(SequentialObservationBranch {
+                    observed_value: observation,
+                    posterior_model_probabilities: posterior,
+                    next_candidate_id,
+                    predictive_probability_mass: joint_probability_mass,
+                });
+            }
+        }
+    }
+
+    second_stage_policy.sort_by(|left, right| {
+        left.next_candidate_id.cmp(&right.next_candidate_id)
+    });
+    first_observation_policy.sort_by(|left, right| {
+        left.observed_value.total_cmp(&right.observed_value)
+    });
+
+    SequentialEvaluation {
+        expected_terminal_decision_loss,
+        expected_cost: first_candidate.cost as f64 + expected_second_stage_cost,
+        second_stage_policy,
+        stop_probability_mass,
+        first_observation_policy,
+    }
+}
+
+fn stop_sequential_policy(
+    policy_name: &str,
+    prior_loss: f64,
+) -> SequentialPolicyScore {
+    SequentialPolicyScore {
+        policy_name: policy_name.into(),
+        first_candidate_id: "stop".into(),
+        expected_cost: 0.0,
+        expected_terminal_decision_loss: prior_loss,
+        expected_value_of_sample_information: 0.0,
+        second_stage_policy: Vec::new(),
+        stop_probability_mass: 1.0,
+        first_observation_policy: Vec::new(),
+    }
+}
+
+fn sequential_policy_score(
+    fixture: &Fixture,
+    policy_name: &str,
+    first_candidate_index: usize,
+    evaluation: SequentialEvaluation,
+    prior_loss: f64,
+) -> SequentialPolicyScore {
+    SequentialPolicyScore {
+        policy_name: policy_name.into(),
+        first_candidate_id: fixture.candidates[first_candidate_index].candidate_id.clone(),
+        expected_cost: evaluation.expected_cost,
+        expected_terminal_decision_loss: evaluation.expected_terminal_decision_loss,
+        expected_value_of_sample_information: (prior_loss
+            - evaluation.expected_terminal_decision_loss)
+            .max(0.0),
+        second_stage_policy: evaluation.second_stage_policy,
+        stop_probability_mass: evaluation.stop_probability_mass,
+        first_observation_policy: evaluation.first_observation_policy,
+    }
+}
+
+fn sequential_policy_comparison(
+    fixture: &Fixture,
+) -> Result<SequentialPolicyComparison, String> {
+    if fixture.acquisition_budget != 2
+        || fixture.candidates.iter().any(|candidate| candidate.cost != 1)
+        || fixture.candidates.len() < 3
+    {
+        return Err(
+            "sequential v0.1 oracle requires a two-measurement budget, unit-cost candidates and at least three candidates"
+                .into(),
+        );
+    }
+
+    let prior: Vec<f64> = fixture
+        .mechanisms
+        .iter()
+        .map(|mechanism| mechanism.prior_probability)
+        .collect();
+    let prior_loss = minimum_expected_decision_loss(fixture, &prior);
+    let ordered_candidates = candidate_indices_by_id(fixture);
+
+    let mut fixed_best: Option<(Vec<usize>, f64)> = None;
+    for left in 0..ordered_candidates.len() {
+        for right in (left + 1)..ordered_candidates.len() {
+            let selected = vec![ordered_candidates[left], ordered_candidates[right]];
+            let expected_loss = (prior_loss
+                - expected_metrics(fixture, &selected).expected_value_of_sample_information)
+                .max(0.0);
+            let replace = fixed_best
+                .as_ref()
+                .map(|(current_indices, current_loss)| {
+                    expected_loss < *current_loss - 1.0e-12
+                        || ((expected_loss - *current_loss).abs() <= 1.0e-12
+                            && candidate_ids(fixture, &selected)
+                                < candidate_ids(fixture, current_indices))
+                })
+                .unwrap_or(true);
+            if replace {
+                fixed_best = Some((selected, expected_loss));
+            }
+        }
+    }
+    let (fixed_indices, fixed_loss) =
+        fixed_best.ok_or_else(|| "no fixed two-measurement design is feasible".to_string())?;
+    let fixed_ids = candidate_ids(fixture, &fixed_indices);
+    let fixed_policy = SequentialPolicyScore {
+        policy_name: "best_fixed_set_exact_budget".into(),
+        first_candidate_id: fixed_ids[0].clone(),
+        expected_cost: fixture.acquisition_budget as f64,
+        expected_terminal_decision_loss: fixed_loss,
+        expected_value_of_sample_information: (prior_loss - fixed_loss).max(0.0),
+        second_stage_policy: vec![SequentialBranchShare {
+            next_candidate_id: fixed_ids[1].clone(),
+            predictive_probability_mass: 1.0,
+        }],
+        stop_probability_mass: 0.0,
+        first_observation_policy: Vec::new(),
+    };
+
+    let mut greedy_first: Option<(usize, f64)> = None;
+    for candidate_index in &ordered_candidates {
+        let one_step_loss =
+            expected_decision_loss_after_candidate(fixture, &prior, *candidate_index);
+        let replace = greedy_first
+            .as_ref()
+            .map(|(current_index, current_loss)| {
+                one_step_loss < *current_loss - 1.0e-12
+                    || ((one_step_loss - *current_loss).abs() <= 1.0e-12
+                        && fixture.candidates[*candidate_index].candidate_id
+                            < fixture.candidates[*current_index].candidate_id)
+            })
+            .unwrap_or(true);
+        if replace {
+            greedy_first = Some((*candidate_index, one_step_loss));
+        }
+    }
+    let greedy_policy = match greedy_first {
+        Some((candidate_index, one_step_loss)) if one_step_loss < prior_loss - 1.0e-12 => {
+            sequential_policy_score(
+                fixture,
+                "greedy_myopic_evsi_then_optimal_final_step",
+                candidate_index,
+                evaluate_first_candidate(fixture, candidate_index),
+                prior_loss,
+            )
+        }
+        _ => stop_sequential_policy("greedy_myopic_evsi_then_optimal_final_step", prior_loss),
+    };
+
+    let mut adaptive_best: Option<(usize, SequentialEvaluation)> = None;
+    for candidate_index in ordered_candidates {
+        let evaluation = evaluate_first_candidate(fixture, candidate_index);
+        if evaluation.expected_terminal_decision_loss >= prior_loss - 1.0e-12 {
+            continue;
+        }
+        let replace = adaptive_best
+            .as_ref()
+            .map(|(current_index, current_evaluation)| {
+                evaluation.expected_terminal_decision_loss
+                    < current_evaluation.expected_terminal_decision_loss - 1.0e-12
+                    || ((evaluation.expected_terminal_decision_loss
+                        - current_evaluation.expected_terminal_decision_loss)
+                        .abs()
+                        <= 1.0e-12
+                        && fixture.candidates[candidate_index].candidate_id
+                            < fixture.candidates[*current_index].candidate_id)
+            })
+            .unwrap_or(true);
+        if replace {
+            adaptive_best = Some((candidate_index, evaluation));
+        }
+    }
+    let adaptive_policy = match adaptive_best {
+        Some((candidate_index, evaluation)) => sequential_policy_score(
+            fixture,
+            "finite_horizon_two_step_adaptive_evsi_oracle",
+            candidate_index,
+            evaluation,
+            prior_loss,
+        ),
+        None => stop_sequential_policy(
+            "finite_horizon_two_step_adaptive_evsi_oracle",
+            prior_loss,
+        ),
+    };
+
+    Ok(SequentialPolicyComparison {
+        horizon_measurements: 2,
+        acquisition_budget: fixture.acquisition_budget,
+        adaptive_gain_over_fixed_loss_units: (fixed_policy.expected_terminal_decision_loss
+            - adaptive_policy.expected_terminal_decision_loss)
+            .max(0.0),
+        adaptive_gain_over_greedy_loss_units: (greedy_policy.expected_terminal_decision_loss
+            - adaptive_policy.expected_terminal_decision_loss)
+            .max(0.0),
+        fixed_best_policy: fixed_policy,
+        greedy_myopic_evsi_policy: greedy_policy,
+        finite_horizon_adaptive_policy: adaptive_policy,
+        oracle_definition: "Two-stage Bellman optimization over every first candidate and every quadrature-supported first observation. At each observation, the final-stage action is the remaining affordable candidate with minimum posterior expected terminal decision loss, or stop. This is exact for the declared finite seven-node Gauss-Hermite quadrature approximation and the two-step policy class; it is not an exact integral over continuous Gaussian observations.".into(),
+        claim_boundary: "Synthetic known-truth reference only. Adaptive gains are fixture-specific and quadrature-dependent. No real-soil calibration, physical performance or superiority over published continuous-space, SBI-BOED or robust-BED methods is established.".into(),
+    })
 }
 
 fn fisher_information_by_mechanism(
@@ -827,6 +1228,7 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         predictive_design,
         decision_design,
         prior_minimum_expected_decision_loss,
+        sequential_policy_comparison,
         all_feasible_designs: designs
             .into_iter()
             .map(|design| design.summary)
@@ -1132,6 +1534,113 @@ mod tests {
             .find(|design| design.candidate_ids.is_empty())
             .unwrap();
         assert!(no_measurements.expected_value_of_sample_information.abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn finite_horizon_adaptive_policy_beats_every_fixed_pair_at_equal_cost() {
+        let comparison = sequential_policy_comparison(&fixture()).unwrap();
+        let adaptive = &comparison.finite_horizon_adaptive_policy;
+        let fixed = &comparison.fixed_best_policy;
+
+        assert_eq!(adaptive.first_candidate_id, "upper_path_flow");
+        assert!(
+            adaptive.expected_terminal_decision_loss
+                < fixed.expected_terminal_decision_loss - 1.0e-3
+        );
+        assert!(comparison.adaptive_gain_over_fixed_loss_units > 1.0e-3);
+        assert!(adaptive.expected_cost <= comparison.acquisition_budget as f64 + 1.0e-12);
+        assert!(
+            adaptive
+                .first_observation_policy
+                .iter()
+                .map(|branch| branch.predictive_probability_mass)
+                .sum::<f64>()
+                .sub(1.0)
+                .abs()
+                < 1.0e-12
+        );
+        assert!(
+            adaptive
+                .first_observation_policy
+                .iter()
+                .all(|branch| {
+                    (branch.posterior_model_probabilities.iter().sum::<f64>() - 1.0).abs()
+                        < 1.0e-12
+                })
+        );
+        assert!(
+            adaptive.second_stage_policy.iter().any(|branch| {
+                branch.next_candidate_id == "early_transient_flow"
+                    && branch.predictive_probability_mass > 0.9
+            })
+        );
+        assert!(
+            adaptive.second_stage_policy.iter().any(|branch| {
+                branch.next_candidate_id == "lower_path_flow"
+                    && branch.predictive_probability_mass > 0.0
+            })
+        );
+    }
+
+    #[test]
+    fn adaptive_policy_stops_when_all_mechanisms_are_observationally_equivalent() {
+        let mut f = fixture();
+        for candidate in &mut f.candidates {
+            candidate.expected_observable_by_mechanism.fill(2.0);
+        }
+        for mechanism in &mut f.mechanisms {
+            mechanism.heldout_late_transient_flow = 2.0;
+        }
+        let comparison = sequential_policy_comparison(&f).unwrap();
+        assert_eq!(
+            comparison.finite_horizon_adaptive_policy.first_candidate_id,
+            "stop"
+        );
+        assert!(
+            comparison
+                .finite_horizon_adaptive_policy
+                .expected_value_of_sample_information
+                .abs()
+                < 1.0e-12
+        );
+        assert!(
+            comparison.adaptive_gain_over_fixed_loss_units.abs() < 1.0e-12
+        );
+    }
+
+    #[test]
+    fn adaptive_policy_is_invariant_to_candidate_input_order() {
+        let original = sequential_policy_comparison(&fixture()).unwrap();
+        let mut reordered_fixture = fixture();
+        reordered_fixture.candidates.reverse();
+        let reordered = sequential_policy_comparison(&reordered_fixture).unwrap();
+
+        assert_eq!(
+            original.finite_horizon_adaptive_policy.first_candidate_id,
+            reordered.finite_horizon_adaptive_policy.first_candidate_id
+        );
+        assert_eq!(
+            original
+                .finite_horizon_adaptive_policy
+                .second_stage_policy
+                .iter()
+                .map(|branch| branch.next_candidate_id.clone())
+                .collect::<Vec<_>>(),
+            reordered
+                .finite_horizon_adaptive_policy
+                .second_stage_policy
+                .iter()
+                .map(|branch| branch.next_candidate_id.clone())
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            (original.finite_horizon_adaptive_policy.expected_terminal_decision_loss
+                - reordered
+                    .finite_horizon_adaptive_policy
+                    .expected_terminal_decision_loss)
+                .abs()
+                < 1.0e-12
+        );
     }
 
     #[test]
