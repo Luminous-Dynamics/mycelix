@@ -48,6 +48,15 @@ Each architecture scorecard separately reports:
 
 A scorecard is Pareto-comparison eligible only when task utility, privacy, revocation, causal, resource, role (when relevant) and policy evidence are complete, and no unauthorized disclosure, forbidden inference or unreconciled descendant is observed. This boolean is a gate, not a ranking or scalar score.
 
+## Executable sparse baseline
+
+The first matched retrieval baseline is implemented in `src/mcsf_baselines.rs`:
+- `NoMemoryAdapter` provides the zero-retrieval control.
+- `Bm25Adapter` implements Okapi BM25 with explicit (k_1) and (b), Unicode-aware tokenization, deterministic fixed-point score output, stable memory IDs/content digests and deterministic ID tie-breaking.
+- Both implement one `McsfRetrievalAdapter` interface. Dense-vector and HDC/CfC conditions must implement that interface around their **real** embedding/HDC/CfC engines; the interface does not simulate either system.
+
+The BM25 tests cover relevance ordering, non-matches, Top K, deterministic ties, duplicate IDs, invalid inputs and non-ASCII text. This is a retrieval baseline component, not yet a full benchmark runner or empirical MCSF result.
+
 ## Initial pilot and next scale-up
 
 The checked-in fixture has two synthetic Textual tasks and three architectures (NoMemory, BM25 and HDC+CfC), with made-up scores and evidence digests. It exists to exercise the schema and Rust contract only.
