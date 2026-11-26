@@ -505,6 +505,8 @@ mod tests {
             Err(SparseMerkleErrorV1::DuplicateKey)
         );
         assert_eq!(tree.replace(key(0x01), digest(0x20)), Some(digest(0x10)));
+        assert_eq!(tree.replace(key(0x02), digest(0x30)), None);
+        assert_eq!(tree.len(), 1);
         let proof = tree.prove(key(0x01));
         assert_eq!(
             verify_sparse_membership_v1(
