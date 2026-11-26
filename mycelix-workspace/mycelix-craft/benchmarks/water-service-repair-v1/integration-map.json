@@ -1,0 +1,176 @@
+{
+  "benchmark_id": "CRAFT-WATER-SERVICE-REPAIR-V1-INTEGRATION-MAP",
+  "schema_version": "1.0.0",
+  "status": "proposed_semantic_owner_map",
+  "mappings": [
+    {
+      "case_id": "WSR-001",
+      "owner_issues": [
+        "#6140",
+        " #4835",
+        "#6754",
+        "#6757"
+      ],
+      "checks": [
+        "provider_report_is_not_physical_effect",
+        "independent_restoration_observation_missing",
+        "water_quality_missing"
+      ],
+      "owner_boundary": "No pilot-specific observation-independence or claim-support service is created."
+    },
+    {
+      "case_id": "WSR-002",
+      "owner_issues": [
+        "#6140",
+        "#6754",
+        "#6757"
+      ],
+      "checks": [
+        "pressure_observation_below_profile",
+        "provider_completion_not_restoration"
+      ],
+      "owner_boundary": "Pressure acceptance criteria belong to the responsible local authority and qualified engineering procedure."
+    },
+    {
+      "case_id": "WSR-003",
+      "owner_issues": [
+        "#6754",
+        "#6757"
+      ],
+      "checks": [
+        "restoration_supported",
+        "water_quality_pending",
+        "no_local_closure"
+      ],
+      "owner_boundary": "Claim Support assesses the lab claim; Decision Closure determines material-element sufficiency."
+    },
+    {
+      "case_id": "WSR-004",
+      "owner_issues": [
+        "#6750",
+        "#6733",
+        "#6757",
+        "#6769"
+      ],
+      "checks": [
+        "all_required_evidence_current",
+        "closure_still_requires_local_authority"
+      ],
+      "owner_boundary": "Eligibility is only for local review; no crate automatically closes or authorizes the work."
+    },
+    {
+      "case_id": "WSR-005",
+      "owner_issues": [
+        "#181",
+        "#2631",
+        "#1207",
+        "#6762"
+      ],
+      "checks": [
+        "restoration_lease_expired",
+        "targeted_revalidation"
+      ],
+      "owner_boundary": "EvidenceLease and temporal currentness remain owned by the existing temporal/evidence systems."
+    },
+    {
+      "case_id": "WSR-006",
+      "owner_issues": [
+        "#1087",
+        "#6769",
+        "#6757"
+      ],
+      "checks": [
+        "zone_context_mismatch",
+        "evidence_not_applicable_to_target_zone"
+      ],
+      "owner_boundary": "Applicability is dimension- and context-specific; no generic currentness is added."
+    },
+    {
+      "case_id": "WSR-007",
+      "owner_issues": [
+        "#6140",
+        "#4835"
+      ],
+      "checks": [
+        "provider_mirror_detected",
+        "common_cause_group_counted_once",
+        "no_independent_restoration_proof"
+      ],
+      "owner_boundary": "Source independence and coverage are supplied by the observation/provenance owner, not inferred from identifiers."
+    },
+    {
+      "case_id": "WSR-008",
+      "owner_issues": [
+        "#6762",
+        "#6769",
+        "#6754",
+        "#6757"
+      ],
+      "checks": [
+        "lab_result_superseded",
+        "prior_closure_history_preserved",
+        "new_revision_requires_requalification"
+      ],
+      "owner_boundary": "Lineage propagates changed evidence; claim support and decision closure own semantic and conclusion qualification."
+    },
+    {
+      "case_id": "WSR-009",
+      "owner_issues": [
+        "#6733",
+        "#6738",
+        "#181",
+        "#6762"
+      ],
+      "checks": [
+        "permit_expired",
+        "crew_qualification_revoked",
+        "work_or_closure_blocked"
+      ],
+      "owner_boundary": "The pilot fixture does not authenticate credentials, permits or institutional revocation."
+    },
+    {
+      "case_id": "WSR-010",
+      "owner_issues": [
+        "#6750",
+        "#6757",
+        "#6762"
+      ],
+      "checks": [
+        "expected_action_denominator",
+        "unobserved_suffix",
+        "closure_incomplete"
+      ],
+      "owner_boundary": "Coverage denominator is frozen by authorized scope; no provider self-report can rewrite the plan."
+    },
+    {
+      "case_id": "WSR-011",
+      "owner_issues": [
+        "#2631",
+        "#1207",
+        "#6069",
+        "#6762"
+      ],
+      "checks": [
+        "new_repeat_event",
+        "prior_decision_is_historical_record",
+        "repeat_window_metric"
+      ],
+      "owner_boundary": "Temporal and bitemporal reconstruction use existing owner-native event/epoch semantics."
+    },
+    {
+      "case_id": "WSR-012",
+      "owner_issues": [
+        "#6140",
+        "#6754",
+        "#6757",
+        "#6769"
+      ],
+      "checks": [
+        "quality_under_investigation",
+        "high_consequence_hold",
+        "no_false_not_affected"
+      ],
+      "owner_boundary": "Unresolved water-quality evidence cannot be coerced into a safe or closed state."
+    }
+  ]
+}
