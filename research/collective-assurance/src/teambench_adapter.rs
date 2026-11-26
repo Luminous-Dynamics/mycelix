@@ -1235,6 +1235,14 @@ mod tests {
 
         for run in &mut input.condition_runs {
             run.execution_backend = TeamBenchExecutionBackend::DockerContainerIsolation;
+            run.runtime_manifest_digest = None;
+        }
+        let report = qualify_teambench_suite(&input);
+        assert_eq!(report.qualification.status, QualificationStatus::Pass);
+        assert!(report.benchmark_score_eligible);
+        assert!(!report.os_isolation_eligible);
+
+        for run in &mut input.condition_runs {
             run.runtime_manifest_digest = Some(D6.into());
         }
         let report = qualify_teambench_suite(&input);
