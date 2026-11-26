@@ -9,3 +9,7 @@ test:
 # Check (fast)
 check:
     cargo check --workspace
+
+# Run the standalone federation agreement reference core
+core-federation-agreement:
+    cargo test --manifest-path Cargo.toml -p craft-federation-agreement-v1
