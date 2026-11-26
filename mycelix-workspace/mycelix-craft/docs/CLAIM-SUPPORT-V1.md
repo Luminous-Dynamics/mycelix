@@ -24,7 +24,7 @@ Each claim support packet contains:
 - required semantic dimensions to inspect;
 - source identifier and exact source digest;
 - exact excerpt/observation digest and locator digest;
-- source revision;
+- source revision bound in both the source reference and assessment;
 - support relation;
 - per-dimension qualifier comparison;
 - assessor kind, identity, method/version, model digest where machine-produced;
@@ -80,7 +80,7 @@ Every claim names the reviewer roles required for a positive support disposition
 
 The host must verify reviewer identity, role qualification, delegation, jurisdiction, revocation and freshness. The reference core checks that the review is independent from the assessor and bound to the exact assessment digest; it cannot authenticate those claims.
 
-One current confirmation per required role is needed for each assessment. RequestContext, RejectAssessment, expired, withdrawn or missing reviews do not qualify. A confirmed contradiction produces BlockedByContradiction. A machine assessment cannot self-certify, even when its model/provider is pinned.
+One current confirmation per required role is needed for each assessment. Different roles may be provided by different independent reviewers; duplicate decisions for the same assessment/role are rejected. RequestContext, RejectAssessment, expired, withdrawn or missing reviews do not qualify. A confirmed contradiction produces BlockedByContradiction. A machine assessment cannot self-certify, even when its model/provider is pinned.
 
 ## 6. Model and correlated-error handling
 
