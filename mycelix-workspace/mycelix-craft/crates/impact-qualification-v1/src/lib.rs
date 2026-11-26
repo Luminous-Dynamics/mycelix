@@ -78,6 +78,7 @@ pub struct ImpactReviewV1 {
     pub reviewer_id: String,
     pub role: ImpactReviewerRoleV1,
     pub approved_determination_digest: DigestV1,
+    pub authority_ref: ArtifactVersionRefV1,
     pub reviewed_at: u64,
     pub lease: OwnerQualifiedLeaseRefV1,
 }
@@ -86,6 +87,7 @@ pub struct ImpactReviewV1 {
 pub struct ImpactEvidenceRefV1 {
     pub evidence_id: String,
     pub digest: DigestV1,
+    pub context_digest: DigestV1,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -114,6 +116,8 @@ pub struct ExpectedImpactScopeV1 {
     pub dependent_artifact: ArtifactVersionRefV1,
     pub dependency_edge: DependencyEdgeRefV1,
     pub context: UseContextRefV1,
+    pub domain_authority: ArtifactVersionRefV1,
+    pub safety_authority: Option<ArtifactVersionRefV1>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -223,6 +227,14 @@ fn validate_scope(
     if !valid_context(&determination.context) || !valid_context(&expected.context) {
         return Err(ImpactQualificationErrorV1::InvalidContext);
     }
+    if !valid_artifact(&expected.domain_authority)
+        || expected
+            .safety_authority
+            .as_ref()
+            .map_or(false, |authority| !valid_artifact(authority))
+    {
+        return Err(ImpactQualificationErrorV1::InvalidArtifactReference);
+    }
     if determination.change_event != expected.change_event {
         return Err(ImpactQualificationErrorV1::EventScopeMismatch);
     }
@@ -295,6 +307,7 @@ pub fn evaluate_impact_determination(
     for review in &determination.reviews {
         if !non_empty(&review.reviewer_id)
             || review.reviewer_id == determination.assessor_id
+            || !valid_artifact(&review.authority_ref)
             || !valid_digest(&review.approved_determination_digest)
             || review.approved_determination_digest != determination.digest
             || review.reviewed_at < determination.issued_at
@@ -307,8 +320,18 @@ pub fn evaluate_impact_determination(
             return Err(ImpactQualificationErrorV1::DuplicateReviewer);
         }
         match review.role {
-            ImpactReviewerRoleV1::DomainAuthority => has_domain_review = true,
-            ImpactReviewerRoleV1::SafetyAuthority => has_safety_review = true,
+            ImpactReviewerRoleV1::DomainAuthority => {
+                if review.authority_ref != expected.domain_authority {
+                    return Err(ImpactQualificationErrorV1::InvalidReview);
+                }
+                has_domain_review = true;
+            }
+            ImpactReviewerRoleV1::SafetyAuthority => {
+                if expected.safety_authority.as_ref() != Some(&review.authority_ref) {
+                    return Err(ImpactQualificationErrorV1::InvalidReview);
+                }
+                has_safety_review = true;
+            }
         }
     }
 
@@ -323,6 +346,9 @@ pub fn evaluate_impact_determination(
     for evidence in &determination.evidence {
         if !non_empty(&evidence.evidence_id) || !valid_digest(&evidence.digest) {
             return Err(ImpactQualificationErrorV1::InvalidIdentifier);
+        }
+        if evidence.context_digest != determination.context.digest {
+            return Err(ImpactQualificationErrorV1::ContextScopeMismatch);
         }
         if !evidence_ids.insert(evidence.evidence_id.clone()) {
             return Err(ImpactQualificationErrorV1::DuplicateEvidence);
@@ -599,6 +625,8 @@ mod tests {
                 population_scope_digest: digest(8),
                 use_scope_digest: digest(9),
             },
+            domain_authority: artifact("domain-charter", 2, 12),
+            safety_authority: Some(artifact("safety-charter", 1, 13)),
         }
     }
 
@@ -614,16 +642,17 @@ mod tests {
         ImpactDeterminationV1 {
             determination_id: "impact-1".to_owned(),
             digest: digest(10),
-            change_event: expected.change_event,
-            changed_artifact: expected.changed_artifact,
-            dependent_artifact: expected.dependent_artifact,
-            dependency_edge: expected.dependency_edge,
-            context: expected.context,
+            change_event: expected.change_event.clone(),
+            changed_artifact: expected.changed_artifact.clone(),
+            dependent_artifact: expected.dependent_artifact.clone(),
+            dependency_edge: expected.dependency_edge.clone(),
+            context: expected.context.clone(),
             status,
             justification,
             evidence: vec![ImpactEvidenceRefV1 {
                 evidence_id: "execution-map".to_owned(),
                 digest: digest(11),
+                context_digest: expected.context.digest,
             }],
             assessor_id: "assessor".to_owned(),
             issued_at: NOW - 20,
@@ -633,6 +662,7 @@ mod tests {
                     reviewer_id: "domain-reviewer".to_owned(),
                     role: ImpactReviewerRoleV1::DomainAuthority,
                     approved_determination_digest: digest(10),
+                    authority_ref: expected.domain_authority.clone(),
                     reviewed_at: NOW - 10,
                     lease: lease("domain-review-lease"),
                 },
@@ -640,6 +670,7 @@ mod tests {
                     reviewer_id: "safety-reviewer".to_owned(),
                     role: ImpactReviewerRoleV1::SafetyAuthority,
                     approved_determination_digest: digest(10),
+                    authority_ref: expected.safety_authority.clone().expect("safety authority ref"),
                     reviewed_at: NOW - 9,
                     lease: lease("safety-review-lease"),
                 },
@@ -700,6 +731,28 @@ mod tests {
         assert_eq!(
             evaluate_impact_determination(&packet, &expected, NOW, true),
             Err(ImpactQualificationErrorV1::MissingSafetyReview)
+        );
+    }
+
+    #[test]
+    fn reviewer_must_be_bound_to_exact_authority_revision() {
+        let expected = expected_scope();
+        let mut packet = determination(ImpactStatusV1::NotAffected);
+        packet.reviews[0].authority_ref = artifact("domain-charter", 2, 99);
+        assert_eq!(
+            evaluate_impact_determination(&packet, &expected, NOW, false),
+            Err(ImpactQualificationErrorV1::InvalidReview)
+        );
+    }
+
+    #[test]
+    fn impact_evidence_must_be_bound_to_exact_use_context() {
+        let expected = expected_scope();
+        let mut packet = determination(ImpactStatusV1::NotAffected);
+        packet.evidence[0].context_digest = digest(99);
+        assert_eq!(
+            evaluate_impact_determination(&packet, &expected, NOW, false),
+            Err(ImpactQualificationErrorV1::ContextScopeMismatch)
         );
     }
 
