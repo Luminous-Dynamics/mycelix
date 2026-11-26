@@ -342,6 +342,8 @@ fn validate_measurement(measurement: &Measurement, scales: &Vector) -> Result<()
     Ok(())
 }
 
+// Indexed access is intentional when comparing a matrix with its transpose.
+#[allow(clippy::needless_range_loop)]
 fn validate_symmetric_information(matrix: &Matrix, name: &str) -> Result<(), String> {
     if matrix.iter().flatten().any(|value| !value.is_finite()) {
         return Err(format!("{name} contains a non-finite value"));
@@ -386,6 +388,8 @@ fn add_outer_product(target: &mut Matrix, row: &Vector, precision: f64) {
     }
 }
 
+// Pivoted elimination requires stable row/column indices during swaps.
+#[allow(clippy::needless_range_loop)]
 fn rank_rows(rows: &[Vector]) -> usize {
     if rows.is_empty() {
         return 0;
@@ -428,10 +432,33 @@ fn rank_rows(rows: &[Vector]) -> usize {
     pivot_row
 }
 
-fn log_determinant_spd(mut matrix: Matrix, regularizer: f64) -> Result<f64, String> {
-    for index in 0..N {
-        matrix[index][index] += regularizer;
+// Cholesky's triangular index relationships are clearer as explicit indices.
+#[allow(clippy::needless_range_loop)]
+// The regularizer is dimensionless and relative to the information scale.
+#[allow(clippy::needless_range_loop)]
+fn log_determinant_spd(mut matrix: Matrix, relative_regularizer: f64) -> Result<f64, String> {
+    if !relative_regularizer.is_finite() || relative_regularizer <= 0.0 {
+        return Err("relative determinant regularizer must be finite and positive".into());
     }
+    let scale = matrix
+        .iter()
+        .flatten()
+        .fold(0.0_f64, |largest, value| largest.max(value.abs()));
+    if !scale.is_finite() || scale <= 0.0 {
+        return Err("information matrix must have a finite positive scale".into());
+    }
+
+    // Normalize first; a shared absolute epsilon would make D-optimal gains
+    // depend on whether the same observation is expressed in Pa, kPa, etc.
+    for row in &mut matrix {
+        for value in row {
+            *value /= scale;
+        }
+    }
+    for index in 0..N {
+        matrix[index][index] += relative_regularizer;
+    }
+
     let mut lower = [[0.0; N]; N];
     for row in 0..N {
         for column in 0..=row {
@@ -449,9 +476,10 @@ fn log_determinant_spd(mut matrix: Matrix, regularizer: f64) -> Result<f64, Stri
             }
         }
     }
-    Ok(2.0 * (0..N).map(|index| lower[index][index].ln()).sum::<f64>())
+    let normalized_log_determinant =
+        2.0 * (0..N).map(|index| lower[index][index].ln()).sum::<f64>();
+    Ok(normalized_log_determinant + N as f64 * scale.ln())
 }
-
 fn minimum_symmetric_eigenvalue(mut matrix: Matrix) -> f64 {
     // Normalize before Jacobi rotations. An absolute stopping threshold on the
     // unscaled matrix can miss an indefinite operator expressed in small units.
