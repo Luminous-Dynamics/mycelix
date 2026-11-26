@@ -1,7 +1,6 @@
 package temporalrange
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
@@ -444,78 +443,103 @@ func compareInstantV1(a, b IntervalInstantV1) int {
 	return 0
 }
 
-func appendIntervalStringV1(dst *bytes.Buffer, value string) {
-	_ = binary.Write(dst, binary.BigEndian, uint32(len(value)))
-	_, _ = dst.WriteString(value)
+func appendIntervalStringV1(dst []byte, value string) []byte {
+	var length [4]byte
+	binary.BigEndian.PutUint32(length[:], uint32(len(value)))
+	dst = append(dst, length[:]...)
+	dst = append(dst, value...)
+	return dst
 }
 
-func appendIntervalInstantV1(dst *bytes.Buffer, value IntervalInstantV1) {
-	_ = binary.Write(dst, binary.BigEndian, value.Seconds)
-	_ = binary.Write(dst, binary.BigEndian, value.Nanos)
+func appendIntervalInstantV1(dst []byte, value IntervalInstantV1) []byte {
+	var instant [12]byte
+	binary.BigEndian.PutUint64(instant[:8], uint64(value.Seconds))
+	binary.BigEndian.PutUint32(instant[8:], value.Nanos)
+	return append(dst, instant[:]...)
 }
 
-func appendIntervalEndV1(dst *bytes.Buffer, value IntervalEndV1) {
+func appendIntervalEndV1(dst []byte, value IntervalEndV1) []byte {
 	if value.Open {
-		dst.WriteByte(1)
-		return
+		return append(dst, 1)
 	}
-	dst.WriteByte(0)
-	appendIntervalInstantV1(dst, value.At)
+	dst = append(dst, 0)
+	return appendIntervalInstantV1(dst, value.At)
 }
 
-func appendIntervalScopeV1(dst *bytes.Buffer, scope IntervalScopeV1) {
-	appendIntervalStringV1(dst, scope.VerifierRef)
-	appendIntervalStringV1(dst, scope.PolicyEpochRef)
-	appendIntervalStringV1(dst, scope.NamespaceRef)
-	appendIntervalStringV1(dst, scope.SubjectRef)
-	appendIntervalStringV1(dst, scope.ClaimID)
-	appendIntervalStringV1(dst, scope.SourceFrontierDigest)
+func appendIntervalScopeV1(dst []byte, scope IntervalScopeV1) []byte {
+	dst = appendIntervalStringV1(dst, scope.VerifierRef)
+	dst = appendIntervalStringV1(dst, scope.PolicyEpochRef)
+	dst = appendIntervalStringV1(dst, scope.NamespaceRef)
+	dst = appendIntervalStringV1(dst, scope.SubjectRef)
+	dst = appendIntervalStringV1(dst, scope.ClaimID)
+	dst = appendIntervalStringV1(dst, scope.SourceFrontierDigest)
+	return dst
 }
 
-func appendIntervalRecordV1(dst *bytes.Buffer, record IntervalRecordV1) {
-	appendIntervalStringV1(dst, record.AssertionRef)
-	appendIntervalInstantV1(dst, record.ValidFrom)
-	appendIntervalEndV1(dst, record.ValidTo)
-	appendIntervalStringV1(dst, record.ReceiptDigest)
-}
-
-func appendIntervalSummaryV1(dst *bytes.Buffer, summary IntervalSummaryV1) {
-	appendIntervalInstantV1(dst, summary.MinValidFrom)
-	appendIntervalEndV1(dst, summary.MaxValidTo)
+func appendIntervalRecordV1(dst []byte, record IntervalRecordV1) []byte {
+	dst = appendIntervalStringV1(dst, record.AssertionRef)
+	dst = appendIntervalInstantV1(dst, record.ValidFrom)
+	dst = appendIntervalEndV1(dst, record.ValidTo)
+	dst = appendIntervalStringV1(dst, record.ReceiptDigest)
+	return dst
 }
 
 func hashIntervalEmptyV1() [32]byte {
-	buf := bytes.NewBuffer(nil)
-	buf.WriteByte(0x32)
-	buf.WriteString(intervalQueryDomainV1)
-	return sha256.Sum256(buf.Bytes())
+	var preimage [1 + len(intervalQueryDomainV1)]byte
+	preimage[0] = 0x32
+	copy(preimage[1:], intervalQueryDomainV1)
+	return sha256.Sum256(preimage[:])
 }
 
 func hashIntervalLeafV1(record IntervalRecordV1) [32]byte {
-	buf := bytes.NewBuffer(nil)
-	buf.WriteByte(0x30)
-	buf.WriteString(intervalQueryDomainV1)
-	appendIntervalRecordV1(buf, record)
-	return sha256.Sum256(buf.Bytes())
+	preimage := make([]byte, 0, 1+len(intervalQueryDomainV1)+4+len(record.AssertionRef)+12+1+12+4+len(record.ReceiptDigest))
+	preimage = append(preimage, 0x30)
+	preimage = append(preimage, intervalQueryDomainV1...)
+	preimage = appendIntervalRecordV1(preimage, record)
+	return sha256.Sum256(preimage)
 }
 
 func hashIntervalBranchV1(count uint64, summary IntervalSummaryV1, left, right [32]byte) [32]byte {
-	buf := bytes.NewBuffer(nil)
-	buf.WriteByte(0x31)
-	buf.WriteString(intervalQueryDomainV1)
-	_ = binary.Write(buf, binary.BigEndian, count)
-	appendIntervalSummaryV1(buf, summary)
-	buf.Write(left[:])
-	buf.Write(right[:])
-	return sha256.Sum256(buf.Bytes())
+	const summarySize = 12 + 1 + 12
+	var preimage [1 + len(intervalQueryDomainV1) + 8 + summarySize + 64]byte
+	i := 0
+	preimage[i] = 0x31
+	i++
+	i += copy(preimage[i:], intervalQueryDomainV1)
+	binary.BigEndian.PutUint64(preimage[i:i+8], count)
+	i += 8
+	binary.BigEndian.PutUint64(preimage[i:i+8], uint64(summary.MinValidFrom.Seconds))
+	i += 8
+	binary.BigEndian.PutUint32(preimage[i:i+4], summary.MinValidFrom.Nanos)
+	i += 4
+	if summary.MaxValidTo.Open {
+		preimage[i] = 1
+		i++
+	} else {
+		preimage[i] = 0
+		i++
+		binary.BigEndian.PutUint64(preimage[i:i+8], uint64(summary.MaxValidTo.At.Seconds))
+		i += 8
+		binary.BigEndian.PutUint32(preimage[i:i+4], summary.MaxValidTo.At.Nanos)
+		i += 4
+	}
+	i += copy(preimage[i:], left[:])
+	i += copy(preimage[i:], right[:])
+	return sha256.Sum256(preimage[:i])
 }
 
 func hashIntervalScopedRootV1(scope IntervalScopeV1, count uint64, treeHash [32]byte) [32]byte {
-	buf := bytes.NewBuffer(nil)
-	buf.WriteByte(0x33)
-	buf.WriteString(intervalQueryDomainV1)
-	appendIntervalScopeV1(buf, scope)
-	_ = binary.Write(buf, binary.BigEndian, count)
-	buf.Write(treeHash[:])
-	return sha256.Sum256(buf.Bytes())
+	capacity := 1 + len(intervalQueryDomainV1) + 8 + 32
+	for _, value := range []string{scope.VerifierRef, scope.PolicyEpochRef, scope.NamespaceRef, scope.SubjectRef, scope.ClaimID, scope.SourceFrontierDigest} {
+		capacity += 4 + len(value)
+	}
+	preimage := make([]byte, 0, capacity)
+	preimage = append(preimage, 0x33)
+	preimage = append(preimage, intervalQueryDomainV1...)
+	preimage = appendIntervalScopeV1(preimage, scope)
+	var countBytes [8]byte
+	binary.BigEndian.PutUint64(countBytes[:], count)
+	preimage = append(preimage, countBytes[:]...)
+	preimage = append(preimage, treeHash[:]...)
+	return sha256.Sum256(preimage)
 }
