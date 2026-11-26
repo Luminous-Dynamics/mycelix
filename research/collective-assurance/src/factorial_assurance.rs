@@ -202,6 +202,13 @@ fn nonempty(value: &str) -> bool {
     !value.trim().is_empty()
 }
 
+fn unique_nonempty(values: &[String]) -> bool {
+    let mut seen = BTreeSet::new();
+    values
+        .iter()
+        .all(|value| nonempty(value) && seen.insert(value.as_str()))
+}
+
 fn valid_digest(value: &str) -> bool {
     value.len() == 64
         && value
