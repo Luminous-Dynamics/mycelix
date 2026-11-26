@@ -166,6 +166,30 @@ For the experiment-selection layer, freeze the same solver-call, simulation, acq
 The defensible ambition is to outperform established workflows on **uncertainty-aware experiment selection, calibrated predictions and traceable qualification** while interoperating with the best physical solvers—not to assert an unsupported universal solver-speed or accuracy win.
 
 
+
+## Correlated metrology and shared calibration errors v0.1
+
+The `terra-correlated-metrology-boed` reference is the next measurement-model increment. It compares a full joint Gaussian likelihood against an intentionally misspecified independent-channel scalar likelihood under the **same correlated observation generator**.
+
+The four-channel synthetic fixture carries explicit channel ID, support ID, method, calibration group/record, units and per-channel noise, plus an observation-correlation matrix. The model response signatures distinguish balanced pathways, preferential flow, dual-domain storage and Forchheimer-like non-Darcy flow. Hypothetical common-cause correlations are present within pressure/flow and tracer measurement groups.
+
+The Rust reference provides:
+- dimension and metadata validation for channels and correlation matrix;
+- symmetry, finite-value, unit-diagonal and positive-definite checks;
+- checked Cholesky factorization and bivariate Gaussian log likelihood;
+- explicit rejection of singular / indefinite covariance, with **no silent diagonal jitter**;
+- an independent scalar-likelihood negative control evaluated on the same correlated observations;
+- expected posterior entropy over two-channel designs under a seven-node product Gauss-Hermite rule;
+- a best pair under joint covariance and a best pair selected by the misspecified independent likelihood, re-evaluated with the correct covariance likelihood;
+- fail-closed rejection when two channel IDs refer to duplicate measurement support;
+- tests for singular covariance, asymmetric covariance, shared-offset covariance construction, posterior normalization, channel-order invariance and unit rescaling.
+
+This is established prior art rather than a new mathematical claim: Attia & Constantinescu, [*Optimal Experimental Design for Inverse Problems in the Presence of Observation Correlations*](https://epubs.siam.org/doi/10.1137/21M1418666), explicitly formulate sensor-placement design with correlated observation errors. The GUM suite (JCGM GUM-1:2023 / ISO/IEC Guide 98-1:2024) requires relevant correlations between input estimates or a joint probability distribution when propagating multivariate measurement uncertainty. The intended implementation contribution here is a fail-closed, provenance-carrying contract that feeds such calibrated covariance into adaptive hydraulic measurement design.
+
+The covariance matrix is a **correlation** matrix; the dimensional covariance is `Sigma_ij = rho_ij * sigma_i * sigma_j`. The current fixture's values are invented to exercise common-cause effects. Channel units are recorded but there is no dimensional-analysis engine yet, and calibration nuisance groups are currently represented by a marginalized covariance rather than separately inferred latent variables. The shared-offset covariance helper shows the elementary Gaussian common-mode construction; the next step is to ingest calibration repeat data and compare latent nuisance inference with the marginalized likelihood.
+
+This is synthetic method qualification only, not evidence of measured sensor covariance or hydraulic truth. Future work must obtain covariance from independent calibration repeats, blind holdout standards, shared volume/timing/pressure calibration records and registration/support uncertainty. It must also extend beyond the current two-channel design to low-rank covariance and larger observation vectors, and test calibration/likelihood behavior as condition number increases.
+
 ## Action-conditioned excitation and joint pressure–tracer design v0.1
 
 The `terra-action-conditioned-boed` reference changes the design unit from a static observable to an **intervention-observation protocol**. A protocol declares its pressure/head waveform, amplitude, frequency, duration, injected volume, tracer mass, actuator effort, sample-damage index, measured observable, acquisition cost and observation noise.
