@@ -37,6 +37,7 @@ fn owner_cut(owner: &str, sequence: u64) -> OwnerCutV1 {
         owner_ref: owner.into(),
         history_ref: format!("history:{owner}"),
         sequence,
+        tree_size: sequence,
         root_digest: root_digest.clone(),
         checkpoint_inclusion: CheckpointInclusionDeclarationV1 {
             checkpoint_root_digest: String::new(),
