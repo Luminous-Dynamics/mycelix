@@ -1,16 +1,21 @@
 #![forbid(unsafe_code)]
 
-//! RFC 9162 Merkle Tree Hash, inclusion-proof, and consistency-proof support.
+//! Merkle proof primitives for Mycelix Economic OS research.
 //!
-//! Hashing is SHA-256 with RFC 9162 domain separation:
+//! The root module implements RFC 9162 SHA-256 Merkle Tree Hashes for
+//! append-only log inclusion and consistency proofs:
 //! - leaf: SHA256(0x00 || entry)
 //! - node: SHA256(0x01 || left || right)
 //!
-//! This crate verifies proof bytes against supplied roots. It does not
-//! authenticate who signed a tree head, whether a log is trusted, whether
-//! different clients received the same tree head, or whether the leaf payload
-//! satisfies application policy. Those checks belong to the caller's trust
-//! and witness layer.
+//! The sparse_map module is a separate experimental 256-bit authenticated-map
+//! profile for exact-key membership/non-membership. It is not RFC 9162 and is
+//! not yet a registered RFC 9942 VDS/VDP profile.
+//!
+//! Both components verify proofs relative to supplied roots. Neither
+//! authenticates who signed a checkpoint, whether a log/index is trusted,
+//! whether different clients received the same history, or whether the
+//! indexed evidence is complete. Those requirements belong to a higher-level
+//! checkpoint, witness, coverage and authority layer.
 
 mod sparse_map;
 
