@@ -117,11 +117,12 @@ The V2 model should use independent records:
 External-principal eligibility is not a universal default. A guild may require active membership for every delegated action. Another may appoint an external facilitator or affected-community representative for a narrow process role. The policy must be explicit, versioned, authorized by the adopted charter and checked independently from professional assessment authority. A non-member is distinct from an unknown identity or unknown membership state.
 
 **Professional assessment authority**
+- implemented as a separate reference contract in `crates/professional-assessment-authority-v1` (qualification pending);
 - a separate issuer-bound authority record;
-- exact professional domain, scope, jurisdiction and validity;
-- key status, revocation and assessor eligibility;
+- exact capability scope, assessment method, jurisdiction, standards profile/revision/digest and validity;
+- key status, revocation, conflict screening and assessor eligibility;
 - references CRAFT-WORK-EVIDENCE-001 and the Identity trust authority;
-- does not follow automatically from guild office or membership.
+- does not follow automatically from guild office or membership, and does not require guild membership when independently authorized.
 
 **Decision-rights policy**
 - who can propose, deliberate, consent, vote, appeal and ratify;
