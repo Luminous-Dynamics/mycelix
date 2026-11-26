@@ -30,7 +30,7 @@ Every observed consumer exposure binds:
 - consumed / rejected-inapplicable / rejected-stale / rejected-unverified / rejected-wrong-entity / rejected-wrong-branch / rejected-completed-as-pending / unknown disposition;
 - exposure receipt and, if consumed, an effect receipt.
 
-The graph digest is domain-separated and deterministic over sorted nodes and handoff contracts.
+The graph digest is domain-separated and deterministic over the benchmark-native topology label, sorted nodes and handoff contracts. The topology label is part of the paired-run identity, so Chain, Split–Join, Reuse, Overlap and Bounded Revision observations can be stratified without conflating them.
 
 ## Qualification challenge
 
