@@ -516,6 +516,34 @@ mod tests {
     }
 
     #[test]
+    fn sparse_query_key_and_value_match_go_known_answers() {
+        let key = assertion_index_key_v1(
+            "did:mycelix:verifier:finance-v1",
+            "policy-epoch:1",
+            "subject:grant:42",
+            "claim:revoked",
+            "VALID_AT",
+            "assertion:42",
+        )
+        .unwrap();
+        assert_eq!(
+            hex_lower(&key),
+            "6f02bb0fe2b2c6bd9b0c2efac3f74fdc0db676eb21ac5d5f42648428b3dc1817"
+        );
+
+        let value = assertion_index_value_v1(
+            &format!("sha256:{}", "a".repeat(64)),
+            "owner:verifier-log",
+            7,
+        )
+        .unwrap();
+        assert_eq!(
+            hex_lower(&value),
+            "d641a80447381fdce99b19eb3e9f4fc58000699bff05c81a3410cf174c5c2d7c"
+        );
+    }
+
+    #[test]
     fn query_keys_are_scoped_by_verifier_policy_subject_claim_and_dimension() {
         let baseline = assertion_index_key_v1(
             "did:mycelix:verifier:finance-v1",
