@@ -214,7 +214,8 @@
         "native_grader_disposition",
         "native_score_micros",
         "verifier_disposition",
-        "role_boundary_events"
+        "role_boundary_events",
+        "resource_usage"
       ],
       "properties": {
         "task_id": {
@@ -275,6 +276,55 @@
               "type": "integer",
               "minimum": 0,
               "maximum": 1000000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resource_usage": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "input_tokens",
+                "output_tokens",
+                "wall_clock_ms",
+                "provider_cost_micro_usd",
+                "tool_call_count",
+                "inter_agent_message_count",
+                "evidence_digest"
+              ],
+              "properties": {
+                "input_tokens": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "output_tokens": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "wall_clock_ms": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "provider_cost_micro_usd": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tool_call_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "inter_agent_message_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "evidence_digest": {
+                  "$ref": "#/$defs/digest"
+                }
+              }
             },
             {
               "type": "null"
