@@ -139,6 +139,35 @@ func TestSparseMerkleRejectsWrongKeyValueRootAndTamperedProof(t *testing.T) {
 	}
 }
 
+func TestSparseQueryKeyAndValueKnownAnswers(t *testing.T) {
+	key, err := AssertionIndexKeyV1(
+		"did:mycelix:verifier:finance-v1",
+		"policy-epoch:1",
+		"subject:grant:42",
+		"claim:revoked",
+		"VALID_AT",
+		"assertion:42",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := hex.EncodeToString(key[:]); got != "6f02bb0fe2b2c6bd9b0c2efac3f74fdc0db676eb21ac5d5f42648428b3dc1817" {
+		t.Fatalf("sparse query key mismatch: %s", got)
+	}
+
+	value, err := AssertionIndexValueV1(
+		"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"owner:verifier-log",
+		7,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := hex.EncodeToString(value[:]); got != "d641a80447381fdce99b19eb3e9f4fc58000699bff05c81a3410cf174c5c2d7c" {
+		t.Fatalf("sparse index value mismatch: %s", got)
+	}
+}
+
 func TestSparseKeyAndValueAreDomainScoped(t *testing.T) {
 	base, err := AssertionIndexKeyV1("verifier:A", "policy:1", "subject:1", "claim:valid", "VALID_AT", "assertion:1")
 	if err != nil {
