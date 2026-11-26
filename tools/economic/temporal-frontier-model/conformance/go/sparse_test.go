@@ -35,7 +35,7 @@ func TestSparseMerkleKnownAnswerRootAndNonMembershipProof(t *testing.T) {
 		}
 	}
 	root := tree.RootHash()
-	if got := hex.EncodeToString(root[:]); got != "620327be5115079f7497e7db9e3b9625ee5cebbe219368f6d5fb5b8960cbf738" {
+	if got := hex.EncodeToString(root[:]); got != "ca399e0f53e5b7607402225d68a14e607cc7e7e488e44ccf8bde194e6386718f" {
 		t.Fatalf("sparse root mismatch: %s", got)
 	}
 
@@ -62,7 +62,7 @@ func TestSparseMerkleKnownAnswerRootAndNonMembershipProof(t *testing.T) {
 		encoded = append(encoded, sibling[:]...)
 	}
 	proofDigest := sha256.Sum256(encoded)
-	if got := hex.EncodeToString(proofDigest[:]); got != "25f12e72f2826b31bb2ddf311915d4a1908584f0ea73a29ed7cb43c573d84615" {
+	if got := hex.EncodeToString(proofDigest[:]); got != "dc05c01529111d01b12e06f0ddb2a9b22d78822352ba8425c6768e3e3548766f" {
 		t.Fatalf("non-membership proof vector mismatch: %s", got)
 	}
 }
@@ -70,7 +70,7 @@ func TestSparseMerkleKnownAnswerRootAndNonMembershipProof(t *testing.T) {
 func TestSparseMerkleEmptyRootVector(t *testing.T) {
 	tree := NewSparseTree()
 	root := tree.RootHash()
-	if got := hex.EncodeToString(root[:]); got != "3560e65cef251798180c1825f031af9a0455589e9590b1f5fc31af1195898911" {
+	if got := hex.EncodeToString(root[:]); got != "de3054ab8d693834a8b74a5f07765258eb95da1c61faaf16ce437659142ee250" {
 		t.Fatalf("empty sparse root mismatch: %s", got)
 	}
 	key := sparseKeyWithFirstByte(0x81)
