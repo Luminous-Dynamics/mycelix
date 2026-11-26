@@ -1,0 +1,94 @@
+{
+  "benchmark_id": "CRAFT-WATER-SERVICE-REPAIR-V1",
+  "version": "1.0.0-draft",
+  "date": "2026-11-26",
+  "owner_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6771",
+  "parent_benchmark_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6751",
+  "data_classification": "synthetic-only",
+  "generator": {
+    "name": "hand-authored-adversarial-conformance-fixtures",
+    "seed": "not-applicable",
+    "note": "All case identifiers, digests, areas, sources and event references are synthetic placeholders. No real household or asset locations are included."
+  },
+  "public_baseline_sources": [
+    {
+      "source_id": "JOBURG-IAR-2024-25-P64",
+      "title": "City of Johannesburg Integrated Annual Report 2024/25, Chapter 3, printed page 64",
+      "url": "https://joburg.org.za/work_/Documents/Annual-Integrated-Report-2025/City-of-Johannesburg-Annual-Intergrated-Report-2025.pdf",
+      "period": "2024-07-01/2025-06-30",
+      "facts": {
+        "bursts_restored_within_48_hours": 23521,
+        "reported_48_hour_rate_percent": 70.35,
+        "target_percent": 85,
+        "potable_water_distributed_litres_per_day_average": 1700000000,
+        "distribution_network_km": 12526,
+        "pump_stations": 31
+      },
+      "use_limit": "Historical published performance baseline only. Not current live service status and not evidence of an intervention effect."
+    },
+    {
+      "source_id": "JOBURG-WATER-STATEMENT-2026-10-29",
+      "title": "Johannesburg Water: urgent interventions to stabilise severely constrained systems",
+      "url": "https://www.johannesburgwater.co.za/blog/2026/10/29/johannesburg-water-implements-urgent-interventions-to-stabilise-severely-constrained-systems/",
+      "period": "2026-10-29",
+      "facts": {
+        "reported_conditions": [
+          "low_pressure",
+          "intermittent_supply",
+          "prolonged_outages"
+        ],
+        "interventions": [
+          "network_reconfiguration",
+          "targeted_throttling"
+        ],
+        "named_affected_systems": true
+      },
+      "use_limit": "Public operational statement. Not a sensor dataset or independently measured restoration record."
+    },
+    {
+      "source_id": "DWS-GREEN-DROP-2025",
+      "title": "DWS Green Drop report announcement, 1 April 2026",
+      "url": "https://www.gov.za/news/media-statements/water-and-sanitation-crowns-steve-tshwete-local-municipality-2025-green-drop",
+      "period": "2023-2024-audit-released-2026",
+      "facts": {
+        "systems_audited": 848,
+        "critical_systems": 396,
+        "critical_percent": 47
+      },
+      "use_limit": "National wastewater context only; not a Johannesburg drinking-water result and not directly comparable to burst-repair metrics."
+    }
+  ],
+  "outcome_dimensions": [
+    "time_to_restoration",
+    "pressure_recovery",
+    "water_quality",
+    "expected_action_coverage",
+    "permit_and_crew_authority",
+    "repeat_burst",
+    "evidence_independence",
+    "customer_impact",
+    "worker_safety",
+    "community_agency"
+  ],
+  "required_separation": [
+    "provider_reported_completion",
+    "independently_observed_physical_restoration",
+    "qualified_water_quality_result",
+    "local_authority_closure"
+  ],
+  "expected_dispositions": [
+    "not_eligible",
+    "eligible_for_local_review",
+    "revalidation_required",
+    "execution_or_closure_blocked",
+    "new_workflow_required"
+  ],
+  "claims_not_established": [
+    "real municipal system access",
+    "a partnership with Johannesburg Water",
+    "actual service improvement",
+    "regulatory compliance",
+    "water safety from a synthetic fixture",
+    "independent source status based only on distinct identifiers"
+  ]
+}
