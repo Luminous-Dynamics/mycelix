@@ -127,7 +127,7 @@ jobs:
           jq -e '
             (.benchmark == "Economic OS Typed Temporal Evidence Adversarial Corpus") and
             (.case_count == 36) and
-            (.cases | length == .case_count) and
+            (.cases | length == 36) and
             (([.cases[].id] | length) == ([.cases[].id] | unique | length)) and
             (.allowed_dispositions as $allowed |
               all(.cases[]; .expected_disposition as $d | ($allowed | index($d)) != null)
