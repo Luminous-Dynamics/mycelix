@@ -138,6 +138,8 @@ pub struct SupportAssessmentV1 {
     pub proposal_digest: [u8; 32],
     /// Exact source identifier.
     pub source_id: String,
+    /// Exact source revision assessed.
+    pub source_revision: u64,
     /// Exact source digest.
     pub source_digest: [u8; 32],
     /// Exact excerpt digest.
@@ -357,7 +359,8 @@ pub fn validate_packet(packet: &ClaimSupportPacketV1) -> Result<(), ClaimSupport
         let source = sources
             .get(assessment.source_id.as_str())
             .ok_or(ClaimSupportErrorV1::SourceReferenceMismatch)?;
-        if source.source_digest != assessment.source_digest
+        if source.source_revision != assessment.source_revision
+            || source.source_digest != assessment.source_digest
             || source.excerpt_digest != assessment.excerpt_digest
             || source.locator_digest != assessment.locator_digest
         {
@@ -587,6 +590,7 @@ mod tests {
             claim_digest: [6; 32],
             proposal_digest: [7; 32],
             source_id: source.source_id.clone(),
+            source_revision: source.source_revision,
             source_digest: source.source_digest,
             excerpt_digest: source.excerpt_digest,
             locator_digest: source.locator_digest,
@@ -695,6 +699,72 @@ mod tests {
         let mut packet = packet();
         packet.assessments[0].source_digest = [11; 32];
         assert_eq!(validate_packet(&packet), Err(ClaimSupportErrorV1::SourceReferenceMismatch));
+    }
+
+    #[test]
+    fn changed_source_revision_invalidates_semantic_assessment() {
+        let mut packet = packet();
+        packet.assessments[0].source_revision = 2;
+        assert_eq!(
+            validate_packet(&packet),
+            Err(ClaimSupportErrorV1::SourceReferenceMismatch)
+        );
+    }
+
+    #[test]
+    fn future_dated_assessment_cannot_support_claim() {
+        let mut packet = packet();
+        packet.assessments[0].assessed_at = NOW + 1;
+        packet.reviews.clear();
+        assert_eq!(
+            evaluate_claim_support(&packet, NOW).unwrap(),
+            ClaimSupportDispositionV1::HumanReviewRequired
+        );
+    }
+
+    #[test]
+    fn request_context_never_counts_as_positive_confirmation() {
+        let mut packet = packet();
+        packet.reviews.push(review(ReviewDecisionV1::RequestContext));
+        assert_eq!(
+            evaluate_claim_support(&packet, NOW).unwrap(),
+            ClaimSupportDispositionV1::HumanReviewRequired
+        );
+    }
+
+    #[test]
+    fn one_confirmed_contradiction_blocks_other_positive_sources() {
+        let mut packet = packet();
+        let mut second_source = packet.sources[0].clone();
+        second_source.source_id = "contradictory-measurement".to_owned();
+        second_source.source_digest = [31; 32];
+        second_source.excerpt_digest = [32; 32];
+        second_source.locator_digest = [33; 32];
+        second_source.source_revision = 1;
+        packet.sources.push(second_source.clone());
+        let mut contradiction = packet.assessments[0].clone();
+        contradiction.assessment_id = "assessment-contradiction".to_owned();
+        contradiction.source_id = second_source.source_id;
+        contradiction.source_revision = second_source.source_revision;
+        contradiction.source_digest = second_source.source_digest;
+        contradiction.excerpt_digest = second_source.excerpt_digest;
+        contradiction.locator_digest = second_source.locator_digest;
+        contradiction.relation = SupportRelationV1::Contradiction;
+        contradiction.assessment_digest = [34; 32];
+        packet.assessments.push(contradiction);
+        let mut contradiction_review = review(ReviewDecisionV1::ConfirmContradiction);
+        contradiction_review.review_id = "review-contradiction".to_owned();
+        contradiction_review.assessment_id = "assessment-contradiction".to_owned();
+        contradiction_review.assessment_digest = [34; 32];
+        contradiction_review.reviewer_id = "independent-source-owner".to_owned();
+        contradiction_review.role = ReviewerRoleV1::SourceAuthority;
+        packet.claim.required_reviewer_roles.push(ReviewerRoleV1::SourceAuthority);
+        packet.reviews.push(contradiction_review);
+        packet.reviews.push(review(ReviewDecisionV1::ConfirmDirectSupport));
+        assert_eq!(
+            evaluate_claim_support(&packet, NOW).unwrap(),
+            ClaimSupportDispositionV1::BlockedByContradiction
+        );
     }
 
     #[test]
