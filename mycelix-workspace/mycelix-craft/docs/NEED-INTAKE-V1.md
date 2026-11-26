@@ -86,7 +86,11 @@ Any change to outcomes, capability classes, safety flags, sources, assumptions, 
 - Resource owners control inventory, bookings, custody and release.
 - Finance, issuers and payment providers control economic effects.
 
-A `RatifiedNeedEnvelopeV1` is the only downstream handoff emitted by this crate. It binds the need ID, exact proposal digest/revision, locally selected alternative, ratification decision ID/digest, authority reference and ratification time. The host must authenticate that reference and explicitly convert the envelope into Project Formation V1; the envelope is not itself a work order, construction permit, professional licence, budget approval, resource reservation, payment instruction or safety authorization.
+A `RatifiedNeedEnvelopeV1` is the only downstream handoff emitted by this crate. It binds the need ID, community ID, project jurisdiction, exact proposal digest/revision, locally selected alternative, ratification decision ID/digest, authority reference and ratification time.
+
+The proposal schema deliberately carries the fields Project Formation V1 requires: outcome measurement reference and acceptance policy; package scope digest; capability vocabulary/concept/revision/digest; work-context digest; jurisdiction; assessment-policy ID/revision/digest; minimum distinct contributors; and maximum status age. A host adapter must map these fields explicitly and preserve all digests. It must not substitute the proposal digest for Project Formation's participant-acceptance `terms_digest`: participant terms are a separate exact agreement that the participants must consent to after project definition. The host also supplies project ID, title, project authority and other operational metadata from their actual owner systems.
+
+The host must authenticate the ratification reference and explicitly convert the envelope into Project Formation V1; the envelope is not itself a work order, construction permit, professional licence, budget approval, resource reservation, payment instruction or safety authorization.
 
 ## 7. Integration with existing practice
 
