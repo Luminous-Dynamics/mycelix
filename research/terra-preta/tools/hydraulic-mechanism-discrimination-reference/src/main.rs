@@ -724,17 +724,10 @@ fn next_candidate_after_observation(
     first_candidate_index: usize,
     observation: f64,
 ) -> Result<(Option<usize>, f64, Vec<f64>, bool), String> {
-    let posterior = posterior_from_prior(
-        fixture,
-        prior,
-        &[first_candidate_index],
-        &[observation],
-    );
-    let discrepancy_abstained = should_abstain_closed_set(
-        fixture,
-        &[first_candidate_index],
-        &[observation],
-    )?;
+    let posterior =
+        posterior_from_prior(fixture, prior, &[first_candidate_index], &[observation]);
+    let discrepancy_abstained =
+        should_abstain_closed_set(fixture, &[first_candidate_index], &[observation])?;
     if discrepancy_abstained {
         return Ok((
             None,
@@ -779,12 +772,7 @@ fn evaluate_first_candidate(
                 first_candidate.expected_observable_by_mechanism[true_mechanism_index]
                     + first_candidate.noise_std * node;
             let (next_candidate, conditional_terminal_loss, posterior, discrepancy_abstained) =
-                next_candidate_after_observation(
-                    fixture,
-                    &prior,
-                    first_candidate_index,
-                    observation,
-                )?;
+                next_candidate_after_observation(fixture, &prior, first_candidate_index, observation)?;
             let joint_probability_mass = mechanism.prior_probability * quadrature_weight;
             expected_terminal_decision_loss += joint_probability_mass * conditional_terminal_loss;
 
