@@ -817,7 +817,6 @@ mod tests {
         version: u64,
         lifecycle: ArtifactLifecycle,
         verification: ArtifactVerification,
-        operation: ArtifactOperationState,
     ) -> WorkflowArtifact {
         WorkflowArtifact {
             artifact_id: id.into(),
@@ -830,7 +829,7 @@ mod tests {
             verification,
             verification_receipt_digest: (verification == ArtifactVerification::Verified)
                 .then(|| digest('b')),
-            operation_state: operation,
+            operation_state: ArtifactOperationState::NotOperation,
         }
     }
 
@@ -1084,11 +1083,11 @@ mod tests {
 
     #[test]
     fn completed_side_effect_cannot_be_represented_as_pending() {
-        let bad = artifact(
+        let mut bad = artifact(
             "bad-artifact", "producer-a", "report", '6', 2,
             ArtifactLifecycle::Current, ArtifactVerification::Verified,
-            ArtifactOperationState::Completed,
         );
+        bad.operation_state = ArtifactOperationState::Completed;
         let pair = valid_pair(
             BoundaryPollutionOperator::CompletedAsPending,
             bad,
