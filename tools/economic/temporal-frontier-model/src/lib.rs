@@ -323,17 +323,29 @@ impl VerifierFrontierV1 {
             return Ok(ReceiptVisibilityV1::Indeterminate);
         };
         if witness.owner_root_digest != owner_cut.root_digest
-            || witness.receipt_leaf_digest != receipt.receipt_digest
-            || witness.leaf_index >= witness.tree_size
+            || witness.tree_size != owner_cut.sequence
+            || witness.leaf_index.checked_add(1) != Some(receipt.owner_sequence)
         {
             return Ok(ReceiptVisibilityV1::Indeterminate);
         }
-        Ok(ReceiptVisibilityV1::DeclaredIncluded)
+
+        let owner_root = parse_digest(&owner_cut.root_digest)?;
+        let entry = canonical_knowledge_receipt_entry_v1(receipt)?;
+        verify_entry_inclusion_proof(
+            &entry,
+            witness.leaf_index,
+            witness.tree_size,
+            &witness.inclusion_path,
+            &owner_root,
+        )
+        .map_err(|_| FrontierModelErrorV1::InvalidReceiptProof)?;
+        Ok(ReceiptVisibilityV1::MerkleInclusionVerified)
     }
 
     /// Compare two verifier frontiers over the same policy epoch and owner
-    /// domain. A changed owner root needs an explicit consistency-link
-    /// declaration. Link shape is checked; proof bytes are NOT verified.
+    /// domain. A changed owner root needs an RFC 9162 append-only consistency
+    /// proof. Proofs establish relations between supplied roots; callers must
+    /// still authenticate the tree heads and verifier identity.
     pub fn compare(
         &self,
         other: &Self,
@@ -363,19 +375,25 @@ impl VerifierFrontierV1 {
             return Ok(FrontierRelationV1::Unknown);
         }
 
-        let mut consistency_index = BTreeSet::new();
+        let mut consistency_index = BTreeMap::new();
         for link in consistency_links {
             validate_id(&link.owner_ref)?;
             validate_id(&link.history_ref)?;
             validate_digest(&link.ancestor_root_digest)?;
             validate_digest(&link.descendant_root_digest)?;
             validate_id(&link.consistency_proof_ref)?;
-            consistency_index.insert((
-                link.owner_ref.as_str(),
-                link.history_ref.as_str(),
-                link.ancestor_root_digest.as_str(),
-                link.descendant_root_digest.as_str(),
-            ));
+            if link.consistency_path.len() > MAX_PROOF_NODES {
+                return Err(FrontierModelErrorV1::InvalidConsistencyProof);
+            }
+            consistency_index.insert(
+                (
+                    link.owner_ref.as_str(),
+                    link.history_ref.as_str(),
+                    link.ancestor_root_digest.as_str(),
+                    link.descendant_root_digest.as_str(),
+                ),
+                link,
+            );
         }
 
         let mut before = false;
@@ -403,13 +421,30 @@ impl VerifierFrontierV1 {
             } else {
                 (right_cut, left_cut, FrontierRelationV1::After)
             };
-            let link_exists = consistency_index.contains(&(
+            let Some(link) = consistency_index.get(&(
                 *owner_ref,
                 ancestor.history_ref.as_str(),
                 ancestor.root_digest.as_str(),
                 descendant.root_digest.as_str(),
-            ));
-            if !link_exists {
+            )) else {
+                return Ok(FrontierRelationV1::Unknown);
+            };
+            if link.first_tree_size != ancestor.sequence
+                || link.second_tree_size != descendant.sequence
+            {
+                return Ok(FrontierRelationV1::Unknown);
+            }
+            let ancestor_root = parse_digest(&ancestor.root_digest)?;
+            let descendant_root = parse_digest(&descendant.root_digest)?;
+            if verify_consistency_proof(
+                link.first_tree_size,
+                &ancestor_root,
+                link.second_tree_size,
+                &descendant_root,
+                &link.consistency_path,
+            )
+            .is_err()
+            {
                 return Ok(FrontierRelationV1::Unknown);
             }
             match direction {
