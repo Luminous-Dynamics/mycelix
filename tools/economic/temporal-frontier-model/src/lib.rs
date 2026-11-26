@@ -16,8 +16,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use mycelix_rfc9162_proof_verifier::{
-    Hash32, empty_tree_hash, sha256, verify_consistency_proof,
-    verify_entry_inclusion_proof,
+    Hash32, empty_tree_hash, sha256, verify_consistency_proof, verify_entry_inclusion_proof,
 };
 
 const MAX_ID_BYTES: usize = 1_024;
@@ -1219,8 +1218,7 @@ mod tests {
         let mut left_cut = cut("owner:a", 10, 'a');
         left_cut.gaps.push(SequenceRangeV1 { first: 3, last: 3 });
         left_cut.tree_size = 9;
-        let gapped_entries =
-            owner_log_entries("owner:a", left_cut.sequence, &left_cut.gaps);
+        let gapped_entries = owner_log_entries("owner:a", left_cut.sequence, &left_cut.gaps);
         left_cut.root_digest =
             format!("sha256:{}", hex_lower(&tree_hash(&gapped_entries).unwrap()));
         left_cut.checkpoint_inclusion.owner_root_digest = left_cut.root_digest.clone();
