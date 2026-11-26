@@ -281,7 +281,7 @@ pub fn verify_consistency_proof(
         .ok_or(MerkleProofErrorV1::EmptyConsistencyProof)?;
 
     let (mut first_calculated, mut second_calculated) = if is_power_of_two(first_tree_size) {
-        ( *first_root, *first_root )
+        (*first_root, *first_root)
     } else {
         (*first_node, *first_node)
     };
