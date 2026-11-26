@@ -260,6 +260,8 @@ pub struct CapabilityEvidenceRefV1 {
     pub disposition: EvidenceDispositionV1,
     /// Time when the host last checked issuer and revocation/status sources.
     pub status_checked_at: u64,
+    /// Digest of the exact status-list or issuer-status snapshot used by the host.
+    pub status_snapshot_digest: [u8; 32],
     /// Inclusive validity start timestamp (Unix seconds).
     pub valid_from: u64,
     /// Exclusive expiry timestamp, if bounded.
@@ -275,6 +277,7 @@ impl CapabilityEvidenceRefV1 {
         require_digest(&self.context_digest)?;
         require_non_empty(&self.jurisdiction_id)?;
         self.assessment_policy.validate()?;
+        require_digest(&self.status_snapshot_digest)?;
         if let Some(valid_until) = self.valid_until {
             if valid_until <= self.valid_from {
                 return Err(ProjectFormationErrorV1::InvalidEvidenceValidity);
@@ -820,6 +823,7 @@ mod tests {
             assessment_policy: policy(),
             disposition,
             status_checked_at: 8,
+            status_snapshot_digest: [12; 32],
             valid_from: 1,
             valid_until: Some(100),
         }
@@ -1086,6 +1090,19 @@ mod tests {
         assert_eq!(
             evaluate_team(&project, &proposal, NOW),
             Err(ProjectFormationErrorV1::DuplicateRequirementAssignment)
+        );
+    }
+
+    #[test]
+    fn evidence_requires_a_pinned_status_snapshot_digest() {
+        let project = project(RequirementKindV1::Required, 1);
+        let mut item = evidence("alice", EvidenceDispositionV1::Qualified);
+        item.status_snapshot_digest = [0; 32];
+        let proposal = proposal(vec![member("alice")], vec![assignment("alice", vec![item])]);
+
+        assert_eq!(
+            evaluate_team(&project, &proposal, NOW),
+            Err(ProjectFormationErrorV1::MissingDigest)
         );
     }
 
