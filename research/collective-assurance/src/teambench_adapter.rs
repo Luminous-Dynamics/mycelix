@@ -822,20 +822,20 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
                     report.resource_usage_missing_or_invalid_count += 1;
                 }
             }
-            if task.state == TeamBenchTaskState::Evaluated {
-                if let Some(score) = task.native_score_micros.filter(|score| *score <= 1_000_000) {
-                    let totals = score_totals.entry(run.condition).or_default();
-                    totals.0 += u64::from(score);
-                    totals.1 += 1;
-                    if task_scores
-                        .insert((task.task_id.clone(), run.condition), score)
-                        .is_some()
-                    {
-                        report.qualification.fail(format!(
-                            "task {} has duplicate score for condition {:?}",
-                            task.task_id, run.condition
-                        ));
-                    }
+            if task.state == TeamBenchTaskState::Evaluated
+                && let Some(score) = task.native_score_micros.filter(|score| *score <= 1_000_000)
+            {
+                let totals = score_totals.entry(run.condition).or_default();
+                totals.0 += u64::from(score);
+                totals.1 += 1;
+                if task_scores
+                    .insert((task.task_id.clone(), run.condition), score)
+                    .is_some()
+                {
+                    report.qualification.fail(format!(
+                        "task {} has duplicate score for condition {:?}",
+                        task.task_id, run.condition
+                    ));
                 }
             }
         }
@@ -951,20 +951,23 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
 
             // Match harness/compute_tni.py: omit TNI when |gap| < .05,
             // clamp each task to [-2, 2], and aggregate only positive gaps.
-            if gap.unsigned_abs() >= 50_000 {
-                let raw = uplift.saturating_mul(1_000_000) / gap;
-                let clamped = raw.clamp(-2_000_000, 2_000_000);
-                if gap > 50_000 {
-                    tni_values.push(clamped);
-                }
+            // Only a positive oracle/restricted baseline gap above .05
+            // contributes to the upstream aggregate. checked_div keeps the
+            // arithmetic safe if a future threshold change reopens zero.
+            if gap > 50_000 {
+                let raw = uplift
+                    .saturating_mul(1_000_000)
+                    .checked_div(gap)
+                    .unwrap_or_default();
+                tni_values.push(raw.clamp(-2_000_000, 2_000_000));
             }
 
             // Match upstream's collaboration-efficiency zero rule.
-            let efficiency = if oracle < 10_000 {
-                0
-            } else {
-                uplift.saturating_mul(1_000_000) / oracle
-            };
+            let efficiency = uplift
+                .saturating_mul(1_000_000)
+                .checked_div(oracle)
+                .filter(|_| oracle >= 10_000)
+                .unwrap_or_default();
             efficiencies.push(efficiency);
 
             // Match upstream NaN convention: omit only where both values are zero.
