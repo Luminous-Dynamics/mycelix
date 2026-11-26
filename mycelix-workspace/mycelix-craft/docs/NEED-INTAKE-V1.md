@@ -39,7 +39,8 @@ A proposal contains:
 - outcomes with indicator, baseline, target, time horizon, outcome owner and acceptance-authority reference;
 - capability requirements classified as SafetyCritical, Required, Developmental or Preferred;
 - work packages, outcome links, requirement links and dependency edges;
-- explicit contradictions and any resolution decision references;
+- multiple candidate decompositions with explicit trade-offs, without an AI-selected winner;
+- explicit contradictions with separately attributed stakeholder positions and any resolution decision references;
 - open questions, including which ones block ratification;
 - safety review requirement;
 - review records bound to the exact proposal digest.
@@ -47,6 +48,10 @@ A proposal contains:
 The contract validates reference integrity, requires every outcome and requirement to be assigned to a work package, requires a safety-review flag whenever a SafetyCritical requirement exists, and rejects cyclic work-package dependencies. It does not interpret natural language or verify that a source actually supports the statement. That semantic check belongs in the reviewed retrieval/assessment process and its benchmark.
 
 ## 4. Review and ratification state machine
+
+Where materially different viable approaches exist, the proposal records more than one decomposition, its outcome/requirement/work-package mapping and its costs, benefits and dependencies. The local ratifier's referenced decision record identifies which alternative was actually adopted; the model does not select it.
+
+Stakeholder-priority contradictions retain at least two attributed group positions, each linked to source/assumption/inference references. They cannot be ratified as an invented aggregate consensus.
 
 Prerequisite review roles are distinct:
 
