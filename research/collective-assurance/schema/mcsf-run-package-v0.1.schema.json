@@ -91,7 +91,9 @@
         "per_task_wall_clock_budget_ms",
         "per_task_compute_budget_millijoules",
         "expected_task_ids",
-        "expected_architectures"
+        "expected_architectures",
+        "source_corpus_tokens",
+        "source_memory_record_count"
       ],
       "properties": {
         "suite_id": {
@@ -163,6 +165,14 @@
           "items": {
             "$ref": "#/$defs/architecture"
           }
+        },
+        "source_corpus_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source_memory_record_count": {
+          "type": "integer",
+          "minimum": 1
         }
       }
     },
@@ -327,7 +337,10 @@
         "decision_influential_count",
         "causal_evidence_digest",
         "resource_usage",
-        "evidence_digest"
+        "evidence_digest",
+        "stale_memory_uses",
+        "revoked_memory_uses",
+        "supersession_conflicts"
       ],
       "properties": {
         "task_id": {
@@ -426,6 +439,18 @@
         },
         "evidence_digest": {
           "$ref": "#/$defs/sha256"
+        },
+        "stale_memory_uses": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "revoked_memory_uses": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "supersession_conflicts": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
