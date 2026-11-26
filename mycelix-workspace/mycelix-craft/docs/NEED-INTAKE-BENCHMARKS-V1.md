@@ -143,8 +143,11 @@ Use task-specific model selection, calibrated review routing and deterministic p
 
 - **W3C PROV-DM** already standardizes the general concepts of source entities, activities, agents, derivations and provenance bundles. Craft should map to PROV rather than invent a universal provenance model.
 - **NIST AI RMF** already frames trustworthiness around validity/reliability, safety, security/resilience, accountability/transparency, explainability, privacy and fairness. Need Intake should operationalize these in one proposal workflow, not claim to replace AI governance.
-- **Requirements-engineering platforms and issue trackers** already support intake forms, structured requirement records, traceability, change history, workflows and human approvals. Craft should be compared with the organization's configured process, not just a blank prompt.
-- **LLM/RAG products** already summarize source corpora and propose structured requirements. The distinction to test is whether each claim's source, assertion type, uncertainty, contradiction and exact approval state is preserved all the way to local ratification.
+- **Jama Connect** documents AI-assisted requirements authoring, templates, electronic reviews/approvals, version control, compliance workflows, end-to-end traceability and live change impact. Its 9.41.x release notes (2 November 2026) describe sequential approval reviews, review checklists, baseline creation at review finalization, live compliance and permission controls. This is a mature engineering lifecycle baseline, not a strawman.
+- **IBM Engineering Requirements Management DOORS Next** supports requirement reviews from baselines, participant approval/disapproval, revision, trace links to development/test artifacts, baseline comparisons and suspect-link/change-impact analysis. Use the configured DOORS workflow as a baseline where available.
+- **Decidim** already provides participatory spaces and proposal/debate/survey/meeting/budget/vote/accountability components, including staged processes from diagnosis and proposals through prioritization, decision and results monitoring.
+- **CONSUL DEMOCRACY** already provides citizen proposals, debates, voting polls, participatory budgeting and collaborative legislation. The EU Interoperable Europe catalogue described roughly 250 cities, regional governments and partners at its October 2026 entry.
+- **LLM/RAG products** already summarize source corpora and propose structured requirements. The distinction to test is whether each claim's source, assertion type, uncertainty, contradiction, stakeholder position, alternative trade-off and exact approval state is preserved across the handoff from participation to engineering and project formation.
 
 ## 10. Prospective community pilot
 
