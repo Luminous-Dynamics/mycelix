@@ -64,6 +64,7 @@ struct Fixture {
     acquisition_budget: u32,
     mechanisms: Vec<Mechanism>,
     heldout_observation_noise_std: f64,
+    closed_set_discrepancy_threshold_sd: f64,
     candidates: Vec<Candidate>,
 }
 
@@ -113,6 +114,8 @@ struct Report {
     candidate_count: usize,
     acquisition_budget: u32,
     prior_model_entropy_nats: f64,
+    closed_set_discrepancy_threshold_sd: f64,
+    closed_set_discrepancy_policy: String,
     model_discrimination_design: DesignScore,
     parameter_precision_design: DesignScore,
     predictive_design: DesignScore,
@@ -165,6 +168,11 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
         || fixture.heldout_observation_noise_std <= 0.0
     {
         return Err("held-out observation noise must be finite and positive".into());
+    }
+    if !fixture.closed_set_discrepancy_threshold_sd.is_finite()
+        || fixture.closed_set_discrepancy_threshold_sd <= 0.0
+    {
+        return Err("closed-set discrepancy threshold must be finite and positive".into());
     }
 
     let mut mechanism_ids = BTreeSet::new();
@@ -303,6 +311,56 @@ fn posterior_probabilities(
         .iter()
         .map(|value| (value - normalizer).exp())
         .collect()
+}
+
+fn minimum_best_fit_standardized_residual(
+    fixture: &Fixture,
+    selected: &[usize],
+    observations: &[f64],
+) -> Result<f64, String> {
+    if selected.is_empty() || selected.len() != observations.len() {
+        return Err("closed-set discrepancy check requires one observation per selected candidate".into());
+    }
+    if observations.iter().any(|value| !value.is_finite()) {
+        return Err("closed-set discrepancy observations must be finite".into());
+    }
+
+    // Find the candidate mechanism that best explains the full observed vector
+    // under the declared independent Gaussian sensor-noise model. The score is
+    // the smallest, over candidate mechanisms, of that mechanism's largest
+    // absolute standardized residual.
+    let minimum_score = fixture
+        .mechanisms
+        .iter()
+        .enumerate()
+        .map(|(mechanism_index, _)| {
+            selected
+                .iter()
+                .zip(observations.iter())
+                .map(|(candidate_index, observed)| {
+                    let candidate = &fixture.candidates[*candidate_index];
+                    ((observed
+                        - candidate.expected_observable_by_mechanism[mechanism_index])
+                        / candidate.noise_std)
+                        .abs()
+                })
+                .fold(0.0_f64, f64::max)
+        })
+        .fold(f64::INFINITY, f64::min);
+
+    if !minimum_score.is_finite() {
+        return Err("closed-set discrepancy score is non-finite".into());
+    }
+    Ok(minimum_score)
+}
+
+fn should_abstain_closed_set(
+    fixture: &Fixture,
+    selected: &[usize],
+    observations: &[f64],
+) -> Result<bool, String> {
+    Ok(minimum_best_fit_standardized_residual(fixture, selected, observations)?
+        > fixture.closed_set_discrepancy_threshold_sd)
 }
 
 fn posterior_predictive_mutual_information(fixture: &Fixture, posterior: &[f64]) -> f64 {
@@ -617,6 +675,8 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         candidate_count: fixture.candidates.len(),
         acquisition_budget: fixture.acquisition_budget,
         prior_model_entropy_nats: entropy(&prior),
+        closed_set_discrepancy_threshold_sd: fixture.closed_set_discrepancy_threshold_sd,
+        closed_set_discrepancy_policy: "Abstain rather than force a closed-set model selection when the smallest-over-models maximum absolute standardized residual exceeds the preregistered threshold. Assumes the declared independent Gaussian candidate-observation noise and is a discrepancy alarm, not a posterior probability that all models are false.".into(),
         uniform_cost_matched_baseline: uniform_cost_matched_baseline(&designs, &model_design)?,
         model_discrimination_design: model_design,
         parameter_precision_design: precision_design,
@@ -865,4 +925,46 @@ mod tests {
         f.acquisition_budget = 5;
         assert!(validate(&f).is_err());
     }
+    #[test]
+    fn closed_set_discrepancy_detector_accepts_in_family_and_abstains_out_of_family() {
+        let f = fixture();
+        let selected = [
+            f.candidates
+                .iter()
+                .position(|candidate| candidate.candidate_id == "early_transient_flow")
+                .unwrap(),
+            f.candidates
+                .iter()
+                .position(|candidate| candidate.candidate_id == "upper_path_flow")
+                .unwrap(),
+        ];
+        let in_family = [
+            f.candidates[selected[0]].expected_observable_by_mechanism[0]
+                + 0.5 * f.candidates[selected[0]].noise_std,
+            f.candidates[selected[1]].expected_observable_by_mechanism[0]
+                - 0.5 * f.candidates[selected[1]].noise_std,
+        ];
+        assert!(!should_abstain_closed_set(&f, &selected, &in_family).unwrap());
+
+        let out_of_family = [
+            f.candidates[selected[0]].expected_observable_by_mechanism[0]
+                + 10.0 * f.candidates[selected[0]].noise_std,
+            f.candidates[selected[1]].expected_observable_by_mechanism[0]
+                + 10.0 * f.candidates[selected[1]].noise_std,
+        ];
+        assert!(should_abstain_closed_set(&f, &selected, &out_of_family).unwrap());
+        assert!(
+            minimum_best_fit_standardized_residual(&f, &selected, &out_of_family).unwrap()
+                > f.closed_set_discrepancy_threshold_sd
+        );
+    }
+
+    #[test]
+    fn closed_set_discrepancy_detector_rejects_malformed_observation_vectors() {
+        let f = fixture();
+        assert!(minimum_best_fit_standardized_residual(&f, &[0, 1], &[2.0]).is_err());
+        assert!(minimum_best_fit_standardized_residual(&f, &[0], &[f64::NAN]).is_err());
+        assert!(minimum_best_fit_standardized_residual(&f, &[], &[]).is_err());
+    }
+
 }
