@@ -1,0 +1,31 @@
+name: SAFRB claim-fidelity reference
+
+on:
+  push:
+    branches:
+      - research/safrb-shared-pump-claim-fidelity-v0.1
+    paths:
+      - "research/safrb-shared-pump-v0.1/**"
+      - ".github/workflows/safrb-claim-fidelity-reference.yml"
+  pull_request:
+    paths:
+      - "research/safrb-shared-pump-v0.1/**"
+      - ".github/workflows/safrb-claim-fidelity-reference.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: safrb-claim-fidelity-reference-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  independent-claim-fidelity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v4
+      - name: Validate fixture JSON syntax
+        run: python3 -m json.tool research/safrb-shared-pump-v0.1/claim-fidelity-known-answer.json > /dev/null
+      - name: Run independent standard-library semantic checks
+        run: python3 research/safrb-shared-pump-v0.1/verify_claim_fidelity.py research/safrb-shared-pump-v0.1/claim-fidelity-known-answer.json
