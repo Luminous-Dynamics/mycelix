@@ -9,12 +9,17 @@ mod capability;
 mod coordination;
 mod aml_adapter;
 mod mcsf;
+mod mcsf_baselines;
 mod comparison;
 mod constraint_binding;
 mod ledger;
 mod response_audit;
 mod support_policy;
 
+pub use mcsf_baselines::{
+    Bm25Adapter, Bm25Config, McsfMemoryRecord, McsfRetrievalAdapter,
+    McsfRetrievalHit, NoMemoryAdapter,
+};
 pub use mcsf::{
     compute_mcsf_control_digest, qualify_mcsf_suite, McsfArchitecture,
     McsfArchitectureManifest, McsfArchitectureScorecard, McsfEvidenceReferences,
