@@ -10,6 +10,7 @@ mod comparison;
 mod constraint_binding;
 mod ledger;
 mod relational_evidence;
+mod relation_counterfactual;
 mod generation_exposure;
 mod response_audit;
 mod support_policy;
@@ -28,6 +29,12 @@ pub use generation_exposure::{
     BoundEvidenceUseDiagnostic, BoundEvidenceUseStatus, ExpectedGenerationExposure,
     ExposureQualificationReport, ExposureQualificationStatus, GenerationEvidenceEntry,
     GenerationInputExposureClaims,
+};
+pub use relation_counterfactual::{
+    compute_relation_graph_digest, qualify_relation_counterfactual, RecordedGateOutcome,
+    RelationCounterfactualReport, RelationCounterfactualStatus, RelationCounterfactualTrial,
+    RelationEdgeSnapshot, RelationIntervention, RelationInterventionOperation,
+    RelationReplayIdentity, RelationReplayOutcome, RelationReplayRun,
 };
 pub use relational_evidence::{
     bind_refined_evidence_constraints, diagnose_evidence_use_bottlenecks,
