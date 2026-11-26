@@ -32,6 +32,7 @@ pub enum SparseMerkleErrorV1 {
     IdentifierTooLong,
     TextTooLong,
     InvalidOwnerSequence,
+    InvalidDigest,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -126,7 +127,7 @@ pub fn assertion_index_value_v1(
     owner_ref: &str,
     owner_sequence: u64,
 ) -> Result<SparseValueV1, SparseMerkleErrorV1> {
-    validate_id(receipt_digest)?;
+    validate_sha256_digest(receipt_digest)?;
     validate_id(owner_ref)?;
     if owner_sequence == 0 {
         return Err(SparseMerkleErrorV1::InvalidOwnerSequence);
@@ -282,6 +283,30 @@ fn append_string(
         .map_err(|_| SparseMerkleErrorV1::IdentifierTooLong)?;
     output.extend_from_slice(&length.to_be_bytes());
     output.extend_from_slice(value.as_bytes());
+    Ok(())
+}
+
+fn hex_lower(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        output.push(HEX[(byte >> 4) as usize] as char);
+        output.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    output
+}
+
+fn validate_sha256_digest(value: &str) -> Result<(), SparseMerkleErrorV1> {
+    let Some(hex) = value.strip_prefix("sha256:") else {
+        return Err(SparseMerkleErrorV1::InvalidDigest);
+    };
+    if hex.len() != 64
+        || !hex
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(SparseMerkleErrorV1::InvalidDigest);
+    }
     Ok(())
 }
 
