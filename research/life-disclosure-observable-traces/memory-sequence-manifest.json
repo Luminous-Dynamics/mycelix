@@ -1,0 +1,417 @@
+{
+  "schema_version": "mycelix-memory-longitudinal-leakage-v0.1",
+  "experiment_id": "LIFE-MEMORY-METADATA-LEAKAGE-001",
+  "owner_issue": 6730,
+  "composed_generic_trace_owner": 5460,
+  "seed_panel": {
+    "kind": "fully_synthetic_paired_world_sequences",
+    "seed_count": 48,
+    "evaluation_rows": 192,
+    "dimensions": {
+      "memory_state_families": [
+        "existence",
+        "protected_value",
+        "update_supersession",
+        "deletion_tombstone",
+        "query_match_ranking",
+        "cache_index_lifecycle"
+      ],
+      "query_modes": [
+        "one_shot",
+        "repeated_adaptive"
+      ],
+      "principal_modes": [
+        "single_principal",
+        "colluding_principals"
+      ],
+      "disclosure_modes": [
+        "forbidden",
+        "authorised"
+      ],
+      "observer_profiles": [
+        "normalized_control",
+        "family_leak_positive_control"
+      ],
+      "trace_coverage": [
+        "complete",
+        "incomplete"
+      ]
+    },
+    "sequence_seeds": [
+      {
+        "sequence_id": 0,
+        "family": "existence",
+        "query_mode": "one_shot",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 1,
+        "family": "existence",
+        "query_mode": "one_shot",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 2,
+        "family": "existence",
+        "query_mode": "one_shot",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 3,
+        "family": "existence",
+        "query_mode": "one_shot",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 4,
+        "family": "existence",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 5,
+        "family": "existence",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 6,
+        "family": "existence",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 7,
+        "family": "existence",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 8,
+        "family": "protected_value",
+        "query_mode": "one_shot",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 9,
+        "family": "protected_value",
+        "query_mode": "one_shot",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 10,
+        "family": "protected_value",
+        "query_mode": "one_shot",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 11,
+        "family": "protected_value",
+        "query_mode": "one_shot",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 12,
+        "family": "protected_value",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 13,
+        "family": "protected_value",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 14,
+        "family": "protected_value",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 15,
+        "family": "protected_value",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 16,
+        "family": "update_supersession",
+        "query_mode": "one_shot",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 17,
+        "family": "update_supersession",
+        "query_mode": "one_shot",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 18,
+        "family": "update_supersession",
+        "query_mode": "one_shot",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 19,
+        "family": "update_supersession",
+        "query_mode": "one_shot",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 20,
+        "family": "update_supersession",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 21,
+        "family": "update_supersession",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 22,
+        "family": "update_supersession",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 23,
+        "family": "update_supersession",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 24,
+        "family": "deletion_tombstone",
+        "query_mode": "one_shot",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 25,
+        "family": "deletion_tombstone",
+        "query_mode": "one_shot",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 26,
+        "family": "deletion_tombstone",
+        "query_mode": "one_shot",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 27,
+        "family": "deletion_tombstone",
+        "query_mode": "one_shot",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 28,
+        "family": "deletion_tombstone",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 29,
+        "family": "deletion_tombstone",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 30,
+        "family": "deletion_tombstone",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 31,
+        "family": "deletion_tombstone",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 32,
+        "family": "query_match_ranking",
+        "query_mode": "one_shot",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 33,
+        "family": "query_match_ranking",
+        "query_mode": "one_shot",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 34,
+        "family": "query_match_ranking",
+        "query_mode": "one_shot",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 35,
+        "family": "query_match_ranking",
+        "query_mode": "one_shot",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 36,
+        "family": "query_match_ranking",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 37,
+        "family": "query_match_ranking",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 38,
+        "family": "query_match_ranking",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 39,
+        "family": "query_match_ranking",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 40,
+        "family": "cache_index_lifecycle",
+        "query_mode": "one_shot",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 41,
+        "family": "cache_index_lifecycle",
+        "query_mode": "one_shot",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 42,
+        "family": "cache_index_lifecycle",
+        "query_mode": "one_shot",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 43,
+        "family": "cache_index_lifecycle",
+        "query_mode": "one_shot",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 44,
+        "family": "cache_index_lifecycle",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 45,
+        "family": "cache_index_lifecycle",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "single_principal",
+        "disclosure_mode": "authorised"
+      },
+      {
+        "sequence_id": 46,
+        "family": "cache_index_lifecycle",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "forbidden"
+      },
+      {
+        "sequence_id": 47,
+        "family": "cache_index_lifecycle",
+        "query_mode": "repeated_adaptive",
+        "principal_mode": "colluding_principals",
+        "disclosure_mode": "authorised"
+      }
+    ]
+  },
+  "observer_required_fields": [
+    "task_result",
+    "response_class",
+    "response_shape",
+    "result_count",
+    "ranking_bucket",
+    "update_marker",
+    "tombstone_marker",
+    "cache_membership",
+    "query_sequence",
+    "principal_count",
+    "alice_family_signal",
+    "bob_family_signal"
+  ],
+  "family_signal_recipient": {
+    "existence": "alice",
+    "protected_value": "bob",
+    "update_supersession": "alice",
+    "deletion_tombstone": "bob",
+    "query_match_ranking": "alice",
+    "cache_index_lifecycle": "bob"
+  },
+  "observer_controls": {
+    "normalized_control": "No forbidden protected-state-dependent observer field may differ",
+    "family_leak_positive_control": "A planted forbidden signal is emitted only to the designated recipient principal",
+    "authorized_sensitivity": "A permitted disclosure must visibly differ across the protected value pair",
+    "incomplete_trace": "Missing required observer field yields INDETERMINATE"
+  },
+  "evaluation_policy": {
+    "attacker_train": "one-shot sequences",
+    "attacker_test": "repeated-adaptive sequences",
+    "adaptive_query_state": "derived only from prior observer-visible target-value observations",
+    "hidden_labels_exposed_to_candidate": false,
+    "hidden_labels_exposed_to_attacker": false,
+    "collusion": "union only individually visible transcripts",
+    "timing": "not measured; no synthetic latency claims"
+  },
+  "claim_ceiling": "Synthetic memory-specific sequence evaluator composed with generic observer-view comparison; not a production privacy guarantee, differential privacy proof, network side-channel measurement, real-system benchmark result or SOTA claim."
+}
