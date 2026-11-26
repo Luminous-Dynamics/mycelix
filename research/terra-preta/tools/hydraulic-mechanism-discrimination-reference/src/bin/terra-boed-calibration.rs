@@ -698,17 +698,8 @@ fn score_world(
     let shifted_residual_detected = discrepancy_score(fixture, selected, &shifted_observations)
         > fixture.discrepancy_threshold_sd;
 
-    let scaled_observations: Vec<f64> = observations
-        .iter()
-        .map(|observation| observation * RESCALE_FACTOR)
-        .collect();
-    let scaled_posterior = posterior_update(
-        fixture,
-        &uniform_prior(fixture),
-        selected,
-        &scaled_observations,
-        RESCALE_FACTOR,
-    );
+    let scaled_posterior =
+        posterior_update(fixture, &uniform_prior(fixture), selected, observations, RESCALE_FACTOR);
     let rescale_error = posterior
         .iter()
         .zip(scaled_posterior.iter())
@@ -1183,16 +1174,8 @@ mod tests {
         let selected = [0, 1];
         let observations = [1.05, 1.9];
         let posterior = posterior_update(&fixture, &prior, &selected, &observations, 1.0);
-        let scaled = posterior_update(
-            &fixture,
-            &prior,
-            &selected,
-            &[
-                observations[0] * RESCALE_FACTOR,
-                observations[1] * RESCALE_FACTOR,
-            ],
-            RESCALE_FACTOR,
-        );
+        let scaled =
+            posterior_update(&fixture, &prior, &selected, &observations, RESCALE_FACTOR);
         assert!((posterior.iter().sum::<f64>() - 1.0).abs() < 1.0e-12);
         assert!(
             posterior
