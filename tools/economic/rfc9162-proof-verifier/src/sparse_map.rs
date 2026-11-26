@@ -308,6 +308,94 @@ mod tests {
     }
 
     #[test]
+    fn sparse_map_matches_shared_known_answer_root_and_non_membership_path() {
+        let mut tree = SparseMerkleTreeV1::new();
+        for (key_byte, value_byte) in [(0x00, 0xA1), (0x80, 0xA2), (0xFF, 0xA3)] {
+            tree.insert(key(key_byte), digest(value_byte)).unwrap();
+        }
+        let root = tree.root_hash();
+        assert_eq!(
+            hex_lower(&root),
+            "620327be5115079f7497e7db9e3b9625ee5cebbe219368f6d5fb5b8960cbf738"
+        );
+
+        let mut absent = key(0);
+        absent[0] = 0x40;
+        let proof = tree.prove(absent);
+        assert_eq!(proof.siblings_leaf_to_root.len(), SPARSE_MERKLE_DEPTH_V1);
+        assert_eq!(
+            proof.siblings_leaf_to_root.len() * 32,
+            8_192,
+            "uncompressed 256-level proof must contain 8192 bytes"
+        );
+        let mut proof_bytes = Vec::with_capacity(8_192);
+        for sibling in &proof.siblings_leaf_to_root {
+            proof_bytes.extend_from_slice(sibling);
+        }
+        assert_eq!(
+            hex_lower(&Sha256::digest(&proof_bytes)),
+            "25f12e72f2826b31bb2ddf311915d4a1908584f0ea73a29ed7cb43c573d84615"
+        );
+        assert_eq!(
+            verify_sparse_non_membership_v1(&absent, &proof, &root),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn sparse_empty_root_matches_shared_known_answer() {
+        let tree = SparseMerkleTreeV1::new();
+        assert_eq!(
+            hex_lower(&tree.root_hash()),
+            "3560e65cef251798180c1825f031af9a0455589e9590b1f5fc31af1195898911"
+        );
+        let absent = key(0x81);
+        assert_eq!(
+            verify_sparse_non_membership_v1(&absent, &tree.prove(absent), &tree.root_hash()),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn exhaustive_bounded_sparse_maps_verify_present_and_absent_keys() {
+        for count in 0..=64_usize {
+            let mut tree = SparseMerkleTreeV1::new();
+            for index in 0..count {
+                let mut key = [0_u8; 32];
+                key[0] = (index >> 8) as u8;
+                key[1] = index as u8;
+                tree.insert(key, digest((index + 1) as u8)).unwrap();
+            }
+            let root = tree.root_hash();
+            for index in 0..count {
+                let mut key = [0_u8; 32];
+                key[0] = (index >> 8) as u8;
+                key[1] = index as u8;
+                assert_eq!(
+                    verify_sparse_membership_v1(
+                        &key,
+                        &digest((index + 1) as u8),
+                        &tree.prove(key),
+                        &root,
+                    ),
+                    Ok(()),
+                    "count={count}, present={index}"
+                );
+            }
+            for index in 128..136 {
+                let mut key = [0_u8; 32];
+                key[0] = (index >> 8) as u8;
+                key[1] = index as u8;
+                assert_eq!(
+                    verify_sparse_non_membership_v1(&key, &tree.prove(key), &root),
+                    Ok(()),
+                    "count={count}, absent={index}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn empty_sparse_tree_supports_non_membership() {
         let tree = SparseMerkleTreeV1::new();
         let root = tree.root_hash();
