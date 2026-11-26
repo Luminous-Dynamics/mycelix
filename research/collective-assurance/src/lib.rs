@@ -18,7 +18,8 @@ pub use teambench_adapter::{
     qualify_teambench_suite, TeamBenchBoundaryObservation, TeamBenchCondition,
     TeamBenchConditionRun, TeamBenchExecutionBackend, TeamBenchExcludedTask, TeamBenchGraderDisposition,
     TeamBenchQualificationReport, TeamBenchRole, TeamBenchRoleBoundaryEvent,
-    TeamBenchRunMode, TeamBenchSuite, TeamBenchTaskObservation, TeamBenchTaskState,
+    TeamBenchResourceTotals, TeamBenchResourceUsage, TeamBenchRunMode, TeamBenchSuite,
+    TeamBenchTaskObservation, TeamBenchTaskState,
     TeamBenchVerifierDisposition,
 };
 pub use coordination::{
