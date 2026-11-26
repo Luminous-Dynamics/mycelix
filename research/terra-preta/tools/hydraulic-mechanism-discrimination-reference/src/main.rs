@@ -801,4 +801,61 @@ mod tests {
         assert!(first_moment.abs() < 1.0e-12);
         assert!((second_moment - 1.0).abs() < 1.0e-12);
     }
+    #[test]
+    fn observation_unit_rescaling_preserves_information_and_design_rankings() {
+        let mut scaled_fixture = fixture();
+        let original = analyze(&scaled_fixture, "f".repeat(64)).unwrap();
+        let unit_scale = 1.0e6;
+
+        for candidate in &mut scaled_fixture.candidates {
+            candidate.noise_std *= unit_scale;
+            for value in &mut candidate.expected_observable_by_mechanism {
+                *value *= unit_scale;
+            }
+            for derivative in &mut candidate.d_observable_d_log_total_conductance {
+                *derivative *= unit_scale;
+            }
+        }
+        scaled_fixture.heldout_observation_noise_std *= unit_scale;
+        for mechanism in &mut scaled_fixture.mechanisms {
+            mechanism.heldout_late_transient_flow *= unit_scale;
+        }
+
+        let scaled = analyze(&scaled_fixture, "f".repeat(64)).unwrap();
+        assert_eq!(
+            original.model_discrimination_design.candidate_ids,
+            scaled.model_discrimination_design.candidate_ids
+        );
+        assert_eq!(
+            original.parameter_precision_design.candidate_ids,
+            scaled.parameter_precision_design.candidate_ids
+        );
+        assert_eq!(
+            original.predictive_design.candidate_ids,
+            scaled.predictive_design.candidate_ids
+        );
+        assert!(
+            (original.model_discrimination_design.expected_model_information_gain_nats
+                - scaled.model_discrimination_design.expected_model_information_gain_nats)
+                .abs()
+                < 1.0e-12
+        );
+        assert!(
+            (original.parameter_precision_design.worst_case_log_conductance_fisher_information
+                - scaled.parameter_precision_design.worst_case_log_conductance_fisher_information)
+                .abs()
+                < 1.0e-9
+        );
+    }
+
+    #[test]
+    fn overlarge_feasible_portfolio_is_rejected_before_quadrature() {
+        let mut f = fixture();
+        let mut fifth_candidate = f.candidates[0].clone();
+        fifth_candidate.candidate_id = "extra_bulk_replicate".into();
+        f.candidates.push(fifth_candidate);
+        f.acquisition_budget = 5;
+        assert!(validate(&f).is_err());
+    }
+
 }
