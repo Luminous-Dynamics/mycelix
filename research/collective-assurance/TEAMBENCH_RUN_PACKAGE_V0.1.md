@@ -4,7 +4,7 @@
 
 ## Upstream authority
 
-Use the official upstream source at https://github.com/ybkim95/TeamBench and its MIT license. Pin the exact upstream commit, data/task manifest and native grader. The public protocol exposes five ablation conditions: Solo, Restricted, Full, No Plan and No Eval. Preserve upstream identifiers and semantics; do not create an unrecorded condition alias.
+Use the official upstream source at https://github.com/ybkim95/TeamBench and its MIT license. Pin the exact upstream commit, data/task manifest and native grader. The exact upstream CLI condition IDs are `oracle`, `restricted`, `team_no_verify`, `team_no_plan` and `full`. Their role topology is not interchangeable: Oracle is one agent with full spec/workspace/exec/write access; Restricted is one executor-only agent with brief/workspace/exec/write access; Team-NoVerify is Planner+Executor with no Verifier (the harness writes a stub attestation); Team-NoPlan is Executor+Verifier without a Planner; Full is Planner+Executor+Verifier with remediation. Preserve these exact identifiers and semantics.
 
 The official upstream project documents a deterministic mock-provider smoke path. Run it before using model/API credentials. A mock run can prove only that the harness and ingestion path work; it is never eligible for a model-performance score.
 
@@ -18,13 +18,13 @@ The suite manifest binds:
 - explicit per-task time, token and compute budgets;
 - exactly one run for each of the five official conditions.
 
-Each condition run records its system and role-profile digests, run identity, agent count, verifier presence, completeness of role-boundary observation inventory and raw-result manifest digest. Each task row binds raw output bytes and native-grader output bytes by digest, task state, native disposition, optional verifier disposition and role-boundary observations.
+Each condition run records its system and role-profile digests, run identity, agent count, exact role inventory, completeness of role-boundary observation inventory and raw-result manifest digest. The validator checks the role inventory against the upstream condition definition; verifier presence is derived from that inventory rather than trusted as a separate boolean. Each task row binds raw output bytes and native-grader output bytes by digest, native pass/fail disposition, the native partial score in fixed-point millionths, optional verifier disposition and role-boundary observations. The native partial score is retained for score/TNI analysis rather than discarded after thresholding.
 
-Task inventories must match exactly across conditions. Missing rows are INDETERMINATE, not silently dropped; extra, duplicate or excluded task IDs are FAIL. Re-curated/excluded items remain explicit and cannot disappear from the denominator unnoticed.
+Task inventories must match exactly across conditions. The official TeamBench-90 task manifest contains 90 IDs; the upstream README currently marks `GH120_redis-py_3863` as under re-curation, so the other 89 are currently fully evaluable. Record the 90-task official manifest plus a per-task exclusion record; do not silently replace the official denominator with an unversioned 89-task local split. Missing rows are INDETERMINATE, not silently dropped; extra, duplicate or excluded task IDs are FAIL.
 
 ## Verifier audit
 
-False acceptance is counted when the verifier accepts a submission that the native deterministic grader marks Fail. Its denominator is all known grader-failing tasks in verifier-enabled conditions. False rejection is the reverse and uses all known grader-passing tasks in verifier-enabled conditions. Explicit NoVerdict, missing verdicts, unknown grader results and infrastructure failures are retained as separate counts/states.
+False acceptance is counted when the separate Verifier accepts a submission that the native deterministic grader marks Fail. Its denominator is all known grader-failing tasks in conditions that include the Verifier (`team_no_plan` and `full`). False rejection is the reverse and uses all known grader-passing tasks in those conditions. `team_no_verify` writes a stub attestation automatically; that is not a verifier judgement and must never enter false-accept statistics. Explicit NoVerdict, missing verdicts, unknown grader results and infrastructure failures are retained as separate counts/states.
 
 Role-boundary events bind the role, exact boundary ID, policy's expected allow/deny disposition, independently observed outcome and evidence digest. An observed allow on a deny boundary is a hard failure. An incomplete boundary inventory or unknown observation is INDETERMINATE. A blocked action that policy allowed is reported as a false denial rather than hidden inside the violation count.
 
