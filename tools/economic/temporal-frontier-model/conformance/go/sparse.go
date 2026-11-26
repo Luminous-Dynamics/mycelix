@@ -193,10 +193,10 @@ func AppendCanonicalString(dst *bytes.Buffer, value string) error {
 	return nil
 }
 
-func AssertionIndexKeyV1(verifier, policy, subject, claim, dimension string) (SparseKey, error) {
+func AssertionIndexKeyV1(verifier, policy, subject, claim, dimension, assertionRef string) (SparseKey, error) {
 	var buf bytes.Buffer
 	_, _ = buf.Write(sparseKeyDomain)
-	for _, part := range []string{verifier, policy, subject, claim, dimension} {
+	for _, part := range []string{verifier, policy, subject, claim, dimension, assertionRef} {
 		if err := AppendCanonicalString(&buf, part); err != nil {
 			return SparseKey{}, err
 		}
