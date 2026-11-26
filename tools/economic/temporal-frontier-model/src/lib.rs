@@ -769,12 +769,20 @@ mod tests {
         }
     }
 
-    fn frontier(id: &str, mut owner_cuts: Vec<OwnerCutV1>) -> VerifierFrontierV1 {
+    fn frontier(id: &str, owner_cuts: Vec<OwnerCutV1>) -> VerifierFrontierV1 {
+        frontier_with_policy_epoch(id, owner_cuts, "policy-epoch:1")
+    }
+
+    fn frontier_with_policy_epoch(
+        id: &str,
+        mut owner_cuts: Vec<OwnerCutV1>,
+        policy_epoch_ref: &str,
+    ) -> VerifierFrontierV1 {
         owner_cuts.sort_by(|left, right| left.owner_ref.cmp(&right.owner_ref));
         let entries: Vec<Vec<u8>> = owner_cuts
             .iter()
             .map(|cut| {
-                canonical_owner_cut_entry_v1(cut, VERIFIER, "policy-epoch:1").unwrap()
+                canonical_owner_cut_entry_v1(cut, VERIFIER, policy_epoch_ref).unwrap()
             })
             .collect();
         let checkpoint_root_digest =
@@ -792,7 +800,7 @@ mod tests {
         VerifierFrontierV1 {
             frontier_id: id.into(),
             verifier_ref: VERIFIER.into(),
-            policy_epoch_ref: "policy-epoch:1".into(),
+            policy_epoch_ref: policy_epoch_ref.into(),
             checkpoint_root_digest,
             parent_frontier_ids: Vec::new(),
             owner_cuts,
@@ -1097,8 +1105,9 @@ mod tests {
     fn receipt_cannot_be_replayed_across_policy_epochs() {
         let owner_cut = cut("owner:grants", 10, 'a');
         let mut candidate = receipt(5, "owner:grants");
-        let mut frontier = frontier("frontier:1", vec![owner_cut]);
-        frontier.policy_epoch_ref = "policy-epoch:2".into();
+        let frontier = frontier_with_policy_epoch(
+            "frontier:1", vec![owner_cut], "policy-epoch:2",
+        );
         assert_eq!(
             frontier.classify_receipt(&candidate),
             Err(FrontierModelErrorV1::PolicyEpochMismatch)
