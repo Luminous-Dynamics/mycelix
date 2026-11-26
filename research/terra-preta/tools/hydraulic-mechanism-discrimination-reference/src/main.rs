@@ -56,6 +56,14 @@ struct Candidate {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct DecisionAction {
+    action_id: String,
+    description: String,
+    loss_by_mechanism: Vec<f64>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Fixture {
     schema_version: String,
     fixture_status: String,
@@ -65,6 +73,7 @@ struct Fixture {
     mechanisms: Vec<Mechanism>,
     heldout_observation_noise_std: f64,
     closed_set_discrepancy_threshold_sd: f64,
+    decision_actions: Vec<DecisionAction>,
     candidates: Vec<Candidate>,
 }
 
@@ -84,6 +93,7 @@ struct DesignScore {
     expected_model_brier_score: f64,
     expected_model_log_loss_nats: f64,
     expected_predictive_information_gain_nats: f64,
+    expected_value_of_sample_information: f64,
     worst_case_log_conductance_fisher_information: f64,
     fisher_information_by_mechanism: Vec<FisherByMechanism>,
 }
@@ -129,6 +139,8 @@ struct Report {
     model_discrimination_design: DesignScore,
     parameter_precision_design: DesignScore,
     predictive_design: DesignScore,
+    decision_design: DesignScore,
+    prior_minimum_expected_decision_loss: f64,
     uniform_cost_matched_baseline: UniformCostMatchedBaseline,
     all_feasible_designs: Vec<DesignScore>,
     interpretation_boundary: String,
@@ -142,6 +154,9 @@ struct ExpectedMetrics {
     expected_brier_score: f64,
     expected_log_loss: f64,
     expected_predictive_information_gain: f64,
+    expected_value_of_sample_information: f64,
+    prior_minimum_expected_decision_loss: f64,
+    expected_posterior_minimum_expected_loss: f64,
 }
 
 #[derive(Clone, Debug)]
@@ -203,6 +218,24 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
     }
     if !prior_sum.is_finite() || (prior_sum - 1.0).abs() > PROBABILITY_TOLERANCE {
         return Err("mechanism prior probabilities must sum to one".into());
+    }
+
+    if fixture.decision_actions.len() < 2 {
+        return Err("at least two downstream decision actions are required to score EVSI".into());
+    }
+    let mut action_ids = BTreeSet::new();
+    for action in &fixture.decision_actions {
+        if action.action_id.trim().is_empty()
+            || action.description.trim().is_empty()
+            || !action_ids.insert(action.action_id.as_str())
+            || action.loss_by_mechanism.len() != fixture.mechanisms.len()
+            || action
+                .loss_by_mechanism
+                .iter()
+                .any(|loss| !loss.is_finite() || *loss < 0.0)
+        {
+            return Err("decision actions require unique IDs and one finite nonnegative loss per mechanism".into());
+        }
     }
 
     let mut candidate_ids = BTreeSet::new();
@@ -443,6 +476,21 @@ fn integrate_observation_grid<F>(
     }
 }
 
+fn minimum_expected_decision_loss(fixture: &Fixture, probabilities: &[f64]) -> f64 {
+    fixture
+        .decision_actions
+        .iter()
+        .map(|action| {
+            action
+                .loss_by_mechanism
+                .iter()
+                .zip(probabilities.iter())
+                .map(|(loss, probability)| loss * probability)
+                .sum::<f64>()
+        })
+        .fold(f64::INFINITY, f64::min)
+}
+
 fn expected_metrics(fixture: &Fixture, selected: &[usize]) -> ExpectedMetrics {
     let prior: Vec<f64> = fixture
         .mechanisms
@@ -450,6 +498,9 @@ fn expected_metrics(fixture: &Fixture, selected: &[usize]) -> ExpectedMetrics {
         .map(|mechanism| mechanism.prior_probability)
         .collect();
     let prior_entropy = entropy(&prior);
+    let prior_minimum_expected_decision_loss =
+        minimum_expected_decision_loss(fixture, &prior);
+    let mut expected_posterior_minimum_expected_loss = 0.0;
     let mut expected_posterior_entropy = 0.0;
     let mut expected_accuracy = 0.0;
     let mut expected_brier = 0.0;
@@ -464,6 +515,8 @@ fn expected_metrics(fixture: &Fixture, selected: &[usize]) -> ExpectedMetrics {
             let mass = prior_mass * quadrature_mass;
 
             expected_posterior_entropy += mass * entropy(&posterior);
+            expected_posterior_minimum_expected_loss +=
+                mass * minimum_expected_decision_loss(fixture, &posterior);
             let predicted_class = posterior
                 .iter()
                 .enumerate()
@@ -510,6 +563,11 @@ fn expected_metrics(fixture: &Fixture, selected: &[usize]) -> ExpectedMetrics {
             fixture, &prior,
         ) - expected_predictive_information)
             .max(0.0),
+        expected_value_of_sample_information: (prior_minimum_expected_decision_loss
+            - expected_posterior_minimum_expected_loss)
+            .max(0.0),
+        prior_minimum_expected_decision_loss,
+        expected_posterior_minimum_expected_loss,
     }
 }
 
@@ -568,6 +626,7 @@ fn evaluate_design(fixture: &Fixture, selected: Vec<usize>, cost: u32) -> Evalua
             expected_model_brier_score: metrics.expected_brier_score,
             expected_model_log_loss_nats: metrics.expected_log_loss,
             expected_predictive_information_gain_nats: metrics.expected_predictive_information_gain,
+            expected_value_of_sample_information: metrics.expected_value_of_sample_information,
             worst_case_log_conductance_fisher_information: worst_case_fisher,
             fisher_information_by_mechanism: fisher,
         },
@@ -673,12 +732,16 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
     let predictive_design = choose_design(&designs, |design| {
         design.summary.expected_predictive_information_gain_nats
     })?;
+    let decision_design = choose_design(&designs, |design| {
+        design.summary.expected_value_of_sample_information
+    })?;
     let prior: Vec<f64> = fixture
         .mechanisms
         .iter()
         .map(|mechanism| mechanism.prior_probability)
         .collect();
-
+    let prior_minimum_expected_decision_loss =
+        minimum_expected_decision_loss(fixture, &prior);
     // The CLI emits both sides of the discrepancy falsification control:
     // a mildly noisy observation generated by one declared mechanism and an
     // observation vector shifted ten sensor standard deviations away.
@@ -748,6 +811,8 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         model_discrimination_design: model_design,
         parameter_precision_design: precision_design,
         predictive_design,
+        decision_design,
+        prior_minimum_expected_decision_loss,
         all_feasible_designs: designs
             .into_iter()
             .map(|design| design.summary)
@@ -1033,4 +1098,41 @@ mod tests {
         assert!(minimum_best_fit_standardized_residual(&f, &[0], &[f64::NAN]).is_err());
         assert!(minimum_best_fit_standardized_residual(&f, &[], &[]).is_err());
     }
+    #[test]
+    fn decision_evsi_is_nonnegative_and_positive_for_informative_designs() {
+        let f = fixture();
+        let report = analyze(&f, "7".repeat(64)).unwrap();
+        assert!(
+            report.decision_design.expected_value_of_sample_information > 0.0
+        );
+        assert!(
+            report.decision_design.expected_value_of_sample_information
+                >= report
+                    .all_feasible_designs
+                    .iter()
+                    .map(|design| design.expected_value_of_sample_information)
+                    .fold(0.0_f64, f64::max)
+                - 1.0e-12
+        );
+        let no_measurements = report
+            .all_feasible_designs
+            .iter()
+            .find(|design| design.candidate_ids.is_empty())
+            .unwrap();
+        assert!(no_measurements.expected_value_of_sample_information.abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn identical_action_losses_have_zero_value_of_sample_information() {
+        let mut f = fixture();
+        let common_losses = vec![1.0, 3.0, 2.0];
+        for action in &mut f.decision_actions {
+            action.loss_by_mechanism = common_losses.clone();
+        }
+        let report = analyze(&f, "8".repeat(64)).unwrap();
+        for design in &report.all_feasible_designs {
+            assert!(design.expected_value_of_sample_information.abs() < 1.0e-12);
+        }
+    }
+
 }
