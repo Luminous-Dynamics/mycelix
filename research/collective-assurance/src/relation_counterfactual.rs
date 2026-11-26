@@ -7,6 +7,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use sha2::{Digest, Sha256};
+
 use crate::EvidenceRelationKind;
 
 fn nonempty(value: &str) -> bool {
@@ -25,6 +27,78 @@ fn unique_nonempty(values: &[String]) -> bool {
     values
         .iter()
         .all(|value| nonempty(value) && seen.insert(value.as_str()))
+}
+
+const RELATION_GRAPH_DOMAIN: &[u8] = b"MYCELIX-RELATION-GRAPH-V0.1\\0";
+
+fn push_len(out: &mut Vec<u8>, value: usize) {
+    out.extend_from_slice(&(value as u64).to_be_bytes());
+}
+
+fn push_str(out: &mut Vec<u8>, value: &str) {
+    push_len(out, value.len());
+    out.extend_from_slice(value.as_bytes());
+}
+
+fn relation_tag(value: EvidenceRelationKind) -> u8 {
+    match value {
+        EvidenceRelationKind::SameSubject => 1,
+        EvidenceRelationKind::SameEvent => 2,
+        EvidenceRelationKind::SameDecision => 3,
+        EvidenceRelationKind::Supports => 4,
+        EvidenceRelationKind::Contradicts => 5,
+        EvidenceRelationKind::Supersedes => 6,
+        EvidenceRelationKind::Updates => 7,
+        EvidenceRelationKind::RelatedContext => 8,
+    }
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    let mut output = String::with_capacity(64);
+    for byte in digest {
+        use std::fmt::Write;
+        let _ = write!(&mut output, "{byte:02x}");
+    }
+    output
+}
+
+fn symmetric_relation(value: EvidenceRelationKind) -> bool {
+    matches!(
+        value,
+        EvidenceRelationKind::SameSubject
+            | EvidenceRelationKind::SameEvent
+            | EvidenceRelationKind::SameDecision
+            | EvidenceRelationKind::Contradicts
+            | EvidenceRelationKind::RelatedContext
+    )
+}
+
+/// Computes a deterministic, domain-separated digest of an edge set sorted by edge ID.
+pub fn compute_relation_graph_digest(edges: &[RelationEdgeSnapshot]) -> Result<String, String> {
+    let mut sorted = edges.iter().collect::<Vec<_>>();
+    sorted.sort_by(|left, right| left.edge_id.cmp(&right.edge_id));
+    let mut seen = BTreeSet::new();
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(RELATION_GRAPH_DOMAIN);
+    push_len(&mut bytes, sorted.len());
+    for edge in sorted {
+        if !nonempty(&edge.edge_id)
+            || !nonempty(&edge.from_evidence_id)
+            || !nonempty(&edge.to_evidence_id)
+            || edge.from_evidence_id == edge.to_evidence_id
+            || !valid_digest(&edge.relation_receipt_digest)
+            || !seen.insert(edge.edge_id.as_str())
+        {
+            return Err("relation graph has invalid or duplicate edge identity".into());
+        }
+        push_str(&mut bytes, &edge.edge_id);
+        push_str(&mut bytes, &edge.from_evidence_id);
+        push_str(&mut bytes, &edge.to_evidence_id);
+        bytes.push(relation_tag(edge.relation));
+        push_str(&mut bytes, &edge.relation_receipt_digest);
+    }
+    Ok(sha256_hex(&bytes))
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -152,6 +226,10 @@ pub struct RelationCounterfactualReport {
     pub unauthorized_exposure_delta: Option<i128>,
     pub latency_delta_ms: Option<i128>,
     pub total_cost_delta_microusd: Option<i128>,
+    pub baseline_constraint_gate: Option<RecordedGateOutcome>,
+    pub counterfactual_constraint_gate: Option<RecordedGateOutcome>,
+    pub baseline_response_audit_gate: Option<RecordedGateOutcome>,
+    pub counterfactual_response_audit_gate: Option<RecordedGateOutcome>,
     pub reasons: Vec<String>,
 }
 
@@ -171,6 +249,10 @@ fn report(
         unauthorized_exposure_delta: None,
         latency_delta_ms: None,
         total_cost_delta_microusd: None,
+        baseline_constraint_gate: None,
+        counterfactual_constraint_gate: None,
+        baseline_response_audit_gate: None,
+        counterfactual_response_audit_gate: None,
         reasons,
     }
 }
@@ -211,6 +293,45 @@ fn validate_edge_set(
 fn validate_run(run: &RelationReplayRun, label: &str) -> Result<(), String> {
     if !nonempty(&run.run_id) {
         return Err(format!("{label} run ID must be non-empty"));
+    }
+    for (name, value) in [
+        ("benchmark ID", run.identity.benchmark_id.as_str()),
+        ("benchmark version", run.identity.benchmark_version.as_str()),
+        ("source-group ID", run.identity.source_group_id.as_str()),
+    ] {
+        if !nonempty(value) {
+            return Err(format!("{label} {name} must be non-empty"));
+        }
+    }
+    for (name, value) in [
+        ("benchmark certificate", run.identity.benchmark_certificate_digest.as_str()),
+        ("split", run.identity.split_digest.as_str()),
+        ("task", run.identity.task_digest.as_str()),
+        ("candidate pool", run.identity.candidate_pool_digest.as_str()),
+        ("retrieval seed", run.identity.retrieval_seed_digest.as_str()),
+        ("model snapshot", run.identity.model_snapshot_digest.as_str()),
+        ("tokenizer", run.identity.tokenizer_digest.as_str()),
+        ("prompt", run.identity.prompt_digest.as_str()),
+        ("toolchain", run.identity.toolchain_digest.as_str()),
+        ("decoding", run.identity.decoding_digest.as_str()),
+        ("scorer", run.identity.scorer_digest.as_str()),
+        ("evaluator", run.identity.evaluator_digest.as_str()),
+        ("inference plan", run.identity.inference_plan_digest.as_str()),
+        ("seed policy", run.identity.seed_policy_digest.as_str()),
+        ("random seed", run.identity.random_seed_digest.as_str()),
+    ] {
+        if !valid_digest(value) {
+            return Err(format!("{label} {name} digest is malformed"));
+        }
+    }
+    if run.identity.agent_count == 0
+        || run.identity.context_budget_tokens == 0
+        || run.identity.output_budget_tokens == 0
+        || run.identity.compute_budget_microusd == 0
+        || run.identity.wall_clock_budget_ms == 0
+        || run.identity.memory_budget_bytes == 0
+    {
+        return Err(format!("{label} model/compute/resource budgets must be positive"));
     }
     for (name, value) in [
         ("candidate-pool digest", run.identity.candidate_pool_digest.as_str()),
@@ -254,6 +375,9 @@ fn validate_run(run: &RelationReplayRun, label: &str) -> Result<(), String> {
         return Err(format!("{label} selected evidence is duplicated or outside the candidate pool"));
     }
     validate_edge_set(run)?;
+    if compute_relation_graph_digest(&run.relation_edges)? != run.relation_graph_digest {
+        return Err(format!("{label} relation-graph digest does not bind its edge set"));
+    }
     Ok(())
 }
 
@@ -298,7 +422,7 @@ fn validate_intervention(intervention: &RelationIntervention) -> Result<(), Stri
             {
                 return Err("Reverse must preserve edge ID and relation while swapping endpoints".into());
             }
-            if before.relation.is_symmetric() {
+            if symmetric_relation(before.relation) {
                 return Err("symmetric relation kinds cannot be direction-reversed".into());
             }
             if before.relation_receipt_digest == after.relation_receipt_digest {
@@ -514,6 +638,10 @@ pub fn qualify_relation_counterfactual(
         i128::from(trial.counterfactual.outcome.total_cost_microusd)
             - i128::from(trial.baseline.outcome.total_cost_microusd),
     );
+    result.baseline_constraint_gate = Some(trial.baseline.outcome.constraint_gate);
+    result.counterfactual_constraint_gate = Some(trial.counterfactual.outcome.constraint_gate);
+    result.baseline_response_audit_gate = Some(trial.baseline.outcome.response_audit_gate);
+    result.counterfactual_response_audit_gate = Some(trial.counterfactual.outcome.response_audit_gate);
     result
 }
 
@@ -564,13 +692,14 @@ mod tests {
         }
     }
 
-    fn run(run_id: &str, edges: Vec<RelationEdgeSnapshot>, graph: char) -> RelationReplayRun {
+    fn run(run_id: &str, edges: Vec<RelationEdgeSnapshot>) -> RelationReplayRun {
+        let relation_graph_digest = compute_relation_graph_digest(&edges).unwrap();
         RelationReplayRun {
             run_id: run_id.into(),
             identity: identity(),
             candidate_evidence_ids: vec!["e1".into(), "e2".into(), "e3".into()],
             retrieval_seed_evidence_ids: vec!["e1".into()],
-            relation_graph_digest: digest(graph),
+            relation_graph_digest,
             relation_edges: edges,
             candidate_pool_complete: true,
             relation_index_complete: true,
@@ -610,8 +739,8 @@ mod tests {
                 before,
                 after,
             },
-            baseline: run("baseline-01", baseline_edges, 'a'),
-            counterfactual: run("counterfactual-01", treatment_edges, 'b'),
+            baseline: run("baseline-01", baseline_edges),
+            counterfactual: run("counterfactual-01", treatment_edges),
         }
     }
 
@@ -623,7 +752,7 @@ mod tests {
             RelationInterventionOperation::Remove,
             Some(relation.clone()),
             None,
-            vec![relation],
+            vec![relation, unchanged.clone()],
             vec![unchanged],
         ));
         assert_eq!(result.status, RelationCounterfactualStatus::Pass);
@@ -778,9 +907,11 @@ mod tests {
         assert_eq!(result.status, RelationCounterfactualStatus::Pass);
         assert_eq!(result.decision_changed, Some(true));
         assert_eq!(result.selected_evidence_changed, Some(true));
-        assert_eq!(result.decision_quality_delta, Some(-0.15));
+        assert!((result.decision_quality_delta.unwrap() + 0.15).abs() < 1e-9);
         assert_eq!(result.unauthorized_exposure_delta, Some(1));
         assert_eq!(result.latency_delta_ms, Some(200));
         assert_eq!(result.total_cost_delta_microusd, Some(10_000));
+        assert_eq!(result.baseline_constraint_gate, Some(RecordedGateOutcome::Pass));
+        assert_eq!(result.counterfactual_response_audit_gate, Some(RecordedGateOutcome::Pass));
     }
 }
