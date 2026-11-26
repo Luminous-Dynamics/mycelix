@@ -758,7 +758,7 @@ mod tests {
             .push(edge("institution-a", "institution-b", "edge-a-b-duplicate"));
         assert_eq!(
             authorize_cooperation(&agreement, &request("institution-a", "institution-b")),
-            CooperationDecisionV1::Denied(DenialReasonV1::InvalidRequest)
+            CooperationDecisionV1::Denied(DenialReasonV1::InvalidAgreement)
         );
     }
 
