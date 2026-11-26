@@ -45,4 +45,5 @@ jobs:
           jq -e '.fixture_status == "synthetic_only_not_empirical_evidence" and
             .observation_count == 2 and
             ([.observations[].estimated_k_m_s | select(. > 0)] | length == 2) and
-            ([.observations[].forward_reconstruction_relative_error | select(. <= 1e-10)] | length == 2)'             "$RUNNER_TEMP/terra-core-observations.json"
+            ([.observations[].forward_reconstruction_relative_error | select(. <= 1e-10)] | length == 2) and
+            ([.observations[].local_sensitivity | select(.parameter_id == "log_hydraulic_conductivity" and .observed_quantity_id != null and .derivative_per_unit_log_parameter != 0 and .log_elasticity != null)] | length == 2)'             "$RUNNER_TEMP/terra-core-observations.json"
