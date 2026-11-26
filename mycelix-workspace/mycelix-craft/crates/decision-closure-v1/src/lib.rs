@@ -60,6 +60,8 @@ pub struct DecisionContextV1 {
     /// Minimum distinct reviewers required for each required role.
     /// Set to 2 or more when independent mapping agreement is part of qualification.
     pub minimum_reviewers_per_role: u16,
+    /// Maximum permitted age of an atomic claim-support result, in seconds.
+    pub max_support_age_seconds: u64,
 }
 
 /// Why a material element is part of the conclusion's element structure.
@@ -412,6 +414,7 @@ pub fn validate_packet(packet: &DecisionClosurePacketV1) -> Result<(), DecisionC
     if decision.standard_revision == 0
         || decision.required_mapping_roles.is_empty()
         || decision.minimum_reviewers_per_role == 0
+        || decision.max_support_age_seconds == 0
     {
         return Err(DecisionClosureErrorV1::InvalidRevision);
     }
@@ -652,6 +655,7 @@ fn evaluate_mapping(
                 for support in &element.support_results {
                     let current = support.evaluated_at <= now
                         && support.evaluated_at <= decision.decision_time
+                        && now - support.evaluated_at <= decision.max_support_age_seconds
                         && support.valid_until.map(|expiry| now < expiry).unwrap_or(true);
                     if !current {
                         unusable.push(support.result_id.clone());
@@ -829,6 +833,7 @@ mod tests {
             standard_digest: [5; 32],
             required_mapping_roles: vec![MappingReviewerRoleV1::DomainExpert],
             minimum_reviewers_per_role: 2,
+            max_support_age_seconds: 120,
         }
     }
 
@@ -1003,6 +1008,31 @@ mod tests {
         assert_eq!(
             validate_packet(&packet(vec![mapping("wrong-standard", vec![element("required", Vec::new(), vec![item])])])),
             Err(DecisionClosureErrorV1::EvidenceStandardMismatch)
+        );
+    }
+
+    #[test]
+    fn support_result_older_than_decision_freshness_window_does_not_count() {
+        let mut decision = decision();
+        decision.max_support_age_seconds = 20;
+        let mut item = support("old-support", SupportDispositionV1::DirectSupport);
+        item.evaluated_at = 10;
+        let mut packet = packet(vec![mapping("old-support", vec![element("required", Vec::new(), vec![item])])]);
+        packet.decision = decision;
+        let result = evaluate_decision_closure(&packet, NOW).unwrap();
+        assert_eq!(result.disposition, DecisionClosureDispositionV1::OpenMissingElements);
+    }
+
+    #[test]
+    fn decision_cannot_disable_support_freshness_window() {
+        let mut packet = packet(vec![mapping(
+            "invalid-window",
+            vec![element("required", Vec::new(), vec![support("good", SupportDispositionV1::DirectSupport)])],
+        )]);
+        packet.decision.max_support_age_seconds = 0;
+        assert_eq!(
+            validate_packet(&packet),
+            Err(DecisionClosureErrorV1::InvalidRevision)
         );
     }
 
