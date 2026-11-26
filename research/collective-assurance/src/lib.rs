@@ -6,12 +6,18 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod allocation;
 mod capability;
+mod coordination;
 mod comparison;
 mod constraint_binding;
 mod ledger;
 mod response_audit;
 mod support_policy;
 
+pub use coordination::{
+    qualify_coordination_trial, CoordinationArchitecture, CoordinationDisposition,
+    CoordinationQualificationReport, CoordinationRunEvidence, CoordinationStudyContract,
+    CoordinationTaskFeatures, CoordinationTrial, PairedCoordinationGain,
+};
 pub use capability::{
     qualify_capability_outcomes, AccommodationState, CapabilityMeasurement,
     CapabilityOutcomeObservation, CapabilityStage, CapabilityStudyContract,
