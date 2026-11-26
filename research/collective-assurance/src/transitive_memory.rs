@@ -161,7 +161,10 @@ pub struct MemoryArtifact {
 pub struct MemoryRevocationEvent {
     pub event_id: String,
     pub source_artifact_id: String,
+    /// When the revocation became effective under the named policy.
     pub effective_at_ms: u64,
+    /// When this evaluator/authority domain first observed the event.
+    pub recorded_at_ms: u64,
     pub policy_epoch_digest: String,
     pub authority_receipt_digest: String,
     pub event_receipt_digest: String,
@@ -204,6 +207,8 @@ pub struct MemoryUseObservation {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TransitiveMemorySnapshot {
     pub snapshot_id: String,
+    /// Evidence-frontier time for this inventory.
+    pub as_of_ms: u64,
     pub graph_digest: String,
     pub snapshot_digest: String,
     pub inventory_complete: bool,
@@ -329,8 +334,12 @@ pub fn compute_transitive_memory_snapshot_digest(
     });
 
     let mut bytes = Vec::new();
+    if !nonempty(&snapshot.snapshot_id) || snapshot.as_of_ms == 0 {
+        return Err("snapshot identity and as-of time must be explicit".into());
+    }
     bytes.extend_from_slice(SNAPSHOT_DOMAIN);
     push_str(&mut bytes, &snapshot.snapshot_id);
+    push_u64(&mut bytes, snapshot.as_of_ms);
     push_str(&mut bytes, &graph_digest);
     bytes.push(u8::from(snapshot.inventory_complete));
     bytes.push(u8::from(snapshot.revocation_inventory_complete));
@@ -339,6 +348,7 @@ pub fn compute_transitive_memory_snapshot_digest(
         push_str(&mut bytes, &event.event_id);
         push_str(&mut bytes, &event.source_artifact_id);
         push_u64(&mut bytes, event.effective_at_ms);
+        push_u64(&mut bytes, event.recorded_at_ms);
         push_str(&mut bytes, &event.policy_epoch_digest);
         push_str(&mut bytes, &event.authority_receipt_digest);
         push_str(&mut bytes, &event.event_receipt_digest);
@@ -410,6 +420,10 @@ fn build_graph_index(
                 }
                 incomplete_lineage = true;
                 continue;
+            }
+            let parent = by_id.get(parent_id).expect("parent presence checked above");
+            if parent.created_at_ms > artifact.created_at_ms {
+                return Err("derived artifact predates one of its declared parents".into());
             }
             *indegree
                 .get_mut(&artifact.artifact_id)
@@ -549,10 +563,10 @@ fn expected_use_disposition(
     source_revocations: &[&MemoryRevocationEvent],
     use_event: &MemoryUseObservation,
 ) -> Option<MemoryUseDisposition> {
-    if source_revocations
-        .iter()
-        .any(|event| event.effective_at_ms <= use_event.used_at_ms)
-    {
+    if source_revocations.iter().any(|event| {
+        event.effective_at_ms <= use_event.used_at_ms
+            && event.recorded_at_ms <= use_event.used_at_ms
+    }) {
         return Some(MemoryUseDisposition::BlockedByRevocation);
     }
     if use_event.used_at_ms >= artifact.scope.retain_until_ms {
@@ -594,6 +608,15 @@ pub fn qualify_transitive_memory_snapshot(
             TransitiveMemoryStatus::Fail,
             snapshot,
             vec!["memory graph digest does not bind its artifact and lineage records".into()],
+        );
+    }
+    if snapshot.as_of_ms == 0
+        || snapshot.artifacts.iter().any(|artifact| artifact.created_at_ms > snapshot.as_of_ms)
+    {
+        return report(
+            TransitiveMemoryStatus::Fail,
+            snapshot,
+            vec!["snapshot as-of time is invalid or precedes an included artifact".into()],
         );
     }
     let snapshot_digest = match compute_transitive_memory_snapshot_digest(snapshot) {
@@ -639,6 +662,8 @@ pub fn qualify_transitive_memory_snapshot(
         if !nonempty(&event.event_id)
             || !nonempty(&event.source_artifact_id)
             || event.effective_at_ms == 0
+            || event.recorded_at_ms == 0
+            || event.recorded_at_ms > snapshot.as_of_ms
             || !valid_digest(&event.policy_epoch_digest)
             || !valid_digest(&event.authority_receipt_digest)
             || !valid_digest(&event.event_receipt_digest)
@@ -662,6 +687,29 @@ pub fn qualify_transitive_memory_snapshot(
                 "revocation {} source artifact cannot be resolved",
                 event.event_id
             ));
+        }
+    }
+
+    // A derivative created after a contributing source was both effective-revoked
+    // and known-revoked is itself an invalid post-revocation derivation.
+    for artifact in &snapshot.artifacts {
+        let mut contributing_sources = index
+            .ancestors
+            .get(&artifact.artifact_id)
+            .cloned()
+            .unwrap_or_default();
+        contributing_sources.insert(artifact.artifact_id.clone());
+        if snapshot.revocations.iter().any(|event| {
+            contributing_sources.contains(&event.source_artifact_id)
+                && event.effective_at_ms <= artifact.created_at_ms
+                && event.recorded_at_ms <= artifact.created_at_ms
+        }) {
+            result.status = TransitiveMemoryStatus::Fail;
+            result.reasons.push(format!(
+                "artifact {} was derived after a contributing source was effectively revoked and the revocation was known",
+                artifact.artifact_id
+            ));
+            return result;
         }
     }
 
@@ -749,10 +797,13 @@ pub fn qualify_transitive_memory_snapshot(
             result.reasons.push("memory use identity, scope or receipt is invalid".into());
             return result;
         }
-        if use_event.snapshot_digest != snapshot.snapshot_digest {
+        // A use points to the policy/evidence snapshot actually observed at its
+        // event time. It may legitimately differ from the current snapshot after
+        // revocation; resolving that historical digest is an external archive duty.
+        if use_event.used_at_ms > snapshot.as_of_ms {
             result.status = TransitiveMemoryStatus::Fail;
             result.reasons.push(format!(
-                "use {} references a different memory snapshot",
+                "use {} occurs after the declared snapshot as-of time",
                 use_event.use_id
             ));
             return result;
@@ -779,6 +830,14 @@ pub fn qualify_transitive_memory_snapshot(
             ));
             return result;
         };
+        if use_event.used_at_ms < artifact.created_at_ms {
+            result.status = TransitiveMemoryStatus::Fail;
+            result.reasons.push(format!(
+                "use {} predates artifact creation",
+                use_event.use_id
+            ));
+            return result;
+        }
         let mut contributing_sources = index
             .ancestors
             .get(&artifact.artifact_id)
@@ -884,6 +943,7 @@ mod tests {
         let graph_digest = compute_memory_graph_digest(&artifacts).unwrap();
         let mut snapshot = TransitiveMemorySnapshot {
             snapshot_id: "snapshot-01".into(),
+            as_of_ms: 1000,
             graph_digest,
             snapshot_digest: String::new(),
             inventory_complete: true,
@@ -993,6 +1053,7 @@ mod tests {
             event_id: "revoke-01".into(),
             source_artifact_id: "source".into(),
             effective_at_ms: 150,
+            recorded_at_ms: 140,
             policy_epoch_digest: digest('3'),
             authority_receipt_digest: digest('4'),
             event_receipt_digest: digest('5'),
@@ -1032,6 +1093,7 @@ mod tests {
             event_id: "revoke-01".into(),
             source_artifact_id: "source".into(),
             effective_at_ms: 150,
+            recorded_at_ms: 140,
             policy_epoch_digest: digest('3'),
             authority_receipt_digest: digest('4'),
             event_receipt_digest: digest('5'),
@@ -1071,6 +1133,7 @@ mod tests {
             event_id: "revoke-01".into(),
             source_artifact_id: "source".into(),
             effective_at_ms: 150,
+            recorded_at_ms: 140,
             policy_epoch_digest: digest('3'),
             authority_receipt_digest: digest('4'),
             event_receipt_digest: digest('5'),
@@ -1132,6 +1195,7 @@ mod tests {
             event_id: "revoke-01".into(),
             source_artifact_id: "source".into(),
             effective_at_ms: 150,
+            recorded_at_ms: 140,
             policy_epoch_digest: digest('3'),
             authority_receipt_digest: digest('4'),
             event_receipt_digest: digest('5'),
