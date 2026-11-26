@@ -1,6 +1,11 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{env, fs::{self, OpenOptions}, io::Write, process};
+use std::{
+    env,
+    fs::{self, OpenOptions},
+    io::Write,
+    process,
+};
 
 const VERSION: &str = "terra-lab-core-observation-reference-v0.1";
 const PI: f64 = std::f64::consts::PI;
@@ -145,8 +150,7 @@ fn falling_head_k_from_measurement(
     require_positive(standpipe_area, "standpipe area")?;
     let log_ratio = ((initial_head_m - final_head_m) / final_head_m).ln_1p();
     require_positive(log_ratio, "falling-head logarithmic head ratio")?;
-    let k = standpipe_area * geometry.length_m * log_ratio
-        / (specimen_area * elapsed_time_s);
+    let k = standpipe_area * geometry.length_m * log_ratio / (specimen_area * elapsed_time_s);
     require_positive(k, "falling-head hydraulic conductivity")?;
     Ok(k)
 }
@@ -226,7 +230,8 @@ fn analyse_observation(observation: &LabObservation) -> Result<ObservationReceip
                     "steady saturated one-dimensional Darcy flow".into(),
                     "homogeneous specimen with known cross-sectional area and length".into(),
                     "negligible sidewall leakage, entrance losses and apparatus storage".into(),
-                    "constant applied hydraulic head difference during the measured interval".into(),
+                    "constant applied hydraulic head difference during the measured interval"
+                        .into(),
                 ],
             })
         }
@@ -312,7 +317,9 @@ fn analyse(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         || fixture.fixture_status != "synthetic_only_not_empirical_evidence"
         || fixture.source_description.trim().is_empty()
     {
-        return Err("fixture version, synthetic-only status or source description is invalid".into());
+        return Err(
+            "fixture version, synthetic-only status or source description is invalid".into(),
+        );
     }
     if fixture.observations.is_empty() {
         return Err("fixture must contain at least one laboratory observation".into());
@@ -344,17 +351,32 @@ fn analyse(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
 fn run() -> Result<(), String> {
     let arguments: Vec<String> = env::args().collect();
     if arguments.len() != 3 {
-        return Err(format!("usage: {} INPUT.json OUTPUT.json", arguments.first().map(String::as_str).unwrap_or("terra-lab-core-observation-reference")));
+        return Err(format!(
+            "usage: {} INPUT.json OUTPUT.json",
+            arguments
+                .first()
+                .map(String::as_str)
+                .unwrap_or("terra-lab-core-observation-reference")
+        ));
     }
     let bytes = fs::read(&arguments[1]).map_err(|error| format!("cannot read input: {error}"))?;
     let digest = format!("{:x}", Sha256::digest(&bytes));
-    let fixture: Fixture = serde_json::from_slice(&bytes).map_err(|error| format!("invalid fixture: {error}"))?;
+    let fixture: Fixture =
+        serde_json::from_slice(&bytes).map_err(|error| format!("invalid fixture: {error}"))?;
     let report = analyse(&fixture, digest)?;
-    let encoded = serde_json::to_vec_pretty(&report).map_err(|error| format!("cannot encode output: {error}"))?;
-    let mut output = OpenOptions::new().write(true).create_new(true).open(&arguments[2])
+    let encoded = serde_json::to_vec_pretty(&report)
+        .map_err(|error| format!("cannot encode output: {error}"))?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&arguments[2])
         .map_err(|error| format!("refusing output overwrite or cannot create output: {error}"))?;
-    output.write_all(&encoded).map_err(|error| format!("cannot write output: {error}"))?;
-    output.write_all(b"\n").map_err(|error| format!("cannot finish output: {error}"))?;
+    output
+        .write_all(&encoded)
+        .map_err(|error| format!("cannot write output: {error}"))?;
+    output
+        .write_all(b"\n")
+        .map_err(|error| format!("cannot finish output: {error}"))?;
     Ok(())
 }
 
@@ -399,14 +421,16 @@ mod tests {
                 standpipe_diameter,
                 elapsed,
                 initial,
-            ).unwrap();
+            )
+            .unwrap();
             let recovered = falling_head_k_from_measurement(
                 &specimen,
                 standpipe_diameter,
                 elapsed,
                 initial,
                 final_head,
-            ).unwrap();
+            )
+            .unwrap();
             assert!((recovered / expected_k - 1.0).abs() < 1.0e-11);
         }
     }
@@ -422,8 +446,14 @@ mod tests {
 
     #[test]
     fn specimen_geometry_changes_observation_for_same_latent_conductivity() {
-        let small = SpecimenGeometry { diameter_m: 0.025, length_m: 0.10 };
-        let large = SpecimenGeometry { diameter_m: 0.05, length_m: 0.10 };
+        let small = SpecimenGeometry {
+            diameter_m: 0.025,
+            length_m: 0.10,
+        };
+        let large = SpecimenGeometry {
+            diameter_m: 0.05,
+            length_m: 0.10,
+        };
         let small_q = predict_constant_head_flow(1.0e-5, &small, 0.5).unwrap();
         let large_q = predict_constant_head_flow(1.0e-5, &large, 0.5).unwrap();
         assert!((large_q / small_q - 4.0).abs() < 1.0e-12);
@@ -436,12 +466,12 @@ mod tests {
         let dh_m = 0.5;
         let k_m = constant_head_k_from_measurement(&specimen_m, dh_m, flow_m3_s).unwrap();
 
-        let specimen_mm = SpecimenGeometry { diameter_m: 50.0e-3, length_m: 100.0e-3 };
-        let k_mm_inputs = constant_head_k_from_measurement(
-            &specimen_mm,
-            500.0e-3,
-            flow_m3_s,
-        ).unwrap();
+        let specimen_mm = SpecimenGeometry {
+            diameter_m: 50.0e-3,
+            length_m: 100.0e-3,
+        };
+        let k_mm_inputs =
+            constant_head_k_from_measurement(&specimen_mm, 500.0e-3, flow_m3_s).unwrap();
         assert!((k_m / k_mm_inputs - 1.0).abs() < 1.0e-12);
     }
 
@@ -457,7 +487,11 @@ mod tests {
             flow_rate_m3_s: 1.0e-6,
         };
         assert!(analyse_observation(&observation).is_ok());
-        if let LabObservation::ConstantHead { original_method_label, .. } = &mut observation {
+        if let LabObservation::ConstantHead {
+            original_method_label,
+            ..
+        } = &mut observation
+        {
             original_method_label.clear();
         }
         assert!(analyse_observation(&observation).is_err());
@@ -483,7 +517,10 @@ mod tests {
 
     #[test]
     fn zero_and_negative_geometry_or_head_fail_closed() {
-        let invalid = SpecimenGeometry { diameter_m: 0.0, length_m: 0.1 };
+        let invalid = SpecimenGeometry {
+            diameter_m: 0.0,
+            length_m: 0.1,
+        };
         assert!(specimen_area(&invalid).is_err());
         assert!(predict_constant_head_flow(1.0e-5, &geometry(), 0.0).is_err());
         assert!(falling_head_k_from_measurement(&geometry(), 0.005, 10.0, 0.5, 1.0).is_err());
@@ -492,7 +529,9 @@ mod tests {
     #[test]
     fn nonfinite_measurements_fail_closed() {
         assert!(constant_head_k_from_measurement(&geometry(), 0.5, f64::NAN).is_err());
-        assert!(falling_head_k_from_measurement(&geometry(), 0.005, f64::INFINITY, 1.0, 0.5).is_err());
+        assert!(
+            falling_head_k_from_measurement(&geometry(), 0.005, f64::INFINITY, 1.0, 0.5).is_err()
+        );
     }
 
     #[test]
@@ -512,7 +551,12 @@ mod tests {
         assert_eq!(receipt.original_method_label, "constant head permeameter");
         assert_eq!(receipt.specimen_preparation, "undisturbed");
         assert!(receipt.observation_operator.contains("Q = K * A"));
-        assert!(receipt.assumptions.iter().any(|item| item.contains("one-dimensional")));
+        assert!(
+            receipt
+                .assumptions
+                .iter()
+                .any(|item| item.contains("one-dimensional"))
+        );
     }
     #[test]
     fn constant_head_observation_jacobian_matches_log_parameter_finite_difference() {
@@ -522,7 +566,8 @@ mod tests {
         let flow = predict_constant_head_flow(k, &specimen, delta_head).unwrap();
         let epsilon = 1.0e-6;
         let plus = predict_constant_head_flow(k * epsilon.exp(), &specimen, delta_head).unwrap();
-        let minus = predict_constant_head_flow(k * (-epsilon).exp(), &specimen, delta_head).unwrap();
+        let minus =
+            predict_constant_head_flow(k * (-epsilon).exp(), &specimen, delta_head).unwrap();
         let finite_difference = (plus - minus) / (2.0 * epsilon);
         assert!((finite_difference / flow - 1.0).abs() < 1.0e-8);
 
@@ -536,9 +581,18 @@ mod tests {
             flow_rate_m3_s: flow,
         };
         let receipt = analyse_observation(&observation).unwrap();
-        assert_eq!(receipt.local_sensitivity.parameter_id, "log_hydraulic_conductivity");
-        assert_eq!(receipt.local_sensitivity.observed_quantity_id, "flow_rate_m3_s");
-        assert!((receipt.local_sensitivity.derivative_per_unit_log_parameter / flow - 1.0).abs() < 1.0e-12);
+        assert_eq!(
+            receipt.local_sensitivity.parameter_id,
+            "log_hydraulic_conductivity"
+        );
+        assert_eq!(
+            receipt.local_sensitivity.observed_quantity_id,
+            "flow_rate_m3_s"
+        );
+        assert!(
+            (receipt.local_sensitivity.derivative_per_unit_log_parameter / flow - 1.0).abs()
+                < 1.0e-12
+        );
         assert!((receipt.local_sensitivity.log_elasticity - 1.0).abs() < 1.0e-12);
     }
 
@@ -549,14 +603,9 @@ mod tests {
         let elapsed = 600.0;
         let initial = 1.0;
         for k in [1.0e-8, 1.0e-6, 1.0e-4] {
-            let final_head = predict_falling_head_final(
-                k,
-                &specimen,
-                standpipe_diameter,
-                elapsed,
-                initial,
-            )
-            .unwrap();
+            let final_head =
+                predict_falling_head_final(k, &specimen, standpipe_diameter, elapsed, initial)
+                    .unwrap();
             let standpipe_area = PI * standpipe_diameter.powi(2) / 4.0;
             let exponent = -k * specimen_area(&specimen).unwrap() * elapsed
                 / (standpipe_area * specimen.length_m);
@@ -593,10 +642,16 @@ mod tests {
                 final_head_m: final_head,
             };
             let receipt = analyse_observation(&observation).unwrap();
-            assert_eq!(receipt.local_sensitivity.observed_quantity_id, "final_head_m");
-            assert!((receipt.local_sensitivity.derivative_per_unit_log_parameter / analytic - 1.0).abs() < 1.0e-12);
+            assert_eq!(
+                receipt.local_sensitivity.observed_quantity_id,
+                "final_head_m"
+            );
+            assert!(
+                (receipt.local_sensitivity.derivative_per_unit_log_parameter / analytic - 1.0)
+                    .abs()
+                    < 1.0e-12
+            );
             assert!((receipt.local_sensitivity.log_elasticity - exponent).abs() < 1.0e-12);
         }
     }
-
 }
