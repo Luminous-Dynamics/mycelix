@@ -177,7 +177,13 @@ fn main() {
 
     println!(
         "early_vs_later={:?}",
-        early.compare(&later, &[grant_link.clone(), payment_link.clone()])
+        early.compare(
+            &later,
+            &[
+                consistency_link_from_entries("owner:grants", &grant_log, 10),
+                payment_link.clone(),
+            ],
+        )
     );
     println!(
         "crossed_vs_opposite={:?}",
