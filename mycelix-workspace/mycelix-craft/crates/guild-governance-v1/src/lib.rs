@@ -62,9 +62,9 @@ pub enum GovernanceActionV1 {
     AmendFederationAgreement,
 }
 
-/// Membership status is independent of governance assignments.
+/// Membership status is independent of identity and governance assignments.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum MemberStatusV1 {
+pub enum MembershipStatusV1 {
     /// Member in good standing under the local membership contract.
     Active,
     /// Member temporarily on leave.
@@ -73,6 +73,46 @@ pub enum MemberStatusV1 {
     Suspended,
     /// Membership has ended.
     Exited,
+    /// Identity is verified, but the principal is not a member of this guild.
+    NotMember,
+    /// Membership state could not be established from the trusted membership owner.
+    Unknown,
+}
+
+/// Charter-selected eligibility rule for one governance assignment.
+///
+/// A broader policy permits a verified external principal to receive only the
+/// exact actions and scope in this assignment. It does not create membership,
+/// professional assessment authority, or federation inheritance.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PrincipalEligibilityPolicyV1 {
+    /// Only an active member may exercise the assignment.
+    ActiveMemberRequired,
+    /// Active members, members on leave, and verified non-members may exercise
+    /// the exact assignment. Suspended, exited, and unknown states are denied.
+    VerifiedPrincipalNotSuspendedOrExited,
+}
+
+/// Exact adopted charter-policy reference that authorized this assignment's
+/// eligibility rule. The host verifies adoption and grantor authority upstream.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CharterPolicyRefV1 {
+    /// Stable charter policy identifier.
+    pub policy_id: String,
+    /// Monotonically versioned adopted policy revision.
+    pub revision: u64,
+    /// Digest of the exact adopted policy document.
+    pub digest: [u8; 32],
+}
+
+impl CharterPolicyRefV1 {
+    fn validate(&self) -> Result<(), AssignmentErrorV1> {
+        require_non_empty(&self.policy_id)?;
+        if self.revision == 0 || self.digest.iter().all(|byte| *byte == 0) {
+            return Err(AssignmentErrorV1::InvalidCharterPolicyReference);
+        }
+        Ok(())
+    }
 }
 
 /// A time-bounded assignment of explicit actions in one exact scope.
@@ -86,6 +126,10 @@ pub struct GovernanceAssignmentV1 {
     pub scope: ScopeV1,
     /// Explicit action set. No action is inferred from display_label.
     pub actions: Vec<GovernanceActionV1>,
+    /// Charter-selected principal eligibility rule for this assignment.
+    pub principal_eligibility: PrincipalEligibilityPolicyV1,
+    /// Exact adopted charter policy authorizing this eligibility rule.
+    pub charter_policy: CharterPolicyRefV1,
     /// Identity that granted the assignment; its authority is verified upstream.
     pub grantor_id: String,
     /// Optional culturally or locally chosen display label (for example, Elder).
@@ -110,6 +154,7 @@ impl GovernanceAssignmentV1 {
             return Err(AssignmentErrorV1::SelfGrant);
         }
         self.scope.validate()?;
+        self.charter_policy.validate()?;
         if self.actions.is_empty() {
             return Err(AssignmentErrorV1::EmptyActionSet);
         }
@@ -157,10 +202,13 @@ pub struct MemberPresentationV1 {
 /// Request to check one action against one exact domain.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AuthorizationRequestV1 {
-    /// Requesting member.
-    pub member_id: String,
-    /// Current membership status from the membership owner.
-    pub member_status: MemberStatusV1,
+    /// Requesting identity (member or external principal).
+    pub principal_id: String,
+    /// True only when the trusted host has authenticated the principal identity.
+    pub principal_identity_verified: bool,
+    /// Membership status from the trusted membership owner; NotMember is distinct
+    /// from Unknown and must only be asserted after an authoritative lookup.
+    pub membership_status: MembershipStatusV1,
     /// Requested action.
     pub action: GovernanceActionV1,
     /// Exact requested scope.
@@ -188,15 +236,21 @@ pub enum AssignmentErrorV1 {
     ConflictNotGranted,
     /// The same conflict was declared more than once.
     DuplicateConflict,
+    /// The adopted charter policy reference is incomplete or malformed.
+    InvalidCharterPolicyReference,
 }
 
 /// Why an authorization request was denied.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DenialReasonV1 {
-    /// Only active members can exercise delegated rights.
-    MemberNotActive,
     /// The request itself was malformed.
     InvalidRequest,
+    /// The principal identity was not authenticated by the trusted host.
+    PrincipalIdentityUnverified,
+    /// Membership state is unknown; the evaluator cannot safely infer non-membership.
+    MembershipStateUnknown,
+    /// The principal does not satisfy the matching assignment's charter policy.
+    MembershipNotEligible,
     /// The supplied authority snapshot contains a duplicate assignment ID.
     DuplicateAssignmentId,
     /// A matching assignment violates a local structural invariant.
@@ -225,11 +279,20 @@ pub fn authorize(
     request: &AuthorizationRequestV1,
     assignments: &[GovernanceAssignmentV1],
 ) -> AuthorizationDecisionV1 {
-    if request.member_id.trim().is_empty() || request.scope.validate().is_err() {
+    if request.principal_id.trim().is_empty() || request.scope.validate().is_err() {
         return AuthorizationDecisionV1::Denied(DenialReasonV1::InvalidRequest);
     }
-    if request.member_status != MemberStatusV1::Active {
-        return AuthorizationDecisionV1::Denied(DenialReasonV1::MemberNotActive);
+    if !request.principal_identity_verified {
+        return AuthorizationDecisionV1::Denied(DenialReasonV1::PrincipalIdentityUnverified);
+    }
+    match request.membership_status {
+        MembershipStatusV1::Unknown => {
+            return AuthorizationDecisionV1::Denied(DenialReasonV1::MembershipStateUnknown);
+        }
+        MembershipStatusV1::Suspended | MembershipStatusV1::Exited => {
+            return AuthorizationDecisionV1::Denied(DenialReasonV1::MembershipNotEligible);
+        }
+        MembershipStatusV1::Active | MembershipStatusV1::OnLeave | MembershipStatusV1::NotMember => {}
     }
 
     // Treat the supplied records as one authority snapshot. Duplicate stable IDs
@@ -242,10 +305,11 @@ pub fn authorize(
     }
 
     let mut conflict_found = false;
+    let mut membership_blocked = false;
     let mut allowed_by: Option<&GovernanceAssignmentV1> = None;
 
     for assignment in assignments {
-        if assignment.subject_id != request.member_id || assignment.scope != request.scope {
+        if assignment.subject_id != request.principal_id || assignment.scope != request.scope {
             continue;
         }
         if assignment.validate().is_err() {
@@ -263,6 +327,13 @@ pub fn authorize(
         }
 
         if assignment.actions.contains(&request.action) {
+            if !principal_eligibility_allows(
+                assignment.principal_eligibility,
+                request.membership_status,
+            ) {
+                membership_blocked = true;
+                continue;
+            }
             if assignment.conflicts_of_interest.contains(&request.action) {
                 conflict_found = true;
             } else if allowed_by.is_none() {
@@ -278,7 +349,23 @@ pub fn authorize(
         Some(assignment) => AuthorizationDecisionV1::Authorized {
             assignment_id: assignment.assignment_id.clone(),
         },
+        None if membership_blocked => {
+            AuthorizationDecisionV1::Denied(DenialReasonV1::MembershipNotEligible)
+        }
         None => AuthorizationDecisionV1::Denied(DenialReasonV1::NoMatchingAssignment),
+    }
+}
+
+fn principal_eligibility_allows(
+    policy: PrincipalEligibilityPolicyV1,
+    status: MembershipStatusV1,
+) -> bool {
+    match policy {
+        PrincipalEligibilityPolicyV1::ActiveMemberRequired => status == MembershipStatusV1::Active,
+        PrincipalEligibilityPolicyV1::VerifiedPrincipalNotSuspendedOrExited => matches!(
+            status,
+            MembershipStatusV1::Active | MembershipStatusV1::OnLeave | MembershipStatusV1::NotMember
+        ),
     }
 }
 
@@ -310,6 +397,12 @@ mod tests {
             subject_id: "member-1".to_owned(),
             scope,
             actions,
+            principal_eligibility: PrincipalEligibilityPolicyV1::ActiveMemberRequired,
+            charter_policy: CharterPolicyRefV1 {
+                policy_id: "charter:default-governance".to_owned(),
+                revision: 1,
+                digest: [5; 32],
+            },
             grantor_id: "charter-authority".to_owned(),
             display_label: None,
             effective_at: 10,
@@ -321,8 +414,9 @@ mod tests {
 
     fn request(action: GovernanceActionV1, scope: ScopeV1) -> AuthorizationRequestV1 {
         AuthorizationRequestV1 {
-            member_id: "member-1".to_owned(),
-            member_status: MemberStatusV1::Active,
+            principal_id: "member-1".to_owned(),
+            principal_identity_verified: true,
+            membership_status: MembershipStatusV1::Active,
             action,
             scope,
             at: 20,
@@ -387,8 +481,118 @@ mod tests {
     fn inactive_members_cannot_use_a_valid_assignment() {
         let a = assignment(vec![GovernanceActionV1::AdmitMember], guild_scope("guild-a", "membership"));
         let mut r = request(GovernanceActionV1::AdmitMember, guild_scope("guild-a", "membership"));
-        r.member_status = MemberStatusV1::Suspended;
-        assert_eq!(authorize(&r, &[a]), AuthorizationDecisionV1::Denied(DenialReasonV1::MemberNotActive));
+        r.membership_status = MembershipStatusV1::Suspended;
+        assert_eq!(
+            authorize(&r, &[a]),
+            AuthorizationDecisionV1::Denied(DenialReasonV1::MembershipNotEligible)
+        );
+    }
+
+    #[test]
+    fn non_member_is_denied_by_active_member_only_policy() {
+        let a = assignment(vec![GovernanceActionV1::Facilitate], guild_scope("guild-a", "meetings"));
+        let mut r = request(GovernanceActionV1::Facilitate, guild_scope("guild-a", "meetings"));
+        r.membership_status = MembershipStatusV1::NotMember;
+        assert_eq!(
+            authorize(&r, &[a]),
+            AuthorizationDecisionV1::Denied(DenialReasonV1::MembershipNotEligible)
+        );
+    }
+
+    #[test]
+    fn charter_explicitly_authorized_external_facilitator_is_allowed() {
+        let mut a = assignment(vec![GovernanceActionV1::Facilitate], guild_scope("guild-a", "meetings"));
+        a.principal_eligibility =
+            PrincipalEligibilityPolicyV1::VerifiedPrincipalNotSuspendedOrExited;
+        a.subject_id = "external-facilitator".to_owned();
+        let mut r = request(GovernanceActionV1::Facilitate, guild_scope("guild-a", "meetings"));
+        r.principal_id = "external-facilitator".to_owned();
+        r.membership_status = MembershipStatusV1::NotMember;
+        assert_eq!(
+            authorize(&r, &[a]),
+            AuthorizationDecisionV1::Authorized {
+                assignment_id: "assignment-1".to_owned()
+            }
+        );
+    }
+
+    #[test]
+    fn external_facilitator_receives_only_the_explicit_action() {
+        let mut a = assignment(vec![GovernanceActionV1::Facilitate], guild_scope("guild-a", "meetings"));
+        a.principal_eligibility =
+            PrincipalEligibilityPolicyV1::VerifiedPrincipalNotSuspendedOrExited;
+        a.subject_id = "external-facilitator".to_owned();
+        let mut r = request(GovernanceActionV1::AuthorizeDisbursement, guild_scope("guild-a", "meetings"));
+        r.principal_id = "external-facilitator".to_owned();
+        r.membership_status = MembershipStatusV1::NotMember;
+        assert_eq!(
+            authorize(&r, &[a]),
+            AuthorizationDecisionV1::Denied(DenialReasonV1::NoMatchingAssignment)
+        );
+    }
+
+    #[test]
+    fn on_leave_is_denied_by_member_only_policy() {
+        let a = assignment(vec![GovernanceActionV1::Propose], guild_scope("guild-a", "projects"));
+        let mut r = request(GovernanceActionV1::Propose, guild_scope("guild-a", "projects"));
+        r.membership_status = MembershipStatusV1::OnLeave;
+        assert_eq!(
+            authorize(&r, &[a]),
+            AuthorizationDecisionV1::Denied(DenialReasonV1::MembershipNotEligible)
+        );
+    }
+
+    #[test]
+    fn on_leave_can_use_explicit_non_suspended_principal_policy() {
+        let mut a = assignment(vec![GovernanceActionV1::Facilitate], guild_scope("guild-a", "meetings"));
+        a.principal_eligibility =
+            PrincipalEligibilityPolicyV1::VerifiedPrincipalNotSuspendedOrExited;
+        a.subject_id = "member-1".to_owned();
+        let mut r = request(GovernanceActionV1::Facilitate, guild_scope("guild-a", "meetings"));
+        r.membership_status = MembershipStatusV1::OnLeave;
+        assert_eq!(
+            authorize(&r, &[a]),
+            AuthorizationDecisionV1::Authorized {
+                assignment_id: "assignment-1".to_owned()
+            }
+        );
+    }
+
+    #[test]
+    fn exited_principal_is_denied_even_by_broader_policy() {
+        let mut a = assignment(vec![GovernanceActionV1::Facilitate], guild_scope("guild-a", "meetings"));
+        a.principal_eligibility =
+            PrincipalEligibilityPolicyV1::VerifiedPrincipalNotSuspendedOrExited;
+        let mut r = request(GovernanceActionV1::Facilitate, guild_scope("guild-a", "meetings"));
+        r.membership_status = MembershipStatusV1::Exited;
+        assert_eq!(
+            authorize(&r, &[a]),
+            AuthorizationDecisionV1::Denied(DenialReasonV1::MembershipNotEligible)
+        );
+    }
+
+    #[test]
+    fn unknown_membership_state_fails_closed() {
+        let mut a = assignment(vec![GovernanceActionV1::Facilitate], guild_scope("guild-a", "meetings"));
+        a.principal_eligibility =
+            PrincipalEligibilityPolicyV1::VerifiedPrincipalNotSuspendedOrExited;
+        let mut r = request(GovernanceActionV1::Facilitate, guild_scope("guild-a", "meetings"));
+        r.membership_status = MembershipStatusV1::Unknown;
+        assert_eq!(
+            authorize(&r, &[a]),
+            AuthorizationDecisionV1::Denied(DenialReasonV1::MembershipStateUnknown)
+        );
+    }
+
+    #[test]
+    fn unauthenticated_principal_fails_closed() {
+        let a = assignment(vec![GovernanceActionV1::Facilitate], guild_scope("guild-a", "meetings"));
+        let mut r = request(GovernanceActionV1::Facilitate, guild_scope("guild-a", "meetings"));
+        r.principal_identity_verified = false;
+        assert_eq!(
+            authorize(&r, &[a]),
+            AuthorizationDecisionV1::Denied(DenialReasonV1::PrincipalIdentityUnverified)
+        );
     }
 
     #[test]
