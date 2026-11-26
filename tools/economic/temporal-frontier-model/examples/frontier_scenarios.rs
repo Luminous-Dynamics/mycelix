@@ -284,7 +284,7 @@ fn main() {
         Ok(ReceiptVisibilityV1::MerkleInclusionProofValid)
     );
     assert_eq!(
-        incomplete.classify_receipt(&receipt),
+        incomplete.classify_receipt(&incomplete_receipt),
         Ok(ReceiptVisibilityV1::MerkleInclusionProofValid)
     );
 }
