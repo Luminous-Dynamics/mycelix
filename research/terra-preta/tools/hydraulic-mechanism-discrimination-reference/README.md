@@ -48,6 +48,12 @@ cargo run --manifest-path research/terra-preta/tools/hydraulic-mechanism-discrim
 
 The CLI hashes the exact input bytes and refuses output overwrite.
 
+## Closed-set discrepancy and abstention
+
+A finite model set should not force a winner when every declared mechanism badly explains the observations. The fixture preregisters a four-standard-deviation discrepancy threshold. For an observed vector, the detector evaluates each candidate mechanism's largest absolute standardized residual and takes the minimum across mechanisms. If even the best-fitting mechanism exceeds the threshold, it returns an abstention signal.
+
+This is a conservative out-of-family alarm under the declared independent Gaussian observation-noise model; it is not a posterior probability that all models are false, nor a substitute for a calibrated posterior-predictive check. The current executable API exposes the detector and tests both in-family acceptance and out-of-family abstention. The next increment should connect this result to a runtime decision receipt that requests a new measurement or expands the model family instead of publishing a confident closed-set selection.
+
 ## Falsification controls
 
 - Three mechanisms have identical steady bulk-flow predictions.
@@ -56,6 +62,8 @@ The CLI hashes the exact input bytes and refuses output overwrite.
 - Candidate-order permutation must not change the selected physical measurements or objective.
 - Rescaling every observable, derivative and noise standard deviation by the same unit factor must preserve information gains, Fisher information and selected designs.
 - Feasible portfolios beyond the deterministic quadrature dimension cap are rejected before enumeration.
+- The closed-set discrepancy detector accepts in-family observations and abstains when the best candidate mechanism exceeds the preregistered four-sigma residual threshold.
+- Malformed or non-finite observed vectors fail closed.
 - The exact-cost uniform baseline must have normalized portfolio probabilities and ordered quantiles.
 - The Gaussian quadrature rule must integrate its normalization, first moment and second moment.
 
