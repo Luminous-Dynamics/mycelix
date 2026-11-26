@@ -54,6 +54,8 @@ The CLI hashes the exact input bytes and refuses output overwrite.
 - Observationally equivalent mechanisms must produce zero model information gain.
 - The parameter-precision design is expected to differ from the model-discrimination design.
 - Candidate-order permutation must not change the selected physical measurements or objective.
+- Rescaling every observable, derivative and noise standard deviation by the same unit factor must preserve information gains, Fisher information and selected designs.
+- Feasible portfolios beyond the deterministic quadrature dimension cap are rejected before enumeration.
 - The exact-cost uniform baseline must have normalized portfolio probabilities and ordered quantiles.
 - The Gaussian quadrature rule must integrate its normalization, first moment and second moment.
 
