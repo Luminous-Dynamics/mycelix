@@ -25,6 +25,7 @@
     }
   ],
   "heldout_observation_noise_std": 0.12,
+  "closed_set_discrepancy_threshold_sd": 4.0,
   "candidates": [
     {
       "candidate_id": "bulk_steady_flow",
