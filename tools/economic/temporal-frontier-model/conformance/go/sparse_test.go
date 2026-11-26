@@ -155,19 +155,22 @@ func TestSparseKeyAndValueAreDomainScoped(t *testing.T) {
 		}
 	}
 
-	valueA, err := AssertionIndexValueV1("sha256:receipt-A", "owner:verifier-log", 7)
+	valueA, err := AssertionIndexValueV1("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "owner:verifier-log", 7)
 	if err != nil {
 		t.Fatal(err)
 	}
-	valueB, err := AssertionIndexValueV1("sha256:receipt-B", "owner:verifier-log", 7)
+	valueB, err := AssertionIndexValueV1("sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "owner:verifier-log", 7)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if valueA == valueB {
 		t.Fatal("receipt value digest not bound")
 	}
-	if _, err := AssertionIndexValueV1("sha256:receipt-A", "owner:verifier-log", 0); err == nil {
+	if _, err := AssertionIndexValueV1("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "owner:verifier-log", 0); err == nil {
 		t.Fatal("zero owner sequence passed")
+	}
+	if _, err := AssertionIndexValueV1("sha256:invalid", "owner:verifier-log", 7); err == nil {
+		t.Fatal("malformed receipt digest passed")
 	}
 }
 
