@@ -1,10 +1,9 @@
 use mycelix_rfc9162_proof_verifier::{inclusion_proof, tree_hash};
 use mycelix_temporal_frontier_model::{
-    canonical_knowledge_receipt_entry_v1, canonical_owner_cut_entry_v1,
     CheckpointInclusionDeclarationV1, FrontierRelationV1, KnowledgeReceiptV1,
-    OwnerConsistencyLinkV1, OwnerCutV1, OwnerPositionV1,
-    ReceiptInclusionDeclarationV1, ReceiptVisibilityV1, SequenceRangeV1,
-    VerifierFrontierV1,
+    OwnerConsistencyLinkV1, OwnerCutV1, OwnerPositionV1, ReceiptInclusionDeclarationV1,
+    ReceiptVisibilityV1, SequenceRangeV1, VerifierFrontierV1, canonical_knowledge_receipt_entry_v1,
+    canonical_owner_cut_entry_v1,
 };
 
 const VERIFIER: &str = "did:mycelix:verifier:finance-v1";
@@ -14,14 +13,12 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
-fn owner_entries_with_gaps(
-    owner: &str,
-    sequence: u64,
-    gaps: &[SequenceRangeV1],
-) -> Vec<Vec<u8>> {
+fn owner_entries_with_gaps(owner: &str, sequence: u64, gaps: &[SequenceRangeV1]) -> Vec<Vec<u8>> {
     (1..=sequence)
         .filter(|position| {
-            !gaps.iter().any(|gap| gap.first <= *position && *position <= gap.last)
+            !gaps
+                .iter()
+                .any(|gap| gap.first <= *position && *position <= gap.last)
         })
         .map(|position| format!("owner-log:{owner}:{position}").into_bytes())
         .collect()
@@ -32,7 +29,10 @@ fn owner_entries(owner: &str, sequence: u64) -> Vec<Vec<u8>> {
 }
 
 fn owner_cut(owner: &str, sequence: u64) -> OwnerCutV1 {
-    let root_digest = format!("sha256:{}", hex(&tree_hash(&owner_entries(owner, sequence)).unwrap()));
+    let root_digest = format!(
+        "sha256:{}",
+        hex(&tree_hash(&owner_entries(owner, sequence)).unwrap())
+    );
     OwnerCutV1 {
         owner_ref: owner.into(),
         history_ref: format!("history:{owner}"),
@@ -87,11 +87,8 @@ fn consistency_link(
     let entries = owner_entries(owner, second_tree_size);
     let first_root = tree_hash(&entries[..first_tree_size as usize]).unwrap();
     let second_root = tree_hash(&entries).unwrap();
-    mycelix_rfc9162_proof_verifier::consistency_proof(
-        &entries,
-        first_tree_size,
-    )
-    .map(|consistency_path| OwnerConsistencyLinkV1 {
+    mycelix_rfc9162_proof_verifier::consistency_proof(&entries, first_tree_size)
+        .map(|consistency_path| OwnerConsistencyLinkV1 {
         owner_ref: owner.into(),
         history_ref: format!("history:{owner}"),
         ancestor_root_digest: format!("sha256:{}", hex(&first_root)),
@@ -102,8 +99,8 @@ fn consistency_link(
         consistency_proof_ref: format!(
             "proof:consistency:{owner}:{first_tree_size}:{second_tree_size}"
         ),
-    })
-    .expect("owner consistency proof")
+        })
+        .expect("owner consistency proof")
 }
 
 fn main() {
@@ -120,14 +117,15 @@ fn main() {
         assertion_digest: format!("sha256:{}", "b".repeat(64)),
         owner_ref: "owner:grants".into(),
         owner_sequence: 5,
-        causal_dependencies: vec![
-            OwnerPositionV1 { owner_ref: "owner:governance".into(), sequence: 3 },
-        ],
+        causal_dependencies: vec![OwnerPositionV1 {
+            owner_ref: "owner:governance".into(),
+            sequence: 3,
+        }],
         receipt_digest: String::new(),
         inclusion: None,
     };
-    let receipt_payload = canonical_knowledge_receipt_entry_v1(&receipt)
-        .expect("canonical receipt encoding");
+    let receipt_payload =
+        canonical_knowledge_receipt_entry_v1(&receipt).expect("canonical receipt encoding");
     receipt.receipt_digest = format!("sha256:{}", hex(&sha2_digest(&receipt_payload)));
 
     let mut grant_log = owner_entries("owner:grants", 20);
@@ -142,9 +140,18 @@ fn main() {
         proof_ref: "proof:grant-revocation-receipt".into(),
     });
 
-    let early = frontier("frontier:early", vec![grants_10.clone(), payments_10.clone()]);
-    let crossed = frontier("frontier:crossed", vec![grants_20.clone(), payments_10.clone()]);
-    let later = frontier("frontier:later", vec![grants_20.clone(), payments_20.clone()]);
+    let early = frontier(
+        "frontier:early",
+        vec![grants_10.clone(), payments_10.clone()],
+    );
+    let crossed = frontier(
+        "frontier:crossed",
+        vec![grants_20.clone(), payments_10.clone()],
+    );
+    let later = frontier(
+        "frontier:later",
+        vec![grants_20.clone(), payments_20.clone()],
+    );
 
     let grant_link = consistency_link("owner:grants", 10, 20);
     let payment_link = consistency_link("owner:payments", 10, 20);
@@ -185,15 +192,10 @@ fn main() {
         owner_root_digest: incomplete_cut.root_digest.clone(),
         leaf_index: incomplete_leaf_index,
         tree_size: incomplete_cut.tree_size,
-        inclusion_path: inclusion_proof(
-            &incomplete_entries, incomplete_leaf_index,
-        ).unwrap(),
+        inclusion_path: inclusion_proof(&incomplete_entries, incomplete_leaf_index).unwrap(),
         proof_ref: "proof:receipt-with-gap".into(),
     });
-    let incomplete = frontier(
-        "frontier:incomplete",
-        vec![incomplete_cut, governance_3],
-    );
+    let incomplete = frontier("frontier:incomplete", vec![incomplete_cut, governance_3]);
     println!(
         "receipt_with_gap={:?}",
         incomplete.classify_receipt(&incomplete_receipt)
