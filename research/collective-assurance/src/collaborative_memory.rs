@@ -729,16 +729,19 @@ pub fn qualify_collab_memory_run(
         reasons: Vec::new(),
     };
 
-    match compute_collab_memory_run_digest(run) {
-        Ok(expected) if expected == run.run_digest => {}
+    let run_digest_valid = match compute_collab_memory_run_digest(run) {
+        Ok(expected) if expected == run.run_digest => true,
         Ok(_) => {
             result.qualification.fail("collaborative-memory run digest does not bind the supplied run");
-            result.metric_evaluable = false;
+            false
         }
         Err(error) => {
             result.qualification.fail(format!("invalid collaborative-memory run: {error}"));
-            result.metric_evaluable = false;
+            false
         }
+    };
+    if !run_digest_valid {
+        result.metric_evaluable = false;
     }
 
     if run.manifest.evidence_class == CollabMemoryEvidenceClass::SyntheticFixture {
@@ -829,7 +832,8 @@ pub fn qualify_collab_memory_run(
             result.metric_evaluable = false;
         }
         if let Some(score) = result.scores.get_mut(&competency) {
-            if result.metric_evaluable
+            if control_digest_valid
+                && run_digest_valid
                 && score.observed_probe_count > 0
                 && !group_incomplete.contains(&competency)
             {
