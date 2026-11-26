@@ -48,6 +48,33 @@ Each architecture scorecard separately reports:
 
 A scorecard is Pareto-comparison eligible only when task utility, privacy, revocation, causal, resource, role (when relevant) and policy evidence are complete, and no unauthorized disclosure, forbidden inference or unreconciled descendant is observed. This boolean is a gate, not a ranking or scalar score.
 
+## At-rest integrity and erasure-resurrection plane
+
+MCSF adds a separate at-rest integrity qualifier aligned with the active [IETF agent memory integrity Internet-Draft](https://datatracker.ietf.org/doc/html/draft-khandelwal-bpm-agent-memory-integrity). The document is work in progress, not an RFC. Its new T10 case is especially important: the SUT legitimately erases a record, then the evaluator restores a complete store snapshot taken before that erasure. This tests whether erasure survives rollback, not merely whether the current live store hides a deleted row.
+
+The ten cases are kept separate:
+
+| Case | Storage-level attack |
+|---|---|
+| T1 | Modify a stored record's content |
+| T2 | Truncate the tail of the store |
+| T3 | Delete a record from the middle |
+| T4 | Reorder stored records |
+| T5 | Insert a forged record |
+| T6 | Replay a record from another context |
+| T7 | Replay an older genuine record from the same context |
+| T8 | Tamper with owner, role, source, or timestamp metadata |
+| T9 | Restore an older whole-store snapshot after a genuine new write |
+| T10 | Restore a pre-erasure snapshot after the SUT's own erasure operation |
+
+The evaluator must establish three controls. C1 is a stop/restart with no edit: the SUT should serve seeded memory unchanged and raise no integrity alert. C2 is a genuine write through the SUT after restart: the new record must be served. C3 is per-case evidence from an independent raw-store comparison: it must show that the intended storage mutation landed and that no unintended store mutation accompanied it. If the target edit did not land, that case is excluded from the denominator; if any extra mutation occurred or either C3 proof is missing, the case is not evaluable. A failed C3 excludes that case from the denominator; it is neither a pass nor a SUT security failure. If C1 or C2 fails or is missing, the whole metric is not evaluable.
+
+For applicable cases, read-time rejection and read-time reporting receive full credit; audit-only reporting after the read receives half credit; accepted manipulated memory receives zero and fails qualification. The score is reported only across applicable cases whose edit landed and whose outcome is known. N/A requires both a capability/evidence digest and a human-readable reason. T9 cannot be N/A when whole-store snapshot restoration is supported. T10 cannot be N/A when both snapshot restoration and the SUT's own erasure operation are supported. T9 and T10 receive their own profiles rather than disappearing into a global average.
+
+The run commitment binds SUT identity/version/revision, store backend/version, runtime version and library digest, storage configuration, runner and test-plan digests, measurement date, detection and observation boundaries, stopped-SUT edit procedure, restore/erase capabilities, C1/C2 outcomes, all ten case identities, C3 states, outcomes and evidence digests. Every storage-layer edit must be performed while the SUT is stopped. A read-time result is observed at the independent harness or client-SDK boundary; an audit-only result is observed as a DUT-reported audit event. These pairings are encoded separately, so read-time and post-read audit detection cannot be merged into one ambiguous result. The JSON schema and synthetic fixture are under `schema/` and `fixtures/`. The fixture is explicitly marked `synthetic_fixture`; the Rust qualifier refuses to treat it as empirical SUT evidence. Passing the contract tests proves only that the evaluator contract behaves as specified. It does not prove that any production database, vector store, backup system or agent memory product has passed T1–T10.
+
+This plane complements, but does not replace, MCSF's existing runtime privacy, role-visibility, revocation and causal-influence probes. A system can correctly deny a cross-context query while its stored files remain replayable; conversely, a tamper-evident database can faithfully serve a memory to the wrong principal. Those failure modes need independent measurements.
+
 ## Executable sparse baseline
 
 The first matched retrieval baseline is implemented in `src/mcsf_baselines.rs`:

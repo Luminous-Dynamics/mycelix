@@ -1,0 +1,120 @@
+{
+  "run_id": "integrity-fixture-synthetic-v0.1",
+  "manifest": {
+    "schema_version": "mcsf-at-rest-integrity-v0.1",
+    "evidence_class": "synthetic_fixture",
+    "sut_id": "memory-sut-synthetic",
+    "sut_version": "0.0.0-fixture",
+    "storage_configuration_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+    "test_plan_digest": "1212121212121212121212121212121212121212121212121212121212121212",
+    "runner_digest": "1313131313131313131313131313131313131313131313131313131313131313",
+    "snapshot_restore_capable": true,
+    "erasure_capable": true,
+    "sut_revision": "fixture-revision-2026-11-26",
+    "store_backend": "synthetic-store",
+    "store_backend_version": "0.0",
+    "runtime_version": "synthetic-runtime",
+    "runtime_libraries_digest": "1414141414141414141414141414141414141414141414141414141414141414",
+    "measurement_date": "2026-11-26",
+    "detection_point": "read",
+    "observation_point": "harness_boundary",
+    "edits_applied_while_sut_stopped": true
+  },
+  "controls": {
+    "no_op_reload": "passed",
+    "genuine_write_after_restart": "passed"
+  },
+  "observations": [
+    {
+      "test_case": "T1",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0101010101010101010101010101010101010101010101010101010101010101",
+      "only_intended_change": true
+    },
+    {
+      "test_case": "T2",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0202020202020202020202020202020202020202020202020202020202020202",
+      "only_intended_change": true
+    },
+    {
+      "test_case": "T3",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0303030303030303030303030303030303030303030303030303030303030303",
+      "only_intended_change": true
+    },
+    {
+      "test_case": "T4",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+      "only_intended_change": true
+    },
+    {
+      "test_case": "T5",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+      "only_intended_change": true
+    },
+    {
+      "test_case": "T6",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+      "only_intended_change": true
+    },
+    {
+      "test_case": "T7",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0707070707070707070707070707070707070707070707070707070707070707",
+      "only_intended_change": true
+    },
+    {
+      "test_case": "T8",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0808080808080808080808080808080808080808080808080808080808080808",
+      "only_intended_change": true
+    },
+    {
+      "test_case": "T9",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0909090909090909090909090909090909090909090909090909090909090909",
+      "only_intended_change": true
+    },
+    {
+      "test_case": "T10",
+      "applicability": "applicable",
+      "applicability_reason": null,
+      "attack_mutation_landed": true,
+      "outcome": "rejected_at_read",
+      "evidence_digest": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "only_intended_change": true
+    }
+  ],
+  "run_digest": "709970fde66af8d298a105f53e80dae31edc8cf964c296eb8d65238ca9914c14"
+}

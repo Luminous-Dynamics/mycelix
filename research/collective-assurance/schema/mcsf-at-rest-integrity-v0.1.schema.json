@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mcsf-at-rest-integrity-v0.1.schema.json",
+  "title": "MCSF At-Rest Memory Integrity Run v0.1",
+  "description": "A reproducible, evidence-bound qualification record for T1-T10 at-rest memory integrity tests. Synthetic fixtures are not empirical SUT evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "manifest",
+    "controls",
+    "observations",
+    "run_digest"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "manifest": {
+      "$ref": "#/$defs/manifest"
+    },
+    "controls": {
+      "$ref": "#/$defs/controls"
+    },
+    "observations": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "$ref": "#/$defs/observation"
+      }
+    },
+    "run_digest": {
+      "$ref": "#/$defs/sha256"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "evidence_class",
+        "sut_id",
+        "sut_version",
+        "sut_revision",
+        "store_backend",
+        "store_backend_version",
+        "runtime_version",
+        "runtime_libraries_digest",
+        "storage_configuration_digest",
+        "test_plan_digest",
+        "runner_digest",
+        "measurement_date",
+        "detection_point",
+        "observation_point",
+        "edits_applied_while_sut_stopped",
+        "snapshot_restore_capable",
+        "erasure_capable"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "mcsf-at-rest-integrity-v0.1"
+        },
+        "evidence_class": {
+          "enum": [
+            "synthetic_fixture",
+            "observed_run"
+          ]
+        },
+        "sut_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sut_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "storage_configuration_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "test_plan_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "runner_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "snapshot_restore_capable": {
+          "type": "boolean"
+        },
+        "erasure_capable": {
+          "type": "boolean"
+        },
+        "sut_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "store_backend": {
+          "type": "string",
+          "minLength": 1
+        },
+        "store_backend_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtime_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtime_libraries_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "measurement_date": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "detection_point": {
+          "enum": [
+            "read",
+            "audit"
+          ]
+        },
+        "observation_point": {
+          "enum": [
+            "harness_boundary",
+            "dut_reported",
+            "client_sdk_boundary"
+          ]
+        },
+        "edits_applied_while_sut_stopped": {
+          "type": "boolean"
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "no_op_reload",
+        "genuine_write_after_restart"
+      ],
+      "properties": {
+        "no_op_reload": {
+          "$ref": "#/$defs/control_status"
+        },
+        "genuine_write_after_restart": {
+          "$ref": "#/$defs/control_status"
+        }
+      }
+    },
+    "control_status": {
+      "enum": [
+        "passed",
+        "failed",
+        "not_run",
+        "unknown"
+      ]
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "test_case",
+        "applicability",
+        "applicability_reason",
+        "attack_mutation_landed",
+        "outcome",
+        "evidence_digest",
+        "only_intended_change"
+      ],
+      "properties": {
+        "test_case": {
+          "enum": [
+            "T1",
+            "T2",
+            "T3",
+            "T4",
+            "T5",
+            "T6",
+            "T7",
+            "T8",
+            "T9",
+            "T10"
+          ]
+        },
+        "applicability": {
+          "enum": [
+            "applicable",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "applicability_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "attack_mutation_landed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "outcome": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "rejected_at_read",
+            "reported_at_read",
+            "audit_only",
+            "accepted",
+            "unknown",
+            null
+          ]
+        },
+        "evidence_digest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "only_intended_change": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}
