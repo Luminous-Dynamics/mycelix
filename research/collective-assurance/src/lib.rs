@@ -16,7 +16,7 @@ mod support_policy;
 
 pub use teambench_adapter::{
     qualify_teambench_suite, TeamBenchBoundaryObservation, TeamBenchCondition,
-    TeamBenchConditionRun, TeamBenchExcludedTask, TeamBenchGraderDisposition,
+    TeamBenchConditionRun, TeamBenchExecutionBackend, TeamBenchExcludedTask, TeamBenchGraderDisposition,
     TeamBenchQualificationReport, TeamBenchRole, TeamBenchRoleBoundaryEvent,
     TeamBenchRunMode, TeamBenchSuite, TeamBenchTaskObservation, TeamBenchTaskState,
     TeamBenchVerifierDisposition,
