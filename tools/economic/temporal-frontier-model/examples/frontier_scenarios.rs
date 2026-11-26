@@ -14,10 +14,21 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
-fn owner_entries(owner: &str, sequence: u64) -> Vec<Vec<u8>> {
+fn owner_entries_with_gaps(
+    owner: &str,
+    sequence: u64,
+    gaps: &[SequenceRangeV1],
+) -> Vec<Vec<u8>> {
     (1..=sequence)
+        .filter(|position| {
+            !gaps.iter().any(|gap| gap.first <= *position && *position <= gap.last)
+        })
         .map(|position| format!("owner-log:{owner}:{position}").into_bytes())
         .collect()
+}
+
+fn owner_entries(owner: &str, sequence: u64) -> Vec<Vec<u8>> {
+    owner_entries_with_gaps(owner, sequence, &[])
 }
 
 fn owner_cut(owner: &str, sequence: u64) -> OwnerCutV1 {
@@ -145,18 +156,44 @@ fn main() {
         early.compare(&crossed, &[grant_link])
     );
 
-    let receipt_frontier = frontier("frontier:receipt", vec![grants_20.clone()]);
+    let governance_3 = owner_cut("owner:governance", 3);
+    let receipt_frontier = frontier(
+        "frontier:receipt",
+        vec![grants_20.clone(), governance_3.clone()],
+    );
     println!(
         "receipt_visibility={:?}",
         receipt_frontier.classify_receipt(&receipt)
     );
 
+    let gaps = vec![SequenceRangeV1 { first: 3, last: 4 }];
+    let mut incomplete_entries = owner_entries_with_gaps("owner:grants", 20, &gaps);
+    let incomplete_leaf_index = 2_u64; // owner sequences 1, 2, 5, ...
+    incomplete_entries[incomplete_leaf_index as usize] =
+        canonical_knowledge_receipt_entry_v1(&receipt).unwrap();
+    let incomplete_owner_root = tree_hash(&incomplete_entries).unwrap();
     let mut incomplete_cut = grants_20;
-    incomplete_cut.gaps.push(SequenceRangeV1 { first: 3, last: 4 });
-    let incomplete = frontier("frontier:incomplete", vec![incomplete_cut]);
+    incomplete_cut.sequence = 20;
+    incomplete_cut.tree_size = incomplete_entries.len() as u64;
+    incomplete_cut.root_digest = format!("sha256:{}", hex(&incomplete_owner_root));
+    incomplete_cut.gaps = gaps;
+    let mut incomplete_receipt = receipt.clone();
+    incomplete_receipt.inclusion = Some(ReceiptInclusionDeclarationV1 {
+        owner_root_digest: incomplete_cut.root_digest.clone(),
+        leaf_index: incomplete_leaf_index,
+        tree_size: incomplete_cut.tree_size,
+        inclusion_path: inclusion_proof(
+            &incomplete_entries, incomplete_leaf_index,
+        ).unwrap(),
+        proof_ref: "proof:receipt-with-gap".into(),
+    });
+    let incomplete = frontier(
+        "frontier:incomplete",
+        vec![incomplete_cut, governance_3],
+    );
     println!(
         "receipt_with_gap={:?}",
-        incomplete.classify_receipt(&receipt)
+        incomplete.classify_receipt(&incomplete_receipt)
     );
 
     assert_eq!(
