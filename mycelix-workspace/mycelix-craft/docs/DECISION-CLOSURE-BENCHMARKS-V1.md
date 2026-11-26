@@ -64,6 +64,7 @@ Use at least two independent domain reviewers per mapping role in the field qual
 | Exception recall | Applicable exceptions/scope conditions represented | ≥ 0.99 |
 | Dependency integrity | Dependent elements counted while prerequisites remain unsatisfied | 0 |
 | Cross-scope evidence acceptance | Result from wrong domain/jurisdiction/corpus accepted | 0 |
+| Cross-proposal evidence acceptance | Support result from an older or unrelated proposal revision accepted | 0 |
 | Stale support acceptance | Expired or invalidated result counted | 0 |
 | Not-applicable integrity | Element excluded without authority decision | 0 |
 | Mapping reviewer integrity | Approval accepted for changed mapping digest or missing quorum | 0 |
@@ -88,7 +89,7 @@ Targets are proposed qualification requirements, not measured results. The zero-
 - all elements have claim support but a prerequisite ordering is unsatisfied;
 - a clinical recommendation has risk stratification but omits contraindication or bleeding-risk assessment;
 - multiple positive sources are present alongside one contradictory source;
-- support result is stale, withdrawn or tied to an older claim/source/standard revision;
+- support result is stale, withdrawn or tied to an older claim/source/standard/proposal revision;
 - alternative mappings yield different closure verdicts.
 
 ## 7. Inter-rater reliability and mapping sensitivity
