@@ -445,8 +445,13 @@ pub fn evaluate_sequence(
 ) -> SequenceEvaluation {
     let public_view = simulate_observer_view(sequence, false, observer_profile, trace_coverage);
     let protected_view = simulate_observer_view(sequence, true, observer_profile, trace_coverage);
+    // The family-specific signal channel is part of this experiment's
+    // declared observer view. Add it explicitly to the generic required-field
+    // list so the comparator reports which memory metadata field diverged.
+    let mut required_fields = REQUIRED_OBSERVER_FIELDS.to_vec();
+    required_fields.push(sequence.family.signal_field());
     let comparison =
-        compare_observer_views(&public_view, &protected_view, REQUIRED_OBSERVER_FIELDS);
+        compare_observer_views(&public_view, &protected_view, &required_fields);
 
     let authorised_sensitivity_detected = sequence.disclosure_mode == DisclosureMode::Authorised
         && public_view.get("authorized_disclosure") != protected_view.get("authorized_disclosure");
