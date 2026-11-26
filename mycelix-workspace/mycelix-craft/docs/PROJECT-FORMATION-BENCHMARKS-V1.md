@@ -79,6 +79,7 @@ Do not combine these metrics into a universal optimizer score. Publish each obje
 - Eightfold Matching and Calibration (updated 2026-11-13): https://docs.eightfold.ai/en_US/talent-intelligence-platform/tipmatching-and-calibration
 - Eightfold Project Recommendations (updated 2026-11-13): https://docs.eightfold.ai/en_US/learning-and-professional-growth/project-recommendations
 - W3C VC Data Model 2.0: https://www.w3.org/TR/vc-data-model/
+- W3C Bitstring Status List 1.0 (privacy-preserving credential suspension/revocation status): https://www.w3.org/TR/vc-bitstring-status-list/
 - 1EdTech Open Badges 3.0: https://www.imsglobal.org/spec/ob/v3p0/
 - ESCO: https://esco.ec.europa.eu/en/use-esco/use-esco-services-api
 - Valueflows 1.0: https://www.valueflo.ws/introduction/status/ (stable core for operational planning and observation of economic activity; do not assume removed or experimental agent/bioregional models are part of 1.0)
@@ -121,6 +122,7 @@ Reference: Saeedi et al., “A Survey of Subgraph Optimization for Expert Team F
 | Unknown-state integrity | Unknown evidence silently converted into qualified or failed capability | 0 |
 | Revocation-status freshness | Nominally valid evidence accepted after its status snapshot exceeds the requirement freshness bound | 0 |
 | Future status timestamp | Future-dated issuer/revocation observation accepted | 0 |
+| Snapshot provenance | Status result accepted without a pinned status-snapshot digest | 0 |
 | Explanation completeness | Output identifies the exact requirement, evidence state, scope and gap | 100% of frozen fixtures |
 | Independent replay | Second implementation reproduces every frozen output | 100% |
 
