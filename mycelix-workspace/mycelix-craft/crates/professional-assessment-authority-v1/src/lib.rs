@@ -138,8 +138,8 @@ pub struct AssessmentAuthorizationRequestV1 {
 
 impl AssessmentAuthorizationRequestV1 {
     fn validate(&self) -> Result<(), DenialReasonV1> {
-        if self.assessor_id.trim().is_empty()
-            || self.subject_id.trim().is_empty()
+        if !is_non_empty_unpadded(&self.assessor_id)
+            || !is_non_empty_unpadded(&self.subject_id)
             || self.scope.validate().is_err()
         {
             return Err(DenialReasonV1::InvalidRequest);
@@ -150,7 +150,7 @@ impl AssessmentAuthorizationRequestV1 {
 
         let mut parties = HashSet::new();
         for party_id in &self.involved_party_ids {
-            if party_id.trim().is_empty() || !parties.insert(party_id.as_str()) {
+            if !is_non_empty_unpadded(party_id) || !parties.insert(party_id.as_str()) {
                 return Err(DenialReasonV1::InvalidRequest);
             }
         }
@@ -239,6 +239,8 @@ pub fn authorize_assessment(
     }
 
     let mut conflict_found = false;
+    let mut inactive_found = false;
+    let mut outside_validity_found = false;
     let mut authorized_by: Option<&ProfessionalAssessmentAuthorityV1> = None;
     let involved: HashSet<&str> = request
         .involved_party_ids
@@ -256,9 +258,11 @@ pub fn authorize_assessment(
             );
         }
         if authority.status != AuthorityStatusV1::Active {
+            inactive_found = true;
             continue;
         }
         if request.at < authority.effective_at || request.at >= authority.expires_at {
+            outside_validity_found = true;
             continue;
         }
         if authority
@@ -266,6 +270,7 @@ pub fn authorize_assessment(
             .map(|revoked_at| request.at >= revoked_at)
             .unwrap_or(false)
         {
+            outside_validity_found = true;
             continue;
         }
 
@@ -291,14 +296,24 @@ pub fn authorize_assessment(
             authority_id: authority.authority_id.clone(),
             authority_revision: authority.revision,
         },
+        None if inactive_found => AssessmentAuthorizationDecisionV1::Denied(
+            DenialReasonV1::AuthorityNotActive,
+        ),
+        None if outside_validity_found => AssessmentAuthorizationDecisionV1::Denied(
+            DenialReasonV1::AuthorityOutsideValidity,
+        ),
         None => AssessmentAuthorizationDecisionV1::Denied(
             DenialReasonV1::NoMatchingAuthority,
         ),
     }
 }
 
+fn is_non_empty_unpadded(value: &str) -> bool {
+    !value.is_empty() && value.trim() == value
+}
+
 fn require_non_empty(value: &str) -> Result<(), AuthorityErrorV1> {
-    if value.trim().is_empty() {
+    if !is_non_empty_unpadded(value) {
         Err(AuthorityErrorV1::EmptyField)
     } else {
         Ok(())
@@ -367,7 +382,7 @@ mod tests {
     }
 
     #[test]
-    fn member_or_founder_without_an_authority_is_not_authorized() {
+    fn assessor_without_independent_authority_is_not_authorized() {
         assert_eq!(
             authorize_assessment(&request(), &[]),
             AssessmentAuthorizationDecisionV1::Denied(
@@ -411,6 +426,15 @@ mod tests {
         a.scope = scope();
         a.scope.standards_revision = "2025.4".to_owned();
         assert_eq!(
+            authorize_assessment(&request(), &[a.clone()]),
+            AssessmentAuthorizationDecisionV1::Denied(
+                DenialReasonV1::NoMatchingAuthority
+            )
+        );
+
+        a.scope = scope();
+        a.scope.standards_digest = [4; 32];
+        assert_eq!(
             authorize_assessment(&request(), &[a]),
             AssessmentAuthorizationDecisionV1::Denied(
                 DenialReasonV1::NoMatchingAuthority
@@ -425,7 +449,7 @@ mod tests {
         assert_eq!(
             authorize_assessment(&request(), &[a]),
             AssessmentAuthorizationDecisionV1::Denied(
-                DenialReasonV1::NoMatchingAuthority
+                DenialReasonV1::AuthorityNotActive
             )
         );
     }
@@ -437,7 +461,7 @@ mod tests {
         assert_eq!(
             authorize_assessment(&request(), &[a]),
             AssessmentAuthorizationDecisionV1::Denied(
-                DenialReasonV1::NoMatchingAuthority
+                DenialReasonV1::AuthorityOutsideValidity
             )
         );
     }
@@ -449,7 +473,7 @@ mod tests {
         assert_eq!(
             authorize_assessment(&request(), &[a]),
             AssessmentAuthorizationDecisionV1::Denied(
-                DenialReasonV1::NoMatchingAuthority
+                DenialReasonV1::AuthorityOutsideValidity
             )
         );
     }
