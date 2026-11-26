@@ -1,5 +1,4 @@
 use std::fs;
-use std::io;
 use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -12,8 +11,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
         });
     let contents = fs::read_to_string(fixture)?;
-    let receipt = maritime_productive_capability::audit_fixture(&contents)
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    let receipt = match maritime_productive_capability::run_audit(&contents) {
+        Ok(receipt) => receipt,
+        Err(error) => {
+            eprintln!("fixture audit failed: {error}");
+            std::process::exit(2);
+        }
+    };
     print!("{receipt}");
     Ok(())
 }
