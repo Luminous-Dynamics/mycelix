@@ -171,6 +171,55 @@
         "no_false_not_affected"
       ],
       "owner_boundary": "Unresolved water-quality evidence cannot be coerced into a safe or closed state."
+    },
+    {
+      "case_id": "WSR-013",
+      "owner_issues": [
+        "#6771",
+        "#6750",
+        "#6757"
+      ],
+      "checks": [
+        "interruption_over_48_hours",
+        "alternative_supply_at_least_15_litres_person_day",
+        "safe_convenient_delivery_point",
+        "alternative_supply_quality"
+      ],
+      "owner_boundary": "The legal minimum is an external authority requirement; Craft only carries evidence and closure checks."
+    },
+    {
+      "case_id": "WSR-014",
+      "owner_issues": [
+        "#6140",
+        "#6754",
+        "#6757",
+        "#6769"
+      ],
+      "checks": [
+        "confirmed_health_risk",
+        "12_hour_dws_and_health_notification",
+        "accessible_community_advisory",
+        "incident_response"
+      ],
+      "owner_boundary": "The responsible Water Services Authority and public-health authorities own incident classification and notifications."
+    },
+    {
+      "case_id": "WSR-015",
+      "owner_issues": [
+        "#181",
+        "#6140",
+        "#6754",
+        "#6757",
+        "#6762"
+      ],
+      "checks": [
+        "alternative_supply_over_one_week",
+        "iris_monitoring_registration",
+        "source_origin",
+        "required_parameters",
+        "tanker_delivery_records"
+      ],
+      "owner_boundary": "IRIS registration, sampling and tanker records remain statutory/source-owner processes; synthetic fields do not prove regulatory compliance."
     }
   ]
 }
