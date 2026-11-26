@@ -1119,7 +1119,10 @@ mod tests {
         let proposal = proposal(vec![member("alice")], Vec::new());
 
         let coverage = result(&project, &proposal);
-        assert_eq!(coverage.disposition, RequirementDispositionV1::UnknownEvidence);
+        assert_eq!(
+            coverage.disposition,
+            RequirementDispositionV1::UnknownEvidence
+        );
         assert_eq!(coverage.requirement_kind, RequirementKindV1::Preferred);
         assert!(!coverage.is_requirement_blocking);
     }
@@ -1130,7 +1133,10 @@ mod tests {
         let proposal = proposal(vec![member("alice")], Vec::new());
 
         let coverage = result(&project, &proposal);
-        assert_eq!(coverage.disposition, RequirementDispositionV1::UnknownEvidence);
+        assert_eq!(
+            coverage.disposition,
+            RequirementDispositionV1::UnknownEvidence
+        );
         assert!(coverage.is_requirement_blocking);
         assert!(coverage.qualified_contributors.is_empty());
     }
@@ -1147,7 +1153,10 @@ mod tests {
         );
 
         let coverage = result(&project, &proposal);
-        assert_eq!(coverage.disposition, RequirementDispositionV1::BlockedBySafetyGate);
+        assert_eq!(
+            coverage.disposition,
+            RequirementDispositionV1::BlockedBySafetyGate
+        );
         assert!(coverage.is_requirement_blocking);
         assert_eq!(coverage.qualified_contributors, vec!["alice"]);
     }
