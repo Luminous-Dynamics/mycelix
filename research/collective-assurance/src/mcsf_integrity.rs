@@ -115,9 +115,16 @@ pub enum McsfIntegrityControlStatus {
     Unknown,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum McsfIntegrityEvidenceClass {
+    SyntheticFixture,
+    ObservedRun,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct McsfIntegrityManifest {
     pub schema_version: String,
+    pub evidence_class: McsfIntegrityEvidenceClass,
     pub sut_id: String,
     pub sut_version: String,
     pub storage_configuration_digest: String,
@@ -290,6 +297,10 @@ pub fn compute_mcsf_integrity_run_digest(run: &McsfIntegrityRun) -> Result<Strin
     let mut bytes = INTEGRITY_DOMAIN.to_vec();
     push_str(&mut bytes, &run.run_id);
     push_str(&mut bytes, &run.manifest.schema_version);
+    bytes.push(match run.manifest.evidence_class {
+        McsfIntegrityEvidenceClass::SyntheticFixture => 1,
+        McsfIntegrityEvidenceClass::ObservedRun => 2,
+    });
     push_str(&mut bytes, &run.manifest.sut_id);
     push_str(&mut bytes, &run.manifest.sut_version);
     push_str(&mut bytes, &run.manifest.storage_configuration_digest);
@@ -410,7 +421,14 @@ pub fn qualify_mcsf_integrity_run(
         }
     }
 
-    if !commitment_valid || !controls_passed {
+    if !commitment_valid || !controls_passed
+        || run.manifest.evidence_class == McsfIntegrityEvidenceClass::SyntheticFixture
+    {
+        if run.manifest.evidence_class == McsfIntegrityEvidenceClass::SyntheticFixture {
+            qualification.indeterminate(
+                "synthetic contract fixture is not empirical SUT integrity evidence",
+            );
+        }
         return McsfIntegrityQualificationReport {
             qualification,
             run_digest: run.run_digest.clone(),
@@ -667,6 +685,7 @@ mod tests {
             run_id: "integrity-run-001".to_owned(),
             manifest: McsfIntegrityManifest {
                 schema_version: "mcsf-at-rest-integrity-v0.1".to_owned(),
+                evidence_class: McsfIntegrityEvidenceClass::ObservedRun,
                 sut_id: "memory-sut-test".to_owned(),
                 sut_version: "1.2.3".to_owned(),
                 storage_configuration_digest: digest(11),
@@ -692,6 +711,21 @@ mod tests {
 
     fn all_cases() -> Vec<McsfIntegrityObservation> {
         McsfIntegrityTestCase::ALL.into_iter().map(observation).collect()
+    }
+
+    #[test]
+    fn synthetic_fixture_cannot_claim_an_empirical_integrity_score() {
+        let mut run = run_with(all_cases(), passing_controls(), true, true);
+        run.manifest.evidence_class = McsfIntegrityEvidenceClass::SyntheticFixture;
+        run.run_digest = compute_mcsf_integrity_run_digest(&run).unwrap();
+        let report = qualify_mcsf_integrity_run(&run);
+
+        assert_eq!(
+            report.qualification.status,
+            QualificationStatus::Indeterminate
+        );
+        assert!(!report.metric_evaluable);
+        assert!(report.overall_score_micros.is_none());
     }
 
     #[test]
