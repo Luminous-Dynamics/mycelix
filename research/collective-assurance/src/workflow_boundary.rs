@@ -567,8 +567,8 @@ fn exposure_boundary_issue(
                 return Some((
                     WorkflowBoundaryStatus::Fail,
                     format!(
-                        "ineligible artifact {} was consumed by consumer {} in run {}",
-                        exposure.artifact_id, exposure.consumer_node_id, run.run_id
+                        "ineligible exposure {} for artifact {} was consumed by consumer {} in run {}",
+                        exposure.exposure_id, exposure.artifact_id, exposure.consumer_node_id, run.run_id
                     ),
                 ));
             }
