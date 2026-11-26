@@ -336,23 +336,28 @@ pub fn qualify_audience_applicability_disclosure(
         return report;
     }
 
-    if !validate_selector_set(&entry.audience, "audience", &mut report) {
-        return report;
-    }
-    if entry.applicability.is_empty() {
-        report.indeterminate("generalization/applicability evidence is missing");
-        return report;
-    }
-    if entry.disclosure.is_empty() {
-        report.indeterminate("disclosure-boundary evidence is missing");
+    // Validate every dimension before evaluating any one of them. A known
+    // mismatch must remain FAIL even if another dimension is missing.
+    let audience_complete =
+        validate_selector_set(&entry.audience, "audience", &mut report);
+    if report.status == AudienceQualificationStatus::Fail {
         return report;
     }
 
+    let applicability_complete = !entry.applicability.is_empty();
+    if !applicability_complete {
+        report.indeterminate("generalization/applicability evidence is missing");
+    }
     for rule in &entry.applicability {
         if rule.selector.validate().is_err() || !valid_digest(&rule.situation_digest) {
             report.fail("applicability rule is malformed");
             return report;
         }
+    }
+
+    let disclosure_complete = !entry.disclosure.is_empty();
+    if !disclosure_complete {
+        report.indeterminate("disclosure-boundary evidence is missing");
     }
     for rule in &entry.disclosure {
         if rule.selector.validate().is_err() || !valid_digest(&rule.policy_digest) {
@@ -363,7 +368,7 @@ pub fn qualify_audience_applicability_disclosure(
 
     let audience_matches = entry.audience.iter().any(|scope| scope.matches(context));
     report.audience_match = audience_matches;
-    if !audience_matches {
+    if audience_complete && !audience_matches {
         report.fail("requesting user-agent pair is outside the entry audience");
         return report;
     }
@@ -372,7 +377,7 @@ pub fn qualify_audience_applicability_disclosure(
         rule.selector.matches(context) && rule.situation_digest == context.situation_digest
     });
     report.applicability_match = applicability_matches;
-    if !applicability_matches {
+    if applicability_complete && !applicability_matches {
         report.fail("entry is not applicable to this pair and exact situation");
         return report;
     }
@@ -387,10 +392,16 @@ pub fn qualify_audience_applicability_disclosure(
                     .is_some_and(|receipt| receipt.disclosure_scope == rule.selector))
     });
     report.disclosure_match = matching_disclosure.is_some();
-    let Some(disclosure_rule) = matching_disclosure else {
+    if disclosure_complete && matching_disclosure.is_none() {
         report.fail("content is outside the recipient or policy disclosure boundary");
         return report;
-    };
+    }
+
+    // Incomplete evidence is not a grant. Only return INDETERMINATE after
+    // checking all dimensions for any already-known negative condition.
+    if report.status == AudienceQualificationStatus::Indeterminate {
+        return report;
+    }
 
     if entry.source_stream == SourceStream::Reusable {
         if entry.projection_receipt.is_some() {
@@ -412,6 +423,12 @@ pub fn qualify_audience_applicability_disclosure(
             return report;
         }
     };
+    let Some(disclosure_rule) = matching_disclosure else {
+        // Defensive: the complete/matched checks above should make this
+        // unreachable, but absence must never be converted into a grant.
+        report.indeterminate("matching disclosure rule could not be resolved");
+        return report;
+    };
     if receipt.receipt_digest != computed
         || receipt.entry_id != entry.entry_id
         || receipt.entry_revision != entry.revision
@@ -430,7 +447,7 @@ pub fn qualify_audience_applicability_disclosure(
         || context.used_at_ms < receipt.issued_at_ms
         || context.used_at_ms >= receipt.expires_at_ms
     {
-        report.fail("projection receipt does not bind the exact entry, output, audience, situation, policy or use time");
+        report.fail("projection receipt does not bind the exact entry, output, audience, applicability, disclosure, situation, policy or use time");
         return report;
     }
 
