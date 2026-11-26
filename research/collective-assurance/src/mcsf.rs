@@ -214,7 +214,7 @@ pub struct McsfArchitectureScorecard {
     pub resource_usage_complete: bool,
     pub resource_totals: Option<McsfResourceTotals>,
     pub role_evidence_complete: bool,
-    pub official_policy_eligible: bool,
+    pub policy_class_eligible: bool,
     pub paired_task_count_vs_no_memory: usize,
     /// Positive means higher native evaluator utility than the matched NoMemory run.
     pub mean_utility_delta_vs_no_memory_micros: Option<i64>,
@@ -347,7 +347,7 @@ fn empty_scorecard(
         resource_usage_complete: true,
         resource_totals: Some(McsfResourceTotals::default()),
         role_evidence_complete: true,
-        official_policy_eligible: policy_class == McsfPolicyClass::NativeUnrestricted,
+        policy_class_eligible: policy_class == McsfPolicyClass::NativeUnrestricted,
         paired_task_count_vs_no_memory: 0,
         mean_utility_delta_vs_no_memory_micros: None,
         pareto_comparison_eligible: false,
@@ -424,15 +424,17 @@ pub fn qualify_mcsf_suite(
             ));
         }
 
-        let official_policy_eligible = match manifest.policy_class {
-            McsfPolicyClass::NativeUnrestricted => true,
+        let policy_class_eligible = match manifest.policy_class {
+            // Explicitly identifying an unrestricted native run is a valid claim
+        // class, but it is not an official third-party division score.
+        McsfPolicyClass::NativeUnrestricted => true,
             McsfPolicyClass::OfficialDivisionCompatible => {
                 valid_optional_digest(manifest.official_policy_receipt_digest.as_deref())
             }
         };
         let mut card = empty_scorecard(manifest.architecture, manifest.policy_class);
-        card.official_policy_eligible = official_policy_eligible;
-        if !official_policy_eligible {
+        card.policy_class_eligible = policy_class_eligible;
+        if !policy_class_eligible {
             card.pareto_comparison_eligible = false;
         }
 
@@ -665,7 +667,7 @@ pub fn qualify_mcsf_suite(
                 && card.causal_evidence_complete
                 && card.resource_usage_complete
                 && card.role_evidence_complete
-                && card.official_policy_eligible
+                && card.policy_class_eligible
                 && card.utility_task_count == expected_tasks.len();
         }
 
@@ -917,7 +919,7 @@ mod tests {
         let report = qualify_mcsf_suite(&input, &[run(McsfArchitecture::NoMemory, &input, 500_000), hdc]);
         let card = report.scorecards.iter()
             .find(|card| card.architecture == McsfArchitecture::HdcCfc).unwrap();
-        assert!(!card.official_policy_eligible);
+        assert!(!card.policy_class_eligible);
         assert!(!card.pareto_comparison_eligible);
     }
 
