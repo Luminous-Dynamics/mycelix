@@ -1,0 +1,81 @@
+name: Terra Preta robust hydraulic experiment design reference
+
+on:
+  pull_request:
+    branches: [main, 'research/terra-active-design-v0.1']
+    paths:
+      - 'research/terra-preta/tools/hydraulic-robust-experiment-design-reference/**'
+      - '.github/workflows/terra-preta-robust-experiment-design-reference.yml'
+  push:
+    branches: ['research/terra-robust-active-design-v0.1']
+    paths:
+      - 'research/terra-preta/tools/hydraulic-robust-experiment-design-reference/**'
+      - '.github/workflows/terra-preta-robust-experiment-design-reference.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terra-robust-active-design-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  robust-experiment-design:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - name: Verify formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/hydraulic-robust-experiment-design-reference/Cargo.toml -- --check
+      - name: Tests
+        run: cargo test --manifest-path research/terra-preta/tools/hydraulic-robust-experiment-design-reference/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/hydraulic-robust-experiment-design-reference/Cargo.toml --all-targets -- -D warnings
+      - name: Run manufactured robust ensemble
+        run: |
+          cargo run --quiet --manifest-path research/terra-preta/tools/hydraulic-robust-experiment-design-reference/Cargo.toml -- \
+            research/terra-preta/tools/hydraulic-robust-experiment-design-reference/fixtures/segmentation-support-ensemble.json \
+            "$RUNNER_TEMP/terra-robust-design.json"
+      - name: Validate output and scenario receipts
+        run: |
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .scenario_count == 3 and
+            (.scenario_probability_policy | contains("unweighted")) and
+            (.nominal_design.total_cost <= .acquisition_budget) and
+            (.robust_d_optimal_design.total_cost <= .acquisition_budget) and
+            (.robust_e_optimal_design.total_cost <= .acquisition_budget) and
+            (.minimax_regret_design.total_cost <= .acquisition_budget) and
+            (.robust_d_optimal_design.per_scenario_scores | length == 3) and
+            (.robust_e_optimal_design.per_scenario_scores | length == 3) and
+            (.minimax_regret_design.per_scenario_scores | length == 3) and
+            (.candidate_support_receipts | length == 5) and
+            (.per_scenario_oracles | length == 3) and
+            ([.per_scenario_oracles[] | select(.oracle_minimum_eigenvalue_data_information != null and .oracle_minimum_eigenvalue_total_information != null and .oracle_data_rank == 4)] | length == 3) and
+            (.nominal_design.candidate_ids == ["upper-pressure", "lower-pressure", "upper-path-flow"]) and
+            (.robust_d_optimal_design.candidate_ids == ["upper-pressure", "lower-pressure", "lower-path-flow"]) and
+            (.robust_e_optimal_design.candidate_ids == ["upper-pressure", "lower-pressure", "lower-path-flow"]) and
+            (.minimax_regret_design.candidate_ids == ["upper-pressure", "lower-pressure", "lower-path-flow"]) and
+            (.robust_d_optimal_design.worst_case_rank == 4) and
+            (.robust_e_optimal_design.objective_name == "maximin_data_minimum_eigenvalue") and
+            (.robust_e_optimal_design.maximum_absolute_d_optimal_regret >= 0) and
+            (.minimax_regret_design.maximum_normalized_d_optimal_regret <= 0.05) and
+            ([.robust_d_optimal_design.per_scenario_scores[] | select(.data_sensitivity_rank != 4)] | length == 0) and
+            ([.repeated_measurement_negative_controls[] | select(.rank_increase != 0)] | length == 0)
+          ' "$RUNNER_TEMP/terra-robust-design.json"
+          jq -r '"nominal=\(.nominal_design.candidate_ids|join(",")) robust_D=\(.robust_d_optimal_design.candidate_ids|join(",")) robust_E=\(.robust_e_optimal_design.candidate_ids|join(",")) minimax_regret=\(.minimax_regret_design.candidate_ids|join(",")) worst_case_rank=\(.robust_d_optimal_design.worst_case_rank) worst_case_logdet=\(.robust_d_optimal_design.worst_case_log_determinant) worst_case_data_lambda_min=\(.robust_e_optimal_design.objective_value) max_regret=\(.minimax_regret_design.maximum_normalized_d_optimal_regret)"' "$RUNNER_TEMP/terra-robust-design.json"
+          jq -r '"scenario_oracles=" + ([.per_scenario_oracles[] | {scenario: .scenario_id, candidates: .oracle_candidate_ids, data_rank: .oracle_data_rank, data_lambda_min: .oracle_minimum_eigenvalue_data_information, total_lambda_min: .oracle_minimum_eigenvalue_total_information, logdet: .oracle_log_determinant_total_information}] | tojson)' "$RUNNER_TEMP/terra-robust-design.json"
+          sha256sum "$RUNNER_TEMP/terra-robust-design.json"
+      - name: Reject output overwrite
+        run: |
+          if cargo run --quiet --manifest-path research/terra-preta/tools/hydraulic-robust-experiment-design-reference/Cargo.toml -- \
+            research/terra-preta/tools/hydraulic-robust-experiment-design-reference/fixtures/segmentation-support-ensemble.json \
+            "$RUNNER_TEMP/terra-robust-design.json"; then
+            echo "expected no-overwrite failure"
+            exit 1
+          fi
