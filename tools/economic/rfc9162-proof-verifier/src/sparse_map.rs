@@ -61,11 +61,7 @@ impl SparseMerkleTreeV1 {
     }
 
     /// Explicitly replace an existing mapping. The previous value is returned.
-    pub fn replace(
-        &mut self,
-        key: SparseKeyV1,
-        value: SparseValueV1,
-    ) -> Option<SparseValueV1> {
+    pub fn replace(&mut self, key: SparseKeyV1, value: SparseValueV1) -> Option<SparseValueV1> {
         self.entries
             .get_mut(&key)
             .map(|existing| std::mem::replace(existing, value))
@@ -278,13 +274,9 @@ fn key_bit(key: &SparseKeyV1, depth: usize) -> bool {
     ((byte >> shift) & 1) == 1
 }
 
-fn append_string(
-    output: &mut Vec<u8>,
-    value: &str,
-) -> Result<(), SparseMerkleErrorV1> {
+fn append_string(output: &mut Vec<u8>, value: &str) -> Result<(), SparseMerkleErrorV1> {
     validate_id(value)?;
-    let length = u32::try_from(value.len())
-        .map_err(|_| SparseMerkleErrorV1::IdentifierTooLong)?;
+    let length = u32::try_from(value.len()).map_err(|_| SparseMerkleErrorV1::IdentifierTooLong)?;
     output.extend_from_slice(&length.to_be_bytes());
     output.extend_from_slice(value.as_bytes());
     Ok(())
@@ -509,12 +501,7 @@ mod tests {
         assert_eq!(tree.len(), 1);
         let proof = tree.prove(key(0x01));
         assert_eq!(
-            verify_sparse_membership_v1(
-                &key(0x01),
-                &digest(0x20),
-                &proof,
-                &tree.root_hash()
-            ),
+            verify_sparse_membership_v1(&key(0x01), &digest(0x20), &proof, &tree.root_hash()),
             Ok(())
         );
     }
