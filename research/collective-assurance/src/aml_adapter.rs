@@ -109,6 +109,7 @@ impl AmlModelPolicy {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AmlReleaseContract {
     pub cycle_id: String,
+    pub division: AmlDivision,
     pub release_id: String,
     pub release_manifest_digest: String,
     pub evaluation_pipeline_digest: String,
@@ -137,7 +138,10 @@ impl AmlReleaseContract {
         };
         Self {
             cycle_id: CYCLE_2_ID.into(),
-            release_id: "cycle-2-release-2026-11-19".into(),
+            division,
+            // Populate exact release identity and artifact hashes from the
+            // official bundle; the public webpage alone is not that bundle.
+            release_id: String::new(),
             release_manifest_digest: String::new(),
             evaluation_pipeline_digest: String::new(),
             dataset_bundle_digest: String::new(),
@@ -159,6 +163,7 @@ impl AmlReleaseContract {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AmlRunManifest {
     pub run_id: String,
+    pub cycle_id: String,
     pub mode: AmlRunMode,
     pub track: AmlTrack,
     pub division: AmlDivision,
@@ -287,6 +292,8 @@ pub struct AmlQualificationReport {
     pub api_contract_eligible: bool,
     /// Component identities satisfy the selected release/division policy.
     pub model_policy_eligible: bool,
+    /// Official release, pipeline, data, answer-model and evaluator hashes match.
+    pub release_provenance_eligible: bool,
     /// Only a completed official Full run can be considered for an AML score.
     pub official_score_eligible: bool,
     pub add_operation_count: usize,
@@ -298,6 +305,8 @@ pub struct AmlQualificationReport {
     pub generated_answer_substitution_count: usize,
     pub cross_scope_candidate_count: usize,
     pub multimodal_image_bytes: u64,
+    pub model_policy_reasons: Vec<String>,
+    pub release_provenance_reasons: Vec<String>,
     pub reasons: Vec<String>,
 }
 
@@ -457,12 +466,12 @@ fn validate_content_parts(
     candidate: &AmlSearchCandidate,
     release: &AmlReleaseContract,
     report: &mut AmlQualificationReport,
-) {
+) -> u64 {
     if candidate.content_parts.is_empty() {
         report
             .qualification
             .fail(format!("memory {} has no ordered content parts", candidate.memory_id));
-        return;
+        return 0;
     }
 
     let mut expected_ordinal = 0u32;
@@ -520,6 +529,7 @@ fn validate_content_parts(
     report.multimodal_image_bytes = report
         .multimodal_image_bytes
         .saturating_add(image_bytes);
+    image_bytes
 }
 
 fn validate_search_operation(
@@ -561,6 +571,7 @@ fn validate_search_operation(
 
     let mut seen_ids = BTreeSet::new();
     let mut scores = Vec::new();
+    let mut operation_image_bytes = 0u64;
     let all_scored = operation
         .candidates
         .iter()
@@ -622,7 +633,18 @@ fn validate_search_operation(
         if all_scored {
             scores.push(candidate.score_micros.unwrap_or_default());
         }
-        validate_content_parts(evidence.manifest.track, candidate, release, report);
+        operation_image_bytes = operation_image_bytes.saturating_add(
+            validate_content_parts(evidence.manifest.track, candidate, release, report),
+        );
+    }
+
+    if evidence.manifest.track == AmlTrack::Multimodal
+        && operation_image_bytes > release.max_search_image_bytes
+    {
+        report.qualification.fail(format!(
+            "Search operation {} exceeds the combined multimodal image byte limit",
+            operation.request_id
+        ));
     }
 
     if all_scored && scores.windows(2).any(|pair| pair[0] < pair[1]) {
@@ -652,6 +674,7 @@ pub fn qualify_aml_run(
         qualification: QualificationReport::new(),
         api_contract_eligible: false,
         model_policy_eligible: false,
+        release_provenance_eligible: false,
         official_score_eligible: false,
         add_operation_count: evidence.add_operations.len(),
         add_success_count: 0,
@@ -667,19 +690,33 @@ pub fn qualify_aml_run(
 
     let manifest = &evidence.manifest;
     if !nonempty(&manifest.run_id)
+        || !nonempty(&manifest.cycle_id)
         || !nonempty(&manifest.release_id)
         || !nonempty(&manifest.system_id)
         || !nonempty(&manifest.system_version)
         || !nonempty(&manifest.api_contract_digest)
         || !valid_git_commit(&manifest.system_commit)
+        || !valid_digest(&manifest.system_artifact_digest)
     {
         output
             .qualification
-            .fail("run or system identity/version/commit is invalid");
+            .fail("run or system identity/version/commit/artifact is invalid");
+    }
+    if manifest.cycle_id != release.cycle_id {
+        output
+            .qualification
+            .fail("manifest cycle differs from selected release contract");
+    }
+    if manifest.division != release.division {
+        output
+            .qualification
+            .fail("manifest division differs from selected release policy");
     }
 
+    // Official release provenance is independent of API contract validity.
+    let mut release_report = QualificationReport::new();
     for (label, actual, expected) in [
-        ("cycle", manifest.release_id.as_str(), release.release_id.as_str()),
+        ("release ID", manifest.release_id.as_str(), release.release_id.as_str()),
         ("release manifest", manifest.release_manifest_digest.as_str(), release.release_manifest_digest.as_str()),
         ("evaluation pipeline", manifest.evaluation_pipeline_digest.as_str(), release.evaluation_pipeline_digest.as_str()),
         ("dataset bundle", manifest.dataset_bundle_digest.as_str(), release.dataset_bundle_digest.as_str()),
@@ -688,16 +725,17 @@ pub fn qualify_aml_run(
         ("scoring contract", manifest.scoring_contract_digest.as_str(), release.scoring_contract_digest.as_str()),
         ("API contract", manifest.api_contract_digest.as_str(), release.api_contract_digest.as_str()),
     ] {
-        if !valid_digest(actual) || !valid_digest(expected) {
-            output
-                .qualification
-                .indeterminate(format!("{label} digest is not available from a pinned official release"));
+        if !nonempty(expected) || !valid_digest(actual) || !valid_digest(expected) {
+            release_report.indeterminate(format!(
+                "{label} identity/digest is not available from a pinned official release"
+            ));
         } else if actual != expected {
-            output
-                .qualification
-                .fail(format!("{label} digest differs from pinned release"));
+            release_report.fail(format!("{label} differs from pinned official release"));
         }
     }
+    output.release_provenance_eligible =
+        release_report.status == QualificationStatus::Pass;
+    output.release_provenance_reasons = release_report.reasons.clone();
 
     if manifest.container_image_digest.is_empty() {
         output
@@ -714,13 +752,12 @@ pub fn qualify_aml_run(
             .indeterminate("official question count is missing");
     }
 
-    let model_policy_status_before = output.qualification.status;
-    let model_policy_eligible = model_policy_matches(
-        manifest,
-        release,
-        &mut output.qualification,
-    );
-    output.model_policy_eligible = model_policy_eligible;
+    // Component policy is a third independent axis; a policy mismatch does
+    // not erase a correctly implemented Add/Search API contract.
+    let mut policy_report = QualificationReport::new();
+    output.model_policy_eligible =
+        model_policy_matches(manifest, release, &mut policy_report);
+    output.model_policy_reasons = policy_report.reasons.clone();
 
     let mut request_ids = BTreeSet::new();
     let mut add_records = BTreeMap::new();
@@ -745,13 +782,6 @@ pub fn qualify_aml_run(
     }
     output.unique_question_count = question_ids.len();
 
-    if output.multimodal_image_bytes > release.max_search_image_bytes
-        && manifest.track == AmlTrack::Multimodal
-    {
-        output
-            .qualification
-            .fail("run-level multimodal image bytes exceed release response limit");
-    }
     if manifest.expected_question_count as usize != output.unique_question_count {
         output.qualification.indeterminate(format!(
             "observed {} unique questions; expected {}",
@@ -774,7 +804,8 @@ pub fn qualify_aml_run(
         && manifest.full_evaluation_complete
         && manifest.expected_question_count > 0
         && output.unique_question_count == manifest.expected_question_count
-        && model_policy_eligible
+        && output.model_policy_eligible
+        && output.release_provenance_eligible
         && api_contract_eligible;
     output.official_score_eligible = official_reproduction;
 
@@ -786,13 +817,11 @@ pub fn qualify_aml_run(
         output.official_score_eligible = false;
     }
 
-    // A model-policy mismatch is kept out of API conformance status. It is
-    // recorded in the reasons vector but should not erase API compatibility.
-    if model_policy_status_before != output.qualification.status
-        && !output.model_policy_eligible
-    {
-        output.reasons.push("model-policy eligibility is separate from API contract eligibility".into());
-    }
+    output.reasons.push(
+        "API compatibility, model-policy eligibility and official release provenance are independently qualified".into(),
+    );
+    output.reasons.extend(output.model_policy_reasons.clone());
+    output.reasons.extend(output.release_provenance_reasons.clone());
     output.reasons.extend(output.qualification.reasons.clone());
     output
 }
@@ -811,7 +840,8 @@ mod tests {
     fn release() -> AmlReleaseContract {
         AmlReleaseContract {
             cycle_id: CYCLE_2_ID.into(),
-            release_id: "cycle-2-release-2026-11-19".into(),
+            division: AmlDivision::OpenSourceMethods,
+            release_id: "cycle-2-test-fixture".into(),
             release_manifest_digest: D1.into(),
             evaluation_pipeline_digest: D2.into(),
             dataset_bundle_digest: D3.into(),
@@ -838,6 +868,7 @@ mod tests {
         AmlRunEvidence {
             manifest: AmlRunManifest {
                 run_id: "run-1".into(),
+                cycle_id: CYCLE_2_ID.into(),
                 mode: AmlRunMode::Full,
                 track: AmlTrack::Textual,
                 division: AmlDivision::OpenSourceMethods,
@@ -978,6 +1009,7 @@ mod tests {
                 && component.kind != AmlComponentKind::LanguageModel
         });
         let mut release = release();
+        release.division = AmlDivision::CommercialProducts;
         release.model_policy = AmlModelPolicy::cycle_2_commercial();
         let report = qualify_aml_run(&input, &release);
         assert!(report.api_contract_eligible);
