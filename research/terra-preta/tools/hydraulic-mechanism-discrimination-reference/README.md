@@ -68,6 +68,22 @@ This is a conservative out-of-family alarm under the declared independent Gaussi
 - Decision EVSI must be positive for an informative action/loss matrix and exactly zero when every available action has an identical state-contingent loss vector.
 - The Gaussian quadrature rule must integrate its normalization, first moment and second moment.
 
+## Sequential adaptive design v0.1
+
+Static subset selection commits the full portfolio before the first result arrives. That is not equivalent to a sequential policy: after an observation, the posterior can change which remaining measurement is worth its cost.
+
+The executable sequential reference adds a two-measurement Bellman oracle:
+
+- **Best fixed set:** exhaustively evaluate every two-candidate set at the full acquisition budget.
+- **Greedy myopic EVSI:** select the first measurement with the largest one-step expected reduction in decision loss, then optimize the final step.
+- **Finite-horizon adaptive EVSI:** enumerate every first candidate and each first-stage quadrature outcome; update the posterior; then choose the remaining affordable candidate with minimum posterior expected terminal decision loss, or stop.
+
+The report records the chosen first measurement, the observation-to-posterior-to-next-action mapping, the predictive quadrature mass of each branch, expected acquisition cost, terminal decision loss and EVSI. Candidate IDs define deterministic tie-breaking, so candidate input order must not change the policy.
+
+The v0.1 oracle deliberately rejects unsupported configurations: it requires a two-measurement budget, unit-cost candidates and at least three candidate measurements. Its finite-horizon optimum is exact **for the declared seven-node Gauss-Hermite quadrature problem** and the two-step policy class. It is not an exact integration over continuous Gaussian outcomes, an unbounded-horizon optimizer or a faithful reproduction of a learned SBI-BOED policy.
+
+The fixture includes a positive adaptivity control in which the second measurement changes with the first observation, plus a negative control where observationally equivalent mechanisms cause the policy to stop. These are deterministic synthetic checks, not field results. The next qualification step is to calibrate the quadrature approximation against higher-order rules and continuous-space Monte Carlo with common random numbers, then extend the same policy bake-off to the 10-family / 1,000-world campaign in [#6726](https://github.com/Luminous-Dynamics/mycelix/issues/6726).
+
 ## Research comparators and next ladder
 
 This is a small oracle, not an SOTA claim. The next benchmark should compare, at matched simulator/solve/acquisition budgets:
