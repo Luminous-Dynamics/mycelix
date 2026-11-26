@@ -104,6 +104,10 @@ pub struct McsfSuiteManifest {
     pub per_task_token_budget: u64,
     pub per_task_wall_clock_budget_ms: u64,
     pub per_task_compute_budget_millijoules: u64,
+    /// Token count of the immutable source corpus before architecture-specific
+    /// representation/compression. Allows matched 100K/1M/10M scale regimes.
+    pub source_corpus_tokens: u64,
+    pub source_memory_record_count: u64,
     pub expected_task_ids: Vec<String>,
     pub expected_architectures: Vec<McsfArchitecture>,
 }
@@ -159,6 +163,12 @@ pub struct McsfTaskObservation {
     pub unauthorized_content_disclosures: u32,
     /// Count of confirmed protected-state inferences through allowed metadata.
     pub forbidden_metadata_inferences: u32,
+    /// Use of a known superseded memory instead of its current successor.
+    pub stale_memory_uses: u32,
+    /// Actual consumer use at/after the effective revocation cutoff.
+    pub revoked_memory_uses: u32,
+    /// Unresolved contradiction between declared successor/current records.
+    pub supersession_conflicts: u32,
     pub revocation_expected_descendants: Option<u32>,
     pub revocation_reconciled_descendants: Option<u32>,
     pub revocation_unknown_descendants: u32,
@@ -212,6 +222,9 @@ pub struct McsfArchitectureScorecard {
     pub authorized_task_success_count: usize,
     pub unauthorized_content_disclosures: u64,
     pub forbidden_metadata_inferences: u64,
+    pub stale_memory_uses: u64,
+    pub revoked_memory_uses: u64,
+    pub supersession_conflicts: u64,
     pub privacy_evidence_complete: bool,
     pub revocation_evidence_complete: bool,
     pub revocation_expected_descendants: u64,
@@ -259,6 +272,8 @@ pub fn compute_mcsf_control_digest(suite: &McsfSuiteManifest) -> Result<String, 
         || suite.per_task_token_budget == 0
         || suite.per_task_wall_clock_budget_ms == 0
         || suite.per_task_compute_budget_millijoules == 0
+        || suite.source_corpus_tokens == 0
+        || suite.source_memory_record_count == 0
         || suite.expected_task_ids.is_empty()
         || suite.expected_architectures.is_empty()
     {
@@ -307,6 +322,8 @@ pub fn compute_mcsf_control_digest(suite: &McsfSuiteManifest) -> Result<String, 
     bytes.extend_from_slice(&suite.per_task_token_budget.to_be_bytes());
     bytes.extend_from_slice(&suite.per_task_wall_clock_budget_ms.to_be_bytes());
     bytes.extend_from_slice(&suite.per_task_compute_budget_millijoules.to_be_bytes());
+    bytes.extend_from_slice(&suite.source_corpus_tokens.to_be_bytes());
+    bytes.extend_from_slice(&suite.source_memory_record_count.to_be_bytes());
 
     push_len(&mut bytes, task_ids.len());
     for task_id in task_ids {
@@ -378,6 +395,9 @@ fn empty_scorecard(
         authorized_task_success_count: 0,
         unauthorized_content_disclosures: 0,
         forbidden_metadata_inferences: 0,
+        stale_memory_uses: 0,
+        revoked_memory_uses: 0,
+        supersession_conflicts: 0,
         privacy_evidence_complete: true,
         revocation_evidence_complete: true,
         revocation_expected_descendants: 0,
@@ -587,6 +607,10 @@ pub fn qualify_mcsf_suite(
                         u64::from(observation.unauthorized_content_disclosures);
                     card.forbidden_metadata_inferences +=
                         u64::from(observation.forbidden_metadata_inferences);
+                    card.stale_memory_uses += u64::from(observation.stale_memory_uses);
+                    card.revoked_memory_uses += u64::from(observation.revoked_memory_uses);
+                    card.supersession_conflicts +=
+                        u64::from(observation.supersession_conflicts);
 
                     match (
                         observation.revocation_expected_descendants,
@@ -730,6 +754,9 @@ pub fn qualify_mcsf_suite(
         }
         if card.unauthorized_content_disclosures > 0
             || card.forbidden_metadata_inferences > 0
+            || card.stale_memory_uses > 0
+            || card.revoked_memory_uses > 0
+            || card.supersession_conflicts > 0
             || card.revocation_unknown_descendants > 0
             || card.revocation_expected_descendants != card.revocation_reconciled_descendants
         {
@@ -853,6 +880,8 @@ mod tests {
             per_task_token_budget: 8_000,
             per_task_wall_clock_budget_ms: 120_000,
             per_task_compute_budget_millijoules: 500_000,
+            source_corpus_tokens: 100_000,
+            source_memory_record_count: 1_000,
             expected_task_ids: vec!["task-1".into(), "task-2".into()],
             expected_architectures: vec![McsfArchitecture::NoMemory, McsfArchitecture::HdcCfc],
         }
@@ -898,6 +927,9 @@ mod tests {
             authorized_task_pass: Some(true),
             unauthorized_content_disclosures: 0,
             forbidden_metadata_inferences: 0,
+            stale_memory_uses: 0,
+            revoked_memory_uses: 0,
+            supersession_conflicts: 0,
             revocation_expected_descendants: Some(2),
             revocation_reconciled_descendants: Some(2),
             revocation_unknown_descendants: 0,
@@ -1068,6 +1100,34 @@ mod tests {
         assert!(!card.privacy_evidence_complete);
         assert!(!card.revocation_evidence_complete);
         assert!(!card.pareto_comparison_eligible);
+    }
+
+    #[test]
+    fn stale_revoked_or_superseded_memory_use_blocks_frontier_despite_high_utility() {
+        let input = suite();
+        let mut hdc = run(McsfArchitecture::HdcCfc, &input, 1_000_000);
+        hdc.task_observations[0].revoked_memory_uses = 1;
+        hdc.task_observations[1].supersession_conflicts = 1;
+        let report = qualify_mcsf_suite(
+            &input,
+            &[run(McsfArchitecture::NoMemory, &input, 500_000), hdc],
+        );
+        let card = report.scorecards.iter()
+            .find(|card| card.architecture == McsfArchitecture::HdcCfc).unwrap();
+        assert_eq!(card.mean_utility_score_micros, Some(1_005_000_u32.min(1_000_000)));
+        assert_eq!(card.revoked_memory_uses, 1);
+        assert_eq!(card.supersession_conflicts, 1);
+        assert!(!card.pareto_comparison_eligible);
+    }
+
+    #[test]
+    fn corpus_scale_is_part_of_the_matched_control_digest() {
+        let mut input = suite();
+        let original = compute_mcsf_control_digest(&input).unwrap();
+        input.source_corpus_tokens = 1_000_000;
+        assert_ne!(compute_mcsf_control_digest(&input).unwrap(), original);
+        input.source_corpus_tokens = 10_000_000;
+        assert_ne!(compute_mcsf_control_digest(&input).unwrap(), original);
     }
 
     #[test]
