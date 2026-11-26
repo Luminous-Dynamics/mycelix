@@ -1,0 +1,9 @@
+[package]
+name = "craft-need-intake-v1"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Evidence-traceable, human-ratified community need decomposition reference core"
+
+[lib]
+path = "src/lib.rs"
