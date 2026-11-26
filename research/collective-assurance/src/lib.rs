@@ -11,6 +11,7 @@ mod constraint_binding;
 mod ledger;
 mod relational_evidence;
 mod relation_counterfactual;
+mod workflow_boundary;
 mod generation_exposure;
 mod response_audit;
 mod support_policy;
@@ -29,6 +30,14 @@ pub use generation_exposure::{
     BoundEvidenceUseDiagnostic, BoundEvidenceUseStatus, ExpectedGenerationExposure,
     ExposureQualificationReport, ExposureQualificationStatus, GenerationEvidenceEntry,
     GenerationInputExposureClaims,
+};
+pub use workflow_boundary::{
+    compute_workflow_graph_digest, qualify_workflow_boundary_pair, ArtifactExposureDisposition,
+    ArtifactHandoffContract, ArtifactLifecycle, ArtifactOperationState, ArtifactVerification,
+    BoundaryIsolationChallenge, BoundaryPollutionOperator, WorkflowArtifact,
+    WorkflowArtifactExposure, WorkflowBoundaryMetrics, WorkflowBoundaryPair,
+    WorkflowBoundaryReport, WorkflowBoundaryStatus, WorkflowIdentity, WorkflowNode,
+    WorkflowNodeOutcome, WorkflowRun,
 };
 pub use relation_counterfactual::{
     compute_relation_graph_digest, qualify_relation_counterfactual, RecordedGateOutcome,
