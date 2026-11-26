@@ -16,8 +16,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use mycelix_rfc9162_proof_verifier::{
-    Hash32, consistency_proof, empty_tree_hash, inclusion_proof, sha256,
-    tree_hash, verify_consistency_proof, verify_entry_inclusion_proof,
+    Hash32, consistency_proof, empty_tree_hash, inclusion_proof, sha256, tree_hash,
+    verify_consistency_proof, verify_entry_inclusion_proof,
 };
 
 const MAX_ID_BYTES: usize = 1_024;
@@ -208,8 +208,7 @@ impl OwnerCutV1 {
         validate_id(&self.checkpoint_inclusion.proof_ref)?;
         if self.checkpoint_inclusion.owner_root_digest != self.root_digest
             || self.checkpoint_inclusion.tree_size == 0
-            || self.checkpoint_inclusion.leaf_index
-                >= self.checkpoint_inclusion.tree_size
+            || self.checkpoint_inclusion.leaf_index >= self.checkpoint_inclusion.tree_size
             || self.checkpoint_inclusion.inclusion_path.len() > MAX_PROOF_NODES
         {
             return Err(FrontierModelErrorV1::InvalidInclusionDeclaration);
@@ -223,7 +222,10 @@ impl OwnerCutV1 {
         self.validate().ok()?;
         if sequence == 0
             || sequence > self.sequence
-            || self.gaps.iter().any(|gap| gap.first <= sequence && sequence <= gap.last)
+            || self
+                .gaps
+                .iter()
+                .any(|gap| gap.first <= sequence && sequence <= gap.last)
         {
             return None;
         }
@@ -282,8 +284,7 @@ impl VerifierFrontierV1 {
         let mut checkpoint_indices = BTreeSet::new();
         for cut in &self.owner_cuts {
             cut.validate()?;
-            if cut.checkpoint_inclusion.checkpoint_root_digest
-                != self.checkpoint_root_digest
+            if cut.checkpoint_inclusion.checkpoint_root_digest != self.checkpoint_root_digest
                 || cut.checkpoint_inclusion.tree_size != self.owner_cuts.len() as u64
             {
                 return Err(FrontierModelErrorV1::InvalidInclusionDeclaration);
@@ -294,9 +295,8 @@ impl VerifierFrontierV1 {
             if !checkpoint_indices.insert(cut.checkpoint_inclusion.leaf_index) {
                 return Err(FrontierModelErrorV1::DuplicateOwnerCut);
             }
-            let entry = canonical_owner_cut_entry_v1(
-                cut, &self.verifier_ref, &self.policy_epoch_ref,
-            )?;
+            let entry =
+                canonical_owner_cut_entry_v1(cut, &self.verifier_ref, &self.policy_epoch_ref)?;
             let checkpoint_root = parse_digest(&self.checkpoint_root_digest)?;
             verify_entry_inclusion_proof(
                 &entry,
@@ -353,18 +353,23 @@ impl VerifierFrontierV1 {
         };
 
         if receipt.owner_sequence > owner_cut.sequence {
-            return Ok(if owner_cut.prefix_has_no_declared_gaps_after_validation(owner_cut.sequence) {
-                ReceiptVisibilityV1::BeyondCoveredCut
-            } else {
-                ReceiptVisibilityV1::Indeterminate
-            });
+            return Ok(
+                if owner_cut.prefix_has_no_declared_gaps_after_validation(owner_cut.sequence) {
+                    ReceiptVisibilityV1::BeyondCoveredCut
+                } else {
+                    ReceiptVisibilityV1::Indeterminate
+                },
+            );
         }
 
         // A specific inclusion proof can remain valid even when earlier
         // owner sequences are explicitly gapped. Completeness claims about
         // that prefix remain unavailable; receipt inclusion is a separate
         // proof obligation.
-        if owner_cut.leaf_index_for_sequence(receipt.owner_sequence).is_none() {
+        if owner_cut
+            .leaf_index_for_sequence(receipt.owner_sequence)
+            .is_none()
+        {
             return Ok(ReceiptVisibilityV1::Indeterminate);
         }
 
@@ -380,8 +385,7 @@ impl VerifierFrontierV1 {
         let Some(witness) = &receipt.inclusion else {
             return Ok(ReceiptVisibilityV1::Indeterminate);
         };
-        let Some(expected_leaf_index) =
-            owner_cut.leaf_index_for_sequence(receipt.owner_sequence)
+        let Some(expected_leaf_index) = owner_cut.leaf_index_for_sequence(receipt.owner_sequence)
         else {
             return Ok(ReceiptVisibilityV1::Indeterminate);
         };
@@ -517,10 +521,7 @@ impl VerifierFrontierV1 {
             }
         }
 
-        if !before
-            && !after
-            && self.checkpoint_root_digest != other.checkpoint_root_digest
-        {
+        if !before && !after && self.checkpoint_root_digest != other.checkpoint_root_digest {
             return Ok(FrontierRelationV1::Unknown);
         }
 
@@ -555,8 +556,7 @@ impl KnowledgeReceiptV1 {
             if !dependencies.insert((dependency.owner_ref.as_str(), dependency.sequence)) {
                 return Err(FrontierModelErrorV1::DuplicateDependency);
             }
-            if dependency.owner_ref == self.owner_ref
-                && dependency.sequence >= self.owner_sequence
+            if dependency.owner_ref == self.owner_ref && dependency.sequence >= self.owner_sequence
             {
                 return Err(FrontierModelErrorV1::InvalidCausalDependency);
             }
@@ -593,8 +593,7 @@ pub fn canonical_owner_cut_entry_v1(
     cut.validate_canonical_fields()?;
     validate_id(verifier_ref)?;
     validate_id(policy_epoch_ref)?;
-    let gap_count = u32::try_from(cut.gaps.len())
-        .map_err(|_| FrontierModelErrorV1::TextTooLong)?;
+    let gap_count = u32::try_from(cut.gaps.len()).map_err(|_| FrontierModelErrorV1::TextTooLong)?;
     let mut bytes = b"MYCELIX-OWNER-CUT-V1\0".to_vec();
     append_string(&mut bytes, verifier_ref)?;
     append_string(&mut bytes, policy_epoch_ref)?;
@@ -649,8 +648,8 @@ pub fn canonical_knowledge_receipt_entry_v1(
         }
     }
 
-    let dependency_count = u32::try_from(dependencies.len())
-        .map_err(|_| FrontierModelErrorV1::TextTooLong)?;
+    let dependency_count =
+        u32::try_from(dependencies.len()).map_err(|_| FrontierModelErrorV1::TextTooLong)?;
     let mut bytes = b"MYCELIX-KNOWLEDGE-RECEIPT-V1\0".to_vec();
     append_string(&mut bytes, &receipt.receipt_id)?;
     append_string(&mut bytes, &receipt.verifier_ref)?;
@@ -667,12 +666,8 @@ pub fn canonical_knowledge_receipt_entry_v1(
     Ok(bytes)
 }
 
-fn append_string(
-    output: &mut Vec<u8>,
-    value: &str,
-) -> Result<(), FrontierModelErrorV1> {
-    let length = u32::try_from(value.len())
-        .map_err(|_| FrontierModelErrorV1::TextTooLong)?;
+fn append_string(output: &mut Vec<u8>, value: &str) -> Result<(), FrontierModelErrorV1> {
+    let length = u32::try_from(value.len()).map_err(|_| FrontierModelErrorV1::TextTooLong)?;
     output.extend_from_slice(&length.to_be_bytes());
     output.extend_from_slice(value.as_bytes());
     Ok(())
@@ -746,14 +741,12 @@ mod tests {
         format!("sha256:{}", byte.to_string().repeat(64))
     }
 
-    fn owner_log_entries(
-        owner: &str,
-        sequence: u64,
-        gaps: &[SequenceRangeV1],
-    ) -> Vec<Vec<u8>> {
+    fn owner_log_entries(owner: &str, sequence: u64, gaps: &[SequenceRangeV1]) -> Vec<Vec<u8>> {
         (1..=sequence)
             .filter(|position| {
-                !gaps.iter().any(|gap| gap.first <= *position && *position <= gap.last)
+                !gaps
+                    .iter()
+                    .any(|gap| gap.first <= *position && *position <= gap.last)
             })
             .map(|position| format!("MYCELIX-TEST-OWNER-LOG:{owner}:{position}").into_bytes())
             .collect()
@@ -761,10 +754,7 @@ mod tests {
 
     fn cut(owner: &str, sequence: u64, _label: char) -> OwnerCutV1 {
         let entries = owner_log_entries(owner, sequence, &[]);
-        let root_digest = format!(
-            "sha256:{}",
-            hex_lower(&tree_hash(&entries).unwrap())
-        );
+        let root_digest = format!("sha256:{}", hex_lower(&tree_hash(&entries).unwrap()));
         OwnerCutV1 {
             owner_ref: owner.into(),
             history_ref: format!("history:{owner}"),
@@ -795,12 +785,9 @@ mod tests {
         owner_cuts.sort_by(|left, right| left.owner_ref.cmp(&right.owner_ref));
         let entries: Vec<Vec<u8>> = owner_cuts
             .iter()
-            .map(|cut| {
-                canonical_owner_cut_entry_v1(cut, VERIFIER, policy_epoch_ref).unwrap()
-            })
+            .map(|cut| canonical_owner_cut_entry_v1(cut, VERIFIER, policy_epoch_ref).unwrap())
             .collect();
-        let checkpoint_root_digest =
-            format!("sha256:{}", hex_lower(&tree_hash(&entries).unwrap()));
+        let checkpoint_root_digest = format!("sha256:{}", hex_lower(&tree_hash(&entries).unwrap()));
         for (index, cut) in owner_cuts.iter_mut().enumerate() {
             cut.checkpoint_inclusion = CheckpointInclusionDeclarationV1 {
                 checkpoint_root_digest: checkpoint_root_digest.clone(),
@@ -836,7 +823,9 @@ mod tests {
         };
         receipt.receipt_digest = format!(
             "sha256:{}",
-            hex_lower(&sha256(&canonical_knowledge_receipt_entry_v1(&receipt).unwrap()))
+            hex_lower(&sha256(
+                &canonical_knowledge_receipt_entry_v1(&receipt).unwrap()
+            ))
         );
         receipt
     }
@@ -844,25 +833,22 @@ mod tests {
     fn refresh_receipt_digest(receipt: &mut KnowledgeReceiptV1) {
         receipt.receipt_digest = format!(
             "sha256:{}",
-            hex_lower(&sha256(&canonical_knowledge_receipt_entry_v1(receipt).unwrap()))
+            hex_lower(&sha256(
+                &canonical_knowledge_receipt_entry_v1(receipt).unwrap()
+            ))
         );
     }
 
-    fn attach_receipt_proof(
-        receipt: &mut KnowledgeReceiptV1,
-        owner_cut: &mut OwnerCutV1,
-    ) {
+    fn attach_receipt_proof(receipt: &mut KnowledgeReceiptV1, owner_cut: &mut OwnerCutV1) {
         assert!(receipt.owner_sequence > 0);
         assert!(receipt.owner_sequence <= owner_cut.sequence);
         refresh_receipt_digest(receipt);
-        let mut entries = owner_log_entries(
-            &owner_cut.owner_ref, owner_cut.sequence, &owner_cut.gaps,
-        );
+        let mut entries =
+            owner_log_entries(&owner_cut.owner_ref, owner_cut.sequence, &owner_cut.gaps);
         let leaf_index = owner_cut
             .leaf_index_for_sequence(receipt.owner_sequence)
             .expect("receipt sequence is not a declared gap");
-        entries[leaf_index as usize] =
-            canonical_knowledge_receipt_entry_v1(receipt).unwrap();
+        entries[leaf_index as usize] = canonical_knowledge_receipt_entry_v1(receipt).unwrap();
         let root = tree_hash(&entries).unwrap();
         owner_cut.tree_size = entries.len() as u64;
         owner_cut.root_digest = format!("sha256:{}", hex_lower(&root));
@@ -892,7 +878,9 @@ mod tests {
             first_tree_size,
             second_tree_size,
             consistency_path: consistency_proof(&entries, first_tree_size).unwrap(),
-            consistency_proof_ref: format!("proof:consistency:{owner_ref}:{first_tree_size}:{second_tree_size}"),
+            consistency_proof_ref: format!(
+                "proof:consistency:{owner_ref}:{first_tree_size}:{second_tree_size}"
+            ),
         }
     }
 
@@ -933,7 +921,11 @@ mod tests {
             } else {
                 continue;
             };
-            let owner_ref = if owner_index == 0 { "owner:a" } else { "owner:b" };
+            let owner_ref = if owner_index == 0 {
+                "owner:a"
+            } else {
+                "owner:b"
+            };
             links.push(consistency_link(owner_ref, ancestor, descendant));
         }
         links
@@ -998,13 +990,22 @@ mod tests {
         let first = frontier("frontier:1", vec![first_cut.clone()]);
         let later = frontier("frontier:2", vec![later_cut.clone()]);
         let link = consistency_link("owner:grants", 10, 20);
-        assert_eq!(first.compare(&later, &[link]), Ok(FrontierRelationV1::Before));
+        assert_eq!(
+            first.compare(&later, &[link]),
+            Ok(FrontierRelationV1::Before)
+        );
     }
 
     #[test]
     fn crossed_owner_cuts_are_concurrent_not_totally_ordered() {
-        let a = frontier("frontier:a", vec![cut("owner:a", 10, 'a'), cut("owner:b", 20, 'b')]);
-        let b = frontier("frontier:b", vec![cut("owner:a", 20, 'c'), cut("owner:b", 10, 'd')]);
+        let a = frontier(
+            "frontier:a",
+            vec![cut("owner:a", 10, 'a'), cut("owner:b", 20, 'b')],
+        );
+        let b = frontier(
+            "frontier:b",
+            vec![cut("owner:a", 20, 'c'), cut("owner:b", 10, 'd')],
+        );
         let links = vec![
             consistency_link("owner:a", 10, 20),
             consistency_link("owner:b", 10, 20),
@@ -1119,9 +1120,7 @@ mod tests {
     fn receipt_cannot_be_replayed_across_policy_epochs() {
         let owner_cut = cut("owner:grants", 10, 'a');
         let mut candidate = receipt(5, "owner:grants");
-        let frontier = frontier_with_policy_epoch(
-            "frontier:1", vec![owner_cut], "policy-epoch:2",
-        );
+        let frontier = frontier_with_policy_epoch("frontier:1", vec![owner_cut], "policy-epoch:2");
         assert_eq!(
             frontier.classify_receipt(&candidate),
             Err(FrontierModelErrorV1::PolicyEpochMismatch)
@@ -1158,7 +1157,10 @@ mod tests {
         assert!(candidate.validate().is_ok());
         let empty_cut = candidate.owner_cut("owner:empty").unwrap();
         assert_eq!(empty_cut.tree_size, 0);
-        assert_eq!(parse_digest(&empty_cut.root_digest).unwrap(), empty_tree_hash());
+        assert_eq!(
+            parse_digest(&empty_cut.root_digest).unwrap(),
+            empty_tree_hash()
+        );
     }
 
     #[test]
@@ -1202,7 +1204,9 @@ mod tests {
     #[test]
     fn checkpoint_must_bind_each_owner_root() {
         let mut candidate = frontier("frontier:1", vec![cut("owner:a", 10, 'a')]);
-        candidate.owner_cuts[0].checkpoint_inclusion.checkpoint_root_digest = digest('e');
+        candidate.owner_cuts[0]
+            .checkpoint_inclusion
+            .checkpoint_root_digest = digest('e');
         assert_eq!(
             candidate.validate(),
             Err(FrontierModelErrorV1::InvalidInclusionDeclaration)
@@ -1217,7 +1221,10 @@ mod tests {
         let left = frontier("frontier:left", vec![left_cut]);
         let right = frontier("frontier:right", vec![right_cut]);
         let link = consistency_link("owner:a", 10, 20);
-        assert_eq!(left.compare(&right, &[link]), Ok(FrontierRelationV1::Unknown));
+        assert_eq!(
+            left.compare(&right, &[link]),
+            Ok(FrontierRelationV1::Unknown)
+        );
     }
 
     #[test]
@@ -1242,41 +1249,59 @@ mod tests {
         let owner_bytes =
             canonical_owner_cut_entry_v1(&owner_cut, VERIFIER, "policy-epoch:1").unwrap();
         assert_eq!(owner_bytes.len(), 225);
-        assert_eq!(hex_lower(&owner_bytes), concat!(
-            "4d5943454c49582d4f574e45522d4355542d5631000000001f6469643a6d7963656c6978",
-            "3a76657269666965723a66696e616e63652d76310000000e706f6c6963792d65706f6368",
-            "3a310000000c6f776e65723a6772616e747300000014686973746f72793a6f776e65723a",
-            "6772616e7473000000000000000a0000000000000008000000477368613235363a616161",
-            "616161616161616161616161616161616161616161616161616161616161616161616161",
-            "616161616161616161616161616161616161616161616161610000000100000000000000",
-            "030000000000000004",
-        ));
+        assert_eq!(
+            hex_lower(&owner_bytes),
+            concat!(
+                "4d5943454c49582d4f574e45522d4355542d5631000000001f6469643a6d7963656c6978",
+                "3a76657269666965723a66696e616e63652d76310000000e706f6c6963792d65706f6368",
+                "3a310000000c6f776e65723a6772616e747300000014686973746f72793a6f776e65723a",
+                "6772616e7473000000000000000a0000000000000008000000477368613235363a616161",
+                "616161616161616161616161616161616161616161616161616161616161616161616161",
+                "616161616161616161616161616161616161616161616161610000000100000000000000",
+                "030000000000000004",
+            )
+        );
 
         let mut receipt = receipt(5, "owner:grants");
         receipt.causal_dependencies = vec![
-            OwnerPositionV1 { owner_ref: "owner:payments".into(), sequence: 2 },
-            OwnerPositionV1 { owner_ref: "owner:governance".into(), sequence: 3 },
+            OwnerPositionV1 {
+                owner_ref: "owner:payments".into(),
+                sequence: 2,
+            },
+            OwnerPositionV1 {
+                owner_ref: "owner:governance".into(),
+                sequence: 3,
+            },
         ];
         let receipt_bytes = canonical_knowledge_receipt_entry_v1(&receipt).unwrap();
         assert_eq!(receipt_bytes.len(), 276);
-        assert_eq!(hex_lower(&receipt_bytes), concat!(
-            "4d5943454c49582d4b4e4f574c454447452d524543454950542d56310000000009726563",
-            "656970743a350000001f6469643a6d7963656c69783a76657269666965723a66696e616e",
-            "63652d76310000000e706f6c6963792d65706f63683a3100000014617373657274696f6e",
-            "3a7265766f636174696f6e000000477368613235363a6262626262626262626262626262",
-            "626262626262626262626262626262626262626262626262626262626262626262626262",
-            "62626262626262626262626262620000000c6f776e65723a6772616e7473000000000000",
-            "000500000002000000106f776e65723a676f7665726e616e636500000000000000030000",
-            "000e6f776e65723a7061796d656e74730000000000000002",
-        ));
+        assert_eq!(
+            hex_lower(&receipt_bytes),
+            concat!(
+                "4d5943454c49582d4b4e4f574c454447452d524543454950542d56310000000009726563",
+                "656970743a350000001f6469643a6d7963656c69783a76657269666965723a66696e616e",
+                "63652d76310000000e706f6c6963792d65706f63683a3100000014617373657274696f6e",
+                "3a7265766f636174696f6e000000477368613235363a6262626262626262626262626262",
+                "626262626262626262626262626262626262626262626262626262626262626262626262",
+                "62626262626262626262626262620000000c6f776e65723a6772616e7473000000000000",
+                "000500000002000000106f776e65723a676f7665726e616e636500000000000000030000",
+                "000e6f776e65723a7061796d656e74730000000000000002",
+            )
+        );
     }
 
     #[test]
     fn receipt_canonical_encoding_is_dependency_order_invariant() {
         let mut first = receipt(5, "owner:grants");
         first.causal_dependencies = vec![
-            OwnerPositionV1 { owner_ref: "owner:b".into(), sequence: 4 },
-            OwnerPositionV1 { owner_ref: "owner:a".into(), sequence: 2 },
+            OwnerPositionV1 {
+                owner_ref: "owner:b".into(),
+                sequence: 4,
+            },
+            OwnerPositionV1 {
+                owner_ref: "owner:a".into(),
+                sequence: 2,
+            },
         ];
         let mut second = first.clone();
         second.causal_dependencies.reverse();
@@ -1299,9 +1324,7 @@ mod tests {
     #[test]
     fn invalid_cut_cannot_claim_prefix_coverage() {
         let mut candidate = cut("owner:a", 10, 'a');
-        candidate.gaps = vec![
-            SequenceRangeV1 { first: 5, last: 4 },
-        ];
+        candidate.gaps = vec![SequenceRangeV1 { first: 5, last: 4 }];
         assert!(!candidate.prefix_has_no_declared_gaps_through(10));
     }
 
