@@ -95,6 +95,8 @@ Do not combine these metrics into a universal optimizer score. Publish each obje
 | Development substitution | Supervised learning treated as qualification | 0 |
 | Distinct-contributor integrity | One person counted multiple times toward minimum coverage | 0 |
 | Unknown-state integrity | Unknown evidence silently converted into qualified or failed capability | 0 |
+| Revocation-status freshness | Nominally valid evidence accepted after its status snapshot exceeds the requirement freshness bound | 0 |
+| Future status timestamp | Future-dated issuer/revocation observation accepted | 0 |
 | Explanation completeness | Output identifies the exact requirement, evidence state, scope and gap | 100% of frozen fixtures |
 | Independent replay | Second implementation reproduces every frozen output | 100% |
 
