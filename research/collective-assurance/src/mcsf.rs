@@ -1114,7 +1114,7 @@ mod tests {
         );
         let card = report.scorecards.iter()
             .find(|card| card.architecture == McsfArchitecture::HdcCfc).unwrap();
-        assert_eq!(card.mean_utility_score_micros, Some(1_005_000_u32.min(1_000_000)));
+        assert_eq!(card.mean_utility_score_micros, Some(1_000_000));
         assert_eq!(card.revoked_memory_uses, 1);
         assert_eq!(card.supersession_conflicts, 1);
         assert!(!card.pareto_comparison_eligible);
