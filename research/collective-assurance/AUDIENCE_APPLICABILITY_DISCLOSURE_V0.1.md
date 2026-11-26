@@ -23,7 +23,7 @@ Applicability rules additionally bind an exact situation digest. Disclosure rule
 
 ## Protected source stream and projection
 
-A protected source cannot be consumed directly by this reference profile. It needs a projection receipt that binds the exact entry ID and revision, source and projected payload digests, transform commitment, target selector, situation and disclosure-policy digests, independent-review commitment, and issuance/expiry times.
+A protected source cannot be consumed directly by this reference profile. It needs a projection receipt that binds the exact entry ID and revision, source and projected payload digests, transform commitment, **the exact selected audience clause, applicability clause and disclosure clause**, situation and disclosure-policy digests, independent-review commitment, and issuance/expiry times. The three selectors must resolve to the corresponding declared entry clauses and all match the actual use context.
 
 The validator recomputes a domain-separated digest across these fields. This is only structural self-consistency. It does not authenticate the issuer, prove that a transform removed every secret, or establish that the reviewer was independent or authorized. Those require upstream authenticated authority and runtime observation.
 
@@ -37,7 +37,7 @@ No aggregate score can offset an unauthorized disclosure. Report each predicate 
 
 ## Tests in this slice
 
-The Rust test module covers Pair/User/Agent/Global matching, collective binding, the non-implication of audience → applicability and applicability → disclosure, missing-evidence handling, protected-stream projection, receipt mutation, target mismatch, wildcard/duplicate selectors and expiry.
+The Rust test module covers Pair/User/Agent/Global matching, collective binding, the non-implication of audience → applicability and applicability → disclosure, missing-evidence handling, protected-stream projection, receipt mutation, exact three-clause projection binding, wildcard/duplicate selectors and expiry. A 64-cell deterministic panel spans four audience granularities × four applicability shapes × four disclosure states, with expected outcomes specified independently from the returned report.
 
 This is a first deterministic unit suite, not the complete 64-case seeded panel in #6735. The 64-case corpus, independently authored oracle, source/user/agent/task-family holdouts and real benchmark adapters remain subsequent work.
 
