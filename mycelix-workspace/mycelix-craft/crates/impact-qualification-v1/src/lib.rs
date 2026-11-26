@@ -937,4 +937,105 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn exhaustive_all_of_and_any_of_match_independent_four_candidate_oracle() {
+        let states = [
+            SupportEvidenceStateV1::DirectSupport,
+            SupportEvidenceStateV1::PartialSupport,
+            SupportEvidenceStateV1::Contradicted,
+            SupportEvidenceStateV1::Stale,
+            SupportEvidenceStateV1::NotAssessable,
+        ];
+        let ids = (0..4).map(|index| format!("e{index}")).collect::<Vec<_>>();
+        let all_of = SupportRuleV1::AllOf {
+            required_evidence_ids: ids.clone(),
+        };
+        let any_of_singletons = SupportRuleV1::AnyOf {
+            alternative_support_sets: ids
+                .iter()
+                .map(|id| vec![id.clone()])
+                .collect(),
+        };
+        let any_of_pairs = SupportRuleV1::AnyOf {
+            alternative_support_sets: vec![
+                vec![ids[0].clone(), ids[1].clone()],
+                vec![ids[2].clone(), ids[3].clone()],
+            ],
+        };
+
+        // 5^4 = 625 possible evidence-state assignments.
+        for mut mask in 0_usize..625 {
+            let mut selected = Vec::with_capacity(4);
+            for index in 0..4 {
+                selected.push(states[mask % states.len()]);
+                mask /= states.len();
+            }
+            let evidence = selected
+                .iter()
+                .enumerate()
+                .map(|(index, state)| {
+                    item(
+                        &ids[index],
+                        *state,
+                        Some(&format!("origin-{index}")),
+                        index as u8 + 1,
+                    )
+                })
+                .collect::<Vec<_>>();
+
+            let any_contradiction = selected
+                .iter()
+                .any(|state| *state == SupportEvidenceStateV1::Contradicted);
+            let all_direct = selected
+                .iter()
+                .all(|state| *state == SupportEvidenceStateV1::DirectSupport);
+            let any_direct = selected
+                .iter()
+                .any(|state| *state == SupportEvidenceStateV1::DirectSupport);
+            let pair_01 = selected[0] == SupportEvidenceStateV1::DirectSupport
+                && selected[1] == SupportEvidenceStateV1::DirectSupport;
+            let pair_23 = selected[2] == SupportEvidenceStateV1::DirectSupport
+                && selected[3] == SupportEvidenceStateV1::DirectSupport;
+
+            let expected_all = if any_contradiction {
+                SupportSufficiencyV1::ConflictReviewRequired
+            } else if all_direct {
+                SupportSufficiencyV1::Supported
+            } else {
+                SupportSufficiencyV1::InsufficientEvidence
+            };
+            let expected_any_single = if any_contradiction {
+                SupportSufficiencyV1::ConflictReviewRequired
+            } else if any_direct {
+                SupportSufficiencyV1::Supported
+            } else {
+                SupportSufficiencyV1::InsufficientEvidence
+            };
+            let expected_any_pair = if any_contradiction {
+                SupportSufficiencyV1::ConflictReviewRequired
+            } else if pair_01 || pair_23 {
+                SupportSufficiencyV1::Supported
+            } else {
+                SupportSufficiencyV1::InsufficientEvidence
+            };
+
+            assert_eq!(
+                evaluate_support_sufficiency(&all_of, &evidence),
+                Ok(expected_all),
+                "all-of mask {mask}"
+            );
+            assert_eq!(
+                evaluate_support_sufficiency(&any_of_singletons, &evidence),
+                Ok(expected_any_single),
+                "any-of singleton mask {mask}"
+            );
+            assert_eq!(
+                evaluate_support_sufficiency(&any_of_pairs, &evidence),
+                Ok(expected_any_pair),
+                "any-of pair mask {mask}"
+            );
+        }
+    }
+
 }
