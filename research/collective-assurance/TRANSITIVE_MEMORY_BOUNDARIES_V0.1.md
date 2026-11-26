@@ -39,7 +39,7 @@ revocation event recorded now
 
 ### Scope
 
-A scope contains exact, non-empty unique principal, purpose and entity identifiers, a half-open validity interval `[valid_from_ms, valid_until_ms)`, and a positive retention deadline.
+A scope contains exact, non-empty unique principal, purpose and entity identifiers, a half-open validity interval `[valid_from_ms, valid_until_ms)`, and a positive retention deadline strictly later than `valid_from_ms`; a deadline at the start of validity leaves no usable interval and is rejected.
 
 No semantic equivalence, inferred group membership, global role, wildcard, tenant alias, legal interpretation or external identity lookup is performed.
 
