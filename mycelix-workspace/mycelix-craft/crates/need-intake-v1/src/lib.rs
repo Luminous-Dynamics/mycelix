@@ -376,6 +376,8 @@ pub enum NeedIntakeErrorV1 {
     InvalidAuthority,
     /// Review has inconsistent times or no reviewer authority.
     InvalidReview,
+    /// A safety-critical requirement lacks a mandatory safety review path.
+    SafetyReviewRequired,
 }
 
 /// Disposition of the structured proposal workflow.
@@ -527,7 +529,7 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
     if proposal.requirements.iter().any(|requirement| {
         requirement.kind == RequirementKindV1::SafetyCritical
     }) && !proposal.safety_review_required {
-        return Err(NeedIntakeErrorV1::InvalidAuthority);
+        return Err(NeedIntakeErrorV1::SafetyReviewRequired);
     }
 
     for package in &proposal.work_packages {
@@ -996,7 +998,7 @@ mod tests {
         proposal.safety_review_required = false;
         assert_eq!(
             validate_proposal(&proposal),
-            Err(NeedIntakeErrorV1::InvalidAuthority)
+            Err(NeedIntakeErrorV1::SafetyReviewRequired)
         );
     }
 
@@ -1146,6 +1148,7 @@ mod tests {
             contradiction_id: "pump-capacity-conflict".to_owned(),
             kind: ContradictionKindV1::TechnicalConflict,
             affected_claim_ids: vec!["requirement:electrical-safety".to_owned()],
+            stakeholder_positions: Vec::new(),
             resolved: false,
             resolution_decision_id: None,
         });
