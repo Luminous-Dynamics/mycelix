@@ -144,7 +144,10 @@ Use task-specific model selection, calibrated review routing and deterministic p
 ## 9. Standards and industry comparison
 
 - **W3C PROV-DM** already standardizes the general concepts of source entities, activities, agents, derivations and provenance bundles. Craft should map to PROV rather than invent a universal provenance model.
+- **ISO/IEC/IEEE 29148:2018** remains the published requirements-engineering standard as of 26 November 2026. A third edition (DIS 29148) entered the ISO enquiry stage in September 2026. Benchmark requirement statement quality against the published 2018 edition; track the draft separately and do not treat it as normative until publication.
+- **INCOSE Guide to Writing Requirements V3.1 (2022)** and the applicable Needs and Requirements Manual provide established systems-engineering authoring guidance. Benchmark against these rubrics rather than asserting Craft invents quality requirements.
 - **NIST AI RMF** already frames trustworthiness around validity/reliability, safety, security/resilience, accountability/transparency, explainability, privacy and fairness. Need Intake should operationalize these in one proposal workflow, not claim to replace AI governance.
+- **ISO/IEC 42001:2023** specifies requirements for an AI management system. Organizational adoption and audit remain distinct from a single software library's conformance; Need Intake should provide evidence inputs for an AIMS, not claim system certification.
 - **Jama Connect** documents AI-assisted requirements authoring, templates, electronic reviews/approvals, version control, compliance workflows, end-to-end traceability and live change impact. Its 9.41.x release notes (2 November 2026) describe sequential approval reviews, review checklists, baseline creation at review finalization, live compliance and permission controls. This is a mature engineering lifecycle baseline, not a strawman.
 - **IBM Engineering Requirements Management DOORS Next** supports requirement reviews from baselines, participant approval/disapproval, revision, trace links to development/test artifacts, baseline comparisons and suspect-link/change-impact analysis. Use the configured DOORS workflow as a baseline where available.
 - **Decidim** already provides participatory spaces and proposal/debate/survey/meeting/budget/vote/accountability components, including staged processes from diagnosis and proposals through prioritization, decision and results monitoring.
@@ -168,5 +171,9 @@ Measure water-service continuity and quality using independent instruments and i
 - Shefa et al. (2026), *Two Truths and A Lie? Benchmarking Off-the-Shelf LLMs for Requirements Quality Assessment*: https://arxiv.org/abs/2609.03230
 - Sabatucci et al. (2026), *A Methodology for the Systematic Evaluation of LLMs in Requirement Engineering Tasks with No Ground Truth*: https://doi.org/10.3390/systems14060598
 - Saeedi et al. (2025), *A Survey of Subgraph Optimization for Expert Team Formation*: https://doi.org/10.1145/3737455
+- ISO/IEC/IEEE 29148:2018: https://www.iso.org/standard/72089.html
+- ISO/IEC/IEEE DIS 29148 (draft under enquiry): https://www.iso.org/standard/94091.html
+- INCOSE Guide to Writing Requirements V3.1: https://www.incose.org/publications/products/se-handbook/guide-to-writing-requirements
 - W3C PROV-DM: https://www.w3.org/TR/prov-dm/
 - NIST AI Risk Management Framework: https://www.nist.gov/itl/ai-risk-management-framework
+- ISO/IEC 42001:2023: https://www.iso.org/standard/42001
