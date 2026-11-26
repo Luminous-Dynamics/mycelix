@@ -165,21 +165,13 @@ pub enum FrontierModelErrorV1 {
 }
 
 impl OwnerCutV1 {
-    pub fn validate(&self) -> Result<(), FrontierModelErrorV1> {
+    /// Validate fields committed by the canonical owner-cut leaf. This is
+    /// deliberately independent of checkpoint inclusion metadata because
+    /// those proof bytes are excluded from the leaf to avoid self-reference.
+    fn validate_canonical_fields(&self) -> Result<(), FrontierModelErrorV1> {
         validate_id(&self.owner_ref)?;
         validate_id(&self.history_ref)?;
         validate_digest(&self.root_digest)?;
-        validate_digest(&self.checkpoint_inclusion.checkpoint_root_digest)?;
-        validate_digest(&self.checkpoint_inclusion.owner_root_digest)?;
-        validate_id(&self.checkpoint_inclusion.proof_ref)?;
-        if self.checkpoint_inclusion.owner_root_digest != self.root_digest
-            || self.checkpoint_inclusion.tree_size == 0
-            || self.checkpoint_inclusion.leaf_index
-                >= self.checkpoint_inclusion.tree_size
-            || self.checkpoint_inclusion.inclusion_path.len() > MAX_PROOF_NODES
-        {
-            return Err(FrontierModelErrorV1::InvalidInclusionDeclaration);
-        }
 
         let mut previous_last = 0_u64;
         let mut missing_count = 0_u64;
@@ -205,6 +197,22 @@ impl OwnerCutV1 {
         }
         if self.tree_size == 0 && parse_digest(&self.root_digest)? != empty_tree_hash() {
             return Err(FrontierModelErrorV1::InvalidDigest);
+        }
+        Ok(())
+    }
+
+    pub fn validate(&self) -> Result<(), FrontierModelErrorV1> {
+        self.validate_canonical_fields()?;
+        validate_digest(&self.checkpoint_inclusion.checkpoint_root_digest)?;
+        validate_digest(&self.checkpoint_inclusion.owner_root_digest)?;
+        validate_id(&self.checkpoint_inclusion.proof_ref)?;
+        if self.checkpoint_inclusion.owner_root_digest != self.root_digest
+            || self.checkpoint_inclusion.tree_size == 0
+            || self.checkpoint_inclusion.leaf_index
+                >= self.checkpoint_inclusion.tree_size
+            || self.checkpoint_inclusion.inclusion_path.len() > MAX_PROOF_NODES
+        {
+            return Err(FrontierModelErrorV1::InvalidInclusionDeclaration);
         }
         Ok(())
     }
@@ -582,7 +590,7 @@ pub fn canonical_owner_cut_entry_v1(
     verifier_ref: &str,
     policy_epoch_ref: &str,
 ) -> Result<Vec<u8>, FrontierModelErrorV1> {
-    cut.validate()?;
+    cut.validate_canonical_fields()?;
     validate_id(verifier_ref)?;
     validate_id(policy_epoch_ref)?;
     let gap_count = u32::try_from(cut.gaps.len())
