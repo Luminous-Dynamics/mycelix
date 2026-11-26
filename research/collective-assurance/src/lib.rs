@@ -7,12 +7,20 @@ use std::collections::{BTreeMap, BTreeSet};
 mod allocation;
 mod capability;
 mod coordination;
+mod teambench_adapter;
 mod comparison;
 mod constraint_binding;
 mod ledger;
 mod response_audit;
 mod support_policy;
 
+pub use teambench_adapter::{
+    qualify_teambench_suite, TeamBenchBoundaryObservation, TeamBenchCondition,
+    TeamBenchConditionRun, TeamBenchExcludedTask, TeamBenchGraderDisposition,
+    TeamBenchQualificationReport, TeamBenchRole, TeamBenchRoleBoundaryEvent,
+    TeamBenchRunMode, TeamBenchSuite, TeamBenchTaskObservation, TeamBenchTaskState,
+    TeamBenchVerifierDisposition,
+};
 pub use coordination::{
     qualify_coordination_trial, CoordinationArchitecture, CoordinationDisposition,
     CoordinationQualificationReport, CoordinationRunEvidence, CoordinationStudyContract,
