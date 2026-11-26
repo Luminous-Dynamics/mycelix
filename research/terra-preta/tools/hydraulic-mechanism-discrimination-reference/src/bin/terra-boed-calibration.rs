@@ -30,7 +30,6 @@ const GH_WEIGHTS: [f64; 7] = [
 const FAMILY_BINS: usize = 10;
 const RESCALE_FACTOR: f64 = 37.0;
 const OOD_SHIFT_STANDARD_DEVIATIONS: f64 = 8.0;
-const SBC_TIE_TOLERANCE: f64 = 1.0e-12;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -502,10 +501,6 @@ fn normal_cdf(value: f64) -> f64 {
     0.5 * (1.0 + erf)
 }
 
-fn normal_pdf(value: f64) -> f64 {
-    (-0.5 * value * value).exp() / (2.0 * std::f64::consts::PI).sqrt()
-}
-
 fn expected_absolute_normal(mean: f64, standard_deviation: f64) -> f64 {
     let z = mean / standard_deviation;
     standard_deviation * (2.0 / std::f64::consts::PI).sqrt() * (-0.5 * z * z).exp()
@@ -609,7 +604,7 @@ fn randomized_discrete_sbc_rank(
         let mut sampled_regime = regime_probabilities.len() - 1;
         for (regime_index, probability) in regime_probabilities.iter().enumerate() {
             cumulative += probability;
-            if uniform <= &cumulative {
+            if *uniform <= cumulative {
                 sampled_regime = regime_index;
                 break;
             }
@@ -643,14 +638,14 @@ fn score_world(
         .iter()
         .enumerate()
         .map(|(index, probability)| {
-            (probability - f64::from(index == true_family)).powi(2)
+            (probability - if index == true_family { 1.0 } else { 0.0 }).powi(2)
         })
         .sum();
     let regime_brier = regime_probabilities
         .iter()
         .enumerate()
         .map(|(index, probability)| {
-            (probability - f64::from(index == true_regime)).powi(2)
+            (probability - if index == true_regime { 1.0 } else { 0.0 }).powi(2)
         })
         .sum();
     let family_log_loss = -family_probabilities[true_family].max(1.0e-15).ln();
