@@ -1,0 +1,9 @@
+[package]
+name = "craft-impact-qualification-v1"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Context-bound impact determinations and evidence sufficiency reference profile"
+
+[lib]
+path = "src/lib.rs"
