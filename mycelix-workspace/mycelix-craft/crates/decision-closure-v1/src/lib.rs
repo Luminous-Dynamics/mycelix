@@ -138,6 +138,12 @@ pub struct ClaimSupportResultRefV1 {
     pub domain_id: String,
     /// Jurisdiction of the support assessment.
     pub jurisdiction_id: String,
+    /// Exact domain standard identifier used for claim support.
+    pub domain_standard_id: String,
+    /// Domain standard revision used for claim support.
+    pub domain_standard_revision: u64,
+    /// Exact domain standard digest used for claim support.
+    pub domain_standard_digest: [u8; 32],
     /// Exact authorized corpus snapshot used.
     pub corpus_digest: [u8; 32],
     /// Support disposition.
@@ -277,6 +283,8 @@ pub enum DecisionClosureErrorV1 {
     DecisionReferenceMismatch,
     /// Evidence support reference has the wrong domain, jurisdiction or corpus.
     EvidenceScopeMismatch,
+    /// Claim support was evaluated under a different domain standard.
+    EvidenceStandardMismatch,
     /// Element has a malformed applicability decision.
     InvalidApplicabilityDecision,
     /// An applicable element has a zero support threshold.
@@ -481,6 +489,11 @@ pub fn validate_packet(packet: &DecisionClosurePacketV1) -> Result<(), DecisionC
                 require_digest(&support.proposal_digest)?;
                 require_non_empty(&support.domain_id)?;
                 require_non_empty(&support.jurisdiction_id)?;
+                require_non_empty(&support.domain_standard_id)?;
+                require_digest(&support.domain_standard_digest)?;
+                if support.domain_standard_revision == 0 {
+                    return Err(DecisionClosureErrorV1::InvalidRevision);
+                }
                 require_digest(&support.corpus_digest)?;
                 if !result_ids.insert(support.result_id.as_str()) {
                     return Err(DecisionClosureErrorV1::DuplicateIdentifier);
@@ -490,6 +503,12 @@ pub fn validate_packet(packet: &DecisionClosurePacketV1) -> Result<(), DecisionC
                     || support.corpus_digest != decision.authorized_corpus_digest
                 {
                     return Err(DecisionClosureErrorV1::EvidenceScopeMismatch);
+                }
+                if support.domain_standard_id != decision.standard_id
+                    || support.domain_standard_revision != decision.standard_revision
+                    || support.domain_standard_digest != decision.standard_digest
+                {
+                    return Err(DecisionClosureErrorV1::EvidenceStandardMismatch);
                 }
                 if support.valid_until.map(|expiry| expiry < support.evaluated_at).unwrap_or(false) {
                     return Err(DecisionClosureErrorV1::InvalidReviewTime);
@@ -813,6 +832,9 @@ mod tests {
             proposal_digest: [8; 32],
             domain_id: "water-service-assurance-v1".to_owned(),
             jurisdiction_id: "ZA-GP".to_owned(),
+            domain_standard_id: "water-service-standard".to_owned(),
+            domain_standard_revision: 1,
+            domain_standard_digest: [5; 32],
             corpus_digest: [4; 32],
             disposition,
             evaluated_at: 10,
@@ -953,6 +975,16 @@ mod tests {
         item.jurisdiction_id = "ZA-WC".to_owned();
         let result = validate_packet(&packet(vec![mapping("wrong-scope", vec![element("required", Vec::new(), vec![item])])]));
         assert_eq!(result, Err(DecisionClosureErrorV1::EvidenceScopeMismatch));
+    }
+
+    #[test]
+    fn claim_support_result_from_different_standard_is_rejected() {
+        let mut item = support("wrong-standard", SupportDispositionV1::DirectSupport);
+        item.domain_standard_revision = 2;
+        assert_eq!(
+            validate_packet(&packet(vec![mapping("wrong-standard", vec![element("required", Vec::new(), vec![item])])])),
+            Err(DecisionClosureErrorV1::EvidenceStandardMismatch)
+        );
     }
 
     #[test]
