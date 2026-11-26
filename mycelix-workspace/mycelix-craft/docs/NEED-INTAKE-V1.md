@@ -44,7 +44,7 @@ A proposal contains:
 - safety review requirement;
 - review records bound to the exact proposal digest.
 
-The contract validates reference integrity and rejects cyclic work-package dependencies. It does not interpret natural language or verify that a source actually supports the statement. That semantic check belongs in the reviewed retrieval/assessment process and its benchmark.
+The contract validates reference integrity, requires every outcome and requirement to be assigned to a work package, requires a safety-review flag whenever a SafetyCritical requirement exists, and rejects cyclic work-package dependencies. It does not interpret natural language or verify that a source actually supports the statement. That semantic check belongs in the reviewed retrieval/assessment process and its benchmark.
 
 ## 4. Review and ratification state machine
 
