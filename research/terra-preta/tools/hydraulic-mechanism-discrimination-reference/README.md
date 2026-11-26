@@ -94,7 +94,8 @@ This is a small oracle, not an SOTA claim. The next benchmark should compare, at
 4. Expected model information gain / classification-based discrimination.
 5. Held-out predictive information gain / EPIG-style utility on future observables, with the estimator and conditioning target stated precisely.
 6. Decision-focused EVSI using the declared action/loss matrix, followed by matched alternate loss matrices and regret calibration.
-7. Faithful maximin robust Bayesian design with its KL ambiguity-set, Sibson-$\alpha$-MI and PAC-Bayes assumptions reproduced.
+7. Adaptive policy search via score matching, which decouples a learned score approximation from subsequent policy optimization.
+8. Faithful maximin robust Bayesian design with its KL ambiguity-set, Sibson-$\alpha$-MI and PAC-Bayes assumptions reproduced.
 
 Relevant current literature includes:
 
@@ -103,6 +104,17 @@ Relevant current literature includes:
 - Rainforth et al., *Modern Bayesian Experimental Design*, Statistical Science 2024: https://doi.org/10.1214/23-STS915
 
 The SBI-BOED work is particularly relevant because it connects mutual-information objectives, surrogate-likelihood training and design under fixed simulator budgets. The robust BOED work provides a materially stronger comparator than simply taking a worst case over a hand-selected finite list of scenarios. These methods must be reproduced faithfully before claiming a comparison or improvement.
+
+### Adaptive BED comparators added to the SOTA ladder
+
+Two 2026 UAI methods are especially relevant to the adaptive-policy stage:
+
+- [Zaballa & Hui, *Optimizing Likelihoods via Mutual Information* (UAI 2026)](https://proceedings.mlr.press/v337/zaballa26a.html) introduce SBI-BOED: a normalized conditional-density / normalizing-flow likelihood trained with an InfoNCE lower bound on EIG, with each simulator call supporting both inference and design. Their MI view also gives EPIG for predictive active learning. The paper reports gains in calibration and predictive accuracy against strong baselines at matched simulation budgets.
+- [Phillips, Kerrigan & Rainforth, *Bayesian Experimental Design via Score Matching* (UAI 2026)](https://proceedings.mlr.press/v337/phillips26a.html) decouple score approximation from policy optimization. Once the score model is learned, multiple adaptive policies and policy hyperparameter searches can be trained without multiplying the expensive likelihood-evaluation cost by every policy trial.
+
+The exact two-step oracle in this repository is not a learned policy and should not be compared to these methods on a single fixture score. Its role is to provide small-instance ground truth for policy evaluation and posterior updating. The next bake-off must compare all methods under common simulator-call budgets, plus report score-model training cost, policy-training FLOPs / wall time, memory, posterior calibration, held-out predictive log score / CRPS, decision regret, and misspecification abstention.
+
+The robust comparator is [Abdulsamad et al., *Maximin Robust Bayesian Experimental Design* (NeurIPS 2026)](https://arxiv.org/abs/2603.14094). It treats misspecification as an adversarial max-min game constrained by information-theoretic ambiguity, using Sibson's alpha-mutual information / Renyi divergence and PAC-Bayes lower bounds for stochastic design policies. A finite list of nominal scenarios is not a faithful substitute. We need to reproduce its ambiguity set, estimator, bounds and assumptions before drawing any result against it.
 
 ## Industry and pore-scale research baselines
 
