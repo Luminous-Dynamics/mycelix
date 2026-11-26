@@ -79,15 +79,15 @@ fn frontier(id: &str, mut cuts: Vec<OwnerCutV1>) -> VerifierFrontierV1 {
     }
 }
 
-fn consistency_link(
+fn consistency_link_from_entries(
     owner: &str,
+    entries: &[Vec<u8>],
     first_tree_size: u64,
-    second_tree_size: u64,
 ) -> OwnerConsistencyLinkV1 {
-    let entries = owner_entries(owner, second_tree_size);
+    let second_tree_size = entries.len() as u64;
     let first_root = tree_hash(&entries[..first_tree_size as usize]).unwrap();
-    let second_root = tree_hash(&entries).unwrap();
-    mycelix_rfc9162_proof_verifier::consistency_proof(&entries, first_tree_size)
+    let second_root = tree_hash(entries).unwrap();
+    mycelix_rfc9162_proof_verifier::consistency_proof(entries, first_tree_size)
         .map(|consistency_path| OwnerConsistencyLinkV1 {
             owner_ref: owner.into(),
             history_ref: format!("history:{owner}"),
@@ -103,12 +103,19 @@ fn consistency_link(
         .expect("owner consistency proof")
 }
 
-fn main() {
-    let grants_10 = owner_cut("owner:grants", 10);
-    let mut grants_20 = owner_cut("owner:grants", 20);
-    let payments_20 = owner_cut("owner:payments", 20);
-    let payments_10 = owner_cut("owner:payments", 10);
+fn consistency_link(
+    owner: &str,
+    first_tree_size: u64,
+    second_tree_size: u64,
+) -> OwnerConsistencyLinkV1 {
+    consistency_link_from_entries(
+        owner,
+        &owner_entries(owner, second_tree_size),
+        first_tree_size,
+    )
+}
 
+fn main() {
     let mut receipt = KnowledgeReceiptV1 {
         receipt_id: "receipt:grant-revocation:5".into(),
         verifier_ref: VERIFIER.into(),
@@ -128,10 +135,25 @@ fn main() {
         canonical_knowledge_receipt_entry_v1(&receipt).expect("canonical receipt encoding");
     receipt.receipt_digest = format!("sha256:{}", hex(&sha2_digest(&receipt_payload)));
 
+    // The receipt is a stable log entry at sequence five in every snapshot.
+    // The later log appends sequences 11..20; it never rewrites the prefix.
     let mut grant_log = owner_entries("owner:grants", 20);
     grant_log[4] = receipt_payload;
-    let grant_root = tree_hash(&grant_log).unwrap();
-    grants_20.root_digest = format!("sha256:{}", hex(&grant_root));
+    let mut grants_10 = owner_cut("owner:grants", 10);
+    grants_10.root_digest = format!(
+        "sha256:{}",
+        hex(&tree_hash(&grant_log[..10]).unwrap())
+    );
+    grants_10.checkpoint_inclusion.owner_root_digest = grants_10.root_digest.clone();
+    let mut grants_20 = owner_cut("owner:grants", 20);
+    grants_20.root_digest = format!(
+        "sha256:{}",
+        hex(&tree_hash(&grant_log).unwrap())
+    );
+    grants_20.checkpoint_inclusion.owner_root_digest = grants_20.root_digest.clone();
+    let payments_20 = owner_cut("owner:payments", 20);
+    let payments_10 = owner_cut("owner:payments", 10);
+
     receipt.inclusion = Some(ReceiptInclusionDeclarationV1 {
         owner_root_digest: grants_20.root_digest.clone(),
         leaf_index: 4,
@@ -153,7 +175,7 @@ fn main() {
         vec![grants_20.clone(), payments_20.clone()],
     );
 
-    let grant_link = consistency_link("owner:grants", 10, 20);
+    let grant_link = consistency_link_from_entries("owner:grants", &grant_log, 10);
     let payment_link = consistency_link("owner:payments", 10, 20);
 
     println!(
@@ -231,7 +253,7 @@ fn main() {
     assert_eq!(
         early.compare(
             &later,
-            &[consistency_link("owner:grants", 10, 20), payment_link]
+            &[consistency_link_from_entries("owner:grants", &grant_log, 10), payment_link]
         ),
         Ok(FrontierRelationV1::Before)
     );
