@@ -58,7 +58,8 @@
               "observed": "blocked",
               "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
             }
-          ]
+          ],
+          "resource_usage": null
         }
       ],
       "execution_backend": "in_process_tool_boundary",
@@ -93,7 +94,8 @@
               "observed": "blocked",
               "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
             }
-          ]
+          ],
+          "resource_usage": null
         }
       ],
       "execution_backend": "in_process_tool_boundary",
@@ -129,7 +131,8 @@
               "observed": "blocked",
               "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
             }
-          ]
+          ],
+          "resource_usage": null
         }
       ],
       "execution_backend": "in_process_tool_boundary",
@@ -165,7 +168,8 @@
               "observed": "blocked",
               "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
             }
-          ]
+          ],
+          "resource_usage": null
         }
       ],
       "execution_backend": "in_process_tool_boundary",
@@ -202,7 +206,8 @@
               "observed": "blocked",
               "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
             }
-          ]
+          ],
+          "resource_usage": null
         }
       ],
       "execution_backend": "in_process_tool_boundary",
