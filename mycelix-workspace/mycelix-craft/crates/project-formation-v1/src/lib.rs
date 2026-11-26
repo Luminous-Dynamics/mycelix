@@ -368,8 +368,10 @@ pub struct RequirementCoverageV1 {
     pub unknown_evidence: usize,
     /// Number of evidence records with an active dispute.
     pub disputed_evidence: usize,
-    /// Number of revoked or out-of-validity evidence records.
+    /// Number of expired or revoked evidence records.
     pub stale_or_revoked_evidence: usize,
+    /// Number of qualified evidence records whose validity has not yet begun.
+    pub not_yet_valid_evidence: usize,
     /// Number of records that did not match exact capability/context/policy scope.
     pub scope_mismatch_evidence: usize,
     /// Distinct qualified contributors required by the project.
@@ -566,6 +568,7 @@ pub fn evaluate_team(
             let mut unknown = 0;
             let mut disputed = 0;
             let mut stale_or_revoked = 0;
+            let mut not_yet_valid = 0;
             let mut scope_mismatch = 0;
 
             let mut matching_assignments = 0usize;
@@ -596,15 +599,16 @@ pub fn evaluate_team(
 
                     match evidence.disposition {
                         EvidenceDispositionV1::Qualified => {
-                            let current = now >= evidence.valid_from
-                                && evidence
-                                    .valid_until
-                                    .map(|valid_until| now < valid_until)
-                                    .unwrap_or(true);
-                            if current {
-                                qualified.insert(assignment.contributor_id.clone());
-                            } else {
+                            if now < evidence.valid_from {
+                                not_yet_valid += 1;
+                            } else if evidence
+                                .valid_until
+                                .map(|valid_until| now >= valid_until)
+                                .unwrap_or(false)
+                            {
                                 stale_or_revoked += 1;
+                            } else {
+                                qualified.insert(assignment.contributor_id.clone());
                             }
                         }
                         EvidenceDispositionV1::NotQualified => not_qualified += 1,
@@ -640,7 +644,11 @@ pub fn evaluate_team(
                 && !development_contributors.is_empty()
             {
                 RequirementDispositionV1::DevelopmentPathAvailable
-            } else if unknown > 0 || stale_or_revoked > 0 || scope_mismatch > 0 {
+            } else if unknown > 0
+                || stale_or_revoked > 0
+                || not_yet_valid > 0
+                || scope_mismatch > 0
+            {
                 RequirementDispositionV1::UnknownEvidence
             } else {
                 RequirementDispositionV1::Uncovered
@@ -656,6 +664,7 @@ pub fn evaluate_team(
                 unknown_evidence: unknown,
                 disputed_evidence: disputed,
                 stale_or_revoked_evidence: stale_or_revoked,
+                not_yet_valid_evidence: not_yet_valid,
                 scope_mismatch_evidence: scope_mismatch,
                 minimum_contributors: requirement.minimum_contributors,
             });
@@ -1015,6 +1024,19 @@ mod tests {
             evaluate_team(&project, &proposal, NOW),
             Err(ProjectFormationErrorV1::DuplicateRequirementAssignment)
         );
+    }
+
+    #[test]
+    fn evidence_before_its_validity_start_is_not_yet_valid() {
+        let project = project(RequirementKindV1::Required, 1);
+        let mut item = evidence("alice", EvidenceDispositionV1::Qualified);
+        item.valid_from = NOW + 1;
+        let proposal = proposal(vec![member("alice")], vec![assignment("alice", vec![item])]);
+
+        let coverage = result(&project, &proposal);
+        assert_eq!(coverage.disposition, RequirementDispositionV1::UnknownEvidence);
+        assert_eq!(coverage.not_yet_valid_evidence, 1);
+        assert_eq!(coverage.stale_or_revoked_evidence, 0);
     }
 
     #[test]
