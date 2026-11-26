@@ -489,6 +489,16 @@ mod tests {
     }
 
     #[test]
+    fn assignment_requires_a_pinned_adopted_charter_policy_reference() {
+        let mut a = assignment(vec![GovernanceActionV1::Facilitate], guild_scope("guild-a", "meetings"));
+        a.charter_policy.digest = [0; 32];
+        assert_eq!(
+            a.validate(),
+            Err(AssignmentErrorV1::InvalidCharterPolicyReference)
+        );
+    }
+
+    #[test]
     fn non_member_is_denied_by_active_member_only_policy() {
         let a = assignment(vec![GovernanceActionV1::Facilitate], guild_scope("guild-a", "meetings"));
         let mut r = request(GovernanceActionV1::Facilitate, guild_scope("guild-a", "meetings"));
