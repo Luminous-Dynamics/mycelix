@@ -219,6 +219,12 @@ func TestSparseMerkleInsertRejectsDuplicateAndReplaceIsExplicit(t *testing.T) {
 	if !existed || previous != first {
 		t.Fatal("replace did not return previous mapping")
 	}
+	if _, existed := tree.Replace(sparseKeyWithFirstByte(0x34), first); existed {
+		t.Fatal("replace inserted a missing key")
+	}
+	if tree.Len() != 1 {
+		t.Fatal("replace changed map cardinality")
+	}
 	if err := VerifySparseMembership(key, second, tree.Prove(key), tree.RootHash()); err != nil {
 		t.Fatal(err)
 	}
