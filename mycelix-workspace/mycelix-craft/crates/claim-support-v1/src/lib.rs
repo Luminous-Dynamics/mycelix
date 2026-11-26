@@ -451,11 +451,15 @@ pub fn evaluate_claim_support(
         return Ok(ClaimSupportDispositionV1::InsufficientEvidence);
     }
 
-    let reviews = packet.reviews.iter().filter(|review| {
-        review.reviewed_at <= now
-            && review.valid_until.map(|expiry| now < expiry).unwrap_or(true)
-            && review.withdrawn_at.map(|time| now < time).unwrap_or(true)
-    }).collect::<HashMap<_, _>>();
+    let current_reviews = packet
+        .reviews
+        .iter()
+        .filter(|review| {
+            review.reviewed_at <= now
+                && review.valid_until.map(|expiry| now < expiry).unwrap_or(true)
+                && review.withdrawn_at.map(|time| now < time).unwrap_or(true)
+        })
+        .collect::<Vec<_>>();
 
     let mut all_confirmed = true;
     for assessment in &packet.assessments {
@@ -466,8 +470,8 @@ pub fn evaluate_claim_support(
             continue;
         }
 
-        let review = reviews
-            .values()
+        let review = current_reviews
+            .iter()
             .find(|review| review.assessment_id == assessment.assessment_id);
         let Some(review) = review else {
             all_confirmed = false;
