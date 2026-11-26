@@ -891,6 +891,10 @@ mod tests {
         for (index, arm) in block.arms.iter_mut().enumerate() {
             arm.block = block_identity.clone();
             arm.study = study_identity.clone();
+            if !arm.treatment.inquiry {
+                arm.post_inquiry_candidate_pool_digest =
+                    block_identity.initial_candidate_pool_digest.clone();
+            }
             arm.run_id = format!("second-run-{index}");
         }
         block
