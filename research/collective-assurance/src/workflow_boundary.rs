@@ -581,15 +581,6 @@ fn run_metrics(run: &WorkflowRun) -> WorkflowBoundaryMetrics {
     metrics
 }
 
-fn exposure_by_id<'a>(
-    run: &'a WorkflowRun,
-) -> BTreeMap<&'a str, &'a WorkflowArtifactExposure> {
-    run.exposures
-        .iter()
-        .map(|exposure| (exposure.exposure_id.as_str(), exposure))
-        .collect()
-}
-
 /// Qualifies a matched clean/polluted workflow pair with exactly one additional
 /// artifact exposure at the challenged consumer.
 ///
@@ -639,17 +630,25 @@ pub fn qualify_workflow_boundary_pair(
         );
     }
 
-    let clean_exposures = exposure_by_id(&pair.clean);
-    let polluted_exposures = exposure_by_id(&pair.polluted);
-    if polluted_exposures.len() != clean_exposures.len() + 1 {
+    let clean_exposure_ids: BTreeSet<&str> = pair
+        .clean
+        .exposures
+        .iter()
+        .map(|exposure| exposure.exposure_id.as_str())
+        .collect();
+    if pair.polluted.exposures.len() != pair.clean.exposures.len() + 1 {
         return report(
             WorkflowBoundaryStatus::Fail,
             pair,
             vec!["polluted run must add exactly one artifact exposure".into()],
         );
     }
-    for (id, clean_exposure) in &clean_exposures {
-        if polluted_exposures.get(id).copied() != Some(*clean_exposure) {
+    for clean_exposure in &pair.clean.exposures {
+        let unchanged = pair.polluted.exposures.iter().any(|polluted_exposure| {
+            polluted_exposure.exposure_id == clean_exposure.exposure_id
+                && polluted_exposure == clean_exposure
+        });
+        if !unchanged {
             return report(
                 WorkflowBoundaryStatus::Fail,
                 pair,
@@ -657,16 +656,20 @@ pub fn qualify_workflow_boundary_pair(
             );
         }
     }
-    let added = polluted_exposures
+    let added = pair
+        .polluted
+        .exposures
         .iter()
-        .find(|(id, _)| !clean_exposures.contains_key(**id));
-    let Some((_, pollution_exposure)) = added else {
+        .filter(|exposure| !clean_exposure_ids.contains(exposure.exposure_id.as_str()))
+        .collect::<Vec<_>>();
+    if added.len() != 1 {
         return report(
             WorkflowBoundaryStatus::Fail,
             pair,
-            vec!["polluted run does not contain a new exposure".into()],
+            vec!["polluted run does not contain exactly one new exposure".into()],
         );
-    };
+    }
+    let pollution_exposure = added[0];
     if pollution_exposure.consumer_node_id != pair.challenge.target_consumer_node_id
         || pollution_exposure.artifact_id != pair.challenge.polluted_artifact_id
     {
