@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mycelix SAFRB shared-pump claim-fidelity fixture v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fixture_id",
+    "maturity",
+    "source_scenario",
+    "participant",
+    "resource",
+    "issuer",
+    "route_aliases",
+    "dependency",
+    "expected_invariants",
+    "prohibited_inferences",
+    "source_scenarios",
+    "time_indexed_resource_claims"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "mycelix-safrb-claim-fidelity-v0.1"
+    },
+    "fixture_id": {
+      "const": "MYCELIX-SAFRB-SHARED-PUMP-001"
+    },
+    "maturity": {
+      "const": "synthetic_test_fixture"
+    },
+    "source_scenario": {
+      "type": "object",
+      "required": [
+        "case_id",
+        "scenario_sha256",
+        "owner"
+      ]
+    },
+    "participant": {
+      "type": "object",
+      "required": [
+        "participant_id",
+        "role",
+        "recognition_for_purpose"
+      ]
+    },
+    "resource": {
+      "type": "object",
+      "required": [
+        "physical_resource_id",
+        "resource_type",
+        "reported_capacity",
+        "current_availability",
+        "title",
+        "custody",
+        "contract_access",
+        "dispatch_authority",
+        "observation_time",
+        "valid_until"
+      ]
+    },
+    "issuer": {
+      "type": "object",
+      "required": [
+        "issuer_id",
+        "key_authentication",
+        "recognition_for_claim_purpose",
+        "claim_scope"
+      ]
+    },
+    "route_aliases": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "logical_route_ref",
+          "physical_resource_id",
+          "dependency_role"
+        ]
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "required": [
+        "failure_domain_id",
+        "closure_status",
+        "both_route_paths_depend_on"
+      ]
+    },
+    "expected_invariants": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "prohibited_inferences": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "source_scenarios": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "scenario_sha256",
+          "owner"
+        ]
+      }
+    },
+    "time_indexed_resource_claims": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "physical_resource_id",
+          "time_index",
+          "lower",
+          "upper",
+          "unit",
+          "valid_interval",
+          "claim_status"
+        ],
+        "properties": {
+          "physical_resource_id": {
+            "type": "string"
+          },
+          "time_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lower": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "upper": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unit": {
+            "const": "t"
+          },
+          "valid_interval": {
+            "type": "string"
+          },
+          "claim_status": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
