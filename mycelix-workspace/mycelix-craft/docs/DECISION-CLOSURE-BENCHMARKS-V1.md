@@ -67,7 +67,7 @@ Use at least two independent domain reviewers per mapping role in the field qual
 | Cross-scope evidence acceptance | Result from wrong domain/jurisdiction/corpus accepted | 0 |
 | Cross-proposal evidence acceptance | Support result from an older or unrelated proposal revision accepted | 0 |
 | Stale support acceptance | Expired, invalidated or older-than-policy result counted | 0 |
-| Not-applicable integrity | Element excluded without authority decision | 0 |
+| Not-applicable integrity | Element excluded without authority decision or exact authority-decision ID/digest binding | 0 |
 | Mapping reviewer integrity | Approval accepted for changed mapping digest or missing quorum | 0 |
 | Mapping agreement | Independent reviewers agree on element existence, scope, applicability and dependency | report per domain |
 | Verdict sensitivity | Closure verdict flips across defensible alternate mappings | measure and report |
@@ -87,6 +87,7 @@ Targets are proposed qualification requirements, not measured results. The zero-
 - one reviewer omits an element and another identifies it;
 - mapping revision changes after approval;
 - not-applicable status is inferred from silence;
+- not-applicable decision ID/digest does not match the referenced local authority decision;
 - all elements have claim support but a prerequisite ordering is unsatisfied;
 - a clinical recommendation has risk stratification but omits contraindication or bleeding-risk assessment;
 - multiple positive sources are present alongside one contradictory source;
