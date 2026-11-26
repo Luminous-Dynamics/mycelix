@@ -23,7 +23,7 @@ Statuses:
 - NotAffected: the change is excluded only for the exact bound edge/event/context, with an allowed typed justification and evidence.
 - UnderInvestigation: applicability remains unresolved; this is never silently treated as NotAffected.
 
-A separate DomainAuthority review is required. High-consequence packets also require a distinct SafetyAuthority review. The assessor cannot approve their own packet. Reviewer approvals must bind the exact determination digest and carry current owner-qualified review leases.
+A separate DomainAuthority review is required and must pin the exact authority artifact revision/digest. High-consequence packets also require a distinct SafetyAuthority review pinned to its exact authority artifact. The assessor cannot approve their own packet. Reviewer approvals must bind the exact determination digest and carry current owner-qualified review leases. Each supporting impact-evidence reference must also bind to the exact use-context digest.
 
 A NotAffected packet never restores the upstream artifact, authorizes a decision, suppresses other edges, or survives a change to the bound event, artifact, edge, context, scope, reviewer authority, review digest or lease.
 
