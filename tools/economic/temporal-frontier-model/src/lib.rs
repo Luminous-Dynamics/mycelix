@@ -16,8 +16,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use mycelix_rfc9162_proof_verifier::{
-    Hash32, consistency_proof, empty_tree_hash, inclusion_proof, sha256, tree_hash,
-    verify_consistency_proof, verify_entry_inclusion_proof,
+    Hash32, empty_tree_hash, sha256, verify_consistency_proof,
+    verify_entry_inclusion_proof,
 };
 
 const MAX_ID_BYTES: usize = 1_024;
@@ -734,6 +734,7 @@ fn validate_digest(value: &str) -> Result<(), FrontierModelErrorV1> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mycelix_rfc9162_proof_verifier::{consistency_proof, inclusion_proof, tree_hash};
 
     const VERIFIER: &str = "did:mycelix:verifier:finance-v1";
 
@@ -857,7 +858,7 @@ mod tests {
             owner_root_digest: owner_cut.root_digest.clone(),
             leaf_index,
             tree_size: owner_cut.tree_size,
-            inclusion_path: inclusion_proof(&entries, receipt.owner_sequence - 1).unwrap(),
+            inclusion_path: inclusion_proof(&entries, leaf_index).unwrap(),
             proof_ref: format!("proof:receipt:{}", receipt.receipt_id),
         });
     }
@@ -1217,6 +1218,12 @@ mod tests {
     fn gaps_make_frontier_comparison_unknown_even_with_sequence_links() {
         let mut left_cut = cut("owner:a", 10, 'a');
         left_cut.gaps.push(SequenceRangeV1 { first: 3, last: 3 });
+        left_cut.tree_size = 9;
+        let gapped_entries =
+            owner_log_entries("owner:a", left_cut.sequence, &left_cut.gaps);
+        left_cut.root_digest =
+            format!("sha256:{}", hex_lower(&tree_hash(&gapped_entries).unwrap()));
+        left_cut.checkpoint_inclusion.owner_root_digest = left_cut.root_digest.clone();
         let right_cut = cut("owner:a", 20, 'b');
         let left = frontier("frontier:left", vec![left_cut]);
         let right = frontier("frontier:right", vec![right_cut]);
