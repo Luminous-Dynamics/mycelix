@@ -437,7 +437,7 @@ mod tests {
                     stage,
                     stage_sequence: stage.sequence(),
                     task_family_id,
-                    task_digest: digest(char::from(b'c' + stage.sequence() as u8)),
+                    task_digest: digest(char::from(b'1' + stage.sequence() as u8)),
                     evaluator_digest: contract.evaluator_digest.clone(),
                     ai_available: stage == CapabilityStage::AssistedCollaboration,
                     ai_used: stage == CapabilityStage::AssistedCollaboration,
