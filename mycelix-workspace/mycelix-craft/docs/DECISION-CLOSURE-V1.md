@@ -40,7 +40,8 @@ A decision context binds:
 - authorized evidence corpus identifier and exact snapshot digest;
 - domain standard identifier, revision and digest;
 - reviewer roles required to approve the material-element mapping;
-- minimum number of distinct reviewers per required role.
+- minimum number of distinct reviewers per required role;
+- maximum permitted age of an atomic claim-support result.
 
 The host must authenticate the corpus, domain standard, reviewer authority, legal/clinical/safety competence, freshness and revocation state. A corpus digest alone does not make a source authoritative.
 
@@ -96,7 +97,7 @@ Each element references one or more claim-support result references, each bindin
 - support disposition;
 - evaluation time and optional expiry.
 
-Only current DirectSupport results count. PartialSupport, Contradiction, HumanReviewRequired and InsufficientEvidence never count as positive coverage. Any contradiction blocks closure. A wrong domain, jurisdiction or corpus is a packet integrity error, not a soft warning.
+Only current DirectSupport results count. The decision owner sets a positive maximum support age; a result outside that window cannot close an element even if its source, claim and standard digests still match. PartialSupport, Contradiction, HumanReviewRequired and InsufficientEvidence never count as positive coverage. Any contradiction blocks closure. A wrong domain, jurisdiction or corpus is a packet integrity error, not a soft warning.
 
 The host must verify that the referenced result was produced by the Claim Support contract and that all required independent reviewer roles approved it. This core treats the support result as an external input; it does not authenticate the upstream result digest itself.
 
