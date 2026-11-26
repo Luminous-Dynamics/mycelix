@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 const EPSILON: f64 = 1e-9;
+#[cfg(test)]
 const FIXTURE: &str = include_str!("../../../docs/research/maritime-productive-capability/fixtures/maritime-capability-tiny-v0.tsv");
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
