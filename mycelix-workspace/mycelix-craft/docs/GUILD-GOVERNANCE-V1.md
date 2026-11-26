@@ -24,7 +24,7 @@ These dimensions must be represented separately. No title, age, tenure, reputati
 
 ### 1.1 Executable reference core
 
-The companion crate `crates/guild-governance-v1` now provides a pure Rust authorization evaluator for exact-scope assignments, active membership, inclusive-start/exclusive-expiry, revocation, declared conflicts of interest, duplicate assignment IDs, and fail-closed denial. It includes negative tests for founder provenance, an Elder display alias, facilitator/treasury separation, and federation-to-guild scope leakage. The evaluator assumes the assignment snapshot has already passed issuer, charter, signature, and grantor-authority verification; it does not perform those checks itself.
+The companion crate `crates/guild-governance-v1` provides a pure Rust authorization evaluator for exact-scope assignments, charter-selected principal eligibility, inclusive-start/exclusive-expiry, revocation, declared conflicts of interest, duplicate assignment IDs, and fail-closed denial. An assignment carries an exact charter-policy reference and chooses either `ActiveMemberRequired` or `VerifiedPrincipalNotSuspendedOrExited`. The latter can authorize a verified external facilitator for only the exact actions and scope delegated; it does not create membership, professional assessment authority or federation inheritance. Unknown identity/membership, suspended and exited states remain denied. The trusted host must authenticate the principal, verify membership state, validate adoption of the referenced charter policy, and verify grantor authority before constructing the evaluator's input snapshot. The pure evaluator does not perform those trust checks itself.
 
 ## 2. Why the current model needs a redesign
 
@@ -107,10 +107,14 @@ The V2 model should use independent records:
 - no universal mastery or employability score.
 
 **Governance assignment**
-- person or circle receiving a delegated responsibility;
+- person, circle or verified external principal receiving a delegated responsibility;
 - exact decision domain and permitted actions;
+- explicit principal-eligibility rule selected by the adopted charter (active member only, or verified principal not suspended/exited);
+- exact adopted charter-policy ID, revision and digest;
 - grantor, selection process, term, review, revocation and conflict declarations;
 - resource/budget limits and escalation route.
+
+External-principal eligibility is not a universal default. A guild may require active membership for every delegated action. Another may appoint an external facilitator or affected-community representative for a narrow process role. The policy must be explicit, versioned, authorized by the adopted charter and checked independently from professional assessment authority. A non-member is distinct from an unknown identity or unknown membership state.
 
 **Professional assessment authority**
 - a separate issuer-bound authority record;
@@ -294,7 +298,7 @@ Do not mutate the current serialized `GuildRole` enum in place.
 ## 9. Implementation sequence
 
 - **GOV-001:** this charter and role-separation design.
-- **GOV-002:** pure Rust membership and scoped-governance reference contract with adversarial fixtures.
+- **GOV-002:** pure Rust scoped-governance reference contract with explicit charter-derived principal eligibility and adversarial fixtures.
 - **GOV-003:** versioned Holochain V2 records and legacy projection.
 - **GOV-004:** member-controlled charter policy and decision evidence.
 - **GOV-005:** professional assessor authority integration with CRAFT-WORK-EVIDENCE-001 and Identity.
