@@ -429,6 +429,15 @@ mod tests {
                     CapabilityStage::Resilience => "resilience-diagnostics".into(),
                 };
                 let ai_off = stage.is_ai_off();
+                // Keep every synthetic digest within the lowercase SHA-256 hex alphabet.
+                let task_digest_character = match stage {
+                    CapabilityStage::IndependentBaseline => 'c',
+                    CapabilityStage::AssistedCollaboration => 'd',
+                    CapabilityStage::ImmediateAiOff => 'e',
+                    CapabilityStage::DelayedAiOff => 'f',
+                    CapabilityStage::FarTransfer => '0',
+                    CapabilityStage::Resilience => '1',
+                };
                 CapabilityOutcomeObservation {
                     run_id: contract.run_id.clone(),
                     team_id: "team-001".into(),
@@ -437,7 +446,7 @@ mod tests {
                     stage,
                     stage_sequence: stage.sequence(),
                     task_family_id,
-                    task_digest: digest(char::from(b'c' + stage.sequence() as u8)),
+                    task_digest: digest(task_digest_character),
                     evaluator_digest: contract.evaluator_digest.clone(),
                     ai_available: stage == CapabilityStage::AssistedCollaboration,
                     ai_used: stage == CapabilityStage::AssistedCollaboration,
