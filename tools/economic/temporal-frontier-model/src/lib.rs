@@ -903,13 +903,7 @@ mod tests {
         let later_cut = cut("owner:grants", 20, 'b');
         let first = frontier("frontier:1", vec![first_cut.clone()]);
         let later = frontier("frontier:2", vec![later_cut.clone()]);
-        let link = OwnerConsistencyLinkV1 {
-            owner_ref: "owner:grants".into(),
-            history_ref: first_cut.history_ref.clone(),
-            ancestor_root_digest: first_cut.root_digest,
-            descendant_root_digest: later_cut.root_digest,
-            consistency_proof_ref: "proof:consistency:1".into(),
-        };
+        let link = consistency_link("owner:grants", 10, 20);
         assert_eq!(first.compare(&later, &[link]), Ok(FrontierRelationV1::Before));
     }
 
@@ -918,20 +912,8 @@ mod tests {
         let a = frontier("frontier:a", vec![cut("owner:a", 10, 'a'), cut("owner:b", 20, 'b')]);
         let b = frontier("frontier:b", vec![cut("owner:a", 20, 'c'), cut("owner:b", 10, 'd')]);
         let links = vec![
-            OwnerConsistencyLinkV1 {
-                owner_ref: "owner:a".into(),
-                history_ref: "history:owner:a".into(),
-                ancestor_root_digest: digest('a'),
-                descendant_root_digest: digest('c'),
-                consistency_proof_ref: "proof:a".into(),
-            },
-            OwnerConsistencyLinkV1 {
-                owner_ref: "owner:b".into(),
-                history_ref: "history:owner:b".into(),
-                ancestor_root_digest: digest('d'),
-                descendant_root_digest: digest('b'),
-                consistency_proof_ref: "proof:b".into(),
-            },
+            consistency_link("owner:a", 10, 20),
+            consistency_link("owner:b", 10, 20),
         ];
         assert_eq!(a.compare(&b, &links), Ok(FrontierRelationV1::Concurrent));
     }
@@ -1050,13 +1032,7 @@ mod tests {
         let right_cut = cut("owner:a", 20, 'b');
         let left = frontier("frontier:left", vec![left_cut]);
         let right = frontier("frontier:right", vec![right_cut]);
-        let link = OwnerConsistencyLinkV1 {
-            owner_ref: "owner:a".into(),
-            history_ref: "history:owner:a".into(),
-            ancestor_root_digest: digest('a'),
-            descendant_root_digest: digest('b'),
-            consistency_proof_ref: "proof:consistency".into(),
-        };
+        let link = consistency_link("owner:a", 10, 20);
         assert_eq!(left.compare(&right, &[link]), Ok(FrontierRelationV1::Unknown));
     }
 
