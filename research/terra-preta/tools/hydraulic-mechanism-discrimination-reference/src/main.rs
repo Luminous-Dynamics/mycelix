@@ -155,8 +155,6 @@ struct ExpectedMetrics {
     expected_log_loss: f64,
     expected_predictive_information_gain: f64,
     expected_value_of_sample_information: f64,
-    prior_minimum_expected_decision_loss: f64,
-    expected_posterior_minimum_expected_loss: f64,
 }
 
 #[derive(Clone, Debug)]
@@ -585,8 +583,6 @@ fn expected_metrics(fixture: &Fixture, selected: &[usize]) -> ExpectedMetrics {
             (prior_minimum_expected_decision_loss - expected_posterior_minimum_expected_loss)
                 .max(0.0)
         },
-        prior_minimum_expected_decision_loss,
-        expected_posterior_minimum_expected_loss,
     }
 }
 
