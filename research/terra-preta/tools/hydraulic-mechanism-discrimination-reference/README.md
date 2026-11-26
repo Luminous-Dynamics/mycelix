@@ -65,7 +65,7 @@ This is a small oracle, not an SOTA claim. The next benchmark should compare, at
 2. Nominal local Fisher / D-optimal design.
 3. Finite-ensemble maximin D/E design (see [#6664](https://github.com/Luminous-Dynamics/mycelix/pull/6664)).
 4. Expected model information gain / classification-based discrimination.
-5. Expected predictive information gain (EPIG) on held-out observables.
+5. Held-out predictive information gain / EPIG-style utility on future observables, with the estimator and conditioning target stated precisely.
 6. Decision-focused expected value of sample information, with preregistered decisions and losses.
 7. Faithful maximin robust Bayesian design with its KL ambiguity-set, Sibson-$\alpha$-MI and PAC-Bayes assumptions reproduced.
 
