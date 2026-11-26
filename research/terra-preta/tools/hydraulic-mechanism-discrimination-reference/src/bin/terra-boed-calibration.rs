@@ -298,7 +298,9 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
                 .any(|value| !value.is_finite())
             || !family.base_heldout_mean.is_finite()
         {
-            return Err("family response vectors must match candidate dimensions and be finite".into());
+            return Err(
+                "family response vectors must match candidate dimensions and be finite".into(),
+            );
         }
     }
     let mut regimes = fixture.parameter_regimes.clone();
@@ -342,8 +344,7 @@ fn class_heldout_mean(fixture: &Fixture, class_index: usize) -> f64 {
     let regime_count = fixture.parameter_regimes.len();
     let family_index = class_index / regime_count;
     let regime_index = class_index % regime_count;
-    fixture.families[family_index].base_heldout_mean
-        * fixture.parameter_regimes[regime_index]
+    fixture.families[family_index].base_heldout_mean * fixture.parameter_regimes[regime_index]
 }
 
 fn log_normal_density(observation: f64, mean: f64, standard_deviation: f64) -> f64 {
@@ -452,7 +453,8 @@ fn choose_adaptive_second(
             best = Some((candidate_index, score));
         }
     }
-    best.expect("validated fixture has at least two distinct candidates").0
+    best.expect("validated fixture has at least two distinct candidates")
+        .0
 }
 
 fn argmax(values: &[f64]) -> usize {
@@ -492,11 +494,10 @@ fn normal_cdf(value: f64) -> f64 {
     let sign = if value < 0.0 { -1.0 } else { 1.0 };
     let absolute = value.abs() / std::f64::consts::SQRT_2;
     let t = 1.0 / (1.0 + 0.327_591_1 * absolute);
-    let polynomial = (((((1.061_405_429 * t - 1.453_152_027) * t) + 1.421_413_741) * t
-        - 0.284_496_736)
-        * t
-        + 0.254_829_592)
-        * t;
+    let polynomial =
+        (((((1.061_405_429 * t - 1.453_152_027) * t) + 1.421_413_741) * t - 0.284_496_736) * t
+            + 0.254_829_592)
+            * t;
     let erf = sign * (1.0 - polynomial * (-absolute * absolute).exp());
     0.5 * (1.0 + erf)
 }
@@ -526,27 +527,17 @@ fn gaussian_mixture_crps(
         for (right_probability, right_mean) in probabilities.iter().zip(means.iter()) {
             second_term += left_probability
                 * right_probability
-                * expected_absolute_normal(
-                    left_mean - right_mean,
-                    difference_standard_deviation,
-                );
+                * expected_absolute_normal(left_mean - right_mean, difference_standard_deviation);
         }
     }
     (first_term - 0.5 * second_term).max(0.0)
 }
 
-fn mixture_cdf(
-    value: f64,
-    probabilities: &[f64],
-    means: &[f64],
-    standard_deviation: f64,
-) -> f64 {
+fn mixture_cdf(value: f64, probabilities: &[f64], means: &[f64], standard_deviation: f64) -> f64 {
     probabilities
         .iter()
         .zip(means.iter())
-        .map(|(probability, mean)| {
-            probability * normal_cdf((value - mean) / standard_deviation)
-        })
+        .map(|(probability, mean)| probability * normal_cdf((value - mean) / standard_deviation))
         .sum()
 }
 
@@ -556,10 +547,9 @@ fn mixture_quantile(
     means: &[f64],
     standard_deviation: f64,
 ) -> f64 {
-    let mut lower = means.iter().copied().fold(f64::INFINITY, f64::min)
-        - 8.0 * standard_deviation;
-    let mut upper = means.iter().copied().fold(f64::NEG_INFINITY, f64::max)
-        + 8.0 * standard_deviation;
+    let mut lower = means.iter().copied().fold(f64::INFINITY, f64::min) - 8.0 * standard_deviation;
+    let mut upper =
+        means.iter().copied().fold(f64::NEG_INFINITY, f64::max) + 8.0 * standard_deviation;
     for _ in 0..28 {
         let midpoint = 0.5 * (lower + upper);
         if mixture_cdf(midpoint, weights, means, standard_deviation) < probability {
@@ -571,11 +561,7 @@ fn mixture_quantile(
     0.5 * (lower + upper)
 }
 
-fn discrepancy_score(
-    fixture: &Fixture,
-    selected: &[usize],
-    observations: &[f64],
-) -> f64 {
+fn discrepancy_score(fixture: &Fixture, selected: &[usize], observations: &[f64]) -> f64 {
     (0..class_count(fixture))
         .map(|class_index| {
             selected
@@ -667,11 +653,7 @@ fn score_world(
         .zip(heldout_means.iter())
         .map(|(probability, mean)| {
             probability.ln()
-                + log_normal_density(
-                    heldout_observation,
-                    *mean,
-                    fixture.heldout_noise_std,
-                )
+                + log_normal_density(heldout_observation, *mean, fixture.heldout_noise_std)
         })
         .collect();
     let predictive_log_score = log_sum_exp(&predictive_log_terms);
@@ -685,9 +667,7 @@ fn score_world(
     let central_intervals = [(0.25, 0.75), (0.10, 0.90), (0.025, 0.975)];
     let mut interval_coverage = [false; 3];
     let mut interval_width = [0.0; 3];
-    for (index, (lower_probability, upper_probability)) in
-        central_intervals.iter().enumerate()
-    {
+    for (index, (lower_probability, upper_probability)) in central_intervals.iter().enumerate() {
         let lower = mixture_quantile(
             *lower_probability,
             posterior,
@@ -700,13 +680,12 @@ fn score_world(
             &heldout_means,
             fixture.heldout_noise_std,
         );
-        interval_coverage[index] =
-            heldout_observation >= lower && heldout_observation <= upper;
+        interval_coverage[index] = heldout_observation >= lower && heldout_observation <= upper;
         interval_width[index] = upper - lower;
     }
 
-    let in_family_abstained = discrepancy_score(fixture, selected, observations)
-        > fixture.discrepancy_threshold_sd;
+    let in_family_abstained =
+        discrepancy_score(fixture, selected, observations) > fixture.discrepancy_threshold_sd;
     let shifted_observations: Vec<f64> = selected
         .iter()
         .zip(observations.iter())
@@ -722,7 +701,13 @@ fn score_world(
         .iter()
         .map(|observation| observation * RESCALE_FACTOR)
         .collect();
-    let scaled_posterior = posterior_update(fixture, &uniform_prior(fixture), selected, &scaled_observations, RESCALE_FACTOR);
+    let scaled_posterior = posterior_update(
+        fixture,
+        &uniform_prior(fixture),
+        selected,
+        &scaled_observations,
+        RESCALE_FACTOR,
+    );
     let rescale_error = posterior
         .iter()
         .zip(scaled_posterior.iter())
@@ -731,8 +716,13 @@ fn score_world(
 
     let reversed_selected: Vec<usize> = selected.iter().rev().copied().collect();
     let reversed_observations: Vec<f64> = observations.iter().rev().copied().collect();
-    let reordered_posterior =
-        posterior_update(fixture, &uniform_prior(fixture), &reversed_selected, &reversed_observations, 1.0);
+    let reordered_posterior = posterior_update(
+        fixture,
+        &uniform_prior(fixture),
+        &reversed_selected,
+        &reversed_observations,
+        1.0,
+    );
     let order_error = posterior
         .iter()
         .zip(reordered_posterior.iter())
@@ -791,26 +781,26 @@ impl Accumulator {
         self.worlds += 1;
         self.family_brier_sum += score.family_brier;
         self.family_log_loss_sum += score.family_log_loss;
-        self.family_correct += u64::from(score.family_correct);
+        self.family_correct += score.family_correct as u64;
         self.regime_brier_sum += score.regime_brier;
         self.regime_log_loss_sum += score.regime_log_loss;
-        self.regime_correct += u64::from(score.regime_correct);
+        self.regime_correct += score.regime_correct as u64;
         self.sbc_rank_counts[score.sbc_rank] += 1;
         self.predictive_log_score_sum += score.predictive_log_score;
         self.predictive_crps_sum += score.predictive_crps;
         for index in 0..3 {
-            self.interval_coverage[index] += u64::from(score.interval_coverage[index]);
+            self.interval_coverage[index] += score.interval_coverage[index] as u64;
             self.interval_width_sum[index] += score.interval_width[index];
         }
-        self.in_family_abstentions += u64::from(score.in_family_abstained);
-        self.shifted_residual_detections += u64::from(score.shifted_residual_detected);
+        self.in_family_abstentions += score.in_family_abstained as u64;
+        self.shifted_residual_detections += score.shifted_residual_detected as u64;
         self.maximum_rescale_error = self.maximum_rescale_error.max(score.rescale_error);
         self.maximum_order_error = self.maximum_order_error.max(score.order_error);
         self.second_choice_counts[score.second_choice_index] += 1;
 
         for (family_index, probability) in score.family_probabilities.iter().enumerate() {
-            let bin_index = ((*probability * FAMILY_BINS as f64).floor() as usize)
-                .min(FAMILY_BINS - 1);
+            let bin_index =
+                ((*probability * FAMILY_BINS as f64).floor() as usize).min(FAMILY_BINS - 1);
             let bin = &mut self.reliability_bins[family_index][bin_index];
             bin.count += 1;
             bin.predicted_sum += probability;
@@ -849,7 +839,10 @@ impl Accumulator {
             .iter()
             .enumerate()
             .map(|(index, candidate)| {
-                (candidate.candidate_id.clone(), self.second_choice_counts[index])
+                (
+                    candidate.candidate_id.clone(),
+                    self.second_choice_counts[index],
+                )
             })
             .collect();
         second_candidate_selection_counts.sort_by(|left, right| left.0.cmp(&right.0));
@@ -902,8 +895,14 @@ impl DeltaAccumulator {
         let labels = [
             ("family_brier_score", "negative favours adaptive policy"),
             ("family_log_loss_nats", "negative favours adaptive policy"),
-            ("heldout_predictive_log_score_nats", "positive favours adaptive policy"),
-            ("heldout_predictive_crps", "negative favours adaptive policy"),
+            (
+                "heldout_predictive_log_score_nats",
+                "positive favours adaptive policy",
+            ),
+            (
+                "heldout_predictive_crps",
+                "negative favours adaptive policy",
+            ),
         ];
         labels
             .iter()
@@ -911,8 +910,7 @@ impl DeltaAccumulator {
             .map(|(index, (metric, interpretation))| {
                 let count = self.count.max(1) as f64;
                 let mean = self.sums[index] / count;
-                let variance =
-                    (self.squared_sums[index] / count - mean * mean).max(0.0);
+                let variance = (self.squared_sums[index] / count - mean * mean).max(0.0);
                 let standard_error = (variance / count).sqrt();
                 PairedDifference {
                     metric: (*metric).into(),
@@ -952,11 +950,7 @@ fn evaluate(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
             let regime_index = world_index % fixture.parameter_regimes.len();
             let regime = fixture.parameter_regimes[regime_index];
             let true_class = family_index * fixture.parameter_regimes.len() + regime_index;
-            let mut rng = SplitMix64::new(derived_seed(
-                fixture.seed,
-                family_index,
-                world_index,
-            ));
+            let mut rng = SplitMix64::new(derived_seed(fixture.seed, family_index, world_index));
 
             let candidate_observations: Vec<f64> = (0..fixture.candidates.len())
                 .map(|candidate_index| {
@@ -964,21 +958,16 @@ fn evaluate(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
                         + fixture.candidates[candidate_index].noise_std * rng.normal()
                 })
                 .collect();
-            let heldout_observation = family.base_heldout_mean * regime
-                + fixture.heldout_noise_std * rng.normal();
+            let heldout_observation =
+                family.base_heldout_mean * regime + fixture.heldout_noise_std * rng.normal();
             let posterior_draw_uniforms: Vec<f64> = (0..fixture.sbc_posterior_draws)
                 .map(|_| rng.uniform())
                 .collect();
             let tie_uniform = rng.uniform();
 
             let first_observation = candidate_observations[first_index];
-            let posterior_after_first = posterior_update(
-                fixture,
-                &prior,
-                &[first_index],
-                &[first_observation],
-                1.0,
-            );
+            let posterior_after_first =
+                posterior_update(fixture, &prior, &[first_index], &[first_observation], 1.0);
             let adaptive_second_index =
                 choose_adaptive_second(fixture, &posterior_after_first, first_index);
 
@@ -1096,7 +1085,10 @@ fn run(input_path: &str, output_path: &str) -> Result<Report, String> {
         report.fixed_policy.family_probability_ece,
         report.adaptive_policy_report.family_probability_ece,
         report.fixed_policy.discrete_regime_sbc_rank_histogram.len(),
-        report.adaptive_policy_report.discrete_regime_sbc_rank_histogram.len(),
+        report
+            .adaptive_policy_report
+            .discrete_regime_sbc_rank_histogram
+            .len(),
         report.world_stream_sha256
     );
     Ok(report)
@@ -1190,7 +1182,10 @@ mod tests {
             &fixture,
             &prior,
             &selected,
-            &[observations[0] * RESCALE_FACTOR, observations[1] * RESCALE_FACTOR],
+            &[
+                observations[0] * RESCALE_FACTOR,
+                observations[1] * RESCALE_FACTOR,
+            ],
             RESCALE_FACTOR,
         );
         assert!((posterior.iter().sum::<f64>() - 1.0).abs() < 1.0e-12);
@@ -1233,10 +1228,7 @@ mod tests {
             observations[0] + OOD_SHIFT_STANDARD_DEVIATIONS * fixture.candidates[0].noise_std,
             observations[1] + OOD_SHIFT_STANDARD_DEVIATIONS * fixture.candidates[1].noise_std,
         ];
-        assert!(
-            discrepancy_score(&fixture, &selected, &shifted)
-                > fixture.discrepancy_threshold_sd
-        );
+        assert!(discrepancy_score(&fixture, &selected, &shifted) > fixture.discrepancy_threshold_sd);
     }
 
     #[test]
