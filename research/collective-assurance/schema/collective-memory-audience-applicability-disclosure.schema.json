@@ -24,7 +24,10 @@
     "id": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^\\S(?:.*\\S)?$"
+      "pattern": "^\\S(?:.*\\S)?$",
+      "not": {
+        "const": "*"
+      }
     },
     "digest": {
       "type": "string",
@@ -144,13 +147,15 @@
         "input_payload_digest",
         "output_payload_digest",
         "transform_digest",
-        "target",
         "situation_digest",
         "policy_digest",
         "independent_review_digest",
         "issued_at_ms",
         "expires_at_ms",
-        "receipt_digest"
+        "receipt_digest",
+        "audience_scope",
+        "applicability_scope",
+        "disclosure_scope"
       ],
       "properties": {
         "receipt_id": {
@@ -172,9 +177,6 @@
         "transform_digest": {
           "$ref": "#/$defs/digest"
         },
-        "target": {
-          "$ref": "#/$defs/selector"
-        },
         "situation_digest": {
           "$ref": "#/$defs/digest"
         },
@@ -194,6 +196,15 @@
         },
         "receipt_digest": {
           "$ref": "#/$defs/digest"
+        },
+        "audience_scope": {
+          "$ref": "#/$defs/selector"
+        },
+        "applicability_scope": {
+          "$ref": "#/$defs/selector"
+        },
+        "disclosure_scope": {
+          "$ref": "#/$defs/selector"
         }
       }
     },
