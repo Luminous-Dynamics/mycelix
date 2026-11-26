@@ -528,12 +528,12 @@ fn minimum_symmetric_eigenvalue(mut matrix: Matrix) -> f64 {
         let mut p = 0usize;
         let mut q = 1usize;
         let mut largest = 0.0_f64;
-        for row in 0..N {
-            for column in (row + 1)..N {
-                if matrix[row][column].abs() > largest {
-                    largest = matrix[row][column].abs();
-                    p = row;
-                    q = column;
+        for (row_index, row_values) in matrix.iter().enumerate() {
+            for (column_index, value) in row_values.iter().enumerate().skip(row_index + 1) {
+                if value.abs() > largest {
+                    largest = value.abs();
+                    p = row_index;
+                    q = column_index;
                 }
             }
         }
