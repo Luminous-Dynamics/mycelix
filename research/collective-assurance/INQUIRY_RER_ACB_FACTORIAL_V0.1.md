@@ -15,7 +15,7 @@ The benchmark programme already has distinct owners:
 - #6678: benchmark/evaluator qualification.
 - #6685: non-compensatory quality/safety/agency/cost comparison.
 
-The open research question in #6698 is whether these pipeline layers have independent benefits, complementary effects, redundancy, or harmful interactions. This module qualifies one matched eight-arm block; it does not reimplement any of the owners above.
+The open research question in #6698 is whether these pipeline layers have independent benefits, complementary effects, redundancy, or harmful interactions. This module qualifies individual matched eight-arm blocks and a study-level collection of blocks; it does not reimplement any of the owners above.
 
 ## 2×2×2 treatment design
 
@@ -155,3 +155,11 @@ It does not prove:
 - or that any human study is ethically approved.
 
 Human recruitment requires independent ethics review, accessible consent, compensation, preregistration, pilot-informed power and ICC analysis, privacy minimization, withdrawal and data-retention rules.
+
+## Study-level block and cluster qualification
+
+A single eight-arm block is one matched task/source-group observation, not an adequately replicated study. The study-level contract therefore records the preregistered expected block IDs and minimum independent source-group count. It requires every expected block, rejects duplicate or unexpected block identities, validates each block independently, and counts unique source groups rather than tasks or requests.
+
+Missing scheduled blocks or too few independent source groups produce INDETERMINATE. Duplicate/unexpected blocks or structurally invalid arms produce FAIL. The minimum source-group count must come from an independent pilot and power/ICC analysis; the validator merely checks that the planned floor was met. It does not calculate statistical power, effect sizes, or factorial interactions.
+
+The Rust module contains nineteen test declarations covering the eight treatment combinations, on/off receipts, matched identities, OFF-arm behavior, mandatory rights/exposure controls, multi-block completion, expected block IDs, duplicate/insufficient source groups and malformed measures.
