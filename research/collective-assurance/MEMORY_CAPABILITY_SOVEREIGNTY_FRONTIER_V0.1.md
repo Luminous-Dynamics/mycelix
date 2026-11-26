@@ -54,6 +54,12 @@ The checked-in fixture has two synthetic Textual tasks and three architectures (
 
 The first actual pilot should freeze a small public or synthetic task family, then scale to the same AML Textual tasks where public raw tasks are available and permitted. Preserve the official AML evaluator and report its score separately. For native HDC/CfC comparisons, match answer model, token/context budget, hardware, Top K, concurrency, seed and write/search budget. Keep any task-family or query-policy extension separately versioned and sealed.
 
+## Scale-sensitive external memory references
+
+The public Mem0 benchmark repository reports managed-platform results of 94.4% on LongMemEval (500 questions), 92.5% on LoCoMo (1,540 questions), and BEAM results of 64.1 at 1M tokens versus 48.6 at 10M tokens. It reports average query token use around 6.8–7.0K and p50 latency around 0.88–1.09 seconds for LoCoMo/LongMemEval. These are vendor-reported managed-platform measurements, not an independent apples-to-apples Mycelix comparison; the repository explicitly cautions that the managed platform includes proprietary optimizations not present in the OSS SDK.
+
+The algorithm description is an instructive design trade-off: its recent pipeline is add-only (no Update/Delete in extraction), uses entity linking and fused semantic/BM25/entity retrieval, and reports high recall. MCSF should reproduce the same LongMemEval/LoCoMo/BEAM task versions where licenses permit, but also probe whether add-only accumulation increases stale-memory, supersession, deletion and revocation failures over time. Scale suites must match source-corpus tokens and record inventories and report storage/indexing/search cost separately.
+
 ## Current external reference points
 
 AML Cycle 2 (published 19 November 2026) reports separate track/division scores: Textual open-source Resurface 61.22; Coding open-source InsightMem 63.33% Overall Resolved; Multimodal open-source Khipu 43.26. These are not cross-track comparable. The Textual track also publishes capability scores including memory governance 76.55 and epistemic safety/privacy 68.59 for Resurface, showing why a total alone is insufficient.
