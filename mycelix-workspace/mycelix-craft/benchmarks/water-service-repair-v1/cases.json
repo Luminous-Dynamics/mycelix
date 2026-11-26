@@ -26,7 +26,9 @@
             "status": "current",
             "source_id": "SRC-PROVIDER-01",
             "independence_group": "PROVIDER-OPS-01",
-            "context_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            "context_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "digest": "1111111111111111111111111111111111111111111111111111111111111111",
+            "digest_kind": "synthetic_test_placeholder"
           }
         ]
       },
@@ -64,7 +66,9 @@
             "status": "current",
             "source_id": "SRC-PROVIDER-02",
             "independence_group": "PROVIDER-OPS-02",
-            "context_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "context_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "digest": "2121212121212121212121212121212121212121212121212121212121212121",
+            "digest_kind": "synthetic_test_placeholder"
           },
           {
             "kind": "independent_pressure_observation",
@@ -74,7 +78,9 @@
             "source_id": "SRC-PRESSURE-02",
             "independence_group": "PRESSURE-OBSERVER-02",
             "independence_assessment": "qualified",
-            "context_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            "context_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "digest": "2222222222222222222222222222222222222222222222222222222222222222",
+            "digest_kind": "synthetic_test_placeholder"
           }
         ]
       },
@@ -113,7 +119,9 @@
             "source_id": "SRC-PRESSURE-03",
             "independence_group": "PRESSURE-OBSERVER-03",
             "independence_assessment": "qualified",
-            "context_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            "context_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "digest": "3131313131313131313131313131313131313131313131313131313131313131",
+            "digest_kind": "synthetic_test_placeholder"
           },
           {
             "kind": "lab_sample",
@@ -121,7 +129,9 @@
             "status": "pending",
             "source_id": "SRC-LAB-03",
             "independence_group": "LAB-ORIGIN-03",
-            "context_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            "context_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "digest": "3232323232323232323232323232323232323232323232323232323232323232",
+            "digest_kind": "synthetic_test_placeholder"
           }
         ]
       },
@@ -158,7 +168,9 @@
             "status": "current",
             "source_id": "SRC-PROVIDER-04",
             "independence_group": "PROVIDER-OPS-04",
-            "context_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            "context_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "digest": "4141414141414141414141414141414141414141414141414141414141414141",
+            "digest_kind": "synthetic_test_placeholder"
           },
           {
             "kind": "independent_pressure_observation",
@@ -168,7 +180,9 @@
             "source_id": "SRC-PRESSURE-04",
             "independence_group": "PRESSURE-OBSERVER-04",
             "independence_assessment": "qualified",
-            "context_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            "context_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "digest": "4242424242424242424242424242424242424242424242424242424242424242",
+            "digest_kind": "synthetic_test_placeholder"
           },
           {
             "kind": "lab_sample",
@@ -178,7 +192,9 @@
             "source_id": "SRC-LAB-04",
             "independence_group": "ACCREDITED-LAB-04",
             "independence_assessment": "qualified",
-            "context_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            "context_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "digest": "4343434343434343434343434343434343434343434343434343434343434343",
+            "digest_kind": "synthetic_test_placeholder"
           }
         ]
       },
@@ -217,7 +233,9 @@
             "source_id": "SRC-PRESSURE-05",
             "independence_group": "PRESSURE-OBSERVER-05",
             "independence_assessment": "qualified",
-            "context_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            "context_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "digest": "5151515151515151515151515151515151515151515151515151515151515151",
+            "digest_kind": "synthetic_test_placeholder"
           },
           {
             "kind": "lab_sample",
@@ -227,7 +245,9 @@
             "source_id": "SRC-LAB-05",
             "independence_group": "ACCREDITED-LAB-05",
             "independence_assessment": "qualified",
-            "context_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            "context_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "digest": "5252525252525252525252525252525252525252525252525252525252525252",
+            "digest_kind": "synthetic_test_placeholder"
           }
         ]
       },
@@ -266,7 +286,9 @@
             "source_id": "SRC-PRESSURE-06",
             "independence_group": "PRESSURE-OBSERVER-06",
             "independence_assessment": "qualified",
-            "context_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+            "context_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+            "digest": "6161616161616161616161616161616161616161616161616161616161616161",
+            "digest_kind": "synthetic_test_placeholder"
           },
           {
             "kind": "lab_sample",
@@ -276,7 +298,9 @@
             "source_id": "SRC-LAB-06",
             "independence_group": "ACCREDITED-LAB-06",
             "independence_assessment": "qualified",
-            "context_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+            "context_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "digest": "6262626262626262626262626262626262626262626262626262626262626262",
+            "digest_kind": "synthetic_test_placeholder"
           }
         ]
       },
@@ -313,7 +337,9 @@
             "status": "current",
             "source_id": "SRC-PROVIDER-07A",
             "independence_group": "PROVIDER-OPS-07",
-            "context_digest": "abababababababababababababababababababababababababababababababab"
+            "context_digest": "abababababababababababababababababababababababababababababababab",
+            "digest": "7171717171717171717171717171717171717171717171717171717171717171",
+            "digest_kind": "synthetic_test_placeholder"
           },
           {
             "kind": "provider_dashboard_mirror",
@@ -321,7 +347,9 @@
             "status": "current",
             "source_id": "SRC-PROVIDER-07B",
             "independence_group": "PROVIDER-OPS-07",
-            "context_digest": "abababababababababababababababababababababababababababababababab"
+            "context_digest": "abababababababababababababababababababababababababababababababab",
+            "digest": "7272727272727272727272727272727272727272727272727272727272727272",
+            "digest_kind": "synthetic_test_placeholder"
           }
         ]
       },
@@ -365,7 +393,9 @@
             "source_id": "SRC-PRESSURE-08",
             "independence_group": "PRESSURE-OBSERVER-08",
             "independence_assessment": "qualified",
-            "context_digest": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+            "context_digest": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+            "digest": "8181818181818181818181818181818181818181818181818181818181818181",
+            "digest_kind": "synthetic_test_placeholder"
           },
           {
             "kind": "lab_sample",
@@ -374,7 +404,9 @@
             "result": "passed",
             "source_id": "SRC-LAB-08",
             "independence_group": "ACCREDITED-LAB-08",
-            "context_digest": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+            "context_digest": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+            "digest": "8282828282828282828282828282828282828282828282828282828282828282",
+            "digest_kind": "synthetic_test_placeholder"
           }
         ]
       },
@@ -442,7 +474,9 @@
             "status": "current",
             "source_id": "SRC-PROVIDER-10",
             "independence_group": "PROVIDER-OPS-10",
-            "context_digest": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef"
+            "context_digest": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+            "digest": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+            "digest_kind": "synthetic_test_placeholder"
           }
         ]
       },
@@ -505,7 +539,9 @@
             "source_id": "SRC-PRESSURE-12",
             "independence_group": "PRESSURE-OBSERVER-12",
             "independence_assessment": "qualified",
-            "context_digest": "1212121212121212121212121212121212121212121212121212121212121212"
+            "context_digest": "1212121212121212121212121212121212121212121212121212121212121212",
+            "digest": "c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+            "digest_kind": "synthetic_test_placeholder"
           },
           {
             "kind": "lab_sample",
@@ -513,7 +549,9 @@
             "status": "under_investigation",
             "source_id": "SRC-LAB-12",
             "independence_group": "ACCREDITED-LAB-12",
-            "context_digest": "1212121212121212121212121212121212121212121212121212121212121212"
+            "context_digest": "1212121212121212121212121212121212121212121212121212121212121212",
+            "digest": "c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2",
+            "digest_kind": "synthetic_test_placeholder"
           }
         ]
       },
