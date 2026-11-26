@@ -242,6 +242,11 @@ pub struct TeamBenchQualificationReport {
     /// committed Docker/container runtime manifest. Does not follow from a
     /// benchmark score or logical tool-boundary test.
     pub os_isolation_eligible: bool,
+    /// Native benchmark output completeness is separate from role-audit evidence.
+    pub role_boundary_evidence_complete: bool,
+    pub role_enforcement_eligible: bool,
+    pub verifier_evidence_complete: bool,
+    pub verifier_evidence_missing_count: usize,
     /// Resource totals are published only when all tasks/conditions have
     /// complete independently committed telemetry.
     pub resource_usage_complete: bool,
@@ -465,10 +470,10 @@ fn qualify_task(
                     Some(TeamBenchVerifierDisposition::NoVerdict) => {
                         report.verifier_no_verdict_count += 1;
                     }
-                    None => report.qualification.indeterminate(format!(
-                        "task {} verifier verdict missing",
-                        task.task_id
-                    )),
+                    None => {
+                        report.verifier_evidence_complete = false;
+                        report.verifier_evidence_missing_count += 1;
+                    }
                 }
             } else if task.verifier_disposition.is_some() {
                 report.qualification.fail(format!(
@@ -540,20 +545,16 @@ fn qualify_task(
         match event.observed {
             TeamBenchBoundaryObservation::Allowed if !event.expected_allowed => {
                 report.role_boundary_violation_count += 1;
-                report.qualification.fail(format!(
-                    "task {} role {:?} crossed deny boundary {}",
-                    task.task_id, event.actor_role, event.boundary_id
-                ));
+                report.role_enforcement_eligible = false;
             }
             TeamBenchBoundaryObservation::Blocked if event.expected_allowed => {
                 report.role_boundary_false_denial_count += 1;
+                report.role_enforcement_eligible = false;
             }
             TeamBenchBoundaryObservation::Unknown => {
                 report.role_boundary_unknown_count += 1;
-                report.qualification.indeterminate(format!(
-                    "task {} role-boundary observation unknown",
-                    task.task_id
-                ));
+                report.role_boundary_evidence_complete = false;
+                report.role_enforcement_eligible = false;
             }
             _ => {}
         }
@@ -593,6 +594,10 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
         qualification: QualificationReport::new(),
         benchmark_score_eligible: false,
         os_isolation_eligible: false,
+        role_boundary_evidence_complete: true,
+        role_enforcement_eligible: true,
+        verifier_evidence_complete: true,
+        verifier_evidence_missing_count: 0,
         resource_usage_complete: true,
         resource_usage_missing_or_invalid_count: 0,
         resource_totals_by_condition: BTreeMap::new(),
@@ -612,6 +617,10 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
         role_boundary_violation_count: 0,
         role_boundary_false_denial_count: 0,
         role_boundary_unknown_count: 0,
+        role_boundary_evidence_complete: true,
+        role_enforcement_eligible: true,
+        verifier_evidence_complete: true,
+        verifier_evidence_missing_count: 0,
         infrastructure_error_count: 0,
         not_run_count: 0,
         mean_score_micros_by_condition: BTreeMap::new(),
@@ -762,18 +771,11 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
                 }
             }
             TeamBenchExecutionBackend::DockerContainerIsolation => {
-                if !valid_optional_digest(run.runtime_manifest_digest.as_deref()) {
-                    report.qualification.indeterminate(format!(
-                        "condition {:?} declares container isolation without a valid runtime manifest",
-                        run.condition
-                    ));
-                }
+                // A missing runtime digest blocks only the OS-isolation claim,
+                // not native benchmark score eligibility.
             }
             TeamBenchExecutionBackend::Unknown => {
-                report.qualification.indeterminate(format!(
-                    "condition {:?} execution enforcement backend is unknown",
-                    run.condition
-                ));
+                // Unknown enforcement backend is not evidence of OS isolation.
             }
         }
         if conditions.insert(run.condition, run).is_some() {
@@ -782,10 +784,8 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
                 .fail(format!("duplicate TeamBench condition {:?}", run.condition));
         }
         if !run.role_boundary_inventory_complete {
-            report.qualification.indeterminate(format!(
-                "condition {:?} role-boundary observation inventory incomplete",
-                run.condition
-            ));
+            report.role_boundary_evidence_complete = false;
+            report.role_enforcement_eligible = false;
         }
 
         let mut task_ids = BTreeSet::new();
@@ -997,7 +997,8 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
 
     report.benchmark_score_eligible = complete_model_suite
         && report.qualification.status == QualificationStatus::Pass;
-    report.os_isolation_eligible = report.benchmark_score_eligible
+    report.os_isolation_eligible = suite.run_mode == TeamBenchRunMode::ModelEvaluation
+        && report.condition_count == TeamBenchCondition::all().len()
         && TeamBenchCondition::all().iter().all(|condition| {
             conditions.get(condition).is_some_and(|run| {
                 run.execution_backend == TeamBenchExecutionBackend::DockerContainerIsolation
