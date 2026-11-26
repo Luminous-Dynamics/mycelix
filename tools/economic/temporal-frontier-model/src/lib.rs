@@ -802,18 +802,6 @@ mod tests {
         }
     }
 
-    fn root_for(owner_index: usize, sequence: u64) -> char {
-        match (owner_index, sequence) {
-            (0, 0) => 'a',
-            (0, 1) => 'b',
-            (0, 2) => 'c',
-            (1, 0) => 'd',
-            (1, 1) => 'e',
-            (1, 2) => 'g',
-            _ => panic!("bounded oracle root lookup out of range"),
-        }
-    }
-
     fn vector_oracle(left: [u64; 2], right: [u64; 2]) -> FrontierRelationV1 {
         let mut before = false;
         let mut after = false;
@@ -833,8 +821,8 @@ mod tests {
         frontier(
             id,
             vec![
-                cut("owner:a", positions[0], root_for(0, positions[0])),
-                cut("owner:b", positions[1], root_for(1, positions[1])),
+                cut("owner:a", positions[0], 'a'),
+                cut("owner:b", positions[1], 'b'),
             ],
         )
     }
@@ -852,13 +840,7 @@ mod tests {
                 continue;
             };
             let owner_ref = if owner_index == 0 { "owner:a" } else { "owner:b" };
-            links.push(OwnerConsistencyLinkV1 {
-                owner_ref: owner_ref.into(),
-                history_ref: format!("history:{owner_ref}"),
-                ancestor_root_digest: digest(root_for(owner_index, ancestor)),
-                descendant_root_digest: digest(root_for(owner_index, descendant)),
-                consistency_proof_ref: format!("proof:{owner_ref}:{ancestor}:{descendant}"),
-            });
+            links.push(consistency_link(owner_ref, ancestor, descendant));
         }
         links
     }
