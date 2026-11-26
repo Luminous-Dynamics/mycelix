@@ -220,6 +220,22 @@
         "tanker_delivery_records"
       ],
       "owner_boundary": "IRIS registration, sampling and tanker records remain statutory/source-owner processes; synthetic fields do not prove regulatory compliance."
+    },
+    {
+      "case_id": "WSR-016",
+      "owner_issues": [
+        "#6069",
+        "#6754",
+        "#6757",
+        "#4835"
+      ],
+      "checks": [
+        "metric_label_vs_definition",
+        "valid_time_vs_reporting_period",
+        "response_vs_resolution",
+        "no_unjustified_performance_comparison"
+      ],
+      "owner_boundary": "This is measurement-definition and bitemporal evidence quality, not a claim that the published percentages are comparable or that a pilot improved them."
     }
   ]
 }
