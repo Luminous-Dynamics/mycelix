@@ -88,7 +88,7 @@ Targets are proposed qualification requirements, not measured results. The zero-
 - all elements have claim support but a prerequisite ordering is unsatisfied;
 - a clinical recommendation has risk stratification but omits contraindication or bleeding-risk assessment;
 - multiple positive sources are present alongside one contradictory source;
-- support result is stale, withdrawn or tied to an older claim/source revision;
+- support result is stale, withdrawn or tied to an older claim/source/standard revision;
 - alternative mappings yield different closure verdicts.
 
 ## 7. Inter-rater reliability and mapping sensitivity
