@@ -61,8 +61,8 @@ pub enum McsfArchitecture {
     Bm25Sparse,
     DenseVector,
     Hdc,
-    HdcCfC,
-    HybridSparseDenseHdcCfC,
+    HdcCfc,
+    HybridSparseDenseHdcCfc,
     GraphRelational,
     GovernedMycelix,
     CoordinatedMycelix,
@@ -309,8 +309,8 @@ pub fn compute_mcsf_control_digest(suite: &McsfSuiteManifest) -> Result<String, 
             McsfArchitecture::Bm25Sparse => 2,
             McsfArchitecture::DenseVector => 3,
             McsfArchitecture::Hdc => 4,
-            McsfArchitecture::HdcCfC => 5,
-            McsfArchitecture::HybridSparseDenseHdcCfC => 6,
+            McsfArchitecture::HdcCfc => 5,
+            McsfArchitecture::HybridSparseDenseHdcCfc => 6,
             McsfArchitecture::GraphRelational => 7,
             McsfArchitecture::GovernedMycelix => 8,
             McsfArchitecture::CoordinatedMycelix => 9,
@@ -702,6 +702,8 @@ pub fn qualify_mcsf_suite(
         }
     }
 
+    scorecards.sort_by_key(|card| card.architecture);
+
     McsfQualificationReport {
         qualification: qualification.clone(),
         matched_control_digest: control_digest,
@@ -743,7 +745,7 @@ mod tests {
             per_task_wall_clock_budget_ms: 120_000,
             per_task_compute_budget_millijoules: 500_000,
             expected_task_ids: vec!["task-1".into(), "task-2".into()],
-            expected_architectures: vec![McsfArchitecture::NoMemory, McsfArchitecture::HdcCfC],
+            expected_architectures: vec![McsfArchitecture::NoMemory, McsfArchitecture::HdcCfc],
         }
     }
 
@@ -825,12 +827,12 @@ mod tests {
         let input = suite();
         let runs = vec![
             run(McsfArchitecture::NoMemory, &input, 500_000),
-            run(McsfArchitecture::HdcCfC, &input, 600_000),
+            run(McsfArchitecture::HdcCfc, &input, 600_000),
         ];
         let report = qualify_mcsf_suite(&input, &runs);
         assert_eq!(report.qualification.status, QualificationStatus::Pass);
         let hdc = report.scorecards.iter()
-            .find(|card| card.architecture == McsfArchitecture::HdcCfC).unwrap();
+            .find(|card| card.architecture == McsfArchitecture::HdcCfc).unwrap();
         assert_eq!(hdc.mean_utility_score_micros, Some(605_000));
         assert_eq!(hdc.mean_utility_delta_vs_no_memory_micros, Some(100_000));
         assert!(hdc.pareto_comparison_eligible);
@@ -839,14 +841,14 @@ mod tests {
     #[test]
     fn privacy_failure_cannot_be_compensated_by_high_utility() {
         let input = suite();
-        let mut hdc = run(McsfArchitecture::HdcCfC, &input, 1_000_000);
+        let mut hdc = run(McsfArchitecture::HdcCfc, &input, 1_000_000);
         hdc.task_observations[0].unauthorized_content_disclosures = 1;
         let report = qualify_mcsf_suite(
             &input,
             &[run(McsfArchitecture::NoMemory, &input, 500_000), hdc],
         );
         let card = report.scorecards.iter()
-            .find(|card| card.architecture == McsfArchitecture::HdcCfC).unwrap();
+            .find(|card| card.architecture == McsfArchitecture::HdcCfc).unwrap();
         assert_eq!(card.mean_utility_score_micros, Some(1_000_000));
         assert_eq!(card.unauthorized_content_disclosures, 1);
         assert!(!card.pareto_comparison_eligible);
@@ -855,12 +857,12 @@ mod tests {
     #[test]
     fn missing_privacy_or_revocation_reports_never_become_zero_risk() {
         let input = suite();
-        let mut hdc = run(McsfArchitecture::HdcCfC, &input, 600_000);
+        let mut hdc = run(McsfArchitecture::HdcCfc, &input, 600_000);
         hdc.evidence_references.privacy_trace_report_digest = None;
         hdc.evidence_references.revocation_report_digest = None;
         let report = qualify_mcsf_suite(&input, &[run(McsfArchitecture::NoMemory, &input, 500_000), hdc]);
         let card = report.scorecards.iter()
-            .find(|card| card.architecture == McsfArchitecture::HdcCfC).unwrap();
+            .find(|card| card.architecture == McsfArchitecture::HdcCfc).unwrap();
         assert!(!card.privacy_evidence_complete);
         assert!(!card.revocation_evidence_complete);
         assert!(!card.pareto_comparison_eligible);
@@ -869,7 +871,7 @@ mod tests {
     #[test]
     fn causal_counts_must_be_retrieved_then_consumed_then_influential() {
         let input = suite();
-        let mut hdc = run(McsfArchitecture::HdcCfC, &input, 600_000);
+        let mut hdc = run(McsfArchitecture::HdcCfc, &input, 600_000);
         hdc.task_observations[0].decision_influential_count = 4;
         let report = qualify_mcsf_suite(&input, &[run(McsfArchitecture::NoMemory, &input, 500_000), hdc]);
         assert_eq!(report.qualification.status, QualificationStatus::Fail);
@@ -878,11 +880,11 @@ mod tests {
     #[test]
     fn missing_cost_is_unknown_and_withholds_resource_totals() {
         let input = suite();
-        let mut hdc = run(McsfArchitecture::HdcCfC, &input, 600_000);
+        let mut hdc = run(McsfArchitecture::HdcCfc, &input, 600_000);
         hdc.task_observations[0].resource_usage = None;
         let report = qualify_mcsf_suite(&input, &[run(McsfArchitecture::NoMemory, &input, 500_000), hdc]);
         let card = report.scorecards.iter()
-            .find(|card| card.architecture == McsfArchitecture::HdcCfC).unwrap();
+            .find(|card| card.architecture == McsfArchitecture::HdcCfc).unwrap();
         assert!(!card.resource_usage_complete);
         assert!(card.resource_totals.is_none());
         assert!(!card.pareto_comparison_eligible);
@@ -891,7 +893,7 @@ mod tests {
     #[test]
     fn matched_task_missingness_is_indeterminate_not_a_partial_win() {
         let input = suite();
-        let mut hdc = run(McsfArchitecture::HdcCfC, &input, 600_000);
+        let mut hdc = run(McsfArchitecture::HdcCfc, &input, 600_000);
         hdc.task_observations.pop();
         let report = qualify_mcsf_suite(&input, &[run(McsfArchitecture::NoMemory, &input, 500_000), hdc]);
         assert_eq!(report.qualification.status, QualificationStatus::Indeterminate);
@@ -900,7 +902,7 @@ mod tests {
     #[test]
     fn mismatched_budget_control_digest_fails() {
         let input = suite();
-        let mut hdc = run(McsfArchitecture::HdcCfC, &input, 600_000);
+        let mut hdc = run(McsfArchitecture::HdcCfc, &input, 600_000);
         hdc.control_digest = D6.into();
         let report = qualify_mcsf_suite(&input, &[run(McsfArchitecture::NoMemory, &input, 500_000), hdc]);
         assert_eq!(report.qualification.status, QualificationStatus::Fail);
@@ -909,12 +911,12 @@ mod tests {
     #[test]
     fn official_division_compatible_run_requires_an_policy_receipt() {
         let input = suite();
-        let mut hdc = run(McsfArchitecture::HdcCfC, &input, 600_000);
+        let mut hdc = run(McsfArchitecture::HdcCfc, &input, 600_000);
         hdc.architecture.policy_class = McsfPolicyClass::OfficialDivisionCompatible;
         hdc.architecture.official_policy_receipt_digest = None;
         let report = qualify_mcsf_suite(&input, &[run(McsfArchitecture::NoMemory, &input, 500_000), hdc]);
         let card = report.scorecards.iter()
-            .find(|card| card.architecture == McsfArchitecture::HdcCfC).unwrap();
+            .find(|card| card.architecture == McsfArchitecture::HdcCfc).unwrap();
         assert!(!card.official_policy_eligible);
         assert!(!card.pareto_comparison_eligible);
     }
@@ -923,13 +925,13 @@ mod tests {
     fn duplicate_architecture_or_task_entries_fail() {
         let input = suite();
         let no_memory = run(McsfArchitecture::NoMemory, &input, 500_000);
-        let hdc = run(McsfArchitecture::HdcCfC, &input, 600_000);
+        let hdc = run(McsfArchitecture::HdcCfc, &input, 600_000);
         let mut duplicate = hdc.clone();
         duplicate.run_id = "duplicate-run".into();
         let report = qualify_mcsf_suite(&input, &[no_memory.clone(), hdc, duplicate]);
         assert_eq!(report.qualification.status, QualificationStatus::Fail);
 
-        let mut duplicate_task = run(McsfArchitecture::HdcCfC, &input, 600_000);
+        let mut duplicate_task = run(McsfArchitecture::HdcCfc, &input, 600_000);
         duplicate_task.task_observations.push(duplicate_task.task_observations[0].clone());
         let report = qualify_mcsf_suite(&input, &[no_memory, duplicate_task]);
         assert_eq!(report.qualification.status, QualificationStatus::Fail);
@@ -940,7 +942,7 @@ mod tests {
         let input = suite();
         let runs = vec![
             run(McsfArchitecture::NoMemory, &input, 500_000),
-            run(McsfArchitecture::HdcCfC, &input, 600_000),
+            run(McsfArchitecture::HdcCfc, &input, 600_000),
         ];
         assert_eq!(
             qualify_mcsf_suite(&input, &runs),
