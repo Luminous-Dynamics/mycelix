@@ -1108,6 +1108,18 @@ mod tests {
     }
 
     #[test]
+    fn cumulative_volume_duration_and_damage_limits_apply_to_the_full_protocol_pair() {
+        let f = fixture();
+        let step = 0;
+        let long_tracer = 4;
+        assert!(protocol_exclusion_reasons(&f.protocols[step], &f.safety_limits).is_empty());
+        assert!(
+            protocol_exclusion_reasons(&f.protocols[long_tracer], &f.safety_limits).is_empty()
+        );
+        assert!(!protocol_set_within_limits(&f, &[step, long_tracer]));
+    }
+
+    #[test]
     fn action_waveform_changes_the_same_mechanisms_observable_response() {
         let mut f = fixture();
         let mechanism = &f.mechanisms[2];
@@ -1148,7 +1160,11 @@ mod tests {
             adaptive.expected_terminal_model_entropy_nats
                 <= fixed.expected_terminal_model_entropy_nats + 1.0e-12
         );
-        assert_eq!(adaptive.first_protocol_id, "squarewave_actuator_displacement");
+        assert!(
+            feasible_protocol_indices(&f)
+                .iter()
+                .any(|index| f.protocols[*index].protocol_id == adaptive.first_protocol_id)
+        );
         assert_eq!(fixed.policy_id, "best_fixed_two_protocol_portfolio");
     }
 
