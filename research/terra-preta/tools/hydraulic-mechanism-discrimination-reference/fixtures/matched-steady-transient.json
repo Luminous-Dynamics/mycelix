@@ -48,7 +48,7 @@
       "candidate_id": "lower_path_flow",
       "description": "Steady flow through the lower pathway.",
       "cost": 1,
-      "noise_std": 0.10,
+      "noise_std": 0.20,
       "expected_observable_by_mechanism": [1.0, 0.5, 1.0],
       "d_observable_d_log_total_conductance": [1.0, 0.5, 1.0],
       "observable_unit": "normalized_flow"
