@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/capability-outcome-panel-v0.1.json",
+  "title": "Capability outcome panel v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "observations"
+  ],
+  "properties": {
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "evaluator_digest",
+        "baseline_task_family_id",
+        "assisted_task_family_id",
+        "far_transfer_task_family_id",
+        "minimum_delay_days",
+        "expected_team_ids"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evaluator_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "baseline_task_family_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assisted_task_family_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "far_transfer_task_family_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minimum_delay_days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "expected_team_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "run_id",
+          "team_id",
+          "team_roster_digest",
+          "team_size",
+          "stage",
+          "task_family_id",
+          "task_digest",
+          "evaluator_digest",
+          "ai_available",
+          "ai_used",
+          "ai_artifact_reachable",
+          "accommodation_state",
+          "voluntary_stop",
+          "measurement",
+          "ai_off_qualification",
+          "ai_off_receipt_digest",
+          "elapsed_days_since_collaboration",
+          "perturbation_id",
+          "stage_sequence"
+        ],
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "team_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "team_roster_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "team_size": {
+            "type": "integer",
+            "minimum": 2
+          },
+          "stage": {
+            "enum": [
+              "independent_baseline",
+              "assisted_collaboration",
+              "immediate_ai_off",
+              "delayed_ai_off",
+              "far_transfer",
+              "resilience"
+            ]
+          },
+          "task_family_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "task_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "evaluator_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "ai_available": {
+            "type": "boolean"
+          },
+          "ai_used": {
+            "type": "boolean"
+          },
+          "ai_artifact_reachable": {
+            "type": "boolean"
+          },
+          "accommodation_state": {
+            "enum": [
+              "not_required",
+              "provided",
+              "withheld",
+              "unknown"
+            ]
+          },
+          "voluntary_stop": {
+            "type": "boolean"
+          },
+          "measurement": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/measurement"
+              }
+            ]
+          },
+          "ai_off_qualification": {
+            "enum": [
+              "pass",
+              "fail",
+              "indeterminate",
+              null
+            ]
+          },
+          "ai_off_receipt_digest": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/digest"
+              }
+            ]
+          },
+          "elapsed_days_since_collaboration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "perturbation_id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "minLength": 1
+              }
+            ]
+          },
+          "stage_sequence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_quality",
+        "unique_information_preservation",
+        "verified_evidence_coverage",
+        "agency",
+        "burden",
+        "calibration"
+      ],
+      "properties": {
+        "decision_quality": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "unique_information_preservation": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "verified_evidence_coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "agency": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "burden": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "calibration": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}

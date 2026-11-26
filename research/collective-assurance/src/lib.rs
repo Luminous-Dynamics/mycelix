@@ -5,12 +5,17 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 mod allocation;
+mod capability;
 mod comparison;
 mod constraint_binding;
 mod ledger;
 mod response_audit;
 mod support_policy;
 
+pub use capability::{
+    qualify_capability_outcomes, AccommodationState, CapabilityMeasurement,
+    CapabilityOutcomeObservation, CapabilityStage, CapabilityStudyContract,
+};
 pub use allocation::{
     allocate_committed_teams, compute_design_digest, compute_roster_digest,
     create_allocation_commitment, verify_allocation_reveal, AllocationCommitment,
