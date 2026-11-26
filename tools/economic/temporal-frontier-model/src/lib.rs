@@ -582,11 +582,9 @@ pub fn canonical_owner_cut_entry_v1(
     verifier_ref: &str,
     policy_epoch_ref: &str,
 ) -> Result<Vec<u8>, FrontierModelErrorV1> {
-    validate_id(&cut.owner_ref)?;
-    validate_id(&cut.history_ref)?;
+    cut.validate()?;
     validate_id(verifier_ref)?;
     validate_id(policy_epoch_ref)?;
-    validate_digest(&cut.root_digest)?;
     let gap_count = u32::try_from(cut.gaps.len())
         .map_err(|_| FrontierModelErrorV1::TextTooLong)?;
     let mut bytes = b"MYCELIX-OWNER-CUT-V1\0".to_vec();
@@ -613,6 +611,7 @@ pub fn canonical_knowledge_receipt_entry_v1(
 ) -> Result<Vec<u8>, FrontierModelErrorV1> {
     validate_id(&receipt.receipt_id)?;
     validate_id(&receipt.verifier_ref)?;
+    validate_id(&receipt.policy_epoch_ref)?;
     validate_id(&receipt.assertion_id)?;
     validate_digest(&receipt.assertion_digest)?;
     validate_id(&receipt.owner_ref)?;
@@ -625,7 +624,10 @@ pub fn canonical_knowledge_receipt_entry_v1(
         .iter()
         .map(|dependency| {
             validate_id(&dependency.owner_ref)?;
-            if dependency.sequence == 0 {
+            if dependency.sequence == 0
+                || (dependency.owner_ref == receipt.owner_ref
+                    && dependency.sequence >= receipt.owner_sequence)
+            {
                 return Err(FrontierModelErrorV1::InvalidCausalDependency);
             }
             Ok((dependency.owner_ref.as_str(), dependency.sequence))
