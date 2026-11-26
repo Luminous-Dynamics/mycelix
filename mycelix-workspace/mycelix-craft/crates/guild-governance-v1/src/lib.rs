@@ -478,7 +478,7 @@ mod tests {
     }
 
     #[test]
-    fn inactive_members_cannot_use_a_valid_assignment() {
+    fn suspended_members_cannot_use_a_valid_assignment() {
         let a = assignment(vec![GovernanceActionV1::AdmitMember], guild_scope("guild-a", "membership"));
         let mut r = request(GovernanceActionV1::AdmitMember, guild_scope("guild-a", "membership"));
         r.membership_status = MembershipStatusV1::Suspended;
