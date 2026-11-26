@@ -24,8 +24,8 @@ pub use mcsf_baselines::{
 pub use mcsf_integrity::{
     compute_mcsf_integrity_run_digest, qualify_mcsf_integrity_run,
     McsfIntegrityApplicability, McsfIntegrityControlStatus, McsfIntegrityControls,
-    McsfIntegrityEvidenceClass,
-    McsfIntegrityGroup, McsfIntegrityManifest, McsfIntegrityObservation,
+    McsfIntegrityEvidenceClass, McsfIntegrityDetectionPoint,
+    McsfIntegrityObservationPoint, McsfIntegrityGroup, McsfIntegrityManifest, McsfIntegrityObservation,
     McsfIntegrityOutcome, McsfIntegrityProfile, McsfIntegrityQualificationReport,
     McsfIntegrityRun, McsfIntegrityTestCase,
 };
