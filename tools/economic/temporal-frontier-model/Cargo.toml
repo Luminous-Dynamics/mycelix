@@ -6,5 +6,8 @@ publish = false
 license = "AGPL-3.0-or-later"
 description = "Structural model of verifier-relative owner-scoped causal frontiers"
 
+[dependencies]
+mycelix-rfc9162-proof-verifier = { path = "../rfc9162-proof-verifier" }
+
 [lib]
 path = "src/lib.rs"
