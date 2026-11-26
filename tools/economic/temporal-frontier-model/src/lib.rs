@@ -352,7 +352,11 @@ impl VerifierFrontierV1 {
             });
         }
 
-        if !owner_cut.prefix_has_no_declared_gaps_after_validation(receipt.owner_sequence) {
+        // A specific inclusion proof can remain valid even when earlier
+        // owner sequences are explicitly gapped. Completeness claims about
+        // that prefix remain unavailable; receipt inclusion is a separate
+        // proof obligation.
+        if owner_cut.leaf_index_for_sequence(receipt.owner_sequence).is_none() {
             return Ok(ReceiptVisibilityV1::Indeterminate);
         }
 
@@ -1074,7 +1078,7 @@ mod tests {
         let frontier = frontier("frontier:1", vec![owner_cut.clone()]);
         assert_eq!(
             frontier.classify_receipt(&included_receipt),
-            Ok(ReceiptVisibilityV1::Indeterminate)
+            Ok(ReceiptVisibilityV1::MerkleInclusionProofValid)
         );
         assert!(!frontier.prefix_has_no_declared_gaps("owner:grants", 10));
 
