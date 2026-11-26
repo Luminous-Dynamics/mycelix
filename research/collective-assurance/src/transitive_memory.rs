@@ -88,6 +88,9 @@ fn validate_scope(scope: &MemoryScope) -> Result<(), String> {
     if scope.valid_from_ms >= scope.valid_until_ms {
         return Err("memory scope validity interval is empty or reversed".into());
     }
+    if scope.retain_until_ms < scope.valid_from_ms {
+        return Err("memory retention deadline precedes scope validity".into());
+    }
     if scope.retain_until_ms == 0 {
         return Err("memory retention deadline must be explicit and positive".into());
     }
@@ -1131,6 +1134,14 @@ mod tests {
     }
 
     #[test]
+    fn scope_retention_cannot_precede_validity_start() {
+        let mut invalid = scope("alice", "project-a", "entity-1", 1000);
+        invalid.valid_from_ms = 500;
+        invalid.retain_until_ms = 499;
+        assert!(compute_memory_scope_digest(&invalid).is_err());
+    }
+
+    #[test]
     fn scope_amplification_without_declassification_fails() {
         let root = source();
         let mut child = derivative(&root);
@@ -1162,6 +1173,10 @@ mod tests {
         };
         receipt.receipt_digest =
             compute_memory_declassification_receipt_digest(&receipt).unwrap();
+        assert_eq!(
+            receipt.receipt_digest,
+            "f1ada18e1ac113f2e6e7343d6a7c56b23019970edf97170229457f7c9b577faa"
+        );
         child.declassification = Some(receipt);
         let snapshot = base_snapshot(vec![root, child], Vec::new(), Vec::new());
         assert_eq!(
