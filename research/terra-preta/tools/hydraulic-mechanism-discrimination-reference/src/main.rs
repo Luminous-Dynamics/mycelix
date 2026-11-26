@@ -835,14 +835,22 @@ mod tests {
             scaled.predictive_design.candidate_ids
         );
         assert!(
-            (original.model_discrimination_design.expected_model_information_gain_nats
-                - scaled.model_discrimination_design.expected_model_information_gain_nats)
+            (original
+                .model_discrimination_design
+                .expected_model_information_gain_nats
+                - scaled
+                    .model_discrimination_design
+                    .expected_model_information_gain_nats)
                 .abs()
                 < 1.0e-12
         );
         assert!(
-            (original.parameter_precision_design.worst_case_log_conductance_fisher_information
-                - scaled.parameter_precision_design.worst_case_log_conductance_fisher_information)
+            (original
+                .parameter_precision_design
+                .worst_case_log_conductance_fisher_information
+                - scaled
+                    .parameter_precision_design
+                    .worst_case_log_conductance_fisher_information)
                 .abs()
                 < 1.0e-9
         );
@@ -857,5 +865,4 @@ mod tests {
         f.acquisition_budget = 5;
         assert!(validate(&f).is_err());
     }
-
 }
