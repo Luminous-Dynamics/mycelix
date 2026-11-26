@@ -60,8 +60,6 @@ pub enum GovernanceActionV1 {
     CreateFederationAgreement,
     /// Amend a federation agreement.
     AmendFederationAgreement,
-    /// Assess a capability claim within a named professional scope.
-    AssessCapability,
 }
 
 /// Membership status is independent of governance assignments.
