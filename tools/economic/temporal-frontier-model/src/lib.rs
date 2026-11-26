@@ -123,12 +123,14 @@ pub enum FrontierRelationV1 {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ReceiptVisibilityV1 {
-    /// RFC 9162 SHA-256 inclusion proof verified against the supplied
-    /// owner-history root. The root itself must still be authenticated.
-    MerkleInclusionVerified,
-    /// Frontier coverage is complete through its cut, and the receipt's
-    /// sequence is strictly beyond that cut.
-    NotKnown,
+    /// RFC 9162 SHA-256 inclusion path recomputes to the supplied
+    /// owner-history root. The root's signature, log identity and trust are
+    /// not authenticated by this crate.
+    MerkleInclusionProofValid,
+    /// The receipt sequence is beyond the highest sequence in this cut and
+    /// there are no declared gaps in the represented prefix. This is not a
+    /// global absence or "verifier never knew" proof.
+    BeyondCoveredCut,
     /// Missing owner coverage, a gap, missing proof material, or an uncovered
     /// causal dependency prevents a safe conclusion.
     Indeterminate,
@@ -187,14 +189,14 @@ impl OwnerCutV1 {
         Ok(())
     }
 
-    /// True only when every sequence from one through `through` is covered
-    /// by this cut. This is structural gap accounting, not proof that the
-    /// root or coverage declaration is authentic.
-    pub fn prefix_is_complete_through(&self, through: u64) -> bool {
-        self.validate().is_ok() && self.prefix_is_complete_after_validation(through)
+    /// True only when the cut reaches `through` and declares no gaps in
+    /// that prefix. This is structural gap accounting, not proof that the
+    /// root, inventory, or coverage declaration is authentic.
+    pub fn prefix_has_no_declared_gaps_through(&self, through: u64) -> bool {
+        self.validate().is_ok() && self.prefix_has_no_declared_gaps_after_validation(through)
     }
 
-    fn prefix_is_complete_after_validation(&self, through: u64) -> bool {
+    fn prefix_has_no_declared_gaps_after_validation(&self, through: u64) -> bool {
         through <= self.sequence && !self.gaps.iter().any(|gap| gap.first <= through)
     }
 
@@ -279,16 +281,14 @@ impl VerifierFrontierV1 {
             .find(|cut| cut.owner_ref == owner_ref)
     }
 
-    /// Does the frontier structurally cover a complete owner prefix through
-    /// this sequence? False means "do not assert absence"; it does not say
-    /// whether the missing information is malicious or merely delayed.
-    /// True is necessary but not sufficient for an absence claim: callers
-    /// must also reconcile the complete accepted-receipt inventory.
-    pub fn prefix_coverage_is_complete(&self, owner_ref: &str, through: u64) -> bool {
+    /// Does this frontier's owner cut reach this sequence without declared
+    /// gaps? This does not prove global completeness or absence: callers must
+    /// reconcile the accepted-receipt inventory and authenticate the tree head.
+    pub fn prefix_has_no_declared_gaps(&self, owner_ref: &str, through: u64) -> bool {
         self.validate().is_ok()
             && self
                 .owner_cut(owner_ref)
-                .is_some_and(|cut| cut.prefix_is_complete_after_validation(through))
+                .is_some_and(|cut| cut.prefix_has_no_declared_gaps_after_validation(through))
     }
 
     pub fn classify_receipt(
@@ -306,14 +306,14 @@ impl VerifierFrontierV1 {
         };
 
         if receipt.owner_sequence > owner_cut.sequence {
-            return Ok(if owner_cut.prefix_is_complete_after_validation(owner_cut.sequence) {
-                ReceiptVisibilityV1::NotKnown
+            return Ok(if owner_cut.prefix_has_no_declared_gaps_after_validation(owner_cut.sequence) {
+                ReceiptVisibilityV1::BeyondCoveredCut
             } else {
                 ReceiptVisibilityV1::Indeterminate
             });
         }
 
-        if !owner_cut.prefix_is_complete_after_validation(receipt.owner_sequence) {
+        if !owner_cut.prefix_has_no_declared_gaps_after_validation(receipt.owner_sequence) {
             return Ok(ReceiptVisibilityV1::Indeterminate);
         }
 
@@ -321,7 +321,7 @@ impl VerifierFrontierV1 {
             let Some(dependency_cut) = self.owner_cut(&dependency.owner_ref) else {
                 return Ok(ReceiptVisibilityV1::Indeterminate);
             };
-            if !dependency_cut.prefix_is_complete_after_validation(dependency.sequence) {
+            if !dependency_cut.prefix_has_no_declared_gaps_after_validation(dependency.sequence) {
                 return Ok(ReceiptVisibilityV1::Indeterminate);
             }
         }
@@ -346,7 +346,7 @@ impl VerifierFrontierV1 {
             &owner_root,
         )
         .map_err(|_| FrontierModelErrorV1::InvalidReceiptProof)?;
-        Ok(ReceiptVisibilityV1::MerkleInclusionVerified)
+        Ok(ReceiptVisibilityV1::MerkleInclusionProofValid)
     }
 
     /// Compare two verifier frontiers over the same policy epoch and owner
@@ -957,7 +957,7 @@ mod tests {
         let frontier = frontier("frontier:1", vec![owner_cut.clone()]);
         assert_eq!(
             frontier.classify_receipt(&receipt),
-            Ok(ReceiptVisibilityV1::MerkleInclusionVerified)
+            Ok(ReceiptVisibilityV1::MerkleInclusionProofValid)
         );
 
         let mut no_proof = receipt.clone();
@@ -981,7 +981,7 @@ mod tests {
         let frontier = frontier("frontier:1", vec![owner_cut]);
         assert_eq!(
             frontier.classify_receipt(&receipt(11, "owner:grants")),
-            Ok(ReceiptVisibilityV1::NotKnown)
+            Ok(ReceiptVisibilityV1::BeyondCoveredCut)
         );
     }
 
@@ -996,7 +996,7 @@ mod tests {
             frontier.classify_receipt(&receipt),
             Ok(ReceiptVisibilityV1::Indeterminate)
         );
-        assert!(!frontier.prefix_coverage_is_complete("owner:grants", 10));
+        assert!(!frontier.prefix_has_no_declared_gaps("owner:grants", 10));
     }
 
     #[test]
@@ -1092,7 +1092,7 @@ mod tests {
         candidate.gaps = vec![
             SequenceRangeV1 { first: 5, last: 4 },
         ];
-        assert!(!candidate.prefix_is_complete_through(10));
+        assert!(!candidate.prefix_has_no_declared_gaps_through(10));
     }
 
     #[test]
