@@ -1,0 +1,226 @@
+# Authenticated Temporal Interval Query V0.1
+
+Status: research specification and implementation plan. This profile is deliberately separate from RFC 9162 append-only logs and the experimental sparse assertion map.
+
+## 1. The next query primitive
+
+The current Economic OS evidence stack distinguishes:
+
+- business validity time;
+- verifier identity and accepted causal frontier;
+- append-only receipt inclusion / consistency;
+- exact assertion-reference membership in an experimental sparse map.
+
+The unresolved query is stronger:
+
+> For this exact verifier, policy epoch, namespace, subject, claim and accepted source frontier, return every assertion whose validity interval contains business instant V, and prove that no matching assertion in this exact index root was omitted.
+
+An exact-key sparse Merkle proof cannot answer this. Hashing the lookup key destroys temporal order, and proving one assertion reference absent does not establish that no other assertion for the claim is active.
+
+This increment owns only the authenticated interval-query data structure. It composes with the existing temporal assertion, absence/completeness, causal-frontier, checkpoint and witness owners; it does not create another time service, log, witness quorum, or global absence framework.
+
+## 2. Normative query semantics
+
+V0.1 uses a point query over exact normalized UTC instants. An interval is half-open:
+
+```
+matches(interval, V) :=
+    interval.valid_from <= V
+    && (interval.valid_to == OPEN || V < interval.valid_to)
+```
+
+Therefore:
+
+- the exact start endpoint is included;
+- the exact finite end endpoint is excluded;
+- an open end has no finite upper boundary;
+- nanoseconds are preserved; no implicit millisecond truncation is allowed.
+
+The query scope is the exact tuple:
+
+```
+verifier_ref
+policy_epoch_ref
+namespace_ref
+subject_ref
+claim_id
+source_frontier_digest
+```
+
+A point query additionally supplies V as a signed 64-bit Unix seconds value plus an unsigned nanoseconds value in [0, 1_000_000_000).
+
+V0.1 does not coerce calendar dates, uncertain intervals, uncalibrated clocks, or unknown endpoints into exact instants. Those require a separately versioned profile and otherwise produce Indeterminate.
+
+## 3. Result and claim ceiling
+
+The low-level verifier may return only:
+
+- `CompleteIntervalResultForRoot`: all matching intervals in this exact index root and exact scope were returned;
+- `CompleteEmptyIntervalResultForRoot`: no matching interval exists in this exact index root and exact scope.
+
+It must return `Indeterminate` for an unanchored or mismatched root, malformed proof, unsupported profile, unknown precision, scope mismatch, or unresolved evidence needed by a higher-level source-completeness policy.
+
+A complete empty result is **not** universal non-existence. It does not prove:
+
+- that every accepted receipt was projected into the index;
+- that the index's source frontier is authentic or current;
+- that a fact was never known by a verifier;
+- that the underlying event or assertion is true;
+- legal non-liability, non-ownership, or non-eligibility;
+- permission to mutate a journal, payment, or external system.
+
+## 4. Candidate V1 authenticated interval tree
+
+### 4.1 Canonical record
+
+An interval record contains:
+
+- non-empty, bounded UTF-8 `assertion_ref`;
+- `valid_from = (seconds: i64, nanos: u32)`;
+- either `valid_to = Finite(Instant)` or `valid_to = Open`;
+- lower-case `sha256:` receipt/evidence digest.
+
+Finite intervals must satisfy `valid_to > valid_from`. Duplicate assertion references within one exact scope are rejected. Records are ordered lexicographically by `(valid_from, assertion_ref UTF-8 bytes)`. Equal starts are therefore deterministic.
+
+### 4.2 Authenticated subtree summary
+
+Every non-empty subtree commits to:
+
+- `count`: number of descendant records;
+- `min_valid_from`: minimum start instant among descendants;
+- `max_valid_to`: maximum end instant among descendants, where Open is +infinity.
+
+These summaries are authenticated as part of the node hash, not trusted as detached metadata.
+
+A subtree is safely irrelevant to a point query at V only when one of these conditions is proved by its committed summary:
+
+```
+min_valid_from > V
+OR
+(max_valid_to is Finite && max_valid_to <= V)
+```
+
+The first condition proves every interval starts after V. The second proves every finite interval has ended by V. Open-ended descendants force `max_valid_to = Open` and cannot be pruned by the expiry condition.
+
+If neither condition holds, the proof must expand that subtree. At a leaf, the exact interval predicate is checked and a matching record is returned.
+
+### 4.3 Tree shape and hashing
+
+V1 uses a deterministic balanced binary tree over the canonical sorted record sequence. The builder splits each non-leaf sequence at `floor(count / 2)`; both children are non-empty. The tree shape is therefore reproducible from the ordered records.
+
+All hashes use SHA-256 and domain separation. The final byte encoding, tags and known-answer vectors are frozen in the implementation contract before any interoperability claim. The commitment must bind:
+
+- the profile identifier and version;
+- the full query scope tuple;
+- record count;
+- leaf record bytes;
+- each internal node's child hashes, child counts and derived summary;
+- explicit Open-versus-Finite end tags.
+
+No JSON serialization bytes are hashed. Integers are fixed-width big-endian; strings are UTF-8 with an unsigned 32-bit byte length prefix; nanoseconds are unsigned 32-bit big-endian; seconds are signed 64-bit big-endian two's-complement. Hash comparisons are byte comparisons.
+
+An empty index has a distinct domain-separated empty-tree hash and is still wrapped in the scope commitment. Empty roots are never shared across different verifier, policy, namespace, subject, claim or frontier scopes.
+
+### 4.4 Completeness proof
+
+A proof tree has three node forms:
+
+1. **Pruned subtree**: contains the authenticated subtree hash, count and summary. The verifier accepts it only if the summary proves one of the safe-pruning conditions above.
+2. **Expanded branch**: contains both child proofs. The verifier derives count and summary from the children and reconstructs the branch hash.
+3. **Returned leaf**: contains the canonical interval record. The verifier recomputes its leaf hash and requires that the interval matches V.
+
+The verifier reconstructs the exact scoped root. A pruned node cannot hide a possible match because its authenticated summary must prove irrelevance. Every non-pruned branch is expanded until all matching leaves are returned. Consequently, a valid proof establishes completeness relative to the supplied root.
+
+The proof contains no independent result list; returned records are derived from the verified proof tree, preventing a caller from appending unproved results. Reject malformed node variants, missing/extra children, duplicate assertion references, non-matching returned leaves, invalid summaries, overflow, and root mismatch.
+
+This proof structure is intentionally simple and auditable. It may expand a large fraction of the tree for adversarial or highly overlapping interval distributions. That cost is a benchmark result, not something to hide with an optimistic asymptotic claim.
+
+## 5. Source completeness is a separate theorem
+
+The interval tree proves a complete answer only relative to its own committed leaves. The higher-level Economic OS query may call that result source-complete only after a separate verification step:
+
+1. the interval root is bound into an authenticated verifier checkpoint;
+2. the checkpoint identifies this exact profile/version, query namespace, verifier, policy epoch and source frontier;
+3. the source frontier identifies every required owner cut and append-only receipt-log root;
+4. an independent replay or qualified index-builder attestation establishes that every in-scope accepted receipt through that frontier was parsed and projected deterministically;
+5. omitted, delayed, rejected, malformed, redacted, unavailable and unknown-source receipts remain visible in the coverage assessment;
+6. checkpoint freshness, key lifecycle, witness agreement and non-equivocation are established by the existing CIV-009 / #5942 owners.
+
+A self-declared `complete=true`, zero counter, successful index build, or valid interval proof is not evidence of source completeness. Until all required conditions hold, the higher-level disposition is Indeterminate.
+
+Compose with #1289 for bounded absence semantics, #2631/#6670 for temporal assertions, #6680 for causal frontier semantics, #6727 for receipt inclusion/consistency, #6728 for exact-key index experiments, and the existing signed-head/witness owners. Do not duplicate those services.
+
+## 6. Independent implementation and adversarial corpus
+
+The Go implementation is the independent reference oracle for the initial profile; Rust must reproduce the same canonical bytes, roots, proof outcomes and reason codes. Neither implementation may import or call the other's candidate code.
+
+Frozen cases must include:
+
+- exact start included; exact end excluded;
+- open end; zero-length and reversed finite intervals rejected;
+- nanoseconds immediately before, at and after a boundary;
+- duplicate starts with stable assertion-reference ordering;
+- adjacent, nested, overlapping, disjoint and all-overlap intervals;
+- empty index and complete empty point query;
+- all records expired and all records starting in the future;
+- wrong verifier, policy epoch, namespace, subject, claim, frontier digest or query instant;
+- changed record, digest, summary, count, child hash or root;
+- missing/extra child, duplicate leaf, reordered leaf and non-matching leaf smuggled into a proof;
+- false Open sentinel, finite-end overflow and malformed UTF-8/identifier lengths;
+- malformed proof node with contradictory fields set simultaneously;
+- root valid for a different checkpoint or stale source frontier;
+- accepted source receipt omitted from the index;
+- missing owner, declared sequence gap, delayed receipt, unresolved fork and correction branch;
+- a benign empty result where the complete scoped index genuinely contains no candidate.
+
+The last source-completeness cases must remain distinct from low-level interval-tree proof validity. They test the adapter, not just the data structure.
+
+## 7. Benchmark programme
+
+No performance result is claimed by this specification. The harness should compare:
+
+- independent linear scan oracle;
+- ordinary ordered index / conventional interval tree;
+- augmented authenticated interval tree;
+- authenticated Merkle B-tree / range-tree candidate;
+- SQL Server temporal history and XTDB only through matched adapters and equivalent query semantics.
+
+Scales: 1k, 10k, 100k and 1m intervals.
+
+Distributions: uniform, clustered, nested, disjoint, all-overlap, heavily skewed starts/ends, duplicate starts and adversarial interleaved expiry.
+
+Query selectivity: 0%, 0.001%, 0.1%, 1%, 10% and 100%.
+
+Report build/update cost; proof-generation and proof-verification p50/p95/p99; proof bytes; expanded/pruned/visited node counts; memory and bytes per record; root recomputation; result cardinality; and exact oracle disagreements. Separate warm-cache and cold-cache runs, pin hardware and toolchain, and publish raw samples and fixture digests.
+
+Hard gates:
+
+- 100% independent-oracle parity;
+- zero false-empty results;
+- zero omitted matches;
+- zero acceptance of malformed or scope-substituted proofs;
+- proof-size and verification-cost results reported at every workload scale.
+
+A provisional performance goal is p95 authenticated query cost within 3x of an ordinary in-memory interval index for low-selectivity queries at 100k records, while keeping zero false-empty results. This is a research target only; it is not a baseline result or a claim of beating SQL Server or XTDB. Large proof expansion, high overlap and adversarial distributions must be reported rather than excluded.
+
+## 8. Formal qualification
+
+A bounded state model should vary tree shapes, interval endpoint order, open ends, query points, proof pruning choices and one-node mutations. Required invariants:
+
+- every returned leaf matches V;
+- every matching leaf is returned;
+- a pruned subtree contains no matching interval;
+- proof reconstruction equals the exact scoped root;
+- a malformed or scope-substituted proof never yields a complete disposition.
+
+The formal model should compose with #6680's frontier model. This issue does not claim a TLA+/Alloy/model-checker result until the model is checked by its named independent tool and exact state bounds are published.
+
+## 9. Standards and interoperability route
+
+RFC 9162 remains the append-only log proof layer: it supplies inclusion and consistency semantics, not arbitrary temporal interval-query completeness. RFC 9942 defines COSE receipt envelopes and VDS/VDP registries; the initial RFC 9162 SHA-256 profile does not make this custom interval tree an existing registered proof type.
+
+The proposed interval profile must remain explicitly experimental. If it matures, specify exact proof encodings and register/standardize a VDS/VDP profile through the appropriate standards process. Do not label it RFC 9162 or claim RFC 9942 conformance prematurely.
+
+## 10. Nonclaims
+
+A passing tree verifier proves only a mathematically complete interval-stabbing answer relative to one supplied scoped root. It does not authenticate that root, establish the source frontier's completeness or truth, prove global absence, establish trusted time, or grant financial/operational authority.
