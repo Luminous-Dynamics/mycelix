@@ -924,6 +924,7 @@ fn sequential_policy_comparison(fixture: &Fixture) -> Result<SequentialPolicyCom
             predictive_probability_mass: 1.0,
         }],
         stop_probability_mass: 0.0,
+        discrepancy_abstention_probability_mass: 0.0,
         first_observation_policy: Vec::new(),
     };
 
