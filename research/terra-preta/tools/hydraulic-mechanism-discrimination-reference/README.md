@@ -87,6 +87,55 @@ Relevant current literature includes:
 
 The SBI-BOED work is particularly relevant because it connects mutual-information objectives, surrogate-likelihood training and design under fixed simulator budgets. The robust BOED work provides a materially stronger comparator than simply taking a worst case over a hand-selected finite list of scenarios. These methods must be reproduced faithfully before claiming a comparison or improvement.
 
+## Industry and pore-scale research baselines
+
+The competitive landscape has mature physics solvers and increasingly strong voxel-scale digital-rock methods. Terra Preta should benchmark against them instead of implying that experiment selection alone replaces a CFD solver.
+
+### Commercial multiphysics baseline
+
+[COMSOL's Porous Media Flow Module](https://www.comsol.com/porous-media-flow-module) supports Darcy, Richards and Brinkman formulations, fracture flow, free/porous coupling, multiphase transport, chemical species transport, heat transfer and poroelastic effects. Its 6.4 interface reference documents multiple coupled mass, momentum and energy transport formulations.
+
+This is a broad solver/workflow baseline. We should compare equivalent physical formulations and validation cases, not claim to outperform COMSOL based on the synthetic model-discrimination fixture.
+
+### Open-source pore-scale / voxel CFD baseline
+
+A directly relevant current reference is Stewart et al. (10 November 2026), *A Conservative Darcy-Brinkman-Stokes Formulation for Digital Rock Flow Simulation with Embedded Second-Brinkman Effects*. Their DBS2 formulation is tested against DNS on a microchannel, a 2D heterogeneous micromodel and a 3D Bentheimer micro-CT sample. The paper reports exact microchannel velocity-field reproduction and permeability error of 1.5–3.8% in the micromodel/Bentheimer cases at matched resolution; the simplified DBS1 formulation overpredicts permeability by 14.1–37.9% in those cases. This is a very useful engineering benchmark, not a result achieved by this repository: https://arxiv.org/abs/2611.14348
+
+OpenFOAM's [Darcy-Forchheimer porosity model](https://cpp.openfoam.org/v13/classFoam_1_1porosityModels_1_1DarcyForchheimer.html) supplies a standard continuum resistance term. GeoChemFoam builds on the OpenFOAM ecosystem and provides the cited voxel-based DBS comparison.
+
+### Public benchmark data to adopt
+
+- A 2026 two-phase pore-scale DNS dataset reports 100 million-plus GPU-hours, 50 relative-permeability curves and over 25,000 fluid configurations, validated against synchrotron experiments: https://www.nature.com/articles/s41597-026-06823-1
+- A second 2026 dataset provides 540 DNS simulations over six porous media, nine viscosity ratios and ten contact angles, with spatial and temporal pressure/velocity data: https://doi.org/10.1038/s41597-026-07009-5
+- A 19 October 2026 digital-rock study combines pore-resolved and continuum flow with CUDA-accelerated lattice Boltzmann simulation and validates against three carbonate samples: https://doi.org/10.1029/2026GL126174
+
+These should be candidate common test sets only after checking data licenses, support definitions, boundary conditions and whether the exact raw data are actually downloadable. Dataset sizes or GPU-hours are not accuracy scores.
+
+### What Terra Preta should aim to do better
+
+Do not try to win by reproducing only a permeability scalar. Build a qualified evidence loop around the solver ecosystem:
+
+1. **Geometry uncertainty:** carry multiple segmentation, resolution and registration variants instead of silently selecting a single binary image.
+2. **Common estimands:** compare physically invariant boundary-response tensors/moments and sensor-support integrals, not pore IDs that change across segmentations.
+3. **Observation operators:** derive Jacobians from actual forward operators and keep sensitivities separate from calibrated noise/covariance.
+4. **Mechanism discrimination:** choose the next sensor/forcing to separate competing flow mechanisms and improve held-out predictions, not merely maximize precision conditional on one model.
+5. **Misspecification response:** abstain when all candidate mechanisms fail predictive checks; request new observations or expand the model set.
+6. **Evidence receipts:** publish exact image/segmentation/mesh, solver, boundary condition, calibration, source commit, toolchain, input hashes, outputs and independent verification.
+
+### Matched industry bake-off
+
+For the solver layer, use the same voxel geometries, physical properties, boundary conditions and resolution across:
+- GeoChemFoam DBS2;
+- OpenFOAM Darcy-Forchheimer / appropriate free-flow model;
+- COMSOL Darcy/Brinkman/Richards as appropriate;
+- an independently implemented DNS/LBM reference on tractable geometries.
+
+Report permeability tensor error, velocity-field error, mass conservation residual, pressure/flux time histories, relative-permeability curves, breakthrough and dispersion, mesh/voxel convergence, solver iterations, wall time and peak memory. Do not compare different equations or boundary conditions and call the results apples-to-apples.
+
+For the experiment-selection layer, freeze the same solver-call, simulation, acquisition-cost and wall-time budgets. Compare random/uniform, nominal D-optimal, maximin finite-ensemble D/E, model EIG, predictive information gain, decision EVSI, SBI-BOED and faithful maximin robust BED. Evaluate paired held-out predictive log score/CRPS, posterior coverage/calibration, model-classification calibration, decision regret, abstention and resource costs.
+
+The defensible ambition is to outperform established workflows on **uncertainty-aware experiment selection, calibrated predictions and traceable qualification** while interoperating with the best physical solvers—not to assert an unsupported universal solver-speed or accuracy win.
+
 ## Qualification targets (targets, not results)
 
 - Exact portfolio optimum on the finite candidate fixture.
