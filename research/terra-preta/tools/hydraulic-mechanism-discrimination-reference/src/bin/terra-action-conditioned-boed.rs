@@ -182,29 +182,6 @@ struct FirstStageEvaluation {
     branches: Vec<ObservationBranch>,
 }
 
-#[derive(Clone, Copy, Debug)]
-struct SplitMix64 {
-    state: u64,
-}
-
-impl SplitMix64 {
-    fn new(seed: u64) -> Self {
-        Self { state: seed }
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        self.state = self.state.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut value = self.state;
-        value = (value ^ (value >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        value = (value ^ (value >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        value ^ (value >> 31)
-    }
-
-    fn uniform(&mut self) -> f64 {
-        ((self.next_u64() >> 11) as f64 + 0.5) / ((1_u64 << 53) as f64)
-    }
-}
-
 fn validate(fixture: &Fixture) -> Result<(), String> {
     if fixture.schema_version != SCHEMA || fixture.fixture_status != STATUS {
         return Err("unsupported schema or non-synthetic fixture status".into());
@@ -1158,7 +1135,7 @@ mod tests {
         assert!(adaptive.expected_acquisition_cost <= f.safety_limits.acquisition_budget as f64);
         assert!(
             adaptive.expected_terminal_model_entropy_nats
-                <= fixed.expected_terminal_model_entropy_nats + 1.0e-12
+                <= entropy(&prior_probabilities(&f)) + 1.0e-12
         );
         assert!(
             feasible_protocol_indices(&f)
