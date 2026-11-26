@@ -34,7 +34,7 @@ This profile is independent of RFC 9162's 0x00 / 0x01 leaf and node tags and CT 
 
 ## Query key/value projection
 
-The query key is SHA-256 over the domain tag MYCELIX-ASSERTION-INDEX-KEY-V1, followed by five UTF-8 strings (verifier, policy epoch, subject, claim, dimension), each prefixed by a u32 big-endian byte length.
+The exact-assertion query key is SHA-256 over the domain tag MYCELIX-ASSERTION-INDEX-KEY-V1, followed by six UTF-8 strings (verifier, policy epoch, subject, claim, dimension, assertion_ref), each prefixed by a u32 big-endian byte length. This identifies one exact assertion reference, not every historical assertion for the logical claim.
 
 The value is SHA-256 over MYCELIX-ASSERTION-INDEX-VALUE-V1, followed by the receipt digest string and owner reference (each u32 BE length-prefixed), then owner sequence as u64 BE.
 
@@ -57,6 +57,8 @@ These are properties of one map root. They are not AbsenceEstablishedForProfile.
 7. The exact lookup key, dimension, scope, profile, checkpoint and verifier are carried in the query certificate.
 
 Even then, the strongest result is bounded to non-membership in this exact profile, namespace, query projection and checkpoint. It is not universal non-existence and not a claim that the verifier never knew a fact outside that index.
+
+The current V1 key is assertion-specific. A proof that assertion_ref A is not indexed does **not** prove that no other assertion for the same (subject, claim, dimension) exists or that no assertion was valid at business time V. A claim-level temporal lookup needs a separate authenticated bucket/range structure committing to the complete candidate assertion set and a verifier that checks the requested V against every in-scope candidate. That range/bucket proof and its coverage theorem are not implemented in V1.
 
 ## Fail-closed lifecycle
 
