@@ -251,6 +251,10 @@ pub struct ContradictionV1 {
     pub resolved: bool,
     /// Decision record identifier required when resolved.
     pub resolution_decision_id: Option<String>,
+    /// Exact digest of the resolution decision.
+    pub resolution_decision_digest: Option<[u8; 32]>,
+    /// Local authority reference that adopted the resolution.
+    pub resolution_authority: Option<LocalAuthorityRefV1>,
 }
 
 /// Explicit unknown or unanswered question.
@@ -389,6 +393,10 @@ pub enum NeedIntakeErrorV1 {
     InvalidReview,
     /// A safety-critical requirement lacks a mandatory safety review path.
     SafetyReviewRequired,
+    /// Proposal lacks a minimum project structure.
+    EmptyProposalStructure,
+    /// A declared baseline is blank or padded.
+    InvalidBaseline,
 }
 
 /// Disposition of the structured proposal workflow.
@@ -455,6 +463,9 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
     require_non_empty(&proposal.need.submitter_id)?;
     require_non_empty(&proposal.need.visibility_profile_id)?;
     require_digest(&proposal.proposal_digest)?;
+    if proposal.outcomes.is_empty() || proposal.work_packages.is_empty() {
+        return Err(NeedIntakeErrorV1::EmptyProposalStructure);
+    }
 
     let mut source_map = HashMap::new();
     for source in &proposal.sources {
@@ -482,6 +493,9 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
         require_non_empty(&outcome.outcome_id)?;
         require_non_empty(&outcome.statement)?;
         require_non_empty(&outcome.indicator)?;
+        if outcome.baseline.as_ref().map(|value| value.trim().is_empty() || value.trim() != value).unwrap_or(false) {
+            return Err(NeedIntakeErrorV1::InvalidBaseline);
+        }
         require_non_empty(&outcome.target)?;
         require_non_empty(&outcome.time_horizon)?;
         require_non_empty(&outcome.outcome_owner_id)?;
@@ -618,11 +632,20 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
                 validate_traceability(&position.traceability, &source_map, &assumption_ids)?;
             }
         }
-        match (contradiction.resolved, &contradiction.resolution_decision_id) {
-            (true, Some(id)) => require_non_empty(id)?,
-            (true, None) => return Err(NeedIntakeErrorV1::MissingContradictionResolution),
-            (false, Some(_)) => return Err(NeedIntakeErrorV1::UnexpectedContradictionResolution),
-            (false, None) => {}
+        match (
+            contradiction.resolved,
+            &contradiction.resolution_decision_id,
+            &contradiction.resolution_decision_digest,
+            &contradiction.resolution_authority,
+        ) {
+            (true, Some(id), Some(digest), Some(authority)) => {
+                require_non_empty(id)?;
+                require_digest(digest)?;
+                validate_authority(authority)?;
+            }
+            (true, _, _, _) => return Err(NeedIntakeErrorV1::MissingContradictionResolution),
+            (false, None, None, None) => {}
+            (false, _, _, _) => return Err(NeedIntakeErrorV1::UnexpectedContradictionResolution),
         }
     }
 
@@ -1085,6 +1108,55 @@ mod tests {
     }
 
     #[test]
+    fn empty_project_structure_cannot_be_ratified() {
+        let mut proposal = valid_proposal();
+        proposal.outcomes.clear();
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::EmptyProposalStructure)
+        );
+
+        let mut proposal = valid_proposal();
+        proposal.work_packages.clear();
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::EmptyProposalStructure)
+        );
+    }
+
+    #[test]
+    fn blank_known_baseline_is_not_treated_as_unknown() {
+        let mut proposal = valid_proposal();
+        proposal.outcomes[0].baseline = Some(String::new());
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::InvalidBaseline)
+        );
+    }
+
+    #[test]
+    fn resolved_contradiction_requires_digest_and_local_authority() {
+        let mut proposal = valid_proposal();
+        proposal.contradictions.push(ContradictionV1 {
+            contradiction_id: "resolved-source-conflict".to_owned(),
+            kind: ContradictionKindV1::SourceConflict,
+            affected_claim_ids: vec!["outcome:reliable-water-service".to_owned()],
+            stakeholder_positions: Vec::new(),
+            resolved: true,
+            resolution_decision_id: Some("source-adjudication".to_owned()),
+            resolution_decision_digest: Some([30; 32]),
+            resolution_authority: Some(authority("domain-adjudicator")),
+        });
+        assert!(validate_proposal(&proposal).is_ok());
+
+        proposal.contradictions[0].resolution_authority = None;
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::MissingContradictionResolution)
+        );
+    }
+
+    #[test]
     fn every_proposed_claim_must_be_assigned_to_a_work_package() {
         let mut proposal = valid_proposal();
         proposal.work_packages[0].requirement_ids.clear();
@@ -1181,6 +1253,8 @@ mod tests {
             ],
             resolved: false,
             resolution_decision_id: None,
+            resolution_decision_digest: None,
+            resolution_authority: None,
         });
         assert_eq!(evaluate_ratification(&proposal, NOW).unwrap().state, RatificationStateV1::NeedsCommunityClarification);
     }
@@ -1232,6 +1306,8 @@ mod tests {
             ],
             resolved: false,
             resolution_decision_id: None,
+            resolution_decision_digest: None,
+            resolution_authority: None,
         });
         assert_eq!(
             validate_proposal(&proposal),
@@ -1253,6 +1329,8 @@ mod tests {
             }],
             resolved: false,
             resolution_decision_id: None,
+            resolution_decision_digest: None,
+            resolution_authority: None,
         });
         assert_eq!(
             validate_proposal(&proposal),
@@ -1271,6 +1349,8 @@ mod tests {
             stakeholder_positions: Vec::new(),
             resolved: false,
             resolution_decision_id: None,
+            resolution_decision_digest: None,
+            resolution_authority: None,
         });
         assert_eq!(evaluate_ratification(&proposal, NOW).unwrap().state, RatificationStateV1::NeedsDomainExpertReview);
     }
