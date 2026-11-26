@@ -197,6 +197,7 @@
       "required": [
         "event_id",
         "source_artifact_id",
+        "recorded_at_ms",
         "effective_at_ms",
         "policy_epoch_digest",
         "authority_receipt_digest",
@@ -221,6 +222,10 @@
         },
         "event_receipt_digest": {
           "$ref": "#/$defs/digest"
+        },
+        "recorded_at_ms": {
+          "type": "integer",
+          "minimum": 1
         }
       }
     },
@@ -323,6 +328,7 @@
       "additionalProperties": false,
       "required": [
         "snapshot_id",
+        "as_of_ms",
         "graph_digest",
         "snapshot_digest",
         "inventory_complete",
@@ -372,6 +378,10 @@
           "items": {
             "$ref": "#/$defs/use"
           }
+        },
+        "as_of_ms": {
+          "type": "integer",
+          "minimum": 1
         }
       }
     }
