@@ -572,16 +572,18 @@ fn validate_add_operation(
                 ));
             }
             if index + 1 == operation.attempts.len() {
-                report.qualification.indeterminate(format!(
-                    "Add operation {} did not complete with HTTP 200",
+                // The captured retry sequence is complete and exhausted:
+                // this is an observed API failure, not missing evidence.
+                report.qualification.fail(format!(
+                    "Add operation {} exhausted its attempts without durable HTTP 200 success",
                     operation.request_id
                 ));
             }
         }
     }
-    if !success_seen {
+    if !success_seen && operation.attempts.is_empty() {
         report.qualification.indeterminate(format!(
-            "Add operation {} has no durable successful response",
+            "Add operation {} has no captured attempts",
             operation.request_id
         ));
     }
@@ -674,9 +676,9 @@ fn validate_search_operation(
         return;
     }
     if operation.http_status != 200 {
-        report.qualification.indeterminate(format!(
-            "Search operation {} did not return HTTP 200",
-            operation.request_id
+        report.qualification.fail(format!(
+            "Search operation {} returned HTTP {}, not HTTP 200",
+            operation.request_id, operation.http_status
         ));
     }
     if operation.requested_top_k == 0 || operation.requested_top_k > release.top_k {
