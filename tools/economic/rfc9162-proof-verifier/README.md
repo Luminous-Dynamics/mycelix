@@ -23,10 +23,10 @@ The verifier proves properties relative to supplied roots. It does not authentic
 
 - 256-bit key/value map with independent domain-separated SHA-256 hashing.
 - Membership and non-membership proofs with exactly 256 sibling hashes.
-- Query key derivation bound to verifier, policy epoch, subject, claim and dimension.
+- Query key derivation bound to verifier, policy epoch, subject, claim, dimension and exact assertion reference.
 - Value commitment to receipt digest, owner and non-zero owner-local sequence.
 - Independent Go reference and shared known-answer vectors.
-- Exact scope: a non-membership proof establishes only that one key is absent from one supplied sparse-map root. It does not prove the map is complete or all receipts were indexed.
+- Exact scope: a non-membership proof establishes only that one assertion reference is absent from one supplied sparse-map root. It does not prove no other assertion exists for the claim, that any temporal query has no matching candidate, or that the map is complete.
 
 See EXPERIMENTAL_SPARSE_MAP_V1.md for the profile, proof semantics, completeness requirements and VDS interoperability boundary.
 
