@@ -1050,8 +1050,7 @@ mod tests {
 
     #[test]
     fn same_owner_dependency_must_precede_its_receipt() {
-        let owner_cut = cut("owner:a", 10, 'a');
-        let mut candidate = receipt(5, &owner_cut);
+        let mut candidate = receipt(5, "owner:a");
         candidate.causal_dependencies.push(OwnerPositionV1 {
             owner_ref: "owner:a".into(),
             sequence: 5,
@@ -1059,6 +1058,31 @@ mod tests {
         assert_eq!(
             candidate.validate(),
             Err(FrontierModelErrorV1::InvalidCausalDependency)
+        );
+    }
+
+    #[test]
+    fn receipt_canonical_encoding_is_dependency_order_invariant() {
+        let mut first = receipt(5, "owner:grants");
+        first.causal_dependencies = vec![
+            OwnerPositionV1 { owner_ref: "owner:b".into(), sequence: 4 },
+            OwnerPositionV1 { owner_ref: "owner:a".into(), sequence: 2 },
+        ];
+        let mut second = first.clone();
+        second.causal_dependencies.reverse();
+        assert_eq!(
+            canonical_knowledge_receipt_entry_v1(&first).unwrap(),
+            canonical_knowledge_receipt_entry_v1(&second).unwrap()
+        );
+    }
+
+    #[test]
+    fn modified_receipt_payload_fails_digest_validation() {
+        let mut candidate = receipt(5, "owner:grants");
+        candidate.assertion_id = "assertion:tampered".into();
+        assert_eq!(
+            candidate.validate(),
+            Err(FrontierModelErrorV1::ReceiptDigestMismatch)
         );
     }
 
