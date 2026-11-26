@@ -1481,5 +1481,4 @@ mod tests {
             assert!((actual - expected).abs() < 1.0e-8);
         }
     }
-
 }
