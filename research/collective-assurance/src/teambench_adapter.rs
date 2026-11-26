@@ -360,6 +360,7 @@ fn qualify_task(
                 || task.native_grader_output_digest.is_some()
                 || task.native_grader_disposition.is_some()
                 || task.native_score_micros.is_some()
+                || task.resource_usage.is_some()
                 || task.verifier_disposition.is_some()
             {
                 report.qualification.fail(format!(
@@ -710,6 +711,8 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
             report
                 .qualification
                 .indeterminate(format!("required TeamBench condition {condition:?} missing"));
+            report.resource_usage_complete = false;
+            report.resource_usage_missing_or_invalid_count += suite.eligible_task_ids.len();
         }
     }
 
@@ -1092,6 +1095,7 @@ mod tests {
         let report = qualify_teambench_suite(&input);
         assert_eq!(report.qualification.status, QualificationStatus::Indeterminate);
         assert!(!report.benchmark_score_eligible);
+        assert!(!report.resource_usage_complete);
     }
 
     #[test]
