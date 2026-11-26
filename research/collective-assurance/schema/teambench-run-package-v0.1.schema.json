@@ -130,15 +130,17 @@
     },
     "condition": {
       "enum": [
-        "solo",
+        "oracle",
         "restricted",
-        "full",
-        "no_plan",
-        "no_eval"
+        "team_no_verify",
+        "team_no_plan",
+        "full"
       ]
     },
     "role": {
       "enum": [
+        "oracle",
+        "restricted",
         "planner",
         "executor",
         "verifier"
@@ -210,6 +212,7 @@
         "raw_output_digest",
         "native_grader_output_digest",
         "native_grader_disposition",
+        "native_score_micros",
         "verifier_disposition",
         "role_boundary_events"
       ],
@@ -265,6 +268,18 @@
           "items": {
             "$ref": "#/$defs/boundary_event"
           }
+        },
+        "native_score_micros": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       }
     },
@@ -278,9 +293,9 @@
         "role_profile_digest",
         "raw_result_manifest_digest",
         "agent_count",
-        "verifier_present",
         "role_boundary_inventory_complete",
-        "tasks"
+        "tasks",
+        "roles"
       ],
       "properties": {
         "run_id": {
@@ -302,9 +317,6 @@
           "type": "integer",
           "minimum": 1
         },
-        "verifier_present": {
-          "type": "boolean"
-        },
         "role_boundary_inventory_complete": {
           "type": "boolean"
         },
@@ -312,6 +324,14 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/task_observation"
+          }
+        },
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/role"
           }
         }
       }
