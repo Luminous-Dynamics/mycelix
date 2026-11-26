@@ -10,7 +10,7 @@
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
-use crate::{compare_observer_views, ObserverView};
+use crate::{ObserverView, compare_observer_views};
 
 const MEMORY_MANIFEST: &str = include_str!("../memory-sequence-manifest.json");
 
@@ -267,7 +267,10 @@ fn simulate_observer_view(
     let signal_recipient = sequence.family.signal_recipient();
     let mut principal_signals = BTreeMap::<&str, Vec<&str>>::new();
     for principal in principals {
-        principal_signals.insert(principal, Vec::with_capacity(sequence.query_mode.session_count()));
+        principal_signals.insert(
+            principal,
+            Vec::with_capacity(sequence.query_mode.session_count()),
+        );
     }
 
     let mut query_sequence = Vec::with_capacity(sequence.query_mode.session_count());
@@ -336,10 +339,7 @@ fn simulate_observer_view(
         ("principal_count".into(), principals.len().to_string()),
         ("alice_family_signal".into(), join_signals("alice")),
         ("bob_family_signal".into(), join_signals("bob")),
-        (
-            sequence.family.signal_field().into(),
-            "OPAQUE".into(),
-        ),
+        (sequence.family.signal_field().into(), "OPAQUE".into()),
         (
             "authorized_disclosure".into(),
             if sequence.disclosure_mode == DisclosureMode::Authorised {
@@ -373,9 +373,7 @@ fn simulate_observer_view(
 
 fn family_feature(sequence: SequenceSeed, view: &ObserverView) -> String {
     let field = sequence.family.signal_field();
-    view.get(field)
-        .cloned()
-        .unwrap_or_else(|| "MISSING".into())
+    view.get(field).cloned().unwrap_or_else(|| "MISSING".into())
 }
 
 fn attacker_balanced_accuracy(
@@ -395,7 +393,9 @@ fn attacker_balanced_accuracy(
     }) {
         for protected_world in [false, true] {
             let view = simulate_observer_view(*seed, protected_world, profile, coverage);
-            let counts = training.entry(family_feature(*seed, &view)).or_insert([0, 0]);
+            let counts = training
+                .entry(family_feature(*seed, &view))
+                .or_insert([0, 0]);
             counts[usize::from(protected_world)] += 1;
         }
     }
@@ -445,11 +445,8 @@ pub fn evaluate_sequence(
 ) -> SequenceEvaluation {
     let public_view = simulate_observer_view(sequence, false, observer_profile, trace_coverage);
     let protected_view = simulate_observer_view(sequence, true, observer_profile, trace_coverage);
-    let comparison = compare_observer_views(
-        &public_view,
-        &protected_view,
-        REQUIRED_OBSERVER_FIELDS,
-    );
+    let comparison =
+        compare_observer_views(&public_view, &protected_view, REQUIRED_OBSERVER_FIELDS);
 
     let authorised_sensitivity_detected = sequence.disclosure_mode == DisclosureMode::Authorised
         && public_view.get("authorized_disclosure") != protected_view.get("authorized_disclosure");
@@ -488,7 +485,10 @@ pub fn evaluate_sequence(
 pub fn evaluate_panel() -> Vec<SequenceEvaluation> {
     let mut results = Vec::with_capacity(192);
     for seed in sequence_seeds() {
-        for profile in [ObserverProfile::Normalized, ObserverProfile::FamilyLeakControl] {
+        for profile in [
+            ObserverProfile::Normalized,
+            ObserverProfile::FamilyLeakControl,
+        ] {
             for coverage in [TraceCoverage::Complete, TraceCoverage::Incomplete] {
                 results.push(evaluate_sequence(seed, profile, coverage));
             }
@@ -563,11 +563,8 @@ mod tests {
             .into_iter()
             .filter(|seed| seed.disclosure_mode == DisclosureMode::Forbidden)
         {
-            let result = evaluate_sequence(
-                seed,
-                ObserverProfile::Normalized,
-                TraceCoverage::Complete,
-            );
+            let result =
+                evaluate_sequence(seed, ObserverProfile::Normalized, TraceCoverage::Complete);
             assert_eq!(result.disposition, LeakageDisposition::Pass, "{seed:?}");
             assert!(result.mismatched_fields.is_empty());
             assert!(!result.authorised_sensitivity_detected);
@@ -588,8 +585,16 @@ mod tests {
                 ObserverProfile::FamilyLeakControl,
                 TraceCoverage::Complete,
             );
-            assert_eq!(result.disposition, LeakageDisposition::LeakDetected, "{family:?}");
-            assert!(result.mismatched_fields.contains(&family.signal_field().to_owned()));
+            assert_eq!(
+                result.disposition,
+                LeakageDisposition::LeakDetected,
+                "{family:?}"
+            );
+            assert!(
+                result
+                    .mismatched_fields
+                    .contains(&family.signal_field().to_owned())
+            );
             assert_eq!(result.attacker_balanced_accuracy_ppm, Some(1_000_000));
         }
     }
@@ -620,8 +625,14 @@ mod tests {
         );
         assert_eq!(single_result.disposition, LeakageDisposition::Pass);
         assert_eq!(single_result.attacker_balanced_accuracy_ppm, Some(500_000));
-        assert_eq!(colluding_result.disposition, LeakageDisposition::LeakDetected);
-        assert_eq!(colluding_result.attacker_balanced_accuracy_ppm, Some(1_000_000));
+        assert_eq!(
+            colluding_result.disposition,
+            LeakageDisposition::LeakDetected
+        );
+        assert_eq!(
+            colluding_result.attacker_balanced_accuracy_ppm,
+            Some(1_000_000)
+        );
     }
 
     #[test]
@@ -632,7 +643,10 @@ mod tests {
             PrincipalMode::Single,
             DisclosureMode::Authorised,
         );
-        for profile in [ObserverProfile::Normalized, ObserverProfile::FamilyLeakControl] {
+        for profile in [
+            ObserverProfile::Normalized,
+            ObserverProfile::FamilyLeakControl,
+        ] {
             let result = evaluate_sequence(seed, profile, TraceCoverage::Complete);
             assert_eq!(result.disposition, LeakageDisposition::Pass);
             assert!(result.mismatched_fields.is_empty());
@@ -648,11 +662,8 @@ mod tests {
             PrincipalMode::Single,
             DisclosureMode::Forbidden,
         );
-        let result = evaluate_sequence(
-            seed,
-            ObserverProfile::Normalized,
-            TraceCoverage::Incomplete,
-        );
+        let result =
+            evaluate_sequence(seed, ObserverProfile::Normalized, TraceCoverage::Incomplete);
         assert_eq!(result.disposition, LeakageDisposition::Indeterminate);
         assert_eq!(result.missing_fields, vec!["cache_membership"]);
     }
@@ -665,10 +676,18 @@ mod tests {
             PrincipalMode::Single,
             DisclosureMode::Forbidden,
         );
-        let normalized_public =
-            simulate_observer_view(seed, false, ObserverProfile::Normalized, TraceCoverage::Complete);
-        let normalized_protected =
-            simulate_observer_view(seed, true, ObserverProfile::Normalized, TraceCoverage::Complete);
+        let normalized_public = simulate_observer_view(
+            seed,
+            false,
+            ObserverProfile::Normalized,
+            TraceCoverage::Complete,
+        );
+        let normalized_protected = simulate_observer_view(
+            seed,
+            true,
+            ObserverProfile::Normalized,
+            TraceCoverage::Complete,
+        );
         assert_eq!(
             normalized_public.get("query_sequence"),
             normalized_protected.get("query_sequence")
@@ -783,9 +802,10 @@ mod tests {
 
     #[test]
     fn manifest_freezes_the_exact_48_sequence_cross_product_and_claim_ceiling() {
-        assert!(MEMORY_MANIFEST.contains(
-            "\"schema_version\": \"mycelix-memory-longitudinal-leakage-v0.1\""
-        ));
+        assert!(
+            MEMORY_MANIFEST
+                .contains("\"schema_version\": \"mycelix-memory-longitudinal-leakage-v0.1\"")
+        );
         assert!(MEMORY_MANIFEST.contains("\"seed_count\": 48"));
         assert!(MEMORY_MANIFEST.contains("\"evaluation_rows\": 192"));
         assert!(MEMORY_MANIFEST.contains("\"sequence_id\": 47"));
