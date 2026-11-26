@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/relation-counterfactual-v0.1.schema.json",
+  "title": "Relation-Edge Counterfactual Trial v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["trial_id", "intervention", "baseline", "counterfactual"],
+  "properties": {
+    "trial_id": { "type": "string", "minLength": 1 },
+    "intervention": { "$ref": "#/$defs/intervention" },
+    "baseline": { "$ref": "#/$defs/run" },
+    "counterfactual": { "$ref": "#/$defs/run" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "relation_kind": { "enum": ["SameSubject", "SameEvent", "SameDecision", "Supports", "Contradicts", "Supersedes", "Updates", "RelatedContext"] },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["edge_id", "from_evidence_id", "to_evidence_id", "relation", "relation_receipt_digest"],
+      "properties": {
+        "edge_id": { "type": "string", "minLength": 1 },
+        "from_evidence_id": { "type": "string", "minLength": 1 },
+        "to_evidence_id": { "type": "string", "minLength": 1 },
+        "relation": { "$ref": "#/$defs/relation_kind" },
+        "relation_receipt_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "intervention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["intervention_id", "operation", "before", "after"],
+      "properties": {
+        "intervention_id": { "type": "string", "minLength": 1 },
+        "operation": { "enum": ["Add", "Remove", "Reverse", "Relabel"] },
+        "before": { "oneOf": [{ "$ref": "#/$defs/edge" }, { "type": "null" }] },
+        "after": { "oneOf": [{ "$ref": "#/$defs/edge" }, { "type": "null" }] }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "benchmark_id", "benchmark_version", "benchmark_certificate_digest",
+        "split_digest", "task_digest", "source_group_id", "candidate_pool_digest",
+        "retrieval_seed_digest", "model_snapshot_digest", "tokenizer_digest",
+        "prompt_digest", "toolchain_digest", "decoding_digest", "scorer_digest",
+        "evaluator_digest", "inference_plan_digest", "seed_policy_digest",
+        "random_seed_digest", "context_budget_tokens", "output_budget_tokens",
+        "compute_budget_microusd", "wall_clock_budget_ms", "memory_budget_bytes",
+        "agent_count"
+      ],
+      "properties": {
+        "benchmark_id": { "type": "string", "minLength": 1 },
+        "benchmark_version": { "type": "string", "minLength": 1 },
+        "benchmark_certificate_digest": { "$ref": "#/$defs/digest" },
+        "split_digest": { "$ref": "#/$defs/digest" },
+        "task_digest": { "$ref": "#/$defs/digest" },
+        "source_group_id": { "type": "string", "minLength": 1 },
+        "candidate_pool_digest": { "$ref": "#/$defs/digest" },
+        "retrieval_seed_digest": { "$ref": "#/$defs/digest" },
+        "model_snapshot_digest": { "$ref": "#/$defs/digest" },
+        "tokenizer_digest": { "$ref": "#/$defs/digest" },
+        "prompt_digest": { "$ref": "#/$defs/digest" },
+        "toolchain_digest": { "$ref": "#/$defs/digest" },
+        "decoding_digest": { "$ref": "#/$defs/digest" },
+        "scorer_digest": { "$ref": "#/$defs/digest" },
+        "evaluator_digest": { "$ref": "#/$defs/digest" },
+        "inference_plan_digest": { "$ref": "#/$defs/digest" },
+        "seed_policy_digest": { "$ref": "#/$defs/digest" },
+        "random_seed_digest": { "$ref": "#/$defs/digest" },
+        "context_budget_tokens": { "type": "integer", "minimum": 1 },
+        "output_budget_tokens": { "type": "integer", "minimum": 1 },
+        "compute_budget_microusd": { "type": "integer", "minimum": 1 },
+        "wall_clock_budget_ms": { "type": "integer", "minimum": 1 },
+        "memory_budget_bytes": { "type": "integer", "minimum": 1 },
+        "agent_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selected_evidence_ids", "decision_digest", "decision_quality", "constraint_gate", "response_audit_gate", "unauthorized_exposure_count", "latency_ms", "total_cost_microusd"],
+      "properties": {
+        "selected_evidence_ids": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "decision_digest": { "$ref": "#/$defs/digest" },
+        "decision_quality": { "type": "number", "minimum": 0, "maximum": 1 },
+        "constraint_gate": { "enum": ["Pass", "Fail", "Indeterminate"] },
+        "response_audit_gate": { "enum": ["Pass", "Fail", "Indeterminate"] },
+        "unauthorized_exposure_count": { "type": "integer", "minimum": 0 },
+        "latency_ms": { "type": "integer", "minimum": 0 },
+        "total_cost_microusd": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id", "identity", "candidate_evidence_ids", "retrieval_seed_evidence_ids",
+        "relation_graph_digest", "relation_edges", "candidate_pool_complete",
+        "relation_index_complete", "candidate_pool_receipt_digest", "relation_index_receipt_digest",
+        "execution_receipt_digest", "generation_exposure_receipt_digest",
+        "rer_bundle_receipt_digest", "constraint_receipt_digest",
+        "response_audit_receipt_digest", "evaluator_receipt_digest", "outcome"
+      ],
+      "properties": {
+        "run_id": { "type": "string", "minLength": 1 },
+        "identity": { "$ref": "#/$defs/identity" },
+        "candidate_evidence_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "retrieval_seed_evidence_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "relation_graph_digest": { "$ref": "#/$defs/digest" },
+        "relation_edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } },
+        "candidate_pool_complete": { "type": "boolean" },
+        "relation_index_complete": { "type": "boolean" },
+        "candidate_pool_receipt_digest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
+        "relation_index_receipt_digest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
+        "execution_receipt_digest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
+        "generation_exposure_receipt_digest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
+        "rer_bundle_receipt_digest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
+        "constraint_receipt_digest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
+        "response_audit_receipt_digest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
+        "evaluator_receipt_digest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
+        "outcome": { "$ref": "#/$defs/outcome" }
+      }
+    }
+  }
+}
