@@ -305,11 +305,6 @@ impl VerifierFrontierV1 {
         {
             return Err(FrontierModelErrorV1::InvalidCheckpointProof);
         }
-        if self.owner_cuts.is_empty()
-            && parse_digest(&self.checkpoint_root_digest)? != empty_tree_hash()
-        {
-            return Err(FrontierModelErrorV1::InvalidCheckpointProof);
-        }
         Ok(())
     }
 
@@ -479,8 +474,8 @@ impl VerifierFrontierV1 {
             )) else {
                 return Ok(FrontierRelationV1::Unknown);
             };
-            if link.first_tree_size != ancestor.sequence
-                || link.second_tree_size != descendant.sequence
+            if link.first_tree_size != ancestor.tree_size
+                || link.second_tree_size != descendant.tree_size
             {
                 return Ok(FrontierRelationV1::Unknown);
             }
@@ -1058,12 +1053,22 @@ mod tests {
         let mut receipt = receipt(5, "owner:grants");
         attach_receipt_proof(&mut receipt, &mut owner_cut);
         assert_eq!(owner_cut.leaf_index_for_sequence(5), Some(2));
-        let frontier = frontier("frontier:1", vec![owner_cut]);
+        let frontier = frontier("frontier:1", vec![owner_cut.clone()]);
         assert_eq!(
             frontier.classify_receipt(&receipt),
             Ok(ReceiptVisibilityV1::Indeterminate)
         );
         assert!(!frontier.prefix_has_no_declared_gaps("owner:grants", 10));
+
+        // A receipt that claims a sequence inside a declared gap is never
+        // assigned a Merkle leaf index.
+        let mut gap_receipt = receipt(3, "owner:grants");
+        refresh_receipt_digest(&mut gap_receipt);
+        assert_eq!(owner_cut.leaf_index_for_sequence(3), None);
+        assert_eq!(
+            frontier.classify_receipt(&gap_receipt),
+            Ok(ReceiptVisibilityV1::Indeterminate)
+        );
     }
 
     #[test]
@@ -1091,6 +1096,50 @@ mod tests {
         assert_eq!(
             frontier.classify_receipt(&receipt),
             Ok(ReceiptVisibilityV1::Indeterminate)
+        );
+    }
+
+    #[test]
+    fn empty_owner_log_uses_the_rfc_empty_tree_hash() {
+        let candidate = frontier("frontier:empty-owner", vec![cut("owner:empty", 0, 'a')]);
+        assert!(candidate.validate().is_ok());
+        let empty_cut = candidate.owner_cut("owner:empty").unwrap();
+        assert_eq!(empty_cut.tree_size, 0);
+        assert_eq!(parse_digest(&empty_cut.root_digest).unwrap(), empty_tree_hash());
+    }
+
+    #[test]
+    fn checkpoint_inclusion_path_tampering_is_rejected() {
+        let mut candidate = frontier("frontier:1", vec![cut("owner:a", 10, 'a')]);
+        candidate.owner_cuts[0].checkpoint_inclusion.inclusion_path[0] = sha256(b"tampered");
+        assert_eq!(
+            candidate.validate(),
+            Err(FrontierModelErrorV1::InvalidCheckpointProof)
+        );
+    }
+
+    #[test]
+    fn receipt_inclusion_path_tampering_is_rejected() {
+        let mut owner_cut = cut("owner:grants", 10, 'a');
+        let mut receipt = receipt(5, "owner:grants");
+        attach_receipt_proof(&mut receipt, &mut owner_cut);
+        receipt.inclusion.as_mut().unwrap().inclusion_path[0] = sha256(b"tampered");
+        let frontier = frontier("frontier:1", vec![owner_cut]);
+        assert_eq!(
+            frontier.classify_receipt(&receipt),
+            Err(FrontierModelErrorV1::InvalidReceiptProof)
+        );
+    }
+
+    #[test]
+    fn consistency_proof_path_tampering_is_unknown() {
+        let first = frontier("frontier:first", vec![cut("owner:a", 10, 'a')]);
+        let later = frontier("frontier:later", vec![cut("owner:a", 20, 'a')]);
+        let mut link = consistency_link("owner:a", 10, 20);
+        link.consistency_path[0] = sha256(b"tampered");
+        assert_eq!(
+            first.compare(&later, &[link]),
+            Ok(FrontierRelationV1::Unknown)
         );
     }
 
