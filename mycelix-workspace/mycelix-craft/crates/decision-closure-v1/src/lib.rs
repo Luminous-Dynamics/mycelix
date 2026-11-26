@@ -1230,6 +1230,61 @@ mod tests {
     }
 
     #[test]
+    fn exhaustive_four_element_dependency_graphs_match_cycle_oracle() {
+        let ids = ["a", "b", "c", "d"];
+        let edges = [
+            (0usize, 1usize), (0, 2), (0, 3),
+            (1, 0), (1, 2), (1, 3),
+            (2, 0), (2, 1), (2, 3),
+            (3, 0), (3, 1), (3, 2),
+        ];
+
+        for mask in 0usize..(1usize << edges.len()) {
+            let mut dependencies = vec![Vec::<String>::new(); ids.len()];
+            let mut reachability = [[false; 4]; 4];
+            for (index, (from, to)) in edges.iter().enumerate() {
+                if mask & (1usize << index) != 0 {
+                    dependencies[*from].push(ids[*to].to_owned());
+                    reachability[*from][*to] = true;
+                }
+            }
+
+            // Independent transitive-closure oracle: a directed cycle exists
+            // exactly when one node can reach itself through at least one edge.
+            for via in 0..4 {
+                for from in 0..4 {
+                    for to in 0..4 {
+                        reachability[from][to] |= reachability[from][via] && reachability[via][to];
+                    }
+                }
+            }
+            let has_cycle = (0..4).any(|index| reachability[index][index]);
+
+            let elements = ids
+                .iter()
+                .enumerate()
+                .map(|(index, id)| {
+                    element(id, dependencies[index].clone(), Vec::new())
+                })
+                .collect::<Vec<_>>();
+            let result = validate_dependency_graph(&elements);
+            if has_cycle {
+                assert_eq!(
+                    result,
+                    Err(DecisionClosureErrorV1::DependencyCycle),
+                    "cycle oracle mismatch for graph mask {mask:#014b}"
+                );
+            } else {
+                assert_eq!(
+                    result,
+                    Ok(()),
+                    "DAG oracle mismatch for graph mask {mask:#014b}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn duplicate_element_ids_are_rejected() {
         let elements = vec![
             element("duplicate", Vec::new(), Vec::new()),
