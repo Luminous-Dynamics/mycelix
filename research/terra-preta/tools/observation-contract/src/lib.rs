@@ -137,7 +137,10 @@ impl Display for ContractError {
         match self {
             Self::EmptyField(name) => write!(formatter, "required field {name} is empty"),
             Self::MissingIdentifier { record_id, level } => {
-                write!(formatter, "record {record_id} lacks {level:?} grouping identifier")
+                write!(
+                    formatter,
+                    "record {record_id} lacks {level:?} grouping identifier"
+                )
             }
             Self::InvalidNumber(name) => write!(formatter, "{name} must be finite and positive"),
             Self::InvalidRange(name) => write!(formatter, "{name} is outside its valid range"),
@@ -204,10 +207,18 @@ pub fn validate_manifest(manifest: &DatasetManifest) -> Result<(), ContractError
     nonempty(&manifest.record_url, "record_url")?;
     nonempty(&manifest.notes, "notes")?;
 
-    if manifest.doi.as_ref().is_some_and(|doi| doi.trim().is_empty()) {
+    if manifest
+        .doi
+        .as_ref()
+        .is_some_and(|doi| doi.trim().is_empty())
+    {
         return Err(ContractError::EmptyField("doi"));
     }
-    if manifest.license.as_ref().is_some_and(|license| license.trim().is_empty()) {
+    if manifest
+        .license
+        .as_ref()
+        .is_some_and(|license| license.trim().is_empty())
+    {
         return Err(ContractError::EmptyField("license"));
     }
     if manifest.row_count == Some(0)
@@ -260,9 +271,7 @@ pub fn validate_observation(
             } else if matches!(unit.as_str(), "%" | "percent" | "percentage")
                 && observation.value > 100.0
             {
-                return Err(ContractError::InvalidRange(
-                    "water retention percentage",
-                ));
+                return Err(ContractError::InvalidRange("water retention percentage"));
             }
         }
     }
@@ -391,13 +400,12 @@ pub fn grouped_folds(
         .iter()
         .map(|observation| {
             let group_id = canonical_group_id(observation, level)?;
-            let fold = group_to_fold
-                .get(group_id)
-                .copied()
-                .ok_or_else(|| ContractError::MissingIdentifier {
+            let fold = group_to_fold.get(group_id).copied().ok_or_else(|| {
+                ContractError::MissingIdentifier {
                     record_id: observation.record_id.clone(),
                     level,
-                })?;
+                }
+            })?;
             Ok(FoldAssignment {
                 record_id: observation.record_id.clone(),
                 canonical_group_id: group_id.to_string(),
@@ -611,8 +619,14 @@ mod tests {
     fn observation_retains_protocol_label_and_support_domain() {
         let record = observation("r1", "sample-1", "site-1", "study-1");
         validate_observation(&record, &source_registry()).unwrap();
-        assert_eq!(record.support.protocol, ProtocolClass::LaboratoryConstantHead);
-        assert_eq!(record.support.original_method_label, "constant head permeameter");
+        assert_eq!(
+            record.support.protocol,
+            ProtocolClass::LaboratoryConstantHead
+        );
+        assert_eq!(
+            record.support.original_method_label,
+            "constant head permeameter"
+        );
         assert_eq!(record.support.domain, SupportDomain::UndisturbedCore);
     }
 
@@ -690,17 +704,21 @@ mod tests {
                 "study-small",
             ));
         }
-        records.push(observation("single", "group-single", "site-single", "study-single"));
+        records.push(observation(
+            "single",
+            "group-single",
+            "site-single",
+            "study-single",
+        ));
 
         let assignments = grouped_folds(&records, GroupingLevel::PhysicalSample, 3).unwrap();
         let mut loads = [0usize; 3];
         let mut group_folds = BTreeMap::<String, usize>::new();
         for assignment in &assignments {
             loads[assignment.fold] += 1;
-            if let Some(previous) = group_folds.insert(
-                assignment.canonical_group_id.clone(),
-                assignment.fold,
-            ) {
+            if let Some(previous) =
+                group_folds.insert(assignment.canonical_group_id.clone(), assignment.fold)
+            {
                 assert_eq!(previous, assignment.fold);
             }
         }
