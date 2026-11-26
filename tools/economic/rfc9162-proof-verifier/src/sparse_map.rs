@@ -548,6 +548,22 @@ mod tests {
     }
 
     #[test]
+    fn sparse_index_identifiers_are_bounded() {
+        let too_long = "x".repeat(1_025);
+        assert_eq!(
+            assertion_index_key_v1(
+                "verifier",
+                "policy",
+                &too_long,
+                "claim",
+                "VALID_AT",
+                "assertion",
+            ),
+            Err(SparseMerkleErrorV1::IdentifierTooLong)
+        );
+    }
+
+    #[test]
     fn query_keys_are_scoped_by_verifier_policy_subject_claim_and_dimension() {
         let baseline = assertion_index_key_v1(
             "did:mycelix:verifier:finance-v1",
