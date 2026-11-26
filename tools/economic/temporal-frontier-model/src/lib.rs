@@ -966,7 +966,7 @@ mod tests {
         }
 
         for (a_positions, a) in &states {
-            for (b_positions, b) in &states {
+            for (b_positions, _b) in &states {
                 if vector_oracle(*a_positions, *b_positions) != FrontierRelationV1::Before {
                     continue;
                 }
