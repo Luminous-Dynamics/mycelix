@@ -439,6 +439,65 @@ pub struct RatificationEvaluationV1 {
     pub unresolved_contradictions: Vec<String>,
 }
 
+/// Minimal authority-bearing handoff from Need Intake into downstream project formation.
+///
+/// The host must still authenticate the local authority reference and perform
+/// the explicit conversion into the Project Formation V1 domain schema.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RatifiedNeedEnvelopeV1 {
+    /// Original community need identifier.
+    pub need_id: String,
+    /// Exact proposal revision digest that was ratified.
+    pub proposal_digest: [u8; 32],
+    /// Proposal revision.
+    pub proposal_revision: u64,
+    /// Alternative explicitly selected by the local ratifier, when options exist.
+    pub selected_alternative_id: Option<String>,
+    /// Exact local ratification decision identifier.
+    pub ratification_decision_id: String,
+    /// Exact local ratification decision digest.
+    pub ratification_decision_digest: [u8; 32],
+    /// Local authority that adopted the proposal.
+    pub ratification_authority: LocalAuthorityRefV1,
+    /// Time at which the local ratifier approved this proposal digest.
+    pub ratified_at: u64,
+}
+
+/// Construct the downstream handoff only after every required review and local
+/// ratification is current for the exact proposal digest.
+pub fn ratified_need_envelope(
+    proposal: &NeedProposalV1,
+    now: u64,
+) -> Result<RatifiedNeedEnvelopeV1, NeedIntakeErrorV1> {
+    let evaluation = evaluate_ratification(proposal, now)?;
+    if evaluation.state != RatificationStateV1::Ratified {
+        return Err(NeedIntakeErrorV1::NotRatified);
+    }
+    let ratification = proposal
+        .reviews
+        .iter()
+        .find(|review| {
+            review.role == ReviewRoleV1::LocalRatifier
+                && review.decision == ReviewDecisionV1::Approve
+                && review.proposal_digest == proposal.proposal_digest
+                && review.reviewed_at <= now
+                && review.valid_until.map(|expiry| now < expiry).unwrap_or(true)
+                && review.withdrawn_at.map(|time| now < time).unwrap_or(true)
+        })
+        .ok_or(NeedIntakeErrorV1::NotRatified)?;
+
+    Ok(RatifiedNeedEnvelopeV1 {
+        need_id: proposal.need.need_id.clone(),
+        proposal_digest: proposal.proposal_digest,
+        proposal_revision: proposal.revision,
+        selected_alternative_id: ratification.selected_alternative_id.clone(),
+        ratification_decision_id: ratification.authority.decision_id.clone(),
+        ratification_decision_digest: ratification.authority.decision_digest,
+        ratification_authority: ratification.authority.clone(),
+        ratified_at: ratification.reviewed_at,
+    })
+}
+
 fn validate_authority(authority: &LocalAuthorityRefV1) -> Result<(), NeedIntakeErrorV1> {
     require_non_empty(&authority.policy_id)?;
     require_non_empty(&authority.decision_id)?;
@@ -1117,6 +1176,64 @@ mod tests {
         assert_eq!(ready.missing_roles, vec![ReviewRoleV1::LocalRatifier]);
         proposal.reviews.push(review(ReviewRoleV1::LocalRatifier, ReviewDecisionV1::Approve, proposal.proposal_digest));
         assert_eq!(evaluate_ratification(&proposal, NOW).unwrap().state, RatificationStateV1::Ratified);
+    }
+
+    #[test]
+    fn ratified_handoff_contains_exact_proposal_and_selected_alternative() {
+        let mut proposal = valid_proposal();
+        prerequisite_reviews(&mut proposal);
+        proposal.reviews.push(review(
+            ReviewRoleV1::LocalRatifier,
+            ReviewDecisionV1::Approve,
+            proposal.proposal_digest,
+        ));
+        let envelope = ratified_need_envelope(&proposal, NOW).unwrap();
+        assert_eq!(envelope.need_id, proposal.need.need_id);
+        assert_eq!(envelope.proposal_digest, proposal.proposal_digest);
+        assert_eq!(envelope.proposal_revision, proposal.revision);
+        assert_eq!(
+            envelope.selected_alternative_id.as_deref(),
+            Some("incremental-repair")
+        );
+        assert_eq!(envelope.ratification_decision_id, "decision-reviewer-LocalRatifier");
+    }
+
+    #[test]
+    fn unratified_proposal_cannot_produce_downstream_handoff() {
+        let proposal = valid_proposal();
+        assert_eq!(
+            ratified_need_envelope(&proposal, NOW),
+            Err(NeedIntakeErrorV1::NotRatified)
+        );
+    }
+
+    #[test]
+    fn ratification_cannot_select_an_unknown_or_model_selected_alternative() {
+        let mut proposal = valid_proposal();
+        let mut invalid = review(
+            ReviewRoleV1::LocalRatifier,
+            ReviewDecisionV1::Approve,
+            proposal.proposal_digest,
+        );
+        invalid.selected_alternative_id = Some("model-invented-option".to_owned());
+        proposal.reviews.push(invalid);
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::InvalidSelectedAlternative)
+        );
+
+        let mut proposal = valid_proposal();
+        let mut model_review = review(
+            ReviewRoleV1::DomainExpert,
+            ReviewDecisionV1::Approve,
+            proposal.proposal_digest,
+        );
+        model_review.selected_alternative_id = Some("incremental-repair".to_owned());
+        proposal.reviews.push(model_review);
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::InvalidSelectedAlternative)
+        );
     }
 
     #[test]
