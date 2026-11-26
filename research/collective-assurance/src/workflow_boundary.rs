@@ -537,12 +537,6 @@ fn run_metrics(run: &WorkflowRun) -> WorkflowBoundaryMetrics {
         .filter(|contract| contract.required)
         .count();
 
-    let artifacts: BTreeMap<&str, &WorkflowArtifact> = run
-        .artifacts
-        .iter()
-        .map(|artifact| (artifact.artifact_id.as_str(), artifact))
-        .collect();
-
     for exposure in &run.exposures {
         match exposure.disposition {
             ArtifactExposureDisposition::Consumed => metrics.consumed_exposure_count += 1,
