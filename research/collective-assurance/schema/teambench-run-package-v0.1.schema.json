@@ -295,7 +295,9 @@
         "agent_count",
         "role_boundary_inventory_complete",
         "tasks",
-        "roles"
+        "roles",
+        "execution_backend",
+        "runtime_manifest_digest"
       ],
       "properties": {
         "run_id": {
@@ -333,6 +335,23 @@
           "items": {
             "$ref": "#/$defs/role"
           }
+        },
+        "execution_backend": {
+          "enum": [
+            "in_process_tool_boundary",
+            "docker_container_isolation",
+            "unknown"
+          ]
+        },
+        "runtime_manifest_digest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       }
     }
