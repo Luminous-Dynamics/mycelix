@@ -519,18 +519,3 @@ func hashIntervalScopedRootV1(scope IntervalScopeV1, count uint64, treeHash [32]
 	buf.Write(treeHash[:])
 	return sha256.Sum256(buf.Bytes())
 }
-
-// cloneIntervalProofNodeV1 is test support for immutable adversarial mutations.
-func cloneIntervalProofNodeV1(node *IntervalProofNodeV1) *IntervalProofNodeV1 {
-	if node == nil {
-		return nil
-	}
-	out := *node
-	if node.Record != nil {
-		record := *node.Record
-		out.Record = &record
-	}
-	out.Left = cloneIntervalProofNodeV1(node.Left)
-	out.Right = cloneIntervalProofNodeV1(node.Right)
-	return &out
-}
