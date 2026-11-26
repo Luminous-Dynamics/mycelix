@@ -149,6 +149,7 @@ pub enum FrontierModelErrorV1 {
     InvalidCausalDependency,
     InvalidReceiptSequence,
     InvalidInclusionDeclaration,
+    TextTooLong,
     InvalidCheckpointProof,
     InvalidReceiptProof,
     InvalidConsistencyProof,
@@ -481,6 +482,125 @@ impl KnowledgeReceiptV1 {
         }
         Ok(())
     }
+}
+
+/// Canonical owner-cut entry bytes committed by the aggregate checkpoint.
+/// Inclusion-proof metadata is excluded to avoid self-reference.
+pub fn canonical_owner_cut_entry_v1(
+    cut: &OwnerCutV1,
+) -> Result<Vec<u8>, FrontierModelErrorV1> {
+    validate_id(&cut.owner_ref)?;
+    validate_id(&cut.history_ref)?;
+    validate_digest(&cut.root_digest)?;
+    let gap_count = u32::try_from(cut.gaps.len())
+        .map_err(|_| FrontierModelErrorV1::TextTooLong)?;
+    let mut bytes = b"MYCELIX-OWNER-CUT-V1\0".to_vec();
+    append_string(&mut bytes, &cut.owner_ref)?;
+    append_string(&mut bytes, &cut.history_ref)?;
+    bytes.extend_from_slice(&cut.sequence.to_be_bytes());
+    append_string(&mut bytes, &cut.root_digest)?;
+    bytes.extend_from_slice(&gap_count.to_be_bytes());
+    for gap in &cut.gaps {
+        bytes.extend_from_slice(&gap.first.to_be_bytes());
+        bytes.extend_from_slice(&gap.last.to_be_bytes());
+    }
+    Ok(bytes)
+}
+
+/// Canonical verifier-acceptance receipt bytes. Inclusion proof fields and the
+/// receipt digest itself are excluded; causal dependencies are sorted so a
+/// permutation of an otherwise identical dependency set has one encoding.
+pub fn canonical_knowledge_receipt_entry_v1(
+    receipt: &KnowledgeReceiptV1,
+) -> Result<Vec<u8>, FrontierModelErrorV1> {
+    validate_id(&receipt.receipt_id)?;
+    validate_id(&receipt.verifier_ref)?;
+    validate_id(&receipt.assertion_id)?;
+    validate_digest(&receipt.assertion_digest)?;
+    validate_id(&receipt.owner_ref)?;
+    if receipt.owner_sequence == 0 {
+        return Err(FrontierModelErrorV1::InvalidReceiptSequence);
+    }
+
+    let mut dependencies: Vec<(&str, u64)> = receipt
+        .causal_dependencies
+        .iter()
+        .map(|dependency| {
+            validate_id(&dependency.owner_ref)?;
+            if dependency.sequence == 0 {
+                return Err(FrontierModelErrorV1::InvalidCausalDependency);
+            }
+            Ok((dependency.owner_ref.as_str(), dependency.sequence))
+        })
+        .collect::<Result<_, FrontierModelErrorV1>>()?;
+    dependencies.sort_unstable();
+
+    for pair in dependencies.windows(2) {
+        if pair[0] == pair[1] {
+            return Err(FrontierModelErrorV1::DuplicateDependency);
+        }
+    }
+
+    let dependency_count = u32::try_from(dependencies.len())
+        .map_err(|_| FrontierModelErrorV1::TextTooLong)?;
+    let mut bytes = b"MYCELIX-KNOWLEDGE-RECEIPT-V1\0".to_vec();
+    append_string(&mut bytes, &receipt.receipt_id)?;
+    append_string(&mut bytes, &receipt.verifier_ref)?;
+    append_string(&mut bytes, &receipt.assertion_id)?;
+    append_string(&mut bytes, &receipt.assertion_digest)?;
+    append_string(&mut bytes, &receipt.owner_ref)?;
+    bytes.extend_from_slice(&receipt.owner_sequence.to_be_bytes());
+    bytes.extend_from_slice(&dependency_count.to_be_bytes());
+    for (owner_ref, sequence) in dependencies {
+        append_string(&mut bytes, owner_ref)?;
+        bytes.extend_from_slice(&sequence.to_be_bytes());
+    }
+    Ok(bytes)
+}
+
+fn append_string(
+    output: &mut Vec<u8>,
+    value: &str,
+) -> Result<(), FrontierModelErrorV1> {
+    let length = u32::try_from(value.len())
+        .map_err(|_| FrontierModelErrorV1::TextTooLong)?;
+    output.extend_from_slice(&length.to_be_bytes());
+    output.extend_from_slice(value.as_bytes());
+    Ok(())
+}
+
+fn parse_digest(value: &str) -> Result<Hash32, FrontierModelErrorV1> {
+    let Some(hex) = value.strip_prefix("sha256:") else {
+        return Err(FrontierModelErrorV1::InvalidDigest);
+    };
+    if hex.len() != 64 {
+        return Err(FrontierModelErrorV1::InvalidDigest);
+    }
+    let mut output = [0_u8; 32];
+    for (index, pair) in hex.as_bytes().chunks_exact(2).enumerate() {
+        let high = hex_nibble(pair[0]).ok_or(FrontierModelErrorV1::InvalidDigest)?;
+        let low = hex_nibble(pair[1]).ok_or(FrontierModelErrorV1::InvalidDigest)?;
+        output[index] = (high << 4) | low;
+    }
+    Ok(output)
+}
+
+fn hex_nibble(value: u8) -> Option<u8> {
+    match value {
+        b'0'..=b'9' => Some(value - b'0'),
+        b'a'..=b'f' => Some(value - b'a' + 10),
+        _ => None,
+    }
+}
+
+fn hex_lower(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        output.push(HEX[(byte >> 4) as usize] as char);
+        output.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    output
 }
 
 fn validate_id(value: &str) -> Result<(), FrontierModelErrorV1> {
