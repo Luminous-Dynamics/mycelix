@@ -45,6 +45,16 @@ struct Fixture {
 }
 
 #[derive(Clone, Debug, Serialize)]
+struct ObservationSensitivity {
+    parameter_id: String,
+    observed_quantity_id: String,
+    observed_value: f64,
+    derivative_per_unit_log_parameter: f64,
+    derivative_unit: String,
+    log_elasticity: f64,
+}
+
+#[derive(Clone, Debug, Serialize)]
 struct ObservationReceipt {
     record_id: String,
     physical_sample_group_id: String,
@@ -58,6 +68,7 @@ struct ObservationReceipt {
     estimated_k_m_s: f64,
     forward_reconstruction_error: f64,
     forward_reconstruction_relative_error: f64,
+    local_sensitivity: ObservationSensitivity,
     observation_operator: String,
     assumptions: Vec<String>,
 }
@@ -201,6 +212,15 @@ fn analyse_observation(observation: &LabObservation) -> Result<ObservationReceip
                 estimated_k_m_s: k,
                 forward_reconstruction_error: absolute_error,
                 forward_reconstruction_relative_error: relative_error,
+                local_sensitivity: ObservationSensitivity {
+                    parameter_id: "log_hydraulic_conductivity".into(),
+                    observed_quantity_id: "flow_rate_m3_s".into(),
+                    observed_value: predicted_flow,
+                    // Q(K) is linear in K, so dQ / d(log K) = Q.
+                    derivative_per_unit_log_parameter: predicted_flow,
+                    derivative_unit: "m^3 s^-1 per unit log(K [m s^-1])".into(),
+                    log_elasticity: 1.0,
+                },
                 observation_operator: "Q = K * A * delta_h / L; K = Q * L / (A * delta_h)".into(),
                 assumptions: vec![
                     "steady saturated one-dimensional Darcy flow".into(),
@@ -261,6 +281,20 @@ fn analyse_observation(observation: &LabObservation) -> Result<ObservationReceip
                 estimated_k_m_s: k,
                 forward_reconstruction_error: absolute_error,
                 forward_reconstruction_relative_error: relative_error,
+                local_sensitivity: {
+                    let standpipe_area = PI * standpipe_diameter_m.powi(2) / 4.0;
+                    let exponent = -k * area * elapsed_time_s
+                        / (standpipe_area * specimen.length_m);
+                    ObservationSensitivity {
+                        parameter_id: "log_hydraulic_conductivity".into(),
+                        observed_quantity_id: "final_head_m".into(),
+                        observed_value: predicted_final,
+                        // h1 = h0 * exp(-K*A*t/(a*L)); d(h1)/d(log K) = h1 * exponent.
+                        derivative_per_unit_log_parameter: predicted_final * exponent,
+                        derivative_unit: "m per unit log(K [m s^-1])".into(),
+                        log_elasticity: exponent,
+                    }
+                },
                 observation_operator: "K = (a * L / (A * t)) * ln(h0 / h1); h1 = h0 * exp(-K * A * t / (a * L))".into(),
                 assumptions: vec![
                     "saturated one-dimensional Darcy flow".into(),
@@ -480,4 +514,89 @@ mod tests {
         assert!(receipt.observation_operator.contains("Q = K * A"));
         assert!(receipt.assumptions.iter().any(|item| item.contains("one-dimensional")));
     }
+    #[test]
+    fn constant_head_observation_jacobian_matches_log_parameter_finite_difference() {
+        let specimen = geometry();
+        let k = 1.0e-5;
+        let delta_head = 0.4;
+        let flow = predict_constant_head_flow(k, &specimen, delta_head).unwrap();
+        let epsilon = 1.0e-6;
+        let plus = predict_constant_head_flow(k * epsilon.exp(), &specimen, delta_head).unwrap();
+        let minus = predict_constant_head_flow(k * (-epsilon).exp(), &specimen, delta_head).unwrap();
+        let finite_difference = (plus - minus) / (2.0 * epsilon);
+        assert!((finite_difference / flow - 1.0).abs() < 1.0e-8);
+
+        let observation = LabObservation::ConstantHead {
+            record_id: "jacobian-constant".into(),
+            physical_sample_group_id: "sample-jacobian".into(),
+            original_method_label: "constant head".into(),
+            specimen_preparation: "undisturbed".into(),
+            specimen: specimen.clone(),
+            delta_head_m: delta_head,
+            flow_rate_m3_s: flow,
+        };
+        let receipt = analyse_observation(&observation).unwrap();
+        assert_eq!(receipt.local_sensitivity.parameter_id, "log_hydraulic_conductivity");
+        assert_eq!(receipt.local_sensitivity.observed_quantity_id, "flow_rate_m3_s");
+        assert!((receipt.local_sensitivity.derivative_per_unit_log_parameter / flow - 1.0).abs() < 1.0e-12);
+        assert!((receipt.local_sensitivity.log_elasticity - 1.0).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn falling_head_observation_jacobian_matches_log_parameter_finite_difference() {
+        let specimen = geometry();
+        let standpipe_diameter = 0.005;
+        let elapsed = 600.0;
+        let initial = 1.0;
+        for k in [1.0e-8, 1.0e-6, 1.0e-4] {
+            let final_head = predict_falling_head_final(
+                k,
+                &specimen,
+                standpipe_diameter,
+                elapsed,
+                initial,
+            )
+            .unwrap();
+            let standpipe_area = PI * standpipe_diameter.powi(2) / 4.0;
+            let exponent = -k * specimen_area(&specimen).unwrap() * elapsed
+                / (standpipe_area * specimen.length_m);
+            let analytic = final_head * exponent;
+            let epsilon = 1.0e-6;
+            let plus = predict_falling_head_final(
+                k * epsilon.exp(),
+                &specimen,
+                standpipe_diameter,
+                elapsed,
+                initial,
+            )
+            .unwrap();
+            let minus = predict_falling_head_final(
+                k * (-epsilon).exp(),
+                &specimen,
+                standpipe_diameter,
+                elapsed,
+                initial,
+            )
+            .unwrap();
+            let finite_difference = (plus - minus) / (2.0 * epsilon);
+            assert!((finite_difference / analytic - 1.0).abs() < 1.0e-7);
+
+            let observation = LabObservation::FallingHead {
+                record_id: format!("jacobian-falling-{k:e}"),
+                physical_sample_group_id: "sample-jacobian".into(),
+                original_method_label: "falling head".into(),
+                specimen_preparation: "undisturbed".into(),
+                specimen: specimen.clone(),
+                standpipe_diameter_m: standpipe_diameter,
+                elapsed_time_s: elapsed,
+                initial_head_m: initial,
+                final_head_m: final_head,
+            };
+            let receipt = analyse_observation(&observation).unwrap();
+            assert_eq!(receipt.local_sensitivity.observed_quantity_id, "final_head_m");
+            assert!((receipt.local_sensitivity.derivative_per_unit_log_parameter / analytic - 1.0).abs() < 1.0e-12);
+            assert!((receipt.local_sensitivity.log_elasticity - exponent).abs() < 1.0e-12);
+        }
+    }
+
 }
