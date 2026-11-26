@@ -72,6 +72,8 @@ Split by community/project and time, not random statements, so near-duplicate pr
 | Dangerous omission | Critical safety issue not surfaced for review | 0 in frozen adversarial set |
 | Review-binding integrity | Approvals accepted for a changed/non-current digest | 0 |
 | Unauthorized ratification | Proposal ratified without all required role and local-authority approvals | 0 |
+| Unmapped claim | Outcome or capability requirement exists outside the proposed work-package graph | 0 |
+| Safety review omission | SafetyCritical capability requirement exists without a mandatory safety review path | 0 |
 | Independent replay | Second implementation reproduces every frozen classification | 100% |
 
 These are proposed qualification thresholds, not measured results. Report confidence intervals and every false positive/negative. The zero targets apply to the frozen conformance and adversarial corpus, not a claim of universal zero risk.
