@@ -502,6 +502,7 @@ pub fn evaluate_panel() -> Vec<SequenceEvaluation> {
 }
 
 pub fn report_csv() -> String {
+    let _manifest = MEMORY_MANIFEST;
     let mut output = String::new();
     writeln!(
         output,
