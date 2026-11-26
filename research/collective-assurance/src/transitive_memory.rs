@@ -1126,6 +1126,129 @@ mod tests {
     }
 
     #[test]
+    fn historical_use_keeps_its_event_time_snapshot_reference() {
+        let root = source();
+        let child = derivative(&root);
+        let event = MemoryRevocationEvent {
+            event_id: "revoke-01".into(),
+            source_artifact_id: "source".into(),
+            effective_at_ms: 150,
+            recorded_at_ms: 140,
+            policy_epoch_digest: digest('3'),
+            authority_receipt_digest: digest('4'),
+            event_receipt_digest: digest('5'),
+        };
+        let graph_digest =
+            compute_memory_graph_digest(&[root.clone(), child.clone()]).unwrap();
+        let closure = MemoryRevocationClosure {
+            event_id: "revoke-01".into(),
+            source_artifact_id: "source".into(),
+            descendant_artifact_ids: vec!["summary".into()],
+            graph_digest,
+            complete: true,
+            closure_receipt_digest: digest('6'),
+        };
+        let mut snapshot = base_snapshot(vec![root, child.clone()], vec![event], vec![closure]);
+        snapshot.uses.push(use_event(
+            "historical-use",
+            &child,
+            &snapshot,
+            100,
+            MemoryUseDisposition::Consumed,
+        ));
+        // This is a separately archived pre-revocation policy snapshot.
+        snapshot.uses[0].snapshot_digest = digest('a');
+        let report = qualify_transitive_memory_snapshot(&snapshot);
+        assert_eq!(report.status, TransitiveMemoryStatus::Pass);
+        assert_eq!(report.consumed_use_count, 1);
+    }
+
+    #[test]
+    fn revocation_effective_before_observation_does_not_rewrite_prior_use() {
+        let root = source();
+        let child = derivative(&root);
+        let event = MemoryRevocationEvent {
+            event_id: "revoke-01".into(),
+            source_artifact_id: "source".into(),
+            effective_at_ms: 100,
+            recorded_at_ms: 200,
+            policy_epoch_digest: digest('3'),
+            authority_receipt_digest: digest('4'),
+            event_receipt_digest: digest('5'),
+        };
+        let graph_digest =
+            compute_memory_graph_digest(&[root.clone(), child.clone()]).unwrap();
+        let closure = MemoryRevocationClosure {
+            event_id: "revoke-01".into(),
+            source_artifact_id: "source".into(),
+            descendant_artifact_ids: vec!["summary".into()],
+            graph_digest,
+            complete: true,
+            closure_receipt_digest: digest('6'),
+        };
+        let mut snapshot = base_snapshot(vec![root, child.clone()], vec![event], vec![closure]);
+        snapshot.uses.push(use_event(
+            "before-observation",
+            &child,
+            &snapshot,
+            150,
+            MemoryUseDisposition::Consumed,
+        ));
+        snapshot.uses.push(use_event(
+            "after-observation",
+            &child,
+            &snapshot,
+            250,
+            MemoryUseDisposition::BlockedByRevocation,
+        ));
+        snapshot.uses[0].snapshot_digest = digest('a');
+        snapshot.uses[1].snapshot_digest = digest('b');
+        let report = qualify_transitive_memory_snapshot(&snapshot);
+        assert_eq!(report.status, TransitiveMemoryStatus::Pass);
+        assert_eq!(report.consumed_use_count, 1);
+        assert_eq!(report.blocked_use_count, 1);
+    }
+
+    #[test]
+    fn derivative_created_after_known_revocation_fails() {
+        let root = source();
+        let mut child = derivative(&root);
+        child.created_at_ms = 200;
+        let event = MemoryRevocationEvent {
+            event_id: "revoke-01".into(),
+            source_artifact_id: "source".into(),
+            effective_at_ms: 150,
+            recorded_at_ms: 140,
+            policy_epoch_digest: digest('3'),
+            authority_receipt_digest: digest('4'),
+            event_receipt_digest: digest('5'),
+        };
+        let snapshot = base_snapshot(vec![root, child], vec![event], Vec::new());
+        assert_eq!(
+            qualify_transitive_memory_snapshot(&snapshot).status,
+            TransitiveMemoryStatus::Fail
+        );
+    }
+
+    #[test]
+    fn multi_source_derivative_must_fit_every_parent_scope() {
+        let root = source();
+        let mut second = source();
+        second.artifact_id = "source-2".into();
+        second.payload_digest = digest('8');
+        second.scope.entities = vec!["entity-2".into()];
+        let mut child = derivative(&root);
+        child.artifact_id = "composite".into();
+        child.parent_artifact_ids = vec!["source".into(), "source-2".into()];
+        child.payload_digest = digest('9');
+        let snapshot = base_snapshot(vec![root, second, child], Vec::new(), Vec::new());
+        assert_eq!(
+            qualify_transitive_memory_snapshot(&snapshot).status,
+            TransitiveMemoryStatus::Fail
+        );
+    }
+
+    #[test]
     fn incomplete_revocation_closure_is_indeterminate() {
         let root = source();
         let child = derivative(&root);
