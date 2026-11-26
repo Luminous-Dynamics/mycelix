@@ -79,6 +79,8 @@ Split by community/project and time, not random statements, so near-duplicate pr
 | Unauthorized ratification | Proposal ratified without all required role and local-authority approvals | 0 |
 | Unselected alternative handoff | Downstream handoff emitted without a local selection of the exact alternative | 0 |
 | Model-selected alternative | AI/decomposer role selects the adopted option | 0 |
+| Handoff field loss | Ratified proposal is converted with missing vocabulary/policy/scope/context/freshness data | 0 |
+| Consent-term conflation | Proposal digest is reused as participant acceptance terms without a separate consent contract | 0 |
 | Unratified handoff | Project handoff emitted while proposal is Draft/ReviewRequired/Rejected | 0 |
 | Unmapped claim | Outcome or capability requirement exists outside the proposed work-package graph | 0 |
 | Safety review omission | SafetyCritical capability requirement exists without a mandatory safety review path | 0 |
