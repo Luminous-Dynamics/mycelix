@@ -306,6 +306,8 @@ pub struct AmlQualificationReport {
     pub model_policy_eligible: bool,
     /// Official release, pipeline, data, answer-model and evaluator hashes match.
     pub release_provenance_eligible: bool,
+    /// The exact official question set completed without missing tasks.
+    pub evaluation_coverage_eligible: bool,
     /// Only a completed official Full run can be considered for an AML score.
     pub official_score_eligible: bool,
     pub add_operation_count: usize,
@@ -319,6 +321,7 @@ pub struct AmlQualificationReport {
     pub multimodal_image_bytes: u64,
     pub model_policy_reasons: Vec<String>,
     pub release_provenance_reasons: Vec<String>,
+    pub evaluation_coverage_reasons: Vec<String>,
     pub reasons: Vec<String>,
 }
 
@@ -717,6 +720,7 @@ pub fn qualify_aml_run(
         api_contract_eligible: false,
         model_policy_eligible: false,
         release_provenance_eligible: false,
+        evaluation_coverage_eligible: false,
         official_score_eligible: false,
         add_operation_count: evidence.add_operations.len(),
         add_success_count: 0,
@@ -727,36 +731,41 @@ pub fn qualify_aml_run(
         generated_answer_substitution_count: 0,
         cross_scope_candidate_count: 0,
         multimodal_image_bytes: 0,
+        model_policy_reasons: Vec::new(),
+        release_provenance_reasons: Vec::new(),
+        evaluation_coverage_reasons: Vec::new(),
         reasons: Vec::new(),
     };
 
     let manifest = &evidence.manifest;
-    if !nonempty(&manifest.run_id)
-        || !nonempty(&manifest.cycle_id)
-        || !nonempty(&manifest.release_id)
-        || !nonempty(&manifest.system_id)
-        || !nonempty(&manifest.system_version)
-        || !nonempty(&manifest.api_contract_digest)
-        || !valid_git_commit(&manifest.system_commit)
-        || !valid_digest(&manifest.system_artifact_digest)
+
+    // Release/system identity is independent of API request/response validity.
+    let mut release_report = QualificationReport::new();
+    for (label, valid) in [
+        ("run ID", nonempty(&manifest.run_id)),
+        ("cycle ID", nonempty(&manifest.cycle_id)),
+        ("release ID", nonempty(&manifest.release_id)),
+        ("system ID", nonempty(&manifest.system_id)),
+        ("system version", nonempty(&manifest.system_version)),
+        ("system commit", valid_git_commit(&manifest.system_commit)),
+        ("system artifact digest", valid_digest(&manifest.system_artifact_digest)),
+    ] {
+        if !valid {
+            release_report.indeterminate(format!("{label} is missing or invalid"));
+        }
+    }
+    if !manifest.container_image_digest.is_empty()
+        && !valid_digest(&manifest.container_image_digest)
     {
-        output
-            .qualification
-            .fail("run or system identity/version/commit/artifact is invalid");
+        release_report.fail("container image digest is malformed");
     }
     if manifest.cycle_id != release.cycle_id {
-        output
-            .qualification
-            .fail("manifest cycle differs from selected release contract");
+        release_report.fail("manifest cycle differs from selected release contract");
     }
     if manifest.division != release.division {
-        output
-            .qualification
-            .fail("manifest division differs from selected release policy");
+        release_report.fail("manifest division differs from selected release policy");
     }
 
-    // Official release provenance is independent of API contract validity.
-    let mut release_report = QualificationReport::new();
     for (label, actual, expected) in [
         ("release ID", manifest.release_id.as_str(), release.release_id.as_str()),
         ("release manifest", manifest.release_manifest_digest.as_str(), release.release_manifest_digest.as_str()),
@@ -779,91 +788,97 @@ pub fn qualify_aml_run(
         release_report.status == QualificationStatus::Pass;
     output.release_provenance_reasons = release_report.reasons.clone();
 
-    if manifest.container_image_digest.is_empty() {
-        output
-            .qualification
-            .indeterminate("system container/image identity is not recorded");
-    } else if !valid_digest(&manifest.container_image_digest) {
-        output
-            .qualification
-            .fail("system container/image digest is malformed");
-    }
-    if manifest.expected_question_count == 0 {
-        output
-            .qualification
-            .indeterminate("official question count is missing");
-    }
-
-    // Component policy is a third independent axis; a policy mismatch does
-    // not erase a correctly implemented Add/Search API contract.
+    // Component policy is a third axis; native-unrestricted research must not
+    // be mislabeled as an official division score.
     let mut policy_report = QualificationReport::new();
-    output.model_policy_eligible =
-        model_policy_matches(manifest, release, &mut policy_report);
+    output.model_policy_eligible = if manifest.mode == AmlRunMode::NativeUnrestricted {
+        policy_report.indeterminate("native-unrestricted runs do not claim an official AML division");
+        false
+    } else {
+        model_policy_matches(manifest, release, &mut policy_report)
+    };
     output.model_policy_reasons = policy_report.reasons.clone();
 
-    let mut request_ids = BTreeSet::new();
-    let mut add_records = BTreeMap::new();
-    for operation in &evidence.add_operations {
-        if !request_ids.insert(operation.request_id.as_str()) {
-            output.qualification.fail("Add request IDs are duplicated");
-        }
-        validate_add_operation(operation, manifest.track, release, &mut output);
-        add_records.insert(operation.request_id.as_str(), operation);
-    }
-
-    let mut question_ids = BTreeSet::new();
-    let mut search_ids = BTreeSet::new();
-    for operation in &evidence.search_operations {
-        if !search_ids.insert(operation.request_id.as_str()) {
-            output.qualification.fail("Search request IDs are duplicated");
-        }
-        if !question_ids.insert(operation.question_id.as_str()) {
-            output.qualification.fail("question ID was evaluated more than once");
-        }
-        validate_search_operation(operation, evidence, release, &mut output);
-    }
-    output.unique_question_count = question_ids.len();
-
-    if manifest.expected_question_count as usize != output.unique_question_count {
-        output.qualification.indeterminate(format!(
-            "observed {} unique questions; expected {}",
-            output.unique_question_count, manifest.expected_question_count
-        ));
-    }
+    // API contract qualification concerns Add/Search behaviour only.
     if evidence.add_operations.is_empty() || evidence.search_operations.is_empty() {
         output
             .qualification
             .indeterminate("Add and Search operation evidence must both be present");
     }
 
-    // Preserve native/API qualification independently from division model-policy
-    // compliance. An incompatible native run is still useful research evidence,
-    // but it is not eligible for the official leaderboard division.
-    let api_contract_eligible = output.qualification.status == QualificationStatus::Pass;
-    output.api_contract_eligible = api_contract_eligible;
+    let mut add_request_ids = BTreeSet::new();
+    for operation in &evidence.add_operations {
+        if !add_request_ids.insert(operation.request_id.as_str()) {
+            output.qualification.fail("Add request IDs are duplicated");
+        }
+        validate_add_operation(operation, manifest.track, release, &mut output);
+    }
 
-    let official_reproduction = manifest.mode == AmlRunMode::Full
+    // Search can be retried for the same logical question. Repeated attempts
+    // are grouped by question ID and must retain identical query and scope.
+    let mut question_ids =
+        BTreeMap::<&str, (&str, &str, &str, &str)>::new();
+    let mut search_request_ids = BTreeSet::new();
+    for operation in &evidence.search_operations {
+        if !search_request_ids.insert(operation.request_id.as_str()) {
+            output.qualification.fail("Search request IDs are duplicated");
+        }
+        let identity = (
+            operation.question_digest.as_str(),
+            operation.sample_id.as_str(),
+            operation.task_id.as_str(),
+            operation.user_id.as_str(),
+        );
+        match question_ids.insert(operation.question_id.as_str(), identity) {
+            Some(previous) if previous != identity => {
+                output.qualification.fail(
+                    "repeated Search attempts for a question changed query or scope identity"
+                );
+            }
+            _ => {}
+        }
+        validate_search_operation(operation, evidence, release, &mut output);
+    }
+    output.unique_question_count = question_ids.len();
+    output.api_contract_eligible =
+        output.qualification.status == QualificationStatus::Pass;
+
+    // Question coverage/full-completion is a fourth axis, not an API defect.
+    let mut coverage_report = QualificationReport::new();
+    if manifest.expected_question_count == 0
+        || manifest.expected_question_count as usize != output.unique_question_count
+    {
+        coverage_report.indeterminate(format!(
+            "observed {} unique questions; expected {}",
+            output.unique_question_count, manifest.expected_question_count
+        ));
+    }
+    if manifest.mode == AmlRunMode::Full && !manifest.full_evaluation_complete {
+        coverage_report.indeterminate("Full evaluation is not marked complete");
+    }
+    output.evaluation_coverage_eligible = manifest.mode == AmlRunMode::Full
         && manifest.full_evaluation_complete
-        && manifest.expected_question_count > 0
-        && output.unique_question_count == manifest.expected_question_count
+        && coverage_report.status == QualificationStatus::Pass;
+    output.evaluation_coverage_reasons = coverage_report.reasons.clone();
+
+    output.official_score_eligible = manifest.mode == AmlRunMode::Full
+        && output.api_contract_eligible
         && output.model_policy_eligible
         && output.release_provenance_eligible
-        && api_contract_eligible;
-    output.official_score_eligible = official_reproduction;
+        && output.evaluation_coverage_eligible;
 
-    // Native/unrestricted mode can never be reported as an official AML score.
-    if manifest.mode == AmlRunMode::NativeUnrestricted {
-        output.official_score_eligible = false;
-    }
-    if manifest.mode == AmlRunMode::Smoke {
+    // Smoke is integration evidence only; native-unrestricted experiments are
+    // useful but can never be reported as official AML division scores.
+    if manifest.mode != AmlRunMode::Full {
         output.official_score_eligible = false;
     }
 
     output.reasons.push(
-        "API compatibility, model-policy eligibility and official release provenance are independently qualified".into(),
+        "API compatibility, model policy, release provenance and evaluation coverage are independently qualified".into(),
     );
     output.reasons.extend(output.model_policy_reasons.clone());
     output.reasons.extend(output.release_provenance_reasons.clone());
+    output.reasons.extend(output.evaluation_coverage_reasons.clone());
     output.reasons.extend(output.qualification.reasons.clone());
     output
 }
