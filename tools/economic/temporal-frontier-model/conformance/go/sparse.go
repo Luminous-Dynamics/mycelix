@@ -49,8 +49,11 @@ func (tree *SparseTree) Insert(key SparseKey, value SparseValue) error {
 
 func (tree *SparseTree) Replace(key SparseKey, value SparseValue) (SparseValue, bool) {
 	previous, exists := tree.entries[key]
+	if !exists {
+		return SparseValue{}, false
+	}
 	tree.entries[key] = value
-	return previous, exists
+	return previous, true
 }
 
 func (tree *SparseTree) Len() int {
