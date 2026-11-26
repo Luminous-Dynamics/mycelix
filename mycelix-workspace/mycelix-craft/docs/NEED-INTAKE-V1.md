@@ -65,7 +65,7 @@ A role cannot replace another role. Approval by a model, proposer or generic pro
 
 The evaluator only counts reviews that bind to the exact proposal digest and are current at evaluation time. Each role has at most one decision record per exact proposal digest; conflicting duplicate decisions are rejected. A RequestChanges decision blocks that role and cannot be masked by another approval on the same digest. A changed proposal digest invalidates all previous approvals. Expired, withdrawn, future-dated or differently scoped authority references must be rejected by the host before the review snapshot reaches this core.
 
-Unresolved stakeholder-priority conflicts or blocking questions produce NeedsCommunityClarification. Technical/source contradictions require appropriate domain review or recorded resolution. A missing safety review cannot be replaced by a domain review. All prerequisite reviews lead only to ReadyForLocalRatification. Only a separate LocalRatifier approval can produce Ratified.
+Unresolved stakeholder-priority conflicts or blocking questions produce NeedsCommunityClarification. Technical/source contradictions require appropriate domain review or recorded resolution. A missing safety review cannot be replaced by a domain review. All prerequisite reviews lead only to ReadyForLocalRatification. Only a separate LocalRatifier approval can produce Ratified. If alternative decompositions exist, the local ratifier's approval must identify exactly one existing alternative; other roles, including the model/decomposer, cannot select it.
 
 ## 5. Versioning and invalidation
 
@@ -86,7 +86,7 @@ Any change to outcomes, capability classes, safety flags, sources, assumptions, 
 - Resource owners control inventory, bookings, custody and release.
 - Finance, issuers and payment providers control economic effects.
 
-No output from this crate is a work order, construction permit, professional licence, budget approval, resource reservation, payment instruction or safety authorization.
+A `RatifiedNeedEnvelopeV1` is the only downstream handoff emitted by this crate. It binds the need ID, exact proposal digest/revision, locally selected alternative, ratification decision ID/digest, authority reference and ratification time. The host must authenticate that reference and explicitly convert the envelope into Project Formation V1; the envelope is not itself a work order, construction permit, professional licence, budget approval, resource reservation, payment instruction or safety authorization.
 
 ## 7. Integration with existing practice
 
