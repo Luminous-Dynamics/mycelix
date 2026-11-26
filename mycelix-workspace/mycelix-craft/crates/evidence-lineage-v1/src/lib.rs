@@ -156,7 +156,6 @@ pub enum LineageErrorV1 {
     ChangeTargetDigestMismatch,
     DuplicateChangeSequence,
     ConflictingEventIdentifier,
-    MultipleChangesForArtifact,
     InvalidReplacement,
 }
 
@@ -287,7 +286,7 @@ pub fn evaluate_lineage(
 
     let mut unique_events: BTreeMap<String, ChangeEventV1> = BTreeMap::new();
     let mut sequence_owners: BTreeMap<u64, String> = BTreeMap::new();
-    let mut target_events: BTreeMap<ArtifactKey, ChangeEventV1> = BTreeMap::new();
+    let mut target_events: BTreeMap<ArtifactKey, Vec<ChangeEventV1>> = BTreeMap::new();
 
     for event in events {
         if event.event_id.trim().is_empty()
@@ -343,11 +342,16 @@ pub fn evaluate_lineage(
             (None, false) => {}
         }
 
-        if target_events.insert(target_key, event.clone()).is_some() {
-            return Err(LineageErrorV1::MultipleChangesForArtifact);
-        }
+        target_events.entry(target_key).or_default().push(event.clone());
         sequence_owners.insert(event.sequence, event.event_id.clone());
         unique_events.insert(event.event_id.clone(), event.clone());
+    }
+
+    // Multiple distinct changes may apply to one immutable artifact revision.
+    // The latest host sequence determines its current disposition, while every
+    // admitted event remains in the replay receipt.
+    for history in target_events.values_mut() {
+        history.sort_by_key(|event| event.sequence);
     }
 
     let mut states: BTreeMap<ArtifactKey, ArtifactStateV1> = BTreeMap::new();
@@ -358,8 +362,9 @@ pub fn evaluate_lineage(
             return Err(LineageErrorV1::DuplicateArtifactRevision);
         };
 
-        let state = if let Some(event) = target_events.get(&node_key) {
-            state_for_change(event.reason)
+        let state = if let Some(history) = target_events.get(&node_key) {
+            let latest = history.last().ok_or(LineageErrorV1::InvalidChangeEvent)?;
+            state_for_change(latest.reason)
         } else {
             let mut invalidated = false;
             let mut needs_revalidation = false;
@@ -839,6 +844,51 @@ mod tests {
         assert_eq!(
             evaluate_lineage(&nodes, &[first, second]),
             Err(LineageErrorV1::ConflictingEventIdentifier)
+        );
+    }
+
+    #[test]
+    fn multiple_ordered_changes_to_one_artifact_preserve_history_and_apply_latest_state() {
+        let source_v1 = reference("source", 1, 1);
+        let source_v2 = reference("source", 2, 2);
+        let dependent = reference("claim", 1, 3);
+        let nodes = vec![
+            node(source_v1.clone(), vec![]),
+            node(source_v2.clone(), vec![]),
+            node(
+                dependent.clone(),
+                vec![dependency(
+                    source_v1.clone(),
+                    DependencyRelationV1::SourcedFrom,
+                    ImpactPolicyV1::InvalidateOnChange,
+                )],
+            ),
+        ];
+        let corrected = event(
+            "correct-source",
+            1,
+            source_v1.clone(),
+            ChangeReasonV1::Corrected,
+            Some(source_v2.clone()),
+        );
+        let revoked = event(
+            "revoke-source",
+            2,
+            source_v1.clone(),
+            ChangeReasonV1::Revoked,
+            None,
+        );
+
+        // Input order is deliberately reversed; the host sequence is authoritative.
+        let evaluation = evaluate_lineage(&nodes, &[revoked, corrected])
+            .expect("multiple ordered events for one artifact revision are valid");
+
+        assert_eq!(state(&evaluation, &source_v1), ArtifactStateV1::Revoked);
+        assert_eq!(state(&evaluation, &source_v2), ArtifactStateV1::Current);
+        assert_eq!(state(&evaluation, &dependent), ArtifactStateV1::Invalidated);
+        assert_eq!(
+            evaluation.applied_event_ids,
+            vec!["correct-source".to_owned(), "revoke-source".to_owned()]
         );
     }
 
