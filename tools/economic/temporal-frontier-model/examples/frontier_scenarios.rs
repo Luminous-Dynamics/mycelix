@@ -89,16 +89,16 @@ fn consistency_link(
     let second_root = tree_hash(&entries).unwrap();
     mycelix_rfc9162_proof_verifier::consistency_proof(&entries, first_tree_size)
         .map(|consistency_path| OwnerConsistencyLinkV1 {
-        owner_ref: owner.into(),
-        history_ref: format!("history:{owner}"),
-        ancestor_root_digest: format!("sha256:{}", hex(&first_root)),
-        descendant_root_digest: format!("sha256:{}", hex(&second_root)),
-        first_tree_size,
-        second_tree_size,
-        consistency_path,
-        consistency_proof_ref: format!(
-            "proof:consistency:{owner}:{first_tree_size}:{second_tree_size}"
-        ),
+            owner_ref: owner.into(),
+            history_ref: format!("history:{owner}"),
+            ancestor_root_digest: format!("sha256:{}", hex(&first_root)),
+            descendant_root_digest: format!("sha256:{}", hex(&second_root)),
+            first_tree_size,
+            second_tree_size,
+            consistency_path,
+            consistency_proof_ref: format!(
+                "proof:consistency:{owner}:{first_tree_size}:{second_tree_size}"
+            ),
         })
         .expect("owner consistency proof")
 }
