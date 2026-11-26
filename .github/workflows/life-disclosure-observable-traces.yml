@@ -49,8 +49,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          cargo run --quiet --locked --manifest-path research/life-disclosure-observable-traces/Cargo.toml > report-a.csv
-          cargo run --quiet --locked --manifest-path research/life-disclosure-observable-traces/Cargo.toml > report-b.csv
+          cargo run --quiet --locked --manifest-path research/life-disclosure-observable-traces/Cargo.toml --bin life-disclosure-observable-traces > report-a.csv
+          cargo run --quiet --locked --manifest-path research/life-disclosure-observable-traces/Cargo.toml --bin life-disclosure-observable-traces > report-b.csv
           cmp report-a.csv report-b.csv
 
           cargo run --quiet --locked --manifest-path research/life-disclosure-observable-traces/Cargo.toml --bin memory-metadata-leakage > memory-report-a.csv
