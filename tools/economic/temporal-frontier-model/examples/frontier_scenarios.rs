@@ -178,6 +178,7 @@ fn main() {
     incomplete_cut.sequence = 20;
     incomplete_cut.tree_size = incomplete_entries.len() as u64;
     incomplete_cut.root_digest = format!("sha256:{}", hex(&incomplete_owner_root));
+    incomplete_cut.checkpoint_inclusion.owner_root_digest = incomplete_cut.root_digest.clone();
     incomplete_cut.gaps = gaps;
     let mut incomplete_receipt = receipt.clone();
     incomplete_receipt.inclusion = Some(ReceiptInclusionDeclarationV1 {
@@ -244,11 +245,11 @@ fn main() {
     );
     assert_eq!(
         receipt_frontier.classify_receipt(&receipt),
-        Ok(ReceiptVisibilityV1::MerkleInclusionVerified)
+        Ok(ReceiptVisibilityV1::MerkleInclusionProofValid)
     );
     assert_eq!(
         incomplete.classify_receipt(&receipt),
-        Ok(ReceiptVisibilityV1::Indeterminate)
+        Ok(ReceiptVisibilityV1::MerkleInclusionProofValid)
     );
 }
 
