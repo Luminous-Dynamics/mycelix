@@ -941,7 +941,7 @@ pub fn qualify_aml_run(
     if manifest.mode == AmlRunMode::Full && !manifest.full_evaluation_complete {
         coverage_report.indeterminate("Full evaluation is not marked complete");
     }
-    output.evaluation_coverage_eligible = manifest.mode == AmlRunMode::Full
+    output.evaluation_coverage_eligible = manifest.expected_question_count > 0
         && manifest.full_evaluation_complete
         && coverage_report.status == QualificationStatus::Pass;
     output.evaluation_coverage_reasons = coverage_report.reasons.clone();
