@@ -16,7 +16,7 @@ jq -e '
   and .version == "1.0.0-draft"
   and .data_classification == "synthetic-only"
   and .no_real_personal_data == true
-  and (.public_baseline_sources | length == 3)
+  and (.public_baseline_sources | length == 5)
   and (.claims_not_established | length >= 4)
 ' "$MANIFEST" >/dev/null
 
@@ -24,7 +24,7 @@ jq -e '
   .benchmark_id == "CRAFT-WATER-SERVICE-REPAIR-V1"
   and .schema_version == "1.0.0"
   and .synthetic_only == true
-  and (.cases | length == 12)
+  and (.cases | length == 15)
   and (([.cases[].case_id] | unique | length) == 12)
   and all(.cases[];
     (.case_id | type == "string" and test("^WSR-[0-9]{3}$"))
@@ -36,7 +36,10 @@ jq -e '
       "eligible_for_local_review",
       "revalidation_required",
       "execution_or_closure_blocked",
-      "new_workflow_required"
+      "new_workflow_required",
+      "alternative_service_inadequate",
+      "drinking_water_incident_response_required",
+      "extended_alternative_supply_monitoring_required"
     ] | index($d) != null)
     and (.expected.reason_codes | type == "array" and length > 0)
     and (.input.context_digest | type == "string" and test("^[0-9a-f]{64}$"))
@@ -54,7 +57,7 @@ jq -e '
 jq -n -e --slurpfile cases "$CASES" --slurpfile mapping "$INTEGRATION_MAP" '
   $mapping[0].benchmark_id == "CRAFT-WATER-SERVICE-REPAIR-V1-INTEGRATION-MAP"
   and $mapping[0].schema_version == "1.0.0"
-  and ($mapping[0].mappings | length == 12)
+  and ($mapping[0].mappings | length == 15)
   and (($mapping[0].mappings | map(.case_id) | sort) == ($cases[0].cases | map(.case_id) | sort))
   and all($mapping[0].mappings[];
     (.owner_issues | type == "array" and length > 0)
@@ -64,4 +67,4 @@ jq -n -e --slurpfile cases "$CASES" --slurpfile mapping "$INTEGRATION_MAP" '
   )
 ' >/dev/null
 
-echo "Water Service Repair V1: manifest, 12 unique synthetic cases, and 12 cross-core owner mappings valid."
+echo "Water Service Repair V1: manifest, 15 unique synthetic cases, and 15 cross-core owner mappings valid."
