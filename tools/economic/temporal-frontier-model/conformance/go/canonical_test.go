@@ -2,6 +2,7 @@ package conformance
 
 import (
 	"bytes"
+	"encoding/hex"
 	"testing"
 )
 
@@ -66,7 +67,7 @@ func TestRFC9162SevenLeafProofsAndCrossLanguageRoots(t *testing.T) {
 		entries[i] = []byte{byte('a' + i)}
 	}
 	root := TreeHash(entries)
-	if got := SHA256Digest(root[:]); got != "sha256:4ae191939f548d9934740b88dea2c5cb89bb8870fc4505cd79dec6bbfaaee9cb" {
+	if got := "sha256:" + hex.EncodeToString(root[:]); got != "sha256:4ae191939f548d9934740b88dea2c5cb89bb8870fc4505cd79dec6bbfaaee9cb" {
 		t.Fatalf("root mismatch: %s", got)
 	}
 
