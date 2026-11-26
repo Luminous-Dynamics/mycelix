@@ -40,6 +40,10 @@ A wall-clock K can still be useful for reporting, but it is not proof that a ver
     cargo +1.96.0 clippy --locked --all-targets -- -D warnings
     cargo +1.96.0 run --locked --example frontier_scenarios
 
+## Cross-language conformance
+
+An independent Go implementation under `conformance/go/` checks the same canonical byte vectors and RFC 9162 proofs. `CROSS_LANGUAGE_VECTORS_V1.md` records complete known-answer payload bytes and digests; the Go suite also exhaustively checks tree sizes 1–64 and the published seven-leaf RFC example.
+
 ## Qualification boundary
 
 RFC 9162 inclusion and consistency proof bytes are now verified against supplied roots. Canonical owner-cut and receipt payloads are bound to those proofs. However, tree-head/checkpoint signatures, log identity, DID/key lifecycle and revocation, witness gossip/split-view detection, authenticated completeness/absence proofs, parent-frontier DAG/merge verification, and durable Holochain persistence are not implemented.
@@ -52,8 +56,8 @@ Not implemented here:
 - authentic completeness/absence proofs for owner prefixes;
 - durable checkpoint/frontier persistence or Holochain DHT integration;
 - a verified merge protocol for concurrent frontiers;
-- an independent Rust/Go implementation or formal TLA+ model.
+- formal TLA+ model or authenticated completeness/absence profile.
 
-A production integration must verify proof bytes against canonical roots, bind owner roots into the authenticated checkpoint, validate causal dependency closure, verify parent/merge ancestry, and only then expose a cryptographically qualified frontier to the query kernel. A query result remains evidence—not permission to mutate a journal, payment, or external effect.
+This work is an Economic OS query/evidence adapter, not a second transparency service. It is intended to compose with the existing CIV Merkle checkpoint smoke (Symthaea #7244), signed-tree-head/witness state-machine work (Symthaea #7246), and Mycelix split-view TLA+ model (#5944). The production integration must consume authenticated roots/receipts from those qualified layers, validate causal dependency closure and parent/merge ancestry, and only then expose a cryptographically qualified frontier to the query kernel. A query result remains evidence—not permission to mutate a journal, payment, or external effect.
 
 Related tracking: https://github.com/Luminous-Dynamics/mycelix/issues/6680
