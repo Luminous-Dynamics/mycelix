@@ -1420,6 +1420,57 @@ mod tests {
     }
 
     #[test]
+    fn project_handoff_requires_versioned_measurement_and_acceptance_policy() {
+        let mut proposal = valid_proposal();
+        proposal.outcomes[0].measurement_ref.clear();
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::EmptyField)
+        );
+
+        let mut proposal = valid_proposal();
+        proposal.outcomes[0].acceptance_policy.digest = [0; 32];
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::MissingDigest)
+        );
+    }
+
+    #[test]
+    fn capability_requirement_requires_exact_context_policy_and_freshness() {
+        let mut proposal = valid_proposal();
+        proposal.requirements[0].jurisdiction_id = "ZA-WC".to_owned();
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::UnknownWorkReference)
+        );
+
+        let mut proposal = valid_proposal();
+        proposal.requirements[0].max_status_age_seconds = 0;
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::InvalidRevision)
+        );
+
+        let mut proposal = valid_proposal();
+        proposal.requirements[0].capability.digest = [0; 32];
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::MissingDigest)
+        );
+    }
+
+    #[test]
+    fn work_package_requires_exact_scope_digest() {
+        let mut proposal = valid_proposal();
+        proposal.work_packages[0].scope_digest = [0; 32];
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::MissingDigest)
+        );
+    }
+
+    #[test]
     fn source_digest_mismatch_is_rejected() {
         let mut proposal = valid_proposal();
         if let TraceabilityBasisV1::Source { source_digest, .. } = &mut proposal.outcomes[0].traceability[0].basis {
