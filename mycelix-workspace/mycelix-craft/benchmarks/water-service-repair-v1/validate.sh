@@ -25,7 +25,7 @@ jq -e '
   and .schema_version == "1.0.0"
   and .synthetic_only == true
   and (.cases | length == 15)
-  and (([.cases[].case_id] | unique | length) == 12)
+  and (([.cases[].case_id] | unique | length) == 15)
   and all(.cases[];
     (.case_id | type == "string" and test("^WSR-[0-9]{3}$"))
     and (.title | type == "string" and length > 0)
