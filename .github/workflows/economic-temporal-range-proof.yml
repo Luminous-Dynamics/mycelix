@@ -1,0 +1,73 @@
+name: Economic OS authenticated temporal range proof reference
+
+on:
+  pull_request:
+    paths:
+      - 'docs/economic/temporal/AUTHENTICATED_INTERVAL_QUERY_V0.1.md'
+      - 'tools/economic/temporal-range-index/**'
+      - '.github/workflows/economic-temporal-range-proof.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/economic/temporal/AUTHENTICATED_INTERVAL_QUERY_V0.1.md'
+      - 'tools/economic/temporal-range-index/**'
+      - '.github/workflows/economic-temporal-range-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  go-interval-reference:
+    name: Go authenticated interval reference exact-head qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact source revision
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'Expected source SHA: %s\n' "$EXPECTED_SHA"
+          printf 'Checked out source SHA: %s\n' "$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.23.2'
+          cache: false
+
+      - name: Go formatting
+        working-directory: tools/economic/temporal-range-index/reference/go
+        run: |
+          test -z "$(gofmt -l .)"
+
+      - name: Go adversarial and semantic-oracle tests
+        working-directory: tools/economic/temporal-range-index/reference/go
+        env:
+          GOTOOLCHAIN: local
+        run: go test -race -count=1 -v ./...
+
+      - name: Go static analysis
+        working-directory: tools/economic/temporal-range-index/reference/go
+        env:
+          GOTOOLCHAIN: local
+        run: go vet ./...
+
+      - name: One-iteration benchmark smoke (not a performance qualification)
+        working-directory: tools/economic/temporal-range-index/reference/go
+        env:
+          GOTOOLCHAIN: local
+        run: go test -run '^$' -bench '^BenchmarkAuthenticatedIntervalV1$' -benchtime=1x -benchmem
+
+      - name: Report claim ceiling
+        run: |
+          printf '%s\n' \
+            'PASS = the Go reference reconstructs its scoped root and returns complete interval-stabbing results for the frozen tests.' \
+            'BENCHMARK = one-iteration harness smoke only; no stable latency, SOTA or production claim.' \
+            'NOT TESTED = Rust parity, canonical proof wire decoding, source/index projection completeness, signed checkpoint trust, witness non-equivocation or external-effect authority.'
