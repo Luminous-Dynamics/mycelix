@@ -129,6 +129,29 @@ pub struct TeamBenchRoleBoundaryEvent {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TeamBenchResourceUsage {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub wall_clock_ms: u64,
+    pub provider_cost_micro_usd: u64,
+    pub tool_call_count: u64,
+    pub inter_agent_message_count: u64,
+    /// Digest of independently captured usage/cost telemetry for this task.
+    pub evidence_digest: String,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct TeamBenchResourceTotals {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub wall_clock_ms: u64,
+    pub provider_cost_micro_usd: u64,
+    pub tool_call_count: u64,
+    pub inter_agent_message_count: u64,
+    pub task_count: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TeamBenchTaskObservation {
     pub task_id: String,
     pub state: TeamBenchTaskState,
@@ -139,6 +162,10 @@ pub struct TeamBenchTaskObservation {
     pub native_grader_disposition: Option<TeamBenchGraderDisposition>,
     /// Native TeamBench partial score in millionths on the [0, 1] scale.
     pub native_score_micros: Option<u32>,
+    /// Optional, independently captured per-task usage/cost observation.
+    /// Missing telemetry does not invalidate native benchmark score, but it
+    /// prevents resource/cost comparison qualification.
+    pub resource_usage: Option<TeamBenchResourceUsage>,
     /// None means absent or not captured; role inventory disambiguates.
     pub verifier_disposition: Option<TeamBenchVerifierDisposition>,
     pub role_boundary_events: Vec<TeamBenchRoleBoundaryEvent>,
@@ -200,6 +227,11 @@ pub struct TeamBenchQualificationReport {
     /// committed Docker/container runtime manifest. Does not follow from a
     /// benchmark score or logical tool-boundary test.
     pub os_isolation_eligible: bool,
+    /// Resource totals are published only when all tasks/conditions have
+    /// complete independently committed telemetry.
+    pub resource_usage_complete: bool,
+    pub resource_usage_missing_or_invalid_count: usize,
+    pub resource_totals_by_condition: BTreeMap<TeamBenchCondition, TeamBenchResourceTotals>,
     pub condition_count: usize,
     pub eligible_task_count: usize,
     pub task_observation_count: usize,
@@ -437,6 +469,9 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
         qualification: QualificationReport::new(),
         benchmark_score_eligible: false,
         os_isolation_eligible: false,
+        resource_usage_complete: true,
+        resource_usage_missing_or_invalid_count: 0,
+        resource_totals_by_condition: BTreeMap::new(),
         condition_count: suite.condition_runs.len(),
         eligible_task_count: suite.eligible_task_ids.len(),
         task_observation_count: 0,
@@ -539,6 +574,7 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
     let mut run_ids = BTreeSet::new();
     let mut score_totals = BTreeMap::<TeamBenchCondition, (u64, u64)>::new();
     let mut task_scores = BTreeMap::<(String, TeamBenchCondition), u32>::new();
+    let mut resource_totals = BTreeMap::<TeamBenchCondition, TeamBenchResourceTotals>::new();
     for run in &suite.condition_runs {
         if !nonempty(&run.run_id)
             || !valid_digest(&run.system_config_digest)
@@ -618,6 +654,27 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
                 continue;
             }
             qualify_task(task, &run.roles, &mut report);
+            match &task.resource_usage {
+                Some(usage) if valid_digest(&usage.evidence_digest) && usage.wall_clock_ms > 0 => {
+                    let totals = resource_totals.entry(run.condition).or_default();
+                    totals.input_tokens = totals.input_tokens.saturating_add(usage.input_tokens);
+                    totals.output_tokens = totals.output_tokens.saturating_add(usage.output_tokens);
+                    totals.wall_clock_ms = totals.wall_clock_ms.saturating_add(usage.wall_clock_ms);
+                    totals.provider_cost_micro_usd = totals
+                        .provider_cost_micro_usd
+                        .saturating_add(usage.provider_cost_micro_usd);
+                    totals.tool_call_count =
+                        totals.tool_call_count.saturating_add(usage.tool_call_count);
+                    totals.inter_agent_message_count = totals
+                        .inter_agent_message_count
+                        .saturating_add(usage.inter_agent_message_count);
+                    totals.task_count += 1;
+                }
+                _ => {
+                    report.resource_usage_complete = false;
+                    report.resource_usage_missing_or_invalid_count += 1;
+                }
+            }
             if task.state == TeamBenchTaskState::Evaluated {
                 if let Some(score) = task.native_score_micros.filter(|score| *score <= 1_000_000) {
                     let totals = score_totals.entry(run.condition).or_default();
@@ -642,6 +699,8 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
                     "condition {:?} is missing eligible task {}",
                     run.condition, task_id
                 ));
+                report.resource_usage_complete = false;
+                report.resource_usage_missing_or_invalid_count += 1;
             }
         }
     }
@@ -683,6 +742,21 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
             .all(|condition| conditions.contains_key(condition));
 
     if complete_model_suite {
+        if report.resource_usage_complete
+            && TeamBenchCondition::all().iter().all(|condition| {
+                resource_totals
+                    .get(condition)
+                    .is_some_and(|totals| totals.task_count == suite.eligible_task_ids.len())
+            })
+        {
+            report.resource_totals_by_condition = resource_totals;
+        } else {
+            report.resource_usage_complete = false;
+            report.resource_usage_missing_or_invalid_count = report
+                .resource_usage_missing_or_invalid_count
+                .max(1);
+        }
+
         for (condition, (sum, count)) in score_totals {
             if count > 0 {
                 report
