@@ -200,14 +200,24 @@ pub struct AmlAddAttempt {
     pub persistence_receipt_digest: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AmlIngestionMode {
+    TextualConversation,
+    TextualStreaming,
+    CodingRepositoryTrajectory,
+    MultimodalSequence,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AmlAddOperation {
     pub request_id: String,
     pub sample_id: String,
     pub task_id: String,
     pub user_id: String,
+    pub ingestion_mode: AmlIngestionMode,
     pub source_session_digest: String,
     pub payload_digest: String,
+    pub content_parts: Vec<AmlContentPart>,
     pub message_count: u32,
     /// Adapter-counted words using the exact release's counting convention.
     pub word_count: u32,
@@ -224,6 +234,8 @@ pub enum AmlContentPart {
     Image {
         ordinal: u32,
         media_type: String,
+        /// Independent observer confirms an inline Base64 data URI was used.
+        inline_base64_data_uri: bool,
         data_uri_digest: String,
         decoded_bytes: u64,
     },
@@ -363,6 +375,7 @@ fn model_policy_matches(
 
 fn validate_add_operation(
     operation: &AmlAddOperation,
+    track: AmlTrack,
     release: &AmlReleaseContract,
     report: &mut AmlQualificationReport,
 ) {
@@ -379,15 +392,42 @@ fn validate_add_operation(
             .fail("Add operation identity, source, payload or message inventory is invalid");
         return;
     }
-    if operation.message_count > release.max_add_messages
-        || operation.word_count > release.max_add_words
-        || operation.word_count == 0
-    {
+
+    let mode_matches_track = matches!(
+        (track, operation.ingestion_mode),
+        (AmlTrack::Textual, AmlIngestionMode::TextualConversation)
+            | (AmlTrack::Textual, AmlIngestionMode::TextualStreaming)
+            | (AmlTrack::Coding, AmlIngestionMode::CodingRepositoryTrajectory)
+            | (AmlTrack::Multimodal, AmlIngestionMode::MultimodalSequence)
+    );
+    if !mode_matches_track {
         report.qualification.fail(format!(
-            "Add operation {} exceeds the release chunk limits or has no counted words",
+            "Add operation {} ingestion mode does not match its benchmark track",
             operation.request_id
         ));
     }
+
+    // Cycle 2's 20-message / 2,000-word chunking rule applies to ordinary
+    // Textual conversations, not Streaming, Coding or Multimodal units.
+    if operation.ingestion_mode == AmlIngestionMode::TextualConversation
+        && (operation.message_count > release.max_add_messages
+            || operation.word_count > release.max_add_words
+            || operation.word_count == 0)
+    {
+        report.qualification.fail(format!(
+            "Add operation {} exceeds ordinary Textual chunk limits or has no counted words",
+            operation.request_id
+        ));
+    }
+
+    let _ = validate_content_parts(
+        track,
+        &format!("Add request {}", operation.request_id),
+        &operation.content_parts,
+        release,
+        report,
+    );
+
     if operation.attempts.is_empty() || operation.attempts.len() > release.max_add_attempts {
         report.qualification.fail(format!(
             "Add operation {} has no attempts or exceeds retry limit",
@@ -463,24 +503,24 @@ fn validate_add_operation(
 
 fn validate_content_parts(
     track: AmlTrack,
-    candidate: &AmlSearchCandidate,
+    owner_id: &str,
+    content_parts: &[AmlContentPart],
     release: &AmlReleaseContract,
     report: &mut AmlQualificationReport,
 ) -> u64 {
-    if candidate.content_parts.is_empty() {
+    if content_parts.is_empty() {
         report
             .qualification
-            .fail(format!("memory {} has no ordered content parts", candidate.memory_id));
+            .fail(format!("{owner_id} has no ordered content parts"));
         return 0;
     }
 
     let mut expected_ordinal = 0u32;
     let mut image_bytes = 0u64;
-    for part in &candidate.content_parts {
+    for part in content_parts {
         if part.ordinal() != expected_ordinal {
             report.qualification.fail(format!(
-                "memory {} content part order/ordinal is not contiguous",
-                candidate.memory_id
+                "{owner_id} content part order/ordinal is not contiguous"
             ));
         }
         expected_ordinal = expected_ordinal.saturating_add(1);
@@ -492,34 +532,30 @@ fn validate_content_parts(
             } => {
                 if !valid_digest(content_digest) || !*nonempty {
                     report.qualification.fail(format!(
-                        "memory {} contains empty or uncommitted text content",
-                        candidate.memory_id
+                        "{owner_id} contains empty or uncommitted text content"
                     ));
-                }
-                if track == AmlTrack::Multimodal {
-                    // Text is allowed in ordered multimodal messages.
                 }
             }
             AmlContentPart::Image {
                 media_type,
+                inline_base64_data_uri,
                 data_uri_digest,
                 decoded_bytes,
                 ..
             } => {
                 if track != AmlTrack::Multimodal {
                     report.qualification.fail(format!(
-                        "memory {} contains image content outside the Multimodal track",
-                        candidate.memory_id
+                        "{owner_id} contains image content outside the Multimodal track"
                     ));
                 }
-                if !media_type.starts_with("image/")
+                if !*inline_base64_data_uri
+                    || !media_type.starts_with("image/")
                     || !valid_digest(data_uri_digest)
                     || *decoded_bytes == 0
                     || *decoded_bytes > release.max_image_bytes
                 {
                     report.qualification.fail(format!(
-                        "memory {} image part is malformed or exceeds per-image byte limit",
-                        candidate.memory_id
+                        "{owner_id} image part is malformed, remote, or exceeds the per-image byte limit"
                     ));
                 }
                 image_bytes = image_bytes.saturating_add(*decoded_bytes);
@@ -634,7 +670,13 @@ fn validate_search_operation(
             scores.push(candidate.score_micros.unwrap_or_default());
         }
         operation_image_bytes = operation_image_bytes.saturating_add(
-            validate_content_parts(evidence.manifest.track, candidate, release, report),
+            validate_content_parts(
+                evidence.manifest.track,
+                &format!("memory {}", candidate.memory_id),
+                &candidate.content_parts,
+                release,
+                report,
+            ),
         );
     }
 
@@ -765,7 +807,7 @@ pub fn qualify_aml_run(
         if !request_ids.insert(operation.request_id.as_str()) {
             output.qualification.fail("Add request IDs are duplicated");
         }
-        validate_add_operation(operation, release, &mut output);
+        validate_add_operation(operation, manifest.track, release, &mut output);
         add_records.insert(operation.request_id.as_str(), operation);
     }
 
@@ -917,6 +959,12 @@ mod tests {
                 payload_digest: D5.into(),
                 message_count: 2,
                 word_count: 100,
+                ingestion_mode: AmlIngestionMode::TextualConversation,
+                content_parts: vec![AmlContentPart::Text {
+                    ordinal: 0,
+                    content_digest: D3.into(),
+                    nonempty: true,
+                }],
                 attempts: vec![AmlAddAttempt {
                     attempt_number: 1,
                     http_status: 200,
@@ -1125,6 +1173,7 @@ mod tests {
             AmlContentPart::Image {
                 ordinal: 1,
                 media_type: "image/png".into(),
+                inline_base64_data_uri: true,
                 data_uri_digest: D4.into(),
                 decoded_bytes: 1024,
             },
@@ -1137,6 +1186,7 @@ mod tests {
             AmlContentPart::Image {
                 ordinal: 1,
                 media_type: "image/png".into(),
+                inline_base64_data_uri: true,
                 data_uri_digest: D4.into(),
                 decoded_bytes: 11 * 1024 * 1024,
             };
@@ -1153,6 +1203,7 @@ mod tests {
             AmlContentPart::Image {
                 ordinal: 0,
                 media_type: "image/png".into(),
+                inline_base64_data_uri: true,
                 data_uri_digest: D4.into(),
                 decoded_bytes: 1024,
             },
