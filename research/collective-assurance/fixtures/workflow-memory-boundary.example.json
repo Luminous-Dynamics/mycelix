@@ -1,0 +1,246 @@
+{
+  "pair_id": "workflow-boundary-pair-001",
+  "challenge": {
+    "challenge_id": "sibling-crosswire-001",
+    "target_consumer_node_id": "consumer",
+    "polluted_artifact_id": "bad-artifact",
+    "operator": "SiblingCrosswire"
+  },
+  "clean": {
+    "run_id": "clean-run-01",
+    "identity": {
+      "benchmark_id": "CoMemBench",
+      "benchmark_version": "reproduction-v1",
+      "benchmark_certificate_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "split_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "workflow_id": "workflow-001",
+      "task_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "source_group_id": "source-group-001",
+      "workflow_graph_digest": "578fa0aa04c1a3e348d613635b45e09a7481e36907536899b592d2836ed3467d",
+      "model_snapshot_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+      "toolchain_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+      "executor_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+      "scorer_digest": "7777777777777777777777777777777777777777777777777777777777777777",
+      "evaluator_digest": "8888888888888888888888888888888888888888888888888888888888888888",
+      "inference_plan_digest": "9999999999999999999999999999999999999999999999999999999999999999",
+      "random_seed_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "context_budget_tokens": 16000,
+      "output_budget_tokens": 2000,
+      "compute_budget_microusd": 100000,
+      "wall_clock_budget_ms": 60000,
+      "memory_budget_bytes": 1000000,
+      "topology_id": "custom"
+    },
+    "nodes": [
+      {
+        "node_id": "producer-a",
+        "task_digest": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      {
+        "node_id": "producer-b",
+        "task_digest": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      {
+        "node_id": "consumer",
+        "task_digest": "5555555555555555555555555555555555555555555555555555555555555555"
+      }
+    ],
+    "handoff_contracts": [
+      {
+        "edge_id": "edge-good",
+        "producer_node_id": "producer-a",
+        "consumer_node_id": "consumer",
+        "artifact_type": "report",
+        "entity_scope_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+        "required_version": 2,
+        "verification_required": true,
+        "required": true
+      }
+    ],
+    "artifacts": [
+      {
+        "artifact_id": "good-artifact",
+        "payload_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "producer_node_id": "producer-a",
+        "artifact_type": "report",
+        "entity_scope_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+        "version": 2,
+        "lifecycle": "Current",
+        "verification": "Verified",
+        "verification_receipt_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "operation_state": "NotOperation"
+      },
+      {
+        "artifact_id": "bad-artifact",
+        "payload_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "producer_node_id": "producer-b",
+        "artifact_type": "report",
+        "entity_scope_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+        "version": 2,
+        "lifecycle": "Current",
+        "verification": "Verified",
+        "verification_receipt_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "operation_state": "NotOperation"
+      }
+    ],
+    "exposures": [
+      {
+        "exposure_id": "good-exposure",
+        "consumer_node_id": "consumer",
+        "artifact_id": "good-artifact",
+        "reported_operation_state": "NotOperation",
+        "disposition": "Consumed",
+        "exposure_receipt_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "effect_receipt_digest": "2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    ],
+    "node_outcomes": [
+      {
+        "node_id": "producer-a",
+        "verified_complete": true,
+        "node_execution_receipt_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      {
+        "node_id": "producer-b",
+        "verified_complete": true,
+        "node_execution_receipt_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      {
+        "node_id": "consumer",
+        "verified_complete": true,
+        "node_execution_receipt_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    ],
+    "terminal_success": true,
+    "execution_receipt_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+    "exposure_trace_receipt_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+    "evaluator_receipt_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+    "latency_ms": 1000,
+    "total_cost_microusd": 50000,
+    "input_tokens": 5000,
+    "output_tokens": 1000
+  },
+  "polluted": {
+    "run_id": "polluted-run-01",
+    "identity": {
+      "benchmark_id": "CoMemBench",
+      "benchmark_version": "reproduction-v1",
+      "benchmark_certificate_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "split_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "workflow_id": "workflow-001",
+      "task_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "source_group_id": "source-group-001",
+      "workflow_graph_digest": "578fa0aa04c1a3e348d613635b45e09a7481e36907536899b592d2836ed3467d",
+      "model_snapshot_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+      "toolchain_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+      "executor_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+      "scorer_digest": "7777777777777777777777777777777777777777777777777777777777777777",
+      "evaluator_digest": "8888888888888888888888888888888888888888888888888888888888888888",
+      "inference_plan_digest": "9999999999999999999999999999999999999999999999999999999999999999",
+      "random_seed_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "context_budget_tokens": 16000,
+      "output_budget_tokens": 2000,
+      "compute_budget_microusd": 100000,
+      "wall_clock_budget_ms": 60000,
+      "memory_budget_bytes": 1000000,
+      "topology_id": "custom"
+    },
+    "nodes": [
+      {
+        "node_id": "producer-a",
+        "task_digest": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      {
+        "node_id": "producer-b",
+        "task_digest": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      {
+        "node_id": "consumer",
+        "task_digest": "5555555555555555555555555555555555555555555555555555555555555555"
+      }
+    ],
+    "handoff_contracts": [
+      {
+        "edge_id": "edge-good",
+        "producer_node_id": "producer-a",
+        "consumer_node_id": "consumer",
+        "artifact_type": "report",
+        "entity_scope_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+        "required_version": 2,
+        "verification_required": true,
+        "required": true
+      }
+    ],
+    "artifacts": [
+      {
+        "artifact_id": "good-artifact",
+        "payload_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "producer_node_id": "producer-a",
+        "artifact_type": "report",
+        "entity_scope_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+        "version": 2,
+        "lifecycle": "Current",
+        "verification": "Verified",
+        "verification_receipt_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "operation_state": "NotOperation"
+      },
+      {
+        "artifact_id": "bad-artifact",
+        "payload_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "producer_node_id": "producer-b",
+        "artifact_type": "report",
+        "entity_scope_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+        "version": 2,
+        "lifecycle": "Current",
+        "verification": "Verified",
+        "verification_receipt_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "operation_state": "NotOperation"
+      }
+    ],
+    "exposures": [
+      {
+        "exposure_id": "good-exposure",
+        "consumer_node_id": "consumer",
+        "artifact_id": "good-artifact",
+        "reported_operation_state": "NotOperation",
+        "disposition": "Consumed",
+        "exposure_receipt_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "effect_receipt_digest": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      {
+        "exposure_id": "pollution-exposure",
+        "consumer_node_id": "consumer",
+        "artifact_id": "bad-artifact",
+        "reported_operation_state": "NotOperation",
+        "disposition": "RejectedWrongBranch",
+        "exposure_receipt_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+        "effect_receipt_digest": null
+      }
+    ],
+    "node_outcomes": [
+      {
+        "node_id": "producer-a",
+        "verified_complete": true,
+        "node_execution_receipt_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      {
+        "node_id": "producer-b",
+        "verified_complete": true,
+        "node_execution_receipt_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      {
+        "node_id": "consumer",
+        "verified_complete": true,
+        "node_execution_receipt_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    ],
+    "terminal_success": true,
+    "execution_receipt_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+    "exposure_trace_receipt_digest": "7777777777777777777777777777777777777777777777777777777777777777",
+    "evaluator_receipt_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+    "latency_ms": 1000,
+    "total_cost_microusd": 50000,
+    "input_tokens": 5000,
+    "output_tokens": 1000
+  }
+}
