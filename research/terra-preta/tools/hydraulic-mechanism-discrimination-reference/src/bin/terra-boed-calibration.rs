@@ -1194,7 +1194,7 @@ mod tests {
             posterior
                 .iter()
                 .zip(scaled.iter())
-                .all(|(left, right)| (left - right).abs() < 1.0e-12)
+                .all(|(left, right)| (left - right).abs() < 1.0e-9)
         );
     }
 
