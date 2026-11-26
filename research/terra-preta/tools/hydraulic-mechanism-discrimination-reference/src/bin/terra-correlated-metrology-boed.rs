@@ -126,7 +126,13 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
     if (prior_sum - 1.0).abs() > 1.0e-12 {
         return Err("mechanism priors must sum to one".into());
     }
-    if has_duplicates(&fixture.mechanism_ids.iter().map(String::as_str).collect::<Vec<_>>()) {
+    if has_duplicates(
+        &fixture
+            .mechanism_ids
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+    ) {
         return Err("mechanism IDs must be unique".into());
     }
     let channel_ids: Vec<&str> = fixture
@@ -149,7 +155,9 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
             || channel.mechanism_means.len() != fixture.mechanism_ids.len()
             || channel.mechanism_means.iter().any(|mean| !mean.is_finite())
         {
-            return Err("channel support, method, calibration, units, noise or means are incomplete".into());
+            return Err(
+                "channel support, method, calibration, units, noise or means are incomplete".into(),
+            );
         }
     }
     if fixture.observation_correlation.len() != fixture.channels.len()
@@ -211,7 +219,10 @@ fn cholesky(matrix: &[Vec<f64>]) -> Result<CholeskyFactor, String> {
             if row == column {
                 let pivot = matrix[row][row] - cross;
                 if !pivot.is_finite() || pivot <= 1.0e-14 {
-                    return Err("covariance matrix is singular or not positive definite; no jitter applied".into());
+                    return Err(
+                        "covariance matrix is singular or not positive definite; no jitter applied"
+                            .into(),
+                    );
                 }
                 lower[row][column] = pivot.sqrt();
                 log_determinant += pivot.ln();
@@ -231,8 +242,14 @@ fn covariance_for_pair(fixture: &Fixture, first: usize, second: usize) -> Vec<Ve
     let right = &fixture.channels[second];
     let correlation = fixture.observation_correlation[first][second];
     vec![
-        vec![left.noise_std.powi(2), correlation * left.noise_std * right.noise_std],
-        vec![correlation * left.noise_std * right.noise_std, right.noise_std.powi(2)],
+        vec![
+            left.noise_std.powi(2),
+            correlation * left.noise_std * right.noise_std,
+        ],
+        vec![
+            correlation * left.noise_std * right.noise_std,
+            right.noise_std.powi(2),
+        ],
     ]
 }
 
@@ -345,8 +362,7 @@ fn pair_observations(
         second_index: second,
         first_value: left.mechanism_means[mechanism_index] + left.noise_std * node_first,
         second_value: right.mechanism_means[mechanism_index]
-            + right.noise_std
-                * (correlation * node_first + conditional_scale * node_second),
+            + right.noise_std * (correlation * node_first + conditional_scale * node_second),
     }
 }
 
@@ -357,7 +373,9 @@ fn expected_posterior_entropy(
     mode: LikelihoodMode,
 ) -> Result<f64, String> {
     if !supports_are_distinct(fixture, first, second) {
-        return Err("duplicate measurement support cannot be treated as an independent channel".into());
+        return Err(
+            "duplicate measurement support cannot be treated as an independent channel".into(),
+        );
     }
     let mut expected_entropy = 0.0;
     for (mechanism_index, prior_probability) in fixture.prior_probabilities.iter().enumerate() {
@@ -372,10 +390,8 @@ fn expected_posterior_entropy(
                     *second_node,
                 );
                 let posterior = posterior_update(fixture, pair, mode)?;
-                expected_entropy += prior_probability
-                    * first_weight
-                    * second_weight
-                    * entropy(&posterior);
+                expected_entropy +=
+                    prior_probability * first_weight * second_weight * entropy(&posterior);
             }
         }
     }
@@ -440,7 +456,10 @@ fn pair_score(
     })
 }
 
-fn shared_offset_covariance(residual_variances: [f64; 2], shared_offset_variance: f64) -> Vec<Vec<f64>> {
+fn shared_offset_covariance(
+    residual_variances: [f64; 2],
+    shared_offset_variance: f64,
+) -> Vec<Vec<f64>> {
     vec![
         vec![
             residual_variances[0] + shared_offset_variance,
@@ -568,9 +587,15 @@ fn run(input_path: &str, output_path: &str) -> Result<Report, String> {
         report.maximum_absolute_off_diagonal_correlation,
         report.selected_joint_covariance_pair.first_channel_id,
         report.selected_joint_covariance_pair.second_channel_id,
-        report.selected_independent_negative_control_pair.first_channel_id,
-        report.selected_independent_negative_control_pair.second_channel_id,
-        report.selected_joint_covariance_pair.expected_posterior_entropy_nats,
+        report
+            .selected_independent_negative_control_pair
+            .first_channel_id,
+        report
+            .selected_independent_negative_control_pair
+            .second_channel_id,
+        report
+            .selected_joint_covariance_pair
+            .expected_posterior_entropy_nats,
         report
             .independent_selected_pair_evaluated_with_joint_likelihood
             .expected_posterior_entropy_nats,
@@ -701,9 +726,12 @@ mod tests {
         let joint = posterior_update(&f, pair, LikelihoodMode::JointCovariance).unwrap();
         let independent =
             posterior_update(&f, pair, LikelihoodMode::IndependentNegativeControl).unwrap();
-        assert!(joint.iter().zip(independent.iter()).any(|(left, right)| {
-            (left - right).abs() > 1.0e-5
-        }));
+        assert!(
+            joint
+                .iter()
+                .zip(independent.iter())
+                .any(|(left, right)| { (left - right).abs() > 1.0e-5 })
+        );
         assert!((joint.iter().sum::<f64>() - 1.0).abs() < 1.0e-12);
         assert!((independent.iter().sum::<f64>() - 1.0).abs() < 1.0e-12);
     }
@@ -712,9 +740,11 @@ mod tests {
     fn duplicate_support_is_not_admitted_as_an_independent_pair() {
         let mut f = fixture();
         f.channels[1].support_id = f.channels[0].support_id.clone();
-        assert!(expected_posterior_entropy(&f, 0, 1, LikelihoodMode::JointCovariance)
-            .unwrap_err()
-            .contains("duplicate measurement support"));
+        assert!(
+            expected_posterior_entropy(&f, 0, 1, LikelihoodMode::JointCovariance)
+                .unwrap_err()
+                .contains("duplicate measurement support")
+        );
     }
 
     #[test]
@@ -743,10 +773,12 @@ mod tests {
         };
         let reversed_posterior =
             posterior_update(&reversed, reversed_pair, LikelihoodMode::JointCovariance).unwrap();
-        assert!(posterior
-            .iter()
-            .zip(reversed_posterior.iter())
-            .all(|(left, right)| (left - right).abs() < 1.0e-12));
+        assert!(
+            posterior
+                .iter()
+                .zip(reversed_posterior.iter())
+                .all(|(left, right)| (left - right).abs() < 1.0e-12)
+        );
     }
 
     #[test]
@@ -771,10 +803,12 @@ mod tests {
             second_value: pair.second_value,
         };
         let posterior = posterior_update(&f, scaled, LikelihoodMode::JointCovariance).unwrap();
-        assert!(baseline
-            .iter()
-            .zip(posterior.iter())
-            .all(|(left, right)| (left - right).abs() < 1.0e-12));
+        assert!(
+            baseline
+                .iter()
+                .zip(posterior.iter())
+                .all(|(left, right)| (left - right).abs() < 1.0e-12)
+        );
     }
 
     #[test]
