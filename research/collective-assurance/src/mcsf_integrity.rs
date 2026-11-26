@@ -506,7 +506,7 @@ pub fn qualify_mcsf_integrity_run(
         }
     }
 
-    if !commitment_valid || !controls_passed
+    if !commitment_valid || !controls_passed || !protocol_valid
         || run.manifest.evidence_class == McsfIntegrityEvidenceClass::SyntheticFixture
     {
         if run.manifest.evidence_class == McsfIntegrityEvidenceClass::SyntheticFixture {
@@ -860,13 +860,18 @@ mod tests {
     #[test]
     fn audit_only_detection_receives_half_credit() {
         let mut observations = all_cases();
-        observations[0].outcome = Some(McsfIntegrityOutcome::AuditOnly);
-        let run = run_with(observations, passing_controls(), true, true);
+        for observation in &mut observations {
+            observation.outcome = Some(McsfIntegrityOutcome::AuditOnly);
+        }
+        let mut run = run_with(observations, passing_controls(), true, true);
+        run.manifest.detection_point = McsfIntegrityDetectionPoint::Audit;
+        run.manifest.observation_point = McsfIntegrityObservationPoint::DutReported;
+        run.run_digest = compute_mcsf_integrity_run_digest(&run).unwrap();
         let report = qualify_mcsf_integrity_run(&run);
 
         assert_eq!(report.qualification.status, QualificationStatus::Pass);
-        assert_eq!(report.audit_only_count, 1);
-        assert_eq!(report.overall_score_micros, Some(950_000));
+        assert_eq!(report.audit_only_count, 10);
+        assert_eq!(report.overall_score_micros, Some(500_000));
     }
 
     #[test]
@@ -981,6 +986,24 @@ mod tests {
         let report = qualify_mcsf_integrity_run(&unknown);
         assert!(!report.metric_evaluable);
         assert!(report.overall_score_micros.is_none());
+    }
+
+    #[test]
+    fn rejects_running_process_edits_and_mixed_detection_points() {
+        let mut run = run_with(all_cases(), passing_controls(), true, true);
+        run.manifest.edits_applied_while_sut_stopped = false;
+        run.run_digest = compute_mcsf_integrity_run_digest(&run).unwrap();
+        let stopped_report = qualify_mcsf_integrity_run(&run);
+        assert_eq!(stopped_report.qualification.status, QualificationStatus::Fail);
+        assert!(stopped_report.overall_score_micros.is_none());
+
+        let mut run = run_with(all_cases(), passing_controls(), true, true);
+        run.manifest.detection_point = McsfIntegrityDetectionPoint::Audit;
+        run.manifest.observation_point = McsfIntegrityObservationPoint::DutReported;
+        run.run_digest = compute_mcsf_integrity_run_digest(&run).unwrap();
+        let mixed_report = qualify_mcsf_integrity_run(&run);
+        assert_eq!(mixed_report.qualification.status, QualificationStatus::Fail);
+        assert!(mixed_report.overall_score_micros.is_none());
     }
 
     #[test]
