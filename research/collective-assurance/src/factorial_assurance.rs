@@ -90,6 +90,7 @@ pub enum FactorialGateOutcome {
     Pass,
     Fail,
     Indeterminate,
+    NotApplied,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -174,6 +175,8 @@ pub struct FactorialArmObservation {
     pub over_refusal_rate: f64,
     pub latency_ms: u64,
     pub total_cost_microusd: u64,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
     pub inquiry_requests: u64,
     pub newly_verified_source_origins: u64,
     pub rer_added_evidence_count: u64,
@@ -325,10 +328,19 @@ fn run_errors(run: &FactorialArmRun) -> Vec<String> {
         if run.outcome.constraint_items_processed != run.outcome.generator_visible_evidence_count {
             errors.push("ACB-ON arm did not process the complete generator-visible evidence inventory".into());
         }
+        if run.outcome.constraint_gate == FactorialGateOutcome::NotApplied {
+            errors.push("ACB-ON arm reports that the constraint gate was not applied".into());
+        }
     } else if run.outcome.constraint_items_processed != 0
         || run.outcome.unaccounted_visible_evidence_count != 0
+        || run.outcome.constraint_gate != FactorialGateOutcome::NotApplied
     {
-        errors.push("ACB-OFF arm reports constraint processing or unaccounted ACB items".into());
+        errors.push("ACB-OFF arm reports constraint processing, ACB failures, or an applied constraint gate".into());
+    }
+    if run.outcome.rights_provenance_gate == FactorialGateOutcome::NotApplied
+        || run.outcome.response_audit_gate == FactorialGateOutcome::NotApplied
+    {
+        errors.push("rights/provenance and independent response-audit controls cannot be disabled by the factorial treatment".into());
     }
     if run.outcome.unaccounted_visible_evidence_count > run.outcome.generator_visible_evidence_count {
         errors.push("unaccounted visible evidence exceeds the generator-visible inventory".into());
@@ -363,6 +375,8 @@ fn observations(arms: &[FactorialArmRun]) -> Vec<FactorialArmObservation> {
             over_refusal_rate: run.outcome.over_refusal_rate,
             latency_ms: run.outcome.latency_ms,
             total_cost_microusd: run.outcome.total_cost_microusd,
+            input_tokens: run.outcome.input_tokens,
+            output_tokens: run.outcome.output_tokens,
             inquiry_requests: run.outcome.inquiry_requests,
             newly_verified_source_origins: run.outcome.newly_verified_source_origins,
             rer_added_evidence_count: run.outcome.rer_added_evidence_count,
@@ -539,7 +553,11 @@ mod tests {
                 constraint_items_processed: if treatment.acb { 4 } else { 0 },
                 unaccounted_visible_evidence_count: if treatment.acb { 0 } else { 0 },
                 rights_provenance_gate: FactorialGateOutcome::Pass,
-                constraint_gate: FactorialGateOutcome::Pass,
+                constraint_gate: if treatment.acb {
+                    FactorialGateOutcome::Pass
+                } else {
+                    FactorialGateOutcome::NotApplied
+                },
                 response_audit_gate: FactorialGateOutcome::Pass,
             },
         }
@@ -642,6 +660,14 @@ mod tests {
         let mut block = valid_block();
         block.arms[5].outcome.recalled_but_unused_pairs = 11;
         assert_eq!(qualify_factorial_block(&block).status, FactorialQualificationStatus::Fail);
+    }
+
+    #[test]
+    fn constraint_off_does_not_disable_rights_or_independent_response_audit() {
+        let mut block = valid_block();
+        block.arms[0].outcome.rights_provenance_gate = FactorialGateOutcome::NotApplied;
+        let report = qualify_factorial_block(&block);
+        assert_eq!(report.status, FactorialQualificationStatus::Fail);
     }
 
     #[test]
