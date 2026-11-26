@@ -193,6 +193,17 @@ pub struct StakeholderPositionV1 {
     pub traceability: Vec<TraceabilityLinkV1>,
 }
 
+/// A trade-off claim attached to a candidate decomposition.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProposedTradeoffV1 {
+    /// Stable trade-off identifier within the proposal.
+    pub tradeoff_id: String,
+    /// Plain-language trade-off statement.
+    pub statement: String,
+    /// Traceability to sources, assumptions or labelled inference.
+    pub traceability: Vec<TraceabilityLinkV1>,
+}
+
 /// A candidate decomposition presented for comparison, not an AI-selected plan.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProposedAlternativeV1 {
@@ -209,7 +220,7 @@ pub struct ProposedAlternativeV1 {
     /// Work packages that implement this option.
     pub work_package_ids: Vec<String>,
     /// Explicit costs, benefits, dependencies and trade-offs.
-    pub tradeoffs: Vec<String>,
+    pub tradeoffs: Vec<ProposedTradeoffV1>,
     /// Traceability for why this option is being proposed.
     pub traceability: Vec<TraceabilityLinkV1>,
 }
@@ -553,7 +564,9 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
             return Err(NeedIntakeErrorV1::MissingTraceability);
         }
         for tradeoff in &alternative.tradeoffs {
-            require_non_empty(tradeoff)?;
+            require_non_empty(&tradeoff.tradeoff_id)?;
+            require_non_empty(&tradeoff.statement)?;
+            validate_traceability(&tradeoff.traceability, &source_map, &assumption_ids)?;
         }
         for outcome_id in &alternative.outcome_ids {
             if !outcome_ids.contains(outcome_id.as_str()) {
@@ -879,7 +892,20 @@ mod tests {
             previous_proposal_digest: None,
             proposal_digest: [5; 32],
             sources: vec![source],
-            assumptions: Vec::new(),
+            assumptions: vec![
+                AssumptionV1 {
+                    assumption_id: "existing-parts-cost".to_owned(),
+                    statement: "Existing compatible parts are available at lower cost than a full replacement".to_owned(),
+                    owner_id: "maintenance-team".to_owned(),
+                    risk_if_false: "Repair may not be the lower-cost option".to_owned(),
+                },
+                AssumptionV1 {
+                    assumption_id: "replacement-maintenance".to_owned(),
+                    statement: "A correctly specified replacement pump may reduce recurring maintenance".to_owned(),
+                    owner_id: "maintenance-team".to_owned(),
+                    risk_if_false: "Replacement may not improve lifecycle cost".to_owned(),
+                },
+            ],
             outcomes: vec![ProposedOutcomeV1 {
                 outcome_id: "reliable-water-service".to_owned(),
                 statement: "Improve reliability of the community water service".to_owned(),
@@ -923,8 +949,21 @@ mod tests {
                     requirement_ids: vec!["electrical-safety".to_owned()],
                     work_package_ids: vec!["inspect".to_owned(), "repair".to_owned()],
                     tradeoffs: vec![
-                        "Lower initial material cost".to_owned(),
-                        "Depends on condition and availability of existing parts".to_owned(),
+                        ProposedTradeoffV1 {
+                            tradeoff_id: "lower-initial-cost".to_owned(),
+                            statement: "Potentially lower initial material cost".to_owned(),
+                            traceability: vec![TraceabilityLinkV1 {
+                                relation: "explicit assumption requiring field verification".to_owned(),
+                                basis: TraceabilityBasisV1::Assumption {
+                                    assumption_id: "existing-parts-cost".to_owned(),
+                                },
+                            }],
+                        },
+                        ProposedTradeoffV1 {
+                            tradeoff_id: "existing-part-dependence".to_owned(),
+                            statement: "Depends on condition and availability of existing parts".to_owned(),
+                            traceability: vec![trace[0].clone()],
+                        },
                     ],
                     traceability: vec![trace[0].clone()],
                 },
@@ -936,8 +975,26 @@ mod tests {
                     requirement_ids: vec!["electrical-safety".to_owned()],
                     work_package_ids: vec!["inspect".to_owned(), "repair".to_owned()],
                     tradeoffs: vec![
-                        "Potentially higher capital cost".to_owned(),
-                        "May reduce recurring maintenance if replacement is correctly specified".to_owned(),
+                        ProposedTradeoffV1 {
+                            tradeoff_id: "higher-capital-cost".to_owned(),
+                            statement: "Potentially higher initial capital cost".to_owned(),
+                            traceability: vec![TraceabilityLinkV1 {
+                                relation: "explicit assumption requiring supplier quotation".to_owned(),
+                                basis: TraceabilityBasisV1::Assumption {
+                                    assumption_id: "replacement-maintenance".to_owned(),
+                                },
+                            }],
+                        },
+                        ProposedTradeoffV1 {
+                            tradeoff_id: "maintenance-impact".to_owned(),
+                            statement: "May reduce recurring maintenance if replacement is correctly specified".to_owned(),
+                            traceability: vec![TraceabilityLinkV1 {
+                                relation: "explicit lifecycle assumption requiring validation".to_owned(),
+                                basis: TraceabilityBasisV1::Assumption {
+                                    assumption_id: "replacement-maintenance".to_owned(),
+                                },
+                            }],
+                        },
                     ],
                     traceability: vec![trace[0].clone()],
                 },
@@ -1110,6 +1167,16 @@ mod tests {
         assert!(validate_proposal(&proposal).is_ok());
         let review_path = evaluate_ratification(&proposal, NOW).unwrap();
         assert_eq!(review_path.state, RatificationStateV1::Draft);
+    }
+
+    #[test]
+    fn every_tradeoff_requires_its_own_traceability() {
+        let mut proposal = valid_proposal();
+        proposal.alternatives[0].tradeoffs[0].traceability.clear();
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::MissingTraceability)
+        );
     }
 
     #[test]
