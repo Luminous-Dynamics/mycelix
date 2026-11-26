@@ -8,7 +8,7 @@
   "generator": {
     "name": "hand-authored-adversarial-conformance-fixtures",
     "seed": "not-applicable",
-    "note": "All case identifiers, digests, areas, sources and event references are synthetic placeholders. No real household or asset locations are included."
+    "note": "All scenario zones, event identifiers, operational evidence identifiers and evidence digests are synthetic placeholders. Evidence digests are shape-only test placeholders and are not cryptographic commitments. The public baseline references in this manifest point to real published documents and are metadata only; no real operational case data is included."
   },
   "public_baseline_sources": [
     {
