@@ -55,6 +55,8 @@ pub struct WorkflowIdentity {
     pub benchmark_certificate_digest: String,
     pub split_digest: String,
     pub workflow_id: String,
+    /// Native benchmark topology label, bound into the workflow graph digest.
+    pub topology_id: String,
     pub task_digest: String,
     pub source_group_id: String,
     pub workflow_graph_digest: String,
@@ -289,6 +291,7 @@ fn report(
 
 /// Computes a deterministic digest over sorted workflow nodes and handoff contracts.
 pub fn compute_workflow_graph_digest(
+    topology_id: &str,
     nodes: &[WorkflowNode],
     contracts: &[ArtifactHandoffContract],
 ) -> Result<String, String> {
@@ -300,8 +303,12 @@ pub fn compute_workflow_graph_digest(
     let mut node_ids = BTreeSet::new();
     let mut edge_ids = BTreeSet::new();
     let mut contract_keys = BTreeSet::new();
+    if !nonempty(topology_id) {
+        return Err("workflow topology ID must be non-empty".into());
+    }
     let mut bytes = Vec::new();
     bytes.extend_from_slice(GRAPH_DOMAIN);
+    push_str(&mut bytes, topology_id);
 
     push_len(&mut bytes, sorted_nodes.len());
     for node in sorted_nodes {
@@ -353,6 +360,7 @@ fn validate_identity(identity: &WorkflowIdentity) -> Result<(), String> {
         ("benchmark ID", identity.benchmark_id.as_str()),
         ("benchmark version", identity.benchmark_version.as_str()),
         ("workflow ID", identity.workflow_id.as_str()),
+        ("topology ID", identity.topology_id.as_str()),
         ("source group ID", identity.source_group_id.as_str()),
     ] {
         if !nonempty(value) {
@@ -402,7 +410,11 @@ fn validate_run(run: &WorkflowRun) -> Result<(), String> {
         }
     }
 
-    let graph_digest = compute_workflow_graph_digest(&run.nodes, &run.handoff_contracts)?;
+    let graph_digest = compute_workflow_graph_digest(
+        &run.identity.topology_id,
+        &run.nodes,
+        &run.handoff_contracts,
+    )?;
     if graph_digest != run.identity.workflow_graph_digest {
         return Err("workflow graph digest does not bind the declared nodes and handoff contracts".into());
     }
@@ -848,6 +860,7 @@ mod tests {
             benchmark_certificate_digest: digest('1'),
             split_digest: digest('2'),
             workflow_id: "workflow-001".into(),
+            topology_id: "custom".into(),
             task_digest: digest('3'),
             source_group_id: "source-group-001".into(),
             workflow_graph_digest: graph,
@@ -873,7 +886,7 @@ mod tests {
         artifacts: Vec<WorkflowArtifact>,
         exposures: Vec<WorkflowArtifactExposure>,
     ) -> WorkflowRun {
-        let graph = compute_workflow_graph_digest(&graph_nodes, &contracts).unwrap();
+        let graph = compute_workflow_graph_digest("custom", &graph_nodes, &contracts).unwrap();
         let node_outcomes = graph_nodes
             .iter()
             .map(|node| WorkflowNodeOutcome {
@@ -949,8 +962,8 @@ mod tests {
         let mut reversed_edges = edges.clone();
         reversed_edges.reverse();
         assert_eq!(
-            compute_workflow_graph_digest(&nodes, &edges).unwrap(),
-            compute_workflow_graph_digest(&reversed_nodes, &reversed_edges).unwrap()
+            compute_workflow_graph_digest("chain", &nodes, &edges).unwrap(),
+            compute_workflow_graph_digest("chain", &reversed_nodes, &reversed_edges).unwrap()
         );
     }
 
