@@ -411,3 +411,18 @@ func BenchmarkAuthenticatedIntervalV1(b *testing.B) {
 		})
 	}
 }
+
+// cloneIntervalProofNodeV1 is test support for immutable adversarial mutations.
+func cloneIntervalProofNodeV1(node *IntervalProofNodeV1) *IntervalProofNodeV1 {
+	if node == nil {
+		return nil
+	}
+	out := *node
+	if node.Record != nil {
+		record := *node.Record
+		out.Record = &record
+	}
+	out.Left = cloneIntervalProofNodeV1(node.Left)
+	out.Right = cloneIntervalProofNodeV1(node.Right)
+	return &out
+}
