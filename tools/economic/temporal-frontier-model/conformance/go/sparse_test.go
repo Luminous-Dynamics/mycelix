@@ -140,16 +140,17 @@ func TestSparseMerkleRejectsWrongKeyValueRootAndTamperedProof(t *testing.T) {
 }
 
 func TestSparseKeyAndValueAreDomainScoped(t *testing.T) {
-	base, err := AssertionIndexKeyV1("verifier:A", "policy:1", "subject:1", "claim:valid", "VALID_AT")
+	base, err := AssertionIndexKeyV1("verifier:A", "policy:1", "subject:1", "claim:valid", "VALID_AT", "assertion:1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	otherVerifier, _ := AssertionIndexKeyV1("verifier:B", "policy:1", "subject:1", "claim:valid", "VALID_AT")
-	otherPolicy, _ := AssertionIndexKeyV1("verifier:A", "policy:2", "subject:1", "claim:valid", "VALID_AT")
-	otherSubject, _ := AssertionIndexKeyV1("verifier:A", "policy:1", "subject:2", "claim:valid", "VALID_AT")
-	otherClaim, _ := AssertionIndexKeyV1("verifier:A", "policy:1", "subject:1", "claim:revoked", "VALID_AT")
-	otherDimension, _ := AssertionIndexKeyV1("verifier:A", "policy:1", "subject:1", "claim:valid", "OCCURRED_AT")
-	for _, got := range []SparseKey{otherVerifier, otherPolicy, otherSubject, otherClaim, otherDimension} {
+	otherVerifier, _ := AssertionIndexKeyV1("verifier:B", "policy:1", "subject:1", "claim:valid", "VALID_AT", "assertion:1")
+	otherPolicy, _ := AssertionIndexKeyV1("verifier:A", "policy:2", "subject:1", "claim:valid", "VALID_AT", "assertion:1")
+	otherSubject, _ := AssertionIndexKeyV1("verifier:A", "policy:1", "subject:2", "claim:valid", "VALID_AT", "assertion:1")
+	otherClaim, _ := AssertionIndexKeyV1("verifier:A", "policy:1", "subject:1", "claim:revoked", "VALID_AT", "assertion:1")
+	otherDimension, _ := AssertionIndexKeyV1("verifier:A", "policy:1", "subject:1", "claim:valid", "OCCURRED_AT", "assertion:1")
+	otherAssertion, _ := AssertionIndexKeyV1("verifier:A", "policy:1", "subject:1", "claim:valid", "VALID_AT", "assertion:2")
+	for _, got := range []SparseKey{otherVerifier, otherPolicy, otherSubject, otherClaim, otherDimension, otherAssertion} {
 		if got == base {
 			t.Fatal("query key omitted a required scope dimension")
 		}
