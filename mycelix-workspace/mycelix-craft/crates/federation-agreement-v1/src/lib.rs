@@ -728,24 +728,24 @@ mod tests {
 
     #[test]
     fn wrong_purpose_jurisdiction_or_disclosure_profile_is_denied() {
-        let mut request = request("institution-a", "institution-b");
-        request.purpose_id = "unrelated-purpose".to_owned();
+        let mut purpose_request = request("institution-a", "institution-b");
+        purpose_request.purpose_id = "unrelated-purpose".to_owned();
         assert_eq!(
-            authorize_cooperation(&agreement(), &request),
+            authorize_cooperation(&agreement(), &purpose_request),
             CooperationDecisionV1::Denied(DenialReasonV1::ScopeOrPurposeMismatch)
         );
 
-        let mut request = request("institution-a", "institution-b");
-        request.jurisdiction_id = "ZA-WC".to_owned();
+        let mut jurisdiction_request = request("institution-a", "institution-b");
+        jurisdiction_request.jurisdiction_id = "ZA-WC".to_owned();
         assert_eq!(
-            authorize_cooperation(&agreement(), &request),
+            authorize_cooperation(&agreement(), &jurisdiction_request),
             CooperationDecisionV1::Denied(DenialReasonV1::ScopeOrPurposeMismatch)
         );
 
-        let mut request = request("institution-a", "institution-b");
-        request.scope.disclosure_profile.digest = [9; 32];
+        let mut disclosure_request = request("institution-a", "institution-b");
+        disclosure_request.scope.disclosure_profile.digest = [9; 32];
         assert_eq!(
-            authorize_cooperation(&agreement(), &request),
+            authorize_cooperation(&agreement(), &disclosure_request),
             CooperationDecisionV1::Denied(DenialReasonV1::ScopeOrPurposeMismatch)
         );
     }
