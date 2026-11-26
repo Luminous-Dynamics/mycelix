@@ -299,6 +299,7 @@ pub fn compute_workflow_graph_digest(
 
     let mut node_ids = BTreeSet::new();
     let mut edge_ids = BTreeSet::new();
+    let mut contract_keys = BTreeSet::new();
     let mut bytes = Vec::new();
     bytes.extend_from_slice(GRAPH_DOMAIN);
 
@@ -323,6 +324,12 @@ pub fn compute_workflow_graph_digest(
             || !nonempty(&edge.artifact_type)
             || !valid_digest(&edge.entity_scope_digest)
             || !edge_ids.insert(edge.edge_id.as_str())
+            || !contract_keys.insert((
+                edge.producer_node_id.as_str(),
+                edge.consumer_node_id.as_str(),
+                edge.artifact_type.as_str(),
+                edge.entity_scope_digest.as_str(),
+            ))
             || !node_ids.contains(edge.producer_node_id.as_str())
             || !node_ids.contains(edge.consumer_node_id.as_str())
             || edge.required_version == 0
@@ -469,32 +476,35 @@ fn validate_run(run: &WorkflowRun) -> Result<(), String> {
     Ok(())
 }
 
-fn contract_for<'a>(
-    contracts: &'a [ArtifactHandoffContract],
-    artifact: &WorkflowArtifact,
-    consumer_node_id: &str,
-) -> Option<&'a ArtifactHandoffContract> {
-    contracts.iter().find(|contract| {
-        contract.producer_node_id == artifact.producer_node_id
-            && contract.consumer_node_id == consumer_node_id
-    })
-}
-
 fn expected_rejection(
     contracts: &[ArtifactHandoffContract],
     artifact: &WorkflowArtifact,
     consumer_node_id: &str,
     reported_operation_state: ArtifactOperationState,
 ) -> Option<ArtifactExposureDisposition> {
-    let Some(contract) = contract_for(contracts, artifact, consumer_node_id) else {
+    let related_contracts = contracts
+        .iter()
+        .filter(|contract| {
+            contract.producer_node_id == artifact.producer_node_id
+                && contract.consumer_node_id == consumer_node_id
+        })
+        .collect::<Vec<_>>();
+    if related_contracts.is_empty() {
         return Some(ArtifactExposureDisposition::RejectedWrongBranch);
-    };
-    if artifact.artifact_type != contract.artifact_type {
+    }
+    let matching_type = related_contracts
+        .into_iter()
+        .filter(|contract| contract.artifact_type == artifact.artifact_type)
+        .collect::<Vec<_>>();
+    if matching_type.is_empty() {
         return Some(ArtifactExposureDisposition::RejectedInapplicable);
     }
-    if artifact.entity_scope_digest != contract.entity_scope_digest {
+    let matching_entity = matching_type
+        .into_iter()
+        .find(|contract| contract.entity_scope_digest == artifact.entity_scope_digest);
+    let Some(contract) = matching_entity else {
         return Some(ArtifactExposureDisposition::RejectedWrongEntity);
-    }
+    };
     if artifact.version < contract.required_version
         || artifact.lifecycle == ArtifactLifecycle::Superseded
     {
@@ -902,8 +912,7 @@ mod tests {
     ) -> WorkflowBoundaryPair {
         let nodes = vec![node("producer-a", '3'), node("producer-b", '4'), node("consumer", '5')];
         let good_contract = contract("edge-good", "producer-a", "consumer", "report", '6', 2);
-        let bad_contract = contract("edge-bad", "producer-b", "consumer", "report", '6', 2);
-        let contracts = vec![good_contract, bad_contract];
+        let contracts = vec![good_contract];
         let good_artifact = artifact(
             "good-artifact", "producer-a", "report", '6', 2,
             ArtifactLifecycle::Current, ArtifactVerification::Verified,
@@ -965,7 +974,7 @@ mod tests {
         assert_eq!(report.status, WorkflowBoundaryStatus::Pass);
         assert!(report.pollution_was_exposed);
         assert!(!report.pollution_was_consumed);
-        assert_eq!(report.clean_metrics.successful_required_handoff_count, 2);
+        assert_eq!(report.clean_metrics.successful_required_handoff_count, 1);
     }
 
     #[test]
