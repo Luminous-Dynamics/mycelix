@@ -527,6 +527,29 @@ mod tests {
     }
 
     #[test]
+    fn pareto_portfolios_have_the_frozen_objective_vectors() {
+        let audit = evaluate(&parse_fixture(FIXTURE).expect("fixture parses"));
+        let expected = [
+            ("A-LOCAL", "B-IMPORT", 190.0, 16.0, 20.0, 83.0),
+            ("A-IMPORT", "B-LOCAL", 185.0, 18.0, 20.0, 65.0),
+            ("A-IMPORT", "B-IMPORT", 165.0, 18.0, 26.0, 18.0),
+        ];
+        for (first, second, cost, lead, co2, regional) in expected {
+            let candidate = audit.candidates.iter().find(|candidate| {
+                candidate.plan_id.contains(first) && candidate.plan_id.contains(second)
+            }).expect("expected candidate exists");
+            assert!(candidate.feasible);
+            assert!(audit.pareto_plan_ids.contains(&candidate.plan_id));
+            assert_eq!(candidate.metrics, Metrics {
+                cost_units: cost,
+                max_lead_days: lead,
+                embodied_co2_units: co2,
+                regional_value_units: regional,
+            });
+        }
+    }
+
+    #[test]
     fn resource_unit_mismatch_fails_closed() {
         let altered = FIXTURE.replace(
             "REGIONAL-PLATE:YARD-A:P1:2:t",
