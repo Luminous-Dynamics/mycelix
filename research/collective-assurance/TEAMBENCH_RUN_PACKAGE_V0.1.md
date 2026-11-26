@@ -8,6 +8,12 @@ Use the official upstream source at https://github.com/ybkim95/TeamBench and its
 
 The official upstream project documents a deterministic mock-provider smoke path. Run it before using model/API credentials. A mock run can prove only that the harness and ingestion path work; it is never eligible for a model-performance score.
 
+## Canonical task-manifest commitment
+
+The suite carries both the upstream Git commit and exact Git blob identities for the v2.1 task manifest and the README re-curation notice. The adapter recomputes a domain-separated SHA-256 over those source identities, the sorted eligible task IDs, and a separately recomputed exclusion-manifest digest. The fixture uses the actual pinned upstream commit `d185aef1916fd86a9ba554d581fd256319a973af`, manifest blob `59125b3fa9a82eede1f5a832c51c2ba32f5af591`, and README blob `6c39b66fed83c52f397c2d3b4f84e7bafe854061`.
+
+The checked-in `benchmark-manifests/teambench-leaderboard-90-v2.1.json` preserves all 90 official entries, with 89 currently evaluable task IDs and one explicit re-curation exclusion (`GH120_redis-py_3863`). A suite run must bind that exact manifest and explicit exclusion rationale; the synthetic example fixture uses synthetic task IDs only to test the adapter and is not the 90-task benchmark dataset.
+
 ## Package contract
 
 The suite manifest binds:
