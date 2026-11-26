@@ -568,10 +568,12 @@ pub fn evaluate_team(
             let mut stale_or_revoked = 0;
             let mut scope_mismatch = 0;
 
+            let mut matching_assignments = 0usize;
             for assignment in proposal.assignments.iter().filter(|assignment| {
                 assignment.work_package_id == package.work_package_id
                     && assignment.requirement_id == requirement.requirement_id
             }) {
+                matching_assignments += 1;
                 if assignment.supervised_development.is_some() {
                     developmental.insert(assignment.contributor_id.clone());
                 }
@@ -611,6 +613,11 @@ pub fn evaluate_team(
                         EvidenceDispositionV1::Revoked => stale_or_revoked += 1,
                     }
                 }
+            }
+
+            // No offer is an absence of evidence, not a negative competence finding.
+            if matching_assignments == 0 {
+                unknown += 1;
             }
 
             let mut qualified_contributors: Vec<String> = qualified.into_iter().collect();
@@ -1051,6 +1058,17 @@ mod tests {
             coverage.disposition,
             RequirementDispositionV1::HumanReviewRequired
         );
+    }
+
+    #[test]
+    fn no_assignment_is_unknown_not_a_negative_capability_judgement() {
+        let project = project(RequirementKindV1::Required, 1);
+        let proposal = proposal(vec![member("alice")], Vec::new());
+
+        let coverage = result(&project, &proposal);
+        assert_eq!(coverage.disposition, RequirementDispositionV1::UnknownEvidence);
+        assert_eq!(coverage.unknown_evidence, 1);
+        assert!(coverage.qualified_contributors.is_empty());
     }
 
     #[test]
