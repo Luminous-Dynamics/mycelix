@@ -85,6 +85,30 @@ Do not combine these metrics into a universal optimizer score. Publish each obje
 - GS1 EPCIS 2.0: https://www.gs1.org/standards/epcis
 - ILO Recommendation 208: https://normlex.ilo.org/dyn/nrmlx_en/f?p=NORMLEXPUB:12100:0::NO::P12100_ILO_CODE:R208
 
+## 3.1 Dataset realism, negative outcomes and external validity
+
+The current literature leaves a specific opening for a stronger benchmark. The 2025 ACM Computing Surveys review of expert team formation identifies inconsistent problem definitions, domain-specific datasets and limited public implementations, and explicitly calls for fairness-aware, time-sensitive, multi-factorial and open-source methods. It also notes that common historical datasets such as DBLP, IMDb and GitHub describe collaboration networks with different distributions, and that published work often treats observed teams as successful samples despite missing rejected, failed or unsuccessful teams.
+
+Craft should turn that weakness into a qualification advantage:
+
+1. **Research-reproduction track:** use DBLP, IMDb and GitHub only to reproduce algorithmic behavior and compare optimization methods, with dataset/version/purpose disclosures. These datasets are not ground truth for general capability, human worth, safety or causal team success.
+2. **Negative-outcome track:** preserve non-starts, rejected projects, failed work, rework, safety events and dissolved teams where lawful and consented. Record why observations are missing or censored. Never label unobserved outcomes as successful by default.
+3. **Controlled synthetic track:** publish the generator and seed; model long-tail skill distributions, popularity bias, newcomer/cold-start, disconnected institutions, time-varying availability, capacity, location, resource constraints, missing evidence and changing project scope.
+4. **Community-project track:** prospectively register need, baseline, acceptance criteria and outcomes before work begins. Measure physical service continuity, rework, safety and skill transfer independently, including failure and non-completion.
+5. **External validation:** train/tune on one project family and evaluate on held-out communities, occupations, jurisdictions and time periods. Do not randomly split records from the same underlying institution in ways that leak collaboration history.
+
+For the public research track, compare against the field's established objective families: skill coverage/proficiency, personnel cost, communication cost, geographic distance, collaboration density and workload/capacity. Include the methods already identified in the plan (greedy, genetic, QUBO, graph/subgraph, DRL and exact MILP/CP-SAT on tractable cases). An optimizer that improves one objective but violates consent, hard safety or scope constraints is infeasible, not a better solution.
+
+### Specific anti-bias controls
+
+- Report performance for cold-start/newcomer and low-connectivity candidates separately from historically popular contributors.
+- Run counterfactuals that hold work evidence constant while changing collaboration centrality, follower/popularity count, prior institutional affiliation or optional credential labels.
+- Where demographic fairness analysis is lawful and ethically approved, use voluntary, consented, protected evaluation data and publish aggregation/privacy safeguards. Do not infer sensitive characteristics to produce a fairness claim.
+- Measure both access and outcome: who is considered, who receives offers, who can contest a decision, who completes paid work and who receives transferable evidence.
+- Publish the optimization objective and constraints in machine-readable form. No universal fairness scalar or hidden weighted score.
+
+Reference: Saeedi et al., “A Survey of Subgraph Optimization for Expert Team Formation,” ACM Computing Surveys 57(12), Article 314 (July 2025), DOI: https://doi.org/10.1145/3737455. The authors review 17 seminal graph-based studies, 18 objective functions and 63 algorithms, and identify a lack of consistent benchmarking/baselining plus fairness-aware, time-sensitive, multi-factorial and open-source directions.
+
 ## 4. Primary measures
 
 | Measure | Definition | Qualification target |
