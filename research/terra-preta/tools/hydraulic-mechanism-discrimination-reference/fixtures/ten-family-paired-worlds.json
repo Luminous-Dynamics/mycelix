@@ -1,0 +1,166 @@
+{
+  "schema_version": "terra-hydraulic-paired-world-calibration-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "fixture_id": "ten-hydraulic-family-three-conductance-regime-paired-worlds",
+  "description": "Analyst-authored normalized response signatures for ten distinct hydraulic mechanism families and three conductance regimes. These are synthetic hypotheses, not measurements or calibrated constitutive laws.",
+  "seed": 20261126,
+  "worlds_per_family": 1200,
+  "parameter_regimes": [
+    0.9,
+    1,
+    1.1
+  ],
+  "first_candidate_id": "upper_path_flow",
+  "fixed_second_candidate_id": "early_transient_flow",
+  "heldout_noise_std": 0.2,
+  "discrepancy_threshold_sd": 4,
+  "sbc_posterior_draws": 128,
+  "candidates": [
+    {
+      "candidate_id": "bulk_flow_low_head",
+      "noise_std": 0.14
+    },
+    {
+      "candidate_id": "bulk_flow_high_head",
+      "noise_std": 0.16
+    },
+    {
+      "candidate_id": "upper_path_flow",
+      "noise_std": 0.12
+    },
+    {
+      "candidate_id": "lower_path_flow",
+      "noise_std": 0.15
+    },
+    {
+      "candidate_id": "early_transient_flow",
+      "noise_std": 0.16
+    },
+    {
+      "candidate_id": "late_tracer_moment",
+      "noise_std": 0.22
+    }
+  ],
+  "families": [
+    {
+      "family_id": "balanced_parallel_paths",
+      "base_expected_observables": [
+        2,
+        2.1,
+        1,
+        1,
+        1.85,
+        0.55
+      ],
+      "base_heldout_mean": 1
+    },
+    {
+      "family_id": "preferential_pathway",
+      "base_expected_observables": [
+        2,
+        2.1,
+        1.55,
+        0.45,
+        1.82,
+        0.34
+      ],
+      "base_heldout_mean": 1.45
+    },
+    {
+      "family_id": "dual_domain_storage",
+      "base_expected_observables": [
+        1.95,
+        2.05,
+        1,
+        0.95,
+        0.78,
+        1.45
+      ],
+      "base_heldout_mean": 1.25
+    },
+    {
+      "family_id": "fracture_matrix_exchange",
+      "base_expected_observables": [
+        2.05,
+        2.1,
+        1.7,
+        0.35,
+        1.2,
+        1.15
+      ],
+      "base_heldout_mean": 1.7
+    },
+    {
+      "family_id": "layered_anisotropic_flow",
+      "base_expected_observables": [
+        2,
+        1.8,
+        0.55,
+        1.45,
+        1.65,
+        0.7
+      ],
+      "base_heldout_mean": 0.8
+    },
+    {
+      "family_id": "forchheimer_non_darcy_flow",
+      "base_expected_observables": [
+        1.5,
+        2.45,
+        1,
+        1,
+        1.55,
+        0.55
+      ],
+      "base_heldout_mean": 0.95
+    },
+    {
+      "family_id": "mobile_immobile_transport",
+      "base_expected_observables": [
+        2,
+        2.05,
+        1.1,
+        0.9,
+        0.68,
+        1.7
+      ],
+      "base_heldout_mean": 1.9
+    },
+    {
+      "family_id": "unsaturated_hysteretic_response",
+      "base_expected_observables": [
+        1.2,
+        2.3,
+        1.2,
+        0.8,
+        1.35,
+        0.82
+      ],
+      "base_heldout_mean": 1.35
+    },
+    {
+      "family_id": "macropore_bypass_flow",
+      "base_expected_observables": [
+        2,
+        2,
+        1.8,
+        0.2,
+        0.45,
+        0.2
+      ],
+      "base_heldout_mean": 0.6
+    },
+    {
+      "family_id": "diffusion_limited_dead_end_pores",
+      "base_expected_observables": [
+        2.1,
+        2,
+        0.95,
+        1.05,
+        1.4,
+        1.85
+      ],
+      "base_heldout_mean": 2
+    }
+  ]
+}
