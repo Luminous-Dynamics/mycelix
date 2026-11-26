@@ -16,7 +16,7 @@
       "workflow_id": "workflow-001",
       "task_digest": "3333333333333333333333333333333333333333333333333333333333333333",
       "source_group_id": "source-group-001",
-      "workflow_graph_digest": "6d19dd8090425698b0967e752141ce1277d68e1ec87f18dc708a2b3e1aa6d0b3",
+      "workflow_graph_digest": "1e2b30a6ef4cf8074c0e62532bcfa728e59bcf58a105f6f0bc3448da326a3267",
       "model_snapshot_digest": "4444444444444444444444444444444444444444444444444444444444444444",
       "toolchain_digest": "5555555555555555555555555555555555555555555555555555555555555555",
       "executor_digest": "6666666666666666666666666666666666666666666666666666666666666666",
@@ -28,7 +28,8 @@
       "output_budget_tokens": 2000,
       "compute_budget_microusd": 100000,
       "wall_clock_budget_ms": 60000,
-      "memory_budget_bytes": 1000000
+      "memory_budget_bytes": 1000000,
+      "topology_id": "custom"
     },
     "nodes": [
       {
@@ -129,7 +130,7 @@
       "workflow_id": "workflow-001",
       "task_digest": "3333333333333333333333333333333333333333333333333333333333333333",
       "source_group_id": "source-group-001",
-      "workflow_graph_digest": "6d19dd8090425698b0967e752141ce1277d68e1ec87f18dc708a2b3e1aa6d0b3",
+      "workflow_graph_digest": "1e2b30a6ef4cf8074c0e62532bcfa728e59bcf58a105f6f0bc3448da326a3267",
       "model_snapshot_digest": "4444444444444444444444444444444444444444444444444444444444444444",
       "toolchain_digest": "5555555555555555555555555555555555555555555555555555555555555555",
       "executor_digest": "6666666666666666666666666666666666666666666666666666666666666666",
@@ -141,7 +142,8 @@
       "output_budget_tokens": 2000,
       "compute_budget_microusd": 100000,
       "wall_clock_budget_ms": 60000,
-      "memory_budget_bytes": 1000000
+      "memory_budget_bytes": 1000000,
+      "topology_id": "custom"
     },
     "nodes": [
       {
