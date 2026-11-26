@@ -52,7 +52,7 @@ The CLI hashes the exact input bytes and refuses output overwrite.
 
 A finite model set should not force a winner when every declared mechanism badly explains the observations. The fixture preregisters a four-standard-deviation discrepancy threshold. For an observed vector, the detector evaluates each candidate mechanism's largest absolute standardized residual and takes the minimum across mechanisms. If even the best-fitting mechanism exceeds the threshold, it returns an abstention signal.
 
-This is a conservative out-of-family alarm under the declared independent Gaussian observation-noise model; it is not a posterior probability that all models are false, nor a substitute for a calibrated posterior-predictive check. The current executable API exposes the detector and tests both in-family acceptance and out-of-family abstention. The next increment should connect this result to a runtime decision receipt that requests a new measurement or expands the model family instead of publishing a confident closed-set selection.
+This is a conservative out-of-family alarm under the declared independent Gaussian observation-noise model; it is not a posterior probability that all models are false, nor a substitute for a calibrated posterior-predictive check. The executable API exposes the detector, and the CLI now emits machine-readable in-family and out-of-family negative-control receipts. The focused workflow asserts that the in-family sample is accepted while the ten-sigma out-of-family sample triggers abstention. The next increment should connect this result to a runtime decision receipt that requests a new measurement or expands the model family instead of publishing a confident closed-set selection.
 
 ## Falsification controls
 
