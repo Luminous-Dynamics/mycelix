@@ -67,7 +67,7 @@ Applicability is explicit:
 - NotApplicable: a digest-pinned local/competent authority decision records why it does not apply.
 - Unresolved: never counts as covered and requires review.
 
-A not-applicable decision is not a model inference or a missing-data shortcut. The host must authenticate the decision and its authority.
+A not-applicable decision is not a model inference or a missing-data shortcut. Its explicit decision ID and digest must equal the local authority reference's decision ID and digest. The host must authenticate the decision and its authority.
 
 ## 5. Multiple defensible mappings and inter-rater reliability
 
