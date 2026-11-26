@@ -59,6 +59,18 @@ The adapter does not compute a universal TeamBench score. Preserve the native ta
 
 Match exact model snapshot, tokenizer, tool versions, dataset, task IDs, native grader and per-task budgets across conditions. Differences that define the ablation (agent topology/roles and corresponding system/role profile) remain explicit in each condition manifest. The full five-condition set is required before a suite is eligible for a model score.
 
+## Independent qualification axes
+
+The report intentionally does not collapse benchmark correctness, verifier quality, role enforcement, OS isolation and cost evidence into one status:
+
+- **Native benchmark score:** eligible only when the pinned official task manifest, all five native conditions, raw outputs and deterministic grader dispositions/scores are complete.
+- **Verifier audit:** reports false accepts, false rejects, NoVerdict, and missing verifier evidence separately. Missing verifier evidence does not erase a valid native score; it makes the verifier-audit axis incomplete.
+- **Role-boundary audit:** reports violations, false denials, unknown observations and incomplete inventories independently. A boundary violation does not rewrite the native task score, but it makes the enforcement qualification fail.
+- **OS isolation:** requires Docker/container runtime evidence for every condition. An unknown or in-process backend blocks this claim without invalidating a faithful native score reproduction.
+- **Cost/resource comparison:** requires independently committed telemetry for every task-condition cell. Missing cost data remains unknown and never becomes zero.
+
+This is a multi-axis assurance vector, not a single trust score. A result can be benchmark-score eligible while verifier, enforcement, OS-isolation or cost evidence remains incomplete. Conversely, complete security telemetry cannot repair missing native task scores or invalid benchmark provenance.
+
 ## Execution-boundary evidence correction
 
 The adapter must not infer OS isolation from the benchmark's role names, role-profile digest, or a successful tool-boundary test. The official `harness.ablation` path uses `AgentLoop` with `ReadFileTool`, `WriteFileTool` and path maps; the upstream `agent_interface.py` labels its path mapping as being for **non-Docker agent runs**. Its tools execute in-process and enforce file access through application-level path checks. The repository also contains a Docker Compose role topology and interactive `run_task` path, but that does not by itself prove that a given ablation result used that backend.
