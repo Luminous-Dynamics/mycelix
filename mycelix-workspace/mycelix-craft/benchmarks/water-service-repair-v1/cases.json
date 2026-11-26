@@ -527,6 +527,105 @@
           "HIGH_CONSEQUENCE_QUALITY_STATUS_UNRESOLVED"
         ]
       }
+    },
+    {
+      "case_id": "WSR-013",
+      "title": "Water interruption exceeds 48 hours and alternative supply is below the statutory minimum",
+      "input": {
+        "zone_ref": "ZONE-SYN-M",
+        "context_digest": "1313131313131313131313131313131313131313131313131313131313131313",
+        "service_interruption_hours": 54,
+        "alternative_supply_litres_person_day": 12,
+        "required_alternative_supply_litres_person_day": 15,
+        "alternative_supply_delivery_point": "safe_and_accessible",
+        "alternative_supply_water_quality": "current_and_compliant"
+      },
+      "expected": {
+        "service_continuity": "alternative_supply_inadequate",
+        "alternative_supply_required": true,
+        "required_litres_person_day": 15,
+        "delivered_litres_person_day": 12,
+        "disposition": "alternative_service_inadequate",
+        "reason_codes": [
+          "INTERRUPTION_EXCEEDS_48_HOURS",
+          "ALTERNATIVE_SUPPLY_BELOW_15_LITRES_PER_PERSON_PER_DAY"
+        ]
+      }
+    },
+    {
+      "case_id": "WSR-014",
+      "title": "Confirmed drinking-water health risk is not escalated and communicated within the required incident process",
+      "input": {
+        "zone_ref": "ZONE-SYN-N",
+        "context_digest": "1414141414141414141414141414141414141414141414141414141414141414",
+        "water_quality_incident_status": "confirmed_health_risk",
+        "hours_to_notify_dws_regional_office": 13,
+        "hours_to_notify_district_health_office": 13,
+        "community_advisory_notice_issued": false,
+        "community_advisory_accessible": false,
+        "required_notification_hours": 12,
+        "evidence": [
+          {
+            "kind": "lab_sample",
+            "proposition": "drinking_water_quality",
+            "status": "current",
+            "result": "confirmed_health_risk",
+            "source_id": "SRC-LAB-014",
+            "independence_group": "ACCREDITED-LAB-014",
+            "independence_assessment": "qualified",
+            "digest": "1414141414141414141414141414141414141414141414141414141414141415",
+            "context_digest": "1414141414141414141414141414141414141414141414141414141414141414"
+          }
+        ]
+      },
+      "expected": {
+        "water_quality": "confirmed_health_risk",
+        "regulator_notification": "late",
+        "community_advisory": "missing",
+        "disposition": "drinking_water_incident_response_required",
+        "reason_codes": [
+          "DWS_AND_HEALTH_NOTIFICATION_EXCEEDED_12_HOURS",
+          "COMMUNITY_ADVISORY_REQUIRED"
+        ]
+      }
+    },
+    {
+      "case_id": "WSR-015",
+      "title": "Alternative tanker supply continues beyond one week without the required registered monitoring and origin records",
+      "input": {
+        "zone_ref": "ZONE-SYN-O",
+        "context_digest": "1515151515151515151515151515151515151515151515151515151515151515",
+        "service_interruption_hours": 192,
+        "alternative_supply_duration_days": 8,
+        "alternative_supply_litres_person_day": 18,
+        "alternative_supply_water_quality": "current_and_compliant",
+        "iris_monitoring_program_registered": false,
+        "alternative_source_origin_recorded": false,
+        "required_sans241_parameters": [
+          "disinfectant_residuals",
+          "turbidity",
+          "e_coli",
+          "heterotrophic_plate_count",
+          "conductivity",
+          "ph"
+        ],
+        "registered_parameters": [],
+        "tanker_records_complete": false
+      },
+      "expected": {
+        "alternative_supply": "meets_daily_quantity",
+        "extended_monitoring_required": true,
+        "monitoring_program": "not_registered",
+        "alternative_source_origin": "not_recorded",
+        "tanker_records": "incomplete",
+        "disposition": "extended_alternative_supply_monitoring_required",
+        "reason_codes": [
+          "ALTERNATIVE_SUPPLY_EXCEEDS_ONE_WEEK",
+          "IRIS_MONITORING_PROGRAM_MISSING",
+          "ALTERNATIVE_SOURCE_ORIGIN_MISSING",
+          "TANKER_DELIVERY_RECORDS_INCOMPLETE"
+        ]
+      }
     }
   ]
 }
