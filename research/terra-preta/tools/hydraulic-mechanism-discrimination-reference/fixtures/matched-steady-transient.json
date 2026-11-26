@@ -26,6 +26,23 @@
   ],
   "heldout_observation_noise_std": 0.12,
   "closed_set_discrepancy_threshold_sd": 4.0,
+  "decision_actions": [
+    {
+      "action_id": "maintain_balanced_monitoring",
+      "description": "Maintain the current balanced-flow monitoring and operating policy.",
+      "loss_by_mechanism": [0.0, 2.0, 2.0]
+    },
+    {
+      "action_id": "target_preferential_path",
+      "description": "Prioritize remediation or control of the preferential upper pathway.",
+      "loss_by_mechanism": [4.0, 0.0, 3.0]
+    },
+    {
+      "action_id": "buffer_storage_delay",
+      "description": "Use a slower staged operating schedule to accommodate delayed storage response.",
+      "loss_by_mechanism": [3.0, 5.0, 0.0]
+    }
+  ],
   "candidates": [
     {
       "candidate_id": "bulk_steady_flow",
