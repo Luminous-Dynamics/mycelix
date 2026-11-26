@@ -1,0 +1,113 @@
+{
+  "scope": {
+    "request_id": "request-1",
+    "recipient_id": "assistant-1",
+    "purpose_id": "trip-planning",
+    "history_cutoff_ms": 200,
+    "seed_evidence_ids": [
+      "e1"
+    ],
+    "max_relation_hops": 3,
+    "max_selected_evidence": 8,
+    "candidate_pool_complete": true,
+    "candidate_pool_receipt_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "relation_index_complete": true,
+    "relation_index_receipt_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "candidate_pool": [
+    {
+      "evidence_id": "e1",
+      "request_id": "request-1",
+      "source_origin_id": "origin-a",
+      "source_holder_id": "holder-a",
+      "source_message_id": "message-e1",
+      "payload_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_registry_receipt_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "disclosure_receipt_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "source_timestamp_ms": 100,
+      "recorded_at_ms": 110,
+      "subject_ids": [
+        "trip-date"
+      ],
+      "event_ids": [
+        "trip-2026"
+      ],
+      "decision_ids": [
+        "booking-1"
+      ],
+      "permission": "scoped",
+      "permitted_recipient_ids": [
+        "assistant-1"
+      ],
+      "permitted_purpose_ids": [
+        "trip-planning"
+      ],
+      "verification": "verified",
+      "status": "current",
+      "applicability": "applicable",
+      "response_subject_id": "trip-date",
+      "response_scope_id": "group-trip-2026"
+    },
+    {
+      "evidence_id": "e2",
+      "request_id": "request-1",
+      "source_origin_id": "origin-b",
+      "source_holder_id": "holder-b",
+      "source_message_id": "message-e2",
+      "payload_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_registry_receipt_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "disclosure_receipt_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "source_timestamp_ms": 100,
+      "recorded_at_ms": 110,
+      "subject_ids": [
+        "trip-date"
+      ],
+      "event_ids": [
+        "trip-2026"
+      ],
+      "decision_ids": [
+        "booking-1"
+      ],
+      "permission": "scoped",
+      "permitted_recipient_ids": [
+        "assistant-1"
+      ],
+      "permitted_purpose_ids": [
+        "trip-planning"
+      ],
+      "verification": "verified",
+      "status": "disputed",
+      "applicability": "applicable",
+      "response_subject_id": "trip-date",
+      "response_scope_id": "group-trip-2026"
+    }
+  ],
+  "relation_edges": [
+    {
+      "from_evidence_id": "e1",
+      "to_evidence_id": "e2",
+      "relation": "contradicts",
+      "verification": "verified",
+      "relation_receipt_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+  ],
+  "expected": {
+    "status": "pass",
+    "selected_evidence_ids": [
+      "e1",
+      "e2"
+    ],
+    "added_evidence_ids": [
+      "e2"
+    ],
+    "selected_source_origin_ids": [
+      "origin-a",
+      "origin-b"
+    ],
+    "selected_source_holder_ids": [
+      "holder-a",
+      "holder-b"
+    ],
+    "unverified_relation_count": 0
+  }
+}

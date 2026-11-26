@@ -9,6 +9,7 @@ mod capability;
 mod comparison;
 mod constraint_binding;
 mod ledger;
+mod relational_evidence;
 mod response_audit;
 mod support_policy;
 
@@ -20,6 +21,13 @@ pub use allocation::{
     allocate_committed_teams, compute_design_digest, compute_roster_digest,
     create_allocation_commitment, verify_allocation_reveal, AllocationCommitment,
     AllocationSecret,
+};
+pub use relational_evidence::{
+    bind_refined_evidence_constraints, diagnose_evidence_use_bottlenecks,
+    refine_relational_evidence, EvidenceBottleneck, EvidenceRelationEdge,
+    EvidenceRelationKind, EvidenceUseDiagnostic, EvidenceUseDiagnosticStatus,
+    RelationalDisclosurePermission, RelationalEvidenceRecord, RelationalEvidenceReport,
+    RelationalEvidenceScope, RelationalEvidenceStatus, RelationalVerification,
 };
 pub use ledger::{
     genesis_digest, validate_ledger, ClaimDisposition, ClaimReference, DecisionDisposition,
