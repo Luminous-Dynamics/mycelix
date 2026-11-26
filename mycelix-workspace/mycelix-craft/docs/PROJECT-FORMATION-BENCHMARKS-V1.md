@@ -61,9 +61,10 @@ Do not combine these metrics into a universal optimizer score. Publish each obje
 
 ### Industry and standards comparison
 
-- **Upwork** already provides hourly/fixed-price contracts, funded milestones, review/approval and dispute assistance. Craft should not build or claim escrow/payment protection as novel; Finance or a licensed provider remains the effect owner.
-- **Eightfold** already documents calibrated, stack-ranked matching and internal project recommendations using skills, interests and growth goals. Craft should not claim that project recommendations or learning-oriented matching are unique. Test instead whether requirement-level evidence, participant-controlled disclosure and cross-institution projects improve outcomes under matched constraints.
+- **Upwork** already provides hourly/fixed-price contracts, funded milestones, review/approval and dispute assistance. Its published payment-protection terms describe work diaries for eligible hourly work, pre-funded fixed-price milestones, a review period and dispute assistance; coverage is conditional on the contract and submission rules. Craft should not build or claim escrow/payment protection as novel; Finance or a licensed provider remains the effect owner.
+- **Eightfold** already documents internal project recommendations based on skills, individual growth goals and business needs. Its published product documentation describes skill-alignment weighting, analysis of up to 50 skills, profile-based skill augmentation, employee skill interests and configurable 1-to-5-star match thresholds. Its Talent Intelligence Platform also calibrates positions, stack-ranks candidates and can apply hard filters. Craft should not claim project recommendations, skill matching or learning-oriented matching as unique. The fair comparison is whether Craft's evidence scope/provenance, explicit Unknown/HumanReview states, participant-controlled disclosure and cross-institution project formation produce better safety, inclusion, explainability and actual outcomes under matched cases. Do not compare vendor claims as measured benchmark results.
 - **W3C VC Data Model 2.0** and **Open Badges 3.0** already provide credential interoperability. Craft should reference them and preserve source claim limits, rather than invent a competing badge format.
+- **ILO Recommendation 208** makes apprenticeship quality broader than skill progression: adequate remuneration, hours limits, leave, social-security access, occupational safety and health, injury compensation, complaints/dispute resolution, data protection and labour-market mobility are all relevant protections. The pilot must measure these, not treat them as optional HR outcomes.
 - **ESCO/OFO**, **Valueflows** and **GS1 EPCIS 2.0** are useful optional mappings for occupations, economic processes and physical event visibility. Preserve source vocabulary/revision/digest and record lossy mappings.
 - Cooperative ownership, Ostrom-inspired commons governance and Sociocracy 3.0 patterns are prior art. Craft's target is not to invent democracy or consent; it is to make autonomous rules and negotiated interoperation explicit, inspectable and interoperable.
 
@@ -80,8 +81,9 @@ Do not combine these metrics into a universal optimizer score. Publish each obje
 - W3C VC Data Model 2.0: https://www.w3.org/TR/vc-data-model/
 - 1EdTech Open Badges 3.0: https://www.imsglobal.org/spec/ob/v3p0/
 - ESCO: https://esco.ec.europa.eu/en/use-esco/use-esco-services-api
-- Valueflows 1.0: https://www.valueflo.ws/introduction/status/
+- Valueflows 1.0: https://www.valueflo.ws/introduction/status/ (stable core for operational planning and observation of economic activity; do not assume removed or experimental agent/bioregional models are part of 1.0)
 - GS1 EPCIS 2.0: https://www.gs1.org/standards/epcis
+- ILO Recommendation 208: https://normlex.ilo.org/dyn/nrmlx_en/f?p=NORMLEXPUB:12100:0::NO::P12100_ILO_CODE:R208
 
 ## 4. Primary measures
 
@@ -137,7 +139,8 @@ Report the feasible set and Pareto trade-offs rather than a universal weighted s
 - unknown and contested evidence;
 - learning pathways available;
 - allocation and coordination latency;
-- number of human reviews and their resolution time.
+- number of human reviews and their resolution time;
+- requirement-gate semantics: SafetyCritical and Required gaps block the package; Developmental and Preferred gaps remain visible but do not silently veto project formation.
 
 Do not trade away hard safety or consent constraints to improve optimization objectives.
 
@@ -157,6 +160,9 @@ Measure independently:
 - participant comprehension, consent and perceived control.
 
 Use independent inspection and physical measurements. Do not count a signed work record, project closure or payment as proof that a service improved.
+
+For any apprenticeship pathway, translate ILO Recommendation 208 into observable pilot safeguards: a written agreement specifying the parties' roles and obligations; adequate remuneration that can progress with acquired competence; lawful work-hour limits; applicable leave and social-security access; occupational safety and health training/protection; work-injury compensation; complaints and dispute resolution; personal-data protection; and no post-apprenticeship restriction on labour-market mobility. Track failures and withdrawals as outcomes, not as missing data to be discarded. Reference: https://normlex.ilo.org/dyn/nrmlx_en/f?p=NORMLEXPUB:12100:0::NO::P12100_ILO_CODE:R208.
+
 
 ## 9. Reporting
 
