@@ -442,7 +442,8 @@ pub fn validate_packet(packet: &DecisionClosurePacketV1) -> Result<(), DecisionC
         }
         if (mapping.revision == 1 && mapping.previous_mapping_digest.is_some())
             || (mapping.revision > 1
-                && mapping.previous_mapping_digest
+                && mapping
+                    .previous_mapping_digest
                     .map(|digest| digest.iter().all(|byte| *byte == 0))
                     .unwrap_or(true))
         {
@@ -491,7 +492,10 @@ pub fn validate_packet(packet: &DecisionClosurePacketV1) -> Result<(), DecisionC
                     }
                 }
             }
-            if elements.insert(element.element_id.as_str(), element).is_some() {
+            if elements
+                .insert(element.element_id.as_str(), element)
+                .is_some()
+            {
                 return Err(DecisionClosureErrorV1::DuplicateIdentifier);
             }
 
@@ -530,7 +534,11 @@ pub fn validate_packet(packet: &DecisionClosurePacketV1) -> Result<(), DecisionC
                 if support.proposal_digest != decision.proposal_digest {
                     return Err(DecisionClosureErrorV1::EvidenceProposalMismatch);
                 }
-                if support.valid_until.map(|expiry| expiry < support.evaluated_at).unwrap_or(false) {
+                if support
+                    .valid_until
+                    .map(|expiry| expiry < support.evaluated_at)
+                    .unwrap_or(false)
+                {
                     return Err(DecisionClosureErrorV1::InvalidReviewTime);
                 }
             }
@@ -538,7 +546,8 @@ pub fn validate_packet(packet: &DecisionClosurePacketV1) -> Result<(), DecisionC
         for element in &mapping.elements {
             let mut seen = HashSet::new();
             for dependency in &element.depends_on {
-                if dependency == &element.element_id || !elements.contains_key(dependency.as_str()) {
+                if dependency == &element.element_id || !elements.contains_key(dependency.as_str())
+                {
                     return Err(DecisionClosureErrorV1::UnknownDependency);
                 }
                 if !seen.insert(dependency.as_str()) {
@@ -556,7 +565,9 @@ pub fn validate_packet(packet: &DecisionClosurePacketV1) -> Result<(), DecisionC
             require_non_empty(&review.reviewer_id)?;
             validate_authority(&review.authority)?;
             require_digest(&review.mapping_digest)?;
-            if review.mapping_id != mapping.mapping_id || review.mapping_digest != mapping.mapping_digest {
+            if review.mapping_id != mapping.mapping_id
+                || review.mapping_digest != mapping.mapping_digest
+            {
                 return Err(DecisionClosureErrorV1::ReviewReferenceMismatch);
             }
             if !review_ids.insert(review.review_id.as_str())
@@ -565,8 +576,14 @@ pub fn validate_packet(packet: &DecisionClosurePacketV1) -> Result<(), DecisionC
                 return Err(DecisionClosureErrorV1::DuplicateReview);
             }
             if review.reviewed_at > decision.decision_time
-                || review.valid_until.map(|expiry| expiry < review.reviewed_at).unwrap_or(false)
-                || review.withdrawn_at.map(|time| time < review.reviewed_at).unwrap_or(false)
+                || review
+                    .valid_until
+                    .map(|expiry| expiry < review.reviewed_at)
+                    .unwrap_or(false)
+                || review
+                    .withdrawn_at
+                    .map(|time| time < review.reviewed_at)
+                    .unwrap_or(false)
             {
                 return Err(DecisionClosureErrorV1::InvalidReviewTime);
             }
@@ -589,7 +606,9 @@ fn validate_dependency_graph(elements: &[MaterialElementV1]) -> Result<(), Decis
         if !visiting.insert(id.to_owned()) {
             return Err(DecisionClosureErrorV1::DependencyCycle);
         }
-        let element = graph.get(id).ok_or(DecisionClosureErrorV1::UnknownDependency)?;
+        let element = graph
+            .get(id)
+            .ok_or(DecisionClosureErrorV1::UnknownDependency)?;
         for dependency in &element.depends_on {
             visit(dependency, graph, visiting, visited)?;
         }
@@ -597,7 +616,10 @@ fn validate_dependency_graph(elements: &[MaterialElementV1]) -> Result<(), Decis
         visited.insert(id.to_owned());
         Ok(())
     }
-    let graph = elements.iter().map(|element| (element.element_id.as_str(), element)).collect::<HashMap<_, _>>();
+    let graph = elements
+        .iter()
+        .map(|element| (element.element_id.as_str(), element))
+        .collect::<HashMap<_, _>>();
     let mut visiting = HashSet::new();
     let mut visited = HashSet::new();
     for id in graph.keys() {
@@ -611,21 +633,33 @@ fn mapping_approved(
     mapping: &MaterialElementMappingV1,
     now: u64,
 ) -> bool {
-    let current = mapping.reviews.iter().filter(|review| {
-        review.mapping_digest == mapping.mapping_digest
-            && review.reviewed_at <= now
-            && review.valid_until.map(|expiry| now < expiry).unwrap_or(true)
-            && review.withdrawn_at.map(|time| now < time).unwrap_or(true)
-    }).collect::<Vec<_>>();
+    let current = mapping
+        .reviews
+        .iter()
+        .filter(|review| {
+            review.mapping_digest == mapping.mapping_digest
+                && review.reviewed_at <= now
+                && review
+                    .valid_until
+                    .map(|expiry| now < expiry)
+                    .unwrap_or(true)
+                && review.withdrawn_at.map(|time| now < time).unwrap_or(true)
+        })
+        .collect::<Vec<_>>();
 
-    if current.iter().any(|review| review.decision != MappingReviewDecisionV1::Approve) {
+    if current
+        .iter()
+        .any(|review| review.decision != MappingReviewDecisionV1::Approve)
+    {
         return false;
     }
 
     decision.required_mapping_roles.iter().all(|role| {
         current
             .iter()
-            .filter(|review| review.role == *role && review.decision == MappingReviewDecisionV1::Approve)
+            .filter(|review| {
+                review.role == *role && review.decision == MappingReviewDecisionV1::Approve
+            })
             .map(|review| review.reviewer_id.as_str())
             .collect::<HashSet<_>>()
             .len()
@@ -665,13 +699,18 @@ fn evaluate_mapping(
                     let current = support.evaluated_at <= now
                         && support.evaluated_at <= decision.decision_time
                         && now - support.evaluated_at <= decision.max_support_age_seconds
-                        && support.valid_until.map(|expiry| now < expiry).unwrap_or(true);
+                        && support
+                            .valid_until
+                            .map(|expiry| now < expiry)
+                            .unwrap_or(true);
                     if !current {
                         unusable.push(support.result_id.clone());
                         continue;
                     }
                     match support.disposition {
-                        SupportDispositionV1::DirectSupport => counted.push(support.result_id.clone()),
+                        SupportDispositionV1::DirectSupport => {
+                            counted.push(support.result_id.clone())
+                        }
                         SupportDispositionV1::Contradiction => contradicted = true,
                         SupportDispositionV1::PartialSupport
                         | SupportDispositionV1::HumanReviewRequired
@@ -705,35 +744,59 @@ fn evaluate_mapping(
                 if element.depends_on.iter().any(|dependency| {
                     !matches!(
                         status.get(dependency.as_str()),
-                        Some(ElementClosureStatusV1::Satisfied | ElementClosureStatusV1::NotApplicable)
+                        Some(
+                            ElementClosureStatusV1::Satisfied
+                                | ElementClosureStatusV1::NotApplicable
+                        )
                     )
                 }) {
-                    status.insert(element.element_id.as_str(), ElementClosureStatusV1::PrerequisiteUnmet);
+                    status.insert(
+                        element.element_id.as_str(),
+                        ElementClosureStatusV1::PrerequisiteUnmet,
+                    );
                     changed = true;
                 }
             }
         }
     }
 
-    let elements = mapping.elements.iter().map(|element| {
-        let (counted, unusable) = results.remove(element.element_id.as_str()).unwrap_or_default();
-        ElementClosureResultV1 {
-            element_id: element.element_id.clone(),
-            status: *status.get(element.element_id.as_str()).unwrap_or(&ElementClosureStatusV1::HumanReviewRequired),
-            counted_support_result_ids: counted,
-            unusable_support_result_ids: unusable,
-        }
-    }).collect::<Vec<_>>();
+    let elements = mapping
+        .elements
+        .iter()
+        .map(|element| {
+            let (counted, unusable) = results
+                .remove(element.element_id.as_str())
+                .unwrap_or_default();
+            ElementClosureResultV1 {
+                element_id: element.element_id.clone(),
+                status: *status
+                    .get(element.element_id.as_str())
+                    .unwrap_or(&ElementClosureStatusV1::HumanReviewRequired),
+                counted_support_result_ids: counted,
+                unusable_support_result_ids: unusable,
+            }
+        })
+        .collect::<Vec<_>>();
 
-    let disposition = if elements.iter().any(|element| element.status == ElementClosureStatusV1::Contradicted) {
-        DecisionClosureDispositionV1::BlockedByContradiction
-    } else if elements.iter().any(|element| element.status == ElementClosureStatusV1::PrerequisiteUnmet) {
-        DecisionClosureDispositionV1::BlockedByPrerequisite
-    } else if elements.iter().any(|element| element.status == ElementClosureStatusV1::HumanReviewRequired) {
-        DecisionClosureDispositionV1::MappingReviewRequired
-    } else if elements.iter().any(|element| element.status == ElementClosureStatusV1::MissingEvidence
-        || element.status == ElementClosureStatusV1::Unsupported)
+    let disposition = if elements
+        .iter()
+        .any(|element| element.status == ElementClosureStatusV1::Contradicted)
     {
+        DecisionClosureDispositionV1::BlockedByContradiction
+    } else if elements
+        .iter()
+        .any(|element| element.status == ElementClosureStatusV1::PrerequisiteUnmet)
+    {
+        DecisionClosureDispositionV1::BlockedByPrerequisite
+    } else if elements
+        .iter()
+        .any(|element| element.status == ElementClosureStatusV1::HumanReviewRequired)
+    {
+        DecisionClosureDispositionV1::MappingReviewRequired
+    } else if elements.iter().any(|element| {
+        element.status == ElementClosureStatusV1::MissingEvidence
+            || element.status == ElementClosureStatusV1::Unsupported
+    }) {
         DecisionClosureDispositionV1::OpenMissingElements
     } else {
         DecisionClosureDispositionV1::Closed
@@ -767,20 +830,38 @@ pub fn evaluate_decision_closure(
         });
     }
 
-    let evaluations = packet.mappings.iter().map(|mapping| {
-        evaluate_mapping(&packet.decision, mapping, now)
-    }).collect::<Vec<_>>();
+    let evaluations = packet
+        .mappings
+        .iter()
+        .map(|mapping| evaluate_mapping(&packet.decision, mapping, now))
+        .collect::<Vec<_>>();
 
-    let disposition = if evaluations.iter().any(|item| item.disposition == DecisionClosureDispositionV1::BlockedByContradiction) {
+    let disposition = if evaluations
+        .iter()
+        .any(|item| item.disposition == DecisionClosureDispositionV1::BlockedByContradiction)
+    {
         DecisionClosureDispositionV1::BlockedByContradiction
-    } else if evaluations.iter().any(|item| item.disposition == DecisionClosureDispositionV1::BlockedByPrerequisite) {
+    } else if evaluations
+        .iter()
+        .any(|item| item.disposition == DecisionClosureDispositionV1::BlockedByPrerequisite)
+    {
         DecisionClosureDispositionV1::BlockedByPrerequisite
-    } else if evaluations.iter().any(|item| item.disposition == DecisionClosureDispositionV1::MappingReviewRequired) {
+    } else if evaluations
+        .iter()
+        .any(|item| item.disposition == DecisionClosureDispositionV1::MappingReviewRequired)
+    {
         DecisionClosureDispositionV1::MappingReviewRequired
-    } else if evaluations.iter().all(|item| item.disposition == DecisionClosureDispositionV1::Closed) {
+    } else if evaluations
+        .iter()
+        .all(|item| item.disposition == DecisionClosureDispositionV1::Closed)
+    {
         DecisionClosureDispositionV1::Closed
-    } else if evaluations.iter().any(|item| item.disposition == DecisionClosureDispositionV1::Closed)
-        && evaluations.iter().any(|item| item.disposition != DecisionClosureDispositionV1::Closed)
+    } else if evaluations
+        .iter()
+        .any(|item| item.disposition == DecisionClosureDispositionV1::Closed)
+        && evaluations
+            .iter()
+            .any(|item| item.disposition != DecisionClosureDispositionV1::Closed)
     {
         DecisionClosureDispositionV1::MappingSensitive
     } else {
@@ -866,7 +947,11 @@ mod tests {
         }
     }
 
-    fn element(id: &str, dependencies: Vec<String>, supports: Vec<ClaimSupportResultRefV1>) -> MaterialElementV1 {
+    fn element(
+        id: &str,
+        dependencies: Vec<String>,
+        supports: Vec<ClaimSupportResultRefV1>,
+    ) -> MaterialElementV1 {
         MaterialElementV1 {
             element_id: id.to_owned(),
             statement: format!("Required material element {id}"),
@@ -935,7 +1020,11 @@ mod tests {
         let mapping = mapping(
             "mapping-a",
             vec![
-                element("rule-exists", Vec::new(), vec![support("rule", SupportDispositionV1::DirectSupport)]),
+                element(
+                    "rule-exists",
+                    Vec::new(),
+                    vec![support("rule", SupportDispositionV1::DirectSupport)],
+                ),
                 element("implementation", vec!["rule-exists".to_owned()], Vec::new()),
                 element("timing", Vec::new(), Vec::new()),
                 element("authority", Vec::new(), Vec::new()),
@@ -943,7 +1032,10 @@ mod tests {
             ],
         );
         let result = evaluate_decision_closure(&packet(vec![mapping]), NOW).unwrap();
-        assert_eq!(result.disposition, DecisionClosureDispositionV1::OpenMissingElements);
+        assert_eq!(
+            result.disposition,
+            DecisionClosureDispositionV1::OpenMissingElements
+        );
         let elements = &result.mappings[0].elements;
         assert_eq!(elements[0].status, ElementClosureStatusV1::Satisfied);
         assert_eq!(elements[1].status, ElementClosureStatusV1::MissingEvidence);
@@ -952,44 +1044,116 @@ mod tests {
     #[test]
     fn complete_material_element_coverage_closes_one_mapping() {
         let elements = vec![
-            element("rule", Vec::new(), vec![support("rule", SupportDispositionV1::DirectSupport)]),
-            element("implementation", vec!["rule".to_owned()], vec![support("implementation", SupportDispositionV1::DirectSupport)]),
-            element("timing", Vec::new(), vec![support("timing", SupportDispositionV1::DirectSupport)]),
-            element("authority", Vec::new(), vec![support("authority", SupportDispositionV1::DirectSupport)]),
-            element("exceptions", Vec::new(), vec![support("exceptions", SupportDispositionV1::DirectSupport)]),
+            element(
+                "rule",
+                Vec::new(),
+                vec![support("rule", SupportDispositionV1::DirectSupport)],
+            ),
+            element(
+                "implementation",
+                vec!["rule".to_owned()],
+                vec![support(
+                    "implementation",
+                    SupportDispositionV1::DirectSupport,
+                )],
+            ),
+            element(
+                "timing",
+                Vec::new(),
+                vec![support("timing", SupportDispositionV1::DirectSupport)],
+            ),
+            element(
+                "authority",
+                Vec::new(),
+                vec![support("authority", SupportDispositionV1::DirectSupport)],
+            ),
+            element(
+                "exceptions",
+                Vec::new(),
+                vec![support("exceptions", SupportDispositionV1::DirectSupport)],
+            ),
         ];
-        let result = evaluate_decision_closure(&packet(vec![mapping("complete", elements)]), NOW).unwrap();
+        let result =
+            evaluate_decision_closure(&packet(vec![mapping("complete", elements)]), NOW).unwrap();
         assert_eq!(result.disposition, DecisionClosureDispositionV1::Closed);
     }
 
     #[test]
     fn one_missing_exception_or_documentation_element_keeps_decision_open() {
         let elements = vec![
-            element("policy", Vec::new(), vec![support("policy", SupportDispositionV1::DirectSupport)]),
-            element("implementation", Vec::new(), vec![support("implementation", SupportDispositionV1::DirectSupport)]),
+            element(
+                "policy",
+                Vec::new(),
+                vec![support("policy", SupportDispositionV1::DirectSupport)],
+            ),
+            element(
+                "implementation",
+                Vec::new(),
+                vec![support(
+                    "implementation",
+                    SupportDispositionV1::DirectSupport,
+                )],
+            ),
             element("exceptions", Vec::new(), Vec::new()),
         ];
-        let result = evaluate_decision_closure(&packet(vec![mapping("missing-exception", elements)]), NOW).unwrap();
-        assert_eq!(result.disposition, DecisionClosureDispositionV1::OpenMissingElements);
+        let result =
+            evaluate_decision_closure(&packet(vec![mapping("missing-exception", elements)]), NOW)
+                .unwrap();
+        assert_eq!(
+            result.disposition,
+            DecisionClosureDispositionV1::OpenMissingElements
+        );
     }
 
     #[test]
     fn confirmed_contradiction_blocks_decision_closure() {
         let elements = vec![
-            element("policy", Vec::new(), vec![support("policy", SupportDispositionV1::DirectSupport)]),
-            element("implementation", Vec::new(), vec![support("implementation", SupportDispositionV1::Contradiction)]),
+            element(
+                "policy",
+                Vec::new(),
+                vec![support("policy", SupportDispositionV1::DirectSupport)],
+            ),
+            element(
+                "implementation",
+                Vec::new(),
+                vec![support(
+                    "implementation",
+                    SupportDispositionV1::Contradiction,
+                )],
+            ),
         ];
-        let result = evaluate_decision_closure(&packet(vec![mapping("contradicted", elements)]), NOW).unwrap();
-        assert_eq!(result.disposition, DecisionClosureDispositionV1::BlockedByContradiction);
+        let result =
+            evaluate_decision_closure(&packet(vec![mapping("contradicted", elements)]), NOW)
+                .unwrap();
+        assert_eq!(
+            result.disposition,
+            DecisionClosureDispositionV1::BlockedByContradiction
+        );
     }
 
     #[test]
     fn partial_or_human_review_support_does_not_close_element() {
-        for disposition in [SupportDispositionV1::PartialSupport, SupportDispositionV1::HumanReviewRequired, SupportDispositionV1::InsufficientEvidence] {
-            let elements = vec![element("required", Vec::new(), vec![support("partial", disposition)])];
-            let result = evaluate_decision_closure(&packet(vec![mapping("partial", elements)]), NOW).unwrap();
-            assert_eq!(result.disposition, DecisionClosureDispositionV1::OpenMissingElements);
-            assert_eq!(result.mappings[0].elements[0].status, ElementClosureStatusV1::HumanReviewRequired);
+        for disposition in [
+            SupportDispositionV1::PartialSupport,
+            SupportDispositionV1::HumanReviewRequired,
+            SupportDispositionV1::InsufficientEvidence,
+        ] {
+            let elements = vec![element(
+                "required",
+                Vec::new(),
+                vec![support("partial", disposition)],
+            )];
+            let result =
+                evaluate_decision_closure(&packet(vec![mapping("partial", elements)]), NOW)
+                    .unwrap();
+            assert_eq!(
+                result.disposition,
+                DecisionClosureDispositionV1::OpenMissingElements
+            );
+            assert_eq!(
+                result.mappings[0].elements[0].status,
+                ElementClosureStatusV1::HumanReviewRequired
+            );
         }
     }
 
@@ -997,7 +1161,10 @@ mod tests {
     fn wrong_domain_jurisdiction_or_corpus_is_rejected() {
         let mut item = support("wrong-scope", SupportDispositionV1::DirectSupport);
         item.jurisdiction_id = "ZA-WC".to_owned();
-        let result = validate_packet(&packet(vec![mapping("wrong-scope", vec![element("required", Vec::new(), vec![item])])]));
+        let result = validate_packet(&packet(vec![mapping(
+            "wrong-scope",
+            vec![element("required", Vec::new(), vec![item])],
+        )]));
         assert_eq!(result, Err(DecisionClosureErrorV1::EvidenceScopeMismatch));
     }
 
@@ -1006,7 +1173,10 @@ mod tests {
         let mut item = support("old-proposal", SupportDispositionV1::DirectSupport);
         item.proposal_digest = [24; 32];
         assert_eq!(
-            validate_packet(&packet(vec![mapping("old-proposal", vec![element("required", Vec::new(), vec![item])])])),
+            validate_packet(&packet(vec![mapping(
+                "old-proposal",
+                vec![element("required", Vec::new(), vec![item])]
+            )])),
             Err(DecisionClosureErrorV1::EvidenceProposalMismatch)
         );
     }
@@ -1016,7 +1186,10 @@ mod tests {
         let mut item = support("wrong-corpus-id", SupportDispositionV1::DirectSupport);
         item.authorized_corpus_id = "another-authority-corpus".to_owned();
         assert_eq!(
-            validate_packet(&packet(vec![mapping("wrong-corpus-id", vec![element("required", Vec::new(), vec![item])])])),
+            validate_packet(&packet(vec![mapping(
+                "wrong-corpus-id",
+                vec![element("required", Vec::new(), vec![item])]
+            )])),
             Err(DecisionClosureErrorV1::EvidenceScopeMismatch)
         );
     }
@@ -1026,7 +1199,10 @@ mod tests {
         let mut item = support("wrong-standard", SupportDispositionV1::DirectSupport);
         item.domain_standard_revision = 2;
         assert_eq!(
-            validate_packet(&packet(vec![mapping("wrong-standard", vec![element("required", Vec::new(), vec![item])])])),
+            validate_packet(&packet(vec![mapping(
+                "wrong-standard",
+                vec![element("required", Vec::new(), vec![item])]
+            )])),
             Err(DecisionClosureErrorV1::EvidenceStandardMismatch)
         );
     }
@@ -1037,17 +1213,27 @@ mod tests {
         decision.max_support_age_seconds = 20;
         let mut item = support("old-support", SupportDispositionV1::DirectSupport);
         item.evaluated_at = 10;
-        let mut packet = packet(vec![mapping("old-support", vec![element("required", Vec::new(), vec![item])])]);
+        let mut packet = packet(vec![mapping(
+            "old-support",
+            vec![element("required", Vec::new(), vec![item])],
+        )]);
         packet.decision = decision;
         let result = evaluate_decision_closure(&packet, NOW).unwrap();
-        assert_eq!(result.disposition, DecisionClosureDispositionV1::OpenMissingElements);
+        assert_eq!(
+            result.disposition,
+            DecisionClosureDispositionV1::OpenMissingElements
+        );
     }
 
     #[test]
     fn decision_cannot_disable_support_freshness_window() {
         let mut packet = packet(vec![mapping(
             "invalid-window",
-            vec![element("required", Vec::new(), vec![support("good", SupportDispositionV1::DirectSupport)])],
+            vec![element(
+                "required",
+                Vec::new(),
+                vec![support("good", SupportDispositionV1::DirectSupport)],
+            )],
         )]);
         packet.decision.max_support_age_seconds = 0;
         assert_eq!(
@@ -1060,8 +1246,18 @@ mod tests {
     fn stale_support_result_does_not_count() {
         let mut item = support("stale", SupportDispositionV1::DirectSupport);
         item.valid_until = Some(50);
-        let result = evaluate_decision_closure(&packet(vec![mapping("stale", vec![element("required", Vec::new(), vec![item])])]), NOW).unwrap();
-        assert_eq!(result.disposition, DecisionClosureDispositionV1::OpenMissingElements);
+        let result = evaluate_decision_closure(
+            &packet(vec![mapping(
+                "stale",
+                vec![element("required", Vec::new(), vec![item])],
+            )]),
+            NOW,
+        )
+        .unwrap();
+        assert_eq!(
+            result.disposition,
+            DecisionClosureDispositionV1::OpenMissingElements
+        );
     }
 
     #[test]
@@ -1072,7 +1268,8 @@ mod tests {
             decision_digest: [10; 32],
             authority: authority("scope-owner"),
         };
-        let result = evaluate_decision_closure(&packet(vec![mapping("n-a", vec![item])]), NOW).unwrap();
+        let result =
+            evaluate_decision_closure(&packet(vec![mapping("n-a", vec![item])]), NOW).unwrap();
         assert_eq!(result.disposition, DecisionClosureDispositionV1::Closed);
     }
 
@@ -1094,19 +1291,38 @@ mod tests {
     fn unresolved_applicability_never_counts_as_covered() {
         let mut item = element("unknown-applicability", Vec::new(), Vec::new());
         item.applicability = ElementApplicabilityV1::Unresolved;
-        let result = evaluate_decision_closure(&packet(vec![mapping("unresolved", vec![item])]), NOW).unwrap();
-        assert_eq!(result.disposition, DecisionClosureDispositionV1::MappingReviewRequired);
+        let result =
+            evaluate_decision_closure(&packet(vec![mapping("unresolved", vec![item])]), NOW)
+                .unwrap();
+        assert_eq!(
+            result.disposition,
+            DecisionClosureDispositionV1::MappingReviewRequired
+        );
     }
 
     #[test]
     fn unsatisfied_prerequisite_blocks_dependent_element() {
         let elements = vec![
             element("authorization", Vec::new(), Vec::new()),
-            element("implementation", vec!["authorization".to_owned()], vec![support("implementation", SupportDispositionV1::DirectSupport)]),
+            element(
+                "implementation",
+                vec!["authorization".to_owned()],
+                vec![support(
+                    "implementation",
+                    SupportDispositionV1::DirectSupport,
+                )],
+            ),
         ];
-        let result = evaluate_decision_closure(&packet(vec![mapping("dependency", elements)]), NOW).unwrap();
-        assert_eq!(result.disposition, DecisionClosureDispositionV1::BlockedByPrerequisite);
-        assert_eq!(result.mappings[0].elements[1].status, ElementClosureStatusV1::PrerequisiteUnmet);
+        let result =
+            evaluate_decision_closure(&packet(vec![mapping("dependency", elements)]), NOW).unwrap();
+        assert_eq!(
+            result.disposition,
+            DecisionClosureDispositionV1::BlockedByPrerequisite
+        );
+        assert_eq!(
+            result.mappings[0].elements[1].status,
+            ElementClosureStatusV1::PrerequisiteUnmet
+        );
     }
 
     #[test]
@@ -1115,39 +1331,86 @@ mod tests {
             element("a", vec!["b".to_owned()], Vec::new()),
             element("b", vec!["a".to_owned()], Vec::new()),
         ];
-        assert_eq!(validate_packet(&packet(vec![mapping("cycle", elements)])), Err(DecisionClosureErrorV1::DependencyCycle));
+        assert_eq!(
+            validate_packet(&packet(vec![mapping("cycle", elements)])),
+            Err(DecisionClosureErrorV1::DependencyCycle)
+        );
     }
 
     #[test]
     fn accepted_mappings_must_all_be_closed() {
-        let complete = mapping("complete", vec![element("element", Vec::new(), vec![support("good", SupportDispositionV1::DirectSupport)])]);
-        let open = mapping("alternative", vec![
-            element("element", Vec::new(), vec![support("good-2", SupportDispositionV1::DirectSupport)]),
-            element("exception", Vec::new(), Vec::new()),
-        ]);
+        let complete = mapping(
+            "complete",
+            vec![element(
+                "element",
+                Vec::new(),
+                vec![support("good", SupportDispositionV1::DirectSupport)],
+            )],
+        );
+        let open = mapping(
+            "alternative",
+            vec![
+                element(
+                    "element",
+                    Vec::new(),
+                    vec![support("good-2", SupportDispositionV1::DirectSupport)],
+                ),
+                element("exception", Vec::new(), Vec::new()),
+            ],
+        );
         let result = evaluate_decision_closure(&packet(vec![complete, open]), NOW).unwrap();
-        assert_eq!(result.disposition, DecisionClosureDispositionV1::MappingSensitive);
+        assert_eq!(
+            result.disposition,
+            DecisionClosureDispositionV1::MappingSensitive
+        );
     }
 
     #[test]
     fn missing_mapping_approval_prevents_closure() {
-        let mut mapping = mapping("unapproved", vec![element("element", Vec::new(), vec![support("good", SupportDispositionV1::DirectSupport)])]);
+        let mut mapping = mapping(
+            "unapproved",
+            vec![element(
+                "element",
+                Vec::new(),
+                vec![support("good", SupportDispositionV1::DirectSupport)],
+            )],
+        );
         mapping.reviews.clear();
         let result = evaluate_decision_closure(&packet(vec![mapping]), NOW).unwrap();
-        assert_eq!(result.disposition, DecisionClosureDispositionV1::MappingReviewRequired);
+        assert_eq!(
+            result.disposition,
+            DecisionClosureDispositionV1::MappingReviewRequired
+        );
     }
 
     #[test]
     fn mapping_request_changes_prevents_closure() {
-        let mut mapping = mapping("requested-changes", vec![element("element", Vec::new(), vec![support("good", SupportDispositionV1::DirectSupport)])]);
+        let mut mapping = mapping(
+            "requested-changes",
+            vec![element(
+                "element",
+                Vec::new(),
+                vec![support("good", SupportDispositionV1::DirectSupport)],
+            )],
+        );
         mapping.reviews[0].decision = MappingReviewDecisionV1::RequestChanges;
         let result = evaluate_decision_closure(&packet(vec![mapping]), NOW).unwrap();
-        assert_eq!(result.disposition, DecisionClosureDispositionV1::MappingReviewRequired);
+        assert_eq!(
+            result.disposition,
+            DecisionClosureDispositionV1::MappingReviewRequired
+        );
     }
 
     #[test]
     fn changed_mapping_digest_invalidates_previous_approval() {
-        let mut mapping = mapping("changed", vec![element("element", Vec::new(), vec![support("good", SupportDispositionV1::DirectSupport)])]);
+        let mut mapping = mapping(
+            "changed",
+            vec![element(
+                "element",
+                Vec::new(),
+                vec![support("good", SupportDispositionV1::DirectSupport)],
+            )],
+        );
         mapping.mapping_digest = [12; 32];
         let result = validate_packet(&packet(vec![mapping]));
         assert_eq!(result, Err(DecisionClosureErrorV1::ReviewReferenceMismatch));
@@ -1159,7 +1422,11 @@ mod tests {
         decision.minimum_reviewers_per_role = 2;
         let mut mapping = mapping(
             "two-reviewers",
-            vec![element("required", Vec::new(), vec![support("good", SupportDispositionV1::DirectSupport)])],
+            vec![element(
+                "required",
+                Vec::new(),
+                vec![support("good", SupportDispositionV1::DirectSupport)],
+            )],
         );
         mapping.reviews.truncate(1);
         mapping.reviews[0].reviewer_id = "reviewer-one".to_owned();
@@ -1191,19 +1458,31 @@ mod tests {
 
     #[test]
     fn not_applicable_element_does_not_require_irrelevant_prerequisites() {
-        let mut excluded = element("conditional-exception", vec!["primary-rule".to_owned()], Vec::new());
+        let mut excluded = element(
+            "conditional-exception",
+            vec!["primary-rule".to_owned()],
+            Vec::new(),
+        );
         excluded.applicability = ElementApplicabilityV1::NotApplicable {
             decision_id: "exception-does-not-apply".to_owned(),
             decision_digest: [19; 32],
             authority: authority("exception-authority"),
         };
         let result = evaluate_decision_closure(
-            &packet(vec![mapping("not-applicable", vec![
-                element("primary-rule", Vec::new(), vec![support("rule", SupportDispositionV1::DirectSupport)]),
-                excluded,
-            ])]),
+            &packet(vec![mapping(
+                "not-applicable",
+                vec![
+                    element(
+                        "primary-rule",
+                        Vec::new(),
+                        vec![support("rule", SupportDispositionV1::DirectSupport)],
+                    ),
+                    excluded,
+                ],
+            )]),
             NOW,
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(result.disposition, DecisionClosureDispositionV1::Closed);
         assert_eq!(
             result.mappings[0].elements[1].status,
@@ -1218,33 +1497,62 @@ mod tests {
             MappingReviewerRoleV1::DomainExpert,
             MappingReviewerRoleV1::SafetyAuthority,
         ];
-        let mut packet = packet(vec![mapping("needs-safety", vec![element("element", Vec::new(), vec![support("good", SupportDispositionV1::DirectSupport)])])]);
+        let mut packet = packet(vec![mapping(
+            "needs-safety",
+            vec![element(
+                "element",
+                Vec::new(),
+                vec![support("good", SupportDispositionV1::DirectSupport)],
+            )],
+        )]);
         packet.decision = decision;
         let result = evaluate_decision_closure(&packet, NOW).unwrap();
-        assert_eq!(result.disposition, DecisionClosureDispositionV1::MappingReviewRequired);
+        assert_eq!(
+            result.disposition,
+            DecisionClosureDispositionV1::MappingReviewRequired
+        );
     }
 
     #[test]
     fn no_mapping_reports_insufficient_mapping() {
         let result = evaluate_decision_closure(&packet(Vec::new()), NOW).unwrap();
-        assert_eq!(result.disposition, DecisionClosureDispositionV1::InsufficientMapping);
+        assert_eq!(
+            result.disposition,
+            DecisionClosureDispositionV1::InsufficientMapping
+        );
     }
 
     #[test]
     fn changed_decision_digest_invalidates_mapping() {
-        let mut mapping = mapping("wrong-decision", vec![element("element", Vec::new(), vec![support("good", SupportDispositionV1::DirectSupport)])]);
+        let mut mapping = mapping(
+            "wrong-decision",
+            vec![element(
+                "element",
+                Vec::new(),
+                vec![support("good", SupportDispositionV1::DirectSupport)],
+            )],
+        );
         mapping.conclusion_digest = [13; 32];
-        assert_eq!(validate_packet(&packet(vec![mapping])), Err(DecisionClosureErrorV1::DecisionReferenceMismatch));
+        assert_eq!(
+            validate_packet(&packet(vec![mapping])),
+            Err(DecisionClosureErrorV1::DecisionReferenceMismatch)
+        );
     }
 
     #[test]
     fn multiple_direct_support_results_can_satisfy_minimum() {
-        let mut item = element("two-evidence-sources", Vec::new(), vec![
-            support("source-a", SupportDispositionV1::DirectSupport),
-            support("source-b", SupportDispositionV1::DirectSupport),
-        ]);
+        let mut item = element(
+            "two-evidence-sources",
+            Vec::new(),
+            vec![
+                support("source-a", SupportDispositionV1::DirectSupport),
+                support("source-b", SupportDispositionV1::DirectSupport),
+            ],
+        );
         item.minimum_support_results = 2;
-        let result = evaluate_decision_closure(&packet(vec![mapping("two-sources", vec![item])]), NOW).unwrap();
+        let result =
+            evaluate_decision_closure(&packet(vec![mapping("two-sources", vec![item])]), NOW)
+                .unwrap();
         assert_eq!(result.disposition, DecisionClosureDispositionV1::Closed);
     }
 
@@ -1252,10 +1560,18 @@ mod tests {
     fn exhaustive_four_element_dependency_graphs_match_cycle_oracle() {
         let ids = ["a", "b", "c", "d"];
         let edges = [
-            (0usize, 1usize), (0, 2), (0, 3),
-            (1, 0), (1, 2), (1, 3),
-            (2, 0), (2, 1), (2, 3),
-            (3, 0), (3, 1), (3, 2),
+            (0usize, 1usize),
+            (0, 2),
+            (0, 3),
+            (1, 0),
+            (1, 2),
+            (1, 3),
+            (2, 0),
+            (2, 1),
+            (2, 3),
+            (3, 0),
+            (3, 1),
+            (3, 2),
         ];
 
         for mask in 0usize..(1usize << edges.len()) {
@@ -1282,9 +1598,7 @@ mod tests {
             let elements = ids
                 .iter()
                 .enumerate()
-                .map(|(index, id)| {
-                    element(id, dependencies[index].clone(), Vec::new())
-                })
+                .map(|(index, id)| element(id, dependencies[index].clone(), Vec::new()))
                 .collect::<Vec<_>>();
             let result = validate_dependency_graph(&elements);
             if has_cycle {
@@ -1309,6 +1623,9 @@ mod tests {
             element("duplicate", Vec::new(), Vec::new()),
             element("duplicate", Vec::new(), Vec::new()),
         ];
-        assert_eq!(validate_packet(&packet(vec![mapping("duplicate", elements)])), Err(DecisionClosureErrorV1::DuplicateIdentifier));
+        assert_eq!(
+            validate_packet(&packet(vec![mapping("duplicate", elements)])),
+            Err(DecisionClosureErrorV1::DuplicateIdentifier)
+        );
     }
 }
