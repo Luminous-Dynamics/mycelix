@@ -24,7 +24,7 @@ For discrete mechanism identity $M$ and a design's noisy observations $Y_D$:
 
 - **Model discrimination:** $I(M;Y_D)=H(M)-E_{Y_D}[H(M\mid Y_D)]$.
 - **Parameter precision:** worst-case scalar Fisher information for log total conductance, using the supplied physical derivative and declared observation noise.
-- **Predictive information:** $E_{Y_D}[I(M;Y_*\mid Y_D)]$ for a held-out late-transient observable $Y_*$.
+- **Held-out predictive information gain:** $I(Y_D;Y_*) = I(M;Y_*) - E_{Y_D}[I(M;Y_*\mid Y_D)]$, the information acquired observations provide about a future late-transient observable $Y_*$. This is an EPIG-style predictive criterion, not a reproduction of the UAI 2026 estimator.
 - **Decision value:** not yet implemented; it requires a named downstream action, loss matrix and decision threshold. It must not be inferred from model entropy.
 
 The benchmark reports posterior model entropy, expected classification accuracy, Brier score and model log loss alongside information objectives.
