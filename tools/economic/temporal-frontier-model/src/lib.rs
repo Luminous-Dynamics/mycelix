@@ -44,10 +44,12 @@ pub struct OwnerCutV1 {
     pub owner_ref: String,
     /// Stable identity for one append-only owner history.
     pub history_ref: String,
-    /// Highest sequence represented by this cut. Sequence zero is an empty
-    /// history prefix; non-empty histories conventionally start at one.
+    /// Highest owner-local sequence allocated/represented by this cut.
     pub sequence: u64,
-    /// Root of this owner's history at `sequence`.
+    /// Number of receipt leaves committed under root_digest. This may be
+    /// smaller than sequence when explicit owner-local gaps exist.
+    pub tree_size: u64,
+    /// Root of this owner's receipt log at this sequence cut.
     pub root_digest: String,
     /// Structural declaration binding the owner root to the frontier root.
     /// Proof bytes are not verified by this crate.
@@ -177,6 +179,7 @@ impl OwnerCutV1 {
         }
 
         let mut previous_last = 0_u64;
+        let mut missing_count = 0_u64;
         for (index, gap) in self.gaps.iter().enumerate() {
             if gap.first == 0 || gap.first > gap.last || gap.last > self.sequence {
                 return Err(FrontierModelErrorV1::InvalidGap);
@@ -185,8 +188,41 @@ impl OwnerCutV1 {
                 return Err(FrontierModelErrorV1::UnsortedOrOverlappingGaps);
             }
             previous_last = gap.last;
+            let gap_len = gap
+                .last
+                .checked_sub(gap.first)
+                .and_then(|width| width.checked_add(1))
+                .ok_or(FrontierModelErrorV1::InvalidGap)?;
+            missing_count = missing_count
+                .checked_add(gap_len)
+                .ok_or(FrontierModelErrorV1::InvalidGap)?;
+        }
+        if self.tree_size.checked_add(missing_count) != Some(self.sequence)
+            || self.tree_size == 0
+        {
+            return Err(FrontierModelErrorV1::InvalidGap);
         }
         Ok(())
+    }
+
+    /// Map an owner-local sequence to its zero-based committed leaf index.
+    /// Returns None for a declared gap or a sequence outside this cut.
+    pub fn leaf_index_for_sequence(&self, sequence: u64) -> Option<u64> {
+        if sequence == 0
+            || sequence > self.sequence
+            || self.gaps.iter().any(|gap| gap.first <= sequence && sequence <= gap.last)
+        {
+            return None;
+        }
+        let missing_before = self.gaps.iter().try_fold(0_u64, |total, gap| {
+            if gap.last < sequence {
+                let length = gap.last.checked_sub(gap.first)?.checked_add(1)?;
+                total.checked_add(length)
+            } else {
+                Some(total)
+            }
+        })?;
+        sequence.checked_sub(1)?.checked_sub(missing_before)
     }
 
     /// True only when the cut reaches `through` and declares no gaps in
@@ -329,9 +365,14 @@ impl VerifierFrontierV1 {
         let Some(witness) = &receipt.inclusion else {
             return Ok(ReceiptVisibilityV1::Indeterminate);
         };
+        let Some(expected_leaf_index) =
+            owner_cut.leaf_index_for_sequence(receipt.owner_sequence)
+        else {
+            return Ok(ReceiptVisibilityV1::Indeterminate);
+        };
         if witness.owner_root_digest != owner_cut.root_digest
-            || witness.tree_size != owner_cut.sequence
-            || witness.leaf_index.checked_add(1) != Some(receipt.owner_sequence)
+            || witness.tree_size != owner_cut.tree_size
+            || witness.leaf_index != expected_leaf_index
         {
             return Ok(ReceiptVisibilityV1::Indeterminate);
         }
@@ -546,6 +587,7 @@ pub fn canonical_owner_cut_entry_v1(
     append_string(&mut bytes, &cut.owner_ref)?;
     append_string(&mut bytes, &cut.history_ref)?;
     bytes.extend_from_slice(&cut.sequence.to_be_bytes());
+    bytes.extend_from_slice(&cut.tree_size.to_be_bytes());
     append_string(&mut bytes, &cut.root_digest)?;
     bytes.extend_from_slice(&gap_count.to_be_bytes());
     for gap in &cut.gaps {
@@ -685,21 +727,30 @@ mod tests {
         format!("sha256:{}", byte.to_string().repeat(64))
     }
 
-    fn owner_log_entries(owner: &str, sequence: u64) -> Vec<Vec<u8>> {
+    fn owner_log_entries(
+        owner: &str,
+        sequence: u64,
+        gaps: &[SequenceRangeV1],
+    ) -> Vec<Vec<u8>> {
         (1..=sequence)
+            .filter(|position| {
+                !gaps.iter().any(|gap| gap.first <= *position && *position <= gap.last)
+            })
             .map(|position| format!("MYCELIX-TEST-OWNER-LOG:{owner}:{position}").into_bytes())
             .collect()
     }
 
     fn cut(owner: &str, sequence: u64, _label: char) -> OwnerCutV1 {
+        let entries = owner_log_entries(owner, sequence, &[]);
         let root_digest = format!(
             "sha256:{}",
-            hex_lower(&tree_hash(&owner_log_entries(owner, sequence)).unwrap())
+            hex_lower(&tree_hash(&entries).unwrap())
         );
         OwnerCutV1 {
             owner_ref: owner.into(),
             history_ref: format!("history:{owner}"),
             sequence,
+            tree_size: entries.len() as u64,
             root_digest: root_digest.clone(),
             checkpoint_inclusion: CheckpointInclusionDeclarationV1 {
                 checkpoint_root_digest: digest('f'),
@@ -776,15 +827,21 @@ mod tests {
         assert!(receipt.owner_sequence > 0);
         assert!(receipt.owner_sequence <= owner_cut.sequence);
         refresh_receipt_digest(receipt);
-        let mut entries = owner_log_entries(&owner_cut.owner_ref, owner_cut.sequence);
-        entries[(receipt.owner_sequence - 1) as usize] =
+        let mut entries = owner_log_entries(
+            &owner_cut.owner_ref, owner_cut.sequence, &owner_cut.gaps,
+        );
+        let leaf_index = owner_cut
+            .leaf_index_for_sequence(receipt.owner_sequence)
+            .expect("receipt sequence is not a declared gap");
+        entries[leaf_index as usize] =
             canonical_knowledge_receipt_entry_v1(receipt).unwrap();
         let root = tree_hash(&entries).unwrap();
+        owner_cut.tree_size = entries.len() as u64;
         owner_cut.root_digest = format!("sha256:{}", hex_lower(&root));
         receipt.inclusion = Some(ReceiptInclusionDeclarationV1 {
             owner_root_digest: owner_cut.root_digest.clone(),
-            leaf_index: receipt.owner_sequence - 1,
-            tree_size: owner_cut.sequence,
+            leaf_index,
+            tree_size: owner_cut.tree_size,
             inclusion_path: inclusion_proof(&entries, receipt.owner_sequence - 1).unwrap(),
             proof_ref: format!("proof:receipt:{}", receipt.receipt_id),
         });
@@ -795,7 +852,7 @@ mod tests {
         first_tree_size: u64,
         second_tree_size: u64,
     ) -> OwnerConsistencyLinkV1 {
-        let entries = owner_log_entries(owner_ref, second_tree_size);
+        let entries = owner_log_entries(owner_ref, second_tree_size, &[]);
         let ancestor_root = tree_hash(&entries[..first_tree_size as usize]).unwrap();
         let descendant_root = tree_hash(&entries).unwrap();
         OwnerConsistencyLinkV1 {
