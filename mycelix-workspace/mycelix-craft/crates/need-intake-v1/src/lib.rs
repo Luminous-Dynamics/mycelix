@@ -421,6 +421,12 @@ pub enum NeedIntakeErrorV1 {
     UnknownClaim,
     /// Work package link references unknown outcome, requirement or package.
     UnknownWorkReference,
+    /// Capability requirement jurisdiction differs from the project jurisdiction.
+    JurisdictionMismatch,
+    /// A capability requirement has a zero minimum contributor threshold.
+    InvalidRequirementThreshold,
+    /// A capability requirement disables status-freshness checking.
+    ZeroStatusFreshnessWindow,
     /// An outcome or requirement is not assigned to any work package.
     UnmappedClaim,
     /// Dependency cycle exists.
@@ -631,11 +637,14 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
         require_digest(&requirement.context_digest)?;
         require_non_empty(&requirement.jurisdiction_id)?;
         if requirement.jurisdiction_id != proposal.jurisdiction_id {
-            return Err(NeedIntakeErrorV1::UnknownWorkReference);
+            return Err(NeedIntakeErrorV1::JurisdictionMismatch);
         }
         validate_policy_ref(&requirement.assessment_policy)?;
-        if requirement.minimum_contributors == 0 || requirement.max_status_age_seconds == 0 {
-            return Err(NeedIntakeErrorV1::InvalidRevision);
+        if requirement.minimum_contributors == 0 {
+            return Err(NeedIntakeErrorV1::InvalidRequirementThreshold);
+        }
+        if requirement.max_status_age_seconds == 0 {
+            return Err(NeedIntakeErrorV1::ZeroStatusFreshnessWindow);
         }
         require_non_empty(&requirement.statement)?;
         if !claim_ids.insert(format!("requirement:{}", requirement.requirement_id)) {
@@ -1442,14 +1451,21 @@ mod tests {
         proposal.requirements[0].jurisdiction_id = "ZA-WC".to_owned();
         assert_eq!(
             validate_proposal(&proposal),
-            Err(NeedIntakeErrorV1::UnknownWorkReference)
+            Err(NeedIntakeErrorV1::JurisdictionMismatch)
+        );
+
+        let mut proposal = valid_proposal();
+        proposal.requirements[0].minimum_contributors = 0;
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::InvalidRequirementThreshold)
         );
 
         let mut proposal = valid_proposal();
         proposal.requirements[0].max_status_age_seconds = 0;
         assert_eq!(
             validate_proposal(&proposal),
-            Err(NeedIntakeErrorV1::InvalidRevision)
+            Err(NeedIntakeErrorV1::ZeroStatusFreshnessWindow)
         );
 
         let mut proposal = valid_proposal();
