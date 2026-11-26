@@ -33,8 +33,9 @@ pub use generation_exposure::{
     GenerationInputExposureClaims,
 };
 pub use transitive_memory::{
-    compute_memory_graph_digest, compute_memory_scope_digest,
-    compute_transitive_memory_snapshot_digest, qualify_transitive_memory_snapshot,
+    compute_memory_declassification_receipt_digest, compute_memory_graph_digest,
+    compute_memory_scope_digest, compute_transitive_memory_snapshot_digest,
+    qualify_transitive_memory_snapshot,
     MemoryArtifact, MemoryDeclassificationReceipt, MemoryRevocationClosure,
     MemoryRevocationEvent, MemoryScope, MemoryUseDisposition, MemoryUseObservation,
     TransitiveMemoryReport, TransitiveMemorySnapshot, TransitiveMemoryStatus,
