@@ -140,16 +140,10 @@ fn main() {
     let mut grant_log = owner_entries("owner:grants", 20);
     grant_log[4] = receipt_payload;
     let mut grants_10 = owner_cut("owner:grants", 10);
-    grants_10.root_digest = format!(
-        "sha256:{}",
-        hex(&tree_hash(&grant_log[..10]).unwrap())
-    );
+    grants_10.root_digest = format!("sha256:{}", hex(&tree_hash(&grant_log[..10]).unwrap()));
     grants_10.checkpoint_inclusion.owner_root_digest = grants_10.root_digest.clone();
     let mut grants_20 = owner_cut("owner:grants", 20);
-    grants_20.root_digest = format!(
-        "sha256:{}",
-        hex(&tree_hash(&grant_log).unwrap())
-    );
+    grants_20.root_digest = format!("sha256:{}", hex(&tree_hash(&grant_log).unwrap()));
     grants_20.checkpoint_inclusion.owner_root_digest = grants_20.root_digest.clone();
     let payments_20 = owner_cut("owner:payments", 20);
     let payments_10 = owner_cut("owner:payments", 10);
@@ -253,7 +247,10 @@ fn main() {
     assert_eq!(
         early.compare(
             &later,
-            &[consistency_link_from_entries("owner:grants", &grant_log, 10), payment_link]
+            &[
+                consistency_link_from_entries("owner:grants", &grant_log, 10),
+                payment_link
+            ]
         ),
         Ok(FrontierRelationV1::Before)
     );
