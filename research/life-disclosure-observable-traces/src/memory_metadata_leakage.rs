@@ -12,6 +12,8 @@ use std::fmt::Write as _;
 
 use crate::{compare_observer_views, ObserverView};
 
+const MEMORY_MANIFEST: &str = include_str!("../memory-sequence-manifest.json");
+
 const REQUIRED_OBSERVER_FIELDS: &[&str] = &[
     "task_result",
     "response_class",
@@ -777,6 +779,42 @@ mod tests {
             assert!(!view.contains_key("evaluator_truth"));
             assert!(view.contains_key("task_result"));
         }
+    }
+
+    #[test]
+    fn manifest_freezes_the_exact_48_sequence_cross_product_and_claim_ceiling() {
+        assert!(MEMORY_MANIFEST.contains(
+            "\"schema_version\": \"mycelix-memory-longitudinal-leakage-v0.1\""
+        ));
+        assert!(MEMORY_MANIFEST.contains("\"seed_count\": 48"));
+        assert!(MEMORY_MANIFEST.contains("\"evaluation_rows\": 192"));
+        assert!(MEMORY_MANIFEST.contains("\"sequence_id\": 47"));
+        for family in FAMILIES {
+            assert!(MEMORY_MANIFEST.contains(family.name()));
+        }
+        for value in [
+            "one_shot",
+            "repeated_adaptive",
+            "single_principal",
+            "colluding_principals",
+            "forbidden",
+            "authorised",
+            "normalized_control",
+            "family_leak_positive_control",
+            "INDETERMINATE",
+            "not a production privacy guarantee",
+        ] {
+            assert!(MEMORY_MANIFEST.contains(value), "manifest missing {value}");
+        }
+    }
+
+    #[test]
+    fn report_has_one_header_and_exactly_192_rows() {
+        let report = report_csv();
+        assert_eq!(report.lines().count(), 193);
+        assert!(report.lines().any(|line| line.contains(",LEAK_DETECTED,")));
+        assert!(report.lines().any(|line| line.contains(",INDETERMINATE,")));
+        assert!(report.lines().any(|line| line.contains(",PASS,")));
     }
 
     #[test]
