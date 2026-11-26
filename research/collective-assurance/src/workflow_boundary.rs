@@ -925,7 +925,6 @@ mod tests {
         let good_artifact = artifact(
             "good-artifact", "producer-a", "report", '6', 2,
             ArtifactLifecycle::Current, ArtifactVerification::Verified,
-            ArtifactOperationState::NotOperation,
         );
         let artifacts = vec![good_artifact, bad_artifact];
         let clean_exposures = vec![exposure(
@@ -971,7 +970,6 @@ mod tests {
         let bad = artifact(
             "bad-artifact", "producer-b", "report", '6', 2,
             ArtifactLifecycle::Current, ArtifactVerification::Verified,
-            ArtifactOperationState::NotOperation,
         );
         let pair = valid_pair(
             BoundaryPollutionOperator::SiblingCrosswire,
@@ -991,7 +989,6 @@ mod tests {
         let bad = artifact(
             "bad-artifact", "producer-b", "report", '6', 2,
             ArtifactLifecycle::Current, ArtifactVerification::Verified,
-            ArtifactOperationState::NotOperation,
         );
         let pair = valid_pair(
             BoundaryPollutionOperator::SiblingCrosswire,
@@ -1010,7 +1007,6 @@ mod tests {
         let bad = artifact(
             "bad-artifact", "producer-a", "report", '6', 2,
             ArtifactLifecycle::Current, ArtifactVerification::Unverified,
-            ArtifactOperationState::NotOperation,
         );
         let pair = valid_pair(
             BoundaryPollutionOperator::UnverifiedResult,
@@ -1029,7 +1025,6 @@ mod tests {
         let bad = artifact(
             "bad-artifact", "producer-a", "debug-log", '6', 2,
             ArtifactLifecycle::Current, ArtifactVerification::Verified,
-            ArtifactOperationState::NotOperation,
         );
         let pair = valid_pair(
             BoundaryPollutionOperator::IncompatiblePayload,
@@ -1048,7 +1043,6 @@ mod tests {
         let bad = artifact(
             "bad-artifact", "producer-a", "report", '7', 2,
             ArtifactLifecycle::Current, ArtifactVerification::Verified,
-            ArtifactOperationState::NotOperation,
         );
         let pair = valid_pair(
             BoundaryPollutionOperator::WrongEntity,
@@ -1067,7 +1061,6 @@ mod tests {
         let bad = artifact(
             "bad-artifact", "producer-a", "report", '6', 1,
             ArtifactLifecycle::Superseded, ArtifactVerification::Verified,
-            ArtifactOperationState::NotOperation,
         );
         let pair = valid_pair(
             BoundaryPollutionOperator::StaleVersion,
@@ -1105,7 +1098,6 @@ mod tests {
         let bad = artifact(
             "bad-artifact", "producer-b", "report", '6', 2,
             ArtifactLifecycle::Current, ArtifactVerification::Verified,
-            ArtifactOperationState::NotOperation,
         );
         let mut pair = valid_pair(
             BoundaryPollutionOperator::SiblingCrosswire,
@@ -1125,7 +1117,6 @@ mod tests {
         let bad = artifact(
             "bad-artifact", "producer-b", "report", '6', 2,
             ArtifactLifecycle::Current, ArtifactVerification::Verified,
-            ArtifactOperationState::NotOperation,
         );
         let mut pair = valid_pair(
             BoundaryPollutionOperator::SiblingCrosswire,
@@ -1144,7 +1135,6 @@ mod tests {
         let bad = artifact(
             "bad-artifact", "producer-b", "report", '6', 2,
             ArtifactLifecycle::Current, ArtifactVerification::Verified,
-            ArtifactOperationState::NotOperation,
         );
         let mut pair = valid_pair(
             BoundaryPollutionOperator::SiblingCrosswire,
@@ -1164,7 +1154,6 @@ mod tests {
         let bad = artifact(
             "bad-artifact", "producer-b", "report", '6', 2,
             ArtifactLifecycle::Current, ArtifactVerification::Verified,
-            ArtifactOperationState::NotOperation,
         );
         let mut pair = valid_pair(
             BoundaryPollutionOperator::SiblingCrosswire,
