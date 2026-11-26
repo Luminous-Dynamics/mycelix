@@ -10,6 +10,7 @@ mod comparison;
 mod constraint_binding;
 mod ledger;
 mod relational_evidence;
+mod generation_exposure;
 mod response_audit;
 mod support_policy;
 
@@ -21,6 +22,12 @@ pub use allocation::{
     allocate_committed_teams, compute_design_digest, compute_roster_digest,
     create_allocation_commitment, verify_allocation_reveal, AllocationCommitment,
     AllocationSecret,
+};
+pub use generation_exposure::{
+    diagnose_evidence_use_with_verified_exposure, qualify_generation_input_exposure,
+    BoundEvidenceUseDiagnostic, BoundEvidenceUseStatus, ExpectedGenerationExposure,
+    ExposureQualificationReport, ExposureQualificationStatus, GenerationEvidenceEntry,
+    GenerationInputExposureClaims,
 };
 pub use relational_evidence::{
     bind_refined_evidence_constraints, diagnose_evidence_use_bottlenecks,
