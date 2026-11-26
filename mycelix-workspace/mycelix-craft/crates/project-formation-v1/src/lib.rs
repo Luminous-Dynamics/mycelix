@@ -356,6 +356,11 @@ pub struct RequirementCoverageV1 {
     pub work_package_id: String,
     /// Exact requirement identifier.
     pub requirement_id: String,
+    /// The requirement category selected by the project owner.
+    pub requirement_kind: RequirementKindV1,
+    /// Whether an unmet requirement is a hard gate for its work package.
+    /// SafetyCritical and Required are blocking; Developmental and Preferred are not.
+    pub is_requirement_blocking: bool,
     /// Requirement disposition at the requested evaluation time.
     pub disposition: RequirementDispositionV1,
     /// Distinct contributors with current matching qualified evidence.
@@ -581,9 +586,7 @@ pub fn evaluate_team(
                     developmental.insert(assignment.contributor_id.clone());
                 }
 
-                if assignment.evidence.is_empty()
-                    && assignment.supervised_development.is_none()
-                {
+                if assignment.evidence.is_empty() && assignment.supervised_development.is_none() {
                     unknown += 1;
                 }
 
@@ -626,8 +629,7 @@ pub fn evaluate_team(
 
             let mut qualified_contributors: Vec<String> = qualified.into_iter().collect();
             qualified_contributors.sort();
-            let mut development_contributors: Vec<String> =
-                developmental.into_iter().collect();
+            let mut development_contributors: Vec<String> = developmental.into_iter().collect();
             development_contributors.sort();
 
             let enough_qualified =
@@ -644,10 +646,7 @@ pub fn evaluate_team(
                 && !development_contributors.is_empty()
             {
                 RequirementDispositionV1::DevelopmentPathAvailable
-            } else if unknown > 0
-                || stale_or_revoked > 0
-                || not_yet_valid > 0
-                || scope_mismatch > 0
+            } else if unknown > 0 || stale_or_revoked > 0 || not_yet_valid > 0 || scope_mismatch > 0
             {
                 RequirementDispositionV1::UnknownEvidence
             } else {
@@ -657,6 +656,11 @@ pub fn evaluate_team(
             coverage.push(RequirementCoverageV1 {
                 work_package_id: package.work_package_id.clone(),
                 requirement_id: requirement.requirement_id.clone(),
+                requirement_kind: requirement.kind,
+                is_requirement_blocking: matches!(
+                    requirement.kind,
+                    RequirementKindV1::SafetyCritical | RequirementKindV1::Required
+                ) && disposition != RequirementDispositionV1::Covered,
                 disposition,
                 qualified_contributors,
                 development_contributors,
@@ -803,10 +807,7 @@ mod tests {
         }
     }
 
-    fn result(
-        project: &NeedToProjectV1,
-        proposal: &TeamProposalV1,
-    ) -> RequirementCoverageV1 {
+    fn result(project: &NeedToProjectV1, proposal: &TeamProposalV1) -> RequirementCoverageV1 {
         evaluate_team(project, proposal, NOW).unwrap().requirements[0].clone()
     }
 
@@ -868,10 +869,7 @@ mod tests {
             mentor_id: "mentor".to_owned(),
             mentor_authority: policy(),
         });
-        let proposal = proposal(
-            vec![member("learner"), member("mentor")],
-            vec![offer],
-        );
+        let proposal = proposal(vec![member("learner"), member("mentor")], vec![offer]);
 
         let coverage = result(&project, &proposal);
         assert_eq!(
@@ -893,10 +891,7 @@ mod tests {
             mentor_id: "mentor".to_owned(),
             mentor_authority: policy(),
         });
-        let proposal = proposal(
-            vec![member("learner"), member("mentor")],
-            vec![offer],
-        );
+        let proposal = proposal(vec![member("learner"), member("mentor")], vec![offer]);
 
         assert_eq!(
             evaluate_team(&project, &proposal, NOW),
@@ -970,14 +965,11 @@ mod tests {
             vec![member("alice")],
             vec![assignment(
                 "alice",
-                vec![
-                    evidence("alice", EvidenceDispositionV1::Qualified),
-                    {
-                        let mut second = evidence("alice", EvidenceDispositionV1::Qualified);
-                        second.evidence_id = "evidence-alice-second".to_owned();
-                        second
-                    },
-                ],
+                vec![evidence("alice", EvidenceDispositionV1::Qualified), {
+                    let mut second = evidence("alice", EvidenceDispositionV1::Qualified);
+                    second.evidence_id = "evidence-alice-second".to_owned();
+                    second
+                }],
             )],
         );
 
@@ -1034,7 +1026,10 @@ mod tests {
         let proposal = proposal(vec![member("alice")], vec![assignment("alice", vec![item])]);
 
         let coverage = result(&project, &proposal);
-        assert_eq!(coverage.disposition, RequirementDispositionV1::UnknownEvidence);
+        assert_eq!(
+            coverage.disposition,
+            RequirementDispositionV1::UnknownEvidence
+        );
         assert_eq!(coverage.not_yet_valid_evidence, 1);
         assert_eq!(coverage.stale_or_revoked_evidence, 0);
     }
@@ -1110,9 +1105,51 @@ mod tests {
         let proposal = proposal(vec![member("alice")], Vec::new());
 
         let coverage = result(&project, &proposal);
-        assert_eq!(coverage.disposition, RequirementDispositionV1::UnknownEvidence);
+        assert_eq!(
+            coverage.disposition,
+            RequirementDispositionV1::UnknownEvidence
+        );
         assert_eq!(coverage.unknown_evidence, 1);
         assert!(coverage.qualified_contributors.is_empty());
+    }
+
+    #[test]
+    fn preferred_requirement_gap_is_visible_but_not_a_hard_gate() {
+        let project = project(RequirementKindV1::Preferred, 1);
+        let proposal = proposal(vec![member("alice")], Vec::new());
+
+        let coverage = result(&project, &proposal);
+        assert_eq!(coverage.disposition, RequirementDispositionV1::UnknownEvidence);
+        assert_eq!(coverage.requirement_kind, RequirementKindV1::Preferred);
+        assert!(!coverage.is_requirement_blocking);
+    }
+
+    #[test]
+    fn missing_required_capability_is_a_hard_gate_not_a_negative_person_judgement() {
+        let project = project(RequirementKindV1::Required, 1);
+        let proposal = proposal(vec![member("alice")], Vec::new());
+
+        let coverage = result(&project, &proposal);
+        assert_eq!(coverage.disposition, RequirementDispositionV1::UnknownEvidence);
+        assert!(coverage.is_requirement_blocking);
+        assert!(coverage.qualified_contributors.is_empty());
+    }
+
+    #[test]
+    fn qualified_safety_evidence_plus_an_unresolved_dispute_remains_blocked() {
+        let project = project(RequirementKindV1::SafetyCritical, 1);
+        let proposal = proposal(
+            vec![member("alice"), member("bob")],
+            vec![
+                assignment("alice", vec![evidence("alice", EvidenceDispositionV1::Qualified)]),
+                assignment("bob", vec![evidence("bob", EvidenceDispositionV1::Disputed)]),
+            ],
+        );
+
+        let coverage = result(&project, &proposal);
+        assert_eq!(coverage.disposition, RequirementDispositionV1::BlockedBySafetyGate);
+        assert!(coverage.is_requirement_blocking);
+        assert_eq!(coverage.qualified_contributors, vec!["alice"]);
     }
 
     #[test]
