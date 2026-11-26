@@ -382,18 +382,19 @@ pub fn qualify_mcsf_integrity_run(
     let mut counts = (0usize, 0usize, 0usize, 0usize, 0usize);
     let mut metric_evaluable = true;
 
-    match compute_mcsf_integrity_run_digest(run) {
-        Ok(expected) if expected == run.run_digest => {}
+    let commitment_valid = match compute_mcsf_integrity_run_digest(run) {
+        Ok(expected) if expected == run.run_digest => true,
         Ok(_) => {
             qualification.fail("integrity run digest does not bind the supplied run");
-            metric_evaluable = false;
+            false
         }
         Err(error) => {
             qualification.fail(format!("invalid integrity run manifest: {error}"));
-            metric_evaluable = false;
+            false
         }
-    }
+    };
 
+    let mut controls_passed = true;
     for (label, status) in [
         ("C1 no-op reload", run.controls.no_op_reload),
         (
@@ -405,8 +406,24 @@ pub fn qualify_mcsf_integrity_run(
             qualification.indeterminate(format!(
                 "{label} did not pass; the at-rest integrity metric is not evaluable"
             ));
-            metric_evaluable = false;
+            controls_passed = false;
         }
+    }
+
+    if !commitment_valid || !controls_passed {
+        return McsfIntegrityQualificationReport {
+            qualification,
+            run_digest: run.run_digest.clone(),
+            metric_evaluable: false,
+            applicable_case_count: 0,
+            full_pass_count: 0,
+            audit_only_count: 0,
+            accepted_count: 0,
+            not_applicable_count: 0,
+            edit_not_landed_count: 0,
+            overall_score_micros: None,
+            profiles,
+        };
     }
 
     let mut by_case = BTreeMap::new();
@@ -441,6 +458,10 @@ pub fn qualify_mcsf_integrity_run(
                 case.code()
             ));
             metric_evaluable = false;
+            profiles
+                .entry(case.group())
+                .or_insert_with(McsfIntegrityProfile::default)
+                .unevaluable_count += 1;
         }
 
         match observation.applicability {
