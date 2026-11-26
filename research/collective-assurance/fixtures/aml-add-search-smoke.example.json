@@ -1,0 +1,123 @@
+{
+  "manifest": {
+    "run_id": "aml-smoke-synthetic-001",
+    "cycle_id": "agent-memory-challenge-cycle-2-2026",
+    "mode": "smoke",
+    "track": "textual",
+    "division": "open_source_methods",
+    "release_id": "synthetic-cycle2-fixture-not-official",
+    "release_manifest_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+    "evaluation_pipeline_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "dataset_bundle_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+    "question_manifest_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+    "answer_model_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+    "scoring_contract_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+    "api_contract_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+    "system_id": "mycelix-aml-adapter-fixture",
+    "system_version": "0.1.0",
+    "system_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "system_artifact_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "container_image_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+    "expected_question_count": 1,
+    "full_evaluation_complete": false,
+    "component_uses": [
+      {
+        "kind": "embedding",
+        "model_id": "text-embedding-v4",
+        "model_version": "synthetic-pinned",
+        "deployment_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      {
+        "kind": "language_model",
+        "model_id": "gpt-4o-mini",
+        "model_version": "synthetic-pinned",
+        "deployment_digest": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "reranker",
+        "model_id": "mycelix-reranker",
+        "model_version": "synthetic-pinned",
+        "deployment_digest": "3333333333333333333333333333333333333333333333333333333333333333"
+      }
+    ]
+  },
+  "add_operations": [
+    {
+      "request_id": "add-smoke-001",
+      "sample_id": "sample-001",
+      "task_id": "textual-smoke",
+      "user_id": "user-001",
+      "ingestion_mode": "textual_conversation",
+      "source_session_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+      "payload_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+      "content_parts": [
+        {
+          "kind": "text",
+          "ordinal": 0,
+          "content_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+          "nonempty": true
+        }
+      ],
+      "message_count": 2,
+      "word_count": 100,
+      "attempts": [
+        {
+          "attempt_number": 1,
+          "http_status": 200,
+          "response_request_id": "add-smoke-001",
+          "persisted_before_success_response": true,
+          "persistence_receipt_digest": "6abf2aca52e345ffa311dfbcd209144f89397a5f7fb127dbc7068fcb9fcde2a4",
+          "persistence_receipt": {
+            "request_id": "add-smoke-001",
+            "attempt_number": 1,
+            "sample_id": "sample-001",
+            "task_id": "textual-smoke",
+            "user_id": "user-001",
+            "source_session_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+            "payload_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+            "durable_sequence": 1,
+            "committed_at_ms": 100000,
+            "acknowledged_at_ms": 100050,
+            "observer_artifact_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+            "receipt_digest": "6abf2aca52e345ffa311dfbcd209144f89397a5f7fb127dbc7068fcb9fcde2a4"
+          }
+        }
+      ]
+    }
+  ],
+  "search_operations": [
+    {
+      "request_id": "search-smoke-001",
+      "question_id": "question-smoke-001",
+      "question_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "sample_id": "sample-001",
+      "task_id": "textual-smoke",
+      "user_id": "user-001",
+      "http_status": 200,
+      "requested_top_k": 10,
+      "response_body_bytes": 512,
+      "candidates": [
+        {
+          "memory_id": "memory-smoke-001",
+          "rank": 0,
+          "source_add_request_id": "add-smoke-001",
+          "source_sample_id": "sample-001",
+          "source_task_id": "textual-smoke",
+          "source_user_id": "user-001",
+          "content_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+          "content_nonempty": true,
+          "candidate_is_generated_answer": false,
+          "score_micros": 900000,
+          "content_parts": [
+            {
+              "kind": "text",
+              "ordinal": 0,
+              "content_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+              "nonempty": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
