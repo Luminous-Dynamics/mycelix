@@ -29,7 +29,7 @@ const GH_WEIGHTS: [f64; 7] = [
     0.000_548_268_855_972_218,
 ];
 const PROBABILITY_TOLERANCE: f64 = 1.0e-12;
-const MAX_CANDIDATES: usize = 16;
+const MAX_CANDIDATES: usize = 10;
 const MAX_MECHANISMS: usize = 8;
 const MAX_SELECTED_OBSERVATIONS: usize = 4;
 
@@ -208,14 +208,26 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
         }
     }
 
-    let maximum_observations = fixture
+    let mut acquisition_costs: Vec<u32> = fixture
         .candidates
         .iter()
-        .filter(|candidate| candidate.cost <= fixture.acquisition_budget)
-        .count()
-        .min(MAX_SELECTED_OBSERVATIONS);
+        .map(|candidate| candidate.cost)
+        .collect();
+    acquisition_costs.sort_unstable();
+    let mut cumulative_cost = 0u32;
+    let mut maximum_observations = 0usize;
+    for cost in acquisition_costs {
+        let Some(next_cost) = cumulative_cost.checked_add(cost) else {
+            return Err("candidate acquisition costs overflow the finite budget range".into());
+        };
+        if next_cost > fixture.acquisition_budget {
+            break;
+        }
+        cumulative_cost = next_cost;
+        maximum_observations += 1;
+    }
     if maximum_observations > MAX_SELECTED_OBSERVATIONS {
-        return Err("selected observation count exceeds deterministic quadrature capacity".into());
+        return Err("a feasible portfolio exceeds deterministic quadrature capacity".into());
     }
     let quadrature_weight_sum: f64 = GH_WEIGHTS.iter().sum();
     if (quadrature_weight_sum - 1.0).abs() > 1.0e-12 {
