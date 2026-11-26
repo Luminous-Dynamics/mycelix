@@ -57,7 +57,7 @@ pub enum TeamBenchRunMode {
     ModelEvaluation,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum TeamBenchRole {
     Oracle,
     Restricted,
