@@ -475,7 +475,7 @@ fn apply_intervention(
         }
         (RelationInterventionOperation::Reverse | RelationInterventionOperation::Relabel, Some(before), Some(after)) => {
             match expected.get(&before.edge_id) {
-                Some(actual) if **actual == *before => {}
+                Some(actual) if *actual == *before => {}
                 Some(_) => return Err("intervened edge differs from baseline edge with same ID".into()),
                 None => return Err("intervened edge is absent from baseline graph".into()),
             }
