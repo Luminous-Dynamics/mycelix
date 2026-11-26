@@ -1093,8 +1093,10 @@ mod tests {
         }];
         NeedProposalV1 {
             schema_version: NEED_INTAKE_SCHEMA_VERSION,
+            jurisdiction_id: "ZA-GP".to_owned(),
             need: CommunityNeedV1 {
                 need_id: "community-water-access".to_owned(),
+                community_id: "community-water-committee".to_owned(),
                 statement_digest: [4; 32],
                 submitter_id: "community-assembly".to_owned(),
                 visibility_profile_id: "community-controlled".to_owned(),
@@ -1121,6 +1123,12 @@ mod tests {
                 outcome_id: "reliable-water-service".to_owned(),
                 statement: "Improve reliability of the community water service".to_owned(),
                 indicator: "Hours of potable water service per day".to_owned(),
+                measurement_ref: "water-service-hours-observation-v1".to_owned(),
+                acceptance_policy: PolicyRefV1 {
+                    policy_id: "water-service-acceptance".to_owned(),
+                    revision: 1,
+                    digest: [30; 32],
+                },
                 baseline: None,
                 target: "At least 20 hours/day".to_owned(),
                 time_horizon: "90 days after commissioning".to_owned(),
@@ -1130,7 +1138,21 @@ mod tests {
             }],
             requirements: vec![ProposedRequirementV1 {
                 requirement_id: "electrical-safety".to_owned(),
-                capability_id: "electrical-inspection-v1".to_owned(),
+                capability: CapabilityProfileRefV1 {
+                    vocabulary_id: "electrical-capabilities".to_owned(),
+                    concept_id: "electrical-inspection".to_owned(),
+                    revision: "1.0.0".to_owned(),
+                    digest: [31; 32],
+                },
+                context_digest: [32; 32],
+                jurisdiction_id: "ZA-GP".to_owned(),
+                assessment_policy: PolicyRefV1 {
+                    policy_id: "licensed-electrical-inspection".to_owned(),
+                    revision: 1,
+                    digest: [33; 32],
+                },
+                minimum_contributors: 1,
+                max_status_age_seconds: 60,
                 statement: "Qualified electrical inspection before energizing".to_owned(),
                 kind: RequirementKindV1::SafetyCritical,
                 traceability: trace,
@@ -1139,6 +1161,7 @@ mod tests {
                 ProposedWorkPackageV1 {
                     work_package_id: "inspect".to_owned(),
                     description: "Inspect the pump and electrical installation".to_owned(),
+                    scope_digest: [34; 32],
                     outcome_ids: vec!["reliable-water-service".to_owned()],
                     requirement_ids: vec!["electrical-safety".to_owned()],
                     depends_on: Vec::new(),
@@ -1146,6 +1169,7 @@ mod tests {
                 ProposedWorkPackageV1 {
                     work_package_id: "repair".to_owned(),
                     description: "Complete the owner-approved repair".to_owned(),
+                    scope_digest: [35; 32],
                     outcome_ids: vec!["reliable-water-service".to_owned()],
                     requirement_ids: vec!["electrical-safety".to_owned()],
                     depends_on: vec!["inspect".to_owned()],
