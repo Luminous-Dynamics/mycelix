@@ -1,0 +1,823 @@
+//! Read-only ingestion and qualification of native TeamBench run artifacts.
+//!
+//! This does not execute TeamBench, replace its native grader, or infer the
+//! truth of external results. It qualifies a version-pinned run package and
+//! keeps mock harness smoke evidence distinct from measured model evaluation.
+
+use std::collections::{BTreeMap, BTreeSet};
+
+use super::{QualificationReport, QualificationStatus};
+
+const UPSTREAM_REPOSITORY: &str = "https://github.com/ybkim95/TeamBench";
+
+fn nonempty(value: &str) -> bool {
+    !value.trim().is_empty() && value == value.trim()
+}
+
+fn valid_digest(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn valid_commit(value: &str) -> bool {
+    value.len() == 40
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum TeamBenchCondition {
+    Solo,
+    Restricted,
+    Full,
+    NoPlan,
+    NoEval,
+}
+
+impl TeamBenchCondition {
+    fn all() -> [Self; 5] {
+        [Self::Solo, Self::Restricted, Self::Full, Self::NoPlan, Self::NoEval]
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TeamBenchRunMode {
+    /// Deterministic mock-provider smoke: integration evidence, never a score.
+    MockProviderSmoke,
+    /// Named model/provider under a pinned evaluation configuration.
+    ModelEvaluation,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TeamBenchRole {
+    Planner,
+    Executor,
+    Verifier,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TeamBenchTaskState {
+    Evaluated,
+    InfrastructureError,
+    NotRun,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TeamBenchGraderDisposition {
+    Pass,
+    Fail,
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TeamBenchVerifierDisposition {
+    Accept,
+    Reject,
+    NoVerdict,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TeamBenchBoundaryObservation {
+    Allowed,
+    Blocked,
+    Unknown,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TeamBenchExcludedTask {
+    pub task_id: String,
+    /// E.g. upstream re-curation, invalid fixture or unavailable source asset.
+    pub reason: String,
+    /// Commitment to the upstream notice or local adjudication evidence.
+    pub evidence_digest: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TeamBenchRoleBoundaryEvent {
+    pub event_id: String,
+    pub actor_role: TeamBenchRole,
+    /// Exact capability boundary identifier from the pinned role profile.
+    pub boundary_id: String,
+    /// Expected allow/deny disposition in the exact role profile.
+    pub expected_allowed: bool,
+    /// Independently observed boundary outcome, not a model self-report.
+    pub observed: TeamBenchBoundaryObservation,
+    pub evidence_digest: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TeamBenchTaskObservation {
+    pub task_id: String,
+    pub state: TeamBenchTaskState,
+    /// Commitment to raw upstream task output/artifact bytes.
+    pub raw_output_digest: Option<String>,
+    /// Commitment to the native deterministic grader output.
+    pub native_grader_output_digest: Option<String>,
+    pub native_grader_disposition: Option<TeamBenchGraderDisposition>,
+    /// None means absent or not captured; condition-level verifier_present disambiguates.
+    pub verifier_disposition: Option<TeamBenchVerifierDisposition>,
+    pub role_boundary_events: Vec<TeamBenchRoleBoundaryEvent>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TeamBenchConditionRun {
+    pub run_id: String,
+    pub condition: TeamBenchCondition,
+    pub system_config_digest: String,
+    pub role_profile_digest: String,
+    pub raw_result_manifest_digest: String,
+    pub agent_count: u32,
+    pub verifier_present: bool,
+    /// False is an explicit incomplete observer inventory, not zero events.
+    pub role_boundary_inventory_complete: bool,
+    pub tasks: Vec<TeamBenchTaskObservation>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TeamBenchSuite {
+    pub suite_id: String,
+    pub run_mode: TeamBenchRunMode,
+    pub upstream_repository: String,
+    /// Exact 40-character commit in the official upstream repository.
+    pub upstream_commit: String,
+    pub benchmark_version: String,
+    pub dataset_manifest_digest: String,
+    pub task_manifest_digest: String,
+    pub native_grader_digest: String,
+    pub excluded_task_manifest_digest: String,
+    /// Exact task IDs included in every condition; order is not significant.
+    pub eligible_task_ids: Vec<String>,
+    pub excluded_tasks: Vec<TeamBenchExcludedTask>,
+    /// Shared controls across the five ablations.
+    pub model_snapshot_digest: String,
+    pub tokenizer_digest: String,
+    pub prompt_config_digest: String,
+    pub toolset_digest: String,
+    pub decoding_config_digest: String,
+    pub seed_policy_id: String,
+    pub seed: u64,
+    pub per_task_time_budget_ms: u64,
+    pub per_task_token_budget: u64,
+    pub per_task_compute_budget_millijoules: u64,
+    pub condition_runs: Vec<TeamBenchConditionRun>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TeamBenchQualificationReport {
+    pub qualification: QualificationReport,
+    /// True only for a complete PASS of a real model-evaluation suite.
+    pub benchmark_score_eligible: bool,
+    pub condition_count: usize,
+    pub eligible_task_count: usize,
+    pub task_observation_count: usize,
+    pub grader_pass_count: usize,
+    pub grader_fail_count: usize,
+    pub grader_unknown_count: usize,
+    pub verifier_accept_count: usize,
+    pub verifier_reject_count: usize,
+    pub verifier_no_verdict_count: usize,
+    pub false_accept_count: usize,
+    /// Denominator: all known native-grader failures in verifier-enabled runs.
+    pub false_accept_denominator: usize,
+    pub false_reject_count: usize,
+    /// Denominator: all known native-grader passes in verifier-enabled runs.
+    pub false_reject_denominator: usize,
+    pub role_boundary_violation_count: usize,
+    pub role_boundary_false_denial_count: usize,
+    pub role_boundary_unknown_count: usize,
+    pub infrastructure_error_count: usize,
+    pub not_run_count: usize,
+    pub reasons: Vec<String>,
+}
+
+fn valid_optional_digest(value: Option<&str>) -> bool {
+    value.is_some_and(valid_digest)
+}
+
+fn qualify_task(
+    task: &TeamBenchTaskObservation,
+    verifier_present: bool,
+    report: &mut TeamBenchQualificationReport,
+) {
+    match task.state {
+        TeamBenchTaskState::Evaluated => {
+            if !valid_optional_digest(task.raw_output_digest.as_deref()) {
+                report.qualification.indeterminate(format!(
+                    "task {} raw output evidence missing or invalid",
+                    task.task_id
+                ));
+            }
+            if !valid_optional_digest(task.native_grader_output_digest.as_deref()) {
+                report.qualification.indeterminate(format!(
+                    "task {} native grader output missing or invalid",
+                    task.task_id
+                ));
+            }
+            match task.native_grader_disposition {
+                Some(TeamBenchGraderDisposition::Pass) => report.grader_pass_count += 1,
+                Some(TeamBenchGraderDisposition::Fail) => report.grader_fail_count += 1,
+                Some(TeamBenchGraderDisposition::Unknown) => {
+                    report.grader_unknown_count += 1;
+                    report.qualification.indeterminate(format!(
+                        "task {} native grader disposition unknown",
+                        task.task_id
+                    ));
+                }
+                None => report.qualification.indeterminate(format!(
+                    "task {} native grader disposition missing",
+                    task.task_id
+                )),
+            }
+
+            if verifier_present {
+                match task.verifier_disposition {
+                    Some(TeamBenchVerifierDisposition::Accept) => {
+                        report.verifier_accept_count += 1;
+                        if task.native_grader_disposition
+                            == Some(TeamBenchGraderDisposition::Fail)
+                        {
+                            report.false_accept_count += 1;
+                        }
+                    }
+                    Some(TeamBenchVerifierDisposition::Reject) => {
+                        report.verifier_reject_count += 1;
+                        if task.native_grader_disposition
+                            == Some(TeamBenchGraderDisposition::Pass)
+                        {
+                            report.false_reject_count += 1;
+                        }
+                    }
+                    Some(TeamBenchVerifierDisposition::NoVerdict) => {
+                        report.verifier_no_verdict_count += 1;
+                    }
+                    None => report.qualification.indeterminate(format!(
+                        "task {} verifier verdict missing",
+                        task.task_id
+                    )),
+                }
+            } else if task.verifier_disposition.is_some() {
+                report.qualification.fail(format!(
+                    "task {} contains a verifier verdict although this condition declares no verifier",
+                    task.task_id
+                ));
+            }
+        }
+        TeamBenchTaskState::InfrastructureError => {
+            report.infrastructure_error_count += 1;
+            if task.raw_output_digest.is_some()
+                || task.native_grader_output_digest.is_some()
+                || task.native_grader_disposition.is_some()
+            {
+                report.qualification.fail(format!(
+                    "task {} infrastructure-error state carries evaluated output fields",
+                    task.task_id
+                ));
+            } else {
+                report.qualification.indeterminate(format!(
+                    "task {} has no benchmark-evaluable outcome due to infrastructure error",
+                    task.task_id
+                ));
+            }
+        }
+        TeamBenchTaskState::NotRun => {
+            report.not_run_count += 1;
+            if task.raw_output_digest.is_some()
+                || task.native_grader_output_digest.is_some()
+                || task.native_grader_disposition.is_some()
+                || task.verifier_disposition.is_some()
+            {
+                report.qualification.fail(format!(
+                    "task {} marked not-run but carries result fields",
+                    task.task_id
+                ));
+            } else {
+                report
+                    .qualification
+                    .indeterminate(format!("task {} was not run", task.task_id));
+            }
+        }
+    }
+
+    let mut event_ids = BTreeSet::new();
+    for event in &task.role_boundary_events {
+        if !nonempty(&event.event_id)
+            || !nonempty(&event.boundary_id)
+            || !valid_digest(&event.evidence_digest)
+            || !event_ids.insert(event.event_id.as_str())
+        {
+            report.qualification.fail(format!(
+                "task {} has malformed or duplicate role-boundary event",
+                task.task_id
+            ));
+            continue;
+        }
+        match event.observed {
+            TeamBenchBoundaryObservation::Allowed if !event.expected_allowed => {
+                report.role_boundary_violation_count += 1;
+                report.qualification.fail(format!(
+                    "task {} role {:?} crossed deny boundary {}",
+                    task.task_id, event.actor_role, event.boundary_id
+                ));
+            }
+            TeamBenchBoundaryObservation::Blocked if event.expected_allowed => {
+                report.role_boundary_false_denial_count += 1;
+            }
+            TeamBenchBoundaryObservation::Unknown => {
+                report.role_boundary_unknown_count += 1;
+                report.qualification.indeterminate(format!(
+                    "task {} role-boundary observation unknown",
+                    task.task_id
+                ));
+            }
+            _ => {}
+        }
+    }
+}
+
+pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualificationReport {
+    let mut report = TeamBenchQualificationReport {
+        qualification: QualificationReport::new(),
+        benchmark_score_eligible: false,
+        condition_count: suite.condition_runs.len(),
+        eligible_task_count: suite.eligible_task_ids.len(),
+        task_observation_count: 0,
+        grader_pass_count: 0,
+        grader_fail_count: 0,
+        grader_unknown_count: 0,
+        verifier_accept_count: 0,
+        verifier_reject_count: 0,
+        verifier_no_verdict_count: 0,
+        false_accept_count: 0,
+        false_accept_denominator: 0,
+        false_reject_count: 0,
+        false_reject_denominator: 0,
+        role_boundary_violation_count: 0,
+        role_boundary_false_denial_count: 0,
+        role_boundary_unknown_count: 0,
+        infrastructure_error_count: 0,
+        not_run_count: 0,
+        reasons: Vec::new(),
+    };
+
+    if !nonempty(&suite.suite_id)
+        || suite.upstream_repository != UPSTREAM_REPOSITORY
+        || !valid_commit(&suite.upstream_commit)
+        || !nonempty(&suite.benchmark_version)
+        || !nonempty(&suite.seed_policy_id)
+    {
+        report.qualification.fail(
+            "suite identity, official upstream source, commit, benchmark version or seed policy is invalid",
+        );
+    }
+    for (name, digest) in [
+        ("dataset manifest", suite.dataset_manifest_digest.as_str()),
+        ("task manifest", suite.task_manifest_digest.as_str()),
+        ("native grader", suite.native_grader_digest.as_str()),
+        ("excluded task manifest", suite.excluded_task_manifest_digest.as_str()),
+        ("model snapshot", suite.model_snapshot_digest.as_str()),
+        ("tokenizer", suite.tokenizer_digest.as_str()),
+        ("prompt configuration", suite.prompt_config_digest.as_str()),
+        ("toolset", suite.toolset_digest.as_str()),
+        ("decoding configuration", suite.decoding_config_digest.as_str()),
+    ] {
+        if !valid_digest(digest) {
+            report
+                .qualification
+                .fail(format!("{name} digest is not lowercase SHA-256 hex"));
+        }
+    }
+    if suite.per_task_time_budget_ms == 0
+        || suite.per_task_token_budget == 0
+        || suite.per_task_compute_budget_millijoules == 0
+    {
+        report.qualification.fail(
+            "per-task time, token and compute budgets must be explicit and non-zero",
+        );
+    }
+    if suite.eligible_task_ids.is_empty() {
+        report
+            .qualification
+            .indeterminate("eligible task inventory is empty");
+    }
+
+    let mut eligible = BTreeSet::new();
+    for task_id in &suite.eligible_task_ids {
+        if !nonempty(task_id) || !eligible.insert(task_id.as_str()) {
+            report
+                .qualification
+                .fail("eligible task IDs must be non-empty and unique");
+        }
+    }
+    let mut excluded = BTreeSet::new();
+    for task in &suite.excluded_tasks {
+        if !nonempty(&task.task_id)
+            || !nonempty(&task.reason)
+            || !valid_digest(&task.evidence_digest)
+            || !excluded.insert(task.task_id.as_str())
+        {
+            report
+                .qualification
+                .fail("excluded-task record is malformed or duplicated");
+        }
+        if eligible.contains(task.task_id.as_str()) {
+            report
+                .qualification
+                .fail("task is simultaneously eligible and excluded");
+        }
+    }
+
+    let mut conditions = BTreeMap::new();
+    let mut run_ids = BTreeSet::new();
+    for run in &suite.condition_runs {
+        if !nonempty(&run.run_id)
+            || !valid_digest(&run.system_config_digest)
+            || !valid_digest(&run.role_profile_digest)
+            || !valid_digest(&run.raw_result_manifest_digest)
+            || run.agent_count == 0
+            || !run_ids.insert(run.run_id.as_str())
+        {
+            report.qualification.fail(
+                "condition-run identity, configuration digests, agent count or run uniqueness is invalid",
+            );
+        }
+        if run.condition == TeamBenchCondition::Solo && run.agent_count != 1 {
+            report
+                .qualification
+                .fail("Solo condition must declare exactly one agent");
+        }
+        if run.condition != TeamBenchCondition::Solo && run.agent_count < 2 {
+            report.qualification.fail(format!(
+                "team condition {:?} must declare at least two agents",
+                run.condition
+            ));
+        }
+        if conditions.insert(run.condition, run).is_some() {
+            report
+                .qualification
+                .fail(format!("duplicate TeamBench condition {:?}", run.condition));
+        }
+        if !run.role_boundary_inventory_complete {
+            report.qualification.indeterminate(format!(
+                "condition {:?} role-boundary observation inventory incomplete",
+                run.condition
+            ));
+        }
+
+        let mut task_ids = BTreeSet::new();
+        for task in &run.tasks {
+            report.task_observation_count += 1;
+            if !nonempty(&task.task_id) || !task_ids.insert(task.task_id.as_str()) {
+                report.qualification.fail(format!(
+                    "condition {:?} has empty or duplicate task ID",
+                    run.condition
+                ));
+                continue;
+            }
+            if !eligible.contains(task.task_id.as_str()) {
+                report.qualification.fail(format!(
+                    "condition {:?} contains task {} outside the eligible manifest",
+                    run.condition, task.task_id
+                ));
+                continue;
+            }
+            qualify_task(task, run.verifier_present, &mut report);
+        }
+
+        for task_id in &eligible {
+            if !task_ids.contains(task_id) {
+                report.qualification.indeterminate(format!(
+                    "condition {:?} is missing eligible task {}",
+                    run.condition, task_id
+                ));
+            }
+        }
+    }
+
+    for condition in TeamBenchCondition::all() {
+        if !conditions.contains_key(&condition) {
+            report
+                .qualification
+                .indeterminate(format!("required TeamBench condition {condition:?} missing"));
+        }
+    }
+
+    // Denominators use all evaluated native-grader outcomes in verifier-enabled
+    // conditions. Missing/no-verdict rows remain separately visible.
+    for run in &suite.condition_runs {
+        if !run.verifier_present {
+            continue;
+        }
+        for task in &run.tasks {
+            if task.state != TeamBenchTaskState::Evaluated {
+                continue;
+            }
+            match task.native_grader_disposition {
+                Some(TeamBenchGraderDisposition::Fail) => {
+                    report.false_accept_denominator += 1;
+                }
+                Some(TeamBenchGraderDisposition::Pass) => {
+                    report.false_reject_denominator += 1;
+                }
+                Some(TeamBenchGraderDisposition::Unknown) | None => {}
+            }
+        }
+    }
+
+    if suite.run_mode == TeamBenchRunMode::MockProviderSmoke {
+        report.qualification.reasons.push(
+            "mock-provider smoke is integration evidence only; no model-performance score is eligible".into(),
+        );
+    }
+
+    report.benchmark_score_eligible = suite.run_mode == TeamBenchRunMode::ModelEvaluation
+        && report.qualification.status == QualificationStatus::Pass
+        && TeamBenchCondition::all()
+            .iter()
+            .all(|condition| conditions.contains_key(condition));
+
+    report.reasons = report.qualification.reasons.clone();
+    report
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const D1: &str = "1111111111111111111111111111111111111111111111111111111111111111";
+    const D2: &str = "2222222222222222222222222222222222222222222222222222222222222222";
+    const D3: &str = "3333333333333333333333333333333333333333333333333333333333333333";
+    const D4: &str = "4444444444444444444444444444444444444444444444444444444444444444";
+    const D5: &str = "5555555555555555555555555555555555555555555555555555555555555555";
+    const D6: &str = "6666666666666666666666666666666666666666666666666666666666666666";
+
+    fn task(task_id: &str, verifier_present: bool) -> TeamBenchTaskObservation {
+        TeamBenchTaskObservation {
+            task_id: task_id.into(),
+            state: TeamBenchTaskState::Evaluated,
+            raw_output_digest: Some(D4.into()),
+            native_grader_output_digest: Some(D5.into()),
+            native_grader_disposition: Some(TeamBenchGraderDisposition::Pass),
+            verifier_disposition: verifier_present.then_some(TeamBenchVerifierDisposition::Accept),
+            role_boundary_events: vec![TeamBenchRoleBoundaryEvent {
+                event_id: format!("event-{task_id}"),
+                actor_role: TeamBenchRole::Verifier,
+                boundary_id: "verifier-read-only".into(),
+                expected_allowed: false,
+                observed: TeamBenchBoundaryObservation::Blocked,
+                evidence_digest: D6.into(),
+            }],
+        }
+    }
+
+    fn run(condition: TeamBenchCondition) -> TeamBenchConditionRun {
+        let verifier_present = condition != TeamBenchCondition::Solo
+            && condition != TeamBenchCondition::NoEval;
+        TeamBenchConditionRun {
+            run_id: format!("run-{condition:?}"),
+            condition,
+            system_config_digest: D1.into(),
+            role_profile_digest: D2.into(),
+            raw_result_manifest_digest: D3.into(),
+            agent_count: if condition == TeamBenchCondition::Solo { 1 } else { 3 },
+            verifier_present,
+            role_boundary_inventory_complete: true,
+            tasks: vec![
+                task("task-1", verifier_present),
+                task("task-2", verifier_present),
+            ],
+        }
+    }
+
+    fn suite() -> TeamBenchSuite {
+        TeamBenchSuite {
+            suite_id: "teambench-smoke-001".into(),
+            run_mode: TeamBenchRunMode::ModelEvaluation,
+            upstream_repository: UPSTREAM_REPOSITORY.into(),
+            upstream_commit: "a".repeat(40),
+            benchmark_version: "pinned-release".into(),
+            dataset_manifest_digest: D1.into(),
+            task_manifest_digest: D2.into(),
+            native_grader_digest: D3.into(),
+            excluded_task_manifest_digest: D4.into(),
+            eligible_task_ids: vec!["task-1".into(), "task-2".into()],
+            excluded_tasks: vec![TeamBenchExcludedTask {
+                task_id: "task-recuration-1".into(),
+                reason: "upstream re-curation pending".into(),
+                evidence_digest: D5.into(),
+            }],
+            model_snapshot_digest: D1.into(),
+            tokenizer_digest: D2.into(),
+            prompt_config_digest: D3.into(),
+            toolset_digest: D4.into(),
+            decoding_config_digest: D5.into(),
+            seed_policy_id: "fixed-seed-v1".into(),
+            seed: 17,
+            per_task_time_budget_ms: 120_000,
+            per_task_token_budget: 8_000,
+            per_task_compute_budget_millijoules: 500_000,
+            condition_runs: TeamBenchCondition::all().iter().copied().map(run).collect(),
+        }
+    }
+
+    #[test]
+    fn complete_pinned_model_suite_is_score_eligible() {
+        let report = qualify_teambench_suite(&suite());
+        assert_eq!(report.qualification.status, QualificationStatus::Pass);
+        assert!(report.benchmark_score_eligible);
+        assert_eq!(report.condition_count, 5);
+        assert_eq!(report.eligible_task_count, 2);
+    }
+
+    #[test]
+    fn mock_provider_smoke_can_pass_integration_without_becoming_a_score() {
+        let mut input = suite();
+        input.run_mode = TeamBenchRunMode::MockProviderSmoke;
+        let report = qualify_teambench_suite(&input);
+        assert_eq!(report.qualification.status, QualificationStatus::Pass);
+        assert!(!report.benchmark_score_eligible);
+    }
+
+    #[test]
+    fn missing_condition_is_indeterminate_not_a_partial_leaderboard_score() {
+        let mut input = suite();
+        input.condition_runs.pop();
+        let report = qualify_teambench_suite(&input);
+        assert_eq!(report.qualification.status, QualificationStatus::Indeterminate);
+        assert!(!report.benchmark_score_eligible);
+    }
+
+    #[test]
+    fn duplicate_condition_fails() {
+        let mut input = suite();
+        input.condition_runs.push(input.condition_runs[0].clone());
+        assert_eq!(
+            qualify_teambench_suite(&input).qualification.status,
+            QualificationStatus::Fail
+        );
+    }
+
+    #[test]
+    fn wrong_upstream_repository_or_malformed_commit_fails() {
+        let mut input = suite();
+        input.upstream_repository = "https://github.com/some-fork/TeamBench".into();
+        assert_eq!(
+            qualify_teambench_suite(&input).qualification.status,
+            QualificationStatus::Fail
+        );
+
+        let mut input = suite();
+        input.upstream_commit = "latest".into();
+        assert_eq!(
+            qualify_teambench_suite(&input).qualification.status,
+            QualificationStatus::Fail
+        );
+    }
+
+    #[test]
+    fn eligible_excluded_overlap_fails() {
+        let mut input = suite();
+        input.excluded_tasks.push(TeamBenchExcludedTask {
+            task_id: "task-1".into(),
+            reason: "duplicate disposition".into(),
+            evidence_digest: D6.into(),
+        });
+        assert_eq!(
+            qualify_teambench_suite(&input).qualification.status,
+            QualificationStatus::Fail
+        );
+    }
+
+    #[test]
+    fn missing_task_in_one_condition_is_indeterminate() {
+        let mut input = suite();
+        input.condition_runs[0].tasks.pop();
+        assert_eq!(
+            qualify_teambench_suite(&input).qualification.status,
+            QualificationStatus::Indeterminate
+        );
+    }
+
+    #[test]
+    fn duplicate_or_unlisted_task_fails() {
+        let mut input = suite();
+        input.condition_runs[0].tasks.push(input.condition_runs[0].tasks[0].clone());
+        assert_eq!(
+            qualify_teambench_suite(&input).qualification.status,
+            QualificationStatus::Fail
+        );
+
+        let mut input = suite();
+        input.condition_runs[0].tasks[0].task_id = "unknown-task".into();
+        assert_eq!(
+            qualify_teambench_suite(&input).qualification.status,
+            QualificationStatus::Fail
+        );
+    }
+
+    #[test]
+    fn false_accepts_and_false_rejects_have_distinct_denominators() {
+        let mut input = suite();
+        let run = input.condition_runs.iter_mut()
+            .find(|r| r.condition == TeamBenchCondition::Full).unwrap();
+        run.tasks[0].native_grader_disposition = Some(TeamBenchGraderDisposition::Fail);
+        run.tasks[0].verifier_disposition = Some(TeamBenchVerifierDisposition::Accept);
+        run.tasks[1].native_grader_disposition = Some(TeamBenchGraderDisposition::Pass);
+        run.tasks[1].verifier_disposition = Some(TeamBenchVerifierDisposition::Reject);
+        let report = qualify_teambench_suite(&input);
+        assert_eq!(report.false_accept_count, 1);
+        assert_eq!(report.false_accept_denominator, 1);
+        assert_eq!(report.false_reject_count, 1);
+        assert_eq!(report.false_reject_denominator, 5);
+    }
+
+    #[test]
+    fn no_verdict_is_counted_separately_not_as_a_pass() {
+        let mut input = suite();
+        let run = input.condition_runs.iter_mut()
+            .find(|r| r.condition == TeamBenchCondition::Full).unwrap();
+        run.tasks[0].native_grader_disposition = Some(TeamBenchGraderDisposition::Fail);
+        run.tasks[0].verifier_disposition = Some(TeamBenchVerifierDisposition::NoVerdict);
+        let report = qualify_teambench_suite(&input);
+        assert_eq!(report.verifier_no_verdict_count, 1);
+        assert_eq!(report.false_accept_count, 0);
+        assert_eq!(report.false_accept_denominator, 1);
+    }
+
+    #[test]
+    fn grader_unknown_and_missing_output_are_indeterminate() {
+        let mut input = suite();
+        let run = input.condition_runs.iter_mut()
+            .find(|r| r.condition == TeamBenchCondition::Full).unwrap();
+        run.tasks[0].native_grader_disposition = Some(TeamBenchGraderDisposition::Unknown);
+        run.tasks[0].native_grader_output_digest = None;
+        let report = qualify_teambench_suite(&input);
+        assert_eq!(report.qualification.status, QualificationStatus::Indeterminate);
+        assert_eq!(report.grader_unknown_count, 1);
+    }
+
+    #[test]
+    fn observed_allow_on_a_deny_boundary_fails() {
+        let mut input = suite();
+        let event = &mut input.condition_runs[0].tasks[0].role_boundary_events[0];
+        event.observed = TeamBenchBoundaryObservation::Allowed;
+        let report = qualify_teambench_suite(&input);
+        assert_eq!(report.qualification.status, QualificationStatus::Fail);
+        assert_eq!(report.role_boundary_violation_count, 1);
+    }
+
+    #[test]
+    fn unknown_boundary_inventory_is_indeterminate() {
+        let mut input = suite();
+        input.condition_runs[0].role_boundary_inventory_complete = false;
+        input.condition_runs[0].tasks[0].role_boundary_events[0].observed =
+            TeamBenchBoundaryObservation::Unknown;
+        let report = qualify_teambench_suite(&input);
+        assert_eq!(report.qualification.status, QualificationStatus::Indeterminate);
+        assert!(report.role_boundary_unknown_count > 0);
+    }
+
+    #[test]
+    fn infrastructure_errors_are_not_counted_as_task_failures() {
+        let mut input = suite();
+        input.condition_runs[0].tasks[0] = TeamBenchTaskObservation {
+            task_id: "task-1".into(),
+            state: TeamBenchTaskState::InfrastructureError,
+            raw_output_digest: None,
+            native_grader_output_digest: None,
+            native_grader_disposition: None,
+            verifier_disposition: None,
+            role_boundary_events: vec![],
+        };
+        let report = qualify_teambench_suite(&input);
+        assert_eq!(report.qualification.status, QualificationStatus::Indeterminate);
+        assert_eq!(report.infrastructure_error_count, 1);
+        assert_eq!(report.grader_pass_count + report.grader_fail_count, 9);
+    }
+
+    #[test]
+    fn verifier_absent_condition_cannot_supply_verifier_judgements() {
+        let mut input = suite();
+        let run = input.condition_runs.iter_mut()
+            .find(|r| r.condition == TeamBenchCondition::NoEval).unwrap();
+        run.tasks[0].verifier_disposition = Some(TeamBenchVerifierDisposition::Accept);
+        assert_eq!(
+            qualify_teambench_suite(&input).qualification.status,
+            QualificationStatus::Fail
+        );
+    }
+
+    #[test]
+    fn missing_verifier_judgement_is_indeterminate() {
+        let mut input = suite();
+        let run = input.condition_runs.iter_mut()
+            .find(|r| r.condition == TeamBenchCondition::Full).unwrap();
+        run.tasks[0].verifier_disposition = None;
+        assert_eq!(
+            qualify_teambench_suite(&input).qualification.status,
+            QualificationStatus::Indeterminate
+        );
+    }
+}
