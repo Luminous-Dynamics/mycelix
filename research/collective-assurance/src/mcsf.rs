@@ -199,6 +199,11 @@ pub struct McsfArchitectureScorecard {
     pub policy_class: McsfPolicyClass,
     pub utility_task_count: usize,
     pub mean_utility_score_micros: Option<u32>,
+    /// Mean native-track utility by declared task family; never collapsed into
+    /// the overall mean for regression detection.
+    pub utility_by_task_family_micros: BTreeMap<String, u32>,
+    /// Paired utility deltas against NoMemory, stratified by the same task families.
+    pub utility_delta_by_task_family_vs_no_memory_micros: BTreeMap<String, i64>,
     pub authorized_task_success_count: usize,
     pub unauthorized_content_disclosures: u64,
     pub forbidden_metadata_inferences: u64,
@@ -332,6 +337,8 @@ fn empty_scorecard(
         policy_class,
         utility_task_count: 0,
         mean_utility_score_micros: None,
+        utility_by_task_family_micros: BTreeMap::new(),
+        utility_delta_by_task_family_vs_no_memory_micros: BTreeMap::new(),
         authorized_task_success_count: 0,
         unauthorized_content_disclosures: 0,
         forbidden_metadata_inferences: 0,
@@ -387,7 +394,8 @@ pub fn qualify_mcsf_suite(
     let mut observed_architectures = BTreeSet::new();
     let mut scorecards = Vec::new();
     let mut task_score_maps =
-        BTreeMap::<McsfArchitecture, BTreeMap<String, u32>>::new();
+        BTreeMap::<McsfArchitecture, BTreeMap<String, (String, u32)>>::new();
+    let mut canonical_task_families = BTreeMap::<String, String>::new();
 
     for run in runs {
         if !nonempty(&run.run_id)
@@ -462,6 +470,7 @@ pub fn qualify_mcsf_suite(
         let mut utility_sum = 0u64;
         let mut success_count = 0usize;
         let mut task_scores = BTreeMap::new();
+        let mut family_score_totals = BTreeMap::<String, (u64, usize)>::new();
         let mut resource_totals = McsfResourceTotals::default();
 
         for observation in &run.task_observations {
@@ -482,6 +491,21 @@ pub fn qualify_mcsf_suite(
                 ));
                 continue;
             }
+            match canonical_task_families.get(&observation.task_id) {
+                Some(family) if family != &observation.task_family => {
+                    qualification.fail(format!(
+                        "task {} changed task-family identity across architectures",
+                        observation.task_id
+                    ));
+                }
+                None => {
+                    canonical_task_families.insert(
+                        observation.task_id.clone(),
+                        observation.task_family.clone(),
+                    );
+                }
+                _ => {}
+            }
 
             match observation.state {
                 McsfTaskState::Evaluated => {
@@ -495,7 +519,15 @@ pub fn qualify_mcsf_suite(
                         Some(score) if score <= 1_000_000 => {
                             utility_sum = utility_sum.saturating_add(u64::from(score));
                             card.utility_task_count += 1;
-                            task_scores.insert(observation.task_id.clone(), score);
+                            task_scores.insert(
+                                observation.task_id.clone(),
+                                (observation.task_family.clone(), score),
+                            );
+                            let family_totals = family_score_totals
+                                .entry(observation.task_family.clone())
+                                .or_default();
+                            family_totals.0 = family_totals.0.saturating_add(u64::from(score));
+                            family_totals.1 += 1;
                         }
                         Some(_) => qualification.fail(format!(
                             "task {} utility score exceeds [0, 1]",
@@ -632,6 +664,12 @@ pub fn qualify_mcsf_suite(
             card.mean_utility_score_micros =
                 Some((utility_sum / card.utility_task_count as u64) as u32);
         }
+        for (family, (sum, count)) in family_score_totals {
+            if let Some(mean) = sum.checked_div(count as u64) {
+                card.utility_by_task_family_micros
+                    .insert(family, mean as u32);
+            }
+        }
         card.authorized_task_success_count = success_count;
 
         if card.resource_usage_complete
@@ -689,9 +727,21 @@ pub fn qualify_mcsf_suite(
             let candidate = task_score_maps.get(&card.architecture);
             if let Some(candidate) = candidate {
                 let mut deltas = Vec::new();
-                for (task_id, score) in candidate {
-                    if let Some(baseline_score) = baseline.get(task_id) {
-                        deltas.push(i64::from(*score) - i64::from(*baseline_score));
+                let mut family_deltas = BTreeMap::<String, (i128, usize)>::new();
+                for (task_id, (family, score)) in candidate {
+                    if let Some((baseline_family, baseline_score)) = baseline.get(task_id) {
+                        if family != baseline_family {
+                            qualification.fail(format!(
+                                "task {task_id} family differs between {:?} and NoMemory",
+                                card.architecture
+                            ));
+                            continue;
+                        }
+                        let delta = i64::from(*score) - i64::from(*baseline_score);
+                        deltas.push(delta);
+                        let family_total = family_deltas.entry(family.clone()).or_default();
+                        family_total.0 += i128::from(delta);
+                        family_total.1 += 1;
                     }
                 }
                 card.paired_task_count_vs_no_memory = deltas.len();
@@ -699,6 +749,12 @@ pub fn qualify_mcsf_suite(
                     let sum: i128 = deltas.iter().map(|delta| i128::from(*delta)).sum();
                     card.mean_utility_delta_vs_no_memory_micros =
                         Some((sum / deltas.len() as i128) as i64);
+                }
+                for (family, (sum, count)) in family_deltas {
+                    if count > 0 {
+                        card.utility_delta_by_task_family_vs_no_memory_micros
+                            .insert(family, (sum / count as i128) as i64);
+                    }
                 }
             }
         }
@@ -852,7 +908,44 @@ mod tests {
             .find(|card| card.architecture == McsfArchitecture::HdcCfc).unwrap();
         assert_eq!(hdc.mean_utility_score_micros, Some(605_000));
         assert_eq!(hdc.mean_utility_delta_vs_no_memory_micros, Some(100_000));
+        assert_eq!(hdc.utility_by_task_family_micros.get("fact_recall"), Some(&605_000));
+        assert_eq!(
+            hdc.utility_delta_by_task_family_vs_no_memory_micros.get("fact_recall"),
+            Some(&100_000)
+        );
         assert!(hdc.pareto_comparison_eligible);
+    }
+
+    #[test]
+    fn task_family_identity_cannot_change_between_architectures() {
+        let input = suite();
+        let mut hdc = run(McsfArchitecture::HdcCfc, &input, 600_000);
+        hdc.task_observations[0].task_family = "temporal_reasoning".into();
+        let report = qualify_mcsf_suite(
+            &input,
+            &[run(McsfArchitecture::NoMemory, &input, 500_000), hdc],
+        );
+        assert_eq!(report.qualification.status, QualificationStatus::Fail);
+    }
+
+    #[test]
+    fn family_regression_remains_visible_even_when_overall_mean_is_positive() {
+        let input = suite();
+        let mut baseline = run(McsfArchitecture::NoMemory, &input, 500_000);
+        let mut hdc = run(McsfArchitecture::HdcCfc, &input, 600_000);
+        baseline.task_observations[0].task_family = "fact_recall".into();
+        baseline.task_observations[1].task_family = "temporal_reasoning".into();
+        hdc.task_observations[0].task_family = "fact_recall".into();
+        hdc.task_observations[1].task_family = "temporal_reasoning".into();
+        hdc.task_observations[0].utility_score_micros = Some(900_000);
+        hdc.task_observations[1].utility_score_micros = Some(300_000);
+
+        let report = qualify_mcsf_suite(&input, &[baseline, hdc]);
+        let card = report.scorecards.iter()
+            .find(|card| card.architecture == McsfArchitecture::HdcCfc).unwrap();
+        assert!(card.mean_utility_delta_vs_no_memory_micros.unwrap() > 0);
+        assert!(card.utility_delta_by_task_family_vs_no_memory_micros["fact_recall"] > 0);
+        assert!(card.utility_delta_by_task_family_vs_no_memory_micros["temporal_reasoning"] < 0);
     }
 
     #[test]
