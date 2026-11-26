@@ -60,6 +60,17 @@ Expected result:
 - infeasible count: 1;
 - Pareto count: 3 (all three feasible candidates are nondominated under the declared objective directions).
 
+The independently enumerated expected outcomes are:
+
+| Portfolio | Feasibility | Cost units | Max lead days | Embodied-CO2 units | Regional-value units |
+|---|---|---:|---:|---:|---:|
+| A-LOCAL + B-LOCAL | Reject: plate and welding over capacity | 210 | 6 | 14 | 130 |
+| A-LOCAL + B-IMPORT | Feasible / Pareto | 190 | 16 | 20 | 83 |
+| A-IMPORT + B-LOCAL | Feasible / Pareto | 185 | 18 | 20 | 65 |
+| A-IMPORT + B-IMPORT | Feasible / Pareto | 165 | 18 | 26 | 18 |
+
+All three feasible portfolios are nondominated when minimizing cost, lead time and embodied emissions while maximizing regional value added. The all-local plan is rejected before objective ranking: it reserves 4 t against 3 t of plate capacity and 16 h against 12 h of welding capacity. Its NDT reservation exactly meets the 2-job limit.
+
 This tiny instance is a resource-feasibility regression only. It is not a regional shipbuilding cost model, a real procurement quote, an LCA result or proof of industrial competitiveness.
 
 ## Result contract
