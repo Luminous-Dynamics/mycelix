@@ -321,25 +321,44 @@ pub fn compute_mcsf_integrity_run_digest(run: &McsfIntegrityRun) -> Result<Strin
     Ok(sha256_hex(&bytes))
 }
 
+#[derive(Clone, Copy)]
+enum ProfileIncrement {
+    FullPass,
+    AuditOnly,
+    Accepted,
+    NotApplicable,
+    EditNotLanded,
+    InvalidEditNotLanded,
+    Unevaluable,
+}
+
 fn increment_profile(
     profiles: &mut BTreeMap<McsfIntegrityGroup, McsfIntegrityProfile>,
     case: McsfIntegrityTestCase,
-    full: usize,
-    partial: usize,
-    failed: usize,
-    not_applicable: usize,
-    edit_not_landed: usize,
-    unevaluable: usize,
-    denominator: usize,
+    increment: ProfileIncrement,
 ) {
     let profile = profiles.entry(case.group()).or_default();
-    profile.applicable_case_count += denominator;
-    profile.full_pass_count += full;
-    profile.audit_only_count += partial;
-    profile.accepted_count += failed;
-    profile.not_applicable_count += not_applicable;
-    profile.edit_not_landed_count += edit_not_landed;
-    profile.unevaluable_count += unevaluable;
+    match increment {
+        ProfileIncrement::FullPass => {
+            profile.applicable_case_count += 1;
+            profile.full_pass_count += 1;
+        }
+        ProfileIncrement::AuditOnly => {
+            profile.applicable_case_count += 1;
+            profile.audit_only_count += 1;
+        }
+        ProfileIncrement::Accepted => {
+            profile.applicable_case_count += 1;
+            profile.accepted_count += 1;
+        }
+        ProfileIncrement::NotApplicable => profile.not_applicable_count += 1,
+        ProfileIncrement::EditNotLanded => profile.edit_not_landed_count += 1,
+        ProfileIncrement::InvalidEditNotLanded => {
+            profile.edit_not_landed_count += 1;
+            profile.unevaluable_count += 1;
+        }
+        ProfileIncrement::Unevaluable => profile.unevaluable_count += 1,
+    }
 }
 
 fn score_micros(full: usize, partial: usize, denominator: usize) -> Option<u32> {
@@ -408,9 +427,7 @@ pub fn qualify_mcsf_integrity_run(
                 case.code()
             ));
             metric_evaluable = false;
-            increment_profile(
-                &mut profiles, case, 0, 0, 0, 0, 0, 1, 0,
-            );
+            increment_profile(&mut profiles, case, ProfileIncrement::Unevaluable);
             continue;
         };
 
@@ -433,9 +450,7 @@ pub fn qualify_mcsf_integrity_run(
                     case.code()
                 ));
                 metric_evaluable = false;
-                increment_profile(
-                    &mut profiles, case, 0, 0, 0, 0, 0, 1, 0,
-                );
+                increment_profile(&mut profiles, case, ProfileIncrement::Unevaluable);
             }
             McsfIntegrityApplicability::NotApplicable => {
                 let has_reason = observation
@@ -451,9 +466,7 @@ pub fn qualify_mcsf_integrity_run(
                         case.code()
                     ));
                     metric_evaluable = false;
-                    increment_profile(
-                        &mut profiles, case, 0, 0, 0, 0, 0, 1, 0,
-                    );
+                    increment_profile(&mut profiles, case, ProfileIncrement::Unevaluable);
                     continue;
                 }
                 if case == McsfIntegrityTestCase::T9WholeStoreRollback
@@ -461,9 +474,7 @@ pub fn qualify_mcsf_integrity_run(
                 {
                     qualification.fail("T9 cannot be N/A when whole-store snapshot restore is supported");
                     metric_evaluable = false;
-                    increment_profile(
-                        &mut profiles, case, 0, 0, 0, 0, 0, 1, 0,
-                    );
+                    increment_profile(&mut profiles, case, ProfileIncrement::Unevaluable);
                     continue;
                 }
                 if case == McsfIntegrityTestCase::T10ErasureResurrection
@@ -472,15 +483,11 @@ pub fn qualify_mcsf_integrity_run(
                 {
                     qualification.fail("T10 cannot be N/A when snapshot restore and erasure are supported");
                     metric_evaluable = false;
-                    increment_profile(
-                        &mut profiles, case, 0, 0, 0, 0, 0, 1, 0,
-                    );
+                    increment_profile(&mut profiles, case, ProfileIncrement::Unevaluable);
                     continue;
                 }
                 counts.3 += 1;
-                increment_profile(
-                    &mut profiles, case, 0, 0, 0, 1, 0, 0, 0,
-                );
+                increment_profile(&mut profiles, case, ProfileIncrement::NotApplicable);
             }
             McsfIntegrityApplicability::Applicable => {
                 if case == McsfIntegrityTestCase::T9WholeStoreRollback
@@ -488,9 +495,7 @@ pub fn qualify_mcsf_integrity_run(
                 {
                     qualification.fail("T9 is marked applicable but snapshot restore is unsupported");
                     metric_evaluable = false;
-                    increment_profile(
-                        &mut profiles, case, 0, 0, 0, 0, 0, 1, 0,
-                    );
+                    increment_profile(&mut profiles, case, ProfileIncrement::Unevaluable);
                     continue;
                 }
                 if case == McsfIntegrityTestCase::T10ErasureResurrection
@@ -499,9 +504,7 @@ pub fn qualify_mcsf_integrity_run(
                 {
                     qualification.fail("T10 is marked applicable without both snapshot restore and erasure capability");
                     metric_evaluable = false;
-                    increment_profile(
-                        &mut profiles, case, 0, 0, 0, 0, 0, 1, 0,
-                    );
+                    increment_profile(&mut profiles, case, ProfileIncrement::Unevaluable);
                     continue;
                 }
                 match observation.attack_mutation_landed {
@@ -513,14 +516,10 @@ pub fn qualify_mcsf_integrity_run(
                                 case.code()
                             ));
                             metric_evaluable = false;
-                            increment_profile(
-                                &mut profiles, case, 0, 0, 0, 0, 1, 1, 0,
-                            );
+                            increment_profile(&mut profiles, case, ProfileIncrement::InvalidEditNotLanded);
                         } else {
                             counts.4 += 1;
-                            increment_profile(
-                                &mut profiles, case, 0, 0, 0, 0, 1, 0, 0,
-                            );
+                            increment_profile(&mut profiles, case, ProfileIncrement::EditNotLanded);
                         }
                         continue;
                     }
@@ -530,9 +529,7 @@ pub fn qualify_mcsf_integrity_run(
                             case.code()
                         ));
                         metric_evaluable = false;
-                        increment_profile(
-                            &mut profiles, case, 0, 0, 0, 0, 0, 1, 0,
-                        );
+                        increment_profile(&mut profiles, case, ProfileIncrement::Unevaluable);
                         continue;
                     }
                 }
@@ -543,9 +540,7 @@ pub fn qualify_mcsf_integrity_run(
                         case.code()
                     ));
                     metric_evaluable = false;
-                    increment_profile(
-                        &mut profiles, case, 0, 0, 0, 0, 0, 1, 0,
-                    );
+                    increment_profile(&mut profiles, case, ProfileIncrement::Unevaluable);
                     continue;
                 };
 
@@ -553,15 +548,11 @@ pub fn qualify_mcsf_integrity_run(
                     McsfIntegrityOutcome::RejectedAtRead
                     | McsfIntegrityOutcome::ReportedAtRead => {
                         counts.0 += 1;
-                        increment_profile(
-                            &mut profiles, case, 1, 0, 0, 0, 0, 0, 1,
-                        );
+                        increment_profile(&mut profiles, case, ProfileIncrement::FullPass);
                     }
                     McsfIntegrityOutcome::AuditOnly => {
                         counts.1 += 1;
-                        increment_profile(
-                            &mut profiles, case, 0, 1, 0, 0, 0, 0, 1,
-                        );
+                        increment_profile(&mut profiles, case, ProfileIncrement::AuditOnly);
                     }
                     McsfIntegrityOutcome::Accepted => {
                         counts.2 += 1;
@@ -569,9 +560,7 @@ pub fn qualify_mcsf_integrity_run(
                             "{} tampered or replayed memory was accepted",
                             case.code()
                         ));
-                        increment_profile(
-                            &mut profiles, case, 0, 0, 1, 0, 0, 0, 1,
-                        );
+                        increment_profile(&mut profiles, case, ProfileIncrement::Accepted);
                     }
                     McsfIntegrityOutcome::Unknown => {
                         qualification.indeterminate(format!(
@@ -579,9 +568,7 @@ pub fn qualify_mcsf_integrity_run(
                             case.code()
                         ));
                         metric_evaluable = false;
-                        increment_profile(
-                            &mut profiles, case, 0, 0, 0, 0, 0, 1, 0,
-                        );
+                        increment_profile(&mut profiles, case, ProfileIncrement::Unevaluable);
                     }
                 }
             }
