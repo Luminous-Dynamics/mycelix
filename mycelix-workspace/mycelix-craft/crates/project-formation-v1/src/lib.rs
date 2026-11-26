@@ -11,7 +11,7 @@
 
 #![forbid(unsafe_code)]
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 /// Current schema version for the project-formation reference contract.
 pub const PROJECT_FORMATION_SCHEMA_VERSION: u16 = 1;
@@ -506,7 +506,9 @@ pub fn evaluate_team(
     }
 
     let mut assignment_keys = HashSet::new();
-    let mut evidence_ids = HashSet::new();
+    // Evidence is an immutable claim and may be reused across compatible
+    // requirements. An identifier may never resolve to two different records.
+    let mut evidence_records: HashMap<String, CapabilityEvidenceRefV1> = HashMap::new();
     for assignment in &proposal.assignments {
         require_non_empty(&assignment.work_package_id)?;
         require_non_empty(&assignment.requirement_id)?;
@@ -553,13 +555,21 @@ pub fn evaluate_team(
             }
         }
 
+        let mut assignment_evidence_ids = HashSet::new();
         for evidence in &assignment.evidence {
             evidence.validate()?;
-            if !evidence_ids.insert(evidence.evidence_id.as_str()) {
+            if !assignment_evidence_ids.insert(evidence.evidence_id.as_str()) {
                 return Err(ProjectFormationErrorV1::DuplicateEvidenceId);
             }
             if evidence.subject_id != assignment.contributor_id {
                 return Err(ProjectFormationErrorV1::EvidenceSubjectMismatch);
+            }
+            if let Some(existing) = evidence_records.get(&evidence.evidence_id) {
+                if existing != evidence {
+                    return Err(ProjectFormationErrorV1::DuplicateEvidenceId);
+                }
+            } else {
+                evidence_records.insert(evidence.evidence_id.clone(), evidence.clone());
             }
         }
     }
@@ -979,10 +989,41 @@ mod tests {
     }
 
     #[test]
-    fn evidence_identifiers_cannot_be_replayed_across_contributors() {
+    fn exact_same_evidence_record_can_support_multiple_matching_requirements() {
+        let mut project = project(RequirementKindV1::Required, 1);
+        let mut second_package = project.work_packages[0].clone();
+        second_package.work_package_id = "second-inspection".to_owned();
+        second_package.requirements[0].requirement_id = "second-electrical-inspection".to_owned();
+        project.work_packages.push(second_package);
+
+        let proof = evidence("alice", EvidenceDispositionV1::Qualified);
+        let proposal = proposal(
+            vec![member("alice")],
+            vec![
+                assignment("alice", vec![proof.clone()]),
+                RequirementAssignmentV1 {
+                    work_package_id: "second-inspection".to_owned(),
+                    requirement_id: "second-electrical-inspection".to_owned(),
+                    contributor_id: "alice".to_owned(),
+                    evidence: vec![proof],
+                    supervised_development: None,
+                },
+            ],
+        );
+
+        let evaluation = evaluate_team(&project, &proposal, NOW).unwrap();
+        assert_eq!(evaluation.requirements.len(), 2);
+        assert!(evaluation
+            .requirements
+            .iter()
+            .all(|item| item.disposition == RequirementDispositionV1::Covered));
+    }
+
+    #[test]
+    fn one_evidence_id_cannot_resolve_to_conflicting_records() {
         let project = project(RequirementKindV1::Required, 2);
-        let mut second_evidence = evidence("bob", EvidenceDispositionV1::Qualified);
-        second_evidence.evidence_id = "evidence-alice".to_owned();
+        let mut second = evidence("bob", EvidenceDispositionV1::Qualified);
+        second.evidence_id = "evidence-alice".to_owned();
         let proposal = proposal(
             vec![member("alice"), member("bob")],
             vec![
@@ -990,7 +1031,7 @@ mod tests {
                     "alice",
                     vec![evidence("alice", EvidenceDispositionV1::Qualified)],
                 ),
-                assignment("bob", vec![second_evidence]),
+                assignment("bob", vec![second]),
             ],
         );
 
