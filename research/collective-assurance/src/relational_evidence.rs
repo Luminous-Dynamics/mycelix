@@ -1086,7 +1086,7 @@ mod tests {
 
     #[test]
     fn unknown_permission_seed_is_indeterminate() {
-        let mut query = scope();
+        let query = scope();
         let mut item = record("e1", "origin-a", "holder-a");
         item.permission = RelationalDisclosurePermission::Unknown;
         let report = refine_relational_evidence(&query, &[item], &[]);
