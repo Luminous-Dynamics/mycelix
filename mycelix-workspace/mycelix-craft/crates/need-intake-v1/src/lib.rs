@@ -182,6 +182,38 @@ pub struct ProposedWorkPackageV1 {
     pub depends_on: Vec<String>,
 }
 
+/// One stakeholder or group position preserved within a contradiction.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StakeholderPositionV1 {
+    /// Community group or institution expressing this position.
+    pub group_id: String,
+    /// The position in the group's own terms or an attributed faithful summary.
+    pub statement: String,
+    /// Source, assumption or inference references supporting this position.
+    pub traceability: Vec<TraceabilityLinkV1>,
+}
+
+/// A candidate decomposition presented for comparison, not an AI-selected plan.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProposedAlternativeV1 {
+    /// Stable alternative identifier.
+    pub alternative_id: String,
+    /// Human-readable option label.
+    pub label: String,
+    /// Description of the proposed approach.
+    pub description: String,
+    /// Outcomes addressed by this option.
+    pub outcome_ids: Vec<String>,
+    /// Capability requirements relevant to this option.
+    pub requirement_ids: Vec<String>,
+    /// Work packages that implement this option.
+    pub work_package_ids: Vec<String>,
+    /// Explicit costs, benefits, dependencies and trade-offs.
+    pub tradeoffs: Vec<String>,
+    /// Traceability for why this option is being proposed.
+    pub traceability: Vec<TraceabilityLinkV1>,
+}
+
 /// Contradiction class and resolution status.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ContradictionKindV1 {
@@ -202,6 +234,8 @@ pub struct ContradictionV1 {
     pub kind: ContradictionKindV1,
     /// Claim identifiers affected (outcome:<id> or requirement:<id>).
     pub affected_claim_ids: Vec<String>,
+    /// Distinct stakeholder positions; required for stakeholder-priority conflict.
+    pub stakeholder_positions: Vec<StakeholderPositionV1>,
     /// True only when a separately authenticated decision has resolved it.
     pub resolved: bool,
     /// Decision record identifier required when resolved.
@@ -289,6 +323,8 @@ pub struct NeedProposalV1 {
     pub requirements: Vec<ProposedRequirementV1>,
     /// Proposed work packages and dependency graph.
     pub work_packages: Vec<ProposedWorkPackageV1>,
+    /// Alternative decompositions and explicit trade-offs; never auto-selected.
+    pub alternatives: Vec<ProposedAlternativeV1>,
     /// Unresolved or resolved contradictions.
     pub contradictions: Vec<ContradictionV1>,
     /// Open questions and their blocking status.
@@ -330,6 +366,8 @@ pub enum NeedIntakeErrorV1 {
     DependencyCycle,
     /// Contradiction has no affected claim.
     EmptyContradiction,
+    /// Stakeholder conflict lacks two or more separately attributed positions.
+    InsufficientStakeholderPositions,
     /// Resolved contradiction is missing its decision reference.
     MissingContradictionResolution,
     /// Unresolved contradiction has a resolution reference.
@@ -501,6 +539,38 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
     }
     validate_dependency_graph(&dependencies)?;
 
+    let mut alternative_ids = HashSet::new();
+    for alternative in &proposal.alternatives {
+        require_non_empty(&alternative.alternative_id)?;
+        require_non_empty(&alternative.label)?;
+        require_non_empty(&alternative.description)?;
+        if !alternative_ids.insert(alternative.alternative_id.as_str()) {
+            return Err(NeedIntakeErrorV1::DuplicateIdentifier);
+        }
+        if alternative.tradeoffs.is_empty() {
+            return Err(NeedIntakeErrorV1::MissingTraceability);
+        }
+        for tradeoff in &alternative.tradeoffs {
+            require_non_empty(tradeoff)?;
+        }
+        for outcome_id in &alternative.outcome_ids {
+            if !outcome_ids.contains(outcome_id.as_str()) {
+                return Err(NeedIntakeErrorV1::UnknownWorkReference);
+            }
+        }
+        for requirement_id in &alternative.requirement_ids {
+            if !requirement_ids.contains(requirement_id.as_str()) {
+                return Err(NeedIntakeErrorV1::UnknownWorkReference);
+            }
+        }
+        for package_id in &alternative.work_package_ids {
+            if !package_ids.contains(package_id.as_str()) {
+                return Err(NeedIntakeErrorV1::UnknownWorkReference);
+            }
+        }
+        validate_traceability(&alternative.traceability, &source_map, &assumption_ids)?;
+    }
+
     let mut contradiction_ids = HashSet::new();
     for contradiction in &proposal.contradictions {
         require_non_empty(&contradiction.contradiction_id)?;
@@ -513,6 +583,16 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
         for claim_id in &contradiction.affected_claim_ids {
             if !claim_ids.contains(claim_id.as_str()) {
                 return Err(NeedIntakeErrorV1::UnknownClaim);
+            }
+        }
+        if contradiction.kind == ContradictionKindV1::StakeholderPriorityConflict {
+            if contradiction.stakeholder_positions.len() < 2 {
+                return Err(NeedIntakeErrorV1::InsufficientStakeholderPositions);
+            }
+            for position in &contradiction.stakeholder_positions {
+                require_non_empty(&position.group_id)?;
+                require_non_empty(&position.statement)?;
+                validate_traceability(&position.traceability, &source_map, &assumption_ids)?;
             }
         }
         match (contradiction.resolved, &contradiction.resolution_decision_id) {
@@ -832,6 +912,34 @@ mod tests {
                     depends_on: vec!["inspect".to_owned()],
                 },
             ],
+            alternatives: vec![
+                ProposedAlternativeV1 {
+                    alternative_id: "incremental-repair".to_owned(),
+                    label: "Repair existing pump".to_owned(),
+                    description: "Inspect and repair the existing pump where technically feasible".to_owned(),
+                    outcome_ids: vec!["reliable-water-service".to_owned()],
+                    requirement_ids: vec!["electrical-safety".to_owned()],
+                    work_package_ids: vec!["inspect".to_owned(), "repair".to_owned()],
+                    tradeoffs: vec![
+                        "Lower initial material cost".to_owned(),
+                        "Depends on condition and availability of existing parts".to_owned(),
+                    ],
+                    traceability: vec![trace[0].clone()],
+                },
+                ProposedAlternativeV1 {
+                    alternative_id: "replace-pump".to_owned(),
+                    label: "Replace pump".to_owned(),
+                    description: "Replace the existing pump after inspection confirms replacement is warranted".to_owned(),
+                    outcome_ids: vec!["reliable-water-service".to_owned()],
+                    requirement_ids: vec!["electrical-safety".to_owned()],
+                    work_package_ids: vec!["inspect".to_owned(), "repair".to_owned()],
+                    tradeoffs: vec![
+                        "Potentially higher capital cost".to_owned(),
+                        "May reduce recurring maintenance if replacement is correctly specified".to_owned(),
+                    ],
+                    traceability: vec![trace[0].clone()],
+                },
+            ],
             contradictions: Vec::new(),
             open_questions: Vec::new(),
             safety_review_required: true,
@@ -975,10 +1083,59 @@ mod tests {
             contradiction_id: "water-priority-conflict".to_owned(),
             kind: ContradictionKindV1::StakeholderPriorityConflict,
             affected_claim_ids: vec!["outcome:reliable-water-service".to_owned()],
+            stakeholder_positions: vec![
+                StakeholderPositionV1 {
+                    group_id: "residents-near-clinic".to_owned(),
+                    statement: "Prioritize continuous service for the clinic".to_owned(),
+                    traceability: valid_proposal().outcomes[0].traceability.clone(),
+                },
+                StakeholderPositionV1 {
+                    group_id: "households-uphill".to_owned(),
+                    statement: "Prioritize reliable pressure for uphill households".to_owned(),
+                    traceability: valid_proposal().outcomes[0].traceability.clone(),
+                },
+            ],
             resolved: false,
             resolution_decision_id: None,
         });
         assert_eq!(evaluate_ratification(&proposal, NOW).unwrap().state, RatificationStateV1::NeedsCommunityClarification);
+    }
+
+    #[test]
+    fn proposed_alternatives_are_validated_and_remain_unselected_by_the_model() {
+        let proposal = valid_proposal();
+        assert_eq!(proposal.alternatives.len(), 2);
+        assert!(validate_proposal(&proposal).is_ok());
+        let review_path = evaluate_ratification(&proposal, NOW).unwrap();
+        assert_eq!(review_path.state, RatificationStateV1::Draft);
+    }
+
+    #[test]
+    fn alternative_cannot_reference_unknown_work_package() {
+        let mut proposal = valid_proposal();
+        proposal.alternatives[0].work_package_ids.push("invented-package".to_owned());
+        assert_eq!(validate_proposal(&proposal), Err(NeedIntakeErrorV1::UnknownWorkReference));
+    }
+
+    #[test]
+    fn stakeholder_priority_conflict_requires_attributed_positions() {
+        let mut proposal = valid_proposal();
+        proposal.contradictions.push(ContradictionV1 {
+            contradiction_id: "priority-conflict".to_owned(),
+            kind: ContradictionKindV1::StakeholderPriorityConflict,
+            affected_claim_ids: vec!["outcome:reliable-water-service".to_owned()],
+            stakeholder_positions: vec![StakeholderPositionV1 {
+                group_id: "one-group".to_owned(),
+                statement: "Prioritize clinic service".to_owned(),
+                traceability: proposal.outcomes[0].traceability.clone(),
+            }],
+            resolved: false,
+            resolution_decision_id: None,
+        });
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::InsufficientStakeholderPositions)
+        );
     }
 
     #[test]
