@@ -1141,6 +1141,26 @@ mod tests {
     }
 
     #[test]
+    fn topology_relabel_without_matching_graph_digest_fails() {
+        let bad = artifact(
+            "bad-artifact", "producer-b", "report", '6', 2,
+            ArtifactLifecycle::Current, ArtifactVerification::Verified,
+            ArtifactOperationState::NotOperation,
+        );
+        let mut pair = valid_pair(
+            BoundaryPollutionOperator::SiblingCrosswire,
+            bad,
+            ArtifactOperationState::NotOperation,
+            ArtifactExposureDisposition::RejectedWrongBranch,
+        );
+        pair.polluted.identity.topology_id = "split_join".into();
+        assert_eq!(
+            qualify_workflow_boundary_pair(&pair).status,
+            WorkflowBoundaryStatus::Fail
+        );
+    }
+
+    #[test]
     fn missing_effect_receipt_for_consumed_artifact_fails_integrity() {
         let bad = artifact(
             "bad-artifact", "producer-b", "report", '6', 2,
