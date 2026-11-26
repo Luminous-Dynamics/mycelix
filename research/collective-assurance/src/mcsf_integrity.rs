@@ -591,7 +591,8 @@ pub fn qualify_mcsf_integrity_run(
                     .as_deref()
                     .is_some_and(nonempty);
                 if !has_reason
-                    || observation.attack_mutation_landed == Some(true)
+                    || observation.attack_mutation_landed.is_some()
+                    || observation.only_intended_change.is_some()
                     || observation.outcome.is_some()
                 {
                     qualification.fail(format!(
