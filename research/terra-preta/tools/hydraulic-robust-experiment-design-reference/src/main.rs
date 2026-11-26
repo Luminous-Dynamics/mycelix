@@ -843,7 +843,12 @@ fn analyze(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
         scenario_probability_policy: "unweighted worst-case over declared segmentation/registration scenarios; scenario count is not interpreted as a probability".into(),
         acquisition_budget: fixture.acquisition_budget,
         nominal_design: summarize(&nominal, fixture.acquisition_budget, "nominal_d_optimal", nominal_score),
-        robust_d_optimal_design: summarize(&robust_d, fixture.acquisition_budget, "maximin_logdet", robust_d.worst_case_log_determinant),
+        robust_d_optimal_design: summarize(
+            &robust_d,
+            fixture.acquisition_budget,
+            "maximin_incremental_logdet_gain",
+            robust_d.worst_case_log_determinant_gain,
+        ),
         robust_e_optimal_design: summarize(&robust_e, fixture.acquisition_budget, "maximin_data_minimum_eigenvalue", robust_e.worst_case_minimum_eigenvalue_data),
         minimax_regret_design: summarize(&minimax, fixture.acquisition_budget, "minimax_normalized_regret", minimax.max_normalized_regret),
         uniform_cost_matched_baseline: uniform_baseline,
