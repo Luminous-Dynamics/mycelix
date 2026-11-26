@@ -67,6 +67,18 @@ pub enum TeamBenchRole {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TeamBenchExecutionBackend {
+    /// Role capabilities are enforced by in-process tool/path wrappers.
+    /// This is not OS/container isolation.
+    InProcessToolBoundary,
+    /// Roles execute in independently constrained containers with a
+    /// separately committed runtime/sandbox observation manifest.
+    DockerContainerIsolation,
+    /// The supplied run package does not identify its enforcement backend.
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TeamBenchTaskState {
     Evaluated,
     InfrastructureError,
@@ -140,6 +152,9 @@ pub struct TeamBenchConditionRun {
     pub role_profile_digest: String,
     pub raw_result_manifest_digest: String,
     pub agent_count: u32,
+    pub execution_backend: TeamBenchExecutionBackend,
+    /// Required only when Docker/container isolation is independently evidenced.
+    pub runtime_manifest_digest: Option<String>,
     /// Exact role inventory enabled by the pinned upstream condition.
     pub roles: Vec<TeamBenchRole>,
     /// False is an explicit incomplete observer inventory, not zero events.
@@ -181,6 +196,10 @@ pub struct TeamBenchQualificationReport {
     pub qualification: QualificationReport,
     /// True only for a complete PASS of a real model-evaluation suite.
     pub benchmark_score_eligible: bool,
+    /// True only when every model-evaluation condition has an independently
+    /// committed Docker/container runtime manifest. Does not follow from a
+    /// benchmark score or logical tool-boundary test.
+    pub os_isolation_eligible: bool,
     pub condition_count: usize,
     pub eligible_task_count: usize,
     pub task_observation_count: usize,
@@ -417,6 +436,7 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
     let mut report = TeamBenchQualificationReport {
         qualification: QualificationReport::new(),
         benchmark_score_eligible: false,
+        os_isolation_eligible: false,
         condition_count: suite.condition_runs.len(),
         eligible_task_count: suite.eligible_task_ids.len(),
         task_observation_count: 0,
@@ -543,6 +563,30 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
                 "condition {:?} agent count differs from its role inventory",
                 run.condition
             ));
+        }
+        match run.execution_backend {
+            TeamBenchExecutionBackend::InProcessToolBoundary => {
+                if run.runtime_manifest_digest.is_some() {
+                    report.qualification.fail(format!(
+                        "condition {:?} claims a container runtime manifest for an in-process tool-boundary run",
+                        run.condition
+                    ));
+                }
+            }
+            TeamBenchExecutionBackend::DockerContainerIsolation => {
+                if !valid_optional_digest(run.runtime_manifest_digest.as_deref()) {
+                    report.qualification.indeterminate(format!(
+                        "condition {:?} declares container isolation without a valid runtime manifest",
+                        run.condition
+                    ));
+                }
+            }
+            TeamBenchExecutionBackend::Unknown => {
+                report.qualification.indeterminate(format!(
+                    "condition {:?} execution enforcement backend is unknown",
+                    run.condition
+                ));
+            }
         }
         if conditions.insert(run.condition, run).is_some() {
             report
@@ -725,6 +769,13 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
 
     report.benchmark_score_eligible = complete_model_suite
         && report.qualification.status == QualificationStatus::Pass;
+    report.os_isolation_eligible = report.benchmark_score_eligible
+        && TeamBenchCondition::all().iter().all(|condition| {
+            conditions.get(condition).is_some_and(|run| {
+                run.execution_backend == TeamBenchExecutionBackend::DockerContainerIsolation
+                    && valid_optional_digest(run.runtime_manifest_digest.as_deref())
+            })
+        });
 
     report.reasons = report.qualification.reasons.clone();
     report
@@ -784,6 +835,8 @@ mod tests {
             role_profile_digest: D2.into(),
             raw_result_manifest_digest: D3.into(),
             agent_count: roles.len() as u32,
+            execution_backend: TeamBenchExecutionBackend::InProcessToolBoundary,
+            runtime_manifest_digest: None,
             roles: roles.into_iter().collect(),
             role_boundary_inventory_complete: true,
             tasks: vec![
@@ -847,9 +900,36 @@ mod tests {
         let report = qualify_teambench_suite(&input);
         assert_eq!(report.qualification.status, QualificationStatus::Pass);
         assert!(!report.benchmark_score_eligible);
+        assert!(!report.os_isolation_eligible);
         assert!(report.mean_score_micros_by_condition.is_empty());
         assert!(report.average_tni_micros.is_none());
         assert!(report.average_team_uplift_micros.is_none());
+    }
+
+    #[test]
+    fn model_score_and_os_isolation_are_independent_qualifications() {
+        let mut input = suite();
+        let report = qualify_teambench_suite(&input);
+        assert!(report.benchmark_score_eligible);
+        assert!(!report.os_isolation_eligible);
+
+        for run in &mut input.condition_runs {
+            run.execution_backend = TeamBenchExecutionBackend::DockerContainerIsolation;
+            run.runtime_manifest_digest = Some(D6.into());
+        }
+        let report = qualify_teambench_suite(&input);
+        assert!(report.benchmark_score_eligible);
+        assert!(report.os_isolation_eligible);
+    }
+
+    #[test]
+    fn unknown_runtime_backend_is_indeterminate_not_os_isolated() {
+        let mut input = suite();
+        input.condition_runs[0].execution_backend = TeamBenchExecutionBackend::Unknown;
+        let report = qualify_teambench_suite(&input);
+        assert_eq!(report.qualification.status, QualificationStatus::Indeterminate);
+        assert!(!report.benchmark_score_eligible);
+        assert!(!report.os_isolation_eligible);
     }
 
     #[test]
