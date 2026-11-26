@@ -196,11 +196,26 @@ func AppendCanonicalString(dst *bytes.Buffer, value string) error {
 	return nil
 }
 
+func appendSparseString(dst *bytes.Buffer, value string) error {
+	if value == "" {
+		return errors.New("empty sparse-index identifier")
+	}
+	if !utf8.ValidString(value) {
+		return errors.New("invalid UTF-8")
+	}
+	if len(value) > 1_024 {
+		return errors.New("sparse-index identifier exceeds 1024 bytes")
+	}
+	_ = binary.Write(dst, binary.BigEndian, uint32(len(value)))
+	_, _ = dst.WriteString(value)
+	return nil
+}
+
 func AssertionIndexKeyV1(verifier, policy, subject, claim, dimension, assertionRef string) (SparseKey, error) {
 	var buf bytes.Buffer
 	_, _ = buf.Write(sparseKeyDomain)
 	for _, part := range []string{verifier, policy, subject, claim, dimension, assertionRef} {
-		if err := AppendCanonicalString(&buf, part); err != nil {
+		if err := appendSparseString(&buf, part); err != nil {
 			return SparseKey{}, err
 		}
 	}
@@ -222,7 +237,7 @@ func AssertionIndexValueV1(receiptDigest, owner string, sequence uint64) (Sparse
 	var buf bytes.Buffer
 	_, _ = buf.Write(sparseValueDomain)
 	for _, part := range []string{receiptDigest, owner} {
-		if err := AppendCanonicalString(&buf, part); err != nil {
+		if err := appendSparseString(&buf, part); err != nil {
 			return SparseValue{}, err
 		}
 	}
