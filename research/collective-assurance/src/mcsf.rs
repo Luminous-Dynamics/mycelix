@@ -840,6 +840,12 @@ pub fn qualify_mcsf_suite(
 
     scorecards.sort_by_key(|card| card.architecture);
 
+    for card in &mut scorecards {
+        let paired_baseline_complete = card.paired_task_count_vs_no_memory == expected_tasks.len()
+            && card.mean_utility_delta_vs_no_memory_micros.is_some();
+        card.pareto_comparison_eligible &= paired_baseline_complete;
+    }
+
     McsfQualificationReport {
         qualification: qualification.clone(),
         matched_control_digest: control_digest,
@@ -1070,6 +1076,17 @@ mod tests {
             card.utility_delta_95ci_by_task_family_vs_no_memory_micros.len(),
             2
         );
+    }
+
+    #[test]
+    fn pareto_eligibility_requires_complete_paired_no_memory_baseline() {
+        let input = suite();
+        let report = qualify_mcsf_suite(&input, &[run(McsfArchitecture::HdcCfc, &input, 600_000)]);
+        let card = report.scorecards.iter()
+            .find(|card| card.architecture == McsfArchitecture::HdcCfc).unwrap();
+        assert_eq!(report.qualification.status, QualificationStatus::Indeterminate);
+        assert_eq!(card.paired_task_count_vs_no_memory, 0);
+        assert!(!card.pareto_comparison_eligible);
     }
 
     #[test]
