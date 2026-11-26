@@ -696,9 +696,8 @@ pub fn qualify_mcsf_suite(
             }
         }
 
-        if card.utility_task_count > 0 {
-            card.mean_utility_score_micros =
-                Some((utility_sum / card.utility_task_count as u64) as u32);
+        if let Some(mean) = utility_sum.checked_div(card.utility_task_count as u64) {
+            card.mean_utility_score_micros = Some(mean as u32);
         }
         for (family, (sum, count)) in family_score_totals {
             if let Some(mean) = sum.checked_div(count as u64) {
@@ -782,10 +781,9 @@ pub fn qualify_mcsf_suite(
                     }
                 }
                 card.paired_task_count_vs_no_memory = deltas.len();
-                if !deltas.is_empty() {
-                    let sum: i128 = deltas.iter().map(|delta| i128::from(*delta)).sum();
-                    card.mean_utility_delta_vs_no_memory_micros =
-                        Some((sum / deltas.len() as i128) as i64);
+                let sum: i128 = deltas.iter().map(|delta| i128::from(*delta)).sum();
+                if let Some(mean) = sum.checked_div(deltas.len() as i128) {
+                    card.mean_utility_delta_vs_no_memory_micros = Some(mean as i64);
                     let seed = format!(
                         "MCSF-PAIRED-UTILITY-CI95-V0.1:{control_digest}:{:?}:overall",
                         card.architecture
@@ -794,9 +792,9 @@ pub fn qualify_mcsf_suite(
                         deterministic_bootstrap_ci95(&deltas, &seed);
                 }
                 for (family, (sum, count, family_values)) in family_deltas {
-                    if count > 0 {
+                    if let Some(mean) = sum.checked_div(count as i128) {
                         card.utility_delta_by_task_family_vs_no_memory_micros
-                            .insert(family.clone(), (sum / count as i128) as i64);
+                            .insert(family.clone(), mean as i64);
                         let seed = format!(
                             "MCSF-PAIRED-UTILITY-CI95-V0.1:{control_digest}:{:?}:{family}",
                             card.architecture
