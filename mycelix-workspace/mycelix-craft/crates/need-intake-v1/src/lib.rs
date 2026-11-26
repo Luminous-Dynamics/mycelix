@@ -32,6 +32,8 @@ pub struct LocalAuthorityRefV1 {
 pub struct CommunityNeedV1 {
     /// Stable need identifier.
     pub need_id: String,
+    /// Community or sponsor responsible for the expressed need.
+    pub community_id: String,
     /// Digest of the exact source statement or submitted artifact.
     pub statement_digest: [u8; 32],
     /// Authenticated submitter principal identifier.
@@ -116,6 +118,30 @@ pub struct TraceabilityLinkV1 {
     pub basis: TraceabilityBasisV1,
 }
 
+/// Version-pinned capability vocabulary/profile reference.
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct CapabilityProfileRefV1 {
+    /// Vocabulary authority identifier.
+    pub vocabulary_id: String,
+    /// Concept identifier in the vocabulary.
+    pub concept_id: String,
+    /// Exact vocabulary/profile revision.
+    pub revision: String,
+    /// Digest of the exact concept/profile definition.
+    pub digest: [u8; 32],
+}
+
+/// Version-pinned external policy reference.
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct PolicyRefV1 {
+    /// Policy identifier.
+    pub policy_id: String,
+    /// Monotonically versioned policy revision.
+    pub revision: u64,
+    /// Digest of the exact policy document.
+    pub digest: [u8; 32],
+}
+
 /// A proposed outcome with an observable acceptance condition.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProposedOutcomeV1 {
@@ -125,6 +151,10 @@ pub struct ProposedOutcomeV1 {
     pub statement: String,
     /// Metric or indicator used to assess the outcome.
     pub indicator: String,
+    /// Exact owner-defined measurement/observation contract reference.
+    pub measurement_ref: String,
+    /// External policy that defines outcome acceptance.
+    pub acceptance_policy: PolicyRefV1,
     /// Baseline value or state; unknown values remain None.
     pub baseline: Option<String>,
     /// Target value or state.
@@ -157,8 +187,18 @@ pub enum RequirementKindV1 {
 pub struct ProposedRequirementV1 {
     /// Stable requirement identifier.
     pub requirement_id: String,
-    /// Capability vocabulary identifier and revision.
-    pub capability_id: String,
+    /// Exact versioned capability vocabulary/profile.
+    pub capability: CapabilityProfileRefV1,
+    /// Digest of the work context in which the capability is required.
+    pub context_digest: [u8; 32],
+    /// Jurisdiction relevant to the assessment and work.
+    pub jurisdiction_id: String,
+    /// External policy used to qualify evidence for this requirement.
+    pub assessment_policy: PolicyRefV1,
+    /// Number of distinct contributors required for coverage.
+    pub minimum_contributors: u16,
+    /// Maximum age of an issuer/status observation in seconds.
+    pub max_status_age_seconds: u64,
     /// Plain-language requirement statement.
     pub statement: String,
     /// Requirement classification.
@@ -174,6 +214,8 @@ pub struct ProposedWorkPackageV1 {
     pub work_package_id: String,
     /// Plain-language description.
     pub description: String,
+    /// Digest of the exact work-package scope.
+    pub scope_digest: [u8; 32],
     /// Outcomes this package contributes to.
     pub outcome_ids: Vec<String>,
     /// Requirements that apply to this package.
@@ -322,6 +364,8 @@ pub struct ReviewRefV1 {
 pub struct NeedProposalV1 {
     /// Must equal NEED_INTAKE_SCHEMA_VERSION.
     pub schema_version: u16,
+    /// Project jurisdiction used by downstream Project Formation.
+    pub jurisdiction_id: String,
     /// Original community need.
     pub need: CommunityNeedV1,
     /// Monotonic proposal revision.
@@ -447,6 +491,10 @@ pub struct RatificationEvaluationV1 {
 pub struct RatifiedNeedEnvelopeV1 {
     /// Original community need identifier.
     pub need_id: String,
+    /// Community/sponsor identity responsible for the need.
+    pub community_id: String,
+    /// Project jurisdiction explicitly approved in the proposal.
+    pub jurisdiction_id: String,
     /// Exact proposal revision digest that was ratified.
     pub proposal_digest: [u8; 32],
     /// Proposal revision.
@@ -488,6 +536,8 @@ pub fn ratified_need_envelope(
 
     Ok(RatifiedNeedEnvelopeV1 {
         need_id: proposal.need.need_id.clone(),
+        community_id: proposal.need.community_id.clone(),
+        jurisdiction_id: proposal.jurisdiction_id.clone(),
         proposal_digest: proposal.proposal_digest,
         proposal_revision: proposal.revision,
         selected_alternative_id: ratification.selected_alternative_id.clone(),
@@ -523,7 +573,9 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
     {
         return Err(NeedIntakeErrorV1::InvalidRevision);
     }
+    require_non_empty(&proposal.jurisdiction_id)?;
     require_non_empty(&proposal.need.need_id)?;
+    require_non_empty(&proposal.need.community_id)?;
     require_digest(&proposal.need.statement_digest)?;
     require_non_empty(&proposal.need.submitter_id)?;
     require_non_empty(&proposal.need.visibility_profile_id)?;
@@ -558,6 +610,8 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
         require_non_empty(&outcome.outcome_id)?;
         require_non_empty(&outcome.statement)?;
         require_non_empty(&outcome.indicator)?;
+        require_non_empty(&outcome.measurement_ref)?;
+        validate_policy_ref(&outcome.acceptance_policy)?;
         if outcome.baseline.as_ref().map(|value| value.trim().is_empty() || value.trim() != value).unwrap_or(false) {
             return Err(NeedIntakeErrorV1::InvalidBaseline);
         }
@@ -573,7 +627,16 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
 
     for requirement in &proposal.requirements {
         require_non_empty(&requirement.requirement_id)?;
-        require_non_empty(&requirement.capability_id)?;
+        validate_capability_profile(&requirement.capability)?;
+        require_digest(&requirement.context_digest)?;
+        require_non_empty(&requirement.jurisdiction_id)?;
+        if requirement.jurisdiction_id != proposal.jurisdiction_id {
+            return Err(NeedIntakeErrorV1::UnknownWorkReference);
+        }
+        validate_policy_ref(&requirement.assessment_policy)?;
+        if requirement.minimum_contributors == 0 || requirement.max_status_age_seconds == 0 {
+            return Err(NeedIntakeErrorV1::InvalidRevision);
+        }
         require_non_empty(&requirement.statement)?;
         if !claim_ids.insert(format!("requirement:{}", requirement.requirement_id)) {
             return Err(NeedIntakeErrorV1::DuplicateIdentifier);
@@ -589,6 +652,7 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
     for package in &proposal.work_packages {
         require_non_empty(&package.work_package_id)?;
         require_non_empty(&package.description)?;
+        require_digest(&package.scope_digest)?;
         if !package_ids.insert(package.work_package_id.as_str()) {
             return Err(NeedIntakeErrorV1::DuplicateIdentifier);
         }
@@ -962,6 +1026,23 @@ pub fn evaluate_ratification(
         blocking_questions,
         unresolved_contradictions,
     })
+}
+
+fn validate_policy_ref(policy: &PolicyRefV1) -> Result<(), NeedIntakeErrorV1> {
+    require_non_empty(&policy.policy_id)?;
+    if policy.revision == 0 {
+        return Err(NeedIntakeErrorV1::InvalidRevision);
+    }
+    require_digest(&policy.digest)
+}
+
+fn validate_capability_profile(
+    profile: &CapabilityProfileRefV1,
+) -> Result<(), NeedIntakeErrorV1> {
+    require_non_empty(&profile.vocabulary_id)?;
+    require_non_empty(&profile.concept_id)?;
+    require_non_empty(&profile.revision)?;
+    require_digest(&profile.digest)
 }
 
 fn require_non_empty(value: &str) -> Result<(), NeedIntakeErrorV1> {
