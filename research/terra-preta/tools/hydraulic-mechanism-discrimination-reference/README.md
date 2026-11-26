@@ -137,6 +137,25 @@ For the experiment-selection layer, freeze the same solver-call, simulation, acq
 
 The defensible ambition is to outperform established workflows on **uncertainty-aware experiment selection, calibrated predictions and traceable qualification** while interoperating with the best physical solvers—not to assert an unsupported universal solver-speed or accuracy win.
 
+
+## Paired-world posterior calibration v0.1
+
+The separate `terra-boed-calibration` binary adds a first calibration campaign for the model-family and adaptive-measurement layer:
+
+- 10 explicitly named, analyst-authored synthetic hydraulic response families;
+- three conductance-scale regimes (0.9, 1.0, 1.1), with 1,200 worlds per family (400 per regime), for 12,000 paired worlds total;
+- six candidate observations spanning bulk-flow, upper/lower pathway, early transient and late tracer-moment responses;
+- one common generated observation vector per world shared by fixed and adaptive policies (common random numbers);
+- a predeclared fixed comparator (upper-path flow followed by early transient flow) against a greedy adaptive model-EIG policy (upper-path flow first, then choose the remaining candidate minimizing posterior expected model entropy);
+- family and regime posterior Brier scores, log scores, accuracy and family-wise one-vs-rest reliability bins / ECE;
+- randomized discrete-regime SBC rank histograms, posterior predictive held-out log score and Gaussian-mixture CRPS, and 50/80/95% predictive interval coverage and widths;
+- paired per-world differences with normal standard-error intervals for family Brier/log score and held-out predictive log score / CRPS;
+- in-family abstention, a deliberately shifted residual stress control, observation-order and measurement-unit invariance checks, and input/world-stream SHA-256 digests.
+
+This is a synthetic calibration harness, not evidence about measured soils. The family signatures are normalized toy response patterns, not calibrated constitutive models or a claim that ten families span real hydraulic mechanisms. The discrete SBC histogram tests the three-point conductance-regime posterior; it is **not** continuous-parameter SBC. The out-of-family control applies a fixed +20-sensor-standard-deviation residual shift; it is a falsification stress test, not a realistic held-out mechanism. The fixed comparator is a declared two-observation policy, not yet the best fixed portfolio. The adaptive policy is greedy model-EIG, not the finite-horizon decision-EVSI oracle in [#6736](https://github.com/Luminous-Dynamics/mycelix/pull/6736).
+
+The next qualification increments are to (1) verify quadrature-order convergence against continuous-observation Monte Carlo with common random numbers, (2) replace the normal-approximation paired intervals with bootstrap / paired randomization intervals stratified by independent world, (3) add exact and approximate posterior calibration for continuous hydraulic parameters, (4) compare the best fixed policy, greedy EIG, EPIG, EVSI, score-matching BED, SBI-BOED and robust maximin BED at common simulator and policy-compute budgets, and (5) repeat on licensed support-matched public pore-scale data before touching field inference.
+
 ## Qualification targets (targets, not results)
 
 - Exact portfolio optimum on the finite candidate fixture.
