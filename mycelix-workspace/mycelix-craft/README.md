@@ -26,3 +26,13 @@ Then package the DNA/hApp:
 hc dna pack -o dna/mycelix_craft.dna dna/dna.yaml
 hc app pack -o mycelix-craft.happ happ.yaml
 ```
+
+
+## Evidence lineage (reference core)
+
+The standalone craft-evidence-lineage-v1 crate evaluates exact-version dependencies
+and propagates source corrections, supersession, revocation, expiry and withdrawal
+through downstream evidence and decisions. It reports revalidation and invalidation
+states without mutating prior decisions or automatically re-authorizing work.
+
+See the Evidence Lineage V1 contract and Evidence Lineage Benchmark Protocol in docs.
