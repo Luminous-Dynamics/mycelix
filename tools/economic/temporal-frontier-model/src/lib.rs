@@ -296,10 +296,10 @@ impl VerifierFrontierV1 {
         receipt: &KnowledgeReceiptV1,
     ) -> Result<ReceiptVisibilityV1, FrontierModelErrorV1> {
         self.validate()?;
-        receipt.validate()?;
         if receipt.verifier_ref != self.verifier_ref {
             return Err(FrontierModelErrorV1::ForeignVerifier);
         }
+        receipt.validate()?;
 
         let Some(owner_cut) = self.owner_cut(&receipt.owner_ref) else {
             return Ok(ReceiptVisibilityV1::Indeterminate);
@@ -762,12 +762,20 @@ mod tests {
         receipt
     }
 
+    fn refresh_receipt_digest(receipt: &mut KnowledgeReceiptV1) {
+        receipt.receipt_digest = format!(
+            "sha256:{}",
+            hex_lower(&sha256(&canonical_knowledge_receipt_entry_v1(receipt).unwrap()))
+        );
+    }
+
     fn attach_receipt_proof(
         receipt: &mut KnowledgeReceiptV1,
         owner_cut: &mut OwnerCutV1,
     ) {
         assert!(receipt.owner_sequence > 0);
         assert!(receipt.owner_sequence <= owner_cut.sequence);
+        refresh_receipt_digest(receipt);
         let mut entries = owner_log_entries(&owner_cut.owner_ref, owner_cut.sequence);
         entries[(receipt.owner_sequence - 1) as usize] =
             canonical_knowledge_receipt_entry_v1(receipt).unwrap();
@@ -942,13 +950,14 @@ mod tests {
     }
 
     #[test]
-    fn covered_receipt_requires_a_matching_inclusion_declaration() {
-        let owner_cut = cut("owner:grants", 10, 'a');
+    fn covered_receipt_requires_a_valid_rfc9162_inclusion_proof() {
+        let mut owner_cut = cut("owner:grants", 10, 'a');
+        let mut receipt = receipt(5, "owner:grants");
+        attach_receipt_proof(&mut receipt, &mut owner_cut);
         let frontier = frontier("frontier:1", vec![owner_cut.clone()]);
-        let receipt = receipt(5, &owner_cut);
         assert_eq!(
             frontier.classify_receipt(&receipt),
-            Ok(ReceiptVisibilityV1::DeclaredIncluded)
+            Ok(ReceiptVisibilityV1::MerkleInclusionVerified)
         );
 
         let mut no_proof = receipt.clone();
@@ -969,9 +978,9 @@ mod tests {
     #[test]
     fn receipt_beyond_a_complete_cut_is_not_known() {
         let owner_cut = cut("owner:grants", 10, 'a');
-        let frontier = frontier("frontier:1", vec![owner_cut.clone()]);
+        let frontier = frontier("frontier:1", vec![owner_cut]);
         assert_eq!(
-            frontier.classify_receipt(&receipt(11, &owner_cut)),
+            frontier.classify_receipt(&receipt(11, "owner:grants")),
             Ok(ReceiptVisibilityV1::NotKnown)
         );
     }
@@ -979,10 +988,12 @@ mod tests {
     #[test]
     fn gaps_make_inclusion_and_absence_indeterminate() {
         let mut owner_cut = cut("owner:grants", 10, 'a');
+        let mut receipt = receipt(5, "owner:grants");
+        attach_receipt_proof(&mut receipt, &mut owner_cut);
         owner_cut.gaps.push(SequenceRangeV1 { first: 3, last: 4 });
-        let frontier = frontier("frontier:1", vec![owner_cut.clone()]);
+        let frontier = frontier("frontier:1", vec![owner_cut]);
         assert_eq!(
-            frontier.classify_receipt(&receipt(5, &owner_cut)),
+            frontier.classify_receipt(&receipt),
             Ok(ReceiptVisibilityV1::Indeterminate)
         );
         assert!(!frontier.prefix_coverage_is_complete("owner:grants", 10));
@@ -991,8 +1002,8 @@ mod tests {
     #[test]
     fn a_frontier_does_not_accept_another_verifiers_receipt() {
         let owner_cut = cut("owner:grants", 10, 'a');
-        let frontier = frontier("frontier:1", vec![owner_cut.clone()]);
-        let mut receipt = receipt(5, &owner_cut);
+        let frontier = frontier("frontier:1", vec![owner_cut]);
+        let mut receipt = receipt(5, "owner:grants");
         receipt.verifier_ref = "did:mycelix:verifier:other-v1".into();
         assert_eq!(
             frontier.classify_receipt(&receipt),
@@ -1002,13 +1013,14 @@ mod tests {
 
     #[test]
     fn uncovered_causal_dependency_is_indeterminate() {
-        let owner_cut = cut("owner:grants", 10, 'a');
-        let frontier = frontier("frontier:1", vec![owner_cut.clone()]);
-        let mut receipt = receipt(5, &owner_cut);
+        let mut owner_cut = cut("owner:grants", 10, 'a');
+        let mut receipt = receipt(5, "owner:grants");
         receipt.causal_dependencies.push(OwnerPositionV1 {
             owner_ref: "owner:payments".into(),
             sequence: 2,
         });
+        attach_receipt_proof(&mut receipt, &mut owner_cut);
+        let frontier = frontier("frontier:1", vec![owner_cut]);
         assert_eq!(
             frontier.classify_receipt(&receipt),
             Ok(ReceiptVisibilityV1::Indeterminate)
