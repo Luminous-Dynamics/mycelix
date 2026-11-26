@@ -44,14 +44,23 @@ jobs:
       - name: Run strict Clippy
         run: cargo clippy --locked --manifest-path research/life-disclosure-observable-traces/Cargo.toml --all-targets -- -D warnings
 
-      - name: Compare repeated benchmark reports
+      - name: Compare repeated generic and memory benchmark reports
         shell: bash
         run: |
           set -euo pipefail
+
           cargo run --quiet --locked --manifest-path research/life-disclosure-observable-traces/Cargo.toml > report-a.csv
           cargo run --quiet --locked --manifest-path research/life-disclosure-observable-traces/Cargo.toml > report-b.csv
           cmp report-a.csv report-b.csv
-          sha256sum report-a.csv research/life-disclosure-observable-traces/channel-manifest.json > report.sha256
+
+          cargo run --quiet --locked --manifest-path research/life-disclosure-observable-traces/Cargo.toml --bin memory-metadata-leakage > memory-report-a.csv
+          cargo run --quiet --locked --manifest-path research/life-disclosure-observable-traces/Cargo.toml --bin memory-metadata-leakage > memory-report-b.csv
+          cmp memory-report-a.csv memory-report-b.csv
+          test "$(wc -l < memory-report-a.csv)" -eq 193
+
+          sha256sum report-a.csv memory-report-a.csv \
+            research/life-disclosure-observable-traces/channel-manifest.json \
+            research/life-disclosure-observable-traces/memory-sequence-manifest.json > report.sha256
           printf 'commit=%s\n' "$QUALIFIED_SHA" > qualification.txt
           cat report.sha256 >> qualification.txt
           cat qualification.txt
@@ -62,7 +71,9 @@ jobs:
           name: life-disclosure-observable-traces-${{ github.sha }}
           path: |
             report-a.csv
+            memory-report-a.csv
             report.sha256
             qualification.txt
             research/life-disclosure-observable-traces/channel-manifest.json
+            research/life-disclosure-observable-traces/memory-sequence-manifest.json
           if-no-files-found: error
