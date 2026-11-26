@@ -7,6 +7,7 @@ description = "Static file server for Prism (production deployment)"
 
 [dependencies]
 prism-common = { path = "../prism-common" }
+prism-net = { path = "../prism-net" }
 axum = "0.8"
 tower-http = { version = "0.6", features = ["fs", "compression-gzip", "set-header", "cors"] }
 tower = { version = "0.5", features = ["limit", "timeout", "load-shed"] }
