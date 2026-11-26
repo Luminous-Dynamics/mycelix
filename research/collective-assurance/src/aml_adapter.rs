@@ -7,6 +7,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use sha2::{Digest, Sha256};
+
 use super::{QualificationReport, QualificationStatus};
 
 const CYCLE_2_ID: &str = "agent-memory-challenge-cycle-2-2026";
@@ -189,6 +191,72 @@ pub struct AmlRunManifest {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AmlPersistenceReceipt {
+    pub request_id: String,
+    pub attempt_number: u32,
+    pub sample_id: String,
+    pub task_id: String,
+    pub user_id: String,
+    pub source_session_digest: String,
+    pub payload_digest: String,
+    pub durable_sequence: u64,
+    pub committed_at_ms: u64,
+    pub acknowledged_at_ms: u64,
+    /// Digest of the independent storage-observer artifact supporting the receipt.
+    pub observer_artifact_digest: String,
+    /// Domain-separated SHA-256 commitment over every field above.
+    pub receipt_digest: String,
+}
+
+fn push_aml_len(output: &mut Vec<u8>, value: usize) {
+    output.extend_from_slice(&(value as u64).to_be_bytes());
+}
+
+fn push_aml_str(output: &mut Vec<u8>, value: &str) {
+    push_aml_len(output, value.len());
+    output.extend_from_slice(value.as_bytes());
+}
+
+pub fn compute_aml_persistence_receipt_digest(
+    receipt: &AmlPersistenceReceipt,
+) -> Result<String, String> {
+    if !nonempty(&receipt.request_id)
+        || receipt.attempt_number == 0
+        || !nonempty(&receipt.sample_id)
+        || !nonempty(&receipt.task_id)
+        || !nonempty(&receipt.user_id)
+        || !valid_digest(&receipt.source_session_digest)
+        || !valid_digest(&receipt.payload_digest)
+        || receipt.durable_sequence == 0
+        || receipt.committed_at_ms == 0
+        || receipt.acknowledged_at_ms < receipt.committed_at_ms
+        || !valid_digest(&receipt.observer_artifact_digest)
+    {
+        return Err("persistence receipt fields are invalid or incomplete".into());
+    }
+
+    let mut bytes = b"MYCELIX-AML-ADD-PERSISTENCE-RECEIPT-V0.1\0".to_vec();
+    push_aml_str(&mut bytes, &receipt.request_id);
+    bytes.extend_from_slice(&receipt.attempt_number.to_be_bytes());
+    push_aml_str(&mut bytes, &receipt.sample_id);
+    push_aml_str(&mut bytes, &receipt.task_id);
+    push_aml_str(&mut bytes, &receipt.user_id);
+    push_aml_str(&mut bytes, &receipt.source_session_digest);
+    push_aml_str(&mut bytes, &receipt.payload_digest);
+    bytes.extend_from_slice(&receipt.durable_sequence.to_be_bytes());
+    bytes.extend_from_slice(&receipt.committed_at_ms.to_be_bytes());
+    bytes.extend_from_slice(&receipt.acknowledged_at_ms.to_be_bytes());
+    push_aml_str(&mut bytes, &receipt.observer_artifact_digest);
+    let digest = Sha256::digest(&bytes);
+    let mut output = String::with_capacity(64);
+    for byte in digest {
+        use std::fmt::Write;
+        let _ = write!(&mut output, "{byte:02x}");
+    }
+    Ok(output)
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AmlAddAttempt {
     pub attempt_number: u32,
     pub http_status: u16,
@@ -198,6 +266,7 @@ pub struct AmlAddAttempt {
     /// the HTTP 200 response was emitted.
     pub persisted_before_success_response: bool,
     pub persistence_receipt_digest: Option<String>,
+    pub persistence_receipt: Option<AmlPersistenceReceipt>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -459,20 +528,31 @@ fn validate_add_operation(
         if attempt.http_status == 200 {
             success_seen = true;
             report.add_success_count += 1;
-            if !attempt.persisted_before_success_response
-                || !attempt
-                    .persistence_receipt_digest
-                    .as_deref()
-                    .is_some_and(valid_digest)
-            {
+            let receipt_matches = attempt.persistence_receipt.as_ref().is_some_and(|receipt| {
+                compute_aml_persistence_receipt_digest(receipt)
+                    .is_ok_and(|digest| {
+                        receipt.receipt_digest == digest
+                            && attempt.persistence_receipt_digest.as_deref()
+                                == Some(receipt.receipt_digest.as_str())
+                            && receipt.request_id == operation.request_id
+                            && receipt.attempt_number == attempt.attempt_number
+                            && receipt.sample_id == operation.sample_id
+                            && receipt.task_id == operation.task_id
+                            && receipt.user_id == operation.user_id
+                            && receipt.source_session_digest == operation.source_session_digest
+                            && receipt.payload_digest == operation.payload_digest
+                    })
+            });
+            if !attempt.persisted_before_success_response || !receipt_matches {
                 report.qualification.fail(format!(
-                    "Add operation {} returned 200 without a durable-before-ack persistence receipt",
+                    "Add operation {} returned 200 without an exact durable-before-ack persistence receipt",
                     operation.request_id
                 ));
             }
         } else {
             if attempt.persisted_before_success_response
                 || attempt.persistence_receipt_digest.is_some()
+                || attempt.persistence_receipt.is_some()
             {
                 report.qualification.fail(format!(
                     "Add operation {} has a persistence-success receipt on a non-200 attempt",
@@ -894,6 +974,33 @@ mod tests {
     const D5: &str = "5555555555555555555555555555555555555555555555555555555555555555";
     const D6: &str = "6666666666666666666666666666666666666666666666666666666666666666";
 
+    fn persistence_receipt(
+        request_id: &str,
+        attempt_number: u32,
+        sample_id: &str,
+        task_id: &str,
+        user_id: &str,
+        source_session_digest: &str,
+        payload_digest: &str,
+    ) -> AmlPersistenceReceipt {
+        let mut receipt = AmlPersistenceReceipt {
+            request_id: request_id.into(),
+            attempt_number,
+            sample_id: sample_id.into(),
+            task_id: task_id.into(),
+            user_id: user_id.into(),
+            source_session_digest: source_session_digest.into(),
+            payload_digest: payload_digest.into(),
+            durable_sequence: 1,
+            committed_at_ms: 100,
+            acknowledged_at_ms: 110,
+            observer_artifact_digest: D6.into(),
+            receipt_digest: String::new(),
+        };
+        receipt.receipt_digest = compute_aml_persistence_receipt_digest(&receipt).unwrap();
+        receipt
+    }
+
     fn release() -> AmlReleaseContract {
         AmlReleaseContract {
             cycle_id: CYCLE_2_ID.into(),
@@ -985,7 +1092,13 @@ mod tests {
                     http_status: 200,
                     response_request_id: "add-1".into(),
                     persisted_before_success_response: true,
-                    persistence_receipt_digest: Some(D6.into()),
+                    persistence_receipt_digest: Some(
+                        persistence_receipt("add-1", 1, "sample-1", "task-1", "user-1", D4, D5)
+                            .receipt_digest.clone()
+                    ),
+                    persistence_receipt: Some(persistence_receipt(
+                        "add-1", 1, "sample-1", "task-1", "user-1", D4, D5
+                    )),
                 }],
             }],
             search_operations: vec![AmlSearchOperation {
@@ -1092,13 +1205,20 @@ mod tests {
                 response_request_id: "add-1".into(),
                 persisted_before_success_response: false,
                 persistence_receipt_digest: None,
+                persistence_receipt: None,
             },
             AmlAddAttempt {
                 attempt_number: 2,
                 http_status: 200,
                 response_request_id: "add-1".into(),
                 persisted_before_success_response: true,
-                persistence_receipt_digest: Some(D6.into()),
+                persistence_receipt_digest: Some(
+                    persistence_receipt("add-1", 2, "sample-1", "task-1", "user-1", D4, D5)
+                        .receipt_digest.clone()
+                ),
+                persistence_receipt: Some(persistence_receipt(
+                    "add-1", 2, "sample-1", "task-1", "user-1", D4, D5
+                )),
             },
         ];
         let report = qualify_aml_run(&input, &release());
@@ -1117,13 +1237,20 @@ mod tests {
                 response_request_id: "add-1".into(),
                 persisted_before_success_response: false,
                 persistence_receipt_digest: None,
+                persistence_receipt: None,
             },
             AmlAddAttempt {
                 attempt_number: 2,
                 http_status: 200,
                 response_request_id: "different".into(),
                 persisted_before_success_response: true,
-                persistence_receipt_digest: Some(D6.into()),
+                persistence_receipt_digest: Some(
+                    persistence_receipt("add-1", 2, "sample-1", "task-1", "user-1", D4, D5)
+                        .receipt_digest.clone()
+                ),
+                persistence_receipt: Some(persistence_receipt(
+                    "add-1", 2, "sample-1", "task-1", "user-1", D4, D5
+                )),
             },
         ];
         assert_eq!(
