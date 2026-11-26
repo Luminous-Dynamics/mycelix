@@ -26,3 +26,16 @@ Then package the DNA/hApp:
 hc dna pack -o dna/mycelix_craft.dna dna/dna.yaml
 hc app pack -o mycelix-craft.happ happ.yaml
 ```
+
+## Semantic claim support (reference core)
+
+The standalone `craft-claim-support-v1` crate separates citation/source provenance
+from semantic support. It pins claim, proposal, source, excerpt, locator and
+assessment digests; checks qualifiers such as negation, quantity, units, time,
+population, scope and causal strength; and requires an independent review
+before a claim can be classified as supported. Machine assessments cannot
+self-certify. The core does not prove source truth, authenticate authorities or
+authorize downstream work.
+
+See `docs/CLAIM-SUPPORT-V1.md` and
+`docs/CLAIM-SUPPORT-BENCHMARKS-V1.md`.
