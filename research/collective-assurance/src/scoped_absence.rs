@@ -852,7 +852,7 @@ mod tests {
             CandidateVerificationState::NotApplicable,
         );
         let sources = vec![item.clone(), item];
-        let mut query = scope(&sources);
+        let mut query = scope(std::slice::from_ref(&sources[0]));
         query.declared_source_count = 2;
         let report = qualify_scoped_absence_claim(
             &query, &sources, AbsenceClaimKind::NoEvidenceInDeclaredScope
