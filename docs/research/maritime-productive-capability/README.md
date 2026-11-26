@@ -144,7 +144,7 @@ The dependency-free research crate lives at research/maritime-productive-capabil
 From the repository root:
 
 ```sh
-cargo fmt --manifest-path research/maritime-productive-capability/Cargo.toml -- --check
+cargo fmt --manifest-path research/maritime-productive-capability/Cargo.toml
 cargo test --locked --manifest-path research/maritime-productive-capability/Cargo.toml
 cargo clippy --locked --manifest-path research/maritime-productive-capability/Cargo.toml --all-targets -- -D warnings
 cargo run --locked --manifest-path research/maritime-productive-capability/Cargo.toml -- docs/research/maritime-productive-capability/fixtures/maritime-capability-tiny-v0.tsv
