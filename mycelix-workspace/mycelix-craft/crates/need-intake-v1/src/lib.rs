@@ -324,6 +324,8 @@ pub enum NeedIntakeErrorV1 {
     UnknownClaim,
     /// Work package link references unknown outcome, requirement or package.
     UnknownWorkReference,
+    /// An outcome or requirement is not assigned to any work package.
+    UnmappedClaim,
     /// Dependency cycle exists.
     DependencyCycle,
     /// Contradiction has no affected claim.
@@ -472,6 +474,24 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
         }
         dependencies.insert(package.work_package_id.clone(), package.depends_on.clone());
     }
+    let mut mapped_outcomes = HashSet::new();
+    let mut mapped_requirements = HashSet::new();
+    for package in &proposal.work_packages {
+        mapped_outcomes.extend(package.outcome_ids.iter().map(String::as_str));
+        mapped_requirements.extend(package.requirement_ids.iter().map(String::as_str));
+    }
+    if mapped_outcomes.len() != outcome_ids.len()
+        || mapped_requirements.len() != requirement_ids.len()
+    {
+        return Err(NeedIntakeErrorV1::UnmappedClaim);
+    }
+
+    if proposal.requirements.iter().any(|requirement| {
+        requirement.kind == RequirementKindV1::SafetyCritical
+    }) && !proposal.safety_review_required {
+        return Err(NeedIntakeErrorV1::InvalidAuthority);
+    }
+
     for package in &proposal.work_packages {
         for dependency in &package.depends_on {
             if !package_ids.contains(dependency.as_str()) || dependency == &package.work_package_id {
@@ -623,6 +643,16 @@ pub fn evaluate_ratification(
             && review.valid_until.map(|expiry| now < expiry).unwrap_or(true)
             && review.withdrawn_at.map(|time| now < time).unwrap_or(true)
     }).collect::<Vec<_>>();
+
+    if current_reviews.is_empty() {
+        return Ok(RatificationEvaluationV1 {
+            state: RatificationStateV1::Draft,
+            proposal_digest: proposal.proposal_digest,
+            missing_roles: required_roles,
+            blocking_questions,
+            unresolved_contradictions,
+        });
+    }
 
     if current_reviews.iter().any(|review| review.decision == ReviewDecisionV1::Reject) {
         return Ok(RatificationEvaluationV1 {
@@ -850,6 +880,27 @@ mod tests {
         assert_ne!(result.state, RatificationStateV1::Ratified);
         assert!(result.missing_roles.contains(&ReviewRoleV1::Community));
         assert!(result.missing_roles.contains(&ReviewRoleV1::DomainExpert));
+    }
+
+    #[test]
+    fn safety_critical_requirement_requires_safety_review_flag() {
+        let mut proposal = valid_proposal();
+        proposal.safety_review_required = false;
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::InvalidAuthority)
+        );
+    }
+
+    #[test]
+    fn every_proposed_claim_must_be_assigned_to_a_work_package() {
+        let mut proposal = valid_proposal();
+        proposal.work_packages[0].requirement_ids.clear();
+        proposal.work_packages[1].requirement_ids.clear();
+        assert_eq!(
+            validate_proposal(&proposal),
+            Err(NeedIntakeErrorV1::UnmappedClaim)
+        );
     }
 
     #[test]
