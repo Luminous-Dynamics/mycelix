@@ -31,7 +31,8 @@
       "applicability_reason": null,
       "attack_mutation_landed": true,
       "outcome": "rejected_at_read",
-      "evidence_digest": "0101010101010101010101010101010101010101010101010101010101010101"
+      "evidence_digest": "0101010101010101010101010101010101010101010101010101010101010101",
+      "only_intended_change": true
     },
     {
       "test_case": "T2",
@@ -39,7 +40,8 @@
       "applicability_reason": null,
       "attack_mutation_landed": true,
       "outcome": "rejected_at_read",
-      "evidence_digest": "0202020202020202020202020202020202020202020202020202020202020202"
+      "evidence_digest": "0202020202020202020202020202020202020202020202020202020202020202",
+      "only_intended_change": true
     },
     {
       "test_case": "T3",
@@ -47,7 +49,8 @@
       "applicability_reason": null,
       "attack_mutation_landed": true,
       "outcome": "rejected_at_read",
-      "evidence_digest": "0303030303030303030303030303030303030303030303030303030303030303"
+      "evidence_digest": "0303030303030303030303030303030303030303030303030303030303030303",
+      "only_intended_change": true
     },
     {
       "test_case": "T4",
@@ -55,7 +58,8 @@
       "applicability_reason": null,
       "attack_mutation_landed": true,
       "outcome": "rejected_at_read",
-      "evidence_digest": "0404040404040404040404040404040404040404040404040404040404040404"
+      "evidence_digest": "0404040404040404040404040404040404040404040404040404040404040404",
+      "only_intended_change": true
     },
     {
       "test_case": "T5",
@@ -63,7 +67,8 @@
       "applicability_reason": null,
       "attack_mutation_landed": true,
       "outcome": "rejected_at_read",
-      "evidence_digest": "0505050505050505050505050505050505050505050505050505050505050505"
+      "evidence_digest": "0505050505050505050505050505050505050505050505050505050505050505",
+      "only_intended_change": true
     },
     {
       "test_case": "T6",
@@ -71,7 +76,8 @@
       "applicability_reason": null,
       "attack_mutation_landed": true,
       "outcome": "rejected_at_read",
-      "evidence_digest": "0606060606060606060606060606060606060606060606060606060606060606"
+      "evidence_digest": "0606060606060606060606060606060606060606060606060606060606060606",
+      "only_intended_change": true
     },
     {
       "test_case": "T7",
@@ -79,7 +85,8 @@
       "applicability_reason": null,
       "attack_mutation_landed": true,
       "outcome": "rejected_at_read",
-      "evidence_digest": "0707070707070707070707070707070707070707070707070707070707070707"
+      "evidence_digest": "0707070707070707070707070707070707070707070707070707070707070707",
+      "only_intended_change": true
     },
     {
       "test_case": "T8",
@@ -87,7 +94,8 @@
       "applicability_reason": null,
       "attack_mutation_landed": true,
       "outcome": "rejected_at_read",
-      "evidence_digest": "0808080808080808080808080808080808080808080808080808080808080808"
+      "evidence_digest": "0808080808080808080808080808080808080808080808080808080808080808",
+      "only_intended_change": true
     },
     {
       "test_case": "T9",
@@ -95,7 +103,8 @@
       "applicability_reason": null,
       "attack_mutation_landed": true,
       "outcome": "rejected_at_read",
-      "evidence_digest": "0909090909090909090909090909090909090909090909090909090909090909"
+      "evidence_digest": "0909090909090909090909090909090909090909090909090909090909090909",
+      "only_intended_change": true
     },
     {
       "test_case": "T10",
@@ -103,8 +112,9 @@
       "applicability_reason": null,
       "attack_mutation_landed": true,
       "outcome": "rejected_at_read",
-      "evidence_digest": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+      "evidence_digest": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "only_intended_change": true
     }
   ],
-  "run_digest": "26b2cd58f293dc8498e32464b9419d285ad97058ec9dda0578cd6c6d6b392423"
+  "run_digest": "74ca695e63b2b861f7bff230b08d794881878a22bd89322dc0c06ecf6deac6a2"
 }
