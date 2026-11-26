@@ -1,0 +1,106 @@
+{
+  "schema_version": "terra-correlated-metrology-boed-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "fixture_id": "shared-calibration-pressure-flow-tracer-covariance",
+  "description": "Analyst-authored normalized response signatures for four hydraulic mechanism families. A positive-definite correlation matrix represents hypothetical shared pressure/flow and tracer-lab calibration effects; values are not measured metrology.",
+  "mechanism_ids": [
+    "balanced_parallel_paths",
+    "preferential_pathway",
+    "dual_domain_dead_end_storage",
+    "forchheimer_non_darcy"
+  ],
+  "prior_probabilities": [
+    0.25,
+    0.25,
+    0.25,
+    0.25
+  ],
+  "channels": [
+    {
+      "channel_id": "inlet_pressure",
+      "support_id": "pressure-port-a",
+      "method_id": "pressure-transducer",
+      "calibration_group": "pressure-cal-2026-01",
+      "calibration_record_id": "CAL-P-01",
+      "units": "kPa",
+      "noise_std": 0.08,
+      "mechanism_means": [
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "channel_id": "total_flow",
+      "support_id": "outlet-flow-port",
+      "method_id": "gravimetric-flow",
+      "calibration_group": "flow-cal-2026-02",
+      "calibration_record_id": "CAL-F-02",
+      "units": "mL/min",
+      "noise_std": 0.08,
+      "mechanism_means": [
+        1,
+        1.4,
+        0.8,
+        0.65
+      ]
+    },
+    {
+      "channel_id": "early_tracer_moment",
+      "support_id": "tracer-window-early",
+      "method_id": "tracer-breakthrough",
+      "calibration_group": "tracer-lab-03",
+      "calibration_record_id": "CAL-T-03",
+      "units": "min",
+      "noise_std": 0.2,
+      "mechanism_means": [
+        1,
+        0.45,
+        1.8,
+        1.2
+      ]
+    },
+    {
+      "channel_id": "late_tracer_fraction",
+      "support_id": "tracer-window-late",
+      "method_id": "tracer-breakthrough",
+      "calibration_group": "tracer-lab-03",
+      "calibration_record_id": "CAL-T-03",
+      "units": "fraction",
+      "noise_std": 0.07,
+      "mechanism_means": [
+        0.1,
+        0.02,
+        0.55,
+        0.15
+      ]
+    }
+  ],
+  "observation_correlation": [
+    [
+      1,
+      0.65,
+      0.08,
+      0.06
+    ],
+    [
+      0.65,
+      1,
+      0.06,
+      0.04
+    ],
+    [
+      0.08,
+      0.06,
+      1,
+      0.55
+    ],
+    [
+      0.06,
+      0.04,
+      0.55,
+      1
+    ]
+  ]
+}
