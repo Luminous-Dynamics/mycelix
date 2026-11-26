@@ -31,6 +31,7 @@ pub enum SparseMerkleErrorV1 {
     EmptyIdentifier,
     IdentifierTooLong,
     TextTooLong,
+    InvalidOwnerSequence,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -128,7 +129,7 @@ pub fn assertion_index_value_v1(
     validate_id(receipt_digest)?;
     validate_id(owner_ref)?;
     if owner_sequence == 0 {
-        return Err(SparseMerkleErrorV1::TextTooLong);
+        return Err(SparseMerkleErrorV1::InvalidOwnerSequence);
     }
     let mut bytes = VALUE_DOMAIN.to_vec();
     append_string(&mut bytes, receipt_digest)?;
