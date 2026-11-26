@@ -119,7 +119,17 @@ No disposition authorizes a project, payment, resource reservation, professional
 - Map requirement/claim quality to ISO/IEC/IEEE 29148:2018 and INCOSE requirement-writing guidance. Neither standard makes a source entail a claim.
 - Use NIST AI RMF and ISO/IEC 42001 organizational governance as external risk-management frameworks; this crate is not certification.
 
-## 10. Non-goals
+## 10. Relation to conclusion-relative closure
+
+Atomic claim support is necessary but not sufficient for a high-consequence decision. A cited excerpt may support an individual proposition while the overall conclusion still lacks material elements such as implementation evidence, authority, timing, exception handling or documentation.
+
+Gupta (2026), “Regulatory evidentiary closure as a formal framework for citation faithfulness in large language models,” *Discover Artificial Intelligence* 6, article 1919, published 20 November 2026, formalizes this as conclusion-relative coverage over a domain-reviewed material-element mapping. The paper is theoretical and identifies inter-rater mapping reliability and field validation as open empirical needs.
+
+The next layer is tracked separately in #6756 / PR #6757. Claim Support V1 intentionally stops at atomic claim/source support; it must never imply that a compliance, clinical, safety or other overall conclusion is closed.
+
+Reference: https://doi.org/10.1007/s44163-026-02305-w
+
+## 11. Non-goals
 
 This core is not:
 - an LLM-as-judge score or universal fact checker;
