@@ -32,7 +32,7 @@ Taxonomies are referenced by vocabulary, concept, revision and digest. ESCO, OFO
 - **Developmental:** a consented learning/supervision path may be reported as available, but it is not qualified coverage.
 - **Preferred:** desirable capability, not an automatic exclusion gate.
 
-The evaluator reports one disposition per requirement: Covered, BlockedBySafetyGate, HumanReviewRequired, DevelopmentPathAvailable, UnknownEvidence or Uncovered.
+The evaluator reports one disposition per requirement: Covered, BlockedBySafetyGate, HumanReviewRequired, DevelopmentPathAvailable, UnknownEvidence or Uncovered. It also reports the declared requirement kind and an explicit `is_requirement_blocking` flag. Only SafetyCritical and Required requirements can be hard gates; Developmental and Preferred gaps remain visible without silently vetoing project formation.
 
 There is no aggregate person score or universal team score. Unknown is not a negative competency judgement; it simply cannot establish coverage.
 
