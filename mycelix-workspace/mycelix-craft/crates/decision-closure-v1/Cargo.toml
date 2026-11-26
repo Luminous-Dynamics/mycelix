@@ -1,0 +1,9 @@
+[package]
+name = "craft-decision-closure-v1"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Conclusion-relative material-element evidence closure reference core"
+
+[lib]
+path = "src/lib.rs"
