@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/scoped-absence-qualification-v0.1.schema.json",
+  "title": "Scoped Absence Claim Qualification v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["scope", "claim", "sources"],
+  "properties": {
+    "scope": { "$ref": "#/$defs/scope" },
+    "claim": { "enum": ["NoEvidenceInDeclaredScope", "NoVerifiedEvidenceInDeclaredScope"] },
+    "sources": { "type": "array", "items": { "$ref": "#/$defs/source" } }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "optional_digest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_id","recipient_id","purpose_id","query_digest","subject_scope_digest","frozen_history_cutoff_ms","source_universe_digest","declared_source_count","candidate_pool_digest","source_universe_complete","candidate_pool_complete","source_universe_receipt_digest","candidate_pool_receipt_digest","inquiry_plan_digest","inquiry_execution_receipt_digest"],
+      "properties": {
+        "request_id": { "type": "string", "minLength": 1 },
+        "recipient_id": { "type": "string", "minLength": 1 },
+        "purpose_id": { "type": "string", "minLength": 1 },
+        "query_digest": { "$ref": "#/$defs/digest" },
+        "subject_scope_digest": { "$ref": "#/$defs/digest" },
+        "frozen_history_cutoff_ms": { "type": "integer", "minimum": 0 },
+        "source_universe_digest": { "$ref": "#/$defs/digest" },
+        "declared_source_count": { "type": "integer", "minimum": 0 },
+        "candidate_pool_digest": { "$ref": "#/$defs/digest" },
+        "source_universe_complete": { "type": "boolean" },
+        "candidate_pool_complete": { "type": "boolean" },
+        "source_universe_receipt_digest": { "$ref": "#/$defs/optional_digest" },
+        "candidate_pool_receipt_digest": { "$ref": "#/$defs/optional_digest" },
+        "inquiry_plan_digest": { "$ref": "#/$defs/digest" },
+        "inquiry_execution_receipt_digest": { "$ref": "#/$defs/optional_digest" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_reference_digest","permission","query_disposition","match_disposition","verification","disposition_receipt_digest","query_receipt_digest"],
+      "properties": {
+        "source_reference_digest": { "$ref": "#/$defs/digest" },
+        "permission": { "enum": ["Shareable","Scoped","WithheldByRights","Unknown"] },
+        "query_disposition": { "enum": ["Searched","NoResponse","NotDelivered","NotQueried"] },
+        "match_disposition": { "enum": ["NoMatch","CandidateFound","Unknown"] },
+        "verification": { "enum": ["NotApplicable","Verified","Rejected","Unknown"] },
+        "disposition_receipt_digest": { "$ref": "#/$defs/digest" },
+        "query_receipt_digest": { "$ref": "#/$defs/optional_digest" }
+      }
+    }
+  }
+}

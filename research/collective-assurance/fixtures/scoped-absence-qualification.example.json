@@ -1,0 +1,40 @@
+{
+  "scope": {
+    "request_id": "request-001",
+    "recipient_id": "assistant-role-01",
+    "purpose_id": "project-decision",
+    "query_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+    "subject_scope_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "frozen_history_cutoff_ms": 1770000000000,
+    "source_universe_digest": "4266d617a74c85cb38fe4daaa7850b4b88fd6b6c5f886b80d8f78cd799aa99b2",
+    "declared_source_count": 2,
+    "candidate_pool_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+    "source_universe_complete": true,
+    "candidate_pool_complete": true,
+    "source_universe_receipt_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+    "candidate_pool_receipt_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+    "inquiry_plan_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+    "inquiry_execution_receipt_digest": "7777777777777777777777777777777777777777777777777777777777777777"
+  },
+  "claim": "NoEvidenceInDeclaredScope",
+  "sources": [
+    {
+      "source_reference_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "permission": "Shareable",
+      "query_disposition": "Searched",
+      "match_disposition": "NoMatch",
+      "verification": "NotApplicable",
+      "disposition_receipt_digest": "8888888888888888888888888888888888888888888888888888888888888888",
+      "query_receipt_digest": "9999999999999999999999999999999999999999999999999999999999999999"
+    },
+    {
+      "source_reference_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "permission": "Scoped",
+      "query_disposition": "Searched",
+      "match_disposition": "NoMatch",
+      "verification": "NotApplicable",
+      "disposition_receipt_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "query_receipt_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  ]
+}
