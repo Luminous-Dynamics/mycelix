@@ -26,7 +26,11 @@
     "per_task_time_budget_ms",
     "per_task_token_budget",
     "per_task_compute_budget_millijoules",
-    "condition_runs"
+    "condition_runs",
+    "task_manifest_path",
+    "task_manifest_blob_sha",
+    "re_curation_notice_path",
+    "re_curation_notice_blob_sha"
   ],
   "properties": {
     "suite_id": {
@@ -44,11 +48,12 @@
     },
     "upstream_commit": {
       "type": "string",
+      "const": "d185aef1916fd86a9ba554d581fd256319a973af",
       "pattern": "^[0-9a-f]{40}$"
     },
     "benchmark_version": {
       "type": "string",
-      "minLength": 1
+      "const": "2.1"
     },
     "dataset_manifest_digest": {
       "$ref": "#/$defs/digest"
@@ -116,6 +121,22 @@
       "items": {
         "$ref": "#/$defs/condition_run"
       }
+    },
+    "task_manifest_path": {
+      "const": "leaderboard/data/leaderboard_90_tasks.json"
+    },
+    "task_manifest_blob_sha": {
+      "type": "string",
+      "const": "59125b3fa9a82eede1f5a832c51c2ba32f5af591",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "re_curation_notice_path": {
+      "const": "README.md"
+    },
+    "re_curation_notice_blob_sha": {
+      "type": "string",
+      "const": "6c39b66fed83c52f397c2d3b4f84e7bafe854061",
+      "pattern": "^[0-9a-f]{40}$"
     }
   },
   "$defs": {
