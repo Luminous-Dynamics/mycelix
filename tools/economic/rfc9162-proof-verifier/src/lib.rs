@@ -465,6 +465,43 @@ mod tests {
     }
 
     #[test]
+    fn fixed_seven_entry_vector_matches_independent_sha256_fixture() {
+        let records: Vec<Vec<u8>> = (b'a'..=b'g').map(|byte| vec![byte]).collect();
+        let root = tree_hash(&records).unwrap();
+        assert_eq!(
+            hex(&root),
+            "4ae191939f548d9934740b88dea2c5cb89bb8870fc4505cd79dec6bbfaaee9cb"
+        );
+
+        let inclusion = inclusion_proof(&records, 6).unwrap();
+        assert_eq!(
+            inclusion.iter().map(|hash| hex(hash)).collect::<Vec<_>>(),
+            vec![
+                "918566184c9d5be235ad2b6dd60828f5cec14fc409f02f7db8647009ec6da588",
+                "33376a3bd63e9993708a84ddfe6c28ae58b83505dd1fed711bd924ec5a6239f0",
+            ]
+        );
+        verify_entry_inclusion_proof(&records[6], 6, 7, &inclusion, &root).unwrap();
+
+        let old_root = tree_hash(&records[..3]).unwrap();
+        assert_eq!(
+            hex(&old_root),
+            "36642e73c2540ab121e3a6bf9545b0a24982cd830eb13d3cd19de3ce6c021ec1"
+        );
+        let consistency = consistency_proof(&records, 3).unwrap();
+        assert_eq!(
+            consistency.iter().map(|hash| hex(hash)).collect::<Vec<_>>(),
+            vec![
+                "597fcb31282d34654c200d3418fca5705c648ebf326ec73d8ddef11841f876d8",
+                "d070dc5b8da9aea7dc0f5ad4c29d89965200059c9a0ceca3abd5da2492dcb71d",
+                "b137985ff484fb600db93107c77b0365c80d78f5b429ded0fd97361d077999eb",
+                "e286d3390665a7cdc759453bed0b00cded1842d757e3e6cfe87df53db177e725",
+            ]
+        );
+        verify_consistency_proof(3, &old_root, 7, &root, &consistency).unwrap();
+    }
+
+    #[test]
     fn zero_size_and_equal_size_consistency_edges_are_explicit() {
         let one = entries(1);
         let one_root = tree_hash(&one).unwrap();
