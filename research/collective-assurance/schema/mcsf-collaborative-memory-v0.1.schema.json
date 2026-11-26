@@ -1,0 +1,410 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/mcsf-collaborative-memory-v0.1.schema.json",
+  "title": "Mycelix Collaborative Memory Qualification Run v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "manifest",
+    "probes",
+    "control_digest",
+    "run_digest"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "manifest": {
+      "$ref": "#/$defs/manifest"
+    },
+    "probes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/probe"
+      },
+      "minItems": 1
+    },
+    "control_digest": {
+      "$ref": "#/$defs/sha256"
+    },
+    "run_digest": {
+      "$ref": "#/$defs/sha256"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "optional_sha256": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "evidence_class",
+        "suite_id",
+        "dataset_manifest_digest",
+        "trace_manifest_digest",
+        "role_manifest_digest",
+        "answerer_model_digest",
+        "judge_digest",
+        "gold_event_manifest_digest",
+        "prompt_digest",
+        "toolset_digest",
+        "hardware_profile_digest",
+        "budget_profile_digest",
+        "decoding_config_digest",
+        "memory_adapter_digest",
+        "memory_policy_digest",
+        "seed",
+        "official_dataset_digest",
+        "official_harness_digest",
+        "official_split_manifest_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "mcsf-collaborative-memory-v0.1"
+        },
+        "evidence_class": {
+          "enum": [
+            "synthetic_fixture",
+            "observed_run"
+          ]
+        },
+        "suite_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dataset_manifest_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "trace_manifest_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "role_manifest_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "answerer_model_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "judge_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "gold_event_manifest_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "prompt_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "toolset_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "hardware_profile_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "budget_profile_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "decoding_config_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "memory_adapter_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "memory_policy_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "official_dataset_digest": {
+          "$ref": "#/$defs/optional_sha256"
+        },
+        "official_harness_digest": {
+          "$ref": "#/$defs/optional_sha256"
+        },
+        "official_split_manifest_digest": {
+          "$ref": "#/$defs/optional_sha256"
+        }
+      }
+    },
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "probe_id",
+        "evidence",
+        "evidence_digest",
+        "unauthorized_content_exposure",
+        "forbidden_metadata_inference"
+      ],
+      "properties": {
+        "probe_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sharing"
+            },
+            {
+              "$ref": "#/$defs/access"
+            },
+            {
+              "$ref": "#/$defs/routing"
+            },
+            {
+              "$ref": "#/$defs/provenance"
+            },
+            {
+              "$ref": "#/$defs/conflict_resolution"
+            },
+            {
+              "$ref": "#/$defs/retention"
+            }
+          ]
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "unauthorized_content_exposure": {
+          "type": "boolean"
+        },
+        "forbidden_metadata_inference": {
+          "type": "boolean"
+        }
+      }
+    },
+    "sharing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "observer_complete",
+        "expected_recipients",
+        "observed_recipients"
+      ],
+      "properties": {
+        "type": {
+          "const": "sharing"
+        },
+        "observer_complete": {
+          "type": "boolean"
+        },
+        "expected_recipients": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "observed_recipients": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "access": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "observer_complete",
+        "principal_id",
+        "resource_scope_id",
+        "purpose_id",
+        "expected_allow",
+        "observed_allow"
+      ],
+      "properties": {
+        "type": {
+          "const": "access"
+        },
+        "observer_complete": {
+          "type": "boolean"
+        },
+        "principal_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resource_scope_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_allow": {
+          "type": "boolean"
+        },
+        "observed_allow": {
+          "type": "boolean"
+        }
+      }
+    },
+    "routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "observer_complete",
+        "expected_role_id",
+        "observed_role_ids"
+      ],
+      "properties": {
+        "type": {
+          "const": "routing"
+        },
+        "observer_complete": {
+          "type": "boolean"
+        },
+        "expected_role_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_role_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "observer_complete",
+        "expected_source_event_digest",
+        "observed_source_event_digest",
+        "expected_writer_id",
+        "observed_writer_id",
+        "expected_authority_digest",
+        "observed_authority_digest"
+      ],
+      "properties": {
+        "type": {
+          "const": "provenance"
+        },
+        "observer_complete": {
+          "type": "boolean"
+        },
+        "expected_source_event_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "observed_source_event_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "expected_writer_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_writer_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_authority_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "observed_authority_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "conflict_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "observer_complete",
+        "expected_current_value_digest",
+        "observed_current_value_digest",
+        "expected_authority_rank",
+        "observed_authority_rank"
+      ],
+      "properties": {
+        "type": {
+          "const": "conflict_resolution"
+        },
+        "observer_complete": {
+          "type": "boolean"
+        },
+        "expected_current_value_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "observed_current_value_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "expected_authority_rank": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "observed_authority_rank": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "observer_complete",
+        "expected_retained",
+        "observed_retained",
+        "stale_memory_used",
+        "post_revocation_used",
+        "derived_descendant_used_after_revocation"
+      ],
+      "properties": {
+        "type": {
+          "const": "retention"
+        },
+        "observer_complete": {
+          "type": "boolean"
+        },
+        "expected_retained": {
+          "type": "boolean"
+        },
+        "observed_retained": {
+          "type": "boolean"
+        },
+        "stale_memory_used": {
+          "type": "boolean"
+        },
+        "post_revocation_used": {
+          "type": "boolean"
+        },
+        "derived_descendant_used_after_revocation": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
