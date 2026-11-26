@@ -4,27 +4,45 @@
   "title": "Inquiry RER ACB Factorial Tournament v0.1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["plan", "blocks"],
+  "required": [
+    "plan",
+    "blocks"
+  ],
   "properties": {
     "plan": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["study_id", "expected_block_ids", "minimum_source_groups"],
+      "required": [
+        "study_id",
+        "expected_block_ids",
+        "minimum_source_groups"
+      ],
       "properties": {
-        "study_id": { "type": "string", "minLength": 1 },
+        "study_id": {
+          "type": "string",
+          "minLength": 1
+        },
         "expected_block_ids": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
-        "minimum_source_groups": { "type": "integer", "minimum": 1 }
+        "minimum_source_groups": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     },
     "blocks": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "inquiry-rer-acb-factorial.schema.json" }
+      "items": {
+        "$ref": "https://luminousdynamics.io/schemas/inquiry-rer-acb-factorial-v0.1.schema.json"
+      }
     }
   }
 }
