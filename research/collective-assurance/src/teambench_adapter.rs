@@ -1083,16 +1083,20 @@ mod tests {
     }
 
     fn suite() -> TeamBenchSuite {
-        TeamBenchSuite {
+        let mut input = TeamBenchSuite {
             suite_id: "teambench-smoke-001".into(),
             run_mode: TeamBenchRunMode::ModelEvaluation,
             upstream_repository: UPSTREAM_REPOSITORY.into(),
-            upstream_commit: "a".repeat(40),
-            benchmark_version: "pinned-release".into(),
+            upstream_commit: "d185aef1916fd86a9ba554d581fd256319a973af".into(),
+            benchmark_version: "2.1".into(),
             dataset_manifest_digest: D1.into(),
-            task_manifest_digest: D2.into(),
+            task_manifest_digest: String::new(),
+            task_manifest_path: UPSTREAM_TASK_MANIFEST_PATH.into(),
+            task_manifest_blob_sha: UPSTREAM_TASK_MANIFEST_BLOB_SHA.into(),
+            re_curation_notice_path: UPSTREAM_README_PATH.into(),
+            re_curation_notice_blob_sha: UPSTREAM_README_BLOB_SHA.into(),
             native_grader_digest: D3.into(),
-            excluded_task_manifest_digest: D4.into(),
+            excluded_task_manifest_digest: String::new(),
             eligible_task_ids: vec!["task-1".into(), "task-2".into()],
             excluded_tasks: vec![TeamBenchExcludedTask {
                 task_id: "task-recuration-1".into(),
@@ -1110,7 +1114,20 @@ mod tests {
             per_task_token_budget: 8_000,
             per_task_compute_budget_millijoules: 500_000,
             condition_runs: TeamBenchCondition::all().iter().copied().map(run).collect(),
-        }
+        };
+        input.excluded_task_manifest_digest =
+            compute_teambench_excluded_manifest_digest(&input.excluded_tasks).unwrap();
+        input.task_manifest_digest = compute_teambench_task_manifest_digest(
+            &input.upstream_commit,
+            &input.task_manifest_path,
+            &input.task_manifest_blob_sha,
+            &input.re_curation_notice_path,
+            &input.re_curation_notice_blob_sha,
+            &input.eligible_task_ids,
+            &input.excluded_tasks,
+        )
+        .unwrap();
+        input
     }
 
     #[test]
