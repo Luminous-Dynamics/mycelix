@@ -685,15 +685,28 @@ mod tests {
         format!("sha256:{}", byte.to_string().repeat(64))
     }
 
-    fn cut(owner: &str, sequence: u64, root: char) -> OwnerCutV1 {
+    fn owner_log_entries(owner: &str, sequence: u64) -> Vec<Vec<u8>> {
+        (1..=sequence)
+            .map(|position| format!("MYCELIX-TEST-OWNER-LOG:{owner}:{position}").into_bytes())
+            .collect()
+    }
+
+    fn cut(owner: &str, sequence: u64, _label: char) -> OwnerCutV1 {
+        let root_digest = format!(
+            "sha256:{}",
+            hex_lower(&tree_hash(&owner_log_entries(owner, sequence)).unwrap())
+        );
         OwnerCutV1 {
             owner_ref: owner.into(),
             history_ref: format!("history:{owner}"),
             sequence,
-            root_digest: digest(root),
+            root_digest: root_digest.clone(),
             checkpoint_inclusion: CheckpointInclusionDeclarationV1 {
                 checkpoint_root_digest: digest('f'),
-                owner_root_digest: digest(root),
+                owner_root_digest: root_digest,
+                leaf_index: 0,
+                tree_size: 1,
+                inclusion_path: Vec::new(),
                 proof_ref: "proof:owner-checkpoint-binding".into(),
             },
             gaps: Vec::new(),
@@ -701,15 +714,24 @@ mod tests {
     }
 
     fn frontier(id: &str, mut owner_cuts: Vec<OwnerCutV1>) -> VerifierFrontierV1 {
-        // Test-only deterministic stand-in: the production adapter must
-        // compute and authenticate the actual canonical aggregate root.
-        let aggregate_value = id
-            .bytes()
-            .fold(0_u64, |value, byte| value.wrapping_mul(31).wrapping_add(u64::from(byte)));
-        let checkpoint_root_digest = format!("sha256:{aggregate_value:064x}");
-        for cut in &mut owner_cuts {
-            cut.checkpoint_inclusion.checkpoint_root_digest =
-                checkpoint_root_digest.clone();
+        owner_cuts.sort_by(|left, right| left.owner_ref.cmp(&right.owner_ref));
+        let entries: Vec<Vec<u8>> = owner_cuts
+            .iter()
+            .map(|cut| {
+                canonical_owner_cut_entry_v1(cut, VERIFIER, "policy-epoch:1").unwrap()
+            })
+            .collect();
+        let checkpoint_root_digest =
+            format!("sha256:{}", hex_lower(&tree_hash(&entries).unwrap()));
+        for (index, cut) in owner_cuts.iter_mut().enumerate() {
+            cut.checkpoint_inclusion = CheckpointInclusionDeclarationV1 {
+                checkpoint_root_digest: checkpoint_root_digest.clone(),
+                owner_root_digest: cut.root_digest.clone(),
+                leaf_index: index as u64,
+                tree_size: entries.len() as u64,
+                inclusion_path: inclusion_proof(&entries, index as u64).unwrap(),
+                proof_ref: format!("proof:owner-checkpoint:{index}"),
+            };
         }
         VerifierFrontierV1 {
             frontier_id: id.into(),
@@ -721,24 +743,62 @@ mod tests {
         }
     }
 
-    fn receipt(sequence: u64, owner_cut: &OwnerCutV1) -> KnowledgeReceiptV1 {
-        let receipt_digest = digest('a');
-        KnowledgeReceiptV1 {
+    fn receipt(sequence: u64, owner_ref: &str) -> KnowledgeReceiptV1 {
+        let mut receipt = KnowledgeReceiptV1 {
             receipt_id: format!("receipt:{sequence}"),
             verifier_ref: VERIFIER.into(),
             assertion_id: "assertion:revocation".into(),
             assertion_digest: digest('b'),
-            owner_ref: owner_cut.owner_ref.clone(),
+            owner_ref: owner_ref.into(),
             owner_sequence: sequence,
             causal_dependencies: Vec::new(),
-            receipt_digest: receipt_digest.clone(),
-            inclusion: Some(ReceiptInclusionDeclarationV1 {
-                owner_root_digest: owner_cut.root_digest.clone(),
-                receipt_leaf_digest: receipt_digest,
-                leaf_index: 0,
-                tree_size: 1,
-                proof_ref: "proof:declared-only".into(),
-            }),
+            receipt_digest: digest('0'),
+            inclusion: None,
+        };
+        receipt.receipt_digest = format!(
+            "sha256:{}",
+            hex_lower(&sha256(&canonical_knowledge_receipt_entry_v1(&receipt).unwrap()))
+        );
+        receipt
+    }
+
+    fn attach_receipt_proof(
+        receipt: &mut KnowledgeReceiptV1,
+        owner_cut: &mut OwnerCutV1,
+    ) {
+        assert!(receipt.owner_sequence > 0);
+        assert!(receipt.owner_sequence <= owner_cut.sequence);
+        let mut entries = owner_log_entries(&owner_cut.owner_ref, owner_cut.sequence);
+        entries[(receipt.owner_sequence - 1) as usize] =
+            canonical_knowledge_receipt_entry_v1(receipt).unwrap();
+        let root = tree_hash(&entries).unwrap();
+        owner_cut.root_digest = format!("sha256:{}", hex_lower(&root));
+        receipt.inclusion = Some(ReceiptInclusionDeclarationV1 {
+            owner_root_digest: owner_cut.root_digest.clone(),
+            leaf_index: receipt.owner_sequence - 1,
+            tree_size: owner_cut.sequence,
+            inclusion_path: inclusion_proof(&entries, receipt.owner_sequence - 1).unwrap(),
+            proof_ref: format!("proof:receipt:{}", receipt.receipt_id),
+        });
+    }
+
+    fn consistency_link(
+        owner_ref: &str,
+        first_tree_size: u64,
+        second_tree_size: u64,
+    ) -> OwnerConsistencyLinkV1 {
+        let entries = owner_log_entries(owner_ref, second_tree_size);
+        let ancestor_root = tree_hash(&entries[..first_tree_size as usize]).unwrap();
+        let descendant_root = tree_hash(&entries).unwrap();
+        OwnerConsistencyLinkV1 {
+            owner_ref: owner_ref.into(),
+            history_ref: format!("history:{owner_ref}"),
+            ancestor_root_digest: format!("sha256:{}", hex_lower(&ancestor_root)),
+            descendant_root_digest: format!("sha256:{}", hex_lower(&descendant_root)),
+            first_tree_size,
+            second_tree_size,
+            consistency_path: consistency_proof(&entries, first_tree_size).unwrap(),
+            consistency_proof_ref: format!("proof:consistency:{owner_ref}:{first_tree_size}:{second_tree_size}"),
         }
     }
 
