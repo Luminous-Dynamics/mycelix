@@ -6,6 +6,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"sort"
+	"strings"
+	"unicode/utf8"
 )
 
 const SparseMerkleDepthV1 = 256
@@ -180,6 +182,9 @@ func AppendCanonicalString(dst *bytes.Buffer, value string) error {
 	if value == "" {
 		return errors.New("empty identifier")
 	}
+	if !utf8.ValidString(value) {
+		return errors.New("invalid UTF-8")
+	}
 	if uint64(len(value)) > uint64(^uint32(0)) {
 		return errors.New("string too long")
 	}
@@ -200,6 +205,14 @@ func AssertionIndexKeyV1(verifier, policy, subject, claim, dimension string) (Sp
 }
 
 func AssertionIndexValueV1(receiptDigest, owner string, sequence uint64) (SparseValue, error) {
+	if !strings.HasPrefix(receiptDigest, "sha256:") || len(receiptDigest) != len("sha256:")+64 {
+		return SparseValue{}, errors.New("invalid receipt digest")
+	}
+	for _, ch := range receiptDigest[len("sha256:"):] {
+		if !((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f')) {
+			return SparseValue{}, errors.New("invalid receipt digest")
+		}
+	}
 	if sequence == 0 {
 		return SparseValue{}, errors.New("invalid owner sequence")
 	}
