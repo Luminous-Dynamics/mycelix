@@ -66,7 +66,9 @@ impl SparseMerkleTreeV1 {
         key: SparseKeyV1,
         value: SparseValueV1,
     ) -> Option<SparseValueV1> {
-        self.entries.insert(key, value)
+        self.entries
+            .get_mut(&key)
+            .map(|existing| std::mem::replace(existing, value))
     }
 
     pub fn len(&self) -> usize {
