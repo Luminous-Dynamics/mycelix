@@ -508,6 +508,7 @@ fn qualify_task(
                 || task.native_grader_output_digest.is_some()
                 || task.native_grader_disposition.is_some()
                 || task.native_score_micros.is_some()
+                || task.resource_usage.is_some()
                 || task.verifier_disposition.is_some()
             {
                 report.qualification.fail(format!(
@@ -525,10 +526,9 @@ fn qualify_task(
     let mut event_ids = BTreeSet::new();
     for event in &task.role_boundary_events {
         if !roles.contains(&event.actor_role) {
-            report.qualification.fail(format!(
-                "task {} contains an observation for disabled role {:?}",
-                task.task_id, event.actor_role
-            ));
+            report.role_boundary_unknown_count += 1;
+            report.role_boundary_evidence_complete = false;
+            report.role_enforcement_eligible = false;
             continue;
         }
         if !nonempty(&event.event_id)
@@ -536,10 +536,9 @@ fn qualify_task(
             || !valid_digest(&event.evidence_digest)
             || !event_ids.insert(event.event_id.as_str())
         {
-            report.qualification.fail(format!(
-                "task {} has malformed or duplicate role-boundary event",
-                task.task_id
-            ));
+            report.role_boundary_unknown_count += 1;
+            report.role_boundary_evidence_complete = false;
+            report.role_enforcement_eligible = false;
             continue;
         }
         match event.observed {
@@ -996,6 +995,8 @@ pub fn qualify_teambench_suite(suite: &TeamBenchSuite) -> TeamBenchQualification
     report.os_isolation_eligible = suite.run_mode == TeamBenchRunMode::ModelEvaluation
         && report.condition_count == TeamBenchCondition::all().len()
         && conditions.len() == TeamBenchCondition::all().len()
+        && report.role_boundary_evidence_complete
+        && report.role_enforcement_eligible
         && TeamBenchCondition::all().iter().all(|condition| {
             conditions.get(condition).is_some_and(|run| {
                 run.execution_backend == TeamBenchExecutionBackend::DockerContainerIsolation
@@ -1439,6 +1440,19 @@ mod tests {
         assert!(report.benchmark_score_eligible);
         assert!(!report.role_enforcement_eligible);
         assert_eq!(report.role_boundary_violation_count, 1);
+    }
+
+    #[test]
+    fn malformed_role_observation_does_not_rewrite_native_benchmark_score() {
+        let mut input = suite();
+        let run = input.condition_runs.iter_mut()
+            .find(|r| r.condition == TeamBenchCondition::Full).unwrap();
+        run.tasks[0].role_boundary_events[0].evidence_digest = "bad".into();
+        let report = qualify_teambench_suite(&input);
+        assert_eq!(report.qualification.status, QualificationStatus::Pass);
+        assert!(report.benchmark_score_eligible);
+        assert!(!report.role_boundary_evidence_complete);
+        assert!(!report.role_enforcement_eligible);
     }
 
     #[test]
