@@ -6,6 +6,7 @@ on:
       - 'docs/economic/temporal/**'
       - 'tools/economic/temporal-evidence/**'
       - 'tools/economic/temporal-frontier-model/**'
+      - 'tools/economic/rfc9162-proof-verifier/**'
       - '.github/workflows/economic-temporal-evidence-structural.yml'
   push:
     branches: [main]
@@ -13,6 +14,7 @@ on:
       - 'docs/economic/temporal/**'
       - 'tools/economic/temporal-evidence/**'
       - 'tools/economic/temporal-frontier-model/**'
+      - 'tools/economic/rfc9162-proof-verifier/**'
       - '.github/workflows/economic-temporal-evidence-structural.yml'
   workflow_dispatch:
 
@@ -192,6 +194,77 @@ jobs:
             'NOT TESTED = evidence-byte digest recomputation, issuer/verifier signatures, clock calibration, Holochain persistence, or production replay.' \
             'The crate selects over caller-supplied structurally valid assertions; it does not authenticate them.'
 
+  rfc9162-proof-verifier:
+    name: RFC 9162 Merkle proof verifier exact-head qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact source revision
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'Expected source SHA: %s\n' "$EXPECTED_SHA"
+          printf 'Checked out source SHA: %s\n' "$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.96.0 --profile minimal
+
+      - name: RFC 9162 formatting
+        working-directory: tools/economic/rfc9162-proof-verifier
+        run: cargo +1.96.0 fmt --all -- --check
+
+      - name: RFC 9162 proof verifier tests
+        working-directory: tools/economic/rfc9162-proof-verifier
+        run: cargo +1.96.0 test --locked
+
+      - name: RFC 9162 Clippy
+        working-directory: tools/economic/rfc9162-proof-verifier
+        run: cargo +1.96.0 clippy --locked --all-targets -- -D warnings
+
+      - name: Execute append-only proof example
+        working-directory: tools/economic/rfc9162-proof-verifier
+        run: cargo +1.96.0 run --locked --example append_only_log
+
+  go-frontier-conformance:
+    name: Independent Go frontier conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact source revision
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'Expected source SHA: %s\n' "$EXPECTED_SHA"
+          printf 'Checked out source SHA: %s\n' "$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: tools/economic/temporal-frontier-model/conformance/go/go.mod
+          cache: false
+
+      - name: Go formatting
+        working-directory: tools/economic/temporal-frontier-model/conformance/go
+        run: |
+          test -z "$(gofmt -l .)"
+
+      - name: Independent canonical and RFC 9162 conformance
+        working-directory: tools/economic/temporal-frontier-model/conformance/go
+        run: go test -count=1 -v ./...
+
   causal-frontier-model:
     name: Rust verifier-relative causal frontier model
     runs-on: ubuntu-latest
@@ -237,7 +310,7 @@ jobs:
       - name: Report qualification boundary
         run: |
           printf '%s\n' \
-            'PASS = structural owner-cut, partial-order, coverage-gap, verifier-isolation and receipt-declaration checks.' \
-            'BENCHMARK = wide-frontier microtimings only; no industry or absolute performance claim.' \
-            'NOT TESTED = cryptographic Merkle inclusion/consistency, signature verification, authenticated completeness, or distributed persistence.' \
-            'Declared inclusion is not cryptographically verified inclusion.'
+            'PASS = owner-cut/checkpoint and receipt Merkle paths, owner consistency proofs, partial-order, gap mapping and policy isolation.' \
+            'BENCHMARK = wide-frontier microtimings include proof verification; no industry or absolute performance claim.' \
+            'NOT TESTED = signed tree-head trust, DID/key revocation, witness gossip/split-view detection, authenticated absence/completeness or distributed persistence.' \
+            'Merkle proof validity relative to a supplied root is not root authentication or authorization.'
