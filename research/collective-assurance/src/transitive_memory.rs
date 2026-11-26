@@ -19,6 +19,10 @@ fn valid_digest(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
+fn valid_scope_id(value: &str) -> bool {
+    nonempty(value) && value == value.trim() && value != "*"
+}
+
 fn push_len(out: &mut Vec<u8>, value: usize) {
     out.extend_from_slice(&(value as u64).to_be_bytes());
 }
@@ -80,7 +84,7 @@ fn validate_scope(scope: &MemoryScope) -> Result<(), String> {
         if values.is_empty()
             || values
                 .iter()
-                .any(|value| !nonempty(value) || !seen.insert(value.as_str()))
+                .any(|value| !valid_scope_id(value) || !seen.insert(value.as_str()))
         {
             return Err(format!("{label} scope must be non-empty and unique"));
         }
@@ -1131,6 +1135,21 @@ mod tests {
             qualify_transitive_memory_snapshot(&snapshot).status,
             TransitiveMemoryStatus::Pass
         );
+    }
+
+    #[test]
+    fn wildcard_and_noncanonical_scope_ids_are_rejected() {
+        let mut invalid = scope("alice", "project-a", "entity-1", 1000);
+        invalid.principals = vec!["*".into()];
+        assert!(compute_memory_scope_digest(&invalid).is_err());
+        invalid = scope("alice", "project-a", "entity-1", 1000);
+        invalid.purposes = vec!["*".into()];
+        assert!(compute_memory_scope_digest(&invalid).is_err());
+        invalid = scope("alice", "project-a", "entity-1", 1000);
+        invalid.entities = vec!["*".into()];
+        assert!(compute_memory_scope_digest(&invalid).is_err());
+        invalid = scope("alice ", "project-a", "entity-1", 1000);
+        assert!(compute_memory_scope_digest(&invalid).is_err());
     }
 
     #[test]
