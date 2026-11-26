@@ -9,7 +9,16 @@
     "test_plan_digest": "1212121212121212121212121212121212121212121212121212121212121212",
     "runner_digest": "1313131313131313131313131313131313131313131313131313131313131313",
     "snapshot_restore_capable": true,
-    "erasure_capable": true
+    "erasure_capable": true,
+    "sut_revision": "fixture-revision-2026-11-26",
+    "store_backend": "synthetic-store",
+    "store_backend_version": "0.0",
+    "runtime_version": "synthetic-runtime",
+    "runtime_libraries_digest": "1414141414141414141414141414141414141414141414141414141414141414",
+    "measurement_date": "2026-11-26",
+    "detection_point": "read",
+    "observation_point": "harness_boundary",
+    "edits_applied_while_sut_stopped": true
   },
   "controls": {
     "no_op_reload": "passed",
@@ -97,5 +106,5 @@
       "evidence_digest": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
     }
   ],
-  "run_digest": "2d4221cc62f46f398af1a4b7e8deb0b2195a9588bceadbdeb52f2f85fd30d0e7"
+  "run_digest": "26b2cd58f293dc8498e32464b9419d285ad97058ec9dda0578cd6c6d6b392423"
 }
