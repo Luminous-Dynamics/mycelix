@@ -398,18 +398,6 @@ fn expected_posterior_entropy(
     Ok(expected_entropy)
 }
 
-fn evaluate_pair(fixture: &Fixture, first: usize, second: usize) -> Result<PairScore, String> {
-    let expected_entropy =
-        expected_posterior_entropy(fixture, first, second, LikelihoodMode::JointCovariance)?;
-    let prior_entropy = entropy(&fixture.prior_probabilities);
-    Ok(PairScore {
-        first_channel_id: fixture.channels[first].channel_id.clone(),
-        second_channel_id: fixture.channels[second].channel_id.clone(),
-        expected_posterior_entropy_nats: expected_entropy,
-        expected_model_information_gain_nats: (prior_entropy - expected_entropy).max(0.0),
-    })
-}
-
 fn best_pair(fixture: &Fixture, mode: LikelihoodMode) -> Result<(usize, usize, f64), String> {
     let mut best: Option<(usize, usize, f64)> = None;
     for first in 0..fixture.channels.len() {
@@ -470,6 +458,33 @@ fn shared_offset_covariance(
             residual_variances[1] + shared_offset_variance,
         ],
     ]
+}
+
+fn log_marginal_shared_offset(
+    residuals: [f64; 2],
+    residual_variances: [f64; 2],
+    shared_offset_variance: f64,
+) -> Result<f64, String> {
+    let covariance = shared_offset_covariance(residual_variances, shared_offset_variance);
+    log_mvn_density(&residuals, &covariance)
+}
+
+fn log_shared_offset_closed_form(
+    residuals: [f64; 2],
+    residual_variances: [f64; 2],
+    shared_offset_variance: f64,
+) -> f64 {
+    let variance_one = residual_variances[0] + shared_offset_variance;
+    let variance_two = residual_variances[1] + shared_offset_variance;
+    let determinant = variance_one * variance_two - shared_offset_variance.powi(2);
+    let quadratic = (variance_two * residuals[0].powi(2)
+        - 2.0 * shared_offset_variance * residuals[0] * residuals[1]
+        + variance_one * residuals[1].powi(2))
+        / determinant;
+    -0.5
+        * (2.0 * (2.0 * std::f64::consts::PI).ln()
+            + determinant.ln()
+            + quadratic)
 }
 
 fn evaluate(fixture: &Fixture, input_sha256: String) -> Result<Report, String> {
@@ -687,6 +702,19 @@ mod tests {
                 vec![0.06, 0.04, 0.55, 1.0],
             ],
         }
+    }
+
+    #[test]
+    fn marginalized_common_offset_matches_closed_form_shared_nuisance_likelihood() {
+        let residuals = [0.17, -0.23];
+        let residual_variances = [0.04, 0.09];
+        let shared_offset_variance = 0.025;
+        let marginalized =
+            log_marginal_shared_offset(residuals, residual_variances, shared_offset_variance)
+                .unwrap();
+        let closed_form =
+            log_shared_offset_closed_form(residuals, residual_variances, shared_offset_variance);
+        assert!((marginalized - closed_form).abs() < 1.0e-12);
     }
 
     #[test]
