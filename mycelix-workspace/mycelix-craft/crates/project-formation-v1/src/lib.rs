@@ -499,6 +499,7 @@ pub fn evaluate_team(
     }
 
     let mut assignment_keys = HashSet::new();
+    let mut evidence_ids = HashSet::new();
     for assignment in &proposal.assignments {
         require_non_empty(&assignment.work_package_id)?;
         require_non_empty(&assignment.requirement_id)?;
@@ -545,7 +546,6 @@ pub fn evaluate_team(
             }
         }
 
-        let mut evidence_ids = HashSet::new();
         for evidence in &assignment.evidence {
             evidence.validate()?;
             if !evidence_ids.insert(evidence.evidence_id.as_str()) {
@@ -975,6 +975,28 @@ mod tests {
         let coverage = result(&project, &proposal);
         assert_eq!(coverage.qualified_contributors, vec!["alice"]);
         assert_eq!(coverage.disposition, RequirementDispositionV1::Uncovered);
+    }
+
+    #[test]
+    fn evidence_identifiers_cannot_be_replayed_across_contributors() {
+        let project = project(RequirementKindV1::Required, 2);
+        let mut second_evidence = evidence("bob", EvidenceDispositionV1::Qualified);
+        second_evidence.evidence_id = "evidence-alice".to_owned();
+        let proposal = proposal(
+            vec![member("alice"), member("bob")],
+            vec![
+                assignment(
+                    "alice",
+                    vec![evidence("alice", EvidenceDispositionV1::Qualified)],
+                ),
+                assignment("bob", vec![second_evidence]),
+            ],
+        );
+
+        assert_eq!(
+            evaluate_team(&project, &proposal, NOW),
+            Err(ProjectFormationErrorV1::DuplicateEvidenceId)
+        );
     }
 
     #[test]
