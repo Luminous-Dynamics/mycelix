@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use sha2::{Digest, Sha256};
 
-use super::{QualificationReport, QualificationStatus};
+use super::QualificationReport;
 
 fn nonempty(value: &str) -> bool {
     !value.trim().is_empty() && value == value.trim()
