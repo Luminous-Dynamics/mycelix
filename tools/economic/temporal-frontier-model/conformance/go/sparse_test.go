@@ -3,6 +3,7 @@ package conformance
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"strings"
 	"testing"
 )
 
@@ -201,6 +202,16 @@ func TestSparseKeyAndValueAreDomainScoped(t *testing.T) {
 	}
 	if _, err := AssertionIndexValueV1("sha256:invalid", "owner:verifier-log", 7); err == nil {
 		t.Fatal("malformed receipt digest passed")
+	}
+}
+
+func TestSparseIndexIdentifiersAreBounded(t *testing.T) {
+	tooLong := strings.Repeat("x", 1_025)
+	if _, err := AssertionIndexKeyV1("verifier", "policy", tooLong, "claim", "VALID_AT", "assertion"); err == nil {
+		t.Fatal("oversize sparse key identifier passed")
+	}
+	if _, err := AssertionIndexValueV1("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", tooLong, 1); err == nil {
+		t.Fatal("oversize sparse owner identifier passed")
 	}
 }
 
