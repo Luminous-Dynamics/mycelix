@@ -117,6 +117,7 @@ Commercial LLM evaluation, document intelligence and requirements-management ven
 - Dąbrowski et al. (2026), *Large Language Models for Requirements Engineering: A Cross-Task Empirical Evaluation*: https://arxiv.org/abs/2608.21531
 - Shefa et al. (2026), *Two Truths and A Lie? Benchmarking Off-the-Shelf LLMs for Requirements Quality Assessment*: https://arxiv.org/abs/2609.03230
 - Sabatucci et al. (2026), *A Methodology for the Systematic Evaluation of LLMs in Requirement Engineering Tasks with No Ground Truth*: https://doi.org/10.3390/systems14060598
+- Gupta, H. (2026), “Regulatory evidentiary closure as a formal framework for citation faithfulness in large language models,” *Discover Artificial Intelligence* 6, article 1919, published 20 November 2026: https://doi.org/10.1007/s44163-026-02305-w
 - W3C PROV-DM: https://www.w3.org/TR/prov-dm/
 - W3C Verifiable Credentials Data Model 2.0: https://www.w3.org/TR/vc-data-model/
 - W3C Bitstring Status List 1.0: https://www.w3.org/TR/vc-bitstring-status-list/
