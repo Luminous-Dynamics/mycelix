@@ -878,6 +878,15 @@ mod tests {
             native_grader_output_digest: Some(D5.into()),
             native_grader_disposition: Some(TeamBenchGraderDisposition::Pass),
             native_score_micros: Some(750_000),
+            resource_usage: Some(TeamBenchResourceUsage {
+                input_tokens: 100,
+                output_tokens: 50,
+                wall_clock_ms: 1_000,
+                provider_cost_micro_usd: 0,
+                tool_call_count: 3,
+                inter_agent_message_count: 1,
+                evidence_digest: D6.into(),
+            }),
             verifier_disposition: verifier_present.then_some(TeamBenchVerifierDisposition::Accept),
             role_boundary_events: vec![TeamBenchRoleBoundaryEvent {
                 event_id: format!("event-{task_id}"),
@@ -959,6 +968,10 @@ mod tests {
         assert_eq!(report.condition_count, 5);
         assert_eq!(report.eligible_task_count, 2);
         assert_eq!(report.mean_score_micros_by_condition.len(), 5);
+        assert!(report.resource_usage_complete);
+        assert_eq!(report.resource_totals_by_condition[&TeamBenchCondition::Full].input_tokens, 200);
+        assert_eq!(report.resource_totals_by_condition[&TeamBenchCondition::Full].output_tokens, 100);
+        assert_eq!(report.resource_totals_by_condition[&TeamBenchCondition::Full].wall_clock_ms, 2_000);
         assert_eq!(report.average_tni_micros, None);
         assert_eq!(report.valid_tni_task_count, 2);
         assert_eq!(report.average_team_uplift_micros, Some(0));
@@ -978,6 +991,19 @@ mod tests {
         assert!(report.mean_score_micros_by_condition.is_empty());
         assert!(report.average_tni_micros.is_none());
         assert!(report.average_team_uplift_micros.is_none());
+        assert!(report.resource_totals_by_condition.is_empty());
+    }
+
+    #[test]
+    fn resource_evidence_is_not_inferred_from_missing_task_telemetry() {
+        let mut input = suite();
+        input.condition_runs[0].tasks[0].resource_usage = None;
+        let report = qualify_teambench_suite(&input);
+        assert_eq!(report.qualification.status, QualificationStatus::Pass);
+        assert!(report.benchmark_score_eligible);
+        assert!(!report.resource_usage_complete);
+        assert_eq!(report.resource_usage_missing_or_invalid_count, 1);
+        assert!(report.resource_totals_by_condition.is_empty());
     }
 
     #[test]
@@ -1208,6 +1234,7 @@ mod tests {
             native_grader_output_digest: None,
             native_grader_disposition: None,
             native_score_micros: None,
+            resource_usage: None,
             verifier_disposition: None,
             role_boundary_events: vec![],
         };
