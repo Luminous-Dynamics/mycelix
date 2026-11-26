@@ -216,17 +216,15 @@ pub fn qualify_capability_outcomes(
         if let Some(previous) = roster_digests.insert(
             observation.team_id.as_str(),
             observation.team_roster_digest.as_str(),
-        ) {
-            if previous != observation.team_roster_digest {
-                fail(&mut report, "team roster changed across repeated measures");
-            }
+        ) && previous != observation.team_roster_digest
+        {
+            fail(&mut report, "team roster changed across repeated measures");
         }
         if let Some(previous) =
             team_sizes.insert(observation.team_id.as_str(), observation.team_size)
+            && previous != observation.team_size
         {
-            if previous != observation.team_size {
-                fail(&mut report, "team size changed across repeated measures");
-            }
+            fail(&mut report, "team size changed across repeated measures");
         }
 
         if observation.task_family_id.trim().is_empty() {
