@@ -9,3 +9,7 @@ test:
 # Check (fast)
 check:
     cargo check --workspace
+
+# Run the standalone conclusion-relative decision closure reference core
+core-decision-closure:
+    cargo test --manifest-path Cargo.toml -p craft-decision-closure-v1
