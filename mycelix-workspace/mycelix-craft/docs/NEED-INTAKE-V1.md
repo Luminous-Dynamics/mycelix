@@ -63,7 +63,7 @@ Prerequisite review roles are distinct:
 
 A role cannot replace another role. Approval by a model, proposer or generic project facilitator is not community approval.
 
-The evaluator only counts reviews that bind to the exact proposal digest and are current at evaluation time. A changed proposal digest invalidates all previous approvals. Expired, withdrawn, future-dated or differently scoped authority references must be rejected by the host before the review snapshot reaches this core.
+The evaluator only counts reviews that bind to the exact proposal digest and are current at evaluation time. Each role has at most one decision record per exact proposal digest; conflicting duplicate decisions are rejected. A RequestChanges decision blocks that role and cannot be masked by another approval on the same digest. A changed proposal digest invalidates all previous approvals. Expired, withdrawn, future-dated or differently scoped authority references must be rejected by the host before the review snapshot reaches this core.
 
 Unresolved stakeholder-priority conflicts or blocking questions produce NeedsCommunityClarification. Technical/source contradictions require appropriate domain review or recorded resolution. A missing safety review cannot be replaced by a domain review. All prerequisite reviews lead only to ReadyForLocalRatification. Only a separate LocalRatifier approval can produce Ratified.
 
