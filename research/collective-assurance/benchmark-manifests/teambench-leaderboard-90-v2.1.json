@@ -658,5 +658,14 @@
     "upstream_readme_notice": "One of the 90 leaderboard tasks is currently under re-curation; runs return a 0 score until its specification is restored. The remaining 89 are described by upstream as fully evaluable.",
     "source_url": "https://github.com/ybkim95/TeamBench/blob/d185aef1916fd86a9ba554d581fd256319a973af/README.md#L152",
     "handling": "Preserve this task in the official 90-task source manifest, but exclude it from the current 89-task executable comparison and record the exclusion in the suite run package. Re-admit only when the upstream notice/specification is updated."
+  },
+  "corpus_template_count": 851,
+  "corpus_seeded_evaluation_instance_count": 931,
+  "leaderboard_subset": {
+    "name": "TeamBench-90",
+    "declared_task_ids": 90,
+    "currently_evaluable_task_ids": 89,
+    "excluded_recuration_task_id": "GH120_redis-py_3863",
+    "distinction": "The 851 task templates and 931 seeded evaluation instances are the broader corpus. The 90 task IDs in leaderboard/data/leaderboard_90_tasks.json form a stratified leaderboard subset; they are not the full 851-template corpus."
   }
 }
