@@ -251,16 +251,15 @@ impl FederationAgreementV1 {
             if consent.terms_digest != self.terms_digest {
                 return Err(AgreementErrorV1::ConsentDigestMismatch);
             }
-            let party = self
+            let Some(party) = self
                 .parties
                 .iter()
                 .find(|party| party.institution_id == consent.institution_id)
-                .expect("party membership was checked above");
+            else {
+                return Err(AgreementErrorV1::ConsentFromNonParty);
+            };
             if consent.local_authority != party.local_authority {
                 return Err(AgreementErrorV1::LocalAuthorityMismatch);
-            }
-            if consent.accepted_at < self.effective_at {
-                return Err(AgreementErrorV1::ConsentBeforeAgreement);
             }
             if let Some(withdrawn_at) = consent.withdrawn_at {
                 if withdrawn_at < consent.accepted_at {
@@ -329,8 +328,6 @@ pub enum AgreementErrorV1 {
     ConsentDigestMismatch,
     /// Consent references a different local authority mandate.
     LocalAuthorityMismatch,
-    /// Consent predates the agreement's effective time.
-    ConsentBeforeAgreement,
     /// Withdrawal predates acceptance.
     InvalidWithdrawalTime,
     /// A local charter or decision reference is incomplete.
@@ -382,8 +379,10 @@ pub fn authorize_cooperation(
     agreement: &FederationAgreementV1,
     request: &CooperationRequestV1,
 ) -> CooperationDecisionV1 {
-    if agreement.validate().is_err()
-        || require_non_empty(&request.from_institution).is_err()
+    if agreement.validate().is_err() {
+        return CooperationDecisionV1::Denied(DenialReasonV1::InvalidAgreement);
+    }
+    if require_non_empty(&request.from_institution).is_err()
         || require_non_empty(&request.to_institution).is_err()
         || require_non_empty(&request.purpose_id).is_err()
         || require_non_empty(&request.jurisdiction_id).is_err()
@@ -544,7 +543,7 @@ mod tests {
             agreement_id: "federation-agreement-1".to_owned(),
             revision: 1,
             terms_digest: [5; 32],
-            effective_at: 1,
+            effective_at: 5,
             expires_at: 100,
             parties: vec![party("institution-a"), party("institution-b")],
             scopes: vec![scope()],
@@ -629,8 +628,21 @@ mod tests {
 
         assert_eq!(
             authorize_cooperation(&agreement, &request("institution-a", "institution-b")),
-            CooperationDecisionV1::Denied(DenialReasonV1::InvalidRequest)
+            CooperationDecisionV1::Denied(DenialReasonV1::InvalidAgreement)
         );
+    }
+
+    #[test]
+    fn consent_may_be_collected_before_the_agreement_effective_time() {
+        let mut agreement = agreement();
+        agreement.effective_at = 5;
+        agreement.consents[0].accepted_at = 1;
+        agreement.consents[1].accepted_at = 2;
+
+        assert!(matches!(
+            authorize_cooperation(&agreement, &request("institution-a", "institution-b")),
+            CooperationDecisionV1::Authorized { .. }
+        ));
     }
 
     #[test]
