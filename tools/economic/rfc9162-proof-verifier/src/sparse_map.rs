@@ -110,6 +110,7 @@ pub fn assertion_index_key_v1(
     subject_ref: &str,
     claim_id: &str,
     dimension: &str,
+    assertion_ref: &str,
 ) -> Result<SparseKeyV1, SparseMerkleErrorV1> {
     let mut bytes = KEY_DOMAIN.to_vec();
     append_string(&mut bytes, verifier_ref)?;
@@ -117,6 +118,7 @@ pub fn assertion_index_key_v1(
     append_string(&mut bytes, subject_ref)?;
     append_string(&mut bytes, claim_id)?;
     append_string(&mut bytes, dimension)?;
+    append_string(&mut bytes, assertion_ref)?;
     Ok(hash(&bytes))
 }
 
