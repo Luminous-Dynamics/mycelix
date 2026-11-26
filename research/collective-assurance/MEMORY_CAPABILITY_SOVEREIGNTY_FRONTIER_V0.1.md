@@ -18,6 +18,18 @@ The initial enum supports NoMemory, BM25, DenseVector, HDC, HDC+CFC, hybrid spar
 
 Every run records exact source commit/artifact digest, memory representation, indexing/update policy and architecture configuration. NativeUnrestricted is an explicit policy class, not an official AML division. An OfficialDivisionCompatible run requires a separate policy qualification receipt.
 
+## Causal exposure composition
+
+MCSF does not implement a second generation-input signature, replay guard, or evidence ledger. It consumes Mycelix [#6700 — signed generation-input exposure receipts](https://github.com/Luminous-Dynamics/mycelix/pull/6700), which binds generation/request/responder/purpose/model/prompt/nonce, exact payload digest and ordered evidence inventory, and reuses the existing #6619 signature-verifier and replay-guard interfaces.
+
+The MCSF task observations then measure a different downstream distinction:
+
+- **retrieved:** the memory candidate was returned by the retrieval system;
+- **consumed:** the exact item appears in the independently observed model-input witness;
+- **influential:** a paired counterfactual replay attributes a measurable decision/task-output difference to the item.
+
+The ordering invariant is `retrieved >= consumed >= influential`. #6700's receipt qualifies what was present at the generation-input boundary; it does not by itself prove attention, causal influence, or answer correctness. Influence requires a separate, preregistered counterfactual replay report. MCSF references both receipts and replay artifacts rather than promoting either into a truth oracle.
+
 ## Non-compensatory output vector
 
 Each architecture scorecard separately reports:
