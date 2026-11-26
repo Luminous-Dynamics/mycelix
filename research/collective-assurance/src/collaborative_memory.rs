@@ -213,6 +213,7 @@ pub struct CollabMemoryQualificationReport {
     pub unauthorized_role_routes: u64,
     pub provenance_mismatches: u64,
     pub authority_conflicts: u64,
+    pub retention_policy_violations: u64,
     pub stale_memory_uses: u64,
     pub post_revocation_uses: u64,
     pub derived_descendant_uses_after_revocation: u64,
@@ -488,6 +489,7 @@ struct CollabSecurityCounts {
     unauthorized_role_routes: u64,
     provenance_mismatches: u64,
     authority_conflicts: u64,
+    retention_policy_violations: u64,
     stale_memory_uses: u64,
     post_revocation_uses: u64,
     derived_descendant_uses_after_revocation: u64,
@@ -639,6 +641,13 @@ fn compare_probe(
             derived_descendant_used_after_revocation,
             ..
         } => {
+            if !expected_retained && *observed_retained {
+                counts.retention_policy_violations += 1;
+                hard_failure(
+                    report,
+                    format!("{} retained a memory beyond its declared retention boundary", probe.probe_id),
+                );
+            }
             if *stale_memory_used {
                 counts.stale_memory_uses += 1;
                 hard_failure(
@@ -713,6 +722,7 @@ pub fn qualify_collab_memory_run(
         unauthorized_role_routes: 0,
         provenance_mismatches: 0,
         authority_conflicts: 0,
+        retention_policy_violations: 0,
         stale_memory_uses: 0,
         post_revocation_uses: 0,
         derived_descendant_uses_after_revocation: 0,
@@ -819,7 +829,7 @@ pub fn qualify_collab_memory_run(
             result.metric_evaluable = false;
         }
         if let Some(score) = result.scores.get_mut(&competency) {
-            if result.run_digest == compute_collab_memory_run_digest(run).unwrap_or_default()
+            if result.metric_evaluable
                 && score.observed_probe_count > 0
                 && !group_incomplete.contains(&competency)
             {
@@ -838,16 +848,17 @@ pub fn qualify_collab_memory_run(
     result.unauthorized_role_routes = security_counts.unauthorized_role_routes;
     result.provenance_mismatches = security_counts.provenance_mismatches;
     result.authority_conflicts = security_counts.authority_conflicts;
+    result.retention_policy_violations = security_counts.retention_policy_violations;
     result.stale_memory_uses = security_counts.stale_memory_uses;
     result.post_revocation_uses = security_counts.post_revocation_uses;
     result.derived_descendant_uses_after_revocation =
         security_counts.derived_descendant_uses_after_revocation;
-    result.reasons = result.qualification.reasons.clone();
     if !result.metric_evaluable && result.qualification.status != QualificationStatus::Fail {
         result.qualification.indeterminate(
             "collaborative-memory scorecard has missing or incomplete competency evidence",
         );
     }
+    result.reasons = result.qualification.reasons.clone();
     result
 }
 
@@ -1085,6 +1096,21 @@ mod tests {
 
         assert_eq!(result.qualification.status, QualificationStatus::Fail);
         assert_eq!(result.authority_conflicts, 1);
+    }
+
+    #[test]
+    fn memory_retained_beyond_its_declared_boundary_is_a_hard_failure() {
+        let mut probes = six_probes();
+        if let CollabMemoryEvidence::Retention {
+            observed_retained, ..
+        } = &mut probes[5].evidence
+        {
+            *observed_retained = true;
+        }
+        let result = qualify_collab_memory_run(&run(CollabMemoryEvidenceClass::ObservedRun, probes));
+
+        assert_eq!(result.qualification.status, QualificationStatus::Fail);
+        assert_eq!(result.retention_policy_violations, 1);
     }
 
     #[test]
