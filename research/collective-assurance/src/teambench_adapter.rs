@@ -1132,6 +1132,53 @@ mod tests {
     }
 
     #[test]
+    fn canonical_task_manifest_is_order_independent_and_detects_mutation() {
+        let mut input = suite();
+        let original_task_digest = input.task_manifest_digest.clone();
+        let original_exclusion_digest = input.excluded_task_manifest_digest.clone();
+
+        input.eligible_task_ids.reverse();
+        input.excluded_tasks.reverse();
+        assert_eq!(
+            compute_teambench_excluded_manifest_digest(&input.excluded_tasks).unwrap(),
+            original_exclusion_digest
+        );
+        assert_eq!(
+            compute_teambench_task_manifest_digest(
+                &input.upstream_commit,
+                &input.task_manifest_path,
+                &input.task_manifest_blob_sha,
+                &input.re_curation_notice_path,
+                &input.re_curation_notice_blob_sha,
+                &input.eligible_task_ids,
+                &input.excluded_tasks,
+            )
+            .unwrap(),
+            original_task_digest
+        );
+
+        input.eligible_task_ids[0] = "mutated-task-id".into();
+        assert_eq!(
+            qualify_teambench_suite(&input).qualification.status,
+            QualificationStatus::Fail
+        );
+
+        let mut input = suite();
+        input.excluded_tasks[0].reason = "silently changed exclusion reason".into();
+        assert_eq!(
+            qualify_teambench_suite(&input).qualification.status,
+            QualificationStatus::Fail
+        );
+
+        let mut input = suite();
+        input.upstream_commit = "a".repeat(40);
+        assert_eq!(
+            qualify_teambench_suite(&input).qualification.status,
+            QualificationStatus::Fail
+        );
+    }
+
+    #[test]
     fn complete_pinned_model_suite_is_score_eligible() {
         let report = qualify_teambench_suite(&suite());
         assert_eq!(report.qualification.status, QualificationStatus::Pass);
