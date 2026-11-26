@@ -826,4 +826,106 @@ mod tests {
         assert_eq!(report.status, FactorialQualificationStatus::Pass);
         assert_eq!(report.observations[7].rights_provenance_gate, FactorialGateOutcome::Fail);
     }
+    fn second_block(source_group: &str) -> FactorialBlock {
+        let mut block = valid_block();
+        block.block.block_id = "block-002".into();
+        block.block.source_group_id = source_group.into();
+        block.block.task_id = "task-002".into();
+        block.block.task_digest = digest('e');
+        block.block.initial_candidate_pool_digest = digest('8');
+        block.block.initial_retrieval_seed_digest = digest('9');
+        let block_identity = block.block.clone();
+        for (index, arm) in block.arms.iter_mut().enumerate() {
+            arm.block = block_identity.clone();
+            arm.run_id = format!("second-run-{index}");
+        }
+        block
+    }
+
+    #[test]
+    fn multi_block_tournament_requires_complete_eight_arm_blocks_and_passes() {
+        let tournament = FactorialTournament {
+            plan: FactorialStudyPlan {
+                study_id: "inquiry-rer-acb-v0.1".into(),
+                expected_block_ids: vec!["block-001".into(), "block-002".into()],
+                minimum_source_groups: 2,
+            },
+            blocks: vec![valid_block(), second_block("group-002")],
+        };
+        let report = qualify_factorial_tournament(&tournament);
+        assert_eq!(report.status, FactorialQualificationStatus::Pass, "{:?}", report.reasons);
+        assert_eq!(report.qualified_block_count, 2);
+        assert_eq!(report.independent_source_group_count, 2);
+        assert_eq!(report.qualified_arm_count, 16);
+    }
+
+    #[test]
+    fn missing_scheduled_block_is_indeterminate() {
+        let tournament = FactorialTournament {
+            plan: FactorialStudyPlan {
+                study_id: "inquiry-rer-acb-v0.1".into(),
+                expected_block_ids: vec!["block-001".into(), "block-002".into()],
+                minimum_source_groups: 2,
+            },
+            blocks: vec![valid_block()],
+        };
+        let report = qualify_factorial_tournament(&tournament);
+        assert_eq!(report.status, FactorialQualificationStatus::Indeterminate);
+    }
+
+    #[test]
+    fn repeated_source_group_does_not_inflate_independent_cluster_count() {
+        let tournament = FactorialTournament {
+            plan: FactorialStudyPlan {
+                study_id: "inquiry-rer-acb-v0.1".into(),
+                expected_block_ids: vec!["block-001".into(), "block-002".into()],
+                minimum_source_groups: 2,
+            },
+            blocks: vec![valid_block(), second_block("group-001")],
+        };
+        let report = qualify_factorial_tournament(&tournament);
+        assert_eq!(report.status, FactorialQualificationStatus::Indeterminate);
+        assert_eq!(report.independent_source_group_count, 1);
+    }
+
+    #[test]
+    fn unexpected_block_identity_fails() {
+        let mut block = valid_block();
+        block.block.block_id = "unregistered-block".into();
+        let block_identity = block.block.clone();
+        for arm in &mut block.arms {
+            arm.block = block_identity.clone();
+        }
+        let tournament = FactorialTournament {
+            plan: FactorialStudyPlan {
+                study_id: "inquiry-rer-acb-v0.1".into(),
+                expected_block_ids: vec!["block-001".into()],
+                minimum_source_groups: 1,
+            },
+            blocks: vec![block],
+        };
+        assert_eq!(
+            qualify_factorial_tournament(&tournament).status,
+            FactorialQualificationStatus::Fail
+        );
+    }
+
+    #[test]
+    fn invalid_arm_block_fails_tournament() {
+        let mut block = valid_block();
+        block.arms[0].study.model_snapshot_digest = digest('0');
+        let tournament = FactorialTournament {
+            plan: FactorialStudyPlan {
+                study_id: "inquiry-rer-acb-v0.1".into(),
+                expected_block_ids: vec!["block-001".into()],
+                minimum_source_groups: 1,
+            },
+            blocks: vec![block],
+        };
+        assert_eq!(
+            qualify_factorial_tournament(&tournament).status,
+            FactorialQualificationStatus::Fail
+        );
+    }
+
 }
