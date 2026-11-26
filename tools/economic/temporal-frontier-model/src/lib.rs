@@ -16,8 +16,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use mycelix_rfc9162_proof_verifier::{
-    Hash32, empty_tree_hash, sha256, verify_consistency_proof,
-    verify_entry_inclusion_proof,
+    Hash32, consistency_proof, empty_tree_hash, inclusion_proof, sha256,
+    tree_hash, verify_consistency_proof, verify_entry_inclusion_proof,
 };
 
 const MAX_ID_BYTES: usize = 1_024;
@@ -154,6 +154,7 @@ pub enum FrontierModelErrorV1 {
     InvalidReceiptProof,
     InvalidConsistencyProof,
     ReceiptDigestMismatch,
+    EmptyOwnerDomain,
 }
 
 impl OwnerCutV1 {
@@ -222,6 +223,10 @@ impl VerifierFrontierV1 {
             }
         }
 
+        if self.owner_cuts.is_empty() {
+            return Err(FrontierModelErrorV1::EmptyOwnerDomain);
+        }
+
         let mut owners = BTreeSet::new();
         let mut checkpoint_indices = BTreeSet::new();
         for cut in &self.owner_cuts {
@@ -238,7 +243,9 @@ impl VerifierFrontierV1 {
             if !checkpoint_indices.insert(cut.checkpoint_inclusion.leaf_index) {
                 return Err(FrontierModelErrorV1::DuplicateOwnerCut);
             }
-            let entry = canonical_owner_cut_entry_v1(cut)?;
+            let entry = canonical_owner_cut_entry_v1(
+                cut, &self.verifier_ref, &self.policy_epoch_ref,
+            )?;
             let checkpoint_root = parse_digest(&self.checkpoint_root_digest)?;
             verify_entry_inclusion_proof(
                 &entry,
@@ -523,13 +530,19 @@ impl KnowledgeReceiptV1 {
 /// Inclusion-proof metadata is excluded to avoid self-reference.
 pub fn canonical_owner_cut_entry_v1(
     cut: &OwnerCutV1,
+    verifier_ref: &str,
+    policy_epoch_ref: &str,
 ) -> Result<Vec<u8>, FrontierModelErrorV1> {
     validate_id(&cut.owner_ref)?;
     validate_id(&cut.history_ref)?;
+    validate_id(verifier_ref)?;
+    validate_id(policy_epoch_ref)?;
     validate_digest(&cut.root_digest)?;
     let gap_count = u32::try_from(cut.gaps.len())
         .map_err(|_| FrontierModelErrorV1::TextTooLong)?;
     let mut bytes = b"MYCELIX-OWNER-CUT-V1\0".to_vec();
+    append_string(&mut bytes, verifier_ref)?;
+    append_string(&mut bytes, policy_epoch_ref)?;
     append_string(&mut bytes, &cut.owner_ref)?;
     append_string(&mut bytes, &cut.history_ref)?;
     bytes.extend_from_slice(&cut.sequence.to_be_bytes());
