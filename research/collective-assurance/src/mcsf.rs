@@ -204,6 +204,11 @@ pub struct McsfArchitectureScorecard {
     pub utility_by_task_family_micros: BTreeMap<String, u32>,
     /// Paired utility deltas against NoMemory, stratified by the same task families.
     pub utility_delta_by_task_family_vs_no_memory_micros: BTreeMap<String, i64>,
+    /// Deterministic paired bootstrap percentile interval (2.5%, 97.5%).
+    /// None when fewer than two paired tasks are available.
+    pub mean_utility_delta_95ci_vs_no_memory_micros: Option<(i64, i64)>,
+    pub utility_delta_95ci_by_task_family_vs_no_memory_micros:
+        BTreeMap<String, (i64, i64)>,
     pub authorized_task_success_count: usize,
     pub unauthorized_content_disclosures: u64,
     pub forbidden_metadata_inferences: u64,
@@ -324,6 +329,35 @@ pub fn compute_mcsf_control_digest(suite: &McsfSuiteManifest) -> Result<String, 
     Ok(sha256_hex(&bytes))
 }
 
+fn deterministic_bootstrap_ci95(values: &[i64], seed_material: &str) -> Option<(i64, i64)> {
+    if values.len() < 2 {
+        return None;
+    }
+
+    let digest = Sha256::digest(seed_material.as_bytes());
+    let mut state = u64::from_be_bytes(digest[..8].try_into().ok()?).max(1);
+    let mut means = Vec::with_capacity(10_000);
+
+    for _ in 0..10_000 {
+        let mut sum = 0i128;
+        for _ in 0..values.len() {
+            // xorshift64*: fixed local PRNG seeded by the matched manifest and
+            // architecture. It is for reproducible resampling, not security.
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            let index = (state as usize) % values.len();
+            sum += i128::from(values[index]);
+        }
+        means.push((sum / values.len() as i128) as i64);
+    }
+
+    means.sort_unstable();
+    let lower = means[(means.len() - 1) * 25 / 1_000];
+    let upper = means[(means.len() - 1) * 975 / 1_000];
+    Some((lower, upper))
+}
+
 fn valid_optional_digest(value: Option<&str>) -> bool {
     value.is_some_and(valid_digest)
 }
@@ -339,6 +373,8 @@ fn empty_scorecard(
         mean_utility_score_micros: None,
         utility_by_task_family_micros: BTreeMap::new(),
         utility_delta_by_task_family_vs_no_memory_micros: BTreeMap::new(),
+        mean_utility_delta_95ci_vs_no_memory_micros: None,
+        utility_delta_95ci_by_task_family_vs_no_memory_micros: BTreeMap::new(),
         authorized_task_success_count: 0,
         unauthorized_content_disclosures: 0,
         forbidden_metadata_inferences: 0,
@@ -727,7 +763,7 @@ pub fn qualify_mcsf_suite(
             let candidate = task_score_maps.get(&card.architecture);
             if let Some(candidate) = candidate {
                 let mut deltas = Vec::new();
-                let mut family_deltas = BTreeMap::<String, (i128, usize)>::new();
+                let mut family_deltas = BTreeMap::<String, (i128, usize, Vec<i64>)>::new();
                 for (task_id, (family, score)) in candidate {
                     if let Some((baseline_family, baseline_score)) = baseline.get(task_id) {
                         if family != baseline_family {
@@ -742,6 +778,7 @@ pub fn qualify_mcsf_suite(
                         let family_total = family_deltas.entry(family.clone()).or_default();
                         family_total.0 += i128::from(delta);
                         family_total.1 += 1;
+                        family_total.2.push(delta);
                     }
                 }
                 card.paired_task_count_vs_no_memory = deltas.len();
@@ -749,11 +786,27 @@ pub fn qualify_mcsf_suite(
                     let sum: i128 = deltas.iter().map(|delta| i128::from(*delta)).sum();
                     card.mean_utility_delta_vs_no_memory_micros =
                         Some((sum / deltas.len() as i128) as i64);
+                    let seed = format!(
+                        "MCSF-PAIRED-UTILITY-CI95-V0.1:{control_digest}:{:?}:overall",
+                        card.architecture
+                    );
+                    card.mean_utility_delta_95ci_vs_no_memory_micros =
+                        deterministic_bootstrap_ci95(&deltas, &seed);
                 }
-                for (family, (sum, count)) in family_deltas {
+                for (family, (sum, count, family_values)) in family_deltas {
                     if count > 0 {
                         card.utility_delta_by_task_family_vs_no_memory_micros
-                            .insert(family, (sum / count as i128) as i64);
+                            .insert(family.clone(), (sum / count as i128) as i64);
+                        let seed = format!(
+                            "MCSF-PAIRED-UTILITY-CI95-V0.1:{control_digest}:{:?}:{family}",
+                            card.architecture
+                        );
+                        if let Some(interval) =
+                            deterministic_bootstrap_ci95(&family_values, &seed)
+                        {
+                            card.utility_delta_95ci_by_task_family_vs_no_memory_micros
+                                .insert(family, interval);
+                        }
                     }
                 }
             }
@@ -946,6 +999,47 @@ mod tests {
         assert!(card.mean_utility_delta_vs_no_memory_micros.unwrap() > 0);
         assert!(card.utility_delta_by_task_family_vs_no_memory_micros["fact_recall"] > 0);
         assert!(card.utility_delta_by_task_family_vs_no_memory_micros["temporal_reasoning"] < 0);
+    }
+
+    #[test]
+    fn paired_bootstrap_intervals_are_deterministic_and_stratified() {
+        let mut input = suite();
+        input.expected_task_ids = (1..=6).map(|i| format!("task-{i}")).collect();
+
+        let mut baseline = run(McsfArchitecture::NoMemory, &input, 500_000);
+        let mut hdc = run(McsfArchitecture::HdcCfc, &input, 600_000);
+        for i in 3..=6 {
+            let mut baseline_task = task(&format!("task-{i}"), 500_000);
+            let mut hdc_task = task(&format!("task-{i}"), 600_000);
+            let family = if i <= 4 { "fact_recall" } else { "temporal_reasoning" };
+            baseline_task.task_family = family.into();
+            hdc_task.task_family = family.into();
+            baseline_task.utility_score_micros = Some(480_000 + i * 1_000);
+            hdc_task.utility_score_micros = Some(560_000 + i * 2_000);
+            baseline.task_observations.push(baseline_task);
+            hdc.task_observations.push(hdc_task);
+        }
+        for run in [&mut baseline, &mut hdc] {
+            for observation in &mut run.task_observations[..2] {
+                observation.task_family = "fact_recall".into();
+            }
+        }
+
+        let first = qualify_mcsf_suite(&input, &[baseline.clone(), hdc.clone()]);
+        let second = qualify_mcsf_suite(&input, &[baseline, hdc]);
+        let card = first.scorecards.iter()
+            .find(|card| card.architecture == McsfArchitecture::HdcCfc).unwrap();
+        assert_eq!(
+            card.mean_utility_delta_95ci_vs_no_memory_micros,
+            Some((second.scorecards.iter()
+                .find(|card| card.architecture == McsfArchitecture::HdcCfc).unwrap()
+                .mean_utility_delta_95ci_vs_no_memory_micros).unwrap())
+        );
+        assert!(card.mean_utility_delta_95ci_vs_no_memory_micros.is_some());
+        assert_eq!(
+            card.utility_delta_95ci_by_task_family_vs_no_memory_micros.len(),
+            2
+        );
     }
 
     #[test]
