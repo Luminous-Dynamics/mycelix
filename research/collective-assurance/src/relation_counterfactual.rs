@@ -29,7 +29,7 @@ fn unique_nonempty(values: &[String]) -> bool {
         .all(|value| nonempty(value) && seen.insert(value.as_str()))
 }
 
-const RELATION_GRAPH_DOMAIN: &[u8] = b"MYCELIX-RELATION-GRAPH-V0.1\\0";
+const RELATION_GRAPH_DOMAIN: &[u8] = b"MYCELIX-RELATION-GRAPH-V0.1\0";
 
 fn push_len(out: &mut Vec<u8>, value: usize) {
     out.extend_from_slice(&(value as u64).to_be_bytes());
