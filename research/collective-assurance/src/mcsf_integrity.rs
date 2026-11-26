@@ -456,6 +456,27 @@ pub fn qualify_mcsf_integrity_run(
     let mut profiles = BTreeMap::new();
     let mut counts = (0usize, 0usize, 0usize, 0usize, 0usize);
     let mut metric_evaluable = true;
+    let mut protocol_valid = true;
+
+    if !run.manifest.edits_applied_while_sut_stopped {
+        qualification.fail("the SUT was not stopped during storage-layer edits");
+        protocol_valid = false;
+    }
+    let boundary_valid = matches!(
+        (run.manifest.detection_point, run.manifest.observation_point),
+        (
+            McsfIntegrityDetectionPoint::Read,
+            McsfIntegrityObservationPoint::HarnessBoundary
+                | McsfIntegrityObservationPoint::ClientSdkBoundary
+        ) | (
+            McsfIntegrityDetectionPoint::Audit,
+            McsfIntegrityObservationPoint::DutReported
+        )
+    );
+    if !boundary_valid {
+        qualification.fail("detection point and observation boundary are not a valid IETF result pair");
+        protocol_valid = false;
+    }
 
     let commitment_valid = match compute_mcsf_integrity_run_digest(run) {
         Ok(expected) if expected == run.run_digest => true,
@@ -647,6 +668,26 @@ pub fn qualify_mcsf_integrity_run(
                     continue;
                 };
 
+                let outcome_matches_detection_point = match outcome {
+                    McsfIntegrityOutcome::RejectedAtRead
+                    | McsfIntegrityOutcome::ReportedAtRead => {
+                        run.manifest.detection_point == McsfIntegrityDetectionPoint::Read
+                    }
+                    McsfIntegrityOutcome::AuditOnly => {
+                        run.manifest.detection_point == McsfIntegrityDetectionPoint::Audit
+                    }
+                    McsfIntegrityOutcome::Accepted | McsfIntegrityOutcome::Unknown => true,
+                };
+                if !outcome_matches_detection_point {
+                    qualification.fail(format!(
+                        "{} outcome conflicts with the run's detection point",
+                        case.code()
+                    ));
+                    metric_evaluable = false;
+                    increment_profile(&mut profiles, case, ProfileIncrement::Unevaluable);
+                    continue;
+                }
+
                 match outcome {
                     McsfIntegrityOutcome::RejectedAtRead
                     | McsfIntegrityOutcome::ReportedAtRead => {
@@ -752,9 +793,18 @@ mod tests {
                 evidence_class: McsfIntegrityEvidenceClass::ObservedRun,
                 sut_id: "memory-sut-test".to_owned(),
                 sut_version: "1.2.3".to_owned(),
+                sut_revision: "git:0123456789abcdef".to_owned(),
+                store_backend: "sqlite".to_owned(),
+                store_backend_version: "3.x".to_owned(),
+                runtime_version: "rust-1.96.0".to_owned(),
+                runtime_libraries_digest: digest(14),
                 storage_configuration_digest: digest(11),
                 test_plan_digest: digest(12),
                 runner_digest: digest(13),
+                measurement_date: "2026-11-26".to_owned(),
+                detection_point: McsfIntegrityDetectionPoint::Read,
+                observation_point: McsfIntegrityObservationPoint::HarnessBoundary,
+                edits_applied_while_sut_stopped: true,
                 snapshot_restore_capable,
                 erasure_capable,
             },
