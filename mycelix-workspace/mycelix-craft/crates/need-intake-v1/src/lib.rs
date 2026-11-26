@@ -313,6 +313,8 @@ pub struct ReviewRefV1 {
     pub valid_until: Option<u64>,
     /// Optional effective withdrawal time.
     pub withdrawn_at: Option<u64>,
+    /// Alternative selected by the local ratifier; never set by a model/reviewer.
+    pub selected_alternative_id: Option<String>,
 }
 
 /// Immutable proposed decomposition. A changed digest requires new reviews.
@@ -393,6 +395,10 @@ pub enum NeedIntakeErrorV1 {
     InvalidReview,
     /// A safety-critical requirement lacks a mandatory safety review path.
     SafetyReviewRequired,
+    /// Only the local ratifier may select an existing alternative on approval.
+    InvalidSelectedAlternative,
+    /// The proposal has not reached a valid local ratification state.
+    NotRatified,
     /// Proposal lacks a minimum project structure.
     EmptyProposalStructure,
     /// A declared baseline is blank or padded.
@@ -665,6 +671,23 @@ pub fn validate_proposal(proposal: &NeedProposalV1) -> Result<(), NeedIntakeErro
         require_digest(&review.proposal_digest)?;
         if !reviewed_roles.insert((review.role, review.proposal_digest)) {
             return Err(NeedIntakeErrorV1::DuplicateIdentifier);
+        }
+        match (review.role, review.decision, &review.selected_alternative_id) {
+            (ReviewRoleV1::LocalRatifier, ReviewDecisionV1::Approve, Some(selected)) => {
+                if !proposal.alternatives.iter().any(|item| &item.alternative_id == selected) {
+                    return Err(NeedIntakeErrorV1::InvalidSelectedAlternative);
+                }
+            }
+            (ReviewRoleV1::LocalRatifier, ReviewDecisionV1::Approve, None)
+                if !proposal.alternatives.is_empty() =>
+            {
+                return Err(NeedIntakeErrorV1::InvalidSelectedAlternative);
+            }
+            (ReviewRoleV1::LocalRatifier, _, Some(_)) => {
+                return Err(NeedIntakeErrorV1::InvalidSelectedAlternative);
+            }
+            (_, _, Some(_)) => return Err(NeedIntakeErrorV1::InvalidSelectedAlternative),
+            _ => {}
         }
         if review.valid_until.map(|t| t < review.reviewed_at).unwrap_or(false)
             || review.withdrawn_at.map(|t| t < review.reviewed_at).unwrap_or(false)
@@ -1064,6 +1087,13 @@ mod tests {
             reviewed_at: 10,
             valid_until: None,
             withdrawn_at: None,
+            selected_alternative_id: if role == ReviewRoleV1::LocalRatifier
+                && decision == ReviewDecisionV1::Approve
+            {
+                Some("incremental-repair".to_owned())
+            } else {
+                None
+            },
         }
     }
 
