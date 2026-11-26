@@ -566,6 +566,7 @@ mod tests {
         case.paired_gain.lower_bound = -0.12;
         case.paired_gain.point_estimate = -0.08;
         case.paired_gain.upper_bound = -0.03;
+        case.coordinated.task_quality = 0.62;
         let result = qualify_coordination_trial(&contract(), &case);
         assert_eq!(result.disposition, CoordinationDisposition::SingleAgentPreferred);
     }
@@ -576,6 +577,7 @@ mod tests {
         case.paired_gain.lower_bound = -0.02;
         case.paired_gain.point_estimate = 0.03;
         case.paired_gain.upper_bound = 0.07;
+        case.coordinated.task_quality = 0.73;
         let result = qualify_coordination_trial(&contract(), &case);
         assert_eq!(result.disposition, CoordinationDisposition::Inconclusive);
     }
