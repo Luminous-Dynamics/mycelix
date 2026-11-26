@@ -825,6 +825,21 @@ mod tests {
     }
 
     #[test]
+    fn canonical_control_digest_matches_the_checked_in_three_architecture_vector() {
+        let mut input = suite();
+        input.suite_id = "mcsf-textual-pilot-v0.1".into();
+        input.expected_architectures = vec![
+            McsfArchitecture::NoMemory,
+            McsfArchitecture::Bm25Sparse,
+            McsfArchitecture::HdcCfc,
+        ];
+        assert_eq!(
+            compute_mcsf_control_digest(&input).unwrap(),
+            "1ea6cdc28afb3e75f970e0c1e2fa45de06449b2617be2e8ef34984dd8d5c8b55"
+        );
+    }
+
+    #[test]
     fn complete_matched_suite_emits_a_vector_and_paired_utility_delta() {
         let input = suite();
         let runs = vec![
