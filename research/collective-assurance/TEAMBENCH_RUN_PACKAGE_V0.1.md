@@ -28,6 +28,19 @@ False acceptance is counted when the separate Verifier accepts a submission that
 
 Role-boundary events bind the role, exact boundary ID, policy's expected allow/deny disposition, independently observed outcome and evidence digest. An observed allow on a deny boundary is a hard failure. An incomplete boundary inventory or unknown observation is INDETERMINATE. A blocked action that policy allowed is reported as a false denial rather than hidden inside the violation count.
 
+## Exact upstream score composition
+
+The adapter preserves each task's native partial score on a fixed-point millionths scale and reproduces the formulas in upstream `harness/compute_tni.py`:
+
+- Necessity gap: `Oracle − Restricted`.
+- Per-task TNI: `clamp((Full − Restricted) / (Oracle − Restricted), −2, 2)`; omit when the absolute necessity gap is below 0.05.
+- Aggregate TNI: average only the per-task TNI values whose necessity gap is greater than 0.05, matching the upstream `to_json` aggregation.
+- Team uplift: `Full − Restricted`; team-helps count uses uplift greater than 0.01.
+- Collaboration efficiency: `(Full − Restricted) / Oracle`, or zero when Oracle is below 0.01.
+- Planning value: `Full − TeamNoPlan`; verification value: `Full − TeamNoVerify`; preserve the upstream missing-value convention when both component scores are zero.
+
+Mock-provider smoke and incomplete suites expose **no aggregate score or TNI fields**. Fixed-point rounding can differ from the upstream Python float representation by at most a small final-digit amount; the raw native partial scores remain preserved for independent recomputation.
+
 ## Comparison rules
 
 The adapter does not compute a universal TeamBench score. Preserve the native task score and Team Necessity Index where provided, then report per-condition and paired outcomes, solo-performance strata, verifier false accept/reject, role-boundary violations, missing verdicts, tokens, wall-clock latency, inter-agent messages, compute and total monetary cost separately.
