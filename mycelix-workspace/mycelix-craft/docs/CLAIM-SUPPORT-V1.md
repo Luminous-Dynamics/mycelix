@@ -29,6 +29,7 @@ Each claim support packet contains:
 - per-dimension qualifier comparison;
 - assessor kind, identity, method/version, model digest where machine-produced;
 - assessment digest and assessment validity;
+- a claim-specific maximum assessment-age window that cannot be disabled;
 - independent review records binding to the exact assessment digest;
 - qualified reviewer role, local authority reference, decision, validity and withdrawal.
 
