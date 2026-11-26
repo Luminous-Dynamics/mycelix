@@ -505,7 +505,21 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          changed_rust_files="$(git diff --name-only "$BASE_SHA" "$EXPECTED_HEAD_SHA" -- mycelix-workspace/mycelix-craft/apps/leptos | grep -E '\\.rs
+          changed_files="$(git diff --name-only "$BASE_SHA" "$EXPECTED_HEAD_SHA" -- mycelix-workspace/mycelix-craft/apps/leptos)"
+          if [ -z "$changed_files" ]; then
+            echo "No changed Craft UI files; skipping only the file-format check."
+            exit 0
+          fi
+          status=0
+          while IFS= read -r file; do
+            case "$file" in
+              *.rs)
+                echo "Checking $file"
+                rustfmt --edition 2021 --check "$file" || status=1
+                ;;
+            esac
+          done <<< "$changed_files"
+          exit "$status"
       - name: Test Craft UI and matching contracts
         run: cargo test --manifest-path mycelix-workspace/Cargo.toml -p mycelix-craft-ui
       - name: Clippy Craft UI
