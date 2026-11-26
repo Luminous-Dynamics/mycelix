@@ -32,10 +32,11 @@ pub use generation_exposure::{
     GenerationInputExposureClaims,
 };
 pub use factorial_assurance::{
-    qualify_factorial_block, FactorialArmObservation, FactorialArmRun, FactorialBlock,
-    FactorialBlockIdentity, FactorialGateOutcome, FactorialOutcome,
-    FactorialQualificationReport, FactorialQualificationStatus, FactorialStudyIdentity,
-    FactorialTreatment, TreatmentExecutionReceipt,
+    qualify_factorial_block, qualify_factorial_tournament, FactorialArmObservation,
+    FactorialArmRun, FactorialBlock, FactorialBlockIdentity, FactorialGateOutcome,
+    FactorialOutcome, FactorialQualificationReport, FactorialQualificationStatus,
+    FactorialStudyIdentity, FactorialStudyPlan, FactorialTournament,
+    FactorialTournamentReport, FactorialTreatment, TreatmentExecutionReceipt,
 };
 pub use relation_counterfactual::{
     compute_relation_graph_digest, qualify_relation_counterfactual, RecordedGateOutcome,
