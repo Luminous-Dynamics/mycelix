@@ -164,12 +164,15 @@ fn main() {
         "frontier:crossed",
         vec![grants_20.clone(), payments_10.clone()],
     );
+    let opposite = frontier(
+        "frontier:opposite",
+        vec![grants_10.clone(), payments_20.clone()],
+    );
     let later = frontier(
         "frontier:later",
         vec![grants_20.clone(), payments_20.clone()],
     );
 
-    let grant_link = consistency_link_from_entries("owner:grants", &grant_log, 10);
     let payment_link = consistency_link("owner:payments", 10, 20);
 
     println!(
@@ -177,8 +180,14 @@ fn main() {
         early.compare(&later, &[grant_link.clone(), payment_link.clone()])
     );
     println!(
-        "early_vs_crossed={:?}",
-        early.compare(&crossed, &[grant_link])
+        "crossed_vs_opposite={:?}",
+        crossed.compare(
+            &opposite,
+            &[
+                consistency_link_from_entries("owner:grants", &grant_log, 10),
+                consistency_link("owner:payments", 10, 20),
+            ]
+        )
     );
 
     let governance_3 = owner_cut("owner:governance", 3);
@@ -255,10 +264,10 @@ fn main() {
         Ok(FrontierRelationV1::Before)
     );
     assert_eq!(
-        early.compare(
-            &crossed,
+        crossed.compare(
+            &opposite,
             &[
-                consistency_link("owner:grants", 10, 20),
+                consistency_link_from_entries("owner:grants", &grant_log, 10),
                 consistency_link("owner:payments", 10, 20),
             ]
         ),
