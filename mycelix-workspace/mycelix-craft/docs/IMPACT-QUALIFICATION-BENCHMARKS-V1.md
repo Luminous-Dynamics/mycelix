@@ -44,7 +44,7 @@ Do not compare VEX to general evidence sufficiency as though they solve the same
 - 0 high-consequence reliance while UnderInvestigation.
 - 0 false invalidations when a valid predeclared alternative support set remains sufficient.
 - 0 k-of-n quorum inflation from duplicated IDs or shared independence groups.
-- 100% correctness over exhaustive four-candidate support masks and all k values against an independent oracle.
+- 100% correctness over all 625 four-candidate evidence-state assignments for AllOf and AnyOf rules, plus every k value against an independent oracle.
 - 100% deterministic replay across independent implementations.
 
 These are frozen-corpus goals, not universal risk guarantees or achieved results.
