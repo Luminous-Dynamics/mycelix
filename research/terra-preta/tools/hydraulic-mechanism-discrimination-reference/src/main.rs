@@ -724,8 +724,7 @@ fn next_candidate_after_observation(
     first_candidate_index: usize,
     observation: f64,
 ) -> Result<(Option<usize>, f64, Vec<f64>, bool), String> {
-    let posterior =
-        posterior_from_prior(fixture, prior, &[first_candidate_index], &[observation]);
+    let posterior = posterior_from_prior(fixture, prior, &[first_candidate_index], &[observation]);
     let discrepancy_abstained =
         should_abstain_closed_set(fixture, &[first_candidate_index], &[observation])?;
     if discrepancy_abstained {
@@ -740,12 +739,8 @@ fn next_candidate_after_observation(
     let remaining_budget = fixture
         .acquisition_budget
         .saturating_sub(fixture.candidates[first_candidate_index].cost);
-    let (next_candidate, terminal_loss) = best_second_stage(
-        fixture,
-        &posterior,
-        first_candidate_index,
-        remaining_budget,
-    );
+    let (next_candidate, terminal_loss) =
+        best_second_stage(fixture, &posterior, first_candidate_index, remaining_budget);
     Ok((next_candidate, terminal_loss, posterior, false))
 }
 
@@ -768,11 +763,16 @@ fn evaluate_first_candidate(
 
     for (true_mechanism_index, mechanism) in fixture.mechanisms.iter().enumerate() {
         for (node, quadrature_weight) in GH_NODES.iter().zip(GH_WEIGHTS.iter()) {
-            let observation =
-                first_candidate.expected_observable_by_mechanism[true_mechanism_index]
-                    + first_candidate.noise_std * node;
+            let observation = first_candidate.expected_observable_by_mechanism
+                [true_mechanism_index]
+                + first_candidate.noise_std * node;
             let (next_candidate, conditional_terminal_loss, posterior, discrepancy_abstained) =
-                next_candidate_after_observation(fixture, &prior, first_candidate_index, observation)?;
+                next_candidate_after_observation(
+                    fixture,
+                    &prior,
+                    first_candidate_index,
+                    observation,
+                )?;
             let joint_probability_mass = mechanism.prior_probability * quadrature_weight;
             expected_terminal_decision_loss += joint_probability_mass * conditional_terminal_loss;
 
@@ -1631,13 +1631,8 @@ mod tests {
             .map(|mechanism| mechanism.prior_probability)
             .collect();
 
-        let (next_candidate, _, _, abstained) = next_candidate_after_observation(
-            &f,
-            &prior,
-            upper,
-            out_of_family_observation,
-        )
-        .unwrap();
+        let (next_candidate, _, _, abstained) =
+            next_candidate_after_observation(&f, &prior, upper, out_of_family_observation).unwrap();
 
         assert!(abstained);
         assert!(next_candidate.is_none());
