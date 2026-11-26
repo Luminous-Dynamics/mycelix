@@ -1,0 +1,274 @@
+{
+  "suite": {
+    "suite_id": "mcsf-textual-pilot-v0.1",
+    "track": "textual",
+    "task_manifest_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+    "scenario_manifest_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "evaluator_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+    "answer_model_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+    "prompt_config_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+    "toolset_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+    "hardware_profile_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+    "budget_profile_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "seed": 42,
+    "retrieval_top_k": 10,
+    "context_window_tokens": 16384,
+    "per_task_token_budget": 8000,
+    "per_task_wall_clock_budget_ms": 120000,
+    "per_task_compute_budget_millijoules": 500000,
+    "expected_task_ids": [
+      "task-1",
+      "task-2"
+    ],
+    "expected_architectures": [
+      "no_memory",
+      "bm25_sparse",
+      "hdc_cfc"
+    ]
+  },
+  "runs": [
+    {
+      "run_id": "mcsf-no_memory-pilot-001",
+      "control_digest": "1ea6cdc28afb3e75f970e0c1e2fa45de06449b2617be2e8ef34984dd8d5c8b55",
+      "architecture": {
+        "architecture": "no_memory",
+        "policy_class": "native_unrestricted",
+        "system_id": "mycelix-no_memory",
+        "system_version": "0.1.0",
+        "system_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "system_artifact_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+        "memory_representation_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "index_update_policy_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+        "architecture_config_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+        "official_policy_receipt_digest": null
+      },
+      "evidence_references": {
+        "privacy_trace_report_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "revocation_report_digest": null,
+        "model_input_witness_report_digest": null,
+        "role_enforcement_report_digest": null,
+        "causal_replay_report_digest": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "task_observations": [
+        {
+          "task_id": "task-1",
+          "task_family": "fact_recall",
+          "state": "evaluated",
+          "utility_score_micros": 500000,
+          "authorized_task_pass": true,
+          "unauthorized_content_disclosures": 0,
+          "forbidden_metadata_inferences": 0,
+          "revocation_expected_descendants": 0,
+          "revocation_reconciled_descendants": 0,
+          "revocation_unknown_descendants": 0,
+          "retrieved_memory_count": 0,
+          "model_input_consumed_count": 0,
+          "decision_influential_count": 0,
+          "causal_evidence_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "resource_usage": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "memory_storage_bytes": 0,
+            "index_write_time_ms": 0,
+            "search_time_ms": 0,
+            "wall_clock_ms": 1000,
+            "energy_millijoules": 100,
+            "provider_cost_micro_usd": 10,
+            "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+          },
+          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "task_id": "task-2",
+          "task_family": "fact_recall",
+          "state": "evaluated",
+          "utility_score_micros": 510000,
+          "authorized_task_pass": true,
+          "unauthorized_content_disclosures": 0,
+          "forbidden_metadata_inferences": 0,
+          "revocation_expected_descendants": 0,
+          "revocation_reconciled_descendants": 0,
+          "revocation_unknown_descendants": 0,
+          "retrieved_memory_count": 0,
+          "model_input_consumed_count": 0,
+          "decision_influential_count": 0,
+          "causal_evidence_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "resource_usage": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "memory_storage_bytes": 0,
+            "index_write_time_ms": 0,
+            "search_time_ms": 0,
+            "wall_clock_ms": 1000,
+            "energy_millijoules": 100,
+            "provider_cost_micro_usd": 10,
+            "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+          },
+          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+        }
+      ]
+    },
+    {
+      "run_id": "mcsf-bm25_sparse-pilot-001",
+      "control_digest": "1ea6cdc28afb3e75f970e0c1e2fa45de06449b2617be2e8ef34984dd8d5c8b55",
+      "architecture": {
+        "architecture": "bm25_sparse",
+        "policy_class": "native_unrestricted",
+        "system_id": "mycelix-bm25_sparse",
+        "system_version": "0.1.0",
+        "system_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "system_artifact_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+        "memory_representation_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+        "index_update_policy_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+        "architecture_config_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+        "official_policy_receipt_digest": null
+      },
+      "evidence_references": {
+        "privacy_trace_report_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "revocation_report_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+        "model_input_witness_report_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+        "role_enforcement_report_digest": null,
+        "causal_replay_report_digest": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "task_observations": [
+        {
+          "task_id": "task-1",
+          "task_family": "fact_recall",
+          "state": "evaluated",
+          "utility_score_micros": 550000,
+          "authorized_task_pass": true,
+          "unauthorized_content_disclosures": 0,
+          "forbidden_metadata_inferences": 0,
+          "revocation_expected_descendants": 2,
+          "revocation_reconciled_descendants": 2,
+          "revocation_unknown_descendants": 0,
+          "retrieved_memory_count": 3,
+          "model_input_consumed_count": 2,
+          "decision_influential_count": 1,
+          "causal_evidence_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "resource_usage": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "memory_storage_bytes": 10000,
+            "index_write_time_ms": 20,
+            "search_time_ms": 5,
+            "wall_clock_ms": 1000,
+            "energy_millijoules": 100,
+            "provider_cost_micro_usd": 10,
+            "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+          },
+          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "task_id": "task-2",
+          "task_family": "fact_recall",
+          "state": "evaluated",
+          "utility_score_micros": 560000,
+          "authorized_task_pass": true,
+          "unauthorized_content_disclosures": 0,
+          "forbidden_metadata_inferences": 0,
+          "revocation_expected_descendants": 2,
+          "revocation_reconciled_descendants": 2,
+          "revocation_unknown_descendants": 0,
+          "retrieved_memory_count": 3,
+          "model_input_consumed_count": 2,
+          "decision_influential_count": 1,
+          "causal_evidence_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "resource_usage": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "memory_storage_bytes": 10000,
+            "index_write_time_ms": 20,
+            "search_time_ms": 5,
+            "wall_clock_ms": 1000,
+            "energy_millijoules": 100,
+            "provider_cost_micro_usd": 10,
+            "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+          },
+          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+        }
+      ]
+    },
+    {
+      "run_id": "mcsf-hdc_cfc-pilot-001",
+      "control_digest": "1ea6cdc28afb3e75f970e0c1e2fa45de06449b2617be2e8ef34984dd8d5c8b55",
+      "architecture": {
+        "architecture": "hdc_cfc",
+        "policy_class": "native_unrestricted",
+        "system_id": "mycelix-hdc_cfc",
+        "system_version": "0.1.0",
+        "system_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "system_artifact_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+        "memory_representation_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+        "index_update_policy_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+        "architecture_config_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+        "official_policy_receipt_digest": null
+      },
+      "evidence_references": {
+        "privacy_trace_report_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "revocation_report_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+        "model_input_witness_report_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+        "role_enforcement_report_digest": null,
+        "causal_replay_report_digest": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "task_observations": [
+        {
+          "task_id": "task-1",
+          "task_family": "fact_recall",
+          "state": "evaluated",
+          "utility_score_micros": 600000,
+          "authorized_task_pass": true,
+          "unauthorized_content_disclosures": 0,
+          "forbidden_metadata_inferences": 0,
+          "revocation_expected_descendants": 2,
+          "revocation_reconciled_descendants": 2,
+          "revocation_unknown_descendants": 0,
+          "retrieved_memory_count": 3,
+          "model_input_consumed_count": 2,
+          "decision_influential_count": 1,
+          "causal_evidence_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "resource_usage": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "memory_storage_bytes": 10000,
+            "index_write_time_ms": 20,
+            "search_time_ms": 5,
+            "wall_clock_ms": 1000,
+            "energy_millijoules": 100,
+            "provider_cost_micro_usd": 10,
+            "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+          },
+          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "task_id": "task-2",
+          "task_family": "fact_recall",
+          "state": "evaluated",
+          "utility_score_micros": 610000,
+          "authorized_task_pass": true,
+          "unauthorized_content_disclosures": 0,
+          "forbidden_metadata_inferences": 0,
+          "revocation_expected_descendants": 2,
+          "revocation_reconciled_descendants": 2,
+          "revocation_unknown_descendants": 0,
+          "retrieved_memory_count": 3,
+          "model_input_consumed_count": 2,
+          "decision_influential_count": 1,
+          "causal_evidence_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "resource_usage": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "memory_storage_bytes": 10000,
+            "index_write_time_ms": 20,
+            "search_time_ms": 5,
+            "wall_clock_ms": 1000,
+            "energy_millijoules": 100,
+            "provider_cost_micro_usd": 10,
+            "evidence_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+          },
+          "evidence_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+        }
+      ]
+    }
+  ]
+}
