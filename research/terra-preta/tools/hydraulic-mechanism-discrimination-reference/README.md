@@ -25,9 +25,9 @@ For discrete mechanism identity $M$ and a design's noisy observations $Y_D$:
 - **Model discrimination:** $I(M;Y_D)=H(M)-E_{Y_D}[H(M\mid Y_D)]$.
 - **Parameter precision:** worst-case scalar Fisher information for log total conductance, using the supplied physical derivative and declared observation noise.
 - **Held-out predictive information gain:** $I(Y_D;Y_*) = I(M;Y_*) - E_{Y_D}[I(M;Y_*\mid Y_D)]$, the information acquired observations provide about a future late-transient observable $Y_*$. This is an EPIG-style predictive criterion, not a reproduction of the UAI 2026 estimator.
-- **Decision value:** not yet implemented; it requires a named downstream action, loss matrix and decision threshold. It must not be inferred from model entropy.
+- **Decision value:** expected value of sample information (EVSI) for an explicit downstream action/loss matrix. For prior model probabilities and loss matrix `L(a,m)`, EVSI is `min_a E[L(a,M)] - E_Y[min_a E[L(a,M)|Y]`. This is an operational objective, not a synonym for model information gain.
 
-The benchmark reports posterior model entropy, expected classification accuracy, Brier score and model log loss alongside information objectives.
+The benchmark reports posterior model entropy, expected classification accuracy, Brier score and model log loss alongside information objectives. The fixture declares three downstream actions with distinct losses for balanced flow, preferential-path flow and delayed storage; the report independently enumerates the best EVSI design.
 
 ## Deterministic numerical method
 
@@ -76,7 +76,7 @@ This is a small oracle, not an SOTA claim. The next benchmark should compare, at
 3. Finite-ensemble maximin D/E design (see [#6664](https://github.com/Luminous-Dynamics/mycelix/pull/6664)).
 4. Expected model information gain / classification-based discrimination.
 5. Held-out predictive information gain / EPIG-style utility on future observables, with the estimator and conditioning target stated precisely.
-6. Decision-focused expected value of sample information, with preregistered decisions and losses.
+6. Decision-focused EVSI using the declared action/loss matrix, followed by matched alternate loss matrices and regret calibration.
 7. Faithful maximin robust Bayesian design with its KL ambiguity-set, Sibson-$\alpha$-MI and PAC-Bayes assumptions reproduced.
 
 Relevant current literature includes:
