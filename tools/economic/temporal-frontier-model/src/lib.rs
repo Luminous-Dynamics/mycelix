@@ -15,7 +15,13 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use mycelix_rfc9162_proof_verifier::{
+    Hash32, empty_tree_hash, sha256, verify_consistency_proof,
+    verify_entry_inclusion_proof,
+};
+
 const MAX_ID_BYTES: usize = 1_024;
+const MAX_PROOF_NODES: usize = 65;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SequenceRangeV1 {
@@ -27,6 +33,9 @@ pub struct SequenceRangeV1 {
 pub struct CheckpointInclusionDeclarationV1 {
     pub checkpoint_root_digest: String,
     pub owner_root_digest: String,
+    pub leaf_index: u64,
+    pub tree_size: u64,
+    pub inclusion_path: Vec<Hash32>,
     pub proof_ref: String,
 }
 
@@ -68,9 +77,9 @@ pub struct OwnerPositionV1 {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReceiptInclusionDeclarationV1 {
     pub owner_root_digest: String,
-    pub receipt_leaf_digest: String,
     pub leaf_index: u64,
     pub tree_size: u64,
+    pub inclusion_path: Vec<Hash32>,
     pub proof_ref: String,
 }
 
@@ -96,6 +105,9 @@ pub struct OwnerConsistencyLinkV1 {
     pub history_ref: String,
     pub ancestor_root_digest: String,
     pub descendant_root_digest: String,
+    pub first_tree_size: u64,
+    pub second_tree_size: u64,
+    pub consistency_path: Vec<Hash32>,
     pub consistency_proof_ref: String,
 }
 
@@ -111,9 +123,9 @@ pub enum FrontierRelationV1 {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ReceiptVisibilityV1 {
-    /// Receipt leaf and owner root references agree structurally. This does
-    /// NOT mean that a cryptographic proof was checked.
-    DeclaredIncluded,
+    /// RFC 9162 SHA-256 inclusion proof verified against the supplied
+    /// owner-history root. The root itself must still be authenticated.
+    MerkleInclusionVerified,
     /// Frontier coverage is complete through its cut, and the receipt's
     /// sequence is strictly beyond that cut.
     NotKnown,
@@ -137,6 +149,10 @@ pub enum FrontierModelErrorV1 {
     InvalidCausalDependency,
     InvalidReceiptSequence,
     InvalidInclusionDeclaration,
+    InvalidCheckpointProof,
+    InvalidReceiptProof,
+    InvalidConsistencyProof,
+    ReceiptDigestMismatch,
 }
 
 impl OwnerCutV1 {
@@ -147,7 +163,12 @@ impl OwnerCutV1 {
         validate_digest(&self.checkpoint_inclusion.checkpoint_root_digest)?;
         validate_digest(&self.checkpoint_inclusion.owner_root_digest)?;
         validate_id(&self.checkpoint_inclusion.proof_ref)?;
-        if self.checkpoint_inclusion.owner_root_digest != self.root_digest {
+        if self.checkpoint_inclusion.owner_root_digest != self.root_digest
+            || self.checkpoint_inclusion.tree_size == 0
+            || self.checkpoint_inclusion.leaf_index
+                >= self.checkpoint_inclusion.tree_size
+            || self.checkpoint_inclusion.inclusion_path.len() > MAX_PROOF_NODES
+        {
             return Err(FrontierModelErrorV1::InvalidInclusionDeclaration);
         }
 
@@ -201,16 +222,45 @@ impl VerifierFrontierV1 {
         }
 
         let mut owners = BTreeSet::new();
+        let mut checkpoint_indices = BTreeSet::new();
         for cut in &self.owner_cuts {
             cut.validate()?;
             if cut.checkpoint_inclusion.checkpoint_root_digest
                 != self.checkpoint_root_digest
+                || cut.checkpoint_inclusion.tree_size != self.owner_cuts.len() as u64
             {
                 return Err(FrontierModelErrorV1::InvalidInclusionDeclaration);
             }
             if !owners.insert(cut.owner_ref.as_str()) {
                 return Err(FrontierModelErrorV1::DuplicateOwnerCut);
             }
+            if !checkpoint_indices.insert(cut.checkpoint_inclusion.leaf_index) {
+                return Err(FrontierModelErrorV1::DuplicateOwnerCut);
+            }
+            let entry = canonical_owner_cut_entry_v1(cut)?;
+            let checkpoint_root = parse_digest(&self.checkpoint_root_digest)?;
+            verify_entry_inclusion_proof(
+                &entry,
+                cut.checkpoint_inclusion.leaf_index,
+                cut.checkpoint_inclusion.tree_size,
+                &cut.checkpoint_inclusion.inclusion_path,
+                &checkpoint_root,
+            )
+            .map_err(|_| FrontierModelErrorV1::InvalidCheckpointProof)?;
+        }
+        if checkpoint_indices.len() != self.owner_cuts.len()
+            || checkpoint_indices
+                .iter()
+                .copied()
+                .enumerate()
+                .any(|(expected, actual)| expected as u64 != actual)
+        {
+            return Err(FrontierModelErrorV1::InvalidCheckpointProof);
+        }
+        if self.owner_cuts.is_empty()
+            && parse_digest(&self.checkpoint_root_digest)? != empty_tree_hash()
+        {
+            return Err(FrontierModelErrorV1::InvalidCheckpointProof);
         }
         Ok(())
     }
@@ -414,11 +464,20 @@ impl KnowledgeReceiptV1 {
 
         if let Some(witness) = &self.inclusion {
             validate_digest(&witness.owner_root_digest)?;
-            validate_digest(&witness.receipt_leaf_digest)?;
             validate_id(&witness.proof_ref)?;
-            if witness.tree_size == 0 || witness.leaf_index >= witness.tree_size {
+            if witness.tree_size == 0
+                || witness.leaf_index >= witness.tree_size
+                || witness.inclusion_path.len() > MAX_PROOF_NODES
+            {
                 return Err(FrontierModelErrorV1::InvalidInclusionDeclaration);
             }
+        }
+        let expected_digest = format!(
+            "sha256:{}",
+            hex_lower(&sha256(&canonical_knowledge_receipt_entry_v1(self)?))
+        );
+        if expected_digest != self.receipt_digest {
+            return Err(FrontierModelErrorV1::ReceiptDigestMismatch);
         }
         Ok(())
     }
