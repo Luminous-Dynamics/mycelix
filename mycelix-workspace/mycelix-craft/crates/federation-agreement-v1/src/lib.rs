@@ -599,6 +599,53 @@ mod tests {
     }
 
     #[test]
+    fn exhaustive_three_party_graphs_authorize_only_declared_direct_edges() {
+        let parties = ["institution-a", "institution-b", "institution-c"];
+        let pairs = [
+            (0usize, 1usize),
+            (0, 2),
+            (1, 0),
+            (1, 2),
+            (2, 0),
+            (2, 1),
+        ];
+
+        for mask in 0u8..(1u8 << pairs.len()) {
+            let mut agreement = agreement();
+            agreement.parties = parties.iter().map(|id| party(id)).collect();
+            agreement.consents = parties.iter().map(|id| consent(id)).collect();
+            agreement.edges = pairs
+                .iter()
+                .enumerate()
+                .filter_map(|(index, (from, to))| {
+                    if mask & (1u8 << index) != 0 {
+                        Some(edge(
+                            parties[*from],
+                            parties[*to],
+                            &format!("edge-{index}"),
+                        ))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            for (index, (from, to)) in pairs.iter().enumerate() {
+                let expected = mask & (1u8 << index) != 0;
+                let decision = authorize_cooperation(
+                    &agreement,
+                    &request(parties[*from], parties[*to]),
+                );
+                assert_eq!(
+                    matches!(decision, CooperationDecisionV1::Authorized { .. }),
+                    expected,
+                    "unexpected authorization for mask={mask:#08b}, edge={from}->{to}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn same_federation_membership_without_direct_edge_is_not_trust() {
         let mut agreement = agreement();
         agreement.parties.push(party("institution-c"));
