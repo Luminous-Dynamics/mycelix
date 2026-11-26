@@ -504,9 +504,16 @@ fn validate_add_operation(
         report,
     );
 
-    if operation.attempts.is_empty() || operation.attempts.len() > release.max_add_attempts {
+    if operation.attempts.is_empty() {
+        report.qualification.indeterminate(format!(
+            "Add operation {} has no captured attempts",
+            operation.request_id
+        ));
+        return;
+    }
+    if operation.attempts.len() > release.max_add_attempts {
         report.qualification.fail(format!(
-            "Add operation {} has no attempts or exceeds retry limit",
+            "Add operation {} exceeds the release retry limit",
             operation.request_id
         ));
         return;
@@ -580,12 +587,6 @@ fn validate_add_operation(
                 ));
             }
         }
-    }
-    if !success_seen && operation.attempts.is_empty() {
-        report.qualification.indeterminate(format!(
-            "Add operation {} has no captured attempts",
-            operation.request_id
-        ));
     }
     report.add_retry_count += operation.attempts.len().saturating_sub(1);
 }
@@ -1273,6 +1274,28 @@ mod tests {
             qualify_aml_run(&input, &release()).qualification.status,
             QualificationStatus::Fail
         );
+    }
+
+    #[test]
+    fn exhausted_add_attempts_are_a_known_api_failure() {
+        let mut input = valid_run();
+        let attempt = &mut input.add_operations[0].attempts[0];
+        attempt.http_status = 503;
+        attempt.persisted_before_success_response = false;
+        attempt.persistence_receipt_digest = None;
+        attempt.persistence_receipt = None;
+        let report = qualify_aml_run(&input, &release());
+        assert!(!report.api_contract_eligible);
+        assert_eq!(report.qualification.status, QualificationStatus::Fail);
+    }
+
+    #[test]
+    fn missing_add_attempt_inventory_is_indeterminate() {
+        let mut input = valid_run();
+        input.add_operations[0].attempts.clear();
+        let report = qualify_aml_run(&input, &release());
+        assert!(!report.api_contract_eligible);
+        assert_eq!(report.qualification.status, QualificationStatus::Indeterminate);
     }
 
     #[test]
