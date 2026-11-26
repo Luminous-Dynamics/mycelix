@@ -2,12 +2,12 @@
   "suite_id": "teambench-mock-smoke-001",
   "run_mode": "mock_provider_smoke",
   "upstream_repository": "https://github.com/ybkim95/TeamBench",
-  "upstream_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "benchmark_version": "pinned-source-fixture-v0.1",
+  "upstream_commit": "d185aef1916fd86a9ba554d581fd256319a973af",
+  "benchmark_version": "2.1",
   "dataset_manifest_digest": "1111111111111111111111111111111111111111111111111111111111111111",
-  "task_manifest_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+  "task_manifest_digest": "86cbbc8e45971fcb1ab06a5025cca5ba8d7f73c942432758d683beaf63fdb211",
   "native_grader_digest": "3333333333333333333333333333333333333333333333333333333333333333",
-  "excluded_task_manifest_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+  "excluded_task_manifest_digest": "eb9f79da47a74f9b869a72f61227593b5055b35b6f469a727d8ca16c662e0f55",
   "eligible_task_ids": [
     "task-001"
   ],
@@ -213,5 +213,9 @@
       "execution_backend": "in_process_tool_boundary",
       "runtime_manifest_digest": null
     }
-  ]
+  ],
+  "task_manifest_path": "leaderboard/data/leaderboard_90_tasks.json",
+  "task_manifest_blob_sha": "59125b3fa9a82eede1f5a832c51c2ba32f5af591",
+  "re_curation_notice_path": "README.md",
+  "re_curation_notice_blob_sha": "6c39b66fed83c52f397c2d3b4f84e7bafe854061"
 }
