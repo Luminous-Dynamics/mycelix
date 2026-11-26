@@ -15,10 +15,11 @@ mod response_audit;
 mod support_policy;
 
 pub use aml_adapter::{
-    qualify_aml_run, AmlAddAttempt, AmlAddOperation, AmlComponentIdentity,
-    AmlComponentKind, AmlContentPart, AmlDivision, AmlIngestionMode,
-    AmlModelPolicy, AmlQualificationReport, AmlReleaseContract, AmlRunEvidence,
-    AmlRunManifest, AmlRunMode, AmlSearchCandidate, AmlSearchOperation, AmlTrack,
+    compute_aml_persistence_receipt_digest, qualify_aml_run, AmlAddAttempt,
+    AmlAddOperation, AmlComponentIdentity, AmlComponentKind, AmlContentPart,
+    AmlDivision, AmlIngestionMode, AmlModelPolicy, AmlPersistenceReceipt,
+    AmlQualificationReport, AmlReleaseContract, AmlRunEvidence, AmlRunManifest,
+    AmlRunMode, AmlSearchCandidate, AmlSearchOperation, AmlTrack,
 };
 pub use coordination::{
     qualify_coordination_trial, CoordinationArchitecture, CoordinationDisposition,
