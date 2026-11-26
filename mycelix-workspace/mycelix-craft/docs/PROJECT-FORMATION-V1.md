@@ -48,7 +48,7 @@ A qualification reference matches only when all the following are equal to the r
 6. valid-from and valid-until interval at the evaluation time;
 7. host-supplied disposition is Qualified.
 
-Context mismatch, stale status, revocation, disputes and missing evidence never become qualified coverage. Disputed evidence requires human review. A different person's evidence is rejected as a structural error.
+Context mismatch, not-yet-valid or expired status, revocation, disputes and missing evidence never become qualified coverage. The evaluator distinguishes future-valid evidence from expired/revoked evidence in its explanation. Disputed evidence requires human review. A different person's evidence is rejected as a structural error.
 
 The crate validates a trusted snapshot. It does not authenticate signatures, issuer authority, statutory licences, adopted charters or revocation registries. These must be verified by the host and owning systems before evaluation.
 
