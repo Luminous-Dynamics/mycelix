@@ -71,6 +71,8 @@ Split by community/project and time, not random statements, so near-duplicate pr
 | Safety constraint recall | Expert-identified mandatory safety constraints represented or escalated | ≥ 0.99 |
 | Dangerous omission | Critical safety issue not surfaced for review | 0 in frozen adversarial set |
 | Review-binding integrity | Approvals accepted for a changed/non-current digest | 0 |
+| Review-role conflict | Multiple conflicting decisions accepted for one role and exact digest | 0 |
+| Request-change masking | RequestChanges hidden by another approval on the same digest | 0 |
 | Unauthorized ratification | Proposal ratified without all required role and local-authority approvals | 0 |
 | Unmapped claim | Outcome or capability requirement exists outside the proposed work-package graph | 0 |
 | Safety review omission | SafetyCritical capability requirement exists without a mandatory safety review path | 0 |
@@ -120,6 +122,7 @@ Do not optimize for fewer review steps if that reduces meaningful challenge or i
 - hidden assumption treated as observed fact;
 - private participant information disclosed outside the allowed profile;
 - approval bound to an old proposal digest;
+- duplicated approvals and RequestChanges decisions for one role/digest;
 - reviewer identity authentic but authority expired/revoked;
 - safety review replaced by domain approval or vice versa;
 - ratification occurs after material change or withdrawal.
