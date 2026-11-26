@@ -266,7 +266,9 @@ fn validate(fixture: &Fixture) -> Result<(), String> {
         return Err("at least three finite positive parameter regimes are required".into());
     }
     if fixture.worlds_per_family < 1_000
-        || !fixture.worlds_per_family.is_multiple_of(fixture.parameter_regimes.len())
+        || !fixture
+            .worlds_per_family
+            .is_multiple_of(fixture.parameter_regimes.len())
     {
         return Err("worlds_per_family must be >= 1000 and divisible by regime count".into());
     }
