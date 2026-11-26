@@ -72,6 +72,9 @@ Split by community/project and time, not random statements, so near-duplicate pr
 | Dangerous omission | Critical safety issue not surfaced for review | 0 in frozen adversarial set |
 | Review-binding integrity | Approvals accepted for a changed/non-current digest | 0 |
 | Review-role conflict | Multiple conflicting decisions accepted for one role and exact digest | 0 |
+| Empty project structure | Ratification of a proposal without an outcome or work package | 0 |
+| Baseline integrity | Blank declared baseline treated as an unknown baseline | 0 |
+| Conflict-resolution authority | Resolved contradiction accepted without decision digest and authority ref | 0 |
 | Request-change masking | RequestChanges hidden by another approval on the same digest | 0 |
 | Unauthorized ratification | Proposal ratified without all required role and local-authority approvals | 0 |
 | Unmapped claim | Outcome or capability requirement exists outside the proposed work-package graph | 0 |
@@ -122,6 +125,8 @@ Do not optimize for fewer review steps if that reduces meaningful challenge or i
 - hidden assumption treated as observed fact;
 - private participant information disclosed outside the allowed profile;
 - approval bound to an old proposal digest;
+- empty proposal structure or blank baseline;
+- contradiction "resolved" using only an unauthenticated decision identifier;
 - duplicated approvals and RequestChanges decisions for one role/digest;
 - reviewer identity authentic but authority expired/revoked;
 - safety review replaced by domain approval or vice versa;
