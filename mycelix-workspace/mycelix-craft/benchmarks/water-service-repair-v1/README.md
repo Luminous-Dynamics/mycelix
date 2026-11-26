@@ -4,7 +4,9 @@ This folder contains a frozen, synthetic-only adversarial corpus for the prospec
 
 - `manifest.json` records public baseline sources, their periods and claim limitations.
 - `integration-map.json` maps each case to existing Mycelix semantic owners; it deliberately avoids a duplicate generic evidence/currentness service.
-- `cases.json` contains twelve synthetic known-answer cases.
+- `cases.json` contains fifteen synthetic known-answer cases.
+
+The published 48-hour burst KPI definition is ambiguous: the 2025/26 business plan defines it as on-site response initiated, not necessarily completed repair. The benchmark therefore separates first response, repair completion, pressure restoration and water-quality release instead of treating them as one clock. It also covers statutory alternative supply during interruptions over 48 hours and extended-supply monitoring after one week.
 
 All area references, event IDs, evidence IDs, digests and source groups are synthetic placeholders. The fixtures do not contain real household locations, asset coordinates, staff names or private municipal data.
 
