@@ -626,6 +626,51 @@
           "TANKER_DELIVERY_RECORDS_INCOMPLETE"
         ]
       }
+    },
+    {
+      "case_id": "WSR-016",
+      "title": "Published 48-hour burst KPI label and operational definition are not directly comparable",
+      "input": {
+        "zone_ref": "AGGREGATE-PUBLIC-METRIC-NO-GEOGRAPHIC-IDENTIFIERS",
+        "context_digest": "1616161616161616161616161616161616161616161616161616161616161616",
+        "metric_reconciliation": true,
+        "published_metrics": [
+          {
+            "source_id": "PUB-JW-IAR-2024-25-P64",
+            "reporting_period": "2024-07-01/2025-06-30",
+            "label": "water bursts restored within 48 hours",
+            "value_percent": 70.35,
+            "target_percent": 85,
+            "metric_definition": "annual report achievement statement"
+          },
+          {
+            "source_id": "PUB-JW-BP-2025-26-P83-P95",
+            "reporting_period": "baseline labelled 2023/24; target for FY2025/26",
+            "label": "percentage water bursts restored within 48 hours of notification",
+            "value_percent": 67.46,
+            "target_percent": 90,
+            "operational_definition": "someone is on site and has initiated a process of resolving the matter within 48 hours; this does not mean the callout was resolved"
+          }
+        ],
+        "required_separate_measures": [
+          "first_response_within_48_hours",
+          "repair_work_completed_within_48_hours",
+          "independent_pressure_restoration_time",
+          "water_quality_clearance_time",
+          "local_authority_closure_time"
+        ]
+      },
+      "expected": {
+        "metric_comparability": "not_established",
+        "first_response_and_repair_completion": "distinct_measures",
+        "annual_result_and_business_plan_baseline": "different_periods_and_definition_sources",
+        "disposition": "measurement_reconciliation_required",
+        "reason_codes": [
+          "KPI_LABEL_AND_OPERATIONAL_DEFINITION_CONFLICT",
+          "REPORTING_PERIODS_DIFFER",
+          "RESPONSE_IS_NOT_RESOLUTION"
+        ]
+      }
     }
   ]
 }
