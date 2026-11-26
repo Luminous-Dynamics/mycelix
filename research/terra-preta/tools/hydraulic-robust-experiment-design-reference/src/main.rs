@@ -1181,7 +1181,8 @@ mod tests {
                 }
             }
         }
-        rescaled_fixture.determinant_regularizer *= scale_squared;
+        // The determinant regularizer is dimensionless and relative; it is not
+        // transformed with the physical parameter units.
 
         let rescaled = analyze(&rescaled_fixture, "b".repeat(64)).unwrap();
         assert_eq!(
