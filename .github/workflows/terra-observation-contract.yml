@@ -1,0 +1,37 @@
+name: Terra Preta observation operator contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/tools/observation-contract/**'
+      - '.github/workflows/terra-observation-contract.yml'
+  push:
+    branches: ['research/terra-observation-operator-contract-v0.1']
+    paths:
+      - 'research/terra-preta/tools/observation-contract/**'
+      - '.github/workflows/terra-observation-contract.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terra-observation-contract-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  observation-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - name: Verify formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/observation-contract/Cargo.toml -- --check
+      - name: Test provenance and group leakage controls
+        run: cargo test --manifest-path research/terra-preta/tools/observation-contract/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/observation-contract/Cargo.toml --all-targets -- -D warnings
