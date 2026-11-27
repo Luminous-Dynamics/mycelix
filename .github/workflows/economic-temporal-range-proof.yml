@@ -68,7 +68,41 @@ jobs:
         working-directory: tools/economic/temporal-range-index/reference/go
         env:
           GOTOOLCHAIN: local
-        run: go test -run '^$' -bench '^BenchmarkAuthenticatedIntervalV1$' -benchtime=1x -benchmem
+        run: go test -run '^
+      - name: Report claim ceiling
+        run: |
+          printf '%s\n' \
+            'PASS = the Go reference reconstructs its scoped root and returns complete interval-stabbing results for the frozen tests.' \
+            'BENCHMARK = one-iteration harness smoke only; no stable latency, SOTA or production claim.' \
+            'NOT TESTED = Rust parity, canonical proof wire decoding, source/index projection completeness, signed checkpoint trust, witness non-equivocation or external-effect authority.'
+ -bench '^BenchmarkAuthenticatedIntervalV1
+      - name: Report claim ceiling
+        run: |
+          printf '%s\n' \
+            'PASS = the Go reference reconstructs its scoped root and returns complete interval-stabbing results for the frozen tests.' \
+            'BENCHMARK = one-iteration harness smoke only; no stable latency, SOTA or production claim.' \
+            'NOT TESTED = Rust parity, canonical proof wire decoding, source/index projection completeness, signed checkpoint trust, witness non-equivocation or external-effect authority.'
+ -benchtime=1x -benchmem
+
+      - name: Adversarial workload benchmark smoke (not a performance qualification)
+        working-directory: tools/economic/temporal-range-index/reference/go
+        env:
+          GOTOOLCHAIN: local
+        run: go test -run '^
+      - name: Report claim ceiling
+        run: |
+          printf '%s\n' \
+            'PASS = the Go reference reconstructs its scoped root and returns complete interval-stabbing results for the frozen tests.' \
+            'BENCHMARK = one-iteration harness smoke only; no stable latency, SOTA or production claim.' \
+            'NOT TESTED = Rust parity, canonical proof wire decoding, source/index projection completeness, signed checkpoint trust, witness non-equivocation or external-effect authority.'
+ -bench '^BenchmarkTemporalQueryWorkloadsV1
+      - name: Report claim ceiling
+        run: |
+          printf '%s\n' \
+            'PASS = the Go reference reconstructs its scoped root and returns complete interval-stabbing results for the frozen tests.' \
+            'BENCHMARK = one-iteration harness smoke only; no stable latency, SOTA or production claim.' \
+            'NOT TESTED = Rust parity, canonical proof wire decoding, source/index projection completeness, signed checkpoint trust, witness non-equivocation or external-effect authority.'
+ -benchtime=1x -benchmem
 
       - name: Report claim ceiling
         run: |
