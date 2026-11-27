@@ -1,0 +1,119 @@
+name: Holochain locked-runtime evidence capture
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/holochain-runtime-capability.yml"
+      - "mycelix-finance/tools/capture-holochain-runtime.sh"
+      - "mycelix-finance/benchmarks/sap/holochain-runtime-evidence.v1.schema.json"
+      - "mycelix-finance/flake.nix"
+      - "mycelix-finance/flake.lock"
+      - "mycelix-finance/Cargo.toml"
+      - "mycelix-finance/Cargo.lock"
+      - "mycelix-finance/dna/dna.yaml"
+      - "mycelix-workspace/CLAUDE.md"
+      - "nix/modules/holochain-base.nix"
+  push:
+    branches:
+      - "research/holochain-runtime-capability-collector-v0.1-20261123"
+    paths:
+      - ".github/workflows/holochain-runtime-capability.yml"
+      - "mycelix-finance/tools/capture-holochain-runtime.sh"
+      - "mycelix-finance/flake.nix"
+      - "mycelix-finance/flake.lock"
+      - "mycelix-finance/Cargo.toml"
+      - "mycelix-finance/Cargo.lock"
+      - "mycelix-finance/dna/dna.yaml"
+      - "mycelix-workspace/CLAUDE.md"
+      - "nix/modules/holochain-base.nix"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: holochain-runtime-evidence-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      NIX_CONFIG: "experimental-features = nix-command flakes"
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+
+      - name: Install pinned Nix
+        uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Capture actual locked conductor and hc binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash mycelix-finance/tools/capture-holochain-runtime.sh "$RUNNER_TEMP/holochain-runtime"
+
+      - name: Validate captured evidence without assuming the version
+        shell: bash
+        run: |
+          set -euo pipefail
+          MANIFEST="$RUNNER_TEMP/holochain-runtime/holochain-runtime-evidence.json"
+          LOCKED_INPUTS="$RUNNER_TEMP/holochain-runtime/flake-metadata.json"
+          test -s "$MANIFEST"
+          test -s "$LOCKED_INPUTS"
+          jq -e --arg subject "$EXPECTED_SUBJECT_SHA" '
+            .schema_version == "HolochainRuntimeEvidenceV1" and
+            .status == "runtime_binary_observed_capability_behavior_not_qualified" and
+            .subject_commit == $subject and
+            (.nix_version | length > 0) and
+            .locked_inputs.holonix_commit == "d21b35431e425e615bc05da790987380a84b8280" and
+            .locked_inputs.holochain_source_ref == "holochain-0.6.0" and
+            .locked_inputs.holochain_source_commit == "a6d4e805a0971ccbc0dcb3f3ed6a9e2fac980a3b" and
+            .cargo_packages.hdk == "0.6.1" and
+            .cargo_packages.hdi == "0.7.1" and
+            .runtime_binaries.holochain.name == "holochain" and
+            (.runtime_binaries.holochain.version_output | length > 0) and
+            (.runtime_binaries.holochain.sha256 | test("^[0-9a-f]{64}$")) and
+            .runtime_binaries.hc.name == "hc" and
+            (.runtime_binaries.hc.version_output | length > 0) and
+            (.runtime_binaries.hc.sha256 | test("^[0-9a-f]{64}$")) and
+            .behavior_not_tested.countersigning_enablement == true and
+            .behavior_not_tested.fork_warrant_publication == true
+          ' "$MANIFEST" >/dev/null
+
+          {
+            echo "Exact subject: $EXPECTED_SUBJECT_SHA"
+            echo "Holochain binary version: $(jq -r '.runtime_binaries.holochain.version_output' "$MANIFEST")"
+            echo "HC CLI version: $(jq -r '.runtime_binaries.hc.version_output' "$MANIFEST")"
+            echo "Holochain binary SHA256: $(jq -r '.runtime_binaries.holochain.sha256' "$MANIFEST")"
+            echo "HC binary SHA256: $(jq -r '.runtime_binaries.hc.sha256' "$MANIFEST")"
+            echo "Resolved Holochain source ref: $(jq -r '.locked_inputs.holochain_source_ref' "$MANIFEST")"
+            echo "Countersigning/fork behavior: NOT TESTED by version capture."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload exact runtime evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: holochain-runtime-evidence-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/holochain-runtime/holochain-runtime-evidence.json
+            ${{ runner.temp }}/holochain-runtime/flake-metadata.json
+            ${{ runner.temp }}/holochain-runtime/runtime-binaries.tsv
+            mycelix-finance/benchmarks/sap/holochain-runtime-evidence.v1.schema.json
+          if-no-files-found: error
+          retention-days: 30

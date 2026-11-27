@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/holochain-runtime-evidence.v1.schema.json",
+  "title": "Holochain Runtime Evidence V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "subject_commit",
+    "captured_at_utc",
+    "nix_version",
+    "locked_inputs",
+    "cargo_packages",
+    "runtime_binaries",
+    "source_sha256",
+    "behavior_not_tested",
+    "claim_ceiling"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "HolochainRuntimeEvidenceV1"
+    },
+    "status": {
+      "const": "runtime_binary_observed_capability_behavior_not_qualified"
+    },
+    "subject_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "captured_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "nix_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "locked_inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "holonix_commit",
+        "holochain_source_ref",
+        "holochain_source_commit"
+      ],
+      "properties": {
+        "holonix_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "holochain_source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "holochain_source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      }
+    },
+    "cargo_packages": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hdk",
+        "hdi",
+        "holochain_zome_types",
+        "holochain_integrity_types"
+      ],
+      "properties": {
+        "hdk": {
+          "type": "string"
+        },
+        "hdi": {
+          "type": "string"
+        },
+        "holochain_zome_types": {
+          "type": "string"
+        },
+        "holochain_integrity_types": {
+          "type": "string"
+        }
+      }
+    },
+    "runtime_binaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "holochain",
+        "hc"
+      ],
+      "properties": {
+        "holochain": {
+          "$ref": "#/$defs/binary"
+        },
+        "hc": {
+          "$ref": "#/$defs/binary"
+        }
+      }
+    },
+    "source_sha256": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dna_manifest",
+        "flake_lock",
+        "flake",
+        "cargo_lock",
+        "cargo_manifest"
+      ],
+      "properties": {
+        "dna_manifest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "flake_lock": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "flake": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "cargo_lock": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "cargo_manifest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "behavior_not_tested": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "countersigning_enablement",
+        "multi_agent_countersigning_session",
+        "fork_warrant_publication",
+        "delayed_fork_discovery",
+        "chain_head_move_atomic_rollback"
+      ],
+      "properties": {
+        "countersigning_enablement": {
+          "const": true
+        },
+        "multi_agent_countersigning_session": {
+          "const": true
+        },
+        "fork_warrant_publication": {
+          "const": true
+        },
+        "delayed_fork_discovery": {
+          "const": true
+        },
+        "chain_head_move_atomic_rollback": {
+          "const": true
+        }
+      }
+    },
+    "claim_ceiling": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "binary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "path",
+        "resolved_path",
+        "version_output",
+        "sha256"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "resolved_path": {
+          "type": "string"
+        },
+        "version_output": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}
