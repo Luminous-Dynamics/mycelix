@@ -130,8 +130,8 @@ jobs:
           FILE=docs/economic/temporal/benchmarks/temporal-evidence-adversarial-corpus.v0.1.json
           jq -e '
             (.benchmark == "Economic OS Typed Temporal Evidence Adversarial Corpus") and
-            (.case_count == 36) and
-            (.cases | length == 36) and
+            (.case_count == 42) and
+            (.cases | length == 42) and
             (([.cases[].id] | length) == ([.cases[].id] | unique | length)) and
             (.allowed_dispositions as $allowed |
               all(.cases[]; .expected_disposition as $d | ($allowed | index($d)) != null)
