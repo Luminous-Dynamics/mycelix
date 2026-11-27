@@ -36,6 +36,8 @@ pub mod epistemic_classifier;
 pub mod federation;
 pub mod fl_bridge;
 pub mod game_theory;
+/// Fail-closed validation for finite normal-form game definitions.
+pub mod game_theory_validation;
 pub mod integration;
 pub mod kredit;
 pub mod kvector_bridge;
