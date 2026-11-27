@@ -88,8 +88,20 @@ type pointVectorV1 struct {
 	values []uint64
 }
 
+func writeUint32V1(b *bytes.Buffer, value uint32) {
+	var encoded [4]byte
+	binary.BigEndian.PutUint32(encoded[:], value)
+	_, _ = b.Write(encoded[:])
+}
+
+func writeUint64V1(b *bytes.Buffer, value uint64) {
+	var encoded [8]byte
+	binary.BigEndian.PutUint64(encoded[:], value)
+	_, _ = b.Write(encoded[:])
+}
+
 func writeStringV1(b *bytes.Buffer, value string) {
-	_ = binary.Write(b, binary.BigEndian, uint32(len(value)))
+	writeUint32V1(b, uint32(len(value)))
 	_, _ = b.WriteString(value)
 }
 
@@ -118,7 +130,7 @@ func exceedsProgressWorkBudget(limit uint64, factors ...uint64) bool {
 const maxRawProgressDigestEntries = 32768
 
 func writeRawProgressStringV1(b *bytes.Buffer, value string) {
-	_ = binary.Write(b, binary.BigEndian, uint64(len(value)))
+	_ = writeUint64V1(b, uint64(len(value)))
 	if len(value) <= 128 {
 		writeStringV1(b, value)
 		return
@@ -139,7 +151,7 @@ func rawProgressScopeDigestV1(scope ProgressScopeV1) string {
 	} {
 		writeRawProgressStringV1(&b, value)
 	}
-	_ = binary.Write(&b, binary.BigEndian, uint64(len(scope.OwnerRefs)))
+	_ = writeUint64V1(&b, uint64(len(scope.OwnerRefs)))
 	limit := len(scope.OwnerRefs)
 	if limit > maxRawProgressDigestEntries {
 		limit = maxRawProgressDigestEntries
@@ -163,21 +175,21 @@ func rawProgressAntichainDigestV1(antichain ProgressAntichainV1) string {
 	var b bytes.Buffer
 	writeStringV1(&b, "MYCELIX-PROGRESS-ANTICHAIN-SUBMISSION-V1")
 	writeStringV1(&b, rawProgressScopeDigestV1(antichain.Scope))
-	_ = binary.Write(&b, binary.BigEndian, uint64(len(antichain.Points)))
+	_ = writeUint64V1(&b, uint64(len(antichain.Points)))
 	pointLimit := len(antichain.Points)
 	if pointLimit > maxProgressPoints {
 		pointLimit = maxProgressPoints
 	}
 	remaining := maxRawProgressDigestEntries
 	for _, point := range antichain.Points[:pointLimit] {
-		_ = binary.Write(&b, binary.BigEndian, uint64(len(point.Owners)))
+		_ = writeUint64V1(&b, uint64(len(point.Owners)))
 		coordinateLimit := len(point.Owners)
 		if coordinateLimit > remaining {
 			coordinateLimit = remaining
 		}
 		for _, coordinate := range point.Owners[:coordinateLimit] {
 			writeRawProgressStringV1(&b, coordinate.OwnerRef)
-			_ = binary.Write(&b, binary.BigEndian, coordinate.Sequence)
+			_ = writeUint64V1(&b, coordinate.Sequence)
 		}
 		remaining -= coordinateLimit
 		if coordinateLimit < len(point.Owners) || remaining == 0 {
@@ -199,14 +211,14 @@ func rawProgressCutDigestV1(scopeDigest string, cut ProgressCutV1) string {
 	var b bytes.Buffer
 	writeStringV1(&b, "MYCELIX-PROGRESS-CUT-SUBMISSION-V1")
 	writeStringV1(&b, scopeDigest)
-	_ = binary.Write(&b, binary.BigEndian, uint64(len(cut.Owners)))
+	_ = writeUint64V1(&b, uint64(len(cut.Owners)))
 	limit := len(cut.Owners)
 	if limit > maxRawProgressDigestEntries {
 		limit = maxRawProgressDigestEntries
 	}
 	for _, coordinate := range cut.Owners[:limit] {
 		writeRawProgressStringV1(&b, coordinate.OwnerRef)
-		_ = binary.Write(&b, binary.BigEndian, coordinate.Sequence)
+		_ = writeUint64V1(&b, coordinate.Sequence)
 	}
 	if limit < len(cut.Owners) {
 		b.WriteByte(1)
@@ -267,7 +279,7 @@ func ProgressScopeDigestV1(scope ProgressScopeV1) (string, error) {
 	} {
 		writeStringV1(&b, value)
 	}
-	_ = binary.Write(&b, binary.BigEndian, uint32(len(owners)))
+	_ = writeUint32V1(&b, uint32(len(owners)))
 	for _, owner := range owners {
 		writeStringV1(&b, owner)
 	}
@@ -312,7 +324,7 @@ func progressPointDigestV1(scopeDigest string, owners []string, values []uint64)
 	writeStringV1(&b, scopeDigest)
 	for i, owner := range owners {
 		writeStringV1(&b, owner)
-		_ = binary.Write(&b, binary.BigEndian, values[i])
+		_ = writeUint64V1(&b, values[i])
 	}
 	digest := sha256.Sum256(b.Bytes())
 	return hex.EncodeToString(digest[:])
@@ -380,7 +392,7 @@ func validateProgressAntichainV1(antichain ProgressAntichainV1) (string, string,
 	var b bytes.Buffer
 	writeStringV1(&b, "MYCELIX-PROGRESS-ANTICHAIN-V1")
 	writeStringV1(&b, scopeDigest)
-	_ = binary.Write(&b, binary.BigEndian, uint32(len(points)))
+	_ = writeUint32V1(&b, uint32(len(points)))
 	for _, point := range points {
 		writeStringV1(&b, point.digest)
 	}
