@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/economic-operation-identity-corpus-v0.1.schema.json",
+  "title": "Mycelix Economic Operation Identity Adversarial Corpus",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmark",
+    "schema_version",
+    "issue",
+    "status",
+    "identity_rules",
+    "invariants",
+    "cases",
+    "metrics",
+    "known_answer_vectors"
+  ],
+  "properties": {
+    "benchmark": {
+      "const": "Mycelix durable economic operation identity and evidence projection"
+    },
+    "schema_version": {
+      "const": "0.1"
+    },
+    "issue": {
+      "const": 6588
+    },
+    "status": {
+      "const": "normative_adversarial_corpus_not_execution_evidence"
+    },
+    "identity_rules": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "minProperties": 5
+    },
+    "invariants": {
+      "type": "array",
+      "minItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 30,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "surface",
+          "setup",
+          "stimulus",
+          "expected",
+          "max_new_effects",
+          "assertions"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^EOP-[0-9]{3}$"
+          },
+          "surface": {
+            "type": "string",
+            "minLength": 1
+          },
+          "setup": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stimulus": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected": {
+            "enum": [
+              "CommitOnce",
+              "ReplayOriginal",
+              "SingleEffect",
+              "Conflict",
+              "Indeterminate",
+              "IndeterminateThenReplayOriginal",
+              "ClaimPending",
+              "ConflictFrozen",
+              "CompensatingEffect",
+              "RejectNoMutation",
+              "ProfileBoundCommit",
+              "Pending"
+            ]
+          },
+          "max_new_effects": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "assertions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "target",
+          "stage"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^M-[0-9]{2}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stage": {
+            "enum": [
+              "absolute_safety_gate",
+              "performance_after_safety"
+            ]
+          }
+        }
+      }
+    },
+    "known_answer_vectors": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "vector_id",
+          "name",
+          "algorithm",
+          "schema",
+          "encoding",
+          "inputs",
+          "expected_hex"
+        ],
+        "properties": {
+          "vector_id": {
+            "type": "string",
+            "pattern": "^KAT-[0-9]{3}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "algorithm": {
+            "const": "BLAKE3-256"
+          },
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          },
+          "encoding": {
+            "type": "string",
+            "minLength": 20
+          },
+          "inputs": {
+            "type": "object"
+          },
+          "expected_hex": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    }
+  }
+}

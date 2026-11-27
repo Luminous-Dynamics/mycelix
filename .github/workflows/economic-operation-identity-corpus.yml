@@ -1,0 +1,201 @@
+name: Economic operation identity corpus qualification
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/economic-operation-identity-corpus.yml"
+      - "docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md"
+      - "mycelix-workspace/docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md"
+      - "mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
+      - "mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
+      - "mycelix-finance/Cargo.toml"
+      - "mycelix-finance/Cargo.lock"
+      - "mycelix-finance/crates/finance-economic-operation/**"
+      - "mycelix-workspace/mycelix-finance/Cargo.toml"
+      - "mycelix-workspace/mycelix-finance/Cargo.lock"
+      - "mycelix-workspace/mycelix-finance/crates/finance-economic-operation/**"
+  push:
+    branches:
+      - "research/fin-effect-001-durable-operation-identity-v0.1-20261124"
+    paths:
+      - ".github/workflows/economic-operation-identity-corpus.yml"
+      - "docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md"
+      - "mycelix-workspace/docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md"
+      - "mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
+      - "mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
+      - "mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
+      - "mycelix-finance/Cargo.toml"
+      - "mycelix-finance/Cargo.lock"
+      - "mycelix-finance/crates/finance-economic-operation/**"
+      - "mycelix-workspace/mycelix-finance/Cargo.toml"
+      - "mycelix-workspace/mycelix-finance/Cargo.lock"
+      - "mycelix-workspace/mycelix-finance/crates/finance-economic-operation/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: economic-operation-identity-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  pure-kernel-and-corpus:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact subject and corpus/schema structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+          corpus="mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json"
+          schema="mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json"
+          doc="docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md"
+          jq empty "$corpus"
+          jq empty "$schema"
+          jq -e '
+            .benchmark == "Mycelix durable economic operation identity and evidence projection" and
+            .schema_version == "0.1" and
+            .issue == 6588 and
+            .status == "normative_adversarial_corpus_not_execution_evidence" and
+            (.invariants | length) >= 10 and
+            (.cases | length) == 33 and
+            ([.cases[].id] | unique | length) == 33 and
+            all(.cases[];
+              (.id | test("^EOP-[0-9]{3}$")) and
+              (.surface | type == "string" and length > 0) and
+              (.setup | type == "string" and length > 0) and
+              (.stimulus | type == "string" and length > 0) and
+              (.expected | IN(
+                "CommitOnce","ReplayOriginal","SingleEffect","Conflict",
+                "Indeterminate","IndeterminateThenReplayOriginal","ClaimPending",
+                "ConflictFrozen","CompensatingEffect","RejectNoMutation",
+                "ProfileBoundCommit","Pending"
+              )) and
+              (.max_new_effects | type == "number" and . >= 0 and . <= 1) and
+              (.assertions | type == "array" and length > 0)
+            ) and
+            (.metrics | length) >= 8 and
+            ([.metrics[].id] | unique | length) == (.metrics | length) and
+            (.known_answer_vectors | length) == 4 and
+            ([.known_answer_vectors[].vector_id] | unique | length) == 4 and
+            all(.known_answer_vectors[];
+              (.algorithm == "BLAKE3-256") and
+              (.encoding | type == "string" and length >= 20) and
+              (.expected_hex | test("^[0-9a-f]{64}$"))
+            ) and
+            ([.known_answer_vectors[] | select(.vector_id == "KAT-001") | .expected_hex][0] ==
+              "15a08e9c3bf2599c15b37cb700698aec1898cd4c66b15ebf5208568e4953f204") and
+            ([.known_answer_vectors[] | select(.vector_id == "KAT-002") | .expected_hex][0] ==
+              "6a52f1479b7a407d6de4f2650b61bf3203741c80e28f836db523f58625e62235") and
+            ([.known_answer_vectors[] | select(.vector_id == "KAT-003") | .expected_hex][0] ==
+              "984fcc30e27b1ccbb5b266f6b0960c5791be3a68ada8512aa0fb39dcf575e56a") and
+            ([.known_answer_vectors[] | select(.vector_id == "KAT-004") | .expected_hex][0] ==
+              "35ddfe65d8d3beb9ce06fcb1245802d0cc7799d8366bef9087ee5f6d63e6f24b")
+          ' "$corpus" >/dev/null
+
+          # Pin the semantic guard cases so a schema-valid corpus cannot weaken
+          # its core retry, conflict, unknown-outcome or fork assertions.
+          jq -e '
+            def case_by_id($id): [.cases[] | select(.id == $id)][0];
+            (case_by_id("EOP-003").expected == "SingleEffect") and
+            (case_by_id("EOP-003").max_new_effects == 1) and
+            (case_by_id("EOP-004").expected == "Conflict") and
+            (case_by_id("EOP-004").max_new_effects == 0) and
+            (case_by_id("EOP-013").max_new_effects == 0) and
+            (case_by_id("EOP-016").expected == "Indeterminate") and
+            (case_by_id("EOP-017").expected == "ConflictFrozen") and
+            (case_by_id("EOP-020").expected == "CompensatingEffect") and
+            (case_by_id("EOP-024").expected == "Indeterminate") and
+            (case_by_id("EOP-028").expected == "Pending") and
+            (case_by_id("EOP-031").expected == "ReplayOriginal") and
+            (case_by_id("EOP-032").max_new_effects == 0) and
+            (case_by_id("EOP-033").expected == "Indeterminate")
+          ' "$corpus" >/dev/null
+
+          grep -q "does not claim" "$doc"
+          grep -q "same operation ID + different fingerprint" "$doc"
+          grep -q "global exactly-once" "$doc"
+          cmp mycelix-finance/Cargo.toml mycelix-workspace/mycelix-finance/Cargo.toml
+          cmp mycelix-finance/Cargo.lock mycelix-workspace/mycelix-finance/Cargo.lock
+          cmp mycelix-finance/crates/finance-economic-operation/Cargo.toml mycelix-workspace/mycelix-finance/crates/finance-economic-operation/Cargo.toml
+          cmp mycelix-finance/crates/finance-economic-operation/src/lib.rs mycelix-workspace/mycelix-finance/crates/finance-economic-operation/src/lib.rs
+          cmp docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md mycelix-workspace/docs/finance/FIN_EFFECT_001_DURABLE_OPERATION_IDENTITY_V0_1.md
+          cmp mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.json
+          cmp mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json mycelix-workspace/mycelix-finance/benchmarks/finance/economic-operation-identity-corpus.v0.1.schema.json
+          {
+            echo "subject_commit=$(git rev-parse HEAD)"
+            echo "corpus_sha256=$(sha256sum "$corpus" | cut -d' ' -f1)"
+            echo "schema_sha256=$(sha256sum "$schema" | cut -d' ' -f1)"
+            echo "case_count=$(jq '.cases | length' "$corpus")"
+            echo "known_answer_vector_count=$(jq '.known_answer_vectors | length' "$corpus")"
+            echo "known_answer_vectors_sha256=$(jq -c '.known_answer_vectors' "$corpus" | sha256sum | cut -d' ' -f1)"
+            echo "unique_case_ids=$(jq '[.cases[].id] | unique | length' "$corpus")"
+            echo "invariant_count=$(jq '.invariants | length' "$corpus")"
+            echo "metric_count=$(jq '.metrics | length' "$corpus")"
+            echo "kernel_manifest_sha256=$(sha256sum mycelix-finance/crates/finance-economic-operation/Cargo.toml | cut -d' ' -f1)"
+            echo "kernel_source_sha256=$(sha256sum mycelix-finance/crates/finance-economic-operation/src/lib.rs | cut -d' ' -f1)"
+            echo "finance_lock_sha256=$(sha256sum mycelix-finance/Cargo.lock | cut -d' ' -f1)"
+            echo "claim=corpus structural validation plus pure Rust kernel tests; no Holochain/runtime or global uniqueness proof"
+          } | tee "$RUNNER_TEMP/economic-operation-identity-manifest.txt"
+          cat "$RUNNER_TEMP/economic-operation-identity-manifest.txt" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.96.1
+          components: rustfmt, clippy
+
+      - name: Check standalone/workspace mirror parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp mycelix-finance/Cargo.toml mycelix-workspace/mycelix-finance/Cargo.toml
+          cmp mycelix-finance/Cargo.lock mycelix-workspace/mycelix-finance/Cargo.lock
+          cmp mycelix-finance/crates/finance-economic-operation/Cargo.toml mycelix-workspace/mycelix-finance/crates/finance-economic-operation/Cargo.toml
+          cmp mycelix-finance/crates/finance-economic-operation/src/lib.rs mycelix-workspace/mycelix-finance/crates/finance-economic-operation/src/lib.rs
+
+      - name: Rust formatting
+        run: cargo fmt --manifest-path mycelix-finance/crates/finance-economic-operation/Cargo.toml -- --check
+
+      - name: Diagnose canonical Cargo lock resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          before="$RUNNER_TEMP/Cargo.lock.before"
+          cp mycelix-finance/Cargo.lock "$before"
+          # Deliberately omit --locked for this diagnostic only. Cargo prints the
+          # canonical lockfile it expects; fail if that differs so no uncommitted
+          # lock rewrite is silently used as qualification evidence.
+          cargo metadata --manifest-path mycelix-finance/Cargo.toml --format-version 1 > "$RUNNER_TEMP/cargo-metadata.json"
+          if ! cmp -s "$before" mycelix-finance/Cargo.lock; then
+            echo "Cargo requires a canonical lockfile update; this run is diagnostic, not a test pass."
+            diff -u "$before" mycelix-finance/Cargo.lock || true
+            exit 42
+          fi
+
+      - name: Pure identity/evidence kernel tests
+        run: cargo test --manifest-path mycelix-finance/Cargo.toml -p finance-economic-operation --locked
+
+      - name: Strict kernel Clippy
+        run: cargo clippy --manifest-path mycelix-finance/Cargo.toml -p finance-economic-operation --all-targets --no-deps --locked -- -D warnings
+
+      - name: Upload exact-subject corpus manifest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: economic-operation-identity-corpus-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/economic-operation-identity-manifest.txt
+          if-no-files-found: error
+          retention-days: 30

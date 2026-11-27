@@ -1,0 +1,520 @@
+{
+  "benchmark": "Mycelix durable economic operation identity and evidence projection",
+  "schema_version": "0.1",
+  "issue": 6588,
+  "status": "normative_adversarial_corpus_not_execution_evidence",
+  "identity_rules": {
+    "same_operation_same_fingerprint": "reconcile_original",
+    "same_operation_changed_fingerprint": "conflict",
+    "unknown_outcome": "indeterminate_no_rekey",
+    "duplicate_physical_evidence": "collapse_without_extra_effect",
+    "compensation": "new_linked_effect_preserve_original"
+  },
+  "invariants": [
+    "one obligation identity binds one immutable intent fingerprint",
+    "one singleton effect identity admits at most one economic effect at its qualified owner boundary",
+    "duplicate physical evidence cannot multiply economic value",
+    "unknown outcome cannot be treated as success or failure",
+    "settlement projection requires every owner leg required by the declared profile",
+    "conflicting owner effects or lineage freeze spendability",
+    "a reversal is a linked compensating effect and does not erase the original",
+    "cache expiry does not authorize reuse of an existing obligation identity",
+    "tombstone unavailability yields indeterminate rather than a new effect",
+    "external instruction acceptance is not external settlement"
+  ],
+  "cases": [
+    {
+      "id": "EOP-001",
+      "surface": "admission",
+      "setup": "No prior operation binding exists.",
+      "stimulus": "Submit a valid operation identity and canonical fingerprint once.",
+      "expected": "CommitOnce",
+      "max_new_effects": 1,
+      "assertions": [
+        "Bind operation ID to exact fingerprint.",
+        "Persist the owner/effect identity with the local effect boundary."
+      ]
+    },
+    {
+      "id": "EOP-002",
+      "surface": "retry",
+      "setup": "A committed operation and effect receipt exist.",
+      "stimulus": "Resubmit the same operation ID and same fingerprint sequentially.",
+      "expected": "ReplayOriginal",
+      "max_new_effects": 0,
+      "assertions": [
+        "Return the original effect reference.",
+        "Do not create a new Payment or debit."
+      ]
+    },
+    {
+      "id": "EOP-003",
+      "surface": "concurrency",
+      "setup": "No prior operation binding exists; 100 callers race the same owner/effect role and exact intent.",
+      "stimulus": "Submit 100 concurrent identical requests.",
+      "expected": "SingleEffect",
+      "max_new_effects": 1,
+      "assertions": [
+        "At most one economic effect is admitted.",
+        "Every loser resolves to the same effect or an explicit Indeterminate/Conflict result."
+      ]
+    },
+    {
+      "id": "EOP-004",
+      "surface": "fingerprint",
+      "setup": "Operation ID is already bound to a fingerprint.",
+      "stimulus": "Reuse the ID with a changed amount.",
+      "expected": "Conflict",
+      "max_new_effects": 0,
+      "assertions": [
+        "Changed amount cannot create a second operation."
+      ]
+    },
+    {
+      "id": "EOP-005",
+      "surface": "fingerprint",
+      "setup": "Operation ID is already bound to a fingerprint.",
+      "stimulus": "Reuse the ID with a changed beneficiary.",
+      "expected": "Conflict",
+      "max_new_effects": 0,
+      "assertions": [
+        "Changed beneficiary is a hard conflict."
+      ]
+    },
+    {
+      "id": "EOP-006",
+      "surface": "fingerprint",
+      "setup": "Operation ID is already bound to a fingerprint.",
+      "stimulus": "Reuse the ID with a changed instrument or unit.",
+      "expected": "Conflict",
+      "max_new_effects": 0,
+      "assertions": [
+        "Currency and unit are immutable intent terms."
+      ]
+    },
+    {
+      "id": "EOP-007",
+      "surface": "fingerprint",
+      "setup": "Operation ID is already bound to a fingerprint.",
+      "stimulus": "Reuse the ID under another settlement profile or policy revision.",
+      "expected": "Conflict",
+      "max_new_effects": 0,
+      "assertions": [
+        "Authority profile and policy revision are fingerprint-bound."
+      ]
+    },
+    {
+      "id": "EOP-008",
+      "surface": "retention",
+      "setup": "API response cache has expired; accounting operation binding remains within retention.",
+      "stimulus": "Retry the original operation ID with identical intent.",
+      "expected": "ReplayOriginal",
+      "max_new_effects": 0,
+      "assertions": [
+        "Cache expiry cannot make the completed effect eligible again."
+      ]
+    },
+    {
+      "id": "EOP-009",
+      "surface": "recovery",
+      "setup": "Request admission was durable but no owner effect committed before process crash.",
+      "stimulus": "Restart and retry with the original identity.",
+      "expected": "CommitOnce",
+      "max_new_effects": 1,
+      "assertions": [
+        "Recovery uses the original operation and effect identities."
+      ]
+    },
+    {
+      "id": "EOP-010",
+      "surface": "response_loss",
+      "setup": "Payer effect committed; response was lost before caller received the reference.",
+      "stimulus": "Caller times out and queries/retries the original identity.",
+      "expected": "IndeterminateThenReplayOriginal",
+      "max_new_effects": 0,
+      "assertions": [
+        "No replacement identity is generated.",
+        "Original payer effect is discovered and reconciled."
+      ]
+    },
+    {
+      "id": "EOP-011",
+      "surface": "bilateral",
+      "setup": "Payer debit is committed; beneficiary has not authored the output claim.",
+      "stimulus": "Caller requests final settlement status.",
+      "expected": "ClaimPending",
+      "max_new_effects": 0,
+      "assertions": [
+        "Do not report Settled.",
+        "Beneficiary value remains unavailable for re-spend."
+      ]
+    },
+    {
+      "id": "EOP-012",
+      "surface": "beneficiary",
+      "setup": "One valid beneficiary claim exists for the deterministic output note.",
+      "stimulus": "Deliver the same claim observation 100 times.",
+      "expected": "ReplayOriginal",
+      "max_new_effects": 0,
+      "assertions": [
+        "One unique output note is counted once.",
+        "Physical observation count remains separately reportable."
+      ]
+    },
+    {
+      "id": "EOP-013",
+      "surface": "outbox",
+      "setup": "One durable Treasury outbox event exists.",
+      "stimulus": "Redeliver the same event 10000 times.",
+      "expected": "SingleEffect",
+      "max_new_effects": 0,
+      "assertions": [
+        "Treasury inbox deduplicates by stable effect identity.",
+        "Delivery count does not become economic-effect count."
+      ]
+    },
+    {
+      "id": "EOP-014",
+      "surface": "outbox",
+      "setup": "Treasury effect committed; acknowledgement was lost.",
+      "stimulus": "Dispatcher redelivers the same effect identity.",
+      "expected": "ReplayOriginal",
+      "max_new_effects": 0,
+      "assertions": [
+        "Return original Treasury receipt.",
+        "Do not create a second fee effect."
+      ]
+    },
+    {
+      "id": "EOP-015",
+      "surface": "authority_unavailable",
+      "setup": "Remote effect owner is unavailable or its authority response cannot be decoded.",
+      "stimulus": "Attempt to progress the operation.",
+      "expected": "Indeterminate",
+      "max_new_effects": 0,
+      "assertions": [
+        "Unavailability is not authorization.",
+        "No new operation identity or blind retry is allowed."
+      ]
+    },
+    {
+      "id": "EOP-016",
+      "surface": "dht",
+      "setup": "A DHT query has not observed the beneficiary claim; authority view is incomplete.",
+      "stimulus": "Attempt to infer that no claim/effect exists.",
+      "expected": "Indeterminate",
+      "max_new_effects": 0,
+      "assertions": [
+        "Absence in an incomplete view is not proof of non-execution."
+      ]
+    },
+    {
+      "id": "EOP-017",
+      "surface": "fork",
+      "setup": "Two conflicting beneficiary successors consume the same predecessor.",
+      "stimulus": "Project spendability and settlement.",
+      "expected": "ConflictFrozen",
+      "max_new_effects": 0,
+      "assertions": [
+        "Do not select last DHT link or sum branches.",
+        "Freeze affected note/lineage."
+      ]
+    },
+    {
+      "id": "EOP-018",
+      "surface": "evidence_duplicate",
+      "setup": "One authenticated effect has one source evidence reference.",
+      "stimulus": "Observe the same physical evidence reference repeatedly.",
+      "expected": "ReplayOriginal",
+      "max_new_effects": 0,
+      "assertions": [
+        "Collapse identical observation by source reference and digest."
+      ]
+    },
+    {
+      "id": "EOP-019",
+      "surface": "evidence_conflict",
+      "setup": "An effect identity is already bound to an authenticated evidence digest.",
+      "stimulus": "Present another payload/digest for that same effect identity.",
+      "expected": "Conflict",
+      "max_new_effects": 0,
+      "assertions": [
+        "Contradictory facts cannot overwrite the original receipt."
+      ]
+    },
+    {
+      "id": "EOP-020",
+      "surface": "reversal",
+      "setup": "An original effect is committed and reconciled.",
+      "stimulus": "Process a valid authorized reversal/refund.",
+      "expected": "CompensatingEffect",
+      "max_new_effects": 1,
+      "assertions": [
+        "Create a new linked effect identity.",
+        "Preserve original effect and lineage."
+      ]
+    },
+    {
+      "id": "EOP-021",
+      "surface": "policy",
+      "setup": "A valid request references a policy revision that was revoked before authorization under the policy's revocation semantics.",
+      "stimulus": "Attempt to authorize using stale policy evidence.",
+      "expected": "RejectNoMutation",
+      "max_new_effects": 0,
+      "assertions": [
+        "Membership/eligibility is not allocation authority.",
+        "Revocation epoch and exact policy digest are checked."
+      ]
+    },
+    {
+      "id": "EOP-022",
+      "surface": "membership",
+      "setup": "Hearth membership authority is unavailable or response is malformed.",
+      "stimulus": "Attempt a value-moving contribution/withdrawal.",
+      "expected": "Indeterminate",
+      "max_new_effects": 0,
+      "assertions": [
+        "Fail closed on missing or unexpected authorization evidence."
+      ]
+    },
+    {
+      "id": "EOP-023",
+      "surface": "retention",
+      "setup": "Detailed evidence is lawfully compacted but an identity tombstone is required and retained.",
+      "stimulus": "Retry the original identity with identical intent.",
+      "expected": "ReplayOriginal",
+      "max_new_effects": 0,
+      "assertions": [
+        "Tombstone prevents unsafe identity reuse.",
+        "Compacted evidence remains independently auditable."
+      ]
+    },
+    {
+      "id": "EOP-024",
+      "surface": "retention",
+      "setup": "The required identity tombstone/evidence cannot be observed due to storage loss or unresolved legal redaction state.",
+      "stimulus": "Retry a previously used operation identity.",
+      "expected": "Indeterminate",
+      "max_new_effects": 0,
+      "assertions": [
+        "Missing tombstone is not permission to execute again."
+      ]
+    },
+    {
+      "id": "EOP-025",
+      "surface": "multi_owner",
+      "setup": "Operation requires payer debit, beneficiary claim and Treasury fee under a declared multi-owner profile.",
+      "stimulus": "Commit each role once, then duplicate only the payer role.",
+      "expected": "ProfileBoundCommit",
+      "max_new_effects": 0,
+      "assertions": [
+        "Different declared roles are distinct effects.",
+        "Duplicate singleton role cannot create a second effect.",
+        "Final projection waits for all required role evidence."
+      ]
+    },
+    {
+      "id": "EOP-026",
+      "surface": "authorization",
+      "setup": "A caller other than the authenticated effect owner submits the same operation ID.",
+      "stimulus": "Attempt to create the owner-specific effect.",
+      "expected": "RejectNoMutation",
+      "max_new_effects": 0,
+      "assertions": [
+        "DID strings in payload are not proof of action authorship."
+      ]
+    },
+    {
+      "id": "EOP-027",
+      "surface": "arithmetic",
+      "setup": "Canonical amount, split or fee arithmetic exceeds the supported integer range.",
+      "stimulus": "Attempt effect derivation.",
+      "expected": "RejectNoMutation",
+      "max_new_effects": 0,
+      "assertions": [
+        "Checked integer arithmetic rejects overflow before any mutation."
+      ]
+    },
+    {
+      "id": "EOP-028",
+      "surface": "provider",
+      "setup": "External provider accepted an instruction but settlement evidence is absent.",
+      "stimulus": "Caller requests external settlement status.",
+      "expected": "Pending",
+      "max_new_effects": 0,
+      "assertions": [
+        "Provider acceptance is not settled funds or legal finality."
+      ]
+    },
+    {
+      "id": "EOP-029",
+      "surface": "provider",
+      "setup": "Provider webhook is delivered twice with identical source reference and digest.",
+      "stimulus": "Process duplicate webhook deliveries.",
+      "expected": "ReplayOriginal",
+      "max_new_effects": 0,
+      "assertions": [
+        "Webhook receipt is deduplicated independently of the economic obligation."
+      ]
+    },
+    {
+      "id": "EOP-030",
+      "surface": "api_interop",
+      "setup": "A resource-level Idempotency-Key cache has expired but durable obligation evidence remains.",
+      "stimulus": "Client retries with the same mapped operation ID.",
+      "expected": "ReplayOriginal",
+      "max_new_effects": 0,
+      "assertions": [
+        "API key expiration cannot create a second economic effect.",
+        "HTTP interoperability does not replace durable effect identity."
+      ]
+    },
+    {
+      "id": "EOP-031",
+      "surface": "provider_v2",
+      "setup": "A Stripe API v2-style request failed or partially failed within its documented idempotency scope; successful side effects must not repeat.",
+      "stimulus": "Replay the same key for the same API and account/sandbox within 30 days.",
+      "expected": "ReplayOriginal",
+      "max_new_effects": 0,
+      "assertions": [
+        "Retry failed work only under the provider's documented profile.",
+        "Do not repeat already successful owner effects."
+      ]
+    },
+    {
+      "id": "EOP-032",
+      "surface": "provider_retention",
+      "setup": "The provider API replay window has elapsed, but the Mycelix operation/effect binding remains within its applicable retention period.",
+      "stimulus": "Retry the original obligation identity after the provider's 30-day API v2 replay scope.",
+      "expected": "ReplayOriginal",
+      "max_new_effects": 0,
+      "assertions": [
+        "Do not delegate Mycelix's durable obligation identity to the provider cache.",
+        "Query or reconcile the original effect identity; do not create a new payment."
+      ]
+    },
+    {
+      "id": "EOP-033",
+      "surface": "cross_api_scope",
+      "setup": "The same obligation is retried through another cell/service/API endpoint, and the caller's view cannot establish the original effect-owner binding.",
+      "stimulus": "Submit the original obligation identity through the second endpoint.",
+      "expected": "Indeterminate",
+      "max_new_effects": 0,
+      "assertions": [
+        "Endpoint scope is not a new economic obligation.",
+        "Incomplete cross-cell evidence cannot authorize a second effect."
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "id": "M-01",
+      "name": "duplicate_effect_rate",
+      "target": "0",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-02",
+      "name": "changed_fingerprint_conflict_rate",
+      "target": "100%",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-03",
+      "name": "false_settlement_count",
+      "target": "0",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-04",
+      "name": "unresolved_effects_silently_promoted",
+      "target": "0",
+      "stage": "absolute_safety_gate"
+    },
+    {
+      "id": "M-05",
+      "name": "recovery_p95_ms",
+      "target": "measure_and_report_baseline_first",
+      "stage": "performance_after_safety"
+    },
+    {
+      "id": "M-06",
+      "name": "cost_per_correctly_reconciled_obligation",
+      "target": "measure_and_report_baseline_first",
+      "stage": "performance_after_safety"
+    },
+    {
+      "id": "M-07",
+      "name": "evidence_read_amplification",
+      "target": "measure_and_report_baseline_first",
+      "stage": "performance_after_safety"
+    },
+    {
+      "id": "M-08",
+      "name": "unresolved_outcome_age_seconds",
+      "target": "measure_distribution_and_tail",
+      "stage": "performance_after_safety"
+    }
+  ],
+  "known_answer_vectors": [
+    {
+      "vector_id": "KAT-001",
+      "name": "operation_id_v1",
+      "algorithm": "BLAKE3-256",
+      "schema": "OperationKeyV1",
+      "encoding": "BLAKE3-256(domain='mycelix:economic-operation:v1\\0' || u16be(1) || lp32be(namespace UTF-8) || lp32be(originating_authority UTF-8) || lp32be(stable_obligation_reference UTF-8)); lp32be is u32 big-endian byte length followed by raw UTF-8 bytes.",
+      "inputs": {
+        "namespace": "finance",
+        "originating_authority": "did:mycelix:origin",
+        "stable_obligation_reference": "trade:42:attempt:1"
+      },
+      "expected_hex": "15a08e9c3bf2599c15b37cb700698aec1898cd4c66b15ebf5208568e4953f204"
+    },
+    {
+      "vector_id": "KAT-002",
+      "name": "intent_fingerprint_v1",
+      "algorithm": "BLAKE3-256",
+      "schema": "ImmutableIntentTermsV1",
+      "encoding": "BLAKE3-256(domain='mycelix:economic-intent:v1\\0' || u16be(1) || lp32be(settlement_profile) || lp32be(payer_owner) || lp32be(beneficiary_owner) || lp32be(instrument) || lp32be(unit) || u64be(amount_minor_units) || lp32be(purpose_code) || lp32be(source_obligation_reference) || lp32be(policy_revision) || raw 32-byte terms_digest).",
+      "inputs": {
+        "settlement_profile": "BilateralOwnerClaimV1",
+        "payer_owner": "did:mycelix:alice",
+        "beneficiary_owner": "did:mycelix:bob",
+        "instrument": "SAP",
+        "unit": "micro-SAP",
+        "amount_minor_units": 2500,
+        "purpose_code": "hearth_contribution",
+        "source_obligation_reference": "trade:42:attempt:1",
+        "policy_revision": "policy:hearth:7",
+        "terms_digest_hex": "0707070707070707070707070707070707070707070707070707070707070707"
+      },
+      "expected_hex": "6a52f1479b7a407d6de4f2650b61bf3203741c80e28f836db523f58625e62235"
+    },
+    {
+      "vector_id": "KAT-003",
+      "name": "payer_debit_effect_id_v1",
+      "algorithm": "BLAKE3-256",
+      "schema": "EffectIdentityV1",
+      "encoding": "BLAKE3-256(domain='mycelix:economic-effect:v1\\0' || u16be(1) || raw 32-byte operation ID digest from KAT-001 || lp32be(effect_role UTF-8) || lp32be(effect_owner UTF-8)).",
+      "inputs": {
+        "operation_vector": "KAT-001",
+        "effect_role": "payer_debit",
+        "effect_owner": "did:mycelix:alice"
+      },
+      "expected_hex": "984fcc30e27b1ccbb5b266f6b0960c5791be3a68ada8512aa0fb39dcf575e56a"
+    },
+    {
+      "vector_id": "KAT-004",
+      "name": "beneficiary_claim_effect_id_v1",
+      "algorithm": "BLAKE3-256",
+      "schema": "EffectIdentityV1",
+      "encoding": "BLAKE3-256(domain='mycelix:economic-effect:v1\\0' || u16be(1) || raw 32-byte operation ID digest from KAT-001 || lp32be(effect_role UTF-8) || lp32be(effect_owner UTF-8)).",
+      "inputs": {
+        "operation_vector": "KAT-001",
+        "effect_role": "beneficiary_claim",
+        "effect_owner": "did:mycelix:bob"
+      },
+      "expected_hex": "35ddfe65d8d3beb9ce06fcb1245802d0cc7799d8366bef9087ee5f6d63e6f24b"
+    }
+  ]
+}

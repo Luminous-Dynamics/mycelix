@@ -1,0 +1,10 @@
+[package]
+name = "finance-economic-operation"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+publish = false
+description = "Pure operation/effect identity and evidence-projection kernel for FIN-EFFECT-001"
+
+[dependencies]
+blake3 = "=1.8.5"
