@@ -231,7 +231,7 @@ fn validate_scope(
         || expected
             .safety_authority
             .as_ref()
-            .map_or(false, |authority| !valid_artifact(authority))
+.is_some_and(|authority| !valid_artifact(authority))
     {
         return Err(ImpactQualificationErrorV1::InvalidArtifactReference);
     }
@@ -1039,15 +1039,11 @@ mod tests {
                 })
                 .collect::<Vec<_>>();
 
-            let any_contradiction = selected
-                .iter()
-                .any(|state| *state == SupportEvidenceStateV1::Contradicted);
+            let any_contradiction = selected.contains(&SupportEvidenceStateV1::Contradicted);
             let all_direct = selected
                 .iter()
                 .all(|state| *state == SupportEvidenceStateV1::DirectSupport);
-            let any_direct = selected
-                .iter()
-                .any(|state| *state == SupportEvidenceStateV1::DirectSupport);
+            let any_direct = selected.contains(&SupportEvidenceStateV1::DirectSupport);
             let pair_01 = selected[0] == SupportEvidenceStateV1::DirectSupport
                 && selected[1] == SupportEvidenceStateV1::DirectSupport;
             let pair_23 = selected[2] == SupportEvidenceStateV1::DirectSupport
