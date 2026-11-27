@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   compose:
-    name: Six exact-head owner cores in one workspace
+    name: Seven exact-head owner cores with separately tested action-denominator owner
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -49,8 +49,16 @@ jobs:
           bash mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/materialize.sh "$OUT_DIR"
           echo "CROSS_CORE_WORKSPACE=$OUT_DIR" >> "$GITHUB_ENV"
 
-      - name: Generate deterministic dependency-free workspace lock
+      - name: Generate combined workspace lock
         run: cargo +1.96.0 generate-lockfile --manifest-path "$CROSS_CORE_WORKSPACE/Cargo.toml"
+
+      - name: Lock and qualify canonical action-denominator owner
+        run: |
+          ACTION_DENOMINATOR_MANIFEST="$CROSS_CORE_WORKSPACE/crates/craft-action-denominator-v1/Cargo.toml"
+          cargo +1.96.0 generate-lockfile --manifest-path "$ACTION_DENOMINATOR_MANIFEST"
+          cargo +1.96.0 fmt --manifest-path "$ACTION_DENOMINATOR_MANIFEST" --all -- --check
+          cargo +1.96.0 test --manifest-path "$ACTION_DENOMINATOR_MANIFEST" --locked
+          cargo +1.96.0 clippy --manifest-path "$ACTION_DENOMINATOR_MANIFEST" --all-targets --locked -- -D warnings
 
       - name: Check formatting across the combined source tree
         run: cargo +1.96.0 fmt --manifest-path "$CROSS_CORE_WORKSPACE/Cargo.toml" --all -- --check
@@ -66,7 +74,7 @@ jobs:
 
       - name: Emit exact-source composition receipt
         run: |
-          sha256sum "$CROSS_CORE_WORKSPACE/Cargo.lock"
+          sha256sum "$CROSS_CORE_WORKSPACE/Cargo.lock" "$CROSS_CORE_WORKSPACE/crates/craft-action-denominator-v1/Cargo.lock"
           cat "$CROSS_CORE_WORKSPACE/source-receipt.tsv"
-          printf '%s\n' 'PASS = six exact pinned owner cores plus ten executable cross-core tests across seven named WSR cases, all owner unit suites, rustfmt and Clippy.'
-          printf '%s\n' 'NONCLAIM = seven named WSR cases are exercised (ten tests); the remaining nine WSR cases, most of the 20 metamorphic mutations and all field-service outcomes remain unqualified. WSR-010 remains an adapter-level digest-binding smoke test until the canonical #6792 owner is integrated.'
+          printf '%s\n' 'PASS = seven exact pinned owner sources, 18 canonical action-denominator tests, and 11 executable cross-core tests across seven named WSR cases; formatting, tests and Clippy pass.'
+          printf '%s\n' 'NONCLAIM = seven named WSR cases are exercised; nine WSR cases and most registered metamorphic mutations remain unqualified. Issuer authentication, source truth, real field completion and field-service outcomes remain unauthenticated/unqualified.'
