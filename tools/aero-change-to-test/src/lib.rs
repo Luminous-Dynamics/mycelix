@@ -833,11 +833,16 @@ pub fn evaluate_case(case: &ChangeToTestCaseV1) -> Result<ChangeToTestReport, Qu
             .then_with(|| a.candidate_id.cmp(&b.candidate_id))
     });
 
+    let ranked_optional_candidate_ids = ranked
+        .into_iter()
+        .map(|candidate| candidate.candidate_id.clone())
+        .collect();
+
     Ok(ChangeToTestReport {
         benchmark_id: case.benchmark_id.clone(),
         plan,
         optional_candidates,
-        ranked_optional_candidate_ids: ranked.into_iter().map(|candidate| candidate.candidate_id.clone()).collect(),
+        ranked_optional_candidate_ids,
     })
 }
 
