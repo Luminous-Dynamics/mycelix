@@ -55,7 +55,7 @@ if ! jq -e '
   and all(.relations[];
     (.relation_id | type == "string" and test("^MR-[0-9]{3}$"))
     and (.name | type == "string" and length > 0)
-    and (["critical", "high", "medium"] | index(.risk_tier) != null)
+    and (.risk_tier as $risk | (["critical", "high", "medium"] | index($risk) != null))
     and (.seed_ids | type == "array" and length > 0)
     and (.mutation_ids | type == "array" and length > 0)
     and (.negative_control_ids | type == "array" and length > 0)
@@ -80,7 +80,7 @@ if ! jq -e '
   and all(.mutations[];
     (.mutation_id | type == "string")
     and (.mutation_id | test("^[MN]-[A-Z0-9-]+$"))
-    and (["adversarial", "negative_control"] | index(.kind) != null)
+    and (.kind as $kind | (["adversarial", "negative_control"] | index($kind) != null))
     and (.target_path | type == "string" and length > 0)
     and (.transformation | type == "string" and length > 0)
   )
