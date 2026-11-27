@@ -1,0 +1,399 @@
+name: Temporal frontier noninterference TLC
+
+on:
+  pull_request:
+    paths:
+      - "tools/economic/temporal-range-index/formal/TemporalFrontierNoninterference*"
+      - "tools/economic/temporal-hindsight/**"
+      - "benchmarks/economic/temporal-ads/v0.1/**"
+      - "docs/economic/temporal/HISTORICAL_FRONTIER_NONINTERFERENCE_V0.1.md"
+      - "docs/economic/temporal/TEMPORAL_OWNER_UNIVERSE_CLOSURE_V0.1.md"
+      - ".github/workflows/temporal-frontier-noninterference-tlc.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tools/economic/temporal-range-index/formal/TemporalFrontierNoninterference*"
+      - "tools/economic/temporal-hindsight/**"
+      - "benchmarks/economic/temporal-ads/v0.1/**"
+      - "docs/economic/temporal/HISTORICAL_FRONTIER_NONINTERFERENCE_V0.1.md"
+      - "docs/economic/temporal/TEMPORAL_OWNER_UNIVERSE_CLOSURE_V0.1.md"
+      - ".github/workflows/temporal-frontier-noninterference-tlc.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temporal-frontier-tlc-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  model-check:
+    name: Independent Go oracles and bounded TLC models
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      # These source checkouts are immutable, independently qualified revisions.
+      - name: Check out historical replay source revision
+        uses: actions/checkout@v7
+        with:
+          ref: 152aa6966e1cd96750ba68aca7cb2d65ba574d15
+          path: source-hindsight
+          persist-credentials: false
+
+      - name: Check out owner-universe source revision
+        uses: actions/checkout@v7
+        with:
+          ref: 433efeb81fa80f873bfc41c0b526a83f060440e3
+          path: source-scope-closure
+          persist-credentials: false
+
+      - name: Check out temporal ADS corpus source revision
+        uses: actions/checkout@v7
+        with:
+          ref: 6d4dde1bdaaa6a118fd6787e7eb78f174c103e1a
+          path: source-temporal-ads
+          persist-credentials: false
+
+      - name: Assert exact auxiliary source revisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C source-hindsight rev-parse HEAD)" = "152aa6966e1cd96750ba68aca7cb2d65ba574d15"
+          test "$(git -C source-scope-closure rev-parse HEAD)" = "433efeb81fa80f873bfc41c0b526a83f060440e3"
+          test "$(git -C source-temporal-ads rev-parse HEAD)" = "6d4dde1bdaaa6a118fd6787e7eb78f174c103e1a"
+
+      - name: Assert all pinned source artifacts are present
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f source-hindsight/tools/economic/temporal-hindsight/reference/go/go.mod
+          test -f source-hindsight/tools/economic/temporal-range-index/formal/TemporalFrontierNoninterference.tla
+          test -f source-hindsight/tools/economic/temporal-range-index/formal/TemporalFrontierNoninterference.cfg
+          test -f source-hindsight/tools/economic/temporal-range-index/formal/TemporalFrontierNoninterference-Mutant.cfg
+          test -f source-hindsight/tools/economic/temporal-range-index/formal/TemporalFrontierNoninterference-Certificate-Mutant.cfg
+          test -f source-scope-closure/tools/economic/temporal-hindsight/reference/scopeclosure/go.mod
+          test -f source-scope-closure/tools/economic/temporal-hindsight/reference/scopeclosure/enumeration.go
+          test -f source-scope-closure/tools/economic/temporal-hindsight/reference/scopeclosure/enumeration_test.go
+          test -f source-scope-closure/tools/economic/temporal-hindsight/reference/scopeclosure/enumeration_benchmark_test.go
+          test -f source-scope-closure/tools/economic/temporal-hindsight/formal/TemporalOwnerUniverseClosure.tla
+          test -f source-scope-closure/tools/economic/temporal-hindsight/formal/TemporalOwnerUniverseClosure.cfg
+          test -f source-scope-closure/tools/economic/temporal-hindsight/formal/TemporalOwnerUniverseClosure-Mutant.cfg
+          test -f source-scope-closure/tools/economic/temporal-hindsight/formal/TemporalEnumerationContinuity.tla
+          test -f source-scope-closure/tools/economic/temporal-hindsight/formal/TemporalEnumerationContinuity.cfg
+          test -f source-scope-closure/tools/economic/temporal-hindsight/formal/TemporalEnumerationContinuity-Mutant.cfg
+          test -f source-temporal-ads/benchmarks/economic/temporal-ads/v0.1/go.mod
+
+      - name: Set up pinned Java toolchain
+        uses: actions/setup-java@v6.2.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up exact Go reference toolchain
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.23.2"
+          cache: false
+
+      - name: Download and verify pinned TLA+ tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
+          curl --fail --location --silent --show-error --retry 3 \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar \
+            --output "$jar"
+          printf '%s  %s\n' \
+            "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88" \
+            "$jar" | sha256sum --check --status
+          java -version
+          test -s "$jar"
+          jar tf "$jar" | grep -q "^tlc2/TLC.class$"
+          echo "TLA+ tools v1.7.4 checksum verified"
+
+      - name: Assert exact workflow source head
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          printf 'expected=%s\nactual=%s\n' "$EXPECTED_HEAD" "$actual"
+          test "$actual" = "$EXPECTED_HEAD"
+
+      - name: Qualify historical replay oracle
+        id: historical_replay_go
+        working-directory: source-hindsight/tools/economic/temporal-hindsight/reference/go
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/temporal-qualification"
+          mkdir -p "$dir"
+          go version 2>&1 | tee "$dir/historical-replay-go.log"
+          go test ./... 2>&1 | tee -a "$dir/historical-replay-go.log"
+          go test -race ./... 2>&1 | tee -a "$dir/historical-replay-go.log"
+          go vet ./... 2>&1 | tee -a "$dir/historical-replay-go.log"
+          go test -v -run 'TestSuffixNoninterference|TestBackdatedSuffix|TestLatestStateMutant' -count=30 ./... 2>&1 | tee -a "$dir/historical-replay-go.log"
+          go test -run '^$' -bench 'BenchmarkReplay' -benchmem -benchtime=1x ./... 2>&1 | tee -a "$dir/historical-replay-go.log"
+
+      - name: Qualify owner-universe scope closure oracle
+        id: owner_scope_closure_go
+        working-directory: source-scope-closure/tools/economic/temporal-hindsight/reference/scopeclosure
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/temporal-qualification"
+          mkdir -p "$dir"
+          go version 2>&1 | tee "$dir/owner-scope-closure-go.log"
+          go test ./... 2>&1 | tee -a "$dir/owner-scope-closure-go.log"
+          go test -race ./... 2>&1 | tee -a "$dir/owner-scope-closure-go.log"
+          go vet ./... 2>&1 | tee -a "$dir/owner-scope-closure-go.log"
+          go test -v -run 'Test(Enumeration|TruncatedEnumeration|PageIndexGap|Cursor|EarlyTerminal|MissingTerminal|CrossPageDuplicateOwner|ForeignEpochOrSnapshotOrPredicate|Manifest|UnknownOrIncompleteSourceStatus|PageDigestAndAggregateRoot|ExpectedAndObservedPageCounts|MalformedMetadataFailureReason|CandidateOrderingWithinPage|ValidFrontierOverOmittedOwner|ManifestCannotSelfDeclareAnIncompleteRoster|LaterRegistryEpochDoesNotRewriteHistoricalCertificate|MultipleOmissionsProduceDeterministicFailureCertificate|CandidateOrderingDoesNotChangeReconciliationCertificate|MultipleUnknownCandidatesHaveDeterministicFailureReason|RegistryEpochScopeAndHistorySubstitutionFailClosed)' -count=30 ./... 2>&1 | tee -a "$dir/owner-scope-closure-go.log"
+          go test -run '^$' -bench 'Benchmark(ScopeFrontierReconciliation|EnumerationPageChain)' -benchmem -benchtime=1x ./... 2>&1 | tee -a "$dir/owner-scope-closure-go.log"
+
+      - name: Validate language-neutral temporal ADS corpus
+        id: temporal_ads_corpus_go
+        working-directory: source-temporal-ads/benchmarks/economic/temporal-ads/v0.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/temporal-qualification"
+          mkdir -p "$dir"
+          go version 2>&1 | tee "$dir/temporal-ads-corpus-go.log"
+          go test ./... 2>&1 | tee -a "$dir/temporal-ads-corpus-go.log"
+          go test -race ./... 2>&1 | tee -a "$dir/temporal-ads-corpus-go.log"
+          go vet ./... 2>&1 | tee -a "$dir/temporal-ads-corpus-go.log"
+
+      - name: Check historical frontier noninterference specification
+        id: historical_replay_tlc
+        working-directory: source-hindsight/tools/economic/temporal-range-index/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/temporal-qualification"
+          mkdir -p "$dir"
+          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
+          log="$dir/tlc-historical-replay-correct.log"
+          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-noninterference-correct" \
+            -config TemporalFrontierNoninterference.cfg \
+            TemporalFrontierNoninterference.tla >"$log" 2>&1
+          cat "$log"
+
+      - name: Require historical replay mutant to produce the expected counterexample
+        id: historical_replay_mutant
+        working-directory: source-hindsight/tools/economic/temporal-range-index/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/temporal-qualification"
+          mkdir -p "$dir"
+          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
+          log="$dir/tlc-historical-replay-mutant.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-noninterference-mutant" \
+            -config TemporalFrontierNoninterference-Mutant.cfg \
+            TemporalFrontierNoninterference.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -eq 0 ]; then
+            echo "The deliberately faulty no-hindsight mutant unexpectedly passed."
+            exit 1
+          fi
+          grep -E "Invariant (HistoricalReplayBound|ExactHistoricalCertificateBinding) is violated" "$log"
+          echo "Expected no-hindsight counterexample observed."
+
+      - name: Check temporal owner-universe closure specification
+        id: owner_scope_tlc
+        working-directory: source-scope-closure/tools/economic/temporal-hindsight/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/temporal-qualification"
+          mkdir -p "$dir"
+          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
+          log="$dir/tlc-owner-universe-correct.log"
+          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-owner-universe-correct" \
+            -config TemporalOwnerUniverseClosure.cfg \
+            TemporalOwnerUniverseClosure.tla >"$log" 2>&1
+          cat "$log"
+
+      - name: Require omitted-owner mutant to produce the expected counterexample
+        id: owner_scope_mutant
+        working-directory: source-scope-closure/tools/economic/temporal-hindsight/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/temporal-qualification"
+          mkdir -p "$dir"
+          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
+          log="$dir/tlc-owner-universe-mutant.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-owner-universe-mutant" \
+            -config TemporalOwnerUniverseClosure-Mutant.cfg \
+            TemporalOwnerUniverseClosure.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -eq 0 ]; then
+            echo "The deliberately incomplete-roster mutant unexpectedly passed."
+            exit 1
+          fi
+          grep -F "Invariant RosterUniverseEquality is violated." "$log"
+          echo "Expected omitted-owner counterexample observed."
+
+      - name: Check paginated enumeration continuity model
+        id: enumeration_tlc
+        working-directory: source-scope-closure/tools/economic/temporal-hindsight/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/temporal-qualification"
+          mkdir -p "$dir"
+          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
+          log="$dir/tlc-enumeration-continuity-correct.log"
+          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-enumeration-continuity-correct" \
+            -config TemporalEnumerationContinuity.cfg \
+            TemporalEnumerationContinuity.tla >"$log" 2>&1
+          cat "$log"
+
+      - name: Require truncated enumeration mutant counterexample
+        id: enumeration_mutant
+        working-directory: source-scope-closure/tools/economic/temporal-hindsight/formal
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/temporal-qualification"
+          mkdir -p "$dir"
+          jar="$RUNNER_TEMP/tla2tools-1.7.4.jar"
+          log="$dir/tlc-enumeration-continuity-mutant.log"
+          status=0
+          java -XX:+UseParallelGC -Xmx2g -cp "$jar" tlc2.TLC \
+            -workers 1 -seed 1 \
+            -metadir "$RUNNER_TEMP/tlc-enumeration-continuity-mutant" \
+            -config TemporalEnumerationContinuity-Mutant.cfg \
+            TemporalEnumerationContinuity.tla >"$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -eq 0 ]; then
+            echo "The deliberately truncated enumeration mutant unexpectedly passed."
+            exit 1
+          fi
+          grep -F "Invariant CompletePageSet is violated." "$log"
+          echo "Expected truncated-enumeration counterexample observed."
+
+      - name: Assemble exact-head qualification evidence receipt
+        if: always()
+        shell: bash
+        env:
+          HISTORICAL_REPLAY_OUTCOME: ${{ steps.historical_replay_go.outcome }}
+          OWNER_SCOPE_OUTCOME: ${{ steps.owner_scope_closure_go.outcome }}
+          ADS_CORPUS_OUTCOME: ${{ steps.temporal_ads_corpus_go.outcome }}
+          HISTORICAL_TLC_OUTCOME: ${{ steps.historical_replay_tlc.outcome }}
+          HISTORICAL_MUTANT_OUTCOME: ${{ steps.historical_replay_mutant.outcome }}
+          OWNER_TLC_OUTCOME: ${{ steps.owner_scope_tlc.outcome }}
+          OWNER_MUTANT_OUTCOME: ${{ steps.owner_scope_mutant.outcome }}
+          ENUMERATION_TLC_OUTCOME: ${{ steps.enumeration_tlc.outcome }}
+          ENUMERATION_MUTANT_OUTCOME: ${{ steps.enumeration_mutant.outcome }}
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/temporal-qualification"
+          mkdir -p "$dir"
+          source_sha() {
+            git -C "$1" rev-parse HEAD 2>/dev/null || printf 'UNAVAILABLE'
+          }
+          workflow_sha="$(git rev-parse HEAD 2>/dev/null || printf 'UNAVAILABLE')"
+          hindsight_sha="$(source_sha source-hindsight)"
+          scope_sha="$(source_sha source-scope-closure)"
+          corpus_sha="$(source_sha source-temporal-ads)"
+          go_version="$(go version 2>&1 || printf 'UNAVAILABLE')"
+          java_version="$(java -version 2>&1 | head -n 1 || printf 'UNAVAILABLE')"
+          tla_jar_sha="UNAVAILABLE"
+          if [ -f "$RUNNER_TEMP/tla2tools-1.7.4.jar" ]; then
+            tla_jar_sha="$(sha256sum "$RUNNER_TEMP/tla2tools-1.7.4.jar" | awk '{print $1}')"
+          fi
+          jq -n \
+            --arg schema "mycelix.temporal-qualification-receipt.v1" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg workflow "$GITHUB_WORKFLOW" \
+            --arg ref "$GITHUB_REF" \
+            --arg workflow_sha "$workflow_sha" \
+            --arg hindsight_sha "$hindsight_sha" \
+            --arg scope_sha "$scope_sha" \
+            --arg corpus_sha "$corpus_sha" \
+            --arg go_version "$go_version" \
+            --arg java_version "$java_version" \
+            --arg tla_jar_sha256 "$tla_jar_sha" \
+            --arg upload_action_commit "cf430e030ddbb5b0abf93d22962f4752f3646cd9" \
+            --arg historical_replay "$HISTORICAL_REPLAY_OUTCOME" \
+            --arg owner_scope "$OWNER_SCOPE_OUTCOME" \
+            --arg ads_corpus "$ADS_CORPUS_OUTCOME" \
+            --arg historical_tlc "$HISTORICAL_TLC_OUTCOME" \
+            --arg historical_mutant "$HISTORICAL_MUTANT_OUTCOME" \
+            --arg owner_tlc "$OWNER_TLC_OUTCOME" \
+            --arg owner_mutant "$OWNER_MUTANT_OUTCOME" \
+            --arg enumeration_tlc "$ENUMERATION_TLC_OUTCOME" \
+            --arg enumeration_mutant "$ENUMERATION_MUTANT_OUTCOME" \
+            '{
+              schema: $schema,
+              run: {
+                repository: $repository, id: $run_id, attempt: $run_attempt,
+                workflow: $workflow, ref: $ref, workflow_commit: $workflow_sha
+              },
+              sources: {
+                historical_replay: $hindsight_sha,
+                owner_universe_scope_closure: $scope_sha,
+                temporal_ads_corpus: $corpus_sha
+              },
+              toolchain: {
+                go: $go_version, java: $java_version,
+                tla2tools_jar_sha256: $tla_jar_sha256,
+                upload_artifact_action_commit: $upload_action_commit
+              },
+              step_outcomes: {
+                historical_replay_go: $historical_replay,
+                owner_scope_closure_go: $owner_scope,
+                temporal_ads_corpus_go: $ads_corpus,
+                historical_replay_tlc: $historical_tlc,
+                historical_replay_mutant: $historical_mutant,
+                owner_scope_tlc: $owner_tlc,
+                owner_scope_mutant: $owner_mutant,
+                enumeration_tlc: $enumeration_tlc,
+                enumeration_mutant: $enumeration_mutant
+              },
+              interpretation: {
+                source_authentication: "NotEvaluated",
+                source_universe_completeness: "NotEvaluated",
+                production_authority: "NotEvaluated",
+                unbounded_proof: false
+              }
+            }' > "$dir/qualification.json"
+          grep -hE 'states generated|distinct states found|depth of the complete state graph|Invariant .* is violated' "$dir"/tlc-*.log > "$dir/tlc-model-summary.txt" || true
+          (
+            cd "$dir"
+            find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+          )
+
+      - name: Upload exact-head qualification evidence bundle
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: temporal-frontier-qualification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/temporal-qualification/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 9
