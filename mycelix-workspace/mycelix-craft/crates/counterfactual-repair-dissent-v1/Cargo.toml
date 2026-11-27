@@ -1,0 +1,11 @@
+[package]
+name = "craft-counterfactual-repair-dissent-v1"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Read-only counterfactual repair certificates and attributed dissent preservation reference core"
+
+[lib]
+path = "src/lib.rs"
+[lints]
+workspace = true
