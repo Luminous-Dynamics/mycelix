@@ -83,12 +83,14 @@ pub struct EvidenceConstraint {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum EvidenceConstraintRelation {
     MustLink,
     CannotLink,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum EvidenceConstraintReason {
     Contradiction,
     Supersession,
@@ -169,7 +171,9 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             EntryTypes::Evidence(evidence) => validate_evidence(&evidence),
             EntryTypes::EvidenceVerification(v) => validate_evidence_verification(&v),
             EntryTypes::EvidenceDispute(d) => validate_evidence_dispute(&d),
-            EntryTypes::EvidenceConstraint(constraint) => validate_evidence_constraint(&constraint),
+            EntryTypes::EvidenceConstraint(_) => Ok(ValidateCallbackResult::Invalid(
+                "EvidenceConstraint entries are append-only; issue a new constraint instead of updating an existing one".into(),
+            )),
         },
         FlatOp::RegisterUpdate(update) => {
             let action = match &update {
@@ -187,6 +191,16 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
             ))
         }
         FlatOp::RegisterDelete(OpDelete { action, .. }) => {
+            let original_record = must_get_valid_record(action.deletes_address.clone())?;
+            let original_constraint: Option<EvidenceConstraint> = original_record
+                .entry()
+                .to_app_option()
+                .map_err(|error| wasm_error!(error))?;
+            if original_constraint.is_some() {
+                return Ok(ValidateCallbackResult::Invalid(
+                    "EvidenceConstraint entries are append-only and cannot be deleted".into(),
+                ));
+            }
             let original = must_get_action(action.deletes_address.clone())?;
             Ok(check_author_match(
                 original.action().author(),
