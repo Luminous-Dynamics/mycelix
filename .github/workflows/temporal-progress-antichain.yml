@@ -107,12 +107,14 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/progress-antichain"
           log="$RUNNER_TEMP/progress-antichain/tlc-progress-correct.log"
+          status=0
           java -XX:+UseParallelGC -Xmx2g -cp "$RUNNER_TEMP/tla2tools-1.7.4.jar" tlc2.TLC \
             -workers 1 -seed 1 \
             -metadir "$RUNNER_TEMP/tlc-progress-correct" \
             -config TemporalProgressAntichain.cfg \
-            TemporalProgressAntichain.tla >"$log" 2>&1
+            TemporalProgressAntichain.tla >"$log" 2>&1 || status=$?
           cat "$log"
+          exit "$status"
 
       - name: Require premature-finalization mutant counterexample
         id: progress_mutant
@@ -173,6 +175,8 @@ jobs:
             --arg vet "$VET" \
             --arg repeat "$REPEAT" \
             --arg benchmark "$BENCHMARK" \
+            --arg correct_tlc "$TLC" \
+            --arg mutant "$MUTANT" \
             '{
               schema:$schema,
               repository:$repository,
@@ -185,9 +189,9 @@ jobs:
                 race:$race,
                 vet:$vet,
                 repeated_adversarial:$repeat,
-                benchmark_smoke:$benchmark
-                correct_tlc:$TLC,
-                premature_finalization_mutant:$MUTANT
+                benchmark_smoke:$benchmark,
+                correct_tlc:$correct_tlc,
+                premature_finalization_mutant:$mutant
               },
               claims:{
                 progress_algebra_only:true,
