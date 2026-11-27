@@ -1,0 +1,79 @@
+name: Terra Preta hydraulic mechanism-discrimination reference
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/**'
+      - '.github/workflows/terra-preta-mechanism-discrimination-reference.yml'
+  push:
+    branches: ['research/terra-model-discrimination-boed-v0.1']
+    paths:
+      - 'research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/**'
+      - '.github/workflows/terra-preta-mechanism-discrimination-reference.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terra-mechanism-discrimination-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  mechanism-discrimination:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - name: Verify formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/Cargo.toml -- --check
+      - name: Unit and falsification tests
+        run: cargo test --manifest-path research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/Cargo.toml --all-targets -- -D warnings
+      - name: Run matched steady/transient mechanism fixture
+        run: |
+          cargo run --quiet --manifest-path research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/Cargo.toml -- \
+            research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/fixtures/matched-steady-transient.json \
+            "$RUNNER_TEMP/terra-mechanism-discrimination.json"
+      - name: Validate model discrimination and separate Fisher objective
+        run: |
+          jq -e '
+            .fixture_status == "synthetic_only_not_empirical_evidence" and
+            .mechanism_count == 3 and
+            .candidate_count == 4 and
+            (.closed_set_discrepancy_threshold_sd == 4.0) and
+            (.closed_set_discrepancy_policy | contains("Abstain")) and
+            (.closed_set_discrepancy_negative_control.threshold_standard_deviations == 4.0) and
+            (.closed_set_discrepancy_negative_control.in_family_abstained == false) and
+            (.closed_set_discrepancy_negative_control.in_family_best_fit_residual_standard_deviations <= 4.0) and
+            (.closed_set_discrepancy_negative_control.out_of_family_abstained == true) and
+            (.closed_set_discrepancy_negative_control.out_of_family_best_fit_residual_standard_deviations > 4.0) and
+            (.model_discrimination_design.candidate_ids == ["early_transient_flow", "upper_path_flow"]) and
+            (.parameter_precision_design.candidate_ids == ["bulk_steady_flow", "upper_path_flow"]) and
+            (.decision_design.expected_value_of_sample_information > 0) and
+            (.decision_design.total_cost <= .acquisition_budget) and
+            (.prior_minimum_expected_decision_loss > 0) and
+            ([.all_feasible_designs[] | select(.expected_value_of_sample_information < -1e-12)] | length == 0) and
+            (.model_discrimination_design.candidate_ids != .parameter_precision_design.candidate_ids) and
+            (.uniform_cost_matched_baseline.exact_cost == .model_discrimination_design.total_cost) and
+            (.uniform_cost_matched_baseline.portfolio_count > 1) and
+            (.uniform_cost_matched_baseline.p10_model_information_gain_nats <= .uniform_cost_matched_baseline.median_model_information_gain_nats) and
+            (.uniform_cost_matched_baseline.median_model_information_gain_nats <= .uniform_cost_matched_baseline.p90_model_information_gain_nats) and
+            (.all_feasible_designs | length == 11)
+          ' "$RUNNER_TEMP/terra-mechanism-discrimination.json"
+          jq -r '"model_discrimination=\(.model_discrimination_design.candidate_ids|join(",")) model_MI_nats=\(.model_discrimination_design.expected_model_information_gain_nats) Fisher_precision=\(.parameter_precision_design.candidate_ids|join(",")) worst_case_logG_Fisher=\(.parameter_precision_design.worst_case_log_conductance_fisher_information) predictive_design=\(.predictive_design.candidate_ids|join(",")) EPIG_nats=\(.predictive_design.expected_predictive_information_gain_nats) decision_design=\(.decision_design.candidate_ids|join(",")) EVSI=\(.decision_design.expected_value_of_sample_information) prior_decision_loss=\(.prior_minimum_expected_decision_loss) uniform_mean_MI=\(.uniform_cost_matched_baseline.mean_model_information_gain_nats) uniform_count=\(.uniform_cost_matched_baseline.portfolio_count) discrepancy_threshold_sd=\(.closed_set_discrepancy_negative_control.threshold_standard_deviations) in_family_max_z=\(.closed_set_discrepancy_negative_control.in_family_best_fit_residual_standard_deviations) in_family_abstain=\(.closed_set_discrepancy_negative_control.in_family_abstained) out_of_family_max_z=\(.closed_set_discrepancy_negative_control.out_of_family_best_fit_residual_standard_deviations) out_of_family_abstain=\(.closed_set_discrepancy_negative_control.out_of_family_abstained)"' "$RUNNER_TEMP/terra-mechanism-discrimination.json"
+          sha256sum "$RUNNER_TEMP/terra-mechanism-discrimination.json"
+      - name: Reject output overwrite
+        run: |
+          if cargo run --quiet --manifest-path research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/Cargo.toml -- \
+            research/terra-preta/tools/hydraulic-mechanism-discrimination-reference/fixtures/matched-steady-transient.json \
+            "$RUNNER_TEMP/terra-mechanism-discrimination.json"; then
+            echo "expected no-overwrite failure"
+            exit 1
+          fi

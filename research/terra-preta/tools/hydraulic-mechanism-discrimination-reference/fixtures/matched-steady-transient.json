@@ -1,0 +1,84 @@
+{
+  "schema_version": "terra-hydraulic-mechanism-discrimination-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "fixture_id": "matched-steady-state-three-mechanism-family",
+  "description": "Three synthetic hydraulic mechanisms share the same steady bulk conductance but differ in pathway partition and transient response. This is a known-truth model-discrimination benchmark, not soil data.",
+  "acquisition_budget": 2,
+  "mechanisms": [
+    {
+      "mechanism_id": "balanced_parallel",
+      "description": "Two equal static parallel paths; no measurable storage delay.",
+      "prior_probability": 0.3333333333333333,
+      "heldout_late_transient_flow": 2.0
+    },
+    {
+      "mechanism_id": "preferential_path",
+      "description": "Unequal static parallel paths; same total steady conductance.",
+      "prior_probability": 0.3333333333333333,
+      "heldout_late_transient_flow": 2.0
+    },
+    {
+      "mechanism_id": "storage_delay",
+      "description": "Balanced steady paths with a delayed transient response; same asymptotic conductance.",
+      "prior_probability": 0.3333333333333333,
+      "heldout_late_transient_flow": 1.9633687222225316
+    }
+  ],
+  "heldout_observation_noise_std": 0.12,
+  "closed_set_discrepancy_threshold_sd": 4.0,
+  "decision_actions": [
+    {
+      "action_id": "maintain_balanced_monitoring",
+      "description": "Maintain the current balanced-flow monitoring and operating policy.",
+      "loss_by_mechanism": [0.0, 2.0, 2.0]
+    },
+    {
+      "action_id": "target_preferential_path",
+      "description": "Prioritize remediation or control of the preferential upper pathway.",
+      "loss_by_mechanism": [4.0, 0.0, 3.0]
+    },
+    {
+      "action_id": "buffer_storage_delay",
+      "description": "Use a slower staged operating schedule to accommodate delayed storage response.",
+      "loss_by_mechanism": [3.0, 5.0, 0.0]
+    }
+  ],
+  "candidates": [
+    {
+      "candidate_id": "bulk_steady_flow",
+      "description": "Steady bulk boundary flow after equilibration.",
+      "cost": 1,
+      "noise_std": 0.12,
+      "expected_observable_by_mechanism": [2.0, 2.0, 2.0],
+      "d_observable_d_log_total_conductance": [2.0, 2.0, 2.0],
+      "observable_unit": "normalized_flow"
+    },
+    {
+      "candidate_id": "upper_path_flow",
+      "description": "Steady flow through the upper pathway.",
+      "cost": 1,
+      "noise_std": 0.10,
+      "expected_observable_by_mechanism": [1.0, 1.5, 1.0],
+      "d_observable_d_log_total_conductance": [1.0, 1.5, 1.0],
+      "observable_unit": "normalized_flow"
+    },
+    {
+      "candidate_id": "lower_path_flow",
+      "description": "Steady flow through the lower pathway.",
+      "cost": 1,
+      "noise_std": 0.20,
+      "expected_observable_by_mechanism": [1.0, 0.5, 1.0],
+      "d_observable_d_log_total_conductance": [1.0, 0.5, 1.0],
+      "observable_unit": "normalized_flow"
+    },
+    {
+      "candidate_id": "early_transient_flow",
+      "description": "Bulk flow shortly after a unit-head step at t=0.25 normalized time units.",
+      "cost": 1,
+      "noise_std": 0.12,
+      "expected_observable_by_mechanism": [2.0, 2.0, 0.7869386805747332],
+      "d_observable_d_log_total_conductance": [2.0, 2.0, 0.7869386805747332],
+      "observable_unit": "normalized_flow"
+    }
+  ]
+}
