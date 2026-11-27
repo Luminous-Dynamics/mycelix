@@ -84,7 +84,7 @@
       "operation": "replace",
       "path": "input.observed_actions",
       "from": 3,
-      "to": 5,
+      "to": 6,
       "expected_invariant": "observed_actions_cannot_exceed_authorized_expected_actions",
       "expected_effect": "fixture_rejected",
       "risk_direction": "invalid",
