@@ -1,0 +1,13 @@
+[package]
+name = "craft-action-denominator-v1"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Immutable, revisioned authorized service-action denominator reference core"
+
+[dependencies]
+sha2 = "=0.10.9"
+
+[workspace]
+resolver = "2"
+members = ["."]
