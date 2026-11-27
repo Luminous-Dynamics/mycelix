@@ -27,6 +27,10 @@ A receipt commits to:
 
 Evidence references are sorted canonically for commitment generation. A receipt's recorded time is independent of its valid-time interval, so a later correction can make a backdated assertion without rewriting its predecessor. Superseding receipts must point to an earlier receipt in the chain. Conflicting answers from different oracles can coexist; the chain does not impose last-write-wins.
 
+## Submission bounds and failure receipts
+
+The chain verifier preflights receipt count, identifier sizes, answer payload sizes, signature sizes, evidence-reference count and aggregate encoded bytes before hashing the full submission. Failure certificates bind the expected tail digest and a domain-separated digest of the submitted receipt records. Oversized submissions receive a bounded length/prefix/suffix commitment so producing the failure receipt does not copy or hash arbitrarily large payloads. Valid-time intervals support pre-epoch timestamps; recorded-at remains a separate positive system timestamp.
+
 ## Verification boundary
 
 `VerifyOracleReceiptChainV1` checks structural properties:
