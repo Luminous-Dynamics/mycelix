@@ -18,6 +18,10 @@ The goal is not to maximize refusal. It is to preserve safety invariants while k
 - `mutations.json`: 34 adversarial operators and 20 negative controls.
 - `scorecard.json`: 17 metric definitions with explicit numerators, denominators, targets, gate flags and field-data requirements.
 - `comparators.json`: 9 baseline profiles and a matched-comparison protocol, including manual, checklist, single/RAG/multi-agent LLM, Craft, IBM DOORS Next, Jama Connect and Siemens Polarion.
+- `owner-inputs.json`: 10 synthetic owner-view projections, separate from immutable source cases.
+- `mutation-specs.json`: 54 typed operations with selectors, preconditions, preserved-field policies and postconditions.
+- `oracle-contract.json`: independent oracle classes, semantic-validity gates, outcome taxonomy and receipt requirements.
+- `MUTATION-EXECUTION-PROTOCOL-V1.md`: exact baseline/mutation/oracle/replay protocol.
 - `validate.sh`: structural and referential-integrity checks only.
 
 Digest semantics are explicit: WSR evidence digest strings are shape-only synthetic placeholders, not cryptographic commitments. The Need Intake dissent seed is synthetic benchmark-authored data. An evaluator adapter must recompute commitments from exact fixture bytes and verify the schema before using them.
@@ -79,7 +83,7 @@ Community positions are carried as separately attributed, versioned claims. A su
 
 ## Evaluator adapter boundary
 
-Structural validation here does not execute an evaluator. A future adapter must:
+Structural validation here does not execute an evaluator. The mutation specifications and oracle contract are declarative: an execution adapter is still required to materialize projections, apply selectors, invoke owners and produce independently replayable receipts. A future adapter must:
 1. load one frozen WSR seed and exact digests;
 2. apply exactly one registered mutation;
 3. call the domain owner's evaluator(s), not a benchmark-local duplicate;
