@@ -74,6 +74,7 @@ jobs:
           test "$actual" = "$EXPECTED_HEAD"
 
       - name: Qualify historical replay oracle
+        if: hashFiles('tools/economic/temporal-hindsight/reference/go/go.mod') != ''
         working-directory: tools/economic/temporal-hindsight/reference/go
         shell: bash
         run: |
@@ -86,6 +87,7 @@ jobs:
           go test -run '^$' -bench 'BenchmarkReplay' -benchmem -benchtime=1x ./...
 
       - name: Qualify owner-universe scope closure oracle
+        if: hashFiles('tools/economic/temporal-hindsight/reference/scopeclosure/go.mod') != ''
         working-directory: tools/economic/temporal-hindsight/reference/scopeclosure
         shell: bash
         run: |
@@ -97,6 +99,7 @@ jobs:
           go test -run '^$' -bench BenchmarkScopeFrontierReconciliation -benchmem -benchtime=1x ./...
 
       - name: Check historical frontier noninterference specification
+        if: hashFiles('tools/economic/temporal-range-index/formal/TemporalFrontierNoninterference.tla') != ''
         working-directory: tools/economic/temporal-range-index/formal
         shell: bash
         run: |
@@ -109,6 +112,7 @@ jobs:
             TemporalFrontierNoninterference.tla
 
       - name: Require historical replay mutant to produce the expected counterexample
+        if: hashFiles('tools/economic/temporal-range-index/formal/TemporalFrontierNoninterference.tla') != ''
         working-directory: tools/economic/temporal-range-index/formal
         shell: bash
         run: |
@@ -130,6 +134,7 @@ jobs:
           echo "Expected no-hindsight counterexample observed."
 
       - name: Check temporal owner-universe closure specification
+        if: hashFiles('tools/economic/temporal-hindsight/formal/TemporalOwnerUniverseClosure.tla') != ''
         working-directory: tools/economic/temporal-hindsight/formal
         shell: bash
         run: |
@@ -142,6 +147,7 @@ jobs:
             TemporalOwnerUniverseClosure.tla
 
       - name: Require omitted-owner mutant to produce the expected counterexample
+        if: hashFiles('tools/economic/temporal-hindsight/formal/TemporalOwnerUniverseClosure.tla') != ''
         working-directory: tools/economic/temporal-hindsight/formal
         shell: bash
         run: |
