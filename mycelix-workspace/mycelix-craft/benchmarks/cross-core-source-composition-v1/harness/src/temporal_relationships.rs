@@ -405,20 +405,38 @@ pub fn project_temporal_relationships(
         return Err(TemporalRelationshipErrorV1::InvalidUtcTimestamp);
     }
 
+    // An as-known-at query validates only records accepted by its knowledge
+    // frontier. A malformed future record must not retroactively poison a
+    // historical snapshot that could not yet have known about it.
+    let known_claims: Vec<_> = claims
+        .iter()
+        .filter(|claim| claim.accepted_sequence <= cut.known_through_sequence)
+        .collect();
     let mut claim_by_id = BTreeMap::new();
     let mut accepted_sequences = BTreeSet::new();
-    for claim in claims {
+    let mut predicate_cardinalities = BTreeMap::new();
+    for claim in &known_claims {
         validate_claim(claim)?;
         if !accepted_sequences.insert(claim.accepted_sequence) {
             return Err(TemporalRelationshipErrorV1::DuplicateAcceptedSequence);
         }
-        if claim_by_id.insert(claim.relation_id.as_str(), claim).is_some() {
+        if claim_by_id.insert(claim.relation_id.as_str(), *claim).is_some() {
             return Err(TemporalRelationshipErrorV1::DuplicateRelationId);
+        }
+        if predicate_cardinalities
+            .insert(claim.predicate.as_str(), claim.cardinality)
+            .is_some_and(|previous| previous != claim.cardinality)
+        {
+            return Err(TemporalRelationshipErrorV1::CardinalityPolicyMismatch);
         }
     }
 
+    let known_mutation_records: Vec<_> = mutations
+        .iter()
+        .filter(|mutation| mutation.accepted_sequence <= cut.known_through_sequence)
+        .collect();
     let mut event_ids = BTreeSet::new();
-    for mutation in mutations {
+    for mutation in &known_mutation_records {
         validate_mutation(mutation)?;
         if !event_ids.insert(mutation.event_id.as_str()) {
             return Err(TemporalRelationshipErrorV1::DuplicateEventId);
@@ -428,7 +446,7 @@ pub fn project_temporal_relationships(
         }
     }
 
-    let mut ordered_mutations: Vec<_> = mutations.iter().collect();
+    let mut ordered_mutations: Vec<_> = known_mutation_records.iter().copied().collect();
     ordered_mutations.sort_by_key(|mutation| mutation.accepted_sequence);
     let mut mutated_targets = BTreeSet::new();
     for mutation in &ordered_mutations {
@@ -465,18 +483,29 @@ pub fn project_temporal_relationships(
                 || replacement.valid_from > mutation.effective_at
                 || replacement.subject_id != target.subject_id
                 || replacement.predicate != target.predicate
+                || replacement.cardinality != target.cardinality
                 || replacement.authority_scope != target.authority_scope
+                || replacement
+                    .valid_to
+                    .as_deref()
+                    .is_some_and(|valid_to| mutation.effective_at >= valid_to)
             {
                 return Err(TemporalRelationshipErrorV1::InvalidReplacement);
             }
         }
     }
 
-    let visible_claims: Vec<_> = claims
+    let known_relation_ids: Vec<_> = known_claims
         .iter()
+        .map(|claim| claim.relation_id.clone())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let visible_claims: Vec<_> = known_claims
+        .iter()
+        .copied()
         .filter(|claim| {
-            claim.accepted_sequence <= cut.known_through_sequence
-                && claim.valid_from <= cut.valid_at
+            claim.valid_from <= cut.valid_at
                 && claim
                     .valid_to
                     .as_deref()
@@ -489,11 +518,27 @@ pub fn project_temporal_relationships(
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect();
-
-    let mut known_mutations: Vec<_> = mutations
+    let pending_relation_ids: Vec<_> = known_claims
         .iter()
-        .filter(|mutation| mutation.accepted_sequence <= cut.known_through_sequence)
+        .filter(|claim| claim.valid_from > cut.valid_at)
+        .map(|claim| claim.relation_id.clone())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
         .collect();
+    let expired_relation_ids: Vec<_> = known_claims
+        .iter()
+        .filter(|claim| {
+            claim
+                .valid_to
+                .as_deref()
+                .is_some_and(|valid_to| valid_to <= cut.valid_at.as_str())
+        })
+        .map(|claim| claim.relation_id.clone())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+
+    let mut known_mutations: Vec<_> = known_mutation_records.iter().copied().collect();
     known_mutations.sort_by_key(|mutation| mutation.accepted_sequence);
     let pending_mutation_ids: Vec<_> = known_mutations
         .iter()
@@ -531,30 +576,76 @@ pub fn project_temporal_relationships(
 
     let mut by_subject_predicate: BTreeMap<(String, String), Vec<&TemporalRelationClaimV1>> =
         BTreeMap::new();
+    let mut by_object_predicate: BTreeMap<(String, String), Vec<&TemporalRelationClaimV1>> =
+        BTreeMap::new();
     for claim in &active_relations {
         by_subject_predicate
             .entry((claim.subject_id.clone(), claim.predicate.clone()))
             .or_default()
             .push(claim);
+        by_object_predicate
+            .entry((claim.object_id.clone(), claim.predicate.clone()))
+            .or_default()
+            .push(claim);
     }
+
     let mut conflicts = Vec::new();
     for ((subject_id, predicate), group) in by_subject_predicate {
-        let object_ids: BTreeSet<_> = group
-            .iter()
-            .map(|claim| claim.object_id.clone())
-            .collect();
-        if object_ids.len() > 1 {
-            let mut relation_ids: Vec<_> = group
+        let cardinality = group[0].cardinality;
+        if matches!(
+            cardinality,
+            TemporalRelationCardinalityV1::OneToOne
+                | TemporalRelationCardinalityV1::ManyToOne
+        ) {
+            let object_ids: BTreeSet<_> = group
                 .iter()
-                .map(|claim| claim.relation_id.clone())
+                .map(|claim| claim.object_id.clone())
                 .collect();
-            relation_ids.sort();
-            conflicts.push(TemporalRelationshipConflictV1 {
-                subject_id,
-                predicate,
-                relation_ids,
-                object_ids: object_ids.into_iter().collect(),
-            });
+            if object_ids.len() > 1 {
+                let relation_ids = group
+                    .iter()
+                    .map(|claim| claim.relation_id.clone())
+                    .collect::<BTreeSet<_>>()
+                    .into_iter()
+                    .collect();
+                conflicts.push(TemporalRelationshipConflictV1 {
+                    side: TemporalRelationshipConflictSideV1::Subject,
+                    endpoint_id: subject_id.clone(),
+                    predicate,
+                    relation_ids,
+                    subject_ids: vec![subject_id],
+                    object_ids: object_ids.into_iter().collect(),
+                });
+            }
+        }
+    }
+    for ((object_id, predicate), group) in by_object_predicate {
+        let cardinality = group[0].cardinality;
+        if matches!(
+            cardinality,
+            TemporalRelationCardinalityV1::OneToOne
+                | TemporalRelationCardinalityV1::OneToMany
+        ) {
+            let subject_ids: BTreeSet<_> = group
+                .iter()
+                .map(|claim| claim.subject_id.clone())
+                .collect();
+            if subject_ids.len() > 1 {
+                let relation_ids = group
+                    .iter()
+                    .map(|claim| claim.relation_id.clone())
+                    .collect::<BTreeSet<_>>()
+                    .into_iter()
+                    .collect();
+                conflicts.push(TemporalRelationshipConflictV1 {
+                    side: TemporalRelationshipConflictSideV1::Object,
+                    endpoint_id: object_id.clone(),
+                    predicate,
+                    relation_ids,
+                    subject_ids: subject_ids.into_iter().collect(),
+                    object_ids: vec![object_id],
+                });
+            }
         }
     }
 
@@ -567,7 +658,10 @@ pub fn project_temporal_relationships(
     let revoked_relation_ids: Vec<_> = revoked.into_iter().collect();
     let digest = snapshot_digest(
         cut,
+        &known_relation_ids,
         &visible_relation_ids,
+        &pending_relation_ids,
+        &expired_relation_ids,
         &active_relations,
         &conflicts,
         &known_mutation_refs,
@@ -579,6 +673,12 @@ pub fn project_temporal_relationships(
         valid_at: cut.valid_at.clone(),
         known_through_sequence: cut.known_through_sequence,
         visible_relation_ids,
+        active_relations,
+        conflicts,
+        known_relation_ids,
+        visible_relation_ids,
+        pending_relation_ids,
+        expired_relation_ids,
         active_relations,
         conflicts,
         known_mutation_ids,
