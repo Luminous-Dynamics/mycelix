@@ -52,7 +52,7 @@ jobs:
             def key($a): $a.assertion_id;
             def cycle_from($edges; $origin; $current; $visited):
               [$edges[] | select(.from == $current) | .to] |
-              any(.[] as $next;
+              any(.[]; . as $next |
                 if $next == $origin then true
                 elif ($visited | index($next)) != null then false
                 else cycle_from($edges; $origin; $next; ($visited + [$next]))
@@ -110,7 +110,7 @@ jobs:
                 {from:.assertion_id,to:.supersedes_assertion_id}
               ] as $edges |
               [ $assertions[].assertion_id ] as $ids |
-              all($ids[] as $start; (cycle_from($edges; $start; $start; [$start]) | not))
+              all($ids[]; . as $start | (cycle_from($edges; $start; $start; [$start]) | not))
             )
           ' "$FILE" >/dev/null
 
@@ -123,7 +123,7 @@ jobs:
           jq -e '
             (.benchmark == "Economic OS Typed Temporal Evidence Adversarial Corpus") and
             (.case_count == 36) and
-            (.cases | length == .case_count) and
+            (.cases | length == 36) and
             (([.cases[].id] | length) == ([.cases[].id] | unique | length)) and
             (.allowed_dispositions as $allowed |
               all(.cases[]; .expected_disposition as $d | ($allowed | index($d)) != null)
@@ -161,6 +161,9 @@ jobs:
 
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.96.0 --profile minimal
+
+      - name: Install Rust formatting and lint components
+        run: rustup component add rustfmt clippy --toolchain 1.96.0
 
       - name: Rust formatting
         working-directory: tools/economic/temporal-evidence
