@@ -1,0 +1,307 @@
+{
+  "benchmark_id": "CRAFT-EVIDENCE-ASSURANCE-METAMORPHIC-V1",
+  "schema_version": "1.0.0",
+  "metrics": [
+    {
+      "metric_id": "SAFE-001",
+      "name": "false_closure_rate",
+      "category": "safety",
+      "numerator": "Known-answer decisions incorrectly returned as closed or authorized.",
+      "denominator": "Known-answer scenarios whose expected disposition is not closed or authorized.",
+      "unit": "rate",
+      "direction": "lower_is_better",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": true,
+      "requires_field_data": false,
+      "report_by": [
+        "risk_tier",
+        "scenario_family"
+      ],
+      "notes": "A single false closure on a critical known-answer case fails the safety gate."
+    },
+    {
+      "metric_id": "SAFE-002",
+      "name": "false_not_affected_transfer_count",
+      "category": "safety",
+      "numerator": "NotAffected determinations accepted for an event, artifact, edge, or context outside the exact reviewed scope.",
+      "denominator": "All changed-scope NotAffected transfer attempts.",
+      "unit": "count",
+      "direction": "lower_is_better",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": true,
+      "requires_field_data": false,
+      "report_by": [
+        "changed_scope_dimension"
+      ],
+      "notes": "Never infer that a prior NotAffected determination covers new scope."
+    },
+    {
+      "metric_id": "SAFE-003",
+      "name": "stale_or_cross_context_acceptance_count",
+      "category": "safety",
+      "numerator": "Expired, revoked, superseded, withdrawn, or context-mismatched evidence items still counted as valid.",
+      "denominator": "All lifecycle and scope-downgrade mutation attempts.",
+      "unit": "count",
+      "direction": "lower_is_better",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": true,
+      "requires_field_data": false,
+      "report_by": [
+        "lifecycle_state",
+        "scope_dimension"
+      ],
+      "notes": "A false acceptance is a gate failure; false holds remain separately reported."
+    },
+    {
+      "metric_id": "SAFE-004",
+      "name": "false_independence_credit_count",
+      "category": "safety",
+      "numerator": "Support groups counted as independent despite shared owner-qualified common-cause grouping.",
+      "denominator": "All common-cause merge mutation attempts.",
+      "unit": "count",
+      "direction": "lower_is_better",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": true,
+      "requires_field_data": false,
+      "report_by": [
+        "common_cause_family"
+      ],
+      "notes": "Different IDs, documents, or model invocations do not establish independent origins."
+    },
+    {
+      "metric_id": "SAFE-005",
+      "name": "provider_assertion_promoted_to_restoration_count",
+      "category": "safety",
+      "numerator": "Provider-only completion assertions accepted as independent physical restoration.",
+      "denominator": "All provider-acknowledgement promotion mutation attempts.",
+      "unit": "count",
+      "direction": "lower_is_better",
+      "target": {
+        "operator": "==",
+        "value": 0
+      },
+      "gate": true,
+      "requires_field_data": false,
+      "report_by": [
+        "evidence_type"
+      ],
+      "notes": "Physical restoration needs owner-qualified independent observations."
+    },
+    {
+      "metric_id": "MUT-001",
+      "name": "hard_safety_mutation_detection_rate",
+      "category": "mutation",
+      "numerator": "Non-equivalent hard-safety or authorization mutants detected by the independent oracle.",
+      "denominator": "All non-equivalent hard-safety or authorization mutants.",
+      "unit": "rate",
+      "direction": "higher_is_better",
+      "target": {
+        "operator": "==",
+        "value": 1
+      },
+      "gate": true,
+      "requires_field_data": false,
+      "report_by": [
+        "mutation_family"
+      ],
+      "notes": "Equivalent mutants are adjudicated separately and excluded from this denominator with an explicit ledger."
+    },
+    {
+      "metric_id": "MUT-002",
+      "name": "high_risk_mutation_detection_rate",
+      "category": "mutation",
+      "numerator": "Non-equivalent high-risk mutants detected.",
+      "denominator": "All non-equivalent high-risk mutants.",
+      "unit": "rate",
+      "direction": "higher_is_better",
+      "target": {
+        "operator": ">=",
+        "value": 0.95
+      },
+      "gate": true,
+      "requires_field_data": false,
+      "report_by": [
+        "mutation_family",
+        "owner_evaluator"
+      ],
+      "notes": "The score must report equivalent, survived, detected, and invalid mutants separately."
+    },
+    {
+      "metric_id": "REPLAY-001",
+      "name": "deterministic_replay_rate",
+      "category": "replay",
+      "numerator": "Repeated canonical input and host-sequence streams producing byte-identical canonical outputs and receipts.",
+      "denominator": "All exact replay repetitions.",
+      "unit": "rate",
+      "direction": "higher_is_better",
+      "target": {
+        "operator": "==",
+        "value": 1
+      },
+      "gate": true,
+      "requires_field_data": false,
+      "report_by": [
+        "input_permutation",
+        "event_arrival_permutation"
+      ],
+      "notes": "Time-dependent inputs must be frozen; wall-clock reads are not permitted in the evaluator fixture."
+    },
+    {
+      "metric_id": "CONTROL-001",
+      "name": "negative_control_success_rate",
+      "category": "utility",
+      "numerator": "Negative controls producing their preregistered legitimate effect without violating safety invariants.",
+      "denominator": "All valid negative-control runs.",
+      "unit": "rate",
+      "direction": "higher_is_better",
+      "target": {
+        "operator": ">=",
+        "value": 0.95
+      },
+      "gate": true,
+      "requires_field_data": false,
+      "report_by": [
+        "control_family"
+      ],
+      "notes": "Prevents a system from passing by rejecting every mutation or blocking all work."
+    },
+    {
+      "metric_id": "UTILITY-001",
+      "name": "false_hold_rate",
+      "category": "utility",
+      "numerator": "Valid cases blocked despite complete current evidence and authority.",
+      "denominator": "All adjudicated valid-to-progress cases.",
+      "unit": "rate",
+      "direction": "lower_is_better",
+      "target": {
+        "operator": "report_only",
+        "value": null
+      },
+      "gate": false,
+      "requires_field_data": false,
+      "report_by": [
+        "risk_tier",
+        "owner_evaluator"
+      ],
+      "notes": "Report with false acceptance and negative-control success; do not optimize safety by indiscriminate refusal."
+    },
+    {
+      "metric_id": "REVIEW-001",
+      "name": "median_reviewer_minutes_per_case",
+      "category": "review",
+      "numerator": "Total active human review minutes across adjudicated cases.",
+      "denominator": "Not applicable; report median per case.",
+      "unit": "minutes_per_case",
+      "direction": "lower_is_better",
+      "target": {
+        "operator": "report_only",
+        "value": null
+      },
+      "gate": false,
+      "requires_field_data": false,
+      "report_by": [
+        "review_role",
+        "risk_tier",
+        "language"
+      ],
+      "notes": "Include time spent on appeal and evidence reconciliation."
+    },
+    {
+      "metric_id": "REVIEW-002",
+      "name": "appeal_overturn_rate",
+      "category": "review",
+      "numerator": "Initially blocked or rejected decisions overturned after independent appeal.",
+      "denominator": "All appealed blocked or rejected decisions.",
+      "unit": "rate",
+      "direction": "report_distribution",
+      "target": {
+        "operator": "report_only",
+        "value": null
+      },
+      "gate": false,
+      "requires_field_data": false,
+      "report_by": [
+        "reason_code",
+        "review_role"
+      ],
+      "notes": "A high rate may indicate false holds or inadequate explanations; a low rate does not prove fairness."
+    },
+    {
+      "metric_id": "OUTCOME-001",
+      "name": "time_to_independently_observed_restoration",
+      "category": "service_outcome",
+      "numerator": "Elapsed time between validated interruption notice and qualified independent restoration observation.",
+      "denominator": "All eligible service-interruption events.",
+      "unit": "duration",
+      "direction": "lower_is_better",
+      "target": {
+        "operator": "preregister_per_pilot",
+        "value": null
+      },
+      "gate": false,
+      "requires_field_data": true,
+      "report_by": [
+        "zone",
+        "severity",
+        "population",
+        "time_period"
+      ],
+      "notes": "Requires authorized operational timestamps and independent measurement; not measured by synthetic fixtures."
+    },
+    {
+      "metric_id": "OUTCOME-002",
+      "name": "repeat_burst_rate",
+      "category": "service_outcome",
+      "numerator": "Restored assets with a repeat burst inside the preregistered recurrence window.",
+      "denominator": "All restored assets with complete observation follow-up.",
+      "unit": "rate",
+      "direction": "lower_is_better",
+      "target": {
+        "operator": "preregister_per_pilot",
+        "value": null
+      },
+      "gate": false,
+      "requires_field_data": true,
+      "report_by": [
+        "asset_class",
+        "zone",
+        "repair_method",
+        "time_window"
+      ],
+      "notes": "Requires a fixed recurrence window, stable asset identifiers and censoring rules."
+    },
+    {
+      "metric_id": "OUTCOME-003",
+      "name": "community_priority_and_dissent_preservation",
+      "category": "agency",
+      "numerator": "Material community priorities, alternatives and dissent positions retained with provenance through formation and review.",
+      "denominator": "All community-authored priorities and dissent positions independently adjudicated as material.",
+      "unit": "rate",
+      "direction": "higher_is_better",
+      "target": {
+        "operator": "preregister_per_pilot",
+        "value": null
+      },
+      "gate": false,
+      "requires_field_data": true,
+      "report_by": [
+        "language",
+        "community_group",
+        "decision_stage"
+      ],
+      "notes": "Must be reviewed by community-designated reviewers; do not infer consent from silence or generated summaries."
+    }
+  ]
+}
