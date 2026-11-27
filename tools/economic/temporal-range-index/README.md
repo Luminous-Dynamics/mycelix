@@ -135,3 +135,18 @@ The harness now includes:
 - `BenchmarkOwnerProjectionReplayV1`: 100 / 1k / 10k / 100k owner-log receipts, measuring full-log RFC 9162 root reconstruction, payload digest checks and interval-index rebuild.
 
 Both are one-iteration hosted CI smoke tests only. They do not produce stable p50/p95/p99 measurements or claim production performance.
+
+
+## Frontier forest bounded formal model
+
+`formal/TemporalFrontierForest.tla` and its configuration model two owners with independent sequence cuts, log tree sizes and gap cardinalities. The state machine distinguishes:
+- manifest owner inclusion;
+- per-owner interval proof presence;
+- exact frontier digest binding;
+- declared forest query completion;
+- per-owner projection replay;
+- frontier advance that invalidates a prior completion certificate.
+
+Invariants require exact owner-set coverage before a declared forest result, projection replay to follow forest completion and cover every owner, and no completion certificate to survive a frontier advance. The configuration also checks the owner-local cardinality relation without introducing a cross-owner sequence ordering.
+
+This model is authored but TLC has not been run. It is a formal specification artifact, not a model-checking result.
