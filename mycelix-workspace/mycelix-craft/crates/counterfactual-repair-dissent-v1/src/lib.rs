@@ -389,13 +389,6 @@ pub fn build_repair_certificate(
         let requirement_keys = blocker
             .required_evidence
             .iter()
-            .map(|requirement| {
-                (
-                    requirement.evidence_kind.as_str(),
-                    requirement.responsible_owner_id.as_str(),
-                    requirement.context_digest,
-                )
-            })
             .collect::<BTreeSet<_>>();
         if requirement_keys.len() != blocker.required_evidence.len() {
             return Err(GuidanceErrorV1::DuplicateRequirement);
@@ -547,25 +540,32 @@ pub fn build_repair_certificate(
         }
     }
 
-    let mut certificate = RepairCertificateV1 {
+    let mut owner_evaluations = packet.owner_evaluations.clone();
+    owner_evaluations.sort_by(|left, right| {
+        left.evaluation_id.cmp(&right.evaluation_id)
+    });
+    let mut blockers = packet.blockers.clone();
+    blockers.sort_by(|left, right| left.blocker_id.cmp(&right.blocker_id));
+    for blocker in &mut blockers {
+        blocker.required_evidence.sort();
+        blocker.prerequisite_blocker_ids.sort();
+    }
+    let mut guidance_steps = packet.guidance_steps.clone();
+    guidance_steps.sort_by(|left, right| left.step_id.cmp(&right.step_id));
+    for step in &mut guidance_steps {
+        step.satisfies_blocker_ids.sort();
+        step.prerequisite_step_ids.sort();
+    }
+    let certificate = RepairCertificateV1 {
         schema_version: packet.schema_version,
         decision: packet.decision.clone(),
         disposition_code: packet.disposition_code.clone(),
         disposition_digest: packet.disposition_digest,
-        owner_evaluations: packet.owner_evaluations.clone(),
-        blockers: packet.blockers.clone(),
-        guidance_steps: packet.guidance_steps.clone(),
+        owner_evaluations,
+        blockers,
+        guidance_steps,
         may_authorize_or_execute: false,
     };
-    certificate.owner_evaluations.sort_by(|left, right| {
-        left.evaluation_id.cmp(&right.evaluation_id)
-    });
-    certificate.blockers.sort_by(|left, right| {
-        left.blocker_id.cmp(&right.blocker_id)
-    });
-    certificate.guidance_steps.sort_by(|left, right| {
-        left.step_id.cmp(&right.step_id)
-    });
     Ok(certificate)
 }
 
@@ -1209,6 +1209,28 @@ mod tests {
         assert_eq!(
             validate_summary_preserves_positions(&positions, &[item]),
             Err(GuidanceErrorV1::SummaryResolutionMismatch)
+        );
+    }
+
+    #[test]
+    fn a_resolution_kind_cannot_be_relabelled_as_another_state() {
+        let mut withdrawn = position(
+            "affordability",
+            PositionStateV1::Withdrawn,
+            "cost-outcome",
+        );
+        let mut resolution = resolved_position("affordability", "cost-outcome")
+            .resolution
+            .expect("resolution fixture exists");
+        resolution.proposal = withdrawn.proposal.clone();
+        resolution.kind = PositionResolutionKindV1::Resolve;
+        withdrawn.resolution = Some(resolution);
+        assert_eq!(
+            validate_summary_preserves_positions(
+                &[withdrawn],
+                &[summary_item("affordability", SummaryPositionDispositionV1::ExplicitlyWithdrawn)]
+            ),
+            Err(GuidanceErrorV1::PositionBindingMismatch)
         );
     }
 
