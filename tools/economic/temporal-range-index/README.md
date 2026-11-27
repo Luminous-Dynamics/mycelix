@@ -66,3 +66,17 @@ The caller must supply the exact owner set and forest root obtained from the sep
 The verifier returns only `CompleteForDeclaredIndexForest`: every result relative to the exact declared owner-index roots has been verified. `ProjectionCompletenessNotEvaluated` is always returned because this module does not verify that every accepted owner receipt was projected into the index. Gap metadata is retained in `HasOwnerGaps`; a forest result cannot silently hide it.
 
 This is a composition prototype. It does not authenticate the frontier/checkpoint root, verify log consistency proofs, verify the projection-audit receipt, or grant a `CompleteForAcceptedFrontier` disposition.
+
+
+## Receipt-to-index projection replay
+
+`projection.go` adds an independent deterministic replay over one supplied owner-local accepted-receipt inventory. Each input receipt carries a contiguous zero-based receipt-log leaf index, a distinct owner-local sequence, a SHA-256 receipt digest and one closed projection class:
+
+- `ReceiptProjectsIntervalAssertion`: supplies the exact assertion reference and half-open validity interval;
+- `ReceiptIsNonTemporal`: supplies no interval fields and is explicitly excluded from the temporal index.
+
+The replay checks owner/history/cut/log-root identity, full leaf-position coverage for the declared tree size, increasing owner sequences, no entries inside declared unresolved gaps, canonical record validity and duplicate assertion rejection. It rebuilds the interval index and compares the resulting root; it then computes a deterministic inventory digest and projection-audit digest for checkpoint binding.
+
+The result is deliberately named `ProjectionMatchesSuppliedAcceptedInventory`, and always reports `ReceiptInventoryAuthenticationNotEvaluated`. This is **not** proof that the supplied inventory is the complete accepted log prefix. A separate RFC 9162 / owner-frontier verifier must authenticate the receipt bytes and prove the exact inventory coverage against the owner log root and cut. An incomplete supplied inventory must not be promoted to source completeness merely because its replay is internally consistent.
+
+The replay audit is now a digest that may be committed into the owner-index forest, but the forest query verifier still reports `ProjectionCompletenessNotEvaluated` until an authenticated adapter consumes and verifies these audit results against the accepted frontier.
