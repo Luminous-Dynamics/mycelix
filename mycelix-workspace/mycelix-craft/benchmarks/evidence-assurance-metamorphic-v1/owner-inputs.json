@@ -178,7 +178,19 @@
               "authority_ref": null
             }
           ],
-          "community_decisions": []
+          "community_decisions": [],
+          "summary_positions": [
+            {
+              "position_id": "POSITION-COST-04",
+              "position_digest": "6060606060606060606060606060606060606060606060606060606060606060",
+              "disposition": "Preserved"
+            },
+            {
+              "position_id": "POSITION-RELIABILITY-04",
+              "position_digest": "6161616161616161616161616161616161616161616161616161616161616161",
+              "disposition": "Preserved"
+            }
+          ]
         },
         "impact_qualification": {
           "event": {
@@ -214,6 +226,15 @@
               "status": "current",
               "valid_until": "2030-01-01T00:00:00Z",
               "context_digest": "1515151515151515151515151515151515151515151515151515151515151515"
+            }
+          ],
+          "events": [
+            {
+              "event_id": "EVT-WITHDRAWAL-05",
+              "host_sequence": 8,
+              "event_type": "evidence_withdrawn",
+              "target_source_id": "SRC-PRESSURE-05",
+              "payload_digest": "5555555555555555555555555555555555555555555555555555555555555555"
             }
           ]
         }
@@ -288,6 +309,18 @@
             "context_id": "WATER-QUALITY-USE-08",
             "digest": "2020202020202020202020202020202020202020202020202020202020202020",
             "jurisdiction_ref": "JURIS-SYN-01"
+          },
+          "not_affected_determination": {
+            "status": "NotAffected",
+            "event_id": "EVT-LAB-CORRECTION-08",
+            "artifact_digest": "5656565656565656565656565656565656565656565656565656565656565656",
+            "edge_digest": "5757575757575757575757575757575757575757575757575757575757575757",
+            "use_context_digest": "5858585858585858585858585858585858585858585858585858585858585858",
+            "independent_review_ref": {
+              "artifact_id": "IMPACT-REVIEW-08",
+              "revision": 1,
+              "digest": "5959595959595959595959595959595959595959595959595959595959595959"
+            }
           }
         },
         "claim_support": {
@@ -427,7 +460,19 @@
               "authority_ref": null
             }
           ],
-          "community_decisions": []
+          "community_decisions": [],
+          "summary_positions": [
+            {
+              "position_id": "POSITION-AFFORDABILITY",
+              "position_digest": "2323232323232323232323232323232323232323232323232323232323232323",
+              "disposition": "Preserved"
+            },
+            {
+              "position_id": "POSITION-RELIABILITY",
+              "position_digest": "2525252525252525252525252525252525252525252525252525252525252525",
+              "disposition": "Preserved"
+            }
+          ]
         }
       }
     }
