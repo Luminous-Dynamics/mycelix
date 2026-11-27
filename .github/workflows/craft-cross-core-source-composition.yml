@@ -1,0 +1,69 @@
+name: Craft exact-head cross-core source composition
+
+on:
+  push:
+    branches:
+      - research/craft-cross-core-source-composition-v0.1-20261127
+    paths:
+      - 'mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/**'
+      - '.github/workflows/craft-cross-core-source-composition.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/**'
+      - '.github/workflows/craft-cross-core-source-composition.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compose:
+    name: Six exact-head owner cores in one workspace
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact harness revision
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'Expected source SHA: %s\n' "$EXPECTED_SHA"
+          printf 'Checked out source SHA: %s\n' "$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - name: Install pinned Rust toolchain and components
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal
+          rustup component add rustfmt clippy --toolchain 1.96.0
+
+      - name: Materialize pinned component source revisions
+        run: |
+          OUT_DIR="$RUNNER_TEMP/craft-cross-core-workspace"
+          bash mycelix-workspace/mycelix-craft/benchmarks/cross-core-source-composition-v1/materialize.sh "$OUT_DIR"
+          echo "CROSS_CORE_WORKSPACE=$OUT_DIR" >> "$GITHUB_ENV"
+
+      - name: Generate deterministic dependency-free workspace lock
+        run: cargo +1.96.0 generate-lockfile --manifest-path "$CROSS_CORE_WORKSPACE/Cargo.toml"
+
+      - name: Check formatting across the combined source tree
+        run: cargo +1.96.0 fmt --manifest-path "$CROSS_CORE_WORKSPACE/Cargo.toml" --all -- --check
+
+      - name: Run all owner-core unit tests in the combined workspace
+        run: cargo +1.96.0 test --manifest-path "$CROSS_CORE_WORKSPACE/Cargo.toml" --workspace --locked
+
+      - name: Run combined-workspace Clippy
+        run: cargo +1.96.0 clippy --manifest-path "$CROSS_CORE_WORKSPACE/Cargo.toml" --workspace --all-targets --locked -- -D warnings
+
+      - name: Emit exact-source composition receipt
+        run: |
+          sha256sum "$CROSS_CORE_WORKSPACE/Cargo.lock"
+          cat "$CROSS_CORE_WORKSPACE/source-receipt.tsv"
+          printf '%s\n' 'PASS = exact pinned source composition, package tests, rustfmt and Clippy.'
+          printf '%s\n' 'NONCLAIM = cross-core behavior is not yet qualified by this workspace gate.'
