@@ -111,6 +111,9 @@ pub struct BitemporalValidityResultV1 {
     pub verifier_ref: String,
     pub valid_at: String,
     pub known_at: String,
+    /// Exact validity episode selected by the query, when the source assertions
+    /// carry an episode identity. Legacy untagged results remain None.
+    pub validity_interval_ref: Option<String>,
     pub valid_from_assertion: Option<String>,
     pub valid_to_assertion: Option<String>,
     pub knowledge_assertions: Vec<String>,
@@ -198,6 +201,14 @@ fn build_validity_result(input: ValidityResultInput<'_>) -> BitemporalValidityRe
         verifier_ref: input.verifier_ref.into(),
         valid_at: input.valid_at.into(),
         known_at: input.known_at.into(),
+        validity_interval_ref: input
+            .valid_from
+            .and_then(|assertion| assertion.validity_interval_ref.clone())
+            .or_else(|| {
+                input
+                    .valid_to
+                    .and_then(|assertion| assertion.validity_interval_ref.clone())
+            }),
         valid_from_assertion: input
             .valid_from
             .map(|assertion| assertion.assertion_id.clone()),
@@ -545,8 +556,8 @@ impl TemporalEvidenceSetV1 {
             }
         };
 
-        let mut knowledge_ids = from_knowledge.clone();
-        knowledge_ids.extend(to_knowledge.clone());
+        let mut knowledge_ids = from_knowledge;
+        knowledge_ids.extend(to_knowledge);
         knowledge_ids.sort();
         knowledge_ids.dedup();
 
@@ -568,8 +579,8 @@ impl TemporalEvidenceSetV1 {
             }));
         }
 
-        let mut knowledge_ids = from_knowledge.clone();
-        knowledge_ids.extend(to_knowledge.clone());
+        let mut knowledge_ids = from_knowledge;
+        knowledge_ids.extend(to_knowledge);
         knowledge_ids.sort();
         knowledge_ids.dedup();
 
