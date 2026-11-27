@@ -56,6 +56,14 @@ A required owner with zero accepted events must still have a stable owner-histor
 
 The roster binds owner identity separately from owner-history identity. Duplicate owner identities and two required owners sharing one history identity are rejected.
 
+### Frontier binding to the roster epoch
+
+The accepted frontier snapshot now explicitly carries the owner-universe registry identity, registry epoch and profile, in addition to verifier, policy epoch, exact query scope and frontier digest. The reconciliation rejects a frontier whose registry/profile tuple differs from the closure manifest—even if its owner labels and stable history identities happen to match.
+
+This prevents a verifier from reusing a frontier accepted against an older registry epoch as though it had incorporated a later owner roster. Historical queries must bind the historical roster epoch they actually accepted; current queries must not relabel that old certificate as current.
+
+The TLA+ model includes `frontierEpoch` and checks `FrontierRosterEpochBinding`: a positive frontier coverage disposition requires equality among frontier epoch, manifest epoch and current declared registry epoch.
+
 ## 5. Structural Go reference
 
 The independent reference lives at `tools/economic/temporal-hindsight/reference/scopeclosure/`. It:
