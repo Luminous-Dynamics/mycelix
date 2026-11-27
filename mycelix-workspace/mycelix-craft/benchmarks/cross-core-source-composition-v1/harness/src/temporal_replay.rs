@@ -46,7 +46,7 @@ pub struct TemporalReplayReceiptV1 {
     pub visible_event_ids: Vec<String>,
     /// Evidence-bearing events after applying visible corrections/revocations.
     /// A correction event replaces its target; a revocation event is metadata.
-    pub effective_evidence_event_ids: Vec<String>,
+    pub effective_event_ids: Vec<String>,
     pub superseded_event_ids: Vec<String>,
     pub revoked_event_ids: Vec<String>,
     pub applied_mutation_event_ids: Vec<String>,
@@ -261,7 +261,7 @@ pub fn replay_temporal_frontier(
     }
 
     let retired: BTreeSet<_> = superseded.union(&revoked).cloned().collect();
-    let effective_evidence_event_ids = visible
+    let effective_event_ids = visible
         .iter()
         .filter(|event| event.kind != EventKind::Revocation && !retired.contains(&event.id))
         .map(|event| event.id.clone())
@@ -273,7 +273,7 @@ pub fn replay_temporal_frontier(
         cut.valid_time_as_of,
         cut.known_through_sequence,
         visible_event_ids.join(","),
-        effective_evidence_event_ids.join(","),
+        effective_event_ids.join(","),
         superseded.iter().cloned().collect::<Vec<_>>().join(","),
         revoked.iter().cloned().collect::<Vec<_>>().join(","),
         applied_mutations.join(","),
@@ -285,7 +285,7 @@ pub fn replay_temporal_frontier(
         valid_time_as_of: cut.valid_time_as_of.clone(),
         known_through_sequence: cut.known_through_sequence,
         visible_event_ids,
-        effective_evidence_event_ids,
+        effective_event_ids,
         superseded_event_ids: superseded.into_iter().collect(),
         revoked_event_ids: revoked.into_iter().collect(),
         applied_mutation_event_ids: applied_mutations,
@@ -318,11 +318,11 @@ mod tests {
         let before_correction =
             replay_temporal_frontier(source, &cut("2026-11-27T16:00:00Z", 10)).unwrap();
         assert!(before_correction
-            .effective_evidence_event_ids
+            .effective_event_ids
             .iter()
             .any(|id| id == "event-006"));
         assert!(before_correction
-            .effective_evidence_event_ids
+            .effective_event_ids
             .iter()
             .any(|id| id == "event-008"));
         assert!(!before_correction
@@ -337,11 +337,11 @@ mod tests {
             .iter()
             .any(|id| id == "event-006"));
         assert!(after_correction
-            .effective_evidence_event_ids
+            .effective_event_ids
             .iter()
             .any(|id| id == "event-011"));
         assert!(after_correction
-            .effective_evidence_event_ids
+            .effective_event_ids
             .iter()
             .any(|id| id == "event-008"));
 
@@ -352,13 +352,31 @@ mod tests {
             .iter()
             .any(|id| id == "event-008"));
         assert!(!after_revocation
-            .effective_evidence_event_ids
+            .effective_event_ids
             .iter()
             .any(|id| id == "event-008"));
         assert!(after_revocation
-            .effective_evidence_event_ids
+            .effective_event_ids
             .iter()
             .any(|id| id == "event-011"));
+    }
+
+    #[test]
+    fn appending_later_mutations_does_not_rewrite_an_earlier_frontier_receipt() {
+        let mut prefix = fixture();
+        prefix["events"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|event| {
+                !matches!(
+                    event.get("id").and_then(Value::as_str),
+                    Some("event-011" | "event-012")
+                )
+            });
+        let cut = cut("2026-11-27T16:00:00Z", 10);
+        let prefix_receipt = replay_temporal_frontier(&input(&prefix), &cut).unwrap();
+        let extended_receipt = replay_temporal_frontier(FIXTURE, &cut).unwrap();
+        assert_eq!(prefix_receipt, extended_receipt);
     }
 
     #[test]
@@ -366,11 +384,11 @@ mod tests {
         let receipt = replay_temporal_frontier(FIXTURE, &cut("2026-11-27T12:00:00Z", 11)).unwrap();
         assert!(!receipt.visible_event_ids.iter().any(|id| id == "event-011"));
         assert!(receipt
-            .effective_evidence_event_ids
+            .effective_event_ids
             .iter()
             .any(|id| id == "event-006"));
         assert!(receipt
-            .effective_evidence_event_ids
+            .effective_event_ids
             .iter()
             .any(|id| id == "event-008"));
     }
