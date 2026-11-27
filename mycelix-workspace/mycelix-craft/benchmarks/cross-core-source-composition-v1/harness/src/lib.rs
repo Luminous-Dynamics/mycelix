@@ -67,11 +67,7 @@ fn claim_packet(claim_id: &str) -> claim_support::ClaimSupportPacketV1 {
     packet
 }
 
-fn claim_result(
-    claim_id: &str,
-    supported: bool,
-    now: u64,
-) -> claim_support::ClaimSupportResultV1 {
+fn claim_result(claim_id: &str, supported: bool, now: u64) -> claim_support::ClaimSupportResultV1 {
     let mut packet = claim_packet(claim_id);
     if supported {
         packet.reviews.push(claim_support_helpers::review(
@@ -126,9 +122,7 @@ fn closure_support_ref(
 }
 
 fn source_lineage(expired: bool) -> evidence_lineage::LineageEvaluationV1 {
-    use evidence_lineage::{
-        ArtifactKindV1, ChangeReasonV1, DependencyRelationV1, ImpactPolicyV1,
-    };
+    use evidence_lineage::{ArtifactKindV1, ChangeReasonV1, DependencyRelationV1, ImpactPolicyV1};
     let source = lineage_helpers::reference("wsr:pressure-source", 1, 1);
     let claim = lineage_helpers::reference("wsr:pressure-claim", 1, 2);
     let decision = lineage_helpers::reference("wsr:restoration-decision", 1, 3);
@@ -172,13 +166,16 @@ fn source_lineage(expired: bool) -> evidence_lineage::LineageEvaluationV1 {
         .expect("synthetic evidence lineage is acyclic and correctly scoped")
 }
 
-fn evaluate_episode(case_id: &str, episode: WaterEpisode, local_mapping_reviews: usize) -> CrossCoreReceipt {
-    use impact::{SupportEvidenceStateV1, SupportRuleV1};
+fn evaluate_episode(
+    case_id: &str,
+    episode: WaterEpisode,
+    local_mapping_reviews: usize,
+) -> CrossCoreReceipt {
     use decision_closure::{DecisionClosureDispositionV1, SupportDispositionV1};
+    use impact::{SupportEvidenceStateV1, SupportRuleV1};
 
     let proposal = need_helpers::valid_proposal();
-    need_intake::validate_proposal(&proposal)
-        .expect("synthetic community need proposal is valid");
+    need_intake::validate_proposal(&proposal).expect("synthetic community need proposal is valid");
     let ratification = need_intake::evaluate_ratification(&proposal, 100)
         .expect("need ratification can be evaluated");
     assert_eq!(ratification.state, need_intake::RatificationStateV1::Draft);
@@ -187,10 +184,7 @@ fn evaluate_episode(case_id: &str, episode: WaterEpisode, local_mapping_reviews:
     let project = project_helpers::project(project_formation::RequirementKindV1::SafetyCritical, 1);
     let team = project_formation::evaluate_team(
         &project,
-        &project_helpers::proposal(
-            vec![project_helpers::member("local-maintainer")],
-            vec![],
-        ),
+        &project_helpers::proposal(vec![project_helpers::member("local-maintainer")], vec![]),
         project_helpers::NOW,
     )
     .expect("project team evaluates without promoting missing capability evidence");
@@ -205,19 +199,21 @@ fn evaluate_episode(case_id: &str, episode: WaterEpisode, local_mapping_reviews:
         episode.current_pressure_restoration,
         100,
     );
-    let quality = claim_result(
-        "water:quality-release",
-        episode.current_water_quality,
-        100,
-    );
+    let quality = claim_result("water:quality-release", episode.current_water_quality, 100);
     let pressure_support = pressure.disposition;
     let quality_support = quality.disposition;
 
     let support_state = |disposition| match disposition {
-        claim_support::ClaimSupportDispositionV1::Supported => SupportEvidenceStateV1::DirectSupport,
-        claim_support::ClaimSupportDispositionV1::BlockedByContradiction => SupportEvidenceStateV1::Contradicted,
+        claim_support::ClaimSupportDispositionV1::Supported => {
+            SupportEvidenceStateV1::DirectSupport
+        }
+        claim_support::ClaimSupportDispositionV1::BlockedByContradiction => {
+            SupportEvidenceStateV1::Contradicted
+        }
         claim_support::ClaimSupportDispositionV1::HumanReviewRequired
-        | claim_support::ClaimSupportDispositionV1::InsufficientEvidence => SupportEvidenceStateV1::NotAssessable,
+        | claim_support::ClaimSupportDispositionV1::InsufficientEvidence => {
+            SupportEvidenceStateV1::NotAssessable
+        }
     };
     let sufficiency = impact::evaluate_support_sufficiency(
         &SupportRuleV1::AllOf {
@@ -620,7 +616,6 @@ mod project_helpers {
     fn result(project: &NeedToProjectV1, proposal: &TeamProposalV1) -> RequirementCoverageV1 {
         evaluate_team(project, proposal, NOW).unwrap().requirements[0].clone()
     }
-
 }
 
 #[cfg(test)]
@@ -735,7 +730,6 @@ mod claim_support_helpers {
             withdrawn_at: None,
         }
     }
-
 }
 
 #[cfg(test)]
@@ -925,7 +919,6 @@ mod lineage_helpers {
             .state_for(reference)
             .expect("artifact state exists")
     }
-
 }
 
 #[cfg(test)]
@@ -1042,7 +1035,6 @@ mod impact_helpers {
             state,
         }
     }
-
 }
 
 #[cfg(test)]
@@ -1112,10 +1104,21 @@ mod tests {
                 minimum: 2,
             },
             &[
-                impact_helpers::item("meter-a", SupportEvidenceStateV1::DirectSupport, Some("same-meter-cluster"), 41),
-                impact_helpers::item("meter-b", SupportEvidenceStateV1::DirectSupport, Some("same-meter-cluster"), 42),
+                impact_helpers::item(
+                    "meter-a",
+                    SupportEvidenceStateV1::DirectSupport,
+                    Some("same-meter-cluster"),
+                    41,
+                ),
+                impact_helpers::item(
+                    "meter-b",
+                    SupportEvidenceStateV1::DirectSupport,
+                    Some("same-meter-cluster"),
+                    42,
+                ),
             ],
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(result, SupportSufficiencyV1::InsufficientEvidence);
     }
 }
