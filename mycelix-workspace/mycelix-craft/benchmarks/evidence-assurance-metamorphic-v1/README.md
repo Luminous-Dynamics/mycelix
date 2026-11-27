@@ -83,7 +83,7 @@ Community positions are carried as separately attributed, versioned claims. A su
 
 ## Evaluator adapter boundary
 
-Structural validation here does not execute an evaluator. The mutation specifications and oracle contract are declarative: an execution adapter is still required to materialize projections, apply selectors, invoke owners and produce independently replayable receipts. A future adapter must:
+Structural validation here does not execute an evaluator. The next layer now specifies typed operations and selectors, owner-specific synthetic projections, mutation validity gates, independent oracle requirements, and replay receipts. Zero-match or ambiguous selectors are invalid mutations, not survived mutants. An execution adapter is still required. The mutation specifications and oracle contract are declarative: an execution adapter is still required to materialize projections, apply selectors, invoke owners and produce independently replayable receipts. A future adapter must:
 1. load one frozen WSR seed and exact digests;
 2. apply exactly one registered mutation;
 3. call the domain owner's evaluator(s), not a benchmark-local duplicate;
