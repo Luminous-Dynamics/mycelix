@@ -16,6 +16,7 @@ The goal is not to maximize refusal. It is to preserve safety invariants while k
 - `seeds.json`: references to synthetic WSR known-answer cases; no operational data is copied.
 - `relations.json`: 16 cross-input invariants with seed, mutation and control references.
 - `mutations.json`: 30 adversarial operators and 16 negative controls.
+- `scorecard.json`: 15 metric definitions with explicit numerators, denominators, targets, gate flags and field-data requirements.
 - `validate.sh`: structural and referential-integrity checks only.
 
 Digest semantics are explicit: WSR evidence digest strings are shape-only synthetic placeholders, not cryptographic commitments. An evaluator adapter must recompute commitments from exact fixture bytes and verify the schema before using them.
@@ -42,7 +43,7 @@ Digest semantics are explicit: WSR evidence digest strings are shape-only synthe
 - Report equivalent mutants separately; do not count them as survived or detected without adjudication.
 - Report false holds, false rejections, time-to-review, reviewer minutes, appeal overturns and justified recovery separately. A system that blocks everything does not pass.
 
-Thresholds are proposed qualification gates, not measured Mycelix performance. Freeze corpus and thresholds before evaluating candidate systems.
+Thresholds are proposed qualification gates, not measured Mycelix performance. Freeze corpus and thresholds before evaluating candidate systems. The scorecard deliberately separates hard safety gates from usability and field-outcome measures; there is no weighted aggregate score.
 
 ## Comparison design
 
