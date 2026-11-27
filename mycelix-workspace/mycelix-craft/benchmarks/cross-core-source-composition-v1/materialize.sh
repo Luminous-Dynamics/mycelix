@@ -29,18 +29,18 @@ while IFS=$'\t' read -r pr branch expected_commit crate expected_manifest_blob e
   }
   seen_crates["$crate"]=1
 
-  printf 'Fetching PR #%s source branch %s\n' "$pr" "$branch"
+  printf 'Fetching PR/issue #%s source branch %s\n' "$pr" "$branch"
   git -C "$REPO_ROOT" fetch --no-tags "$REMOTE" "refs/heads/$branch"
   actual_commit="$(git -C "$REPO_ROOT" rev-parse FETCH_HEAD)"
   if [[ "$actual_commit" != "$expected_commit" ]]; then
-    printf 'SOURCE DRIFT for PR #%s: expected %s, fetched %s\n' \
+    printf 'SOURCE DRIFT for PR/issue #%s: expected %s, fetched %s\n' \
       "$pr" "$expected_commit" "$actual_commit" >&2
     exit 1
   fi
 
   source_root="${source_root:-mycelix-workspace/mycelix-craft/crates/$crate}"
   [[ "$source_root" != *".."* ]] || {
-    printf 'Unsafe source root for PR #%s\n' "$pr" >&2
+    printf 'Unsafe source root for PR/issue #%s\n' "$pr" >&2
     exit 2
   }
   manifest_path="$source_root/Cargo.toml"
@@ -48,12 +48,12 @@ while IFS=$'\t' read -r pr branch expected_commit crate expected_manifest_blob e
   actual_manifest_blob="$(git -C "$REPO_ROOT" rev-parse "$expected_commit:$manifest_path")"
   actual_lib_blob="$(git -C "$REPO_ROOT" rev-parse "$expected_commit:$source_path")"
   if [[ "$actual_manifest_blob" != "$expected_manifest_blob" ]]; then
-    printf 'MANIFEST BLOB DRIFT for PR #%s: expected %s, got %s\n' \
+    printf 'MANIFEST BLOB DRIFT for PR/issue #%s: expected %s, got %s\n' \
       "$pr" "$expected_manifest_blob" "$actual_manifest_blob" >&2
     exit 1
   fi
   if [[ "$actual_lib_blob" != "$expected_lib_blob" ]]; then
-    printf 'SOURCE BLOB DRIFT for PR #%s: expected %s, got %s\n' \
+    printf 'SOURCE BLOB DRIFT for PR/issue #%s: expected %s, got %s\n' \
       "$pr" "$expected_lib_blob" "$actual_lib_blob" >&2
     exit 1
   fi
@@ -63,54 +63,11 @@ while IFS=$'\t' read -r pr branch expected_commit crate expected_manifest_blob e
   git -C "$REPO_ROOT" show "$expected_commit:$manifest_path" > "$destination/Cargo.toml"
   git -C "$REPO_ROOT" show "$expected_commit:$source_path" > "$destination/src/lib.rs"
 
-  # The standalone owner declares its own [workspace] for isolated CI. In this
-  # combined composition workspace, retain the exact source blobs above but
-  # deterministically strip only that root stanza from the temporary manifest.
+  # The standalone action owner declares its own [workspace] for isolated CI.
+  # In the combined composition workspace, retain the verified source blobs
+  # but deterministically remove only that nested workspace-root stanza.
   if [[ "$crate" == "craft-action-denominator-v1" ]]; then
-    grep -q '^\[workspace\]    "$pr" "$branch" "$expected_commit" "$crate" \
-    "$expected_manifest_blob" "$expected_lib_blob" "$source_root" >> "$OUT_DIR/source-receipt.tsv"
-  count=$((count + 1))
-done < "$MANIFEST"
-
-if [[ "$count" -ne 7 ]]; then
-  printf 'Expected exactly seven component cores, materialized %s\n' "$count" >&2
-  exit 1
-fi
-
-# The harness source belongs to the exact harness commit already checked out
-# by CI. Preserve it as a distinct workspace member, not as an additional owner.
-HARNESS_SRC="$SCRIPT_DIR/harness"
-test -s "$HARNESS_SRC/Cargo.toml"
-test -s "$HARNESS_SRC/src/lib.rs"
-mkdir -p "$OUT_DIR/harness/src"
-cp "$HARNESS_SRC/Cargo.toml" "$OUT_DIR/harness/Cargo.toml"
-cp "$HARNESS_SRC/src/lib.rs" "$OUT_DIR/harness/src/lib.rs"
-sha256sum "$HARNESS_SRC/Cargo.toml" "$HARNESS_SRC/src/lib.rs" \
-  | awk '{print "harness_source_sha256\t" $1}' >> "$OUT_DIR/source-receipt.tsv"
-
-cat > "$OUT_DIR/Cargo.toml" <<'TOML'
-[workspace]
-resolver = "2"
-members = [
-  "crates/need-intake-v1",
-  "crates/project-formation-v1",
-  "crates/claim-support-v1",
-  "crates/decision-closure-v1",
-  "crates/evidence-lineage-v1",
-  "crates/impact-qualification-v1",
-  "crates/craft-action-denominator-v1",
-  "harness",
-]
-TOML
-
-printf 'MYCELIX-CRAFT-CROSS-CORE-SOURCE-COMPOSITION-V1\n' > "$OUT_DIR/profile.txt"
-printf 'harness_head\t%s\n' "$(git -C "$REPO_ROOT" rev-parse HEAD)" >> "$OUT_DIR/source-receipt.tsv"
-printf 'component_count\t%s\n' "$count" >> "$OUT_DIR/source-receipt.tsv"
-sha256sum "$MANIFEST" | awk '{print "source_manifest_sha256\t" $1}' >> "$OUT_DIR/source-receipt.tsv"
-
-printf '\nMaterialized %s exact component revisions into %s\n' "$count" "$OUT_DIR"
-cat "$OUT_DIR/source-receipt.tsv"
- "$destination/Cargo.toml"
+    grep -q '^\[workspace\]$' "$destination/Cargo.toml"
     sed '/^\[workspace\]$/,$d' "$destination/Cargo.toml" > "$destination/Cargo.toml.derived"
     mv "$destination/Cargo.toml.derived" "$destination/Cargo.toml"
     sha256sum "$destination/Cargo.toml" \
@@ -149,6 +106,7 @@ members = [
   "crates/decision-closure-v1",
   "crates/evidence-lineage-v1",
   "crates/impact-qualification-v1",
+  "crates/craft-action-denominator-v1",
   "harness",
 ]
 TOML
