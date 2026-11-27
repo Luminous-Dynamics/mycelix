@@ -124,6 +124,19 @@ For each run, publish the raw trace and corpus digest, exact source SHA, toolcha
   - https://learn.microsoft.com/en-us/sql/relational-databases/tables/querying-data-in-a-system-versioned-temporal-table
 - **Event sourcing/workflow replay:** compare deterministic reconstruction and correction processing over the same frozen event streams. Do not compare an unverified latest-state scan against a proof-carrying path as though their guarantees were equivalent.
 
+### VeriTS results that should shape our benchmark
+
+The published VeriTS evaluation is a useful caution against optimizing only for asymptotic node counts or bytes:
+- It evaluates five on-chain stream types with about 27,000 to 168,499 records, and time windows covering 100–2,000 records.
+- Its reported workload averages five repetitions over 20–40 random windows.
+- On its exact path, the authenticated tree touches a near-constant number of objects as the query window grows; at the reported comparison point, object touches differ by up to 130x versus scanning.
+- Yet the paper reports that the scan implementations are several times faster in wall-clock query latency in that prototype, because a vectorized scan can beat interpreted tree-object traversal.
+- For a 2,000-record window, the authors report KB-scale verification objects, approximately 18x less data than re-download/recompute and 544x less than per-record Merkle membership proofs.
+
+Therefore, our comparison must separate **query computation**, **proof generation**, **proof bytes**, **independent verification**, **index build/update**, **memory**, and **end-to-end latency**. We should reproduce the published workload shape before extending it to 1k / 10k / 100k / 1m records, 1 / 10 / 100 / 1k / 10k owners, and delayed/backdated correction schedules. A lower node count is not evidence of a faster user-visible query; a smaller proof is not evidence of a complete accepted-frontier result.
+
+VeriTS also makes an approximate model-segment path available with certified value/time error bounds. That is a plausible later **analytics-only** research branch: approximate aggregate dashboards may use a certified interval result with an explicit error envelope, while financial eligibility, revocation, settlement and mutation gates continue to require exact evidence. Any such extension must bind segments to the same owner-frontier and correction lineage and fall back to exact or Indeterminate when a later correction invalidates a segment. It must not silently turn approximate summaries into authoritative individual facts.
+
 ## 7. Boundaries
 
 This bounded model abstracts cryptographic verification, owner-set discovery, schema parsing, interval pairing and policy execution. It does not prove source truth, trusted clocks, global absence, signed-checkpoint authenticity, legal effect, financial authorization, settlement or permission to mutate external state.
