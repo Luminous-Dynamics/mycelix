@@ -269,9 +269,10 @@ fn digest_hex(digest: &[u8; 32]) -> String {
 
 fn snapshot_digest(
     cut: &TemporalRelationshipCutV1,
+    visible_relation_ids: &[String],
     active: &[TemporalRelationClaimV1],
     conflicts: &[TemporalRelationshipConflictV1],
-    applied_mutations: &[String],
+    applied_mutations: &[&TemporalRelationMutationV1],
     superseded: &[String],
     revoked: &[String],
 ) -> [u8; 32] {
@@ -279,6 +280,9 @@ fn snapshot_digest(
     hash_field(&mut hasher, &cut.valid_at);
     hasher.update(cut.known_through_sequence.to_be_bytes());
 
+    for id in visible_relation_ids {
+        hash_field(&mut hasher, id);
+    }
     for claim in active {
         hasher.update(temporal_relation_claim_digest(claim));
     }
@@ -292,8 +296,28 @@ fn snapshot_digest(
             hash_field(&mut hasher, object_id);
         }
     }
-    for id in applied_mutations {
-        hash_field(&mut hasher, id);
+    for mutation in applied_mutations {
+        hash_field(&mut hasher, &mutation.event_id);
+        hash_field(&mut hasher, &mutation.target_relation_id);
+        hasher.update(mutation.target_claim_digest);
+        match mutation.kind {
+            TemporalRelationMutationKindV1::Supersede => hasher.update([1]),
+            TemporalRelationMutationKindV1::Revoke => hasher.update([2]),
+        }
+        hash_field(&mut hasher, &mutation.effective_at);
+        hash_field(&mut hasher, &mutation.source_recorded_at);
+        hasher.update(mutation.accepted_sequence.to_be_bytes());
+        hash_field(&mut hasher, &mutation.source_ref);
+        hasher.update(mutation.source_digest);
+        hash_field(&mut hasher, &mutation.asserting_principal);
+        hash_field(&mut hasher, &mutation.authority_scope);
+        match mutation.replacement_relation_id.as_deref() {
+            Some(value) => {
+                hasher.update([1]);
+                hash_field(&mut hasher, value);
+            }
+            None => hasher.update([0]),
+        }
     }
     for id in superseded {
         hash_field(&mut hasher, id);
@@ -339,8 +363,10 @@ pub fn project_temporal_relationships(
         }
     }
 
+    let mut ordered_mutations: Vec<_> = mutations.iter().collect();
+    ordered_mutations.sort_by_key(|mutation| mutation.accepted_sequence);
     let mut mutated_targets = BTreeSet::new();
-    for mutation in mutations {
+    for mutation in &ordered_mutations {
         let target = claim_by_id
             .get(mutation.target_relation_id.as_str())
             .ok_or(TemporalRelationshipErrorV1::UnknownMutationTarget)?;
@@ -368,7 +394,8 @@ pub fn project_temporal_relationships(
             let replacement = claim_by_id
                 .get(replacement_id)
                 .ok_or(TemporalRelationshipErrorV1::UnknownReplacementRelation)?;
-            if replacement.relation_id == target.relation_id
+            if mutated_targets.contains(replacement_id)
+                || replacement.relation_id == target.relation_id
                 || replacement.accepted_sequence >= mutation.accepted_sequence
                 || replacement.valid_from > mutation.effective_at
                 || replacement.subject_id != target.subject_id
@@ -398,13 +425,14 @@ pub fn project_temporal_relationships(
         .into_iter()
         .collect();
 
-    let applied: Vec<_> = mutations
+    let mut applied: Vec<_> = mutations
         .iter()
         .filter(|mutation| {
             mutation.accepted_sequence <= cut.known_through_sequence
                 && mutation.effective_at <= cut.valid_at
         })
         .collect();
+    applied.sort_by_key(|mutation| mutation.accepted_sequence);
     let mut superseded = BTreeSet::new();
     let mut revoked = BTreeSet::new();
     for mutation in &applied {
@@ -457,13 +485,12 @@ pub fn project_temporal_relationships(
     let applied_mutation_ids: Vec<_> = applied
         .iter()
         .map(|mutation| mutation.event_id.clone())
-        .collect::<BTreeSet<_>>()
-        .into_iter()
         .collect();
     let superseded_relation_ids: Vec<_> = superseded.into_iter().collect();
     let revoked_relation_ids: Vec<_> = revoked.into_iter().collect();
     let digest = snapshot_digest(
         cut,
+        &visible_relation_ids,
         &active_relations,
         &conflicts,
         &applied_mutation_ids,
