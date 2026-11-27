@@ -216,6 +216,8 @@ pub enum RejectionReasonV1 {
     MalformedObservation,
     NotYetObserved,
     ExpiredObservation,
+    ExplicitRevocation,
+    ExplicitDispute,
     NonCompletionStatus,
 }
 
@@ -312,6 +314,8 @@ pub fn evaluate_action_coverage_v1(
     let mut duplicates_ignored = 0_u64;
     let mut rejected = Vec::new();
     let mut by_action = BTreeMap::<&str, BTreeMap<&str, Vec<&ActionObservationV1>>>::new();
+    let mut unavailable_groups = BTreeMap::<&str, BTreeSet<&str>>::new();
+    let mut disputed_groups = BTreeMap::<&str, BTreeSet<&str>>::new();
 
     for observation in observations {
         let digest = observation.digest();
@@ -354,6 +358,10 @@ pub fn evaluate_action_coverage_v1(
             Some(RejectionReasonV1::NotYetObserved)
         } else if observation.valid_until <= now {
             Some(RejectionReasonV1::ExpiredObservation)
+        } else if observation.status == ObservationStatusV1::Revoked {
+            Some(RejectionReasonV1::ExplicitRevocation)
+        } else if observation.status == ObservationStatusV1::Disputed {
+            Some(RejectionReasonV1::ExplicitDispute)
         } else if observation.status != ObservationStatusV1::VerifiedComplete {
             Some(RejectionReasonV1::NonCompletionStatus)
         } else {
@@ -361,6 +369,21 @@ pub fn evaluate_action_coverage_v1(
         };
 
         if let Some(reason) = reason {
+            match reason {
+                RejectionReasonV1::ExplicitRevocation | RejectionReasonV1::ExpiredObservation => {
+                    unavailable_groups
+                        .entry(observation.action_id.as_str())
+                        .or_default()
+                        .insert(observation.independence_group.as_str());
+                }
+                RejectionReasonV1::ExplicitDispute => {
+                    disputed_groups
+                        .entry(observation.action_id.as_str())
+                        .or_default()
+                        .insert(observation.independence_group.as_str());
+                }
+                _ => {}
+            }
             rejected.push(RejectedObservationV1 {
                 observation_id: observation.observation_id.clone(),
                 action_id: observation.action_id.clone(),
@@ -386,14 +409,19 @@ pub fn evaluate_action_coverage_v1(
             for (group_id, group_observations) in groups {
                 let unique: BTreeSet<DigestV1> =
                     group_observations.iter().map(|o| o.evidence_digest).collect();
-                if unique.len() > 1 {
+                let unavailable = unavailable_groups
+                    .get(action.action_id.as_str())
+                    .is_some_and(|groups| groups.contains(group_id));
+                let disputed = disputed_groups
+                    .get(action.action_id.as_str())
+                    .is_some_and(|groups| groups.contains(group_id));
+                if unique.len() > 1 || disputed {
                     group_conflicts.insert(action.action_id.clone());
-                } else if !group_observations.is_empty() {
+                } else if !unavailable && !group_observations.is_empty() {
                     valid_group_count = valid_group_count
                         .checked_add(1)
                         .ok_or(EvaluationErrorV1::ArithmeticOverflow)?;
                 }
-                let _ = group_id;
             }
         }
         group_counts.insert(action.action_id.clone(), valid_group_count);
@@ -906,6 +934,37 @@ mod tests {
         expired.status = ObservationStatusV1::Expired;
         let report = evaluate_action_coverage_v1(&plan, &[expired], 200).unwrap();
         assert_eq!(report.covered_count, 0);
+    }
+
+    #[test]
+    fn explicit_revocation_invalidates_prior_positive_in_same_group() {
+        let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
+        let positive = observation(&plan, "obs:positive", "action:1", "group:meter-1", 100, 900);
+        let mut revoked = observation(&plan, "obs:revoked", "action:1", "group:meter-1", 150, 900);
+        revoked.status = ObservationStatusV1::Revoked;
+        let report = evaluate_action_coverage_v1(&plan, &[positive, revoked], 200).unwrap();
+        assert_eq!(report.covered_count, 0);
+        assert_eq!(
+            report.action_results[0].status,
+            ActionCoverageStatusV1::MissingEvidence
+        );
+        assert!(report
+            .rejected_observations
+            .iter()
+            .any(|r| r.reason == RejectionReasonV1::ExplicitRevocation));
+    }
+
+    #[test]
+    fn explicit_dispute_surfaces_conflict_for_the_action() {
+        let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
+        let mut disputed = observation(&plan, "obs:disputed", "action:1", "group:meter-1", 150, 900);
+        disputed.status = ObservationStatusV1::Disputed;
+        let report = evaluate_action_coverage_v1(&plan, &[disputed], 200).unwrap();
+        assert_eq!(report.disposition, CoverageDispositionV1::Conflict);
+        assert_eq!(
+            report.action_results[0].status,
+            ActionCoverageStatusV1::Conflict
+        );
     }
 
     #[test]
