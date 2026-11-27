@@ -32,7 +32,50 @@ Useful external workload references:
 - OCEL process-log collections include small, medium and large logs; use a small workload for iteration and a larger workload for scale only after semantics are frozen.
 - The AWWA Utility Benchmarking Program publishes water/wastewater performance indicators stratified by utility type, size and region. Use these indicators for outcome reporting, not as a substitute for adjudicating the correctness of evidence decisions.
 
-## 3. Frozen corpus and executable coverage
+## 3. Current industry and interoperability baselines
+
+The cross-core benchmark must compare against operational platforms and event-data standards on the capabilities they actually provide. It must not assume conventional work-order products lack workflows, AI, scheduling, evidence fields, audit history or enterprise integrations.
+
+| Baseline | Publicly documented capabilities | Matched comparison question |
+|---|---|---|
+| IBM Maximo Application Suite | Work-order management, workflow scheduling/approvals, mobile work execution, asset/inventory context, AI-assisted missing-data and duplicate-work-order analysis | On identical work orders and evidence packets, do Maximo and Craft preserve the same authority, source-version, correction, scope and restoration distinctions? |
+| SAP Field Service and Asset Management | AI-assisted planning/scheduling/dispatch, skills/location/priority matching, mobile and offline execution, guided work, forms and operations feedback | Compare execution throughput, offline reconciliation, work-order status and the ability to preserve the independent evidence/closure distinctions without disabling native scheduling capabilities |
+| ServiceNow Field Service Management | AI-supported technician assignment, work scheduling/dispatch, mobile execution, connected asset/work history, workflow automation and enterprise integration | Compare case-to-work-order handoff, service lifecycle visibility, repeat visits, closeout evidence and context-preserving downstream impact decisions |
+| OCEL 2.0 process/event representation | Object-centric events and relationships; event-to-object and object-to-object relationships; changing object attributes and relationship qualifiers | Can the same service episode be exported/imported without losing its many-object relations, event times, correction history or authority/evidence references? |
+| Human-reviewed operational workflow | Existing domain/authority judgement and local context | Compare adjudicated decisions, reviewer minutes, reasons, false holds and false-safe outcomes under blinded identical inputs |
+
+These products are real incumbents, not straw-man baselines. IBM, SAP and ServiceNow each publicly describe meaningful asset/work-order, mobile, scheduling and workflow capabilities. The experiment must use configured systems, record product/version/configuration and match access, input quality, staffing and time budgets. A capability that the configured product does not expose through the test integration must be labelled untested, not assumed absent.
+
+Official product references:
+- IBM Maximo: https://www.ibm.com/products/maximo/asset-management
+- SAP Field Service and Asset Management: https://www.sap.com/products/scm/field-service-and-asset-management.html
+- ServiceNow FSM: https://www.servicenow.com/products/field-service-management.html
+
+### OCEL interoperability: reuse the event-log standard
+
+The six-core composition is not a replacement for object-centric event logging or process mining. The benchmark should map the lifecycle into **OCEL 2.0** as the stable compatibility baseline: events can relate to multiple objects, objects can have changing attributes, and object-to-object links can exist independently of a shared event. This fits the one-to-many relationships among service episodes, complaints, assets, zones, work orders, crews, permits, samples and water-quality results.
+
+A newer **OCEL 2.1.0pre5** specification dated 1 October 2026 is available as a pre-release. It describes compact CSV and bundled CSV/Parquet forms in addition to existing exchange formats. Treat this as an interoperability experiment only; do not make an unfinalized pre-release a mandatory production dependency.
+
+Candidate acceptance tests for an OCEL adapter:
+- object identity preserved across episode, complaint, asset, zone, work order, crew, permit and sample relations;
+- event-to-object role qualifiers preserved (for example, responding crew, affected zone, sampled source);
+- object-to-object relations preserved (for example, work order repairs asset; sample tests water source);
+- object attribute changes and valid-time/recorded-time distinctions round-trip without silently overwriting history;
+- duplicate/retried events remain distinguishable from distinct repeat service episodes;
+- corrections/revocations remain explicit event lineage, not destructive in-place edits;
+- unknown source fields survive in an extension namespace or produce an explicit lossy-export receipt;
+- round-trip output is deterministic and lossless for the declared profile.
+
+OCEL is an interchange/process-mining representation, not a source-authenticity, evidence-independence or authority model. Keep Mycelix owner packets and receipts as the semantic assurance layer; do not attempt to encode their trust semantics as unqualified OCEL attributes.
+
+References:
+- OCEL 2.0: https://www.ocel-standard.org/
+- OCEL 2.1 pre5 specification: https://www.ocel-standard.org/2.1/ocel20_specification.pdf
+- OCEL 2.1 CSV format: https://www.ocel-standard.org/specification/formats/csv/
+- OCEL dataset/publication collection: https://ocel-standard.org/event-logs/publications/
+
+## 4. Frozen corpus and executable coverage
 
 The source fixture bundle contains 16 known-answer synthetic WSR episodes and 20 proposed metamorphic transformations.
 
