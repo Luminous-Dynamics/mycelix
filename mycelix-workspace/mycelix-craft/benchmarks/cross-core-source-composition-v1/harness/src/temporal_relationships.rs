@@ -519,7 +519,7 @@ pub fn project_temporal_relationships(
         &visible_relation_ids,
         &active_relations,
         &conflicts,
-        &applied_mutation_ids,
+        &known_mutation_refs,
         &superseded_relation_ids,
         &revoked_relation_ids,
     );
