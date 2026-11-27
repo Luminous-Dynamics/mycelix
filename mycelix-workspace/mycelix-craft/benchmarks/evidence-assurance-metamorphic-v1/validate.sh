@@ -41,7 +41,7 @@ if ! jq -e '
   and all(.seeds[];
     ((.seed_id | type) == "string")
     and (.seed_id | test("^SEED-[A-Z0-9-]+$"))
-    and (["CRAFT-WATER-SERVICE-REPAIR-V1", "CRAFT-NEED-INTAKE-V1"] | index(.source_benchmark) != null)
+    and (.source_benchmark as $source | (["CRAFT-WATER-SERVICE-REPAIR-V1", "CRAFT-NEED-INTAKE-V1"] | index($source) != null))
     and (.source_case_id | test("^(WSR-[0-9]{3}|NIV1-[A-Z0-9-]+)$"))
     and (.synthetic_only == true)
   )
