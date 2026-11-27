@@ -128,8 +128,20 @@ type activeState struct {
 	cut []uint64
 }
 
+func writeUint32(b *bytes.Buffer, value uint32) {
+	var encoded [4]byte
+	binary.BigEndian.PutUint32(encoded[:], value)
+	_, _ = b.Write(encoded[:])
+}
+
+func writeUint64(b *bytes.Buffer, value uint64) {
+	var encoded [8]byte
+	binary.BigEndian.PutUint64(encoded[:], value)
+	_, _ = b.Write(encoded[:])
+}
+
 func writeString(b *bytes.Buffer, value string) {
-	_ = binary.Write(b, binary.BigEndian, uint32(len(value)))
+	writeUint32(b, uint32(len(value)))
 	_, _ = b.WriteString(value)
 }
 
@@ -167,7 +179,7 @@ func ScopeDigestV1(scope CapabilityScopeV1) (string, error) {
 	var b bytes.Buffer
 	writeString(&b, "MYCELIX-CAPABILITY-SCOPE-V1")
 	for _, value := range []string{scope.SourceRef,scope.RegistryRef,scope.RegistryEpoch,scope.ProfileRef,scope.QueryScopeDigest} { writeString(&b,value) }
-	_ = binary.Write(&b,binary.BigEndian,uint32(len(owners)))
+	_ = writeUint32(&b,uint32(len(owners)))
 	for _, owner := range owners { writeString(&b,owner) }
 	return digestBytes(b.Bytes()),nil
 }
@@ -208,15 +220,15 @@ func transitionDigest(scopeDigest string, transition CapabilityTransitionV1) str
 	writeString(&b,scopeDigest)
 	writeString(&b,string(transition.Kind))
 	writeString(&b,transition.CapabilityID)
-	_ = binary.Write(&b,binary.BigEndian,transition.Generation)
+	_ = writeUint64(&b,transition.Generation)
 	writeString(&b,transition.PriorCapabilityDigest)
 	coords:=append([]OwnerCoordinateV1(nil),transition.OwnerCut...)
 	sort.Slice(coords,func(i,j int)bool{
 		if coords[i].OwnerRef==coords[j].OwnerRef{return coords[i].Sequence<coords[j].Sequence}
 		return coords[i].OwnerRef<coords[j].OwnerRef
 	})
-	_ = binary.Write(&b,binary.BigEndian,uint32(len(coords)))
-	for _,coordinate:=range coords { writeString(&b,coordinate.OwnerRef);_ = binary.Write(&b,binary.BigEndian,coordinate.Sequence) }
+	_ = writeUint32(&b,uint32(len(coords)))
+	for _,coordinate:=range coords { writeString(&b,coordinate.OwnerRef);_ = writeUint64(&b,coordinate.Sequence) }
 	for _,value:=range []string{transition.IssuerRef,transition.IssuerKeyEpoch,transition.AuthorityGrantRef,transition.CheckpointRef}{writeString(&b,value)}
 	return digestBytes(b.Bytes())
 }
@@ -235,7 +247,7 @@ func EventDigestV1(scopeDigest string,event CapabilityEventV1)(string,error){
 	var b bytes.Buffer
 	writeString(&b,"MYCELIX-CAPABILITY-EVENT-V1")
 	writeString(&b,scopeDigest)
-	_ = binary.Write(&b,binary.BigEndian,event.LogSequence)
+	_ = writeUint64(&b,event.LogSequence)
 	writeString(&b,event.EventID)
 	writeString(&b,event.PreviousEventDigest)
 	writeString(&b,string(event.Outcome))
@@ -276,9 +288,9 @@ func validateTransition(scopeDigest string,owners []string,transition Capability
 func rawEventsDigest(events []CapabilityEventV1) string {
 	var b bytes.Buffer
 	writeString(&b,"MYCELIX-CAPABILITY-RAW-EVENTS-V1")
-	_ = binary.Write(&b,binary.BigEndian,uint32(len(events)))
+	_ = writeUint32(&b,uint32(len(events)))
 	for _,event:=range events {
-		_ = binary.Write(&b,binary.BigEndian,event.LogSequence)
+		_ = writeUint64(&b,event.LogSequence)
 		writeString(&b,event.EventID);writeString(&b,event.PreviousEventDigest);writeString(&b,string(event.Outcome))
 		writeString(&b,event.ReconcilesEventID);writeString(&b,event.EventDigest)
 		if event.Transition!=nil {writeString(&b,transitionDigest("raw",*event.Transition))}
@@ -290,11 +302,11 @@ func finalizeReplay(result ReplayResultV1) ReplayResultV1 {
 	var b bytes.Buffer
 	writeString(&b,"MYCELIX-CAPABILITY-REPLAY-RESULT-V1")
 	writeString(&b,string(result.Disposition));writeString(&b,result.Reason);writeString(&b,result.ScopeDigest)
-	_ = binary.Write(&b,binary.BigEndian,result.ExpectedEventCount);_ = binary.Write(&b,binary.BigEndian,result.ObservedEventCount)
+	writeUint64(&b,result.ExpectedEventCount);writeUint64(&b,result.ObservedEventCount)
 	writeString(&b,result.GenesisDigest);writeString(&b,result.ObservedTailDigest)
 	writeString(&b,result.PendingEventID);writeString(&b,result.SubmittedEventsDigest)
-	_ = binary.Write(&b,binary.BigEndian,uint32(len(result.ActiveCapabilities)))
-	for _,cap:=range result.ActiveCapabilities {writeString(&b,cap.CapabilityID);_ = binary.Write(&b,binary.BigEndian,cap.Generation);writeString(&b,cap.TransitionDigest)}
+	_ = writeUint32(&b,uint32(len(result.ActiveCapabilities)))
+	for _,cap:=range result.ActiveCapabilities {writeString(&b,cap.CapabilityID);_ = writeUint64(&b,cap.Generation);writeString(&b,cap.TransitionDigest)}
 	writeString(&b,result.LedgerAuthentication);writeString(&b,result.IssuerAuthorityAuthentication)
 	writeString(&b,result.CheckpointAuthentication);writeString(&b,result.SourceUniverseCompleteness)
 	result.CertificateDigest=digestBytes(b.Bytes())
@@ -419,14 +431,14 @@ func coordinatesLessOrEqual(a,b []uint64)bool{
 func pointDigest(scopeDigest string,owners []string,cut []uint64)string{
 	var b bytes.Buffer
 	writeString(&b,"MYCELIX-DERIVED-PROGRESS-POINT-V1");writeString(&b,scopeDigest)
-	for i,owner:=range owners{writeString(&b,owner);_ = binary.Write(&b,binary.BigEndian,cut[i])}
+	for i,owner:=range owners{writeString(&b,owner);_ = writeUint64(&b,cut[i])}
 	return digestBytes(b.Bytes())
 }
 
 func deriveProgressDigest(scopeDigest string,points []ProgressPointV1)string{
 	var b bytes.Buffer
 	writeString(&b,"MYCELIX-DERIVED-PROGRESS-ANTICHAIN-V1");writeString(&b,scopeDigest)
-	_ = binary.Write(&b,binary.BigEndian,uint32(len(points)))
+	_ = writeUint32(&b,uint32(len(points)))
 	for _,point:=range points{writeString(&b,point.PointDigest)}
 	return digestBytes(b.Bytes())
 }
