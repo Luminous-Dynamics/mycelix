@@ -69,7 +69,61 @@ jobs:
         working-directory: tools/economic/temporal-range-index/reference/go
         env:
           GOTOOLCHAIN: local
-        run: go test -run '^$' -bench '^BenchmarkTemporalQueryWorkloadsV1$' -benchtime=1x -benchmem
+        run: go test -run '^
+      - name: Report claim ceiling
+        run: |
+          printf '%s\n' \
+            'PASS = the Go reference reconstructs scoped interval roots, full owner receipt-log roots, and projection replay for the frozen tests.' \
+            'BENCHMARK = one-iteration harness smoke only; no stable latency, SOTA or production claim.' \
+            'NOT TESTED = Rust parity, trusted checkpoint/key/witness verification, assertion-payload-to-interval semantic mapping, or external-effect authority.'
+ -bench '^BenchmarkTemporalQueryWorkloadsV1
+      - name: Report claim ceiling
+        run: |
+          printf '%s\n' \
+            'PASS = the Go reference reconstructs scoped interval roots, full owner receipt-log roots, and projection replay for the frozen tests.' \
+            'BENCHMARK = one-iteration harness smoke only; no stable latency, SOTA or production claim.' \
+            'NOT TESTED = Rust parity, trusted checkpoint/key/witness verification, assertion-payload-to-interval semantic mapping, or external-effect authority.'
+ -benchtime=1x -benchmem
+
+      - name: Frontier forest owner-scaling benchmark smoke (not a performance qualification)
+        working-directory: tools/economic/temporal-range-index/reference/go
+        env:
+          GOTOOLCHAIN: local
+        run: go test -run '^
+      - name: Report claim ceiling
+        run: |
+          printf '%s\n' \
+            'PASS = the Go reference reconstructs scoped interval roots, full owner receipt-log roots, and projection replay for the frozen tests.' \
+            'BENCHMARK = one-iteration harness smoke only; no stable latency, SOTA or production claim.' \
+            'NOT TESTED = Rust parity, trusted checkpoint/key/witness verification, assertion-payload-to-interval semantic mapping, or external-effect authority.'
+ -bench '^BenchmarkFrontierForestV1
+      - name: Report claim ceiling
+        run: |
+          printf '%s\n' \
+            'PASS = the Go reference reconstructs scoped interval roots, full owner receipt-log roots, and projection replay for the frozen tests.' \
+            'BENCHMARK = one-iteration harness smoke only; no stable latency, SOTA or production claim.' \
+            'NOT TESTED = Rust parity, trusted checkpoint/key/witness verification, assertion-payload-to-interval semantic mapping, or external-effect authority.'
+ -benchtime=1x -benchmem
+
+      - name: Full owner-log projection replay benchmark smoke (not a performance qualification)
+        working-directory: tools/economic/temporal-range-index/reference/go
+        env:
+          GOTOOLCHAIN: local
+        run: go test -run '^
+      - name: Report claim ceiling
+        run: |
+          printf '%s\n' \
+            'PASS = the Go reference reconstructs scoped interval roots, full owner receipt-log roots, and projection replay for the frozen tests.' \
+            'BENCHMARK = one-iteration harness smoke only; no stable latency, SOTA or production claim.' \
+            'NOT TESTED = Rust parity, trusted checkpoint/key/witness verification, assertion-payload-to-interval semantic mapping, or external-effect authority.'
+ -bench '^BenchmarkOwnerProjectionReplayV1
+      - name: Report claim ceiling
+        run: |
+          printf '%s\n' \
+            'PASS = the Go reference reconstructs scoped interval roots, full owner receipt-log roots, and projection replay for the frozen tests.' \
+            'BENCHMARK = one-iteration harness smoke only; no stable latency, SOTA or production claim.' \
+            'NOT TESTED = Rust parity, trusted checkpoint/key/witness verification, assertion-payload-to-interval semantic mapping, or external-effect authority.'
+ -benchtime=1x -benchmem
 
       - name: Report claim ceiling
         run: |
