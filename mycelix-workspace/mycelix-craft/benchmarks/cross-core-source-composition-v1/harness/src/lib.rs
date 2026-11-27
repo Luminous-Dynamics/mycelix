@@ -1099,13 +1099,12 @@ mod tests {
 
     #[test]
     fn wsr009_expired_permit_and_revoked_crew_block_safety_critical_work() {
-        use project_formation::EvidenceDispositionV1;
-        use project_formation::RequirementKindV1;
-        use project_formation::RequirementDispositionV1;
         use evidence_lineage::{
-            ArtifactKindV1, ChangeReasonV1, DependencyRelationV1, ImpactPolicyV1,
-            ArtifactStateV1,
+            ArtifactKindV1, ArtifactStateV1, ChangeReasonV1, DependencyRelationV1, ImpactPolicyV1,
         };
+        use project_formation::EvidenceDispositionV1;
+        use project_formation::RequirementDispositionV1;
+        use project_formation::RequirementKindV1;
 
         let project = project_helpers::project(RequirementKindV1::SafetyCritical, 1);
         let proposal = project_helpers::proposal(
@@ -1127,8 +1126,7 @@ mod tests {
 
         let permit = lineage_helpers::reference("wsr:permit:worksite-7", 1, 51);
         let crew = lineage_helpers::reference("wsr:crew-qualification:maintainer-1", 1, 52);
-        let authorization =
-            lineage_helpers::reference("wsr:work-authorization:episode-11", 1, 53);
+        let authorization = lineage_helpers::reference("wsr:work-authorization:episode-11", 1, 53);
         let nodes = vec![
             evidence_lineage::ArtifactNodeV1 {
                 reference: permit.clone(),
