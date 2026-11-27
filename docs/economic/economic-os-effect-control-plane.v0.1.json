@@ -1,0 +1,370 @@
+{
+  "benchmark": "Economic OS Effect Control Plane Crosswalk and Qualification Metrics",
+  "version": "0.1",
+  "date": "2026-11-24",
+  "status": "design-contract-not-implementation",
+  "issue": 6602,
+  "primitives": [
+    "FIN-EFFECT-001 obligation identity",
+    "FIN-EFFECT-001 immutable intent fingerprint",
+    "FIN-EFFECT-001 owner/role effect identity",
+    "FIN-EFFECT-002 admission authority and spendability boundary",
+    "FIN-EFFECT-003 authority epoch transition candidate"
+  ],
+  "domains": [
+    {
+      "id": "sap",
+      "domain": "SAP circulation/demurrage",
+      "obligation": "Transfer obligation or demurrage assessment",
+      "unit": "mycelix:SAP; micro-SAP unit profile",
+      "effects": [
+        "member_spend",
+        "beneficiary_claim",
+        "fee_liability",
+        "demurrage",
+        "pool_allocation"
+      ],
+      "authority": "Value-note owner; qualified demurrage policy; pool authority",
+      "completion": "Member spend, recipient claim, demurrage and pool receipt remain distinct.",
+      "composition": [
+        "FIN-EFFECT-001",
+        "FIN-EFFECT-002",
+        "FIN-EFFECT-003"
+      ]
+    },
+    {
+      "id": "tend",
+      "domain": "TEND mutual credit",
+      "obligation": "Time/service exchange commitment and credit exposure",
+      "unit": "mycelix:TEND; explicit time unit and credit-limit profile",
+      "effects": [
+        "provider_credit",
+        "recipient_debit",
+        "exposure",
+        "repayment",
+        "clearing_adjustment"
+      ],
+      "authority": "Account owners and versioned mutual-credit policy",
+      "completion": "Matched entries are not necessarily cash settlement.",
+      "composition": [
+        "FIN-EFFECT-001",
+        "FIN-EFFECT-002",
+        "FIN-EFFECT-003"
+      ]
+    },
+    {
+      "id": "mycel",
+      "domain": "MYCEL reputation",
+      "obligation": "Contribution or attestation recognition",
+      "unit": "Non-transferable reputation profile",
+      "effects": [
+        "attestation",
+        "reputation_projection",
+        "correction",
+        "revocation"
+      ],
+      "authority": "Qualified attester or credential issuer",
+      "completion": "Reputation never becomes money, entitlement or execution authority.",
+      "composition": [
+        "FIN-EFFECT-001",
+        "FIN-EFFECT-002",
+        "FIN-EFFECT-003"
+      ]
+    },
+    {
+      "id": "hearth",
+      "domain": "Hearth contribution and withdrawal",
+      "obligation": "Member contribution or authorized pool withdrawal",
+      "unit": "Value-note IDs and integer micro-SAP",
+      "effects": [
+        "member_note_spend",
+        "pool_receipt",
+        "allocation_reservation",
+        "pool_disbursement",
+        "recipient_claim"
+      ],
+      "authority": "Member owns spend; pool owns receipt/allocation/disbursement; beneficiary owns claim",
+      "completion": "Membership is not entitlement; pool debit is not recipient claim.",
+      "composition": [
+        "FIN-EFFECT-001",
+        "FIN-EFFECT-002",
+        "FIN-EFFECT-003"
+      ]
+    },
+    {
+      "id": "grant",
+      "domain": "Grants and budgets",
+      "obligation": "Appropriation, award, tranche or budget commitment",
+      "unit": "Funding source, budget account, currency and period typed separately",
+      "effects": [
+        "appropriation",
+        "budget_reservation",
+        "award",
+        "tranche_release",
+        "recipient_claim",
+        "recovery"
+      ],
+      "authority": "Governance/budget authority; treasury executes; recipient confirms where required",
+      "completion": "Approval is not reservation or disbursement.",
+      "composition": [
+        "FIN-EFFECT-001",
+        "FIN-EFFECT-002",
+        "FIN-EFFECT-003"
+      ]
+    },
+    {
+      "id": "procurement",
+      "domain": "Procurement and suppliers",
+      "obligation": "Purchase order, accepted supply obligation or invoice liability",
+      "unit": "Instrument, tax, quantity/unit and transaction currency profiles",
+      "effects": [
+        "purchase_order",
+        "goods_service_receipt",
+        "supplier_liability",
+        "payable",
+        "payment_instruction",
+        "bank_settlement"
+      ],
+      "authority": "Procurement, receiving, accounting, treasury and bank have distinct authorities",
+      "completion": "Invoice is not receipt, payable, instruction or final settlement.",
+      "composition": [
+        "FIN-EFFECT-001",
+        "FIN-EFFECT-002",
+        "FIN-EFFECT-003"
+      ]
+    },
+    {
+      "id": "payroll",
+      "domain": "Payroll",
+      "obligation": "Employment or contractual earnings for a pay period",
+      "unit": "Gross/net amounts, currency, deductions and pay period",
+      "effects": [
+        "earning_accrual",
+        "withholding",
+        "net_payable",
+        "payroll_release",
+        "bank_payment",
+        "worker_receipt"
+      ],
+      "authority": "Employer policy, authorized approver, accounting owner and provider",
+      "completion": "Calculation, authorization, journal, bank settlement and worker receipt differ.",
+      "composition": [
+        "FIN-EFFECT-001",
+        "FIN-EFFECT-002",
+        "FIN-EFFECT-003"
+      ]
+    },
+    {
+      "id": "public_transfer",
+      "domain": "Benefits and public transfers",
+      "obligation": "Eligibility, entitlement or scheduled benefit",
+      "unit": "Entitlement amount, unit, period and funding source",
+      "effects": [
+        "eligibility",
+        "entitlement",
+        "budget_reservation",
+        "disbursement",
+        "recipient_claim",
+        "appeal"
+      ],
+      "authority": "Competent public authority; disbursement authority",
+      "completion": "Eligibility is not award or proof of payment.",
+      "composition": [
+        "FIN-EFFECT-001",
+        "FIN-EFFECT-002",
+        "FIN-EFFECT-003"
+      ]
+    },
+    {
+      "id": "resource_service",
+      "domain": "Commons resources and services",
+      "obligation": "Intent or commitment for physical resource or service",
+      "unit": "Resource, quantity/unit, location, capacity and service window",
+      "effects": [
+        "reservation",
+        "provider_commitment",
+        "delivery",
+        "beneficiary_acceptance",
+        "quality_claim",
+        "correction"
+      ],
+      "authority": "Resource owner, allocator, provider and beneficiary own distinct claims",
+      "completion": "Capacity, availability, reservation, delivery and acceptance differ.",
+      "composition": [
+        "FIN-EFFECT-001",
+        "FIN-EFFECT-002",
+        "FIN-EFFECT-003"
+      ]
+    },
+    {
+      "id": "external_instrument",
+      "domain": "Fiat, bank, token and Web3 adapters",
+      "obligation": "External instruction, trade or settlement obligation",
+      "unit": "Versioned issuer/network/chain/contract/unit profile; ticker is not identity",
+      "effects": [
+        "instruction",
+        "provider_acceptance",
+        "ledger_observation",
+        "owner_asset_effect",
+        "settlement_receipt",
+        "reorg_correction"
+      ],
+      "authority": "Issuer, bank, chain, key controller and local owner are distinct",
+      "completion": "Message is not settlement; token balance is not legal ownership.",
+      "composition": [
+        "FIN-EFFECT-001",
+        "FIN-EFFECT-002",
+        "FIN-EFFECT-003"
+      ]
+    },
+    {
+      "id": "valueflows",
+      "domain": "Valueflows mapping",
+      "obligation": "Intent, Commitment, Claim and EconomicEvent/EconomicResource lineage",
+      "unit": "Resource specification and quantity/unit profile",
+      "effects": [
+        "intent",
+        "commitment",
+        "claim",
+        "economic_event",
+        "resource_projection",
+        "correction"
+      ],
+      "authority": "Domain owner retains authoring authority",
+      "completion": "Ontology mapping alone proves neither authority nor delivery.",
+      "composition": [
+        "FIN-EFFECT-001",
+        "FIN-EFFECT-002",
+        "FIN-EFFECT-003"
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "id": "ECOE-ID-001",
+      "metric": "Exact retry resolution",
+      "unit": "same-ID replay ratio",
+      "target": "100%; zero replacement identities",
+      "status": "target_not_measured"
+    },
+    {
+      "id": "ECOE-ID-002",
+      "metric": "Intent mutation detection",
+      "unit": "changed-field ratio",
+      "target": "100% of declared immutable field mutations conflict",
+      "status": "target_not_measured"
+    },
+    {
+      "id": "ECOE-EFF-001",
+      "metric": "Duplicate owner effects",
+      "unit": "extra effects per singleton key",
+      "target": "0 within declared fault/profile envelope",
+      "status": "target_not_measured"
+    },
+    {
+      "id": "ECOE-AUTH-001",
+      "metric": "Conflicting admission certificates",
+      "unit": "conflicting certificates",
+      "target": "0 under stated fault assumptions",
+      "status": "target_not_measured"
+    },
+    {
+      "id": "ECOE-EPOCH-001",
+      "metric": "Unilateral epoch transitions",
+      "unit": "old-only/new-only certs accepted",
+      "target": "0",
+      "status": "target_not_measured"
+    },
+    {
+      "id": "ECOE-EPOCH-002",
+      "metric": "Stale/premature epoch effects",
+      "unit": "unauthorized pre/post-barrier effects",
+      "target": "0",
+      "status": "target_not_measured"
+    },
+    {
+      "id": "ECOE-ID-003",
+      "metric": "Signer alias inflation",
+      "unit": "extra quorum weight from aliases",
+      "target": "0; resolver required",
+      "status": "not_modelled_yet"
+    },
+    {
+      "id": "ECOE-CONS-001",
+      "metric": "Unexplained conservation residual",
+      "unit": "minor units per instrument",
+      "target": "0 after explicit fee/rounding/reserve legs",
+      "status": "target_not_measured"
+    },
+    {
+      "id": "ECOE-ASSET-001",
+      "metric": "Asset/unit semantic loss",
+      "unit": "unreported identity/unit changes",
+      "target": "0; every loss explicit",
+      "status": "target_not_measured"
+    },
+    {
+      "id": "ECOE-POL-001",
+      "metric": "Bitemporal replay mismatch",
+      "unit": "historical digest mismatch",
+      "target": "0 on frozen inputs",
+      "status": "target_not_measured"
+    },
+    {
+      "id": "ECOE-EVID-001",
+      "metric": "False finality promotion",
+      "unit": "unsafe positive dispositions",
+      "target": "0 on adversarial corpus",
+      "status": "target_not_measured"
+    },
+    {
+      "id": "ECOE-EVID-002",
+      "metric": "Evidence binding completeness",
+      "unit": "required evidence refs bound",
+      "target": "100% or explicit indeterminate",
+      "status": "target_not_measured"
+    },
+    {
+      "id": "ECOE-INTEROP-001",
+      "metric": "Adapter semantic preservation",
+      "unit": "required fields preserved",
+      "target": "100% or explicit loss",
+      "status": "target_not_measured"
+    },
+    {
+      "id": "ECOE-REPLAY-001",
+      "metric": "Deterministic replay",
+      "unit": "canonical digest equality",
+      "target": "100% byte-identical on frozen inputs",
+      "status": "target_not_measured"
+    },
+    {
+      "id": "ECOE-LIVE-001",
+      "metric": "Safe liveness during quorum loss",
+      "unit": "availability and Indeterminate duration",
+      "target": "Measure; never lower safety thresholds",
+      "status": "measure_not_gate"
+    },
+    {
+      "id": "ECOE-PERF-001",
+      "metric": "Admission latency",
+      "unit": "p50/p95/p99 ms",
+      "target": "Measure by domain/profile vs matched baseline",
+      "status": "measure_not_gate"
+    },
+    {
+      "id": "ECOE-REC-001",
+      "metric": "Recovery time",
+      "unit": "seconds to safe reconciliation",
+      "target": "Measure p50/p95/p99 and unresolved backlog",
+      "status": "measure_not_gate"
+    },
+    {
+      "id": "ECOE-COST-001",
+      "metric": "Fully loaded effect cost",
+      "unit": "compute/storage/network/operator",
+      "target": "Measure; never remove evidence gates",
+      "status": "measure_not_gate"
+    }
+  ]
+}

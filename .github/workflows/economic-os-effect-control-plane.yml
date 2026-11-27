@@ -1,0 +1,49 @@
+name: Economic OS effect-control-plane contract
+
+on:
+  pull_request:
+    paths:
+      - "docs/economic/economic-os-effect-control-plane-v0.1.md"
+      - "docs/economic/economic-os-effect-control-plane.v0.1.json"
+      - "docs/economic/economic-os-effect-control-plane.v0.1.schema.json"
+      - ".github/workflows/economic-os-effect-control-plane.yml"
+  push:
+    branches:
+      - "research/econ-os-effect-control-plane-v0.1-20261124"
+    paths:
+      - "docs/economic/economic-os-effect-control-plane-v0.1.md"
+      - "docs/economic/economic-os-effect-control-plane.v0.1.json"
+      - "docs/economic/economic-os-effect-control-plane.v0.1.schema.json"
+      - ".github/workflows/economic-os-effect-control-plane.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Validate JSON, IDs and explicit metric status
+        shell: bash
+        run: |
+          set -euo pipefail
+          contract="docs/economic/economic-os-effect-control-plane.v0.1.json"
+          schema="docs/economic/economic-os-effect-control-plane.v0.1.schema.json"
+          jq empty "$contract"
+          jq empty "$schema"
+          jq -e '
+            .status == "design-contract-not-implementation" and
+            (.domains | length >= 10) and
+            (([.domains[].id] | unique | length) == (.domains | length)) and
+            (.metrics | length >= 15) and
+            (([.metrics[].id] | unique | length) == (.metrics | length)) and
+            ([.metrics[].status] - ["target_not_measured","not_modelled_yet","measure_not_gate"] | length == 0)
+          ' "$contract" >/dev/null
+          sha256sum "$contract" "$schema" docs/economic/economic-os-effect-control-plane-v0.1.md
+          echo "Contract validated; metrics remain explicitly unmeasured."
