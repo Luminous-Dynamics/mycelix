@@ -68,25 +68,26 @@ The verifier returns only `CompleteForDeclaredIndexForest`: every result relativ
 This is a composition prototype. It does not authenticate the frontier/checkpoint root, verify log consistency proofs, verify the projection-audit receipt, or grant a `CompleteForAcceptedFrontier` disposition.
 
 
-## Receipt-to-index projection replay
+## Full owner-log receipt-to-index projection replay
 
-`projection.go` adds an independent deterministic replay over one supplied owner-local accepted-receipt inventory. Each input receipt carries a contiguous zero-based receipt-log leaf index, a distinct owner-local sequence, a SHA-256 receipt digest and one closed projection class:
+`projection.go` verifies the entire owner-log leaf sequence, not merely the verifier-receipt subset. This distinction is required by #6727's owner log: ordinary owner-history events may occupy log positions, while canonical `MYCELIX-KNOWLEDGE-RECEIPT-V1` entries replace particular positions when verifier-acceptance receipts are present.
 
-- `ReceiptProjectsIntervalAssertion`: supplies the exact assertion reference and half-open validity interval;
-- `ReceiptIsNonTemporal`: supplies no interval fields and is explicitly excluded from the temporal index.
+The input inventory contains every log leaf in order:
+- zero-based `LeafIndex`;
+- owner-local `OwnerSequence`;
+- exact `EntryBytes`.
 
-The replay checks owner/history/cut/log-root identity, full leaf-position coverage for the declared tree size, increasing owner sequences, no entries inside declared unresolved gaps, canonical record validity and duplicate assertion rejection. It rebuilds the interval index and compares the resulting root; it then computes a deterministic inventory digest and projection-audit digest for checkpoint binding.
+The verifier recomputes RFC 9162 SHA-256 leaf/node hashing over the complete ordered leaf sequence and requires the resulting root to match the owner binding. It validates the sequence-to-leaf mapping after explicit gaps. Each canonical knowledge-receipt leaf must have exactly one typed temporal or non-temporal projection. Non-receipt owner leaves remain in the Merkle root and are counted separately; they are not silently dropped from the source history.
 
-The result is deliberately named `ProjectionMatchesSuppliedAcceptedInventory`, and always reports `ReceiptInventoryAuthenticationNotEvaluated`. This is **not** proof that the supplied inventory is the complete accepted log prefix. A separate RFC 9162 / owner-frontier verifier must authenticate the receipt bytes and prove the exact inventory coverage against the owner log root and cut. An incomplete supplied inventory must not be promoted to source completeness merely because its replay is internally consistent.
+The positive result is `ProjectionMatchesSuppliedAcceptedInventory`, with `ReceiptInventoryAuthentication=LogRootRecomputedButTrustExternal`. This means the bytes supplied by the caller reconstruct the claimed owner-log root. It does **not** authenticate the signed checkpoint/tree head or prove that the expected root was accepted by the verifier. That requires the upstream frontier/checkpoint verification path.
 
-The replay audit is now a digest that may be committed into the owner-index forest, but the forest query verifier still reports `ProjectionCompletenessNotEvaluated` until an authenticated adapter consumes and verifies these audit results against the accepted frontier.
-
+The mapper from canonical assertion digest/payload into the temporal `valid_from`, `valid_to` and interval/non-temporal classification is also a separate trust boundary. This implementation reports `ProjectionMappingAuthentication=NotEvaluated`; the interval assertion must not be promoted to source-complete solely because the log root was recomputed.
 
 ## Forest-wide projection replay and formal model
 
 `forest_projection.go` verifies one projection replay result for every owner in the exact manifest owner set supplied by a separately verified frontier. It checks the expected forest root and each owner's committed projection-audit digest, then returns `ProjectionMatchesAllSuppliedOwnerInventories`. The result keeps `ReceiptInventoryAuthenticationNotEvaluated`; it does not establish that any inventory is the complete accepted log prefix. It also preserves unresolved gaps.
 
-The owner cut sequence and receipt-log tree size remain separate coordinate systems. The implementation does not compare their numeric magnitudes. Log leaf indices must be a contiguous range from zero to the declared tree size; owner sequences must be strictly increasing and within the independently declared owner cut.
+The owner cut sequence and receipt-log tree size remain distinct coordinates, but the V1 owner-log contract requires one log leaf for every non-gap sequence: \`TreeSize + total_gap_cardinality = OwnerSequenceCut\`. Sequence-to-leaf mapping subtracts gaps that precede the owner sequence. The quantities are not interchangeable, and their cardinality relation must be checked rather than assuming \`TreeSize == OwnerSequenceCut\`.
 
 A first bounded TLA+ model is in `formal/TemporalIntervalProof.tla` with `TemporalIntervalProof.cfg`. It models four leaves, exact-start inclusion, exact-end exclusion, an open-ended interval, safe pruning, and complete partitioning of matching versus pruned records. It states invariants for no false pruning, no false result, complete proof partition, and exact result completeness at termination.
 
@@ -97,7 +98,7 @@ A first bounded TLA+ model is in `formal/TemporalIntervalProof.tla` with `Tempor
 
 `wire.go` provides `MarshalIntervalPointProofV1` and `UnmarshalIntervalPointProofV1`. The wire frame begins with `MYCITPQ1`, then exact scope strings, the seconds/nanoseconds query instant, result count and a typed proof tree. Pruned nodes carry the authenticated count/summary/hash; branch nodes carry only their two ordered children; leaf nodes carry the canonical interval record. The decoder reconstructs leaf hashes/summaries and validates the proof tree before returning it.
 
-Bounds: 64 MiB encoded proof, 1 MiB? No — **1,000,000 records**, 2,000,001 proof nodes, recursion depth 64, and 1,024-byte UTF-8 strings. Nanoseconds must be below 1,000,000,000; end tags are exactly Finite or Open; trailing bytes and unknown node tags fail closed. The expected index root is intentionally **not embedded**: the caller supplies it from the independently authenticated checkpoint/frontier.
+Bounds: 64 MiB encoded proof, **1,000,000 records**, 2,000,001 proof nodes, recursion depth 64, and 1,024-byte UTF-8 strings. Nanoseconds must be below 1,000,000,000; end tags are exactly Finite or Open; trailing bytes and unknown node tags fail closed. The expected index root is intentionally **not embedded**: the caller supplies it from the independently authenticated checkpoint/frontier.
 
 The benchmark harness now includes canonical proof wire encoding and decode-plus-verification sub-benchmarks and reports encoded proof bytes. They remain one-iteration CI smoke measurements unless explicitly run with repeated samples and a pinned environment.
 
