@@ -143,7 +143,29 @@ Therefore, our comparison must separate **query computation**, **proof generatio
 
 VeriTS also makes an approximate model-segment path available with certified value/time error bounds. That is a plausible later **analytics-only** research branch: approximate aggregate dashboards may use a certified interval result with an explicit error envelope, while financial eligibility, revocation, settlement and mutation gates continue to require exact evidence. Any such extension must bind segments to the same owner-frontier and correction lineage and fall back to exact or Indeterminate when a later correction invalidates a segment. It must not silently turn approximate summaries into authoritative individual facts.
 
-## 7. Boundaries
+## 7. Independent executable oracle and local qualification record
+
+The branch now includes a separate Go reference package at `tools/economic/temporal-hindsight/reference/go/`. It does not import the candidate temporal index or forest code. It implements a simple owner-prefix scan as an independently readable expected-result oracle.
+
+The oracle binds stable owner-history identity and owner-local sequence cut, isolates endpoint pairing by namespace/subject/claim/`validity_interval_ref`, requires explicit OPEN, resolves supersession only inside the accepted prefix, and ignores post-cut suffix content. Its positive disposition is deliberately named `CompleteForSuppliedOwnerPrefixes`; it does not authenticate the owner set, frontier checkpoint or source truth.
+
+Local execution record (Go 1.23.2, linux/amd64, Intel Xeon Platinum 8573C):
+
+| Command | Local result |
+|---|---|
+| `go test ./...` | Pass |
+| `go test -race ./...` | Pass |
+| `go vet ./...` | Pass |
+| Core suffix/backdated/mutant tests, `-count=30` | Pass |
+| Owner interleaving permutations | 100 deterministic permutations pass |
+| Suffix-only adversarial mutations | 10,000 deterministic mutations pass |
+| Fixed result-certificate SHA-256 vector | Pass |
+
+A separate bounded benchmark was run with 30 iterations per sub-benchmark. The scan oracle reported 31.3 µs at one owner / ten intervals, 27.6 ms at 1,000 owners / ten intervals each, and 43.7 ms at one owner / 10,000 intervals. Full raw samples and allocation counts are in `reference/go/BENCHMARK-OBSERVATIONS.md`. These are oracle-cost observations, not index results, p50/p95/p99, or SOTA claims.
+
+A dedicated qualification workflow bootstrap is proposed separately in [PR #6793](https://github.com/Luminous-Dynamics/mycelix/pull/6793). It pins TLA+ tools v1.7.4 by SHA-256, checks out the exact PR head, runs the Go oracle gates and both TLC configurations, and requires the faulty mutant to produce the expected counterexample. Until that workflow exists on `main` and has a successful exact-head run, hosted qualification remains pending.
+
+## 8. Boundaries
 
 This bounded model abstracts cryptographic verification, owner-set discovery, schema parsing, interval pairing and policy execution. It does not prove source truth, trusted clocks, global absence, signed-checkpoint authenticity, legal effect, financial authorization, settlement or permission to mutate external state.
 
