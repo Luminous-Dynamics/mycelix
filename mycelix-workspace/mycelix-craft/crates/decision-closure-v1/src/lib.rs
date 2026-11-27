@@ -788,11 +788,17 @@ fn evaluate_mapping(
         .any(|element| element.status == ElementClosureStatusV1::PrerequisiteUnmet)
     {
         DecisionClosureDispositionV1::BlockedByPrerequisite
+    } else if mapping
+        .elements
+        .iter()
+        .any(|element| matches!(element.applicability, ElementApplicabilityV1::Unresolved))
+    {
+        DecisionClosureDispositionV1::MappingReviewRequired
     } else if elements
         .iter()
         .any(|element| element.status == ElementClosureStatusV1::HumanReviewRequired)
     {
-        DecisionClosureDispositionV1::MappingReviewRequired
+        DecisionClosureDispositionV1::OpenMissingElements
     } else if elements.iter().any(|element| {
         element.status == ElementClosureStatusV1::MissingEvidence
             || element.status == ElementClosureStatusV1::Unsupported
@@ -906,6 +912,17 @@ mod tests {
             decision_id: format!("authority-decision-{id}"),
             decision_digest: [2; 32],
         }
+    }
+
+    fn authority_for(
+        id: &str,
+        decision_id: &str,
+        decision_digest: [u8; 32],
+    ) -> LocalAuthorityRefV1 {
+        let mut reference = authority(id);
+        reference.decision_id = decision_id.to_owned();
+        reference.decision_digest = decision_digest;
+        reference
     }
 
     fn decision() -> DecisionContextV1 {
@@ -1266,7 +1283,7 @@ mod tests {
         item.applicability = ElementApplicabilityV1::NotApplicable {
             decision_id: "scope-decision".to_owned(),
             decision_digest: [10; 32],
-            authority: authority("scope-owner"),
+            authority: authority_for("scope-owner", "scope-decision", [10; 32]),
         };
         let result =
             evaluate_decision_closure(&packet(vec![mapping("n-a", vec![item])]), NOW).unwrap();
@@ -1466,7 +1483,11 @@ mod tests {
         excluded.applicability = ElementApplicabilityV1::NotApplicable {
             decision_id: "exception-does-not-apply".to_owned(),
             decision_digest: [19; 32],
-            authority: authority("exception-authority"),
+            authority: authority_for(
+                "exception-authority",
+                "exception-does-not-apply",
+                [19; 32],
+            ),
         };
         let result = evaluate_decision_closure(
             &packet(vec![mapping(
