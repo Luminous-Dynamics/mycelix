@@ -477,6 +477,7 @@ impl TemporalEvidenceSetV1 {
                 verifier_ref: verifier_ref.into(),
                 valid_at: valid_at.into(),
                 known_at: known_at.into(),
+                validity_interval_ref: None,
                 valid_from_assertion: None,
                 valid_to_assertion: None,
                 knowledge_assertions: Vec::new(),
@@ -1035,6 +1036,11 @@ impl TemporalEvidenceIndexV1 {
             }
         };
 
+        let mut knowledge_ids = from_knowledge;
+        knowledge_ids.extend(to_knowledge);
+        knowledge_ids.sort();
+        knowledge_ids.dedup();
+
         if let Some(to_assertion) = to {
             let from_time = normalize_utc(&from.time_value)?;
             let to_time = normalize_utc(&to_assertion.time_value)?;
@@ -1278,6 +1284,7 @@ impl TemporalEvidenceScanV1 {
             verifier_ref,
             valid_at,
             known_at,
+            None,
             allow_open_ended_valid_to,
         )
     }
