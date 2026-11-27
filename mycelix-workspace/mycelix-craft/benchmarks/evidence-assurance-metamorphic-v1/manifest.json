@@ -30,5 +30,10 @@
   "mutation_spec_count": 54,
   "owner_projection_count": 10,
   "oracle_class_count": 5,
-  "execution_contract_status": "declarative-specification-only"
+  "execution_contract_status": "declarative-specification-only",
+  "source_fixture_pin": {
+    "path": "mycelix-workspace/mycelix-craft/benchmarks/water-service-repair-v1/cases.json",
+    "blob_sha": "57abcd8a2ce849fc9d1794368285509b5971be65",
+    "note": "exact immutable synthetic source fixture file"
+  }
 }
