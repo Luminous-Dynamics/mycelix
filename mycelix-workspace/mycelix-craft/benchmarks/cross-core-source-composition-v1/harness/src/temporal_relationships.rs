@@ -1198,6 +1198,61 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn rejects_ocel_relationship_endpoint_that_does_not_exist() {
+        let mut expected_claim = claim(
+            "rel-asset-zone",
+            "asset-1",
+            "member_of_zone",
+            "zone-1",
+            T08,
+            1,
+        );
+        expected_claim.cardinality = TemporalRelationCardinalityV1::ManyToOne;
+        let target_digest = digest_hex(&temporal_relation_claim_digest(&expected_claim));
+        let source_digest = digest_hex(&expected_claim.source_digest);
+        let mut fixture = temporal_relationship_ocel_fixture(&target_digest, &source_digest);
+        fixture["objects"][2]["relationships"][1]["objectId"] =
+            serde_json::Value::String("zone-missing".to_owned());
+        let input = serde_json::to_string(&fixture).unwrap();
+
+        assert_eq!(
+            parse_temporal_relationships_ocel20(&input),
+            Err(TemporalRelationshipErrorV1::UnknownOcelObject)
+        );
+    }
+
+    #[test]
+    fn rejects_duplicate_object_identity_even_when_unrelated_to_claim() {
+        let expected_claim = claim(
+            "rel-asset-zone",
+            "asset-1",
+            "member_of_zone",
+            "zone-1",
+            T08,
+            1,
+        );
+        let target_digest = digest_hex(&temporal_relation_claim_digest(&expected_claim));
+        let source_digest = digest_hex(&expected_claim.source_digest);
+        let mut fixture = temporal_relationship_ocel_fixture(&target_digest, &source_digest);
+        fixture["objects"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "id": "asset-1",
+                "type": "asset",
+                "attributes": [],
+                "relationships": []
+            }));
+        let input = serde_json::to_string(&fixture).unwrap();
+
+        assert_eq!(
+            parse_temporal_relationships_ocel20(&input),
+            Err(TemporalRelationshipErrorV1::DuplicateOcelIdentity)
+        );
+    }
+
     #[test]
     fn late_recorded_relation_is_invisible_before_accepted_sequence() {
         let mut late = claim("rel-crew-wo", "crew-7", "assigned_to", "work-order-9", T08, 2);
