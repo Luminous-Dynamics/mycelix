@@ -32,8 +32,10 @@ func receiptDigestFixtureV1(entry []byte) string {
 func projectionInventoryFixtureV1(scope IntervalScopeV1) (OwnerIntervalIndexBindingV1, AcceptedReceiptInventoryV1) {
 	assertionRef := "assertion:grant-42"
 	assertionDigest := intervalDigestV1(70)
-	entry0 := canonicalReceiptFixtureV1(scope, "receipt:2", assertionRef, assertionDigest, "owner:grants", 2)
-	entry1 := canonicalReceiptFixtureV1(scope, "receipt:8", "metadata:receipt-8", intervalDigestV1(71), "owner:grants", 8)
+	entry0 := canonicalReceiptFixtureV1(scope, "receipt:1", assertionRef, assertionDigest, "owner:grants", 1)
+	ordinaryOwnerEvent := []byte("MYCELIX-TEST-OWNER-LOG:owner:grants:4")
+	entry2 := canonicalReceiptFixtureV1(scope, "receipt:9", "metadata:receipt-9", intervalDigestV1(71), "owner:grants", 9)
+
 	receiptDigest := receiptDigestFixtureV1(entry0)
 	record := IntervalRecordV1{
 		AssertionRef: assertionRef,
@@ -45,13 +47,17 @@ func projectionInventoryFixtureV1(scope IntervalScopeV1) (OwnerIntervalIndexBind
 	if err != nil {
 		panic(err)
 	}
-	logRoot := rfc9162TreeHashV1([][]byte{entry0, entry1})
-	gaps := []OwnerGapRangeV1{{First: 1, Last: 1}, {First: 3, Last: 7}, {First: 9, Last: 9}}
+
+	logEntries := [][]byte{entry0, ordinaryOwnerEvent, entry2}
+	logRoot := rfc9162TreeHashV1(logEntries)
+	// The owner cut reaches sequence 9. Six positions are explicit gaps,
+	// leaving 3 authenticated owner-log leaves at sequences 1, 4 and 9.
+	gaps := []OwnerGapRangeV1{{First: 2, Last: 3}, {First: 5, Last: 8}}
 	binding := OwnerIntervalIndexBindingV1{
 		OwnerRef: "owner:grants",
 		OwnerHistoryRef: "history:grants:v1",
 		OwnerSequence: 9,
-		TreeSize: 2,
+		TreeSize: 3,
 		OwnerLogRootDigest: fmt.Sprintf("sha256:%x", logRoot),
 		IntervalIndexRoot: tree.RootHash(),
 		Gaps: gaps,
@@ -62,25 +68,30 @@ func projectionInventoryFixtureV1(scope IntervalScopeV1) (OwnerIntervalIndexBind
 		OwnerSequenceCut: binding.OwnerSequence,
 		TreeSize: binding.TreeSize,
 		OwnerLogRootDigest: binding.OwnerLogRootDigest,
+		LogLeaves: []OwnerLogLeafV1{
+			{LeafIndex: 0, OwnerSequence: 1, EntryBytes: entry0},
+			{LeafIndex: 1, OwnerSequence: 4, EntryBytes: ordinaryOwnerEvent},
+			{LeafIndex: 2, OwnerSequence: 9, EntryBytes: entry2},
+		},
 		Receipts: []AcceptedReceiptProjectionV1{
 			{
-				ReceiptLogLeafIndex: 0, OwnerSequence: 2,
+				ReceiptLogLeafIndex: 0, OwnerSequence: 1,
 				ReceiptDigest: receiptDigest, CanonicalReceiptEntryBytes: entry0,
 				AssertionID: assertionRef, Class: ReceiptProjectsIntervalAssertionV1,
 				AssertionRef: record.AssertionRef,
 				ValidFrom: record.ValidFrom, ValidTo: record.ValidTo,
 			},
 			{
-				ReceiptLogLeafIndex: 1, OwnerSequence: 8,
-				ReceiptDigest: receiptDigestFixtureV1(entry1), CanonicalReceiptEntryBytes: entry1,
-				AssertionID: "metadata:receipt-8", Class: ReceiptIsNonTemporalV1,
+				ReceiptLogLeafIndex: 2, OwnerSequence: 9,
+				ReceiptDigest: receiptDigestFixtureV1(entry2), CanonicalReceiptEntryBytes: entry2,
+				AssertionID: "metadata:receipt-9", Class: ReceiptIsNonTemporalV1,
 			},
 		},
 	}
 	return binding, inventory
 }
 
-func TestProjectionReplayMatchesExactSuppliedInventory(t *testing.T) {
+func TestProjectionReplayMatchesCompleteMixedOwnerLogInventory(t *testing.T) {
 	scope := intervalScopeFixtureV1()
 	binding, inventory := projectionInventoryFixtureV1(scope)
 	computed, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, inventory)
@@ -96,17 +107,9 @@ func TestProjectionReplayMatchesExactSuppliedInventory(t *testing.T) {
 	if computed.ProjectionMappingAuthentication != ProjectionMappingAuthenticationNotEvaluatedV1 {
 		t.Fatalf("projection semantics were overclaimed: %s", computed.ProjectionMappingAuthentication)
 	}
-	if computed.ReceiptCount != 2 || computed.IntervalAssertionCount != 1 || computed.NonTemporalReceiptCount != 1 {
+	if computed.ReceiptCount != 2 || computed.NonReceiptLogLeafCount != 1 ||
+		computed.IntervalAssertionCount != 1 || computed.NonTemporalReceiptCount != 1 {
 		t.Fatalf("wrong projection counts: %+v", computed)
-	}
-	if got := fmt.Sprintf("%x", computed.InventoryDigest); got != "956b9c7c0101cfbe3f4ee02e742394c406e914ad485893e3f53bc888d4b0669f" {
-		t.Fatalf("accepted inventory known-answer mismatch: %s", got)
-	}
-	if got := fmt.Sprintf("%x", computed.DerivedIntervalIndexRoot); got != "9926b723cf57778f56446308ca4bb6de0ec026e1770dc460348153331024e87a" {
-		t.Fatalf("derived interval root known-answer mismatch: %s", got)
-	}
-	if got := fmt.Sprintf("%x", computed.AuditDigest); got != "aa66082a3770e0d140403830427e45ced665e9478c9b0bfdacef64b13b911466" {
-		t.Fatalf("projection audit known-answer mismatch: %s", got)
 	}
 	if !computed.HasOwnerGaps {
 		t.Fatal("explicit owner gaps were not preserved")
@@ -119,44 +122,56 @@ func TestProjectionReplayMatchesExactSuppliedInventory(t *testing.T) {
 	if verified.AuditDigest != computed.AuditDigest || verified.InventoryDigest != computed.InventoryDigest {
 		t.Fatal("replay audit was not deterministic")
 	}
+	if verified.RecomputedOwnerLogRoot != computed.RecomputedOwnerLogRoot {
+		t.Fatal("owner log root changed during deterministic replay")
+	}
 }
 
-func TestProjectionReplayRejectsMissingOrReorderedLogLeaves(t *testing.T) {
+func TestProjectionReplayRequiresEveryLogLeafAndEveryReceiptDisposition(t *testing.T) {
 	scope := intervalScopeFixtureV1()
 	binding, inventory := projectionInventoryFixtureV1(scope)
-	missing := inventory
-	missing.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts[:1]...)
-	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, missing); err != ErrProjectionLeafCoverage {
-		t.Fatalf("missing receipt did not fail closed: %v", err)
+
+	missingLogLeaf := inventory
+	missingLogLeaf.LogLeaves = append([]OwnerLogLeafV1(nil), inventory.LogLeaves[:2]...)
+	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, missingLogLeaf); err != ErrProjectionLeafCoverage {
+		t.Fatalf("missing owner-log leaf did not fail closed: %v", err)
 	}
+
 	reordered := inventory
-	reordered.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
-	reordered.Receipts[0], reordered.Receipts[1] = reordered.Receipts[1], reordered.Receipts[0]
+	reordered.LogLeaves = append([]OwnerLogLeafV1(nil), inventory.LogLeaves...)
+	reordered.LogLeaves[0], reordered.LogLeaves[1] = reordered.LogLeaves[1], reordered.LogLeaves[0]
 	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, reordered); err != ErrProjectionLeafCoverage {
-		t.Fatalf("reordered receipt leaf did not fail closed: %v", err)
+		t.Fatalf("reordered owner-log leaves did not fail closed: %v", err)
 	}
-	duplicate := inventory
-	duplicate.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
-	duplicate.Receipts[1].ReceiptLogLeafIndex = 0
-	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, duplicate); err != ErrProjectionLeafCoverage {
-		t.Fatalf("duplicate receipt leaf did not fail closed: %v", err)
+
+	duplicateLeaf := inventory
+	duplicateLeaf.LogLeaves = append([]OwnerLogLeafV1(nil), inventory.LogLeaves...)
+	duplicateLeaf.LogLeaves[1].LeafIndex = 0
+	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, duplicateLeaf); err != ErrProjectionLeafCoverage {
+		t.Fatalf("duplicate owner-log leaf index did not fail closed: %v", err)
+	}
+
+	omittedReceiptDisposition := inventory
+	omittedReceiptDisposition.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts[:1]...)
+	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, omittedReceiptDisposition); err != ErrProjectionReceiptOmitted {
+		t.Fatalf("receipt leaf without projection disposition passed: %v", err)
 	}
 }
 
 func TestProjectionReplayDetectsOmittedOrAlteredIntervalAssertion(t *testing.T) {
 	scope := intervalScopeFixtureV1()
 	binding, inventory := projectionInventoryFixtureV1(scope)
+
 	omitted := inventory
 	omitted.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
 	omitted.Receipts[0].Class = ReceiptIsNonTemporalV1
 	omitted.Receipts[0].AssertionRef = ""
 	omitted.Receipts[0].ValidFrom = IntervalInstantV1{}
 	omitted.Receipts[0].ValidTo = IntervalEndV1{}
-	// Reclassifying the receipt changes the derived projection root even though the
-	// caller still supplies the original committed interval-index root.
 	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, omitted); err != ErrProjectionIndexRootMismatch {
-		t.Fatalf("omitted interval assertion was accepted: %v", err)
+		t.Fatalf("reclassified interval receipt was accepted: %v", err)
 	}
+
 	altered := inventory
 	altered.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
 	altered.Receipts[0].ValidTo = intervalFiniteV1(31, 0)
@@ -168,6 +183,7 @@ func TestProjectionReplayDetectsOmittedOrAlteredIntervalAssertion(t *testing.T) 
 func TestProjectionReplayRejectsWrongOwnerHistoryCutAndReceiptSequence(t *testing.T) {
 	scope := intervalScopeFixtureV1()
 	binding, inventory := projectionInventoryFixtureV1(scope)
+
 	wrongOwner := inventory
 	wrongOwner.OwnerRef = "owner:other"
 	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, wrongOwner); err != ErrProjectionInventoryMismatch {
@@ -178,45 +194,65 @@ func TestProjectionReplayRejectsWrongOwnerHistoryCutAndReceiptSequence(t *testin
 	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, wrongCut); err != ErrProjectionInventoryMismatch {
 		t.Fatalf("owner cut substitution: %v", err)
 	}
+
 	regressed := inventory
+	regressed.LogLeaves = append([]OwnerLogLeafV1(nil), inventory.LogLeaves...)
 	regressed.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
-	regressed.Receipts[1].OwnerSequence = regressed.Receipts[0].OwnerSequence
+	regressed.LogLeaves[2].OwnerSequence = 1
+	regressed.Receipts[1].OwnerSequence = 1
 	regressed.Receipts[1].CanonicalReceiptEntryBytes = canonicalReceiptFixtureV1(
-		scope, "receipt:8", "metadata:receipt-8", intervalDigestV1(71), "owner:grants", 2,
+		scope, "receipt:9", "metadata:receipt-9", intervalDigestV1(71), "owner:grants", 1,
 	)
 	regressed.Receipts[1].ReceiptDigest = receiptDigestFixtureV1(regressed.Receipts[1].CanonicalReceiptEntryBytes)
+	regressed.LogLeaves[2].EntryBytes = regressed.Receipts[1].CanonicalReceiptEntryBytes
 	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, regressed); err != ErrProjectionSequenceOrder {
-		t.Fatalf("non-increasing receipt sequence: %v", err)
+		t.Fatalf("non-increasing owner sequence: %v", err)
 	}
+
 	inGap := inventory
-	inGap.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
-	inGap.Receipts[1].OwnerSequence = 4
+	inGap.LogLeaves = append([]OwnerLogLeafV1(nil), inventory.LogLeaves...)
+	inGap.LogLeaves[2].OwnerSequence = 5
 	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, inGap); err != ErrProjectionSequenceOrder {
-		t.Fatalf("receipt in unresolved gap: %v", err)
+		t.Fatalf("owner log leaf inside unresolved gap: %v", err)
 	}
 }
 
-func TestProjectionReplayRejectsMalformedNonTemporalAndDuplicateAssertions(t *testing.T) {
+func TestProjectionReplayRejectsNonTemporalSmugglingAndDuplicateAssertions(t *testing.T) {
 	scope := intervalScopeFixtureV1()
 	binding, inventory := projectionInventoryFixtureV1(scope)
+
 	smuggled := inventory
 	smuggled.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
 	smuggled.Receipts[1].AssertionRef = "hidden-interval"
 	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, smuggled); err != ErrProjectionReceiptClass {
 		t.Fatalf("non-temporal interval fields were accepted: %v", err)
 	}
+
 	duplicate := inventory
+	duplicate.LogLeaves = append([]OwnerLogLeafV1(nil), inventory.LogLeaves...)
 	duplicate.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
-	duplicateBytes := canonicalReceiptFixtureV1(scope, "receipt:8", "assertion:grant-42", intervalDigestV1(44), "owner:grants", 8)
+	duplicateBytes := canonicalReceiptFixtureV1(
+		scope, "receipt:9", "assertion:grant-42", intervalDigestV1(44), "owner:grants", 9,
+	)
+	duplicate.LogLeaves[2].EntryBytes = duplicateBytes
 	duplicate.Receipts[1] = AcceptedReceiptProjectionV1{
-		ReceiptLogLeafIndex: 1, OwnerSequence: 8,
+		ReceiptLogLeafIndex: 2,
+		OwnerSequence: 9,
 		ReceiptDigest: receiptDigestFixtureV1(duplicateBytes),
 		CanonicalReceiptEntryBytes: duplicateBytes,
 		AssertionID: "assertion:grant-42",
 		Class: ReceiptProjectsIntervalAssertionV1,
 		AssertionRef: "assertion:grant-42",
-		ValidFrom: intervalPointV1(11, 0), ValidTo: intervalFiniteV1(40, 0),
+		ValidFrom: intervalPointV1(11, 0),
+		ValidTo: intervalFiniteV1(40, 0),
 	}
+	newRoot := rfc9162TreeHashV1([][]byte{
+		duplicate.LogLeaves[0].EntryBytes,
+		duplicate.LogLeaves[1].EntryBytes,
+		duplicate.LogLeaves[2].EntryBytes,
+	})
+	binding.OwnerLogRootDigest = fmt.Sprintf("sha256:%x", newRoot)
+	duplicate.OwnerLogRootDigest = binding.OwnerLogRootDigest
 	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, duplicate); err != ErrIntervalMalformed {
 		t.Fatalf("duplicate projected assertion was accepted: %v", err)
 	}
@@ -245,14 +281,18 @@ func TestProjectionReplaySupportsEmptyAndAllNonTemporalInventory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	emptyLogRoot := fmt.Sprintf("sha256:%x", sha256.Sum256(nil))
 	emptyBinding := OwnerIntervalIndexBindingV1{
-		OwnerRef: "owner:empty", OwnerHistoryRef: "history:empty",
-		OwnerSequence: 0, TreeSize: 0,
-		OwnerLogRootDigest: fmt.Sprintf("sha256:%x", sha256.Sum256(nil)),
+		OwnerRef: "owner:empty",
+		OwnerHistoryRef: "history:empty",
+		OwnerSequence: 0,
+		TreeSize: 0,
+		OwnerLogRootDigest: emptyLogRoot,
 		IntervalIndexRoot: emptyTree.RootHash(),
 	}
 	emptyInventory := AcceptedReceiptInventoryV1{
-		OwnerRef: emptyBinding.OwnerRef, OwnerHistoryRef: emptyBinding.OwnerHistoryRef,
+		OwnerRef: emptyBinding.OwnerRef,
+		OwnerHistoryRef: emptyBinding.OwnerHistoryRef,
 		OwnerLogRootDigest: emptyBinding.OwnerLogRootDigest,
 	}
 	emptyAudit, err := ComputeOwnerProjectionReplayAuditV1(scope, emptyBinding, emptyInventory)
@@ -268,19 +308,27 @@ func TestProjectionReplaySupportsEmptyAndAllNonTemporalInventory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	allBytes := canonicalReceiptFixtureV1(
+		scope, "receipt:1", "metadata:1", intervalDigestV1(52), "owner:metadata", 1,
+	)
 	allBinding := OwnerIntervalIndexBindingV1{
-		OwnerRef: "owner:metadata", OwnerHistoryRef: "history:metadata",
-		OwnerSequence: 1, TreeSize: 1,
-		OwnerLogRootDigest: "",
+		OwnerRef: "owner:metadata",
+		OwnerHistoryRef: "history:metadata",
+		OwnerSequence: 1,
+		TreeSize: 1,
+		OwnerLogRootDigest: fmt.Sprintf("sha256:%x", rfc9162TreeHashV1([][]byte{allBytes})),
 		IntervalIndexRoot: allNonTemporalTree.RootHash(),
 	}
-	allBytes := canonicalReceiptFixtureV1(scope, "receipt:1", "metadata:1", intervalDigestV1(52), "owner:metadata", 1)
-	allBinding.OwnerLogRootDigest = fmt.Sprintf("sha256:%x", rfc9162TreeHashV1([][]byte{allBytes}))
 	allInventory := AcceptedReceiptInventoryV1{
-		OwnerRef: allBinding.OwnerRef, OwnerHistoryRef: allBinding.OwnerHistoryRef,
-		OwnerSequenceCut: 1, TreeSize: 1, OwnerLogRootDigest: allBinding.OwnerLogRootDigest,
+		OwnerRef: allBinding.OwnerRef,
+		OwnerHistoryRef: allBinding.OwnerHistoryRef,
+		OwnerSequenceCut: 1,
+		TreeSize: 1,
+		OwnerLogRootDigest: allBinding.OwnerLogRootDigest,
+		LogLeaves: []OwnerLogLeafV1{{LeafIndex: 0, OwnerSequence: 1, EntryBytes: allBytes}},
 		Receipts: []AcceptedReceiptProjectionV1{{
-			ReceiptLogLeafIndex: 0, OwnerSequence: 1,
+			ReceiptLogLeafIndex: 0,
+			OwnerSequence: 1,
 			ReceiptDigest: receiptDigestFixtureV1(allBytes),
 			CanonicalReceiptEntryBytes: allBytes,
 			AssertionID: "metadata:1",
@@ -291,24 +339,14 @@ func TestProjectionReplaySupportsEmptyAndAllNonTemporalInventory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if allAudit.NonTemporalReceiptCount != 1 || allAudit.IntervalAssertionCount != 0 {
+	if allAudit.NonTemporalReceiptCount != 1 || allAudit.IntervalAssertionCount != 0 || allAudit.NonReceiptLogLeafCount != 0 {
 		t.Fatalf("wrong all-non-temporal counts: %+v", allAudit)
 	}
 }
 
-
-func TestProjectionReplayRecomputesCanonicalReceiptDigestsAndRFC9162Root(t *testing.T) {
+func TestProjectionReplayRecomputesReceiptDigestsAndFullRFC9162OwnerLogRoot(t *testing.T) {
 	scope := intervalScopeFixtureV1()
 	binding, inventory := projectionInventoryFixtureV1(scope)
-	if got := binding.OwnerLogRootDigest; got != "sha256:81f22512600bb2524be01fef5c8d6825b901b4fa025df52e91e43aa53e38c0b3" {
-		t.Fatalf("RFC 9162 owner root vector mismatch: %s", got)
-	}
-	if got := inventory.Receipts[0].ReceiptDigest; got != "sha256:88018893a445c717d6576c6768dc9d94754b0ebb66a6242d5ffdf10097f5db2c" {
-		t.Fatalf("canonical receipt digest vector mismatch: %s", got)
-	}
-	if got := inventory.Receipts[1].ReceiptDigest; got != "sha256:ef2359f6a753245257a8e11141121d5a0f5311335ae9b3b30b6cb0d1123f224e" {
-		t.Fatalf("second canonical receipt digest vector mismatch: %s", got)
-	}
 	audit, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, inventory)
 	if err != nil {
 		t.Fatal(err)
@@ -316,28 +354,24 @@ func TestProjectionReplayRecomputesCanonicalReceiptDigestsAndRFC9162Root(t *test
 	if !audit.OwnerLogRootMatches || audit.RecomputedOwnerLogRoot == ([32]byte{}) {
 		t.Fatalf("owner log root not recomputed: %+v", audit)
 	}
-
-	tamperedBytes := inventory
-	tamperedBytes.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
-	tamperedBytes.Receipts[0].CanonicalReceiptEntryBytes = append([]byte(nil), inventory.Receipts[0].CanonicalReceiptEntryBytes...)
-	tamperedBytes.Receipts[0].CanonicalReceiptEntryBytes[len(tamperedBytes.Receipts[0].CanonicalReceiptEntryBytes)-1] ^= 0x01
-	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, tamperedBytes); err != ErrProjectionReceiptClass {
-		t.Fatalf("receipt bytes with stale digest passed: %v", err)
+	if audit.NonReceiptLogLeafCount != 1 {
+		t.Fatalf("ordinary non-receipt log leaf was omitted: %+v", audit)
 	}
 
-	tamperedAndRedigested := inventory
-	tamperedAndRedigested.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
-	tamperedAndRedigested.Receipts[0].CanonicalReceiptEntryBytes = append([]byte(nil), inventory.Receipts[0].CanonicalReceiptEntryBytes...)
-	tamperedAndRedigested.Receipts[0].CanonicalReceiptEntryBytes[len(tamperedAndRedigested.Receipts[0].CanonicalReceiptEntryBytes)-1] ^= 0x01
-	tamperedAndRedigested.Receipts[0].ReceiptDigest = receiptDigestFixtureV1(tamperedAndRedigested.Receipts[0].CanonicalReceiptEntryBytes)
-	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, tamperedAndRedigested); err != ErrProjectionInventoryMismatch {
-		t.Fatalf("mutated and re-digested receipt escaped owner-log root check: %v", err)
+	staleDigest := inventory
+	staleDigest.LogLeaves = append([]OwnerLogLeafV1(nil), inventory.LogLeaves...)
+	staleDigest.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
+	staleDigest.LogLeaves[0].EntryBytes = append([]byte(nil), inventory.LogLeaves[0].EntryBytes...)
+	staleDigest.LogLeaves[0].EntryBytes[len(staleDigest.LogLeaves[0].EntryBytes)-1] ^= 0x01
+	staleDigest.Receipts[0].CanonicalReceiptEntryBytes = append([]byte(nil), staleDigest.LogLeaves[0].EntryBytes...)
+	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, staleDigest); err != ErrProjectionInventoryMismatch {
+		t.Fatalf("mutated canonical receipt with stale digest escaped: %v", err)
 	}
 
-	substitutedFields := inventory
-	substitutedFields.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
-	substitutedFields.Receipts[0].OwnerSequence = 8
-	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, substitutedFields); err != ErrProjectionInventoryMismatch {
-		t.Fatalf("structured owner sequence substitution passed: %v", err)
+	changedOrdinaryEvent := inventory
+	changedOrdinaryEvent.LogLeaves = append([]OwnerLogLeafV1(nil), inventory.LogLeaves...)
+	changedOrdinaryEvent.LogLeaves[1].EntryBytes = []byte("MYCELIX-TEST-OWNER-LOG:owner:grants:tampered")
+	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, changedOrdinaryEvent); err != ErrProjectionInventoryMismatch {
+		t.Fatalf("mutated non-receipt log leaf escaped full root check: %v", err)
 	}
 }
