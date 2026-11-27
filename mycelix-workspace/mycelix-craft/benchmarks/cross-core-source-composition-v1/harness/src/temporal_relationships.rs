@@ -1096,6 +1096,7 @@ mod tests {
             T08,
             1,
         );
+        expected_claim.cardinality = TemporalRelationCardinalityV1::ManyToOne;
         expected_claim.source_ref = "source:asset-zone".to_owned();
         expected_claim.source_digest = [0x11; 32];
         expected_claim.asserting_principal = "principal:operator".to_owned();
@@ -1122,7 +1123,7 @@ mod tests {
 
     #[test]
     fn rejects_ambiguous_ocel_relation_endpoint_qualifier() {
-        let expected_claim = claim(
+        let mut expected_claim = claim(
             "rel-asset-zone",
             "asset-1",
             "member_of_zone",
@@ -1130,6 +1131,7 @@ mod tests {
             T08,
             1,
         );
+        expected_claim.cardinality = TemporalRelationCardinalityV1::ManyToOne;
         let target_digest = digest_hex(&temporal_relation_claim_digest(&expected_claim));
         let source_digest = digest_hex(&expected_claim.source_digest);
         let mut fixture = temporal_relationship_ocel_fixture(&target_digest, &source_digest);
