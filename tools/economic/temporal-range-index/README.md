@@ -80,3 +80,14 @@ The replay checks owner/history/cut/log-root identity, full leaf-position covera
 The result is deliberately named `ProjectionMatchesSuppliedAcceptedInventory`, and always reports `ReceiptInventoryAuthenticationNotEvaluated`. This is **not** proof that the supplied inventory is the complete accepted log prefix. A separate RFC 9162 / owner-frontier verifier must authenticate the receipt bytes and prove the exact inventory coverage against the owner log root and cut. An incomplete supplied inventory must not be promoted to source completeness merely because its replay is internally consistent.
 
 The replay audit is now a digest that may be committed into the owner-index forest, but the forest query verifier still reports `ProjectionCompletenessNotEvaluated` until an authenticated adapter consumes and verifies these audit results against the accepted frontier.
+
+
+## Forest-wide projection replay and formal model
+
+`forest_projection.go` verifies one projection replay result for every owner in the exact manifest owner set supplied by a separately verified frontier. It checks the expected forest root and each owner's committed projection-audit digest, then returns `ProjectionMatchesAllSuppliedOwnerInventories`. The result keeps `ReceiptInventoryAuthenticationNotEvaluated`; it does not establish that any inventory is the complete accepted log prefix. It also preserves unresolved gaps.
+
+The owner cut sequence and receipt-log tree size remain separate coordinate systems. The implementation does not compare their numeric magnitudes. Log leaf indices must be a contiguous range from zero to the declared tree size; owner sequences must be strictly increasing and within the independently declared owner cut.
+
+A first bounded TLA+ model is in `formal/TemporalIntervalProof.tla` with `TemporalIntervalProof.cfg`. It models four leaves, exact-start inclusion, exact-end exclusion, an open-ended interval, safe pruning, and complete partitioning of matching versus pruned records. It states invariants for no false pruning, no false result, complete proof partition, and exact result completeness at termination.
+
+**Formal status:** the TLA+ module/config have been authored but TLC has not been run. Do not describe these invariants as model-checked until an exact TLC version, state count and successful run are recorded.
