@@ -33,3 +33,6 @@ WSR-016 is a metrology negative control: Johannesburg Water's FY2024/25 annual r
 
 
 WSR-016's measurement-definition decision is owner-native: the benchmark carries the published KPI source context, but the NRVCA comparator owns declared measurement/target comparability. Its `clock_stop` field distinguishes first response from repair completion and independently observed pressure restoration. This is a declared-contract comparison, not proof that the utility's operational process matched its published definition.
+
+
+The water KPI semantic comparator has nine synthetic known-answer cases in NRVCA-015 / PR #5442. It explicitly tests W8's terminal-event and same-fault duplicate-callout inclusion rules: response is not repair completion, and separately logged complaints for one fault are counted as one callout under the February 2026 National Treasury definition. These cases validate declared metric-contract comparison only; they do not prove how a utility's source systems actually record or implement those rules.
