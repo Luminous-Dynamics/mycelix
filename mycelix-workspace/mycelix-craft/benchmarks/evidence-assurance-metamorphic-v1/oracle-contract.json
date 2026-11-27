@@ -1,0 +1,152 @@
+{
+  "benchmark_id": "CRAFT-EVIDENCE-ASSURANCE-METAMORPHIC-V1",
+  "schema_version": "1.0.0",
+  "execution_status": "oracle-protocol-only_no_owner-adapter-execution",
+  "oracle_classes": [
+    {
+      "oracle_id": "OWNER-EVALUATOR",
+      "kind": "domain_owner",
+      "description": "Relevant domain owner implementation evaluates the exact input and returns a versioned, digest-pinned receipt.",
+      "independence_requirements": [
+        "Pin owner implementation commit and schema version.",
+        "Do not use the same evaluator binary as the independent reference oracle."
+      ]
+    },
+    {
+      "oracle_id": "INDEPENDENT-REFERENCE",
+      "kind": "independent_reference",
+      "description": "Separately implemented declarative or formal oracle recomputes the expected invariant from the frozen fixture and transformation.",
+      "independence_requirements": [
+        "Separate implementation and code ownership where feasible.",
+        "No shared derived outputs or cached decision values.",
+        "Disclose common source facts and domain experts."
+      ]
+    },
+    {
+      "oracle_id": "CANONICAL-TRACE",
+      "kind": "trace_replay",
+      "description": "Canonicalized input, owner-version, event sequence, tool-call and output trace is replayed independently.",
+      "independence_requirements": [
+        "Canonical byte representation pinned.",
+        "Host-assigned sequence preserved.",
+        "Replay environment and tool versions pinned."
+      ]
+    },
+    {
+      "oracle_id": "ASSERTION-EXCEPTION",
+      "kind": "assertion_and_exception",
+      "description": "Explicit assertions and expected fail-closed error classes are checked independently.",
+      "independence_requirements": [
+        "Assert both required rejection and allowed negative-control progress.",
+        "Do not treat thrown exceptions without expected type as success."
+      ]
+    },
+    {
+      "oracle_id": "HUMAN-ADJUDICATION",
+      "kind": "qualified_human",
+      "description": "Qualified domain or community reviewers adjudicate semantic validity, attribution, dissent and materiality.",
+      "independence_requirements": [
+        "Reviewer identity, credentials, language and jurisdictional scope are pinned privately by the host.",
+        "Disclose reviewer overlap and common-cause relationships.",
+        "Blind comparator identity when feasible."
+      ]
+    }
+  ],
+  "risk_requirements": [
+    {
+      "risk_tier": "critical",
+      "minimum_distinct_oracle_classes": 2,
+      "required_classes": [
+        "OWNER-EVALUATOR",
+        "INDEPENDENT-REFERENCE"
+      ],
+      "trace_required": true,
+      "human_review_when": [
+        "semantic validity requires domain judgement",
+        "consent, dissent, or attribution semantics",
+        "authority sufficiency"
+      ],
+      "disagreement": "oracle_disagreement_not_killed_or_survived"
+    },
+    {
+      "risk_tier": "high",
+      "minimum_distinct_oracle_classes": 2,
+      "required_classes": [
+        "OWNER-EVALUATOR",
+        "INDEPENDENT-REFERENCE"
+      ],
+      "trace_required": true,
+      "human_review_when": [
+        "natural language meaning is material",
+        "metric-definition dispute"
+      ],
+      "disagreement": "oracle_disagreement_not_killed_or_survived"
+    }
+  ],
+  "common_cause_policy": {
+    "record_shared_code": false,
+    "record_shared_data": true,
+    "record_shared_prompts": true,
+    "record_shared_models_and_providers": true,
+    "record_shared_source_owners": true,
+    "record_reviewer_overlap": true,
+    "distinct_ids_do_not_prove_independence": true,
+    "one_origin_oracle_pair_is_not_independent": true
+  },
+  "semantic_validity_gate": {
+    "order": [
+      "validate_fixture_schema",
+      "check_selector_cardinality",
+      "check_preconditions",
+      "apply_one_registered_transformation",
+      "verify_only_declared_target_changed",
+      "verify_postconditions",
+      "human_semantic_adjudication_when_required",
+      "freeze_mutated_fixture_digest"
+    ],
+    "invalid_statuses": [
+      "invalid_mutation",
+      "not_applicable",
+      "ambiguous_selector",
+      "invalid_semantics",
+      "precondition_failed"
+    ],
+    "denominator_policy": "Only validated, non-equivalent, applicable mutations enter mutation detection denominators. Invalid, not-applicable, equivalent, timeout and oracle-disagreement outcomes are reported separately.",
+    "translation_policy": "No translation is treated as semantics-preserving by default. Original-language domain annotators must verify intent, materiality and decision-label preservation."
+  },
+  "outcome_taxonomy": [
+    "killed",
+    "survived",
+    "invalid_mutation",
+    "not_applicable",
+    "equivalent",
+    "timeout",
+    "oracle_disagreement",
+    "owner_execution_error",
+    "independent_oracle_error"
+  ],
+  "receipt_required_fields": [
+    "benchmark_id",
+    "relation_id",
+    "mutation_id",
+    "seed_id",
+    "source_fixture_digest",
+    "owner_projection_digest",
+    "baseline_input_digest",
+    "mutated_input_digest",
+    "selector_match_ids",
+    "precondition_results",
+    "transformation_id",
+    "changed_field_digests",
+    "preserved_field_digest",
+    "semantic_validity_status",
+    "owner_evaluator_version",
+    "owner_output_digest",
+    "independent_oracle_version",
+    "independent_oracle_output_digest",
+    "trace_digest",
+    "outcome",
+    "adjudication_refs"
+  ],
+  "receipt_claim_boundary": "A receipt is a measurement record, not proof of field efficacy or legal compliance."
+}
