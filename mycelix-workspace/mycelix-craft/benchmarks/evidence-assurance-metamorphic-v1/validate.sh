@@ -6,6 +6,7 @@ MANIFEST="$ROOT/manifest.json"
 SEEDS="$ROOT/seeds.json"
 RELATIONS="$ROOT/relations.json"
 MUTATIONS="$ROOT/mutations.json"
+SCORECARD="$ROOT/scorecard.json"
 
 command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 127; }
 
@@ -19,6 +20,7 @@ if ! jq -e '
   and .relation_count == 16
   and .adversarial_operator_count == 30
   and .negative_control_count == 16
+  and .scorecard_metric_count == 15
   and ((.prohibited_claims | type) == "array")
   and ((.prohibited_claims | length) >= 5)
 ' "$MANIFEST" >/dev/null; then
@@ -65,6 +67,32 @@ if ! jq -e '
   )
 ' "$RELATIONS" >/dev/null; then
   echo "Metamorphic relation schema validation failed." >&2
+  exit 1
+fi
+
+if ! jq -e '
+  .benchmark_id == "CRAFT-EVIDENCE-ASSURANCE-METAMORPHIC-V1"
+  and .schema_version == "1.0.0"
+  and ((.metrics | type) == "array")
+  and ((.metrics | length) == 15)
+  and (([.metrics[].metric_id] | unique | length) == 15)
+  and all(.metrics[];
+    (.metric_id | type == "string" and test("^[A-Z]+-[0-9]{3}$"))
+    and (.name | type == "string" and length > 0)
+    and (.category | type == "string" and length > 0)
+    and (.numerator | type == "string" and length > 0)
+    and (.denominator | type == "string" and length > 0)
+    and (.unit | type == "string" and length > 0)
+    and (.direction | type == "string" and length > 0)
+    and (.target | type == "object")
+    and (.target.operator | type == "string" and length > 0)
+    and (.gate | type == "boolean")
+    and (.requires_field_data | type == "boolean")
+    and (.report_by | type == "array" and length > 0)
+  )
+  and all(.metrics[] | select(.gate == true); .requires_field_data == false)
+' "$SCORECARD" >/dev/null; then
+  echo "Scorecard validation failed: metric IDs, definitions, or gate/field-data separation." >&2
   exit 1
 fi
 
