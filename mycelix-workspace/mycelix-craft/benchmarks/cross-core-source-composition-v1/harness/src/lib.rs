@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
 use craft_claim_support_v1 as claim_support;
@@ -56,6 +57,139 @@ pub fn independent_oracle(episode: WaterEpisode) -> ExpectedDisposition {
     } else {
         ExpectedDisposition::NotEligible
     }
+}
+
+
+/// Exact, authority-referenced set of actions for one service episode.
+///
+/// The digest and revision are supplied by the owner that approved the
+/// denominator. This adapter checks that every observation is bound to that
+/// exact authorization; it does not authenticate the authority or mint it.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AuthorizedActionSetV1 {
+    pub episode_id: String,
+    pub scope_id: String,
+    pub authorization_id: String,
+    pub authorization_revision: u64,
+    pub authorization_digest: [u8; 32],
+    pub action_ids: Vec<String>,
+}
+
+/// A recorded action observation bound to the authorization under which it was
+/// permitted. Duplicate observations are retained as input but count only once.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ObservedAuthorizedActionV1 {
+    pub episode_id: String,
+    pub scope_id: String,
+    pub authorization_id: String,
+    pub authorization_revision: u64,
+    pub authorization_digest: [u8; 32],
+    pub action_id: String,
+}
+
+/// Deterministic, unit-preserving action coverage receipt.
+///
+/// The denominator comes only from the authorized action set. Extra observed
+/// actions cannot expand the denominator or inflate the covered numerator.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ActionCoverageReceiptV1 {
+    pub episode_id: String,
+    pub scope_id: String,
+    pub authorization_id: String,
+    pub authorization_revision: u64,
+    pub authorization_digest: [u8; 32],
+    pub numerator: usize,
+    pub denominator: usize,
+    pub missing_authorized_action_ids: Vec<String>,
+    pub unmatched_observed_action_ids: Vec<String>,
+    pub duplicate_observation_count: usize,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ActionCoverageErrorV1 {
+    EmptyAuthorizationIdentity,
+    EmptyActionSet,
+    DuplicateAuthorizedAction,
+    EmptyActionIdentifier,
+    WrongEpisodeScopeOrAuthorization,
+    ZeroAuthorizationDigest,
+}
+
+/// Evaluate observed action coverage against the immutable, authority-provided
+/// denominator. It never infers the denominator from observed or completed work.
+pub fn evaluate_action_coverage(
+    authorized: &AuthorizedActionSetV1,
+    observations: &[ObservedAuthorizedActionV1],
+) -> Result<ActionCoverageReceiptV1, ActionCoverageErrorV1> {
+    if authorized.episode_id.trim().is_empty()
+        || authorized.scope_id.trim().is_empty()
+        || authorized.authorization_id.trim().is_empty()
+        || authorized.authorization_revision == 0
+    {
+        return Err(ActionCoverageErrorV1::EmptyAuthorizationIdentity);
+    }
+    if authorized.authorization_digest == [0; 32] {
+        return Err(ActionCoverageErrorV1::ZeroAuthorizationDigest);
+    }
+    if authorized.action_ids.is_empty() {
+        return Err(ActionCoverageErrorV1::EmptyActionSet);
+    }
+
+    let mut denominator = BTreeSet::new();
+    for action_id in &authorized.action_ids {
+        if action_id.trim().is_empty() {
+            return Err(ActionCoverageErrorV1::EmptyActionIdentifier);
+        }
+        if !denominator.insert(action_id.as_str()) {
+            return Err(ActionCoverageErrorV1::DuplicateAuthorizedAction);
+        }
+    }
+
+    let mut covered = BTreeSet::new();
+    let mut unmatched = BTreeSet::new();
+    let mut seen_observations = BTreeSet::new();
+    let mut duplicate_observation_count = 0usize;
+
+    for observation in observations {
+        if observation.episode_id != authorized.episode_id
+            || observation.scope_id != authorized.scope_id
+            || observation.authorization_id != authorized.authorization_id
+            || observation.authorization_revision != authorized.authorization_revision
+            || observation.authorization_digest != authorized.authorization_digest
+        {
+            return Err(ActionCoverageErrorV1::WrongEpisodeScopeOrAuthorization);
+        }
+        if observation.action_id.trim().is_empty() {
+            return Err(ActionCoverageErrorV1::EmptyActionIdentifier);
+        }
+        if !seen_observations.insert(observation.action_id.as_str()) {
+            duplicate_observation_count += 1;
+            continue;
+        }
+        if denominator.contains(observation.action_id.as_str()) {
+            covered.insert(observation.action_id.as_str());
+        } else {
+            unmatched.insert(observation.action_id.clone());
+        }
+    }
+
+    let missing_authorized_action_ids = denominator
+        .difference(&covered)
+        .map(|action_id| (*action_id).to_owned())
+        .collect();
+
+    Ok(ActionCoverageReceiptV1 {
+        episode_id: authorized.episode_id.clone(),
+        scope_id: authorized.scope_id.clone(),
+        authorization_id: authorized.authorization_id.clone(),
+        authorization_revision: authorized.authorization_revision,
+        authorization_digest: authorized.authorization_digest,
+        numerator: covered.len(),
+        denominator: denominator.len(),
+        missing_authorized_action_ids,
+        unmatched_observed_action_ids: unmatched.into_iter().collect(),
+        duplicate_observation_count,
+    })
 }
 
 pub fn claim_packet(claim_id: &str) -> claim_support::ClaimSupportPacketV1 {
@@ -1256,4 +1390,194 @@ mod tests {
         .unwrap();
         assert_eq!(result, SupportSufficiencyV1::InsufficientEvidence);
     }
+
+    fn authorized_action_set(revision: u64, digest: [u8; 32], action_ids: Vec<&str>) -> AuthorizedActionSetV1 {
+        AuthorizedActionSetV1 {
+            episode_id: "wsr-010-episode".to_owned(),
+            scope_id: "zone-synthetic-a".to_owned(),
+            authorization_id: "authorization-wsr-010".to_owned(),
+            authorization_revision: revision,
+            authorization_digest: digest,
+            action_ids: action_ids.into_iter().map(str::to_owned).collect(),
+        }
+    }
+
+    fn observed_action(action_id: &str, revision: u64, digest: [u8; 32]) -> ObservedAuthorizedActionV1 {
+        ObservedAuthorizedActionV1 {
+            episode_id: "wsr-010-episode".to_owned(),
+            scope_id: "zone-synthetic-a".to_owned(),
+            authorization_id: "authorization-wsr-010".to_owned(),
+            authorization_revision: revision,
+            authorization_digest: digest,
+            action_id: action_id.to_owned(),
+        }
+    }
+
+    #[test]
+    fn wsr010_action_coverage_uses_the_immutable_authorized_denominator() {
+        let authorized = authorized_action_set(
+            1,
+            [80; 32],
+            vec!["isolate", "repair", "pressure-check", "quality-sample"],
+        );
+        let observations = vec![
+            observed_action("isolate", 1, [80; 32]),
+            observed_action("repair", 1, [80; 32]),
+            observed_action("repair", 1, [80; 32]),
+            observed_action("unapproved-extra-work", 1, [80; 32]),
+        ];
+
+        let receipt = evaluate_action_coverage(&authorized, &observations)
+            .expect("observations reference the exact approved episode, scope and denominator");
+        assert_eq!(receipt.numerator, 2);
+        assert_eq!(receipt.denominator, 4);
+        assert_eq!(
+            receipt.missing_authorized_action_ids,
+            vec!["pressure-check", "quality-sample"]
+        );
+        assert_eq!(
+            receipt.unmatched_observed_action_ids,
+            vec!["unapproved-extra-work"]
+        );
+        assert_eq!(receipt.duplicate_observation_count, 1);
+
+        let mut with_more_unapproved_work = observations.clone();
+        with_more_unapproved_work.push(observed_action("another-unapproved-action", 1, [80; 32]));
+        let expanded = evaluate_action_coverage(&authorized, &with_more_unapproved_work)
+            .expect("extra observations remain outside the authorized denominator");
+        assert_eq!(expanded.numerator, receipt.numerator);
+        assert_eq!(expanded.denominator, receipt.denominator);
+    }
+
+    #[test]
+    fn wsr010_denominator_revision_cannot_reuse_observations_from_prior_authority() {
+        let original = authorized_action_set(
+            1,
+            [81; 32],
+            vec!["isolate", "repair", "pressure-check", "quality-sample"],
+        );
+        let original_observations = vec![
+            observed_action("isolate", 1, [81; 32]),
+            observed_action("repair", 1, [81; 32]),
+        ];
+        let original_receipt =
+            evaluate_action_coverage(&original, &original_observations).unwrap();
+
+        let revised = authorized_action_set(
+            2,
+            [82; 32],
+            vec!["isolate", "repair", "pressure-check", "quality-sample", "monitoring-handover"],
+        );
+        assert_eq!(
+            evaluate_action_coverage(&revised, &original_observations),
+            Err(ActionCoverageErrorV1::WrongEpisodeScopeOrAuthorization),
+            "prior observations must not be silently rebound to a revised authorization"
+        );
+
+        let revised_observations = vec![
+            observed_action("isolate", 2, [82; 32]),
+            observed_action("repair", 2, [82; 32]),
+        ];
+        let revised_receipt =
+            evaluate_action_coverage(&revised, &revised_observations).unwrap();
+        assert_eq!(original_receipt.numerator, revised_receipt.numerator);
+        assert_eq!(original_receipt.denominator, 4);
+        assert_eq!(revised_receipt.denominator, 5);
+        assert!(revised_receipt.numerator * original_receipt.denominator
+            <= original_receipt.numerator * revised_receipt.denominator);
+    }
+
+    #[test]
+    fn wsr011_repeat_burst_is_a_new_episode_and_preserves_prior_closure() {
+        use evidence_lineage::{
+            ArtifactKindV1, ArtifactStateV1, ChangeReasonV1, DependencyRelationV1, ImpactPolicyV1,
+        };
+
+        let prior_episode = lineage_helpers::reference("wsr:episode:prior", 1, 61);
+        let prior_closure = lineage_helpers::reference("wsr:closure:prior", 1, 62);
+        let repeat_episode = lineage_helpers::reference("wsr:episode:repeat", 1, 63);
+        let repeat_closure = lineage_helpers::reference("wsr:closure:repeat", 1, 64);
+        let nodes = vec![
+            evidence_lineage::ArtifactNodeV1 {
+                reference: prior_episode.clone(),
+                kind: ArtifactKindV1::Source,
+                dependencies: vec![],
+            },
+            evidence_lineage::ArtifactNodeV1 {
+                reference: prior_closure.clone(),
+                kind: ArtifactKindV1::Other,
+                dependencies: vec![lineage_helpers::dependency(
+                    prior_episode.clone(),
+                    DependencyRelationV1::Verifies,
+                    ImpactPolicyV1::RevalidateOnChange,
+                )],
+            },
+            evidence_lineage::ArtifactNodeV1 {
+                reference: repeat_episode.clone(),
+                kind: ArtifactKindV1::Source,
+                dependencies: vec![],
+            },
+            evidence_lineage::ArtifactNodeV1 {
+                reference: repeat_closure.clone(),
+                kind: ArtifactKindV1::Other,
+                dependencies: vec![lineage_helpers::dependency(
+                    repeat_episode.clone(),
+                    DependencyRelationV1::Verifies,
+                    ImpactPolicyV1::RevalidateOnChange,
+                )],
+            },
+        ];
+        let events = vec![lineage_helpers::event(
+            "wsr:repeat-episode-evidence-expired",
+            1,
+            repeat_episode.clone(),
+            ChangeReasonV1::Expired,
+            None,
+        )];
+
+        let lineage = evidence_lineage::evaluate_lineage(&nodes, &events)
+            .expect("repeat episode has a distinct identity and dependency closure");
+        assert_ne!(prior_episode, repeat_episode);
+        assert_eq!(
+            lineage.state_for(&prior_closure),
+            Some(ArtifactStateV1::Current),
+            "a new burst must not rewrite the historical closure for the prior episode"
+        );
+        assert_eq!(
+            lineage.state_for(&repeat_closure),
+            Some(ArtifactStateV1::NeedsRevalidation),
+            "the new episode's expired evidence must affect its own dependent closure"
+        );
+    }
+
+    #[test]
+    fn wsr012_unresolved_high_consequence_water_quality_blocks_review_eligibility() {
+        let receipt = evaluate_episode(
+            "WSR-012",
+            WaterEpisode {
+                provider_reported_complete: true,
+                current_pressure_restoration: true,
+                current_water_quality: false,
+            },
+            2,
+        );
+        assert_eq!(
+            receipt.owner_dispositions.quality_support,
+            claim_support::ClaimSupportDispositionV1::InsufficientEvidence
+        );
+        assert_eq!(
+            receipt.owner_dispositions.evidence_sufficiency,
+            impact::SupportSufficiencyV1::InsufficientEvidence
+        );
+        assert_eq!(
+            receipt.owner_dispositions.decision_closure,
+            decision_closure::DecisionClosureDispositionV1::OpenMissingElements
+        );
+        assert_eq!(
+            receipt.oracle_disposition,
+            ExpectedDisposition::NotEligible
+        );
+    }
+
+
 }
