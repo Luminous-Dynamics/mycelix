@@ -524,9 +524,9 @@ fn evaluate_candidates(
     rule: &SupportRuleV1,
 ) -> Result<SupportSufficiencyV1, SupportSufficiencyErrorV1> {
     if candidates.iter().any(|id| {
-        evidence.get(id).is_some_and(|item| {
-            item.state == SupportEvidenceStateV1::Contradicted
-        })
+        evidence
+            .get(id)
+            .is_some_and(|item| item.state == SupportEvidenceStateV1::Contradicted)
     }) {
         return Ok(SupportSufficiencyV1::ConflictReviewRequired);
     }
@@ -536,9 +536,9 @@ fn evaluate_candidates(
             required_evidence_ids,
         } => {
             let all_supported = required_evidence_ids.iter().all(|id| {
-                evidence.get(id).is_some_and(|item| {
-                    item.state == SupportEvidenceStateV1::DirectSupport
-                })
+                evidence
+                    .get(id)
+                    .is_some_and(|item| item.state == SupportEvidenceStateV1::DirectSupport)
             });
             Ok(if all_supported {
                 SupportSufficiencyV1::Supported
@@ -551,9 +551,9 @@ fn evaluate_candidates(
         } => {
             let supported_alternative = alternative_support_sets.iter().any(|set| {
                 set.iter().all(|id| {
-                    evidence.get(id).is_some_and(|item| {
-                        item.state == SupportEvidenceStateV1::DirectSupport
-                    })
+                    evidence
+                        .get(id)
+                        .is_some_and(|item| item.state == SupportEvidenceStateV1::DirectSupport)
                 })
             });
             Ok(if supported_alternative {
