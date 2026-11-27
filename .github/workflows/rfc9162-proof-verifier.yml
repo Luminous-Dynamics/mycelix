@@ -40,6 +40,25 @@ jobs:
           test -f mycelix-workspace/crates/mycelix-rfc9162-proof-verifier/Cargo.toml
           test -f mycelix-workspace/crates/mycelix-rfc9162-proof-verifier/src/lib.rs
           test -f mycelix-workspace/crates/mycelix-rfc9162-proof-verifier/src/tests.rs
+          test -f tools/economic/temporal-frontier-model/RFC9162_VECTORS_V1.txt
+          test -f tools/economic/temporal-hindsight/reference/rfc9162vectors/go.mod
+          test -f tools/economic/temporal-hindsight/reference/rfc9162vectors/vectors_test.go
+
+      - name: Set up Go reference toolchain
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.23.2"
+          cache: false
+
+      - name: Run shared Go RFC 9162 vectors
+        id: go_vectors
+        working-directory: tools/economic/temporal-hindsight/reference/rfc9162vectors
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rfc9162"
+          go version 2>&1 | tee "$RUNNER_TEMP/rfc9162/go.log"
+          go test -v ./... 2>&1 | tee -a "$RUNNER_TEMP/rfc9162/go.log"
 
       - name: Install pinned Rust toolchain
         shell: bash
@@ -96,6 +115,7 @@ jobs:
         if: always()
         shell: bash
         env:
+          GO_VECTORS: ${{ steps.go_vectors.outcome }}
           FMT: ${{ steps.fmt.outcome }}
           TESTS: ${{ steps.tests.outcome }}
           RELEASE_TESTS: ${{ steps.release_tests.outcome }}
@@ -113,6 +133,7 @@ jobs:
             --arg workflow_sha "$(git rev-parse HEAD)" \
             --arg rustc "$(rustc +1.96.0 --version 2>&1 || printf UNAVAILABLE)" \
             --arg cargo "$(cargo +1.96.0 --version 2>&1 || printf UNAVAILABLE)" \
+            --arg go_vectors "$GO_VECTORS" \
             --arg fmt "$FMT" \
             --arg tests "$TESTS" \
             --arg release_tests "$RELEASE_TESTS" \
@@ -125,7 +146,7 @@ jobs:
               run_attempt:$attempt,
               workflow_sha:$workflow_sha,
               toolchain:{rustc:$rustc,cargo:$cargo},
-              outcomes:{fmt:$fmt,tests:$tests,release_tests:$release_tests,clippy:$clippy,benchmark:$benchmark},
+              outcomes:{go_vectors:$go_vectors,fmt:$fmt,tests:$tests,release_tests:$release_tests,clippy:$clippy,benchmark:$benchmark},
               claims:{
                 inclusion_relative_to_supplied_root_only:true,
                 consistency_relative_to_supplied_roots_only:true,
