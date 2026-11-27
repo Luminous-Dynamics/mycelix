@@ -130,6 +130,8 @@ pub enum TemporalRelationshipErrorV1 {
     DuplicateOcelAttribute,
     InvalidOcelRelationship,
     InvalidDigestEncoding,
+    DuplicateOcelIdentity,
+    UnknownOcelObject,
 }
 
 fn non_empty(value: &str) -> bool {
@@ -561,6 +563,29 @@ pub fn parse_temporal_relationships_ocel20(
         .and_then(Value::as_array)
         .ok_or(TemporalRelationshipErrorV1::InvalidOcel20)?;
 
+    let mut object_ids = BTreeSet::new();
+    for object in objects {
+        let object_id = object
+            .get("id")
+            .and_then(Value::as_str)
+            .filter(|value| non_empty(value))
+            .ok_or(TemporalRelationshipErrorV1::EmptyIdentity)?;
+        if !object_ids.insert(object_id) {
+            return Err(TemporalRelationshipErrorV1::DuplicateOcelIdentity);
+        }
+    }
+    let mut event_ids = BTreeSet::new();
+    for event in events {
+        let event_id = event
+            .get("id")
+            .and_then(Value::as_str)
+            .filter(|value| non_empty(value))
+            .ok_or(TemporalRelationshipErrorV1::EmptyIdentity)?;
+        if !event_ids.insert(event_id) {
+            return Err(TemporalRelationshipErrorV1::DuplicateOcelIdentity);
+        }
+    }
+
     let mut claims = Vec::new();
     for object in objects {
         if object.get("type").and_then(Value::as_str) != Some("temporal_relation_claim") {
@@ -572,11 +597,20 @@ pub fn parse_temporal_relationships_ocel20(
             .filter(|value| non_empty(value))
             .ok_or(TemporalRelationshipErrorV1::EmptyIdentity)?
             .to_owned();
+        let subject_id = ocel_relation_target(object, "subject")?;
+        let object_id = ocel_relation_target(object, "object")?;
+        if !object_ids.contains(subject_id.as_str())
+            || !object_ids.contains(object_id.as_str())
+            || subject_id == relation_id
+            || object_id == relation_id
+        {
+            return Err(TemporalRelationshipErrorV1::UnknownOcelObject);
+        }
         let claim = TemporalRelationClaimV1 {
             relation_id,
-            subject_id: ocel_relation_target(object, "subject")?,
+            subject_id,
             predicate: required_ocel_text(object, "predicate")?,
-            object_id: ocel_relation_target(object, "object")?,
+            object_id,
             cardinality: parse_cardinality(&required_ocel_text(object, "cardinality")?)?,
             valid_from: required_ocel_text(object, "valid_from")?,
             valid_to: optional_ocel_text(object, "valid_to")?,
