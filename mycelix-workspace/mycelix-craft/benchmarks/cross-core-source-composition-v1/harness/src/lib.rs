@@ -327,8 +327,7 @@ fn evaluate_episode(
     }
 }
 
-#[cfg(test)]
-mod need_helpers {
+pub mod need_helpers {
     use super::need_intake::*;
     fn authority(id: &str) -> LocalAuthorityRefV1 {
         LocalAuthorityRefV1 {
@@ -340,7 +339,7 @@ mod need_helpers {
         }
     }
 
-    fn valid_proposal() -> NeedProposalV1 {
+    pub fn valid_proposal() -> NeedProposalV1 {
         let source = SourceRefV1 {
             source_id: "community-water-survey".to_owned(),
             source_digest: [3; 32],
@@ -505,11 +504,10 @@ mod need_helpers {
     }
 }
 
-#[cfg(test)]
-mod project_helpers {
+pub mod project_helpers {
     use super::project_formation::*;
 
-    const NOW: u64 = 10;
+    pub const NOW: u64 = 10;
 
     fn profile() -> CapabilityProfileRefV1 {
         CapabilityProfileRefV1 {
@@ -528,7 +526,7 @@ mod project_helpers {
         }
     }
 
-    fn project(kind: RequirementKindV1, minimum: u16) -> NeedToProjectV1 {
+    pub fn project(kind: RequirementKindV1, minimum: u16) -> NeedToProjectV1 {
         NeedToProjectV1 {
             schema_version: PROJECT_FORMATION_SCHEMA_VERSION,
             project_id: "project-water-pump-repair".to_owned(),
@@ -562,7 +560,7 @@ mod project_helpers {
         }
     }
 
-    fn member(id: &str) -> ParticipantConsentV1 {
+    pub fn member(id: &str) -> ParticipantConsentV1 {
         ParticipantConsentV1 {
             participant_id: id.to_owned(),
             accepted_terms_digest: [3; 32],
@@ -601,7 +599,7 @@ mod project_helpers {
         }
     }
 
-    fn proposal(
+    pub fn proposal(
         members: Vec<ParticipantConsentV1>,
         assignments: Vec<RequirementAssignmentV1>,
     ) -> TeamProposalV1 {
@@ -618,8 +616,7 @@ mod project_helpers {
     }
 }
 
-#[cfg(test)]
-mod claim_support_helpers {
+pub mod claim_support_helpers {
     use super::claim_support::*;
     const NOW: u64 = 100;
 
@@ -633,7 +630,7 @@ mod claim_support_helpers {
         }
     }
 
-    fn packet() -> ClaimSupportPacketV1 {
+    pub fn packet() -> ClaimSupportPacketV1 {
         let dimensions = vec![
             SemanticDimensionV1::Negation,
             SemanticDimensionV1::Quantity,
@@ -716,7 +713,7 @@ mod claim_support_helpers {
         }
     }
 
-    fn review(decision: ReviewDecisionV1) -> SupportReviewV1 {
+    pub fn review(decision: ReviewDecisionV1) -> SupportReviewV1 {
         SupportReviewV1 {
             review_id: "review-1".to_owned(),
             assessment_id: "assessment-1".to_owned(),
@@ -732,8 +729,7 @@ mod claim_support_helpers {
     }
 }
 
-#[cfg(test)]
-mod closure_helpers {
+pub mod closure_helpers {
     use super::decision_closure::*;
     const NOW: u64 = 100;
 
@@ -797,7 +793,7 @@ mod closure_helpers {
         }
     }
 
-    fn element(
+    pub fn element(
         id: &str,
         dependencies: Vec<String>,
         supports: Vec<ClaimSupportResultRefV1>,
@@ -828,7 +824,7 @@ mod closure_helpers {
         }
     }
 
-    fn mapping(id: &str, elements: Vec<MaterialElementV1>) -> MaterialElementMappingV1 {
+    pub fn mapping(id: &str, elements: Vec<MaterialElementV1>) -> MaterialElementMappingV1 {
         let digest = [9; 32];
         MaterialElementMappingV1 {
             mapping_id: id.to_owned(),
@@ -857,7 +853,7 @@ mod closure_helpers {
         }
     }
 
-    fn packet(mappings: Vec<MaterialElementMappingV1>) -> DecisionClosurePacketV1 {
+    pub fn packet(mappings: Vec<MaterialElementMappingV1>) -> DecisionClosurePacketV1 {
         DecisionClosurePacketV1 {
             schema_version: DECISION_CLOSURE_SCHEMA_VERSION,
             decision: decision(),
@@ -866,10 +862,9 @@ mod closure_helpers {
     }
 }
 
-#[cfg(test)]
-mod lineage_helpers {
+pub mod lineage_helpers {
     use super::evidence_lineage::*;
-    fn reference(id: &str, revision: u64, digest_byte: u8) -> ArtifactRefV1 {
+    pub fn reference(id: &str, revision: u64, digest_byte: u8) -> ArtifactRefV1 {
         ArtifactRefV1 {
             artifact_id: id.to_owned(),
             revision,
@@ -877,7 +872,7 @@ mod lineage_helpers {
         }
     }
 
-    fn dependency(
+    pub fn dependency(
         reference: ArtifactRefV1,
         relation: DependencyRelationV1,
         impact_policy: ImpactPolicyV1,
@@ -897,7 +892,7 @@ mod lineage_helpers {
         }
     }
 
-    fn event(
+    pub fn event(
         event_id: &str,
         sequence: u64,
         target: ArtifactRefV1,
@@ -921,9 +916,9 @@ mod lineage_helpers {
     }
 }
 
-#[cfg(test)]
-mod impact_helpers {
+pub mod impact_helpers {
     use super::impact::*;
+    const NOW: u64 = 100;
     fn digest(byte: u8) -> DigestV1 {
         [byte; 32]
     }
@@ -1022,7 +1017,7 @@ mod impact_helpers {
         }
     }
 
-    fn item(
+    pub fn item(
         id: &str,
         state: SupportEvidenceStateV1,
         group: Option<&str>,
