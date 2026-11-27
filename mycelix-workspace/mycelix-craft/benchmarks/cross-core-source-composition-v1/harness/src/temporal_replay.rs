@@ -28,6 +28,7 @@ pub enum TemporalReplayErrorV1 {
     MissingMutationTarget,
     UnknownMutationTarget,
     NonCausalMutation,
+    MutationScopeMismatch,
     ConflictingMutations,
 }
 
@@ -67,6 +68,7 @@ struct ReplayEvent {
     host_sequence: u64,
     kind: EventKind,
     mutation_target: Option<String>,
+    related_object_ids: BTreeSet<String>,
 }
 
 fn non_empty_text(value: Option<&Value>) -> Option<&str> {
@@ -179,6 +181,17 @@ fn parse_events(input: &str) -> Result<Vec<ReplayEvent>, TemporalReplayErrorV1> 
                     .to_owned(),
             )
         };
+        let relationships = event
+            .get("relationships")
+            .and_then(Value::as_array)
+            .filter(|relationships| !relationships.is_empty())
+            .ok_or(TemporalReplayErrorV1::InvalidEvent)?;
+        let mut related_object_ids = BTreeSet::new();
+        for relationship in relationships {
+            let object_id = non_empty_text(relationship.get("objectId"))
+                .ok_or(TemporalReplayErrorV1::InvalidEvent)?;
+            related_object_ids.insert(object_id.to_owned());
+        }
 
         parsed.push(ReplayEvent {
             id: id.to_owned(),
@@ -186,6 +199,7 @@ fn parse_events(input: &str) -> Result<Vec<ReplayEvent>, TemporalReplayErrorV1> 
             host_sequence: sequence,
             kind,
             mutation_target,
+            related_object_ids,
         });
     }
 
@@ -205,9 +219,16 @@ fn parse_events(input: &str) -> Result<Vec<ReplayEvent>, TemporalReplayErrorV1> 
             .ok_or(TemporalReplayErrorV1::UnknownMutationTarget)?;
         if target.host_sequence >= event.host_sequence
             || target.valid_time > event.valid_time
-            || target.kind == EventKind::Revocation
+            || target.kind != EventKind::Assertion
         {
             return Err(TemporalReplayErrorV1::NonCausalMutation);
+        }
+        if !target
+            .related_object_ids
+            .iter()
+            .any(|object_id| event.related_object_ids.contains(object_id))
+        {
+            return Err(TemporalReplayErrorV1::MutationScopeMismatch);
         }
         if !mutated_targets.insert(target_id.to_owned()) {
             return Err(TemporalReplayErrorV1::ConflictingMutations);
