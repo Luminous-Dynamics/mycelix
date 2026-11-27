@@ -1,15 +1,6 @@
 ---------------- MODULE TemporalProgressAntichain ----------------
 EXTENDS Naturals, FiniteSets, TLC
 
-CONSTANTS
-    OwnerA,
-    OwnerB,
-    NoOwner
-
-ASSUME OwnerA # OwnerB
-ASSUME OwnerA # NoOwner
-ASSUME OwnerB # NoOwner
-
 Cut(a, b) == <<a, b>>
 InitialFrontier == {Cut(1, 0), Cut(0, 1)}
 AdvancedFrontier == {Cut(2, 0), Cut(0, 2)}
