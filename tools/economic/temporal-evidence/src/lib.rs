@@ -568,6 +568,29 @@ impl TemporalEvidenceSetV1 {
             }));
         }
 
+        let mut knowledge_ids = from_knowledge.clone();
+        knowledge_ids.extend(to_knowledge.clone());
+        knowledge_ids.sort();
+        knowledge_ids.dedup();
+
+        let episode_binding_is_valid = from.validity_interval_ref.is_some()
+            && to.as_ref().is_some_and(|to_assertion| {
+                to_assertion.validity_interval_ref == from.validity_interval_ref
+            });
+        if !episode_binding_is_valid {
+            return Ok(build_validity_result(ValidityResultInput {
+                disposition: QueryDispositionV1::Indeterminate,
+                claim_id,
+                subject_ref: &subject_ref,
+                verifier_ref,
+                valid_at,
+                known_at,
+                valid_from: Some(from),
+                valid_to: to,
+                knowledge_assertions: knowledge_ids,
+            }));
+        }
+
         if let Some(to_assertion) = to {
             let from_time = normalize_utc(&from.time_value)?;
             let to_time = normalize_utc(&to_assertion.time_value)?;
@@ -861,6 +884,47 @@ impl TemporalEvidenceIndexV1 {
         known_at: &str,
         allow_open_ended_valid_to: bool,
     ) -> Result<BitemporalValidityResultV1, TemporalKernelErrorV1> {
+        self.evaluate_valid_at_scoped(
+            claim_id,
+            verifier_ref,
+            valid_at,
+            known_at,
+            None,
+            allow_open_ended_valid_to,
+        )
+    }
+
+    /// Evaluate one exact validity episode using the prevalidated indexes.
+    /// Missing VALID_TO remains Indeterminate; an explicit open-end assertion
+    /// is a separate future profile extension.
+    pub fn evaluate_validity_interval_at(
+        &self,
+        claim_id: &str,
+        validity_interval_ref: &str,
+        verifier_ref: &str,
+        valid_at: &str,
+        known_at: &str,
+    ) -> Result<BitemporalValidityResultV1, TemporalKernelErrorV1> {
+        validate_identifier(validity_interval_ref)?;
+        self.evaluate_valid_at_scoped(
+            claim_id,
+            verifier_ref,
+            valid_at,
+            known_at,
+            Some(validity_interval_ref),
+            false,
+        )
+    }
+
+    fn evaluate_valid_at_scoped(
+        &self,
+        claim_id: &str,
+        verifier_ref: &str,
+        valid_at: &str,
+        known_at: &str,
+        validity_interval_ref: Option<&str>,
+        allow_open_ended_valid_to: bool,
+    ) -> Result<BitemporalValidityResultV1, TemporalKernelErrorV1> {
         validate_identifier(claim_id)?;
         validate_identifier(verifier_ref)?;
         let valid_query = normalize_utc(valid_at)?;
@@ -885,6 +949,7 @@ impl TemporalEvidenceIndexV1 {
             TemporalDimensionV1::ValidFrom,
             verifier_ref,
             &knowledge_query,
+            validity_interval_ref,
         )?;
         let (from, from_knowledge) = match from {
             Selection::Selected(assertion, knowledge) => (Some(assertion), knowledge),
@@ -924,6 +989,7 @@ impl TemporalEvidenceIndexV1 {
             TemporalDimensionV1::ValidTo,
             verifier_ref,
             &knowledge_query,
+            validity_interval_ref,
         )?;
         let (to, to_knowledge) = match to {
             Selection::Selected(assertion, knowledge) => (Some(assertion), knowledge),
@@ -963,11 +1029,6 @@ impl TemporalEvidenceIndexV1 {
                 return Err(TemporalKernelErrorV1::InvalidValidityInterval);
             }
         }
-
-        let mut knowledge_ids = from_knowledge;
-        knowledge_ids.extend(to_knowledge);
-        knowledge_ids.sort();
-        knowledge_ids.dedup();
 
         let disposition = if from.quality == TemporalQualityV1::Contested
             || to.is_some_and(|assertion| assertion.quality == TemporalQualityV1::Contested)
@@ -1016,6 +1077,7 @@ impl TemporalEvidenceIndexV1 {
             TemporalDimensionV1::OccurredAt,
             verifier_ref,
             &knowledge_query,
+            None,
         )? {
             Selection::Missing | Selection::NotKnown => OccurrenceAsKnownResultV1 {
                 disposition: OccurrenceQueryDispositionV1::NotKnown,
@@ -1071,6 +1133,7 @@ impl TemporalEvidenceIndexV1 {
         dimension: TemporalDimensionV1,
         verifier_ref: &str,
         known_at: &NormalizedTime,
+        validity_interval_ref: Option<&str>,
     ) -> Result<Selection<'_>, TemporalKernelErrorV1> {
         let key = (claim_id.to_owned(), dimension);
         let Some(candidate_positions) = self.facts_by_claim_dimension.get(&key) else {
@@ -1079,6 +1142,11 @@ impl TemporalEvidenceIndexV1 {
         let mut eligible: Vec<(&TemporalAssertionV1, Vec<String>)> = Vec::new();
         for candidate_position in candidate_positions {
             let candidate = &self.evidence.assertions[*candidate_position];
+            if validity_interval_ref.is_some_and(|expected| {
+                candidate.validity_interval_ref.as_deref() != Some(expected)
+            }) {
+                continue;
+            }
             let knowledge_key = (candidate.assertion_id.clone(), verifier_ref.to_owned());
             let mut knowledge_ids = Vec::new();
             let mut contested_knowledge = false;
@@ -1109,7 +1177,17 @@ impl TemporalEvidenceIndexV1 {
         }
 
         if eligible.is_empty() {
-            return Ok(Selection::NotKnown);
+            let has_matching_assertion = candidate_positions.iter().any(|position| {
+                let candidate = &self.evidence.assertions[*position];
+                validity_interval_ref.is_none_or(|expected| {
+                    candidate.validity_interval_ref.as_deref() == Some(expected)
+                })
+            });
+            return Ok(if has_matching_assertion {
+                Selection::NotKnown
+            } else {
+                Selection::Missing
+            });
         }
 
         let eligible_ids: BTreeSet<&str> = eligible
@@ -1188,6 +1266,23 @@ impl TemporalEvidenceScanV1 {
             valid_at,
             known_at,
             allow_open_ended_valid_to,
+        )
+    }
+
+    pub fn evaluate_validity_interval_at(
+        &self,
+        claim_id: &str,
+        validity_interval_ref: &str,
+        verifier_ref: &str,
+        valid_at: &str,
+        known_at: &str,
+    ) -> Result<BitemporalValidityResultV1, TemporalKernelErrorV1> {
+        self.evidence.evaluate_validity_interval_at(
+            claim_id,
+            validity_interval_ref,
+            verifier_ref,
+            valid_at,
+            known_at,
         )
     }
 
