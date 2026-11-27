@@ -122,12 +122,7 @@ fn valid_utc_second(value: &str) -> bool {
                 2 => 28,
                 _ => 0,
             };
-            year > 0
-                && day > 0
-                && day <= days
-                && hour <= 23
-                && minute <= 59
-                && second <= 60
+            year > 0 && day > 0 && day <= days && hour <= 23 && minute <= 59 && second <= 60
         }
 }
 
@@ -322,30 +317,62 @@ mod tests {
         let source = FIXTURE;
         let before_correction =
             replay_temporal_frontier(source, &cut("2026-11-27T16:00:00Z", 10)).unwrap();
-        assert!(before_correction.effective_evidence_event_ids.iter().any(|id| id == "event-006"));
-        assert!(before_correction.effective_evidence_event_ids.iter().any(|id| id == "event-008"));
-        assert!(!before_correction.visible_event_ids.iter().any(|id| id == "event-011"));
+        assert!(before_correction
+            .effective_evidence_event_ids
+            .iter()
+            .any(|id| id == "event-006"));
+        assert!(before_correction
+            .effective_evidence_event_ids
+            .iter()
+            .any(|id| id == "event-008"));
+        assert!(!before_correction
+            .visible_event_ids
+            .iter()
+            .any(|id| id == "event-011"));
 
         let after_correction =
             replay_temporal_frontier(source, &cut("2026-11-27T16:00:00Z", 11)).unwrap();
-        assert!(after_correction.superseded_event_ids.iter().any(|id| id == "event-006"));
-        assert!(after_correction.effective_evidence_event_ids.iter().any(|id| id == "event-011"));
-        assert!(after_correction.effective_evidence_event_ids.iter().any(|id| id == "event-008"));
+        assert!(after_correction
+            .superseded_event_ids
+            .iter()
+            .any(|id| id == "event-006"));
+        assert!(after_correction
+            .effective_evidence_event_ids
+            .iter()
+            .any(|id| id == "event-011"));
+        assert!(after_correction
+            .effective_evidence_event_ids
+            .iter()
+            .any(|id| id == "event-008"));
 
         let after_revocation =
             replay_temporal_frontier(source, &cut("2026-11-27T16:00:00Z", 12)).unwrap();
-        assert!(after_revocation.revoked_event_ids.iter().any(|id| id == "event-008"));
-        assert!(!after_revocation.effective_evidence_event_ids.iter().any(|id| id == "event-008"));
-        assert!(after_revocation.effective_evidence_event_ids.iter().any(|id| id == "event-011"));
+        assert!(after_revocation
+            .revoked_event_ids
+            .iter()
+            .any(|id| id == "event-008"));
+        assert!(!after_revocation
+            .effective_evidence_event_ids
+            .iter()
+            .any(|id| id == "event-008"));
+        assert!(after_revocation
+            .effective_evidence_event_ids
+            .iter()
+            .any(|id| id == "event-011"));
     }
 
     #[test]
     fn valid_time_frontier_does_not_apply_a_future_effective_correction() {
-        let receipt =
-            replay_temporal_frontier(FIXTURE, &cut("2026-11-27T12:00:00Z", 11)).unwrap();
+        let receipt = replay_temporal_frontier(FIXTURE, &cut("2026-11-27T12:00:00Z", 11)).unwrap();
         assert!(!receipt.visible_event_ids.iter().any(|id| id == "event-011"));
-        assert!(receipt.effective_evidence_event_ids.iter().any(|id| id == "event-006"));
-        assert!(receipt.effective_evidence_event_ids.iter().any(|id| id == "event-008"));
+        assert!(receipt
+            .effective_evidence_event_ids
+            .iter()
+            .any(|id| id == "event-006"));
+        assert!(receipt
+            .effective_evidence_event_ids
+            .iter()
+            .any(|id| id == "event-008"));
     }
 
     #[test]
