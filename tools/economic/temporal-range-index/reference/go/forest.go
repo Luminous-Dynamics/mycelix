@@ -7,6 +7,7 @@ import (
 	"errors"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 const frontierForestDomainV1 = "MYCELIX-TEMPORAL-FRONTIER-INDEX-FOREST-V0.1\x00"
@@ -270,7 +271,7 @@ func appendForestStringV1(dst *bytes.Buffer, value string) {
 }
 
 func validateForestStringV1(value string) error {
-	if value == "" || strings.TrimSpace(value) == "" || len(value) > 1_024 {
+	if value == "" || strings.TrimSpace(value) == "" || len(value) > 1_024 || !utf8.ValidString(value) {
 		return ErrForestMalformed
 	}
 	return nil
