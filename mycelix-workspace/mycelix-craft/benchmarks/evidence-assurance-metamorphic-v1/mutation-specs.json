@@ -181,7 +181,10 @@
           "lineage_event": {
             "event_type": "superseded",
             "host_sequence": "next_monotonic_sequence"
-          }
+          },
+          "append_event_to": "evidence_lineage.events",
+          "old_revision": "selected.source_revision_or_1",
+          "replacement_revision": "old_revision_plus_one"
         }
       },
       "preserve_policy": {
@@ -225,13 +228,15 @@
       },
       "preconditions": [
         "exactly_one_current_evidence_item",
-        "source_withdrawal_event_fixture_present"
+        "withdrawal_reason_code_present"
       ],
       "operation": {
         "kind": "set_selected_field",
         "parameters": {
           "field": "status",
-          "value": "withdrawn"
+          "value": "withdrawn",
+          "append_event_to": "evidence_lifecycle.events",
+          "event_type": "evidence_withdrawn"
         }
       },
       "preserve_policy": {
@@ -840,7 +845,8 @@
       },
       "postconditions": [
         "event_identity_changes",
-        "prior_not_affected_determination_does_not_transfer"
+        "prior_not_affected_determination_does_not_transfer",
+        "previous_not_affected_determination_is_out_of_scope_for_new_event"
       ],
       "owner_evaluator": "ImpactQualification",
       "independent_oracle": "independent_impact_scope_oracle",
@@ -2277,7 +2283,7 @@
       ],
       "registry_target_path": "need.positions[]",
       "owner_view": "need_intake",
-      "target_path": "positions",
+      "target_path": "summary_positions",
       "selector": {
         "mode": "predicate",
         "where": {
@@ -2321,7 +2327,7 @@
       ],
       "registry_target_path": "need.positions[]",
       "owner_view": "need_intake",
-      "target_path": "positions",
+      "target_path": "summary_positions",
       "selector": {
         "mode": "array",
         "minimum_matches": 2,
@@ -2486,7 +2492,8 @@
         "source_fixture_immutable": true
       },
       "postconditions": [
-        "new_position_added_without_removing_existing_positions"
+        "new_position_added_without_removing_existing_positions",
+        "summary_requires_a_new_attributed_position_reference"
       ],
       "owner_evaluator": "NeedIntake",
       "independent_oracle": "independent_position_coverage_oracle",
@@ -2541,7 +2548,8 @@
       },
       "postconditions": [
         "only_named_positions_may_be_resolved",
-        "historical_dissent_remains_reconstructable"
+        "historical_dissent_remains_reconstructable",
+        "summary_records_resolution_artifact_for_exact_position_ids_and_retains_original_positions"
       ],
       "owner_evaluator": "NeedIntake",
       "independent_oracle": "independent_consent_authority_oracle",
