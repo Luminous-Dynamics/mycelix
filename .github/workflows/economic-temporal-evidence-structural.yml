@@ -5,12 +5,14 @@ on:
     paths:
       - 'docs/economic/temporal/**'
       - 'tools/economic/temporal-evidence/**'
+      - 'tools/economic/temporal-frontier-model/**'
       - '.github/workflows/economic-temporal-evidence-structural.yml'
   push:
     branches: [main]
     paths:
       - 'docs/economic/temporal/**'
       - 'tools/economic/temporal-evidence/**'
+      - 'tools/economic/temporal-frontier-model/**'
       - '.github/workflows/economic-temporal-evidence-structural.yml'
   workflow_dispatch:
 
@@ -192,3 +194,53 @@ jobs:
             'BENCHMARK = smoke microtimings only; no SOTA or absolute performance claim.' \
             'NOT TESTED = evidence-byte digest recomputation, issuer/verifier signatures, clock calibration, Holochain persistence, or production replay.' \
             'The crate selects over caller-supplied structurally valid assertions; it does not authenticate them.'
+
+  causal-frontier-model:
+    name: Rust verifier-relative causal frontier model
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact source revision
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'Expected source SHA: %s\n' "$EXPECTED_SHA"
+          printf 'Checked out source SHA: %s\n' "$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.96.0 --profile minimal
+
+      - name: Rust formatting
+        working-directory: tools/economic/temporal-frontier-model
+        run: cargo +1.96.0 fmt --all -- --check
+
+      - name: Rust unit tests
+        working-directory: tools/economic/temporal-frontier-model
+        run: cargo +1.96.0 test --locked
+
+      - name: Rust Clippy
+        working-directory: tools/economic/temporal-frontier-model
+        run: cargo +1.96.0 clippy --locked --all-targets -- -D warnings
+
+      - name: Execute structural frontier scenarios
+        working-directory: tools/economic/temporal-frontier-model
+        run: cargo +1.96.0 run --locked --example frontier_scenarios
+
+      - name: Execute wide-frontier comparison microbenchmark
+        working-directory: tools/economic/temporal-frontier-model
+        run: cargo +1.96.0 run --locked --example benchmark_frontier_compare
+
+      - name: Report qualification boundary
+        run: |
+          printf '%s\n' \
+            'PASS = structural owner-cut, partial-order, coverage-gap, verifier-isolation and receipt-declaration checks.' \
+            'BENCHMARK = wide-frontier microtimings only; no industry or absolute performance claim.' \
+            'NOT TESTED = cryptographic Merkle inclusion/consistency, signature verification, authenticated completeness, or distributed persistence.' \
+            'Declared inclusion is not cryptographically verified inclusion.'
