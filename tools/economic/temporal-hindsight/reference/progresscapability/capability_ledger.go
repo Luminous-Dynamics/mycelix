@@ -18,6 +18,7 @@ const (
 	MaxActiveCapabilities = 100000
 	MaxLedgerOwnerCoordinates = 5000000
 	MaxLedgerEncodingBytes uint64 = 67108864
+	MaxProgressDerivationComparisons uint64 = 10000000
 	OutcomeCommitted CapabilityOutcomeV1 = "Committed"
 	OutcomeUnknown CapabilityOutcomeV1 = "OutcomeUnknown"
 	OutcomeApplied CapabilityOutcomeV1 = "ReconciledApplied"
@@ -467,6 +468,27 @@ func DeriveProgressAntichainV1(scope CapabilityScopeV1,replay ReplayResultV1)Pro
 	scopeDigest,err:=ScopeDigestV1(scope);if err!=nil{result.Reason=err.Error();return finalizeProgress(result)}
 	if replay.ScopeDigest!=scopeDigest{result.Reason="replay scope does not match progress derivation scope";return finalizeProgress(result)}
 	owners,_:=canonicalOwners(scope)
+	if len(replay.ActiveCapabilities)>MaxActiveCapabilities {
+		result.Reason="active capability count exceeds configured derivation limit"
+		return finalizeProgress(result)
+	}
+	var totalCoordinates uint64
+	for _,capability:=range replay.ActiveCapabilities {
+		count:=uint64(len(capability.OwnerCut))
+		if count>uint64(MaxOwners) || count>MaxLedgerOwnerCoordinates-totalCoordinates {
+			result.Reason="active capability owner-coordinate derivation budget exceeded"
+			return finalizeProgress(result)
+		}
+		totalCoordinates+=count
+	}
+	activeCount:=uint64(len(replay.ActiveCapabilities))
+	pairCount:=uint64(0)
+	if activeCount>1 { pairCount=activeCount*(activeCount-1)/2 }
+	ownerDimension:=uint64(len(owners))
+	if ownerDimension!=0 && pairCount>MaxProgressDerivationComparisons/ownerDimension {
+		result.Reason="active capability antichain comparison budget exceeded"
+		return finalizeProgress(result)
+	}
 	vectors:=make([][]uint64,0,len(replay.ActiveCapabilities))
 	for _,cap:=range replay.ActiveCapabilities{
 		vector,err:=cutVector(cap.OwnerCut,owners);if err!=nil{result.Reason="active capability has malformed cut: "+err.Error();return finalizeProgress(result)}
