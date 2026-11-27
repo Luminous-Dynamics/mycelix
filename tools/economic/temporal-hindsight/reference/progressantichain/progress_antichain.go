@@ -15,7 +15,7 @@ const (
 	maxProgressStringBytes = 4096
 	maxProgressOwners      = 100000
 	maxProgressPoints      = 4096
-	maxProgressVectorCoordinates uint64 = 25000000
+	maxProgressVectorCoordinates uint64 = 5000000
 	maxProgressCoordinateComparisons uint64 = 50000000
 
 	ProgressProvisional ProgressDispositionV1 = "Provisional"
