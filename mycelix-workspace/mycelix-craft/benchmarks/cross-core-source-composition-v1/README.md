@@ -77,15 +77,16 @@ The materializer records two harness-source SHA-256 values (Cargo manifest and R
 
 The follow-on branch [research/craft-water-ocel-interoperability-v0.1-20261127](https://github.com/Luminous-Dynamics/mycelix/tree/research/craft-water-ocel-interoperability-v0.1-20261127) adds a restricted OCEL 2.0 JSON profile:
 
-- fixture: [ocel-water-service-v1.json](./ocel/ocel-water-service-v1.json), with 13 object types, 9 event types, 17 object instances and 10 events;
+- fixture: [ocel-water-service-v1.json](./ocel/ocel-water-service-v1.json), with 13 object types, 11 event types, 17 object instances and 12 events;
 - validator/canonicalizer: `harness/src/ocel_profile.rs`;
+- dual-frontier replay: `harness/src/temporal_replay.rs`;
 - public module: `craft_water_cross_core_harness::ocel_profile`;
 - declared OCEL dependencies: pinned `serde_json` and `sha2`;
 - materializer: copies the complete harness source directory and records the SHA-256 of every copied Rust source file, not only `lib.rs`.
 
-The fixture demonstrates a same-fault pair of complaints linked to one callout, a distinct repeat service episode, source-recorded time and host sequence on events, timed object-attribute history, and separately linked work-order, crew, permit, pressure observation, sample and lab-result objects.
+The fixture demonstrates a same-fault pair of complaints linked to one callout, a distinct repeat service episode, source-recorded time and host sequence on events, timed object-attribute history, and separately linked work-order, crew, permit, pressure observation, sample and lab-result objects. It also includes a correction event that supersedes an earlier pressure assertion and a revocation event that withdraws an earlier lab-result assertion.
 
-The validator is a **restricted water-service OCEL 2.0 profile**, not a full OCEL schema implementation. It checks the four core collections, type declarations, typed attributes, timestamp syntax, unique IDs, and qualified event-to-object/object-to-object references. Its canonical JSON digest is a replay receipt for this profile; it is not a signature, source-authenticity proof or owner-core evidence receipt.
+The validator is a **restricted water-service OCEL 2.0 profile**, not a full OCEL schema implementation. It checks the four core collections, type declarations, typed attributes, timestamp syntax, unique IDs, and qualified event-to-object/object-to-object references. Its canonical JSON digest is a representation receipt for this profile; it is not a signature, source-authenticity proof or owner-core evidence receipt. The temporal replay module separately evaluates an inclusive valid-time cutoff and an inclusive host-sequence knowledge frontier. It validates `source_recorded_at` but does not pretend that a source timestamp or host sequence is a trusted platform transaction-time clock. A replay digest proves deterministic reconstruction of this synthetic event set only.
 
 OCEL 2.0 JSON is the stable interoperability baseline. OCEL 2.1.0pre5 remains an experimental follow-on and is not a production dependency. See issue [#6794](https://github.com/Luminous-Dynamics/mycelix/issues/6794).
 
