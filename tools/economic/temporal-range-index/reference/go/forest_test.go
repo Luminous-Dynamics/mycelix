@@ -260,3 +260,49 @@ func TestFrontierForestRejectsFrontierAndRootSubstitution(t *testing.T) {
 		t.Fatalf("forest root substitution: %v", err)
 	}
 }
+
+
+func TestFrontierForestMatchesCanonicalKnownAnswer(t *testing.T) {
+	scope := intervalScopeFixtureV1()
+	manifest := TemporalFrontierIndexManifestV1{
+		VerifierRef: scope.VerifierRef, PolicyEpochRef: scope.PolicyEpochRef,
+		FrontierDigest: scope.SourceFrontierDigest, IntervalProfile: "MYCELIX-INTERVAL-TREE-V0.1",
+		QueryScope: scope,
+		Owners: []OwnerIntervalIndexBindingV1{
+			forestOwnerBindingV1("owner:A", "history:A", 100, 2, [32]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, nil),
+			forestOwnerBindingV1("owner:B", "history:B", 2, 2, [32]byte{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}, nil),
+		},
+	}
+	root, err := TemporalFrontierForestRootV1(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprintf("%x", root); got != "244d1cfcc40aba335e96e6de1382fbde2ccf499d3a8cdb1b8c794dd6f4076705" {
+		t.Fatalf("forest known-answer mismatch: %s", got)
+	}
+}
+
+func TestFrontierForestRejectsInvalidUTF8AndNonCanonicalOwnerOrder(t *testing.T) {
+	scope := intervalScopeFixtureV1()
+	base := TemporalFrontierIndexManifestV1{
+		VerifierRef: scope.VerifierRef, PolicyEpochRef: scope.PolicyEpochRef,
+		FrontierDigest: scope.SourceFrontierDigest, IntervalProfile: "MYCELIX-INTERVAL-TREE-V0.1",
+		QueryScope: scope,
+		Owners: []OwnerIntervalIndexBindingV1{
+			forestOwnerBindingV1("owner:A", "history:A", 5, 3, [32]byte{1}, nil),
+			forestOwnerBindingV1("owner:B", "history:B", 5, 3, [32]byte{2}, nil),
+		},
+	}
+	reversed := base
+	reversed.Owners = append([]OwnerIntervalIndexBindingV1(nil), base.Owners...)
+	reversed.Owners[0], reversed.Owners[1] = reversed.Owners[1], reversed.Owners[0]
+	if _, err := TemporalFrontierForestRootV1(reversed); err == nil {
+		t.Fatal("non-canonical owner order passed")
+	}
+	invalidUTF8 := base
+	invalidUTF8.Owners = append([]OwnerIntervalIndexBindingV1(nil), base.Owners...)
+	invalidUTF8.Owners[0].OwnerRef = string([]byte{0xff})
+	if _, err := TemporalFrontierForestRootV1(invalidUTF8); err == nil {
+		t.Fatal("invalid UTF-8 owner reference passed")
+	}
+}
