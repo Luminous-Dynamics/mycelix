@@ -130,9 +130,16 @@ pub fn source_lineage(expired: bool) -> evidence_lineage::LineageEvaluationV1 {
     let source = lineage_helpers::reference("wsr:pressure-source", 1, 1);
     let claim = lineage_helpers::reference("wsr:pressure-claim", 1, 2);
     let decision = lineage_helpers::reference("wsr:restoration-decision", 1, 3);
+    let unaffected_quality_source =
+        lineage_helpers::reference("wsr:quality-source-independent", 1, 4);
     let nodes = vec![
         evidence_lineage::ArtifactNodeV1 {
             reference: source.clone(),
+            kind: ArtifactKindV1::Source,
+            dependencies: vec![],
+        },
+        evidence_lineage::ArtifactNodeV1 {
+            reference: unaffected_quality_source,
             kind: ArtifactKindV1::Source,
             dependencies: vec![],
         },
@@ -1087,6 +1094,12 @@ mod tests {
         let lineage = source_lineage(true);
         let claim = lineage_helpers::reference("wsr:pressure-claim", 1, 2);
         let decision = lineage_helpers::reference("wsr:restoration-decision", 1, 3);
+        let unaffected_quality_source =
+            lineage_helpers::reference("wsr:quality-source-independent", 1, 4);
+        assert_eq!(
+            lineage.state_for(&unaffected_quality_source),
+            Some(evidence_lineage::ArtifactStateV1::Current)
+        );
         assert_eq!(
             lineage.state_for(&claim),
             Some(evidence_lineage::ArtifactStateV1::NeedsRevalidation)
