@@ -55,8 +55,11 @@ jobs:
       - name: Check formatting across the combined source tree
         run: cargo +1.96.0 fmt --manifest-path "$CROSS_CORE_WORKSPACE/Cargo.toml" --all -- --check
 
-      - name: Run all owner-core unit tests in the combined workspace
+      - name: Run all owner-core and cross-core adapter unit tests
         run: cargo +1.96.0 test --manifest-path "$CROSS_CORE_WORKSPACE/Cargo.toml" --workspace --locked
+
+      - name: Run WSR cross-core qualification slice explicitly
+        run: cargo +1.96.0 test --manifest-path "$CROSS_CORE_WORKSPACE/Cargo.toml" -p craft-water-cross-core-harness -- --nocapture
 
       - name: Run combined-workspace Clippy
         run: cargo +1.96.0 clippy --manifest-path "$CROSS_CORE_WORKSPACE/Cargo.toml" --workspace --all-targets --locked -- -D warnings
