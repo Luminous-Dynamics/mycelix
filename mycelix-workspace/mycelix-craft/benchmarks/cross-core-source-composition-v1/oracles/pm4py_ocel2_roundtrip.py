@@ -35,6 +35,18 @@ def normalize_time(value: Any) -> Any:
     return normalized.removesuffix("+00:00") + "Z"
 
 
+def semantic_type(kind: str) -> str:
+    # PM4Py uses equivalent implementation labels for standard OCEL value types.
+    aliases = {
+        "date": "time",
+        "datetime": "time",
+        "int": "integer",
+        "double": "float",
+        "bool": "boolean",
+    }
+    return aliases.get(kind.lower(), kind.lower())
+
+
 def declared_types(data: dict[str, Any], key: str) -> dict[str, dict[str, str]]:
     declarations = data.get(key)
     if not isinstance(declarations, list):
@@ -45,7 +57,9 @@ def declared_types(data: dict[str, Any], key: str) -> dict[str, dict[str, str]]:
         if name in result:
             raise ValueError(f"duplicate {key} declaration: {name}")
         attrs = declaration.get("attributes", [])
-        result[name] = {item["name"]: item["type"] for item in attrs}
+        result[name] = {
+            item["name"]: semantic_type(item["type"]) for item in attrs
+        }
     return result
 
 
