@@ -58,11 +58,18 @@ FinalizeEnumeration ==
     /\ chainWellFormed' = TRUE
     /\ UNCHANGED <<observedPages, expectedCursor, seenCursors, terminalPages>>
 
+(* Keep the completed terminal state enabled so TLC's deadlock checker
+   distinguishes protocol completion from an incomplete stuck state. *)
+KeepCompleted ==
+    /\ chainWellFormed
+    /\ UNCHANGED vars
+
 Next ==
     \/ ObservePage0
     \/ ObservePage1
     \/ ObservePage2
     \/ FinalizeEnumeration
+    \/ KeepCompleted
 
 (* Faulty implementation: marks the enumeration complete after observing only
    the first page, despite an unresolved continuation cursor. *)
