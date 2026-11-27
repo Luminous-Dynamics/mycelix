@@ -167,3 +167,6 @@ If a comparator cannot express one of these, mark it “not represented” and t
 All current fixtures are synthetic. A real municipal pilot requires appropriate authority and community approval, privacy/data-sharing agreements, worker-safety controls, operational and water-quality criteria approved by qualified professionals, independent evaluation, and an explicit rollback/incident process.
 
 A synthetic correctness pass is not legal compliance, water-quality certification, field readiness, or causal evidence that service outcomes improved.
+
+
+WSR-010 is currently an adapter-level smoke test: the harness binds observations to the authority-supplied digest/revision but does not recompute the canonical action-set digest or authenticate the issuer. Do not claim immutable-denominator qualification until the standalone #6792 owner is green and integrated through its public API.
