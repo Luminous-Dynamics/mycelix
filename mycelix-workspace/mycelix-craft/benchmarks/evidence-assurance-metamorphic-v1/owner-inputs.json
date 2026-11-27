@@ -25,6 +25,13 @@
               "kind": "missing_current_quality_result"
             }
           ]
+        },
+        "source_case": {
+          "source_path": "mycelix-workspace/mycelix-craft/benchmarks/water-service-repair-v1/cases.json",
+          "source_blob_sha": "57abcd8a2ce849fc9d1794368285509b5971be65",
+          "source_case_id": "WSR-001",
+          "immutable": true,
+          "root_pointer": "/cases[]/input"
         }
       },
       "source_fixture": {
@@ -112,6 +119,13 @@
           "context": {
             "unrelated_note": "synthetic metadata baseline"
           }
+        },
+        "source_case": {
+          "source_path": "mycelix-workspace/mycelix-craft/benchmarks/water-service-repair-v1/cases.json",
+          "source_blob_sha": "57abcd8a2ce849fc9d1794368285509b5971be65",
+          "source_case_id": "WSR-003",
+          "immutable": true,
+          "root_pointer": "/cases[]/input"
         }
       },
       "source_fixture": {
@@ -223,6 +237,13 @@
             "jurisdiction_ref": "JURIS-SYN-01",
             "population_scope_digest": "7777777777777777777777777777777777777777777777777777777777777777"
           }
+        },
+        "source_case": {
+          "source_path": "mycelix-workspace/mycelix-craft/benchmarks/water-service-repair-v1/cases.json",
+          "source_blob_sha": "57abcd8a2ce849fc9d1794368285509b5971be65",
+          "source_case_id": "WSR-004",
+          "immutable": true,
+          "root_pointer": "/cases[]/input"
         }
       },
       "source_fixture": {
@@ -272,6 +293,13 @@
             "target_revision": 1,
             "replacement_revision": 2
           }
+        },
+        "source_case": {
+          "source_path": "mycelix-workspace/mycelix-craft/benchmarks/water-service-repair-v1/cases.json",
+          "source_blob_sha": "57abcd8a2ce849fc9d1794368285509b5971be65",
+          "source_case_id": "WSR-005",
+          "immutable": true,
+          "root_pointer": "/cases[]/input"
         }
       },
       "source_fixture": {
@@ -297,6 +325,13 @@
               "qualified_common_cause": true
             }
           ]
+        },
+        "source_case": {
+          "source_path": "mycelix-workspace/mycelix-craft/benchmarks/water-service-repair-v1/cases.json",
+          "source_blob_sha": "57abcd8a2ce849fc9d1794368285509b5971be65",
+          "source_case_id": "WSR-007",
+          "immutable": true,
+          "root_pointer": "/cases[]/input"
         }
       },
       "source_fixture": {
@@ -437,6 +472,13 @@
               "payload_digest": "5555555555555555555555555555555555555555555555555555555555555555"
             }
           ]
+        },
+        "source_case": {
+          "source_path": "mycelix-workspace/mycelix-craft/benchmarks/water-service-repair-v1/cases.json",
+          "source_blob_sha": "57abcd8a2ce849fc9d1794368285509b5971be65",
+          "source_case_id": "WSR-008",
+          "immutable": true,
+          "root_pointer": "/cases[]/input"
         }
       },
       "source_fixture": {
@@ -450,7 +492,15 @@
       "seed_id": "SEED-WSR-010",
       "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
       "source_case_id": "WSR-010",
-      "owner_views": {},
+      "owner_views": {
+        "source_case": {
+          "source_path": "mycelix-workspace/mycelix-craft/benchmarks/water-service-repair-v1/cases.json",
+          "source_blob_sha": "57abcd8a2ce849fc9d1794368285509b5971be65",
+          "source_case_id": "WSR-010",
+          "immutable": true,
+          "root_pointer": "/cases[]/input"
+        }
+      },
       "source_fixture": {
         "path": "mycelix-workspace/mycelix-craft/benchmarks/water-service-repair-v1/cases.json",
         "blob_sha": "57abcd8a2ce849fc9d1794368285509b5971be65",
@@ -467,6 +517,13 @@
           "jurisdiction_ref": "JURIS-SYN-02",
           "population_scope_digest": "2121212121212121212121212121212121212121212121212121212121212121",
           "service_zone_ref": "ZONE-SYN-M"
+        },
+        "source_case": {
+          "source_path": "mycelix-workspace/mycelix-craft/benchmarks/water-service-repair-v1/cases.json",
+          "source_blob_sha": "57abcd8a2ce849fc9d1794368285509b5971be65",
+          "source_case_id": "WSR-013",
+          "immutable": true,
+          "root_pointer": "/cases[]/input"
         }
       },
       "source_fixture": {
@@ -503,6 +560,13 @@
               "value": "2025-03-02T14:00:00Z"
             }
           ]
+        },
+        "source_case": {
+          "source_path": "mycelix-workspace/mycelix-craft/benchmarks/water-service-repair-v1/cases.json",
+          "source_blob_sha": "57abcd8a2ce849fc9d1794368285509b5971be65",
+          "source_case_id": "WSR-016",
+          "immutable": true,
+          "root_pointer": "/cases[]/input"
         }
       },
       "source_fixture": {
