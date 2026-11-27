@@ -26,3 +26,10 @@ Then package the DNA/hApp:
 hc dna pack -o dna/mycelix_craft.dna dna/dna.yaml
 hc app pack -o mycelix-craft.happ happ.yaml
 ```
+
+
+## Context-bound impact qualification
+
+The standalone craft-impact-qualification-v1 crate validates exact event/artifact/edge/context-bound NotAffected determinations and AllOf / AnyOf / AtLeastIndependent evidence rules. It consumes owner-qualified leases and reviewer receipts; it does not create generic currentness or event storage.
+
+See the Impact Qualification V1 contract and benchmark protocol in docs.

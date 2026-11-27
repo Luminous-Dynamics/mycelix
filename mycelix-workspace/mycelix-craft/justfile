@@ -9,3 +9,8 @@ test:
 # Check (fast)
 check:
     cargo check --workspace
+
+
+# Run the standalone impact-qualification reference profile
+core-impact-qualification:
+    cargo test --manifest-path Cargo.toml -p craft-impact-qualification-v1
