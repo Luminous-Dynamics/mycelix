@@ -39,3 +39,18 @@ The benchmark measures only canonical roster/manifest/frontier reconciliation. I
 - bind source-holder coverage, pagination/cursor completion and explicit withheld/unknown states;
 - compose the qualified result into #6780/#6781 without changing their narrower proof ceilings;
 - run the paired registry/frontier TLA+ model and cross-language Rust/Go vectors.
+
+
+## Structural pagination-chain validator (V1)
+
+The package now includes `enumeration.go`, which validates the internal structure of a source's paginated owner enumeration before its candidate inventory is supplied to `Reconcile`:
+
+- binds source, snapshot, registry identity/epoch, universe profile, query-scope digest and enumeration-predicate digest on every page;
+- verifies zero-based contiguous page indices, request/next cursor continuity, cursor-cycle absence, exactly one terminal page at the end, and exact page count;
+- recomputes each domain-separated page digest and the aggregate canonical owner-candidate root, rejecting duplicate owners across pages;
+- binds first/terminal page digests, expected and observed page counts, the source completion disposition and exact completion-receipt digest into a deterministic manifest/result commitment;
+- preserves deterministic failure reasons when several metadata fields are malformed.
+
+The positive disposition is only `EnumerationPageChainWellFormed`. Both `PageChainAuthentication` and `SourceCompletenessAuthentication` remain `NotEvaluated`. A source's declaration that it completed pagination, and a digest-shaped receipt reference, are not proof that the source is honest, authoritative, complete, current, or exhaustive. A separate verifier must qualify the source/checkpoint/receipt and the enumeration semantics before the owner universe can be called closed. The page-chain validator therefore does **not** upgrade the package's `FrontierCoversSuppliedRequiredRoster` result to `RosterClosedForDeclaredScope`.
+
+Adversarial tests cover truncated chains, page-index gaps, cursor discontinuities and cycles, early/missing terminal markers, duplicate owners across pages, foreign snapshots/epochs/predicates, missing completion receipts, Unknown/Incomplete source declarations, page/root tampering, manifest digest substitution, deterministic failures and candidate-order canonicalization.
