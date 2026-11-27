@@ -16,6 +16,9 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use craft_water_cross_core_harness::ocel_profile::validate_ocel20_water_profile;
+use craft_water_cross_core_harness::temporal_replay::{
+    replay_temporal_frontier, TemporalReplayCutV1,
+};
 
 const FIXTURE: &str = include_str!("../../../ocel/ocel-water-service-v1.json");
 const MAX_EVENTS: usize = 10_000_000;
@@ -160,9 +163,32 @@ fn run(event_count: usize, output: PathBuf, repeats: usize) -> Result<(), Box<dy
         }
     }
 
+    let cut = TemporalReplayCutV1 {
+        valid_time_as_of: "2026-11-27T23:59:59Z".to_owned(),
+        known_through_sequence: event_count as u64,
+    };
+    let mut replay_elapsed_ns = Vec::with_capacity(repeats);
+    let mut first_replay = None;
+    for _ in 0..repeats {
+        let started = Instant::now();
+        let receipt = replay_temporal_frontier(&input, &cut)
+            .map_err(|error| format!("temporal replay failed: {error:?}"))?;
+        replay_elapsed_ns.push(started.elapsed().as_nanos());
+        if first_replay.is_none() {
+            first_replay = Some((
+                receipt.replay_sha256,
+                receipt.visible_event_ids.len(),
+                receipt.effective_event_ids.len(),
+            ));
+        }
+    }
+
     elapsed_ns.sort_unstable();
+    replay_elapsed_ns.sort_unstable();
     let p50 = percentile(&elapsed_ns, 50, 100);
     let p95 = percentile(&elapsed_ns, 95, 100);
+    let replay_p50 = percentile(&replay_elapsed_ns, 50, 100);
+    let replay_p95 = percentile(&replay_elapsed_ns, 95, 100);
     let (
         canonical_sha256,
         object_type_count,
@@ -173,9 +199,17 @@ fn run(event_count: usize, output: PathBuf, repeats: usize) -> Result<(), Box<dy
         o2o_count,
         canonical_bytes,
     ) = first_receipt.ok_or("benchmark produced no validation receipt")?;
+    let (replay_sha256, visible_event_count, effective_event_count) =
+        first_replay.ok_or("benchmark produced no replay receipt")?;
     let seconds = p50 as f64 / 1_000_000_000.0;
+    let replay_seconds = replay_p50 as f64 / 1_000_000_000.0;
     let events_per_second = if seconds > 0.0 {
         event_count as f64 / seconds
+    } else {
+        0.0
+    };
+    let replay_events_per_second = if replay_seconds > 0.0 {
+        visible_event_count as f64 / replay_seconds
     } else {
         0.0
     };
@@ -193,10 +227,16 @@ fn run(event_count: usize, output: PathBuf, repeats: usize) -> Result<(), Box<dy
         "canonical_bytes": canonical_bytes,
         "input_sha256": input_sha256,
         "canonical_sha256": canonical_sha256,
+        "replay_sha256": replay_sha256,
+        "replay_visible_event_count": visible_event_count,
+        "replay_effective_event_count": effective_event_count,
         "repeats": repeats,
         "validation_plus_canonicalization_p50_ns": p50,
         "validation_plus_canonicalization_p95_ns": p95,
         "events_per_second_at_p50": events_per_second,
+        "temporal_replay_p50_ns": replay_p50,
+        "temporal_replay_p95_ns": replay_p95,
+        "temporal_replay_events_per_second_at_p50": replay_events_per_second,
         "peak_rss_kib": high_water_rss_kib(),
         "claim_boundary": "Synthetic profile validation and canonicalization only; no OCEL general-conformance, source authenticity, owner-core, process-discovery or field-effectiveness claim."
     });
