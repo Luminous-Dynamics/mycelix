@@ -90,6 +90,13 @@ while IFS= read -r source_file; do
   printf 'harness_source_sha256\t%s\t%s\n' "$relative_path" "$digest" >> "$OUT_DIR/source-receipt.tsv"
 done < <(find "$HARNESS_SRC/src" -type f -print | LC_ALL=C sort)
 
+# Materialize the synthetic OCEL fixture at the path used by include_str!.
+OCEL_FIXTURE="$SCRIPT_DIR/ocel/ocel-water-service-v1.json"
+test -s "$OCEL_FIXTURE"
+mkdir -p "$OUT_DIR/ocel"
+cp "$OCEL_FIXTURE" "$OUT_DIR/ocel/ocel-water-service-v1.json"
+sha256sum "$OCEL_FIXTURE" | awk '{print "ocel_fixture_sha256\t" $1}' >> "$OUT_DIR/source-receipt.tsv"
+
 cat > "$OUT_DIR/Cargo.toml" <<'TOML'
 [workspace]
 resolver = "2"
