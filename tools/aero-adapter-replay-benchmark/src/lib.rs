@@ -475,16 +475,28 @@ mod tests {
         }
     }
 
-    fn fixture(
-        run_id: &str,
-        adapter_bytes: &[u8],
-        source_bytes: &[u8],
-        configuration_bytes: &[u8],
-        raw_output_bytes: &[u8],
-        assertion_bytes: &[u8],
+    struct FixtureInput<'a> {
+        run_id: &'a str,
+        adapter_bytes: &'a [u8],
+        source_bytes: &'a [u8],
+        configuration_bytes: &'a [u8],
+        raw_output_bytes: &'a [u8],
+        assertion_bytes: &'a [u8],
         rights_status: RightsStatus,
         status: RunStatus,
-    ) -> Fixture {
+    }
+
+    fn fixture(input: FixtureInput<'_>) -> Fixture {
+        let FixtureInput {
+            run_id,
+            adapter_bytes,
+            source_bytes,
+            configuration_bytes,
+            raw_output_bytes,
+            assertion_bytes,
+            rights_status,
+            status,
+        } = input;
         let executable_bytes = adapter_bytes;
         let argument_bytes = br#"["--input","source.step","--config","adapter.json"]"#;
         let environment_bytes = br#"{"locale":"C","timezone":"UTC","network_policy":"disabled"}"#;
@@ -635,16 +647,16 @@ mod tests {
     }
 
     fn base(run_id: &str) -> Fixture {
-        fixture(
+        fixture(FixtureInput {
             run_id,
-            b"adapter-executable-v1",
-            b"ISO-10303-21; synthetic product definition",
-            b"{\"profile\":\"default\"}\n",
-            b"<QIFDocument schemaVersion=\"3.0\"><Results/></QIFDocument>",
-            br#"{"schema":"AeroSemanticAssertionV1","assertions":[]}"#,
-            RightsStatus::ClearedForTesting,
-            RunStatus::Succeeded,
-        )
+            adapter_bytes: b"adapter-executable-v1",
+            source_bytes: b"ISO-10303-21; synthetic product definition",
+            configuration_bytes: b"{\"profile\":\"default\"}\n",
+            raw_output_bytes: b"<QIFDocument schemaVersion=\"3.0\"><Results/></QIFDocument>",
+            assertion_bytes: br#"{"schema":"AeroSemanticAssertionV1","assertions":[]}"#,
+            rights_status: RightsStatus::ClearedForTesting,
+            status: RunStatus::Succeeded,
+        })
     }
 
     #[test]
@@ -677,16 +689,16 @@ mod tests {
     #[test]
     fn raw_qif_drift_with_identical_assertions_is_separated() {
         let first = base("run-a");
-        let second = fixture(
-            "run-b",
-            b"adapter-executable-v1",
-            b"ISO-10303-21; synthetic product definition",
-            b"{\"profile\":\"default\"}\n",
-            b"<QIFDocument timestamp=\"different\"><Results/></QIFDocument>",
-            br#"{"schema":"AeroSemanticAssertionV1","assertions":[]}"#,
-            RightsStatus::ClearedForTesting,
-            RunStatus::Succeeded,
-        );
+        let second = fixture(FixtureInput {
+            run_id: "run-b",
+            adapter_bytes: b"adapter-executable-v1",
+            source_bytes: b"ISO-10303-21; synthetic product definition",
+            configuration_bytes: b"{\"profile\":\"default\"}\n",
+            raw_output_bytes: b"<QIFDocument timestamp=\"different\"><Results/></QIFDocument>",
+            assertion_bytes: br#"{"schema":"AeroSemanticAssertionV1","assertions":[]}"#,
+            rights_status: RightsStatus::ClearedForTesting,
+            status: RunStatus::Succeeded,
+        });
         let report = compare(&first, &second).unwrap();
         assert_eq!(
             report.disposition,
@@ -699,16 +711,16 @@ mod tests {
     #[test]
     fn normalized_assertion_drift_is_not_called_semantic_loss() {
         let first = base("run-a");
-        let second = fixture(
-            "run-b",
-            b"adapter-executable-v1",
-            b"ISO-10303-21; synthetic product definition",
-            b"{\"profile\":\"default\"}\n",
-            b"<QIFDocument schemaVersion=\"3.0\"><Results/></QIFDocument>",
-            br#"{"schema":"AeroSemanticAssertionV1","assertions":[{"assertion_id":"A1"}]}"#,
-            RightsStatus::ClearedForTesting,
-            RunStatus::Succeeded,
-        );
+        let second = fixture(FixtureInput {
+            run_id: "run-b",
+            adapter_bytes: b"adapter-executable-v1",
+            source_bytes: b"ISO-10303-21; synthetic product definition",
+            configuration_bytes: b"{\"profile\":\"default\"}\n",
+            raw_output_bytes: b"<QIFDocument schemaVersion=\"3.0\"><Results/></QIFDocument>",
+            assertion_bytes: br#"{"schema":"AeroSemanticAssertionV1","assertions":[{"assertion_id":"A1"}]}"#,
+            rights_status: RightsStatus::ClearedForTesting,
+            status: RunStatus::Succeeded,
+        });
         let report = compare(&first, &second).unwrap();
         assert_eq!(
             report.disposition,
@@ -721,16 +733,16 @@ mod tests {
     #[test]
     fn changed_adapter_executable_is_incomparable_not_nondeterministic() {
         let first = base("run-a");
-        let second = fixture(
-            "run-b",
-            b"adapter-executable-v2",
-            b"ISO-10303-21; synthetic product definition",
-            b"{\"profile\":\"default\"}\n",
-            b"<QIFDocument schemaVersion=\"3.0\"><Results/></QIFDocument>",
-            br#"{"schema":"AeroSemanticAssertionV1","assertions":[]}"#,
-            RightsStatus::ClearedForTesting,
-            RunStatus::Succeeded,
-        );
+        let second = fixture(FixtureInput {
+            run_id: "run-b",
+            adapter_bytes: b"adapter-executable-v2",
+            source_bytes: b"ISO-10303-21; synthetic product definition",
+            configuration_bytes: b"{\"profile\":\"default\"}\n",
+            raw_output_bytes: b"<QIFDocument schemaVersion=\"3.0\"><Results/></QIFDocument>",
+            assertion_bytes: br#"{"schema":"AeroSemanticAssertionV1","assertions":[]}"#,
+            rights_status: RightsStatus::ClearedForTesting,
+            status: RunStatus::Succeeded,
+        });
         let report = compare(&first, &second).unwrap();
         assert_eq!(report.disposition, ReplayDisposition::IncomparableContext);
         assert!(
@@ -743,16 +755,16 @@ mod tests {
     #[test]
     fn changed_source_input_is_incomparable() {
         let first = base("run-a");
-        let second = fixture(
-            "run-b",
-            b"adapter-executable-v1",
-            b"ISO-10303-21; different source bytes",
-            b"{\"profile\":\"default\"}\n",
-            b"<QIFDocument schemaVersion=\"3.0\"><Results/></QIFDocument>",
-            br#"{"schema":"AeroSemanticAssertionV1","assertions":[]}"#,
-            RightsStatus::ClearedForTesting,
-            RunStatus::Succeeded,
-        );
+        let second = fixture(FixtureInput {
+            run_id: "run-b",
+            adapter_bytes: b"adapter-executable-v1",
+            source_bytes: b"ISO-10303-21; different source bytes",
+            configuration_bytes: b"{\"profile\":\"default\"}\n",
+            raw_output_bytes: b"<QIFDocument schemaVersion=\"3.0\"><Results/></QIFDocument>",
+            assertion_bytes: br#"{"schema":"AeroSemanticAssertionV1","assertions":[]}"#,
+            rights_status: RightsStatus::ClearedForTesting,
+            status: RunStatus::Succeeded,
+        });
         let report = compare(&first, &second).unwrap();
         assert_eq!(report.disposition, ReplayDisposition::IncomparableContext);
         assert!(
@@ -765,16 +777,16 @@ mod tests {
     #[test]
     fn changed_configuration_is_incomparable() {
         let first = base("run-a");
-        let second = fixture(
-            "run-b",
-            b"adapter-executable-v1",
-            b"ISO-10303-21; synthetic product definition",
-            b"{\"profile\":\"changed\"}\n",
-            b"<QIFDocument schemaVersion=\"3.0\"><Results/></QIFDocument>",
-            br#"{"schema":"AeroSemanticAssertionV1","assertions":[]}"#,
-            RightsStatus::ClearedForTesting,
-            RunStatus::Succeeded,
-        );
+        let second = fixture(FixtureInput {
+            run_id: "run-b",
+            adapter_bytes: b"adapter-executable-v1",
+            source_bytes: b"ISO-10303-21; synthetic product definition",
+            configuration_bytes: b"{\"profile\":\"changed\"}\n",
+            raw_output_bytes: b"<QIFDocument schemaVersion=\"3.0\"><Results/></QIFDocument>",
+            assertion_bytes: br#"{"schema":"AeroSemanticAssertionV1","assertions":[]}"#,
+            rights_status: RightsStatus::ClearedForTesting,
+            status: RunStatus::Succeeded,
+        });
         let report = compare(&first, &second).unwrap();
         assert_eq!(report.disposition, ReplayDisposition::IncomparableContext);
         assert!(
@@ -792,16 +804,16 @@ mod tests {
     #[test]
     fn rights_declaration_change_is_context_change() {
         let first = base("run-a");
-        let second = fixture(
-            "run-b",
-            b"adapter-executable-v1",
-            b"ISO-10303-21; synthetic product definition",
-            b"{\"profile\":\"default\"}\n",
-            b"<QIFDocument schemaVersion=\"3.0\"><Results/></QIFDocument>",
-            br#"{"schema":"AeroSemanticAssertionV1","assertions":[]}"#,
-            RightsStatus::ClearedForRedistribution,
-            RunStatus::Succeeded,
-        );
+        let second = fixture(FixtureInput {
+            run_id: "run-b",
+            adapter_bytes: b"adapter-executable-v1",
+            source_bytes: b"ISO-10303-21; synthetic product definition",
+            configuration_bytes: b"{\"profile\":\"default\"}\n",
+            raw_output_bytes: b"<QIFDocument schemaVersion=\"3.0\"><Results/></QIFDocument>",
+            assertion_bytes: br#"{"schema":"AeroSemanticAssertionV1","assertions":[]}"#,
+            rights_status: RightsStatus::ClearedForRedistribution,
+            status: RunStatus::Succeeded,
+        });
         let report = compare(&first, &second).unwrap();
         assert_eq!(report.disposition, ReplayDisposition::IncomparableContext);
         assert!(
@@ -847,16 +859,16 @@ mod tests {
     #[test]
     fn failed_run_is_preserved_but_not_eligible() {
         let first = base("run-a");
-        let second = fixture(
-            "run-b",
-            b"adapter-executable-v1",
-            b"ISO-10303-21; synthetic product definition",
-            b"{\"profile\":\"default\"}\n",
-            b"<QIFDocument/>",
-            br#"{"schema":"AeroSemanticAssertionV1","assertions":[]}"#,
-            RightsStatus::ClearedForTesting,
-            RunStatus::Failed,
-        );
+        let second = fixture(FixtureInput {
+            run_id: "run-b",
+            adapter_bytes: b"adapter-executable-v1",
+            source_bytes: b"ISO-10303-21; synthetic product definition",
+            configuration_bytes: b"{\"profile\":\"default\"}\n",
+            raw_output_bytes: b"<QIFDocument/>",
+            assertion_bytes: br#"{"schema":"AeroSemanticAssertionV1","assertions":[]}"#,
+            rights_status: RightsStatus::ClearedForTesting,
+            status: RunStatus::Failed,
+        });
         let report = compare(&first, &second).unwrap();
         assert_eq!(report.disposition, ReplayDisposition::RunNotEligible);
         assert_eq!(report.all_output_bytes_identical, None);
@@ -866,16 +878,16 @@ mod tests {
     #[test]
     fn timed_out_run_is_preserved_but_not_eligible() {
         let first = base("run-a");
-        let second = fixture(
-            "run-b",
-            b"adapter-executable-v1",
-            b"ISO-10303-21; synthetic product definition",
-            b"{\"profile\":\"default\"}\n",
-            b"",
-            b"",
-            RightsStatus::ClearedForTesting,
-            RunStatus::TimedOut,
-        );
+        let second = fixture(FixtureInput {
+            run_id: "run-b",
+            adapter_bytes: b"adapter-executable-v1",
+            source_bytes: b"ISO-10303-21; synthetic product definition",
+            configuration_bytes: b"{\"profile\":\"default\"}\n",
+            raw_output_bytes: b"",
+            assertion_bytes: b"",
+            rights_status: RightsStatus::ClearedForTesting,
+            status: RunStatus::TimedOut,
+        });
         assert_eq!(
             compare(&first, &second).unwrap().disposition,
             ReplayDisposition::RunNotEligible
@@ -966,16 +978,16 @@ mod tests {
     fn panel_summary_keeps_ineligible_and_incomparable_pairs() {
         let first = base("run-a");
         let exact = base("run-b");
-        let timeout = fixture(
-            "run-c",
-            b"adapter-executable-v1",
-            b"ISO-10303-21; synthetic product definition",
-            b"{\"profile\":\"default\"}\n",
-            b"",
-            b"",
-            RightsStatus::ClearedForTesting,
-            RunStatus::TimedOut,
-        );
+        let timeout = fixture(FixtureInput {
+            run_id: "run-c",
+            adapter_bytes: b"adapter-executable-v1",
+            source_bytes: b"ISO-10303-21; synthetic product definition",
+            configuration_bytes: b"{\"profile\":\"default\"}\n",
+            raw_output_bytes: b"",
+            assertion_bytes: b"",
+            rights_status: RightsStatus::ClearedForTesting,
+            status: RunStatus::TimedOut,
+        });
         let comparisons = vec![
             compare(&first, &exact).unwrap(),
             compare(&first, &timeout).unwrap(),
