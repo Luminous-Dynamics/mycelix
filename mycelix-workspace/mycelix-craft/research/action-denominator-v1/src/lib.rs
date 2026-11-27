@@ -919,7 +919,8 @@ mod tests {
 
     #[test]
     fn different_observation_payload_under_same_id_is_conflict() {
-        let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
+        let plan =
+            AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
         let first = observation(&plan, "obs:1", "action:1", "independent:1", 100, 900);
         let mut second = first.clone();
         second.evidence_digest = digest(44);
@@ -996,7 +997,14 @@ mod tests {
     fn explicit_expiry_invalidates_prior_positive_in_same_group() {
         let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
         let positive = observation(&plan, "obs:positive", "action:1", "group:meter-1", 100, 900);
-        let mut expired = observation(&plan, "obs:expired-marker", "action:1", "group:meter-1", 150, 900);
+        let mut expired = observation(
+            &plan,
+            "obs:expired-marker",
+            "action:1",
+            "group:meter-1",
+            150,
+            900,
+        );
         expired.status = ObservationStatusV1::Expired;
         let report = evaluate_action_coverage_v1(&plan, &[positive, expired], 200).unwrap();
         assert_eq!(report.covered_count, 0);
@@ -1009,7 +1017,8 @@ mod tests {
     #[test]
     fn explicit_dispute_surfaces_conflict_for_the_action() {
         let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
-        let mut disputed = observation(&plan, "obs:disputed", "action:1", "group:meter-1", 150, 900);
+        let mut disputed =
+            observation(&plan, "obs:disputed", "action:1", "group:meter-1", 150, 900);
         disputed.status = ObservationStatusV1::Disputed;
         let report = evaluate_action_coverage_v1(&plan, &[disputed], 200).unwrap();
         assert_eq!(report.disposition, CoverageDispositionV1::Conflict);
@@ -1030,7 +1039,12 @@ mod tests {
         let report = evaluate_action_coverage_v1(&plan, &[second], 200).unwrap();
         assert_eq!(report.covered_count, 0);
         assert_eq!(
-            report.action_results.iter().find(|a| a.action_id == "action:2").unwrap().status,
+            report
+                .action_results
+                .iter()
+                .find(|a| a.action_id == "action:2")
+                .unwrap()
+                .status,
             ActionCoverageStatusV1::BlockedByPrerequisite
         );
     }
@@ -1050,7 +1064,8 @@ mod tests {
         let amended = AuthorizedActionPlanV1::seal(amended_draft).unwrap();
         validate_plan_amendment_v1(&previous, &amended).unwrap();
 
-        let prior_observation = observation(&previous, "obs:1", "action:1", "independent:1", 100, 900);
+        let prior_observation =
+            observation(&previous, "obs:1", "action:1", "independent:1", 100, 900);
         let prior_report =
             evaluate_action_coverage_v1(&previous, &[prior_observation.clone()], 200).unwrap();
         assert_eq!(prior_report.denominator_count, 2);
@@ -1067,7 +1082,8 @@ mod tests {
             validate_plan_amendment_v1(&previous, &attempted_new_plan),
             Err(PlanErrorV1::AmendmentNeedsNewAuthorityDecision)
         );
-        let replay = evaluate_action_coverage_v1(&previous, &[prior_observation.clone()], 200).unwrap();
+        let replay =
+            evaluate_action_coverage_v1(&previous, &[prior_observation.clone()], 200).unwrap();
         assert_eq!(replay, prior_report);
 
         // An observation admitted under P1 cannot be carried forward to P2,
@@ -1104,8 +1120,14 @@ mod tests {
         let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
         let before_issue = evaluate_action_coverage_v1(&plan, &[], 9).unwrap();
         let after_expiry = evaluate_action_coverage_v1(&plan, &[], 1000).unwrap();
-        assert_eq!(before_issue.disposition, CoverageDispositionV1::Indeterminate);
-        assert_eq!(after_expiry.disposition, CoverageDispositionV1::Indeterminate);
+        assert_eq!(
+            before_issue.disposition,
+            CoverageDispositionV1::Indeterminate
+        );
+        assert_eq!(
+            after_expiry.disposition,
+            CoverageDispositionV1::Indeterminate
+        );
     }
 
     #[test]
