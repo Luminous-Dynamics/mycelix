@@ -1,6 +1,6 @@
 # Temporal Frontier Index Forest V0.1
 
-Status: structural composition prototype. This is not a trusted checkpoint verifier, a source-completeness verifier, or production authority.
+Status: structural composition prototype. This is not a trusted checkpoint verifier, an assertion-semantic mapper, a source-completeness verifier, or production authority.
 
 ## 1. Purpose
 
@@ -8,31 +8,37 @@ Compose per-owner authenticated temporal interval indexes with the verifier-rela
 
 A conventional temporal query answers which rows match a valid-time point. A verifier-relative query must also say which owner histories this verifier had accepted, through which owner-local cuts, under which policy epoch, and whether all required owners were covered.
 
-The forest deliberately preserves one temporal-index root per owner. Owner identifiers are sorted for canonical encoding only; no cross-owner causal order is inferred from that sort.
+The forest preserves one temporal-index root per owner. Owner identifiers are sorted for canonical encoding only; no cross-owner causal order is inferred from that sort.
 
 ## 2. Data model
 
-A \`TemporalFrontierIndexManifestV1\` binds:
+A `TemporalFrontierIndexManifestV1` binds verifier identity, policy epoch, accepted frontier digest, interval-index profile, common query scope, and the canonical ordered owner binding list.
 
-- verifier identity;
-- policy epoch;
-- accepted frontier digest;
-- interval-index profile;
-- common query scope;
-- canonical ordered owner binding list.
+Each `OwnerIntervalIndexBindingV1` binds:
 
-Each \`OwnerIntervalIndexBindingV1\` binds:
-
-- \`OwnerRef\`;
-- stable \`OwnerHistoryRef\`;
-- owner-local \`OwnerSequence\`;
-- append-only receipt-log \`TreeSize\`;
+- owner reference and stable owner-history identity;
+- owner-local sequence cut;
+- receipt-log tree size, measured in Merkle leaf positions;
 - owner receipt-log root digest;
 - temporal interval-index root;
 - projection-audit digest;
-- explicit inclusive unresolved gap ranges.
+- explicit inclusive unresolved owner-sequence gaps.
 
-\`OwnerSequence\` and \`TreeSize\` are intentionally separate. A source-chain sequence is not a Merkle leaf count. The current prototype requires \`TreeSize <= OwnerSequence\`, but does not prove the relationship from owner-history receipts; that belongs to the frontier/log adapter.
+### Owner sequence and receipt-log tree size
+
+These are distinct coordinates and must never be treated as identical values. However, the current V1 owner-log contract has one receipt-log leaf for each owner sequence that is not declared as a gap. Thus the structural invariant is:
+
+```
+TreeSize + total_gap_cardinality = OwnerSequenceCut
+```
+
+For a receipt at owner sequence `s`, its zero-based log leaf index is:
+
+```
+leaf_index = s - 1 - number_of_gap_sequences_strictly_before(s)
+```
+
+The forest validates this cardinality and mapping contract. It does not assert that a source-chain sequence number itself is a Merkle index; the map is derived through explicit gaps. The owner log verifier must still authenticate that the actual leaf sequence corresponds to the signed owner tree head.
 
 Owner entries must be strictly sorted by UTF-8 owner reference, without duplicates. Gap ranges must be positive, within the owner sequence cut, sorted, disjoint and non-adjacent (adjacent gaps have one canonical merged representation). Resource limits are 100,000 owners and 100,000 gaps per owner.
 
@@ -40,124 +46,117 @@ Owner entries must be strictly sorted by UTF-8 owner reference, without duplicat
 
 All integers use fixed-width big-endian encoding. Strings use UTF-8 with a u32be byte-length prefix. The hash is SHA-256.
 
-The preimage is:
-
-1. one-byte tag \`0x40\`;
-2. domain \`MYCELIX-TEMPORAL-FRONTIER-INDEX-FOREST-V0.1\\0\`;
+The forest preimage consists of:
+1. one-byte tag `0x40`;
+2. domain `MYCELIX-TEMPORAL-FRONTIER-INDEX-FOREST-V0.1\0`;
 3. verifier, policy epoch, frontier digest, interval profile, namespace, subject and claim strings in that order;
 4. u32be owner count;
-5. for each strictly sorted owner:
-   - owner reference;
-   - owner-history reference;
-   - u64be owner sequence;
-   - u64be log tree size;
-   - owner log root digest string;
-   - 32-byte interval-index root;
-   - projection-audit digest string;
-   - u32be gap count;
-   - each gap's u64be first and last sequence.
+5. each strictly sorted owner binding: owner reference, owner-history reference, u64be owner sequence, u64be log tree size, owner log root digest string, 32-byte interval-index root, projection-audit digest string, u32be gap count, then each gap's u64be first and last sequence.
 
 The forest root commits to the owner/index mapping. It is not itself authenticated. A caller must obtain the expected forest root and exact required owner set from a separately verified checkpoint/frontier layer.
 
-## 4. Verification contract
+## 4. Verifying a declared forest query
 
-\`VerifyTemporalFrontierQueryProofV1\` requires:
+`VerifyTemporalFrontierQueryProofV1` requires:
 
 - expected verifier and policy epoch;
 - expected accepted-frontier digest;
 - exact temporal query scope and point V;
 - the exact owner set from the separately verified frontier;
 - the expected forest root from the authenticated checkpoint;
-- one interval proof for every owner binding, in the same canonical order.
+- one interval proof for every owner binding, in canonical order.
 
-The verifier rejects missing or substituted owners, duplicate/non-canonical manifest entries, wrong owner proof order, scope or frontier substitution, malformed cuts/gaps, invalid roots, and any failed per-owner interval proof.
+The verifier rejects missing or substituted owners, duplicate/non-canonical manifest entries, wrong owner proof order, scope/frontier/profile substitution, inconsistent owner sequence/tree-size/gap cardinality, malformed roots, and failed per-owner interval proofs.
 
-It then unions matching interval records while preserving owner identity, history identity, owner sequence and tree size.
+It unions matching interval records while preserving owner identity, history identity, owner sequence and log tree size. Cross-owner sequence values are never compared; concurrent cuts remain concurrent.
 
-Cross-owner sequence values are never compared. A cut at owner A's sequence 100 and owner B's sequence 2 are not ordered by those magnitudes.
+The only positive disposition at this layer is:
 
-## 5. Receipt-to-index projection replay
+`CompleteForDeclaredIndexForest`
 
-`projection.go` adds a deterministic, independently recomputed projection audit over one supplied owner-local accepted-receipt inventory.
+It means that every result relative to the exact declared owner-index roots was proved. It is not a source-completeness or accepted-frontier completeness result.
 
-The supplied inventory has exactly `TreeSize` receipt entries, with zero-based leaf positions `0..TreeSize-1`. Every entry binds the leaf index, owner-local sequence, SHA-256 receipt digest, and a closed projection class:
+## 5. Full owner-log projection replay
 
-- `ReceiptProjectsIntervalAssertion`: carries one exact assertion reference and validity interval;
-- `ReceiptIsNonTemporal`: carries no interval fields and contributes no interval record.
+`projection.go` verifies the entire owner-log leaf sequence, not merely the verifier-receipt subset. This distinction follows the owner-log construction used by #6727: ordinary owner-history events may occupy log positions, while canonical `MYCELIX-KNOWLEDGE-RECEIPT-V1` entries replace particular positions when verifier-acceptance receipts are present.
 
-The replay validates the owner/history identity and owner-sequence cut against the forest binding, requires contiguous log-leaf indices up to the separately declared log tree size, strictly increasing owner sequences within the cut, no supplied receipt inside a declared unresolved gap, well-formed receipt digests, canonical interval endpoints and duplicate assertion rejection. It never compares owner-sequence values with log tree size. It deterministically rebuilds the owner's interval tree and requires its root to equal the manifest's index root.
+The inventory contains every leaf in order:
+- zero-based `LeafIndex`;
+- owner-local `OwnerSequence`;
+- exact `EntryBytes`.
 
-Two domain-separated commitments are produced:
+The verifier:
+1. checks owner and history identity, owner sequence cut, tree size and claimed log root against the forest binding;
+2. requires exactly `TreeSize` leaf entries with contiguous indices;
+3. checks owner-sequence order and sequence-to-leaf mapping using the explicit gaps;
+4. recomputes canonical receipt digests and the RFC 9162 SHA-256 Merkle Tree Hash over *all* owner-log leaves;
+5. recognizes canonical knowledge-receipt leaves and requires exactly one typed projection disposition for each;
+6. retains non-receipt owner-log leaves in the Merkle root and counts them separately;
+7. rebuilds the temporal interval index from the supplied typed projections and checks its root;
+8. commits the exact full log-leaf sequence, typed projection inputs, interval root, counts and gaps into deterministic inventory/audit digests.
 
-- accepted-receipt inventory digest: commits to query scope, owner/history/cut, owner log root reference, ordered leaf indices, owner sequences, receipt digests, projection classes and interval payloads;
-- projection audit digest: commits to the inventory digest, derived interval root, owner log root reference, counts and explicit unresolved gaps.
-
-The projection audit digest can be placed in the owner binding and therefore in the frontier forest root. Fixed known-answer vectors cover the inventory digest, derived interval root and audit digest.
+A receipt leaf without a temporal or non-temporal projection is rejected. A non-receipt log leaf cannot carry a receipt projection. Malformed lookalike knowledge-receipt prefixes are rejected rather than treated as ordinary events.
 
 ### Claim ceiling
 
-The positive replay disposition is only `ProjectionMatchesSuppliedAcceptedInventory`. The result also explicitly returns `ReceiptInventoryAuthenticationNotEvaluated`.
+The replay disposition is `ProjectionMatchesSuppliedAcceptedInventory`. The result reports:
 
-This implementation does **not** authenticate receipt bytes or signatures, verify RFC 9162 inclusion/consistency paths, prove that the supplied inventory is the complete accepted owner-log prefix, authenticate the checkpoint, or establish that the frontier's owner set is complete. A caller that omits a receipt and supplies an incomplete inventory may still create a different internally consistent root; the separate log/checkpoint adapter must prove the supplied inventory exactly corresponds to the committed accepted prefix.
+`ReceiptInventoryAuthentication = LogRootRecomputedButTrustExternal`
 
-The forest query verifier therefore still returns `ProjectionCompletenessNotEvaluated`. A future `CompleteForAcceptedFrontier` result requires both this deterministic projection replay and an independently qualified log/frontier verifier that authenticates inventory coverage and owner completeness. The two obligations must not be collapsed.
+This establishes that the supplied ordered bytes reconstruct the claimed owner-log root. It does **not** authenticate the signed checkpoint/tree head or prove that the expected root is accepted by the verifier. That remains the responsibility of the existing signed-checkpoint/key/witness/frontier owners.
 
-## 5. Deliberately limited result
+The result also reports:
 
-The only positive disposition emitted here is:
+`ProjectionMappingAuthentication = NotEvaluated`
 
-\`CompleteForDeclaredIndexForest\`
+The mapping from the canonical assertion digest/payload to `valid_from`, `valid_to` and the temporal/non-temporal classification is a separate semantic proof obligation. The current module accepts the explicit typed projection as input; it does not independently decode the assertion's domain payload or prove that those intervals are the correct interpretation.
 
-This means every result relative to the exact set of supplied owner-index roots has been proved by its per-owner interval proof.
+The audit digest can be committed into the owner binding and forest root. It must not be promoted to a source-completeness theorem until the checkpoint/root trust and assertion-to-interval semantic mapping are separately qualified.
 
-The result always reports:
+## 6. Composed forest projection replay
 
-\`ProjectionCompletenessNotEvaluated\`
+`forest_projection.go` runs the per-owner projection replay for the exact owner set and forest root supplied by the separately verified frontier/checkpoint layer.
 
-The module does not prove that every accepted owner receipt was parsed and projected into the index. It binds a projection-audit digest but does not validate that receipt or its issuer. It also preserves \`HasOwnerGaps\`, rather than silently interpreting missing sequences as no matching assertion.
+It returns `ProjectionMatchesAllSuppliedOwnerInventories`, with:
+- `ReceiptInventoryAuthentication = LogRootRecomputedButTrustExternal`;
+- `ProjectionMappingAuthentication = NotEvaluated`.
 
-A future \`CompleteForAcceptedFrontier\` disposition requires separate evidence that:
+This confirms that all declared owner interval roots match their supplied full owner-log inventories. It does not authenticate the checkpoint or prove the supplied forest is the complete accepted frontier. Missing owners are rejected against the external expected owner set.
 
-1. every owner in the verifier's accepted frontier is represented;
-2. every owner cut and log root is authenticated and non-equivocating;
-3. all gaps, forks, parent-frontier links, dependencies and correction branches are resolved under the query profile;
-4. an independent receipt-to-index replay proves that every in-scope accepted receipt was projected into that owner's temporal index;
-5. the query index root and the owner receipt-log root are bound in a signed, current checkpoint.
+The interval query verifier continues to return `ProjectionCompletenessNotEvaluated`; it cannot infer source completeness from the replay digest alone.
 
-A self-asserted \`complete=true\`, a valid Merkle root or a digest-shaped audit reference is not sufficient.
+## 7. SOTA boundary
 
-## 6. SOTA boundary
+The forest is not a new Merkle structure claim. VeriTS (Yao et al., 28 August 2026 preprint) already presents authenticated aggregate interval trees, minimum-covering-set completeness, boundary records and sliding-window delta proofs for per-source ordered time-series streams.
 
-The forest is not a new Merkle structure claim. VeriTS (Yao et al., 28 August 2026 preprint) already presents an authenticated aggregate interval tree over per-source ordered time-series streams, minimum-covering-set completeness, boundary records, and delta proofs for sliding windows. It assumes a trusted blockchain layer with a total order and does not target verifier-relative partial-order owner frontiers or per-owner receipt projection completeness.
-
-The proposed differentiator is the composition of:
+The proposed research differentiator is the composition of:
 - valid-time interval semantics and retrospective correction lineage;
 - exact verifier/policy accepted frontier;
 - owner-local cuts and explicit causal concurrency;
+- full owner-log history including ordinary non-receipt events;
 - per-owner authenticated temporal indexes;
-- independently checked receipt-to-index projection completeness;
+- recomputed receipt-log roots and separately qualified assertion-to-interval projection;
 - replayable query certificates that preserve uncertainty and provenance.
 
-The temporal index must still be benchmarked against VeriTS-style AIT/MCS proofs, authenticated Merkle B+ trees, conventional interval indexes, and applicable 2D authenticated range structures. Do not claim that a custom interval tree alone beats SOTA.
+The temporal index must still be benchmarked against VeriTS-style AIT/MCS proofs, authenticated Merkle B+ trees, conventional interval indexes and applicable 2D authenticated range structures. Do not claim that a custom interval tree alone beats SOTA.
 
-## 7. Qualification status and nonclaims
+## 8. Formal and qualification status
 
-The Go module is a structural reference implementation and adversarial test harness. Projection replay now detects omitted or altered interval records relative to a supplied accepted receipt inventory, but it does not authenticate that inventory. The current prototype does not implement:
-- signed checkpoint or key lifecycle verification;
-- RFC 9162 receipt proof verification inside this module;
-- witness quorum or split-view detection;
-- owner-history sequence/log-size reconciliation;
-- projection-audit signature or source-inventory authentication / accepted-prefix completeness;
-- formal model checking;
-- a canonical wire decoder or interoperable VDS/VDP profile;
+The Go module is a structural reference implementation and adversarial test harness. The current branch includes a bounded TLA+ model at `tools/economic/temporal-range-index/formal/TemporalIntervalProof.tla` and its configuration. The model has been authored but TLC has not been run; no model-checking result is claimed.
+
+The current prototype does not implement:
+- signed checkpoint, key lifecycle or witness verification;
+- authenticated frontier owner-set verification inside this module;
+- assertion-payload-to-interval semantic mapping;
+- canonical Rust implementation and cross-language parity;
 - durable persistence or mutation authority.
 
-No result establishes global absence, event truth, trusted time, legal effect, payment authority or journal/external-effect permission.
+No result establishes global absence, event truth, trusted time, legal effect, payment authority, or permission to mutate journals or external systems.
 
-## 8. Standards references
+## 9. Standards references
 
 - [RFC 9162 — Certificate Transparency Version 2.0](https://www.rfc-editor.org/rfc/rfc9162)
-- [RFC 9942 — CBOR Object Signing and Encryption (COSE) Receipts](https://www.rfc-editor.org/rfc/rfc9942)
+- [RFC 9942 — COSE Receipts](https://www.rfc-editor.org/rfc/rfc9942)
 - [VeriTS: Verifiable Model-Enhanced Time-Series Queries on Blockchain Systems (arXiv, 28 August 2026)](https://arxiv.org/abs/2608.28318)
 - [COSE Receipts for MMRs, draft-ietf-scitt-receipts-mmr-profile-00 (21 November 2026)](https://datatracker.ietf.org/doc/draft-ietf-scitt-receipts-mmr-profile/)
 
