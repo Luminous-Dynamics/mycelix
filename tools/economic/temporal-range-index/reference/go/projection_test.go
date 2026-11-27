@@ -127,6 +127,33 @@ func TestProjectionReplayMatchesCompleteMixedOwnerLogInventory(t *testing.T) {
 	}
 }
 
+func TestProjectionReplayMixedLogKnownAnswerVectors(t *testing.T) {
+	scope := intervalScopeFixtureV1()
+	binding, inventory := projectionInventoryFixtureV1(scope)
+	if got := binding.OwnerLogRootDigest; got != "sha256:0c849935a06de2d47ce04d52e3489ec183a7beb381ebdb7d60f9c5f74b8dfbe4" {
+		t.Fatalf("full owner-log root vector mismatch: %s", got)
+	}
+	if got := inventory.Receipts[0].ReceiptDigest; got != "sha256:698207b0ee4372e7bd3a6aab5065159e211d994e4a7ed712bbc746aa9d1323ec" {
+		t.Fatalf("first canonical receipt digest mismatch: %s", got)
+	}
+	if got := inventory.Receipts[1].ReceiptDigest; got != "sha256:3acde28073a35f5d54deca0ad55955e45117e78c82b2e20d44dea483a628de5d" {
+		t.Fatalf("second canonical receipt digest mismatch: %s", got)
+	}
+	audit, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, inventory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprintf("%x", audit.DerivedIntervalIndexRoot); got != "862db8be1469f34bcdba1d1c706f848da42dacd195c8f2964a010b59b64b52b6" {
+		t.Fatalf("derived interval root vector mismatch: %s", got)
+	}
+	if got := fmt.Sprintf("%x", audit.InventoryDigest); got != "92e87ba4b47a0c7349d604f107399e92653cda052592c14cf579220870be2e82" {
+		t.Fatalf("full inventory digest vector mismatch: %s", got)
+	}
+	if got := fmt.Sprintf("%x", audit.AuditDigest); got != "2fd56052a66718ed9ddb769ef82bd697764f354c468b11d6762122cd8ff289b4" {
+		t.Fatalf("projection audit digest vector mismatch: %s", got)
+	}
+}
+
 func TestProjectionReplayRequiresEveryLogLeafAndEveryReceiptDisposition(t *testing.T) {
 	scope := intervalScopeFixtureV1()
 	binding, inventory := projectionInventoryFixtureV1(scope)
