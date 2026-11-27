@@ -98,6 +98,7 @@ type ReplayResultV1 struct {
 	ObservedTailDigest string
 	ActiveCapabilities []ActiveCapabilityV1
 	PendingEventID string
+	SubmittedEventsDigest string
 	MutationBlocked bool
 	LedgerAuthentication string
 	IssuerAuthorityAuthentication string
@@ -207,7 +208,10 @@ func transitionDigest(scopeDigest string, transition CapabilityTransitionV1) str
 	_ = binary.Write(&b,binary.BigEndian,transition.Generation)
 	writeString(&b,transition.PriorCapabilityDigest)
 	coords:=append([]OwnerCoordinateV1(nil),transition.OwnerCut...)
-	sort.Slice(coords,func(i,j int)bool{return coords[i].OwnerRef<coords[j].OwnerRef})
+	sort.Slice(coords,func(i,j int)bool{
+		if coords[i].OwnerRef==coords[j].OwnerRef{return coords[i].Sequence<coords[j].Sequence}
+		return coords[i].OwnerRef<coords[j].OwnerRef
+	})
 	_ = binary.Write(&b,binary.BigEndian,uint32(len(coords)))
 	for _,coordinate:=range coords { writeString(&b,coordinate.OwnerRef);_ = binary.Write(&b,binary.BigEndian,coordinate.Sequence) }
 	for _,value:=range []string{transition.IssuerRef,transition.IssuerKeyEpoch,transition.AuthorityGrantRef,transition.CheckpointRef}{writeString(&b,value)}
@@ -234,14 +238,14 @@ func cloneTransition(value CapabilityTransitionV1) CapabilityTransitionV1 {
 	return value
 }
 
-func validateTransition(scopeDigest string,owners []string,transition CapabilityTransitionV1,active map[string]activeState)([]uint64,string,error){
+func validateTransition(scopeDigest string,owners []string,transition CapabilityTransitionV1,active map[string]activeState,usedIDs map[string]struct{})([]uint64,string,error){
 	fields:=[]string{transition.CapabilityID,transition.IssuerRef,transition.IssuerKeyEpoch,transition.AuthorityGrantRef,transition.CheckpointRef}
 	for _,field:=range fields {if strings.TrimSpace(field)=="" || len(field)>MaxIdentifierBytes{return nil,"",errors.New("capability transition identity or authority reference invalid")}}
 	cut,err:=cutVector(transition.OwnerCut,owners);if err!=nil{return nil,"",err}
 	current,exists:=active[transition.CapabilityID]
 	switch transition.Kind {
 	case TransitionMint:
-		if exists{return nil,"",errors.New("capability ID cannot be reused")}
+		if _,everUsed:=usedIDs[transition.CapabilityID];everUsed{return nil,"",errors.New("capability ID cannot be reused")}
 		if transition.Generation!=1 || transition.PriorCapabilityDigest!=""{return nil,"",errors.New("mint must start at generation one without predecessor")}
 	case TransitionAdvance:
 		if !exists{return nil,"",errors.New("cannot advance an inactive capability")}
@@ -276,7 +280,7 @@ func finalizeReplay(result ReplayResultV1) ReplayResultV1 {
 	writeString(&b,string(result.Disposition));writeString(&b,result.Reason);writeString(&b,result.ScopeDigest)
 	_ = binary.Write(&b,binary.BigEndian,result.ExpectedEventCount);_ = binary.Write(&b,binary.BigEndian,result.ObservedEventCount)
 	writeString(&b,result.GenesisDigest);writeString(&b,result.ObservedTailDigest)
-	writeString(&b,result.PendingEventID);writeString(&b,rawEventsDigest(nil))
+	writeString(&b,result.PendingEventID);writeString(&b,result.SubmittedEventsDigest)
 	_ = binary.Write(&b,binary.BigEndian,uint32(len(result.ActiveCapabilities)))
 	for _,cap:=range result.ActiveCapabilities {writeString(&b,cap.CapabilityID);_ = binary.Write(&b,binary.BigEndian,cap.Generation);writeString(&b,cap.TransitionDigest)}
 	writeString(&b,result.LedgerAuthentication);writeString(&b,result.IssuerAuthorityAuthentication)
@@ -303,7 +307,9 @@ func ReplayCapabilityLedgerV1(scope CapabilityScopeV1,events []CapabilityEventV1
 	if expectedCount>MaxLedgerEvents || uint64(len(events))>MaxLedgerEvents{return failedReplay(result,"ledger event count exceeds configured limit")}
 	if !validDigest(expectedTail){return failedReplay(result,"expected tail anchor is malformed")}
 	if uint64(len(events))!=expectedCount{return failedReplay(result,"observed event count differs from independent tail anchor")}
+	result.SubmittedEventsDigest=rawEventsDigest(events)
 	active:=make(map[string]activeState)
+	usedCapabilityIDs:=make(map[string]struct{})
 	seenIDs:=make(map[string]struct{},len(events))
 	running:=genesis
 	var pending *CapabilityEventV1
@@ -320,8 +326,8 @@ func ReplayCapabilityLedgerV1(scope CapabilityScopeV1,events []CapabilityEventV1
 		switch event.Outcome{
 		case OutcomeCommitted:
 			if pending!=nil || event.Transition==nil || event.ReconcilesEventID!=""{return failedReplay(result,"malformed committed transition event")}
-			cut,digest,err:=validateTransition(scopeDigest,owners,*event.Transition,active);if err!=nil{return failedReplay(result,err.Error())}
-			applyTransition(active,*event.Transition,cut,digest)
+			cut,digest,err:=validateTransition(scopeDigest,owners,*event.Transition,active,usedCapabilityIDs);if err!=nil{return failedReplay(result,err.Error())}
+			applyTransition(active,usedCapabilityIDs,*event.Transition,cut,digest)
 		case OutcomeUnknown:
 			if pending!=nil || event.Transition==nil || event.ReconcilesEventID!=""{return failedReplay(result,"malformed or nested unknown-outcome event")}
 			if _,_,err:=validateTransition(scopeDigest,owners,*event.Transition,active);err!=nil{return failedReplay(result,"unknown transition intent is invalid: "+err.Error())}
@@ -329,8 +335,8 @@ func ReplayCapabilityLedgerV1(scope CapabilityScopeV1,events []CapabilityEventV1
 		case OutcomeApplied,OutcomeNotApplied:
 			if event.Transition!=nil || pending==nil || event.ReconcilesEventID!=pending.EventID{return failedReplay(result,"reconciliation does not match the pending unknown outcome")}
 			if event.Outcome==OutcomeApplied{
-				cut,digest,err:=validateTransition(scopeDigest,owners,*pending.Transition,active);if err!=nil{return failedReplay(result,"reconciled transition no longer valid: "+err.Error())}
-				applyTransition(active,*pending.Transition,cut,digest)
+				cut,digest,err:=validateTransition(scopeDigest,owners,*pending.Transition,active,usedCapabilityIDs);if err!=nil{return failedReplay(result,"reconciled transition no longer valid: "+err.Error())}
+				applyTransition(active,usedCapabilityIDs,*pending.Transition,cut,digest)
 			}
 			pending=nil
 		default:
@@ -353,9 +359,12 @@ func ReplayCapabilityLedgerV1(scope CapabilityScopeV1,events []CapabilityEventV1
 	return finalizeReplay(result)
 }
 
-func applyTransition(active map[string]activeState,transition CapabilityTransitionV1,cut []uint64,digest string){
+func applyTransition(active map[string]activeState,usedIDs map[string]struct{},transition CapabilityTransitionV1,cut []uint64,digest string){
 	switch transition.Kind{
-	case TransitionMint,TransitionAdvance:
+	case TransitionMint:
+		usedIDs[transition.CapabilityID]=struct{}{}
+		active[transition.CapabilityID]=activeState{transition:cloneTransition(transition),digest:digest,cut:append([]uint64(nil),cut...)}
+	case TransitionAdvance:
 		active[transition.CapabilityID]=activeState{transition:cloneTransition(transition),digest:digest,cut:append([]uint64(nil),cut...)}
 	case TransitionRelease,TransitionRevoke:
 		delete(active,transition.CapabilityID)
