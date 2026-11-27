@@ -1,0 +1,166 @@
+name: Opt-in Holochain countersigning feature build probe
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/holochain-countersigning-feature-probe.yml"
+      - "mycelix-finance/flake.nix"
+      - "mycelix-finance/Cargo.toml"
+      - "mycelix-finance/Cargo.lock"
+      - "mycelix-finance/.cargo/config.toml"
+      - "mycelix-finance/tools/countersigning-feature-probe/**"
+      - "mycelix-finance/docs/research/HOLOCHAIN_COUNTERSIGNING_FEATURE_EXPERIMENT_V0_1.md"
+      - "mycelix-workspace/mycelix-finance/docs/research/HOLOCHAIN_COUNTERSIGNING_FEATURE_EXPERIMENT_V0_1.md"
+      - "mycelix-workspace/mycelix-finance/flake.nix"
+      - "mycelix-workspace/mycelix-finance/Cargo.toml"
+      - "mycelix-workspace/mycelix-finance/Cargo.lock"
+      - "mycelix-workspace/mycelix-finance/tools/countersigning-feature-probe/**"
+  push:
+    branches:
+      - "research/holochain-countersigning-feature-probe-v0.1-20261123"
+    paths:
+      - ".github/workflows/holochain-countersigning-feature-probe.yml"
+      - "mycelix-finance/flake.nix"
+      - "mycelix-finance/Cargo.toml"
+      - "mycelix-finance/Cargo.lock"
+      - "mycelix-finance/.cargo/config.toml"
+      - "mycelix-finance/tools/countersigning-feature-probe/**"
+      - "mycelix-finance/docs/research/HOLOCHAIN_COUNTERSIGNING_FEATURE_EXPERIMENT_V0_1.md"
+      - "mycelix-workspace/mycelix-finance/docs/research/HOLOCHAIN_COUNTERSIGNING_FEATURE_EXPERIMENT_V0_1.md"
+      - "mycelix-workspace/mycelix-finance/flake.nix"
+      - "mycelix-workspace/mycelix-finance/Cargo.toml"
+      - "mycelix-workspace/mycelix-finance/Cargo.lock"
+      - "mycelix-workspace/mycelix-finance/tools/countersigning-feature-probe/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: holochain-countersigning-feature-probe-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  custom-build-and-zome-compile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      NIX_CONFIG: "experimental-features = nix-command flakes"
+      EXPECTED_SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact subject and mirrored source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SUBJECT_SHA"
+          cmp mycelix-finance/Cargo.toml mycelix-workspace/mycelix-finance/Cargo.toml
+          cmp mycelix-finance/Cargo.lock mycelix-workspace/mycelix-finance/Cargo.lock
+          test -f mycelix-finance/.cargo/config.toml
+          grep -Fq 'getrandom_backend="custom"' mycelix-finance/.cargo/config.toml
+          cmp mycelix-finance/tools/countersigning-feature-probe/Cargo.toml mycelix-workspace/mycelix-finance/tools/countersigning-feature-probe/Cargo.toml
+          cmp mycelix-finance/tools/countersigning-feature-probe/src/lib.rs mycelix-workspace/mycelix-finance/tools/countersigning-feature-probe/src/lib.rs
+          grep -q 'unstable-countersigning' mycelix-finance/tools/countersigning-feature-probe/Cargo.toml
+          grep -q 'unstable-functions' mycelix-finance/tools/countersigning-feature-probe/Cargo.toml
+          grep -q 'holochain-countersigning-experimental' mycelix-finance/flake.nix
+          grep -q 'holochain-countersigning-experimental' mycelix-workspace/mycelix-finance/flake.nix
+          grep -q 'cargoExtraArgs = "--features unstable-countersigning,unstable-functions"' mycelix-finance/flake.nix
+          grep -q 'cargoExtraArgs = "--features unstable-countersigning,unstable-functions"' mycelix-workspace/mycelix-finance/flake.nix
+          grep -q '"tools/countersigning-feature-probe"' mycelix-finance/Cargo.toml
+          if sed -n '/^default-members = \[/,/^\]/p' mycelix-finance/Cargo.toml | grep -q 'countersigning-feature-probe'; then
+            echo "The experimental probe must not be a default Finance build member."
+            exit 1
+          fi
+
+      - name: Install pinned Nix
+        uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Build opt-in countersigning conductor
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix build ./mycelix-finance#holochain-countersigning-experimental --no-link --print-out-paths | tee "$RUNNER_TEMP/countersigning-conductor-store-path.txt"
+          conductor_out="$(tail -n1 "$RUNNER_TEMP/countersigning-conductor-store-path.txt")"
+          test -x "$conductor_out/bin/holochain"
+          "$conductor_out/bin/holochain" --version | tee "$RUNNER_TEMP/countersigning-conductor-version.txt"
+          "$conductor_out/bin/holochain" --build-info > "$RUNNER_TEMP/countersigning-conductor-build-info.json"
+          jq empty "$RUNNER_TEMP/countersigning-conductor-build-info.json"
+          sha256sum "$conductor_out/bin/holochain" | tee "$RUNNER_TEMP/countersigning-conductor-binary.sha256"
+          echo "$conductor_out" > "$RUNNER_TEMP/countersigning-conductor-path.txt"
+
+      - name: Build the explicit HDK/HDI feature-gated zome probe
+        working-directory: mycelix-finance
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Run Cargo from the Finance workspace root so its .cargo/config.toml
+          # selects Holochain's custom getrandom 0.3 backend for this WASM target.
+          nix develop .#ci --no-write-lock-file --command \
+            cargo build --manifest-path Cargo.toml \
+              -p countersigning-feature-probe --locked --target wasm32-unknown-unknown
+          probe="target/wasm32-unknown-unknown/debug/countersigning_feature_probe.wasm"
+          test -s "$probe"
+          sha256sum "$probe" | tee "$RUNNER_TEMP/countersigning-zome-probe.sha256"
+
+      - name: Emit feature-build evidence manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          conductor_out="$(cat "$RUNNER_TEMP/countersigning-conductor-path.txt")"
+          probe="mycelix-finance/target/wasm32-unknown-unknown/debug/countersigning_feature_probe.wasm"
+          jq -n             --arg subject_commit "$EXPECTED_SUBJECT_SHA"             --arg conductor_version "$(cat "$RUNNER_TEMP/countersigning-conductor-version.txt")"             --arg conductor_sha256 "$(cut -d' ' -f1 "$RUNNER_TEMP/countersigning-conductor-binary.sha256")"             --arg probe_sha256 "$(cut -d' ' -f1 "$RUNNER_TEMP/countersigning-zome-probe.sha256")"             --arg holonix_revision "d21b35431e425e615bc05da790987380a84b8280"             --arg holochain_source_revision "a6d4e805a0971ccbc0dcb3f3ed6a9e2fac980a3b"             --arg cargo_extra_args "--features unstable-countersigning,unstable-functions"             --arg conductor_build_info_sha256 "$(sha256sum "$RUNNER_TEMP/countersigning-conductor-build-info.json" | cut -d' ' -f1)"             --arg probe_path "$probe"             '{
+              schema_version:"HolochainCountersigningFeatureBuildV1",
+              status:"custom_conductor_and_zome_compile_probe_only",
+              subject_commit:$subject_commit,
+              locked_inputs:{
+                holonix_revision:$holonix_revision,
+                holochain_source_revision:$holochain_source_revision
+              },
+              conductor:{
+                version_output:$conductor_version,
+                binary_sha256:$conductor_sha256,
+                requested_cargo_features:$cargo_extra_args,
+                build_info_sha256:$conductor_build_info_sha256
+              },
+              zome_probe:{
+                path:$probe_path,
+                wasm_sha256:$probe_sha256,
+                hdk_features:["unstable-functions","unstable-countersigning"],
+                hdi_features:["unstable-functions"]
+              },
+              not_tested:{
+                two_or_more_agent_session:true,
+                mandatory_signer_validation:true,
+                optional_witness_quorum:true,
+                enzyme_behavior:true,
+                timeout_and_abort:true,
+                source_chain_lock_lifecycle:true,
+                replay_and_duplicate_session:true,
+                crash_recovery:true,
+                production_dna_enablement:true
+              },
+              claim_ceiling:"This proves only that the pinned custom conductor build and feature-gated zome compile. It does not prove countersigning is safe, enabled in the default conductor, integrated into the Finance DNA, or suitable for spendability/finality."
+            }' > "$RUNNER_TEMP/holochain-countersigning-feature-build.json"
+          cat "$RUNNER_TEMP/holochain-countersigning-feature-build.json" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload custom build and zome-probe evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: holochain-countersigning-feature-probe-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/countersigning-conductor-version.txt
+            ${{ runner.temp }}/countersigning-conductor-binary.sha256
+            ${{ runner.temp }}/countersigning-conductor-build-info.json
+            ${{ runner.temp }}/countersigning-zome-probe.sha256
+            ${{ runner.temp }}/holochain-countersigning-feature-build.json
+          if-no-files-found: error
+          retention-days: 30

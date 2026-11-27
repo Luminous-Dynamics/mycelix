@@ -44,6 +44,14 @@
         # Holochain packages from holonix
         holochainPackages = holonix.packages.${system};
 
+        # Opt-in experimental conductor build with countersigning and unstable
+        # host functions. It is deliberately NOT used by default shells or DNA
+        # packaging; promotion requires separate multi-agent qualification.
+        holochainCountersigningExperimental =
+          holochainPackages.holochain.override {
+            cargoExtraArgs = "--features unstable-countersigning,unstable-functions";
+          };
+
         # Import shared Holochain base configuration (repo-root nix/modules; the
         # extra ../ is because mycelix-finance now lives under mycelix-workspace/).
         holochainBase = import ../../nix/modules/holochain-base.nix {
@@ -122,6 +130,9 @@
 
         # Packages (zome WASM builds)
         packages = {
+          # Explicitly opt-in, non-production conductor build for the feature probe.
+          holochain-countersigning-experimental = holochainCountersigningExperimental;
+
           # Build all zomes
           zomes = pkgs.stdenv.mkDerivation {
             name = "mycelix-finance-zomes";
