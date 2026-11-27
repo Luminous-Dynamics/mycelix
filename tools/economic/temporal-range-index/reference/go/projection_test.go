@@ -1,7 +1,6 @@
 package temporalrange
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"testing"
 )
@@ -240,5 +239,4 @@ func TestProjectionReplaySupportsEmptyAndAllNonTemporalInventory(t *testing.T) {
 	if allAudit.NonTemporalReceiptCount != 1 || allAudit.IntervalAssertionCount != 0 {
 		t.Fatalf("wrong all-non-temporal counts: %+v", allAudit)
 	}
-	_ = sha256.Sum256([]byte("compile-time sha256 dependency"))
 }
