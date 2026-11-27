@@ -1,6 +1,6 @@
 # Water Service Repair cross-core benchmark protocol V1
 
-Status: proposed qualification protocol with a four-test executable slice. No field pilot, real service outcome, or comparative performance result is claimed.
+Status: proposed qualification protocol with a five-test executable slice. No field pilot, real service outcome, or comparative performance result is claimed.
 
 ## 1. Research question
 
@@ -40,9 +40,10 @@ Current executable slice:
 - WSR-001: provider reports completion; current pressure restoration and water-quality evidence are absent. Must remain NotEligible; Decision Closure remains OpenMissingElements.
 - WSR-004: current pressure and water-quality evidence is supported. The episode may reach EligibleForLocalReview, while one required material-element mapping review remains absent; Decision Closure returns MappingReviewRequired and never Closed.
 - Source expiry propagates NeedsRevalidation to dependent claim and decision artifacts.
+- WSR-009: an expired permit and revoked crew qualification produce a safety gate block and targeted work-authorization revalidation.
 - Two observations sharing one independence group do not satisfy a two-independent-source rule.
 
-The four tests call all six public owner evaluators. The service-level oracle is separately authored and does not call the owner evaluators. This slice is not the full WSR benchmark: the remaining 14 known-answer cases and other metamorphic relations are not yet run through the adapters.
+The five tests call all six public owner evaluators. The service-level oracle is separately authored and does not call the owner evaluators. This slice is not the full WSR benchmark: three of the 16 known-answer cases are implemented; the remaining 13 cases and other metamorphic relations are not yet run through the adapters.
 
 ## 4. Correctness gates
 
