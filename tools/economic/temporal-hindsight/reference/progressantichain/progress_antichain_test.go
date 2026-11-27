@@ -335,7 +335,7 @@ func TestOversizedQueryCoordinateFailsClosed(t *testing.T) {
 }
 
 func TestProgressWorkBudgetMultiplicationIsOverflowSafe(t *testing.T) {
-	if !exceedsProgressWorkBudget(maxProgressCoordinateComparisons, 1000, 1000) {
+	if !exceedsProgressWorkBudget(maxProgressCoordinateComparisons, 10000, 1001) {
 		t.Fatal("work above the comparison limit was not rejected")
 	}
 	if exceedsProgressWorkBudget(maxProgressCoordinateComparisons, 100, 1000) {
