@@ -75,6 +75,25 @@ References:
 - OCEL 2.1 CSV format: https://www.ocel-standard.org/specification/formats/csv/
 - OCEL dataset/publication collection: https://ocel-standard.org/event-logs/publications/
 
+## 4.1 Restricted OCEL 2.0 profile
+
+The interoperability branch includes one synthetic OCEL 2.0 JSON profile at `ocel/ocel-water-service-v1.json` and a Rust validator/canonicalizer at `harness/src/ocel_profile.rs`.
+
+The profile's 17 objects and 10 events cover complaints, same-fault callout grouping, service episodes, repeat episodes, zones, assets, work orders, crews, permits, samples, sources, lab results, pressure observations and decision revisions. Event attributes carry both source-recorded time and host-assigned sequence. Objects carry time-stamped attribute changes and qualified object-to-object relationships.
+
+The Rust profile validator checks:
+- object/event type declarations and typed attributes;
+- event and object identifier uniqueness;
+- event/object type references and qualified relationship targets;
+- RFC3339-style timestamps with explicit timezone;
+- attribute identity uniqueness (event attribute name; object attribute name plus time);
+- event-to-object and object-to-object references;
+- deterministic canonical ordering and a SHA-256 receipt.
+
+It preserves unrecognized JSON extension values through canonicalization. The canonical digest proves only reproducibility of the declared JSON representation; it is not a source signature, an evidence-authenticity claim, an owner-core result or a semantic service closure.
+
+The profile is deliberately restricted. External validation against the official OCEL 2.0 JSON schema and interoperability round-trips through an independent importer such as Ocelot/PM4Py remain required before claiming general OCEL compatibility. OCEL 2.1.0pre5 serialization is not implemented and remains a separate experimental target.
+
 ## 4. Frozen corpus and executable coverage
 
 The source fixture bundle contains 16 known-answer synthetic WSR episodes and 20 proposed metamorphic transformations.
