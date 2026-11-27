@@ -96,7 +96,7 @@ The profile is deliberately restricted. External validation against the official
 
 ### Differential interoperability benchmark (next gate)
 
-The independent oracle must not share the Rust profile validator's parser or canonicalizer. The official OCEL tool-support matrix lists PM4Py, FLOWVAULT and Ocelot.pm as OCEL 2.0 JSON-capable implementations. PM4Py documents explicit OCEL 2.0 JSON read/write operations; Rust4PM documents JSON import/export through Polars. Ocelot is useful for human inspection, but a browser inspection alone is not a reproducible CI oracle.
+The independent oracle must not share the Rust profile validator's parser or canonicalizer. The official OCEL tool-support matrix lists PM4Py, FLOWVAULT and Ocelot.pm as OCEL 2.0 JSON-capable implementations. PM4Py documents explicit OCEL 2.0 JSON read/write operations; Rust4PM documents JSON import/export through Polars. Ocelot is useful for human inspection, but a browser inspection alone is not a reproducible CI oracle. An exploratory PM4Py 2.7.23.15 importer/exporter round-trip script now exists at `oracles/pm4py_ocel2_roundtrip.py`. It compares a normalized OCEL inventory and is explicitly test-only. Its direct package version is pinned in-script, but the transitive dependency graph and wheel hashes are not yet locked; no PM4Py round-trip pass is claimed until that environment is frozen and executed.
 
 Reference implementations:
 - https://www.ocel-standard.org/tool-support/overview/
