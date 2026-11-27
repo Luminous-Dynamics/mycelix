@@ -91,3 +91,12 @@ The owner cut sequence and receipt-log tree size remain separate coordinate syst
 A first bounded TLA+ model is in `formal/TemporalIntervalProof.tla` with `TemporalIntervalProof.cfg`. It models four leaves, exact-start inclusion, exact-end exclusion, an open-ended interval, safe pruning, and complete partitioning of matching versus pruned records. It states invariants for no false pruning, no false result, complete proof partition, and exact result completeness at termination.
 
 **Formal status:** the TLA+ module/config have been authored but TLC has not been run. Do not describe these invariants as model-checked until an exact TLC version, state count and successful run are recorded.
+
+
+## Canonical proof wire format
+
+`wire.go` provides `MarshalIntervalPointProofV1` and `UnmarshalIntervalPointProofV1`. The wire frame begins with `MYCITPQ1`, then exact scope strings, the seconds/nanoseconds query instant, result count and a typed proof tree. Pruned nodes carry the authenticated count/summary/hash; branch nodes carry only their two ordered children; leaf nodes carry the canonical interval record. The decoder reconstructs leaf hashes/summaries and validates the proof tree before returning it.
+
+Bounds: 64 MiB encoded proof, 1 MiB? No — **1,000,000 records**, 2,000,001 proof nodes, recursion depth 64, and 1,024-byte UTF-8 strings. Nanoseconds must be below 1,000,000,000; end tags are exactly Finite or Open; trailing bytes and unknown node tags fail closed. The expected index root is intentionally **not embedded**: the caller supplies it from the independently authenticated checkpoint/frontier.
+
+The benchmark harness now includes canonical proof wire encoding and decode-plus-verification sub-benchmarks and reports encoded proof bytes. They remain one-iteration CI smoke measurements unless explicitly run with repeated samples and a pinned environment.
