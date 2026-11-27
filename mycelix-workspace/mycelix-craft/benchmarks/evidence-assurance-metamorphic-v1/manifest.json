@@ -26,5 +26,9 @@
   "source_benchmarks": [
     "CRAFT-WATER-SERVICE-REPAIR-V1",
     "CRAFT-NEED-INTAKE-V1"
-  ]
+  ],
+  "mutation_spec_count": 54,
+  "owner_projection_count": 10,
+  "oracle_class_count": 5,
+  "execution_contract_status": "declarative-specification-only"
 }
