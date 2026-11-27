@@ -38,12 +38,19 @@ type AcceptedReceiptProjectionV1 struct {
 
 // AcceptedReceiptInventoryV1 is a claimed complete owner-local receipt-log prefix.
 // This package verifies its internal structure and projection, not its log proof or completeness.
+type OwnerLogLeafV1 struct {
+	LeafIndex    uint64
+	OwnerSequence uint64
+	EntryBytes   []byte
+}
+
 type AcceptedReceiptInventoryV1 struct {
 	OwnerRef           string
 	OwnerHistoryRef    string
 	OwnerSequenceCut   uint64
 	TreeSize           uint64
 	OwnerLogRootDigest string
+	LogLeaves          []OwnerLogLeafV1
 	Receipts           []AcceptedReceiptProjectionV1
 }
 
@@ -70,6 +77,7 @@ type OwnerProjectionReplayAuditV1 struct {
 	OwnerSequenceCut             uint64
 	TreeSize                     uint64
 	ReceiptCount                 uint64
+	NonReceiptLogLeafCount       uint64
 	IntervalAssertionCount       uint64
 	NonTemporalReceiptCount      uint64
 	InventoryDigest              [32]byte
@@ -87,6 +95,7 @@ var (
 	ErrProjectionReceiptClass       = errors.New("unsupported or malformed receipt projection class")
 	ErrProjectionIndexRootMismatch  = errors.New("replayed temporal index root does not match owner binding")
 	ErrProjectionAuditMismatch      = errors.New("projection audit digest does not match owner binding")
+	ErrProjectionReceiptOmitted     = errors.New("canonical knowledge receipt leaf has no temporal projection disposition")
 )
 
 // ComputeOwnerProjectionReplayAuditV1 independently rebuilds the interval index from the
@@ -118,78 +127,110 @@ func ComputeOwnerProjectionReplayAuditV1(
 		inventory.OwnerLogRootDigest != binding.OwnerLogRootDigest {
 		return OwnerProjectionReplayAuditV1{}, ErrProjectionInventoryMismatch
 	}
-	if inventory.TreeSize > maxProjectionReceiptsV1 || uint64(len(inventory.Receipts)) != inventory.TreeSize {
+	if inventory.TreeSize > maxProjectionReceiptsV1 ||
+		uint64(len(inventory.LogLeaves)) != inventory.TreeSize ||
+		uint64(len(inventory.Receipts)) > inventory.TreeSize {
 		return OwnerProjectionReplayAuditV1{}, ErrProjectionLeafCoverage
 	}
 
-	records := make([]IntervalRecordV1, 0, len(inventory.Receipts))
-	receiptEntries := make([][]byte, 0, len(inventory.Receipts))
-	var totalReceiptBytes uint64
-	var nonTemporal uint64
-	var previousSequence uint64
-	for i, receipt := range inventory.Receipts {
-		if receipt.ReceiptLogLeafIndex != uint64(i) {
+	projectionsByLeaf := make(map[uint64]AcceptedReceiptProjectionV1, len(inventory.Receipts))
+	for _, projection := range inventory.Receipts {
+		if projection.ReceiptLogLeafIndex >= inventory.TreeSize ||
+			len(projection.CanonicalReceiptEntryBytes) == 0 ||
+			validateIntervalDigestV1(projection.ReceiptDigest) != nil {
 			return OwnerProjectionReplayAuditV1{}, ErrProjectionLeafCoverage
 		}
-		if receipt.OwnerSequence == 0 || receipt.OwnerSequence > binding.OwnerSequence ||
-			(i > 0 && receipt.OwnerSequence <= previousSequence) {
+		if _, exists := projectionsByLeaf[projection.ReceiptLogLeafIndex]; exists {
+			return OwnerProjectionReplayAuditV1{}, ErrProjectionLeafCoverage
+		}
+		projectionsByLeaf[projection.ReceiptLogLeafIndex] = projection
+	}
+
+	records := make([]IntervalRecordV1, 0, len(inventory.Receipts))
+	logEntries := make([][]byte, 0, len(inventory.LogLeaves))
+	var totalLogBytes uint64
+	var nonTemporal uint64
+	var nonReceiptLeaves uint64
+	var previousSequence uint64
+	for i, leaf := range inventory.LogLeaves {
+		if leaf.LeafIndex != uint64(i) {
+			return OwnerProjectionReplayAuditV1{}, ErrProjectionLeafCoverage
+		}
+		if leaf.OwnerSequence == 0 || leaf.OwnerSequence > binding.OwnerSequence ||
+			(i > 0 && leaf.OwnerSequence <= previousSequence) {
 			return OwnerProjectionReplayAuditV1{}, ErrProjectionSequenceOrder
 		}
-		expectedLeafIndex, ok := ownerLeafIndexForSequenceV1(binding, receipt.OwnerSequence)
+		expectedLeafIndex, ok := ownerLeafIndexForSequenceV1(binding, leaf.OwnerSequence)
 		if !ok || expectedLeafIndex != uint64(i) {
 			return OwnerProjectionReplayAuditV1{}, ErrProjectionSequenceOrder
 		}
-		if validateIntervalDigestV1(receipt.ReceiptDigest) != nil ||
-			len(receipt.CanonicalReceiptEntryBytes) == 0 {
-			return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
-		}
-		totalReceiptBytes += uint64(len(receipt.CanonicalReceiptEntryBytes))
-		if totalReceiptBytes > maxProjectionReceiptBytesV1 {
+		totalLogBytes += uint64(len(leaf.EntryBytes))
+		if totalLogBytes > maxProjectionReceiptBytesV1 {
 			return OwnerProjectionReplayAuditV1{}, ErrProjectionLeafCoverage
 		}
-		canonical, err := decodeCanonicalKnowledgeReceiptEntryV1(receipt.CanonicalReceiptEntryBytes)
+		logEntries = append(logEntries, leaf.EntryBytes)
+		previousSequence = leaf.OwnerSequence
+
+		projection, hasProjection := projectionsByLeaf[leaf.LeafIndex]
+		isKnowledgeReceipt := bytes.HasPrefix(leaf.EntryBytes, []byte(canonicalKnowledgeReceiptMagicV1))
+		if !isKnowledgeReceipt {
+			if hasProjection {
+				return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
+			}
+			nonReceiptLeaves++
+			continue
+		}
+		if !hasProjection {
+			return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptOmitted
+		}
+		if projection.ReceiptLogLeafIndex != leaf.LeafIndex ||
+			projection.OwnerSequence != leaf.OwnerSequence ||
+			!bytes.Equal(projection.CanonicalReceiptEntryBytes, leaf.EntryBytes) {
+			return OwnerProjectionReplayAuditV1{}, ErrProjectionInventoryMismatch
+		}
+		canonical, err := decodeCanonicalKnowledgeReceiptEntryV1(leaf.EntryBytes)
 		if err != nil {
 			return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
 		}
 		if canonical.VerifierRef != scope.VerifierRef ||
 			canonical.PolicyEpochRef != scope.PolicyEpochRef ||
 			canonical.OwnerRef != binding.OwnerRef ||
-			canonical.OwnerSequence != receipt.OwnerSequence ||
-			canonical.AssertionID != receipt.AssertionID {
+			canonical.OwnerSequence != leaf.OwnerSequence ||
+			canonical.AssertionID != projection.AssertionID {
 			return OwnerProjectionReplayAuditV1{}, ErrProjectionInventoryMismatch
 		}
-		if canonical.ReceiptDigest != receipt.ReceiptDigest {
+		if canonical.ReceiptDigest != projection.ReceiptDigest {
 			return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
 		}
-		previousSequence = receipt.OwnerSequence
-		receiptEntries = append(receiptEntries, receipt.CanonicalReceiptEntryBytes)
-
-		switch receipt.Class {
-		case ReceiptProjectsIntervalAssertionV1:
+		if projection.Class == ReceiptProjectsIntervalAssertionV1 {
 			record := IntervalRecordV1{
-				AssertionRef: receipt.AssertionRef,
-				ValidFrom: receipt.ValidFrom,
-				ValidTo: receipt.ValidTo,
-				ReceiptDigest: receipt.ReceiptDigest,
+				AssertionRef: projection.AssertionRef,
+				ValidFrom: projection.ValidFrom,
+				ValidTo: projection.ValidTo,
+				ReceiptDigest: projection.ReceiptDigest,
 			}
-			if receipt.AssertionRef == "" || receipt.AssertionRef != canonical.AssertionID ||
+			if projection.AssertionRef == "" || projection.AssertionRef != canonical.AssertionID ||
 				validateIntervalRecordV1(record) != nil {
 				return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
 			}
 			records = append(records, record)
-		case ReceiptIsNonTemporalV1:
-			if receipt.AssertionRef != "" ||
-				receipt.ValidFrom != (IntervalInstantV1{}) ||
-				receipt.ValidTo != (IntervalEndV1{}) {
+		} else if projection.Class == ReceiptIsNonTemporalV1 {
+			if projection.AssertionRef != "" ||
+				projection.ValidFrom != (IntervalInstantV1{}) ||
+				projection.ValidTo != (IntervalEndV1{}) {
 				return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
 			}
 			nonTemporal++
-		default:
+		} else {
 			return OwnerProjectionReplayAuditV1{}, ErrProjectionReceiptClass
 		}
+		delete(projectionsByLeaf, leaf.LeafIndex)
+	}
+	if len(projectionsByLeaf) != 0 {
+		return OwnerProjectionReplayAuditV1{}, ErrProjectionInventoryMismatch
 	}
 
-	recomputedLogRoot := rfc9162TreeHashV1(receiptEntries)
+	recomputedLogRoot := rfc9162TreeHashV1(logEntries)
 	if fmt.Sprintf("sha256:%x", recomputedLogRoot) != binding.OwnerLogRootDigest {
 		return OwnerProjectionReplayAuditV1{}, ErrProjectionInventoryMismatch
 	}
@@ -205,7 +246,7 @@ func ComputeOwnerProjectionReplayAuditV1(
 	inventoryDigest := hashAcceptedReceiptInventoryV1(scope, binding, inventory)
 	auditDigest := hashOwnerProjectionAuditV1(
 		scope, binding, inventoryDigest, tree.RootHash(),
-		uint64(len(inventory.Receipts)), uint64(len(records)), nonTemporal,
+		uint64(len(inventory.Receipts)), nonReceiptLeaves, uint64(len(records)), nonTemporal,
 	)
 	hasGaps := len(binding.Gaps) > 0
 	return OwnerProjectionReplayAuditV1{
@@ -217,6 +258,7 @@ func ComputeOwnerProjectionReplayAuditV1(
 		OwnerSequenceCut: binding.OwnerSequence,
 		TreeSize: binding.TreeSize,
 		ReceiptCount: uint64(len(inventory.Receipts)),
+		NonReceiptLogLeafCount: nonReceiptLeaves,
 		IntervalAssertionCount: uint64(len(records)),
 		NonTemporalReceiptCount: nonTemporal,
 		InventoryDigest: inventoryDigest,
