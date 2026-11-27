@@ -1,0 +1,64 @@
+{
+  "benchmark_id": "CRAFT-EVIDENCE-ASSURANCE-METAMORPHIC-V1",
+  "schema_version": "1.0.0",
+  "synthetic_only": true,
+  "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+  "seeds": [
+    {
+      "seed_id": "SEED-WSR-001",
+      "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+      "source_case_id": "WSR-001",
+      "description": "Provider completion without independent restoration observation",
+      "synthetic_only": true
+    },
+    {
+      "seed_id": "SEED-WSR-004",
+      "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+      "source_case_id": "WSR-004",
+      "description": "Complete checks, still only eligible for local review",
+      "synthetic_only": true
+    },
+    {
+      "seed_id": "SEED-WSR-005",
+      "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+      "source_case_id": "WSR-005",
+      "description": "Expired restoration evidence",
+      "synthetic_only": true
+    },
+    {
+      "seed_id": "SEED-WSR-007",
+      "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+      "source_case_id": "WSR-007",
+      "description": "Mirrored evidence sharing a common-cause origin",
+      "synthetic_only": true
+    },
+    {
+      "seed_id": "SEED-WSR-008",
+      "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+      "source_case_id": "WSR-008",
+      "description": "Superseded laboratory result and historical closure",
+      "synthetic_only": true
+    },
+    {
+      "seed_id": "SEED-WSR-010",
+      "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+      "source_case_id": "WSR-010",
+      "description": "Partial observed action coverage",
+      "synthetic_only": true
+    },
+    {
+      "seed_id": "SEED-WSR-013",
+      "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+      "source_case_id": "WSR-013",
+      "description": "Long interruption and alternative supply threshold",
+      "synthetic_only": true
+    },
+    {
+      "seed_id": "SEED-WSR-016",
+      "source_benchmark": "CRAFT-WATER-SERVICE-REPAIR-V1",
+      "source_case_id": "WSR-016",
+      "description": "KPI label, time period, and operational definition mismatch",
+      "synthetic_only": true
+    }
+  ]
+}
