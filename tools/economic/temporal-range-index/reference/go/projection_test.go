@@ -261,15 +261,18 @@ func TestProjectionReplayRejectsNonTemporalSmugglingAndDuplicateAssertions(t *te
 	duplicate := inventory
 	duplicate.LogLeaves = append([]OwnerLogLeafV1(nil), inventory.LogLeaves...)
 	duplicate.Receipts = append([]AcceptedReceiptProjectionV1(nil), inventory.Receipts...)
+	duplicatePayload := []byte(`{"profile":"MYCELIX-INTERVAL-ASSERTION-SYNTHETIC-V1","assertion_id":"assertion:grant-42","subject_ref":"grant:42","claim_id":"revoked","valid_from":"2026-11-21T11:00:00Z","valid_to":"2026-11-21T11:00:40Z"}`)
+	duplicateAssertionDigest := receiptDigestFixtureV1(duplicatePayload)
 	duplicateBytes := canonicalReceiptFixtureV1(
-		scope, "receipt:9", "assertion:grant-42", intervalDigestV1(44), "owner:grants", 9,
+		scope, "receipt:9", "assertion:grant-42", duplicateAssertionDigest, "owner:grants", 9,
 	)
 	duplicate.LogLeaves[2].EntryBytes = duplicateBytes
 	duplicate.Receipts[1] = AcceptedReceiptProjectionV1{
 		ReceiptLogLeafIndex: 2,
 		OwnerSequence: 9,
 		ReceiptDigest: receiptDigestFixtureV1(duplicateBytes),
-		AssertionDigest: intervalDigestV1(44),
+		AssertionDigest: duplicateAssertionDigest,
+		AssertionPayloadBytes: duplicatePayload,
 		CanonicalReceiptEntryBytes: duplicateBytes,
 		AssertionID: "assertion:grant-42",
 		Class: ReceiptProjectsIntervalAssertionV1,
@@ -339,8 +342,10 @@ func TestProjectionReplaySupportsEmptyAndAllNonTemporalInventory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	allPayload := []byte(`{"profile":"MYCELIX-METADATA-ASSERTION-SYNTHETIC-V1","assertion_id":"metadata:1","kind":"receipt-metadata"}`)
+	allAssertionDigest := receiptDigestFixtureV1(allPayload)
 	allBytes := canonicalReceiptFixtureV1(
-		scope, "receipt:1", "metadata:1", intervalDigestV1(52), "owner:metadata", 1,
+		scope, "receipt:1", "metadata:1", allAssertionDigest, "owner:metadata", 1,
 	)
 	allBinding := OwnerIntervalIndexBindingV1{
 		OwnerRef: "owner:metadata",
@@ -361,7 +366,8 @@ func TestProjectionReplaySupportsEmptyAndAllNonTemporalInventory(t *testing.T) {
 			ReceiptLogLeafIndex: 0,
 			OwnerSequence: 1,
 			ReceiptDigest: receiptDigestFixtureV1(allBytes),
-			AssertionDigest: intervalDigestV1(52),
+			AssertionDigest: allAssertionDigest,
+			AssertionPayloadBytes: allPayload,
 			CanonicalReceiptEntryBytes: allBytes,
 			AssertionID: "metadata:1",
 			Class: ReceiptIsNonTemporalV1,
