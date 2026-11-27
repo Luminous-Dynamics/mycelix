@@ -1067,8 +1067,18 @@ mod tests {
             validate_plan_amendment_v1(&previous, &attempted_new_plan),
             Err(PlanErrorV1::AmendmentNeedsNewAuthorityDecision)
         );
-        let replay = evaluate_action_coverage_v1(&previous, &[prior_observation], 200).unwrap();
+        let replay = evaluate_action_coverage_v1(&previous, &[prior_observation.clone()], 200).unwrap();
         assert_eq!(replay, prior_report);
+
+        // An observation admitted under P1 cannot be carried forward to P2,
+        // even though P2 has a smaller authorized set.
+        let p2_with_p1_observation =
+            evaluate_action_coverage_v1(&amended, &[prior_observation], 200).unwrap();
+        assert_eq!(p2_with_p1_observation.covered_count, 0);
+        assert_eq!(
+            p2_with_p1_observation.rejected_observations[0].reason,
+            RejectionReasonV1::WrongPlan
+        );
     }
 
     #[test]
