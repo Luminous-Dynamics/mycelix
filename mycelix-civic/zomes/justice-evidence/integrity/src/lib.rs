@@ -58,9 +58,6 @@ pub struct EvidenceDispute {
     pub resolved: bool,
 }
 
-#[hdk_entry_types]
-#[unit_enum(UnitEntryTypes)]
-
 /// Pairwise governance constraint over two Civic evidence records.
 ///
 /// Authorship is bound to the committing Holochain agent in the validation
@@ -102,6 +99,8 @@ pub enum EvidenceConstraintReason {
     DuplicateClaim,
 }
 
+#[hdk_entry_types]
+#[unit_enum(UnitEntryTypes)]
 pub enum EntryTypes {
     Evidence(Evidence),
     EvidenceVerification(EvidenceVerification),
