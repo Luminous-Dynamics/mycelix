@@ -175,7 +175,7 @@ fn valid_utc_second(value: &str) -> bool {
         && day <= days_in_month
         && hour <= 23
         && minute <= 59
-        && second <= 60
+        && second <= 59
 }
 
 fn validate_claim(claim: &TemporalRelationClaimV1) -> Result<(), TemporalRelationshipErrorV1> {
@@ -304,6 +304,7 @@ fn snapshot_digest(
     visible_relation_ids: &[String],
     pending_relation_ids: &[String],
     expired_relation_ids: &[String],
+    known_claims: &[&TemporalRelationClaimV1],
     active: &[TemporalRelationClaimV1],
     conflicts: &[TemporalRelationshipConflictV1],
     known_mutations: &[&TemporalRelationMutationV1],
@@ -330,6 +331,22 @@ fn snapshot_digest(
     hasher.update((expired_relation_ids.len() as u64).to_be_bytes());
     for id in expired_relation_ids {
         hash_field(&mut hasher, id);
+    }
+    hasher.update((known_claims.len() as u64).to_be_bytes());
+    for claim in known_claims {
+        hasher.update(temporal_relation_claim_digest(claim));
+        let validity_state = if claim.valid_from > cut.valid_at {
+            1
+        } else if claim
+            .valid_to
+            .as_deref()
+            .is_some_and(|valid_to| valid_to <= cut.valid_at.as_str())
+        {
+            2
+        } else {
+            3
+        };
+        hasher.update([validity_state]);
     }
     hasher.update((active.len() as u64).to_be_bytes());
     for claim in active {
@@ -495,11 +512,12 @@ pub fn project_temporal_relationships(
         }
     }
 
-    let known_relation_ids: Vec<_> = known_claims
+    let mut ordered_known_claims: Vec<_> = known_claims.iter().copied().collect();
+    ordered_known_claims.sort_by(|left, right| left.relation_id.cmp(&right.relation_id));
+    let known_claim_refs: Vec<_> = ordered_known_claims.iter().copied().collect();
+    let known_relation_ids: Vec<_> = known_claim_refs
         .iter()
         .map(|claim| claim.relation_id.clone())
-        .collect::<BTreeSet<_>>()
-        .into_iter()
         .collect();
     let visible_claims: Vec<_> = known_claims
         .iter()
@@ -662,6 +680,7 @@ pub fn project_temporal_relationships(
         &visible_relation_ids,
         &pending_relation_ids,
         &expired_relation_ids,
+        &known_claim_refs,
         &active_relations,
         &conflicts,
         &known_mutation_refs,
@@ -1052,6 +1071,24 @@ mod tests {
         assert_eq!(receipt.pending_relation_ids, vec!["rel-future"]);
         assert!(receipt.expired_relation_ids.is_empty());
         assert!(receipt.active_relations.is_empty());
+    }
+
+    #[test]
+    fn known_but_not_active_claim_content_is_bound_into_snapshot_digest() {
+        let mut future_a =
+            claim("rel-future", "asset-1", "member_of_zone", "zone-A", T12, 1);
+        future_a.source_recorded_at = T08.to_owned();
+        let mut future_b = future_a.clone();
+        future_b.object_id = "zone-B".to_owned();
+
+        let first =
+            project_temporal_relationships(&[future_a], &[], &cut(T11, 1)).unwrap();
+        let second =
+            project_temporal_relationships(&[future_b], &[], &cut(T11, 1)).unwrap();
+
+        assert!(first.active_relations.is_empty());
+        assert_eq!(first.pending_relation_ids, vec!["rel-future"]);
+        assert_ne!(first.snapshot_sha256, second.snapshot_sha256);
     }
 
     #[test]
