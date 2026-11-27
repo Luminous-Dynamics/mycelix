@@ -177,131 +177,6 @@
       ]
     },
     {
-      "name": "service_episode_opened",
-      "attributes": [
-        {
-          "name": "source_recorded_at",
-          "type": "time"
-        },
-        {
-          "name": "host_sequence",
-          "type": "integer"
-        },
-        {
-          "name": "source_ref",
-          "type": "string"
-        },
-        {
-          "name": "source_digest",
-          "type": "string"
-        },
-        {
-          "name": "severity",
-          "type": "string"
-        }
-      ]
-    },
-    {
-      "name": "work_order_authorized",
-      "attributes": [
-        {
-          "name": "source_recorded_at",
-          "type": "time"
-        },
-        {
-          "name": "host_sequence",
-          "type": "integer"
-        },
-        {
-          "name": "source_ref",
-          "type": "string"
-        },
-        {
-          "name": "source_digest",
-          "type": "string"
-        },
-        {
-          "name": "work_package_ref",
-          "type": "string"
-        }
-      ]
-    },
-    {
-      "name": "provider_reported_complete",
-      "attributes": [
-        {
-          "name": "source_recorded_at",
-          "type": "time"
-        },
-        {
-          "name": "host_sequence",
-          "type": "integer"
-        },
-        {
-          "name": "source_ref",
-          "type": "string"
-        },
-        {
-          "name": "source_digest",
-          "type": "string"
-        },
-        {
-          "name": "provider_status",
-          "type": "string"
-        }
-      ]
-    },
-    {
-      "name": "pressure_restoration_observed",
-      "attributes": [
-        {
-          "name": "source_recorded_at",
-          "type": "time"
-        },
-        {
-          "name": "host_sequence",
-          "type": "integer"
-        },
-        {
-          "name": "source_ref",
-          "type": "string"
-        },
-        {
-          "name": "source_digest",
-          "type": "string"
-        },
-        {
-          "name": "profile_revision",
-          "type": "string"
-        }
-      ]
-    },
-    {
-      "name": "water_sample_collected",
-      "attributes": [
-        {
-          "name": "source_recorded_at",
-          "type": "time"
-        },
-        {
-          "name": "host_sequence",
-          "type": "integer"
-        },
-        {
-          "name": "source_ref",
-          "type": "string"
-        },
-        {
-          "name": "source_digest",
-          "type": "string"
-        },
-        {
-          "name": "sampling_method_ref",
-          "type": "string"
-        }
-      ]
-    },
-    {
       "name": "lab_result_published",
       "attributes": [
         {
@@ -352,6 +227,56 @@
       ]
     },
     {
+      "name": "pressure_restoration_observed",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "type": "time"
+        },
+        {
+          "name": "host_sequence",
+          "type": "integer"
+        },
+        {
+          "name": "source_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_digest",
+          "type": "string"
+        },
+        {
+          "name": "profile_revision",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "provider_reported_complete",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "type": "time"
+        },
+        {
+          "name": "host_sequence",
+          "type": "integer"
+        },
+        {
+          "name": "source_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_digest",
+          "type": "string"
+        },
+        {
+          "name": "provider_status",
+          "type": "string"
+        }
+      ]
+    },
+    {
       "name": "repeat_burst_reported",
       "attributes": [
         {
@@ -372,6 +297,139 @@
         },
         {
           "name": "repeat_classification",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "service_episode_opened",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "type": "time"
+        },
+        {
+          "name": "host_sequence",
+          "type": "integer"
+        },
+        {
+          "name": "source_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_digest",
+          "type": "string"
+        },
+        {
+          "name": "severity",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "source_assertion_corrected",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "type": "time"
+        },
+        {
+          "name": "host_sequence",
+          "type": "integer"
+        },
+        {
+          "name": "source_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_digest",
+          "type": "string"
+        },
+        {
+          "name": "supersedes_event_id",
+          "type": "string"
+        },
+        {
+          "name": "correction_reason",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "source_assertion_revoked",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "type": "time"
+        },
+        {
+          "name": "host_sequence",
+          "type": "integer"
+        },
+        {
+          "name": "source_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_digest",
+          "type": "string"
+        },
+        {
+          "name": "revokes_event_id",
+          "type": "string"
+        },
+        {
+          "name": "revocation_reason",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "water_sample_collected",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "type": "time"
+        },
+        {
+          "name": "host_sequence",
+          "type": "integer"
+        },
+        {
+          "name": "source_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_digest",
+          "type": "string"
+        },
+        {
+          "name": "sampling_method_ref",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "work_order_authorized",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "type": "time"
+        },
+        {
+          "name": "host_sequence",
+          "type": "integer"
+        },
+        {
+          "name": "source_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_digest",
+          "type": "string"
+        },
+        {
+          "name": "work_package_ref",
           "type": "string"
         }
       ]
@@ -1145,6 +1203,96 @@
         {
           "objectId": "asset-1",
           "qualifier": "same_asset"
+        }
+      ]
+    },
+    {
+      "id": "event-011",
+      "type": "source_assertion_corrected",
+      "time": "2026-11-27T13:00:00Z",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "value": "2026-11-27T13:00:04Z"
+        },
+        {
+          "name": "host_sequence",
+          "value": 11
+        },
+        {
+          "name": "source_ref",
+          "value": "pressure-observer-syn-001"
+        },
+        {
+          "name": "source_digest",
+          "value": "sha256:pressure-correction-syn-001"
+        },
+        {
+          "name": "supersedes_event_id",
+          "value": "event-006"
+        },
+        {
+          "name": "correction_reason",
+          "value": "calibration correction supersedes earlier pressure assertion"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "pressure-1",
+          "qualifier": "corrects_observation"
+        },
+        {
+          "objectId": "episode-1",
+          "qualifier": "corrects_episode"
+        },
+        {
+          "objectId": "source-1",
+          "qualifier": "reported_by_source"
+        }
+      ]
+    },
+    {
+      "id": "event-012",
+      "type": "source_assertion_revoked",
+      "time": "2026-11-27T14:00:00Z",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "value": "2026-11-27T14:00:03Z"
+        },
+        {
+          "name": "host_sequence",
+          "value": 12
+        },
+        {
+          "name": "source_ref",
+          "value": "laboratory-syn-001"
+        },
+        {
+          "name": "source_digest",
+          "value": "sha256:lab-revocation-syn-001"
+        },
+        {
+          "name": "revokes_event_id",
+          "value": "event-008"
+        },
+        {
+          "name": "revocation_reason",
+          "value": "chain-of-custody review revokes the earlier result assertion"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "lab-1",
+          "qualifier": "revokes_result"
+        },
+        {
+          "objectId": "sample-1",
+          "qualifier": "concerns_sample"
+        },
+        {
+          "objectId": "source-1",
+          "qualifier": "reported_by_source"
         }
       ]
     }
