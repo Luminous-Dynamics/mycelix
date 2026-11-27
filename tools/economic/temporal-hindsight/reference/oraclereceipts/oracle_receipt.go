@@ -444,6 +444,22 @@ func oversizedOracleReceiptSubmissionDigest(receiptCount uint64, index uint64, f
 	return digestBytes(b.Bytes())
 }
 
+func oversizedOracleReceiptBytesDigest(receiptCount, index uint64, field string, value []byte) string {
+	var b bytes.Buffer
+	writeString(&b, "MYCELIX-ORACLE-RECEIPT-OVERSIZE-BYTES-V1")
+	writeUint64(&b, receiptCount)
+	writeUint64(&b, index)
+	writeString(&b, field)
+	writeUint64(&b, uint64(len(value)))
+	if len(value) <= 128 {
+		writeString(&b, string(value))
+	} else {
+		writeString(&b, string(value[:64]))
+		writeString(&b, string(value[len(value)-64:]))
+	}
+	return digestBytes(b.Bytes())
+}
+
 func preflightOracleReceiptSubmissions(receipts []OracleReceiptV1) (string, string) {
 	if uint64(len(receipts)) > MaxReceiptCount {
 		return "", digestBytes([]byte(fmt.Sprintf(
@@ -487,7 +503,7 @@ func preflightOracleReceiptSubmissions(receipts []OracleReceiptV1) (string, stri
 		} {
 			if uint64(len(field.value)) > field.limit || uint64(len(field.value)) > MaxReceiptEncodingBytes-totalBytes {
 				return fmt.Sprintf("receipt %d %s exceeds the configured byte budget", index, field.label),
-					oversizedOracleReceiptSubmissionDigest(uint64(len(receipts)), uint64(index), field.label, string(field.value))
+					oversizedOracleReceiptBytesDigest(uint64(len(receipts)), uint64(index), field.label, field.value)
 			}
 			totalBytes += uint64(len(field.value))
 		}
