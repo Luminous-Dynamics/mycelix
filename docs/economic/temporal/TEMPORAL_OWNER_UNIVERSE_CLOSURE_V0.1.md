@@ -110,7 +110,46 @@ The local reference benchmark in `reference/scopeclosure/BENCHMARK-OBSERVATIONS.
 - **VTRQ:** separate temporal interval ADS combined with spatial trajectory proofs. Useful for tree maintenance and cross-dimensional proof composition, but not a source-owner closure mechanism. See [VTRQ](https://arxiv.org/abs/2608.21314).
 - **Mycelix:** benchmark the composed path: independently closed scope roster, verifier-relative owner frontier, full owner log, semantic assertion mapping, per-owner interval proofs and historical replay. Only compare systems on identical source universes, updates, query scopes and claim guarantees.
 
-## 9. Composition ownership
+### Additional 2026 ADS baseline: Huffman-Merkle Tree (HMT)
+
+The August 2026 HMT paper is a useful baseline for **owner-key membership hot paths** under skewed access. It adapts a Huffman-shaped Merkle structure with hot/cold tiers, batched re-layout and count-min-sketch frequency estimates. Its evaluation reports lower average hash operations per update and shorter access-weighted membership proofs than the Ethereum MPT and UBT baselines in its tested workload. [HMT paper](https://arxiv.org/abs/2608.25206).
+
+Important limitation: HMT is a membership-proof design in this paper; it is not a drop-in range-completeness proof for enumerating every owner in a scope. Do not use it alone to claim a roster is complete. The experiment should compare it only for point-membership paths and hot-owner proof access, alongside a separate authenticated ordered roster structure for range/coverage completeness.
+
+## 9. Proposed authenticated index stack
+
+Do not force one tree to optimize unrelated proof obligations. The proposed composition is:
+
+1. **Scope-roster range ADS:** authenticated sorted Merkle B+ tree / MCS-style range proof / profile-keyed authenticated index. This proves the complete eligible owner roster for an exact scope and registry epoch, under the source registry's independently qualified completeness semantics.
+2. **Owner-key membership hot path:** compare balanced Merkle map/trie baselines with HMT-style hot/cold proof-layout adaptation. This can accelerate repeated owner membership checks but cannot replace the roster range proof.
+3. **Per-owner temporal ADS:** authenticated interval tree/MCS or Merkle B+ tree range proofs for the business-time query.
+4. **Owner history commitment:** RFC 9162 append-only inclusion/consistency, with ordinary owner-log events included.
+5. **Semantic projection audit:** independent deterministic mapping from accepted canonical assertion bytes to interval episodes.
+6. **Checkpoint trust:** CIV-owned signed tree heads, key lifecycle, witness and split-view evidence.
+7. **Decision replay:** immutable policy/query certificates and historical-frontier noninterference.
+
+A shared query-plan certificate should bind all roots, versions, profiles, exact cuts and the dependency edges between these independent proof domains. No individual layer should be allowed to self-promote another layer's result.
+
+### New benchmark axis: owner access skew and tier churn
+
+In addition to owner count, vary owner access distributions:
+- uniform;
+- Zipf-like skew (multiple exponents);
+- one hot owner / long cold tail;
+- hot-owner rotation over time;
+- bursty access followed by a different hot set;
+- owner churn concurrent with tier migration;
+- malicious query patterns designed to pollute hotness estimates.
+
+Compare balanced Merkle membership, MPT/UBT-style baselines, HMT-like adaptive membership layout, and the chosen range-completeness ADS. Report access-weighted proof bytes, hash operations per read and update, batch-restructure cost, migration proof/verification cost, cache hit rate, worst-case proof size, and tail latency. Bound the promotion/demotion controller so a malicious requester cannot cheaply force repeated reshaping or cause a denial-of-service amplification.
+
+### Evidence from the matched literature
+
+VeriTS reports a 130x difference in objects touched for its 100–2,000-record exact window workload, but its paper also reports that scan baselines were several times faster in wall-clock query latency on the prototype because the scans used a vectorized pass while the tree folded interpreted objects. Its 2,000-record verification object is KB-scale and substantially smaller than per-record proof baselines. The practical lesson is to record both computation and proof transfer/verification; an asymptotic/object-count win is not automatically a latency win. [VeriTS](https://arxiv.org/abs/2608.28318).
+
+VTRQ uses separate spatial and temporal ADSs. In its full Chengdu dataset, the paper reports 284,608 trajectories and roughly 220 million trajectory points; the query experiments use smaller subsets for some baselines that do not scale to the full data. It reports lower verification time than its baseline, often by about an order of magnitude, while showing that spatial verification dominates temporal verification in its workload. This supports separate index/proof domains and independent cost attribution—not collapsing the whole query into one aggregate latency. [VTRQ](https://arxiv.org/abs/2608.21314).
+
+## 10. Composition ownership
 
 Reuse #6705 for open-world source discovery, #1289 for scoped absence, #6441 for the independently verified dependency-closure pattern, #5790 for expected evidence-population completeness, and #6501 for authenticated directory history ingestion. The temporal layer owns only the mapping from the declared query scope to the exact owner universe and the reconciliation of that universe with the accepted frontier. It must not create another owner registry, authorization engine or truth oracle.
 
