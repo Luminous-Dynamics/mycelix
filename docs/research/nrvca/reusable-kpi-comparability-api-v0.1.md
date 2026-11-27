@@ -4,7 +4,7 @@
 **Tracking issue:** [#5442](https://github.com/Luminous-Dynamics/mycelix/issues/5442)  
 **Prior contract:** [NRVCA-014 / PR #5438](https://github.com/Luminous-Dynamics/mycelix/pull/5438)  
 **Implementation:** `mycelix-workspace/tools/nrvca-validator/src/comparability.rs`  
-**Frozen known-answer corpus:** [24-pair synthetic fixture](../../../fixtures/nrvca-kpi-dual-axis-comparability-synthetic-v0.1.json)
+**Frozen known-answer corpora:** [24-pair dual-axis fixture](../../../fixtures/nrvca-kpi-dual-axis-comparability-synthetic-v0.1.json) and [8-pair water-service event-semantics fixture](../../../fixtures/nrvca-water-service-kpi-comparability-v1.json)
 
 ## Paradigm shift
 
@@ -17,15 +17,15 @@ The result is a vector, not one opaque score. The public module requires nonempt
 - `target_policy.status`: `same_target_policy`, `changed_target_policy`, or `indeterminate`.
 - Each axis returns deterministic `changed_fields` and `unknown_fields` in a fixed canonical field order, plus sorted `unsupported_fields` for keys that this version does not understand.
 
-The public API fixes its measurement and target fields. Labels, local identifiers, source-vintage strings and declared semantic fingerprints do not override the actual measured contract. A known semantic mismatch takes precedence over unknown fields; otherwise, any missing, null, empty, ill-typed critical field—or any unrecognized extra key inside an axis object—forces an indeterminate result. This prevents a future field such as a target comparison operator (`at_least` versus `at_most`) from being silently ignored before the contract is versioned. Target-policy changes do not invalidate comparability of actual measurements by themselves.
+The public API fixes its measurement and target fields. The measurement axis includes both `clock_start` and `clock_stop`: a 48-hour response metric ending at crew arrival is not semantically equivalent to a repair-completion or independently observed restoration metric, even when the display label and deadline are identical. Labels, local identifiers, source-vintage strings and declared semantic fingerprints do not override the actual measured contract. A known semantic mismatch takes precedence over unknown fields; otherwise, any missing, null, empty, ill-typed critical field—or any unrecognized extra key inside an axis object—forces an indeterminate result. This prevents a future field such as a target comparison operator (`at_least` versus `at_most`) from being silently ignored before the contract is versioned. Target-policy changes do not invalidate comparability of actual measurements by themselves.
 
 ## Qualification gates
 
-The committed integration test exercises the library API against every frozen known answer and aggregate count, then mutates every measurement field and every target-policy field. It also checks unknown-field and unversioned-extension abstention, mismatch precedence, source-vintage/wording/local-ID invariance, misleading fingerprint resistance, exact numeric JSON comparison, symmetric decisions, and deterministic results.
+The committed integration tests exercise the library API against all 24 generic dual-axis known answers and all 8 water-service event-boundary cases, then mutate every measurement field and every target-policy field. It also checks unknown-field and unversioned-extension abstention, mismatch precedence, source-vintage/wording/local-ID invariance, misleading fingerprint resistance, exact numeric JSON comparison, symmetric decisions, and deterministic results.
 
 Required gates before calling the implementation qualified:
 
-1. Exact expected decisions on all 24 synthetic pairs.
+1. Exact expected decisions on all 24 generic dual-axis pairs and all 8 water-service event-boundary pairs.
 2. Zero false-comparable results for known semantic mismatches in the synthetic adversarial suite.
 3. 100% abstention for a critical missing field when no known mismatch decides the case.
 4. 100% target/measurement-axis separation for target-only mutations.
@@ -59,3 +59,21 @@ Sources: [AWWA Utility Benchmarking](https://www.awwa.org/programs/benchmarking/
 ## Limits
 
 This API performs strict declared-field comparison, not open-ended natural-language semantic inference. A human-reviewed rewrite of a numerator/denominator definition can still be marked non-comparable if the declared canonical fields are changed; that conservative false-incomparable risk is preferable to silently asserting equivalence. A future alias/bridge registry must itself be versioned, source-cited, adjudicated, and tested rather than quietly normalizing text. The API also does not prove a source is truthful, complete, licensed, correctly transcribed, or implemented by an operator as declared. The current fixture is synthetic and small; human adjudication and real source bytes remain prerequisites for empirical claims. No automatic target revision, policy setting, funding ranking or service dispatch is enabled.
+
+
+## Water-service event-boundary extension — 27 November 2026
+
+The Johannesburg Water 48-hour KPI discrepancy is now represented through the reusable public API rather than a second water-only comparability engine. The semantic contract explicitly includes `clock_stop` alongside `clock_start`.
+
+The new synthetic fixture exercises:
+- response initiated / crew arrival versus repair completed;
+- repair completed versus independently observed pressure restoration;
+- wording-only changes with stable event semantics;
+- target-policy changes while measurement semantics remain stable;
+- missing terminal-event semantics and required abstention;
+- misleading caller-supplied fingerprint with changed terminal event;
+- denominator drift and missing denominator.
+
+The source documents motivate the cases, but the synthetic vectors are not byte-pinned source extractions and do not prove operational event definitions. The comparator decides declared-contract comparability only; it cannot verify whether a utility actually implemented its KPI as documented or whether its source data are complete.
+
+The source/period/target distinctions must remain separate from the measurement definition. A changed target does not automatically invalidate the measured event series; a changed terminal event does.
