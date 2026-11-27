@@ -9,7 +9,7 @@ ASSUME Epoch0 # Epoch1
 VARIABLES registryEpoch, liveUniverse, manifestEpoch,
           rosterCandidates, requiredOwners, excludedOwners,
           unknownOwners, exclusionProofs, frontierOwners,
-          rosterClosed, frontierCovered, historicalCertEpoch
+          rosterClosed, frontierCovered, frontierEpoch, historicalCertEpoch
 
 vars == <<registryEpoch, liveUniverse, manifestEpoch,
           rosterCandidates, requiredOwners, excludedOwners,
@@ -28,6 +28,7 @@ Init ==
     /\ frontierOwners = {OwnerA}
     /\ rosterClosed = FALSE
     /\ frontierCovered = FALSE
+    /\ frontierEpoch = Epoch0
     /\ historicalCertEpoch = Epoch0
 
 RegisterOwnerB ==
@@ -113,10 +114,11 @@ AcceptFrontier ==
     /\ frontierOwners = requiredOwners
     /\ frontierCovered = FALSE
     /\ frontierCovered' = TRUE
+    /\ frontierEpoch' = registryEpoch
     /\ UNCHANGED <<registryEpoch, liveUniverse, manifestEpoch,
                    rosterCandidates, requiredOwners, excludedOwners,
                    unknownOwners, exclusionProofs, frontierOwners,
-                   rosterClosed, historicalCertEpoch>>
+                   rosterClosed, frontierEpoch, historicalCertEpoch>>
 
 Next ==
     \/ RegisterOwnerB
@@ -157,6 +159,7 @@ TypeOK ==
     /\ frontierOwners \subseteq Owners
     /\ rosterClosed \in BOOLEAN
     /\ frontierCovered \in BOOLEAN
+    /\ frontierEpoch \in {Epoch0, Epoch1}
     /\ historicalCertEpoch \in {Epoch0, Epoch1}
 
 RosterEpochBinding ==
@@ -179,6 +182,10 @@ FrontierRequiresRoster ==
 
 FrontierExactCoverage ==
     frontierCovered => frontierOwners = requiredOwners
+
+FrontierRosterEpochBinding ==
+    frontierCovered => /\ frontierEpoch = manifestEpoch
+                      /\ frontierEpoch = registryEpoch
 
 NoExcludedOwnerInFrontier ==
     frontierCovered => frontierOwners \cap excludedOwners = {}
