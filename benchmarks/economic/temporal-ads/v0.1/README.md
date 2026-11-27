@@ -28,6 +28,23 @@ The expected values are adjudicated semantics, not claims that any one implement
 
 Scenario fields use owner-local sequence cuts, not a global scalar order. Both query instants and endpoint values use integer seconds plus nanoseconds. Every frontier explicitly binds the registry identity, registry epoch, universe profile, frontier digest and each owner's log-root digest; a frontier from an older roster epoch is not current for a newer owner universe.
 
+## Comparative proof-engine baseline
+
+The benchmark programme now also tracks [#6800 — proof-domain query planning](https://github.com/Luminous-Dynamics/mycelix/issues/6800). This extends the comparison beyond authenticated index structures to general verifiable query execution.
+
+A relevant 2026 comparator is [TruthTable: A Verifiable Query Engine](https://opencryptology.org/2026/1260) (IACR ePrint 2026/1260; verified upload 2026-11-13). Its paper abstract reports 17 of 22 TPC-H queries supported and, on a 1M-row TPC-H database, 55s average proving time, 32ms verification and 24kB proofs. These are paper-reported TPC-H figures, not directly comparable temporal-query measurements. Reproduce/adapt the same query families and report the semantic and trust-boundary differences before making comparisons.
+
+Also include [HMT — Authenticated Data Structures for Dynamic Workloads](https://opencryptology.org/2026/1235) for skew-aware owner membership workloads. HMT membership proofs do not establish complete owner-roster range coverage.
+
+The comparison must distinguish:
+- **ADS verification:** authenticate source membership/ranges, log prefixes and interval query results;
+- **verifiable query execution:** prove execution of a supported relational query over a committed input;
+- **hybrid composition:** authenticate the source snapshot/frontier with ADS proofs, then prove the query plan over those exact authenticated inputs.
+
+A succinct execution proof does not establish real-world truth, source-universe completeness, checkpoint authenticity or semantic interpretation unless those are independently bound and proved. Succinctness also does not imply zero knowledge.
+
+Report query execution, proof generation, verification and end-to-end latency separately, alongside proof/transmission bytes, peak memory, index/update/checkpoint costs, query-plan coverage, privacy leakage and setup/trust assumptions. Pin source commits, corpus manifest, hardware and toolchain; publish raw samples and p50/p95/p99 from at least 30 independent trials after warm-up.
+
 ## Use
 
 - The self-contained Go corpus validator is in this directory. Run `go test ./...`, `go test -race ./...` and `go vet ./...`.
