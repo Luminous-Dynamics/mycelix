@@ -12,6 +12,11 @@ import (
 
 const frontierForestDomainV1 = "MYCELIX-TEMPORAL-FRONTIER-INDEX-FOREST-V0.1\x00"
 
+const (
+	maxForestOwnersV1 = 100_000
+	maxOwnerGapsV1 = 100_000
+)
+
 type OwnerGapRangeV1 struct {
 	First uint64
 	Last  uint64
