@@ -364,7 +364,7 @@ func TestProjectionReplayRecomputesReceiptDigestsAndFullRFC9162OwnerLogRoot(t *t
 	staleDigest.LogLeaves[0].EntryBytes = append([]byte(nil), inventory.LogLeaves[0].EntryBytes...)
 	staleDigest.LogLeaves[0].EntryBytes[len(staleDigest.LogLeaves[0].EntryBytes)-1] ^= 0x01
 	staleDigest.Receipts[0].CanonicalReceiptEntryBytes = append([]byte(nil), staleDigest.LogLeaves[0].EntryBytes...)
-	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, staleDigest); err != ErrProjectionInventoryMismatch {
+	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, staleDigest); err != ErrProjectionReceiptClass {
 		t.Fatalf("mutated canonical receipt with stale digest escaped: %v", err)
 	}
 
