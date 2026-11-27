@@ -6,6 +6,7 @@ This folder contains a frozen, synthetic-only adversarial corpus for the prospec
 - `integration-map.json` maps each case to existing Mycelix semantic owners; WSR-016 reuses NRVCA-014/#5437 and the reusable dual-axis comparator #5442 for measurement-versus-target comparability and explicit clock-stop semantics. It deliberately avoids a duplicate generic evidence/currentness or KPI-comparability service.
 - `metamorphic-cases.json` defines twenty proposed counterfactual mutations, including context, freshness, independence, denominator, regulatory-boundary and KPI-definition tests.
 - `../../docs/WATER-SERVICE-LIFECYCLE-QUALIFICATION-V1.md` defines the customer-outcome measurement model, event chronology, cross-core handoff contract and prospective pilot protocol.
+- `../../docs/WATER-SERVICE-SCARCITY-ADAPTER-V1.md` specifies the water-domain mapping to existing NRVCA shared-budget/Pareto owners; it does not implement an allocator or dispatch service.
 - `cases.json` contains sixteen synthetic known-answer cases.
 
 The published 48-hour burst KPI definition is ambiguous: the 2025/26 business plan defines it as on-site response initiated, not necessarily completed repair. The benchmark therefore separates first response, repair completion, pressure restoration and water-quality release instead of treating them as one clock. It also covers statutory alternative supply during interruptions over 48 hours and extended-supply monitoring after one week.
