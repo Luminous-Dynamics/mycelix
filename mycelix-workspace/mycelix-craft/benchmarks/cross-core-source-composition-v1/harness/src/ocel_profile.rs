@@ -64,9 +64,7 @@ fn array<'a>(root: &'a Value, key: &str) -> Result<&'a [Value], OcelProfileError
         .ok_or(OcelProfileErrorV1::MissingTopLevelCollection)
 }
 
-fn attribute_schema(
-    declaration: &Value,
-) -> Result<AttributeSchema, OcelProfileErrorV1> {
+fn attribute_schema(declaration: &Value) -> Result<AttributeSchema, OcelProfileErrorV1> {
     let attributes = declaration
         .get("attributes")
         .and_then(Value::as_array)
@@ -255,10 +253,7 @@ fn validate_attributes(
     Ok(())
 }
 
-fn relationships(
-    value: &Value,
-    key: &str,
-) -> Result<&[Value], OcelProfileErrorV1> {
+fn relationships(value: &Value, key: &str) -> Result<&[Value], OcelProfileErrorV1> {
     match value.get(key) {
         None => Ok(&[]),
         Some(value) => value
@@ -371,8 +366,7 @@ fn validate_profile(value: &Value) -> Result<OcelProfileReceiptV1, OcelProfileEr
 
     let mut object_to_object_count = 0usize;
     for object in objects {
-        object_to_object_count +=
-            validate_relationships(object, "relationships", &object_ids)?;
+        object_to_object_count += validate_relationships(object, "relationships", &object_ids)?;
     }
 
     let canonical_json = canonical_json(value)?;
@@ -400,8 +394,7 @@ fn validate_profile(value: &Value) -> Result<OcelProfileReceiptV1, OcelProfileEr
 pub fn validate_ocel20_water_profile(
     input: &str,
 ) -> Result<OcelProfileReceiptV1, OcelProfileErrorV1> {
-    let value: Value =
-        serde_json::from_str(input).map_err(|_| OcelProfileErrorV1::InvalidJson)?;
+    let value: Value = serde_json::from_str(input).map_err(|_| OcelProfileErrorV1::InvalidJson)?;
     validate_profile(&value)
 }
 
@@ -442,10 +435,7 @@ pub fn canonical_json(input: &Value) -> Result<String, OcelProfileErrorV1> {
         .and_then(Value::as_array_mut)
         .ok_or(OcelProfileErrorV1::MissingTopLevelCollection)?
     {
-        if let Some(attributes) = object
-            .get_mut("attributes")
-            .and_then(Value::as_array_mut)
-        {
+        if let Some(attributes) = object.get_mut("attributes").and_then(Value::as_array_mut) {
             attributes.sort_by(|left, right| {
                 left.get("name")
                     .and_then(Value::as_str)
@@ -488,20 +478,14 @@ pub fn canonical_json(input: &Value) -> Result<String, OcelProfileErrorV1> {
         .and_then(Value::as_array_mut)
         .ok_or(OcelProfileErrorV1::MissingTopLevelCollection)?
     {
-        if let Some(attributes) = event
-            .get_mut("attributes")
-            .and_then(Value::as_array_mut)
-        {
+        if let Some(attributes) = event.get_mut("attributes").and_then(Value::as_array_mut) {
             attributes.sort_by(|left, right| {
                 left.get("name")
                     .and_then(Value::as_str)
                     .cmp(&right.get("name").and_then(Value::as_str))
             });
         }
-        if let Some(relations) = event
-            .get_mut("relationships")
-            .and_then(Value::as_array_mut)
-        {
+        if let Some(relations) = event.get_mut("relationships").and_then(Value::as_array_mut) {
             relations.sort_by(|left, right| {
                 left.get("objectId")
                     .and_then(Value::as_str)
@@ -643,7 +627,10 @@ mod tests {
             decoded["metadata"]["profile_extensions"]["valid_time_vs_recorded_time"],
             true
         );
-        assert_eq!(decoded["events"][0]["attributes"][0]["name"], "source_recorded_at");
+        assert_eq!(
+            decoded["events"][0]["attributes"][0]["name"],
+            "source_recorded_at"
+        );
         assert_eq!(
             decoded["events"][0]["attributes"].as_array().unwrap().len(),
             5
