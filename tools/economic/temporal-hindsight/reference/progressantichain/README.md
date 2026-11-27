@@ -53,7 +53,7 @@ Timely/Differential Dataflow uses partially ordered timestamps and antichain fro
 
 The current benchmark is a local in-memory algebra smoke test. It excludes capabilities, networking, clock/event-time conversion, proof dependencies, source authentication, checkpoint verification and a production dataflow engine. Use repeated warm trials and publish raw samples/p50/p95/p99 before making performance claims.
 
-Malformed inputs are committed into deterministic failure receipts using a separate domain-separated submission digest. This matters because an Indeterminate result for two different malformed antichains or query cuts must not collapse into the same certificate just because they share a failure reason.
+Malformed inputs are committed into deterministic failure receipts using a separate domain-separated submission digest. For supported-size fields the commitment binds the complete submitted value; for oversized fields it binds the original length plus fixed prefix/suffix samples, and collection traversal is capped. This prevents failure receipt generation itself from becoming an unbounded hashing workload. Distinct in-limit malformed antichains or query cuts must not collapse into the same certificate merely because they share a failure reason.
 
 ## Bounded formal model
 
