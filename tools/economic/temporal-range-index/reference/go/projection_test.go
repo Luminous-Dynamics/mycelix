@@ -344,6 +344,19 @@ func TestProjectionReplaySupportsEmptyAndAllNonTemporalInventory(t *testing.T) {
 	}
 }
 
+func TestProjectionReplayRejectsMalformedKnowledgeReceiptPrefix(t *testing.T) {
+	scope := intervalScopeFixtureV1()
+	binding, inventory := projectionInventoryFixtureV1(scope)
+	malformed := inventory
+	malformed.LogLeaves = append([]OwnerLogLeafV1(nil), inventory.LogLeaves...)
+	malformed.LogLeaves[1].EntryBytes = []byte("MYCELIX-KNOWLEDGE-RECEIPT-V1-missing-nul")
+	// The leaf is now a malformed receipt-envelope candidate, not an ordinary event.
+	malformed.LogLeaves[1].OwnerSequence = 4
+	if _, err := ComputeOwnerProjectionReplayAuditV1(scope, binding, malformed); err != ErrProjectionReceiptClass {
+		t.Fatalf("malformed knowledge receipt prefix was treated as an ordinary owner event: %v", err)
+	}
+}
+
 func TestProjectionReplayRecomputesReceiptDigestsAndFullRFC9162OwnerLogRoot(t *testing.T) {
 	scope := intervalScopeFixtureV1()
 	binding, inventory := projectionInventoryFixtureV1(scope)
