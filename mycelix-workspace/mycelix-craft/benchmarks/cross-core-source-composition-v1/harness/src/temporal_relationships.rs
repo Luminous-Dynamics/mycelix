@@ -1004,7 +1004,7 @@ mod tests {
     }
 
 
-    fn object_object_fixture_attribute(name: &str, value: serde_json::Value) -> serde_json::Value {
+    fn object_fixture_attribute(name: &str, value: serde_json::Value) -> serde_json::Value {
         serde_json::json!({
             "name": name,
             "time": T08,
@@ -1012,7 +1012,7 @@ mod tests {
         })
     }
 
-    fn event_object_fixture_attribute(name: &str, value: serde_json::Value) -> serde_json::Value {
+    fn event_fixture_attribute(name: &str, value: serde_json::Value) -> serde_json::Value {
         serde_json::json!({
             "name": name,
             "value": value
