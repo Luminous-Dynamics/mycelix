@@ -83,7 +83,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          go test -run 'Test(ReceiptChain|AnswerSubstitution|QueryInput|NoResponse|AffirmReject|Backdated|Supersession|Conflicting|EvidenceReference|DuplicateEvidence|Signature|ValidTime|DuplicateReceipt|ReceiptDigest|CanonicalEvidence)' -count=30 ./... 2>&1 | tee -a "$RUNNER_TEMP/oracle-receipts/go.log"
+          go test -run 'Test(ReceiptChain|AnswerSubstitution|QueryInput|NoResponse|AffirmReject|Backdated|Supersession|Conflicting|EvidenceReference|DuplicateEvidence|Signature|ValidTime|DuplicateReceipt|ReceiptDigest|CanonicalEvidence|FailureCertificates|ReceiptEncoding|PreEpochValidTime)' -count=30 ./... 2>&1 | tee -a "$RUNNER_TEMP/oracle-receipts/go.log"
 
       - name: Benchmark oracle receipt chain smoke
         id: receipt_benchmark
