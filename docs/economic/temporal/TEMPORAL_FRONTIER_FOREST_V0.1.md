@@ -76,6 +76,32 @@ It then unions matching interval records while preserving owner identity, histor
 
 Cross-owner sequence values are never compared. A cut at owner A's sequence 100 and owner B's sequence 2 are not ordered by those magnitudes.
 
+## 5. Receipt-to-index projection replay
+
+`projection.go` adds a deterministic, independently recomputed projection audit over one supplied owner-local accepted-receipt inventory.
+
+The supplied inventory has exactly `TreeSize` receipt entries, with zero-based leaf positions `0..TreeSize-1`. Every entry binds the leaf index, owner-local sequence, SHA-256 receipt digest, and a closed projection class:
+
+- `ReceiptProjectsIntervalAssertion`: carries one exact assertion reference and validity interval;
+- `ReceiptIsNonTemporal`: carries no interval fields and contributes no interval record.
+
+The replay validates the owner/history identity and cut against the forest binding, requires contiguous log-leaf indices, strictly increasing owner sequences within the cut, no supplied receipt inside a declared unresolved gap, well-formed receipt digests, canonical interval endpoints and duplicate assertion rejection. It deterministically rebuilds the owner's interval tree and requires its root to equal the manifest's index root.
+
+Two domain-separated commitments are produced:
+
+- accepted-receipt inventory digest: commits to query scope, owner/history/cut, owner log root reference, ordered leaf indices, owner sequences, receipt digests, projection classes and interval payloads;
+- projection audit digest: commits to the inventory digest, derived interval root, owner log root reference, counts and explicit unresolved gaps.
+
+The projection audit digest can be placed in the owner binding and therefore in the frontier forest root. Fixed known-answer vectors cover the inventory digest, derived interval root and audit digest.
+
+### Claim ceiling
+
+The positive replay disposition is only `ProjectionMatchesSuppliedAcceptedInventory`. The result also explicitly returns `ReceiptInventoryAuthenticationNotEvaluated`.
+
+This implementation does **not** authenticate receipt bytes or signatures, verify RFC 9162 inclusion/consistency paths, prove that the supplied inventory is the complete accepted owner-log prefix, authenticate the checkpoint, or establish that the frontier's owner set is complete. A caller that omits a receipt and supplies an incomplete inventory may still create a different internally consistent root; the separate log/checkpoint adapter must prove the supplied inventory exactly corresponds to the committed accepted prefix.
+
+The forest query verifier therefore still returns `ProjectionCompletenessNotEvaluated`. A future `CompleteForAcceptedFrontier` result requires both this deterministic projection replay and an independently qualified log/frontier verifier that authenticates inventory coverage and owner completeness. The two obligations must not be collapsed.
+
 ## 5. Deliberately limited result
 
 The only positive disposition emitted here is:
@@ -116,12 +142,12 @@ The temporal index must still be benchmarked against VeriTS-style AIT/MCS proofs
 
 ## 7. Qualification status and nonclaims
 
-The Go module is a structural reference implementation and adversarial test harness. The current prototype does not implement:
+The Go module is a structural reference implementation and adversarial test harness. Projection replay now detects omitted or altered interval records relative to a supplied accepted receipt inventory, but it does not authenticate that inventory. The current prototype does not implement:
 - signed checkpoint or key lifecycle verification;
 - RFC 9162 receipt proof verification inside this module;
 - witness quorum or split-view detection;
 - owner-history sequence/log-size reconciliation;
-- projection-audit signature or replay verification;
+- projection-audit signature or source-inventory authentication / accepted-prefix completeness;
 - formal model checking;
 - a canonical wire decoder or interoperable VDS/VDP profile;
 - durable persistence or mutation authority.
