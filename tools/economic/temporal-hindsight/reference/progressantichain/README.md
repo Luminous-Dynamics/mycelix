@@ -54,3 +54,11 @@ Timely/Differential Dataflow uses partially ordered timestamps and antichain fro
 The current benchmark is a local in-memory algebra smoke test. It excludes capabilities, networking, clock/event-time conversion, proof dependencies, source authentication, checkpoint verification and a production dataflow engine. Use repeated warm trials and publish raw samples/p50/p95/p99 before making performance claims.
 
 Malformed inputs are committed into deterministic failure receipts using a separate domain-separated submission digest. This matters because an Indeterminate result for two different malformed antichains or query cuts must not collapse into the same certificate just because they share a failure reason.
+
+## Bounded formal model
+
+`formal/TemporalProgressAntichain.tla` models a two-owner product order with three finite frontiers: an initial incomparable pair, an advanced incomparable pair, and the empty declared-completion frontier. It checks antichain validity, monotone progression, and `StableSound`: a stable result may not coexist with any declared progress point that is less than or equal to the query cut.
+
+The mutant spec uses a deliberately premature finalizer and must violate `StableSound`. This finite model does not prove arbitrary owner dimensions, arbitrary sequence values, the source capability ledger, source authentication, or completeness of the owner universe.
+
+The PR workflow runs both the correct model and the mutant with pinned TLA+ tools, retains raw model logs, and uploads a digest-bound run receipt.
