@@ -68,5 +68,5 @@ jobs:
         run: |
           sha256sum "$CROSS_CORE_WORKSPACE/Cargo.lock"
           cat "$CROSS_CORE_WORKSPACE/source-receipt.tsv"
-          printf '%s\n' 'PASS = exact pinned source composition, package tests, rustfmt and Clippy.'
-          printf '%s\n' 'NONCLAIM = cross-core behavior is not yet qualified by this workspace gate.'
+          printf '%s\n' 'PASS = six exact pinned owner cores plus four executable cross-core tests, all owner unit suites, rustfmt and Clippy.'
+          printf '%s\n' 'NONCLAIM = only WSR-001/004 and expiry/common-cause controls are executed; the remaining 14 WSR cases, 20 proposed mutations and any field-service outcome remain unqualified.'
