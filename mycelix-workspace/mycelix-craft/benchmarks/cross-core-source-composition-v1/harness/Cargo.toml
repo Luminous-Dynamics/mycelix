@@ -12,3 +12,4 @@ craft-claim-support-v1 = { path = "../crates/claim-support-v1" }
 craft-decision-closure-v1 = { path = "../crates/decision-closure-v1" }
 craft-evidence-lineage-v1 = { path = "../crates/evidence-lineage-v1" }
 craft-impact-qualification-v1 = { path = "../crates/impact-qualification-v1" }
+craft-action-denominator-v1 = { path = "../crates/craft-action-denominator-v1" }
