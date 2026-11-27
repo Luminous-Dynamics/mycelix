@@ -153,6 +153,6 @@ VTRQ uses separate spatial and temporal ADSs. In its full Chengdu dataset, the p
 
 Reuse #6705 for open-world source discovery, #1289 for scoped absence, #6441 for the independently verified dependency-closure pattern, #5790 for expected evidence-population completeness, and #6501 for authenticated directory history ingestion. The temporal layer owns only the mapping from the declared query scope to the exact owner universe and the reconciliation of that universe with the accepted frontier. It must not create another owner registry, authorization engine or truth oracle.
 
-## 10. Nonclaims
+## 11. Nonclaims
 
 This work does not prove global discovery, source truth, trusted time, registry honesty, signed checkpoint authenticity, legal effect, financial authorization, settlement, or permission to mutate money/journals/external systems.
