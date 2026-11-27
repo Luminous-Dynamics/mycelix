@@ -1,0 +1,336 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luminousdynamics.io/schemas/AeroChangeToTestCaseV1.json",
+  "title": "AeroChangeToTestCaseV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "benchmark_id",
+    "case_id",
+    "predecessor_configuration",
+    "proposed_configuration",
+    "change_set",
+    "evidence",
+    "obligations",
+    "optional_candidates",
+    "expected_invariants"
+  ],
+  "properties": {
+    "schema": {
+      "const": "AeroChangeToTestCaseV1"
+    },
+    "benchmark_id": {
+      "const": "AEROCOMMONS-CHANGE-TO-TEST-001"
+    },
+    "case_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "predecessor_configuration": {
+      "$ref": "#/$defs/ref"
+    },
+    "proposed_configuration": {
+      "$ref": "#/$defs/ref"
+    },
+    "change_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "change_id",
+        "sha256",
+        "changed_artifacts",
+        "changed_inputs",
+        "changed_requirements",
+        "changed_methods",
+        "changed_toolchains"
+      ],
+      "properties": {
+        "change_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "changed_artifacts": {
+          "$ref": "#/$defs/refs"
+        },
+        "changed_inputs": {
+          "$ref": "#/$defs/refs"
+        },
+        "changed_requirements": {
+          "$ref": "#/$defs/refs"
+        },
+        "changed_methods": {
+          "$ref": "#/$defs/refs"
+        },
+        "changed_toolchains": {
+          "$ref": "#/$defs/refs"
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evidence_id",
+          "configuration",
+          "subject",
+          "dependencies",
+          "expected_impact",
+          "reason_path",
+          "dependency_coverage"
+        ],
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "configuration": {
+            "$ref": "#/$defs/ref"
+          },
+          "subject": {
+            "$ref": "#/$defs/ref"
+          },
+          "dependencies": {
+            "$ref": "#/$defs/refs"
+          },
+          "expected_impact": {
+            "enum": [
+              "UNAFFECTED",
+              "CONDITIONAL_REVIEW",
+              "INVALIDATED",
+              "REQUIRES_REVIEW",
+              "UNKNOWN"
+            ]
+          },
+          "reason_path": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dependency_coverage": {
+            "enum": [
+              "COMPLETE",
+              "INCOMPLETE",
+              "UNKNOWN"
+            ]
+          }
+        }
+      }
+    },
+    "obligations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "obligation_id",
+          "evidence_id",
+          "class",
+          "mandatory",
+          "reason_path",
+          "demotable",
+          "state",
+          "closure_receipt"
+        ],
+        "properties": {
+          "obligation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "class": {
+            "enum": [
+              "MANDATORY",
+              "CONDITIONAL_REVIEW",
+              "UNKNOWN"
+            ]
+          },
+          "mandatory": {
+            "type": "boolean"
+          },
+          "reason_path": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "demotable": {
+            "const": false
+          },
+          "state": {
+            "enum": [
+              "OPEN",
+              "CLOSED"
+            ]
+          },
+          "closure_receipt": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ref"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "optional_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_id",
+          "target_decision",
+          "admissibility",
+          "cost",
+          "decision_value",
+          "mandatory_substitute"
+        ],
+        "properties": {
+          "candidate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_decision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "admissibility": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "authority",
+              "method",
+              "envelope",
+              "independent_reference",
+              "rights"
+            ],
+            "properties": {
+              "authority": {
+                "enum": [
+                  "ADMITTED",
+                  "REJECTED",
+                  "UNKNOWN"
+                ]
+              },
+              "method": {
+                "enum": [
+                  "ADMITTED",
+                  "REJECTED",
+                  "UNKNOWN"
+                ]
+              },
+              "envelope": {
+                "enum": [
+                  "ADMITTED",
+                  "REJECTED",
+                  "UNKNOWN"
+                ]
+              },
+              "independent_reference": {
+                "enum": [
+                  "ADMITTED",
+                  "REJECTED",
+                  "UNKNOWN"
+                ]
+              },
+              "rights": {
+                "enum": [
+                  "ADMITTED",
+                  "REJECTED",
+                  "UNKNOWN"
+                ]
+              }
+            }
+          },
+          "cost": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "decision_value": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "lower",
+              "upper",
+              "estimator_id",
+              "calibrated"
+            ],
+            "properties": {
+              "lower": {
+                "type": "number"
+              },
+              "upper": {
+                "type": "number"
+              },
+              "estimator_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "calibrated": {
+                "type": "boolean"
+              }
+            }
+          },
+          "mandatory_substitute": {
+            "const": false
+          }
+        }
+      }
+    },
+    "expected_invariants": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "MANDATORY_SET_IMMUTABLE",
+          "UNKNOWN_NEVER_UNAFFECTED",
+          "REASON_PATH_COMPLETE",
+          "DETERMINISTIC_REPLAY",
+          "OPTIONAL_TESTS_ADMISSIBILITY_GATED",
+          "OPTIONAL_TESTS_WAIT_FOR_MANDATORY_CLOSURE"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    }
+  }
+}
