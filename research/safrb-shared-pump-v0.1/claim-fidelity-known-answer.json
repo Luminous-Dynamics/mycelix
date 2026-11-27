@@ -1,0 +1,112 @@
+{
+  "schema_version": "mycelix-safrb-claim-fidelity-v0.1",
+  "fixture_id": "MYCELIX-SAFRB-SHARED-PUMP-001",
+  "maturity": "synthetic_test_fixture",
+  "source_scenario": {
+    "case_id": "SAFRB-SHARED-PUMP-2ROUTE-001",
+    "scenario_sha256": "0a1c507d3bff9b3062e24ca8718e102244473d839c2a31c5ead31812ee249be2",
+    "owner": "Luminous-Dynamics/symtropy#7483"
+  },
+  "participant": {
+    "participant_id": "synthetic:org:terminal-operator-01",
+    "role": "declared_resource_operator",
+    "recognition_for_purpose": "unknown"
+  },
+  "resource": {
+    "physical_resource_id": "synthetic:physical:pump-01",
+    "resource_type": "fuel_transfer_pump",
+    "reported_capacity": {
+      "lower": 8,
+      "upper": 14,
+      "unit": "t",
+      "claim_status": "reported_unverified",
+      "measurement_source_id": "synthetic:source:pump-observation-01"
+    },
+    "current_availability": "unknown",
+    "title": "unknown",
+    "custody": "unknown",
+    "contract_access": "unknown",
+    "dispatch_authority": "not_granted",
+    "observation_time": "2026-11-26T00:00:00Z",
+    "valid_until": "2026-11-26T01:00:00Z"
+  },
+  "issuer": {
+    "issuer_id": "synthetic:issuer:terminal-operator-01",
+    "key_authentication": "synthetic_authenticated",
+    "recognition_for_claim_purpose": "unknown",
+    "claim_scope": "capacity_observation"
+  },
+  "route_aliases": [
+    {
+      "logical_route_ref": "synthetic:route-a:shared-pump",
+      "physical_resource_id": "synthetic:physical:pump-01",
+      "dependency_role": "claim_critical"
+    },
+    {
+      "logical_route_ref": "synthetic:route-b:shared-pump",
+      "physical_resource_id": "synthetic:physical:pump-01",
+      "dependency_role": "claim_critical"
+    }
+  ],
+  "dependency": {
+    "failure_domain_id": "synthetic:failure-domain:pump-01",
+    "closure_status": "complete_for_this_fixture_only",
+    "both_route_paths_depend_on": [
+      "synthetic:physical:pump-01"
+    ]
+  },
+  "expected_invariants": [
+    "key-authentication-does-not-imply-purpose-recognition",
+    "capacity-observation-does-not-imply-current-availability",
+    "reported-capacity-does-not-imply-verified-capacity",
+    "unknown-title-custody-or-contract-does-not-imply-access",
+    "dispatch-authority-remains-not-granted",
+    "route-aliases-deduplicate-to-one-physical-resource",
+    "shared-pump-common-cause-is-preserved",
+    "adapter-output-authority-certainty-currentness-and-specificity-do-not-exceed-source",
+    "time-window-claims-are-not-aggregated-across-intervals",
+    "upper-bound-capacity-does-not-become-guaranteed-lower-bound",
+    "capacity-claim-validity-must-cover-the-operation-window"
+  ],
+  "prohibited_inferences": [
+    "legal-title-established",
+    "operator-authorized-to-dispatch",
+    "pump-physically-tested",
+    "independent-route-redundancy",
+    "fuel-service-guaranteed",
+    "horizon-total-stock-proves-each-time-window",
+    "later-window-capacity-repairs-earlier-service-breach"
+  ],
+  "source_scenarios": [
+    {
+      "case_id": "SAFRB-SHARED-PUMP-2ROUTE-001",
+      "scenario_sha256": "0a1c507d3bff9b3062e24ca8718e102244473d839c2a31c5ead31812ee249be2",
+      "owner": "Luminous-Dynamics/symtropy#7483"
+    },
+    {
+      "case_id": "SAFRB-TWO-WINDOW-SHARED-PUMP-001",
+      "scenario_sha256": "edfd1c2a5a3eb52a0026a0e63abb38ab2ca8109c4de3d96fbff1215ad78f0308",
+      "owner": "Luminous-Dynamics/symtropy#7483"
+    }
+  ],
+  "time_indexed_resource_claims": [
+    {
+      "physical_resource_id": "synthetic:physical:pump-01",
+      "time_index": 0,
+      "lower": 6,
+      "upper": 8,
+      "unit": "t",
+      "valid_interval": "[0,1)",
+      "claim_status": "reported_unverified_in_real_world_synthetic_admitted_for_fixture"
+    },
+    {
+      "physical_resource_id": "synthetic:physical:pump-01",
+      "time_index": 1,
+      "lower": 3,
+      "upper": 8,
+      "unit": "t",
+      "valid_interval": "[1,2)",
+      "claim_status": "reported_unverified_in_real_world_synthetic_admitted_for_fixture"
+    }
+  ]
+}
