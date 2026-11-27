@@ -177,7 +177,7 @@ func ScopeDigestV1(scope OracleScopeV1) (string, error) {
 func AnswerDigestV1(payload []byte) string {
 	var b bytes.Buffer
 	writeString(&b, "MYCELIX-ORACLE-ANSWER-PAYLOAD-V1")
-	_ = writeUint64(&b, uint64(len(payload)))
+	writeUint64(&b, uint64(len(payload)))
 	_, _ = b.Write(payload)
 	return digestBytes(b.Bytes())
 }
@@ -266,7 +266,7 @@ func SignableDigestV1(scope OracleScopeV1, receipt OracleReceiptV1) (string, err
 	var b bytes.Buffer
 	writeString(&b, "MYCELIX-ORACLE-SIGNABLE-RECEIPT-V1")
 	writeString(&b, scopeDigest)
-	_ = writeUint64(&b, receipt.Sequence)
+	writeUint64(&b, receipt.Sequence)
 	for _, value := range []string{
 		receipt.ReceiptID, receipt.PreviousReceiptDigest,
 		receipt.OracleRef, receipt.KeyEpoch, receipt.AuthorityGrantRef,
@@ -277,16 +277,16 @@ func SignableDigestV1(scope OracleScopeV1, receipt OracleReceiptV1) (string, err
 	} {
 		writeString(&b, value)
 	}
-	_ = writeUint64(&b, uint64(receipt.RecordedAtUnixNanos))
-	_ = writeUint64(&b, uint64(receipt.ValidTime.FromUnixNanos))
+	writeUint64(&b, uint64(receipt.RecordedAtUnixNanos))
+	writeUint64(&b, uint64(receipt.ValidTime.FromUnixNanos))
 	if receipt.ValidTime.OpenEnded {
 		b.WriteByte(1)
 	} else {
 		b.WriteByte(0)
-		_ = writeUint64(&b, uint64(*receipt.ValidTime.ToUnixNanos))
+		writeUint64(&b, uint64(*receipt.ValidTime.ToUnixNanos))
 	}
 	writeString(&b, receipt.SupersedesReceiptID)
-	_ = writeUint32(&b, uint32(len(refs)))
+	writeUint32(&b, uint32(len(refs)))
 	for _, ref := range refs {
 		writeString(&b, ref.Reference)
 		writeString(&b, ref.Kind)
@@ -377,7 +377,7 @@ func ReceiptDigestV1(scope OracleScopeV1, receipt OracleReceiptV1) (string, erro
 	writeString(&b, "MYCELIX-ORACLE-RECEIPT-V1")
 	writeString(&b, signableDigest)
 	writeString(&b, receipt.SignatureScheme)
-	_ = writeUint32(&b, uint32(len(receipt.SignatureBytes)))
+	writeUint32(&b, uint32(len(receipt.SignatureBytes)))
 	_, _ = b.Write(receipt.SignatureBytes)
 	writeString(&b, receipt.SignedMessageDigest)
 	return digestBytes(b.Bytes()), nil
@@ -396,8 +396,8 @@ func finalizeChainResult(result ChainResultV1) ChainResultV1 {
 	writeString(&b, string(result.Disposition))
 	writeString(&b, result.Reason)
 	writeString(&b, result.ScopeDigest)
-	_ = writeUint64(&b, result.ExpectedReceiptCount)
-	_ = writeUint64(&b, result.ObservedReceiptCount)
+	writeUint64(&b, result.ExpectedReceiptCount)
+	writeUint64(&b, result.ObservedReceiptCount)
 	writeString(&b, result.GenesisDigest)
 	writeString(&b, result.ObservedTailDigest)
 	writeString(&b, result.ReceiptChainDigest)
