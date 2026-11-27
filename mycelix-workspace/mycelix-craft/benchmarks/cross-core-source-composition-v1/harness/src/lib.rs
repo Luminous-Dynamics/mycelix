@@ -254,7 +254,18 @@ fn evaluate_episode(case_id: &str, episode: WaterEpisode, local_mapping_reviews:
     );
     let mut mapping = mapping;
     mapping.reviews.truncate(local_mapping_reviews);
-    let closure_packet = closure_helpers::packet(vec![mapping]);
+    let mut closure_packet = closure_helpers::packet(vec![mapping]);
+    // The adapter translates each Claim Support result into the exact domain,
+    // jurisdiction, corpus and standard context expected by Decision Closure.
+    closure_packet.decision.proposal_digest = pressure.proposal_digest;
+    closure_packet.decision.domain_id = pressure.domain_id.clone();
+    closure_packet.decision.jurisdiction_id = pressure.jurisdiction_id.clone();
+    closure_packet.decision.authorized_corpus_id = pressure.authorized_corpus_id.clone();
+    closure_packet.decision.authorized_corpus_digest = pressure.authorized_corpus_digest;
+    closure_packet.decision.standard_id = pressure.domain_standard_id.clone();
+    closure_packet.decision.standard_revision = pressure.domain_standard_revision;
+    closure_packet.decision.standard_digest = pressure.domain_standard_digest;
+    closure_packet.mappings[0].standard_digest = pressure.domain_standard_digest;
     let closure = decision_closure::evaluate_decision_closure(&closure_packet, 100)
         .expect("decision closure evaluates the owner support references");
     let closure_disposition = closure.disposition;
