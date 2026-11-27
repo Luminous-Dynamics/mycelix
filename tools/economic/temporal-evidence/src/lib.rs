@@ -245,8 +245,14 @@ impl TemporalEvidenceSetV1 {
                 .map_err(|_| TemporalKernelErrorV1::MissingEvidenceReference)?;
             validate_content_digest(&assertion.content_digest)?;
 
-            match (assertion.dimension, assertion.validity_interval_ref.as_deref()) {
-                (TemporalDimensionV1::ValidFrom | TemporalDimensionV1::ValidTo, Some(interval_ref)) => {
+            match (
+                assertion.dimension,
+                assertion.validity_interval_ref.as_deref(),
+            ) {
+                (
+                    TemporalDimensionV1::ValidFrom | TemporalDimensionV1::ValidTo,
+                    Some(interval_ref),
+                ) => {
                     validate_identifier(interval_ref)?;
                 }
                 (TemporalDimensionV1::ValidFrom | TemporalDimensionV1::ValidTo, None) => {
@@ -735,17 +741,13 @@ impl TemporalEvidenceSetV1 {
             .collect();
 
         let mut eligible: Vec<(&TemporalAssertionV1, Vec<String>)> = Vec::new();
-        for assertion in self
-            .assertions
-            .iter()
-            .filter(|assertion| {
-                assertion.claim_id == claim_id
-                    && assertion.dimension == dimension
-                    && validity_interval_ref.is_none_or(|expected| {
-                        assertion.validity_interval_ref.as_deref() == Some(expected)
-                    })
-            })
-        {
+        for assertion in self.assertions.iter().filter(|assertion| {
+            assertion.claim_id == claim_id
+                && assertion.dimension == dimension
+                && validity_interval_ref.is_none_or(|expected| {
+                    assertion.validity_interval_ref.as_deref() == Some(expected)
+                })
+        }) {
             let mut knowledge_ids = Vec::new();
             let mut contested_knowledge = false;
             let mut uncertain_knowledge = false;
@@ -1807,8 +1809,18 @@ mod tests {
     fn validity_episode_identity_prevents_cross_period_pairing() {
         let mut assertions = Vec::new();
         for (suffix, interval_ref, start, end) in [
-            ("a", "grant:episode-a", "2026-11-18T00:00:00Z", "2026-11-20T00:00:00Z"),
-            ("b", "grant:episode-b", "2026-11-22T00:00:00Z", "2026-11-24T00:00:00Z"),
+            (
+                "a",
+                "grant:episode-a",
+                "2026-11-18T00:00:00Z",
+                "2026-11-20T00:00:00Z",
+            ),
+            (
+                "b",
+                "grant:episode-b",
+                "2026-11-22T00:00:00Z",
+                "2026-11-24T00:00:00Z",
+            ),
         ] {
             let from_id = format!("from-{suffix}");
             let to_id = format!("to-{suffix}");
@@ -1853,18 +1865,8 @@ mod tests {
         let index = TemporalEvidenceIndexV1::new(evidence.clone()).unwrap();
 
         for (interval_ref, instant, expected_from, expected_to) in [
-            (
-                "grant:episode-a",
-                "2026-11-19T00:00:00Z",
-                "from-a",
-                "to-a",
-            ),
-            (
-                "grant:episode-b",
-                "2026-11-23T00:00:00Z",
-                "from-b",
-                "to-b",
-            ),
+            ("grant:episode-a", "2026-11-19T00:00:00Z", "from-a", "to-a"),
+            ("grant:episode-b", "2026-11-23T00:00:00Z", "from-b", "to-b"),
         ] {
             let expected = evidence
                 .evaluate_validity_interval_at(
@@ -1876,7 +1878,10 @@ mod tests {
                 )
                 .unwrap();
             assert_eq!(expected.disposition, QueryDispositionV1::ValidAtQuery);
-            assert_eq!(expected.valid_from_assertion.as_deref(), Some(expected_from));
+            assert_eq!(
+                expected.valid_from_assertion.as_deref(),
+                Some(expected_from)
+            );
             assert_eq!(expected.valid_to_assertion.as_deref(), Some(expected_to));
             assert_eq!(
                 expected,
