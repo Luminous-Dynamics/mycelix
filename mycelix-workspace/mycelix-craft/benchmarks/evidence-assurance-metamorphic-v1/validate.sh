@@ -274,14 +274,20 @@ if ! jq -n -e --slurpfile seeds "$SEEDS" --slurpfile relations "$RELATIONS" --sl
       | ($seed_ids | index($sid)) != null
       and ($owner_seed_ids | index($sid)) != null
       and any($owner_inputs[0].seeds[];
-        .seed_id == $sid
+        . as $owner_seed
+        | $owner_seed.seed_id == $sid
         and (
           if $spec.owner_view == "source_case" then
-            (.owner_views.source_case.immutable == true)
-            and any($water_cases[0].cases[]; .case_id == .source_case_id and ($spec.target_path | split(".") as $parts | getpath($parts)) != null)
+            $owner_seed.owner_views.source_case.immutable == true
+            and ($owner_seed.source_case_id as $case_id
+              | any($water_cases[0].cases[];
+                  .case_id == $case_id
+                  and ((getpath($spec.target_path | split("."))) != null)
+                )
+              )
           else
-            (.owner_views | has($spec.owner_view))
-            and ((["owner_views", $spec.owner_view] + ($spec.target_path | split("."))) as $parts | getpath($parts)) != null
+            ($spec.target_path | split(".")) as $parts
+            | ($owner_seed | getpath(["owner_views", $spec.owner_view] + $parts)) != null
           end
         )
       )
