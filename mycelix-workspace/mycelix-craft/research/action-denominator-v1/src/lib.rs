@@ -995,7 +995,8 @@ mod tests {
 
     #[test]
     fn wrong_evidence_profile_is_rejected_and_not_counted() {
-        let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
+        let plan =
+            AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
         let mut item = observation(
             &plan,
             "obs:wrong-profile",
@@ -1133,8 +1134,7 @@ mod tests {
         amended_draft.supersedes_plan_digest = Some(previous.digest());
         amended_draft.authority.decision_ref = "authority-decision:2".to_owned();
         amended_draft.authority.decision_digest = digest(4);
-        let amended =
-            AuthorizedActionPlanV1::seal_amendment(&previous, amended_draft).unwrap();
+        let amended = AuthorizedActionPlanV1::seal_amendment(&previous, amended_draft).unwrap();
 
         let prior_observation =
             observation(&previous, "obs:1", "action:1", "independent:1", 100, 900);
