@@ -385,6 +385,67 @@ func BenchmarkAuthenticatedIntervalV1(b *testing.B) {
 				}
 			}
 		})
+		b.Run(fmt.Sprintf("proof_wire_encode/%d", size), func(b *testing.B) {
+			scope := intervalScopeFixtureV1()
+			records := make([]IntervalRecordV1, size)
+			for i := range records {
+				start := int64(i * 4)
+				records[i] = intervalRecordFixtureV1(fmt.Sprintf("assertion:%08d", i), start, start+3)
+			}
+			tree, err := NewIntervalTreeV1(scope, records)
+			if err != nil {
+				b.Fatal(err)
+			}
+			query := intervalPointV1(int64(size*2), 0)
+			proof, err := tree.ProvePointQueryV1(query)
+			if err != nil {
+				b.Fatal(err)
+			}
+			encoded, err := MarshalIntervalPointProofV1(proof)
+			if err != nil {
+				b.Fatal(err)
+			}
+			b.ReportMetric(float64(len(encoded)), "proof_B")
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if _, err := MarshalIntervalPointProofV1(proof); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+		b.Run(fmt.Sprintf("proof_wire_decode_verify/%d", size), func(b *testing.B) {
+			scope := intervalScopeFixtureV1()
+			records := make([]IntervalRecordV1, size)
+			for i := range records {
+				start := int64(i * 4)
+				records[i] = intervalRecordFixtureV1(fmt.Sprintf("assertion:%08d", i), start, start+3)
+			}
+			tree, err := NewIntervalTreeV1(scope, records)
+			if err != nil {
+				b.Fatal(err)
+			}
+			query := intervalPointV1(int64(size*2), 0)
+			proof, err := tree.ProvePointQueryV1(query)
+			if err != nil {
+				b.Fatal(err)
+			}
+			encoded, err := MarshalIntervalPointProofV1(proof)
+			if err != nil {
+				b.Fatal(err)
+			}
+			root := tree.RootHash()
+			b.ReportMetric(float64(len(encoded)), "proof_B")
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				decoded, err := UnmarshalIntervalPointProofV1(encoded)
+				if err != nil {
+					b.Fatal(err)
+				}
+				if _, err := VerifyIntervalPointProofV1(scope, query, decoded, root); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 		b.Run(fmt.Sprintf("proof_verify/%d", size), func(b *testing.B) {
 			scope := intervalScopeFixtureV1()
 			records := make([]IntervalRecordV1, size)
