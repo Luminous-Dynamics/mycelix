@@ -1031,7 +1031,7 @@ mod tests {
         future_mutation.target_claim_digest = [0; 32];
 
         let receipt = project_temporal_relationships(
-            &[known],
+            &[known, future],
             &[future_mutation],
             &cut(T11, 1),
         )
