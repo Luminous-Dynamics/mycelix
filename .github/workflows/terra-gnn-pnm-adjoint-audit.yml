@@ -1,0 +1,38 @@
+name: Terra Preta GNN-PNM adjoint audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'research/terra-preta/tools/gnn-pnm-adjoint-audit/**'
+      - '.github/workflows/terra-gnn-pnm-adjoint-audit.yml'
+  push:
+    branches: ['research/terra-gnn-pnm-adjoint-audit-v0.1']
+    paths:
+      - 'research/terra-preta/tools/gnn-pnm-adjoint-audit/**'
+      - '.github/workflows/terra-gnn-pnm-adjoint-audit.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terra-gnn-pnm-adjoint-audit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  adjoint-gradient-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Verify formatting
+        run: cargo fmt --manifest-path research/terra-preta/tools/gnn-pnm-adjoint-audit/Cargo.toml -- --check
+      - name: Finite-difference adjoint regressions
+        run: cargo test --manifest-path research/terra-preta/tools/gnn-pnm-adjoint-audit/Cargo.toml
+      - name: Strict Clippy
+        run: cargo clippy --manifest-path research/terra-preta/tools/gnn-pnm-adjoint-audit/Cargo.toml --all-targets -- -D warnings
+      - name: Print manufactured gradient comparison
+        run: cargo run --quiet --manifest-path research/terra-preta/tools/gnn-pnm-adjoint-audit/Cargo.toml
