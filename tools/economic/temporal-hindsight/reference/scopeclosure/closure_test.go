@@ -15,7 +15,7 @@ func fixture() (QueryScope, ScopeClosureManifest, UniverseSnapshot, FrontierSnap
 	root,_:=CandidateRoot(candidates)
 	universe:=UniverseSnapshot{RegistryRef:"directory:main",RegistryEpoch:"epoch:42",ProfileRef:"owner-universe:v1",ScopeDigest:scopeDigest,SourceProofDigest:dA,Candidates:candidates}
 	manifest:=ScopeClosureManifest{RegistryRef:universe.RegistryRef,RegistryEpoch:universe.RegistryEpoch,ProfileRef:universe.ProfileRef,ScopeDigest:scopeDigest,CandidateRoot:root,SourceProofDigest:dA,Candidates:candidates}
-	frontier:=FrontierSnapshot{VerifierRef:scope.VerifierRef,PolicyEpochRef:scope.PolicyEpochRef,ScopeDigest:scopeDigest,FrontierDigest:dB,Owners:[]OwnerFrontierBinding{
+	frontier:=FrontierSnapshot{VerifierRef:scope.VerifierRef,PolicyEpochRef:scope.PolicyEpochRef,RegistryRef:universe.RegistryRef,RegistryEpoch:universe.RegistryEpoch,UniverseProfileRef:universe.ProfileRef,ScopeDigest:scopeDigest,FrontierDigest:dB,Owners:[]{
 		{OwnerRef:"owner:A",HistoryRef:"history:A:v1",SequenceCut:2,TreeSize:2,LogRootDigest:dA},
 		{OwnerRef:"owner:B",HistoryRef:"history:B:v1",SequenceCut:1,TreeSize:1,LogRootDigest:dB},
 	}}
