@@ -173,7 +173,7 @@ func readWireNodeV1(reader *bytes.Reader, depth int, nodes *int, query IntervalI
 	if depth > maxIntervalProofWireDepthV1 || *nodes >= maxIntervalProofWireNodesV1 {
 		return nil, ErrIntervalProofEncoding
 	}
-	*nodes++
+	(*nodes)++
 	kind, err := reader.ReadByte()
 	if err != nil {
 		return nil, ErrIntervalProofEncoding
