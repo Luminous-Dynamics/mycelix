@@ -740,8 +740,8 @@ fn evaluate_mapping(
     while changed {
         changed = false;
         for element in &mapping.elements {
-            if status.get(element.element_id.as_str()) == Some(&ElementClosureStatusV1::Satisfied) {
-                if element.depends_on.iter().any(|dependency| {
+            if status.get(element.element_id.as_str()) == Some(&ElementClosureStatusV1::Satisfied)
+                && element.depends_on.iter().any(|dependency| {
                     !matches!(
                         status.get(dependency.as_str()),
                         Some(
@@ -749,13 +749,13 @@ fn evaluate_mapping(
                                 | ElementClosureStatusV1::NotApplicable
                         )
                     )
-                }) {
-                    status.insert(
-                        element.element_id.as_str(),
-                        ElementClosureStatusV1::PrerequisiteUnmet,
-                    );
-                    changed = true;
-                }
+                })
+            {
+                status.insert(
+                    element.element_id.as_str(),
+                    ElementClosureStatusV1::PrerequisiteUnmet,
+                );
+                changed = true;
             }
         }
     }
@@ -794,14 +794,13 @@ fn evaluate_mapping(
         .any(|element| matches!(element.applicability, ElementApplicabilityV1::Unresolved))
     {
         DecisionClosureDispositionV1::MappingReviewRequired
-    } else if elements
-        .iter()
-        .any(|element| element.status == ElementClosureStatusV1::HumanReviewRequired)
-    {
-        DecisionClosureDispositionV1::OpenMissingElements
     } else if elements.iter().any(|element| {
-        element.status == ElementClosureStatusV1::MissingEvidence
-            || element.status == ElementClosureStatusV1::Unsupported
+        matches!(
+            element.status,
+            ElementClosureStatusV1::HumanReviewRequired
+                | ElementClosureStatusV1::MissingEvidence
+                | ElementClosureStatusV1::Unsupported
+        )
     }) {
         DecisionClosureDispositionV1::OpenMissingElements
     } else {
