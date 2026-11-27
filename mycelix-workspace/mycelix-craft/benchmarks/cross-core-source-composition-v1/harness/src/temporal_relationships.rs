@@ -230,6 +230,7 @@ fn validate_mutation(
 /// Length-prefixing prevents ambiguous concatenations of string fields.
 pub fn temporal_relation_claim_digest(claim: &TemporalRelationClaimV1) -> [u8; 32] {
     let mut hasher = Sha256::new();
+    hash_field(&mut hasher, "MYCELIX-TEMPORAL-RELATION-CLAIM-V1");
     hash_field(&mut hasher, &claim.relation_id);
     hash_field(&mut hasher, &claim.subject_id);
     hash_field(&mut hasher, &claim.predicate);
@@ -277,26 +278,34 @@ fn snapshot_digest(
     revoked: &[String],
 ) -> [u8; 32] {
     let mut hasher = Sha256::new();
+    hash_field(&mut hasher, "MYCELIX-TEMPORAL-RELATION-SNAPSHOT-V1");
     hash_field(&mut hasher, &cut.valid_at);
     hasher.update(cut.known_through_sequence.to_be_bytes());
 
+    hasher.update((visible_relation_ids.len() as u64).to_be_bytes());
     for id in visible_relation_ids {
         hash_field(&mut hasher, id);
     }
+    hasher.update((active.len() as u64).to_be_bytes());
     for claim in active {
         hasher.update(temporal_relation_claim_digest(claim));
     }
+    hasher.update((conflicts.len() as u64).to_be_bytes());
     for conflict in conflicts {
         hash_field(&mut hasher, &conflict.subject_id);
         hash_field(&mut hasher, &conflict.predicate);
+        hasher.update((conflict.relation_ids.len() as u64).to_be_bytes());
         for relation_id in &conflict.relation_ids {
             hash_field(&mut hasher, relation_id);
         }
+        hasher.update((conflict.object_ids.len() as u64).to_be_bytes());
         for object_id in &conflict.object_ids {
             hash_field(&mut hasher, object_id);
         }
     }
+    hasher.update((applied_mutations.len() as u64).to_be_bytes());
     for mutation in applied_mutations {
+        hash_field(&mut hasher, "MYCELIX-TEMPORAL-RELATION-MUTATION-V1");
         hash_field(&mut hasher, &mutation.event_id);
         hash_field(&mut hasher, &mutation.target_relation_id);
         hasher.update(mutation.target_claim_digest);
@@ -319,9 +328,11 @@ fn snapshot_digest(
             None => hasher.update([0]),
         }
     }
+    hasher.update((superseded.len() as u64).to_be_bytes());
     for id in superseded {
         hash_field(&mut hasher, id);
     }
+    hasher.update((revoked.len() as u64).to_be_bytes());
     for id in revoked {
         hash_field(&mut hasher, id);
     }
@@ -795,8 +806,7 @@ mod tests {
         let first = claim("rel-1", "asset-1", "in_zone", "zone-1", T08, 1);
         let second = claim("rel-2", "crew-1", "assigned_to", "work-order-1", T08, 2);
         let original = vec![first.clone(), second.clone()];
-        let mut reordered = vec![second, first];
-        reordered.reverse();
+        let reordered = vec![second, first];
 
         let a = project_temporal_relationships(&original, &[], &cut(T11, 2)).unwrap();
         let b = project_temporal_relationships(&reordered, &[], &cut(T11, 2)).unwrap();
