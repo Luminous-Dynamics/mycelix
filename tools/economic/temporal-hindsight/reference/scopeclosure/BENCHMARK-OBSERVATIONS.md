@@ -6,6 +6,7 @@
 - Go: go1.23.2 linux/amd64
 - CPU: Intel(R) Xeon(R) Platinum 8573C
 - Repetitions: 30 benchmark iterations per sub-benchmark (re-run after deterministic failure-order and canonical permutation controls)
+- Measured source revision: `3253d5262361881ef9b0d0ef959a59cee824c43a` (before the later mixed-unknown validation-order hardening and corresponding TLC mutant correction)
 - Command: `go test -run '^$' -bench BenchmarkScopeFrontierReconciliation -benchmem -benchtime=30x ./...`
 
 ```text
@@ -16,4 +17,4 @@ BenchmarkScopeFrontierReconciliation/owners=1000-3    30   1509846 ns/op   13211
 BenchmarkScopeFrontierReconciliation/owners=10000-3   30  23737185 ns/op  13217261 B/op  110105 allocs/op
 ```
 
-These are average operation measurements from Go's 30-iteration benchmark harness; they are not 30 independent end-to-end samples and do not provide p50/p95/p99. The measured operation allocates and sorts in-memory inputs. Registry enumeration, source authentication and network costs are excluded by design.
+These measurements predate the final deterministic validation-order hardening now present on the PR head; rerun them against the latest exact head before using them as a current performance baseline. They are average operation measurements from Go's 30-iteration benchmark harness; they are not 30 independent end-to-end samples and do not provide p50/p95/p99. The measured operation allocates and sorts in-memory inputs. Registry enumeration, source authentication and network costs are excluded by design.
