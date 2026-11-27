@@ -85,7 +85,7 @@ The supplied inventory has exactly `TreeSize` receipt entries, with zero-based l
 - `ReceiptProjectsIntervalAssertion`: carries one exact assertion reference and validity interval;
 - `ReceiptIsNonTemporal`: carries no interval fields and contributes no interval record.
 
-The replay validates the owner/history identity and cut against the forest binding, requires contiguous log-leaf indices, strictly increasing owner sequences within the cut, no supplied receipt inside a declared unresolved gap, well-formed receipt digests, canonical interval endpoints and duplicate assertion rejection. It deterministically rebuilds the owner's interval tree and requires its root to equal the manifest's index root.
+The replay validates the owner/history identity and owner-sequence cut against the forest binding, requires contiguous log-leaf indices up to the separately declared log tree size, strictly increasing owner sequences within the cut, no supplied receipt inside a declared unresolved gap, well-formed receipt digests, canonical interval endpoints and duplicate assertion rejection. It never compares owner-sequence values with log tree size. It deterministically rebuilds the owner's interval tree and requires its root to equal the manifest's index root.
 
 Two domain-separated commitments are produced:
 
