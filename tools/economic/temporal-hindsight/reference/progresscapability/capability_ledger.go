@@ -327,7 +327,7 @@ func ReplayCapabilityLedgerV1(scope CapabilityScopeV1,events []CapabilityEventV1
 		return true
 	}
 	for _,event:=range events {
-		for _,field:=range []string{event.EventID,event.PreviousEventDigest,string(event.Outcome),event.ReconcilesEventID} {
+		for _,field:=range []string{event.EventID,event.PreviousEventDigest,string(event.Outcome),event.ReconcilesEventID,event.EventDigest} {
 			if !addEncodedField(field) { return failedReplay(result,"ledger event encoding byte budget exceeded") }
 		}
 		if event.Transition==nil {continue}
