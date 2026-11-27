@@ -19,7 +19,7 @@ fn water_kpi_event_boundary_cases_match_all_frozen_known_answers() {
     let root = fixture();
     assert_eq!(root["benchmark_id"], "NRVCA-WATER-KPI-EVENT-SEMANTICS-V1");
     let cases = root["cases"].as_array().expect("cases array");
-    assert_eq!(cases.len(), 8);
+    assert_eq!(cases.len(), 9);
 
     for item in cases {
         let result = compare_kpi_contracts(&item["left"], &item["right"]);
