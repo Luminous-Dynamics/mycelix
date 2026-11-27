@@ -2,6 +2,7 @@ package oraclereceipts
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 )
 
@@ -331,6 +332,48 @@ func TestCanonicalEvidenceReferenceSortDoesNotMutateCallerSlice(t *testing.T) {
 	if _, err := SignableDigestV1(scope, receipt); err != nil { t.Fatal(err) }
 	if !bytes.Equal([]byte(receipt.EvidenceReferences[0].Reference), []byte(before[0].Reference)) {
 		t.Fatal("canonicalization mutated caller-owned evidence references")
+	}
+}
+
+func TestFailureCertificatesBindSubmittedReceiptsAndExpectedTail(t *testing.T) {
+	scope := testScope()
+	first := appendReceipt(t, scope, nil, "receipt:first", DispositionAffirm, "answer:first")
+	second := appendReceipt(t, scope, nil, "receipt:second", DispositionAffirm, "answer:second")
+	wrongTailA := VerifyOracleReceiptChainV1(scope, first, 1, testDigestA)
+	wrongTailB := VerifyOracleReceiptChainV1(scope, second, 1, testDigestA)
+	if wrongTailA.Disposition != ChainIndeterminate || wrongTailB.Disposition != ChainIndeterminate {
+		t.Fatal("wrong tail unexpectedly accepted")
+	}
+	if wrongTailA.SubmittedReceiptsDigest == wrongTailB.SubmittedReceiptsDigest ||
+		wrongTailA.CertificateDigest == wrongTailB.CertificateDigest {
+		t.Fatal("different submitted receipts collapsed into one failure certificate")
+	}
+	otherTail := VerifyOracleReceiptChainV1(scope, first, 1, testDigestB)
+	if wrongTailA.ExpectedTailDigest == otherTail.ExpectedTailDigest ||
+		wrongTailA.CertificateDigest == otherTail.CertificateDigest {
+		t.Fatal("expected tail substitution was not bound into failure certificate")
+	}
+}
+
+func TestReceiptEncodingPreflightRejectsOversizedFields(t *testing.T) {
+	scope := testScope()
+	receipt := testReceipt(t, scope, 1, "receipt:one", testGenesis(t, scope), DispositionAffirm, "answer")
+	receipt.ReceiptID = strings.Repeat("r", MaxIdentifierBytes+1)
+	result := VerifyOracleReceiptChainV1(scope, []OracleReceiptV1{receipt}, 1, receipt.ReceiptDigest)
+	if result.Disposition != ChainIndeterminate ||
+		!strings.Contains(result.Reason, "receipt_id") ||
+		result.SubmittedReceiptsDigest == "" {
+		t.Fatalf("oversized receipt field did not fail in bounded preflight: %+v", result)
+	}
+}
+
+func TestPreEpochValidTimeIsRepresentable(t *testing.T) {
+	scope := testScope()
+	receipt := testReceipt(t, scope, 1, "receipt:pre-epoch", testGenesis(t, scope), DispositionAffirm, "historical assessment")
+	end := int64(0)
+	receipt.ValidTime = ValidTimeV1{FromUnixNanos: -10_000_000_000, ToUnixNanos: &end}
+	if _, err := SignableDigestV1(scope, receipt); err != nil {
+		t.Fatalf("pre-epoch valid time was rejected: %v", err)
 	}
 }
 
