@@ -118,8 +118,8 @@
       "name": "Pending or contradictory quality evidence cannot close",
       "risk_tier": "critical",
       "seed_ids": [
-        "SEED-WSR-004",
-        "SEED-WSR-013"
+        "SEED-WSR-003",
+        "SEED-WSR-004"
       ],
       "mutation_ids": [
         "M-QUALITY-RESULT-PENDING",
@@ -280,7 +280,8 @@
       "name": "AI-generated proposal is not consent or authority",
       "risk_tier": "critical",
       "seed_ids": [
-        "SEED-WSR-004"
+        "SEED-WSR-004",
+        "SEED-NIV1-DISSENT-001"
       ],
       "mutation_ids": [
         "M-TREAT-AI-OUTPUT-AS-CONSENT",
