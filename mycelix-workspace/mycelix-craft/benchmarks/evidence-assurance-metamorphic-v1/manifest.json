@@ -10,7 +10,7 @@
   "relation_count": 18,
   "adversarial_operator_count": 34,
   "negative_control_count": 20,
-  "digest_semantics": "Every seed reference points to synthetic WSR fixture identifiers. Digest values are not included here; any digest used by adapters must be explicitly marked as a synthetic placeholder unless it is recomputed from exact fixture bytes.",
+  "digest_semantics": "All seed records are synthetic. WSR seeds reference synthetic WSR corpus case IDs; the NIV1 dissent seed is a benchmark-authored synthetic scenario. Any digest used by a future adapter must be recomputed from exact fixture bytes; shape-only placeholders are never commitments.",
   "execution_status": "protocol-and-structural-validation-only",
   "prohibited_claims": [
     "production evaluator execution",
