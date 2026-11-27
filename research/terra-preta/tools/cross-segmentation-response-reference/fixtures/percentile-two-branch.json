@@ -1,0 +1,34 @@
+{
+  "schema_version": "terra-cross-segmentation-response-reference-v0.1",
+  "fixture_status": "synthetic_only_not_empirical_evidence",
+  "scenario_id": "percentile-segmentation-two-branch-network",
+  "nodes": [
+    {"node_id": "source"},
+    {"node_id": "junction-in"},
+    {"node_id": "upper"},
+    {"node_id": "lower"},
+    {"node_id": "junction-out"},
+    {"node_id": "sink"}
+  ],
+  "edges": [
+    {"edge_id": "inlet", "from_node_id": "source", "to_node_id": "junction-in", "conductance": 1.0},
+    {"edge_id": "upper-a", "from_node_id": "junction-in", "to_node_id": "upper", "conductance": 1.0},
+    {"edge_id": "upper-b", "from_node_id": "upper", "to_node_id": "junction-out", "conductance": 1.0},
+    {"edge_id": "lower-a", "from_node_id": "junction-in", "to_node_id": "lower", "conductance": 1.0},
+    {"edge_id": "lower-b", "from_node_id": "lower", "to_node_id": "junction-out", "conductance": 1.0},
+    {"edge_id": "outlet", "from_node_id": "junction-out", "to_node_id": "sink", "conductance": 1.0}
+  ],
+  "source_node_id": "source",
+  "sink_node_id": "sink",
+  "upper_probe_node_id": "upper",
+  "lower_probe_node_id": "lower",
+  "localized_path_measurement_edge_id": "upper-a",
+  "localized_path_edge_ids": ["upper-a", "upper-b"],
+  "variants": [
+    {"variant_id": "alpha-10", "present_node_ids": ["source", "junction-in", "upper", "lower", "junction-out", "sink"], "present_edge_ids": ["inlet", "upper-a", "upper-b", "lower-a", "lower-b", "outlet"]},
+    {"variant_id": "alpha-30", "present_node_ids": ["source", "junction-in", "upper", "lower", "junction-out", "sink"], "present_edge_ids": ["inlet", "upper-a", "upper-b", "lower-a", "lower-b", "outlet"]},
+    {"variant_id": "alpha-50", "present_node_ids": ["source", "junction-in", "upper", "lower", "junction-out", "sink"], "present_edge_ids": ["inlet", "upper-a", "upper-b", "lower-a", "lower-b", "outlet"]},
+    {"variant_id": "alpha-70", "present_node_ids": ["source", "junction-in", "upper", "lower", "junction-out", "sink"], "present_edge_ids": ["inlet", "upper-a", "lower-a", "lower-b", "outlet"]},
+    {"variant_id": "alpha-90", "present_node_ids": ["source", "junction-in", "upper", "lower", "junction-out", "sink"], "present_edge_ids": ["inlet", "upper-a", "lower-a", "outlet"]}
+  ]
+}
