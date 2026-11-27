@@ -16,7 +16,7 @@ const (
 	maxProgressOwners      = 100000
 	maxProgressPoints      = 4096
 	maxProgressVectorCoordinates uint64 = 5000000
-	maxProgressCoordinateComparisons uint64 = 50000000
+	maxProgressCoordinateComparisons uint64 = 10000000
 
 	ProgressProvisional ProgressDispositionV1 = "Provisional"
 	ProgressStableRelativeToDeclared ProgressDispositionV1 = "StableRelativeToDeclaredProgress"
