@@ -1405,7 +1405,11 @@ mod tests {
         item.resolution_id = Some("community-resolution-1".to_owned());
         item.resolution_ref = Some(artifact("community-resolution-1", 1, 29));
         item.resolution_decision = Some(artifact("community-decision", 1, 27));
-        assert!(validate_summary_preserves_positions(&[position.clone()], &[item.clone()]).is_ok());
+        assert!(validate_summary_preserves_positions(
+            std::slice::from_ref(&position),
+            std::slice::from_ref(&item),
+        )
+        .is_ok());
         let mut changed = position;
         changed.position_digest = [33; 32];
         assert_eq!(
