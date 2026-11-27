@@ -100,3 +100,18 @@ A first bounded TLA+ model is in `formal/TemporalIntervalProof.tla` with `Tempor
 Bounds: 64 MiB encoded proof, 1 MiB? No — **1,000,000 records**, 2,000,001 proof nodes, recursion depth 64, and 1,024-byte UTF-8 strings. Nanoseconds must be below 1,000,000,000; end tags are exactly Finite or Open; trailing bytes and unknown node tags fail closed. The expected index root is intentionally **not embedded**: the caller supplies it from the independently authenticated checkpoint/frontier.
 
 The benchmark harness now includes canonical proof wire encoding and decode-plus-verification sub-benchmarks and reports encoded proof bytes. They remain one-iteration CI smoke measurements unless explicitly run with repeated samples and a pinned environment.
+
+
+## Adversarial interval workload matrix
+
+`BenchmarkTemporalQueryWorkloadsV1` separates seven deterministic workloads at 1k / 10k / 100k intervals:
+
+- disjoint sparse (one result);
+- clustered intervals (local result groups);
+- nested intervals (all overlap at the query point);
+- all-overlap;
+- future-only (complete empty result via future pruning);
+- expired-only (complete empty result via end-boundary pruning);
+- open-ended (all matching).
+
+For each it reports build, linear-scan baseline, proof generation, proof node/pruned/expanded/returned-leaf counts, canonical proof bytes, and wire decode-plus-verification. The CI invocation uses one iteration per case only to catch harness/code regressions. It is not a stable performance measurement. Repeated pinned runs are still required for p50/p95/p99, confidence intervals and raw sample publication.
