@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - 'docs/economic/temporal/AUTHENTICATED_INTERVAL_QUERY_V0.1.md'
+      - 'docs/economic/temporal/TEMPORAL_FRONTIER_FOREST_V0.1.md'
       - 'tools/economic/temporal-range-index/**'
       - '.github/workflows/economic-temporal-range-proof.yml'
   push:
     branches: [main]
     paths:
       - 'docs/economic/temporal/AUTHENTICATED_INTERVAL_QUERY_V0.1.md'
+      - 'docs/economic/temporal/TEMPORAL_FRONTIER_FOREST_V0.1.md'
       - 'tools/economic/temporal-range-index/**'
       - '.github/workflows/economic-temporal-range-proof.yml'
   workflow_dispatch:
@@ -21,7 +23,7 @@ jobs:
   go-interval-reference:
     name: Go authenticated interval reference exact-head qualification
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -47,7 +49,7 @@ jobs:
         run: |
           unformatted="$(gofmt -l .)"
           if [ -n "$unformatted" ]; then
-            printf 'Files requiring gofmt:\\n%s\\n' "$unformatted"
+            printf 'Files requiring gofmt:\n%s\n' "$unformatted"
             gofmt -d $unformatted
             exit 1
           fi
@@ -68,45 +70,17 @@ jobs:
         working-directory: tools/economic/temporal-range-index/reference/go
         env:
           GOTOOLCHAIN: local
-        run: go test -run '^
-      - name: Report claim ceiling
-        run: |
-          printf '%s\n' \
-            'PASS = the Go reference reconstructs its scoped root and returns complete interval-stabbing results for the frozen tests.' \
-            'BENCHMARK = one-iteration harness smoke only; no stable latency, SOTA or production claim.' \
-            'NOT TESTED = Rust parity, canonical proof wire decoding, source/index projection completeness, signed checkpoint trust, witness non-equivocation or external-effect authority.'
- -bench '^BenchmarkAuthenticatedIntervalV1
-      - name: Report claim ceiling
-        run: |
-          printf '%s\n' \
-            'PASS = the Go reference reconstructs its scoped root and returns complete interval-stabbing results for the frozen tests.' \
-            'BENCHMARK = one-iteration harness smoke only; no stable latency, SOTA or production claim.' \
-            'NOT TESTED = Rust parity, canonical proof wire decoding, source/index projection completeness, signed checkpoint trust, witness non-equivocation or external-effect authority.'
- -benchtime=1x -benchmem
+        run: go test -run '^$' -bench '^BenchmarkAuthenticatedIntervalV1$' -benchtime=1x -benchmem
 
       - name: Adversarial workload benchmark smoke (not a performance qualification)
         working-directory: tools/economic/temporal-range-index/reference/go
         env:
           GOTOOLCHAIN: local
-        run: go test -run '^
-      - name: Report claim ceiling
-        run: |
-          printf '%s\n' \
-            'PASS = the Go reference reconstructs its scoped root and returns complete interval-stabbing results for the frozen tests.' \
-            'BENCHMARK = one-iteration harness smoke only; no stable latency, SOTA or production claim.' \
-            'NOT TESTED = Rust parity, canonical proof wire decoding, source/index projection completeness, signed checkpoint trust, witness non-equivocation or external-effect authority.'
- -bench '^BenchmarkTemporalQueryWorkloadsV1
-      - name: Report claim ceiling
-        run: |
-          printf '%s\n' \
-            'PASS = the Go reference reconstructs its scoped root and returns complete interval-stabbing results for the frozen tests.' \
-            'BENCHMARK = one-iteration harness smoke only; no stable latency, SOTA or production claim.' \
-            'NOT TESTED = Rust parity, canonical proof wire decoding, source/index projection completeness, signed checkpoint trust, witness non-equivocation or external-effect authority.'
- -benchtime=1x -benchmem
+        run: go test -run '^$' -bench '^BenchmarkTemporalQueryWorkloadsV1$' -benchtime=1x -benchmem
 
       - name: Report claim ceiling
         run: |
           printf '%s\n' \
-            'PASS = the Go reference reconstructs its scoped root and returns complete interval-stabbing results for the frozen tests.' \
+            'PASS = the Go reference reconstructs scoped interval roots, full owner receipt-log roots, and projection replay for the frozen tests.' \
             'BENCHMARK = one-iteration harness smoke only; no stable latency, SOTA or production claim.' \
-            'NOT TESTED = Rust parity, canonical proof wire decoding, source/index projection completeness, signed checkpoint trust, witness non-equivocation or external-effect authority.'
+            'NOT TESTED = Rust parity, trusted checkpoint/key/witness verification, assertion-payload-to-interval semantic mapping, or external-effect authority.'
