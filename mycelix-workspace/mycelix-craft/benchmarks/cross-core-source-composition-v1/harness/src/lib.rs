@@ -1098,6 +1098,92 @@ mod tests {
     }
 
     #[test]
+    fn wsr009_expired_permit_and_revoked_crew_block_safety_critical_work() {
+        use project_formation::EvidenceDispositionV1;
+        use project_formation::RequirementKindV1;
+        use project_formation::RequirementDispositionV1;
+        use evidence_lineage::{
+            ArtifactKindV1, ChangeReasonV1, DependencyRelationV1, ImpactPolicyV1,
+            ArtifactStateV1,
+        };
+
+        let project = project_helpers::project(RequirementKindV1::SafetyCritical, 1);
+        let proposal = project_helpers::proposal(
+            vec![project_helpers::member("crew:maintainer-1")],
+            vec![project_helpers::assignment(
+                "crew:maintainer-1",
+                vec![project_helpers::evidence(
+                    "crew:maintainer-1",
+                    EvidenceDispositionV1::Revoked,
+                )],
+            )],
+        );
+        let team = project_formation::evaluate_team(&project, &proposal, 10)
+            .expect("revoked crew evidence remains a typed safety blocker");
+        assert_eq!(
+            team.requirements[0].disposition,
+            RequirementDispositionV1::BlockedBySafetyGate
+        );
+
+        let permit = lineage_helpers::reference("wsr:permit:worksite-7", 1, 51);
+        let crew = lineage_helpers::reference("wsr:crew-qualification:maintainer-1", 1, 52);
+        let authorization =
+            lineage_helpers::reference("wsr:work-authorization:episode-11", 1, 53);
+        let nodes = vec![
+            evidence_lineage::ArtifactNodeV1 {
+                reference: permit.clone(),
+                kind: ArtifactKindV1::Source,
+                dependencies: vec![],
+            },
+            evidence_lineage::ArtifactNodeV1 {
+                reference: crew.clone(),
+                kind: ArtifactKindV1::Source,
+                dependencies: vec![],
+            },
+            evidence_lineage::ArtifactNodeV1 {
+                reference: authorization.clone(),
+                kind: ArtifactKindV1::Other,
+                dependencies: vec![
+                    lineage_helpers::dependency(
+                        permit.clone(),
+                        DependencyRelationV1::SourcedFrom,
+                        ImpactPolicyV1::RevalidateOnChange,
+                    ),
+                    lineage_helpers::dependency(
+                        crew.clone(),
+                        DependencyRelationV1::SourcedFrom,
+                        ImpactPolicyV1::RevalidateOnChange,
+                    ),
+                ],
+            },
+        ];
+        let events = vec![
+            lineage_helpers::event(
+                "wsr:permit-expired",
+                1,
+                permit.clone(),
+                ChangeReasonV1::Expired,
+                None,
+            ),
+            lineage_helpers::event(
+                "wsr:crew-revoked",
+                2,
+                crew.clone(),
+                ChangeReasonV1::Revoked,
+                None,
+            ),
+        ];
+        let lineage = evidence_lineage::evaluate_lineage(&nodes, &events)
+            .expect("permit and crew change events have unique monotone sequences");
+        assert_eq!(lineage.state_for(&permit), Some(ArtifactStateV1::Expired));
+        assert_eq!(lineage.state_for(&crew), Some(ArtifactStateV1::Revoked));
+        assert_eq!(
+            lineage.state_for(&authorization),
+            Some(ArtifactStateV1::NeedsRevalidation)
+        );
+    }
+
+    #[test]
     fn duplicated_common_cause_cannot_satisfy_independent_k_of_n() {
         use impact::{SupportEvidenceStateV1, SupportRuleV1, SupportSufficiencyV1};
         let result = impact::evaluate_support_sufficiency(
