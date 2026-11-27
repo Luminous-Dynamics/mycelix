@@ -117,6 +117,24 @@ Required differential cases:
 8. Reconstruct the same valid-time slice at accepted-sequence frontiers 10, 11 and 12; event 006 remains effective at frontier 10, is superseded at 11, and event 008 is revoked only at 12.
 9. Reordering the OCEL event array cannot change the replay receipt; duplicate host sequences, unknown mutation targets, non-causal mutations and conflicting mutations fail closed.
 
+### Published OCPM scale anchors (context, not a head-to-head result)
+
+A 2026 study, *Advancing object-centric process mining with multi-dimensional data operations*, evaluates four publicly available BPIC-derived OCEL collections (BPIC 2014, 2016, 2017 and 2019). The reported logs span roughly 0.7 million to more than 7 million events and around 0.1 million to more than 0.7 million objects. Its BPIC 2016 stress case reports about 29 seconds per unfold call and about 60 seconds for drill-down; loading that log into PM4Py was roughly an order of magnitude slower than loading the other studied logs. The paper also reports that the OCPA conformance implementation timed out on 20 of 91 groups during fitness/precision calculation, despite the log transformations being applicable to all 91 groups.
+
+These results are **published context, not a directly comparable baseline**: benchmark hardware, versions, preprocessing, and detailed runner conditions must be matched before drawing performance conclusions. They do, however, make the 10^7-event target concrete rather than arbitrary and highlight two important gaps to benchmark: expensive import/whole-log materialization and conformance under complex object-centric parallelism.
+
+Add these public workloads to the benchmark registry:
+- BPIC 2014 / 2016 / 2017 / 2019 OCEL variants for parse, canonicalize, relation inventory, temporal projection and scale testing;
+- public object-centric state-aware logs for state-transition and dynamic object-relationship reconstruction;
+- the WSR synthetic corpus for domain-specific correction, revocation, duplicate-callout and safety/closure semantics.
+
+For process analysis, compare the data transformations against the published drill-down, roll-up, unfold and fold operations and state-aware lifecycle exploration (including FLOWVAULT). Mycelix does not currently implement all four OLAP transformations or a general process-discovery engine; those are separate comparator tasks, not implied capabilities. The novel target is to preserve evidence lineage and reproduce decision-relevant state at exact historical frontiers while still interoperating with those analytical views.
+
+References:
+- 2026 OCPM multi-dimensional operations and BPIC scale study: https://link.springer.com/article/10.1007/s10115-026-02904-0
+- Official OCEL event-log collection: https://ocel-standard.org/event-logs/overview/
+- FLOWVAULT state-aware OCEL lifecycle analysis: https://ocel-standard.org/tool-support/software/flowvault/
+
 Scale ladder (report each result separately, do not average correctness with speed):
 - 10^3 events: developer feedback and mutation-test corpus.
 - 10^5 events: practical integration scale.
