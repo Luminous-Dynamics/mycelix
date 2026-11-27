@@ -36,7 +36,37 @@ fn set_attribute(event: &mut Value, name: &str, value: Value) -> Result<(), Box<
     Ok(())
 }
 
-fn generate_log(path: &Path, event_count: usize) -> Result<(), Box<dyn Error>> {
+fn set_object_attribute(
+    object: &mut Value,
+    name: &str,
+    value: Value,
+) -> Result<(), Box<dyn Error>> {
+    let attributes = object
+        .get_mut("attributes")
+        .and_then(Value::as_array_mut)
+        .ok_or("object attributes must be an array")?;
+    let attribute = attributes
+        .iter_mut()
+        .find(|attribute| attribute.get("name").and_then(Value::as_str) == Some(name))
+        .ok_or_else(|| format!("missing object attribute {name}"))?;
+    attribute["value"] = value;
+    Ok(())
+}
+
+fn object_template(fixture: &Value, id: &str) -> Result<Value, Box<dyn Error>> {
+    fixture
+        .get("objects")
+        .and_then(Value::as_array)
+        .and_then(|objects| objects.iter().find(|object| object["id"] == id))
+        .cloned()
+        .ok_or_else(|| format!("fixture must contain object {id}").into())
+}
+
+fn generate_log(
+    path: &Path,
+    event_count: usize,
+    complaints_per_callout: usize,
+) -> Result<(usize, usize), Box<dyn Error>> {
     let fixture: Value = serde_json::from_str(FIXTURE)?;
     let template = fixture
         .get("events")
@@ -44,6 +74,12 @@ fn generate_log(path: &Path, event_count: usize) -> Result<(), Box<dyn Error>> {
         .and_then(|events| events.iter().find(|event| event["id"] == "event-001"))
         .cloned()
         .ok_or("fixture must contain event-001")?;
+    let complaint_template = object_template(&fixture, "complaint-1")?;
+    let callout_template = object_template(&fixture, "callout-1")?;
+    if complaints_per_callout == 0 {
+        return Err("complaints per callout must be greater than zero".into());
+    }
+    let callout_group_count = event_count.div_ceil(complaints_per_callout);
 
     if let Some(parent) = path.parent().filter(|parent| !parent.as_os_str().is_empty()) {
         fs::create_dir_all(parent)?;
@@ -55,16 +91,63 @@ fn generate_log(path: &Path, event_count: usize) -> Result<(), Box<dyn Error>> {
     serde_json::to_writer(&mut writer, &fixture["objectTypes"])?;
     writer.write_all(b",\"eventTypes\":")?;
     serde_json::to_writer(&mut writer, &fixture["eventTypes"])?;
-    writer.write_all(b",\"objects\":")?;
-    serde_json::to_writer(&mut writer, &fixture["objects"])?;
-    writer.write_all(b",\"events\":[")?;
+    writer.write_all(b",\"objects\":[")?;
+    let base_objects = fixture["objects"]
+        .as_array()
+        .ok_or("fixture objects must be an array")?;
+    let mut first_object = true;
+    for object in base_objects {
+        if !first_object {
+            writer.write_all(b",")?;
+        }
+        serde_json::to_writer(&mut writer, object)?;
+        first_object = false;
+    }
+
+    // Keep the first fixture callout as group zero, then add one callout per
+    // additional group. Every generated complaint gets its own object identity.
+    for group in 1..callout_group_count {
+        let mut callout = callout_template.clone();
+        callout["id"] = Value::String(format!("scale-callout-{group:012}"));
+        if !first_object {
+            writer.write_all(b",")?;
+        }
+        serde_json::to_writer(&mut writer, &callout)?;
+        first_object = false;
+    }
+    for index in 1..=event_count {
+        let group = (index - 1) / complaints_per_callout;
+        let mut complaint = complaint_template.clone();
+        complaint["id"] = Value::String(format!("scale-complaint-{index:012}"));
+        set_object_attribute(
+            &mut complaint,
+            "fault_fingerprint",
+            Value::String(format!("scale-fault-{group:012}")),
+        )?;
+        if !first_object {
+            writer.write_all(b",")?;
+        }
+        serde_json::to_writer(&mut writer, &complaint)?;
+        first_object = false;
+    }
+
+    writer.write_all(b"],\"events\":[")?;
 
     for index in 1..=event_count {
         if index > 1 {
             writer.write_all(b",")?;
         }
         let mut event = template.clone();
+        let group = (index - 1) / complaints_per_callout;
+        let complaint_id = format!("scale-complaint-{index:012}");
+        let callout_id = if group == 0 {
+            "callout-1".to_owned()
+        } else {
+            format!("scale-callout-{group:012}")
+        };
         event["id"] = Value::String(format!("scale-event-{index:012}"));
+        event["relationships"][0]["objectId"] = Value::String(complaint_id);
+        event["relationships"][1]["objectId"] = Value::String(callout_id);
         set_attribute(&mut event, "host_sequence", Value::from(index as u64))?;
         set_attribute(
             &mut event,
@@ -86,7 +169,7 @@ fn generate_log(path: &Path, event_count: usize) -> Result<(), Box<dyn Error>> {
 
     writer.write_all(b"]}\n")?;
     writer.flush()?;
-    Ok(())
+    Ok((event_count, callout_group_count))
 }
 
 fn sha256_file(path: &Path) -> Result<String, Box<dyn Error>> {
@@ -130,7 +213,12 @@ fn percentile(sorted: &[u128], numerator: usize, denominator: usize) -> u128 {
     sorted[rank.saturating_sub(1).min(sorted.len() - 1)]
 }
 
-fn run(event_count: usize, output: PathBuf, repeats: usize) -> Result<(), Box<dyn Error>> {
+fn run(
+    event_count: usize,
+    output: PathBuf,
+    repeats: usize,
+    complaints_per_callout: usize,
+) -> Result<(), Box<dyn Error>> {
     if event_count == 0 || event_count > MAX_EVENTS {
         return Err(format!("events must be between 1 and {MAX_EVENTS}").into());
     }
@@ -138,7 +226,8 @@ fn run(event_count: usize, output: PathBuf, repeats: usize) -> Result<(), Box<dy
         return Err("repeats must be between 5 and 100".into());
     }
 
-    generate_log(&output, event_count)?;
+    let (generated_complaints, callout_group_count) =
+        generate_log(&output, event_count, complaints_per_callout)?;
     let input_bytes = fs::metadata(&output)?.len();
     let input_sha256 = sha256_file(&output)?;
     let input = fs::read_to_string(&output)?;
@@ -224,7 +313,10 @@ fn run(event_count: usize, output: PathBuf, repeats: usize) -> Result<(), Box<dy
 
     let report = serde_json::json!({
         "benchmark": "craft_ocel_profile_and_temporal_replay_v1",
-        "generator_profile": "repeated complaint_logged event with unique ID, source reference, source digest and host sequence",
+        "generator_profile": "unique complaint objects grouped into callouts with configurable fan-out",
+        "generated_complaint_object_count": generated_complaints,
+        "callout_group_count": callout_group_count,
+        "complaints_per_callout": complaints_per_callout,
         "gate": "measurement_only",
         "event_count": event_count,
         "object_count": object_count,
@@ -260,8 +352,8 @@ fn run(event_count: usize, output: PathBuf, repeats: usize) -> Result<(), Box<dy
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    if args.len() < 2 || args.len() > 3 {
-        eprintln!("usage: ocel-scale-bench EVENTS OUTPUT_PATH [REPEATS]");
+    if args.len() < 2 || args.len() > 4 {
+        eprintln!("usage: ocel-scale-bench EVENTS OUTPUT_PATH [REPEATS] [COMPLAINTS_PER_CALLOUT]");
         std::process::exit(2);
     }
 
@@ -280,8 +372,16 @@ fn main() {
             std::process::exit(2);
         }
     };
+    let complaints_per_callout =
+        match args.get(3).map(|value| value.parse::<usize>()).transpose() {
+            Ok(value) => value.unwrap_or(100),
+            Err(error) => {
+                eprintln!("invalid complaints-per-callout value: {error}");
+                std::process::exit(2);
+            }
+        };
 
-    if let Err(error) = run(event_count, output, repeats) {
+    if let Err(error) = run(event_count, output, repeats, complaints_per_callout) {
         eprintln!("OCEL scale benchmark failed: {error}");
         std::process::exit(1);
     }
