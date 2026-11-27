@@ -7,6 +7,7 @@ SEEDS="$ROOT/seeds.json"
 RELATIONS="$ROOT/relations.json"
 MUTATIONS="$ROOT/mutations.json"
 SCORECARD="$ROOT/scorecard.json"
+COMPARATORS="$ROOT/comparators.json"
 
 command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 127; }
 
@@ -21,6 +22,7 @@ if ! jq -e '
   and .adversarial_operator_count == 30
   and .negative_control_count == 16
   and .scorecard_metric_count == 15
+  and .comparator_count == 9
   and ((.prohibited_claims | type) == "array")
   and ((.prohibited_claims | length) >= 5)
 ' "$MANIFEST" >/dev/null; then
@@ -67,6 +69,28 @@ if ! jq -e '
   )
 ' "$RELATIONS" >/dev/null; then
   echo "Metamorphic relation schema validation failed." >&2
+  exit 1
+fi
+
+if ! jq -e '
+  .benchmark_id == "CRAFT-EVIDENCE-ASSURANCE-METAMORPHIC-V1"
+  and .schema_version == "1.0.0"
+  and ((.comparators | type) == "array")
+  and ((.comparators | length) == 9)
+  and (([.comparators[].comparator_id] | unique | length) == 9)
+  and all(.comparators[];
+    (.comparator_id | type == "string" and test("^BASE-[A-Z0-9-]+$"))
+    and (.name | type == "string" and length > 0)
+    and (.category | type == "string" and length > 0)
+    and (.configuration_requirements | type == "array" and length > 0)
+    and (.required_outputs | type == "array" and length > 0)
+    and (.interpretation_guard | type == "string" and length > 0)
+    and (if .category == "commercial_alm" then (.official_reference | type == "string" and startswith("https://")) else true end)
+  )
+  and (.non_comparable_policy.no_penalty_for_missing_interface == true)
+  and (.non_comparable_policy.no_claim_of_absence_without_admin_attestation == true)
+' "$COMPARATORS" >/dev/null; then
+  echo "Comparator registry validation failed: missing baseline controls, outputs, or fair-comparison policy." >&2
   exit 1
 fi
 
