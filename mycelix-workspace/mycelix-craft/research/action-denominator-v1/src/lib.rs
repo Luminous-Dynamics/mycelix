@@ -945,7 +945,8 @@ mod tests {
 
     #[test]
     fn wrong_zone_observation_is_rejected_and_not_counted() {
-        let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
+        let plan =
+            AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
         let mut item = observation(
             &plan,
             "obs:wrong-zone",
@@ -965,7 +966,8 @@ mod tests {
 
     #[test]
     fn expired_or_revoked_observations_never_count_as_coverage() {
-        let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
+        let plan =
+            AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
         let mut expired = observation(&plan, "obs:expired", "action:1", "source:1", 100, 150);
         expired.status = ObservationStatusV1::Expired;
         let report = evaluate_action_coverage_v1(&plan, &[expired], 200).unwrap();
@@ -974,7 +976,8 @@ mod tests {
 
     #[test]
     fn explicit_revocation_invalidates_prior_positive_in_same_group() {
-        let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
+        let plan =
+            AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
         let positive = observation(&plan, "obs:positive", "action:1", "group:meter-1", 100, 900);
         let mut revoked = observation(&plan, "obs:revoked", "action:1", "group:meter-1", 150, 900);
         revoked.status = ObservationStatusV1::Revoked;
@@ -992,7 +995,8 @@ mod tests {
 
     #[test]
     fn explicit_expiry_invalidates_prior_positive_in_same_group() {
-        let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
+        let plan =
+            AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
         let positive = observation(&plan, "obs:positive", "action:1", "group:meter-1", 100, 900);
         let mut expired = observation(
             &plan,
@@ -1013,7 +1017,8 @@ mod tests {
 
     #[test]
     fn explicit_dispute_surfaces_conflict_for_the_action() {
-        let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
+        let plan =
+            AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
         let mut disputed =
             observation(&plan, "obs:disputed", "action:1", "group:meter-1", 150, 900);
         disputed.status = ObservationStatusV1::Disputed;
@@ -1114,7 +1119,8 @@ mod tests {
 
     #[test]
     fn plan_is_indeterminate_outside_its_authorized_lifetime() {
-        let plan = AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
+        let plan =
+            AuthorizedActionPlanV1::seal(draft(vec![action("action:1", vec![], 1)])).unwrap();
         let before_issue = evaluate_action_coverage_v1(&plan, &[], 9).unwrap();
         let after_expiry = evaluate_action_coverage_v1(&plan, &[], 1000).unwrap();
         assert_eq!(
