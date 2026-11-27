@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "\${1:?usage: materialize.sh OUTPUT_DIRECTORY}"
+: "${1:?usage: materialize.sh OUTPUT_DIRECTORY}"
 OUT_DIR="$1"
-REMOTE="\${MYCELIX_GIT_REMOTE:-origin}"
-SCRIPT_DIR="$(cd -- "$(dirname -- "\${BASH_SOURCE[0]}")" && pwd)"
+REMOTE="${MYCELIX_GIT_REMOTE:-origin}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 MANIFEST="$SCRIPT_DIR/components.tsv"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
@@ -18,12 +18,12 @@ mkdir -p "$OUT_DIR/crates"
 count=0
 declare -A seen_crates=()
 while IFS=$'\t' read -r pr branch expected_commit crate expected_manifest_blob expected_lib_blob; do
-  [[ -z "\${pr:-}" || "$pr" == \#* ]] && continue
-  [[ -n "\${branch:-}" && -n "\${expected_commit:-}" && -n "\${crate:-}" ]] || {
-    printf 'Malformed source manifest row for PR %s\n' "\${pr:-unknown}" >&2
+  [[ -z "${pr:-}" || "$pr" == \#* ]] && continue
+  [[ -n "${branch:-}" && -n "${expected_commit:-}" && -n "${crate:-}" ]] || {
+    printf 'Malformed source manifest row for PR %s\n' "${pr:-unknown}" >&2
     exit 2
   }
-  [[ -z "\${seen_crates[$crate]+x}" ]] || {
+  [[ -z "${seen_crates[$crate]+x}" ]] || {
     printf 'Duplicate crate entry: %s\n' "$crate" >&2
     exit 2
   }
