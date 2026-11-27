@@ -401,7 +401,31 @@ impl TemporalEvidenceSetV1 {
             verifier_ref,
             valid_at,
             known_at,
+            None,
             allow_open_ended_valid_to,
+        )
+    }
+
+    /// Evaluate one exact validity episode. Legacy or mismatched endpoint identities
+    /// cannot be used to construct an interval-specific answer. Missing VALID_TO
+    /// remains Indeterminate; caller policy alone does not establish an open end.
+    pub fn evaluate_validity_interval_at(
+        &self,
+        claim_id: &str,
+        validity_interval_ref: &str,
+        verifier_ref: &str,
+        valid_at: &str,
+        known_at: &str,
+    ) -> Result<BitemporalValidityResultV1, TemporalKernelErrorV1> {
+        self.validate()?;
+        validate_identifier(validity_interval_ref)?;
+        self.evaluate_valid_at_validated(
+            claim_id,
+            verifier_ref,
+            valid_at,
+            known_at,
+            Some(validity_interval_ref),
+            false,
         )
     }
 
@@ -411,6 +435,7 @@ impl TemporalEvidenceSetV1 {
         verifier_ref: &str,
         valid_at: &str,
         known_at: &str,
+        validity_interval_ref: Option<&str>,
         allow_open_ended_valid_to: bool,
     ) -> Result<BitemporalValidityResultV1, TemporalKernelErrorV1> {
         validate_identifier(claim_id)?;
@@ -446,12 +471,14 @@ impl TemporalEvidenceSetV1 {
             TemporalDimensionV1::ValidFrom,
             verifier_ref,
             &knowledge_query,
+            validity_interval_ref,
         )?;
         let to = self.select_as_known(
             claim_id,
             TemporalDimensionV1::ValidTo,
             verifier_ref,
             &knowledge_query,
+            validity_interval_ref,
         )?;
 
         let (from, from_knowledge) = match from {
@@ -518,6 +545,29 @@ impl TemporalEvidenceSetV1 {
             }
         };
 
+        let mut knowledge_ids = from_knowledge.clone();
+        knowledge_ids.extend(to_knowledge.clone());
+        knowledge_ids.sort();
+        knowledge_ids.dedup();
+
+        let episode_binding_is_valid = from.validity_interval_ref.is_some()
+            && to.as_ref().is_some_and(|to_assertion| {
+                to_assertion.validity_interval_ref == from.validity_interval_ref
+            });
+        if !episode_binding_is_valid {
+            return Ok(build_validity_result(ValidityResultInput {
+                disposition: QueryDispositionV1::Indeterminate,
+                claim_id,
+                subject_ref: &subject_ref,
+                verifier_ref,
+                valid_at,
+                known_at,
+                valid_from: Some(from),
+                valid_to: to,
+                knowledge_assertions: knowledge_ids,
+            }));
+        }
+
         if let Some(to_assertion) = to {
             let from_time = normalize_utc(&from.time_value)?;
             let to_time = normalize_utc(&to_assertion.time_value)?;
@@ -525,11 +575,6 @@ impl TemporalEvidenceSetV1 {
                 return Err(TemporalKernelErrorV1::InvalidValidityInterval);
             }
         }
-
-        let mut knowledge_ids = from_knowledge;
-        knowledge_ids.extend(to_knowledge);
-        knowledge_ids.sort();
-        knowledge_ids.dedup();
 
         let disposition = if from.quality == TemporalQualityV1::Contested
             || to.is_some_and(|assertion| assertion.quality == TemporalQualityV1::Contested)
@@ -591,6 +636,7 @@ impl TemporalEvidenceSetV1 {
             TemporalDimensionV1::OccurredAt,
             verifier_ref,
             &knowledge_query,
+            None,
         )? {
             Selection::Missing | Selection::NotKnown => OccurrenceAsKnownResultV1 {
                 disposition: OccurrenceQueryDispositionV1::NotKnown,
@@ -646,6 +692,7 @@ impl TemporalEvidenceSetV1 {
         dimension: TemporalDimensionV1,
         verifier_ref: &str,
         known_at: &NormalizedTime,
+        validity_interval_ref: Option<&str>,
     ) -> Result<Selection<'_>, TemporalKernelErrorV1> {
         let by_id: BTreeMap<&str, &TemporalAssertionV1> = self
             .assertions
@@ -657,7 +704,13 @@ impl TemporalEvidenceSetV1 {
         for assertion in self
             .assertions
             .iter()
-            .filter(|assertion| assertion.claim_id == claim_id && assertion.dimension == dimension)
+            .filter(|assertion| {
+                assertion.claim_id == claim_id
+                    && assertion.dimension == dimension
+                    && validity_interval_ref.is_none_or(|expected| {
+                        assertion.validity_interval_ref.as_deref() == Some(expected)
+                    })
+            })
         {
             let mut knowledge_ids = Vec::new();
             let mut contested_knowledge = false;
@@ -690,7 +743,11 @@ impl TemporalEvidenceSetV1 {
 
         if eligible.is_empty() {
             let has_assertion = self.assertions.iter().any(|assertion| {
-                assertion.claim_id == claim_id && assertion.dimension == dimension
+                assertion.claim_id == claim_id
+                    && assertion.dimension == dimension
+                    && validity_interval_ref.is_none_or(|expected| {
+                        assertion.validity_interval_ref.as_deref() == Some(expected)
+                    })
             });
             return Ok(if has_assertion {
                 Selection::NotKnown
