@@ -64,6 +64,23 @@ cargo +1.96.0 run --release --manifest-path "$OUT_DIR/Cargo.toml" \
 
 Benchmark separately at 1,000, 100,000 and 1,000,000 events; reserve 10,000,000 events for a suitably provisioned isolated host, not ordinary CI. Repeat with complaints-per-callout values such as 1, 10, 100 and 1,000 to vary object count and relation fan-out while holding event count fixed. This probes the current whole-document memory behaviour; it is not a streaming result. No performance result is claimed until the exact command, source SHA, generator, CPU/RAM/OS, Rust toolchain and raw JSON output are recorded.
 
+## Temporal relationship claims (experimental follow-on)
+
+The stacked research branch [research/craft-temporal-relationship-claims-v0.1-20261127](https://github.com/Luminous-Dynamics/mycelix/tree/research/craft-temporal-relationship-claims-v0.1-20261127) adds the typed Rust prototype in `harness/src/temporal_relationships.rs`.
+
+A relationship is represented as a claim with a stable relation ID, subject, predicate, object, half-open valid-time interval, source-recorded timestamp, accepted host sequence, source reference/digest, asserting principal and authority scope. Supersede and revoke operations are append-only mutation records. A supersession points to a replacement relation claim and commits to the exact target claim digest. At a given valid-time and accepted-sequence frontier, the projection returns active edges, conflicting assignments, applied mutation IDs and a deterministic snapshot digest.
+
+The V1 prototype deliberately surfaces competing claims rather than applying a latest-row-wins rule. For example, if an asset has an old zone assignment and a replacement assignment is accepted before the supersession event, both claims remain visible and are returned as a conflict until the supersession is both effective in valid time and inside the accepted-sequence frontier. A revocation similarly changes the projection only when both frontiers include it. Supersession chains are sequence-ordered; a retired relation cannot be reactivated by a later correction.
+
+Run the focused tests in the materialized workspace:
+
+```sh
+cargo +1.96.0 test --manifest-path "$OUT_DIR/Cargo.toml" \
+  -p craft-water-cross-core-harness temporal_relationships::tests
+```
+
+This is an in-memory projection prototype, not yet a parser or direct OCEL-to-tEKG adapter. It does not verify source signatures, independently authenticate an asserting principal, prove that authority scope is legally valid, or certify that a relationship is true. The accepted sequence is a knowledge frontier, not trusted transaction time. PM4Py/tEKG interchange and a separate authority-verification oracle remain follow-on work in [#6805](https://github.com/Luminous-Dynamics/mycelix/issues/6805).
+
 ## Claim boundary
 
 A green result establishes that the six pinned packages can coexist in one Cargo workspace and that each package's own unit tests, formatting and Clippy gates pass in that combined source snapshot.
