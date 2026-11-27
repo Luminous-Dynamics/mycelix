@@ -5,6 +5,7 @@
   "owner_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6771",
   "parent_benchmark_issue": "https://github.com/Luminous-Dynamics/mycelix/issues/6751",
   "data_classification": "synthetic-only",
+  "no_real_personal_data": true,
   "generator": {
     "name": "hand-authored-adversarial-conformance-fixtures",
     "seed": "not-applicable",
