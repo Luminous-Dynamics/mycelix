@@ -5,6 +5,7 @@ on:
     paths:
       - "tools/economic/temporal-range-index/formal/TemporalFrontierNoninterference*"
       - "tools/economic/temporal-hindsight/**"
+      - "benchmarks/economic/temporal-ads/v0.1/**"
       - "docs/economic/temporal/HISTORICAL_FRONTIER_NONINTERFERENCE_V0.1.md"
       - "docs/economic/temporal/TEMPORAL_OWNER_UNIVERSE_CLOSURE_V0.1.md"
       - ".github/workflows/temporal-frontier-noninterference-tlc.yml"
@@ -98,6 +99,16 @@ jobs:
           go vet ./...
           go test -run 'TestValidFrontierOverOmittedOwner|TestManifestCannotSelfDeclareAnIncompleteRoster|TestLaterRegistryEpochDoesNotRewriteHistoricalCertificate|TestMultipleOmissionsProduceDeterministicFailureCertificate|TestCandidateOrderingDoesNotChangeReconciliationCertificate|TestMultipleUnknownCandidatesHaveDeterministicFailureReason' -count=30 ./...
           go test -run '^$' -bench BenchmarkScopeFrontierReconciliation -benchmem -benchtime=1x ./...
+
+      - name: Validate language-neutral temporal ADS corpus
+        if: hashFiles('benchmarks/economic/temporal-ads/v0.1/go.mod') != ''
+        working-directory: benchmarks/economic/temporal-ads/v0.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test ./...
+          go test -race ./...
+          go vet ./...
 
       - name: Check historical frontier noninterference specification
         if: hashFiles('tools/economic/temporal-range-index/formal/TemporalFrontierNoninterference.tla') != ''
