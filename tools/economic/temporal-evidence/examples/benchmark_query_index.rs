@@ -31,6 +31,7 @@ fn fact(
         source_authority_ref: "benchmark-source-authority-v1".into(),
         evidence_ref: format!("benchmark-evidence:{id}"),
         content_digest: format!("sha256:{}", "0".repeat(64)),
+        validity_interval_ref: None,
         assertion_ref: None,
         verifier_ref: None,
         knowledge_frontier_ref: None,
