@@ -60,10 +60,53 @@ pub struct EvidenceDispute {
 
 #[hdk_entry_types]
 #[unit_enum(UnitEntryTypes)]
+
+/// Pairwise governance constraint over two Civic evidence records.
+///
+/// Authorship is bound to the committing Holochain agent in the validation
+/// callback. The authority receipt hash is a content commitment, not a signature.
+#[hdk_entry_helper]
+#[derive(Clone, PartialEq)]
+pub struct EvidenceConstraint {
+    pub schema_version: u16,
+    pub id: String,
+    pub left_evidence_id: String,
+    pub right_evidence_id: String,
+    pub relation: EvidenceConstraintRelation,
+    pub reason: EvidenceConstraintReason,
+    /// Derived from the real committing agent; never caller-controlled.
+    pub issuer: String,
+    pub authority_receipt_sha256: String,
+    pub constraint_policy_sha256: String,
+    /// Half-open valid-time interval [valid_from, valid_until).
+    pub valid_from: Timestamp,
+    pub valid_until: Option<Timestamp>,
+    /// Knowledge time is the action timestamp supplied by the coordinator.
+    pub created_at: Timestamp,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum EvidenceConstraintRelation {
+    MustLink,
+    CannotLink,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum EvidenceConstraintReason {
+    Contradiction,
+    Supersession,
+    ScopeConflict,
+    PrivacyConflict,
+    DependencyRequires,
+    PolicyRequires,
+    DuplicateClaim,
+}
+
 pub enum EntryTypes {
     Evidence(Evidence),
     EvidenceVerification(EvidenceVerification),
     EvidenceDispute(EvidenceDispute),
+    EvidenceConstraint(EvidenceConstraint),
 }
 
 #[hdk_link_types]
@@ -72,6 +115,10 @@ pub enum LinkTypes {
     SubmitterToEvidence,
     EvidenceToVerification,
     EvidenceToDispute,
+    EvidenceToConstraintLeft,
+    EvidenceToConstraintRight,
+    ConstraintIdToConstraint,
+    IssuerToConstraint,
 }
 
 #[hdk_extern]
@@ -109,11 +156,21 @@ pub fn validate(op: Op) -> ExternResult<ValidateCallbackResult> {
                 }
                 validate_evidence_dispute(&d)
             }
+            EntryTypes::EvidenceConstraint(constraint) => {
+                let expected = format!("did:mycelix:{}", action.author);
+                if constraint.issuer != expected {
+                    return Ok(ValidateCallbackResult::Invalid(
+                        "constraint issuer must correspond to the committing agent".into(),
+                    ));
+                }
+                validate_evidence_constraint(&constraint)
+            }
         },
         FlatOp::StoreEntry(OpEntry::UpdateEntry { app_entry, .. }) => match app_entry {
             EntryTypes::Evidence(evidence) => validate_evidence(&evidence),
             EntryTypes::EvidenceVerification(v) => validate_evidence_verification(&v),
             EntryTypes::EvidenceDispute(d) => validate_evidence_dispute(&d),
+            EntryTypes::EvidenceConstraint(constraint) => validate_evidence_constraint(&constraint),
         },
         FlatOp::RegisterUpdate(update) => {
             let action = match &update {
@@ -244,6 +301,65 @@ fn validate_evidence_verification(
     Ok(ValidateCallbackResult::Valid)
 }
 
+
+fn valid_sha256_hex(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn validate_evidence_constraint(
+    constraint: &EvidenceConstraint,
+) -> ExternResult<ValidateCallbackResult> {
+    if constraint.schema_version != 1 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Evidence constraint schema_version must be 1".into(),
+        ));
+    }
+    for (name, value) in [
+        ("id", constraint.id.as_str()),
+        ("left_evidence_id", constraint.left_evidence_id.as_str()),
+        ("right_evidence_id", constraint.right_evidence_id.as_str()),
+    ] {
+        if value.trim().is_empty() || value.len() > 256 {
+            return Ok(ValidateCallbackResult::Invalid(
+                format!("{name} must be 1-256 characters"),
+            ));
+        }
+    }
+    if constraint.left_evidence_id == constraint.right_evidence_id {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Pairwise evidence constraint endpoints must be distinct".into(),
+        ));
+    }
+    if constraint.issuer.trim().is_empty() || constraint.issuer.len() > 256 {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Constraint issuer must be a valid DID".into(),
+        ));
+    }
+    if !valid_sha256_hex(&constraint.authority_receipt_sha256) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "authority_receipt_sha256 must be 64 lowercase hexadecimal characters".into(),
+        ));
+    }
+    if !valid_sha256_hex(&constraint.constraint_policy_sha256) {
+        return Ok(ValidateCallbackResult::Invalid(
+            "constraint_policy_sha256 must be 64 lowercase hexadecimal characters".into(),
+        ));
+    }
+    if constraint
+        .valid_until
+        .as_ref()
+        .is_some_and(|until| until.as_micros() <= constraint.valid_from.as_micros())
+    {
+        return Ok(ValidateCallbackResult::Invalid(
+            "Constraint valid_until must be later than valid_from".into(),
+        ));
+    }
+    Ok(ValidateCallbackResult::Valid)
+}
+
 fn validate_evidence_dispute(d: &EvidenceDispute) -> ExternResult<ValidateCallbackResult> {
     if !d.disputant.starts_with("did:") {
         return Ok(ValidateCallbackResult::Invalid(
@@ -353,6 +469,24 @@ mod tests {
             resolved: false,
         }
     }
+
+    fn make_constraint() -> EvidenceConstraint {
+        EvidenceConstraint {
+            schema_version: 1,
+            id: "constraint-1".into(),
+            left_evidence_id: "ev-left".into(),
+            right_evidence_id: "ev-right".into(),
+            relation: EvidenceConstraintRelation::CannotLink,
+            reason: EvidenceConstraintReason::Contradiction,
+            issuer: "did:mycelix:issuer".into(),
+            authority_receipt_sha256: "a".repeat(64),
+            constraint_policy_sha256: "b".repeat(64),
+            valid_from: Timestamp::from_micros(100),
+            valid_until: Some(Timestamp::from_micros(300)),
+            created_at: Timestamp::from_micros(200),
+        }
+    }
+
 
     // ========================================================================
     // SERDE ROUNDTRIP TESTS
@@ -1066,4 +1200,39 @@ mod tests {
         assert_ne!(VerificationStatus::Verified, VerificationStatus::Rejected);
         assert_ne!(VerificationStatus::Pending, VerificationStatus::Challenged);
     }
+
+    #[test]
+    fn evidence_constraint_accepts_valid_bitemporal_record() {
+        assert!(is_valid(&validate_evidence_constraint(&make_constraint())));
+    }
+
+    #[test]
+    fn evidence_constraint_rejects_same_endpoint_and_bad_digests() {
+        let mut constraint = make_constraint();
+        constraint.right_evidence_id = constraint.left_evidence_id.clone();
+        assert!(is_invalid(&validate_evidence_constraint(&constraint)));
+
+        let mut constraint = make_constraint();
+        constraint.authority_receipt_sha256 = "sha256:abc".into();
+        assert!(is_invalid(&validate_evidence_constraint(&constraint)));
+
+        let mut constraint = make_constraint();
+        constraint.constraint_policy_sha256 = "G".repeat(64);
+        assert!(is_invalid(&validate_evidence_constraint(&constraint)));
+    }
+
+    #[test]
+    fn evidence_constraint_rejects_malformed_validity_window() {
+        let mut constraint = make_constraint();
+        constraint.valid_until = Some(Timestamp::from_micros(100));
+        assert!(is_invalid(&validate_evidence_constraint(&constraint)));
+    }
+
+    #[test]
+    fn evidence_constraint_rejects_unknown_schema_version() {
+        let mut constraint = make_constraint();
+        constraint.schema_version = 2;
+        assert!(is_invalid(&validate_evidence_constraint(&constraint)));
+    }
+
 }
