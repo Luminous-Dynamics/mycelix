@@ -79,7 +79,7 @@ References:
 
 The interoperability branch includes one synthetic OCEL 2.0 JSON profile at `ocel/ocel-water-service-v1.json` and a Rust validator/canonicalizer at `harness/src/ocel_profile.rs`.
 
-The profile's 17 objects and 10 events cover complaints, same-fault callout grouping, service episodes, repeat episodes, zones, assets, work orders, crews, permits, samples, sources, lab results, pressure observations and decision revisions. Event attributes carry both source-recorded time and host-assigned sequence. Objects carry time-stamped attribute changes and qualified object-to-object relationships.
+The profile's 17 objects and 12 events cover complaints, same-fault callout grouping, service episodes, repeat episodes, zones, assets, work orders, crews, permits, samples, sources, lab results, pressure observations and decision revisions, plus one source-assertion correction and one revocation. Event attributes carry source-recorded time and a host-assigned append sequence. Objects carry time-stamped attribute changes and qualified object-to-object relationships.
 
 The Rust profile validator checks:
 - object/event type declarations and typed attributes;
@@ -113,7 +113,9 @@ Required differential cases:
 4. Unknown extension fields -> preserved or explicit lossy-export receipt.
 5. Invalid references, duplicate identities and malformed timestamps -> deterministic rejection or documented importer-specific refusal.
 6. Same-fault complaint grouping and distinct repeat episodes -> identity and relationship preservation.
-7. Late arrival, correction, revocation and as-known-at cutoff -> no history rewrite.
+7. Late arrival, correction, revocation and two-frontier as-known-at cutoff -> no history rewrite.
+8. Reconstruct the same valid-time slice at accepted-sequence frontiers 10, 11 and 12; event 006 remains effective at frontier 10, is superseded at 11, and event 008 is revoked only at 12.
+9. Reordering the OCEL event array cannot change the replay receipt; duplicate host sequences, unknown mutation targets, non-causal mutations and conflicting mutations fail closed.
 
 Scale ladder (report each result separately, do not average correctness with speed):
 - 10^3 events: developer feedback and mutation-test corpus.
@@ -125,6 +127,16 @@ Metrics: parse/export throughput; peak RSS; serialized bytes; normalized preserv
 A conventional case-centric XES flattening baseline is useful only as a measured loss comparator. It must not be treated as an equivalent object-centric representation or as a correctness oracle. Public BPI/OCEL process-mining logs can benchmark generic discovery/conformance throughput, but they do not validate municipal water-service semantics; the WSR synthetic adversarial corpus remains the semantic benchmark.
 
 Targets (not results): zero silent field/relation loss within the declared profile, 100% normalized round-trip preservation, zero duplicate-callout inflation, zero repeat-episode merges, and unchanged owner-core dispositions after serialization round-trip.
+
+### Dual-frontier temporal replay (implemented slice)
+
+The Rust harness exposes `temporal_replay::replay_temporal_frontier`. It evaluates two inclusive cutoffs: (1) event valid time, represented by canonical fixed-width UTC seconds in this V1 replay path, and (2) a host-assigned append sequence representing what had been accepted into the log. The host sequence is an ordering frontier, **not** a timestamp and not proof of when a platform committed or independently verified an event. The source-recorded timestamp is validated and preserved but is not promoted to transaction time.
+
+The fixture now has 12 events. At accepted frontier 10, the original pressure assertion (event-006) and lab result (event-008) remain visible. At frontier 11, event-011 supersedes event-006. At frontier 12, event-012 revokes event-008. Queries with a valid-time cutoff before the correction's effective time do not apply the later correction even when the accepted-sequence frontier includes it. The receipt reports visible events, effective evidence-event IDs, superseded IDs, revoked IDs, applied mutation IDs and a deterministic SHA-256 replay digest.
+
+This is a deliberately bounded dual-frontier replay primitive, not a full bitemporal database: no trusted platform transaction-time clock, source signature, authority proof, causal truth guarantee, or domain-level correction policy is asserted. V1 requires UTC second precision for temporal ordering; general RFC3339 validation remains in the OCEL profile layer. Later work should add explicit platform-accepted-at metadata, source-specific correction authority, correction chains, and event-time/knowledge-time uncertainty intervals before claiming general bitemporal support.
+
+Replay correctness targets (not results): zero history rewrites across knowledge frontiers; 100% agreement with a separately authored cut/query oracle; deterministic receipts under event-array permutation; and fail-closed rejection of duplicate sequences, missing targets, forward references and conflicting mutations. Report replay throughput and memory separately from semantic correctness.
 
 ## 4. Frozen corpus and executable coverage
 
