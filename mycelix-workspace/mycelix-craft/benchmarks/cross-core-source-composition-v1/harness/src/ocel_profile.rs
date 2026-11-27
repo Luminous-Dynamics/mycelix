@@ -163,13 +163,7 @@ fn valid_timestamp(value: &str) -> bool {
         _ => 0,
     };
 
-    if year == 0
-        || day == 0
-        || day > days_in_month
-        || hour > 23
-        || minute > 59
-        || second > 60
-    {
+    if year == 0 || day == 0 || day > days_in_month || hour > 23 || minute > 59 || second > 60 {
         return false;
     }
 
@@ -634,8 +628,7 @@ mod tests {
         );
 
         let mut unknown_object_type = fixture();
-        unknown_object_type["objects"][0]["type"] =
-            Value::String("unregistered-object".to_owned());
+        unknown_object_type["objects"][0]["type"] = Value::String("unregistered-object".to_owned());
         let input = serde_json::to_string(&unknown_object_type).unwrap();
         assert_eq!(
             validate_ocel20_water_profile(&input),
@@ -654,7 +647,8 @@ mod tests {
         );
 
         let mut wrong_type = fixture();
-        wrong_type["events"][0]["attributes"][1]["value"] = Value::String("not-an-integer".to_owned());
+        wrong_type["events"][0]["attributes"][1]["value"] =
+            Value::String("not-an-integer".to_owned());
         let input = serde_json::to_string(&wrong_type).unwrap();
         assert_eq!(
             validate_ocel20_water_profile(&input),
