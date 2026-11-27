@@ -401,8 +401,8 @@ mod tests {
     }
 
     #[test]
-    fn valid_time_frontier_does_not_apply_a_future_effective_correction() {
-        let receipt = replay_temporal_frontier(FIXTURE, &cut("2026-11-27T12:00:00Z", 11)).unwrap();
+    fn valid_time_frontier_excludes_a_correction_before_its_effective_time() {
+        let receipt = replay_temporal_frontier(FIXTURE, &cut("2026-11-27T11:40:00Z", 11)).unwrap();
         assert!(!receipt.visible_event_ids.iter().any(|id| id == "event-011"));
         assert!(receipt
             .effective_event_ids
@@ -412,6 +412,32 @@ mod tests {
             .effective_event_ids
             .iter()
             .any(|id| id == "event-008"));
+    }
+
+    #[test]
+    fn late_recorded_correction_uses_separate_valid_and_knowledge_frontiers() {
+        let valid_time_cut = "2026-11-27T12:00:00Z";
+        let before_acceptance =
+            replay_temporal_frontier(FIXTURE, &cut(valid_time_cut, 10)).unwrap();
+        let after_acceptance =
+            replay_temporal_frontier(FIXTURE, &cut(valid_time_cut, 11)).unwrap();
+
+        assert!(!before_acceptance.visible_event_ids.iter().any(|id| id == "event-011"));
+        assert!(before_acceptance.effective_event_ids.iter().any(|id| id == "event-006"));
+        assert!(after_acceptance.visible_event_ids.iter().any(|id| id == "event-011"));
+        assert!(after_acceptance.superseded_event_ids.iter().any(|id| id == "event-006"));
+    }
+
+    #[test]
+    fn mutation_cannot_cross_service_object_scope() {
+        let mut value = fixture();
+        for relationship in value["events"][10]["relationships"].as_array_mut().unwrap() {
+            relationship["objectId"] = Value::String("unrelated-service-object".to_owned());
+        }
+        assert_eq!(
+            replay_temporal_frontier(&input(&value), &cut("2026-11-27T16:00:00Z", 12)),
+            Err(TemporalReplayErrorV1::MutationScopeMismatch)
+        );
     }
 
     #[test]
