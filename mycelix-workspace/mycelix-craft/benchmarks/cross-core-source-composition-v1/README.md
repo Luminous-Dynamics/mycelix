@@ -28,10 +28,25 @@ cargo +1.96.0 test --manifest-path "$OUT_DIR/Cargo.toml" --workspace --locked
 cargo +1.96.0 clippy --manifest-path "$OUT_DIR/Cargo.toml" --workspace --all-targets --locked -- -D warnings
 ```
 
-The materializer checks both the remote branch tip and the Git blob IDs for each package manifest and library source before copying them. Any branch movement or file substitution fails closed. The generated source receipt records the exact revisions and content IDs.
+The materializer checks both the remote branch tip and the Git blob IDs for each package manifest and library source before copying them. Any branch movement or file substitution fails closed. The generated source receipt records the exact revisions and content IDs. The separate `harness` workspace member is taken from the exact harness commit checked out by CI; its manifest and source SHA-256 values are also recorded.
 
 ## Claim boundary
 
 A green result establishes that the six pinned packages can coexist in one Cargo workspace and that each package's own unit tests, formatting and Clippy gates pass in that combined source snapshot.
 
-It does **not** yet establish cross-core semantic compatibility, prove that the owners exchange correct packets, or execute the 16 Water Service Repair known-answer cases and 20 mutations. Those require typed adapters, an independently written oracle and the per-owner cross-core receipts specified in #6790. No production integration or external authority is implied.
+## Executable cross-core slice (current)
+
+The harness calls the public APIs of all six pinned owners and runs an independent, small service-level oracle:
+
+- WSR-001: provider-reported completion with no current pressure-restoration or water-quality support must remain NotEligible; Decision Closure reports OpenMissingElements.
+- WSR-004: current pressure and quality support may reach EligibleForLocalReview, while one of the two required mapping approvals is absent; Decision Closure reports MappingReviewRequired, never Closed.
+- A source expiry must propagate NeedsRevalidation to dependent claim and decision artifacts through Evidence Lineage.
+- Two measurements assigned to one common-cause group cannot satisfy a two-independent-source rule.
+
+The Need Intake test constructs a valid synthetic community proposal and confirms it remains Draft without community/domain/provenance/safety review and explicit local ratification. Project Formation receives a consenting participant with no capability evidence and returns UnknownEvidence rather than a negative judgement or qualification.
+
+The oracle is deliberately independent of the owner evaluators. The first executable slice covers two of the 16 frozen cases and one targeted expiry/common-cause mutation family. It does **not** claim the other 14 known-answer cases or all 20 registered mutations have executed.
+
+## Claim boundary
+
+The green result demonstrates this exact source composition plus the listed synthetic, typed cross-core flows. It is not a full WSR benchmark score, field validation, professional water-quality certification, legal authorization or permission to close a municipal service incident. The harness uses synthetic reviewer and authority references; no real authority or resident data is present.
