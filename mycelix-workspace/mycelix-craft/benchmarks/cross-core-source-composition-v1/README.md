@@ -37,6 +37,9 @@ An optional differential oracle is provided at `oracles/pm4py_ocel2_roundtrip.py
 Run it in an isolated test environment with Python 3.11+ and the exact PM4Py release used by the oracle:
 
 ```sh
+set -euo pipefail
+OUT_DIR="$(mktemp -d)"
+trap 'rm -rf "$OUT_DIR"' EXIT
 python3 -m venv "$OUT_DIR/pm4py-venv"
 "$OUT_DIR/pm4py-venv/bin/python" -m pip install 'pm4py[stable]==2.7.23.15'
 "$OUT_DIR/pm4py-venv/bin/python" \
