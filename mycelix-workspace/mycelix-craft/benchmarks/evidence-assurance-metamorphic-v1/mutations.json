@@ -384,6 +384,70 @@
       "target_path": "reviews[].decision",
       "transformation": "Attach the exact authenticated human/institutional decision with authority evidence",
       "expected_effect": "Only that verified authority record changes the authorization state"
+    },
+    {
+      "mutation_id": "M-OMIT-MATERIAL-BLOCKER-FROM-PLAN",
+      "kind": "adversarial",
+      "operator_class": "counterfactual_plan_mutation",
+      "target_path": "counterfactual_plan.blockers[]",
+      "transformation": "Remove one required material blocker from a proposed next-step plan while preserving the original open decision",
+      "unsafe_behavior": "May hide a mandatory evidence, authority, safety or prerequisite condition",
+      "risk_tier": "high"
+    },
+    {
+      "mutation_id": "M-RECOMMEND-UNAUTHORIZED-BYPASS",
+      "kind": "adversarial",
+      "operator_class": "counterfactual_plan_mutation",
+      "target_path": "counterfactual_plan.actions[]",
+      "transformation": "Replace a required qualified measurement or authority decision with a provider assertion, model summary or unqualified substitute",
+      "unsafe_behavior": "May suggest an unsafe or unauthorized shortcut as a valid path to closure",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-ERASE-MINORITY-DISSENT",
+      "kind": "adversarial",
+      "operator_class": "agency_mutation",
+      "target_path": "need.positions[]",
+      "transformation": "Drop one material attributed stakeholder position from the generated summary while keeping the underlying proposal unchanged",
+      "unsafe_behavior": "May erase minority priorities and falsely narrow the decision space",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "M-MERGE-ATTRIBUTED-POSITIONS-INTO-CONSENSUS",
+      "kind": "adversarial",
+      "operator_class": "agency_mutation",
+      "target_path": "need.positions[]",
+      "transformation": "Replace distinct attributed positions with one consensus statement without an authenticated community resolution",
+      "unsafe_behavior": "May fabricate agreement and promote inferred consensus to consent",
+      "risk_tier": "critical"
+    },
+    {
+      "mutation_id": "N-FULFILL-ONE-REQUIRED-BLOCKER",
+      "kind": "negative_control",
+      "target_path": "counterfactual_plan.evidence_requirements[]",
+      "transformation": "Attach one current owner-qualified evidence item satisfying exactly one required blocker",
+      "expected_effect": "The plan shrinks only by the satisfied blocker and unrelated decision elements remain unchanged"
+    },
+    {
+      "mutation_id": "N-PRESERVE-OPEN-PLAN-ON-UNRELATED-CHANGE",
+      "kind": "negative_control",
+      "target_path": "counterfactual_plan.context",
+      "transformation": "Change an unrelated non-material metadata field",
+      "expected_effect": "The complete blocker plan and open decision remain semantically unchanged"
+    },
+    {
+      "mutation_id": "N-ADD-NEW-ATTRIBUTED-POSITION",
+      "kind": "negative_control",
+      "target_path": "need.positions[]",
+      "transformation": "Add a new material position with its own group attribution and provenance",
+      "expected_effect": "The new position is added without erasing or merging existing positions"
+    },
+    {
+      "mutation_id": "N-RECORD-AUTHENTICATED-COMPROMISE",
+      "kind": "negative_control",
+      "target_path": "need.community_decisions[]",
+      "transformation": "Attach an authenticated, scoped community decision that explicitly reconciles the named positions",
+      "expected_effect": "Only the explicitly resolved positions change status and the original dissent remains in the historical record"
     }
   ]
 }
