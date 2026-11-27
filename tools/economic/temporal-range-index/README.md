@@ -74,7 +74,7 @@ projection.go verifies the entire owner-log leaf sequence, not merely verifier-r
 
 The inventory carries every ordered log leaf: zero-based leaf index, owner-local sequence and exact entry bytes. The verifier checks the sequence-to-leaf mapping against explicit gaps, recomputes receipt digests, recomputes the RFC 9162 SHA-256 Merkle Tree Hash over all leaves, and requires the result to match the owner log root digest in the forest binding.
 
-Each canonical knowledge-receipt leaf must have exactly one typed interval or non-temporal projection. Non-receipt leaves stay in the log root and are counted separately. Missing receipt projections, malformed receipt-envelope prefixes, non-canonical leaf positions and mismatched root bytes fail closed.
+Each canonical knowledge-receipt leaf must have exactly one typed interval or non-temporal projection. Leaves that do not use the V1 knowledge-receipt envelope stay in the log root and are counted separately. Missing receipt projections, malformed receipt-envelope prefixes, non-canonical leaf positions and mismatched root bytes fail closed.
 
 The result is deliberately ProjectionMatchesSuppliedAcceptedInventory, with ReceiptInventoryAuthentication=LogRootRecomputedButTrustExternal. It proves that the supplied ordered bytes reconstruct the claimed root; it does not authenticate the checkpoint/tree head that makes that root authoritative. The separately qualified signed-checkpoint/frontier owner must authenticate it.
 
