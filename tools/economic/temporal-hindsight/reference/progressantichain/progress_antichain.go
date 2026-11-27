@@ -115,6 +115,21 @@ func exceedsProgressWorkBudget(limit uint64, factors ...uint64) bool {
 	return product > limit
 }
 
+const maxRawProgressDigestEntries = 32768
+
+func writeRawProgressStringV1(b *bytes.Buffer, value string) {
+	_ = binary.Write(b, binary.BigEndian, uint64(len(value)))
+	if len(value) <= 128 {
+		writeStringV1(b, value)
+		return
+	}
+	writeStringV1(b, value[:64])
+	writeStringV1(b, value[len(value)-64:])
+}
+
+// Raw failure commitments are exact for valid-size fields and bounded samples
+// for oversized submissions. This prevents failure receipt generation itself
+// from becoming an unbounded hashing workload.
 func rawProgressScopeDigestV1(scope ProgressScopeV1) string {
 	var b bytes.Buffer
 	writeStringV1(&b, "MYCELIX-PROGRESS-SCOPE-SUBMISSION-V1")
@@ -122,30 +137,59 @@ func rawProgressScopeDigestV1(scope ProgressScopeV1) string {
 		scope.SourceRef, scope.RegistryRef, scope.RegistryEpoch,
 		scope.ProfileRef, scope.QueryScopeDigest,
 	} {
-		writeStringV1(&b, value)
+		writeRawProgressStringV1(&b, value)
 	}
-	_ = binary.Write(&b, binary.BigEndian, uint32(len(scope.OwnerRefs)))
-	for _, owner := range scope.OwnerRefs {
-		writeStringV1(&b, owner)
+	_ = binary.Write(&b, binary.BigEndian, uint64(len(scope.OwnerRefs)))
+	limit := len(scope.OwnerRefs)
+	if limit > maxRawProgressDigestEntries {
+		limit = maxRawProgressDigestEntries
+	}
+	for _, owner := range scope.OwnerRefs[:limit] {
+		writeRawProgressStringV1(&b, owner)
+	}
+	if limit < len(scope.OwnerRefs) {
+		b.WriteByte(1)
+	} else {
+		b.WriteByte(0)
 	}
 	d := sha256.Sum256(b.Bytes())
 	return hex.EncodeToString(d[:])
 }
 
-// rawProgressAntichainDigestV1 commits the exact submitted shape and ordering.
-// It is used only when canonical validation fails, so distinct malformed
-// submissions cannot collapse to the same failure certificate.
+// rawProgressAntichainDigestV1 commits the submitted shape with bounded work.
+// Fields within the supported size limits are fully represented; oversized
+// fields contribute their length and fixed prefix/suffix samples.
 func rawProgressAntichainDigestV1(antichain ProgressAntichainV1) string {
 	var b bytes.Buffer
 	writeStringV1(&b, "MYCELIX-PROGRESS-ANTICHAIN-SUBMISSION-V1")
 	writeStringV1(&b, rawProgressScopeDigestV1(antichain.Scope))
-	_ = binary.Write(&b, binary.BigEndian, uint32(len(antichain.Points)))
-	for _, point := range antichain.Points {
-		_ = binary.Write(&b, binary.BigEndian, uint32(len(point.Owners)))
-		for _, coordinate := range point.Owners {
-			writeStringV1(&b, coordinate.OwnerRef)
+	_ = binary.Write(&b, binary.BigEndian, uint64(len(antichain.Points)))
+	pointLimit := len(antichain.Points)
+	if pointLimit > maxProgressPoints {
+		pointLimit = maxProgressPoints
+	}
+	remaining := maxRawProgressDigestEntries
+	for _, point := range antichain.Points[:pointLimit] {
+		_ = binary.Write(&b, binary.BigEndian, uint64(len(point.Owners)))
+		coordinateLimit := len(point.Owners)
+		if coordinateLimit > remaining {
+			coordinateLimit = remaining
+		}
+		for _, coordinate := range point.Owners[:coordinateLimit] {
+			writeRawProgressStringV1(&b, coordinate.OwnerRef)
 			_ = binary.Write(&b, binary.BigEndian, coordinate.Sequence)
 		}
+		remaining -= coordinateLimit
+		if coordinateLimit < len(point.Owners) || remaining == 0 {
+			b.WriteByte(1)
+			break
+		}
+		b.WriteByte(0)
+	}
+	if pointLimit < len(antichain.Points) {
+		b.WriteByte(1)
+	} else {
+		b.WriteByte(0)
 	}
 	d := sha256.Sum256(b.Bytes())
 	return hex.EncodeToString(d[:])
@@ -155,10 +199,19 @@ func rawProgressCutDigestV1(scopeDigest string, cut ProgressCutV1) string {
 	var b bytes.Buffer
 	writeStringV1(&b, "MYCELIX-PROGRESS-CUT-SUBMISSION-V1")
 	writeStringV1(&b, scopeDigest)
-	_ = binary.Write(&b, binary.BigEndian, uint32(len(cut.Owners)))
-	for _, coordinate := range cut.Owners {
-		writeStringV1(&b, coordinate.OwnerRef)
+	_ = binary.Write(&b, binary.BigEndian, uint64(len(cut.Owners)))
+	limit := len(cut.Owners)
+	if limit > maxRawProgressDigestEntries {
+		limit = maxRawProgressDigestEntries
+	}
+	for _, coordinate := range cut.Owners[:limit] {
+		writeRawProgressStringV1(&b, coordinate.OwnerRef)
 		_ = binary.Write(&b, binary.BigEndian, coordinate.Sequence)
+	}
+	if limit < len(cut.Owners) {
+		b.WriteByte(1)
+	} else {
+		b.WriteByte(0)
 	}
 	d := sha256.Sum256(b.Bytes())
 	return hex.EncodeToString(d[:])
