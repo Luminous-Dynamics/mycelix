@@ -1,0 +1,5 @@
+version = 4
+
+[[package]]
+name = "mycelix-temporal-evidence-kernel"
+version = "0.1.0"

@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - 'docs/economic/temporal/**'
+      - 'tools/economic/temporal-evidence/**'
       - '.github/workflows/economic-temporal-evidence-structural.yml'
   push:
     branches: [main]
     paths:
       - 'docs/economic/temporal/**'
+      - 'tools/economic/temporal-evidence/**'
       - '.github/workflows/economic-temporal-evidence-structural.yml'
   workflow_dispatch:
 
@@ -24,11 +26,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: \${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Assert exact source revision
         env:
-          EXPECTED_SHA: \${{ github.event.pull_request.head.sha || github.sha }}
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           actual="$(git rev-parse HEAD)"
           printf 'Expected source SHA: %s\n' "$EXPECTED_SHA"
@@ -39,25 +41,32 @@ jobs:
         run: |
           set -euo pipefail
           jq -e . docs/economic/temporal/schemas/temporal-evidence-envelope.v1.schema.json >/dev/null
+          jq -e . docs/economic/temporal/schemas/temporal-evidence-envelope.v1.1.schema.json >/dev/null
           jq -e . docs/economic/temporal/fixtures/temporal-evidence-envelope.v0.1.json >/dev/null
+          jq -e . docs/economic/temporal/fixtures/temporal-evidence-envelope.v1.1.json >/dev/null
           jq -e . docs/economic/temporal/benchmarks/temporal-evidence-adversarial-corpus.v0.1.json >/dev/null
+
+      - name: Preserve legacy temporal envelope v1.0 compatibility
+        run: |
+          set -euo pipefail
+          jq -e '(.profile == "MYCELIX-TEMPORAL-EVIDENCE-V1") and (.version == "1.0") and (.assertions | type == "array")' docs/economic/temporal/fixtures/temporal-evidence-envelope.v0.1.json >/dev/null
 
       - name: Validate temporal assertion envelope and correction lineage
         run: |
           set -euo pipefail
-          FILE=docs/economic/temporal/fixtures/temporal-evidence-envelope.v0.1.json
+          FILE=docs/economic/temporal/fixtures/temporal-evidence-envelope.v1.1.json
           jq -e '
             def key($a): $a.assertion_id;
             def cycle_from($edges; $origin; $current; $visited):
               [$edges[] | select(.from == $current) | .to] |
-              any(.[] as $next;
+              any(.[]; . as $next |
                 if $next == $origin then true
                 elif ($visited | index($next)) != null then false
                 else cycle_from($edges; $origin; $next; ($visited + [$next]))
                 end
               );
             (.profile == "MYCELIX-TEMPORAL-EVIDENCE-V1") and
-            (.version == "1.0") and
+            (.version == "1.1") and
             (.assertions | type == "array" and length >= 10) and
             (([.assertions[].assertion_id] | length) == ([.assertions[].assertion_id] | unique | length)) and
             all(.assertions[];
@@ -69,7 +78,12 @@ jobs:
               ($assertion.source_authority_ref | type == "string" and length > 0) and
               ($assertion.evidence_ref | type == "string" and length > 0) and
               ($assertion.content_digest | test("^sha256:[0-9a-f]{64}$")) and
-              (["OCCURRED_AT","VALID_FROM","VALID_TO","SOURCE_RECORDED_AT","RECEIVER_OBSERVED_AT","VERIFIER_KNOWLEDGE_AT"] | index($assertion.dimension) != null)
+              (if ($assertion.dimension == "VALID_FROM" or $assertion.dimension == "VALID_TO") then
+                ($assertion.validity_interval_ref | type == "string" and length > 0)
+               else
+                ($assertion | has("validity_interval_ref") | not)
+               end) and
+                (["OCCURRED_AT","VALID_FROM","VALID_TO","SOURCE_RECORDED_AT","RECEIVER_OBSERVED_AT","VERIFIER_KNOWLEDGE_AT"] | index($assertion.dimension) != null)
             ) and
             (all(.assertions[]; has("owner_sequence") | not)) and
             (.assertions as $assertions |
@@ -99,7 +113,10 @@ jobs:
                   .assertion_id == $new.supersedes_assertion_id and
                   .claim_id == $new.claim_id and
                   .subject_ref == $new.subject_ref and
-                  .dimension == $new.dimension
+                  .dimension == $new.dimension and
+                  (if ($new.dimension == "VALID_FROM" or $new.dimension == "VALID_TO") then
+                    .validity_interval_ref == $new.validity_interval_ref
+                   else true end)
                 )
               )
             ) and
@@ -108,7 +125,7 @@ jobs:
                 {from:.assertion_id,to:.supersedes_assertion_id}
               ] as $edges |
               [ $assertions[].assertion_id ] as $ids |
-              all($ids[] as $start; (cycle_from($edges; $start; $start; [$start]) | not))
+              all($ids[]; . as $start | (cycle_from($edges; $start; $start; [$start]) | not))
             )
           ' "$FILE" >/dev/null
 
@@ -120,8 +137,8 @@ jobs:
           FILE=docs/economic/temporal/benchmarks/temporal-evidence-adversarial-corpus.v0.1.json
           jq -e '
             (.benchmark == "Economic OS Typed Temporal Evidence Adversarial Corpus") and
-            (.case_count == 36) and
-            (.cases | length == .case_count) and
+            (.case_count == 42) and
+            (.cases | length == 42) and
             (([.cases[].id] | length) == ([.cases[].id] | unique | length)) and
             (.allowed_dispositions as $allowed |
               all(.cases[]; .expected_disposition as $d | ($allowed | index($d)) != null)
@@ -136,3 +153,57 @@ jobs:
             'PASS = structural integrity of typed temporal assertion fixture, correction links and public adversarial corpus.' \
             'NOT TESTED = full Draft 2020-12 schema validation, clock authentication/calibration, bitemporal policy execution, Holochain knowledge-frontier persistence, or production replay.' \
             'No clock correctness, authority or legal effect-time claim is implied.'
+
+
+  temporal-kernel:
+    name: Rust temporal query kernel exact-head qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact source revision
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          printf 'Expected source SHA: %s\n' "$EXPECTED_SHA"
+          printf 'Checked out source SHA: %s\n' "$actual"
+          test "$actual" = "$EXPECTED_SHA"
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.96.0 --profile minimal
+
+      - name: Install Rust formatting and lint components
+        run: rustup component add rustfmt clippy --toolchain 1.96.0
+
+      - name: Rust formatting
+        working-directory: tools/economic/temporal-evidence
+        run: cargo +1.96.0 fmt --all -- --check
+
+      - name: Rust unit tests
+        working-directory: tools/economic/temporal-evidence
+        run: cargo +1.96.0 test --locked
+
+      - name: Rust Clippy
+        working-directory: tools/economic/temporal-evidence
+        run: cargo +1.96.0 clippy --locked --all-targets -- -D warnings
+
+      - name: Execute historical revocation example
+        working-directory: tools/economic/temporal-evidence
+        run: cargo +1.96.0 run --locked --example historical_revocation
+
+      - name: Execute indexed/reference parity microbenchmark
+        working-directory: tools/economic/temporal-evidence
+        run: cargo +1.96.0 run --locked --example benchmark_query_index
+
+      - name: Report qualification boundary
+        run: |
+          printf '%s\n' \
+            'PASS = exact-head Rust formatting, unit tests, Clippy, examples and reference/index query parity.' \
+            'BENCHMARK = smoke microtimings only; no SOTA or absolute performance claim.' \
+            'NOT TESTED = evidence-byte digest recomputation, issuer/verifier signatures, clock calibration, Holochain persistence, or production replay.' \
+            'The crate selects over caller-supplied structurally valid assertions; it does not authenticate them.'

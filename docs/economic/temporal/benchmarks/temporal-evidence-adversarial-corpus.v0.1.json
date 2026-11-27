@@ -1,9 +1,9 @@
 {
   "benchmark": "Economic OS Typed Temporal Evidence Adversarial Corpus",
   "version": "0.1",
-  "date": "2026-11-25",
+  "date": "2026-11-27",
   "status": "synthetic_public_development_cases_not_hidden_evaluation",
-  "case_count": 36,
+  "case_count": 42,
   "allowed_dispositions": [
     "SUPPORTED_WITHIN_SCOPE",
     "PENDING_RECONCILIATION",
@@ -22,7 +22,11 @@
     "owner_sequence_to_time_promotion": 0,
     "historical_replay_leakage": 0,
     "silent_correction_overwrite": 0,
-    "unresolved_temporal_conflict_acceptance": 0
+    "unresolved_temporal_conflict_acceptance": 0,
+    "cross_episode_pair_acceptance": 0,
+    "correction_episode_identity_change_acceptance": 0,
+    "inferred_open_end_acceptance": 0,
+    "episode_query_scan_index_oracle_disagreement": 0
   },
   "cases": [
     {
@@ -276,6 +280,48 @@
       "adversarial_input": "Same source event is observed twice with same assertion identity and digest",
       "expected_disposition": "IDEMPOTENT_REPLAY",
       "safety_assertion": "Duplicate observation must not create a second economic effect."
+    },
+    {
+      "id": "TME-037",
+      "dimension": "validity-episode-identity",
+      "adversarial_input": "One claim has two disjoint periods, each with its own validity_interval_ref; query one exact episode.",
+      "expected_disposition": "SUPPORTED_WITHIN_SCOPE",
+      "safety_assertion": "The selected start and end must share the exact requested episode identity; endpoints from another episode are not candidates."
+    },
+    {
+      "id": "TME-038",
+      "dimension": "validity-episode-identity",
+      "adversarial_input": "VALID_FROM references episode A while the only known VALID_TO references episode B.",
+      "expected_disposition": "INDETERMINATE",
+      "safety_assertion": "A cross-episode interval must never be fabricated, even when both endpoints share the same subject and claim."
+    },
+    {
+      "id": "TME-039",
+      "dimension": "validity-episode-identity",
+      "adversarial_input": "A correction supersedes a VALID_FROM or VALID_TO endpoint but changes validity_interval_ref.",
+      "expected_disposition": "REJECTED_INPUT",
+      "safety_assertion": "Correction lineage cannot move an endpoint into another validity episode."
+    },
+    {
+      "id": "TME-040",
+      "dimension": "validity-episode-identity",
+      "adversarial_input": "Legacy untagged VALID_FROM and VALID_TO records are queried as an episode-complete interval.",
+      "expected_disposition": "INDETERMINATE",
+      "safety_assertion": "Legacy records remain parseable but cannot be promoted to an episode-specific result without an identity binding."
+    },
+    {
+      "id": "TME-041",
+      "dimension": "explicit-open-end",
+      "adversarial_input": "VALID_FROM exists, VALID_TO is absent, and caller sets allow_open_ended_valid_to=true without a typed open-end disposition.",
+      "expected_disposition": "INDETERMINATE",
+      "safety_assertion": "A caller flag cannot manufacture an open validity interval; explicit open-end semantics require a separate qualified profile."
+    },
+    {
+      "id": "TME-042",
+      "dimension": "historical-episode-replay",
+      "adversarial_input": "A same-episode correction becomes known after K while the historical query remains capped at the earlier verifier knowledge frontier.",
+      "expected_disposition": "HISTORICAL_REPLAY_STABLE",
+      "safety_assertion": "The correction may change a later query but must not rewrite the earlier episode result."
     }
   ]
 }
