@@ -41,7 +41,7 @@ func TestFrontierForestComposesPerOwnerIntervalProofs(t *testing.T) {
 		FrontierDigest: scope.SourceFrontierDigest, IntervalProfile: "MYCELIX-INTERVAL-TREE-V0.1",
 		QueryScope: scope,
 		Owners: []OwnerIntervalIndexBindingV1{
-			forestOwnerBindingV1("owner:A", "history:A", 100, 2, treeA.RootHash(), nil),
+			forestOwnerBindingV1("owner:A", "history:A", 100, 2, treeA.RootHash(), []OwnerGapRangeV1{{First: 1, Last: 49}, {First: 51, Last: 99}}),
 			forestOwnerBindingV1("owner:B", "history:B", 2, 2, treeB.RootHash(), nil),
 		},
 	}
@@ -172,7 +172,7 @@ func TestFrontierForestRootBindsOwnerHistoryAndIndexRoot(t *testing.T) {
 		FrontierDigest: scope.SourceFrontierDigest, IntervalProfile: "MYCELIX-INTERVAL-TREE-V0.1",
 		QueryScope: scope,
 		Owners: []OwnerIntervalIndexBindingV1{
-			forestOwnerBindingV1("owner:A", "history:A", 5, 3, tree.RootHash(), nil),
+			forestOwnerBindingV1("owner:A", "history:A", 5, 5, tree.RootHash(), nil),
 		},
 	}
 	first, err := TemporalFrontierForestRootV1(base)
@@ -201,21 +201,27 @@ func TestFrontierForestRootBindsOwnerHistoryAndIndexRoot(t *testing.T) {
 	}
 }
 
-func TestFrontierForestKeepsLogTreeSizeIndependentFromOwnerSequence(t *testing.T) {
+func TestFrontierForestReconcilesOwnerSequenceWithLogLeafCountAndGaps(t *testing.T) {
 	scope := intervalScopeFixtureV1()
 	base := TemporalFrontierIndexManifestV1{
 		VerifierRef: scope.VerifierRef, PolicyEpochRef: scope.PolicyEpochRef,
 		FrontierDigest: scope.SourceFrontierDigest, IntervalProfile: "MYCELIX-INTERVAL-TREE-V0.1",
 		QueryScope: scope,
 		Owners: []OwnerIntervalIndexBindingV1{
-			forestOwnerBindingV1("owner:A", "history:A", 5, 6, [32]byte{1}, nil),
+			forestOwnerBindingV1("owner:A", "history:A", 5, 3, [32]byte{1}, []OwnerGapRangeV1{{First: 2, Last: 3}}),
 		},
 	}
 	if _, err := TemporalFrontierForestRootV1(base); err != nil {
-		t.Fatalf("independent log tree size was compared to owner sequence: %v", err)
+		t.Fatalf("valid sequence-to-leaf mapping with explicit gaps rejected: %v", err)
+	}
+	// Owner sequence and receipt-log leaf index are different coordinates,
+	// but the accepted-cut contract requires one leaf per non-gap sequence.
+	base.Owners[0] = forestOwnerBindingV1("owner:A", "history:A", 5, 4, [32]byte{1}, []OwnerGapRangeV1{{First: 2, Last: 3}})
+	if _, err := TemporalFrontierForestRootV1(base); err == nil {
+		t.Fatal("inconsistent tree-size/gap/sequence cardinality passed")
 	}
 	base.Owners[0] = forestOwnerBindingV1("owner:A", "history:A", 5, 3, [32]byte{1}, []OwnerGapRangeV1{
-		{First: 3, Last: 4}, {First: 4, Last: 5},
+		{First: 2, Last: 3}, {First: 3, Last: 4},
 	})
 	if _, err := TemporalFrontierForestRootV1(base); err == nil {
 		t.Fatal("overlapping/adjacent gap ranges passed")
@@ -269,7 +275,7 @@ func TestFrontierForestMatchesCanonicalKnownAnswer(t *testing.T) {
 		FrontierDigest: scope.SourceFrontierDigest, IntervalProfile: "MYCELIX-INTERVAL-TREE-V0.1",
 		QueryScope: scope,
 		Owners: []OwnerIntervalIndexBindingV1{
-			forestOwnerBindingV1("owner:A", "history:A", 100, 2, [32]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, nil),
+			forestOwnerBindingV1("owner:A", "history:A", 100, 2, [32]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, []OwnerGapRangeV1{{First: 1, Last: 49}, {First: 51, Last: 99}}),
 			forestOwnerBindingV1("owner:B", "history:B", 2, 2, [32]byte{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}, nil),
 		},
 	}
@@ -277,7 +283,7 @@ func TestFrontierForestMatchesCanonicalKnownAnswer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := fmt.Sprintf("%x", root); got != "244d1cfcc40aba335e96e6de1382fbde2ccf499d3a8cdb1b8c794dd6f4076705" {
+	if got := fmt.Sprintf("%x", root); got != "503fb3d17f6c1d777352de9b6e1c13c49ea29800bcdabbfc95ae6ed8effe469f" {
 		t.Fatalf("forest known-answer mismatch: %s", got)
 	}
 }
@@ -289,8 +295,8 @@ func TestFrontierForestRejectsInvalidUTF8AndNonCanonicalOwnerOrder(t *testing.T)
 		FrontierDigest: scope.SourceFrontierDigest, IntervalProfile: "MYCELIX-INTERVAL-TREE-V0.1",
 		QueryScope: scope,
 		Owners: []OwnerIntervalIndexBindingV1{
-			forestOwnerBindingV1("owner:A", "history:A", 5, 3, [32]byte{1}, nil),
-			forestOwnerBindingV1("owner:B", "history:B", 5, 3, [32]byte{2}, nil),
+			forestOwnerBindingV1("owner:A", "history:A", 5, 5, [32]byte{1}, nil),
+			forestOwnerBindingV1("owner:B", "history:B", 5, 5, [32]byte{2}, nil),
 		},
 	}
 	reversed := base
