@@ -1,0 +1,1152 @@
+{
+  "objectTypes": [
+    {
+      "name": "Complaint",
+      "attributes": [
+        {
+          "name": "fault_fingerprint",
+          "type": "string"
+        },
+        {
+          "name": "channel",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Callout",
+      "attributes": [
+        {
+          "name": "definition_revision",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "ServiceEpisode",
+      "attributes": [
+        {
+          "name": "opened_at",
+          "type": "time"
+        },
+        {
+          "name": "episode_sequence",
+          "type": "integer"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "ServiceZone",
+      "attributes": [
+        {
+          "name": "public_zone_ref",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Asset",
+      "attributes": [
+        {
+          "name": "asset_class",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "WorkOrder",
+      "attributes": [
+        {
+          "name": "provider_status",
+          "type": "string"
+        },
+        {
+          "name": "work_package_ref",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Crew",
+      "attributes": [
+        {
+          "name": "qualification_ref",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Permit",
+      "attributes": [
+        {
+          "name": "permit_status",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "WaterSample",
+      "attributes": [
+        {
+          "name": "sampled_at",
+          "type": "time"
+        }
+      ]
+    },
+    {
+      "name": "WaterSource",
+      "attributes": [
+        {
+          "name": "source_class",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "LabResult",
+      "attributes": [
+        {
+          "name": "result_status",
+          "type": "string"
+        },
+        {
+          "name": "published_at",
+          "type": "time"
+        }
+      ]
+    },
+    {
+      "name": "PressureObservation",
+      "attributes": [
+        {
+          "name": "observed_at",
+          "type": "time"
+        },
+        {
+          "name": "profile_revision",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "DecisionRevision",
+      "attributes": [
+        {
+          "name": "decision_state",
+          "type": "string"
+        },
+        {
+          "name": "revision",
+          "type": "integer"
+        }
+      ]
+    }
+  ],
+  "eventTypes": [
+    {
+      "name": "complaint_logged",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "type": "time"
+        },
+        {
+          "name": "host_sequence",
+          "type": "integer"
+        },
+        {
+          "name": "source_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_digest",
+          "type": "string"
+        },
+        {
+          "name": "channel",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "service_episode_opened",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "type": "time"
+        },
+        {
+          "name": "host_sequence",
+          "type": "integer"
+        },
+        {
+          "name": "source_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_digest",
+          "type": "string"
+        },
+        {
+          "name": "severity",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "work_order_authorized",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "type": "time"
+        },
+        {
+          "name": "host_sequence",
+          "type": "integer"
+        },
+        {
+          "name": "source_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_digest",
+          "type": "string"
+        },
+        {
+          "name": "work_package_ref",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "provider_reported_complete",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "type": "time"
+        },
+        {
+          "name": "host_sequence",
+          "type": "integer"
+        },
+        {
+          "name": "source_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_digest",
+          "type": "string"
+        },
+        {
+          "name": "provider_status",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "pressure_restoration_observed",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "type": "time"
+        },
+        {
+          "name": "host_sequence",
+          "type": "integer"
+        },
+        {
+          "name": "source_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_digest",
+          "type": "string"
+        },
+        {
+          "name": "profile_revision",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "water_sample_collected",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "type": "time"
+        },
+        {
+          "name": "host_sequence",
+          "type": "integer"
+        },
+        {
+          "name": "source_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_digest",
+          "type": "string"
+        },
+        {
+          "name": "sampling_method_ref",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "lab_result_published",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "type": "time"
+        },
+        {
+          "name": "host_sequence",
+          "type": "integer"
+        },
+        {
+          "name": "source_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_digest",
+          "type": "string"
+        },
+        {
+          "name": "result_status",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "local_review_requested",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "type": "time"
+        },
+        {
+          "name": "host_sequence",
+          "type": "integer"
+        },
+        {
+          "name": "source_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_digest",
+          "type": "string"
+        },
+        {
+          "name": "conclusion_ref",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "repeat_burst_reported",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "type": "time"
+        },
+        {
+          "name": "host_sequence",
+          "type": "integer"
+        },
+        {
+          "name": "source_ref",
+          "type": "string"
+        },
+        {
+          "name": "source_digest",
+          "type": "string"
+        },
+        {
+          "name": "repeat_classification",
+          "type": "string"
+        }
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "id": "complaint-1",
+      "type": "Complaint",
+      "attributes": [
+        {
+          "name": "fault_fingerprint",
+          "time": "2026-11-27T08:00:00Z",
+          "value": "fault-syn-001"
+        },
+        {
+          "name": "channel",
+          "time": "2026-11-27T08:00:00Z",
+          "value": "call-centre"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "callout-1",
+          "qualifier": "same_fault_callout"
+        }
+      ]
+    },
+    {
+      "id": "complaint-2",
+      "type": "Complaint",
+      "attributes": [
+        {
+          "name": "fault_fingerprint",
+          "time": "2026-11-27T08:02:00Z",
+          "value": "fault-syn-001"
+        },
+        {
+          "name": "channel",
+          "time": "2026-11-27T08:02:00Z",
+          "value": "social-media"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "callout-1",
+          "qualifier": "same_fault_callout"
+        }
+      ]
+    },
+    {
+      "id": "callout-1",
+      "type": "Callout",
+      "attributes": [
+        {
+          "name": "definition_revision",
+          "time": "2026-11-27T08:03:00Z",
+          "value": "W8-2026-02"
+        },
+        {
+          "name": "status",
+          "time": "2026-11-27T08:03:00Z",
+          "value": "open"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "episode-1",
+          "qualifier": "opens_episode"
+        }
+      ]
+    },
+    {
+      "id": "episode-1",
+      "type": "ServiceEpisode",
+      "attributes": [
+        {
+          "name": "opened_at",
+          "time": "2026-11-27T08:03:00Z",
+          "value": "2026-11-27T08:03:00Z"
+        },
+        {
+          "name": "episode_sequence",
+          "time": "2026-11-27T08:03:00Z",
+          "value": 1
+        },
+        {
+          "name": "status",
+          "time": "2026-11-27T08:03:00Z",
+          "value": "open"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "zone-a",
+          "qualifier": "affects_zone"
+        },
+        {
+          "objectId": "asset-1",
+          "qualifier": "affects_asset"
+        }
+      ]
+    },
+    {
+      "id": "zone-a",
+      "type": "ServiceZone",
+      "attributes": [
+        {
+          "name": "public_zone_ref",
+          "time": "2026-11-27T08:03:00Z",
+          "value": "ZONE-SYN-A"
+        }
+      ],
+      "relationships": []
+    },
+    {
+      "id": "asset-1",
+      "type": "Asset",
+      "attributes": [
+        {
+          "name": "asset_class",
+          "time": "2026-11-27T08:03:00Z",
+          "value": "distribution-main"
+        }
+      ],
+      "relationships": []
+    },
+    {
+      "id": "workorder-1",
+      "type": "WorkOrder",
+      "attributes": [
+        {
+          "name": "work_package_ref",
+          "time": "2026-11-27T09:00:00Z",
+          "value": "wp-syn-repair"
+        },
+        {
+          "name": "provider_status",
+          "time": "2026-11-27T09:00:00Z",
+          "value": "in-progress"
+        },
+        {
+          "name": "provider_status",
+          "time": "2026-11-27T11:00:00Z",
+          "value": "reported-complete"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "episode-1",
+          "qualifier": "works_on"
+        },
+        {
+          "objectId": "crew-1",
+          "qualifier": "assigned_crew"
+        },
+        {
+          "objectId": "permit-1",
+          "qualifier": "requires_permit"
+        }
+      ]
+    },
+    {
+      "id": "crew-1",
+      "type": "Crew",
+      "attributes": [
+        {
+          "name": "qualification_ref",
+          "time": "2026-11-27T09:00:00Z",
+          "value": "crew-qualification-syn-1"
+        }
+      ],
+      "relationships": []
+    },
+    {
+      "id": "permit-1",
+      "type": "Permit",
+      "attributes": [
+        {
+          "name": "permit_status",
+          "time": "2026-11-27T09:00:00Z",
+          "value": "valid-at-authorization"
+        }
+      ],
+      "relationships": []
+    },
+    {
+      "id": "sample-1",
+      "type": "WaterSample",
+      "attributes": [
+        {
+          "name": "sampled_at",
+          "time": "2026-11-27T11:35:00Z",
+          "value": "2026-11-27T11:35:00Z"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "source-1",
+          "qualifier": "sampled_from"
+        },
+        {
+          "objectId": "episode-1",
+          "qualifier": "sample_for_episode"
+        }
+      ]
+    },
+    {
+      "id": "source-1",
+      "type": "WaterSource",
+      "attributes": [
+        {
+          "name": "source_class",
+          "time": "2026-11-27T11:35:00Z",
+          "value": "distribution-zone"
+        }
+      ],
+      "relationships": []
+    },
+    {
+      "id": "lab-1",
+      "type": "LabResult",
+      "attributes": [
+        {
+          "name": "result_status",
+          "time": "2026-11-27T12:30:00Z",
+          "value": "pending"
+        },
+        {
+          "name": "published_at",
+          "time": "2026-11-27T12:30:00Z",
+          "value": "2026-11-27T12:30:00Z"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "sample-1",
+          "qualifier": "tests_sample"
+        }
+      ]
+    },
+    {
+      "id": "pressure-1",
+      "type": "PressureObservation",
+      "attributes": [
+        {
+          "name": "observed_at",
+          "time": "2026-11-27T11:30:00Z",
+          "value": "2026-11-27T11:30:00Z"
+        },
+        {
+          "name": "profile_revision",
+          "time": "2026-11-27T11:30:00Z",
+          "value": "pressure-profile-syn-v1"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "zone-a",
+          "qualifier": "measures_zone"
+        },
+        {
+          "objectId": "episode-1",
+          "qualifier": "supports_episode"
+        }
+      ]
+    },
+    {
+      "id": "decision-1",
+      "type": "DecisionRevision",
+      "attributes": [
+        {
+          "name": "decision_state",
+          "time": "2026-11-27T12:40:00Z",
+          "value": "local-review-required"
+        },
+        {
+          "name": "revision",
+          "time": "2026-11-27T12:40:00Z",
+          "value": 1
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "episode-1",
+          "qualifier": "assesses_episode"
+        }
+      ]
+    },
+    {
+      "id": "complaint-3",
+      "type": "Complaint",
+      "attributes": [
+        {
+          "name": "fault_fingerprint",
+          "time": "2026-11-27T15:00:00Z",
+          "value": "fault-syn-001"
+        },
+        {
+          "name": "channel",
+          "time": "2026-11-27T15:00:00Z",
+          "value": "call-centre"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "callout-2",
+          "qualifier": "same_fault_callout"
+        }
+      ]
+    },
+    {
+      "id": "callout-2",
+      "type": "Callout",
+      "attributes": [
+        {
+          "name": "definition_revision",
+          "time": "2026-11-27T15:00:00Z",
+          "value": "W8-2026-02"
+        },
+        {
+          "name": "status",
+          "time": "2026-11-27T15:00:00Z",
+          "value": "open"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "episode-2",
+          "qualifier": "opens_episode"
+        }
+      ]
+    },
+    {
+      "id": "episode-2",
+      "type": "ServiceEpisode",
+      "attributes": [
+        {
+          "name": "opened_at",
+          "time": "2026-11-27T15:00:00Z",
+          "value": "2026-11-27T15:00:00Z"
+        },
+        {
+          "name": "episode_sequence",
+          "time": "2026-11-27T15:00:00Z",
+          "value": 2
+        },
+        {
+          "name": "status",
+          "time": "2026-11-27T15:00:00Z",
+          "value": "repeat-incident"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "zone-a",
+          "qualifier": "affects_zone"
+        },
+        {
+          "objectId": "asset-1",
+          "qualifier": "affects_asset"
+        },
+        {
+          "objectId": "episode-1",
+          "qualifier": "repeat_after"
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "event-001",
+      "type": "complaint_logged",
+      "time": "2026-11-27T08:00:00Z",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "value": "2026-11-27T08:00:05Z"
+        },
+        {
+          "name": "host_sequence",
+          "value": 1
+        },
+        {
+          "name": "source_ref",
+          "value": "source-log-syn-001"
+        },
+        {
+          "name": "source_digest",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "name": "channel",
+          "value": "call-centre"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "complaint-1",
+          "qualifier": "reported_complaint"
+        },
+        {
+          "objectId": "callout-1",
+          "qualifier": "callout"
+        }
+      ]
+    },
+    {
+      "id": "event-002",
+      "type": "complaint_logged",
+      "time": "2026-11-27T08:02:00Z",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "value": "2026-11-27T08:02:04Z"
+        },
+        {
+          "name": "host_sequence",
+          "value": 2
+        },
+        {
+          "name": "source_ref",
+          "value": "source-log-syn-002"
+        },
+        {
+          "name": "source_digest",
+          "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        {
+          "name": "channel",
+          "value": "social-media"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "complaint-2",
+          "qualifier": "reported_complaint"
+        },
+        {
+          "objectId": "callout-1",
+          "qualifier": "callout"
+        }
+      ]
+    },
+    {
+      "id": "event-003",
+      "type": "service_episode_opened",
+      "time": "2026-11-27T08:03:00Z",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "value": "2026-11-27T08:03:02Z"
+        },
+        {
+          "name": "host_sequence",
+          "value": 3
+        },
+        {
+          "name": "source_ref",
+          "value": "service-log-syn-001"
+        },
+        {
+          "name": "source_digest",
+          "value": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        {
+          "name": "severity",
+          "value": "high"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "episode-1",
+          "qualifier": "episode"
+        },
+        {
+          "objectId": "callout-1",
+          "qualifier": "originating_callout"
+        },
+        {
+          "objectId": "zone-a",
+          "qualifier": "affected_zone"
+        },
+        {
+          "objectId": "asset-1",
+          "qualifier": "affected_asset"
+        }
+      ]
+    },
+    {
+      "id": "event-004",
+      "type": "work_order_authorized",
+      "time": "2026-11-27T09:00:00Z",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "value": "2026-11-27T09:00:03Z"
+        },
+        {
+          "name": "host_sequence",
+          "value": 4
+        },
+        {
+          "name": "source_ref",
+          "value": "work-order-syn-001"
+        },
+        {
+          "name": "source_digest",
+          "value": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        {
+          "name": "work_package_ref",
+          "value": "wp-syn-repair"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "episode-1",
+          "qualifier": "episode"
+        },
+        {
+          "objectId": "workorder-1",
+          "qualifier": "work_order"
+        },
+        {
+          "objectId": "crew-1",
+          "qualifier": "authorized_crew"
+        },
+        {
+          "objectId": "permit-1",
+          "qualifier": "permit"
+        }
+      ]
+    },
+    {
+      "id": "event-005",
+      "type": "provider_reported_complete",
+      "time": "2026-11-27T11:00:00Z",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "value": "2026-11-27T11:00:05Z"
+        },
+        {
+          "name": "host_sequence",
+          "value": 5
+        },
+        {
+          "name": "source_ref",
+          "value": "work-order-syn-001"
+        },
+        {
+          "name": "source_digest",
+          "value": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        {
+          "name": "provider_status",
+          "value": "reported-complete"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "episode-1",
+          "qualifier": "episode"
+        },
+        {
+          "objectId": "workorder-1",
+          "qualifier": "work_order"
+        },
+        {
+          "objectId": "asset-1",
+          "qualifier": "asset"
+        }
+      ]
+    },
+    {
+      "id": "event-006",
+      "type": "pressure_restoration_observed",
+      "time": "2026-11-27T11:30:00Z",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "value": "2026-11-27T11:30:03Z"
+        },
+        {
+          "name": "host_sequence",
+          "value": 6
+        },
+        {
+          "name": "source_ref",
+          "value": "pressure-observer-syn-001"
+        },
+        {
+          "name": "source_digest",
+          "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        },
+        {
+          "name": "profile_revision",
+          "value": "pressure-profile-syn-v1"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "episode-1",
+          "qualifier": "episode"
+        },
+        {
+          "objectId": "pressure-1",
+          "qualifier": "observation"
+        },
+        {
+          "objectId": "zone-a",
+          "qualifier": "zone"
+        }
+      ]
+    },
+    {
+      "id": "event-007",
+      "type": "water_sample_collected",
+      "time": "2026-11-27T11:35:00Z",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "value": "2026-11-27T11:35:02Z"
+        },
+        {
+          "name": "host_sequence",
+          "value": 7
+        },
+        {
+          "name": "source_ref",
+          "value": "sample-chain-syn-001"
+        },
+        {
+          "name": "source_digest",
+          "value": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "name": "sampling_method_ref",
+          "value": "sampling-method-syn-v1"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "episode-1",
+          "qualifier": "episode"
+        },
+        {
+          "objectId": "sample-1",
+          "qualifier": "sample"
+        },
+        {
+          "objectId": "source-1",
+          "qualifier": "source"
+        }
+      ]
+    },
+    {
+      "id": "event-008",
+      "type": "lab_result_published",
+      "time": "2026-11-27T12:30:00Z",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "value": "2026-11-27T12:30:02Z"
+        },
+        {
+          "name": "host_sequence",
+          "value": 8
+        },
+        {
+          "name": "source_ref",
+          "value": "laboratory-syn-001"
+        },
+        {
+          "name": "source_digest",
+          "value": "2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        {
+          "name": "result_status",
+          "value": "pending"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "sample-1",
+          "qualifier": "sample"
+        },
+        {
+          "objectId": "lab-1",
+          "qualifier": "result"
+        }
+      ]
+    },
+    {
+      "id": "event-009",
+      "type": "local_review_requested",
+      "time": "2026-11-27T12:40:00Z",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "value": "2026-11-27T12:40:01Z"
+        },
+        {
+          "name": "host_sequence",
+          "value": 9
+        },
+        {
+          "name": "source_ref",
+          "value": "decision-syn-001"
+        },
+        {
+          "name": "source_digest",
+          "value": "3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        {
+          "name": "conclusion_ref",
+          "value": "conclusion-syn-v1"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "episode-1",
+          "qualifier": "episode"
+        },
+        {
+          "objectId": "decision-1",
+          "qualifier": "decision"
+        }
+      ]
+    },
+    {
+      "id": "event-010",
+      "type": "repeat_burst_reported",
+      "time": "2026-11-27T15:00:00Z",
+      "attributes": [
+        {
+          "name": "source_recorded_at",
+          "value": "2026-11-27T15:00:03Z"
+        },
+        {
+          "name": "host_sequence",
+          "value": 10
+        },
+        {
+          "name": "source_ref",
+          "value": "source-log-syn-003"
+        },
+        {
+          "name": "source_digest",
+          "value": "4444444444444444444444444444444444444444444444444444444444444444"
+        },
+        {
+          "name": "repeat_classification",
+          "value": "new-service-episode"
+        }
+      ],
+      "relationships": [
+        {
+          "objectId": "complaint-3",
+          "qualifier": "reported_complaint"
+        },
+        {
+          "objectId": "callout-2",
+          "qualifier": "callout"
+        },
+        {
+          "objectId": "episode-2",
+          "qualifier": "new_episode"
+        },
+        {
+          "objectId": "asset-1",
+          "qualifier": "same_asset"
+        }
+      ]
+    }
+  ]
+}
