@@ -41,11 +41,12 @@ The harness calls the public APIs of all six pinned owners and runs an independe
 - WSR-001: provider-reported completion with no current pressure-restoration or water-quality support must remain NotEligible; Decision Closure reports OpenMissingElements.
 - WSR-004: current pressure and quality support may reach EligibleForLocalReview, while one of the two required mapping approvals is absent; Decision Closure reports MappingReviewRequired, never Closed.
 - A source expiry must propagate NeedsRevalidation to dependent claim and decision artifacts through Evidence Lineage.
+- WSR-009: an expired permit and revoked crew qualification keep the safety-critical work package BlockedBySafetyGate and the dependent work authorization NeedsRevalidation.
 - Two measurements assigned to one common-cause group cannot satisfy a two-independent-source rule.
 
 The Need Intake test constructs a valid synthetic community proposal and confirms it remains Draft without community/domain/provenance/safety review and explicit local ratification. Project Formation receives a consenting participant with no capability evidence and returns UnknownEvidence rather than a negative judgement or qualification.
 
-The oracle is deliberately independent of the owner evaluators. The first executable slice covers two of the 16 frozen cases and one targeted expiry/common-cause mutation family. It does **not** claim the other 14 known-answer cases or all 20 registered mutations have executed.
+The oracle is deliberately independent of the owner evaluators. The executable slice currently covers three of the 16 frozen cases (WSR-001, WSR-004, WSR-009) plus expiry propagation and common-cause independence controls. It does **not** claim the other 14 known-answer cases or all 20 registered mutations have executed.
 
 ## Claim boundary
 
@@ -54,7 +55,7 @@ The green result demonstrates this exact source composition plus the listed synt
 
 ## Benchmark protocol
 
-See [WATER-SERVICE-CROSS-CORE-BENCHMARK-PROTOCOL-V1.md](WATER-SERVICE-CROSS-CORE-BENCHMARK-PROTOCOL-V1.md) for the baseline matrix, full-corpus qualification targets, independent-oracle requirements, water-service outcome metrics, performance reporting and field-pilot limits. It distinguishes the four-test executable slice from the remaining WSR corpus and the 20 proposed metamorphic transformations.
+See [WATER-SERVICE-CROSS-CORE-BENCHMARK-PROTOCOL-V1.md](WATER-SERVICE-CROSS-CORE-BENCHMARK-PROTOCOL-V1.md) for the baseline matrix, full-corpus qualification targets, independent-oracle requirements, water-service outcome metrics, performance reporting and field-pilot limits. It distinguishes the five-test executable slice from the remaining WSR corpus and the 20 proposed metamorphic transformations.
 
 ## Exact-head qualification result
 
@@ -62,7 +63,7 @@ Workflow [run #46001747298](https://github.com/Luminous-Dynamics/mycelix/actions
 
 - Six source branch heads and both source blob IDs per owner were verified before materialization.
 - Six owner crates passed their combined-workspace unit tests: 159 tests total.
-- Four cross-core tests passed: WSR-001, WSR-004, expiry propagation, and common-cause independence.
+- Five cross-core tests passed: WSR-001, WSR-004, WSR-009, expiry propagation, and common-cause independence.
 - Exact-head formatting and combined-workspace Clippy passed.
 - Generated Cargo.lock SHA-256: `d87aaed918e666446a61dbdb784b1c8fcb252d27d57e4fbce16320be6ae7da63`.
 - Source-manifest SHA-256: `fc0a70c72967cbc366abe9aac866c097dfa96c1cf9648baad9e2a4bf685bb9fe`.
