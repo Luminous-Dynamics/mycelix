@@ -13,6 +13,7 @@
 //! source_recorded_at is preserved as source metadata and is not treated as a
 //! platform transaction-time attestation.
 
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -124,6 +125,11 @@ pub enum TemporalRelationshipErrorV1 {
     InvalidReplacement,
     ConflictingMutations,
     CardinalityPolicyMismatch,
+    InvalidOcel20,
+    MissingOcelAttribute,
+    DuplicateOcelAttribute,
+    InvalidOcelRelationship,
+    InvalidDigestEncoding,
 }
 
 fn non_empty(value: &str) -> bool {
@@ -412,6 +418,220 @@ fn snapshot_digest(
         hash_field(&mut hasher, id);
     }
     finish_digest(hasher)
+}
+
+
+fn ocel_attribute<'a>(
+    record: &'a Value,
+    name: &str,
+) -> Result<Option<&'a Value>, TemporalRelationshipErrorV1> {
+    let Some(attributes) = record.get("attributes") else {
+        return Ok(None);
+    };
+    let attributes = attributes
+        .as_array()
+        .ok_or(TemporalRelationshipErrorV1::InvalidOcel20)?;
+    let mut matches = attributes
+        .iter()
+        .filter(|attribute| attribute.get("name").and_then(Value::as_str) == Some(name));
+    let Some(first) = matches.next() else {
+        return Ok(None);
+    };
+    if matches.next().is_some() {
+        return Err(TemporalRelationshipErrorV1::DuplicateOcelAttribute);
+    }
+    first
+        .get("value")
+        .map(Some)
+        .ok_or(TemporalRelationshipErrorV1::InvalidOcel20)
+}
+
+fn required_ocel_text(
+    record: &Value,
+    name: &str,
+) -> Result<String, TemporalRelationshipErrorV1> {
+    ocel_attribute(record, name)?
+        .and_then(Value::as_str)
+        .filter(|value| non_empty(value))
+        .map(str::to_owned)
+        .ok_or(TemporalRelationshipErrorV1::MissingOcelAttribute)
+}
+
+fn required_ocel_u64(
+    record: &Value,
+    name: &str,
+) -> Result<u64, TemporalRelationshipErrorV1> {
+    ocel_attribute(record, name)?
+        .and_then(Value::as_u64)
+        .ok_or(TemporalRelationshipErrorV1::MissingOcelAttribute)
+}
+
+fn optional_ocel_text(
+    record: &Value,
+    name: &str,
+) -> Result<Option<String>, TemporalRelationshipErrorV1> {
+    match ocel_attribute(record, name)? {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(value)) if non_empty(value) => Ok(Some(value.clone())),
+        Some(_) => Err(TemporalRelationshipErrorV1::InvalidOcel20),
+    }
+}
+
+fn ocel_relation_target(
+    record: &Value,
+    qualifier: &str,
+) -> Result<String, TemporalRelationshipErrorV1> {
+    let relationships = record
+        .get("relationships")
+        .and_then(Value::as_array)
+        .ok_or(TemporalRelationshipErrorV1::InvalidOcelRelationship)?;
+    let mut targets = relationships.iter().filter_map(|relationship| {
+        (relationship.get("qualifier").and_then(Value::as_str) == Some(qualifier))
+            .then(|| relationship.get("objectId").and_then(Value::as_str))
+            .flatten()
+    });
+    let target = targets
+        .next()
+        .filter(|target| non_empty(target))
+        .ok_or(TemporalRelationshipErrorV1::InvalidOcelRelationship)?;
+    if targets.next().is_some() {
+        return Err(TemporalRelationshipErrorV1::InvalidOcelRelationship);
+    }
+    Ok(target.to_owned())
+}
+
+fn decode_digest(value: &str) -> Result<[u8; 32], TemporalRelationshipErrorV1> {
+    if value.len() != 64 {
+        return Err(TemporalRelationshipErrorV1::InvalidDigestEncoding);
+    }
+    let mut digest = [0; 32];
+    for (index, pair) in value.as_bytes().chunks_exact(2).enumerate() {
+        let hex = std::str::from_utf8(pair)
+            .map_err(|_| TemporalRelationshipErrorV1::InvalidDigestEncoding)?;
+        digest[index] = u8::from_str_radix(hex, 16)
+            .map_err(|_| TemporalRelationshipErrorV1::InvalidDigestEncoding)?;
+    }
+    if digest == [0; 32] {
+        return Err(TemporalRelationshipErrorV1::ZeroSourceDigest);
+    }
+    Ok(digest)
+}
+
+fn parse_cardinality(
+    value: &str,
+) -> Result<TemporalRelationCardinalityV1, TemporalRelationshipErrorV1> {
+    match value {
+        "one_to_one" => Ok(TemporalRelationCardinalityV1::OneToOne),
+        "one_to_many" => Ok(TemporalRelationCardinalityV1::OneToMany),
+        "many_to_one" => Ok(TemporalRelationCardinalityV1::ManyToOne),
+        "many_to_many" => Ok(TemporalRelationCardinalityV1::ManyToMany),
+        _ => Err(TemporalRelationshipErrorV1::InvalidOcel20),
+    }
+}
+
+/// Parse a restricted OCEL 2.0 JSON extension into temporal relationship claims
+/// and append-only mutations. Only temporal_relation_claim objects and
+/// temporal_relation_superseded / temporal_relation_revoked events are consumed;
+/// unrelated OCEL records are ignored.
+///
+/// Relation claim objects require exactly one subject and one object O2O
+/// relationship. Mutation events require one target_claim relationship;
+/// supersession events also require one replacement_claim relationship.
+pub fn parse_temporal_relationships_ocel20(
+    input: &str,
+) -> Result<
+    (Vec<TemporalRelationClaimV1>, Vec<TemporalRelationMutationV1>),
+    TemporalRelationshipErrorV1,
+> {
+    let root: Value =
+        serde_json::from_str(input).map_err(|_| TemporalRelationshipErrorV1::InvalidOcel20)?;
+    let objects = root
+        .get("objects")
+        .and_then(Value::as_array)
+        .ok_or(TemporalRelationshipErrorV1::InvalidOcel20)?;
+    let events = root
+        .get("events")
+        .and_then(Value::as_array)
+        .ok_or(TemporalRelationshipErrorV1::InvalidOcel20)?;
+
+    let mut claims = Vec::new();
+    for object in objects {
+        if object.get("type").and_then(Value::as_str) != Some("temporal_relation_claim") {
+            continue;
+        }
+        let relation_id = object
+            .get("id")
+            .and_then(Value::as_str)
+            .filter(|value| non_empty(value))
+            .ok_or(TemporalRelationshipErrorV1::EmptyIdentity)?
+            .to_owned();
+        let claim = TemporalRelationClaimV1 {
+            relation_id,
+            subject_id: ocel_relation_target(object, "subject")?,
+            predicate: required_ocel_text(object, "predicate")?,
+            object_id: ocel_relation_target(object, "object")?,
+            cardinality: parse_cardinality(&required_ocel_text(object, "cardinality")?)?,
+            valid_from: required_ocel_text(object, "valid_from")?,
+            valid_to: optional_ocel_text(object, "valid_to")?,
+            source_recorded_at: required_ocel_text(object, "source_recorded_at")?,
+            accepted_sequence: required_ocel_u64(object, "accepted_sequence")?,
+            source_ref: required_ocel_text(object, "source_ref")?,
+            source_digest: decode_digest(&required_ocel_text(object, "source_digest")?)?,
+            asserting_principal: required_ocel_text(object, "asserting_principal")?,
+            authority_scope: required_ocel_text(object, "authority_scope")?,
+        };
+        claims.push(claim);
+    }
+
+    let mut mutations = Vec::new();
+    for event in events {
+        let event_type = event.get("type").and_then(Value::as_str).unwrap_or_default();
+        let kind = match event_type {
+            "temporal_relation_superseded" => TemporalRelationMutationKindV1::Supersede,
+            "temporal_relation_revoked" => TemporalRelationMutationKindV1::Revoke,
+            _ => continue,
+        };
+        let event_id = event
+            .get("id")
+            .and_then(Value::as_str)
+            .filter(|value| non_empty(value))
+            .ok_or(TemporalRelationshipErrorV1::EmptyIdentity)?
+            .to_owned();
+        let replacement_relation_id = match kind {
+            TemporalRelationMutationKindV1::Supersede => {
+                Some(ocel_relation_target(event, "replacement_claim")?)
+            }
+            TemporalRelationMutationKindV1::Revoke => {
+                let relationships = event
+                    .get("relationships")
+                    .and_then(Value::as_array)
+                    .ok_or(TemporalRelationshipErrorV1::InvalidOcelRelationship)?;
+                if relationships.iter().any(|relationship| {
+                    relationship.get("qualifier").and_then(Value::as_str)
+                        == Some("replacement_claim")
+                }) {
+                    return Err(TemporalRelationshipErrorV1::InvalidOcelRelationship);
+                }
+                None
+            }
+        };
+        mutations.push(TemporalRelationMutationV1 {
+            event_id,
+            target_relation_id: ocel_relation_target(event, "target_claim")?,
+            target_claim_digest: decode_digest(&required_ocel_text(event, "target_claim_digest")?)?,
+            kind,
+            effective_at: required_ocel_text(event, "effective_at")?,
+            source_recorded_at: required_ocel_text(event, "source_recorded_at")?,
+            accepted_sequence: required_ocel_u64(event, "accepted_sequence")?,
+            source_ref: required_ocel_text(event, "source_ref")?,
+            source_digest: decode_digest(&required_ocel_text(event, "source_digest")?)?,
+            asserting_principal: required_ocel_text(event, "asserting_principal")?,
+            authority_scope: required_ocel_text(event, "authority_scope")?,
+            replacement_relation_id,
+        });
+    }
+
+    Ok((claims, mutations))
 }
 
 /// Derive a deterministic temporal relationship snapshot from append-only
