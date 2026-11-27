@@ -101,7 +101,7 @@ func ComputeOwnerProjectionReplayAuditV1(
 		inventory.OwnerLogRootDigest != binding.OwnerLogRootDigest {
 		return OwnerProjectionReplayAuditV1{}, ErrProjectionInventoryMismatch
 	}
-	if inventory.TreeSize > maxOwnerGapsV1 || uint64(len(inventory.Receipts)) != inventory.TreeSize {
+	if inventory.TreeSize > maxProjectionReceiptsV1 || uint64(len(inventory.Receipts)) != inventory.TreeSize {
 		return OwnerProjectionReplayAuditV1{}, ErrProjectionLeafCoverage
 	}
 
