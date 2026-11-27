@@ -75,6 +75,15 @@ jobs:
           set -euo pipefail
           cargo +1.96.0 test --release --manifest-path crates/mycelix-rfc9162-proof-verifier/Cargo.toml --all-targets 2>&1 | tee -a "$RUNNER_TEMP/rfc9162/test.log"
 
+      - name: Run reproducible RFC 9162 microbenchmark
+        id: benchmark
+        working-directory: mycelix-workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rfc9162"
+          cargo +1.96.0 run --release --manifest-path crates/mycelix-rfc9162-proof-verifier/Cargo.toml --example benchmark 2>&1 | tee "$RUNNER_TEMP/rfc9162/benchmark.log"
+
       - name: Run clippy with warnings denied
         id: clippy
         working-directory: mycelix-workspace
@@ -91,6 +100,7 @@ jobs:
           TESTS: ${{ steps.tests.outcome }}
           RELEASE_TESTS: ${{ steps.release_tests.outcome }}
           CLIPPY: ${{ steps.clippy.outcome }}
+          BENCHMARK: ${{ steps.benchmark.outcome }}
         run: |
           set -euo pipefail
           dir="$RUNNER_TEMP/rfc9162"
@@ -107,6 +117,7 @@ jobs:
             --arg tests "$TESTS" \
             --arg release_tests "$RELEASE_TESTS" \
             --arg clippy "$CLIPPY" \
+            --arg benchmark "$BENCHMARK" \
             '{
               schema:$schema,
               repository:$repository,
@@ -114,7 +125,7 @@ jobs:
               run_attempt:$attempt,
               workflow_sha:$workflow_sha,
               toolchain:{rustc:$rustc,cargo:$cargo},
-              outcomes:{fmt:$fmt,tests:$tests,release_tests:$release_tests,clippy:$clippy},
+              outcomes:{fmt:$fmt,tests:$tests,release_tests:$release_tests,clippy:$clippy,benchmark:$benchmark},
               claims:{
                 inclusion_relative_to_supplied_root_only:true,
                 consistency_relative_to_supplied_roots_only:true,
