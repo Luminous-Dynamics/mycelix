@@ -254,8 +254,8 @@ func buildIntervalProofNodeV1(node *intervalNodeV1, query IntervalInstantV1) *In
 		}
 	}
 	return &IntervalProofNodeV1{
-		Kind: IntervalProofBranchV1,
-		Left: buildIntervalProofNodeV1(node.left, query),
+		Kind:  IntervalProofBranchV1,
+		Left:  buildIntervalProofNodeV1(node.left, query),
 		Right: buildIntervalProofNodeV1(node.right, query),
 	}
 }
