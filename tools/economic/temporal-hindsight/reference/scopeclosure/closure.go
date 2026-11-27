@@ -170,7 +170,11 @@ func Reconcile(scope QueryScope, manifest ScopeClosureManifest, universe Univers
 		if len(o.Gaps)!=0 { return finalize(base,"unresolved owner-history gaps: "+o.OwnerRef) }
 		frontierByOwner[o.OwnerRef]=o
 	}
-	for ref,c:=range candidateByOwner {
+	refs:=make([]string,0,len(candidateByOwner))
+	for ref:=range candidateByOwner { refs=append(refs,ref) }
+	sort.Strings(refs)
+	for _,ref:=range refs {
+		c:=candidateByOwner[ref]
 		binding,exists:=frontierByOwner[ref]
 		if c.Disposition==CandidateRequired {
 			if !exists { return finalize(base,"required owner omitted from accepted frontier: "+ref) }
@@ -179,7 +183,10 @@ func Reconcile(scope QueryScope, manifest ScopeClosureManifest, universe Univers
 			return finalize(base,"profile-excluded owner unexpectedly appears in frontier: "+ref)
 		}
 	}
-	for ref,c:=range frontierByOwner {
+	frontierRefs:=make([]string,0,len(frontierByOwner))
+	for ref:=range frontierByOwner { frontierRefs=append(frontierRefs,ref) }
+	sort.Strings(frontierRefs)
+	for _,ref:=range frontierRefs {
 		candidate,exists:=candidateByOwner[ref]
 		if !exists || candidate.Disposition!=CandidateRequired { return finalize(base,"frontier contains owner not required by declared universe: "+ref) }
 	}
